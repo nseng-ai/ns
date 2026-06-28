@@ -5,10 +5,11 @@
 // source import/export literals directly so future re-exports, side-effect imports, and lazy imports
 // cannot silently pull display bytes into non-display consumers.
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, extname, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { fileForReport, literalSpecifierUsesOf, sourceFilesUnder } from "@sdl/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -28,11 +29,6 @@ interface DisplayDependencyRule {
 	packageName: string;
 	ownerDir: string;
 	ownerLabel: string;
-}
-
-interface LiteralSpecifierUse {
-	specifier: string;
-	kind: "static-import" | "re-export" | "dynamic-import";
 }
 
 interface BoundaryOffender {
@@ -74,32 +70,6 @@ const DISPLAY_DEPENDENCY_RULES: readonly DisplayDependencyRule[] = [
 	{ packageName: "log-update", ownerDir: STREAM_DIR, ownerLabel: "src/stream/**" },
 ];
 
-function literalSpecifiersOf(source: string): readonly LiteralSpecifierUse[] {
-	const specifiers: LiteralSpecifierUse[] = [];
-	const importFromPattern = /\bimport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
-	const sideEffectImportPattern = /\bimport\s+["']([^"']+)["']/g;
-	const exportPattern = /\bexport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
-	const dynamicImportPattern = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
-
-	for (const match of source.matchAll(importFromPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push({ specifier, kind: "static-import" });
-	}
-	for (const match of source.matchAll(sideEffectImportPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push({ specifier, kind: "static-import" });
-	}
-	for (const match of source.matchAll(exportPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push({ specifier, kind: "re-export" });
-	}
-	for (const match of source.matchAll(dynamicImportPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push({ specifier, kind: "dynamic-import" });
-	}
-	return specifiers;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -137,19 +107,6 @@ function isUnderDisplayDir(file: string): boolean {
 	return DISPLAY_DIRS.some((directory) => isUnderDirectory(file, directory));
 }
 
-function sourceFilesUnder(directory: string): readonly string[] {
-	const files: string[] = [];
-	const entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
-		left.name.localeCompare(right.name),
-	);
-	for (const entry of entries) {
-		const path = resolve(directory, entry.name);
-		if (entry.isDirectory()) files.push(...sourceFilesUnder(path));
-		if (entry.isFile() && entry.name.endsWith(".ts")) files.push(path);
-	}
-	return files;
-}
-
 function resolveRelativeTsSourceFile(importingFile: string, specifier: string): string | undefined {
 	const target = resolve(dirname(importingFile), specifier);
 	const candidates =
@@ -159,10 +116,6 @@ function resolveRelativeTsSourceFile(importingFile: string, specifier: string): 
 
 function isExistingFile(file: string): boolean {
 	return existsSync(file) && statSync(file).isFile();
-}
-
-function fileForReport(file: string): string {
-	return relative(process.cwd(), file) || file;
 }
 
 function displaySubpathOffender(file: string, specifier: string): BoundaryOffender | undefined {
@@ -211,7 +164,7 @@ function nonDisplayGraphOffenders(entrypoint: string): readonly BoundaryOffender
 		if (file === undefined || visited.has(file)) continue;
 		visited.add(file);
 		const source = readFileSync(file, "utf8");
-		for (const { specifier } of literalSpecifiersOf(source)) {
+		for (const { specifier } of literalSpecifierUsesOf(source)) {
 			const subpathOffender = displaySubpathOffender(file, specifier);
 			if (subpathOffender !== undefined) offenders.push(subpathOffender);
 			const dependencyOffender = displayDependencyOffender(file, specifier);
@@ -234,7 +187,7 @@ function productionDisplayDependencyOffenders(): readonly BoundaryOffender[] {
 	const offenders: BoundaryOffender[] = [];
 	for (const file of sourceFilesUnder(SRC_DIR)) {
 		const source = readFileSync(file, "utf8");
-		for (const { specifier } of literalSpecifiersOf(source)) {
+		for (const { specifier } of literalSpecifierUsesOf(source)) {
 			for (const rule of DISPLAY_DEPENDENCY_RULES) {
 				if (!isPackageOrSubpathSpecifier(specifier, rule.packageName)) continue;
 				if (isUnderDirectory(file, rule.ownerDir)) continue;
@@ -253,7 +206,7 @@ function productionCliThemeImportOffenders(): readonly BoundaryOffender[] {
 	const offenders: BoundaryOffender[] = [];
 	for (const file of sourceFilesUnder(SRC_DIR)) {
 		const source = readFileSync(file, "utf8");
-		for (const { specifier } of literalSpecifiersOf(source)) {
+		for (const { specifier } of literalSpecifierUsesOf(source)) {
 			if (!isPackageOrSubpathSpecifier(specifier, "@sdl/cli-theme")) continue;
 			offenders.push({
 				file: fileForReport(file),
@@ -275,7 +228,7 @@ describe("clinkr display import boundary", () => {
 			await import("log-update");
 		`;
 
-		expect(literalSpecifiersOf(source)).toEqual([
+		expect(literalSpecifierUsesOf(source)).toEqual([
 			{ specifier: "ansis", kind: "static-import" },
 			{ specifier: "./caps.ts", kind: "static-import" },
 			{ specifier: "@sdl/cli-theme", kind: "static-import" },
@@ -318,7 +271,7 @@ describe("clinkr display import boundary", () => {
 			(entrypoint) => entrypoint.exportPath === ".",
 		);
 		if (coreEntrypoint === undefined) throw new Error("missing clinkr core entrypoint guard");
-		const directOffenders = literalSpecifiersOf(readFileSync(coreEntrypoint.file, "utf8"))
+		const directOffenders = literalSpecifierUsesOf(readFileSync(coreEntrypoint.file, "utf8"))
 			.map(({ specifier }) => {
 				if (!isRelativeSpecifier(specifier))
 					return displaySubpathOffender(coreEntrypoint.file, specifier);

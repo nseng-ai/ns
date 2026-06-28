@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { fileForReport, literalSpecifiersOf, sourceFilesUnder } from "@sdl/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -12,43 +13,6 @@ interface ImportOffender {
 	file: string;
 	specifier: string;
 	reason: string;
-}
-
-function sourceFilesUnder(directory: string): readonly string[] {
-	const files: string[] = [];
-	const entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
-		left.name.localeCompare(right.name),
-	);
-	for (const entry of entries) {
-		const path = resolve(directory, entry.name);
-		if (entry.isDirectory()) files.push(...sourceFilesUnder(path));
-		if (entry.isFile() && entry.name.endsWith(".ts")) files.push(path);
-	}
-	return files;
-}
-
-function literalSpecifiersOf(source: string): readonly string[] {
-	const specifiers: string[] = [];
-	const importFromPattern = /\bimport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
-	const sideEffectImportPattern = /\bimport\s+["']([^"']+)["']/g;
-	const exportPattern = /\bexport\s+(?:type\s+)?[^;]*?\s+from\s+["']([^"']+)["']/g;
-	for (const match of source.matchAll(importFromPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push(specifier);
-	}
-	for (const match of source.matchAll(sideEffectImportPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push(specifier);
-	}
-	for (const match of source.matchAll(exportPattern)) {
-		const specifier = match[1];
-		if (specifier !== undefined) specifiers.push(specifier);
-	}
-	return specifiers;
-}
-
-function fileForReport(file: string): string {
-	return relative(process.cwd(), file) || file;
 }
 
 function isForbiddenCapabilityImport(specifier: string): boolean {
