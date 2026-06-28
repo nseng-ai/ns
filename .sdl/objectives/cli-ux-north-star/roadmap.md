@@ -200,7 +200,13 @@
       result-block wrapper over the shared `@sdl/cli-theme` finite result block, covering dry-run,
       success, cancellation/refusal, and cleanup-error outcomes while preserving machine/JSON behavior.
       This starts but does not complete the row; next prove the same grammar on adjacent Slot destructive
-      surfaces before considering shared extraction or Handoff migration.
+      surfaces before considering shared extraction or Handoff migration. Follow-up semantic update:
+      `sdl slot gc` is now the second Slot destructive consumer, covering dry-run, interactive
+      pre-confirmation preview, cancellation/refusal, success/no-op, and cleanup-error outcomes through
+      the same Slot-local result-block helper while preserving JSON/mutation/confirmation contracts.
+      The helper still fits without shared extraction; next adjacent Slot candidates remain
+      `slot gt free-stack` and `slot resize`. Update:
+      `updates/2026-06-28T000001Z-slot-gc-destructive-result-block.md`.
 - [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding

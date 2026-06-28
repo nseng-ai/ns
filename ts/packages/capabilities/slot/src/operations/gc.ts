@@ -1,4 +1,10 @@
-import { failure, negative, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	requireInteractiveOrUsageError,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -11,6 +17,7 @@ import {
 } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
 import { renderCleanupLines } from "./cleanup-rendering.ts";
+import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
 import { cleanupSchema } from "./result-schemas.ts";
 const gcEntrySchema = z.object({
 	slot_name: z.string(),
@@ -96,56 +103,88 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
 	if (outcome.cleanup_error_count > 0)
-		return negative("Slot gc completed with cleanup errors.", result);
+		return negative("Slot gc completed with cleanup errors.", result, {
+			human: renderGc(result),
+		});
 	return ok(result);
 }
 
-export function renderGc(result: GcResult): string {
-	if (result.cancelled === true) return ansi("yellow", "Cancelled — no slots freed.");
-	if (result.entries.length === 0) return ansi("dim", "No assignments to sweep.");
-	const lines: string[] = [];
-	for (const entry of result.entries) {
-		const pr =
-			entry.pr_number === null ? "" : ` ${ansi("dim", `PR #${entry.pr_number} ${entry.pr_state}`)}`;
-		lines.push(
-			`${actionLabel(entry.action)} ${ansi("boldCyan", entry.slot_name)} (${ansi("yellow", entry.branch_name)})${pr}`,
-		);
-		if (entry.message !== null) lines.push(`    ${ansi("dim", entry.message)}`);
-		for (const cleanup of renderCleanupLines(entry.cleanup, { isDryRun: result.dry_run }))
-			lines.push(`    ${cleanup}`);
+export function renderGc(
+	result: GcResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	return renderSlotDestructiveResultBlock(caps, {
+		kind: gcResultKind(result),
+		headline: gcHeadline(result),
+		body: renderGcDetails(result),
+	});
+}
+
+function gcResultKind(result: GcResult): "success" | "failure" | "refusal" {
+	if (result.cancelled === true) return "refusal";
+	if (result.cleanup_error_count > 0 || result.error_count > 0) return "failure";
+	return "success";
+}
+
+function gcHeadline(result: GcResult): string {
+	if (result.cancelled === true) return "Cancelled slot gc.";
+	if (result.cleanup_error_count > 0) return "Slot gc completed with cleanup errors.";
+	if (result.error_count > 0) return "Slot gc completed with errors.";
+	if (result.dry_run) {
+		if (result.freed_count === 0) return "No slots would be freed.";
+		return `Would free ${result.freed_count} slot(s).`;
 	}
-	const verb = result.dry_run ? "Would free" : "Freed";
-	let summary = `\n${ansi("bold", `${verb} ${result.freed_count}`)}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
-	if (result.cleanup_error_count > 0)
-		summary = `${summary}; cleanup errors ${result.cleanup_error_count}`;
-	lines.push(summary);
-	return lines.join("\n");
+	if (result.freed_count === 0) return "No slots freed.";
+	return `Freed ${result.freed_count} slot(s).`;
 }
 
-function actionLabel(action: GcResult["entries"][number]["action"]): string {
-	if (action === "freed") return ansi("green", "✓ freed");
-	if (action === "would_free") return ansi("yellow", "→ would free");
-	if (action === "kept_open_pr") return ansi("blue", "• kept (open PR)");
-	if (action === "kept_no_pr") return ansi("dim", "• kept (no PR)");
-	if (action === "skipped_dirty") return ansi("yellow", "! skipped (dirty)");
-	if (action === "skipped_operation") return ansi("yellow", "! skipped (operation)");
-	return ansi("red", "✗ error");
+function renderGcDetails(result: GcResult): string | undefined {
+	const lines = result.entries.flatMap((entry) =>
+		renderGcEntry(entry, { isDryRun: result.dry_run }),
+	);
+	if (result.entries.length > 0) {
+		let summary = `Summary: freed ${result.freed_count}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
+		if (result.cleanup_error_count > 0)
+			summary = `${summary}; cleanup errors ${result.cleanup_error_count}`;
+		lines.push(summary);
+	}
+	return lines.length === 0 ? undefined : lines.join("\n");
 }
 
-type AnsiStyle = "bold" | "dim" | "red" | "green" | "yellow" | "blue" | "boldCyan";
+function renderGcEntry(
+	entry: GcResult["entries"][number],
+	options: { isDryRun: boolean },
+): readonly string[] {
+	const lines = [
+		`${gcActionText(entry.action)} ${entry.slot_name} -> ${entry.branch_name}${prText(entry)}`,
+	];
+	if (entry.message !== null) lines.push(entry.message);
+	lines.push(...renderCleanupLines(entry.cleanup, { isDryRun: options.isDryRun }));
+	return lines;
+}
 
-const ANSI_CODES = {
-	bold: "1",
-	dim: "2",
-	red: "31",
-	green: "32",
-	yellow: "33",
-	blue: "34",
-	boldCyan: "1;36",
-} as const satisfies Record<AnsiStyle, string>;
+function gcActionText(action: GcResult["entries"][number]["action"]): string {
+	switch (action) {
+		case "freed":
+			return "Freed";
+		case "would_free":
+			return "Would free";
+		case "kept_open_pr":
+			return "Kept (open PR)";
+		case "kept_no_pr":
+			return "Kept (no PR)";
+		case "skipped_dirty":
+			return "Skipped (dirty)";
+		case "skipped_operation":
+			return "Skipped (operation)";
+		case "error":
+			return "Error";
+	}
+}
 
-function ansi(style: AnsiStyle, text: string): string {
-	return `\u001b[${ANSI_CODES[style]}m${text}\u001b[0m`;
+function prText(entry: GcResult["entries"][number]): string {
+	if (entry.pr_number === null) return "";
+	return ` (PR #${entry.pr_number} ${entry.pr_state})`;
 }
 
 function confirmationMessage(count: number, options: { shouldDeleteBranches: boolean }): string {
