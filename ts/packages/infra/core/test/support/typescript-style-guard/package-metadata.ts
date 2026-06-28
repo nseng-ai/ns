@@ -1,7 +1,7 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { skippedDirectoryNames } from "./config.ts";
+import { findPackageJsonFiles } from "./file-discovery.ts";
 
 export interface PackageManifest {
 	readonly name: string;
@@ -39,19 +39,6 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		});
 	}
 	return metadataByName;
-}
-
-export function findPackageJsonFiles(directory: string): string[] {
-	const paths: string[] = [];
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		const fullPath = join(directory, entry.name);
-		if (entry.isDirectory()) {
-			if (!skippedDirectoryNames.has(entry.name)) paths.push(...findPackageJsonFiles(fullPath));
-			continue;
-		}
-		if (entry.isFile() && entry.name === "package.json") paths.push(fullPath);
-	}
-	return paths;
 }
 
 export function collectExportSubpaths(exportsField: unknown): Set<string> {

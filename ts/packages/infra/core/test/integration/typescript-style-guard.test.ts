@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, extname, join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
@@ -12,11 +12,10 @@ import {
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	deferredExtensionCycleComponents,
 	extensionGraphPackageNames,
-	skippedDirectoryNames,
-	sourceExtensions,
 	type ManifestDependencyField,
 } from "../support/typescript-style-guard/config.ts";
 import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
+import { createSourceScanShards } from "../support/typescript-style-guard/file-discovery.ts";
 import {
 	loadPackageMetadata,
 	type PackageManifest,
@@ -278,12 +277,6 @@ interface SourceRuleCase {
 	readonly expectedRules: readonly string[];
 }
 
-interface SourceScanShard {
-	readonly shardNumber: number;
-	readonly totalShards: number;
-	readonly paths: readonly string[];
-}
-
 type SyntheticDependencyField = ManifestDependencyField | "devDependencies";
 
 interface SyntheticEdge {
@@ -383,43 +376,6 @@ function buildSyntheticManifest(
 			? {}
 			: { peerDependencies: fields.peerDependencies }),
 	};
-}
-
-function createSourceScanShards(root: string, shardCount: number): readonly SourceScanShard[] {
-	const paths: string[] = [];
-	scanDirectory(root, (fullPath) => paths.push(fullPath));
-	paths.sort();
-	if (paths.length === 0) throw new Error(`No TypeScript sources found under ${root}`);
-
-	const totalShards = Math.min(shardCount, paths.length);
-	const shards: SourceScanShard[] = [];
-	for (let shardIndex = 0; shardIndex < totalShards; shardIndex++) {
-		shards.push({
-			shardNumber: shardIndex + 1,
-			totalShards,
-			paths: paths.filter((_, pathIndex) => pathIndex % totalShards === shardIndex),
-		});
-	}
-	return shards;
-}
-
-function scanDirectory(directory: string, visitFile: (path: string) => void): void {
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		if (entry.isDirectory()) {
-			if (!skippedDirectoryNames.has(entry.name))
-				scanDirectory(join(directory, entry.name), visitFile);
-			continue;
-		}
-
-		if (!entry.isFile()) continue;
-		const fullPath = join(directory, entry.name);
-		if (!isTypeScriptSource(fullPath)) continue;
-		visitFile(fullPath);
-	}
-}
-
-function isTypeScriptSource(path: string): boolean {
-	return sourceExtensions.has(extname(path));
 }
 
 function formatViolations(violations: readonly SourceRuleViolation[]): string {
