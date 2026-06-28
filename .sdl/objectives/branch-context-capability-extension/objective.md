@@ -107,3 +107,17 @@ No open design question should block `objective-stack-impl` from previewing and 
 - `@sdl/pi/commands` cannot own a presentation-local formatter without violating Pi package boundaries, in which case use a Pi branch-context-local helper and document why.
 - CCC cannot consume the neutral Pi command surface for Pi launch command construction, in which case keep the formatter local to CCC's cmux launch code and duplicate only the presentation-owned surface there.
 - Removing the Pi-specific Branch Context API exports breaks an intentional in-repo consumer not identified in the baseline search, in which case pause to decide whether that consumer should migrate to Pi/CCC presentation code or receive a presentation-neutral API shape.
+
+## Closure
+
+Closed 2026-06-27 as completed.
+
+The Objective completed its narrow Phase 2 child scope: Branch Context is now documented and guarded as a clean above-SDK Capability with no `@sdl/pi` package or source dependency. Concrete Pi slash-command ownership, including `/sdl:branch-context:impl-attached-plan` and implementation-command formatting, moved to Pi/CCC presentation code while Branch Context retains portable domain/API responsibilities such as Branch Memory attachment semantics, saved-plan-to-Attached Plan behavior, attached-plan loading, implementation prompt content, branch-context evidence, and gateway-injected creation/attachment/reuse helpers.
+
+Key evidence is recorded in the Semantic Updates:
+
+- `updates/2026-06-27-command-surface-moved.md`: removed Pi-specific `IMPL_BRANCH_CONTEXT_COMMAND_NAME` and `formatImplBranchContextCommand` exports from `@sdl/branch-context/api`/root, moved formatting to Pi-owned command surfaces, and preserved CCC/Pi launch behavior with targeted package tests.
+- `updates/2026-06-27-pi-package-edge-removed.md`: deleted the remaining `@sdl/pi` manifest edge from `ts/packages/branch-context/package.json`, kept the lockfile in sync, and tightened `ts-guard` so Branch Context is no longer tolerated inside the legacy autobranch/pi/sdl deferred cycle.
+- `updates/2026-06-27-boundary-documented.md`: recorded final boundary documentation in `ts/packages/branch-context/CONTEXT.md` and `ts/packages/hosts/pi/CONTEXT.md`, final stale-edge searches, parent Objective tracking, and validation evidence: `dprint check` for touched docs/tracking, `just ts-check`, `just ts-test`, and `just ts-guard` passed.
+
+No parked work remains inside this Objective. The broader CCC clean-consumer conversion and remaining capability migrations stay with the parent `sdl-extension-architecture` Objective. The durable rule that should survive this Objective is already captured in package context and parent architecture direction: `@sdl/branch-context/api` owns Branch Context domain/API behavior; Pi/CCC presentation code owns concrete slash-command surfaces and launch formatting; `@sdl/branch-context` must not depend on the Pi Presentation Host.
