@@ -1,5 +1,3 @@
-import type { ClinkrExit } from "@sdl/clinkr";
-
 import {
 	createRealRoasterContext,
 	createRoasterRuntime,
@@ -19,9 +17,9 @@ import type {
 	ReviewUsage,
 } from "./models.ts";
 import {
-	runReviewList,
-	runReviewLog,
-	runRoastSkillList,
+	buildReviewListResult,
+	buildReviewLogResult,
+	buildRoastSkillListResult,
 	type ReviewListRequest,
 	type ReviewListResult,
 	type ReviewLogRequest,
@@ -102,15 +100,15 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 
 	return {
 		async listReviews(request = {}) {
-			return clinkrExitToApiResult(
-				await runReviewList(getRuntime(), reviewListRequestWithDefaults(request)),
+			return roasterResultToApiResult(
+				await buildReviewListResult(getRuntime(), reviewListRequestWithDefaults(request)),
 			);
 		},
 		async listRoastSkills(_request = {}) {
-			return clinkrExitToApiResult(await runRoastSkillList(getRuntime(), {}));
+			return roasterResultToApiResult(await buildRoastSkillListResult(getRuntime(), {}));
 		},
 		async listReviewLogs(request = {}) {
-			return clinkrExitToApiResult(await runReviewLog(getRuntime(), request));
+			return roasterResultToApiResult(await buildReviewLogResult(getRuntime(), request));
 		},
 		async runReview(request) {
 			return await runRoasterReview(getRuntime(), request);
@@ -146,15 +144,10 @@ function reviewListRequestWithDefaults(request: Partial<ReviewListRequest>): Rev
 	};
 }
 
-function clinkrExitToApiResult<T>(exit: ClinkrExit<T>): RoasterApiResult<T> {
-	switch (exit.type) {
-		case "ok":
-			return { ok: true, result: exit.data };
-		case "negative":
-			return { ok: false, failure: { errorType: "negative", message: exit.message } };
-		case "failure":
-			return { ok: false, failure: { errorType: exit.errorType, message: exit.message } };
-		case "usageError":
-			return { ok: false, failure: { errorType: exit.errorType, message: exit.message } };
-	}
+function roasterResultToApiResult<T>(result: RoasterResult<T>): RoasterApiResult<T> {
+	if (result.type === "ok") return { ok: true, result: result.value };
+	return {
+		ok: false,
+		failure: { errorType: result.error.type, message: result.error.message },
+	};
 }

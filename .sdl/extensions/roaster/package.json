@@ -3,9 +3,24 @@
     "group": "roaster",
     "commands": [
       {
-        "name": "review-list",
+        "path": ["review", "list"],
         "description": "List configured Roaster review definitions.",
         "entry": "./src/commands/review-list.ts"
+      },
+      {
+        "path": ["review", "ls"],
+        "description": "Alias for review list.",
+        "entry": "./src/commands/review-ls.ts"
+      },
+      {
+        "path": ["review", "log"],
+        "description": "List Roaster review logs for this branch.",
+        "entry": "./src/commands/review-log.ts"
+      },
+      {
+        "path": ["roast", "list"],
+        "description": "List Roaster review-skill commands.",
+        "entry": "./src/commands/roast-list.ts"
       }
     ]
   }

@@ -9,6 +9,7 @@ import {
 	commandInfoForLoadedCommand,
 	commandKey,
 	commandPathMatches,
+	commandSegments,
 	listBuiltInSdlCommandCandidates,
 	validateSdlExtensionContribution,
 	type BuiltInSdlCommandCandidate,
@@ -145,6 +146,7 @@ export async function loadSdlCommandCatalog(
 		candidates: new Map(finalCandidates.map((candidate) => [commandKey(candidate), candidate])),
 		commandInfos: finalCandidates.map((candidate) => ({
 			...(candidate.group === undefined ? {} : { group: candidate.group }),
+			...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
 			name: candidate.name,
 			description: candidate.description,
 			fullDescription: candidate.fullDescription,
@@ -314,6 +316,7 @@ function externalCandidateForLevel(
 ): ExternalSdlCommandCandidate {
 	return {
 		...(command.group === undefined ? {} : { group: command.group }),
+		...(command.segments === undefined ? {} : { segments: command.segments }),
 		name: command.name,
 		description: command.description,
 		fullDescription: command.fullDescription,
@@ -350,6 +353,17 @@ function validateSourceCandidates(
 				severity: "error",
 				code: "extension_command_group_invalid",
 				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command group must match ${SDL_COMMAND_NAME_RULE}.`,
+				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
+				sourceLevel: candidate.source.level,
+				commandName: commandKey(candidate),
+			});
+			continue;
+		}
+		if (commandSegments(candidate).some((segment) => !SDL_COMMAND_NAME_PATTERN.test(segment))) {
+			diagnostics.push({
+				severity: "error",
+				code: "extension_command_path_invalid",
+				message: `Invalid SDL command candidate from ${formatSource(candidate.source)}: command path segments must match ${SDL_COMMAND_NAME_RULE}.`,
 				...(candidate.source.path === undefined ? {} : { path: candidate.source.path }),
 				sourceLevel: candidate.source.level,
 				commandName: commandKey(candidate),
@@ -393,8 +407,11 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 } {
 	const topLevelByName = new Map<string, ExtensionCommandCandidate>();
 	for (const candidate of candidates) {
-		if (candidate.group !== undefined) continue;
-		topLevelByName.set(candidate.name, candidate);
+		const segments = commandSegments(candidate);
+		if (segments.length !== 1) continue;
+		const name = segments[0];
+		if (name === undefined) continue;
+		topLevelByName.set(name, candidate);
 	}
 	if (topLevelByName.size === 0) {
 		return { candidates, diagnostics: [] };
@@ -403,14 +420,17 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 	const collidingGroups = new Set<string>();
 	const diagnostics: ExtensionErrorDiagnostic[] = [];
 	for (const candidate of candidates) {
-		if (candidate.group === undefined) continue;
-		const topLevel = topLevelByName.get(candidate.group);
+		const segments = commandSegments(candidate);
+		if (segments.length < 2) continue;
+		const topSegment = segments[0];
+		if (topSegment === undefined) continue;
+		const topLevel = topLevelByName.get(topSegment);
 		if (topLevel === undefined) continue;
-		collidingGroups.add(candidate.group);
+		collidingGroups.add(topSegment);
 		diagnostics.push({
 			severity: "error",
 			code: "extension_command_group_collision",
-			message: `SDL command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${candidate.group} from ${formatSource(topLevel.source)} already exists.`,
+			message: `SDL command ${commandKey(candidate)} from ${formatSource(candidate.source)} cannot load because top-level command ${topSegment} from ${formatSource(topLevel.source)} already exists.`,
 			...(candidate.entryPath === undefined ? {} : { path: candidate.entryPath }),
 			sourceLevel: candidate.source.level,
 			commandName: commandKey(candidate),
@@ -421,9 +441,11 @@ function filterGroupCommandCollisions(candidates: readonly ExtensionCommandCandi
 	}
 
 	return {
-		candidates: candidates.filter(
-			(candidate) => candidate.group === undefined || !collidingGroups.has(candidate.group),
-		),
+		candidates: candidates.filter((candidate) => {
+			const segments = commandSegments(candidate);
+			const topSegment = segments[0];
+			return segments.length < 2 || topSegment === undefined || !collidingGroups.has(topSegment);
+		}),
 		diagnostics,
 	};
 }
@@ -451,6 +473,7 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
 	return {
 		...(candidate.group === undefined ? {} : { group: candidate.group }),
+		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,

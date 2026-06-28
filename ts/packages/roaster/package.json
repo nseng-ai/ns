@@ -6,6 +6,9 @@
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
     "./commands/review-list": "./src/commands/review-list.ts",
+    "./commands/review-ls": "./src/commands/review-ls.ts",
+    "./commands/review-log": "./src/commands/review-log.ts",
+    "./commands/roast-list": "./src/commands/roast-list.ts",
     "./skill-reviews": "./src/skill-reviews.ts"
   },
   "files": [

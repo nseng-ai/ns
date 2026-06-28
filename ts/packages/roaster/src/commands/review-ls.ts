@@ -11,14 +11,12 @@ import {
 } from "../operations/cli-operations.ts";
 import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
 
-const REVIEW_LIST_DESCRIPTION = `List configured Roaster review definitions.
+const REVIEW_LS_DESCRIPTION = `Alias for sdl roaster review list.`;
 
-This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, then delegates through the curated @sdl/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
-
-export const roasterReviewListCommand = createSdlDomainCommand({
-	name: "list",
-	summary: "List configured Roaster review definitions.",
-	description: REVIEW_LIST_DESCRIPTION,
+export const roasterReviewLsCommand = createSdlDomainCommand({
+	name: "ls",
+	summary: "Alias for review list.",
+	description: REVIEW_LS_DESCRIPTION,
 	schema: reviewListRequestSchema,
 	resultSchema: reviewListResultSchema,
 	renderHuman: (data, _caps) => renderReviewList(data),
@@ -35,7 +33,7 @@ export const roasterReviewListCommand = createSdlDomainCommand({
 });
 
 export default defineExtension({
-	commands: [roasterReviewListCommand],
+	commands: [roasterReviewLsCommand],
 });
 
-export type RoasterReviewListRequest = ReviewListRequest;
+export type RoasterReviewLsRequest = ReviewListRequest;

@@ -3,7 +3,7 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
-import type { RoasterFailure } from "../failures.ts";
+import type { RoasterFailure, RoasterResult } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import {
@@ -130,15 +130,15 @@ export const recordFindingsRequestSchema = z.object({
 
 export type RecordFindingsRequest = z.infer<typeof recordFindingsRequestSchema>;
 
-export async function runReviewList(
+export async function buildReviewListResult(
 	ctx: RoasterRuntime,
 	request: ReviewListRequest,
-): Promise<ClinkrExit<ReviewListResult>> {
+): Promise<RoasterResult<ReviewListResult>> {
 	const catalog = await ctx.reviewCatalog.listReviewKeys(catalogOptions(ctx.runScope));
-	if (catalog.type === "error") return failureFromRoaster(catalog.error);
+	if (catalog.type === "error") return catalog;
 
 	const loaded = await loadDefinitions(ctx, catalog.value.keys);
-	if (loaded.type === "error") return failureFromRoaster(loaded.error);
+	if (loaded.type === "error") return loaded;
 
 	let selectedKeys = catalog.value.keys;
 	if (request.ci) {
@@ -148,7 +148,7 @@ export async function runReviewList(
 	}
 	if (request.applicable) {
 		const diff = await loadDiffFromRequest(ctx, request.baseRef);
-		if (diff.type === "error") return failureFromRoaster(diff.error);
+		if (diff.type === "error") return diff;
 		const selectedBeforeApplicability = new Set(selectedKeys);
 		selectedKeys = applicableReviewKeys(
 			new Map(
@@ -169,14 +169,22 @@ export async function runReviewList(
 			modelProfile: item.definition.modelProfile,
 			localOnly: item.definition.localOnly,
 		}));
-	return ok(
-		reviewListResultSchema.parse({
+	return {
+		type: "ok",
+		value: reviewListResultSchema.parse({
 			reviewsDir: catalog.value.reviewsDir,
 			keys: selectedKeys,
 			count: selectedKeys.length,
 			reviews,
 		}),
-	);
+	};
+}
+
+export async function runReviewList(
+	ctx: RoasterRuntime,
+	request: ReviewListRequest,
+): Promise<ClinkrExit<ReviewListResult>> {
+	return clinkrExitFromRoasterResult(await buildReviewListResult(ctx, request));
 }
 
 export function renderReviewList(result: ReviewListResult): string {
@@ -198,15 +206,15 @@ export function renderReviewList(result: ReviewListResult): string {
 	return lines.join("\n");
 }
 
-export async function runRoastSkillList(
+export async function buildRoastSkillListResult(
 	ctx: RoasterRuntime,
 	_request: RoastSkillListRequest,
-): Promise<ClinkrExit<RoastSkillListResult>> {
+): Promise<RoasterResult<RoastSkillListResult>> {
 	const loaded = await loadRoastSkillEntries({
 		...catalogOptions(ctx.runScope),
 		reviewCatalog: ctx.reviewCatalog,
 	});
-	if (loaded.type === "error") return failureFromRoaster(loaded.error);
+	if (loaded.type === "error") return loaded;
 
 	const entries = loaded.value.map((entry) => ({
 		surface: entry.surface,
@@ -217,7 +225,17 @@ export async function runRoastSkillList(
 		description: entry.description,
 		defaultPrompt: entry.defaultPrompt,
 	}));
-	return ok(roastSkillListResultSchema.parse({ count: entries.length, entries }));
+	return {
+		type: "ok",
+		value: roastSkillListResultSchema.parse({ count: entries.length, entries }),
+	};
+}
+
+export async function runRoastSkillList(
+	ctx: RoasterRuntime,
+	request: RoastSkillListRequest,
+): Promise<ClinkrExit<RoastSkillListResult>> {
+	return clinkrExitFromRoasterResult(await buildRoastSkillListResult(ctx, request));
 }
 
 export function renderRoastSkillList(result: RoastSkillListResult): string {
@@ -340,23 +358,31 @@ async function readFindingsPayload(
 	return { type: "ok", value: payload.data };
 }
 
-export async function runReviewLog(
+export async function buildReviewLogResult(
 	ctx: RoasterRuntime,
 	request: ReviewLogRequest,
-): Promise<ClinkrExit<ReviewLogResult>> {
+): Promise<RoasterResult<ReviewLogResult>> {
 	const entries = await ctx.reviewLog.listReviewLogs({
 		...environmentOptions(ctx.runScope),
 		...(request.key === undefined ? {} : { reviewKey: request.key }),
 	});
-	if (entries.type === "error") return failureFromRoaster(entries.error);
-	return ok(
-		reviewLogResultSchema.parse({
+	if (entries.type === "error") return entries;
+	return {
+		type: "ok",
+		value: reviewLogResultSchema.parse({
 			namespace: ROASTER_REVIEW_LOG_NAMESPACE,
 			reviewKey: request.key ?? null,
 			count: entries.value.length,
 			entries: entries.value.map(reviewLogEntryResult),
 		}),
-	);
+	};
+}
+
+export async function runReviewLog(
+	ctx: RoasterRuntime,
+	request: ReviewLogRequest,
+): Promise<ClinkrExit<ReviewLogResult>> {
+	return clinkrExitFromRoasterResult(await buildReviewLogResult(ctx, request));
 }
 
 export function renderReviewLog(result: ReviewLogResult): string {
@@ -447,6 +473,11 @@ function totalInputTokens(usage: ReviewUsage): number {
 
 function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 	return failure(error.type, error.message);
+}
+
+function clinkrExitFromRoasterResult<T>(result: RoasterResult<T>): ClinkrExit<T> {
+	if (result.type === "ok") return ok(result.value);
+	return failureFromRoaster(result.error);
 }
 
 function loadDiffFromRequest(

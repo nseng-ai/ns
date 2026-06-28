@@ -21,6 +21,7 @@ import {
 	commandDisplayName,
 	commandKey,
 	commandPathMatches,
+	commandSegments,
 	executeSdlCommand,
 	formatUnknownError,
 	listStaticSdlCommandInfos,
@@ -439,24 +440,20 @@ function requestedCommandKey(
 	args: readonly string[],
 	commandInfos: readonly SdlCommandCliInfo[],
 ): string | undefined {
-	const firstArg = args[0];
-	if (firstArg === undefined || firstArg.startsWith("-")) return undefined;
+	const commandArgs = args.filter((arg) => !arg.startsWith("-"));
+	if (commandArgs.length === 0) return undefined;
 
-	const knownGroups = new Set(
-		commandInfos.flatMap((commandInfo) =>
-			commandInfo.group === undefined ? [] : [commandInfo.group],
-		),
-	);
-	if (!knownGroups.has(firstArg)) return firstArg;
-
-	const secondArg = args[1];
-	if (secondArg === undefined || secondArg.startsWith("-")) return undefined;
-	if (secondArg === SDL_EXEC_GROUP_NAME) {
-		const execCommand = args[2];
-		if (execCommand === undefined || execCommand.startsWith("-")) return undefined;
-		return commandKey({ group: firstArg, name: execInternalCommandName(execCommand) });
-	}
-	return commandKey({ group: firstArg, name: secondArg });
+	const candidates = commandInfos
+		.map((commandInfo) => ({
+			commandInfo,
+			displaySegments: displaySegmentsForCommand(commandInfo),
+		}))
+		.filter(({ displaySegments }) => pathPrefixMatches(commandArgs, displaySegments))
+		.sort((left, right) => right.displaySegments.length - left.displaySegments.length);
+	const selected = candidates[0];
+	if (selected === undefined) return commandArgs[0];
+	if (commandArgs.length < selected.displaySegments.length) return undefined;
+	return commandKey(selected.commandInfo);
 }
 
 const SDL_EXEC_GROUP_NAME = "exec";
@@ -469,13 +466,14 @@ function isGroupedExecCommand(commandInfo: SdlCommandCliInfo): boolean {
 	return commandInfo.group !== undefined && commandInfo.name.startsWith(SDL_EXEC_COMMAND_PREFIX);
 }
 
-function execInternalCommandName(displayName: string): string {
-	return `${SDL_EXEC_COMMAND_PREFIX}${displayName}`;
-}
-
 function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
+	if (commandInfo.segments !== undefined) return commandInfo.segments.at(-1) ?? commandInfo.name;
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
 	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
+}
+
+function execInternalCommandName(displayName: string): string {
+	return `${SDL_EXEC_COMMAND_PREFIX}${displayName}`;
 }
 
 function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
@@ -509,6 +507,18 @@ function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
 	);
 	completion.group(exec);
 	return completion;
+}
+
+function displaySegmentsForCommand(commandInfo: SdlCommandCliInfo): readonly string[] {
+	if (commandInfo.segments !== undefined) return commandInfo.segments;
+	if (!isGroupedExecCommand(commandInfo)) return commandSegments(commandInfo);
+	return [commandInfo.group ?? "", SDL_EXEC_GROUP_NAME, cliLeafCommandName(commandInfo)].filter(
+		(segment) => segment !== "",
+	);
+}
+
+function pathPrefixMatches(args: readonly string[], path: readonly string[]): boolean {
+	return path.every((segment, index) => args[index] === segment);
 }
 
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
@@ -569,40 +579,37 @@ function groupForCommand(
 	groups: Map<string, ClinkrGroup<SdlCliContext>>,
 	commandInfo: SdlCommandCliInfo,
 ): ClinkrGroup<SdlCliContext> {
-	if (commandInfo.group === undefined) return root;
-
-	const group = topLevelGroupForCommand(root, groups, commandInfo.group);
-	if (!isGroupedExecCommand(commandInfo)) return group;
-
-	const execGroupKey = `${commandInfo.group}/${SDL_EXEC_GROUP_NAME}`;
-	const existing = groups.get(execGroupKey);
-	if (existing !== undefined) return existing;
-
-	const exec = new ClinkrGroup<SdlCliContext>({
-		name: SDL_EXEC_GROUP_NAME,
-		description: `Skill-invoked SDL ${commandInfo.group} operations.`,
-		isHidden: true,
-	});
-	groups.set(execGroupKey, exec);
-	group.group(exec);
-	return exec;
+	const displaySegments = displaySegmentsForCommand(commandInfo);
+	const parentSegments = displaySegments.slice(0, -1);
+	let parent = root;
+	for (let index = 0; index < parentSegments.length; index += 1) {
+		const segment = parentSegments[index];
+		if (segment === undefined) continue;
+		const groupKey = parentSegments.slice(0, index + 1).join("/");
+		const existing = groups.get(groupKey);
+		if (existing !== undefined) {
+			parent = existing;
+			continue;
+		}
+		const group = new ClinkrGroup<SdlCliContext>({
+			name: segment,
+			description: groupDescription(parentSegments.slice(0, index + 1), commandInfo),
+			...(segment === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)
+				? { isHidden: true }
+				: {}),
+		});
+		groups.set(groupKey, group);
+		parent.group(group);
+		parent = group;
+	}
+	return parent;
 }
 
-function topLevelGroupForCommand(
-	root: ClinkrGroup<SdlCliContext>,
-	groups: Map<string, ClinkrGroup<SdlCliContext>>,
-	groupName: string,
-): ClinkrGroup<SdlCliContext> {
-	const existing = groups.get(groupName);
-	if (existing !== undefined) return existing;
-
-	const group = new ClinkrGroup<SdlCliContext>({
-		name: groupName,
-		description: `SDL ${groupName} commands.`,
-	});
-	groups.set(groupName, group);
-	root.group(group);
-	return group;
+function groupDescription(segments: readonly string[], commandInfo: SdlCommandCliInfo): string {
+	if (segments.at(-1) === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) {
+		return `Skill-invoked SDL ${segments[0] ?? "extension"} operations.`;
+	}
+	return `SDL ${segments.join(" ")} commands.`;
 }
 
 function isStaticTopLevelMetadataRequest(args: readonly string[]): boolean {
