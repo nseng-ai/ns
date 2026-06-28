@@ -3,10 +3,10 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 	type PreparedCheckpointMessage,
-} from "@sdl/domain-primitives-transitional/checkpoint-flow";
+} from "@sdl/capability-kit/checkpoint-flow";
 import { createTextGenerator } from "@sdl/kernel/context";
-import type { PendingWorktreeSnapshot } from "@sdl/domain-primitives-transitional/pending-worktree";
-import { selectCheckpointModelRef } from "@sdl/domain-primitives-transitional/text-generation";
+import type { PendingWorktreeSnapshot } from "@sdl/capability-kit/pending-worktree";
+import { selectCheckpointModelRef } from "@sdl/capability-kit/text-generation";
 
 export type { CommandResult, PreparedCheckpointMessage };
 

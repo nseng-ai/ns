@@ -65,7 +65,14 @@ Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem)
   Capabilities (depends on the Capability Kit), owns its domain logic there, and does not
   scatter domain into `@sdl/pi` or `@sdl/kernel`.
 - `@sdl/capability-kit` is held to its thin-substrate role: shared, capability-agnostic
-  plumbing only — it is not a second home for domain logic.
+  plumbing only — it is not a second home for product capability logic.
+
+Refinement after the transitional package deletion: Capability Kit may own small,
+shared, first-party capability-building primitives such as pending-worktree,
+checkpoint-message, text-generation, temp-file, and text-repair helpers when the
+alternative is preserving a transitional holding pen. These precise subpaths are
+internal workspace building blocks, not public `sdl-sdk` author API, and do not make
+Capability Kit a product capability owner.
 
 ## The SDK boundary is permeable over time, gated on generality
 
@@ -89,5 +96,8 @@ SDK contract via `ctx.git`).
 - **Leave domain in `@sdl/pi` and let `ccc` import it from there.** Keeps the
   orchestrator coupled to the presentation host for domain and blocks deletion of the
   transitional package's role as the last below-SDK domain consumer.
-- **Move shared capability domain into `@sdl/capability-kit`.** Re-tangles domain into
-  the substrate; the Capability Kit stays capability-agnostic, capabilities own their domain.
+- **Move shared product capability domain into `@sdl/capability-kit`.** Re-tangles domain into
+  the substrate; the Capability Kit stays capability-agnostic, capabilities own their domain. The
+  later transitional-package deletion permits small shared capability-building primitives in
+  Capability Kit; it does not reverse the rule that product capability ownership belongs in
+  capabilities.

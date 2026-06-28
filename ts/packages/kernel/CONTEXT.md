@@ -73,7 +73,7 @@ An `@sdl/kernel` subpath shared across first-party workspace packages (`ccc`, `p
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, transitional primitives under `@sdl/domain-primitives-transitional/*` while they remain debt, and deferred `public-sdk` promotion into `sdl-sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `sdl-sdk`.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, capability-building primitives under precise `@sdl/capability-kit/*` subpaths, and deferred `public-sdk` promotion into `sdl-sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `sdl-sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
@@ -126,6 +126,6 @@ The acyclic, shallow graph of consumer→provider dependencies through `@sdl/<ca
 The above-SDK package holding cross-cutting, capability-agnostic code shared among capabilities — the `ctx`→gateway adapter and shared result/error shapes — distinct from capability-specific logic, which stays in each capability behind its Capability API. The name "Extension Kit" is reserved for a future general all-extensions substrate.
 *Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
-**Transitional domain-primitives package** (`@sdl/domain-primitives-transitional`):
-A below-SDK package that temporarily holds SDK-independent domain primitives extracted out of `@sdl/kernel` (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). Explicitly disposable: it deletes to zero once every capability is an above-SDK extension and `ccc`/`pi` consume Capability APIs instead of transitional primitive subpaths. The `-transitional` suffix is deliberate — it marks the dependency as debt at every import site.
-*Avoid*: permanent shared library, `@sdl/core` neutral infra, Shared extension substrate, forever-home.
+**Capability-building primitive subpaths** (`@sdl/capability-kit/*`):
+Precise internal workspace subpaths for small shared first-party capability-building primitives extracted out of the former transitional package (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). They are not public `sdl-sdk` author API by default and not product capability owners; they exist to avoid both kernel/SDK pollution and a permanent transitional holding pen.
+*Avoid*: public SDK surface, product capability domain home, below-SDK package, transitional debt label, root-barrel convenience.

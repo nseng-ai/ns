@@ -22,7 +22,6 @@ export const packageTierValues = [
 	"capability",
 	"capability-kit",
 	"sdk",
-	"transitional",
 	"neutral-infra",
 	"host",
 	"capability-pi",
@@ -35,12 +34,11 @@ export type PackageTier = (typeof packageTierValues)[number];
 export const packageTierSet = new Set<string>(packageTierValues);
 
 export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> = {
-	capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
-	"capability-kit": new Set(["sdk", "neutral-infra", "transitional"]),
-	sdk: new Set(["sdk", "neutral-infra", "transitional"]),
-	transitional: new Set(["neutral-infra"]),
+	capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra"]),
+	"capability-kit": new Set(["sdk", "neutral-infra"]),
+	sdk: new Set(["sdk", "neutral-infra"]),
 	"neutral-infra": new Set(["neutral-infra"]),
-	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
+	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
 	"capability-pi": new Set([
 		"capability-pi",
 		"host",
@@ -48,7 +46,6 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"capability-kit",
 		"sdk",
 		"neutral-infra",
-		"transitional",
 	]),
 	"standalone-tool": new Set([
 		"standalone-tool",
@@ -57,7 +54,6 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"capability-kit",
 		"sdk",
 		"neutral-infra",
-		"transitional",
 	]),
 	"local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
@@ -70,26 +66,6 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 	[
 		"@sdl/kernel\0@sdl/slot",
 		"SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly.",
-	],
-	[
-		"sdl-flow\0@sdl/domain-primitives-transitional",
-		"Current transitional-domain consumer; new consumers must not be added.",
-	],
-	[
-		"sdl-sdk\0@sdl/domain-primitives-transitional",
-		"Current transitional-domain consumer; new consumers must not be added.",
-	],
-	[
-		"@sdl/ccc\0@sdl/domain-primitives-transitional",
-		"Current transitional-domain consumer; new consumers must not be added.",
-	],
-	[
-		"@sdl/kernel\0@sdl/domain-primitives-transitional",
-		"Current transitional-domain consumer; new consumers must not be added.",
-	],
-	[
-		"@sdl/pi\0@sdl/domain-primitives-transitional",
-		"Current transitional-domain consumer; new consumers must not be added.",
 	],
 ]);
 

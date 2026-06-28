@@ -12,6 +12,12 @@ export interface SdlCwdEnvStdinContext {
 	stdin(): Promise<string>;
 }
 
+/**
+ * Adapts SDL's callback-style confirmation hook into Clinkr's semantic
+ * interaction interface. Clinkr's `createClinkrInteraction` owns terminal
+ * line-reading prompts; this helper is the sanctioned bridge for hosts that
+ * already expose `SdlExtensionApi.confirm` instead of raw stdin/stderr.
+ */
 export function createSdlClinkrInteraction(
 	ctx: SdlExtensionApi,
 	options: SdlClinkrInteractionOptions,
@@ -35,6 +41,10 @@ export function createSdlClinkrInteraction(
 	};
 }
 
+/**
+ * Builds the common SDL exec context shape for commands whose SDL-host entry
+ * receives cwd/env from `SdlExtensionApi` but intentionally has no stdin stream.
+ */
 export function createSdlCwdEnvStdinContext(ctx: SdlExtensionApi): SdlCwdEnvStdinContext {
 	return {
 		cwd: ctx.cwd,

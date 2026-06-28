@@ -1,5 +1,5 @@
 import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
-import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
+import type { TextGenerator } from "@sdl/capability-kit/text-generation";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import {
 	CP_PHASES,

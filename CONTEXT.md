@@ -95,7 +95,7 @@ An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, 
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
-The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter and shared result/error shapes. It is agnostic about *which* capability (holds no capability domain) but is purpose-built for building capabilities. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
+The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `sdl-sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
 *Avoid*: Extension Kit (reserved name), extension framework, above-SDK substrate, capability-kit core
 
 **Capability API**:
@@ -111,5 +111,5 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `transitional`, `host`, and `tool`. `host` and `tool` are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. `transitional` is deletion debt; new dependencies on it require explicit debt handling.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` tier was deleted with `@sdl/domain-primitives-transitional`; do not reintroduce a live transitional tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer

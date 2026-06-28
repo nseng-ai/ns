@@ -7,7 +7,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@sdl/domain-primitives-transitional/text-generation";
+} from "@sdl/capability-kit/text-generation";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_MODEL_GENERATION_HELPER_PATH = join(

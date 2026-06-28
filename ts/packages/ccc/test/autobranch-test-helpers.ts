@@ -1,6 +1,6 @@
 import type { ExecResult } from "@sdl/core/exec";
-import type { CommandResult } from "@sdl/domain-primitives-transitional/checkpoint-flow";
-import type { PendingWorktreeSnapshot } from "@sdl/domain-primitives-transitional/pending-worktree";
+import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
+import type { PendingWorktreeSnapshot } from "@sdl/capability-kit/pending-worktree";
 
 export type { CommandResult, PendingWorktreeSnapshot };
 

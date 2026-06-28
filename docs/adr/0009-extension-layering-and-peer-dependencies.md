@@ -77,6 +77,10 @@ gateways the same way and calls provider cores.
   The `-transitional` suffix is deliberate — it flags the dependency as debt at every
   import site rather than relying on docs to convey disposability.
 
+Implementation status update: the transitional package has since been deleted;
+its former primitive subpaths moved to precise `@sdl/capability-kit/*` exports
+without making those helpers public `sdl-sdk` author API.
+
 **Rename `internal-migration-export` to `internal workspace export`.** The dividing
 rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code
 belongs above the SDK in the substrate; SDK-independent primitives stay below.

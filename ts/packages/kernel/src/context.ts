@@ -5,7 +5,7 @@ import { runCommand } from "@sdl/core/exec";
 
 import { PiTextGenerator } from "./sdk/pi-text-generation.ts";
 import type { SdlConfirmPrompt, SdlExtensionApi } from "sdl-sdk";
-import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
+import type { TextGenerator } from "sdl-sdk";
 
 export interface RealSdlCommandContextOptions {
 	cwd?: string;

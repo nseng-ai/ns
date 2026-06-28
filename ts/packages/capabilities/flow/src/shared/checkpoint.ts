@@ -2,23 +2,20 @@ import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec"
 import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
-import type { TextRepairProgressEvent } from "@sdl/domain-primitives-transitional/text-repair";
+import type { TextRepairProgressEvent } from "@sdl/capability-kit/text-repair";
 import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@sdl/domain-primitives-transitional/checkpoint-flow";
+} from "@sdl/capability-kit/checkpoint-flow";
 import type { SdlExtensionApi } from "sdl-sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "@sdl/domain-primitives-transitional/pending-worktree";
-import {
-	selectCheckpointModelRef,
-	type TextGenerator,
-} from "@sdl/domain-primitives-transitional/text-generation";
+} from "@sdl/capability-kit/pending-worktree";
+import { selectCheckpointModelRef, type TextGenerator } from "@sdl/capability-kit/text-generation";
 
 export interface CheckpointGateway {
 	loadPendingWorktreeSnapshot(params: { cwd: string }): Promise<

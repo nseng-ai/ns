@@ -242,9 +242,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
@@ -353,6 +350,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../branch-context
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../sdl-capability-kit
       '@sdl/cli-theme':
         specifier: workspace:*
         version: link:../infra/cli-theme
@@ -365,9 +365,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
@@ -422,15 +419,15 @@ importers:
 
   packages/hosts/pi:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
@@ -517,12 +514,6 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/infra/domain-primitives-transitional:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../core
-
   packages/infra/graphite:
     dependencies:
       '@sdl/core':
@@ -546,9 +537,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../infra/domain-primitives-transitional
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
@@ -735,9 +723,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/domain-primitives-transitional':
-        specifier: workspace:*
-        version: link:../infra/domain-primitives-transitional
       zod:
         specifier: 'catalog:'
         version: 4.4.3
