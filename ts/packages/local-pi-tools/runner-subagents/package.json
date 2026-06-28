@@ -23,6 +23,6 @@
   },
   "devDependencies": {},
   "sdl": {
-    "tier": "tool"
+    "tier": "local-pi-tool"
   }
 }

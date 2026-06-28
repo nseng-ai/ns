@@ -21,6 +21,6 @@
     "zod": "catalog:"
   },
   "sdl": {
-    "tier": "tool"
+    "tier": "standalone-tool"
   }
 }

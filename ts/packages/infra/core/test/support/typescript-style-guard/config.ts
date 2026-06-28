@@ -25,7 +25,8 @@ export const packageTierValues = [
 	"transitional",
 	"neutral-infra",
 	"host",
-	"tool",
+	"standalone-tool",
+	"local-pi-tool",
 ] as const;
 
 export type PackageTier = (typeof packageTierValues)[number];
@@ -39,8 +40,8 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 	transitional: new Set(["neutral-infra"]),
 	"neutral-infra": new Set(["neutral-infra"]),
 	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
-	tool: new Set([
-		"tool",
+	"standalone-tool": new Set([
+		"standalone-tool",
 		"host",
 		"capability",
 		"capability-kit",
@@ -48,6 +49,7 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"neutral-infra",
 		"transitional",
 	]),
+	"local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([

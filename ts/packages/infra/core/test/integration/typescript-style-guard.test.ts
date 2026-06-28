@@ -251,6 +251,9 @@ describe("TypeScript style guard documentation references", () => {
 
 describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
+		"@local-pi-tools/grill",
+		"@local-pi-tools/runner-subagents",
+		"@sdl/areg",
 		"@sdl/ccc",
 		"@sdl/domain-primitives-transitional",
 		"@sdl/handoff",
@@ -259,6 +262,9 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/slot",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
+		["@local-pi-tools/grill", "local-pi-tool"],
+		["@local-pi-tools/runner-subagents", "local-pi-tool"],
+		["@sdl/areg", "standalone-tool"],
 		["@sdl/ccc", "capability"],
 		["@sdl/domain-primitives-transitional", "transitional"],
 		["@sdl/handoff", "capability"],
@@ -301,6 +307,31 @@ describe("TypeScript style guard package tier layering rules", () => {
 			name: "capability to capability is allowed",
 			edges: [{ from: "@sdl/ccc", to: "@sdl/handoff" }],
 			expectedViolation: false,
+		},
+		{
+			name: "standalone tool to host is allowed",
+			edges: [{ from: "@sdl/areg", to: "@sdl/pi" }],
+			expectedViolation: false,
+		},
+		{
+			name: "local pi tool to host is allowed",
+			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/pi" }],
+			expectedViolation: false,
+		},
+		{
+			name: "local pi tool to local pi tool is allowed",
+			edges: [{ from: "@local-pi-tools/grill", to: "@local-pi-tools/runner-subagents" }],
+			expectedViolation: false,
+		},
+		{
+			name: "local pi tool to standalone tool is rejected",
+			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/areg" }],
+			expectedTextIncludes: "local-pi-tool-must-not-depend-on-standalone-tool",
+		},
+		{
+			name: "standalone tool to local pi tool is rejected",
+			edges: [{ from: "@sdl/areg", to: "@local-pi-tools/grill" }],
+			expectedTextIncludes: "standalone-tool-must-not-depend-on-local-pi-tool",
 		},
 		{
 			name: "new transitional consumer is rejected",
@@ -571,7 +602,8 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 		value === "transitional" ||
 		value === "neutral-infra" ||
 		value === "host" ||
-		value === "tool"
+		value === "standalone-tool" ||
+		value === "local-pi-tool"
 	);
 }
 
