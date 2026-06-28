@@ -1,0 +1,118 @@
+# CLI surface migration audit
+
+This audit is the migration backlog for applying the signed-off clinkr house style beyond the already rebuilt representative surfaces.
+
+## Migration policy
+
+- **Already migrated:** `sdl objective list`, `sdl flow cp`, and `sdl flow submit` are the reference implementations.
+- **Migrate:** human-facing command output that people read in a terminal.
+- **Usually exempt:** hidden `exec`/skill primitives, JSON/Markdown payload readers, and full-screen TUI surfaces. Keep these machine-first unless they also expose a durable human-facing mode.
+- **Ordering rule:** do feature-building migrations first. Once the renderer feature set is stable, convert the remaining table/status/detail commands mechanically.
+
+## Feature-building front of queue
+
+These surfaces should lead the rollout because they are likely to force new reusable display primitives or policy decisions.
+
+| Priority | Surfaces                                                                                                                                                                                                                     | Needed clinkr feature/policy                                                                                                                                        | Why first                                                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| P0       | `sdl flow land`, `sdl flow regenerate-pr`, `sdl flow autobranch`, `sdl flow autoslot`, `sdl flow branch-latest-commit`, `sdl flow push`, `sdl flow pull-trunk`                                                               | Reusable side-effect workflow/phase renderer beyond submit/cp; transcript routing policy; shared success/failure blocks for Graphite/git operations.                | These are multi-step or subprocess-heavy flows. If their UX is designed late, earlier mechanical migrations may need rework. |
+| P0       | `packagechk claim-pypi`, `packagechk claim-npm`, `packagechk NAME`                                                                                                                                                           | Registry availability/result card; destructive publish confirmation; publish-step progress/failure block.                                                           | Publishing placeholder packages is high-consequence and needs a better confirmation/status grammar than plain text.          |
+| P0       | `vibechk run`, `roaster review run`                                                                                                                                                                                          | Long-running agent/review run presentation: phase/progress stream, final evidence summary, log/artifact links.                                                      | Agent/review runners will stress streaming, artifacts, and failure summaries differently from `flow submit`.                 |
+| P0       | `sdl slot checkout`, `sdl slot co`, `sdl slot goto`, `sdl slot gt up`, `sdl slot gt down`, `sdl shell show`, `sdl shell install`                                                                                             | Actionable shell/directive renderer: copyable command lines, wrapper-script/code blocks, and navigation footers that degrade cleanly.                               | Navigation commands mix human guidance with shell-consumable output; settle this before touching all slot renderers.         |
+| P0       | `sdl slot free`, `sdl slot gc`, `sdl slot gt free-stack`, `handoff delete`, `handoff gc`, `brmem delete`, `brmem copy`, `brmem export`, `brmem setup-git`, `areg update-skills`, `areg skill apply`                          | Standard dry-run/preview/confirmation/destructive-summary renderer.                                                                                                 | Many commands preview or mutate state. A common destructive-action grammar prevents one-off UX.                              |
+| P1       | `sdl slot list`, `brmem list`, `handoff list`, `enriched-plan list`, `roaster review list`, `roaster review log`, `roaster roast list`, `areg skill list`, `areg skill show`, `vibechk runs`, `vibechk show`, `vibechk diff` | Generalized buffered list/detail/report primitives: section headers, empty states, footers/legends, multi-section tables, Markdown/document passthrough boundaries. | These are mostly mechanical after the list/detail primitives settle, but they will reveal table/report gaps.                 |
+
+## Complete surface inventory
+
+### `sdl` root
+
+| Surface                                                                  | Status                | Migration note                                                                            |
+| ------------------------------------------------------------------------ | --------------------- | ----------------------------------------------------------------------------------------- |
+| `sdl objective list`                                                     | Done                  | Reference buffered list renderer.                                                         |
+| `sdl objective archive`                                                  | Remaining, mechanical | Simple status/action result after destructive-action grammar exists.                      |
+| `sdl objective check`                                                    | Remaining, mechanical | Structured diagnostics/status block.                                                      |
+| `sdl objective exec list-candidates`                                     | Exempt by default     | Hidden skill/autocomplete surface.                                                        |
+| `sdl objective exec load-orientations`                                   | Exempt by default     | Markdown payload for agent onboarding.                                                    |
+| `sdl objective exec read-objective`                                      | Exempt by default     | Filesystem facts / Markdown payload.                                                      |
+| `sdl objective exec runner-subagent-usage`                               | Exempt by default     | Agent telemetry Markdown; migrate only if made human-facing.                              |
+| `sdl flow cp`                                                            | Done                  | Reference streaming checkpoint renderer.                                                  |
+| `sdl flow submit`                                                        | Done                  | Reference streaming submit renderer.                                                      |
+| `sdl flow changes`                                                       | Remaining, mechanical | Buffered worktree summary/status block.                                                   |
+| `sdl flow land`                                                          | P0 feature-building   | Needs workflow/progress and Graphite failure grammar.                                     |
+| `sdl flow regenerate-pr`                                                 | P0 feature-building   | Needs PR metadata workflow status and confirmation/failure grammar.                       |
+| `sdl flow autobranch`                                                    | P0 feature-building   | Needs git/Graphite side-effect success/failure grammar.                                   |
+| `sdl flow autoslot`                                                      | P0 feature-building   | Combines branch creation and slot navigation; exercises workflow + navigation primitives. |
+| `sdl flow branch-latest-commit`                                          | P0 feature-building   | Git/Graphite side-effect result and failure blocks.                                       |
+| `sdl flow push`                                                          | Done                  | Reference git subprocess result/failure block (`flow/src/shared/git-result-block.ts`).    |
+| `sdl flow pull-trunk`                                                    | P0 feature-building   | Git subprocess result/failure block (reuse `flow/src/shared/git-result-block.ts`).        |
+| `sdl slot list`, `sdl slot ls`                                           | P1 mechanical         | Dense table with status markers/legend after list primitive settles.                      |
+| `sdl slot checkout`, `sdl slot co`                                       | P0 feature-building   | Navigation footer/cd directive.                                                           |
+| `sdl slot goto`                                                          | P0 feature-building   | Navigation footer/cd directive.                                                           |
+| `sdl slot claim`                                                         | P1 mechanical         | Status/action result after action-summary primitive.                                      |
+| `sdl slot free`                                                          | P0 feature-building   | Destructive preview/confirmation summary.                                                 |
+| `sdl slot foreach`                                                       | P1 mechanical         | Multi-slot command result table/section summary.                                          |
+| `sdl slot gc`                                                            | P0 feature-building   | Destructive preview/confirmation summary.                                                 |
+| `sdl slot init`                                                          | P1 mechanical         | Creation summary.                                                                         |
+| `sdl slot resize`                                                        | P0 feature-building   | Potentially destructive grow/shrink preview.                                              |
+| `sdl slot gt up`, `sdl slot gt down`                                     | P0 feature-building   | Graphite navigation footer.                                                               |
+| `sdl slot gt free-stack`                                                 | P0 feature-building   | Destructive stack preview/summary.                                                        |
+| `sdl slot gt exec stack-branches`, `sdl slot gt exec stack-map-branches` | Exempt by default     | Hidden skill surfaces.                                                                    |
+| `sdl shell show`                                                         | P0 feature-building   | Wrapper script/code block output.                                                         |
+| `sdl shell install`                                                      | P0 feature-building   | Installation preview/result and shell snippet.                                            |
+
+### Standalone first-party CLIs
+
+| Surface                                                            | Status                      | Migration note                                                                                   |
+| ------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `brmem put`                                                        | P1 mechanical               | Write confirmation/status result.                                                                |
+| `brmem get`                                                        | Exempt by default           | Content payload reader; avoid styling returned entry content.                                    |
+| `brmem delete`                                                     | P0 feature-building         | Destructive confirmation/result.                                                                 |
+| `brmem list`                                                       | P1 mechanical               | Branch/key table.                                                                                |
+| `brmem check`                                                      | P1 mechanical               | Existence status block.                                                                          |
+| `brmem copy`                                                       | P0 feature-building         | Cross-branch mutation preview/summary.                                                           |
+| `brmem export`                                                     | P0 feature-building         | File-write preview/summary.                                                                      |
+| `brmem setup-git`                                                  | P0 feature-building         | Git config mutation preview/result.                                                              |
+| `brmem exec resolve-prompt`                                        | Exempt by default           | Hidden skill primitive.                                                                          |
+| `handoff list`                                                     | P1 mechanical               | Handoff table/list.                                                                              |
+| `handoff delete`                                                   | P0 feature-building         | Destructive confirmation/result.                                                                 |
+| `handoff gc`                                                       | P0 feature-building         | Destructive preview/confirmation summary.                                                        |
+| `enriched-plan list`                                               | P1 mechanical               | Saved-plan table.                                                                                |
+| `enriched-plan exec save`, `enriched-plan exec resolve`            | Exempt by default           | Hidden deterministic plan primitives.                                                            |
+| `branch-context exec from-plan/load/attach/list/check/delete`      | Exempt by default           | Hidden branch-context primitives; keep machine/agent first unless a visible admin face is added. |
+| `pr-address exec *`                                                | Exempt by default           | Hidden PR feedback primitives; output is LM-ready JSON/Markdown.                                 |
+| `ccc exec cmux-workspace-summary`, `ccc exec autobranch`           | Exempt by default           | Hidden orchestration primitives.                                                                 |
+| `aretro exec collect-evidence`, `aretro exec read-evidence-detail` | Exempt by default           | Hidden retrospective evidence primitives.                                                        |
+| `roaster review list`, `roaster review ls`                         | P1 mechanical               | Review catalog list.                                                                             |
+| `roaster review run`                                               | P0 feature-building         | Long-running review execution and findings summary.                                              |
+| `roaster review log`                                               | P1 mechanical               | Branch Memory review-log table/detail.                                                           |
+| `roaster roast list`                                               | P1 mechanical               | Review-skill catalog list.                                                                       |
+| `roaster exec record-findings`, `roaster exec publish-findings`    | Exempt by default           | Automation primitives; style only diagnostics if exposed to humans later.                        |
+| `sdlcc` full-screen UI                                             | Exempt / separate objective | OpenTUI full-screen app; not a traditional clinkr CLI surface.                                   |
+| `sdlcc cmux report`                                                | Exempt by default           | Hidden cmux metadata primitive.                                                                  |
+| `areg init`                                                        | P1 mechanical               | Setup/write summary.                                                                             |
+| `areg check`                                                       | P1 mechanical               | Diagnostics/status report.                                                                       |
+| `areg update-skills`                                               | P0 feature-building         | External refresh with preview/write summary.                                                     |
+| `areg skill list`                                                  | P1 mechanical               | Skill-kind table.                                                                                |
+| `areg skill show`                                                  | P1 mechanical               | Detail/report view.                                                                              |
+| `areg skill apply`                                                 | P0 feature-building         | Preview/apply operations over files.                                                             |
+| `areg exec skillx parse/list/fetch/cleanup`                        | Exempt by default           | Hidden skill maintenance primitives.                                                             |
+| `packagechk NAME`                                                  | P0 feature-building         | Registry availability card and JSON escape hatch.                                                |
+| `packagechk claim-pypi`, `packagechk claim-npm`                    | P0 feature-building         | High-consequence publish confirmation/progress.                                                  |
+| `vibechk runs`                                                     | P1 mechanical               | Run list table.                                                                                  |
+| `vibechk show`, `vibechk diff`                                     | P1 mechanical               | Markdown/report surfaces; decide themed frame vs passthrough after report primitive.             |
+| `vibechk run`                                                      | P0 feature-building         | Long-running agent run progress and final artifact summary.                                      |
+
+## Mechanical rollout candidates after feature stabilization
+
+Once the P0 primitives above exist, migrate these in batches by shape rather than domain:
+
+1. **List/table batch:** `sdl slot list`, `brmem list`, `handoff list`, `enriched-plan list`, `roaster review list`, `roaster roast list`, `areg skill list`, `vibechk runs`.
+2. **Status/check batch:** `sdl objective check`, `brmem check`, `areg check`, `sdl flow changes`.
+3. **Simple mutation summary batch:** `brmem put`, `sdl slot claim/init`, `areg init`.
+4. **Detail/report batch:** `areg skill show`, `roaster review log`, `vibechk show`, `vibechk diff`.
+5. **Destructive/preview batch:** remaining delete/gc/copy/export/setup/apply/resize/free commands after the shared destructive-action renderer lands.
+
+## Audit caveats
+
+- This inventory is based on first-party TypeScript package `bin` entries, `sdl` dynamic extension help, and hidden `exec` groups present on 2026-06-27.
+- It deliberately excludes Pi slash commands and full-screen TUI internals; those are separate host/UI surfaces, not terminal CLI output.

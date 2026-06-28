@@ -8,12 +8,12 @@ agent-first nature. Because clinkr already separates human from machine output
 (`human | json | markdown`, with `canEmitAnsi`), the human surface is free to be richly
 styled while agents read `--format json` — decoration has a clean machine escape hatch.
 
-We will not theorize the house style into existence. We will first **throwaway-steelthread
+We did not theorize the house style into existence. We first **throwaway-steelthreaded
 two representative commands with no reusable infra** — `objective list` (buffered list) and
-`flow submit` (streaming) — purely to dial in the UX north star *by feel* in a real terminal.
-Only once that north star is signed off will we **rebuild both commands from scratch on proper
-clinkr foundations** (an opt-in display library). Rolling the house style out to the rest of
-the system is the explicit follow-on, not part of this Objective.
+`flow submit` (streaming) — to dial in the UX north star *by feel* in a real terminal, then
+rebuilt the representative surfaces on proper clinkr foundations. The Objective's active phase is now
+the audited rollout: stabilize the missing reusable display primitives first, then migrate the remaining
+human-facing CLI surfaces mechanically by shape.
 
 ## Scope
 
@@ -36,10 +36,15 @@ the system is the explicit follow-on, not part of this Objective.
   seam, not independent `process.*` sniffing.
 - **Rebuild** `objective list` and `flow submit` for real on those foundations to match the
   signed-off north star, preserving machine mode for `objective list`.
+- **Audit and roll out** the house style across the remaining human-facing CLI surfaces. The inventory
+  lives in `cli-surface-audit.md`; feature-building migrations lead, and hidden `exec`/LM payload/full-screen
+  TUI surfaces are exempt by default unless they grow a real human-facing mode.
 
 ## Non-Goals
 
-- System-wide rollout to the rest of the CLI surface (parked follow-on).
+- Styling hidden `exec`/skill primitives, JSON/Markdown payload readers, or agent-only evidence streams
+  just for cosmetics. Keep machine/agent surfaces machine-first unless they also have a durable human-facing
+  mode.
 - Full TUI / alt-screen apps (Ink / opentui). This is traditional CLI primitives — lists,
   live progress — not a full-screen TUI.
 - Growing `SdlExtensionApi` beyond, at most, a single deferred optional caps field.
@@ -58,6 +63,13 @@ the system is the explicit follow-on, not part of this Objective.
   that core / raw / completion / testing never import the display layer.
 - `objective list` and `flow submit` rebuilt on the foundations and matching the north star,
   with `--format json` machine mode preserved for `objective list`.
+- `cli-surface-audit.md` stays current and covers every first-party TypeScript CLI surface, with each
+  surface marked done, feature-building, mechanical, or exempt.
+- The feature-building front of the migration backlog is complete: side-effect workflow/progress,
+  destructive preview/confirmation, actionable shell/navigation output, registry/agent-run reporting,
+  and generalized list/detail/report primitives are stable enough that remaining migrations are mechanical.
+- Every non-exempt human-facing CLI surface in `cli-surface-audit.md` is either migrated to the house
+  style or explicitly deferred with rationale.
 - Evidence: targeted tests and relevant repo checks (`just`) pass; the opt-in property is
   verified — a core-only consumer pulls in none of the display dependencies.
 
@@ -87,8 +99,9 @@ the system is the explicit follow-on, not part of this Objective.
 - Degradation correctness (mono / no-unicode / non-TTY / narrow width) is where rich CLIs break;
   it remains a regression risk for future rollout even though the representative surfaces now have
   focused coverage.
-- "Apply to the rest of the system" can pull the open-ended rollout into this Objective;
-  mitigated by parking rollout under the roadmap.
+- The audited rollout can still become open-ended if every command invents bespoke presentation. Mitigate by
+  doing feature-building migrations first, freezing reusable renderer shapes, and then batching the remaining
+  surfaces mechanically by shape.
 - Keeping `SdlExtensionApi` narrow while delivering caps through clinkr was de-risked with the
   existing generic `extensions` seam (`sdl.clinkr.caps`), avoiding a dedicated new caps field;
   the broader streaming machine-output contract is explicitly parked as a follow-on instead of being
