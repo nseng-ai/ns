@@ -85,7 +85,7 @@
       primitives. Registry/agent-run and other standalone/unported surfaces are no longer active UX
       migration targets in this Objective; re-evaluate them when their command surfaces port. Hidden
       `exec`/LM payload/full-screen TUI surfaces stay exempt by default.
-- [ ] Stabilize reusable side-effect workflow/progress primitives beyond `flow submit`/`flow cp`, then
+- [x] Stabilize reusable side-effect workflow/progress primitives beyond `flow submit`/`flow cp`, then
       migrate the eligible P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
       `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`).
       Standalone/unported runner commands such as `vibechk run` / `roaster review run` are now
@@ -218,10 +218,13 @@
       `updates/2026-06-28T000001Z-slot-gc-destructive-result-block.md`,
       `updates/2026-06-28T121500Z-slot-free-stack-resize-destructive-rendering.md`,
       `updates/2026-06-28T192520Z-handoff-destructive-result-blocks.md`.
-- [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
+- [x] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
       whether this Objective or a follow-on owns their UX migration.
+      Closure pass 2026-06-28: current extension command-face inventory remains Flow, Objective, Slot,
+      and Handoff for this rollout; hidden `exec` commands and Handoff create/pickup remain exempt, and
+      standalone/unported families remain extension-gated for a later Objective.
 - [x] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
       P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
       faces), leaving extension-gated surfaces for later re-evaluation.
