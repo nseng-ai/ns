@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { stripAnsi } from "@sdl/clinkr/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SLOT_CD_DIRECTIVE_FILE } from "../../src/shell/cd-directive.ts";
@@ -30,6 +31,45 @@ describe("slot goto CLI", () => {
 				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
 			},
 		});
+	});
+
+	it("renders house-style human navigation output", async () => {
+		const run = runScenario(["goto", "-n", "1"], {
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ slot-01 -> feature/a",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
+	});
+
+	it("renders operation state in human navigation output", async () => {
+		const path = "/slots/repos/repo/worktrees/slot-01";
+		const run = runScenario(["goto", "--wt", "slot-01"], {
+			git: {
+				worktrees: [{ path, branch: "feature/a" }],
+				branchOccupancies: [{ path, branch: "feature/a", operation: "rebase" }],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")[0]).toBe(
+			"✓ slot-01 -> feature/a (rebase in progress)",
+		);
+	});
+
+	it("renders clipboard failure as non-fatal human navigation guidance", async () => {
+		const run = runScenario(["goto", "-n", "1"], {
+			clipboardResult: { type: "failure", reason: "backend_missing", detail: "missing pbcopy" },
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ slot-01 -> feature/a",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Clipboard unavailable (missing pbcopy)",
+		]);
 	});
 
 	it("goes to assigned slot by worktree name", async () => {

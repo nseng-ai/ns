@@ -181,6 +181,11 @@
 - [ ] Stabilize actionable shell/navigation rendering, then migrate currently eligible Slot command-face
       surfaces: `sdl slot checkout/co/goto` and `sdl slot gt up/down`. Re-evaluate shell-wrapper commands
       only if/when they gain an SDL extension / Capability command face.
+      Pilot landed with `sdl slot goto`: a Slot-local navigation presentation helper now renders the
+      house-style success headline and clipboard guidance while the `cd ...` command remains a bare,
+      unstyled, copyable line. JSON output, clipboard side effects, and Shell Directive behavior are
+      unchanged. Remaining consumers for this row are `checkout/co` and `gt up/down`; clinkr-wide
+      navigation extraction stays deferred until those repeated consumers prove the shape.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
       mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
       unported destructive surfaces extension-gated until they port.
