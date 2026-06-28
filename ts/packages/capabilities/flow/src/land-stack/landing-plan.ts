@@ -183,7 +183,13 @@ export async function collectSubmitRestackRequirements(
 			"--not",
 			localBranchRef(edge.branch),
 		];
-		const result = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
+		const result = await exec({
+			pi,
+			command: "git",
+			args,
+			cwd: repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
 		if (result.code !== 0) {
 			return failure(
 				landStackFailure(

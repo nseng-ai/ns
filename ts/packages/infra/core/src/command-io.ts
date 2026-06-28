@@ -1,3 +1,5 @@
+import type { ExecOutputListener } from "./exec.ts";
+
 export type NotifyLevel = "info" | "warning" | "error";
 
 export interface CommandMessageOptions {
@@ -29,6 +31,17 @@ export interface CommandIo {
 	message(message: string, options?: CommandMessageOptions): void;
 	/** Clears any sticky transient phase (no-op for append-only sinks). */
 	clearPhase(): void;
+}
+
+export interface CliCommandIoInput {
+	stdout(text: string): void;
+	stderr(text: string): void;
+	onOutput?: ExecOutputListener | undefined;
+}
+
+export interface CliCommandIoOptions {
+	/** Invoked once per error-level notification, e.g. to flip a CLI exit flag. */
+	onNotifyError?: () => void;
 }
 
 export interface CommandIoChannels {
@@ -70,6 +83,31 @@ export async function runWithCommandIo<T>(
 	} finally {
 		io.clearPhase();
 	}
+}
+
+export function createCliCommandIo(
+	input: CliCommandIoInput,
+	options: CliCommandIoOptions = {},
+): CommandIo {
+	const io = createCommandIo({
+		...(input.onOutput === undefined
+			? {}
+			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
+		phaseFallback: input.stderr,
+		notifyInfo: input.stdout,
+		notifyDiagnostic: input.stderr,
+	});
+
+	const onNotifyError = options.onNotifyError;
+	if (onNotifyError === undefined) return io;
+
+	return {
+		...io,
+		notify: (message, level = "info") => {
+			if (level === "error") onNotifyError();
+			io.notify(message, level);
+		},
+	};
 }
 
 export function createCommandIo(channels: CommandIoChannels): CommandIo {

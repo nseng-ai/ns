@@ -3,7 +3,7 @@ import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "./terminal-presentation.ts";
+} from "@sdl/core/terminal-presentation";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import {
 	AUTO_CHUNK_LANDING_SIZE,

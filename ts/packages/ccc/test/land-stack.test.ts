@@ -8,31 +8,31 @@ import {
 	parseGitCheckedOutElsewhere,
 	shortSha,
 	stripAnsi,
-} from "../src/land-stack/command-exec.ts";
-import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
+} from "sdl-flow/land-stack/command-exec";
+import { landStackFailure, type LandStackResult } from "sdl-flow/land-stack/errors";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
 	withCommandStreaming,
-} from "../src/land-stack/command-stream.ts";
-import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
+} from "sdl-flow/land-stack/command-stream";
+import { executeStackLanding, parseArgs, registerLandStackRenderer } from "sdl-flow/land-stack";
 import {
 	derivePathToTrunk,
 	deriveDescendantSubtree,
 	detectForkViolations,
 	type GraphiteTopology,
-} from "../src/land-stack/graphite-topology.ts";
+} from "sdl-flow/land-stack/graphite-topology";
 import {
 	loadPr,
 	validateInitialPrPreflight,
 	validateOpenPrBasics,
-} from "../src/land-stack/pr-facts.ts";
+} from "sdl-flow/land-stack/pr-facts";
 import {
 	formatFailure,
 	formatPlan,
 	formatSuccessNotification,
-} from "../src/land-stack/presentation.ts";
-import { detectInProgressOperation, loadStackSnapshot } from "../src/land-stack/stack-facts.ts";
+} from "sdl-flow/land-stack/presentation";
+import { detectInProgressOperation, loadStackSnapshot } from "sdl-flow/land-stack/stack-facts";
 import type {
 	BranchPlan,
 	LandStackExtensionAPI,
@@ -43,13 +43,13 @@ import type {
 	NotifyLevel,
 	PullRequestSnapshot,
 	StackSnapshot,
-} from "../src/land-stack/types.ts";
+} from "sdl-flow/land-stack/types";
 import {
 	detectWorktreeConflicts,
 	isManagedSlotPath,
 	parseWorktreeList,
 	slotNameFromPath,
-} from "../src/land-stack/worktrees.ts";
+} from "sdl-flow/land-stack/worktrees";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS =
@@ -1046,18 +1046,18 @@ async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
 describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
 		expect(expectSuccess(parseArgs("--yes --dry-run --free --force --help"))).toEqual({
-			yes: true,
-			dryRun: true,
-			free: true,
-			force: true,
-			help: true,
+			shouldSkipConfirmation: true,
+			isDryRun: true,
+			shouldFreeSlot: true,
+			shouldForceCleanup: true,
+			shouldShowHelp: true,
 		});
 		expect(expectSuccess(parseArgs("-y --free -f -h"))).toEqual({
-			yes: true,
-			dryRun: false,
-			free: true,
-			force: true,
-			help: true,
+			shouldSkipConfirmation: true,
+			isDryRun: false,
+			shouldFreeSlot: true,
+			shouldForceCleanup: true,
+			shouldShowHelp: true,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
 			"Unknown /sdl:flow:land argument: --wat",

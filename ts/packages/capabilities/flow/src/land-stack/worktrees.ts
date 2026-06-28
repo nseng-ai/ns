@@ -48,13 +48,13 @@ export async function loadWorktrees(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackResult<WorktreeEntry[]>> {
-	const result = await exec(
+	const result = await exec({
 		pi,
-		"git",
-		["worktree", "list", "--porcelain"],
-		repoRoot,
-		GIT_TIMEOUT_MS,
-	);
+		command: "git",
+		args: ["worktree", "list", "--porcelain"],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(

@@ -1,4 +1,4 @@
-import { createCommandIo, runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
+import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { formatCommand, normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
@@ -7,6 +7,7 @@ import {
 	parseArgs,
 	registerLandStackRenderer,
 } from "./land-stack.ts";
+import { createFlowCliCommandIo } from "./cli-command-io.ts";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
@@ -140,7 +141,7 @@ async function runLandCommand(
 		});
 		return failure(args.failure);
 	}
-	if (args.value.help) {
+	if (args.value.shouldShowHelp) {
 		notify({ ctx, message: usage(), level: "info" });
 		return completed();
 	}
@@ -180,7 +181,7 @@ async function runLandCommand(
 
 	if (isIsolatedFastPath(shape.value.stack)) {
 		const outcome = await runFastLand(runtimeLandPi, ctx, shape.value, {
-			dryRun: args.value.dryRun,
+			isDryRun: args.value.isDryRun,
 			...(progressIo === undefined ? {} : { progressIo }),
 		});
 		if (outcome.type === "failure") return outcome;
@@ -207,8 +208,8 @@ async function runLandCommand(
 	}
 
 	const confirmationOutcome = await confirmStackModeIfNeeded(ctx, shape.value, {
-		dryRun: args.value.dryRun,
-		yes: args.value.yes,
+		isDryRun: args.value.isDryRun,
+		shouldSkipConfirmation: args.value.shouldSkipConfirmation,
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
@@ -270,7 +271,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 
 	const confirm = input.confirm;
 	const caps = input.caps;
-	const progressIo = createLandCliCommandIo(input);
+	const progressIo = createFlowCliCommandIo(input);
 	const outcome = await runWithCommandIo(
 		progressIo,
 		async () =>
@@ -314,21 +315,6 @@ function createCliResultBlockRenderer(
 	return (kind, message) => renderLandResultBlockFromMessage(caps, { kind, message });
 }
 
-function createLandCliCommandIo(input: LandCliInput): CommandIo {
-	// Keep this as a narrow CCC CLI edge adapter over the existing CommandIo primitive;
-	// the same edge mapping also appears in autoslot, but extracting it would add a
-	// second wrapper abstraction instead of just adapting local callbacks to CommandIo.
-	// Reusing the SDL SDK adapter would couple this lower land path to SdlExtensionApi.
-	return createCommandIo({
-		...(input.onOutput === undefined
-			? {}
-			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
-		phaseFallback: input.stderr,
-		notifyInfo: input.stdout,
-		notifyDiagnostic: input.stderr,
-	});
-}
-
 export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 	return (
 		stack.actualCurrentBranch !== stack.trunk &&
@@ -341,9 +327,9 @@ export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 async function confirmStackModeIfNeeded(
 	ctx: LandCommandContext,
 	shape: LandingShape,
-	options: { dryRun: boolean; yes: boolean },
+	options: { isDryRun: boolean; shouldSkipConfirmation: boolean },
 ): Promise<LandStackOutcome> {
-	if (options.dryRun || options.yes) return completed();
+	if (options.isDryRun || options.shouldSkipConfirmation) return completed();
 	if (!ctx.hasUI) {
 		const landFailure = landStackFailure(
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
@@ -404,7 +390,7 @@ async function runPostLandingSlotCleanup({
 	args,
 	shape,
 }: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
-	if (!args.free || args.dryRun) return completed();
+	if (!args.shouldFreeSlot || args.isDryRun) return completed();
 
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) {
@@ -418,7 +404,7 @@ async function runPostLandingSlotCleanup({
 		repoRoot: shape.repoRoot,
 		slotName,
 	});
-	if (!args.force && !args.yes) {
+	if (!args.shouldForceCleanup && !args.shouldSkipConfirmation) {
 		if (!ctx.hasUI) {
 			const landFailure = landStackFailure(
 				[
@@ -474,7 +460,13 @@ async function runPostLandingSlotCleanup({
 	try {
 		setStatus(ctx, `freeing ${slotName}...`);
 		const freeArgs = ["slot", "free", "--wt", slotName];
-		const freeResult = await exec(pi, "sdl", freeArgs, shape.repoRoot, SLOT_TIMEOUT_MS);
+		const freeResult = await exec({
+			pi,
+			command: "sdl",
+			args: freeArgs,
+			cwd: shape.repoRoot,
+			timeoutMs: SLOT_TIMEOUT_MS,
+		});
 		if (freeResult.code !== 0) {
 			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
 				commandDisplay: formatCommand("sdl", freeArgs),
@@ -560,7 +552,7 @@ async function runFastLand(
 	pi: LandExtensionAPI,
 	ctx: LandCommandContext,
 	target: LandingShape,
-	options: { dryRun: boolean; progressIo?: CommandIo },
+	options: { isDryRun: boolean; progressIo?: CommandIo },
 ): Promise<LandStackOutcome> {
 	const pr = await loadPullRequest(pi, target.repoRoot);
 	if ("error" in pr) {
@@ -574,7 +566,7 @@ async function runFastLand(
 		return failure(landStackFailure(message, { outcome: "refusal" }));
 	}
 
-	if (options.dryRun) {
+	if (options.isDryRun) {
 		notify({
 			ctx,
 			message: `Dry run only; would merge PR #${pr.number} into ${target.trunk}.`,

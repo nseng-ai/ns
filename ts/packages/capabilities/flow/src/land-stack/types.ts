@@ -77,11 +77,11 @@ export interface LandStackExtensionAPI {
 }
 
 export interface ParsedArgs {
-	yes: boolean;
-	dryRun: boolean;
-	free: boolean;
-	force: boolean;
-	help: boolean;
+	shouldSkipConfirmation: boolean;
+	isDryRun: boolean;
+	shouldFreeSlot: boolean;
+	shouldForceCleanup: boolean;
+	shouldShowHelp: boolean;
 }
 
 export interface StackSnapshot {

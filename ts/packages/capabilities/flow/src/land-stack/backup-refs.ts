@@ -41,7 +41,13 @@ export async function writeLandBackupRefs(
 		}
 		const ref = `${BACKUP_REF_NAMESPACE}/${branch}`;
 		const args = ["update-ref", ref, sha.value];
-		const updated = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
+		const updated = await exec({
+			pi,
+			command: "git",
+			args,
+			cwd: repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
 		if (updated.code !== 0) {
 			return failure(
 				landStackFailure(`Could not write pre-land backup ref ${ref}; no PRs were landed.`, {
@@ -67,7 +73,13 @@ async function rotateBackupRefsToPrevious(
 		".",
 		`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 	];
-	const rotated = await exec(pi, "git", args, repoRoot, GIT_TIMEOUT_MS);
+	const rotated = await exec({
+		pi,
+		command: "git",
+		args,
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (rotated.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -89,7 +101,13 @@ async function pruneBackupNamespace(
 	description: string,
 ): Promise<LandStackOutcome> {
 	const listArgs = ["for-each-ref", "--format=%(refname)", namespace];
-	const refs = await exec(pi, "git", listArgs, repoRoot, GIT_TIMEOUT_MS);
+	const refs = await exec({
+		pi,
+		command: "git",
+		args: listArgs,
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (refs.code !== 0) {
 		return failure(
 			landStackFailure(`Could not list ${description} for pruning; no PRs were landed.`, {
@@ -103,7 +121,13 @@ async function pruneBackupNamespace(
 		.map((line) => line.trim())
 		.filter(Boolean)) {
 		const deleteArgs = ["update-ref", "-d", ref];
-		const deleted = await exec(pi, "git", deleteArgs, repoRoot, GIT_TIMEOUT_MS);
+		const deleted = await exec({
+			pi,
+			command: "git",
+			args: deleteArgs,
+			cwd: repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
 		if (deleted.code !== 0) {
 			return failure(
 				landStackFailure(`Could not delete ${description} ${ref}; no PRs were landed.`, {

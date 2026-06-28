@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { createCommandIo, runWithCommandIo } from "../src/command-io.ts";
+import { createCliCommandIo, createCommandIo, runWithCommandIo } from "../src/command-io.ts";
 
 describe("createCommandIo", () => {
 	test("phase prefers sticky, then transient, then fallback", () => {
@@ -131,6 +131,33 @@ describe("message", () => {
 		io.message("Final summary", { isRichOnly: true });
 
 		expect(fallback).toEqual([]);
+	});
+});
+
+describe("createCliCommandIo", () => {
+	test("maps CLI callbacks to CommandIo channels", () => {
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const output: Array<{ stream: string; text: string }> = [];
+		let errorNotifications = 0;
+		const io = createCliCommandIo(
+			{
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+				onOutput: (stream, text) => output.push({ stream, text }),
+			},
+			{ onNotifyError: () => (errorNotifications += 1) },
+		);
+
+		io.phase("Working");
+		io.notify("Done");
+		io.notify("Careful", "warning");
+		io.notify("Broken", "error");
+
+		expect(output).toEqual([{ stream: "stderr", text: "Working\n" }]);
+		expect(stdout).toEqual(["Done\n"]);
+		expect(stderr).toEqual(["Careful\n", "Broken\n"]);
+		expect(errorNotifications).toBe(1);
 	});
 });
 

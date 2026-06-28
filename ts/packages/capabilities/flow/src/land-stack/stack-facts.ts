@@ -29,7 +29,13 @@ export async function loadRepoRoot(
 	pi: LandStackExtensionAPI,
 	cwd: string,
 ): Promise<LandStackResult<string>> {
-	const result = await exec(pi, "git", ["rev-parse", "--show-toplevel"], cwd, GIT_TIMEOUT_MS);
+	const result = await exec({
+		pi,
+		command: "git",
+		args: ["rev-parse", "--show-toplevel"],
+		cwd,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -48,13 +54,13 @@ export async function loadCurrentBranch(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackResult<string>> {
-	const result = await exec(
+	const result = await exec({
 		pi,
-		"git",
-		["symbolic-ref", "--short", "HEAD"],
-		repoRoot,
-		GIT_TIMEOUT_MS,
-	);
+		command: "git",
+		args: ["symbolic-ref", "--short", "HEAD"],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -235,7 +241,13 @@ export async function assertCleanRepo(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandStackOutcome> {
-	const status = await exec(pi, "git", ["status", "--porcelain=v1"], repoRoot, GIT_TIMEOUT_MS);
+	const status = await exec({
+		pi,
+		command: "git",
+		args: ["status", "--porcelain=v1"],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (status.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -273,13 +285,13 @@ export async function detectInProgressOperation(
 	];
 
 	for (const { ref, label } of refs) {
-		const result = await exec(
+		const result = await exec({
 			pi,
-			"git",
-			["rev-parse", "-q", "--verify", ref],
-			repoRoot,
-			GIT_TIMEOUT_MS,
-		);
+			command: "git",
+			args: ["rev-parse", "-q", "--verify", ref],
+			cwd: repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
 		if (result.code === 0) {
 			return label;
 		}
@@ -289,13 +301,13 @@ export async function detectInProgressOperation(
 	// clean, normal worktree. Treat only Git's active rebase state directories as
 	// authoritative for rebase detection.
 	for (const dir of ["rebase-merge", "rebase-apply"]) {
-		const pathResult = await exec(
+		const pathResult = await exec({
 			pi,
-			"git",
-			["rev-parse", "--git-path", dir],
-			repoRoot,
-			GIT_TIMEOUT_MS,
-		);
+			command: "git",
+			args: ["rev-parse", "--git-path", dir],
+			cwd: repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
 		if (pathResult.code !== 0) continue;
 		const gitPath = pathResult.stdout.trim();
 		if (gitPath && pathExists(resolveGitPath(repoRoot, gitPath))) {
@@ -319,13 +331,13 @@ export async function assertLocalBranchExists(
 	repoRoot: string,
 	branch: string,
 ): Promise<LandStackOutcome> {
-	const result = await exec(
+	const result = await exec({
 		pi,
-		"git",
-		["show-ref", "--verify", `refs/heads/${branch}`],
-		repoRoot,
-		GIT_TIMEOUT_MS,
-	);
+		command: "git",
+		args: ["show-ref", "--verify", `refs/heads/${branch}`],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
@@ -342,7 +354,13 @@ export async function loadLocalSha(
 	branch: string,
 ): Promise<LandStackResult<string>> {
 	const ref = `refs/heads/${branch}^{commit}`;
-	const result = await exec(pi, "git", ["rev-parse", "--verify", ref], repoRoot, GIT_TIMEOUT_MS);
+	const result = await exec({
+		pi,
+		command: "git",
+		args: ["rev-parse", "--verify", ref],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(

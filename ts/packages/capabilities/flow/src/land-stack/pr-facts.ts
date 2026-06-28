@@ -23,7 +23,7 @@ export async function loadPr(
 	branchOrNumber: string,
 ): Promise<LandStackResult<PullRequestSnapshot>> {
 	const args = ["pr", "view", branchOrNumber, "--json", PR_FIELDS];
-	const result = await exec(pi, "gh", args, repoRoot, GH_TIMEOUT_MS);
+	const result = await exec({ pi, command: "gh", args, cwd: repoRoot, timeoutMs: GH_TIMEOUT_MS });
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
