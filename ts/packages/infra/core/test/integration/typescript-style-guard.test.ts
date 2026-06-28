@@ -176,6 +176,36 @@ describe("TypeScript style guard source rules", () => {
 	);
 });
 
+describe("TypeScript style guard documentation references", () => {
+	test("mutable guidance no longer points at the retired ts-guard target", () => {
+		const checkedFiles = [
+			".github/workflows/ci.yml",
+			"docs/README.md",
+			"docs/adr/README.md",
+			"docs/pi/extension-command-checklist.md",
+			"justfile",
+			"skills/sdl-typescript/SKILL.md",
+		];
+
+		const offenders = checkedFiles.filter((path) => {
+			const content = readFileSync(join(REPO_ROOT, path), "utf8");
+			return content.includes("ts-guard") || content.includes("guard-typescript-style");
+		});
+
+		expect(offenders).toEqual([]);
+	});
+
+	test("historical ADR text is preserved instead of rewritten for guard target migrations", () => {
+		const adr = readFileSync(
+			join(REPO_ROOT, "docs/adr/0009-extension-layering-and-peer-dependencies.md"),
+			"utf8",
+		);
+
+		expect(adr).toContain("define curated subpaths, and `just ts-guard` rejects");
+		expect(adr).toContain("topological cycle analysis in `just ts-guard` enforces this invariant");
+	});
+});
+
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
 		"@sdl/autobranch",
