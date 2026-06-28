@@ -1,9 +1,10 @@
-import { failure, negative, ok } from "@sdl/clinkr";
+import { failure, negative, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import { buildSlotInventory, findBySlot } from "../inventory.ts";
-import { prepareNavigation, renderNavigationFooter } from "../navigation-result.ts";
+import { prepareNavigation } from "../navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../navigation-presentation.ts";
 import { poolSize } from "../inventory.ts";
 import { resolveNum, resolveWt } from "../selectors.ts";
 
@@ -72,9 +73,16 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 	});
 }
 
-export function renderGoto(result: GotoResult): string {
+export function renderGoto(
+	result: GotoResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	const operationSuffix = result.operation === null ? "" : ` (${result.operation} in progress)`;
-	const lines = [`${result.slot_name} -> ${result.branch_name}${operationSuffix}`];
-	lines.push(...renderNavigationFooter(result));
-	return lines.join("\n");
+	return renderSlotNavigationSuccess(
+		{
+			...result,
+			headline: `${result.slot_name} -> ${result.branch_name}${operationSuffix}`,
+		},
+		caps,
+	);
 }
