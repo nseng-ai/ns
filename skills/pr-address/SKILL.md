@@ -5,7 +5,7 @@ description: "Use when downloading GitHub PR feedback or using sdl address exec 
 
 # pr-address
 
-`pr-address` is the repo-owned PR feedback surface: LM-ready feedback download plus shared `sdl address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations.
+Address is the repo-owned PR feedback surface: LM-ready feedback download plus shared `sdl address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
 
 ## Initial feedback download
 

@@ -1,6 +1,6 @@
-# pr-address command collection
+# Address command collection
 
-`pr-address` provides LM-ready feedback download plus shared PR feedback primitives. The old addressing workflow engine is retired; the current primitive commands are not retired.
+Address provides LM-ready feedback download plus shared PR feedback primitives through `sdl address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
 
 ## Download / stack plumbing
 

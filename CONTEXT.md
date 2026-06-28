@@ -91,7 +91,7 @@ A first-party SDL feature area (objectives, handoff, slot, flow, …) — a set 
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, pr-address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
+An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
