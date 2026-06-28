@@ -187,7 +187,13 @@ function GRAPH_RENDERER() {
     tierCount.set(n.tier, (tierCount.get(n.tier) || 0) + 1);
   });
   const meanDepth = (t) => tierDepthSum.get(t) / tierCount.get(t);
-  const presentTiers = [...tierCount.keys()].sort((a, b) => meanDepth(a) - meanDepth(b));
+  // Canonical architectural stacking (consumers → foundation). The holding pen sits
+  // just under the SDK, above neutral infra, matching the north-star tier policy — not
+  // at the very bottom where its shallow mean DAG depth (it only depends on core) would
+  // otherwise drop it. Tiers absent from this list fall back to mean-depth ordering.
+  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "transitional", "neutral-infra"];
+  const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
+  const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
   const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
   const nBands = Math.max(1, presentTiers.length);
   const bandSpan = () => (H - 120) / nBands;

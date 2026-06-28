@@ -23,6 +23,7 @@
 		"./terminal/layout": "./src/terminal/layout.ts",
 		"./terminal/presentation": "./src/terminal/presentation.ts",
 		"./shared/errors": "./src/shared/errors.ts",
+		"./shared/gh-command": "./src/shared/gh-command.ts",
 		"./shared/text-lines": "./src/shared/text-lines.ts",
 		"./shared/timers": "./src/shared/timers.ts",
 		"./runtime/types": "./src/runtime/types.ts",

@@ -1,9 +1,7 @@
-import type { ExecResult } from "@sdl/core/exec";
-
-import type { ExtensionAPI } from "./extension.ts";
+import type { ExecGateway } from "./exec-gateway.ts";
 
 export interface LoadGhCommandOptions {
-	pi: Pick<ExtensionAPI, "exec">;
+	pi: ExecGateway;
 	args: string[];
 	cwd: string;
 	timeoutMs: number;
@@ -16,7 +14,7 @@ export type LoadGhCommandResult =
 	| { type: "failed"; detail: string };
 
 export async function loadGhCommand(options: LoadGhCommandOptions): Promise<LoadGhCommandResult> {
-	const result: ExecResult = await options.pi.exec("gh", options.args, {
+	const result = await options.pi.exec("gh", options.args, {
 		cwd: options.cwd,
 		timeout: options.timeoutMs,
 		...(options.signal === undefined ? {} : { signal: options.signal }),
