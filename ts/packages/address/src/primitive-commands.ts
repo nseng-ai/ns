@@ -23,12 +23,11 @@ import {
 	resolveReviewThreadResultSchema,
 } from "./operation-schemas/collection.ts";
 import { collectPrChecks } from "./core/pr-checks.ts";
+import { replyReviewThread, resolveReviewThread } from "./core/review-thread-mutations.ts";
 import {
 	discussionCommentsResult,
 	lookupResult,
 	openPrsResult,
-	replyReviewThreadResult,
-	resolveReviewThreadResult,
 	reviewsResult,
 	reviewThreadsResult,
 } from "./primitive-results.ts";
@@ -260,31 +259,35 @@ async function runReplyReviewThread(
 	ctx: PrAddressExecContext,
 	request: ReplyReviewThreadRequest,
 ): Promise<ClinkrExit<ReplyReviewThreadResult>> {
-	return await prFeedbackResultExit({
-		result: ctx.context.prFeedback.replyToReviewThread({
-			...gatewayOptions(ctx),
-			threadId: request.threadId,
-			body: request.body,
-		}),
-		failurePrefix: `Failed to reply to review thread ${request.threadId}`,
-		toPayload: (reply) =>
-			replyReviewThreadResult({ threadId: reply.threadId, comment: reply.comment }),
+	const result = await replyReviewThread({
+		prFeedback: ctx.context.prFeedback,
+		gatewayOptions: gatewayOptions(ctx),
+		threadId: request.threadId,
+		body: request.body,
 	});
+	switch (result.type) {
+		case "ok":
+			return ok(result.reply);
+		case "pr_feedback_failure":
+			return prFeedbackFailureExit(result.message, result.failure);
+	}
 }
 
 async function runResolveReviewThread(
 	ctx: PrAddressExecContext,
 	request: ResolveReviewThreadRequest,
 ): Promise<ClinkrExit<ResolveReviewThreadResult>> {
-	return await prFeedbackResultExit({
-		result: ctx.context.prFeedback.resolveReviewThread({
-			...gatewayOptions(ctx),
-			threadId: request.threadId,
-		}),
-		failurePrefix: `Failed to resolve review thread ${request.threadId}`,
-		toPayload: (state) =>
-			resolveReviewThreadResult({ threadId: state.threadId, isResolved: state.isResolved }),
+	const result = await resolveReviewThread({
+		prFeedback: ctx.context.prFeedback,
+		gatewayOptions: gatewayOptions(ctx),
+		threadId: request.threadId,
 	});
+	switch (result.type) {
+		case "ok":
+			return ok(result.resolution);
+		case "pr_feedback_failure":
+			return prFeedbackFailureExit(result.message, result.failure);
+	}
 }
 
 async function prFeedbackResultExit<TValue, TPayload>(options: {

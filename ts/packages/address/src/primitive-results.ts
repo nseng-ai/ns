@@ -20,8 +20,6 @@ import type {
 	prReviewThreadsResultSchema,
 	prReviewThreadSchema,
 	prSummarySchema,
-	replyReviewThreadResultSchema,
-	resolveReviewThreadResultSchema,
 } from "./operation-schemas/collection.ts";
 
 export function lookupResult(result: GithubPrLookupOutcome): z.output<typeof prLookupResultSchema> {
@@ -57,20 +55,6 @@ export function discussionCommentsResult(
 	comments: readonly GithubPrDiscussionComment[],
 ): z.output<typeof prDiscussionCommentsResultSchema> {
 	return { discussion_comments: comments.map(discussionCommentResult) };
-}
-
-export function replyReviewThreadResult(options: {
-	readonly threadId: string;
-	readonly comment: GithubPrReviewComment;
-}): z.output<typeof replyReviewThreadResultSchema> {
-	return { thread_id: options.threadId, comment: reviewCommentResult(options.comment) };
-}
-
-export function resolveReviewThreadResult(options: {
-	readonly threadId: string;
-	readonly isResolved: boolean;
-}): z.output<typeof resolveReviewThreadResultSchema> {
-	return { thread_id: options.threadId, is_resolved: options.isResolved };
 }
 
 function prSummaryResult(pr: GithubPrSummary): z.output<typeof prSummarySchema> {
