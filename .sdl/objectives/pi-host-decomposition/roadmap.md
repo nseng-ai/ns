@@ -35,10 +35,10 @@
   - PR feedback status: accepted Pi presentation-only residue plus delegated portable collection/mutation behavior; `pr-address` owns download/check/thread primitives through its command face and `@sdl/pr-address/api`, while Pi keeps editor prefill, TUI previews, stack prompt assembly, live watch state, and prompt injection. Future PR feedback thinning should be a focused `pr-address` Capability/API follow-up, not a Pi-tool package.
   - Evidence: `updates/2026-06-28-capability-mirror-rebaseline.md` records the capability-mirror status matrix and PR feedback disposition.
 
-- [~] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
-  - Ensure package exports describe intentional neutral helper/runtime surfaces rather than accidental feature-domain entrypoints.
-  - Current Pi-tool convention language is updated for `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`; remaining rebaseline work should now focus on final host exports, capability-mirror status language, and any small import-surface hygiene after the mirror status matrix.
-  - Evidence: future agents can tell where to put a new Pi-native tool versus a capability mirror, and the final package graph remains acyclic.
+- [x] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
+  - Final host export language now describes the remaining package exports as intentional neutral/runtime/presentation families rather than accidental feature-domain entrypoints.
+  - Pi-tool convention language covers `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`; capability-mirror language records Handoff, Branch Context + Plans, and Objective as thin shells over Capability APIs, and PR feedback as accepted Pi presentation residue around `pr-address` rather than a Pi-tool candidate.
+  - Evidence: future agents can tell where to put a new Pi-native tool versus a capability mirror, the final package graph remains acyclic, and `updates/2026-06-28-final-host-export-rebaseline.md` records the export/context audit.
 
 ## Parked
 

@@ -25,7 +25,7 @@ A private workspace package under `ts/packages/pi-tools/<tool>/` for a Pi-native
 *Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent runtime/process/JSON-event/presentation helpers, parity helpers, and cmux/Pi runtime types.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent runtime/process/JSON-event/presentation helpers, parity helpers, and cmux/Pi runtime types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `branches/slug`, `grill/surfaces`, `models/*`, `objectives/picker`, `objectives/selection`, `parity/*`, `runtime/*`, `runner-subagents*`, `sessions/replacement`, `skills/expansion`, `terminal/*`, and `shared/timers`.
 *Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
@@ -41,8 +41,16 @@ The first segment before `:` in a repo-owned Pi slash command, chosen by workflo
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:
-The Pi-owned slash-command presentation for Branch Context workflows, including `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/sdl:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@sdl/branch-context/api`.
-*Avoid*: Branch Context domain owner, attached-plan storage semantics, Capability API replacement.
+The Pi-owned slash-command presentation for Branch Context workflows, including `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/sdl:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@sdl/branch-context/api`; saved-plan selection behavior stays in `@sdl/plans/api`.
+*Avoid*: Branch Context domain owner, attached-plan storage semantics, Saved Plan domain owner, Capability API replacement.
+
+**Thin capability mirror**:
+A host-resident Pi command surface whose durable lifecycle, selection, storage, or domain decisions are delegated to the owning Capability API while Pi keeps slash-command registration, prompt/status wording, picker/editor presentation, launch/session orchestration, or TUI behavior. Current thin-shell statuses: Handoff delegates artifact lifecycle and identity through `@sdl/handoff/api`; Branch Context + Plans delegate through `@sdl/branch-context/api` and `@sdl/plans/api`; Objective delegates list/candidate/selection behavior through `@sdl/objective/api`.
+*Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
+
+**PR feedback Pi presentation residue**:
+The accepted remaining Pi presentation/session behavior around PR feedback workflows: editor prefill, modal previews, stack-prompt assembly, live watch state, dirty-tree/idle gating, check-log display, and prompt injection. Portable download/check/thread primitives belong to `pr-address` / `@sdl/pr-address/api` and its command face; future reusable watch/fingerprint seams should move through a focused `pr-address` Capability/API follow-up, not a Pi-tool extraction.
+*Avoid*: Pi-native tool candidate, PR feedback domain owner, portable review-thread mutation API.
 
 **Immediate command acknowledgement**:
 The command-registration requirement that repo-owned Pi slash commands acknowledge receipt synchronously before waiting for idle state or starting slow work. Use `@sdl/pi/commands/ack` helpers rather than hand-writing acknowledgement behavior.

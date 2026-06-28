@@ -4,7 +4,7 @@ import {
 	type HandoffTabLaunchResult,
 } from "./tab-launch.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { handoffSlugToKey } from "@sdl/handoff/identity";
+import { handoffSlugToKey } from "@sdl/handoff/api";
 import { identifyCmuxCaller } from "@sdl/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "../runtime/primitives.ts";
 import { deriveHandoffContentSlug } from "./content-slug.ts";
