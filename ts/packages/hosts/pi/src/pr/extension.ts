@@ -15,7 +15,6 @@ import {
 	type ExecResult,
 	type PrFeedbackDownloadCounts,
 } from "./feedback-download.ts";
-import prFeedbackWatchExtension from "./feedback-watch.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
@@ -136,7 +135,6 @@ export interface ExtensionAPI {
 }
 
 export default function prExtension(pi: ExtensionAPI): void {
-	prFeedbackWatchExtension(pi);
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,

@@ -5,7 +5,7 @@ import {
 } from "../runtime/agent-definition.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 import { renderInvestigationResultMessage } from "./renderer.ts";
-import type { CommandContext, ExtensionAPI } from "../handoff/runtime-types.ts";
+import type { CommandContext, ExtensionAPI } from "../runtime/extension-types.ts";
 
 export const INVESTIGATE_COMMAND_NAME = "investigate";
 const INVESTIGATOR_AGENT_NAME = "investigator";

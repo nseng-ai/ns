@@ -25,6 +25,7 @@ export const packageTierValues = [
 	"transitional",
 	"neutral-infra",
 	"host",
+	"capability-pi",
 	"standalone-tool",
 	"local-pi-tool",
 ] as const;
@@ -40,6 +41,15 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 	transitional: new Set(["neutral-infra"]),
 	"neutral-infra": new Set(["neutral-infra"]),
 	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
+	"capability-pi": new Set([
+		"capability-pi",
+		"host",
+		"capability",
+		"capability-kit",
+		"sdk",
+		"neutral-infra",
+		"transitional",
+	]),
 	"standalone-tool": new Set([
 		"standalone-tool",
 		"host",

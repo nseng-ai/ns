@@ -34,8 +34,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 //    the north-star legend. Keys are canonical manifest `sdl.tier` values — keep
 //    in sync with the workspace source of truth:
 //    ts/packages/infra/core/test/support/typescript-style-guard/config.ts
-//    (`packageTierValues`). The two off-axis tool tiers share a neutral family
-//    (cool slate vs. warm stone) to read as related but distinct.
+//    (`packageTierValues`). Capability Pi package color stays close to host
+//    presentation while remaining visually distinct from the host itself. The two
+//    off-axis tool tiers share a neutral family (cool slate vs. warm stone) to
+//    read as related but distinct.
 const TIERS = {
   capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
   "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
@@ -43,6 +45,7 @@ const TIERS = {
   transitional: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
   "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
   host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
+  "capability-pi": { fill: "#bae6fd", stroke: "#0284c7", name: "capability Pi" },
   "standalone-tool": { fill: "#f1f5f9", stroke: "#94a3b8", name: "standalone tool" },
   "local-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "local pi tool" },
 };

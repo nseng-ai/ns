@@ -14,6 +14,7 @@ This tree is part architecture map and part migration task list.
 - `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, Graphite support, and transitional domain primitives. `domain-primitives-transitional` is temporary debt even though it belongs below the SDK.
 - `capabilities/` contains completed or explicitly certified first-party capability extensions only. Moving a package here is part of the Definition of Done for that capability migration.
 - `hosts/` contains presentation/runtime hosts such as Pi and `sdlcc`.
+- `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.
 - `local-pi-tools/` contains private, project-local Pi-native tools. They are not SDL capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.
 - `tools/` contains standalone tools that are off the capability-extension completion axis.
 

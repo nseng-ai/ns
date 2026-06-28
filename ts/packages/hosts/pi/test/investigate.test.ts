@@ -12,7 +12,7 @@ import type {
 	CustomMessage,
 	MessageRenderer,
 	RenderTheme,
-} from "../src/handoff/runtime-types.ts";
+} from "../src/runtime/extension-types.ts";
 
 const ROOT = "/repo";
 const DEFAULT_INVESTIGATOR_BODY = "You are a fixture investigator.\n\nPrompt:\n\n{{prompt}}";

@@ -6,7 +6,7 @@ import type {
 	CustomMessage,
 	RenderComponent,
 	RenderTheme,
-} from "../handoff/runtime-types.ts";
+} from "../runtime/extension-types.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";

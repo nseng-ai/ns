@@ -187,7 +187,6 @@ describe("/pr:download-feedback", () => {
 		prExtension(pi);
 
 		expect([...pi.commands.keys()]).toEqual([
-			"pr:watch-feedback",
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
 		]);

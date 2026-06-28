@@ -74,6 +74,9 @@ importers:
 
   .:
     devDependencies:
+      '@local-pi-tools/pr-feedback-watch':
+        specifier: workspace:*
+        version: link:packages/local-pi-tools/pr-feedback-watch
       '@sdl/address':
         specifier: workspace:*
         version: link:packages/address
@@ -83,6 +86,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:packages/branch-context
+      '@sdl/branch-context-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/branch-context
       '@sdl/brmem':
         specifier: workspace:*
         version: link:packages/infra/brmem
@@ -98,6 +104,12 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/infra/graphite
+      '@sdl/handoff-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/handoff
+      '@sdl/objective-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/objective
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/plans
@@ -252,6 +264,60 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/capability-pi/branch-context:
+    dependencies:
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.79.1
+      '@sdl/branch-context':
+        specifier: workspace:*
+        version: link:../../branch-context
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../../infra/graphite
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      '@sdl/plans':
+        specifier: workspace:*
+        version: link:../../plans
+
+  packages/capability-pi/handoff:
+    dependencies:
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
+      '@sdl/cmux':
+        specifier: workspace:*
+        version: link:../../cmux
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/handoff':
+        specifier: workspace:*
+        version: link:../../handoff
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+
+  packages/capability-pi/objective:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/objective':
+        specifier: workspace:*
+        version: link:../../objective
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
   packages/ccc:
     dependencies:
       '@sdl/autobranch':
@@ -326,12 +392,6 @@ importers:
 
   packages/hosts/pi:
     dependencies:
-      '@sdl/branch-context':
-        specifier: workspace:*
-        version: link:../../branch-context
-      '@sdl/brmem':
-        specifier: workspace:*
-        version: link:../../infra/brmem
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
@@ -344,15 +404,6 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
-      '@sdl/handoff':
-        specifier: workspace:*
-        version: link:../../handoff
-      '@sdl/objective':
-        specifier: workspace:*
-        version: link:../../objective
-      '@sdl/plans':
-        specifier: workspace:*
-        version: link:../../plans
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../../sdl
@@ -483,6 +534,18 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+
+  packages/local-pi-tools/pr-feedback-watch:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/local-pi-tools/pr-previews:
     dependencies:
@@ -3937,12 +4000,12 @@ snapshots:
     dependencies:
       emoji-regex: 10.6.0
       get-east-asian-width: 1.6.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   string-width@8.2.1:
     dependencies:
       get-east-asian-width: 1.6.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   stringify-entities@4.0.4:
     dependencies:
@@ -4115,7 +4178,7 @@ snapshots:
     dependencies:
       ansi-styles: 6.2.3
       string-width: 8.2.1
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   ws@8.21.0: {}
 
