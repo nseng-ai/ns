@@ -1,3 +1,5 @@
+import { paint } from "@sdl/cli-theme";
+import type { Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
 import {
@@ -5,6 +7,7 @@ import {
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
 } from "../shared/text-generation.ts";
+import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 import {
 	formatPendingWorktreeError,
 	loadFlowPendingWorktreeSnapshot,
@@ -44,7 +47,8 @@ export const flowChangesCommand: SdlCommand = {
 			return failed(summary.error, 2);
 		}
 
-		return ok(formatOutstandingChangesMessage(snapshot, summary.summaryText));
+		const caps = resolveFlowStreamCaps(ctx);
+		return ok(formatOutstandingChangesMessage(caps, snapshot, summary.summaryText));
 	},
 };
 
@@ -53,17 +57,19 @@ export default defineExtension({
 });
 
 function formatOutstandingChangesMessage(
+	caps: Caps,
 	snapshot: PendingWorktreeSnapshot,
 	summaryText: string,
 ): string {
-	const lines = [`Outstanding changes on ${snapshot.branch}`, ""];
+	const lines = [paint(caps, "accent", `Outstanding changes on ${snapshot.branch}`), ""];
+	lines.push("Summary");
 	lines.push(
 		...summaryText
 			.trim()
 			.split(/\r?\n/)
 			.filter((line) => line.trim().length > 0),
 	);
-	lines.push("", "Files:");
+	lines.push("", "Files");
 	lines.push(...displayFileLines(statusFileLines(snapshot.status)));
 	return lines.join("\n");
 }
