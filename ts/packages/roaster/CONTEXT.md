@@ -1,14 +1,32 @@
 # @sdl/roaster Context
 
-Roaster is the package and CLI that runs configured read-only PR-diff checks and emits structured findings.
+Roaster is an SDL Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
 
 ## Glossary
 
 ### Roaster
 
-The package/tool that runs configured read-only PR-diff checks and emits structured findings.
+The SDL Capability that runs configured read-only PR-diff checks and emits structured findings.
 
 Avoid: describing Roaster runs as remediation workflows or as agents that edit code.
+
+### Roaster Domain Core
+
+Roaster-owned gateway-injected logic for the review catalog, local-diff review execution, review-log storage, finding schemas, and publication behavior.
+
+Avoid: putting Roaster domain behavior in the SDL kernel, Pi host, or generic infrastructure packages.
+
+### SDL Command Face
+
+The canonical user-facing command surface for Roaster: `sdl roaster ...`, including `sdl roaster review list`, `sdl roaster review run <key>`, `sdl roaster review log`, `sdl roaster roast list`, and hidden automation leaves under `sdl roaster exec ...`.
+
+Avoid: teaching the standalone `roaster` binary as the canonical invocation path; it remains a compatibility surface until its binary-disposition work is resolved.
+
+### Roaster Capability API
+
+The curated in-process consumer API exported as `@sdl/roaster/api` for packages that need Roaster behavior without shelling out.
+
+Avoid: importing private `@sdl/roaster/src/...` modules or treating the broad package root as the Capability API.
 
 ### Review definition
 
@@ -51,3 +69,9 @@ Avoid: treating every finding as inline-commentable.
 A Branch Memory record of a Roaster run under the `roaster` namespace and `reviews/<review-key>/...` key path.
 
 Avoid: calling review logs durable Objective updates or changing the namespace/key path when changing user-facing terminology.
+
+### GitHub publication boundary
+
+The explicit guarded write boundary that publishes Roaster findings to GitHub, currently exposed through `sdl roaster exec publish-findings` for automation.
+
+Avoid: implying ordinary review runs publish comments, or performing live publication validation without explicit confirmation.

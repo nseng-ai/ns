@@ -103,7 +103,7 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
 | 11 | c    | kebab-case `errorType` (violates stable snake_case)                                                                                    | `areg exec skillx list/fetch` (`missing-tool`), `brmem exec resolve-prompt` (`prompt-not-found`), `objective` (all storage codes: `move-directory-failed`, etc.) | land-now-fix                                          |
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
 | 13 | c    | `failure(...)` carries message only, no structured `data` (near-universal)                                                             | most packages                                                                                                                                                    | land-now-fix                                          |
-| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `sdlcc cmux report`, `vibechk run`, `roaster exec publish-findings`, `ccc exec autobranch`                                                   | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
+| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `sdlcc cmux report`, `vibechk run`, standalone `roaster exec publish-findings`, `ccc exec autobranch`                                        | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
 | 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `aretro` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)   | mixed (land-now-fix / parked)                         |
 
 ## Cross-cutting themes
@@ -145,7 +145,7 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
    violations.
 
 5. **`rawCommand`/`isRawExit` packages opt out of the envelope contract.**
-   `packagechk`, `sdlcc cmux report`, `vibechk run`, `roaster exec publish-findings`,
+   `packagechk`, `sdlcc cmux report`, `vibechk run`, standalone `roaster exec publish-findings`,
    and `ccc exec autobranch` deliberately bypass `ok/negative/failure/usageError`,
    `resultSchema`, and `--json-schema`, returning bare exit codes. Whether raw-exit
    is a sanctioned exemption from the pre-ship envelope items, or these commands
