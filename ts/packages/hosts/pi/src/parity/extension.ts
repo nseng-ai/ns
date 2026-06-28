@@ -49,7 +49,11 @@ export interface BasePiSurfaceParity {
 	/** The Objective that owns semantic review of this parity verdict. */
 	readonly ownerObjective: "cross-harness-parity";
 	/** Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces. */
-	readonly sourcePackage: "@sdl/pi" | "@sdl/pi-context-profiler" | "@sdl/worktree-status";
+	readonly sourcePackage:
+		| "@sdl/pi"
+		| "@sdl/pi-context-profiler"
+		| "@sdl/pi-grill"
+		| "@sdl/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;
 	/** Short rationale/provenance for reviewers; not used for machine equality. */

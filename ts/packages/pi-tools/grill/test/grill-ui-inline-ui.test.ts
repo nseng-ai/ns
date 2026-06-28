@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { GrillAskController } from "../src/grill/controller.ts";
+import { GrillAskController } from "../src/controller.ts";
 import {
 	createGrillAskInlineComponent,
 	grillAskInlineRuntimeFromModule,
@@ -8,8 +8,8 @@ import {
 	markdownThemeFromCodingAgentModule,
 	runGrillAskInlineUiWithRuntime,
 	type GrillAskInlineRuntime,
-} from "../src/grill/inline-ui.ts";
-import { renderGrillAskInlineUi } from "../src/grill/render.ts";
+} from "../src/inline-ui.ts";
+import { renderGrillAskInlineUi } from "../src/render.ts";
 import {
 	buildGrillAskRows,
 	choiceDetailLines,
@@ -18,12 +18,12 @@ import {
 	rowRecommendationTag,
 	rowSelectDisplay,
 	rowValue,
-} from "../src/grill/view.ts";
+} from "../src/view.ts";
 import type {
 	GrillAskCustomComponent,
 	GrillAskToolContext,
 	NormalizedGrillAskInput,
-} from "../src/grill/extension.ts";
+} from "../src/extension.ts";
 
 function normalizedInput(
 	overrides: Partial<NormalizedGrillAskInput> = {},
