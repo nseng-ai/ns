@@ -63,20 +63,16 @@ describe("slot list command group", () => {
 		const run = runScenario(["ls"], { git: nonEmptyListGit });
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
+		expect(output).toContain("Slots for repo");
 		expect(output).toContain("SLOT");
 		expect(output).toContain("STATUS");
 		expect(output).toContain("BRANCH");
 		expect(output).toContain("OPERATION");
 		expect(output).toContain("WORKTREE");
-		expect(output).toMatch(/^─/mu);
+		expect(output).toMatch(/^slot-01\s+assigned\s+feature\/a\s+—\s+\/slots\/repos\/repo\/workt/mu);
+		expect(output).toMatch(/^slot-02\s+available\s+—\s+—\s+\/slots\/repos\/repo\/workt/mu);
 		expect(output).toMatch(
-			/^slot-01\s+assigned\s+feature\/a\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-01$/mu,
-		);
-		expect(output).toMatch(
-			/^slot-02\s+available\s+—\s+—\s+\/slots\/repos\/repo\/worktrees\/slot-02$/mu,
-		);
-		expect(output).toMatch(
-			/^slot-03\s+assigned\s+feature\/rebase\s+rebase in progress\s+\/slots\/repos\/repo\/worktrees\/slot-03$/mu,
+			/^slot-03\s+assigned\s+feature\/rebase\s+rebase in progress\s+\/slots\/repos\/repo\/workt/mu,
 		);
 	});
 

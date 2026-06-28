@@ -232,7 +232,12 @@
   `@sdl/core/text-table`, while JSON and Markdown contracts stay unchanged. Existing table
   primitives were sufficient for title + table + empty-state output, so a new generalized report
   wrapper remains deferred until another P1 surface proves repeated title/empty/footer plumbing.
-  Semantic update: `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`.
+  Follow-up semantic update: `sdl slot list` / `sdl slot ls` is now the second buffered table pilot,
+  using direct `@sdl/cli-theme renderTable` with a `Slots for <repo>` title, accent slot names,
+  success/muted status styling, unchanged empty-pool wording, and unchanged JSON/schema/alias
+  contracts. The repeated title/table/empty glue is still thin enough that a generalized report wrapper
+  remains deferred. Semantic updates: `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`,
+  `updates/2026-06-28T194258Z-slot-list-buffered-table.md`.
 - [ ] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
       surfaces to Done, keep exemptions explicit, mark unported surfaces extension-gated, and avoid adding
       new human-facing CLI output outside the house-style primitives.
