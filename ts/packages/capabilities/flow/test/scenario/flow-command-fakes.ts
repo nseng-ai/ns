@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { flowAutobranchCommand } from "../../src/commands/autobranch.ts";
+import { flowAutoslotCommand } from "../../src/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
@@ -272,6 +273,36 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 			result: { stdout: "" },
 		},
 		{ match: "gt children --no-interactive", result: { stdout: "child-a\nchild-b\n" } },
+	];
+}
+
+// `sdl flow autoslot` wraps the CCC autobranch + slot-checkout orchestration through `runFlowCccCli`.
+// The happy path moves a managed slot via a real `SlotClient` (filesystem/git side effects), which is
+// out of the default fake lane — domain happy-path coverage lives in `packages/ccc/test/autoslot.test.ts`.
+// These flow scenarios exercise the wrapper end-to-end on the outcomes that settle BEFORE slot
+// checkout: caps resolution, CCC house-style rendering, and stdout/stderr routing via `runFlowCccCli`.
+export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowAutoslotCommand,
+		request: options.request ?? { slug: "move-work" },
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [],
+			textGenerationResults: () => [],
+		},
+	});
+}
+
+// Snapshot probe failure: `git status` fails while loading the pending-worktree snapshot, so the
+// autobranch step fails before any branch is created or slot checkout is attempted.
+export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/source\n" } },
+		{
+			match: "git status --porcelain=v1",
+			result: { code: 1, stderr: "fatal: status failed\n" },
+		},
 	];
 }
 

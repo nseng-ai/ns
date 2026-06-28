@@ -1,7 +1,18 @@
 import { describe, expect, test } from "vitest";
+import type { Caps } from "@sdl/clinkr";
+import { stripAnsi } from "@sdl/clinkr/testing";
 import type { AutoslotCliInput, AutoslotFlowInput } from "../src/autoslot.ts";
 import { createAutoslotFlow, runAutoslotCli } from "../src/autoslot.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
+
+// Mono caps keep durable-outcome assertions readable: no color SGR, glyph still present. The
+// house-style/caps-degradation ladder is verified directly in `autoslot-presentation.test.ts`.
+const TEST_CAPS: Caps = {
+	isTty: false,
+	colorDepth: "none",
+	columns: 80,
+	canRenderUnicode: true,
+};
 
 interface HarnessOptions {
 	mode?: "dirty" | "latest_commit";
@@ -72,6 +83,7 @@ function createHarness(options: HarnessOptions = {}) {
 	const input: AutoslotFlowInput = {
 		cwd: "/repo",
 		args: { slug: "test-branch" },
+		caps: TEST_CAPS,
 		now: () => 123,
 		exec: (command, args) => exec(command, args),
 		slotClient: {
@@ -139,14 +151,14 @@ describe("autoslot flow", () => {
 			"Creating Graphite branch and checkpoint…",
 			"Checking out branch slot…",
 		]);
-		expect(harness.notifications.at(-1)).toEqual({
-			level: "info",
-			message: [
-				"Autoslot moved test-branch to slot-01.",
-				"Worktree: /slots/slot-01",
-				"sdl slot co test-branch",
-			].join("\n"),
-		});
+		const success = harness.notifications.at(-1);
+		expect(success?.level).toBe("info");
+		const successText = stripAnsi(success?.message ?? "");
+		expect(successText).toContain("Autoslot moved test-branch to slot-01.");
+		expect(successText).toContain("Worktree: /slots/slot-01");
+		// The navigation line stays visible and copyable.
+		expect(successText).toContain("sdl slot co test-branch");
+		expect(successText).toContain("Cwd: /repo");
 	});
 
 	test("successful latest-commit autoslot runs sdl slot checkout current", async () => {
@@ -162,7 +174,9 @@ describe("autoslot flow", () => {
 			"Creating Graphite branch from latest commit…",
 			"Checking out branch slot…",
 		]);
-		expect(harness.notifications.at(-1)?.message).toContain("Worktree: /slots/slot-01");
+		expect(stripAnsi(harness.notifications.at(-1)?.message ?? "")).toContain(
+			"Worktree: /slots/slot-01",
+		);
 	});
 
 	test("branch creation failure skips sdl slot checkout", async () => {
@@ -174,10 +188,11 @@ describe("autoslot flow", () => {
 
 		expect(harness.events.some((event) => event.startsWith("slot-client:"))).toBe(false);
 		expect(harness.statuses).toEqual(["Inspecting worktree…", "Drafting checkpoint message…"]);
-		expect(harness.notifications).toContainEqual({
-			level: "error",
-			message: "checkpoint prep failed",
-		});
+		const failure = harness.notifications.at(-1);
+		expect(failure?.level).toBe("error");
+		const failureText = stripAnsi(failure?.message ?? "");
+		expect(failureText).toContain("Autoslot could not create a Graphite branch.");
+		expect(failureText).toContain("checkpoint prep failed");
 	});
 
 	test("dirty post-autoslot worktree warns and skips sdl slot checkout", async () => {
@@ -187,7 +202,9 @@ describe("autoslot flow", () => {
 
 		expect(harness.events.some((event) => event.startsWith("slot-client:"))).toBe(false);
 		expect(harness.notifications.at(-1)?.level).toBe("warning");
-		expect(harness.notifications.at(-1)?.message).toContain("slot movement was skipped");
+		expect(stripAnsi(harness.notifications.at(-1)?.message ?? "")).toContain(
+			"slot movement was skipped",
+		);
 	});
 
 	test("sdl slot checkout failure reports useful error after autobranch succeeds", async () => {
@@ -199,11 +216,13 @@ describe("autoslot flow", () => {
 		await createAutoslotFlow(harness.input);
 
 		expect(harness.events).toContain("slot-client:current");
-		expect(harness.notifications.at(-1)?.level).toBe("error");
-		expect(harness.notifications.at(-1)?.message).toContain(
+		const checkoutFailure = harness.notifications.at(-1);
+		expect(checkoutFailure?.level).toBe("error");
+		const checkoutFailureText = stripAnsi(checkoutFailure?.message ?? "");
+		expect(checkoutFailureText).toContain(
 			"Autoslot created test-branch, but sdl slot checkout failed.",
 		);
-		expect(harness.notifications.at(-1)?.message).toContain("No clean detached slot is available.");
+		expect(checkoutFailureText).toContain("No clean detached slot is available.");
 		expect(harness.statuses.at(-1)).toBe("Checking out branch slot…");
 	});
 
@@ -227,6 +246,7 @@ describe("autoslot flow", () => {
 			cwd: "/repo",
 			env: {},
 			args: { slug: "test-branch" },
+			caps: TEST_CAPS,
 			exec: async (command, args) => {
 				if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel")
 					return { code: 0, killed: false, stdout: "/repo\n", stderr: "" };
