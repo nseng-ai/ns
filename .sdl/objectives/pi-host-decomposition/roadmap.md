@@ -19,8 +19,9 @@
 
 - [~] Apply the reference extraction recipe to the next obvious Pi-native tool candidates.
   - Use the `context-profiler` result to guide how Pi-native tool packages should consume host helpers, own tests, expose registration or parity surfaces, and avoid host→tool dependency inversion.
-  - Apply the recipe to `grill` and `thermo-council` unless inventory evidence shows a different first follow-on candidate.
-  - Evidence: each moved or dispositioned tool has a clear package-boundary decision and preserved user-visible Pi behavior.
+  - `grill` portion complete in local branch evidence — `@sdl/pi-grill` now owns the structured grill source, tests, package parity metadata, and direct discovery adapter, while stable surface constants remain behind neutral `@sdl/pi/grill/surfaces` and `@sdl/pi` does not import the extracted package.
+  - Apply the recipe to `thermo-council` unless inventory evidence shows a different follow-on candidate.
+  - Evidence: each moved or dispositioned tool has a clear package-boundary decision and preserved user-visible Pi behavior; `updates/2026-06-27-grill-package-extracted.md` records the grill extraction slice.
 
 - [ ] Disposition `runner-subagents` and `terminal` with runtime-boundary evidence.
   - Determine whether each is a standalone Pi-native feature package, a neutral Pi runtime/helper surface that should remain in `@sdl/pi`, or a split between runtime primitives and feature presentation.

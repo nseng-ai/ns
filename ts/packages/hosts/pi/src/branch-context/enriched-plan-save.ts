@@ -17,7 +17,7 @@ import {
 	type SavedPlanFileEvidence,
 } from "@sdl/plans/api";
 import { isRecord } from "../runtime/primitives.ts";
-import { GRILL_ASK_TOOL_NAME } from "../grill/extension.ts";
+import { GRILL_ASK_TOOL_NAME } from "../grill/surfaces.ts";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,

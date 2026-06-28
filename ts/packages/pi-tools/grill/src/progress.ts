@@ -1,3 +1,4 @@
+import { GRILL_ASK_TOOL_NAME } from "@sdl/pi/grill/surfaces";
 import type { GrillAskRemainingEstimate, GrillAskToolContext } from "./extension.ts";
 
 export type GrillAskProgressSource = "session_branch" | "session_branch_unscoped" | "unavailable";
@@ -7,7 +8,6 @@ export interface GrillAskProgress {
 	source: GrillAskProgressSource;
 }
 
-const GRILL_ASK_TOOL_NAME = "grill_ask";
 const GRILL_UI_KICKOFF_MARKERS = [
 	"<structured-grill-question-ui-contract>",
 	"<plan-or-design-to-grill>",

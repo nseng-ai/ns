@@ -1,4 +1,11 @@
-import { registerCommandWithImmediateAck } from "../commands/ack.ts";
+import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import {
+	GRILL_ASK_TOOL_NAME,
+	GRILL_UI_COMMAND_NAME,
+	GRILL_UI_SKILL_NAME,
+	GRILL_WITH_DOCS_UI_COMMAND_NAME,
+	GRILL_WITH_DOCS_UI_SKILL_NAME,
+} from "@sdl/pi/grill/surfaces";
 import type { GrillAskOutcome } from "./controller.ts";
 import { runGrillAskInlineUi } from "./inline-ui.ts";
 import {
@@ -18,8 +25,8 @@ import {
 } from "./progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./view.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
-import { expandRepoSkillBlock } from "../skills/expansion.ts";
+import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
 
 export { type GrillAskDetails } from "./result.ts";
 export {
@@ -29,10 +36,13 @@ export {
 	type GrillAskValidationResult,
 } from "./validate.ts";
 
-export const GRILL_UI_COMMAND_NAME = "pi:grill-me";
-export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "pi:grill-with-docs";
-export const GRILL_ASK_TOOL_NAME = "grill_ask";
-export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
+export {
+	GRILL_ASK_TOOL_NAME,
+	GRILL_UI_COMMAND_NAME,
+	GRILL_UI_SKILL_NAME,
+	GRILL_WITH_DOCS_UI_COMMAND_NAME,
+	GRILL_WITH_DOCS_UI_SKILL_NAME,
+} from "@sdl/pi/grill/surfaces";
 
 export const grillUiParity = definePiSurfaceParity([
 	{
@@ -42,7 +52,7 @@ export const grillUiParity = definePiSurfaceParity([
 		parity: "WAIVED",
 		fallback: "Use the grill-me skill for a prose interview outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
+		sourcePackage: "@sdl/pi-grill",
 		sourceModule: "grill-ui",
 		notes: "Structured TUI interaction is Pi-native; portable fallback is the skill workflow.",
 	},
@@ -53,13 +63,12 @@ export const grillUiParity = definePiSurfaceParity([
 		parity: "WAIVED",
 		fallback: "Use the grill-with-docs skill for a prose docs-aware interview outside Pi.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
+		sourcePackage: "@sdl/pi-grill",
 		sourceModule: "grill-ui",
 		notes:
 			"Structured TUI interaction is Pi-native; portable fallback is the docs-aware skill workflow.",
 	},
 ] as const);
-export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 
 const UNKNOWN_SELECTION_MESSAGE =
 	"The structured grill question returned an unknown selection. Do not treat this as an answer; summarize what is known or ask whether to continue.";

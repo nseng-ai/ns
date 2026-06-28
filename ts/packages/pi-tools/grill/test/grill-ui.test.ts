@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { buildGrillAskRows } from "../src/grill/view.ts";
+import { buildGrillAskRows } from "../src/view.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
@@ -22,7 +22,7 @@ import {
 	type GrillUiCommandContext,
 	type ToolDefinition,
 	type ToolResult,
-} from "../src/grill/extension.ts";
+} from "../src/extension.ts";
 
 const ROOT = "/repo";
 
