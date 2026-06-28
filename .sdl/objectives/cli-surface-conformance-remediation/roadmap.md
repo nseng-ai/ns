@@ -2,73 +2,30 @@
 
 ## Work
 
-- [x] Conformance audit: classified per-command matrix against the pre-ship
-      checklist with file:line evidence (`docs/cli-surface-conformance-audit.md`).
-      Seeds this Objective; treated as the source of truth.
+- [x] Conformance audit: classified the pre-ship checklist into `docs/cli-surface-conformance-audit.md`. This is the historical seed matrix, not fresh proof for current file paths.
 
-- [x] **Decision (gates remediation):** the six ADR-needed design calls are
-      recorded in one omnibus ADR, `docs/adr/0015-cli-surface-conformance-decisions.md`
-      (Accepted), and every dependent row in the conformance audit is reclassified
-      (no row remains `ADR-needed`). See update
-      `20260626T103959Z-decision-gate-resolved.md`.
-  - rawCommand envelope exemption (gates (c)/(d) for `packagechk`, `sdlcc cmux
-    report`, `vibechk run`, `roaster publish-findings`, `ccc autobranch`).
-  - Agent-only `exec` destructive/external-write confirmation model (gates
-    `branch-context exec delete` and `pr-address` `reply`/`resolve-review-thread`
-    (a)).
-  - `ccc land` single-PR fast-path confirmation (gates `ccc land` (a)).
-  - Query-miss vs action-miss semantics (gates `pr-address` (d); standardizes
-    `brmem`/`plans`).
-  - Presence-query / empty-success `ok` ratification (`brmem export`,
-    `branch-context check`).
-  - Dotfile / external-write danger tier (`sdl shell install`, `sdlcc cmux
-    report`).
+- [x] **Decision gate:** the six ADR-needed design calls are recorded in `docs/adr/0015-cli-surface-conformance-decisions.md` (Accepted), and the audit has no active `ADR-needed` remediation state left. Decisions cover raw-exit policy, hidden `exec` write intent, `ccc land` single-PR auto-merge, query/action miss semantics, empty-success/presence-query `ok`, and dotfile/user-environment danger tiers.
 
-- [ ] **Area (a) — danger-tier safety remediation (land-now).** Add confirmation
-      gating only to the unblocked **human-facing** destructive commands, modeled
-      on `handoff delete`/`gc`. With scenario tests per human-facing command
-      (interactive confirm, `--yes`/`--force` bypass, non-interactive
-      `usageError`). Hidden `exec` destructive/external writes stay prompt-free
-      under ADR 0015 #2 when required operation arguments supply intent.
-  - `brmem delete`: add `--yes`/`-y` + `requireInteractiveOrUsageError`.
-  - `sdl shell install`: add `--yes`/`-y` + `requireInteractiveOrUsageError` for
-    the user-dotfile write (ADR 0015 #6).
-  - `areg init`, `areg skill apply`: re-gate the existing `--yes` onto
-    `isInteractive()` (retire the private readline gateway path).
-  - `packagechk claim-pypi`/`claim-npm`: gate on `isInteractive()` and rename
-    `--skip-confirmation` to `--yes`/`-y` (tier from the dotfile/publish decision).
-  - `slot free --all`: re-gate confirmation from the output-format proxy onto
-    `isInteractive()`; emit a flag-naming `usageError` instead of
-    `failure("confirmation_required")`/`failure("aborted")`.
+- [x] **Hidden `exec` danger-tier rebaseline:** `branch-context exec delete` and the Address review-thread mutators stay prompt-free under ADR 0015 #2; their operation arguments supply agent/script intent. `branch-context` remains relevant under area (c) for modeled error types, not area (a) confirmation.
 
-- [ ] **Area (d) — exit-semantics remediation (land-now).** Apply the decision
-      table (not-found → `negative`; bad/missing arg → `usageError`; operational
-      error → `failure`; harmless empty → `ok`) across the flagged commands:
-      `areg init`/`skill apply`, `aretro collect-evidence`, `brmem get`/`delete`/
-      `copy`, `plans exec resolve`, `objective exec runner-subagent-usage`,
-      `ccc cmux-workspace-summary`, `vibechk show`/`diff`, `sdlcc cmux report`.
-      `pr-address` (d) follows the query-miss decision.
+- [~] **Current-source reconciliation before remediation:** remap audit rows from historical package/file locators to current tracked locations and reclassify rows whose code changed after the audit. Verified drift includes package topology moves into `tools/`, `infra/`, `capabilities/`, `hosts/`, `@sdl/kernel`, and `@sdl/address`; Aretro also now has SDL extension command-face wiring plus `maxSessions`/payload-mode behavior that must be checked before applying the old area (b) row.
 
-- [ ] **Area (c) — `errorType` discipline remediation (land-now).** Fix kebab-case
-      errorTypes (`objective` storage codes, `areg skillx` `missing-tool`,
-      `brmem resolve-prompt` `prompt-not-found`); replace the generic
-      error-collapse wrappers in `branch-context`/`plans` with modeled snake_case
-      errorTypes; add structured `data` where it aids recovery (ADR 0010
-      "consider", lower priority). Envelope-migration cases follow the rawCommand
-      decision. `branch-context exec delete` still participates here through the
-      generic wrapper, not through Area (a) confirmation work.
+- [ ] **Area (a) — danger-tier safety remediation (land-now after current-source check).** Add or correct confirmation gating only for unblocked human-facing destructive/user-environment commands. Keep hidden `exec` destructive/external writes prompt-free under ADR 0015 #2. Current probes still show representative open gaps:
+  - `brmem delete`: no `--yes`/`-y` in `ts/packages/infra/brmem/src/operations/delete.ts` / CLI registration.
+  - `sdl shell install`: installs a marker block through `ts/packages/kernel/src/operations/shell.ts` with no confirm option.
+  - `areg init` and `areg skill apply`: expose `yes`, but prompt through the private prompt gateway rather than a verified non-interactive `usageError` path.
+  - `packagechk claim-pypi`/`claim-npm`: still uses `skipConfirmation` in `ts/packages/tools/packagechk/src/claim-command.ts`; rename/compatibility policy needs implementation.
+  - `slot free --all`: still keys confirmation behavior on `ctx.shouldWriteCdDirective` and emits `confirmation_required` failure in `ts/packages/capabilities/slot/src/operations/free.ts`.
 
-- [ ] **Area (b) — output bounding (land-now subset).** Add completion/bound state
-      to result schemas for `aretro` (both commands; cap the `value: unknown`
-      deref), `vibechk runs`/`show`/`diff`, and `roaster review log`.
+- [ ] **Area (d) — exit-semantics remediation.** Re-verify the flagged commands against current source, then apply the decision table: requested-target/action miss → `negative`; bad/missing arg → `usageError`; operational error → `failure`; harmless empty/predicate miss → `ok`. Do not carry old path evidence forward without a fresh probe.
+
+- [ ] **Area (c) — `errorType` discipline remediation.** Re-verify then fix kebab-case and generic-collapse errors. Current probes still show examples such as `missing-tool` in AREG skillx, `prompt-not-found` in `brmem resolve-prompt`, and `branch_context_error` in Branch Context. Replace generic wrappers with modeled snake_case errors and useful recovery data.
+
+- [ ] **Area (b) — output bounding.** Re-verify original rows before editing. Aretro's original row is stale enough to require reassessment because current code exposes `maxSessions`, compact results, and payload-mode/detail locators; decide whether remaining area (b) work is completion/bound metadata, deref limiting, or parking. Also re-check `vibechk runs/show/diff` and `roaster review log` against current schemas.
 
 ## Parked
 
-- [ ] Domain-small unbounded lists below the ADR 0012 evidence threshold:
-      `handoff list`/`gc`, `brmem list`, `plans list`, `objective exec
-      read-objective`, `pr-address` PR-list commands. Park with rationale.
-- [ ] `ccc land`/`land-stack` Pi slash-command surface envelope/`errorType`/
-      `negative` discipline — separate non-Clinkr `LandStackResult` framework.
-- [ ] New conformance tooling / lint rules (YAGNI per ADR 0012).
-- [ ] Structural/DRY CLI cleanup — owned by the paused
-      `ts-cli-core-structural-cleanup` Objective.
+- [ ] Domain-small unbounded lists below the ADR 0012 evidence threshold: `handoff list`/`gc`, `brmem list`, `plans list`, `objective exec read-objective`, and Address PR-list commands, unless current evidence shows they crossed the threshold.
+- [ ] `ccc land`/`land-stack` Pi slash-command surface envelope/`errorType`/`negative` discipline — separate non-Clinkr `LandStackResult` framework.
+- [ ] New conformance tooling / lint rules (YAGNI per ADR 0012 unless separately designed).
+- [ ] Structural/DRY CLI cleanup — owned elsewhere.
