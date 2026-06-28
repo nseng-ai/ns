@@ -19,7 +19,7 @@ export const listRequestSchema = z.object({
 export const listResultSchema = z.object({
 	scope: z.enum(["branch", "all-branches"]),
 	branch: z.string().nullable(),
-	include_deleted: z.boolean(),
+	includeDeleted: z.boolean(),
 	handoffs: z.array(handoffSummarySchema),
 });
 
@@ -47,7 +47,7 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	return ok({
 		scope: request.all ? "all-branches" : "branch",
 		branch: branch ?? null,
-		include_deleted: request.includeDeleted,
+		includeDeleted: request.includeDeleted,
 		handoffs: [...handoffs.value],
 	} satisfies ListResult);
 }
@@ -67,9 +67,9 @@ export function renderList(
 			],
 			rows: result.handoffs.map((handoff) => [
 				handoff.branch,
-				handoff.branch_state,
+				handoff.branchState,
 				handoff.slug,
-				handoff.updated_at,
+				handoff.updatedAt,
 			]),
 			canEmitAnsi: caps.canEmitAnsi,
 			shouldDrawRule: true,
@@ -82,7 +82,7 @@ export function renderList(
 			{ header: "HANDOFF", style: "bold-cyan" },
 			{ header: "UPDATED", style: "dim" },
 		],
-		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updated_at]),
+		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updatedAt]),
 		canEmitAnsi: caps.canEmitAnsi,
 		shouldDrawRule: true,
 		headerStyle: "bold-cyan",
@@ -100,7 +100,7 @@ export function renderListMarkdown(result: ListResult): string {
 			"| --- | --- | --- | --- |",
 			...result.handoffs.map(
 				(handoff) =>
-					`| ${markdownCell(handoff.branch)} | ${markdownCell(handoff.branch_state)} | ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updated_at)} |`,
+					`| ${markdownCell(handoff.branch)} | ${markdownCell(handoff.branchState)} | ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updatedAt)} |`,
 			),
 		].join("\n");
 	}
@@ -110,18 +110,18 @@ export function renderListMarkdown(result: ListResult): string {
 		"| handoff | updated |",
 		"| --- | --- |",
 		...result.handoffs.map(
-			(handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updated_at)} |`,
+			(handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updatedAt)} |`,
 		),
 	].join("\n");
 }
 
 function allBranchesTitle(result: ListResult): string {
-	return result.include_deleted ? "Handoffs across branches" : "Handoffs across active branches";
+	return result.includeDeleted ? "Handoffs across branches" : "Handoffs across active branches";
 }
 
 function emptyMessage(result: ListResult): string {
 	if (result.scope === "all-branches")
-		return result.include_deleted
+		return result.includeDeleted
 			? "No handoffs found across branches."
 			: "No handoffs found across active branches.";
 	return `No handoffs found on branch ${result.branch}.`;

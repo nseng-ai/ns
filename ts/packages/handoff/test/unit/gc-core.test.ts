@@ -11,20 +11,20 @@ import type { BranchState, HandoffSummary } from "../../src/inventory.ts";
 
 function createSummary(options: {
 	branch: string;
-	branch_state: BranchState;
+	branchState: BranchState;
 	slug: string;
 	key?: string | undefined;
-	entry_locator?: string | undefined;
-	updated_at?: string | undefined;
+	entryLocator?: string | undefined;
+	updatedAt?: string | undefined;
 }): HandoffSummary {
 	const key = options.key ?? `${options.slug}.md`;
 	return {
 		branch: options.branch,
-		branch_state: options.branch_state,
+		branchState: options.branchState,
 		slug: options.slug,
 		key,
-		entry_locator: options.entry_locator ?? `refs/brmem/ns/handoff/${options.branch}:${key}`,
-		updated_at: options.updated_at ?? "2026-01-01T00:00:00Z",
+		entryLocator: options.entryLocator ?? `refs/brmem/ns/handoff/${options.branch}:${key}`,
+		updatedAt: options.updatedAt ?? "2026-01-01T00:00:00Z",
 	};
 }
 
@@ -55,12 +55,12 @@ describe("gc-core", () => {
 	test("plans garbage collection actions based on branch state", () => {
 		const plan = planDeletedBranchGarbageCollection({
 			summaries: [
-				createSummary({ branch: "feat/live", branch_state: "active", slug: "keep" }),
-				createSummary({ branch: "feat/stale", branch_state: "deleted", slug: "stale" }),
+				createSummary({ branch: "feat/live", branchState: "active", slug: "keep" }),
+				createSummary({ branch: "feat/stale", branchState: "deleted", slug: "stale" }),
 			],
 		});
 
-		expect(plan.entries.map((entry) => entry.action)).toEqual(["kept_active", "would_delete"]);
+		expect(plan.entries.map((entry) => entry.action)).toEqual(["keptActive", "wouldDelete"]);
 		expect(plan.counts).toEqual({ wouldDelete: 1, deleted: 0, kept: 1, error: 0 });
 	});
 
@@ -72,7 +72,7 @@ describe("gc-core", () => {
 			summaries: [
 				createSummary({
 					branch: "feat/stale",
-					branch_state: "deleted",
+					branchState: "deleted",
 					slug: "stale",
 					key: "stale.md",
 				}),
@@ -84,11 +84,11 @@ describe("gc-core", () => {
 		expect(result.entries).toEqual([
 			{
 				branch: "feat/stale",
-				branch_state: "deleted",
+				branchState: "deleted",
 				slug: "stale",
 				key: "stale.md",
-				entry_locator: expect.any(String),
-				updated_at: "2026-01-01T00:00:00Z",
+				entryLocator: expect.any(String),
+				updatedAt: "2026-01-01T00:00:00Z",
 				action: "deleted",
 				commit: expect.any(String),
 				message: null,
@@ -109,7 +109,7 @@ describe("gc-core", () => {
 			summaries: [
 				createSummary({
 					branch: "feat/stale",
-					branch_state: "deleted",
+					branchState: "deleted",
 					slug: "stale",
 					key: "stale.md",
 				}),

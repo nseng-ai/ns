@@ -5,8 +5,6 @@ export { buildCreateHandoffPrompt } from "./create.ts";
 export {
 	buildPickupHandoffPrompt,
 	deriveHandoffPreview,
-	parseHandoffItemsFromBrmemList,
-	parseHandoffKeysFromBrmemList,
 	parseListHandoffArgs,
 	parsePickupHandoffArgs,
 	resolveHandoffKey,

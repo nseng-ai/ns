@@ -42,14 +42,6 @@ export type HandoffArgsParseResult<T> =
 	| { type: "valid"; args: T }
 	| { type: "invalid"; message: string };
 
-export type HandoffItemsParseResult =
-	| { type: "valid"; items: HandoffListItem[] }
-	| { type: "invalid"; message: string };
-
-export type HandoffKeysParseResult =
-	| { type: "valid"; keys: string[] }
-	| { type: "invalid"; message: string };
-
 export type HandoffItemsLoadResult =
 	| { type: "loaded"; items: HandoffListItem[] }
 	| { type: "failed"; message: string };

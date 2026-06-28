@@ -166,6 +166,27 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		return result;
 	}
 
+	async createEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): Promise<BrmemResult<PutEntryResult>> {
+		this.putEntryCalls.push({ ...options });
+		const result = await this.fake.createEntry(options);
+		if (result.type === "ok" && options.namespace === BRANCH_CONTEXT_NAMESPACE) {
+			this.entries.set(entryKey(options.branch, options.key), {
+				branch: options.branch,
+				key: options.key,
+				content: options.content,
+				refName: result.value.entry.entryLocator,
+				commit: result.value.commitSha,
+				sourceFile: "",
+			});
+		}
+		return result;
+	}
+
 	async deleteEntry(options: {
 		namespace: string;
 		key: string;

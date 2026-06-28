@@ -526,33 +526,6 @@ export async function runCommand(
 	});
 }
 
-export function listJson(
-	entries: Array<string | { key: string; branch: string }>,
-	branch: string | null = BRANCH,
-): string {
-	return JSON.stringify({
-		status: "ok",
-		exitCode: 0,
-		data: {
-			scope: branch === null ? "all-branches" : "branch",
-			branch,
-			include_deleted: false,
-			handoffs: entries.map((entry) => {
-				const key = typeof entry === "string" ? entry : entry.key;
-				const entryBranch = typeof entry === "string" ? (branch ?? BRANCH) : entry.branch;
-				return {
-					branch: entryBranch,
-					branch_state: "active",
-					slug: key.replace(/\.md$/, ""),
-					key,
-					entry_locator: `refs/brmem/ns/handoff/${entryBranch}:${key}`,
-					updated_at: "2026-06-05T00:00:00Z",
-				};
-			}),
-		},
-	});
-}
-
 function branchRefFormatStep(branch: string): ScriptedExec {
 	return step("git", ["check-ref-format", "--branch", branch], { stdout: `${branch}\n` });
 }
@@ -581,28 +554,6 @@ function listEntriesSteps(entries: Array<{ key: string; branch: string }>): Scri
 			];
 		}),
 	];
-}
-
-export function brmemListJson(
-	entries: Array<string | { key: string; branch: string }>,
-	branch: string | null = BRANCH,
-): string {
-	return JSON.stringify({
-		status: "ok",
-		exitCode: 0,
-		data: {
-			namespace: "handoff",
-			key: null,
-			branch,
-			all_branches: branch === null,
-			entries: entries.map((entry) => {
-				if (typeof entry === "string") {
-					return { namespace: "handoff", key: entry, branch: branch ?? BRANCH };
-				}
-				return { namespace: "handoff", key: entry.key, branch: entry.branch };
-			}),
-		},
-	});
 }
 
 export async function withTempSkill<T>(

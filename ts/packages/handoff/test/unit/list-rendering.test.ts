@@ -5,23 +5,23 @@ import { renderList, renderListMarkdown, type ListResult } from "../../src/opera
 const BRANCH_SCOPE_RESULT: ListResult = {
 	scope: "branch",
 	branch: "feat/x",
-	include_deleted: false,
+	includeDeleted: false,
 	handoffs: [
 		{
 			branch: "feat/x",
-			branch_state: "active",
+			branchState: "active",
 			slug: "alpha",
 			key: "alpha.md",
-			entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
-			updated_at: "2026-01-01T00:00:02+00:00",
+			entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+			updatedAt: "2026-01-01T00:00:02+00:00",
 		},
 		{
 			branch: "feat/x",
-			branch_state: "active",
+			branchState: "active",
 			slug: "longer-handoff",
 			key: "longer-handoff.md",
-			entry_locator: "refs/brmem/ns/handoff/feat---x:longer-handoff.md",
-			updated_at: "2026-01-01T00:00:01+00:00",
+			entryLocator: "refs/brmem/ns/handoff/feat---x:longer-handoff.md",
+			updatedAt: "2026-01-01T00:00:01+00:00",
 		},
 	],
 };
@@ -29,23 +29,23 @@ const BRANCH_SCOPE_RESULT: ListResult = {
 const ALL_BRANCHES_RESULT: ListResult = {
 	scope: "all-branches",
 	branch: null,
-	include_deleted: true,
+	includeDeleted: true,
 	handoffs: [
 		{
 			branch: "feat/a",
-			branch_state: "active",
+			branchState: "active",
 			slug: "alpha",
 			key: "alpha.md",
-			entry_locator: "refs/brmem/ns/handoff/feat---a:alpha.md",
-			updated_at: "2026-01-01T00:00:02+00:00",
+			entryLocator: "refs/brmem/ns/handoff/feat---a:alpha.md",
+			updatedAt: "2026-01-01T00:00:02+00:00",
 		},
 		{
 			branch: "feat/deleted",
-			branch_state: "deleted",
+			branchState: "deleted",
 			slug: "stale",
 			key: "stale.md",
-			entry_locator: "refs/brmem/ns/handoff/feat---deleted:stale.md",
-			updated_at: "2026-01-01T00:00:01+00:00",
+			entryLocator: "refs/brmem/ns/handoff/feat---deleted:stale.md",
+			updatedAt: "2026-01-01T00:00:01+00:00",
 		},
 	],
 };

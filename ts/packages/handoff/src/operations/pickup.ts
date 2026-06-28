@@ -17,7 +17,7 @@ export const pickupResultSchema = z.object({
 	branch: z.string(),
 	slug: z.string(),
 	key: z.string(),
-	entry_locator: z.string(),
+	entryLocator: z.string(),
 	summary: handoffSummarySchema.nullable(),
 	content: z.string(),
 });
@@ -42,7 +42,7 @@ export async function runPickup(ctx: HandoffCliContext, request: PickupRequest) 
 		branch: handoff.value.branch,
 		slug: handoff.value.slug,
 		key: handoff.value.key,
-		entry_locator: handoff.value.entry_locator,
+		entryLocator: handoff.value.entryLocator,
 		summary: handoff.value.summary,
 		content: handoff.value.content,
 	} satisfies PickupResult);
@@ -51,8 +51,8 @@ export async function runPickup(ctx: HandoffCliContext, request: PickupRequest) 
 export function renderPickup(result: PickupResult): string {
 	const metadata = [
 		`Handoff \`${result.slug}\` on branch \`${result.branch}\`.`,
-		`Entry Locator: ${result.entry_locator}`,
-		...(result.summary === null ? [] : [`Updated: ${result.summary.updated_at}`]),
+		`Entry Locator: ${result.entryLocator}`,
+		...(result.summary === null ? [] : [`Updated: ${result.summary.updatedAt}`]),
 	];
 	return [...metadata, "", result.content].join("\n");
 }

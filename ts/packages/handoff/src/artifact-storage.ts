@@ -18,7 +18,7 @@ import type { BranchState, HandoffSummary } from "./inventory.ts";
 
 export type HandoffReadBrmemGateway = BrmemReadGateway;
 export type HandoffCheckBrmemGateway = Pick<BrmemReadGateway, "checkEntry">;
-export type HandoffCreateBrmemGateway = Pick<BrmemGateway, "putEntry">;
+export type HandoffCreateBrmemGateway = Pick<BrmemGateway, "createEntry">;
 export type HandoffDeleteBrmemGateway = Pick<BrmemGateway, "deleteEntry">;
 export type HandoffBrmemGateway = HandoffReadBrmemGateway &
 	HandoffCreateBrmemGateway &
@@ -58,7 +58,7 @@ export interface HandoffTarget {
 	branch: string;
 	slug: string;
 	key: string;
-	entry_locator: string;
+	entryLocator: string;
 }
 
 export type HandoffCreationTarget = HandoffTarget;
@@ -106,11 +106,11 @@ export async function listHandoffSummaries(
 		handoffs.push({
 			summary: {
 				branch: entry.branch,
-				branch_state: state.value,
+				branchState: state.value,
 				slug: handoffKeyToSlug(entry.key),
 				key: entry.key,
-				entry_locator: entry.entryLocator,
-				updated_at: entry.updatedAt,
+				entryLocator: entry.entryLocator,
+				updatedAt: entry.updatedAt,
 			},
 			updatedTime: Date.parse(entry.updatedAt),
 		});
@@ -198,13 +198,16 @@ export async function createHandoffArtifact(
 	options: { branch: string; key: string; content: string },
 ): Promise<BrmemResult<CreateHandoffArtifactResult>> {
 	const target = handoffTarget(options);
-	const created = await deps.brmem.putEntry({
+	const created = await deps.brmem.createEntry({
 		namespace: HANDOFF_NAMESPACE,
 		key: target.key,
 		branch: target.branch,
 		content: options.content,
 	});
 	if (created.type === "error") {
+		if (created.error.code === "key_already_exists") {
+			return brmemError("handoff_already_exists", alreadyExistsMessage(target));
+		}
 		return brmemError(created.error.code, `Failed to create handoff: ${created.error.message}`);
 	}
 	return brmemOk({ ...target, commit: created.value.commitSha });
@@ -278,7 +281,7 @@ function targetFromCheck(checked: HandoffArtifactCheck): HandoffTarget {
 		branch: checked.branch,
 		slug: checked.slug,
 		key: checked.key,
-		entry_locator: checked.entry_locator,
+		entryLocator: checked.entryLocator,
 	};
 }
 
@@ -287,7 +290,7 @@ function handoffTarget(options: { branch: string; key: string }): HandoffTarget 
 		branch: options.branch,
 		slug: handoffKeyToSlug(options.key),
 		key: options.key,
-		entry_locator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
+		entryLocator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
 	};
 }
 

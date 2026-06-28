@@ -22,7 +22,7 @@ describe("handoff create core", () => {
 				branch: "feat/x",
 				slug: "alpha",
 				key: "alpha.md",
-				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
 			},
 		});
 	});
@@ -76,7 +76,7 @@ describe("handoff create core", () => {
 				branch: "feat/x",
 				slug: "alpha",
 				key: "alpha.md",
-				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
 			},
 		});
 		if (result.type !== "ok") throw new Error("expected ok result");
@@ -84,10 +84,39 @@ describe("handoff create core", () => {
 		expect(await readContent(brmem, { branch: "feat/x", key: "alpha.md" })).toBe("# Alpha\n");
 	});
 
+	test("maps a raced create-only collision to handoff already exists without overwriting", async () => {
+		const brmem = new FakeBrmemGateway();
+		const deps = createDeps(brmem);
+
+		const prepared = await prepareHandoffCreation(deps, { branch: "feat/x", slug: "alpha" });
+		expect(prepared).toMatchObject({ type: "ok" });
+		await brmem.putEntry({
+			namespace: HANDOFF_NAMESPACE,
+			branch: "feat/x",
+			key: "alpha.md",
+			content: "raced content",
+		});
+
+		const result = await createHandoffArtifact(deps, {
+			branch: "feat/x",
+			key: "alpha.md",
+			content: "new content",
+		});
+
+		expect(result).toEqual({
+			type: "error",
+			error: {
+				code: "handoff_already_exists",
+				message: "Handoff `alpha` already exists on branch `feat/x`.",
+			},
+		});
+		expect(await readContent(brmem, { branch: "feat/x", key: "alpha.md" })).toBe("raced content");
+	});
+
 	test("reports gateway write errors as create failures", async () => {
 		const deps = createDeps(
 			new FakeBrmemGateway({
-				operationErrors: { put: { code: "backend_down", message: "backend unavailable" } },
+				operationErrors: { create: { code: "backend_down", message: "backend unavailable" } },
 			}),
 		);
 

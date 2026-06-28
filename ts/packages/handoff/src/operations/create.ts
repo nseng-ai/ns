@@ -23,9 +23,9 @@ export const createResultSchema = z.object({
 	branch: z.string(),
 	slug: z.string(),
 	key: z.string(),
-	entry_locator: z.string(),
+	entryLocator: z.string(),
 	commit: z.string(),
-	source_file: z.string(),
+	sourceFile: z.string(),
 });
 
 export type CreateRequest = z.infer<typeof createRequestSchema>;
@@ -63,18 +63,18 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 		branch: created.value.branch,
 		slug: created.value.slug,
 		key: created.value.key,
-		entry_locator: created.value.entry_locator,
+		entryLocator: created.value.entryLocator,
 		commit: created.value.commit,
-		source_file: prepared.value.sourceFile,
+		sourceFile: prepared.value.sourceFile,
 	} satisfies CreateResult);
 }
 
 export function renderCreate(result: CreateResult): string {
-	const source = result.source_file === STDIN_SOURCE_FILE ? "stdin" : result.source_file;
+	const source = result.sourceFile === STDIN_SOURCE_FILE ? "stdin" : result.sourceFile;
 	return [
 		`Created handoff \`${result.slug}\` on branch \`${result.branch}\` from ${source}.`,
-		`Entry Locator: ${result.entry_locator}`,
+		`Entry Locator: ${result.entryLocator}`,
 		`Commit: ${result.commit}`,
-		`Inspect: git show ${result.entry_locator}`,
+		`Inspect: git show ${result.entryLocator}`,
 	].join("\n");
 }

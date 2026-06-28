@@ -346,6 +346,41 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
+		return await this.writeEntrySnapshot(options, {
+			shouldCreateOnly: false,
+			commitMessage: `brmem put ${options.key}`,
+		});
+	}
+
+	async createEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): Promise<BrmemResult<PutEntryResult>> {
+		const validation = await this.validateEntryAddress(options);
+		if (validation.type === "error") return validation;
+		let lastRefChange: BrmemResult<PutEntryResult> | undefined;
+		for (let attempt = 0; attempt < 3; attempt += 1) {
+			const written = await this.writeEntrySnapshot(options, {
+				shouldCreateOnly: true,
+				commitMessage: `brmem create ${options.key}`,
+			});
+			if (written.type === "ok") return written;
+			if (written.error.code === "key_already_exists") return written;
+			if (written.error.code !== "snapshot_ref_changed") return written;
+			lastRefChange = written;
+		}
+		return (
+			lastRefChange ??
+			brmemError("snapshot_ref_changed", "Snapshot Ref changed before it could be updated.")
+		);
+	}
+
+	private async writeEntrySnapshot(
+		options: { namespace: string; key: string; branch: string; content: string },
+		behavior: { shouldCreateOnly: boolean; commitMessage: string },
+	): Promise<BrmemResult<PutEntryResult>> {
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
 		const parent = await runGit(this.commands, ["rev-parse", "--verify", snapshotRef], {
 			cwd: this.cwd,
@@ -361,6 +396,12 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 					});
 		if (entriesResult.type === "error") return entriesResult;
 		const entries = entriesResult.value;
+		if (behavior.shouldCreateOnly && entries.has(options.key)) {
+			return brmemError<PutEntryResult>(
+				"key_already_exists",
+				`key ${JSON.stringify(options.key)} already exists`,
+			);
+		}
 		const tempDir = mkdtempSync(join(tmpdir(), "brmem-blob-"));
 		try {
 			const blobPath = join(tempDir, "content");
@@ -376,7 +417,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		}
 		const tree = await buildTreeFromEntries(this.commands, this.cwd, entries);
 		if (tree.type === "error") return tree;
-		const commitArgs = ["commit-tree", tree.value, "-m", `brmem put ${options.key}`];
+		const commitArgs = ["commit-tree", tree.value, "-m", behavior.commitMessage];
 		if (parentSha !== undefined) commitArgs.splice(2, 0, "-p", parentSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
 		if (commit.code !== 0)

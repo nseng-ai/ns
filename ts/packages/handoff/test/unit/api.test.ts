@@ -43,11 +43,11 @@ describe("@sdl/handoff/api", () => {
 		expect(
 			handoffSummarySchema.parse({
 				branch: "feature/handoff",
-				branch_state: "active",
+				branchState: "active",
 				slug: "pick-up-handoff-flow",
 				key: "pick-up-handoff-flow.md",
-				entry_locator: "refs/brmem/ns/handoff/feature/handoff:pick-up-handoff-flow.md",
-				updated_at: "2026-01-01T00:00:00Z",
+				entryLocator: "refs/brmem/ns/handoff/feature/handoff:pick-up-handoff-flow.md",
+				updatedAt: "2026-01-01T00:00:00Z",
 			}),
 		).toMatchObject({ slug: "pick-up-handoff-flow" });
 	});
