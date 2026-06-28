@@ -17,10 +17,10 @@
   - Guidance: start from concrete consumers: SDL command leaves and Pi adapters. Expected API/Core candidates include identity/slug helpers, summaries, technical locators, list/read/create/delete/gc operations, selection helpers, and gateway-injected request/result types. Keep Pi UI/session continuation out of the API.
   - Evidence: `@sdl/handoff/api` now exports identity, summaries, storage/admin functions, and deleted-branch GC planning/execution with fake-backed tests. Remaining API/core work should extend the seam for create and pickup/read when those leaves are implemented.
 
-- [ ] Migrate Handoff inventory/admin commands to `sdl handoff list`, `sdl handoff delete`, and `sdl handoff gc`.
+- [~] Migrate Handoff inventory/admin commands to `sdl handoff list`, `sdl handoff delete`, and `sdl handoff gc`. (Admin-leaf evidence: updates/2026-06-27T234932Z-sdl-handoff-admin-leaves.md)
   - Policy: direct execution after preview for implementation and tests; ask before running real delete/gc against real Branch Memory as validation.
   - Guidance: these are the lowest-risk leaves because `@sdl/handoff` already owns standalone list/delete/gc operations. Preserve JSON/Markdown output intent, branch/all-branches/deleted-branch behavior, confirmation and dry-run/force semantics, and technical locator evidence.
-  - Evidence: SDL command scenario tests, Handoff operation tests, non-eager-loading regression, and compatibility searches showing no duplicate command-local implementation remains.
+  - Evidence: grouped SDL `handoff` extension leaves now exist for `list`, `delete`, and `gc`, with SDL scenario tests over fake Branch Memory/Git and shared Handoff-owned schemas/renderers/core. Remaining parity evidence includes the `-y`/`-f` short-alias gap in SDL contributed commands and broader call-site/cutover inventory.
 
 - [ ] Implement deterministic `sdl handoff create`.
   - Policy: direct execution after preview using the Runner Policy defaults; stop before adding content-derived/model-derived slugging or overwrite behavior.

@@ -27,6 +27,7 @@ export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: SdlConfirmPrompt | undefined;
+	extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export interface RunWithFakesOptions {
@@ -57,6 +58,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
+	extensions?: Readonly<Record<string, unknown>> | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
@@ -68,6 +70,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		this.confirm = state.confirm;
+		this.extensions = state.extensions;
 	}
 
 	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
