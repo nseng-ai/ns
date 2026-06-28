@@ -193,25 +193,31 @@
       it is stable for this row; shared clinkr/theme navigation extraction remains deferred until broader
       non-Slot consumers appear. Semantic update:
       `updates/2026-06-28T180147Z-slot-navigation-migration-complete.md`.
-- [~] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
-  mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
-  unported destructive surfaces extension-gated until they port.
-  Semantic update (pilot in progress): `sdl slot free` now has the first Slot-local destructive
-  result-block wrapper over the shared `@sdl/cli-theme` finite result block, covering dry-run,
-  success, cancellation/refusal, and cleanup-error outcomes while preserving machine/JSON behavior.
-  This starts but does not complete the row; next prove the same grammar on adjacent Slot destructive
-  surfaces before considering shared extraction or Handoff migration. Follow-up semantic update:
-  `sdl slot gc` is now the second Slot destructive consumer, covering dry-run, interactive
-  pre-confirmation preview, cancellation/refusal, success/no-op, and cleanup-error outcomes through
-  the same Slot-local result-block helper while preserving JSON/mutation/confirmation contracts.
-  Follow-up semantic update: `sdl slot gt free-stack` and `sdl slot resize` are now the third and
-  fourth Slot destructive consumers. `free-stack` migrated its no-op/freed-stack human results;
-  `resize` migrated conservatively for current successful/no-op grow/shrink outcomes while preserving
-  existing JSON/mutation semantics and deliberately not adding dry-run/force/confirmation behavior.
-  The Slot-local destructive helper still fits without shared extraction; Handoff destructive
-  migration remains queued next unless resize authorization semantics are explicitly reopened. Updates:
-  `updates/2026-06-28T000001Z-slot-gc-destructive-result-block.md`,
-  `updates/2026-06-28T121500Z-slot-free-stack-resize-destructive-rendering.md`.
+- [x] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
+      mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
+      unported destructive surfaces extension-gated until they port.
+      Semantic update (pilot in progress): `sdl slot free` now has the first Slot-local destructive
+      result-block wrapper over the shared `@sdl/cli-theme` finite result block, covering dry-run,
+      success, cancellation/refusal, and cleanup-error outcomes while preserving machine/JSON behavior.
+      This starts but does not complete the row; next prove the same grammar on adjacent Slot destructive
+      surfaces before considering shared extraction or Handoff migration. Follow-up semantic update:
+      `sdl slot gc` is now the second Slot destructive consumer, covering dry-run, interactive
+      pre-confirmation preview, cancellation/refusal, success/no-op, and cleanup-error outcomes through
+      the same Slot-local result-block helper while preserving JSON/mutation/confirmation contracts.
+      Follow-up semantic update: `sdl slot gt free-stack` and `sdl slot resize` are now the third and
+      fourth Slot destructive consumers. `free-stack` migrated its no-op/freed-stack human results;
+      `resize` migrated conservatively for current successful/no-op grow/shrink outcomes while preserving
+      existing JSON/mutation semantics and deliberately not adding dry-run/force/confirmation behavior.
+      Follow-up semantic update: `sdl handoff delete` and `sdl handoff gc` now render human destructive
+      success, refusal/cancellation, dry-run/no-op, and error summaries through a Handoff-local
+      destructive result-block helper while preserving JSON/mutation/authorization semantics. Slot and
+      Handoff P0 destructive feature-building surfaces are complete unless resize authorization semantics
+      are explicitly reopened; shared destructive extraction remains deferred because the duplicated
+      wrapper is still intentionally thin and capability-local. Next Objective step: generalized
+      list/detail/report primitives after an eligibility recheck. Updates:
+      `updates/2026-06-28T000001Z-slot-gc-destructive-result-block.md`,
+      `updates/2026-06-28T121500Z-slot-free-stack-resize-destructive-rendering.md`,
+      `updates/2026-06-28T192520Z-handoff-destructive-result-blocks.md`.
 - [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
