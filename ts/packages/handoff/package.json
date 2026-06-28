@@ -22,6 +22,7 @@
   "dependencies": {
     "@sdl/brmem": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
+    "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "sdl-sdk": "workspace:*",

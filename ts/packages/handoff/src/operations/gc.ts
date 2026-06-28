@@ -1,4 +1,4 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
+import { failure, ok, requireInteractiveOrUsageError, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -10,6 +10,7 @@ import {
 	type DeletedBranchGarbageCollectionReport,
 } from "../gc-core.ts";
 import { handoffSummarySchema } from "../inventory.ts";
+import { renderHandoffDestructiveResultBlock } from "./destructive-presentation.ts";
 
 const GC_ACTION_VALUE_BY_ACTION = {
 	keptActive: "keptActive",
@@ -90,30 +91,19 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 	return ok(toGcResult(plan, { dryRun: false, cancelled: true }));
 }
 
-export function renderGc(result: GcResult): string {
-	if (result.cancelled) return "Cancelled — no handoffs deleted.";
+export function renderGc(
+	result: GcResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	const candidates = result.entries.filter(
 		(entry) =>
 			entry.action === "wouldDelete" || entry.action === "deleted" || entry.action === "error",
 	);
-	const lines: string[] = [];
-	if (candidates.length === 0) {
-		lines.push("No handoffs for deleted branches.");
-		lines.push(summaryLine(result));
-		return lines.join("\n");
-	}
-	if (result.wouldDeleteCount > 0)
-		lines.push(`Would delete ${result.wouldDeleteCount} handoff(s) for deleted branches:`);
-	else lines.push(`Deleted ${result.deletedCount} handoff(s) for deleted branches:`);
-	for (const entry of candidates) {
-		const suffix = entry.message === null ? "" : `: ${entry.message}`;
-		lines.push(
-			`  ${formatGcAction(entry.action)} ${entry.branchState} ${entry.branch} ${entry.slug}${suffix}`,
-		);
-	}
-	lines.push("");
-	lines.push(summaryLine(result));
-	return lines.join("\n");
+	return renderHandoffDestructiveResultBlock(caps, {
+		kind: gcResultKind(result),
+		headline: gcHeadline(result, candidates.length),
+		body: gcBody(result, candidates),
+	});
 }
 
 async function loadAllSummaries(ctx: HandoffCliContext) {
@@ -147,6 +137,34 @@ function toGcResult(
 		dryRun: options.dryRun,
 		cancelled: options.cancelled,
 	};
+}
+
+function gcResultKind(result: GcResult): "success" | "failure" | "refusal" {
+	if (result.cancelled) return "refusal";
+	if (result.errorCount > 0) return "failure";
+	return "success";
+}
+
+function gcHeadline(result: GcResult, candidateCount: number): string {
+	if (result.cancelled) return "Cancelled handoff gc.";
+	if (candidateCount === 0) return "No handoffs for deleted branches.";
+	if (result.wouldDeleteCount > 0) return `Would delete ${result.wouldDeleteCount} handoff(s).`;
+	if (result.errorCount > 0) return "Handoff gc completed with errors.";
+	return `Deleted ${result.deletedCount} handoff(s).`;
+}
+
+function gcBody(result: GcResult, candidates: readonly GcResultEntry[]): string {
+	const lines: string[] = [];
+	if (result.cancelled) lines.push("No handoffs were deleted.");
+	for (const entry of candidates) {
+		const suffix = entry.message === null ? "" : `: ${entry.message}`;
+		lines.push(
+			`${formatGcAction(entry.action)} ${entry.branchState} ${entry.branch} ${entry.slug}${suffix}`,
+		);
+	}
+	if (lines.length > 0) lines.push("");
+	lines.push(summaryLine(result));
+	return lines.join("\n");
 }
 
 function summaryLine(result: GcResult): string {

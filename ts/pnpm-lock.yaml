@@ -398,6 +398,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../sdl-capability-kit
+      '@sdl/cli-theme':
+        specifier: workspace:*
+        version: link:../infra/cli-theme
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr

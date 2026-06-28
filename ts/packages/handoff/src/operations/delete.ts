@@ -1,8 +1,9 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
+import { failure, ok, requireInteractiveOrUsageError, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { deleteHandoffArtifact, prepareHandoffDeletion } from "../artifact-storage.ts";
+import { renderHandoffDestructiveResultBlock } from "./destructive-presentation.ts";
 import { resolveBranch } from "./shared.ts";
 
 export const deleteRequestSchema = z.object({
@@ -67,13 +68,26 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	} satisfies DeleteResult);
 }
 
-export function renderDelete(result: DeleteResult): string {
-	if (result.cancelled) return "Cancelled — no handoff deleted.";
-	return [
-		`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`,
-		`Entry Locator: ${result.entryLocator}`,
-		`Commit: ${result.commit}`,
-	].join("\n");
+export function renderDelete(
+	result: DeleteResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	if (result.cancelled) {
+		return renderHandoffDestructiveResultBlock(caps, {
+			kind: "refusal",
+			headline: "Cancelled handoff delete.",
+			body: `No handoff was deleted. Target: ${result.slug} on branch ${result.branch}.`,
+		});
+	}
+	return renderHandoffDestructiveResultBlock(caps, {
+		kind: "success",
+		headline: `Deleted handoff ${result.slug}.`,
+		body: [
+			`Branch: ${result.branch}`,
+			`Entry Locator: ${result.entryLocator}`,
+			`Commit: ${result.commit}`,
+		].join("\n"),
+	});
 }
 
 function cancelledResult(target: {
