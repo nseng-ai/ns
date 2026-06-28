@@ -15,6 +15,18 @@ The retained foundation is:
 
 The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
 
+## Capability API
+
+`@sdl/pr-address/api` is the curated in-process Capability API for PR-feedback consumers. Consumers that handle PR lookup, review, discussion-comment, review-thread, review-thread mutation, or PR Address check payloads should import the gateway and DTO vocabulary from this subpath instead of `@sdl/core/github-pr-feedback`, `@sdl/core/github-pr-status`, Pi modules, command operation schemas, or private source paths.
+
+Current export classification:
+
+- **Stable PR Address Capability API:** `GithubPrFeedbackGateway`; PR lookup/review/discussion/review-thread DTOs; review-thread reply/resolve DTOs; feedback failure/options/operation types. These are owned by PR Address as PR-feedback seam vocabulary.
+- **Stable through the PR Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@sdl/pr-address/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@sdl/core/github-pr-status`.
+- **Not Capability API:** `RealGithubPrFeedbackGateway`, GraphQL args/queries/schemas/normalizers, command schemas, Clinkr/exec wrappers, Pi presentation/session helpers. These remain real-adapter, command-face, or Presentation Host implementation details.
+
+ADR 0016 keeps dependency direction as `@sdl/pr-address` → `@sdl/core`: lower type declarations and real GitHub mechanics may live in core, while seam consumers import only the PR Address Capability API.
+
 ## Distribution
 
 `pr-address` is distributed as a machine-level PATH shim that runs this package's sources directly; nothing is bundled or published:

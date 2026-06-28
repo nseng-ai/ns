@@ -56,5 +56,4 @@ Risks:
 
 - Should PR Address gain the grouped SDL command face `sdl address ...`, or should the standalone `pr-address` CLI remain a transitional command face until another migration slice proves the SDL shape?
 - Which Pi PR feedback watch primitives are truly reusable PR Address domain behavior, and which are presentation/session concerns that should remain in Pi?
-- Which existing `@sdl/pr-address/api` exports are stable Capability API vocabulary, and which should stay command-private or lower-infra-only?
 - Should local PR preview behavior consume more PR Address API surface, or is it correctly bounded as a Pi-tool presentation package over already-collected feedback/check data?

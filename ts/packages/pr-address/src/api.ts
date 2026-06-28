@@ -1,3 +1,23 @@
+// Capability API (`@sdl/pr-address/api`): the curated, in-process surface for
+// PR-feedback consumers. The gateway seam and feedback/check payload vocabulary are
+// stable here so consumers do not import `@sdl/core/github-pr-feedback`, Pi modules,
+// command operation schemas, or PR Address internals.
+//
+// Export classification:
+// - Stable PR Address Capability API: `GithubPrFeedbackGateway`, PR lookup/review/
+//   discussion/review-thread DTOs, review-thread mutation DTOs, feedback failure
+//   types, and gateway options/operation names.
+// - Stable via the PR Address seam: check/status result DTOs returned by
+//   `getPrChecks`. Their neutral normalization mechanics stay in
+//   `@sdl/core/github-pr-status`; consumers should import these DTOs here when they
+//   are handling PR Address check payloads.
+// - Not exported here: real GitHub adapters, GraphQL args/queries/normalizers,
+//   command schemas, Clinkr/exec wrappers, and Pi presentation/session helpers.
+//
+// ADR 0016 keeps the lower type declarations and real mechanics in `@sdl/core` so
+// dependency direction remains `@sdl/pr-address` -> `@sdl/core`; this file owns the
+// capability-facing seam vocabulary by re-exporting only the consumer-facing types.
+
 import type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
@@ -23,12 +43,8 @@ import type {
 } from "@sdl/core/github-pr-status";
 import type { Result } from "@sdl/core/result";
 
-// The PR-feedback gateway seam is owned by the @sdl/pr-address capability package.
-// PR-feedback domain DTOs and the lower status-rollup result types are declared in
-// @sdl/core and re-exported here so seam consumers import only from @sdl/pr-address/api.
+// Stable PR Address Capability API: PR feedback domain seam and payloads.
 export type {
-	GithubCheckBucket,
-	GithubCheckTally,
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
@@ -43,6 +59,13 @@ export type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
+};
+
+// Stable only through the PR Address Capability API when consumers handle
+// `getPrChecks` payloads. Generic status rollup mechanics remain lower infra.
+export type {
+	GithubCheckBucket,
+	GithubCheckTally,
 	GithubStatusCheckEntry,
 	GithubStatusCheckKind,
 	GithubStatusChecks,
