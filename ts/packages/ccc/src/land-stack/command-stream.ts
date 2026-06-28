@@ -1,5 +1,6 @@
 import { createCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { formatCommand, runNormalizedExecResult, type ExecResult } from "@sdl/core/exec";
+import { formatElapsedMs } from "@sdl/core/time-format";
 import {
 	customMessageText,
 	linkifyPrReferences,
@@ -24,6 +25,8 @@ interface LandStackCommandStreamOptions {
 	shouldShowRunningCommandStatus?: boolean;
 	/** Mirror completed-command results to text-only fallback sinks. */
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
+	/** Injectable clock for stable command-duration tests. */
+	nowMs?: () => number;
 }
 
 /**
@@ -59,14 +62,18 @@ export class LandStackCommandStream {
 	private readonly io: CommandIo;
 	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
+	private readonly nowMs: () => number;
+	private readonly commandStarts = new Map<string, number>();
 
 	constructor(io: CommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
 		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
+		this.nowMs = options.nowMs ?? Date.now;
 	}
 
 	start(commandDisplay: string): void {
+		this.commandStarts.set(commandDisplay, this.nowMs());
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
@@ -78,12 +85,8 @@ export class LandStackCommandStream {
 	finish(commandDisplay: string, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
 		const icon = result.code === 0 ? "✓" : "✗";
-		const suffix =
-			result.code === 0
-				? finish.note
-					? ` — ${finish.note}`
-					: ""
-				: ` — exit ${result.code}${result.killed ? " (killed or timed out)" : ""}${finish.note ? ` — ${finish.note}` : ""}`;
+		const elapsedMs = this.takeElapsedMs(commandDisplay);
+		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${commandDisplay}${suffix}`];
 		if (result.code !== 0) {
 			lines.push(...commandStreamOutputLines(result));
@@ -108,6 +111,27 @@ export class LandStackCommandStream {
 	note(message: string): void {
 		this.io.message(formatCommandStreamBlock("→", message), { level: "info" });
 	}
+
+	private takeElapsedMs(commandDisplay: string): number | undefined {
+		const startedAt = this.commandStarts.get(commandDisplay);
+		if (startedAt === undefined) return undefined;
+		this.commandStarts.delete(commandDisplay);
+		return Math.max(0, this.nowMs() - startedAt);
+	}
+}
+
+function formatCommandFinishSuffix(
+	result: ExecResult,
+	note: string | undefined,
+	elapsedMs: number | undefined,
+): string {
+	const parts: string[] = [];
+	if (result.code !== 0) {
+		parts.push(`exit ${result.code}${result.killed ? " (killed or timed out)" : ""}`);
+	}
+	if (note) parts.push(note);
+	if (elapsedMs !== undefined) parts.push(`finished in ${formatElapsedMs(elapsedMs)}`);
+	return parts.length === 0 ? "" : ` — ${parts.join(" — ")}`;
 }
 
 export function withCommandStreaming(

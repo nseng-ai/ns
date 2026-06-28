@@ -441,6 +441,44 @@ function guardShaStep(branch: string, sha: string): ScriptedExec {
 	});
 }
 
+function postRestackSubmitCheckSteps(options: {
+	branch: string;
+	sha: string;
+	prNumber: number;
+	base: string;
+	state?: string | undefined;
+	isDraft?: boolean | undefined;
+}): ScriptedExec[] {
+	return [
+		guardShaStep(options.branch, options.sha),
+		step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
+			stdout: prStdout(
+				prSnapshot({
+					number: options.prNumber,
+					branch: options.branch,
+					base: options.base,
+					sha: options.sha,
+					...(options.state === undefined ? {} : { state: options.state }),
+					...(options.isDraft === undefined ? {} : { isDraft: options.isDraft }),
+				}),
+			),
+		}),
+	];
+}
+
+function submitUpdateStep(branch: string): ScriptedExec {
+	return step("gt", [
+		"submit",
+		"--branch",
+		branch,
+		"--no-stack",
+		"--update-only",
+		"--no-edit",
+		"--no-ai",
+		"--no-interactive",
+	]);
+}
+
 function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
 	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 		stdout: `${metadataDbJson([{ branch, children }])}\n`,
@@ -605,22 +643,17 @@ function mergeNumberedBranch(
 			childrenRecheckStep(branch, [nextBranch]),
 			step("gt", ["delete", branch, "-f", "-q"]),
 			step("gt", ["restack", "--branch", nextBranch, "--upstack", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: nextBranch,
+				sha: numberedSha(options.next),
+				prNumber: 200 + options.next,
+				base: branch,
+			}),
 		);
 		if (options.next < 11) {
 			steps.push(guardShaStep(numberedBranch(options.next + 1), numberedSha(options.next + 1)));
 		}
-		steps.push(
-			step("gt", [
-				"submit",
-				"--branch",
-				nextBranch,
-				"--no-stack",
-				"--update-only",
-				"--no-edit",
-				"--no-ai",
-				"--no-interactive",
-			]),
-		);
+		steps.push(submitUpdateStep(nextBranch));
 		return steps;
 	}
 	steps.push(
@@ -761,6 +794,12 @@ function mergeFeatureA(
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
 		);
 		// post-restack refresh of the next forced-refresh target (the auto-maintained
 		// descendant); skipped-maintenance scenarios pass null because there is no
@@ -770,18 +809,7 @@ function mergeFeatureA(
 		if (postRestackRefresh) {
 			steps.push(guardShaStep(postRestackRefresh, BRANCH_SHAS[postRestackRefresh] ?? SHA_C));
 		}
-		steps.push(
-			step("gt", [
-				"submit",
-				"--branch",
-				"feature-b",
-				"--no-stack",
-				"--update-only",
-				"--no-edit",
-				"--no-ai",
-				"--no-interactive",
-			]),
-		);
+		steps.push(submitUpdateStep("feature-b"));
 	}
 	return steps;
 }
@@ -826,16 +854,13 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 		childrenRecheckStep("feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
-		step("gt", [
-			"submit",
-			"--branch",
-			DESCENDANT,
-			"--no-stack",
-			"--update-only",
-			"--no-edit",
-			"--no-ai",
-			"--no-interactive",
-		]),
+		...postRestackSubmitCheckSteps({
+			branch: DESCENDANT,
+			sha: SHA_C,
+			prNumber: 103,
+			base: "feature-b",
+		}),
+		submitUpdateStep(DESCENDANT),
 	];
 }
 
@@ -1511,7 +1536,9 @@ describe("land-stack pure helpers", () => {
 			"error",
 		]);
 		expect(context.notifications[0]?.message).toBe("→ Preparing to land 1 PR through feature-a...");
-		expect(context.notifications[1]?.message).toBe("✓ $ git status");
+		expect(context.notifications[1]?.message).toMatch(
+			/^✓ \$ git status — finished in (?:\d+s|\d+m \d+s)$/,
+		);
 		expect(context.notifications[2]?.message).toContain("✗ $ git fail — exit 2");
 		expect(context.notifications[2]?.message).toContain("stdout line");
 		expect(context.notifications[2]?.message).toContain("stderr line");
@@ -2098,6 +2125,11 @@ describe("land-stack command scenarios", () => {
 						call.command === "git" &&
 						sameArgs(call.args, ["rev-parse", "--verify", `refs/heads/${DESCENDANT}^{commit}`]),
 				),
+		).toBe(true);
+		expect(
+			pi.execCalls
+				.slice(descendantRestackCallIndex + 1)
+				.some((call) => call.command === "gt" && call.args[0] === "get"),
 		).toBe(false);
 		expect(notifications.at(-1)?.level).toBe("success");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain(
@@ -2459,6 +2491,100 @@ describe("land-stack command scenarios", () => {
 		).toEqual(["101"]);
 	});
 
+	test("skips post-restack submit when fresh PR metadata is already current", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureAThroughDelete(),
+			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: TRUNK,
+			}),
+			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-b", []),
+			step("gt", ["delete", "feature-b", "-f", "-q"]),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					call.command === "gt" && call.args[0] === "submit" && call.args[2] === "feature-b",
+			),
+		).toBe(false);
+		expect(commandMessagesText(messages)).toContain(
+			"→ Skipped gt submit for feature-b; PR metadata already current.",
+		);
+	});
+
+	test("post-restack PR read failure halts required next-landing maintenance", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureAThroughDelete(),
+			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			guardShaStep("feature-b", SHA_B),
+			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
+				code: 1,
+				stderr: "PR lookup failed",
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("could not verify PR metadata for feature-b after restack");
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "submit")).toBe(
+			false,
+		);
+	});
+
+	test("post-restack PR read failure warns for optional descendant maintenance", async () => {
+		const script = [
+			...featureStackPreflight(),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+			guardShaStep(DESCENDANT, SHA_C),
+			step("gt", [
+				"get",
+				DESCENDANT,
+				"--downstack",
+				"--no-restack",
+				"--no-checkout",
+				"--force",
+				"--no-interactive",
+			]),
+			childrenRecheckStep("feature-b", [DESCENDANT]),
+			step("gt", ["delete", "feature-b", "-f", "-q"]),
+			step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
+			guardShaStep(DESCENDANT, SHA_C),
+			step("gh", ["pr", "view", DESCENDANT, "--json", PR_FIELDS], {
+				code: 1,
+				stderr: "PR lookup failed",
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			"PR metadata for feature-c could not be verified after optional descendant restack",
+		);
+		expect(
+			pi.execCalls.some(
+				(call) => call.command === "gt" && call.args[0] === "submit" && call.args[2] === DESCENDANT,
+			),
+		).toBe(false);
+	});
+
 	test("optional descendant maintenance failure completes with a warning", async () => {
 		const script = [
 			...featureStackPreflight(),
@@ -2772,16 +2898,13 @@ describe("land-stack command scenarios", () => {
 			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
-			step("gt", [
-				"submit",
-				"--branch",
-				"feature-b",
-				"--no-stack",
-				"--update-only",
-				"--no-edit",
-				"--no-ai",
-				"--no-interactive",
-			]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
+			submitUpdateStep("feature-b"),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
 				stdout: `${SHA_B}\n`,
 			}),
@@ -3317,6 +3440,12 @@ describe("land-stack command scenarios", () => {
 			...backupRefSteps(["feature-a", "feature-b"]),
 			...mergeFeatureAThroughDelete(),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
 			step(
 				"gt",
 				[

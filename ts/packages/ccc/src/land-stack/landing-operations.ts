@@ -27,7 +27,12 @@ import {
 	restackTargetForSubmit,
 	submitUpdateArgs,
 } from "./landing-plan.ts";
-import { formatPrSubmitRequirement, loadPr, validateStrictMergeGate } from "./pr-facts.ts";
+import {
+	formatPrSubmitRequirement,
+	loadPr,
+	validateOpenPrBasics,
+	validateStrictMergeGate,
+} from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type {
 	CommandStreamFinish,
@@ -73,6 +78,8 @@ type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip" }
 	| { kind: "halt"; failure: LandStackFailure };
+
+type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 
 export interface MergeLoopState {
 	expectedShas: Map<string, string>;
@@ -515,7 +522,7 @@ function failOrWarn(
 	severity: MaintenanceSeverity,
 	warnings: LandingWarning[],
 	pair: { failure: LandStackFailure; warning: LandingWarning },
-): GraphiteMaintenanceOutcome {
+): GraphiteMaintenanceStop {
 	if (severity === "fail") return { kind: "halt", failure: pair.failure };
 	warnings.push(pair.warning);
 	return { kind: "skip" };
@@ -556,6 +563,156 @@ interface PerformGraphiteMaintenanceOptions {
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	step: GraphiteMaintenanceStep;
+}
+
+interface SubmitMaintenanceCheckOptions {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	trunk: string;
+	prNumber: number;
+	landedBranch: string;
+	maintenanceBranch: string;
+	severity: MaintenanceSeverity;
+	state: MergeLoopState;
+}
+
+type SubmitMaintenanceCheckOutcome =
+	| { kind: "submit" }
+	| { kind: "skip-submit" }
+	| GraphiteMaintenanceStop;
+
+async function checkSubmitMaintenanceBranch(
+	options: SubmitMaintenanceCheckOptions,
+): Promise<SubmitMaintenanceCheckOutcome> {
+	const { pi, repoRoot, trunk, prNumber, landedBranch, maintenanceBranch, severity, state } =
+		options;
+	const localSha = await loadLocalSha(pi, repoRoot, maintenanceBranch);
+	if (localSha.type === "failure") {
+		return failOrWarn(severity, state.warnings, {
+			failure: landStackFailure(
+				`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${localSha.failure.message}`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+			warning: {
+				message: `All target PRs were merged, but local branch ${maintenanceBranch} could not be re-read after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
+				suggestedAction: `Inspect local branch ${maintenanceBranch}, update that PR manually if needed, and delete local branch ${landedBranch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		});
+	}
+
+	const pr = await loadPr(pi, repoRoot, maintenanceBranch);
+	if (pr.type === "failure") {
+		return failOrWarn(severity, state.warnings, {
+			failure: landStackFailure(
+				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} after restack.\n${pr.failure.message}`,
+				{
+					failedBranch: maintenanceBranch,
+					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed.`,
+				},
+			),
+			warning: {
+				message: `All target PRs were merged, but PR metadata for ${maintenanceBranch} could not be verified after optional descendant restack; submit/update for ${maintenanceBranch} was skipped.`,
+				suggestedAction: `Inspect PR metadata for ${maintenanceBranch} and update that PR manually if needed.`,
+			},
+		});
+	}
+
+	return isPrMetadataCurrentForMaintenance({
+		pr: pr.value,
+		branch: maintenanceBranch,
+		localSha: localSha.value,
+		trunk,
+	})
+		? { kind: "skip-submit" }
+		: { kind: "submit" };
+}
+
+function isPrMetadataCurrentForMaintenance(options: {
+	pr: PullRequestSnapshot;
+	branch: string;
+	localSha: string;
+	trunk: string;
+}): boolean {
+	const basics = validateOpenPrBasics(options);
+	return basics.type === "success" && options.pr.baseRefName === options.trunk;
+}
+
+async function refreshExpectedShaAfterRestack(options: {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	plan: LandingPlan;
+	prNumber: number;
+	maintenanceBranch: string;
+	state: MergeLoopState;
+}): Promise<GraphiteMaintenanceOutcome | undefined> {
+	const { pi, repoRoot, plan, prNumber, maintenanceBranch, state } = options;
+	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
+	// expectation for the next iteration's forced refresh target; comparing against
+	// the pre-restack SHA would false-positive on every 3+ branch stack.
+	const nextGetTarget = nextForcedRefreshBranchAfterMaintaining(plan, maintenanceBranch);
+	if (nextGetTarget === undefined) return undefined;
+
+	const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
+	if (refreshedSha.type === "failure") {
+		return {
+			kind: "halt",
+			failure: landStackFailure(
+				`PR #${prNumber} merged, but could not re-read local branch ${nextGetTarget} after restack.\n${refreshedSha.failure.message}`,
+				{
+					failedBranch: nextGetTarget,
+					suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+				},
+			),
+		};
+	}
+	state.expectedShas.set(nextGetTarget, refreshedSha.value);
+	return undefined;
+}
+
+async function submitMaintenanceBranch(options: {
+	pi: LandStackExtensionAPI;
+	repoRoot: string;
+	trunk: string;
+	prNumber: number;
+	maintenanceBranch: string;
+	severity: MaintenanceSeverity;
+	state: MergeLoopState;
+}): Promise<GraphiteMaintenanceOutcome> {
+	const { pi, repoRoot, trunk, prNumber, maintenanceBranch, severity, state } = options;
+	const submitArgs = [
+		"submit",
+		"--branch",
+		maintenanceBranch,
+		"--no-stack",
+		"--update-only",
+		"--no-edit",
+		"--no-ai",
+		"--no-interactive",
+	];
+	const submitted = await execGraphite(pi, {
+		args: submitArgs,
+		cwd: repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
+	if (submitted.code === 0) return { kind: "proceed" };
+
+	return failOrWarn(severity, state.warnings, {
+		failure: landStackFailure(formatSubmitFailureMessage(prNumber, maintenanceBranch, true), {
+			commandDisplay: formatCommand("gt", submitArgs),
+			result: submitted,
+			failedBranch: maintenanceBranch,
+			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${trunk}, then rerun /sdl:flow:land if appropriate.`,
+		}),
+		warning: {
+			message: formatSubmitFailureMessage(prNumber, maintenanceBranch, false),
+			commandDisplay: formatCommand("gt", submitArgs),
+			result: submitted,
+			suggestedAction: `Update PR for ${maintenanceBranch} manually and verify it targets ${trunk}.`,
+		},
+	});
 }
 
 async function performGraphiteMaintenance(
@@ -791,60 +948,45 @@ async function performGraphiteMaintenance(
 		});
 	}
 
-	// gt restack --upstack legitimately rewrites upstack branches, so refresh the
-	// expectation for the next iteration's forced refresh target; comparing against
-	// the pre-restack SHA would false-positive on every 3+ branch stack.
-	const nextGetTarget = nextForcedRefreshBranchAfterMaintaining(plan, maintenance.branch);
-	if (nextGetTarget !== undefined) {
-		const refreshedSha = await loadLocalSha(pi, repoRoot, nextGetTarget);
-		if (refreshedSha.type === "failure") {
-			return {
-				kind: "halt",
-				failure: landStackFailure(
-					`PR #${prNumber} merged, but could not re-read local branch ${nextGetTarget} after restack.\n${refreshedSha.failure.message}`,
-					{
-						failedBranch: nextGetTarget,
-						suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-					},
-				),
-			};
-		}
-		state.expectedShas.set(nextGetTarget, refreshedSha.value);
+	const submitCheck = await checkSubmitMaintenanceBranch({
+		pi,
+		repoRoot,
+		trunk: stack.trunk,
+		prNumber,
+		landedBranch: branch,
+		maintenanceBranch: maintenance.branch,
+		severity,
+		state,
+	});
+	if (submitCheck.kind === "halt" || submitCheck.kind === "skip") return submitCheck;
+
+	const refreshExpected = await refreshExpectedShaAfterRestack({
+		pi,
+		repoRoot,
+		plan,
+		prNumber,
+		maintenanceBranch: maintenance.branch,
+		state,
+	});
+	if (refreshExpected) return refreshExpected;
+
+	if (submitCheck.kind === "skip-submit") {
+		options.commandStream?.note(
+			`Skipped gt submit for ${maintenance.branch}; PR metadata already current.`,
+		);
+		return { kind: "proceed" };
 	}
 
 	setStatus(ctx, `submitting ${maintenance.branch}...`);
-	const submitArgs = [
-		"submit",
-		"--branch",
-		maintenance.branch,
-		"--no-stack",
-		"--update-only",
-		"--no-edit",
-		"--no-ai",
-		"--no-interactive",
-	];
-	const submitted = await execGraphite(pi, {
-		args: submitArgs,
-		cwd: repoRoot,
-		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	return await submitMaintenanceBranch({
+		pi,
+		repoRoot,
+		trunk: stack.trunk,
+		prNumber,
+		maintenanceBranch: maintenance.branch,
+		severity,
+		state,
 	});
-	if (submitted.code !== 0) {
-		return failOrWarn(severity, state.warnings, {
-			failure: landStackFailure(formatSubmitFailureMessage(prNumber, maintenance.branch, true), {
-				commandDisplay: formatCommand("gt", submitArgs),
-				result: submitted,
-				failedBranch: maintenance.branch,
-				suggestedAction: `Update PR for ${maintenance.branch} manually, verify it targets ${stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
-			}),
-			warning: {
-				message: formatSubmitFailureMessage(prNumber, maintenance.branch, false),
-				commandDisplay: formatCommand("gt", submitArgs),
-				result: submitted,
-				suggestedAction: `Update PR for ${maintenance.branch} manually and verify it targets ${stack.trunk}.`,
-			},
-		});
-	}
-	return { kind: "proceed" };
 }
 
 async function runOptionalDescendantGraphiteCommand(

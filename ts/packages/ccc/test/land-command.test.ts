@@ -351,6 +351,17 @@ function stackPrView(
 	});
 }
 
+function postRestackSubmitCheckSteps(): ScriptedExec[] {
+	return [
+		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
+			stdout: `${SHA_CHILD}\n`,
+		}),
+		step("gh", ["pr", "view", CHILD_BRANCH, "--json", STACK_PR_VIEW_FIELDS], {
+			stdout: stackPrView({ number: 43, branch: CHILD_BRANCH, base: CURRENT, sha: SHA_CHILD }),
+		}),
+	];
+}
+
 function cleanRepoChecks(): ScriptedExec[] {
 	return [
 		step("git", ["status", "--porcelain=v1"]),
@@ -431,6 +442,7 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 		}),
 		step("gt", ["delete", CURRENT, "-f", "-q"]),
 		step("gt", ["restack", "--branch", CHILD_BRANCH, "--upstack", "--no-interactive"]),
+		...postRestackSubmitCheckSteps(),
 		step("gt", [
 			"submit",
 			"--branch",
