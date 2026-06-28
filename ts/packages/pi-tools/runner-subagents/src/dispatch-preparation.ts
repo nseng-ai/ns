@@ -1,7 +1,6 @@
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
-import type { WidgetRuntimeContext } from "../handoff/runtime-types.ts";
-import { composePiAgentPrompt, type PiAgentDefinition } from "../runtime/agent-definition.ts";
+import { composePiAgentPrompt, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
 import {
 	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
@@ -10,13 +9,17 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-} from "./extension-api.ts";
+} from "@sdl/pi/runner-subagents";
 import {
 	buildCuratedRunnerSubagentContext,
 	type CuratedRunnerSubagentContext,
 } from "./curated-context.ts";
-import { resolveRunnerSubagentLaunch } from "./subagent-process.ts";
-import { buildInitialRunnerSubagentUpdate, withRunnerSubagentWidget } from "./widget.ts";
+import { resolveRunnerSubagentLaunch } from "@sdl/pi/runner-subagents/process";
+import {
+	buildInitialRunnerSubagentUpdate,
+	withRunnerSubagentWidget,
+	type WidgetRuntimeContext,
+} from "./widget.ts";
 
 interface PrepareRunnerSubagentFinalTextDispatchInput {
 	pi: RunnerSubagentPi & {

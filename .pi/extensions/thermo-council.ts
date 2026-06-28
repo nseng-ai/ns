@@ -1,3 +1,3 @@
-import thermoCouncilExtension from "../../ts/packages/hosts/pi/src/thermo-council/extension.ts";
-
-export default thermoCouncilExtension;
+// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
+// package exports are not resolvable without the ts workspace's node_modules ancestry.
+export { default } from "../../ts/packages/pi-tools/thermo-council/src/extension.ts";

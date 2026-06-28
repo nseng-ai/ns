@@ -29,9 +29,9 @@ import {
 	type RunnerSubagentContext,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-} from "../runner-subagents/extension-api.ts";
-import { parseLmJson } from "../models/lm-json.ts";
-import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../runner-subagents/json-events.ts";
+} from "@sdl/pi-runner-subagents";
+import { parseLmJson } from "@sdl/pi/models/lm-json";
+import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@sdl/pi-runner-subagents";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
 import { buildReviewerPrompt } from "./prompt.ts";

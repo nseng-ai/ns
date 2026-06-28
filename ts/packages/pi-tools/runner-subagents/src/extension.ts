@@ -2,9 +2,8 @@ import { z } from "zod";
 
 import { formatZodError } from "@sdl/core/primitives";
 
-import { loadPiAgentDefinition, type PiAgentDefinition } from "../runtime/agent-definition.ts";
-import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
-import { runFinalTextSubagent } from "./dispatch-preparation.ts";
+import { loadPiAgentDefinition, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
+import type { ModelInfo } from "@sdl/pi/runtime/types";
 import {
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
@@ -12,8 +11,7 @@ import {
 	type RunnerSubagentProgress,
 	type RunnerSubagentResult,
 	type RunnerSubagentUsageMetadata,
-} from "./extension-api.ts";
-import type { ExtensionAPI, ToolDefinition } from "../handoff/runtime-types.ts";
+} from "@sdl/pi/runner-subagents";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -21,8 +19,12 @@ import {
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
-} from "./presentation.ts";
-export { resultDiagnostic } from "./extension-api.ts";
+} from "@sdl/pi/runner-subagents/presentation";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+
+import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
+import { runFinalTextSubagent } from "./dispatch-preparation.ts";
+export { resultDiagnostic } from "@sdl/pi/runner-subagents";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
@@ -35,7 +37,51 @@ const dispatchRunnerSubagentInputSchema = z.object({
 	model: z.string().trim().min(1).optional(),
 });
 
-export type { ToolResult } from "../handoff/runtime-types.ts";
+export interface TextContent {
+	type: "text";
+	text: string;
+}
+
+export interface ToolResult<Details = unknown> {
+	content: TextContent[];
+	details?: Details;
+	isError?: boolean;
+	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
+	terminate?: boolean;
+}
+
+export interface ToolContext {
+	cwd: string;
+	hasUI?: boolean;
+	mode?: string;
+	model?: ModelInfo;
+	ui: {
+		notify(message: string, level?: "info" | "warning" | "error"): void;
+		setStatus?: (key: string, value: string | undefined) => void;
+		setWidget?: (
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		) => void;
+	};
+}
+
+export interface ToolDefinition {
+	name: string;
+	label: string;
+	description: string;
+	promptSnippet?: string;
+	promptGuidelines?: string[];
+	parameters: Record<string, unknown>;
+	execute(
+		toolCallId: string,
+		params: unknown,
+		signal: AbortSignal | undefined,
+		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
+		ctx: ToolContext,
+	): Promise<ToolResult> | ToolResult;
+}
+
 export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 
 export interface DispatchRunnerSubagentDetails {
@@ -57,10 +103,11 @@ export interface DispatchRunnerSubagentDetails {
 
 export type DispatchRunnerSubagentToolDefinition = ToolDefinition;
 
-export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi &
-	Pick<ExtensionAPI, "exec" | "getThinkingLevel"> & {
-		registerTool: NonNullable<ExtensionAPI["registerTool"]>;
-	};
+export type DispatchRunnerSubagentExtensionAPI = RunnerSubagentPi & {
+	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+	getThinkingLevel?: () => RunnerSubagentLaunchMetadata["thinkingLevel"];
+	registerTool(definition: ToolDefinition): void;
+};
 
 export interface DispatchRunnerSubagentExtensionOptions {
 	cwd?: string;

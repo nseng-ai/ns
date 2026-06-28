@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { RunnerSubagentTerminalToolDefinition } from "../runner-subagents/extension-api.ts";
+import type { RunnerSubagentTerminalToolDefinition } from "@sdl/pi-runner-subagents";
 
 export const SUBMIT_THERMO_COUNCIL_REVIEW_TOOL = "submit_thermo_council_review";
 export const BLOCK_THERMO_COUNCIL_REVIEW_TOOL = "block_thermo_council_review";

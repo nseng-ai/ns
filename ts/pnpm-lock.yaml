@@ -463,6 +463,33 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
+  packages/pi-tools/runner-subagents:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/pi-tools/thermo-council:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      '@sdl/pi-runner-subagents':
+        specifier: workspace:*
+        version: link:../runner-subagents
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
   packages/plans:
     dependencies:
       '@sdl/clinkr':

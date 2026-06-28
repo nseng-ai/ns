@@ -17,15 +17,15 @@ A thin project-local extension file whose job is to register Pi commands or tool
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, runner subagents, grill UI, PR views, worktree status, SDL flow mirrors, terminal presentation, and command registration helpers.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, PR views, worktree status, SDL flow mirrors, terminal presentation, host-owned runner-subagent runtime helpers, and command registration helpers.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Pi-tool package**:
-A private workspace package under `ts/packages/pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@sdl/pi-context-profiler`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
+A private workspace package under `ts/packages/pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-thermo-council`, or the dispatch-focused `@sdl/pi-runner-subagents`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
 *Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent usage, parity helpers, and cmux/Pi runtime types.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent runtime/process/JSON-event/presentation helpers, parity helpers, and cmux/Pi runtime types.
 *Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
@@ -53,8 +53,12 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Runner subagent**:
-A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode.
-*Avoid*: queued slash command, child thread, transcript scrape.
+A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool lives in `@sdl/pi-runner-subagents`; the shared runtime, process, JSON-event, and presentation helpers remain intentional neutral `@sdl/pi/runner-subagents*` subpaths while host runtime and downstream tools still consume them.
+*Avoid*: queued slash command, child thread, transcript scrape, forcing `@sdl/pi` to import the extracted dispatch package.
+
+**Terminal helper surface**:
+The neutral `@sdl/pi/terminal/*` layout and presentation subpaths owned by the Pi host and intentionally consumed by extracted Pi-tool packages and orchestration packages. Keep this surface in `@sdl/pi` unless a future extraction proves a smaller acyclic home without broad churn.
+*Avoid*: standalone Pi-tool package, feature-domain implementation, terminal emulator ownership.
 
 **Terminal capture**:
 A runner-subagent return mode where a generated runtime extension registers capture-only terminal tools whose validated input becomes the parent result.

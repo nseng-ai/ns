@@ -1,17 +1,27 @@
-import type { WidgetRuntimeContext } from "../handoff/runtime-types.ts";
-import type {
-	RunnerSubagentLaunchMetadata,
-	RunnerSubagentProgressCallback,
-	RunnerSubagentUpdate,
-} from "./extension-api.ts";
-import { emptyRunnerSubagentActivity } from "./activity.ts";
+import {
+	emptyRunnerSubagentActivity,
+	type RunnerSubagentLaunchMetadata,
+	type RunnerSubagentProgressCallback,
+	type RunnerSubagentUpdate,
+} from "@sdl/pi/runner-subagents";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
 	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
-} from "./presentation.ts";
+} from "@sdl/pi/runner-subagents/presentation";
+
+export interface WidgetRuntimeContext {
+	hasUI?: boolean;
+	ui?: {
+		setWidget?: (
+			key: string,
+			content: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		) => void;
+	};
+}
 
 export interface RunnerSubagentWidgetOptions {
 	fallbackTitle?: string;

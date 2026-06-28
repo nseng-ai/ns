@@ -6,6 +6,7 @@ import {
 } from "./subagent-process.ts";
 
 export {
+	emptyRunnerSubagentActivity,
 	runnerSubagentPrimaryActivityPreview,
 	type RunnerSubagentActivity,
 	type RunnerSubagentUpdate,
