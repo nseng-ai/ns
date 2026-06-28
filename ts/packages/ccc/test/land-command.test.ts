@@ -1006,6 +1006,91 @@ describe("code land command", () => {
 	});
 });
 
+describe("code land CLI house-style seam baseline (PR 5a)", () => {
+	// PR 5a isolates the CLI-edge house-style renderer (`land-stack/land-presentation.ts`) without
+	// rerouting live land output. These pin the pre-restyle plain baseline so PR 5b's CLI restyle is a
+	// deliberate, visible diff, and document that house-style ANSI is not yet emitted on the CLI surface.
+	test("success summary CLI output is plain text with no ANSI escapes", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_WITH_DESCENDANT),
+			...successfulStackLandingSteps(),
+		]);
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "--yes",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Landed 1 PR: #42 feature-branch.");
+		expect(stdout).not.toContain("\x1b");
+		expect(stderr).not.toContain("\x1b");
+		pi.assertDone();
+	});
+
+	test("non-interactive stack refusal CLI output is plain text with no ANSI escapes", async () => {
+		const pi = new FakePi(graphiteShapeSteps(DB_WITH_DESCENDANT));
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain(
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		);
+		expect(stdout).not.toContain("\x1b");
+		expect(stderr).not.toContain("\x1b");
+		pi.assertDone();
+	});
+
+	test("fast-path dry-run CLI output is plain text with no ANSI escapes", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+		]);
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "--dry-run",
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stdout).toContain("Dry run only; would merge PR #42 into main.");
+		expect(stdout).not.toContain("\x1b");
+		expect(stderr).not.toContain("\x1b");
+		pi.assertDone();
+	});
+});
+
 describe("gh land PR parsing", () => {
 	test("accepts a valid PR with null body", () => {
 		expect(
