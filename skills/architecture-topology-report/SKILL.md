@@ -62,6 +62,9 @@ flags for a different workspace. The script reports, over **runtime edges only**
 - `transitionalConsumers` — who still depends on a holding-pen package that is supposed to
   reach zero (completion-marker blockers).
 - `orphans` — zero runtime fan-in; unwired leaves, often the furthest from the model.
+- `packages[name].loc` — approximate source size (meaningful TypeScript lines under the
+  package's `src`, tests/blank/`//` excluded). The report sizes graph nodes by this so a
+  package's visual weight matches its heft. Override the source folder with `--src-dir`.
 
 The script is purely structural by design — it does **not** classify layers or judge
 anything, because the layer definitions and the verdict live in the target prose that only
@@ -97,9 +100,18 @@ write to `<tmpdir>/architecture-topology-<timestamp>.html`. Open it (`open` on m
 `xdg-open` on Linux, `start` on Windows) and tell the user the absolute path.
 
 See [references/HTML-REPORT.md](references/HTML-REPORT.md) for the full scaffold, the
-section sequence, the Mermaid graph conventions (layer colors, red cycle edges, dashed
-debt edges), and the scorecard/finding-card patterns. Tailwind + Mermaid both via CDN;
-mix Mermaid graphs with hand-built tier diagrams so it reads as editorial, not as a
+section sequence, the scorecard/finding-card patterns, and the three visual registers:
+
+- The **interactive D3 graph** (section 4) is the centrepiece "reality" view — the full
+  dependency graph with **node area ∝ LOC** (`packages[].loc`), a layered-DAG ⇄ force
+  layout toggle, and drag/zoom/hover-trace/tier-filter. The reference carries the complete,
+  copy-paste renderer; you supply a `{nodes, links}` array. The script does **not** classify
+  tiers, so **you assign each node its tier** (from the target model you read in step 1) and
+  mark a link `cycle: true` when its pair is inside a `cycles` SCC.
+- **Mermaid** only for the small before/after cycle diagrams in finding cards.
+- **Hand-built Tailwind** tier stack, verdict strip, and scorecard table.
+
+Tailwind + D3 + Mermaid via CDN; mix the registers so it reads as editorial, not as a
 generic dashboard.
 
 ### 5. Summarize in chat
