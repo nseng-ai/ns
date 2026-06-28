@@ -171,6 +171,60 @@ describe("renderGitResultBlock — failure", () => {
 			),
 		).toBe(true);
 	});
+
+	test("renders Killed only when the subprocess was actually killed", () => {
+		const block = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "`git push` was killed.",
+			command: "git push",
+			cwd: "/repo",
+			result: execResult({ code: 143, killed: true }),
+		});
+
+		expect(block).toContain(`${DIM}Killed: true${RESET}`);
+	});
+
+	test("normalizes CRLF transcript output and promoted cause lines", () => {
+		const block = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "`git pull` failed.",
+			command: "git pull",
+			cwd: "/repo",
+			result: execResult({
+				stdout: "remote: denied\r\n",
+				stderr: "fatal: could not read from remote repository\r\n",
+				code: 1,
+			}),
+		});
+		const plain = stripAnsi(block);
+
+		expect(plain).not.toContain("\r");
+		expect(block.split("\n").some((line) => stripAnsi(line) === "remote: denied")).toBe(true);
+		expect(
+			block
+				.split("\n")
+				.some((line) => stripAnsi(line) === "fatal: could not read from remote repository"),
+		).toBe(true);
+		expect(plain).toContain("stdout:\nremote: denied");
+		expect(plain).toContain("stderr:\nfatal: could not read from remote repository");
+	});
+
+	test.each(["permission denied", "could not resolve", "authentication failed"])(
+		"surfaces %s failures as cause lines",
+		(marker) => {
+			const block = renderGitResultBlock(caps(), {
+				kind: "failure",
+				headline: "`git fetch` failed.",
+				command: "git fetch",
+				cwd: "/repo",
+				result: execResult({ stderr: `${marker}\n`, code: 1 }),
+			});
+
+			expect(
+				block.split("\n").some((line) => stripAnsi(line) === marker && !line.includes(DIM)),
+			).toBe(true);
+		},
+	);
 });
 
 describe("renderGitResultBlock — refusal (dirty worktree)", () => {
