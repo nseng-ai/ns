@@ -7,10 +7,10 @@
   - Guidance: inspect `ts/packages/roaster/**`, `.sdl/reviews/**`, Roaster public skills, Pi command-surface metadata, docs/ADRs, install/shim references, package exports, and source imports of `@sdl/roaster`. Classify the current standalone CLI commands (`review list`/`ls`, `review run`, `review log`, `roast list`, hidden `exec record-findings`, hidden `exec publish-findings`), Branch Memory review-log semantics, GitHub publication boundary, and any current package-root consumers.
   - Evidence: completed by `updates/2026-06-28T193338Z-roaster-surface-inventory.md`, which records command/API/doc/skill/storage surfaces, call-site categories, compatibility constraints, and recommends the next slice as adding a narrow `@sdl/roaster/api` plus SDL command-face discovery for low-risk read/list operations.
 
-- [ ] Define and implement the initial `@sdl/roaster/api` Capability API boundary.
+- [x] Define and implement the initial `@sdl/roaster/api` Capability API boundary.
   - Policy: direct execution after preview for additive/narrowing API work; steer first before removing package-root exports or exposing broad internals.
   - Guidance: start from concrete consumers discovered by inventory. Prefer a curated API over review definitions, review execution request/result types, review-log summaries, publication request/result types, and gateway-injected operation entrypoints only when needed. Keep command parsing, presentation, prompt resources, and private adapters out of the API.
-  - Evidence: package exports include `./api` with tests/import-boundary evidence; in-process consumers, if any, import the API rather than private modules or broad roots.
+  - Evidence: completed by `updates/2026-06-28T204400Z-roaster-api-boundary.md`; package exports now include `./api`, the API is a narrow fake-testable client facade over gateway-injected runtime/real context options, and tests import `@sdl/roaster/api` without exposing CLI renderers, prompt resources, adapter classes, fake helpers, raw command machinery, or GitHub publication.
 
 - [ ] Prove Roaster's SDL Command Face and selected command loading.
   - Policy: direct execution after preview using existing SDL grouped-command mechanics by default; steer first before command taxonomy changes or public SDK expansion.
