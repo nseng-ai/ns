@@ -15,6 +15,7 @@ import type { GithubPrGateway } from "@sdl/core/submit";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
+	formatMergedPrNotInTrunkPreflightOutput,
 	formatPreflightFailureOutput,
 	formatPrewriteFailureOutput,
 	formatTrunkOutOfDatePreflightOutput,
@@ -112,7 +113,7 @@ export type SubmitSemanticFailureCause = {
 };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
-export type SubmitPreflightFailureCause = "trunk_out_of_date";
+export type SubmitPreflightFailureCause = "trunk_out_of_date" | "merged_pr_not_in_trunk";
 export type SubmitFailurePresentation = "deterministic" | "unknown";
 
 export interface SubmitFailureTranscriptCommand {
@@ -248,6 +249,9 @@ export class RealSubmitGateway implements SubmitGateway {
 		if (!output.startupError && !output.killed && detectTrunkOutOfDate(joinOutput(output))) {
 			return { kind: "failed", output, cause: "trunk_out_of_date" };
 		}
+		if (!output.startupError && !output.killed && detectMergedPrNotInTrunk(joinOutput(output))) {
+			return { kind: "failed", output, cause: "merged_pr_not_in_trunk" };
+		}
 		return { kind: "failed", output };
 	}
 
@@ -366,6 +370,21 @@ export async function runSubmitCommand(
 	if (readiness.kind === "failed") {
 		if (readiness.cause === "trunk_out_of_date") {
 			const stderr = formatTrunkOutOfDatePreflightOutput(
+				readiness.output,
+				submitDryRunCommandDisplay,
+			);
+			return failure(normalizedFailureExitCode(readiness.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"preflight",
+					submitDryRunCommandDisplay,
+					readiness.output,
+					stderr,
+				),
+			});
+		}
+		if (readiness.cause === "merged_pr_not_in_trunk") {
+			const stderr = formatMergedPrNotInTrunkPreflightOutput(
 				readiness.output,
 				submitDryRunCommandDisplay,
 			);
@@ -806,6 +825,12 @@ function detectRestackNeeded(output: string): boolean {
 
 function detectTrunkOutOfDate(output: string): boolean {
 	return /trunk branch is out of date and could not be updated/i.test(stripTerminalEscapes(output));
+}
+
+function detectMergedPrNotInTrunk(output: string): boolean {
+	return /already been merged but the merged commits are not contained in the latest trunk branch/i.test(
+		stripTerminalEscapes(output),
+	);
 }
 
 function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {

@@ -224,6 +224,7 @@ function buildSubmitFailureInterpretationPrompt(input: {
 		"Empty-branch rule: if the transcript says Graphite skipped submission because branch <name> is empty or because the current branch has no changes, make the first line close to: Current branch is empty; Graphite skipped it.",
 		"For empty branches, repeat the exact branch name when known, mention non-empty branches may already have been submitted or updated when stdout says PRs were updated, make the primary next step remove/delete/reparent around the empty branch if it has no remaining work, and present adding real changes only as the alternative when the branch should still have its own PR.",
 		"Do not present add/delete/reparent as equal choices for empty branches.",
+		"Merged-PR trunk rule: if the transcript says a branch's PR has already been merged but its commits are not contained in the current trunk branch, make the first line close to: A merged PR in this stack is missing from the current trunk branch. Repeat the exact branch, PR number/state, and trunk when known. The primary next step is to ensure trunk contains the merged PR's commits or move/reparent the branch onto a trunk that does contain them, then rerun `sdl flow submit`.",
 		"",
 		`Exit code: ${input.exitCode}`,
 		`Transcript limit: ${SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS} characters`,

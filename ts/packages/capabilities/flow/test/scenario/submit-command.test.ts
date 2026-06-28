@@ -708,6 +708,49 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
+	test("merged PR missing from trunk dry-run failure gives deterministic guidance", async () => {
+		const run = runWithFakes({
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							code: 1,
+							stdout:
+								"Running submit in 'dry-run' mode.\n\n🥞 Validating that this Graphite stack is ready to submit...\n\n▸ handoff-capability/stack-feedback-remediation - PR #2257 (merged)\n",
+							stderr:
+								"WARNING: PR for the following branch has already been merged but the merged commits are not contained in the latest trunk branch master.\nWARNING: Stacks with this branch will not be submitted:\nWARNING: To submit these stacks, ensure the trunk branch contains the merged PRs in the stack or move the branches onto a trunk that does contain the merged PRs.\nWARNING: PR for the following branch has already been merged or closed:\nERROR: Aborting dry run.\n",
+						},
+					},
+				],
+				textGeneration: [{ ok: false, error: "summary unavailable" }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
+		);
+		expect(error).toContain(
+			"Branch: handoff-capability/stack-feedback-remediation (PR #2257, merged)",
+		);
+		expect(error).toContain("Trunk: master");
+		expect(error).toContain(
+			"Ensure master contains the merged PR's commits, or move/reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them.",
+		);
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("failed with exit code 1. Submission was not attempted.");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"Graphite found a merged PR in the submit stack",
+		);
+	});
+
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
