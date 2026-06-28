@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "architecture-topology-report": {
+      "source": "skills/architecture-topology-report",
+      "sourceType": "local",
+      "computedHash": "e823a16bd447ead8d45a87939ad47dcbd7c8bbb914cd770a213138a40ae085ac"
+    },
     "branch-context": {
       "source": "skills/branch-context",
       "sourceType": "local",
