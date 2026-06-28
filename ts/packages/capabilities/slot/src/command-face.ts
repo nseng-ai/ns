@@ -2,8 +2,7 @@
 // `defineCli` entrypoint. The supported user-facing surface is `sdl slot ...`,
 // so root CLI metadata such as `--version` and `--runtime` stays owned by
 // `@sdl/kernel` instead of this capability package.
-import { ClinkrGroup } from "@sdl/clinkr";
-
+import { ClinkrGroup, type ClinkrDynamicCompletionRequest } from "@sdl/clinkr";
 import type { SlotCliContext } from "./context.ts";
 import {
 	checkoutRequestSchema,
@@ -97,6 +96,7 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 		schema: checkoutRequestSchema,
 		positionals: { branchName: { position: 0 }, base: { position: 1 } },
 		options: { new: { short: "-b" } },
+		completionProvider: completeCheckoutBranches,
 		resultSchema: checkoutResultSchema,
 		handler: runCheckout,
 		renderHuman: renderCheckout,
@@ -107,6 +107,7 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 		schema: checkoutRequestSchema,
 		positionals: { branchName: { position: 0 }, base: { position: 1 } },
 		options: { new: { short: "-b" } },
+		completionProvider: completeCheckoutBranches,
 		resultSchema: checkoutResultSchema,
 		handler: runCheckout,
 		renderHuman: renderCheckout,
@@ -182,6 +183,20 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 		renderHuman: renderResize,
 	});
 	root.group(buildGtGroup());
+}
+
+async function completeCheckoutBranches<TContext extends SlotCliContext>(
+	ctx: TContext,
+	request: ClinkrDynamicCompletionRequest,
+): Promise<{ candidates: { value: string; type: "positional-value" }[] }> {
+	if (request.current.startsWith("-")) return { candidates: [] };
+	if (request.positionalIndex !== 0 && request.positionalIndex !== 1) return { candidates: [] };
+	const branches = await ctx.git.listLocalBranches();
+	return {
+		candidates: branches
+			.filter((branch) => branch.startsWith(request.current))
+			.map((branch) => ({ value: branch, type: "positional-value" })),
+	};
 }
 
 function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {

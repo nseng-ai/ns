@@ -50,10 +50,72 @@ export interface ScenarioRun {
 	context: SlotCliContext;
 }
 
+export interface CompletionScenarioRun {
+	values: Promise<string[]>;
+	stdout: string[];
+	stderr: string[];
+	git: FakeSlotRepositoryGateway;
+	gt: FakeGraphiteStackGateway;
+	pr: FakeSlotPrGateway;
+	storage: FakeSlotStorageGateway;
+	command: FakeSlotCommandGateway;
+	context: SlotCliContext;
+}
+
 export function runScenario(
 	args: readonly string[],
 	options: ScenarioRunOptions = {},
 ): ScenarioRun {
+	const fixture = buildScenarioFixture(args, options);
+	const exit = buildSlotCommandGroup<SlotCliContext>()
+		.run(args, {
+			context: fixture.context,
+			io: {
+				stdout: (text) => fixture.stdout.push(text),
+				stderr: (text) => fixture.stderr.push(text),
+				canEmitAnsi: options.canEmitAnsi ?? false,
+			},
+		})
+		.then((code) => {
+			fixture.assertComplete();
+			return code;
+		});
+	return { exit, ...completionScenarioRunFields(fixture) };
+}
+
+export function completeScenario(
+	words: readonly string[],
+	options: ScenarioRunOptions = {},
+): CompletionScenarioRun {
+	const fixture = buildScenarioFixture(words, options);
+	const values = buildSlotCommandGroup<SlotCliContext>()
+		.completeAsync({ words }, { context: fixture.context })
+		.then((result) => {
+			fixture.assertComplete();
+			return result.candidates.map((candidate) => candidate.value);
+		});
+	return { values, ...completionScenarioRunFields(fixture) };
+}
+
+function completionScenarioRunFields(
+	fixture: Omit<ScenarioRun, "exit"> & { assertComplete: () => void },
+): Omit<ScenarioRun, "exit"> {
+	return {
+		stdout: fixture.stdout,
+		stderr: fixture.stderr,
+		git: fixture.git,
+		gt: fixture.gt,
+		pr: fixture.pr,
+		storage: fixture.storage,
+		command: fixture.command,
+		context: fixture.context,
+	};
+}
+
+function buildScenarioFixture(
+	args: readonly string[],
+	options: ScenarioRunOptions,
+): Omit<ScenarioRun, "exit"> & { assertComplete: () => void } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
@@ -92,20 +154,17 @@ export function runScenario(
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
 	};
-	const exit = buildSlotCommandGroup<SlotCliContext>()
-		.run(args, {
-			context,
-			io: {
-				stdout: (text) => stdout.push(text),
-				stderr: (text) => stderr.push(text),
-				canEmitAnsi: options.canEmitAnsi ?? false,
-			},
-		})
-		.then((code) => {
-			fakeInteraction?.assertComplete();
-			return code;
-		});
-	return { exit, stdout, stderr, git, gt, pr, storage, command, context };
+	return {
+		stdout,
+		stderr,
+		git,
+		gt,
+		pr,
+		storage,
+		command,
+		context,
+		assertComplete: () => fakeInteraction?.assertComplete(),
+	};
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

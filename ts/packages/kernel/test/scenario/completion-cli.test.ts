@@ -93,6 +93,66 @@ export default defineExtension({
 		expect(run.stderr.join("")).toContain("selected boom");
 	});
 
+	test("selected command dynamic provider returns candidates and keeps static options", async () => {
+		const cwd = await createExtensionProject(
+			"hello.ts",
+			`import { defineExtension, ok, z } from "sdl-sdk";
+export default defineExtension({
+	commands: [{
+		name: "hello",
+		summary: "Hello",
+		description: "Hello",
+		schema: z.object({ name: z.string().optional(), loud: z.boolean().default(false) }),
+		positionals: { name: { position: 0 } },
+		completionProvider(_ctx, request) {
+			return ["alpha", "beta"].filter((value) => value.startsWith(request.current)).map((value) => ({ value, type: "positional-value" }));
+		},
+		run() { return ok("hello"); },
+	}],
+});
+`,
+		);
+		writeProjectExtension(cwd, "bad.ts", "throw new Error('unrelated import boom');\n");
+
+		const dynamicRun = runScenario(["completion", "exec", "resolve", "--", "hello", "a"], {
+			cwd,
+		});
+		expect(await dynamicRun.exit).toBe(0);
+		expect(dynamicRun.stdout.join("")).toBe("alpha\n");
+		expect(dynamicRun.stderr.join("")).toBe("");
+
+		const optionRun = runScenario(["completion", "exec", "resolve", "--", "hello", "--"], {
+			cwd,
+		});
+		expect(await optionRun.exit).toBe(0);
+		expect(optionRun.stdout.join("")).toContain("--loud\n");
+		expect(optionRun.stderr.join("")).toBe("");
+	});
+
+	test("selected command dynamic provider failure preserves static candidates", async () => {
+		const cwd = await createExtensionProject(
+			"hello.ts",
+			`import { defineExtension, ok, z } from "sdl-sdk";
+export default defineExtension({
+	commands: [{
+		name: "hello",
+		summary: "Hello",
+		description: "Hello",
+		schema: z.object({ mode: z.enum(["fast", "slow"]).optional() }),
+		positionals: { mode: { position: 0 } },
+		completionProvider() { throw new Error("provider boom"); },
+		run() { return ok("hello"); },
+	}],
+});
+`,
+		);
+		const run = runScenario(["completion", "exec", "resolve", "--", "hello", "f"], { cwd });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("fast\n");
+		expect(run.stderr.join("")).toContain("provider boom");
+	});
+
 	test("hidden resolver is omitted from completion help", async () => {
 		const run = runScenario(["completion", "--help"]);
 

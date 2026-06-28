@@ -51,8 +51,8 @@ Assumptions:
 Risks:
 
 - Shell protocol differences can consume disproportionate time. Bash uses programmable completion (`complete`, `compgen`, and often `COMP_LINE`/`COMP_POINT`), fish uses `complete` rules and command substitutions, and zsh has its own `compdef`/completion-system conventions.
-- Completion output is a strict shell protocol; ordinary warning text from SDL extension discovery can corrupt suggestions unless routed, suppressed, or represented separately.
-- Dynamic/custom completions can blur boundaries: command-owned providers may need async I/O, cancellation, error handling, default completion fallback, and security/performance limits.
+- De-risked for the SDL proving slice: completion output is a strict shell protocol, so the resolver keeps stdout candidate-only, routes selected-command diagnostics to stderr, and avoids loading unrelated malformed extensions for unrelated completions.
+- De-risked for the first dynamic-provider slice, with limits retained: command-owned providers run on the async path, provider failures preserve static candidates and candidate-only stdout, and richer cancellation/security/file-helper behavior remains out of scope unless a later slice chooses it.
 - Reusing Commander introspection must avoid private fields where possible, but some implicit root-only options may still be easier to track in Clinkr’s own metadata than to rediscover from Commander.
 - Installed shell scripts can be hard to test end-to-end in CI; most tests may need to validate resolver behavior and script text rather than interactive shell tab behavior.
 
@@ -74,8 +74,18 @@ Research findings captured for future implementers:
 
 ## Open Questions
 
-- Answered for the first slice: Clinkr exposes a low-level pure static completion planner/API first (`ClinkrGroup.complete()` plus `@sdl/clinkr/completion`). Standard hidden resolver commands and visible `completion <shell>` host-command helpers are deferred to the shell bridge / SDL integration slices rather than baked into the static planner.
-- What exact output contract should the resolver use: newline-delimited strings, tab-separated descriptions, JSON, or shell-specific rendering?
-- Should SDL suppress unrelated extension warnings during completion, redirect them to debug-only output, or include them only when completing an explicitly broken selected command?
-- How should dynamic/custom completion providers compose with default Clinkr completions: replace, append, filter, or callback-style fallback like yargs?
-- Is file/directory completion in scope for Clinkr dynamic hooks, or should shell-native file completion remain the default when Clinkr has no candidate?
+- Answered for the first slice: Clinkr exposes a low-level pure static completion planner/API first (`ClinkrGroup.complete()` plus `@sdl/clinkr/completion`). Standard hidden resolver commands and visible `completion <shell>` host-command helpers landed in the shell bridge / SDL integration slices rather than being baked into the static planner.
+- Answered for the SDL bridge: the resolver output contract is newline-delimited candidate values only; descriptions are intentionally omitted for the first bridge.
+- Answered for SDL diagnostics: unrelated malformed extensions are not loaded for unrelated completion contexts, selected broken command diagnostics go to stderr, resolver stdout remains candidate-only, and shell-facing failures use exit code 0 where needed to avoid breaking completion.
+- Answered for the first dynamic/custom provider API: providers append to static Clinkr candidates on the async path and candidates are deduped; provider failures are captured so static candidates remain available.
+- Answered for now: rich file/directory helper APIs are out of scope and remain parked; shell-native fallback behavior is preferred when Clinkr has no candidate.
+
+## Closure
+
+Outcome: completed.
+
+All non-parked roadmap work and completion criteria are satisfied. Clinkr now exposes a tested first-party completion surface (`ClinkrGroup.complete()` / async completion plus `@sdl/clinkr/completion`) covering commands, visible options, framework options, and enum choices without invoking handlers. SDL proves the pattern with `sdl completion bash|zsh|fish` setup generation and hidden `sdl completion exec resolve` resolver behavior, while preserving lazy extension catalog discovery, selected-command-only import, candidate-only stdout, and stderr diagnostics for selected broken commands.
+
+The dynamic/custom completion decision was resolved by implementing a small command-owned provider API across Clinkr, `sdl-sdk`, and the SDL resolver, proven with local-branch completion for `sdl slot checkout` / `sdl slot co`. User-facing and extension-author documentation landed in `ts/packages/kernel/README.md` and `ts/packages/kernel/docs/sdk-reference.md`, including supported shells, installation examples, resolver behavior, limitations, and the explicit no-compatibility-aliases-for-autocomplete boundary.
+
+Validation evidence is recorded in the Semantic Updates, especially `20260628T224146Z-sdl-shell-completion-proving-consumer.md`, `20260628T232011Z-dynamic-completion-hooks-slot-branches.md`, and `20260628T233257Z-completion-docs.md`. Remaining parked ideas — PowerShell completion, optional Carapace export, richer file/directory helpers, and wider monorepo dynamic completion adoption — are intentionally out of scope for this completed Objective and can become follow-up Objectives if prioritized.

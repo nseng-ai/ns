@@ -17,8 +17,28 @@ export interface ClinkrCompletionRequest {
 	words: readonly string[];
 }
 
+export interface ClinkrDynamicCompletionRequest extends ClinkrCompletionRequest {
+	current: string;
+	previous: readonly string[];
+	args: readonly string[];
+	positionalIndex: number;
+}
+
+export type ClinkrDynamicCompletionProvider<TContext> = (
+	ctx: TContext,
+	request: ClinkrDynamicCompletionRequest,
+) =>
+	| Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
+	| ClinkrCompletionResult
+	| readonly ClinkrCompletionCandidate[];
+
 export interface ClinkrCompletionResult {
 	candidates: readonly ClinkrCompletionCandidate[];
+}
+
+export interface CompleteClinkrWordsAsyncOptions<TContext> {
+	context: TContext;
+	onDynamicCompletionError?: (error: unknown) => void;
 }
 
 export type ClinkrCompletionShell = "bash" | "zsh" | "fish";
@@ -35,28 +55,29 @@ export interface ClinkrCompletionOptionPlan {
 	description: string;
 }
 
-export interface ClinkrCompletionCommandPlan {
+export interface ClinkrCompletionCommandPlan<TContext = unknown> {
 	name: string;
 	description?: string;
 	options: readonly ClinkrCompletionOptionPlan[];
 	positionals: readonly PositionalPlan[];
+	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 }
 
-export interface ClinkrCompletionGroupPlan {
+export interface ClinkrCompletionGroupPlan<TContext = unknown> {
 	name: string;
 	description?: string;
 	isRoot: boolean;
 	isHidden: boolean;
 	hasVersionOption: boolean;
 	hasRuntimeOption: boolean;
-	commands: readonly ClinkrCompletionCommandPlan[];
-	groups: readonly ClinkrCompletionGroupPlan[];
-	defaultCommand?: ClinkrCompletionCommandPlan;
+	commands: readonly ClinkrCompletionCommandPlan<TContext>[];
+	groups: readonly ClinkrCompletionGroupPlan<TContext>[];
+	defaultCommand?: ClinkrCompletionCommandPlan<TContext>;
 }
 
-interface CompletionContext {
-	group: ClinkrCompletionGroupPlan;
-	command?: ClinkrCompletionCommandPlan;
+interface CompletionContext<TContext> {
+	group: ClinkrCompletionGroupPlan<TContext>;
+	command?: ClinkrCompletionCommandPlan<TContext>;
 	args: readonly string[];
 }
 
@@ -123,10 +144,58 @@ export function renderClinkrCompletionScript(options: RenderClinkrCompletionScri
  * Complete tokenized user words from a static Clinkr command surface plan.
  * This planner is pure: it never invokes command handlers or performs shell parsing.
  */
-export function completeClinkrWords(
-	plan: ClinkrCompletionGroupPlan,
+export function completeClinkrWords<TContext = unknown>(
+	plan: ClinkrCompletionGroupPlan<TContext>,
 	request: ClinkrCompletionRequest,
 ): ClinkrCompletionResult {
+	const staticCompletion = resolveStaticCompletion(plan, request);
+	return { candidates: dedupeCandidates(staticCompletion.candidates) };
+}
+
+export async function completeClinkrWordsAsync<TContext>(
+	plan: ClinkrCompletionGroupPlan<TContext>,
+	request: ClinkrCompletionRequest,
+	options: CompleteClinkrWordsAsyncOptions<TContext>,
+): Promise<ClinkrCompletionResult> {
+	const staticCompletion = resolveStaticCompletion(plan, request);
+	const command = staticCompletion.context.command;
+	const provider = command?.completionProvider;
+	if (
+		command === undefined ||
+		provider === undefined ||
+		!shouldRunDynamicProvider(staticCompletion)
+	) {
+		return { candidates: dedupeCandidates(staticCompletion.candidates) };
+	}
+	try {
+		const dynamicResult = await provider(options.context, {
+			...request,
+			current: staticCompletion.current,
+			previous: staticCompletion.previous,
+			args: staticCompletion.context.args,
+			positionalIndex: positionIndex(command, staticCompletion.context.args),
+		});
+		return {
+			candidates: dedupeCandidates([
+				...staticCompletion.candidates,
+				...normalizeCompletionCandidates(dynamicResult),
+			]),
+		};
+	} catch (error) {
+		options.onDynamicCompletionError?.(error);
+		return { candidates: dedupeCandidates(staticCompletion.candidates) };
+	}
+}
+
+function resolveStaticCompletion<TContext>(
+	plan: ClinkrCompletionGroupPlan<TContext>,
+	request: ClinkrCompletionRequest,
+): {
+	current: string;
+	previous: readonly string[];
+	context: CompletionContext<TContext>;
+	candidates: readonly ClinkrCompletionCandidate[];
+} {
 	const current = request.words.at(-1) ?? "";
 	const previous = request.words.length === 0 ? [] : request.words.slice(0, -1);
 	const context = resolveCompletionContext(plan, previous);
@@ -134,13 +203,13 @@ export function completeClinkrWords(
 		context.command === undefined
 			? completeGroup(context.group, current)
 			: completeCommand(context.command, context.args, current);
-	return { candidates: dedupeCandidates(candidates) };
+	return { current, previous, context, candidates };
 }
 
-function resolveCompletionContext(
-	root: ClinkrCompletionGroupPlan,
+function resolveCompletionContext<TContext>(
+	root: ClinkrCompletionGroupPlan<TContext>,
 	words: readonly string[],
-): CompletionContext {
+): CompletionContext<TContext> {
 	let group = root;
 	for (let index = 0; index < words.length; index += 1) {
 		const word = words[index];
@@ -160,8 +229,8 @@ function resolveCompletionContext(
 	return { group, args: [] };
 }
 
-function completeGroup(
-	group: ClinkrCompletionGroupPlan,
+function completeGroup<TContext>(
+	group: ClinkrCompletionGroupPlan<TContext>,
 	current: string,
 ): readonly ClinkrCompletionCandidate[] {
 	const options = groupOptions(group);
@@ -179,8 +248,8 @@ function completeGroup(
 	return filterCandidates([...commandCandidates, ...positionalCandidates], current);
 }
 
-function completeCommand(
-	command: ClinkrCompletionCommandPlan,
+function completeCommand<TContext>(
+	command: ClinkrCompletionCommandPlan<TContext>,
 	previous: readonly string[],
 	current: string,
 ): readonly ClinkrCompletionCandidate[] {
@@ -198,7 +267,9 @@ function completeCommand(
 	return positionalValueCandidates(command, previous, current);
 }
 
-function groupOptions(group: ClinkrCompletionGroupPlan): readonly ClinkrCompletionOptionPlan[] {
+function groupOptions<TContext>(
+	group: ClinkrCompletionGroupPlan<TContext>,
+): readonly ClinkrCompletionOptionPlan[] {
 	return [
 		...HELP_OPTIONS,
 		...(group.isRoot && group.hasVersionOption ? [VERSION_OPTION] : []),
@@ -207,8 +278,8 @@ function groupOptions(group: ClinkrCompletionGroupPlan): readonly ClinkrCompleti
 	];
 }
 
-function commandOptions(
-	command: ClinkrCompletionCommandPlan,
+function commandOptions<TContext>(
+	command: ClinkrCompletionCommandPlan<TContext>,
 ): readonly ClinkrCompletionOptionPlan[] {
 	return [...HELP_OPTIONS, ...command.options];
 }
@@ -250,8 +321,8 @@ function optionValueCandidates(
 		.map((value) => ({ value, type: "option-value" }));
 }
 
-function positionalValueCandidates(
-	command: ClinkrCompletionCommandPlan,
+function positionalValueCandidates<TContext>(
+	command: ClinkrCompletionCommandPlan<TContext>,
 	previous: readonly string[],
 	prefix: string,
 ): readonly ClinkrCompletionCandidate[] {
@@ -262,7 +333,10 @@ function positionalValueCandidates(
 		.map((value) => ({ value, type: "positional-value" }));
 }
 
-function positionIndex(command: ClinkrCompletionCommandPlan, args: readonly string[]): number {
+function positionIndex<TContext>(
+	command: ClinkrCompletionCommandPlan<TContext>,
+	args: readonly string[],
+): number {
 	let index = 0;
 	for (let offset = 0; offset < args.length; offset += 1) {
 		const word = args[offset];
@@ -346,6 +420,25 @@ function filterCandidates(
 	prefix: string,
 ): readonly ClinkrCompletionCandidate[] {
 	return candidates.filter((entry) => entry.value.startsWith(prefix));
+}
+
+function normalizeCompletionCandidates(
+	result: ClinkrCompletionResult | readonly ClinkrCompletionCandidate[],
+): readonly ClinkrCompletionCandidate[] {
+	return "candidates" in result ? result.candidates : result;
+}
+
+function shouldRunDynamicProvider<TContext>(completion: {
+	current: string;
+	context: CompletionContext<TContext>;
+}): boolean {
+	const command = completion.context.command;
+	if (command === undefined) return false;
+	if (completion.current.startsWith("-")) return false;
+	const pendingOptionFlag = completion.context.args.at(-1);
+	if (pendingOptionFlag === undefined) return true;
+	const pendingOption = findOption(commandOptions(command), pendingOptionFlag);
+	return pendingOption === undefined || !expectsSeparateValue(pendingOption, pendingOptionFlag);
 }
 
 function dedupeCandidates(

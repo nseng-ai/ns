@@ -1,10 +1,11 @@
 import type { z } from "zod";
 
+import type { ClinkrDynamicCompletionProvider } from "../completion.ts";
 import type { RawCommandSpec } from "../group.ts";
-import type { PositionalSpec } from "../surface.ts";
+import type { OptionSpec, PositionalSpec } from "../surface.ts";
 
 export type { RawCommandSpec } from "../group.ts";
-export type { PositionalSpec } from "../surface.ts";
+export type { OptionSpec, PositionalSpec } from "../surface.ts";
 
 export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	name: string;
@@ -12,6 +13,8 @@ export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 	summary?: string;
 	schema: S;
 	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
+	options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
+	completionProvider?: ClinkrDynamicCompletionProvider<TContext>;
 	run: (ctx: TContext, request: z.output<S>) => Promise<number>;
 }
 

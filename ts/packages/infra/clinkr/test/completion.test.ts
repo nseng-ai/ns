@@ -17,6 +17,15 @@ function candidateValues(group: ClinkrGroup<ProbeContext>, words: readonly strin
 	return group.complete({ words }).candidates.map((candidate) => candidate.value);
 }
 
+async function asyncCandidateValues(
+	group: ClinkrGroup<ProbeContext>,
+	words: readonly string[],
+	context: ProbeContext = { calls: [] },
+): Promise<string[]> {
+	const result = await group.completeAsync({ words }, { context });
+	return result.candidates.map((candidate) => candidate.value);
+}
+
 function buildCompletionTree(): ClinkrGroup<ProbeContext> {
 	const root = new ClinkrGroup<ProbeContext>({
 		name: "probe",
@@ -148,6 +157,105 @@ describe("clinkr static completion", () => {
 		});
 
 		expect(candidateValues(group, ["choose", "--name", "t"])).toEqual([]);
+	});
+});
+
+describe("clinkr dynamic completion", () => {
+	test("static-only async completion matches static completion", async () => {
+		const group = buildCompletionTree();
+
+		expect(await asyncCandidateValues(group, ["echo", "--"])).toEqual(
+			candidateValues(group, ["echo", "--"]),
+		);
+	});
+
+	test("appends dynamic candidates to static candidates and dedupes", async () => {
+		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		group.command({
+			name: "choose",
+			schema: z.object({ kind: z.enum(["one", "two"]), name: z.string().optional() }),
+			positionals: { kind: { position: 0 }, name: { position: 1 } },
+			completionProvider: () => [
+				{ value: "one", type: "positional-value" },
+				{ value: "three", type: "positional-value" },
+			],
+			handler: async (_ctx, request) => ok(request),
+		});
+
+		expect(await asyncCandidateValues(group, ["choose", ""])).toEqual(["one", "two", "three"]);
+	});
+
+	test("provider sees current token, previous words, command args, and positional index", async () => {
+		const requests: unknown[] = [];
+		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		group.command({
+			name: "checkout",
+			schema: z.object({ branch: z.string(), base: z.string().optional(), new: z.boolean() }),
+			positionals: { branch: { position: 0 }, base: { position: 1 } },
+			options: { new: { short: "-b" } },
+			completionProvider: (_ctx, request) => {
+				requests.push(request);
+				return [{ value: "main", type: "positional-value" }];
+			},
+			handler: async (_ctx, request) => ok(request),
+		});
+
+		expect(await asyncCandidateValues(group, ["checkout", "-b", "new-branch", "m"])).toEqual([
+			"main",
+		]);
+		expect(requests).toMatchObject([
+			{
+				words: ["checkout", "-b", "new-branch", "m"],
+				current: "m",
+				previous: ["checkout", "-b", "new-branch"],
+				args: ["-b", "new-branch"],
+				positionalIndex: 1,
+			},
+		]);
+	});
+
+	test("sync completion remains static and provider is not a command handler", async () => {
+		const context: ProbeContext = { calls: [] };
+		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		group.command({
+			name: "choose",
+			schema: z.object({ name: z.string().optional() }),
+			positionals: { name: { position: 0 } },
+			completionProvider: (ctx) => {
+				ctx.calls.push("provider");
+				return [{ value: "dynamic", type: "positional-value" }];
+			},
+			handler: async (ctx, request) => {
+				ctx.calls.push("handler");
+				return ok(request);
+			},
+		});
+
+		expect(candidateValues(group, ["choose", ""])).toEqual([]);
+		expect(await asyncCandidateValues(group, ["choose", ""], context)).toEqual(["dynamic"]);
+		expect(context.calls).toEqual(["provider"]);
+	});
+
+	test("provider failure returns static candidates and reports the error", async () => {
+		const errors: unknown[] = [];
+		const group = new ClinkrGroup<ProbeContext>({ name: "probe" });
+		group.command({
+			name: "choose",
+			schema: z.object({ kind: z.enum(["one", "two"]) }),
+			positionals: { kind: { position: 0 } },
+			completionProvider: () => {
+				throw new Error("boom");
+			},
+			handler: async (_ctx, request) => ok(request),
+		});
+
+		const result = await group.completeAsync(
+			{ words: ["choose", ""] },
+			{ context: { calls: [] }, onDynamicCompletionError: (error) => errors.push(error) },
+		);
+
+		expect(result.candidates.map((candidate) => candidate.value)).toEqual(["one", "two"]);
+		expect(errors).toHaveLength(1);
 	});
 });
 

@@ -29,6 +29,62 @@ sdl slot shell install --shell zsh
 
 Both `sdl shell` and `sdl slot shell` install the canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
 
+## Shell completion
+
+SDL ships first-party shell completion built on the Clinkr completion engine. Completion is a Clinkr primitive: Clinkr owns the static command/option/value planner over its own surface metadata, and SDL is the proving consumer that wires it to a dynamic command catalog. Commander.js deliberately does not provide completion, so SDL does not depend on a Commander completion plugin.
+
+### Supported shells
+
+bash, zsh, and fish are supported. PowerShell and Carapace-style spec export are out of scope for now (see Limitations).
+
+### Setup
+
+Print a setup script for your shell and evaluate it from your shell startup file:
+
+```bash
+# bash (~/.bashrc)
+eval "$(sdl completion bash)"
+
+# zsh (~/.zshrc)
+eval "$(sdl completion zsh)"
+
+# fish (~/.config/fish/config.fish)
+sdl completion fish | source
+```
+
+Each `sdl completion <shell>` command prints a setup script that registers a completion hook for `sdl`. The script does not embed a snapshot of the command tree; it calls back into SDL at completion time so suggestions always reflect the current built-in, XDG global, and project-local command catalog.
+
+### How it resolves candidates
+
+The generated script invokes the hidden resolver `sdl completion exec resolve <words...>`, which prints completion candidates as newline-delimited values on stdout, one per line. Descriptions are intentionally omitted in this first bridge; stdout is candidate values only.
+
+Resolution preserves SDL's lazy extension loading:
+
+- Top-level completion is built from side-effect-light catalog metadata (built-in table, filesystem entries, JSON manifests) and does not eager-load command modules.
+- Selected-command option and value completion imports only the selected command, matching `sdl <cmd> --help` and `--json-schema` behavior.
+- Diagnostics for a selected broken command are written to stderr; resolver stdout stays candidate-only and the resolver uses a shell-friendly exit code so completion does not break.
+- Unrelated malformed extensions are not loaded for unrelated completion contexts and do not corrupt resolver output.
+
+Static candidates cover visible subcommands and groups, visible options, implicit framework options (`-h/--help`, `-V/--version`, `--runtime`), rendered-command options (`--format`, `--json-schema`), and enum values for options and positionals.
+
+### Dynamic value completion
+
+Extension commands can contribute runtime value candidates (for example, branch names) through the optional `completionProvider` hook on a command. Provider candidates run only on the async completion path for the selected command, are appended to the static candidates, and are deduped. Provider failures are captured so static candidates remain available, resolver stdout stays candidate-only, and the resolver keeps exit code `0`. See `completionProvider` in [`docs/sdk-reference.md`](./docs/sdk-reference.md).
+
+The proving consumer is `sdl slot checkout` / `sdl slot co`, which complete local branch names for the branch and base positionals without performing any checkout/create/delete mutation. Branch completion is local branches only; remote refs are out of scope.
+
+### Limitations
+
+- bash, zsh, and fish only; no PowerShell completion.
+- No Carapace spec export backend.
+- No rich file/directory completion helper API; shell-native file completion remains the fallback when SDL has no candidate.
+- Candidate descriptions are omitted from the newline resolver output.
+- Standalone `slot` completion is not supported; install completion for `sdl`, not for a `slot` executable.
+
+### No compatibility aliases
+
+SDL does not retain old or renamed command names as compatibility aliases for autocomplete convenience. Completion reflects the current canonical command surface only; migrated workflows delete old names rather than keeping hidden aliases to satisfy habit or tab completion.
+
 ## SDL extensions
 
 SDL treats project-specific lifecycle behavior as first-class. SDL extensions can contribute command entries today and are expected to grow additional contribution points later.

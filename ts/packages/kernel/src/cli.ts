@@ -8,7 +8,9 @@ import {
 	isClinkrHumanOutputInvocation,
 	ok,
 	resolveClinkrInteraction,
+	type Caps,
 	type ClinkrCommandSpec,
+	type ClinkrDynamicCompletionRequest,
 } from "@sdl/clinkr";
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
@@ -22,6 +24,7 @@ import {
 	commandKey,
 	commandPathMatches,
 	executeSdlCommand,
+	formatUnknownError,
 	listStaticSdlCommandInfos,
 	validateSdlClinkrExit,
 	type SdlCommandInfo,
@@ -104,8 +107,14 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			return await handleCompletionResolverInvocation({
 				args,
 				commandCatalog,
+				cwd: resolvedCwd,
+				env: resolvedEnv,
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
+				injectedContext,
+				onOutput: deps.onOutput,
+				confirm: deps.confirm,
+				caps: io.caps,
 			});
 		}
 		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
@@ -160,39 +169,17 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				: { command: selectedCommand, source: selectedSource, path: selectedPath },
 		);
 
-		const baseContext =
-			injectedContext ?? createRealSdlCommandContext({ cwd: resolvedCwd, env: resolvedEnv });
-		const onOutput = deps.onOutput ?? baseContext.onOutput;
-		const confirm = deps.confirm ?? baseContext.confirm;
-		const contextExtensions = {
-			...(baseContext.extensions ?? {}),
-			...(io.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: io.caps }),
-		};
-		const context: SdlExtensionApi = {
-			cwd: resolvedCwd,
-			env: resolvedEnv,
-			textGenerator: baseContext.textGenerator,
-			exec: baseContext.exec.bind(baseContext),
-			stdout: resolvedStdout,
-			stderr: resolvedStderr,
-			...(onOutput === undefined ? {} : { onOutput }),
-			...(confirm === undefined ? {} : { confirm }),
-			extensions: contextExtensions,
-		};
-		const slotContext = await createRealSlotContext({ cwd: resolvedCwd, env: resolvedEnv });
-		const contextWithIO: SdlCliContext = {
-			...slotContext,
-			context,
+		const contextWithIO = await buildSdlCliContext({
+			args,
 			cwd: resolvedCwd,
 			env: resolvedEnv,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			interaction: resolveClinkrInteraction({
-				stdin: readStdinLine,
-				stderr: resolvedStderr,
-			}),
-			shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
-		};
+			injectedContext,
+			onOutput: deps.onOutput,
+			confirm: deps.confirm,
+			caps: io.caps,
+		});
 		return {
 			type: "run",
 			context: contextWithIO,
@@ -226,6 +213,12 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				...(selectedCommand?.positionals === undefined
 					? {}
 					: { positionals: selectedCommand.positionals }),
+				...(selectedCommand?.completionProvider === undefined
+					? {}
+					: {
+							completionProvider: (ctx: SdlCliContext, request: ClinkrDynamicCompletionRequest) =>
+								selectedCommand.completionProvider?.(ctx.context, request) ?? [],
+						}),
 			};
 			if (selectedCommand?.resultSchema !== undefined) {
 				parent.command({
@@ -288,8 +281,14 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 async function handleCompletionResolverInvocation(options: {
 	args: readonly string[];
 	commandCatalog: SdlCommandCatalog;
+	cwd: string;
+	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
+	injectedContext?: SdlExtensionApi | undefined;
+	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
+	confirm?: SdlConfirmPrompt | undefined;
+	caps?: Caps | undefined;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
 	const selectedCommandKey = requestedCompletedCommandKey(
@@ -315,13 +314,78 @@ async function handleCompletionResolverInvocation(options: {
 			? undefined
 			: { command: selectedCommand, source: selectedSource, path: selectedPath },
 	);
-	const candidates = buildCli({
+	const context = await buildSdlCliContext({
+		args: options.args,
+		cwd: options.cwd,
+		env: options.env,
+		stdout: options.stdout,
+		stderr: options.stderr,
+		injectedContext: options.injectedContext,
+		onOutput: options.onOutput,
+		confirm: options.confirm,
+		caps: options.caps,
+	});
+	const candidates = await buildCli({
 		commandInfos,
 		...(selectedCommand === undefined ? {} : { selectedCommand }),
 		...(selectedPath === undefined ? {} : { selectedCommandPath: selectedPath }),
-	}).complete({ words });
+	}).completeAsync(
+		{ words },
+		{
+			context,
+			onDynamicCompletionError: (error) => {
+				options.stderr(`completion provider failed: ${formatUnknownError(error)}\n`);
+			},
+		},
+	);
 	options.stdout(renderCompletionCandidatesNewline(candidates));
 	return { type: "handled", exitCode: 0 };
+}
+
+async function buildSdlCliContext(options: {
+	args: readonly string[];
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+	injectedContext?: SdlExtensionApi | undefined;
+	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
+	confirm?: SdlConfirmPrompt | undefined;
+	caps?: Caps | undefined;
+}): Promise<SdlCliContext> {
+	const baseContext =
+		options.injectedContext ?? createRealSdlCommandContext({ cwd: options.cwd, env: options.env });
+	const onOutput = options.onOutput ?? baseContext.onOutput;
+	const confirm = options.confirm ?? baseContext.confirm;
+	const contextExtensions = {
+		...(baseContext.extensions ?? {}),
+		...(options.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps }),
+	};
+	const context: SdlExtensionApi = {
+		cwd: options.cwd,
+		env: options.env,
+		textGenerator: baseContext.textGenerator,
+		exec: baseContext.exec.bind(baseContext),
+		stdout: options.stdout,
+		stderr: options.stderr,
+		...(onOutput === undefined ? {} : { onOutput }),
+		...(confirm === undefined ? {} : { confirm }),
+		extensions: contextExtensions,
+	};
+	const slotContext = await createRealSlotContext({ cwd: options.cwd, env: options.env });
+	return {
+		...slotContext,
+		context,
+		cwd: options.cwd,
+		env: options.env,
+		stdout: options.stdout,
+		stderr: options.stderr,
+		interaction: resolveClinkrInteraction({
+			stdin: readStdinLine,
+			stderr: options.stderr,
+		}),
+		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
+	};
 }
 
 function isCompletionResolverInvocation(args: readonly string[]): boolean {

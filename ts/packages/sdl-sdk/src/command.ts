@@ -1,14 +1,34 @@
-import type { ClinkrExit, RenderCapabilities } from "@sdl/clinkr";
+import type {
+	ClinkrCompletionCandidate,
+	ClinkrCompletionResult,
+	ClinkrDynamicCompletionRequest,
+	ClinkrExit,
+	RenderCapabilities,
+} from "@sdl/clinkr";
 import type { PositionalSpec } from "@sdl/clinkr/raw";
 import type { z } from "zod";
 
 import type { SdlExtensionApi } from "./execution.ts";
 import type { SdlResult } from "./result.ts";
 
-export type { ClinkrExit, PositionalSpec, RenderCapabilities } from "@sdl/clinkr";
+export type {
+	ClinkrCompletionCandidate,
+	ClinkrCompletionResult,
+	ClinkrDynamicCompletionRequest,
+	ClinkrExit,
+	PositionalSpec,
+	RenderCapabilities,
+} from "@sdl/clinkr";
 
 export type SdlCommandSchema = z.ZodObject;
 export type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;
+export type SdlCommandCompletionProvider = (
+	ctx: SdlExtensionApi,
+	request: ClinkrDynamicCompletionRequest,
+) =>
+	| Promise<ClinkrCompletionResult | readonly ClinkrCompletionCandidate[]>
+	| ClinkrCompletionResult
+	| readonly ClinkrCompletionCandidate[];
 
 export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 	name: string;
@@ -19,6 +39,7 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 	resultSchema?: z.ZodType<T> | undefined;
 	renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
 	renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
+	completionProvider?: SdlCommandCompletionProvider | undefined;
 	run(
 		ctx: SdlExtensionApi,
 		request: z.output<S>,
