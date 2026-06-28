@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
 
-import { buildBundleSnapshot } from "../src/context-profiler/bundle.ts";
-import { createFsBundleStore } from "../src/context-profiler/bundle-store.ts";
+import { buildBundleSnapshot } from "../src/bundle.ts";
+import { createFsBundleStore } from "../src/bundle-store.ts";
 
 const roots: string[] = [];
 

@@ -7,16 +7,16 @@ import type {
 	SimpleStreamOptions,
 	Usage,
 } from "@earendil-works/pi-ai";
-import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../src/context-profiler/analysis.ts";
+import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../src/analysis.ts";
 import {
 	createCodexAnalysisModelGateway,
 	type AnalysisModelRegistry,
-} from "../src/context-profiler/analysis-model-gateway.ts";
+} from "../src/analysis-model-gateway.ts";
 import {
 	SEGMENTATION_MODEL,
 	SEGMENTATION_PROVIDER,
 	SEGMENTATION_SYSTEM_PROMPT,
-} from "../src/context-profiler/segmentation.ts";
+} from "../src/segmentation.ts";
 
 type CompleteSimpleFunction = typeof completeSimple;
 

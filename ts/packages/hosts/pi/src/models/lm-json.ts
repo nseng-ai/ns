@@ -1,8 +1,8 @@
 export type LmJsonParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
-type SafeParseResult<T> = { success: true; data: T } | { success: false };
+export type SafeParseResult<T> = { success: true; data: T } | { success: false };
 
-interface SafeParseSchema<T> {
+export interface SafeParseSchema<T> {
 	safeParse(input: unknown): SafeParseResult<T>;
 }
 

@@ -1,17 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	createSegmentationCacheCell,
-	startSegmentationBatch,
-} from "../src/context-profiler/runtime.ts";
-import {
-	computeSegmentationFingerprint,
-	type SegmentationState,
-} from "../src/context-profiler/segmentation.ts";
+import { createSegmentationCacheCell, startSegmentationBatch } from "../src/runtime.ts";
+import { computeSegmentationFingerprint, type SegmentationState } from "../src/segmentation.ts";
 import type {
 	AnalysisModelGateway,
 	SegmentationCallResult,
-} from "../src/context-profiler/analysis-model-gateway.ts";
+} from "../src/analysis-model-gateway.ts";
 import { FakeSegmentationGateway, makeProfile, sequentialTurns } from "./context-profiler-fakes.ts";
 
 /** Models a buggy gateway that violates the errors-as-values contract by rejecting. */

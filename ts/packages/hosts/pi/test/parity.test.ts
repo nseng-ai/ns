@@ -4,7 +4,6 @@ import registerBranchContextExtension from "../src/branch-context/extension.ts";
 import claudeExtension from "../src/claude/extension.ts";
 import codeWorkflowsExtension from "../src/flow/code-workflows.ts";
 import codeExtension from "../src/pr/code-extension.ts";
-import { registerContextProfilerExtension } from "../src/context-profiler/extension.ts";
 import dispatchRunnerSubagentExtension from "../src/runner-subagents/dispatch-extension.ts";
 import { registerGrillUiExtension } from "../src/grill/extension.ts";
 import handoffExtension from "../src/handoff/extension.ts";
@@ -95,7 +94,6 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, claudeExtension);
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
-	await registerWithFakeHost(pi, registerContextProfilerExtension);
 	await registerWithFakeHost(pi, registerDispatchRunnerSubagentWithFakeDefinition);
 	await registerWithFakeHost(pi, registerGrillUiExtension);
 	await registerWithFakeHost(pi, handoffExtension);

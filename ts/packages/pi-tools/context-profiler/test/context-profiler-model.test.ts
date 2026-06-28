@@ -22,7 +22,7 @@ import {
 	renderNormalizedMessageText,
 	type LiveTurn,
 	type NormalizedMessage,
-} from "../src/context-profiler/model.ts";
+} from "../src/model.ts";
 import { makeTurnsAtIndices } from "./context-profiler-fakes.ts";
 
 // Minimal but fully-typed SessionEntry message fixture: the derivation reads only

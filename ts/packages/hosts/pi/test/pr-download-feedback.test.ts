@@ -207,7 +207,7 @@ const CURRENT_PR_1952_REVIEW_THREADS = [
 _Review: \`duplicative-abstractions\`._
 
 The new fitToWidth(value: string, width: number) function (line 304) duplicates the implementation already exported from context-profiler/render.ts. Both truncate-then-pad text to a fixed width using truncateToWidth and visibleWidth from pi-tui. The new version adds a width <= 0 guard but is otherwise equivalent. Siblings in the codebase import fitToWidth from context-profiler/render.ts — should the new PrPreviewFeedbackView route through that shared export instead of hand-rolling?
-Evidence: \`ts/packages/pi/src/context-profiler/render.ts\`
+Evidence: \`ts/packages/pi-tools/context-profiler/src/render.ts\`
 
 _Posted by roaster. Re-running may skip this comment by marker._`,
 	}),
@@ -220,7 +220,7 @@ _Posted by roaster. Re-running may skip this comment by marker._`,
 _Review: \`duplicative-abstractions\`._
 
 The new clamp(value: number, min: number, max: number) function (line 316) duplicates the clamping utility already exported from context-profiler/render.ts. The implementations are nearly identical; context-profiler's version adds a guard for max < min. Since clamp is a common operation, siblings like context-profiler/view.ts import the shared export — should this new code import from there instead of defining locally?
-Evidence: \`ts/packages/pi/src/context-profiler/render.ts\`
+Evidence: \`ts/packages/pi-tools/context-profiler/src/render.ts\`
 
 _Posted by roaster. Re-running may skip this comment by marker._`,
 	}),
@@ -233,7 +233,7 @@ _Posted by roaster. Re-running may skip this comment by marker._`,
 _Review: \`duplicative-abstractions\`._
 
 The new reconcileScroll(selection: number, scroll: number, height: number) function (line 310) keeps a selection visible within a scrollable viewport. Context-profiler exports a reconcileScroll with a different signature (takes options object with scroll, anchor, areaHeight, totalLines) that enforces anchoring semantics. Both solve scroll-state reconciliation but with different contracts. The simpler new algorithm may be sufficient for the preview use-case, but a follow-up agent should verify whether one implementation should be canonical or if they serve genuinely different purposes.
-Evidence: \`ts/packages/pi/src/context-profiler/render.ts\`
+Evidence: \`ts/packages/pi-tools/context-profiler/src/render.ts\`
 
 _Posted by roaster. Re-running may skip this comment by marker._`,
 	}),
@@ -610,7 +610,7 @@ describe("/pr:preview-feedback", () => {
 			"info: fitToWidth utility duplicated from context-profiler/render.ts",
 		);
 		expect(details).toContain("Review: duplicative-abstractions");
-		expect(details).toContain("Evidence: `ts/packages/pi/src/context-profiler/render.ts`");
+		expect(details).toContain("Evidence: `ts/packages/pi-tools/context-profiler/src/render.ts`");
 		expect(details).not.toContain("roaster-inline");
 		expect(details).not.toContain("Posted by roaster");
 	});

@@ -1,14 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fitToWidth } from "../src/terminal/layout.ts";
-import { normalizeMessage } from "../src/context-profiler/model.ts";
-import type {
-	BaseRegion,
-	LiveRegion,
-	LiveTurn,
-	TokenCount,
-} from "../src/context-profiler/model.ts";
+import { fitToWidth } from "@sdl/pi/terminal/layout";
+import { normalizeMessage } from "../src/model.ts";
+import type { BaseRegion, LiveRegion, LiveTurn, TokenCount } from "../src/model.ts";
 import {
 	BAR_WIDTH,
 	BASE_DETAIL_CLAIM,
@@ -42,7 +37,7 @@ import {
 	turnListClaim,
 	turnListRowText,
 	type OverviewRowSource,
-} from "../src/context-profiler/render.ts";
+} from "../src/render.ts";
 
 const INNER_WIDTH = 80;
 

@@ -18,7 +18,7 @@ import {
 	type ProfileSnapshot,
 	type RelevanceVerdict,
 } from "./model.ts";
-import { parseLmJson } from "../models/lm-json.ts";
+import { parseLmJson } from "@sdl/pi/models/lm-json";
 
 export const EPISODE_ANALYSIS_SYSTEM_PROMPT = `You are a blunt, opinionated Pi context-profiler judge.
 Return JSON only with this exact shape: {"efficiency":"efficient|mixed|wasteful","relevance":"load-bearing|still-useful|stale|rot","summary":"..."}
