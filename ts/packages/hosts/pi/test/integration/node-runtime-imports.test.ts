@@ -1,10 +1,13 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../ccc/", import.meta.url));
 const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../sdl/", import.meta.url));
 
@@ -69,6 +72,42 @@ describe("Node runtime import smoke", () => {
 			]),
 		);
 	}, 15_000);
+
+	test("pi starts with every project-local extension discovered", () => {
+		const tempConfigDir = mkdtempSync(join(tmpdir(), "sdl-pi-extension-load-"));
+		try {
+			const result = spawnSync(
+				PI_BIN,
+				[
+					"--approve",
+					"--offline",
+					"--no-skills",
+					"--no-prompt-templates",
+					"--no-themes",
+					"--no-context-files",
+					"--list-models",
+				],
+				{
+					cwd: REPO_ROOT,
+					encoding: "utf8",
+					env: {
+						...process.env,
+						PI_CODING_AGENT_DIR: tempConfigDir,
+						PI_OFFLINE: "1",
+					},
+				},
+			);
+
+			expectSuccessfulNodeRun(result, {
+				cwd: REPO_ROOT,
+				label: `pi startup with ${PROJECT_EXTENSION_ADAPTERS.length} project-local extensions`,
+			});
+			expect(result.stdout).toContain("provider");
+			expect(PROJECT_EXTENSION_ADAPTERS).toContain(".pi/extensions/sdl.ts");
+		} finally {
+			rmSync(tempConfigDir, { force: true, recursive: true });
+		}
+	}, 30_000);
 
 	test("pi package imports workspace exports through package links under Node", () => {
 		const result = runNodeEval({
