@@ -15,7 +15,7 @@ export const deleteResultSchema = z.object({
 	branch: z.string(),
 	slug: z.string(),
 	key: z.string(),
-	entry_locator: z.string(),
+	entryLocator: z.string(),
 	deleted: z.boolean(),
 	cancelled: z.boolean(),
 	commit: z.string().nullable(),
@@ -60,7 +60,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		branch: deleted.value.branch,
 		slug: deleted.value.slug,
 		key: deleted.value.key,
-		entry_locator: deleted.value.entry_locator,
+		entryLocator: deleted.value.entryLocator,
 		deleted: true,
 		cancelled: false,
 		commit: deleted.value.commit,
@@ -71,7 +71,7 @@ export function renderDelete(result: DeleteResult): string {
 	if (result.cancelled) return "Cancelled — no handoff deleted.";
 	return [
 		`Deleted handoff \`${result.slug}\` on branch \`${result.branch}\`.`,
-		`Entry Locator: ${result.entry_locator}`,
+		`Entry Locator: ${result.entryLocator}`,
 		`Commit: ${result.commit}`,
 	].join("\n");
 }
@@ -80,13 +80,13 @@ function cancelledResult(target: {
 	slug: string;
 	key: string;
 	branch: string;
-	entry_locator: string;
+	entryLocator: string;
 }): DeleteResult {
 	return {
 		branch: target.branch,
 		slug: target.slug,
 		key: target.key,
-		entry_locator: target.entry_locator,
+		entryLocator: target.entryLocator,
 		deleted: false,
 		cancelled: true,
 		commit: null,

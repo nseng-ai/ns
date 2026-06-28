@@ -106,6 +106,37 @@ describe("FakeBrmemGateway", () => {
 		});
 	});
 
+	it("creates missing entries without overwriting existing entries", async () => {
+		const gateway = new FakeBrmemGateway({
+			entries: [{ namespace: "base", branch: "main", key: "existing.md", content: "old" }],
+		});
+
+		expect(
+			(
+				await gateway.createEntry({
+					namespace: "base",
+					branch: "main",
+					key: "new.md",
+					content: "new",
+				})
+			).type,
+		).toBe("ok");
+		expect(
+			await gateway.getEntry({ namespace: "base", branch: "main", key: "new.md" }),
+		).toMatchObject({ type: "found", value: { content: "new" } });
+
+		const existing = await gateway.createEntry({
+			namespace: "base",
+			branch: "main",
+			key: "existing.md",
+			content: "replacement",
+		});
+		expect(existing).toMatchObject({ type: "error", error: { code: "key_already_exists" } });
+		expect(
+			await gateway.getEntry({ namespace: "base", branch: "main", key: "existing.md" }),
+		).toMatchObject({ type: "found", value: { content: "old" } });
+	});
+
 	it("mutates coherent snapshots without leaking caller-owned state", async () => {
 		const gateway = new FakeBrmemGateway();
 		expect(

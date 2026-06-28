@@ -8,8 +8,6 @@ import {
 	readHandoffArtifact,
 	type HandoffSummary,
 } from "@sdl/handoff/api";
-
-import { isRecord } from "../runtime/primitives.ts";
 import {
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
@@ -23,8 +21,6 @@ import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 import type {
 	HandoffArgsParseResult,
 	HandoffItemsLoadResult,
-	HandoffItemsParseResult,
-	HandoffKeysParseResult,
 	HandoffListItem,
 	HandoffListMessageDetails,
 	PreviewedHandoffListItem,
@@ -148,101 +144,6 @@ export function parseListHandoffArgs(rawArgs: string): HandoffArgsParseResult<Li
 	}
 
 	return { type: "valid", args: parsed };
-}
-
-export function parseHandoffItemsFromBrmemList(stdout: string): HandoffItemsParseResult {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		const detail = error instanceof Error ? error.message : String(error);
-		return { type: "invalid", message: `Failed to parse handoff list JSON: ${detail}` };
-	}
-
-	const data = isRecord(parsed) && isRecord(parsed.data) ? parsed.data : parsed;
-	if (!isRecord(data)) {
-		return {
-			type: "invalid",
-			message: "handoff list JSON did not contain handoffs or entries array.",
-		};
-	}
-
-	if (Array.isArray(data.handoffs)) {
-		return parseHandoffSummaryItems(data.handoffs);
-	}
-
-	if (Array.isArray(data.entries)) {
-		const resultBranch = typeof data.branch === "string" ? data.branch : undefined;
-		return parseLegacyBrmemEntryItems(data.entries, resultBranch);
-	}
-
-	return {
-		type: "invalid",
-		message: "handoff list JSON did not contain handoffs or entries array.",
-	};
-}
-
-function parseHandoffSummaryItems(handoffs: unknown[]): HandoffItemsParseResult {
-	const seen = new Set<string>();
-	const items: HandoffListItem[] = [];
-
-	for (const handoff of handoffs) {
-		if (
-			!isRecord(handoff) ||
-			typeof handoff.branch !== "string" ||
-			typeof handoff.key !== "string" ||
-			!isHandoffKey(handoff.key)
-		) {
-			continue;
-		}
-		const identity = `${handoff.branch}\0${handoff.key}`;
-		if (seen.has(identity)) {
-			continue;
-		}
-		seen.add(identity);
-		items.push({ branch: handoff.branch, key: handoff.key, slug: handoffKeyToSlug(handoff.key) });
-	}
-
-	return { type: "valid", items };
-}
-
-function parseLegacyBrmemEntryItems(
-	entries: unknown[],
-	resultBranch: string | undefined,
-): HandoffItemsParseResult {
-	const seen = new Set<string>();
-	const items: HandoffListItem[] = [];
-
-	for (const entry of entries) {
-		if (!isRecord(entry) || typeof entry.key !== "string" || !isHandoffKey(entry.key)) {
-			continue;
-		}
-		const branch = typeof entry.branch === "string" ? entry.branch : resultBranch;
-		if (branch === undefined || branch.length === 0) {
-			continue;
-		}
-		const identity = `${branch}\0${entry.key}`;
-		if (seen.has(identity)) {
-			continue;
-		}
-		seen.add(identity);
-		items.push({ branch, key: entry.key, slug: handoffKeyToSlug(entry.key) });
-	}
-
-	return { type: "valid", items: sortHandoffItems(items) };
-}
-
-export function parseHandoffKeysFromBrmemList(stdout: string): HandoffKeysParseResult {
-	const parsedItems = parseHandoffItemsFromBrmemList(stdout);
-	if (parsedItems.type === "invalid") {
-		return { type: "invalid", message: parsedItems.message };
-	}
-	return {
-		type: "valid",
-		keys: [...new Set(parsedItems.items.map((item) => item.key))].sort((left, right) =>
-			left.localeCompare(right),
-		),
-	};
 }
 
 export function resolveHandoffKey(
@@ -625,13 +526,6 @@ function emitHandoffList(
 	}
 
 	ctx.ui.notify(content, "info");
-}
-
-function sortHandoffItems(items: HandoffListItem[]): HandoffListItem[] {
-	return [...items].sort((left, right) => {
-		const branchCompare = left.branch.localeCompare(right.branch);
-		return branchCompare === 0 ? left.slug.localeCompare(right.slug) : branchCompare;
-	});
 }
 
 function compactPreview(preview: string): string {

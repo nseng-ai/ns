@@ -64,7 +64,7 @@ sdl handoff list --all --include-deleted --format json
 
 Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks for deleted or stale branch handoffs.
 
-The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branch_state`, `slug`, `key`, `entry_locator`, and `updated_at`; `data.include_deleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 
@@ -122,7 +122,7 @@ Read the selected artifact through the portable command face:
 sdl handoff pickup <semantic-slug> --branch <branch> --format json
 ```
 
-Use the JSON envelope's `data.content` as active context for summarization, with `data.branch`, `data.slug`, `data.key`, `data.entry_locator`, and `data.summary` as technical evidence. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation. Use raw `brmem get <semantic-slug>.md --namespace handoff --branch <branch>` only for storage diagnostics/recovery.
+Use the JSON envelope's `data.content` as active context for summarization, with `data.branch`, `data.slug`, `data.key`, `data.entryLocator`, and `data.summary` as technical evidence. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation. Use raw `brmem get <semantic-slug>.md --namespace handoff --branch <branch>` only for storage diagnostics/recovery.
 
 Report in handoff vocabulary first:
 

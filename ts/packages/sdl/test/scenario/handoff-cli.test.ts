@@ -114,8 +114,8 @@ describe("sdl handoff commands", () => {
 				branch: "feat/x",
 				slug: "alpha",
 				key: "alpha.md",
-				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
-				source_file: "<stdin>",
+				entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				sourceFile: "<stdin>",
 			},
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("# Alpha\n");
@@ -153,7 +153,7 @@ describe("sdl handoff commands", () => {
 				branch: "feat/y",
 				slug: "file-alpha",
 				key: "file-alpha.md",
-				source_file: "artifact.md",
+				sourceFile: "artifact.md",
 			},
 		});
 		expect(await getHandoffContent(brmem, { key: "file-alpha.md", branch: "feat/y" })).toBe(
@@ -251,11 +251,11 @@ describe("sdl handoff commands", () => {
 				branch: "feat/x",
 				slug: "alpha",
 				key: "alpha.md",
-				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
 				content: "# Alpha\n",
 				summary: expect.objectContaining({
 					branch: "feat/x",
-					branch_state: "active",
+					branchState: "active",
 					slug: "alpha",
 				}),
 			},
@@ -359,7 +359,7 @@ describe("sdl handoff commands", () => {
 		expect(await dryRun.exit).toBe(0);
 		expect(parseJsonOutput(dryRun)).toMatchObject({
 			status: "ok",
-			data: expect.objectContaining({ dry_run: true, would_delete_count: 1 }),
+			data: expect.objectContaining({ dryRun: true, wouldDeleteCount: 1 }),
 		});
 	});
 });

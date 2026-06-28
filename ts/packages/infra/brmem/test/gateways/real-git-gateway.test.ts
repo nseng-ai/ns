@@ -147,6 +147,93 @@ describe("RealGitBrmemGateway", () => {
 		expect(commands.calls).toEqual([]);
 	});
 
+	it("createEntry refuses an existing key before writing a blob", async () => {
+		const commands = new RecordingCommands([
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/brmem/base/feat---x"],
+				result: { stdout: "parent-sha\n" },
+			},
+			{
+				command: "git",
+				args: [
+					"ls-tree",
+					"-r",
+					"--full-tree",
+					"--format=%(path)%x09%(objectname)",
+					"refs/brmem/base/feat---x",
+				],
+				result: { stdout: "body.md\tbody-blob\n" },
+			},
+		]);
+		const gateway = realGitBrmemGateway("/work", commands);
+
+		const result = await gateway.createEntry({
+			namespace: "base",
+			branch: "feat/x",
+			key: "body.md",
+			content: "new body",
+		});
+
+		expect(result).toMatchObject({ type: "error", error: { code: "key_already_exists" } });
+		expect(commands.calls.some((call) => call.args[0] === "hash-object")).toBe(false);
+		commands.assertDone();
+	});
+
+	it("createEntry reports snapshot_ref_changed when another writer wins the update race", async () => {
+		const commands = new RecordingCommands([
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/brmem/base/feat---x"],
+				result: { stdout: "old-sha\n" },
+			},
+			{
+				command: "git",
+				args: [
+					"ls-tree",
+					"-r",
+					"--full-tree",
+					"--format=%(path)%x09%(objectname)",
+					"refs/brmem/base/feat---x",
+				],
+			},
+			{
+				command: "git",
+				args: (args) => expect(args.slice(0, 3)).toEqual(["hash-object", "-w", "--no-filters"]),
+				result: { stdout: "new-blob\n" },
+			},
+			{ command: "git", args: ["mktree"], result: { stdout: "new-tree\n" } },
+			{
+				command: "git",
+				args: ["ls-tree", "-r", "--full-tree", "--format=%(path)%x09%(objectname)", "new-tree"],
+				result: { stdout: "body.md\tnew-blob\n" },
+			},
+			{
+				command: "git",
+				args: ["commit-tree", "new-tree", "-p", "old-sha", "-m", "brmem create body.md"],
+				result: { stdout: "new-commit\n" },
+			},
+			{
+				command: "git",
+				args: ["update-ref", "refs/brmem/base/feat---x", "new-commit", "old-sha"],
+				result: { code: 1, stderr: "ref changed\n" },
+			},
+		]);
+		const gateway = realGitBrmemGateway("/work", commands);
+
+		const result = await gateway.createEntry({
+			namespace: "base",
+			branch: "feat/x",
+			key: "body.md",
+			content: "new body",
+		});
+
+		expect(result).toMatchObject({ type: "error", error: { code: "snapshot_ref_changed" } });
+		const mktreeCall = commands.calls.find((call) => call.args[0] === "mktree");
+		expect(mktreeCall?.options?.stdin).toBe("100644 blob new-blob\tbody.md\n");
+		commands.assertDone();
+	});
+
 	it("normalizes UTC timestamps from Git when listing Entries", async () => {
 		const commands = new RecordingCommands([
 			{
@@ -298,7 +385,7 @@ function realGitBrmemGateway(
 
 interface CommandStep {
 	command: string;
-	args: string[];
+	args: string[] | ((args: string[]) => void);
 	result?: Partial<ExecResult> | undefined;
 }
 
@@ -320,7 +407,9 @@ class PlainRecordingCommands implements CommandExecApi {
 		this.calls.push({ command, args, options });
 		const step = this.steps.shift();
 		if (step === undefined) throw new Error(`unexpected command: ${command} ${args.join(" ")}`);
-		expect({ command, args }).toEqual({ command: step.command, args: step.args });
+		expect(command).toBe(step.command);
+		if (typeof step.args === "function") step.args(args);
+		else expect(args).toEqual(step.args);
 		return execResult(step.result);
 	}
 

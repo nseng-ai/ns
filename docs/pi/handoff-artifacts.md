@@ -131,7 +131,7 @@ feature/review  active   address-review-feedback    2h ago
 feature/docs    deleted  document-handoff-surface   5d ago
 ```
 
-Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `sdl handoff list --format markdown` emits a pipe table; `sdl handoff list --format json` includes exact `updated_at` timestamps, the selected `include_deleted` filter, and `branch_state` values for agents and scripts.
+Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `sdl handoff list --format markdown` emits a pipe table; `sdl handoff list --format json` includes exact `updatedAt` timestamps, the selected `includeDeleted` filter, and `branchState` values for agents and scripts.
 
 ## Current commands and skills
 

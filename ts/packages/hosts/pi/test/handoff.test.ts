@@ -10,8 +10,6 @@ import handoffExtension, {
 	formatHandoffListPlain,
 	formatHandoffPickupCommand,
 	groupHandoffListItemsByBranch,
-	parseHandoffItemsFromBrmemList,
-	parseHandoffKeysFromBrmemList,
 	parseListHandoffArgs,
 	parsePickupHandoffArgs,
 	renderHandoffListMessage,
@@ -24,7 +22,6 @@ import {
 	FakePi,
 	branchPresenceStep,
 	branchStep,
-	brmemListJson,
 	getStep,
 	listAllStep,
 	listStep,
@@ -509,28 +506,6 @@ describe("handoff pure helpers", () => {
 		expect(source).toContain("readHandoffArtifact");
 		expect(source).not.toContain('pi.exec("handoff"');
 		expect(source).not.toContain('["get", key, "--namespace"');
-	});
-
-	test("filters brmem list output to flat handoff markdown keys", () => {
-		expect(
-			parseHandoffKeysFromBrmemList(
-				brmemListJson(["bravo.md", "notes/ignore.md", "handoffs/old.md", "alpha.md", "bravo.md"]),
-			),
-		).toEqual({ type: "valid", keys: ["alpha.md", "bravo.md"] });
-	});
-
-	test("rejects invalid handoff list JSON as data", () => {
-		expectInvalidHandoffParse(
-			parseHandoffItemsFromBrmemList("{"),
-			/Failed to parse handoff list JSON/,
-		);
-	});
-
-	test("rejects handoff list JSON without handoffs or entries as data", () => {
-		expectInvalidHandoffParse(
-			parseHandoffItemsFromBrmemList(JSON.stringify({ data: {} })),
-			/did not contain handoffs or entries array/,
-		);
 	});
 
 	test("resolves exact keys normalized slugs search terms and ambiguity", () => {

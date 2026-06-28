@@ -73,6 +73,13 @@ export interface BrmemGateway extends BrmemReadGateway {
 		content: string;
 	}): Promise<BrmemResult<PutEntryResult>>;
 
+	createEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): Promise<BrmemResult<PutEntryResult>>;
+
 	deleteEntry(options: {
 		namespace: string;
 		key: string;

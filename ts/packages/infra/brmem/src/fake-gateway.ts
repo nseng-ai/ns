@@ -1,4 +1,11 @@
-import { brmemError, brmemFound, brmemMissing, brmemOk, brmemOptionalError } from "./contracts.ts";
+import {
+	brmemError,
+	brmemFound,
+	brmemMissing,
+	brmemOk,
+	brmemOptionalError,
+	type BrmemResult,
+} from "./contracts.ts";
 import type {
 	BrmemGateway,
 	CopyEntriesResult,
@@ -39,7 +46,15 @@ export interface FakeBrmemGatewayOptions {
 	operationErrors?:
 		| Partial<
 				Record<
-					"list" | "get" | "check" | "put" | "delete" | "copy" | "remoteConfig" | "addRefspecs",
+					| "list"
+					| "get"
+					| "check"
+					| "put"
+					| "create"
+					| "delete"
+					| "copy"
+					| "remoteConfig"
+					| "addRefspecs",
 					{ code: string; message: string }
 				>
 		  >
@@ -142,22 +157,20 @@ export class FakeBrmemGateway implements BrmemGateway {
 	async putEntry(options: { namespace: string; key: string; branch: string; content: string }) {
 		const error = this.operationErrors.put;
 		if (error !== undefined) return brmemError<PutEntryResult>(error.code, error.message);
+		return this.writeEntry(options);
+	}
+
+	async createEntry(options: { namespace: string; key: string; branch: string; content: string }) {
+		const error = this.operationErrors.create;
+		if (error !== undefined) return brmemError<PutEntryResult>(error.code, error.message);
 		const snapshot = this.ensureSnapshot(options.namespace, options.branch);
-		const commitSha = this.nextSha("commit");
-		const updatedAt = this.nextTimestamp();
-		snapshot.commitSha = commitSha;
-		snapshot.entries.set(options.key, {
-			content: options.content,
-			headSha: commitSha,
-			headDate: updatedAt,
-			blobSha: this.nextSha("blob"),
-			updatedAt,
-		});
-		this.recordSnapshot(commitSha, snapshot);
-		return brmemOk({
-			commitSha,
-			entry: mustEntryRef(options.namespace, options.key, options.branch),
-		});
+		if (snapshot.entries.has(options.key)) {
+			return brmemError<PutEntryResult>(
+				"key_already_exists",
+				`key ${JSON.stringify(options.key)} already exists`,
+			);
+		}
+		return this.writeEntry(options);
 	}
 
 	async deleteEntry(options: { namespace: string; key: string; branch: string }) {
@@ -216,6 +229,30 @@ export class FakeBrmemGateway implements BrmemGateway {
 			entries: sourcePairs
 				.map(([key]) => mustEntryRef(options.namespace, key, options.toBranch))
 				.sort(compareEntries),
+		});
+	}
+
+	private writeEntry(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+		content: string;
+	}): BrmemResult<PutEntryResult> {
+		const snapshot = this.ensureSnapshot(options.namespace, options.branch);
+		const commitSha = this.nextSha("commit");
+		const updatedAt = this.nextTimestamp();
+		snapshot.commitSha = commitSha;
+		snapshot.entries.set(options.key, {
+			content: options.content,
+			headSha: commitSha,
+			headDate: updatedAt,
+			blobSha: this.nextSha("blob"),
+			updatedAt,
+		});
+		this.recordSnapshot(commitSha, snapshot);
+		return brmemOk({
+			commitSha,
+			entry: mustEntryRef(options.namespace, options.key, options.branch),
 		});
 	}
 

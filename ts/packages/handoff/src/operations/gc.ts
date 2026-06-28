@@ -12,14 +12,14 @@ import {
 import { handoffSummarySchema } from "../inventory.ts";
 
 const GC_ACTION_VALUE_BY_ACTION = {
-	kept_active: "kept_active",
-	would_delete: "would_delete",
+	keptActive: "keptActive",
+	wouldDelete: "wouldDelete",
 	deleted: "deleted",
 	error: "error",
 } as const satisfies { readonly [K in DeletedBranchGarbageCollectionAction]: K };
 export const gcActionSchema = z.enum([
-	GC_ACTION_VALUE_BY_ACTION.kept_active,
-	GC_ACTION_VALUE_BY_ACTION.would_delete,
+	GC_ACTION_VALUE_BY_ACTION.keptActive,
+	GC_ACTION_VALUE_BY_ACTION.wouldDelete,
 	GC_ACTION_VALUE_BY_ACTION.deleted,
 	GC_ACTION_VALUE_BY_ACTION.error,
 ]);
@@ -38,11 +38,11 @@ export const gcResultEntrySchema = handoffSummarySchema.extend({
 
 export const gcResultSchema = z.object({
 	entries: z.array(gcResultEntrySchema),
-	would_delete_count: z.number().int(),
-	deleted_count: z.number().int(),
-	kept_count: z.number().int(),
-	error_count: z.number().int(),
-	dry_run: z.boolean(),
+	wouldDeleteCount: z.number().int(),
+	deletedCount: z.number().int(),
+	keptCount: z.number().int(),
+	errorCount: z.number().int(),
+	dryRun: z.boolean(),
 	cancelled: z.boolean(),
 });
 
@@ -76,7 +76,7 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 
 	ctx.stderr(`${renderGc(preview)}\n`);
 	const confirmed = await ctx.interaction.confirm({
-		message: `Delete ${preview.would_delete_count} handoff(s)?`,
+		message: `Delete ${preview.wouldDeleteCount} handoff(s)?`,
 		defaultAnswer: "no",
 	});
 	if (confirmed.type === "confirmed")
@@ -94,7 +94,7 @@ export function renderGc(result: GcResult): string {
 	if (result.cancelled) return "Cancelled — no handoffs deleted.";
 	const candidates = result.entries.filter(
 		(entry) =>
-			entry.action === "would_delete" || entry.action === "deleted" || entry.action === "error",
+			entry.action === "wouldDelete" || entry.action === "deleted" || entry.action === "error",
 	);
 	const lines: string[] = [];
 	if (candidates.length === 0) {
@@ -102,13 +102,13 @@ export function renderGc(result: GcResult): string {
 		lines.push(summaryLine(result));
 		return lines.join("\n");
 	}
-	if (result.would_delete_count > 0)
-		lines.push(`Would delete ${result.would_delete_count} handoff(s) for deleted branches:`);
-	else lines.push(`Deleted ${result.deleted_count} handoff(s) for deleted branches:`);
+	if (result.wouldDeleteCount > 0)
+		lines.push(`Would delete ${result.wouldDeleteCount} handoff(s) for deleted branches:`);
+	else lines.push(`Deleted ${result.deletedCount} handoff(s) for deleted branches:`);
 	for (const entry of candidates) {
 		const suffix = entry.message === null ? "" : `: ${entry.message}`;
 		lines.push(
-			`  ${entry.action.replaceAll("_", " ")} ${entry.branch_state} ${entry.branch} ${entry.slug}${suffix}`,
+			`  ${formatGcAction(entry.action)} ${entry.branchState} ${entry.branch} ${entry.slug}${suffix}`,
 		);
 	}
 	lines.push("");
@@ -140,15 +140,28 @@ function toGcResult(
 ): GcResult {
 	return {
 		entries: report.entries.map((entry) => ({ ...entry })),
-		would_delete_count: report.counts.wouldDelete,
-		deleted_count: report.counts.deleted,
-		kept_count: report.counts.kept,
-		error_count: report.counts.error,
-		dry_run: options.dryRun,
+		wouldDeleteCount: report.counts.wouldDelete,
+		deletedCount: report.counts.deleted,
+		keptCount: report.counts.kept,
+		errorCount: report.counts.error,
+		dryRun: options.dryRun,
 		cancelled: options.cancelled,
 	};
 }
 
 function summaryLine(result: GcResult): string {
-	return `Would delete ${result.would_delete_count}; deleted ${result.deleted_count}; kept ${result.kept_count}; errors ${result.error_count}`;
+	return `Would delete ${result.wouldDeleteCount}; deleted ${result.deletedCount}; kept ${result.keptCount}; errors ${result.errorCount}`;
+}
+
+function formatGcAction(action: GcAction): string {
+	switch (action) {
+		case "wouldDelete":
+			return "would delete";
+		case "keptActive":
+			return "kept active";
+		case "deleted":
+			return "deleted";
+		case "error":
+			return "error";
+	}
 }

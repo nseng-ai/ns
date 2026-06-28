@@ -8,8 +8,8 @@ import {
 import type { HandoffSummary } from "./inventory.ts";
 
 export type DeletedBranchGarbageCollectionAction =
-	| "kept_active"
-	| "would_delete"
+	| "keptActive"
+	| "wouldDelete"
 	| "deleted"
 	| "error";
 
@@ -35,7 +35,7 @@ export function planDeletedBranchGarbageCollection(options: {
 	summaries: readonly HandoffSummary[];
 }): DeletedBranchGarbageCollectionReport {
 	const entries = options.summaries.map((summary) =>
-		createEntry(summary, summary.branch_state === "deleted" ? "would_delete" : "kept_active"),
+		createEntry(summary, summary.branchState === "deleted" ? "wouldDelete" : "keptActive"),
 	);
 	return {
 		entries,
@@ -49,7 +49,7 @@ export async function executeDeletedBranchGarbageCollection(
 ): Promise<DeletedBranchGarbageCollectionReport> {
 	const entries: DeletedBranchGarbageCollectionEntry[] = [];
 	for (const entry of plan.entries) {
-		if (entry.action !== "would_delete") {
+		if (entry.action !== "wouldDelete") {
 			entries.push({ ...entry });
 			continue;
 		}
@@ -110,7 +110,7 @@ function countEntries(
 	let error = 0;
 	for (const entry of entries) {
 		switch (entry.action) {
-			case "would_delete":
+			case "wouldDelete":
 				wouldDelete += 1;
 				break;
 			case "deleted":
@@ -119,7 +119,7 @@ function countEntries(
 			case "error":
 				error += 1;
 				break;
-			case "kept_active":
+			case "keptActive":
 				kept += 1;
 				break;
 		}
