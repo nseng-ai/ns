@@ -42,18 +42,18 @@ describe("renderGitResultBlock — success", () => {
 		expect(headline).toContain("✓ `git push` completed successfully.");
 	});
 
-	test("includes the command/cwd/exit/killed facts and stdout evidence", () => {
+	test("includes concise command/cwd evidence without debug transcript plumbing", () => {
 		expect(plain).toContain("Command: git push");
 		expect(plain).toContain("Cwd: /repo");
-		expect(plain).toContain("Exit: 0");
-		expect(plain).toContain("Killed: false");
-		expect(plain).toContain("stdout:");
-		expect(plain).toContain("Everything up-to-date");
+		expect(plain).not.toContain("Exit: 0");
+		expect(plain).not.toContain("Killed: false");
+		expect(plain).not.toContain("stdout:");
+		expect(plain).not.toContain("Everything up-to-date");
 	});
 
-	test("plumbing facts are dimmed", () => {
+	test("command/cwd evidence is dimmed", () => {
 		expect(block).toContain(`${DIM}Command: git push${RESET}`);
-		expect(block).toContain(`${DIM}Exit: 0${RESET}`);
+		expect(block).toContain(`${DIM}Cwd: /repo${RESET}`);
 	});
 });
 
@@ -97,6 +97,22 @@ describe("renderGitResultBlock — failure", () => {
 		expect(block).toContain(`${DIM}Exit: 1${RESET}`);
 		expect(block).toContain(`${DIM}Killed: false${RESET}`);
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
+	});
+
+	test("surfaces pull-trunk not-fast-forward failures as cause lines", () => {
+		const fastForwardBlock = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "Could not update local trunk branch `main`.",
+			command: "git pull --ff-only origin main",
+			cwd: "/repo",
+			result: execResult({ stderr: "not fast-forward\n", code: 1 }),
+		});
+
+		expect(
+			fastForwardBlock
+				.split("\n")
+				.some((line) => stripAnsi(line) === "not fast-forward" && !line.includes(DIM)),
+		).toBe(true);
 	});
 });
 
@@ -161,13 +177,13 @@ describe("renderGitResultBlock — caps degradation", () => {
 });
 
 describe("renderGitResultBlock — empty output convention", () => {
-	test("empty stdout/stderr render as <empty>", () => {
+	test("empty stdout/stderr render as <empty> for failures", () => {
 		const block = renderGitResultBlock(caps(), {
-			kind: "success",
-			headline: "done",
+			kind: "failure",
+			headline: "failed",
 			command: "git push",
 			cwd: "/repo",
-			result: execResult({ stdout: "", stderr: "" }),
+			result: execResult({ stdout: "", stderr: "", code: 1 }),
 		});
 		const plain = stripAnsi(block);
 		expect(plain).toContain("stdout:\n<empty>");

@@ -1,6 +1,6 @@
-// The caps-aware "git subprocess result/failure block" — the one reusable house-style primitive
-// `sdl flow push` exercises (CLI UX North Star, first audited side-effect slice). It renders a single
-// success / failure / refusal block for a git subprocess and degrades across the caps ladder for free,
+// The caps-aware "git/Graphite subprocess result/failure block" — the one reusable house-style
+// primitive `sdl flow push` exercises (CLI UX North Star, first audited side-effect slice). It renders a
+// single success / failure / refusal block for a subprocess and degrades across the caps ladder for free,
 // because it is built entirely on the opt-in `@sdl/clinkr/theme` colorizers and glyphs (paint/bold/dim/
 // glyph) which already fold truecolor → 256 → 16 → mono and unicode → ascii.
 //
@@ -11,8 +11,10 @@
 //
 // Three-tier styling (house-style sign-off):
 //   - headline: bold + intent-painted, with a leading status glyph;
-//   - salient transcript cause lines (error: / fatal: / rejected) at normal foreground weight;
-//   - git plumbing (command / cwd / exit / killed) and the full stdout/stderr transcripts dimmed.
+//   - successful side effects stay concise: headline, human guidance, and dimmed command/cwd evidence;
+//   - failure transcript cause lines (error: / fatal: / rejected / not fast-forward / denied) at normal
+//     foreground weight;
+//   - failure plumbing (command / cwd / exit / killed) and full stdout/stderr transcripts dimmed.
 
 import type { Caps } from "@sdl/clinkr";
 import { bold, dim, glyph, paint } from "@sdl/clinkr/theme";
@@ -21,24 +23,24 @@ import type { ExecResult } from "sdl-sdk";
 interface GitResultFacts {
 	/** The leading one-line summary (already-phrased prose); rendered bold + intent-painted. */
 	headline: string;
-	/** The subprocess command line, shown as dimmed plumbing (e.g. `git push`). */
+	/** The subprocess command line, shown as dimmed plumbing (e.g. `git push` or `gt trunk`). */
 	command: string;
 	/** The working directory, shown as dimmed plumbing. */
 	cwd: string;
-	/** Optional "what to do next" line, rendered at normal weight after the cause/detail. */
+	/** Optional detail or "what to do next" line, rendered at normal weight after the cause/detail. */
 	guidance?: string | undefined;
 }
 
 export type GitResultBlockInput =
-	/** The git subprocess succeeded; show the green headline plus concise transcript evidence. */
+	/** The git/Graphite subprocess succeeded; show a concise green headline plus command/cwd evidence. */
 	| ({ kind: "success"; result: ExecResult } & GitResultFacts)
-	/** The git subprocess (or a preflight git command) failed; surface cause lines + transcript. */
+	/** The git/Graphite subprocess (or a preflight command) failed; surface cause lines + transcript. */
 	| ({ kind: "failure"; result: ExecResult } & GitResultFacts)
 	/** No subprocess failure — a guardrail refused to run git; `detail` carries the porcelain status. */
 	| ({ kind: "refusal"; detail: string } & GitResultFacts);
 
 // Lowercased substrings that mark a salient transcript line worth surfacing at normal weight.
-const CAUSE_MARKERS = ["error:", "fatal:", "rejected"];
+const CAUSE_MARKERS = ["error:", "fatal:", "rejected", "not fast-forward", "denied"];
 
 /** Render a git result/failure block to a string, styled and degraded for `caps`. */
 export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): string {
@@ -54,7 +56,7 @@ export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): st
 		lines.push(input.guidance);
 	}
 	lines.push(...plumbingLines(input));
-	if (input.kind !== "refusal") {
+	if (input.kind === "failure") {
 		lines.push(...transcriptLines(input.result));
 	}
 
@@ -91,7 +93,7 @@ function causeLines(result: ExecResult): string[] {
 
 function plumbingLines(input: GitResultBlockInput): string[] {
 	const facts = [`Command: ${input.command}`, `Cwd: ${input.cwd}`];
-	if (input.kind !== "refusal") {
+	if (input.kind === "failure") {
 		facts.push(`Exit: ${input.result.code}`, `Killed: ${input.result.killed}`);
 	}
 	return facts.map((fact) => dim(fact));
