@@ -5,11 +5,11 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "../commands/ack.ts";
+import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 
-import { formatCommandOutput, notifyCommandUi } from "../command-helpers.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
-import { buildFencedTextBlock, expandRepoSkillBlock } from "../skills/expansion.ts";
+import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
+import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { buildFencedTextBlock, expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
 
 export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
@@ -23,7 +23,7 @@ export const smartRestackParity = definePiSurfaceParity([
 		fallback:
 			"Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
+		sourcePackage: "@sdl/flow-pi",
 		sourceModule: "smart-restack",
 		notes:
 			"This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",

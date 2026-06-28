@@ -1,5 +1,5 @@
 /**
- * Typed parity accounting for Pi surfaces implemented by @sdl/pi.
+ * Typed parity accounting for Pi surfaces implemented by @sdl/pi and extracted Pi packages.
  *
  * The cross-harness parity Objective tracks whether Pi command workflows have
  * an agent-neutral route: a CLI plus skill, a known gap, or a deliberate waiver
@@ -20,9 +20,10 @@
  * `kind:surface`.
  *
  * Scope is intentionally narrow for v1: package modules in @sdl/pi plus
- * checked-in project-local adapters whose metadata must remain Pi-local to avoid
- * package cycles. Direct command surfaces owned by other orchestration packages
- * are not enforced here unless they are exposed through this package.
+ * extracted Pi packages and checked-in project-local adapters whose metadata must
+ * remain package-local to avoid package cycles. Direct command surfaces owned by
+ * other orchestration packages are not enforced here unless they opt into this
+ * helper contract.
  */
 export const PI_SURFACE_KINDS = ["command"] as const;
 export type PiSurfaceKind = (typeof PI_SURFACE_KINDS)[number];
@@ -50,9 +51,9 @@ export interface BasePiSurfaceParity {
 	readonly ownerObjective: "cross-harness-parity";
 	/**
 	 * Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces.
-	 * Extracted Pi-tool packages may emit their own parity records and test them
-	 * package-locally; the host static registry remains host-owned to avoid
-	 * importing tool packages back into @sdl/pi.
+	 * Extracted capability-pi and Pi-tool packages may emit their own parity records
+	 * and test them package-locally; the host static registry remains host-owned to
+	 * avoid importing those packages back into @sdl/pi.
 	 */
 	readonly sourcePackage:
 		| "@sdl/pi"
@@ -63,6 +64,7 @@ export interface BasePiSurfaceParity {
 		| "@local-pi-tools/pr-previews"
 		| "@local-pi-tools/thermo-council"
 		| "@sdl/branch-context-pi"
+		| "@sdl/flow-pi"
 		| "@sdl/handoff-pi"
 		| "@sdl/objective-pi"
 		| "@sdl/worktree-status";

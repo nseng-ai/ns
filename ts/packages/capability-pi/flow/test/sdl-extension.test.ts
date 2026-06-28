@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "../src/commands/cli-extension.ts";
-import sdlExtension, { type SdlExtensionAPI } from "../src/flow/sdl-extension.ts";
-import type { CommandContext } from "../src/commands/cli-extension.ts";
+import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@sdl/pi/commands/cli-extension";
+import sdlExtension, { type SdlExtensionAPI } from "../src/sdl-extension.ts";
+import type { CommandContext } from "@sdl/pi/commands/cli-extension";
 
 type RegisteredCommand = Parameters<SdlExtensionAPI["registerCommand"]>[1];
 type CustomMessage = Parameters<NonNullable<SdlExtensionAPI["sendMessage"]>>[0];

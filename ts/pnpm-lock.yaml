@@ -101,6 +101,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/infra/core
+      '@sdl/flow-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/flow
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/infra/graphite
@@ -284,6 +287,24 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../../plans
+
+  packages/capability-pi/flow:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../../infra/graphite
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/capability-pi/handoff:
     dependencies:

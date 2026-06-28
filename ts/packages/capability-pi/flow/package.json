@@ -1,0 +1,26 @@
+{
+  "name": "@sdl/flow-pi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./code-workflows-extension": "./src/code-workflows.ts",
+    "./code-extension": "./src/code-extension.ts",
+    "./sdl-extension": "./src/sdl-extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/flow/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*",
+    "@sdl/graphite": "workspace:*",
+    "@sdl/kernel": "workspace:*",
+    "@sdl/pi": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability-pi"
+  }
+}

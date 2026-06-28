@@ -7,6 +7,7 @@
 		"./commands/ack": "./src/commands/ack.ts",
 		"./commands/args": "./src/commands/args.ts",
 		"./commands/events": "./src/commands/events.ts",
+		"./commands/helpers": "./src/command-helpers.ts",
 		"./commands/io": "./src/commands/io.ts",
 		"./grill/surfaces": "./src/grill/surfaces.ts",
 		"./models/call": "./src/models/call.ts",
