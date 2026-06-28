@@ -5,20 +5,13 @@ import {
 	formatParityComparisonFailure,
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
-import { FakePiSurfaceHost } from "@sdl/pi/parity/testing";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import thermoCouncilExtension, { thermoCouncilParity } from "../src/extension.ts";
 
 async function collectThermoCouncilSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, thermoCouncilExtension);
 	return pi.surfaces();
-}
-
-async function registerWithFakeHost<TPi>(
-	pi: FakePiSurfaceHost,
-	register: (pi: TPi) => void | Promise<void>,
-): Promise<void> {
-	await register(pi as TPi);
 }
 
 describe("thermo-council Pi extension parity metadata", () => {

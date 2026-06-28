@@ -5,12 +5,21 @@ import type {
 	SessionReplacementResult,
 	SessionUserMessageOptions,
 } from "../sessions/replacement.ts";
-import type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
+import type { ThinkingLevel } from "../runtime/types.ts";
+import type { ToolContext, ToolDefinition } from "../runtime/tool-types.ts";
 
 export type { ExecResult } from "@sdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
+export type {
+	NotifyLevel,
+	SetWidgetFunction,
+	ToolContext,
+	ToolDefinition,
+	ToolResult,
+	WidgetPlacement,
+	WidgetRuntimeContext,
+} from "../runtime/tool-types.ts";
 
-export type NotifyLevel = "info" | "warning" | "error";
 export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export interface AutocompleteItem {
@@ -54,27 +63,6 @@ export interface TuiHandle {
 	requestRender(force?: boolean): void;
 }
 
-export type WidgetPlacement = "aboveEditor" | "belowEditor";
-
-export type SetWidgetFunction = (
-	key: string,
-	content: string[] | undefined,
-	options?: { placement?: WidgetPlacement },
-) => void;
-
-export interface WidgetRuntimeContext {
-	hasUI?: boolean;
-	ui?: { setWidget?: SetWidgetFunction };
-}
-
-export interface ToolResult<Details = unknown> {
-	content: Array<{ type: "text"; text: string }>;
-	details?: Details;
-	isError?: boolean;
-	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
-	terminate?: boolean;
-}
-
 export type SendUserMessageOptions = SessionUserMessageOptions;
 export type { SessionReplacementResult };
 
@@ -84,22 +72,6 @@ export interface ReplacedSessionContext extends BaseRuntimeContext, SessionRepla
 }
 
 export type NewSessionOptions = SessionReplacementOptions<ReplacedSessionContext>;
-
-export interface ToolDefinition {
-	name: string;
-	label: string;
-	description: string;
-	promptSnippet?: string;
-	promptGuidelines?: string[];
-	parameters: Record<string, unknown>;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-		ctx: ToolContext,
-	): Promise<ToolResult> | ToolResult;
-}
 
 export type MessageRenderer = (
 	message: CustomMessage,
@@ -112,17 +84,11 @@ export interface SessionManagerLike {
 	getSessionFile?(): string | undefined;
 }
 
-export interface BaseRuntimeContext {
-	cwd: string;
-	hasUI: boolean;
+export interface BaseRuntimeContext extends ToolContext {
 	mode: ExtensionMode;
-	model?: ModelInfo;
 	sessionManager?: SessionManagerLike;
-	ui: {
-		notify(message: string, level?: NotifyLevel): void;
+	ui: ToolContext["ui"] & {
 		setEditorText?(value: string): void;
-		setStatus?(key: string, value: string | undefined): void;
-		setWidget?: SetWidgetFunction;
 		custom?<T>(
 			factory: (
 				tui: TuiHandle,
@@ -143,8 +109,6 @@ export interface CommandContext extends BaseRuntimeContext {
 	waitForIdle(): Promise<void>;
 	newSession?(options?: NewSessionOptions): Promise<SessionReplacementResult>;
 }
-
-export type ToolContext = BaseRuntimeContext;
 
 export interface ExtensionAPI {
 	registerCommand(

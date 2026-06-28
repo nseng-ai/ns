@@ -13,6 +13,9 @@ import { stackSquashParity } from "../flow/stack-squash.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 import type { PiSurfaceParity } from "./extension.ts";
 
+// Extracted Pi-tool packages own package-local parity metadata/tests and are
+// registered through .pi/extensions/*.ts discovery adapters. Importing them into
+// this host static registry would invert the intended tool -> @sdl/pi dependency direction.
 export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...branchContextExtensionParity,
 	...claudeHandoffParity,

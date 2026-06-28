@@ -5,20 +5,13 @@ import {
 	formatParityComparisonFailure,
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
-import { FakePiSurfaceHost } from "@sdl/pi/parity/testing";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import { contextProfilerParity, registerContextProfilerExtension } from "../src/extension.ts";
 
 async function collectContextProfilerSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, registerContextProfilerExtension);
 	return pi.surfaces();
-}
-
-async function registerWithFakeHost<TPi>(
-	pi: FakePiSurfaceHost,
-	register: (pi: TPi) => void | Promise<void>,
-): Promise<void> {
-	await register(pi as TPi);
 }
 
 describe("context-profiler Pi extension parity metadata", () => {

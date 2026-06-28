@@ -1,3 +1,5 @@
+import { errorMessage } from "../shared/errors.ts";
+
 export type LmJsonParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export type SafeParseResult<T> = { success: true; data: T } | { success: false };
@@ -82,8 +84,4 @@ function scanJsonObjectAt(text: string, start: number): string | null {
 
 function isMatchingJsonDelimiter(opener: string, closer: string): boolean {
 	return (opener === "{" && closer === "}") || (opener === "[" && closer === "]");
-}
-
-function errorMessage(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
 }

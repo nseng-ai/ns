@@ -3,7 +3,7 @@ import { z } from "zod";
 import { formatZodError } from "@sdl/core/primitives";
 
 import { loadPiAgentDefinition, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
-import type { ModelInfo } from "@sdl/pi/runtime/types";
+import type { ToolDefinition } from "@sdl/pi/runtime/tool-types";
 import {
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
@@ -25,6 +25,7 @@ import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
 export { resultDiagnostic } from "@sdl/pi/runner-subagents";
+export type { ToolContext, ToolDefinition, ToolResult } from "@sdl/pi/runtime/tool-types";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;
@@ -36,51 +37,6 @@ const dispatchRunnerSubagentInputSchema = z.object({
 	prompt: z.string().trim().min(1),
 	model: z.string().trim().min(1).optional(),
 });
-
-export interface TextContent {
-	type: "text";
-	text: string;
-}
-
-export interface ToolResult<Details = unknown> {
-	content: TextContent[];
-	details?: Details;
-	isError?: boolean;
-	/** External Pi tool-result contract; Pi documents this field as `terminate`. */
-	terminate?: boolean;
-}
-
-export interface ToolContext {
-	cwd: string;
-	hasUI?: boolean;
-	mode?: string;
-	model?: ModelInfo;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-		setStatus?: (key: string, value: string | undefined) => void;
-		setWidget?: (
-			key: string,
-			content: string[] | undefined,
-			options?: { placement?: "aboveEditor" | "belowEditor" },
-		) => void;
-	};
-}
-
-export interface ToolDefinition {
-	name: string;
-	label: string;
-	description: string;
-	promptSnippet?: string;
-	promptGuidelines?: string[];
-	parameters: Record<string, unknown>;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
-		ctx: ToolContext,
-	): Promise<ToolResult> | ToolResult;
-}
 
 export type DispatchRunnerSubagentInput = z.infer<typeof dispatchRunnerSubagentInputSchema>;
 

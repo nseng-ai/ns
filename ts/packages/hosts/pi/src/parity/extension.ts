@@ -48,7 +48,12 @@ export interface BasePiSurfaceParity {
 	readonly workflow: string;
 	/** The Objective that owns semantic review of this parity verdict. */
 	readonly ownerObjective: "cross-harness-parity";
-	/** Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces. */
+	/**
+	 * Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces.
+	 * Extracted Pi-tool packages may emit their own parity records and test them
+	 * package-locally; the host static registry remains host-owned to avoid
+	 * importing tool packages back into @sdl/pi.
+	 */
 	readonly sourcePackage:
 		| "@sdl/pi"
 		| "@sdl/pi-context-profiler"

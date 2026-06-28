@@ -5,20 +5,13 @@ import {
 	formatParityComparisonFailure,
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
-import { FakePiSurfaceHost } from "@sdl/pi/parity/testing";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import { grillUiParity, registerGrillUiExtension } from "../src/extension.ts";
 
 async function collectGrillSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, registerGrillUiExtension);
 	return pi.surfaces();
-}
-
-async function registerWithFakeHost<TPi>(
-	pi: FakePiSurfaceHost,
-	register: (pi: TPi) => void | Promise<void>,
-): Promise<void> {
-	await register(pi as TPi);
 }
 
 describe("grill Pi extension parity metadata", () => {
