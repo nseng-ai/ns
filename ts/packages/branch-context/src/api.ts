@@ -29,10 +29,6 @@ export {
 	type ExistingBranchContextReuse,
 } from "./existing-branch-reuse.ts";
 export {
-	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	formatImplBranchContextCommand,
-} from "./impl-command.ts";
-export {
 	buildPlanContentSlugPrompt,
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,

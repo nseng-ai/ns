@@ -1,7 +1,5 @@
-import {
-	formatImplBranchContextCommand,
-	type BranchContextEvidence,
-} from "@sdl/branch-context/api";
+import { type BranchContextEvidence } from "@sdl/branch-context/api";
+import { formatImplBranchContextCommand } from "../../commands/surfaces.ts";
 import type { ExecResult } from "@sdl/core/exec";
 import { setRuntimeStatus } from "../../runtime/status.ts";
 import type {

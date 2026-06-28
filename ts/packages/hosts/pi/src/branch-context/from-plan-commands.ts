@@ -7,6 +7,7 @@ import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+	formatImplBranchContextCommand,
 } from "../commands/surfaces.ts";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -18,7 +19,6 @@ import {
 	deriveTargetBranch,
 	formatBranchContextEvidence,
 	formatExistingBranchContextReuse,
-	formatImplBranchContextCommand,
 	formatLoadedAttachedPlanEvidence,
 	resolveExistingBranchContextReuse,
 	type BranchContextEvidence,

@@ -5,8 +5,8 @@ import { join } from "node:path";
 import {
 	buildPlanContentSlugPrompt,
 	createBranchContextContext,
-	formatImplBranchContextCommand,
 } from "@sdl/branch-context/api";
+import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";
