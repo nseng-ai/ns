@@ -5,7 +5,7 @@ import {
 	SLUG_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
 } from "@sdl/core/model-slug";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@sdl/pi/branches/slug";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@sdl/core/branch-slug";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;

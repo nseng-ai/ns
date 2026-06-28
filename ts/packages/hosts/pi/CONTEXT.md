@@ -21,7 +21,7 @@ A tested implementation area under `ts/packages/pi/src/<domain>/` for project-lo
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages, including command acknowledgement, command I/O, command names, branch slug normalization, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal presentation, runner-subagent usage, and cmux/Pi runtime types.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages, including command acknowledgement, command I/O, command names, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal presentation, runner-subagent usage, and cmux/Pi runtime types.
 *Avoid*: project-local extension entrypoint, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:

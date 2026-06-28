@@ -3,7 +3,7 @@ import {
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "@sdl/pi/branches/slug";
+} from "@sdl/core/branch-slug";
 import type { TextResult } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "@sdl/cmux/types";
 

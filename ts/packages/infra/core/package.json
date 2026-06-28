@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./branch-slug": "./src/branch-slug.ts",
     "./primitives": "./src/primitives.ts",
     "./result": "./src/result.ts",
     "./command-io": "./src/command-io.ts",

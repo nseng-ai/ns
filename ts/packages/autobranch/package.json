@@ -17,8 +17,7 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/autobranch/test"
   },
   "dependencies": {
-    "@sdl/core": "workspace:*",
-    "@sdl/pi": "workspace:*"
+    "@sdl/core": "workspace:*"
   },
   "devDependencies": {}
 }
