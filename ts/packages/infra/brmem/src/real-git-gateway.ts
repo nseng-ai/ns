@@ -360,21 +360,10 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
-		let lastRefChange: BrmemResult<PutEntryResult> | undefined;
-		for (let attempt = 0; attempt < 3; attempt += 1) {
-			const written = await this.writeEntrySnapshot(options, {
-				shouldCreateOnly: true,
-				commitMessage: `brmem create ${options.key}`,
-			});
-			if (written.type === "ok") return written;
-			if (written.error.code === "key_already_exists") return written;
-			if (written.error.code !== "snapshot_ref_changed") return written;
-			lastRefChange = written;
-		}
-		return (
-			lastRefChange ??
-			brmemError("snapshot_ref_changed", "Snapshot Ref changed before it could be updated.")
-		);
+		return await this.writeEntrySnapshot(options, {
+			shouldCreateOnly: true,
+			commitMessage: `brmem create ${options.key}`,
+		});
 	}
 
 	private async writeEntrySnapshot(

@@ -180,7 +180,7 @@ describe("RealGitBrmemGateway", () => {
 		commands.assertDone();
 	});
 
-	it("createEntry reports key_already_exists when a same-key writer wins the update race", async () => {
+	it("createEntry reports snapshot_ref_changed when another writer wins the update race", async () => {
 		const commands = new RecordingCommands([
 			{
 				command: "git",
@@ -218,22 +218,6 @@ describe("RealGitBrmemGateway", () => {
 				args: ["update-ref", "refs/brmem/base/feat---x", "new-commit", "old-sha"],
 				result: { code: 1, stderr: "ref changed\n" },
 			},
-			{
-				command: "git",
-				args: ["rev-parse", "--verify", "refs/brmem/base/feat---x"],
-				result: { stdout: "raced-sha\n" },
-			},
-			{
-				command: "git",
-				args: [
-					"ls-tree",
-					"-r",
-					"--full-tree",
-					"--format=%(path)%x09%(objectname)",
-					"refs/brmem/base/feat---x",
-				],
-				result: { stdout: "body.md\traced-blob\n" },
-			},
 		]);
 		const gateway = realGitBrmemGateway("/work", commands);
 
@@ -244,7 +228,7 @@ describe("RealGitBrmemGateway", () => {
 			content: "new body",
 		});
 
-		expect(result).toMatchObject({ type: "error", error: { code: "key_already_exists" } });
+		expect(result).toMatchObject({ type: "error", error: { code: "snapshot_ref_changed" } });
 		const mktreeCall = commands.calls.find((call) => call.args[0] === "mktree");
 		expect(mktreeCall?.options?.stdin).toBe("100644 blob new-blob\tbody.md\n");
 		commands.assertDone();
