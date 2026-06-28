@@ -16,6 +16,7 @@ import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
 	formatMergedPrNotInTrunkPreflightOutput,
+	formatMergedPrNotInTrunkSubmitOutput,
 	formatPreflightFailureOutput,
 	formatPrewriteFailureOutput,
 	formatTrunkOutOfDatePreflightOutput,
@@ -170,6 +171,7 @@ export type SubmitRunResult =
 	| {
 			kind: "failed";
 			output: SubmitCommandOutput;
+			cause?: SubmitPreflightFailureCause | undefined;
 	  };
 
 export type CurrentPrVerificationResult =
@@ -281,6 +283,13 @@ export class RealSubmitGateway implements SubmitGateway {
 			...optionalOutputListenerParam(params.onOutput),
 		});
 		if (!isSuccessfulOutput(output)) {
+			const joinedOutput = joinOutput(output);
+			if (!output.startupError && !output.killed && detectMergedPrNotInTrunk(joinedOutput)) {
+				return { kind: "failed", output, cause: "merged_pr_not_in_trunk" };
+			}
+			if (!output.startupError && !output.killed && detectTrunkOutOfDate(joinedOutput)) {
+				return { kind: "failed", output, cause: "trunk_out_of_date" };
+			}
 			return { kind: "failed", output };
 		}
 
@@ -476,6 +485,22 @@ export async function runSubmitCommand(
 	});
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
+		if (submitted.cause === "merged_pr_not_in_trunk") {
+			const stderr = formatMergedPrNotInTrunkSubmitOutput(
+				submitted.output,
+				submitCommandDisplay,
+				submitDryRunCommandDisplay,
+			);
+			return failure(normalizedFailureExitCode(submitted.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"submit preflight",
+					submitCommandDisplay,
+					submitted.output,
+					stderr,
+				),
+			});
+		}
 		return failure(
 			normalizedFailureExitCode(submitted.output),
 			formatSubmitFailureOutput(submitted.output, prewrite.prepared, submitCommandDisplay),
