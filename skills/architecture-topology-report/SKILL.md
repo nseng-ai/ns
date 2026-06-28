@@ -94,25 +94,35 @@ Look specifically for:
 
 ### 4. Render the HTML report
 
-Write a self-contained HTML file to the OS temp directory (nothing lands in the repo).
-Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and
-write to `<tmpdir>/architecture-topology-<timestamp>.html`. Open it (`open` on macOS,
-`xdg-open` on Linux, `start` on Windows) and tell the user the absolute path.
+**Use the bundled generator — do not hand-build the HTML.** `scripts/build-report.mjs`
+owns everything mechanical and repeated (the D3 renderer, the HTML scaffold, every
+section's markup, the `{nodes, links}` assembly, cycle-edge marking, fan-in/out). You
+author only a compact **content spec** — the tier map plus the editorial judgement (verdict,
+scorecard rows, finding cards, keystone) — and the script renders the page, writes it to the
+OS temp dir, and (with `--open`) opens it.
 
-See [references/HTML-REPORT.md](references/HTML-REPORT.md) for the full scaffold, the
-section sequence, the scorecard/finding-card patterns, and the three visual registers:
+```bash
+# (a) seed the tier map from structural facts, then re-tag sdk/host/cons/util by the model:
+node <skill-dir>/scripts/build-report.mjs --tiers-template            # prints a {pkg: tier} seed
+# (b) write a spec module (see references/HTML-REPORT.md "Spec contract"), then render:
+node <skill-dir>/scripts/build-report.mjs --spec /abs/path/report-spec.mjs --open
+```
 
-- The **interactive D3 graph** (section 4) is the centrepiece "reality" view — the full
-  dependency graph with **node area ∝ LOC** (`packages[].loc`), a layered-DAG ⇄ force
-  layout toggle, and drag/zoom/hover-trace/tier-filter. The reference carries the complete,
-  copy-paste renderer; you supply a `{nodes, links}` array. The script does **not** classify
-  tiers, so **you assign each node its tier** (from the target model you read in step 1) and
-  mark a link `cycle: true` when its pair is inside a `cycles` SCC.
-- **Mermaid** only for the small before/after cycle diagrams in finding cards.
-- **Hand-built Tailwind** tier stack, verdict strip, and scorecard table.
+The generator re-runs `extract-graph.mjs` itself (pass through `--root`/`--kit`/… for a
+different workspace), or accepts a cached `--graph <json>`. It prints the absolute output
+path; relay it to the user. The only per-run thinking is the spec: tier per package (one
+seed away) and the invariant analysis from step 3.
 
-Tailwind + D3 + Mermaid via CDN; mix the registers so it reads as editorial, not as a
-generic dashboard.
+The spec contract, every field, and the full section sequence live in
+[references/HTML-REPORT.md](references/HTML-REPORT.md). The report mixes three visual
+registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
+(node area ∝ LOC, layered-DAG ⇄ force toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
+before/after cycle diagrams in finding cards, and **hand-built Tailwind** for the tier stack,
+verdict strip, and scorecard. You assign each node its tier (the extractor does not classify
+layers); the generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.
+
+Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs
+a register the spec does not express — and prefer extending `build-report.mjs` over a one-off.
 
 ### 5. Summarize in chat
 

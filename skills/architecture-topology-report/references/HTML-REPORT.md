@@ -1,5 +1,37 @@
 # HTML Report Format — Topology Scorecard
 
+> **Default path: `scripts/build-report.mjs`.** Do not hand-assemble the HTML. The
+> generator bakes the D3 renderer, the scaffold, and every section below, and turns a
+> compact **content spec** into the page. Author the spec (next section); the rest of this
+> document is the design rationale and the field-by-field reference for what the spec must
+> supply. The raw copy-paste scaffold remains here only as the fallback for a register the
+> spec cannot express.
+
+## Spec contract (`--spec <module.mjs>`)
+
+An ESM module with a `default` export. The generator looks up each package's tier, computes
+fan-in/out, marks cycle edges, and renders. You provide:
+
+| Field                          | Shape                                                                                              | Notes                                                                                                                                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `repo`, `targetName`, `date`   | string                                                                                             | header identity                                                                                                                                                                                                    |
+| `intro`                        | html string                                                                                        | one paragraph under the title                                                                                                                                                                                      |
+| `tiers`                        | `{ "<pkg>": "<tierId>" }`                                                                          | tier ids: `cons host cap util sdk trans infra tool`. Seed with `--tiers-template`, then re-tag. Any package missing here defaults to `tool` and prints a warning.                                                  |
+| `verdict`                      | `{ headline, drift:bool, stats:[{value,total?,label,sub,health}], read }`                          | `health`: `green\|amber\|red`. `drift:false` ⇒ the green "distance not drift" framing.                                                                                                                             |
+| `northStar`                    | `{ rule, bands:[{label,bg,labelBg,chipBorder,noteColor,packages,note}], offAxis? }`                | `packages` items are strings or `{name,dashed}` (dashed = "delete to zero").                                                                                                                                       |
+| `graphIntro?`, `graphCaption?` | html string                                                                                        | the LOC-reading prose under the graph                                                                                                                                                                              |
+| `scorecard`                    | `[{invariant, status, statusKind, evidence}]`                                                      | `statusKind`: `holds\|partial\|open` (drives the pill colour).                                                                                                                                                     |
+| `findings`                     | `[{title, strength, tag?, problem, solution, wins[], debtNote?, beforeAfter?\|fanin?\|chipRows?}]` | `strength`: `Strong\|Worth watching\|Speculative`. `beforeAfter:{now,after,nowLabel?,afterLabel?}` and `fanin` are Mermaid source; `chipRows:[{label,items:[{text,state}]}]` with `state: done\|pending\|neutral`. |
+| `keystone`                     | `{ title, paras[], sequence[] }`                                                                   | `sequence[0]` is highlighted emerald.                                                                                                                                                                              |
+| `provenance?`                  | html string                                                                                        | footer line                                                                                                                                                                                                        |
+
+Fields ending in prose accept inline HTML verbatim (it is not escaped) so you can drop
+`<span class="font-mono">` etc. Package labels in the graph are auto-shortened (scope prefix
+stripped). A validated example spec that reproduces the sdl-extension-architecture report is
+the fastest way to start — copy its shape and replace the content.
+
+---
+
 A single self-contained HTML file in the OS temp dir. Tailwind, D3, and Mermaid via CDN.
 Three visual registers, each for what it does best:
 
