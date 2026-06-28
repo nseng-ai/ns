@@ -141,3 +141,9 @@ human-facing CLI surfaces mechanically by shape.
   slice.
 - Whether the early core import-isolation canary should become a formal repo-wide lint rule, and what
   command owns that enforcement.
+
+## Closure
+
+Closed 2026-06-28 after the signed-off north-star UX was rebuilt on clinkr foundations and rolled out across every currently eligible non-exempt human-facing SDL extension command surface in the audit. The final eligibility pass found no newly ported command-face families beyond Flow, Objective, Slot, and Handoff for this Objective's rollout. Hidden `exec`/agent payload surfaces, Handoff create/pickup, standalone tools, unported capability CLIs, and full-screen UI surfaces remain explicitly exempt or extension-gated for future objectives.
+
+Closure evidence includes the updated `cli-surface-audit.md`, the completed roadmap rows, and the rollout Semantic Updates through `updates/2026-06-28T211200Z-objective-slot-tail-buffered-migration.md`. Validation evidence recorded during the tail migration covered the Objective and Slot package tests, TypeScript check, and formatter fix; the closure pass ran `just` successfully.

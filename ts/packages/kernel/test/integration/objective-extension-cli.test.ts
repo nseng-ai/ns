@@ -108,8 +108,8 @@ describe("checked-in Objective SDL extension loading", () => {
 		});
 		expect(await check.exit).toBe(0);
 		const checkOutput = check.stdout.join("");
-		expect(checkOutput).toContain("Objective check `demo-objective`");
-		expect(checkOutput).toContain("Files:");
+		expect(checkOutput).toContain("Objective check demo-objective");
+		expect(checkOutput).toContain("Files objective.md:yes");
 
 		const orientations = runWithRealObjectiveExtension({
 			args: ["objective", "exec", "load-orientations", "--format", "md"],

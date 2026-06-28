@@ -1,4 +1,12 @@
-import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type ClinkrExit,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
+import { renderResultBlock } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -74,9 +82,49 @@ export async function runArchiveObjective(
 	return ok(result.value);
 }
 
-export function renderArchiveObjective(result: ArchiveObjectiveResult): string {
-	const action = result.status === "unarchived" ? "Unarchived" : "Archived";
-	return `${action} Objective \`${result.slug}\`.\n\nMoved:\n  ${result.sourcePath}\n  -> ${result.destinationPath}`;
+export function renderArchiveObjective(
+	result: ArchiveObjectiveResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	const renderCaps = resolveRenderCapabilities(caps);
+	const verb = result.direction === "unarchive" ? "unarchive" : "archive";
+	if (result.status === "archived" || result.status === "unarchived") {
+		const action = result.status === "unarchived" ? "Unarchived" : "Archived";
+		return renderResultBlock(renderCaps, {
+			kind: "success",
+			headline: `${action} Objective ${result.slug}.`,
+			body: `Moved:\n  ${result.sourcePath}\n  -> ${result.destinationPath}`,
+		});
+	}
+	if (result.status === "destination_exists") {
+		return renderResultBlock(renderCaps, {
+			kind: "refusal",
+			headline: `Refusing to ${verb} Objective ${result.slug}.`,
+			body: `Destination already exists:\n  ${result.destinationPath}`,
+			guidance:
+				"Move or remove the destination before retrying; SDL will not merge or overwrite Objective records.",
+		});
+	}
+	if (result.status === "source_not_directory") {
+		return renderResultBlock(renderCaps, {
+			kind: "failure",
+			headline: `Cannot ${verb} Objective ${result.slug}.`,
+			body: `Source path is not a directory:\n  ${result.sourcePath}`,
+		});
+	}
+	if (result.status === "source_not_found") {
+		const sourceLabel = result.direction === "unarchive" ? "archived" : "active";
+		return renderResultBlock(renderCaps, {
+			kind: "refusal",
+			headline: `No ${sourceLabel} Objective record found for ${result.slug}.`,
+			body: `Expected source:\n  ${result.sourcePath}`,
+		});
+	}
+	return renderResultBlock(renderCaps, {
+		kind: "refusal",
+		headline: "No Objective record selected.",
+		guidance: "Pass a valid Objective slug.",
+	});
 }
 
 async function archiveObjective(

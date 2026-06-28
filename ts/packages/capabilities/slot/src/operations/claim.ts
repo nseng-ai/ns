@@ -1,4 +1,5 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
+import { renderResultBlock } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
@@ -34,27 +35,45 @@ export async function runClaim(ctx: SlotCliContext, request: ClaimRequest) {
 	return ok(result.outcome);
 }
 
-export function renderClaim(result: ClaimResult): string {
-	if (result.already_current) return `${result.slot_name} already has ${result.branch_name}`;
-	const source =
-		result.source_slot_name !== null && result.main_checkout_branch === null
-			? ` from ${result.source_slot_name}`
-			: "";
-	const replaced =
-		result.replaced_branch_name !== null && result.main_checkout_branch === null
-			? ` (replaced ${result.replaced_branch_name})`
-			: "";
-	return `Claimed ${result.slot_name} -> ${result.branch_name}${source}${replaced}${mainRedirectSuffix(result)}`;
+export function renderClaim(
+	result: ClaimResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	const renderCaps = resolveRenderCapabilities(caps);
+	if (result.already_current) {
+		return renderResultBlock(renderCaps, {
+			kind: "success",
+			headline: `${result.slot_name} already has ${result.branch_name}.`,
+			body: `Worktree: ${result.worktree_path}`,
+		});
+	}
+	const body = [
+		`Slot: ${result.slot_name}`,
+		`Branch: ${result.branch_name}`,
+		`Worktree: ${result.worktree_path}`,
+		...(result.source_slot_name === null || result.main_checkout_branch !== null
+			? []
+			: [`Source slot: ${result.source_slot_name}`]),
+		...(result.replaced_branch_name === null || result.main_checkout_branch !== null
+			? []
+			: [`Replaced: ${result.replaced_branch_name}`]),
+		...mainRedirectLines(result),
+	].join("\n");
+	return renderResultBlock(renderCaps, {
+		kind: "success",
+		headline: `Claimed ${result.slot_name} for ${result.branch_name}.`,
+		body,
+	});
 }
 
-function mainRedirectSuffix(result: ClaimResult): string {
+function mainRedirectLines(result: ClaimResult): string[] {
 	const note = result.main_redirect_note === null ? "" : ` (${result.main_redirect_note})`;
 	if (result.main_redirect_action === "checkout_branch") {
-		return `; checked out ${result.main_redirect_ref} in main worktree${note}`;
+		return [`Main worktree: checked out ${result.main_redirect_ref}${note}`];
 	}
 	if (result.main_redirect_action === "detach_head") {
-		if (result.main_redirect_ref === null) return `; detached main worktree${note}`;
-		return `; detached main worktree at ${result.main_redirect_ref}${note}`;
+		if (result.main_redirect_ref === null) return [`Main worktree: detached${note}`];
+		return [`Main worktree: detached main worktree at ${result.main_redirect_ref}${note}`];
 	}
-	return note;
+	return result.main_redirect_note === null ? [] : [`Main worktree: ${result.main_redirect_note}`];
 }

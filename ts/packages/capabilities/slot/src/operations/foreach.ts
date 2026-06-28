@@ -1,5 +1,12 @@
 import { commandSucceeded, formatCommand, tailText } from "@sdl/core/exec";
-import { failure, negative, ok } from "@sdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
+import { cell, paint, renderTable } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -88,16 +95,37 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	return ok(result);
 }
 
-export function renderForeach(result: ForeachResult): string {
+export function renderForeach(
+	result: ForeachResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
 	if (result.cancelled) return "Cancelled slot foreach.";
-	const lines: string[] = [];
-	for (const slot of result.slots) {
-		lines.push(`${slot.slot_name} (${slot.branch ?? "—"}) -> exit ${slot.exit_code}`);
-		appendIndented(lines, slot.stdout);
-		appendIndented(lines, slot.stderr);
-	}
+	const renderCaps = resolveRenderCapabilities(caps);
 	const succeeded = result.slots.filter((slot) => slot.succeeded).length;
-	lines.push(`${succeeded}/${result.slots.length} slots succeeded`);
+	const failed = result.slots.length - succeeded;
+	const lines = [
+		`Slot foreach: ${formatCommand(result.command[0] ?? "", result.command.slice(1))}`,
+		`${succeeded}/${result.slots.length} slots succeeded${failed === 0 ? "" : `; ${failed} failed`}`,
+		"",
+		...renderTable({
+			caps: renderCaps,
+			columns: [
+				{ header: "SLOT", width: "auto" },
+				{ header: "BRANCH", width: "auto" },
+				{ header: "EXIT", width: "auto", align: "right" },
+				{ header: "RESULT", width: "auto" },
+			],
+			rows: result.slots.map((slot) => [
+				cell(paint(renderCaps, "accent", slot.slot_name), slot.slot_name),
+				cell(slot.branch ?? "—"),
+				cell(String(slot.exit_code)),
+				statusCell(renderCaps, slot.succeeded),
+			]),
+		}),
+	];
+	for (const slot of result.slots) {
+		appendSlotOutput(lines, slot);
+	}
 	return lines.join("\n");
 }
 
@@ -118,8 +146,22 @@ function tailOutput(text: string): string {
 	});
 }
 
-function appendIndented(lines: string[], text: string): void {
+function statusCell(caps: ReturnType<typeof resolveRenderCapabilities>, succeeded: boolean) {
+	const text = succeeded ? "ok" : "failed";
+	return cell(paint(caps, succeeded ? "success" : "error", text), text);
+}
+
+function appendSlotOutput(lines: string[], slot: ForeachSlotResult): void {
+	if (slot.stdout.length === 0 && slot.stderr.length === 0) return;
+	lines.push("");
+	lines.push(`${slot.slot_name} output:`);
+	appendIndented(lines, slot.stdout, "stdout");
+	appendIndented(lines, slot.stderr, "stderr");
+}
+
+function appendIndented(lines: string[], text: string, stream: "stdout" | "stderr"): void {
 	const trimmed = text.replace(/\s+$/, "");
 	if (trimmed.length === 0) return;
+	lines.push(`  ${stream}:`);
 	for (const line of trimmed.split("\n")) lines.push(`    ${line}`);
 }

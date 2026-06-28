@@ -1,4 +1,5 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
+import { renderResultBlock } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
@@ -25,9 +26,18 @@ export async function runInit(ctx: SlotCliContext, request: InitRequest) {
 	return ok(result.outcome);
 }
 
-export function renderInit(result: InitResult): string {
+export function renderInit(
+	result: InitResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	const renderCaps = resolveRenderCapabilities(caps);
 	const created = result.created.map((name) => `  + ${name}`).join("\n");
-	return [`Initialized pool with ${result.pool_size} slot(s) at ${result.worktrees_dir}`, created]
+	const body = [`Pool size: ${result.pool_size}`, `Worktrees: ${result.worktrees_dir}`, created]
 		.filter((line) => line.length > 0)
 		.join("\n");
+	return renderResultBlock(renderCaps, {
+		kind: "success",
+		headline: `Initialized slot pool with ${result.pool_size} slot(s).`,
+		body,
+	});
 }
