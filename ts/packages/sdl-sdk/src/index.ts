@@ -45,4 +45,4 @@ export type {
 	TextGenerationResult,
 	TextGenerationUsage,
 	TextGenerator,
-} from "@sdl/domain-primitives-transitional/text-generation";
+} from "./text-generation.ts";

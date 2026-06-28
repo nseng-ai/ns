@@ -47,14 +47,7 @@ const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "graphite", "src");
 const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
-const DOMAIN_PRIMITIVES_TRANSITIONAL_SRC_DIR = join(
-	SDL_SRC_DIR,
-	"..",
-	"..",
-	"infra",
-	"domain-primitives-transitional",
-	"src",
-);
+const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
@@ -76,22 +69,19 @@ const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/kernel/pi-text-generation": "sdk/pi-text-generation.ts",
 } as const;
 
-const DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS = {
-	"@sdl/domain-primitives-transitional/checkpoint-flow": "checkpoint-flow.ts",
-	"@sdl/domain-primitives-transitional/checkpoint-message": "checkpoint-message.ts",
-	"@sdl/domain-primitives-transitional/pending-worktree": "pending-worktree.ts",
-	"@sdl/domain-primitives-transitional/temp-files": "temp-files.ts",
-	"@sdl/domain-primitives-transitional/text-generation": "text-generation.ts",
-	"@sdl/domain-primitives-transitional/text-repair": "text-repair.ts",
+const CAPABILITY_KIT_MODULE_PATHS = {
+	"@sdl/capability-kit/checkpoint-flow": "checkpoint-flow.ts",
+	"@sdl/capability-kit/checkpoint-message": "checkpoint-message.ts",
+	"@sdl/capability-kit/pending-worktree": "pending-worktree.ts",
+	"@sdl/capability-kit/temp-files": "temp-files.ts",
+	"@sdl/capability-kit/text-generation": "text-generation.ts",
+	"@sdl/capability-kit/text-repair": "text-repair.ts",
 } as const;
 
 function buildInternalWorkspaceAliases(): Record<string, string> {
 	return {
 		...buildModuleAliasMap(SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS),
-		...buildModuleAliasMap(
-			DOMAIN_PRIMITIVES_TRANSITIONAL_SRC_DIR,
-			DOMAIN_PRIMITIVES_TRANSITIONAL_MODULE_PATHS,
-		),
+		...buildModuleAliasMap(CAPABILITY_KIT_SRC_DIR, CAPABILITY_KIT_MODULE_PATHS),
 	};
 }
 

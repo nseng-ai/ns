@@ -33,7 +33,6 @@
     "@sdl/autobranch": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/slot": "workspace:*",
     "sdl-sdk": "workspace:*",

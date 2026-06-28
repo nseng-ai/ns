@@ -24,7 +24,7 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/domain-primitives-transitional": "workspace:*",
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/objective": "workspace:*",
     "@sdl/pi": "workspace:*",

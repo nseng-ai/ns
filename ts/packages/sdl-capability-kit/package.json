@@ -8,10 +8,16 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./checkpoint-flow": "./src/checkpoint-flow.ts",
+    "./checkpoint-message": "./src/checkpoint-message.ts",
     "./command-runner": "./src/command-runner.ts",
     "./git": "./src/git.ts",
+    "./pending-worktree": "./src/pending-worktree.ts",
     "./sdl-command": "./src/sdl-command.ts",
-    "./sdl-context": "./src/sdl-context.ts"
+    "./sdl-context": "./src/sdl-context.ts",
+    "./temp-files": "./src/temp-files.ts",
+    "./text-generation": "./src/text-generation.ts",
+    "./text-repair": "./src/text-repair.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

@@ -67,9 +67,6 @@ function tierEdgeViolation(
 	fromTier: PackageTier,
 	toTier: PackageTier,
 ): TierEdgeViolation | undefined {
-	if (toTier === "transitional" && fromTier !== "transitional") {
-		return { severity: "debt", policy: "depends-on-transitional" };
-	}
 	if (packageTierAllowedTargets[fromTier].has(toTier)) return undefined;
 	return { severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
 }

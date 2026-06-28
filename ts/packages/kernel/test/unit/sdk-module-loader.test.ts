@@ -22,21 +22,21 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const jiti = createSdlJiti();
 
 	const pendingWorktreeModule = await jiti.import<
-		typeof import("@sdl/domain-primitives-transitional/pending-worktree")
-	>("@sdl/domain-primitives-transitional/pending-worktree");
+		typeof import("@sdl/capability-kit/pending-worktree")
+	>("@sdl/capability-kit/pending-worktree");
 	expect(typeof pendingWorktreeModule.loadPendingWorktreeSnapshot).toBe("function");
 	expect(typeof pendingWorktreeModule.formatPendingWorktreeCommandDetails).toBe("function");
 
 	const checkpointFlowModule = await jiti.import<
-		typeof import("@sdl/domain-primitives-transitional/checkpoint-flow")
-	>("@sdl/domain-primitives-transitional/checkpoint-flow");
+		typeof import("@sdl/capability-kit/checkpoint-flow")
+	>("@sdl/capability-kit/checkpoint-flow");
 	expect(typeof checkpointFlowModule.prepareCheckpointMessage).toBe("function");
 	expect(typeof checkpointFlowModule.buildCheckpointUserPrompt).toBe("function");
 	expect(typeof checkpointFlowModule.createCommitWithPreparedMessage).toBe("function");
 
 	const textGenerationModule = await jiti.import<
-		typeof import("@sdl/domain-primitives-transitional/text-generation")
-	>("@sdl/domain-primitives-transitional/text-generation");
+		typeof import("@sdl/capability-kit/text-generation")
+	>("@sdl/capability-kit/text-generation");
 	expect(textGenerationModule.CHECKPOINT_MODEL_ENV).toBe("SDL_CHECKPOINT_MODEL");
 	expect(textGenerationModule.CHANGES_MODEL_ENV).toBe("SDL_CHANGES_MODEL");
 	expect(typeof textGenerationModule.DEFAULT_CHANGES_MODEL_REF).toBe("string");

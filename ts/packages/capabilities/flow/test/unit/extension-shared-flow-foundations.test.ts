@@ -100,7 +100,7 @@ describe("project extension shared flow foundations", () => {
 		expect(sharedGitSource).toContain("execSdlGit as execFlowGit");
 		expect(sharedGitSource).toContain("readSdlGitPorcelainStatus as readFlowGitPorcelainStatus");
 		expect(sharedGitSource).not.toContain("git push");
-		expect(worktreeSource).toContain("@sdl/domain-primitives-transitional/pending-worktree");
+		expect(worktreeSource).toContain("@sdl/capability-kit/pending-worktree");
 		expect(worktreeSource).toContain("./git.ts");
 		expect(worktreeSource).toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');

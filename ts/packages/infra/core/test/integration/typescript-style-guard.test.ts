@@ -255,7 +255,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@local-pi-tools/runner-subagents",
 		"@sdl/areg",
 		"@sdl/ccc",
-		"@sdl/domain-primitives-transitional",
+		"@sdl/capability-kit",
 		"@sdl/handoff",
 		"@sdl/handoff-pi",
 		"@sdl/pi",
@@ -267,7 +267,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@local-pi-tools/runner-subagents", "local-pi-tool"],
 		["@sdl/areg", "standalone-tool"],
 		["@sdl/ccc", "capability"],
-		["@sdl/domain-primitives-transitional", "transitional"],
+		["@sdl/capability-kit", "capability-kit"],
 		["@sdl/handoff", "capability"],
 		["@sdl/handoff-pi", "capability-pi"],
 		["@sdl/pi", "host"],
@@ -351,13 +351,8 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-local-pi-tool",
 		},
 		{
-			name: "new transitional consumer is rejected",
-			edges: [{ from: "@sdl/handoff", to: "@sdl/domain-primitives-transitional" }],
-			expectedTextIncludes: "depends-on-transitional",
-		},
-		{
-			name: "allowlisted transitional consumer debt is accepted",
-			edges: [{ from: "@sdl/ccc", to: "@sdl/domain-primitives-transitional" }],
+			name: "capability to capability kit is allowed",
+			edges: [{ from: "@sdl/handoff", to: "@sdl/capability-kit" }],
 			expectedViolation: false,
 		},
 	];
@@ -616,7 +611,6 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 		value === "capability" ||
 		value === "capability-kit" ||
 		value === "sdk" ||
-		value === "transitional" ||
 		value === "neutral-infra" ||
 		value === "host" ||
 		value === "capability-pi" ||

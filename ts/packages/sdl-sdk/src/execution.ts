@@ -1,6 +1,6 @@
 import type { ExecResult } from "@sdl/core/exec";
 
-import type { TextGenerator } from "@sdl/domain-primitives-transitional/text-generation";
+import type { TextGenerator } from "./text-generation.ts";
 
 export {
 	commandSucceeded,

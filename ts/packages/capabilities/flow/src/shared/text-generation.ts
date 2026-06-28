@@ -10,4 +10,4 @@ export {
 	selectChangesModelRef,
 	selectCheckpointModelRef,
 	selectSubmitFailureModelRef,
-} from "@sdl/domain-primitives-transitional/text-generation";
+} from "@sdl/capability-kit/text-generation";

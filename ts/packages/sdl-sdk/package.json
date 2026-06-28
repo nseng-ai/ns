@@ -16,7 +16,6 @@
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/domain-primitives-transitional": "workspace:*",
     "zod": "catalog:"
   },
   "sdl": {
