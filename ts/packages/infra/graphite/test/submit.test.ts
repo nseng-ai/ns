@@ -248,6 +248,36 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("submitCurrentStack classifies merged PR not contained in trunk submit output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+				],
+				{
+					exitCode: 1,
+					stdout: "▸ shared-import-scanner-test-helpers - PR #2289 (merged)\n",
+					stderr:
+						"WARNING: PR for the following branch has already been merged but the merged commits are not contained in the latest trunk branch master.\nERROR: Aborting submit.\n",
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.submitCurrentStack({ cwd: "/repo" });
+
+		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		runner.assertDone();
+	});
+
 	test("forced submit passes --force to Graphite", async () => {
 		const runner = new ScriptedCommandRunner([
 			step(

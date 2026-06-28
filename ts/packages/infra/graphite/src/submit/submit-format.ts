@@ -136,16 +136,44 @@ export function formatMergedPrNotInTrunkPreflightOutput(
 	output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,
 ): string {
-	const details = parseMergedPrNotInTrunkDetails(output);
+	return formatMergedPrNotInTrunkOutput({
+		output,
+		submitDryRunCommandDisplay,
+		attemptLine: "Submission was not attempted.",
+		detailsLine:
+			"- Graphite will not submit a stack containing this branch until trunk contains the merged PR's commits.",
+	});
+}
+
+export function formatMergedPrNotInTrunkSubmitOutput(
+	output: SubmitCommandOutput,
+	submitCommandDisplay: string,
+	submitDryRunCommandDisplay: string,
+): string {
+	return formatMergedPrNotInTrunkOutput({
+		output,
+		submitDryRunCommandDisplay,
+		attemptLine: "Graphite aborted the final submit preflight before submitting PRs.",
+		detailsLine: `- The earlier dry-run passed, but ${submitCommandDisplay} re-ran Graphite validation and found the merged-PR/trunk mismatch before submission.`,
+	});
+}
+
+function formatMergedPrNotInTrunkOutput(input: {
+	output: SubmitCommandOutput;
+	submitDryRunCommandDisplay: string;
+	attemptLine: string;
+	detailsLine: string;
+}): string {
+	const details = parseMergedPrNotInTrunkDetails(input.output);
 	const affectedBranch = details.branch ?? "the affected branch";
 	return [
 		"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
 		details.branch === undefined ? undefined : `Branch: ${formatMergedPrBranchDetails(details)}`,
 		details.trunk === undefined ? undefined : `Trunk: ${details.trunk}`,
-		"Submission was not attempted.",
+		input.attemptLine,
 		"",
 		"What succeeded:",
-		`- ${submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
+		`- ${input.submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
 		"",
 		"Next step:",
 		details.trunk === undefined
@@ -154,7 +182,7 @@ export function formatMergedPrNotInTrunkPreflightOutput(
 		"- Then rerun `sdl flow submit`.",
 		"",
 		"Details:",
-		"- Graphite will not submit a stack containing this branch until trunk contains the merged PR's commits.",
+		input.detailsLine,
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
