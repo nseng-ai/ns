@@ -25,6 +25,10 @@ function execResult(overrides: Partial<ExecResult> = {}): ExecResult {
 	return { stdout: "", stderr: "", code: 0, killed: false, ...overrides };
 }
 
+function hasNormalWeightLine(block: string, expected: string): boolean {
+	return block.split("\n").some((line) => stripAnsi(line) === expected && !line.includes(DIM));
+}
+
 describe("renderGitResultBlock — success", () => {
 	const block = renderGitResultBlock(caps(), {
 		kind: "success",
@@ -46,7 +50,7 @@ describe("renderGitResultBlock — success", () => {
 		expect(plain).toContain("Command: git push");
 		expect(plain).toContain("Cwd: /repo");
 		expect(plain).not.toContain("Exit: 0");
-		expect(plain).not.toContain("Killed: false");
+		expect(plain).not.toContain("Killed:");
 		expect(plain).not.toContain("stdout:");
 		expect(plain).not.toContain("Everything up-to-date");
 	});
@@ -95,7 +99,7 @@ describe("renderGitResultBlock — failure", () => {
 	test("guidance is present and plumbing + full transcript are dimmed", () => {
 		expect(plain).toContain("Use `sdl flow submit` when appropriate.");
 		expect(block).toContain(`${DIM}Exit: 1${RESET}`);
-		expect(block).toContain(`${DIM}Killed: false${RESET}`);
+		expect(plain).not.toContain("Killed:");
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
 	});
 
@@ -108,10 +112,63 @@ describe("renderGitResultBlock — failure", () => {
 			result: execResult({ stderr: "not fast-forward\n", code: 1 }),
 		});
 
+		expect(hasNormalWeightLine(fastForwardBlock, "not fast-forward")).toBe(true);
+	});
+
+	test("renders killed plumbing only when the subprocess was killed", () => {
+		const killedBlock = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "`git push` was killed.",
+			command: "git push",
+			cwd: "/repo",
+			result: execResult({ code: 1, killed: true }),
+		});
+
+		expect(killedBlock).toContain(`${DIM}Killed: true${RESET}`);
+	});
+
+	test("normalizes CRLF transcript lines before promotion and full rendering", () => {
+		const crlfBlock = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "`git fetch` failed.",
+			command: "git fetch origin main",
+			cwd: "/repo",
+			result: execResult({
+				stdout: "remote: counting\r\n",
+				stderr: "fatal: could not resolve host\r\nnext line\r",
+				code: 128,
+			}),
+		});
+		const plain = stripAnsi(crlfBlock);
+
+		expect(hasNormalWeightLine(crlfBlock, "fatal: could not resolve host")).toBe(true);
+		expect(plain).not.toContain("\r");
+		expect(plain).toContain("remote: counting\nstderr:\nfatal: could not resolve host\nnext line");
+	});
+
+	test("surfaces additional git authentication and name-resolution markers", () => {
+		const markerBlock = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "`git fetch` failed.",
+			command: "git fetch origin main",
+			cwd: "/repo",
+			result: execResult({
+				stderr: [
+					"Permission denied (publickey).",
+					"Could not resolve host: github.com",
+					"Authentication failed for 'https://github.com/acme/app.git/'",
+				].join("\n"),
+				code: 128,
+			}),
+		});
+
+		expect(hasNormalWeightLine(markerBlock, "Permission denied (publickey).")).toBe(true);
+		expect(hasNormalWeightLine(markerBlock, "Could not resolve host: github.com")).toBe(true);
 		expect(
-			fastForwardBlock
-				.split("\n")
-				.some((line) => stripAnsi(line) === "not fast-forward" && !line.includes(DIM)),
+			hasNormalWeightLine(
+				markerBlock,
+				"Authentication failed for 'https://github.com/acme/app.git/'",
+			),
 		).toBe(true);
 	});
 });

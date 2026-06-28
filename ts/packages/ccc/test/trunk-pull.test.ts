@@ -76,12 +76,11 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: true,
-			trunk: "main",
+			outcome: { kind: "success", trunk: "main" },
 			command: "git",
 			args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
 			cwd: "/repo",
-			result: { stdout: "updated\n", code: 0, killed: false },
+			execResult: { stdout: "updated\n", code: 0, killed: false },
 		});
 		expect(commands.execCalls.map((call) => [call.command, call.args])).toEqual([
 			["gt", ["trunk", "--no-interactive"]],
@@ -105,8 +104,7 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: true,
-			trunk: "master",
+			outcome: { kind: "success", trunk: "master" },
 			command: "git",
 			args: ["pull", "--ff-only", "origin", "master"],
 			cwd: "/Users/schrockn/code/sdl-tools",
@@ -129,12 +127,11 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: false,
-			reason: "trunk-command-failed",
+			outcome: { kind: "trunk-command-failed" },
 			command: "gt",
 			args: ["trunk", "--no-interactive"],
 			cwd: "/repo",
-			result: { stderr: "no trunk\n", code: 1, killed: false },
+			execResult: { stderr: "no trunk\n", code: 1, killed: false },
 		});
 		expect(commands.execCalls).toHaveLength(1);
 	});
@@ -147,12 +144,11 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: false,
-			reason: "trunk-empty",
+			outcome: { kind: "trunk-empty" },
 			command: "gt",
 			args: ["trunk", "--no-interactive"],
 			cwd: "/repo",
-			result: { stdout: "\n", code: 0, killed: false },
+			execResult: { stdout: "\n", code: 0, killed: false },
 		});
 	});
 
@@ -168,13 +164,11 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: false,
-			reason: "worktree-list-failed",
-			trunk: "main",
+			outcome: { kind: "worktree-list-failed", trunk: "main" },
 			command: "git",
 			args: ["worktree", "list", "--porcelain"],
 			cwd: "/repo",
-			result: { stderr: "fatal: worktree metadata unavailable\n", code: 1, killed: false },
+			execResult: { stderr: "fatal: worktree metadata unavailable\n", code: 1, killed: false },
 		});
 	});
 
@@ -191,13 +185,11 @@ describe("runTrunkPullDetailed", () => {
 		const result = await runTrunkPullDetailed(commands, "/repo");
 
 		expect(result).toMatchObject({
-			ok: false,
-			reason: "update-failed",
-			trunk: "master",
+			outcome: { kind: "update-failed", trunk: "master" },
 			command: "git",
 			args: ["pull", "--ff-only", "origin", "master"],
 			cwd: "/Users/schrockn/code/sdl-tools",
-			result: { stderr: "not fast-forward\n", code: 1, killed: false },
+			execResult: { stderr: "not fast-forward\n", code: 1, killed: false },
 		});
 	});
 });

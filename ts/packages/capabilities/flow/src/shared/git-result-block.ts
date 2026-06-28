@@ -11,13 +11,17 @@
 // Three-tier styling (house-style sign-off):
 //   - headline: bold + intent-painted, with a leading status glyph;
 //   - successful side effects stay concise: headline, human guidance, and dimmed command/cwd evidence;
-//   - failure transcript cause lines (error: / fatal: / rejected / not fast-forward / denied) at normal
-//     foreground weight;
-//   - failure plumbing (command / cwd / exit / killed) and full stdout/stderr transcripts dimmed.
+//   - failure transcript cause lines (documented by CAUSE_MARKERS below) at normal foreground weight;
+//   - failure plumbing (command / cwd / exit, and killed when true) and full stdout/stderr transcripts
+//     dimmed.
 
 import type { Caps } from "@sdl/clinkr";
 import { dim, resultBlockHeadline } from "@sdl/clinkr/theme";
 import type { ExecResult } from "sdl-sdk";
+
+type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
+	readonly killed?: boolean | undefined;
+};
 
 interface GitResultFacts {
 	/** The leading one-line summary (already-phrased prose); rendered bold + intent-painted. */
@@ -32,14 +36,24 @@ interface GitResultFacts {
 
 export type GitResultBlockInput =
 	/** The git/Graphite subprocess succeeded; show a concise green headline plus command/cwd evidence. */
-	| ({ kind: "success"; result: ExecResult } & GitResultFacts)
+	| ({ kind: "success"; result: GitTranscriptResult } & GitResultFacts)
 	/** The git/Graphite subprocess (or a preflight command) failed; surface cause lines + transcript. */
-	| ({ kind: "failure"; result: ExecResult } & GitResultFacts)
+	| ({ kind: "failure"; result: GitTranscriptResult } & GitResultFacts)
 	/** No subprocess failure — a guardrail refused to run git; `detail` carries the porcelain status. */
 	| ({ kind: "refusal"; detail: string } & GitResultFacts);
 
 // Lowercased substrings that mark a salient transcript line worth surfacing at normal weight.
-const CAUSE_MARKERS = ["error:", "fatal:", "rejected", "not fast-forward", "denied"];
+// The broad `denied` marker predates this list and is kept for compatibility with push/pull failures.
+const CAUSE_MARKERS = [
+	"error:",
+	"fatal:",
+	"rejected",
+	"not fast-forward",
+	"denied",
+	"permission denied",
+	"could not resolve",
+	"authentication failed",
+];
 
 /** Render a git result/failure block to a string, styled and degraded for `caps`. */
 export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): string {
@@ -64,10 +78,10 @@ export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): st
 
 // Salient transcript lines (matching a cause marker), de-duplicated, at normal foreground weight so the
 // real cause reads above the dimmed plumbing. Scans both streams since git splits errors across them.
-function causeLines(result: ExecResult): string[] {
+function causeLines(result: GitTranscriptResult): string[] {
 	const seen = new Set<string>();
 	const causes: string[] = [];
-	for (const raw of `${result.stdout}\n${result.stderr}`.split("\n")) {
+	for (const raw of normalizeNewlines(`${result.stdout}\n${result.stderr}`).split("\n")) {
 		const line = raw.trim();
 		if (line === "") continue;
 		const lower = line.toLowerCase();
@@ -82,12 +96,15 @@ function causeLines(result: ExecResult): string[] {
 function plumbingLines(input: GitResultBlockInput): string[] {
 	const facts = [`Command: ${input.command}`, `Cwd: ${input.cwd}`];
 	if (input.kind === "failure") {
-		facts.push(`Exit: ${input.result.code}`, `Killed: ${input.result.killed}`);
+		facts.push(`Exit: ${input.result.code}`);
+		if (input.result.killed === true) {
+			facts.push("Killed: true");
+		}
 	}
 	return facts.map((fact) => dim(fact));
 }
 
-function transcriptLines(result: ExecResult): string[] {
+function transcriptLines(result: GitTranscriptResult): string[] {
 	return [
 		dim("stdout:"),
 		dim(formatOutput(result.stdout)),
@@ -103,6 +120,11 @@ function detailBody(detail: string): string {
 }
 
 function formatOutput(output: string): string {
-	if (output === "") return "<empty>";
-	return output.endsWith("\n") ? output.trimEnd() : output;
+	const normalized = normalizeNewlines(output);
+	if (normalized === "") return "<empty>";
+	return normalized.endsWith("\n") ? normalized.trimEnd() : normalized;
+}
+
+function normalizeNewlines(text: string): string {
+	return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }

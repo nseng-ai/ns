@@ -16,7 +16,7 @@ describe("flow pull-trunk command outcomes", () => {
 		expect(stdout).toContain("Command: git fetch origin refs/heads/main:refs/heads/main");
 		expect(stdout).toContain("Cwd: /work");
 		expect(stdout).not.toContain("Exit: 0");
-		expect(stdout).not.toContain("Killed: false");
+		expect(stdout).not.toContain("Killed:");
 		expect(stdout).not.toContain("stdout:");
 		expect(stdout).not.toContain("stderr:");
 		expect(formattedExecCalls(run.context)).toEqual([

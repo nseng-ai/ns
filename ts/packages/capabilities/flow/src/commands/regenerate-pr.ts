@@ -1,4 +1,6 @@
 import type { Caps } from "@sdl/clinkr";
+import { renderResultBlock } from "@sdl/clinkr/theme";
+import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import {
 	applyRegeneratedPrDescription,
@@ -8,8 +10,6 @@ import {
 	type RegeneratedPrDescription,
 } from "../shared/pr-description.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
-import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
-import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
 const PR_DESCRIPTION_PROMPT_ENV = "SDL_DEV_PR_DESCRIPTION_PROMPT";
@@ -41,8 +41,8 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 	async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
 		// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
 		// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
-		// single git/Graphite `ExecResult` transcript. So it renders through the flow-local
-		// `workflow-result-block` (success / failure / refusal), the same finite house-style block
+		// single git/Graphite `ExecResult` transcript. So it renders through the shared finite
+		// result block (success / failure / refusal), the same house-style block
 		// `branch-latest-commit` uses — there is no per-step journey to stream and no subprocess
 		// transcript to mine for cause markers. Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
@@ -68,7 +68,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// as a first-class warn refusal (house-style §7.3). No `gh pr edit` runs.
 		if (ctx.confirm === undefined) {
 			return failed(
-				renderWorkflowResultBlock(caps, {
+				renderResultBlock(caps, {
 					kind: "refusal",
 					headline:
 						"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
@@ -87,7 +87,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		if (!confirmed) {
 			// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
 			return failed(
-				renderWorkflowResultBlock(caps, {
+				renderResultBlock(caps, {
 					kind: "refusal",
 					headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
 					cwd: ctx.cwd,
@@ -103,7 +103,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		});
 		if (!edited.ok) {
 			return failed(
-				renderWorkflowResultBlock(caps, {
+				renderResultBlock(caps, {
 					kind: "failure",
 					headline: `Generated a PR description, but failed to update PR #${prepared.value.pr.number}.`,
 					cwd: ctx.cwd,
@@ -114,7 +114,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		}
 
 		return ok(
-			renderWorkflowResultBlock(caps, {
+			renderResultBlock(caps, {
 				kind: "success",
 				headline: "Regenerated PR title and description.",
 				cwd: ctx.cwd,
@@ -137,7 +137,7 @@ export default defineExtension({
 function renderDomainFailureBlock(caps: Caps, cwd: string, error: string): string {
 	const [headline, ...rest] = error.split("\n");
 	const body = rest.join("\n").trimEnd();
-	return renderWorkflowResultBlock(caps, {
+	return renderResultBlock(caps, {
 		kind: "failure",
 		headline: headline ?? "Could not regenerate the PR.",
 		cwd,

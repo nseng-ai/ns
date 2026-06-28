@@ -13,29 +13,25 @@ interface TrunkPullCommands {
 	): Promise<ExecResult>;
 }
 
-export type TrunkPullDetailedResult =
-	| {
-			ok: true;
-			trunk: string;
-			command: "git";
-			args: readonly string[];
-			cwd: string;
-			result: ExecResult;
-	  }
-	| {
-			ok: false;
-			reason: "trunk-command-failed" | "trunk-empty" | "worktree-list-failed" | "update-failed";
-			trunk?: string | undefined;
-			command: "gt" | "git";
-			args: readonly string[];
-			cwd: string;
-			result: ExecResult;
-	  };
+export type TrunkPullOutcome =
+	| { kind: "success"; trunk: string }
+	| { kind: "trunk-command-failed" }
+	| { kind: "trunk-empty" }
+	| { kind: "worktree-list-failed"; trunk: string }
+	| { kind: "update-failed"; trunk: string };
+
+export interface TrunkPullResult {
+	outcome: TrunkPullOutcome;
+	command: "gt" | "git";
+	args: readonly string[];
+	cwd: string;
+	execResult: ExecResult;
+}
 
 export async function runTrunkPullDetailed(
 	commands: TrunkPullCommands,
 	cwd: string,
-): Promise<TrunkPullDetailedResult> {
+): Promise<TrunkPullResult> {
 	const trunkArgs = ["trunk", "--no-interactive"];
 	const trunkResult = await runGraphiteCommand(
 		(command, args, options) => commands.exec(command, [...args], options),
@@ -47,24 +43,22 @@ export async function runTrunkPullDetailed(
 	);
 	if (!isSuccessfulExecResult(trunkResult)) {
 		return {
-			ok: false,
-			reason: "trunk-command-failed",
+			outcome: { kind: "trunk-command-failed" },
 			command: "gt",
 			args: trunkArgs,
 			cwd,
-			result: trunkResult,
+			execResult: trunkResult,
 		};
 	}
 
 	const trunk = firstNonEmptyLine(trunkResult.stdout);
 	if (trunk === undefined) {
 		return {
-			ok: false,
-			reason: "trunk-empty",
+			outcome: { kind: "trunk-empty" },
 			command: "gt",
 			args: trunkArgs,
 			cwd,
-			result: trunkResult,
+			execResult: trunkResult,
 		};
 	}
 
@@ -75,13 +69,11 @@ export async function runTrunkPullDetailed(
 	});
 	if (!isSuccessfulExecResult(worktreeResult)) {
 		return {
-			ok: false,
-			reason: "worktree-list-failed",
-			trunk,
+			outcome: { kind: "worktree-list-failed", trunk },
 			command: "git",
 			args: worktreeArgs,
 			cwd,
-			result: worktreeResult,
+			execResult: worktreeResult,
 		};
 	}
 
@@ -96,23 +88,20 @@ export async function runTrunkPullDetailed(
 	});
 	if (!isSuccessfulExecResult(updateResult)) {
 		return {
-			ok: false,
-			reason: "update-failed",
-			trunk,
+			outcome: { kind: "update-failed", trunk },
 			command: "git",
 			args: plan.args,
 			cwd: plan.cwd,
-			result: updateResult,
+			execResult: updateResult,
 		};
 	}
 
 	return {
-		ok: true,
-		trunk,
+		outcome: { kind: "success", trunk },
 		command: "git",
 		args: plan.args,
 		cwd: plan.cwd,
-		result: updateResult,
+		execResult: updateResult,
 	};
 }
 

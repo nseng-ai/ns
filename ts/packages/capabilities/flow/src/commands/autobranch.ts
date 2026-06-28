@@ -3,6 +3,7 @@ import {
 	type AutobranchFlowOutcome,
 	type ParsedAutobranchArgs,
 } from "@sdl/autobranch/dirty-worktree";
+import { renderResultBlock } from "@sdl/clinkr/theme";
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
@@ -16,7 +17,6 @@ import {
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
 } from "../shared/text-generation.ts";
-import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
 import {
 	createCommitWithPreparedMessage,
 	execExtensionCommand,
@@ -60,7 +60,7 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 					ctx.stderr?.(`${warning.trimEnd()}\n`);
 				}
 				return ok(
-					renderWorkflowResultBlock(caps, {
+					renderResultBlock(caps, {
 						kind: "success",
 						headline: "Created a Graphite branch from dirty worktree changes.",
 						cwd: result.root,
@@ -84,7 +84,7 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 				// A clean worktree is a declined guardrail (warn refusal, house-style §7.3), not a failure;
 				// point the user at the command that handles a clean worktree.
 				return failed(
-					renderWorkflowResultBlock(caps, {
+					renderResultBlock(caps, {
 						kind: "refusal",
 						headline: "`sdl flow autobranch` requires pending worktree changes and did not run.",
 						cwd: result.root,
@@ -98,13 +98,13 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 
 			return failed(
 				result.outcome === "refusal"
-					? renderWorkflowResultBlock(caps, {
+					? renderResultBlock(caps, {
 							kind: "refusal",
 							headline: "Did not create a Graphite branch from dirty worktree changes.",
 							cwd: result.root,
 							body: result.error.trimEnd(),
 						})
-					: renderWorkflowResultBlock(caps, {
+					: renderResultBlock(caps, {
 							kind: "failure",
 							headline: "Could not create a Graphite branch from dirty worktree changes.",
 							cwd: result.root,
