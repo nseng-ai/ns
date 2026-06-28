@@ -2,9 +2,9 @@
 
 ## Work
 
-- [ ] Inventory PR Address surfaces, consumers, and compatibility constraints.
+- [x] Inventory PR Address surfaces, consumers, and compatibility constraints.
   - Guidance: inspect `ts/packages/pr-address/**`, `ts/packages/hosts/pi/src/pr/**`, `ts/packages/local-pi-tools/pr-previews/**`, `.pi` adapters if relevant, PR Address skills/prompts, install/shim references, package metadata, and source references to `pr-address`, `/pr:*`, `@sdl/pr-address`, `@sdl/core/github-pr-feedback`, and `@sdl/core/github-pr-status`.
-  - Evidence: a durable Objective update or roadmap note names the current standalone CLI operations, Pi command/workflow names, API exports, output schemas, external GitHub read/write boundaries, and all call sites affected by a command-face or API cutover.
+  - Evidence: `updates/2026-06-28-pr-address-surface-inventory.md` records the current standalone CLI operations, Pi command/workflow names, API exports, output schemas, external GitHub read/write boundaries, and call sites affected by a command-face or API cutover.
 
 - [ ] Rebaseline `@sdl/pr-address/api` as the curated Capability API.
   - Guidance: start from concrete consumers rather than broad lower-package re-exporting. Preserve the ADR 0016 direction: PR-feedback seam in PR Address, neutral identity/status mechanics in `@sdl/core`, and no generic GitHub Capability package. Classify current DTO/gateway/status exports as stable Capability API, command-private, or lower-infra-only.
