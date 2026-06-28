@@ -1,13 +1,8 @@
-// The caps-aware "git/Graphite subprocess result/failure block" — the one reusable house-style
-// primitive `sdl flow push` exercises (CLI UX North Star, first audited side-effect slice). It renders a
-// single success / failure / refusal block for a subprocess and degrades across the caps ladder for free,
-// because it is built entirely on the opt-in `@sdl/clinkr/theme` colorizers and glyphs (paint/bold/dim/
-// glyph) which already fold truecolor → 256 → 16 → mono and unicode → ascii.
+// The caps-aware git/Graphite subprocess result/failure block for finite Flow command outcomes.
 //
-// Narrow home by design (the Objective's anti-generalization rule): this lives in flow, not clinkr
-// core/theme, until a second side-effect command proves the shape. `flow pull-trunk` — and parts of
-// `flow autobranch` / `flow branch-latest-commit` — have the identical need and are the expected next
-// consumers; generalize then, not now.
+// The generic headline invariant now lives in `@sdl/clinkr/theme` because the repeated result-block
+// shape was proven across Flow and CCC. Git transcript plumbing stays flow-local: this renderer owns
+// command/cwd/exit facts, cause-marker mining, refusal stdout detail, and inline stdout/stderr output.
 //
 // Reference renderer for the FINITE result-block shape in the consolidated house style; the
 // normative rules (intent→glyph mapping, success-concise / failure-detailed tiers, refusal kind,
@@ -21,7 +16,7 @@
 //   - failure plumbing (command / cwd / exit / killed) and full stdout/stderr transcripts dimmed.
 
 import type { Caps } from "@sdl/clinkr";
-import { bold, dim, glyph, paint } from "@sdl/clinkr/theme";
+import { dim, resultBlockHeadline } from "@sdl/clinkr/theme";
 import type { ExecResult } from "sdl-sdk";
 
 interface GitResultFacts {
@@ -48,7 +43,7 @@ const CAUSE_MARKERS = ["error:", "fatal:", "rejected", "not fast-forward", "deni
 
 /** Render a git result/failure block to a string, styled and degraded for `caps`. */
 export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): string {
-	const lines: string[] = [headlineLine(caps, input)];
+	const lines: string[] = [resultBlockHeadline(caps, input)];
 
 	if (input.kind === "failure") {
 		lines.push(...causeLines(input.result));
@@ -65,17 +60,6 @@ export function renderGitResultBlock(caps: Caps, input: GitResultBlockInput): st
 	}
 
 	return lines.join("\n");
-}
-
-function headlineLine(caps: Caps, input: GitResultBlockInput): string {
-	switch (input.kind) {
-		case "success":
-			return bold(paint(caps, "success", `${glyph(caps, "done")} ${input.headline}`));
-		case "failure":
-			return bold(paint(caps, "error", `${glyph(caps, "fail")} ${input.headline}`));
-		case "refusal":
-			return bold(paint(caps, "warn", `${glyph(caps, "fail")} ${input.headline}`));
-	}
 }
 
 // Salient transcript lines (matching a cause marker), de-duplicated, at normal foreground weight so the

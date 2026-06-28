@@ -32,6 +32,8 @@ Theme vocabulary to build on (`@sdl/clinkr/theme`):
 | `dim(text)`                   | Supporting/plumbing weight.                                             |
 | `glyph(caps, name)`           | Status mark (`done`/`open`/`fail`/`skip`/`bullet`), unicode→ascii.      |
 | `spinnerFrame(caps, tick)`    | Active-phase spinner frame (braille → `\|/-\`).                         |
+| `resultBlockHeadline`         | Shared finite-block headline: bold + intent paint + result glyph.       |
+| `renderResultBlock`           | Generic finite domain-authored block: headline/body/guidance/cwd.       |
 | `statusLine({...})`           | One composed phase row (pending→active→done/skipped/failed).            |
 | `renderTable` / `kv` / `cell` | Aligned tabular / key-value layout when a result has structured fields. |
 | `truncatePlain` / `padPlain`  | Width-aware truncation/padding (visible-cell, not byte, width).         |
@@ -52,11 +54,12 @@ Renderers are **pure string builders**: they take `caps` + typed facts and retur
 A side-effect command renders in exactly one of two shapes. Pick by the **nature of the
 work**, not by taste:
 
-- **Finite result block** (`shared/git-result-block.ts` is the reference). Use when the
-  command runs one (or a few) git/Graphite subprocesses and reports a single settled
-  outcome. The user sees the result, not the journey. `flow push` and `flow pull-trunk`
-  use this; they deliberately ship **no live region** because their buffered subprocess
-  evidence is sufficient.
+- **Finite result block** (`@sdl/clinkr/theme` `renderResultBlock` for generic
+  domain-authored outcomes; `shared/git-result-block.ts` layers git transcript plumbing
+  around `resultBlockHeadline`). Use when the command runs one (or a few) git/Graphite
+  subprocesses or reports a single settled domain outcome. The user sees the result, not
+  the journey. `flow push` and `flow pull-trunk` use this; they deliberately ship **no
+  live region** because their buffered subprocess evidence is sufficient.
 - **Streaming phase progress** (`shared/phase-stream.ts` + `phase-stream-specs.ts` are the
   reference). Use when the command runs an ordered, multi-step workflow whose *journey* is
   worth watching — checkpoint, preflight, network round-trips, verification. `flow submit`
@@ -87,7 +90,8 @@ accent) and glyph set are fixed. Map command outcomes onto them as:
 side-effect outcome marker. Note the deliberate distinction: `open` (`●`) is heavier than
 the `bullet` (`•`) pending marker — do not swap them.
 
-Headline convention (both shapes): **bold + intent-paint + leading status glyph**, e.g.
+Headline convention (both shapes): **bold + intent-paint + leading status glyph**, via
+`resultBlockHeadline(caps, { kind, headline })` for finite blocks. The underlying invariant is:
 
 ```ts
 bold(paint(caps, "success", `${glyph(caps, "done")} ${headline}`));
@@ -99,8 +103,10 @@ glyph + bold carry the whole signal.
 
 ## 4. The finite result block
 
-Reference: `ts/packages/capabilities/flow/src/shared/git-result-block.ts`. Three kinds:
-`success`, `failure`, `refusal`.
+Reference: `@sdl/clinkr/theme` `renderResultBlock` for generic domain-authored finite blocks, and
+`ts/packages/capabilities/flow/src/shared/git-result-block.ts` for git/Graphite subprocess blocks
+that need local command/cwd/exit/transcript/cause plumbing. Three kinds: `success`, `failure`,
+`refusal`.
 
 ### Success — stay concise
 

@@ -1,19 +1,12 @@
-// Flow-local house-style result block for MULTI-STEP workflow side effects whose outcome is a
-// domain-authored summary/message string rather than a single git/Graphite `ExecResult`.
+// Flow-local facade for MULTI-STEP workflow side effects whose outcome is a domain-authored
+// summary/message string rather than a single git/Graphite `ExecResult`.
 //
-// `git-result-block.ts` is the reference for finite results backed by ONE subprocess: it mines the
-// transcript for cause markers and prints command/exit/transcript plumbing. A workflow like
-// `sdl flow branch-latest-commit` runs many subprocesses inside a transaction and reports a single
-// settled outcome as already-phrased prose, so per the house style there is no single transcript to
-// mine and the failure body is a "direct domain message" (see §7.1). This renderer applies the same
-// headline grammar (bold + intent-paint + leading glyph — §3) and the success-concise /
-// failure-detailed tiers (§4) to that domain prose.
-//
-// Normative spec: `.sdl/objectives/cli-ux-north-star/house-style.md`. Flow-local by design (the
-// Objective's anti-generalization rule); do not export it beyond the flow capability.
+// The generic finite block layout now lives in `@sdl/clinkr/theme` because the repeated shape was
+// proven across Flow and CCC. This module keeps the flow-domain input name and documents when to use
+// that shared primitive: direct workflow messages with no single transcript to mine.
 
 import type { Caps } from "@sdl/clinkr";
-import { bold, dim, glyph, paint } from "@sdl/clinkr/theme";
+import { renderResultBlock } from "@sdl/clinkr/theme";
 
 interface WorkflowResultFacts {
 	/** Leading one-line summary (already-phrased prose); rendered bold + intent-painted with a glyph. */
@@ -40,24 +33,5 @@ export type WorkflowResultBlockInput =
 
 /** Render a flow workflow result block to a string, styled and degraded for `caps`. */
 export function renderWorkflowResultBlock(caps: Caps, input: WorkflowResultBlockInput): string {
-	const lines: string[] = [headlineLine(caps, input)];
-	if (input.body !== undefined && input.body !== "") {
-		lines.push(input.body);
-	}
-	if (input.guidance !== undefined) {
-		lines.push(input.guidance);
-	}
-	lines.push(dim(`Cwd: ${input.cwd}`));
-	return lines.join("\n");
-}
-
-function headlineLine(caps: Caps, input: WorkflowResultBlockInput): string {
-	switch (input.kind) {
-		case "success":
-			return bold(paint(caps, "success", `${glyph(caps, "done")} ${input.headline}`));
-		case "failure":
-			return bold(paint(caps, "error", `${glyph(caps, "fail")} ${input.headline}`));
-		case "refusal":
-			return bold(paint(caps, "warn", `${glyph(caps, "fail")} ${input.headline}`));
-	}
+	return renderResultBlock(caps, input);
 }
