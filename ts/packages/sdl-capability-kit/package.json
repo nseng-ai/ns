@@ -9,7 +9,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./command-runner": "./src/command-runner.ts",
-		"./git": "./src/git.ts"
+		"./git": "./src/git.ts",
+		"./sdl-command": "./src/sdl-command.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
@@ -17,7 +18,8 @@
 	},
 	"dependencies": {
 		"@sdl/core": "workspace:*",
-		"sdl-sdk": "workspace:*"
+		"sdl-sdk": "workspace:*",
+		"zod": "catalog:"
 	},
 	"devDependencies": {}
 }

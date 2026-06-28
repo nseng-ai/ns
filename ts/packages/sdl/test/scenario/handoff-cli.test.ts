@@ -432,7 +432,7 @@ class FakeHandoffSourceReader implements BrmemSourceReader {
 		this.files = { ...(options.files ?? {}) };
 	}
 
-	async readFileBytes(path: string): Promise<SourceBytesResult> {
+	async readFileBytes(path: string, _options: { cwd: string }): Promise<SourceBytesResult> {
 		const content = this.files[path];
 		if (content === undefined) return { type: "missing" };
 		return { type: "ok", bytes: new TextEncoder().encode(content) };

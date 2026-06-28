@@ -8,3 +8,4 @@ export {
 	type ExecSdlCommandOptions,
 	type SdlGitPorcelainStatusResult,
 } from "./git.ts";
+export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./sdl-command.ts";
