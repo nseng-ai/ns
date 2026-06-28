@@ -74,6 +74,9 @@ importers:
 
   .:
     devDependencies:
+      '@sdl/address':
+        specifier: workspace:*
+        version: link:packages/address
       '@sdl/autobranch':
         specifier: workspace:*
         version: link:packages/autobranch
@@ -140,6 +143,21 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/address:
+    dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../infra/core
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/aretro:
     dependencies:
@@ -530,18 +548,6 @@ importers:
         version: 4.4.3
 
   packages/plans:
-    dependencies:
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/pr-address:
     dependencies:
       '@sdl/clinkr':
         specifier: workspace:*

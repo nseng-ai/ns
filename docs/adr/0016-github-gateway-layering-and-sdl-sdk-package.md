@@ -51,17 +51,17 @@ Applying it:
 
 - **The PR-feedback gateway seam moves up to the capability layer.** The
   `GithubPrFeedbackGateway` interface and the PR-feedback domain types are owned and
-  surfaced by `@sdl/pr-address/api`. Seam consumers import only from there.
+  surfaced by `@sdl/address/api`. Seam consumers import only from there.
 
 - **The lower real mechanics stay in `@sdl/core/github-pr-feedback`.**
   `RealGithubPrFeedbackGateway`, the GraphQL args/queries/schemas, pagination,
   normalizers, and low-level status normalization remain neutral infra. The
   PR-feedback DTOs are declared in `@sdl/core` and re-exported through
-  `@sdl/pr-address/api` so the capability owns the *seam vocabulary* without `@sdl/core`
-  depending on `@sdl/pr-address`.
+  `@sdl/address/api` so the capability owns the *seam vocabulary* without `@sdl/core`
+  depending on `@sdl/address`.
 
 - **Dependency direction is `pr-address` → `core`, never the reverse.** `@sdl/core`
-  must never depend on `@sdl/pr-address`.
+  must never depend on `@sdl/address`.
 
 ### `sdl-sdk` author package
 
@@ -95,7 +95,7 @@ Applying it:
   the policy.
 - `@sdl/core` GitHub code is legible: identity, status rollup, and feedback mechanics
   are three named subpaths instead of one fused module.
-- pr-address owns its gateway contract end to end through `@sdl/pr-address/api`, with no
+- Address owns its gateway contract end to end through `@sdl/address/api`, with no
   new capability package and no upward dependency from `@sdl/core`.
 - The SDK boundary from ADR 0009 is now a real package boundary, not an implicit host
   subpath. `sdl-sdk`'s dependency surface is explicit and minimal.

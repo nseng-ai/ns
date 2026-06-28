@@ -36,4 +36,4 @@ The fallback creates temporary duplication, including the Python package version
 
 ## Update
 
-The migration is now complete: the `sdl pr-address` plugin and the Python `packages/sdl-pr-address` package have been removed, and the standalone TypeScript `pr-address` CLI (installed via `just install-pr-address`) is the sole surface. The Python fallback described above no longer exists.
+The migration later moved again: the active package is now `@sdl/address` in `ts/packages/address`, and the current command face is `sdl address exec ...`. The older standalone TypeScript `pr-address` CLI and `just install-pr-address` shim are no longer installed. The Python fallback described above no longer exists.

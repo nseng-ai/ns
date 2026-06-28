@@ -58,7 +58,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		surface: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		workflow: "Download current PR feedback into the Pi editor as a triage prompt",
 		parity: "FULL",
-		cli: "pr-address exec download-feedback",
+		cli: "sdl address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "pr",
@@ -70,7 +70,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		workflow:
 			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
 		parity: "FULL",
-		cli: "sdl slot gt exec stack-branches --downstack + pr-address exec map-branch-prs + pr-address exec download-feedback",
+		cli: "sdl slot gt exec stack-branches --downstack + sdl address exec map-branch-prs + sdl address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@sdl/pi",
 		sourceModule: "pr",
@@ -319,12 +319,12 @@ async function mapStackBranchesToPrs(
 ): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
 	const branchesJson = JSON.stringify({ branches });
 	const result = await pi.exec(
-		"pr-address",
-		["exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"],
+		"sdl",
+		["address", "exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"],
 		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "pr-address map-branch-prs",
+		label: "sdl address exec map-branch-prs",
 		result,
 		schema: mapBranchPrsDataSchema,
 	});

@@ -172,15 +172,15 @@ async function execPrChecks(options: {
 	args: readonly string[];
 }): Promise<CommandResult<PreviewChecksData>> {
 	const result = await options.runtime.pi.exec(
-		"pr-address",
-		["exec", "pr-checks", ...options.args, "--format", "json"],
+		"sdl",
+		["address", "exec", "pr-checks", ...options.args, "--format", "json"],
 		{
 			cwd: options.ctx.cwd,
 			timeout: options.runtime.commandTimeoutMs,
 		},
 	);
 	return options.runtime.parseEnvelopeWithSchema({
-		label: "pr-address pr-checks",
+		label: "sdl address exec pr-checks",
 		result,
 		schema: previewChecksDataSchema,
 	});

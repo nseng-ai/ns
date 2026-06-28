@@ -28,7 +28,7 @@ export function buildDetectedFeedbackPrompt(input: DispatchPromptInput): string 
 		"Instructions:",
 		"- Inspect the current repository state before acting.",
 		"- Automatically address straightforward feedback when it is localized, mechanically verifiable, low-risk, and does not require a product/design decision or broad refactor.",
-		"- For straightforward fixes: edit the minimal files and run appropriate validation. If validation passes, you must resolve every addressed review thread and, when useful, reply with a concise summary using `pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
+		"- For straightforward fixes: edit the minimal files and run appropriate validation. If validation passes, you must resolve every addressed review thread and, when useful, reply with a concise summary using `sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json` / `sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw `gh api graphql`.",
 		"- If an addressed thread cannot be resolved or replied to after validation, report that failure in the final summary instead of silently leaving it open.",
 		"- Do not push, submit, create branches, or mutate unrelated GitHub state unless the human explicitly asks.",
 		"- Ask before cross-cutting, complex, ambiguous, human-authored, or dirty-tree work.",

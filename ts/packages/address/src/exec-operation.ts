@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
+import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
 import type { GitResult } from "@sdl/core/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@sdl/core/result";
@@ -21,6 +22,7 @@ export interface ExecOperation {
 	name: string;
 	schema: z.ZodObject;
 	resultSchema: z.ZodType;
+	toSdlCommand(createContext: (ctx: SdlExtensionApi) => PrAddressExecContext): SdlCommand;
 	addTo(group: ClinkrGroup<PrAddressExecContext>): void;
 }
 
@@ -108,6 +110,25 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 		name: spec.name,
 		schema: spec.schema,
 		resultSchema: options.resultSchema,
+		toSdlCommand(createContext) {
+			return {
+				name: `exec-${spec.name}`,
+				summary: spec.description ?? spec.summary ?? spec.name,
+				description: spec.description ?? spec.summary ?? spec.name,
+				schema: spec.schema,
+				...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
+				resultSchema: options.resultSchema,
+				...(spec.renderHuman === undefined
+					? {}
+					: {
+							renderHuman: (data: unknown, caps) =>
+								spec.renderHuman?.(options.resultSchema.parse(data), caps) ?? "",
+						}),
+				run: async (ctx: SdlExtensionApi, request: z.output<S>) => {
+					return await handler(createContext(ctx), request);
+				},
+			} satisfies SdlCommand<S, T>;
+		},
 		addTo(group) {
 			const commandSpec = {
 				...spec,

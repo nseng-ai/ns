@@ -24,7 +24,7 @@ export const capabilityPackageNames = new Set([
 	"@sdl/handoff",
 	"@sdl/objective",
 	"@sdl/plans",
-	"@sdl/pr-address",
+	"@sdl/address",
 	"@sdl/roaster",
 	"@sdl/slot",
 	"sdl-flow",

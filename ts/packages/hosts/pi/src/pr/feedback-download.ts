@@ -77,7 +77,7 @@ export function parseDownloadFeedbackData(value: unknown): PrFeedbackDownloadPar
 export async function downloadPrFeedback(
 	options: DownloadPrFeedbackOptions,
 ): Promise<DownloadPrFeedbackResult> {
-	const runner = options.runner ?? { command: "pr-address", baseArgs: [] };
+	const runner = options.runner ?? { command: "sdl", baseArgs: ["address"] };
 	const result = await options.pi.exec(
 		runner.command,
 		[
@@ -119,7 +119,7 @@ function parseDownloadFeedbackEnvelopeData(
 	shouldAllowFailureData: boolean,
 ): { type: "ok"; data: unknown } | { type: "error"; message: string } {
 	const parsed = parseMachineEnvelopeDataWithFailureData(result.stdout, {
-		label: "pr-address download-feedback JSON",
+		label: "sdl address exec download-feedback JSON",
 		stdoutTail: { maxChars: 1_000 },
 		shouldAllowFailureData,
 	});

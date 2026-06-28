@@ -13,7 +13,7 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 	GithubStatusChecks,
-} from "@sdl/pr-address/api";
+} from "@sdl/address/api";
 import type { Result } from "@sdl/core/result";
 
 import { InMemoryGitGateway } from "@sdl/core/git/testing";

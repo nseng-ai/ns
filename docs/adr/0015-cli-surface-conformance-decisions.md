@@ -59,8 +59,8 @@ genuinely-raw commands.
 ### 2. Hidden `exec` destructive/external writes — operation arguments are sufficient intent (lower-friction exception; refines ADR 0014)
 
 For hidden `exec` commands that write destructive or external state — examples
-include `branch-context exec delete`, `pr-address exec reply-review-thread`, and
-`pr-address exec resolve-review-thread` — the explicit command name plus its
+include `branch-context exec delete`, `sdl address exec reply-review-thread`, and
+`sdl address exec resolve-review-thread` — the explicit command name plus its
 required operation arguments constitute sufficient explicit intent. These commands
 do **not** require an added `--yes`/confirmation flag or interactive gate.
 
@@ -136,8 +136,8 @@ The dotfile rule should not be over-applied to environment-driven metadata write
 
 - Every previously `ADR-needed` row in `docs/cli-surface-conformance-audit.md` is
   now classifiable. Specifically:
-  - `branch-context exec delete`, `pr-address exec reply-review-thread`, and
-    `pr-address exec resolve-review-thread` (a): conformant by decision 2.
+  - `branch-context exec delete`, `sdl address exec reply-review-thread`, and
+    `sdl address exec resolve-review-thread` (a): conformant by decision 2.
   - `pr-address` query-miss vs action-miss (d): conformant by decision 4.
   - `branch-context exec check` empty/absent (d): conformant by decision 5.
   - `ccc land` single-PR fast path (a): conformant by decision 3 (rest of the Pi
