@@ -112,11 +112,15 @@
       `ts/packages/capabilities/flow/src/shared/workflow-result-block.ts` (success/failure tiers,
       direct-domain-message body per house style §7.1), while the dirty-worktree refusal and snapshot
       probe failure honestly reuse `git-result-block.ts` (they are real git-status guardrails/failures).
-      Known follow-up: `createLatestCommitAutobranchFlow` still flattens domain guardrail refusals
-      (pushed-HEAD / child-branch / root-/merge-commit) into its `{ ok: false, error }` string, so they
-      currently render as `failure` rather than first-class `warn` refusals (house style §7.3);
-      threading a refusal/failure discriminator up belongs with the shared `autobranch` work in the
-      `flow autobranch` slice (the type is shared with CCC), not a flow-local hack here.
+      Follow-up landed with `flow autobranch`: the shared `AutobranchFlowResult` (in `@sdl/autobranch`,
+      consumed by latest-commit, dirty-worktree, and CCC) now carries a `outcome: "refusal" | "failure"`
+      discriminator. Each typed cause is classified next to its `format*Failure` helper
+      (`classifyLatestCommit{Preparation,Transaction}Failure`); the eligibility guardrails (pushed-HEAD /
+      child-branch / root-/merge-commit) classify as `refusal`. `workflow-result-block.ts` gained a
+      first-class `refusal` kind (warn intent, §7.3), and both `flow autobranch` (clean-worktree refusal)
+      and `flow branch-latest-commit` (eligibility refusals) now render warn instead of red. The shared
+      `flow/src/shared/pending-worktree-result.ts` helper renders snapshot-probe failures for both
+      commands. `flow autobranch` keeps its `CommandIo` progress phases for hosted/Pi contexts.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg

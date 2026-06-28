@@ -1,10 +1,59 @@
 import { shortSha } from "./short-sha.ts";
+import type { AutobranchFlowOutcome } from "./dirty-worktree.ts";
 import type { LatestCommitPreparationResult } from "./latest-commit-preparation.ts";
 import type {
 	CreatedBranchRecovery,
 	LatestCommitTransactionResult,
 	SourceResetFailureRecovery,
 } from "./latest-commit-transaction.ts";
+
+/**
+ * Classify a latest-commit preparation failure as a declined guardrail (`refusal`) vs. a real
+ * `failure`. The four eligibility guardrails — already-pushed HEAD, existing Graphite children, and
+ * root/merge commits — decline before any mutation and render warn (house-style §7.3); everything
+ * else (probe failures, bad slug, unavailable branch name) is a real failure.
+ */
+export function classifyLatestCommitPreparationFailure(
+	result: Extract<LatestCommitPreparationResult, { ok: false }>,
+): AutobranchFlowOutcome {
+	switch (result.kind) {
+		case "pushed_head_refusal":
+		case "child_branch_refusal":
+		case "root_commit_refusal":
+		case "merge_commit_refusal":
+			return "refusal";
+		case "upstream_check_failed":
+		case "child_branch_check_failed":
+		case "commit_parent_lookup_failed":
+		case "commit_evidence_failed":
+		case "invalid_requested_slug":
+		case "slug_generation_failed":
+		case "branch_name_unavailable":
+			return "failure";
+	}
+}
+
+/**
+ * Classify a latest-commit transaction failure. Only the pre-mutation pushed-HEAD re-check is a
+ * declined guardrail; every other transaction failure happened while (or after) mutating refs and is
+ * a real failure carrying recovery guidance.
+ */
+export function classifyLatestCommitTransactionFailure(
+	result: Extract<LatestCommitTransactionResult, { ok: false }>,
+): AutobranchFlowOutcome {
+	switch (result.kind) {
+		case "pushed_head_refusal":
+			return "refusal";
+		case "backup_branch_name_unavailable":
+		case "backup_create_failed":
+		case "source_reset_failed":
+		case "graphite_create_failed":
+		case "transaction_upstream_check_failed":
+		case "branch_reset_failed":
+		case "head_verify_failed":
+			return "failure";
+	}
+}
 
 export function formatLatestCommitPreparationFailure(
 	result: Extract<LatestCommitPreparationResult, { ok: false }>,

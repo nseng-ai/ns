@@ -71,6 +71,34 @@ describe("renderWorkflowResultBlock — failure", () => {
 	});
 });
 
+describe("renderWorkflowResultBlock — refusal", () => {
+	const block = renderWorkflowResultBlock(caps(), {
+		kind: "refusal",
+		headline: "`sdl flow autobranch` requires pending worktree changes and did not run.",
+		cwd: "/repo",
+		body: "Working tree is clean.",
+		guidance: "Use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit.",
+	});
+	const plain = stripAnsi(block);
+
+	test("warn ✗ headline is bold and not error-colored", () => {
+		const headline = block.split("\n")[0] ?? "";
+		expect(headline).toContain(BOLD);
+		// Refusal is a first-class warn outcome, never the red error swatch (house-style §7.3).
+		expect(headline).not.toContain(ERROR_TRUECOLOR);
+		expect(headline).toContain(
+			"✗ `sdl flow autobranch` requires pending worktree changes and did not run.",
+		);
+	});
+
+	test("keeps the actionable reason and guidance at normal weight, with dimmed cwd", () => {
+		expect(plain).toContain("Working tree is clean.");
+		expect(plain).toContain("Use `sdl flow branch-latest-commit`");
+		expect(block).not.toContain(`${DIM}Working tree is clean.`);
+		expect(block).toContain(`${DIM}Cwd: /repo${RESET}`);
+	});
+});
+
 describe("renderWorkflowResultBlock — caps degradation", () => {
 	const input = {
 		kind: "success" as const,
