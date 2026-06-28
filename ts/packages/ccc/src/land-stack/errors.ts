@@ -8,6 +8,12 @@ export interface LandStackFailureOptions {
 	failedBranch?: string;
 	failedPr?: number;
 	suggestedAction?: string;
+	/**
+	 * House-style visual intent (§7.3). A declined guardrail (cancellation, missing confirmation
+	 * channel, base-branch mismatch) is a `refusal` (warn), not a red subprocess `failure`, even when
+	 * it is notified at `error` level to flip the exit code. Defaults to `failure`.
+	 */
+	outcome?: "refusal" | "failure";
 }
 
 export interface LandStackFailure {
@@ -19,6 +25,7 @@ export interface LandStackFailure {
 	failedBranch: string | undefined;
 	failedPr: number | undefined;
 	suggestedAction: string | undefined;
+	outcome: "refusal" | "failure";
 }
 
 export type LandStackResult<T> =
@@ -40,6 +47,7 @@ export function landStackFailure(
 		failedBranch: options.failedBranch,
 		failedPr: options.failedPr,
 		suggestedAction: options.suggestedAction,
+		outcome: options.outcome ?? "failure",
 	};
 }
 

@@ -2,6 +2,13 @@ import type { ExecResult, PiExecResultLike } from "@sdl/core/exec";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
+/**
+ * Visual intent of a land result block (house-style §3/§4/§7.3). Distinct from `NotifyLevel`, which
+ * owns stdout/stderr routing and exit-code flipping: a declined guardrail renders `refusal` (warn)
+ * even when it is notified at `error` level to flip the exit code.
+ */
+export type LandResultKind = "success" | "refusal" | "failure";
+
 export interface AutocompleteItem {
 	value: string;
 	label?: string;
@@ -46,6 +53,14 @@ export interface LandStackCommandContext {
 		): void;
 	};
 	waitForIdle(): Promise<void>;
+	/**
+	 * CLI-only house-style result-block renderer (house-style §4). Set only by the SDL CLI edge
+	 * (`runLandCli`); absent in the Pi command-stream path, which keeps plain notify text colored by
+	 * `renderCommandStreamMessage`. Wraps a settled result message's first line as a bold +
+	 * intent-painted + glyph headline with the remainder at normal weight. Because it is wired only on
+	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
+	 */
+	renderResultBlock?: (kind: LandResultKind, message: string) => string;
 }
 
 export interface LandStackExtensionAPI {

@@ -28,19 +28,20 @@
 
 import type { Caps } from "@sdl/clinkr";
 import { bold, dim, glyph, paint } from "@sdl/clinkr/theme";
+import type { LandResultKind } from "./types.ts";
 
 /**
- * The visual intent of a land outcome. Distinct from the `LandStackFailure` notify level (which owns
- * stdout/stderr routing and exit-code flipping): a declined guardrail renders `refusal` (warn) even
- * when it is notified at `error` level to flip the exit code (house-style §7.3). The inventoried land
- * states map onto these three kinds:
+ * The visual intent of a land outcome (canonical type in `types.ts`). Distinct from the
+ * `LandStackFailure` notify level (which owns stdout/stderr routing and exit-code flipping): a
+ * declined guardrail renders `refusal` (warn) even when it is notified at `error` level to flip the
+ * exit code (house-style §7.3). The inventoried land states map onto these three kinds:
  *   - success: fast-path merge, single-plan / chunked stack success summary, post-landing cleanup done.
  *   - refusal: non-interactive confirmation refusal, cancelled-before-merge, base-branch mismatch,
  *     "nothing to do", post-landing cleanup declined / not-a-managed-slot.
  *   - failure: preflight load failure, merge-loop failure (incl. partial success), slot/submit
  *     pre-merge failures, post-landing free/delete failures, unexpected error.
  */
-export type LandResultKind = "success" | "refusal" | "failure";
+export type { LandResultKind };
 
 export interface LandResultBlock {
 	kind: LandResultKind;

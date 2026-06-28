@@ -28,17 +28,21 @@ import { exec, execGraphite } from "./land-stack/command-exec.ts";
 import {
 	formatFailure,
 	formatFailureNotification,
+	landFailureKind,
 	presentBrief,
 	setStatus,
 	usage,
 } from "./land-stack/presentation.ts";
+import { renderLandResultBlock } from "./land-stack/land-presentation.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
+import type { Caps } from "@sdl/clinkr";
 import type {
 	AutocompleteItem,
 	CustomMessage,
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandingShape,
+	LandResultKind,
 	MessageRenderer,
 	NotifyLevel,
 	ParsedArgs,
@@ -137,6 +141,7 @@ async function runLandCommand(
 			args.failure.message,
 			args.failure.level,
 			formatFailureNotification(args.failure),
+			landFailureKind(args.failure),
 		);
 		return failure(args.failure);
 	}
@@ -164,6 +169,7 @@ async function runLandCommand(
 			formatFailure(shape.failure, []),
 			shape.failure.level,
 			formatFailureNotification(shape.failure),
+			landFailureKind(shape.failure),
 		);
 		return failure(shape.failure);
 	}
@@ -173,7 +179,7 @@ async function runLandCommand(
 		shape.value.stack.landingBranches.length === 0
 	) {
 		const message = `Current branch is ${shape.value.stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`;
-		presentBrief(ctx, message, "info", message);
+		presentBrief(ctx, message, "info", message, "refusal");
 		return completed();
 	}
 
@@ -245,6 +251,12 @@ export interface LandCliInput {
 	stderr(text: string): void;
 	onOutput?: ExecOutputListener | undefined;
 	confirm?: LandCliConfirmPrompt | undefined;
+	/**
+	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
+	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
+	 * un-styled rather than guessing caps, and the Pi command-stream path is never affected.
+	 */
+	caps?: Caps | undefined;
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {
@@ -262,6 +274,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	}
 
 	const confirm = input.confirm;
+	const caps = input.caps;
 	const progressIo = createLandCliCommandIo(input);
 	const outcome = await runWithCommandIo(
 		progressIo,
@@ -283,11 +296,36 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						},
 					},
 					waitForIdle: async () => {},
+					// CLI-only house-style result-block renderer (house-style §4). Wired only here, so the
+					// shared orchestration's `presentBrief`/`notify` stay plain in the Pi command-stream
+					// path — ANSI never leaks into `renderCommandStreamMessage`.
+					...(caps === undefined ? {} : { renderResultBlock: createCliResultBlockRenderer(caps) }),
 				},
 				{ progressIo },
 			),
 	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;
+}
+
+/**
+ * Build the CLI result-block renderer: split a settled message's first line into the bold +
+ * intent-painted + glyph headline and render the remainder as normal-weight body (house-style §4).
+ * Domain-authored detail (partial-success lists, failure cause + command details, recovery guidance)
+ * is preserved verbatim in the body so recovery text is never lost.
+ */
+function createCliResultBlockRenderer(
+	caps: Caps,
+): (kind: LandResultKind, message: string) => string {
+	return (kind, message) => {
+		const newlineIndex = message.indexOf("\n");
+		const headline = newlineIndex === -1 ? message : message.slice(0, newlineIndex);
+		const body = newlineIndex === -1 ? undefined : message.slice(newlineIndex + 1);
+		return renderLandResultBlock(caps, {
+			kind,
+			headline,
+			...(body === undefined || body === "" ? {} : { body }),
+		});
+	};
 }
 
 function createLandCliCommandIo(input: LandCliInput): CommandIo {
@@ -323,12 +361,14 @@ async function confirmStackModeIfNeeded(
 	if (!ctx.hasUI) {
 		const landFailure = landStackFailure(
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+			{ outcome: "refusal" },
 		);
 		presentBrief(
 			ctx,
 			landFailure.message,
 			landFailure.level,
 			formatFailureNotification(landFailure),
+			landFailureKind(landFailure),
 		);
 		return failure(landFailure);
 	}
@@ -337,12 +377,14 @@ async function confirmStackModeIfNeeded(
 	if (!confirmed) {
 		const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
 			level: "info",
+			outcome: "refusal",
 		});
 		presentBrief(
 			ctx,
 			landFailure.message,
 			landFailure.level,
 			formatFailureNotification(landFailure),
+			landFailureKind(landFailure),
 		);
 		return failure(landFailure);
 	}
@@ -381,7 +423,7 @@ async function runPostLandingSlotCleanup({
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) {
 		const message = `Post-landing --free requested, but current worktree ${shape.repoRoot} is not a managed slot; kept local branch ${shape.stack.actualCurrentBranch}.`;
-		notify(ctx, message, "info");
+		notify(ctx, message, "info", "refusal");
 		return completed();
 	}
 
@@ -399,6 +441,7 @@ async function runPostLandingSlotCleanup({
 					"Run the commands manually, or use --free --force for post-landing cleanup next time.",
 				].join("\n\n"),
 				{
+					outcome: "refusal",
 					suggestedAction: postLandingCleanupSuggestedAction(
 						slotName,
 						shape.stack.actualCurrentBranch,
@@ -410,6 +453,7 @@ async function runPostLandingSlotCleanup({
 				landFailure.message,
 				landFailure.level,
 				formatFailureNotification(landFailure),
+				landFailureKind(landFailure),
 			);
 			return failure(landFailure);
 		}
@@ -423,6 +467,7 @@ async function runPostLandingSlotCleanup({
 				`Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
 				{
 					level: "warning",
+					outcome: "refusal",
 					suggestedAction: postLandingCleanupSuggestedAction(
 						slotName,
 						shape.stack.actualCurrentBranch,
@@ -434,6 +479,7 @@ async function runPostLandingSlotCleanup({
 				landFailure.message,
 				landFailure.level,
 				formatFailureNotification(landFailure),
+				landFailureKind(landFailure),
 			);
 			return failure(landFailure);
 		}
@@ -457,6 +503,7 @@ async function runPostLandingSlotCleanup({
 				landFailure.message,
 				landFailure.level,
 				formatFailureNotification(landFailure),
+				landFailureKind(landFailure),
 			);
 			return failure(landFailure);
 		}
@@ -482,6 +529,7 @@ async function runPostLandingSlotCleanup({
 				landFailure.message,
 				landFailure.level,
 				formatFailureNotification(landFailure),
+				landFailureKind(landFailure),
 			);
 			return failure(landFailure);
 		}
@@ -492,6 +540,7 @@ async function runPostLandingSlotCleanup({
 	notify(
 		ctx,
 		`Post-landing cleanup complete: freed ${slotName} and deleted local branch ${shape.stack.actualCurrentBranch}.`,
+		"success",
 		"success",
 	);
 	return completed();
@@ -529,18 +578,23 @@ async function runFastLand(
 ): Promise<LandStackOutcome> {
 	const pr = await loadPullRequest(pi, target.repoRoot);
 	if ("error" in pr) {
-		notify(ctx, pr.error, "error");
+		notify(ctx, pr.error, "error", "failure");
 		return failure(landStackFailure(pr.error));
 	}
 
 	if (pr.baseRefName !== target.trunk) {
 		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${target.trunk}'. Merge not attempted.`;
-		notify(ctx, message, "error");
-		return failure(landStackFailure(message));
+		notify(ctx, message, "error", "refusal");
+		return failure(landStackFailure(message, { outcome: "refusal" }));
 	}
 
 	if (options.dryRun) {
-		notify(ctx, `Dry run only; would merge PR #${pr.number} into ${target.trunk}.`, "info");
+		notify(
+			ctx,
+			`Dry run only; would merge PR #${pr.number} into ${target.trunk}.`,
+			"info",
+			"success",
+		);
 		return completed();
 	}
 
@@ -576,13 +630,13 @@ async function runFastLand(
 	const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 	if (result.code === 0) {
 		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-		notify(ctx, output ? `${output}\n${message}` : message, "info");
+		notify(ctx, output ? `${output}\n${message}` : message, "info", "success");
 		return completed();
 	}
 
 	const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
 	const fullMessage = output ? `${output}\n${message}` : message;
-	notify(ctx, fullMessage, "error");
+	notify(ctx, fullMessage, "error", "failure");
 	return failure(landStackFailure(fullMessage));
 }
 
@@ -608,12 +662,23 @@ function progress(
 	});
 }
 
-function notify(ctx: LandCommandContext, message: string, level: NotifyLevel): void {
+function notify(
+	ctx: LandCommandContext,
+	message: string,
+	level: NotifyLevel,
+	kind?: LandResultKind,
+): void {
 	if (ctx.mode === "print") {
 		const output = message.endsWith("\n") ? message : `${message}\n`;
 		(ctx.printOutput ?? process.stdout).write(output);
 	}
-	ctx.ui.notify(message, level);
+	// House-style ANSI applies only when the CLI edge wired `renderResultBlock` (Pi/print contexts
+	// leave it undefined, keeping plain text colored downstream by `renderCommandStreamMessage`).
+	const rendered =
+		kind !== undefined && ctx.renderResultBlock !== undefined
+			? ctx.renderResultBlock(kind, message)
+			: message;
+	ctx.ui.notify(rendered, level);
 }
 
 export async function loadPullRequest(

@@ -22,6 +22,7 @@ import type {
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
+	LandResultKind,
 	NotifyLevel,
 	RemainingCleanup,
 } from "./types.ts";
@@ -453,8 +454,22 @@ export function formatFailureNotification(failure: LandStackFailure): string {
 	return `land stopped: ${detail}`;
 }
 
-export function present(ctx: LandStackCommandContext, message: string, level: NotifyLevel): void {
-	presentBrief(ctx, message, level, message);
+/**
+ * Map a typed failure onto its house-style visual intent (§7.3). A declined guardrail renders warn
+ * (`refusal`); a real subprocess/preflight error renders red (`failure`). The notify level is left
+ * untouched so stdout/stderr routing and exit codes are preserved.
+ */
+export function landFailureKind(failure: LandStackFailure): LandResultKind {
+	return failure.outcome === "refusal" ? "refusal" : "failure";
+}
+
+export function present(
+	ctx: LandStackCommandContext,
+	message: string,
+	level: NotifyLevel,
+	kind?: LandResultKind,
+): void {
+	presentBrief(ctx, message, level, message, kind);
 }
 
 export function presentBrief(
@@ -462,8 +477,16 @@ export function presentBrief(
 	fullMessage: string,
 	level: NotifyLevel,
 	uiMessage: string,
+	kind?: LandResultKind,
 ): void {
-	ctx.ui.notify(ctx.hasUI ? uiMessage : fullMessage, level);
+	const shown = ctx.hasUI ? uiMessage : fullMessage;
+	// House-style ANSI is applied only when the CLI edge wired `renderResultBlock`; the Pi
+	// command-stream context leaves it undefined, so the shared notify text stays plain there.
+	const rendered =
+		kind !== undefined && ctx.renderResultBlock !== undefined
+			? ctx.renderResultBlock(kind, shown)
+			: shown;
+	ctx.ui.notify(rendered, level);
 }
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {

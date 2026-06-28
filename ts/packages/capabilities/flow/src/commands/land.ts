@@ -2,6 +2,7 @@ import { runLandCli } from "@sdl/ccc/land";
 import { defineExtension, z, type SdlCommand } from "sdl-sdk";
 
 import { runFlowCccCli } from "../shared/ccc-cli.ts";
+import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),
@@ -22,6 +23,10 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 	schema: landSchema,
 	run: async (ctx, request) => {
 		const onOutput = ctx.onOutput;
+		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
+		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
+		// path is never given caps and stays ANSI-free.
+		const caps = resolveFlowStreamCaps(ctx);
 		const rawArgs = [
 			request.yes === true ? "--yes" : undefined,
 			request.dryRun === true ? "--dry-run" : undefined,
@@ -40,6 +45,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 					exec: io.exec,
 					stdout: io.stdout,
 					stderr: io.stderr,
+					caps,
 					...(onOutput === undefined ? {} : { onOutput }),
 					...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 				}),

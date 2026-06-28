@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { stripAnsi } from "@sdl/clinkr/testing";
 import {
 	runCliWithFakes,
 	type ExecCall,
@@ -233,7 +234,12 @@ describe("sdl flow land", () => {
 					"Land 1 PRs from feature-branch through feature-branch into main?\nDescendants above feature-branch will not be merged; this command will try to maintain them after landing.",
 			},
 		]);
-		expect(run.stdout.join("")).toBe("Cancelled before merge; no PRs were landed.\n");
+		// The cancelled-before-merge refusal renders as a house-style warn result block on stdout
+		// (bold headline; the flow wrapper threads caps into the CLI edge). The semantic text is
+		// preserved; ANSI is confined to the CLI surface.
+		const stdout = run.stdout.join("");
+		expect(stripAnsi(stdout)).toContain("Cancelled before merge; no PRs were landed.");
+		expect(stdout).toContain("\x1b[1m");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls.map(formatExecCall)).toEqual([
 			"git rev-parse --show-toplevel",
