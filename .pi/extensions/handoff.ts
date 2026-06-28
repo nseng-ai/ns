@@ -1,3 +1,3 @@
-import handoffExtension from "../../ts/packages/hosts/pi/src/handoff/extension.ts";
+import handoffExtension from "../../ts/packages/capability-pi/handoff/src/extension.ts";
 
 export default handoffExtension;

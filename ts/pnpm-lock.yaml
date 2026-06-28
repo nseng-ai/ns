@@ -252,6 +252,60 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/capability-pi/branch-context:
+    dependencies:
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.79.1
+      '@sdl/branch-context':
+        specifier: workspace:*
+        version: link:../../branch-context
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../../infra/graphite
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      '@sdl/plans':
+        specifier: workspace:*
+        version: link:../../plans
+
+  packages/capability-pi/handoff:
+    dependencies:
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
+      '@sdl/cmux':
+        specifier: workspace:*
+        version: link:../../cmux
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/handoff':
+        specifier: workspace:*
+        version: link:../../handoff
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+
+  packages/capability-pi/objective:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/objective':
+        specifier: workspace:*
+        version: link:../../objective
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
   packages/ccc:
     dependencies:
       '@sdl/autobranch':
@@ -326,12 +380,6 @@ importers:
 
   packages/hosts/pi:
     dependencies:
-      '@sdl/branch-context':
-        specifier: workspace:*
-        version: link:../../branch-context
-      '@sdl/brmem':
-        specifier: workspace:*
-        version: link:../../infra/brmem
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
@@ -344,15 +392,6 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
-      '@sdl/handoff':
-        specifier: workspace:*
-        version: link:../../handoff
-      '@sdl/objective':
-        specifier: workspace:*
-        version: link:../../objective
-      '@sdl/plans':
-        specifier: workspace:*
-        version: link:../../plans
       '@sdl/sdl':
         specifier: workspace:*
         version: link:../../sdl
@@ -483,6 +522,18 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+
+  packages/local-pi-tools/pr-feedback-watch:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/local-pi-tools/pr-previews:
     dependencies:

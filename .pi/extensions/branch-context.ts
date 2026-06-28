@@ -1,4 +1,4 @@
-import registerBranchContextExtension from "../../ts/packages/hosts/pi/src/branch-context/extension.ts";
+import registerBranchContextExtension from "../../ts/packages/capability-pi/branch-context/src/extension.ts";
 
 export default function branchContextProjectExtension(pi) {
 	registerBranchContextExtension(pi, {

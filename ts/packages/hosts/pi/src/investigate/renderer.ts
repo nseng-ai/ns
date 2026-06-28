@@ -1,4 +1,4 @@
-import type { CustomMessage, RenderComponent, RenderTheme } from "../handoff/runtime-types.ts";
+import type { CustomMessage, RenderComponent, RenderTheme } from "../runtime/extension-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 
 const COLLAPSED_RESULT_PREVIEW_LINES = 24;

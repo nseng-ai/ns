@@ -1,0 +1,25 @@
+{
+  "name": "@sdl/objective-pi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts",
+    "./picker": "./src/picker.ts",
+    "./selection": "./src/selection.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/objective/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*",
+    "@sdl/objective": "workspace:*",
+    "@sdl/pi": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability-pi"
+  }
+}

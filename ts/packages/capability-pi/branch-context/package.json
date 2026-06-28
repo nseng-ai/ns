@@ -1,0 +1,25 @@
+{
+  "name": "@sdl/branch-context-pi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/branch-context/test"
+  },
+  "dependencies": {
+    "@earendil-works/pi-tui": "catalog:",
+    "@sdl/branch-context": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/graphite": "workspace:*",
+    "@sdl/pi": "workspace:*",
+    "@sdl/plans": "workspace:*"
+  },
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability-pi"
+  }
+}

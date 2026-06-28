@@ -1,13 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import registerBranchContextExtension from "../src/branch-context/extension.ts";
-import claudeExtension from "../src/claude/extension.ts";
 import codeWorkflowsExtension from "../src/flow/code-workflows.ts";
 import codeExtension from "../src/pr/code-extension.ts";
-import handoffExtension from "../src/handoff/extension.ts";
 import investigateExtension from "../src/investigate/extension.ts";
 import modelShortcutExtension from "../src/models/shortcuts.ts";
-import objectiveExtension from "../src/objectives/extension.ts";
 import prExtension from "../src/pr/extension.ts";
 import {
 	comparePiSurfaceParity,
@@ -23,14 +19,10 @@ import sdlExtension from "../src/flow/sdl-extension.ts";
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	await registerWithFakeHost(pi, registerBranchContextWithFakeHostOptions);
-	await registerWithFakeHost(pi, claudeExtension);
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
-	await registerWithFakeHost(pi, handoffExtension);
 	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
-	await registerWithFakeHost(pi, objectiveExtension);
 	await registerWithFakeHost(pi, prExtension);
 	await registerWithFakeHost(pi, sdlExtension);
 	// The worktree-status implementation lives in @sdl/worktree-status and is
@@ -43,12 +35,6 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	});
 
 	return pi.surfaces();
-}
-
-function registerBranchContextWithFakeHostOptions(
-	pi: Parameters<typeof registerBranchContextExtension>[0],
-): void {
-	registerBranchContextExtension(pi, { branchContextDefaultCreation: "graphite" });
 }
 
 function registerInvestigateWithFakeDefinition(
