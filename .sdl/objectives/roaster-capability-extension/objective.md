@@ -91,3 +91,23 @@ Risks:
 - Should the durable public command face become `sdl roaster ...`, `sdl roast ...`, or another grouped SDL shape that preserves current `review`/`roast` subgroups? Default to preserving current user vocabulary unless the first inventory finds a better command taxonomy.
 - Does any sibling package or host need a broad Roaster Capability API, or is `@sdl/roaster/api` initially a small set of review/run/log/publish contracts and types?
 - Which pieces of the closed `roaster-graphite-stack-workflow` Objective should remain parked provenance versus future Roaster product work outside this Capability migration?
+
+## Closure
+
+Closed 2026-06-28 after completing the Roaster Capability migration. Roaster is now modeled as an above-SDK Capability with a gateway-injected Domain Core, thin SDL Command Face, curated `@sdl/roaster/api` surface, and documented storage/publication boundaries.
+
+Delivered scope:
+
+- `sdl roaster ...` is the durable user-facing command face for review list/ls/log/run, roast list, and hidden record/publish automation leaves.
+- `@sdl/roaster/api` is the curated in-process Capability API; the broad package root was intentionally left in place as a non-CLI export surface for a possible later narrowing slice.
+- Public skills and `.github/workflows/roaster.yml` invoke the SDL command face.
+- Review definitions remain under `.sdl/reviews/<key>.md`; review logs remain Branch Memory records in namespace `roaster` under `reviews/<review-key>/...`; findings publication remains an explicit guarded GitHub boundary.
+- The standalone `roaster` package binary, source entrypoint, repo-local install shim, and binary-only tests were removed rather than retained as a duplicate public surface.
+
+Key PR evidence:
+
+- PR #2339 (`https://app.graphite.com/github/pr/nseng-ai/sdl-tools/2339`): removed the standalone Roaster CLI, bin wiring, shim target, obsolete CLI tests, and recorded the binary cutover evidence.
+
+Validation recorded during the closing slices included targeted Roaster/SDL package checks and Roaster extension scenarios, plus `just ts-format-check`, `just ts-lint` (with unrelated warnings only), `just ts-check`, `just ts-test`, and `just dprint-check` after formatting. No live GitHub publication validation was performed.
+
+Remaining follow-ups are intentionally outside this closed child Objective: reassess whether to narrow the broad `@sdl/roaster` package root in favor of `@sdl/roaster/api`; address non-binary CLI conformance polish such as structured failure `data` or `review log` continuation/bound state; and consider any future Roaster Graphite-stack/product workflow under a separate Objective.
