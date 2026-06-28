@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { DEFAULT_COLUMNS } from "@sdl/clinkr";
+import { CLINKR_CAPS_EXTENSION_KEY, DEFAULT_COLUMNS } from "@sdl/clinkr";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
 import { spinnerFrame } from "@sdl/clinkr/theme";
@@ -152,9 +152,9 @@ describe("resolveFlowStreamCaps", () => {
 
 	test("host-provided caps win for override sinks", () => {
 		const injected = caps({ isTty: false, colorDepth: "none", canRenderUnicode: false });
-		expect(resolveFlowStreamCaps(ctx({ extensions: { "sdl.clinkr.caps": injected } }))).toEqual(
-			injected,
-		);
+		expect(
+			resolveFlowStreamCaps(ctx({ extensions: { [CLINKR_CAPS_EXTENSION_KEY]: injected } })),
+		).toEqual(injected);
 	});
 
 	test("direct command execution falls back to process caps", () => {

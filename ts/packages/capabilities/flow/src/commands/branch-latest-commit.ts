@@ -2,13 +2,13 @@ import {
 	createLatestCommitAutobranchFlow,
 	type LatestCommitAutobranchInput,
 } from "@sdl/autobranch/latest-commit";
+import { renderResultBlock } from "@sdl/clinkr/theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 
 import { renderGitResultBlock } from "../shared/git-result-block.ts";
 import { renderPendingWorktreeFailure } from "../shared/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
-import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
 import { execExtensionCommand, loadFlowPendingWorktreeSnapshot } from "../shared/worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
@@ -77,13 +77,13 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 			// is a first-class warn refusal, not a red failure (house-style §7.3).
 			return failed(
 				result.outcome === "refusal"
-					? renderWorkflowResultBlock(caps, {
+					? renderResultBlock(caps, {
 							kind: "refusal",
 							headline: "Did not move the latest commit to a new Graphite branch.",
 							cwd: snapshot.root,
 							body: result.error.trimEnd(),
 						})
-					: renderWorkflowResultBlock(caps, {
+					: renderResultBlock(caps, {
 							kind: "failure",
 							headline: "Could not move the latest commit to a new Graphite branch.",
 							cwd: snapshot.root,
@@ -96,7 +96,7 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 			ctx.stderr?.(`${warning.trimEnd()}\n`);
 		}
 		return ok(
-			renderWorkflowResultBlock(caps, {
+			renderResultBlock(caps, {
 				kind: "success",
 				headline: "Moved the latest commit to a new Graphite branch.",
 				cwd: snapshot.root,

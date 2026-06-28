@@ -8,10 +8,9 @@
 // Flow-local by design (the Objective's anti-generalization rule); do not export beyond flow.
 
 import type { Caps } from "@sdl/clinkr";
-import type { ExecResult } from "sdl-sdk";
 
 import { renderGitResultBlock } from "./git-result-block.ts";
-import type { PendingWorktreeError, WorktreeCommandResult } from "./worktree.ts";
+import type { PendingWorktreeError } from "./worktree.ts";
 
 interface PendingWorktreeFailureInput {
 	error: PendingWorktreeError;
@@ -30,7 +29,7 @@ export function renderPendingWorktreeFailure(
 		headline: pendingWorktreeHeadline(input.error, input.commandLabel),
 		command: pendingWorktreeCommand(input.error),
 		cwd: input.cwd,
-		result: toExecResult(input.error.result),
+		result: input.error.result,
 	});
 }
 
@@ -59,13 +58,4 @@ function pendingWorktreeHeadline(error: PendingWorktreeError, commandLabel: stri
 		case "diff_failed":
 			return `Could not capture the worktree diff. ${commandLabel} did not run.`;
 	}
-}
-
-function toExecResult(result: WorktreeCommandResult): ExecResult {
-	return {
-		code: result.code,
-		stdout: result.stdout,
-		stderr: result.stderr,
-		killed: result.killed ?? false,
-	};
 }
