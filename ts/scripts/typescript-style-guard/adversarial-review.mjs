@@ -154,8 +154,6 @@ function runExtensionDependencyGraphAdversarialReview() {
   ]);
   const legacyDeferredCycleEdges = [
     { from: "@sdl/autobranch", to: "@sdl/pi" },
-    { from: "@sdl/branch-context", to: "@sdl/pi" },
-    { from: "@sdl/pi", to: "@sdl/branch-context" },
     { from: "@sdl/pi", to: "@sdl/sdl" },
     { from: "@sdl/sdl", to: "@sdl/autobranch" },
   ];
@@ -180,22 +178,31 @@ function runExtensionDependencyGraphAdversarialReview() {
       expectedHasCycle: false,
     },
     {
-      name: "new cycle wholly inside deferred package set is allowed",
+      name: "cycle wholly inside legacy deferred package set is allowed",
       edges: [
-        { from: "@sdl/autobranch", to: "@sdl/branch-context" },
-        { from: "@sdl/branch-context", to: "@sdl/autobranch" },
+        { from: "@sdl/autobranch", to: "@sdl/pi" },
+        { from: "@sdl/pi", to: "@sdl/autobranch" },
       ],
       expectedHasCycle: false,
     },
     {
-      name: "expanded deferred SCC is rejected",
+      name: "branch-context pi manifest cycle is rejected",
       edges: [
-        ...legacyDeferredCycleEdges,
-        { from: "@sdl/pi", to: "@sdl/ccc" },
-        { from: "@sdl/ccc", to: "@sdl/autobranch" },
+        { from: "@sdl/branch-context", to: "@sdl/pi" },
+        { from: "@sdl/pi", to: "@sdl/branch-context" },
       ],
       expectedHasCycle: true,
-      expectedTextIncludes: "legacy-autobranch-branch-context-pi-sdl-cycle",
+      expectedTextIncludes: "legacy-autobranch-pi-sdl-cycle",
+    },
+    {
+      name: "branch-context expansion of deferred SCC is rejected",
+      edges: [
+        ...legacyDeferredCycleEdges,
+        { from: "@sdl/pi", to: "@sdl/branch-context" },
+        { from: "@sdl/branch-context", to: "@sdl/autobranch" },
+      ],
+      expectedHasCycle: true,
+      expectedTextIncludes: "legacy-autobranch-pi-sdl-cycle",
     },
     {
       name: "devDependencies-only cycle is ignored",

@@ -22,7 +22,6 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
     "zod": "catalog:"
   },

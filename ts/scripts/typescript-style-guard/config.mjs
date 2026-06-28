@@ -56,8 +56,8 @@ export const extensionGraphPackageNames = new Set([
 // but breaking it belongs to separate graph cleanup work, not this manifest-scoped guard addition.
 export const deferredExtensionCycleComponents = [
   {
-    name: "legacy-autobranch-branch-context-pi-sdl-cycle",
-    packages: new Set(["@sdl/autobranch", "@sdl/branch-context", "@sdl/pi", "@sdl/sdl"]),
+    name: "legacy-autobranch-pi-sdl-cycle",
+    packages: new Set(["@sdl/autobranch", "@sdl/pi", "@sdl/sdl"]),
     reason:
       "Known legacy extension package cycle deferred from the objective-capability-extension stack; do not add packages to this component without separate graph cleanup review.",
   },

@@ -13,7 +13,7 @@
   - Likely files: `ts/packages/branch-context/src/api.ts`, `ts/packages/branch-context/src/index.ts`, `ts/packages/branch-context/src/impl-command.ts` or its deletion, `ts/packages/hosts/pi/src/commands/surfaces.ts`, `ts/packages/hosts/pi/src/branch-context/from-plan-commands.ts`, `ts/packages/hosts/pi/src/branch-context/gt/upstack-impl-launch.ts`, `ts/packages/ccc/src/cmux/slot-dispatch-plan.ts`, and their tests.
   - Evidence: targeted unit tests/assertions still prove `/sdl:branch-context:impl-attached-plan <key>` appears in usage text, follow-up flow text, replacement-session messages, and cmux Pi launch commands; Branch Context package tests no longer assert Pi command-surface ownership.
 
-- [ ] Remove the `@sdl/branch-context` → `@sdl/pi` package edge and lock it with guard evidence.
+- [x] Remove the `@sdl/branch-context` → `@sdl/pi` package edge and lock it with guard evidence.
   - Policy: direct execution after preview for source/package/test changes.
   - Target: delete `@sdl/pi` from `ts/packages/branch-context/package.json`; update `ts/pnpm-lock.yaml` if needed; ensure Branch Context source/tests have no `@sdl/pi/*` imports; narrow the `ts-guard` deferred legacy cycle so Branch Context is no longer included in the autobranch/pi/sdl tolerated component.
   - Likely files: `ts/packages/branch-context/package.json`, `ts/pnpm-lock.yaml`, `ts/scripts/typescript-style-guard/config.mjs`, and `ts/scripts/typescript-style-guard/adversarial-review.mjs`.
