@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains both neutral Pi helper subpaths consumed by other workspace packages and engineered project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi-native standalone tools may instead live in Pi-tool packages stacked above `@sdl/pi`; those packages consume neutral host helpers while their discovery adapters import the tool package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
 
 ## Language
 
@@ -13,16 +13,20 @@ The checked-in `.pi/extensions/*.ts` files that Pi auto-discovers for this repos
 *Avoid*: global extension, npm package entry point, CLI plugin.
 
 **Discovery adapter**:
-A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/hosts/pi/src/` or from another owning package when the Pi implementation has been extracted.
-*Avoid*: package export, shim as implementation, generated extension.
+A thin project-local extension file whose job is to register Pi commands or tools by importing implementation code from `ts/packages/hosts/pi/src/` or from another owning package when the Pi implementation has been extracted. For extracted Pi-tool packages, the adapter imports the tool package's source entrypoint directly so `@sdl/pi` does not become the tool's consumer.
+*Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, runner subagents, grill UI, PR views, worktree status, SDL flow mirrors, terminal presentation, and command registration helpers.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, runner subagents, grill UI, PR views, worktree status, SDL flow mirrors, terminal presentation, and command registration helpers.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
+**Pi-tool package**:
+A private workspace package under `ts/packages/pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@sdl/pi-context-profiler`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
+*Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
+
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages, including command acknowledgement, command I/O, command names, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal presentation, runner-subagent usage, and cmux/Pi runtime types.
-*Avoid*: project-local extension entrypoint, CCC orchestration, private source deep import.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent usage, parity helpers, and cmux/Pi runtime types.
+*Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
 An implementation module under `ts/packages/hosts/pi/src/` or another owning package that registers a Pi command family or model-visible tool through the Pi host. Lower packages should not import these entrypoints as helpers; use neutral helper subpaths or a lower package API instead.
