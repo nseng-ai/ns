@@ -76,6 +76,34 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
+	test("real loader exposes push help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+
+		const help = runWithRealFlowExtension({ args: ["flow", "push", "--help"], cwd });
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl flow push");
+		expect(output).toContain("plain git push");
+		expect(output).toContain("clean worktree");
+		expect(output).toContain("sdl flow submit");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({ args: ["flow", "push", "--json-schema"], cwd });
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+	});
+
+	test("real loader rejects unexpected push arguments before git or model calls", async () => {
+		const cwd = await createFlowProject();
+		const run = runWithRealFlowExtension({ args: ["flow", "push", "unexpected"], cwd });
+
+		expect(await run.exit).not.toBe(0);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).not.toBe("");
+		expect(run.context.execCalls).toEqual([]);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
 	test("real loader exposes regenerate-pr help and JSON schema metadata", async () => {
 		const cwd = await createFlowProject();
 
