@@ -1,3 +1,8 @@
-import objectiveExtension from "../../ts/packages/capability-pi/objective/src/extension.ts";
+import { createRequire } from "node:module";
+
+const requireFromTypeScriptWorkspace = createRequire(new URL("../../ts/package.json", import.meta.url));
+const { default: objectiveExtension } = await import(
+	requireFromTypeScriptWorkspace.resolve("@sdl/objective-pi/extension"),
+);
 
 export default objectiveExtension;

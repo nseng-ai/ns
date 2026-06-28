@@ -74,6 +74,9 @@ importers:
 
   .:
     devDependencies:
+      '@local-pi-tools/pr-feedback-watch':
+        specifier: workspace:*
+        version: link:packages/local-pi-tools/pr-feedback-watch
       '@sdl/address':
         specifier: workspace:*
         version: link:packages/address
@@ -83,6 +86,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:packages/branch-context
+      '@sdl/branch-context-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/branch-context
       '@sdl/brmem':
         specifier: workspace:*
         version: link:packages/infra/brmem
@@ -98,6 +104,12 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/infra/graphite
+      '@sdl/handoff-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/handoff
+      '@sdl/objective-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/objective
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/plans
@@ -3988,12 +4000,12 @@ snapshots:
     dependencies:
       emoji-regex: 10.6.0
       get-east-asian-width: 1.6.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   string-width@8.2.1:
     dependencies:
       get-east-asian-width: 1.6.0
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   stringify-entities@4.0.4:
     dependencies:
@@ -4166,7 +4178,7 @@ snapshots:
     dependencies:
       ansi-styles: 6.2.3
       string-width: 8.2.1
-      strip-ansi: 7.1.2
+      strip-ansi: 7.2.0
 
   ws@8.21.0: {}
 

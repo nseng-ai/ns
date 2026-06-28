@@ -19,14 +19,18 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {
+    "@local-pi-tools/pr-feedback-watch": "workspace:*",
     "@sdl/address": "workspace:*",
     "@sdl/autobranch": "workspace:*",
     "@sdl/branch-context": "workspace:*",
+    "@sdl/branch-context-pi": "workspace:*",
     "@sdl/brmem": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
     "@sdl/ccc": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/graphite": "workspace:*",
+    "@sdl/handoff-pi": "workspace:*",
+    "@sdl/objective-pi": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/roaster": "workspace:*",
     "@sdl/sdl": "workspace:*",
