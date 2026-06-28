@@ -3,7 +3,11 @@ import { describe, expect, test } from "vitest";
 import type { ExecResult } from "@sdl/core/exec";
 import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 
-import { createSdlCommandRunner, SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
+import {
+	createSdlCommandRunner,
+	SdlCommandExecApi,
+	SdlStdinCapableCommandExecApi,
+} from "@sdl/capability-kit/command-runner";
 import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/capability-kit/git";
 
 interface ExecCall {
@@ -33,6 +37,18 @@ describe("SDL command runner adapter", () => {
 		expect(calls[0]?.options?.timeoutMs).toBe(42);
 		expect(calls[0]?.options?.stdin).toBe("input");
 		expect(calls[0]?.options?.onStdout).toBeTypeOf("function");
+	});
+
+	test("marks stdin-capable exec support", async () => {
+		const success = makeExecResult({ stdout: "ok\n" });
+		const { api, calls } = createFakeApi([success]);
+		const commands = new SdlStdinCapableCommandExecApi(api);
+
+		const result = await commands.exec("brmem", ["store"], { stdin: "payload" });
+
+		expect(commands.supportsStdin).toBe(true);
+		expect(result).toBe(success);
+		expect(calls[0]?.options?.stdin).toBe("payload");
 	});
 
 	test("refuses cwd outside the SDL host cwd", async () => {

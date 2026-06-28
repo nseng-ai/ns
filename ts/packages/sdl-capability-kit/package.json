@@ -10,13 +10,15 @@
     ".": "./src/index.ts",
     "./command-runner": "./src/command-runner.ts",
     "./git": "./src/git.ts",
-    "./sdl-command": "./src/sdl-command.ts"
+    "./sdl-command": "./src/sdl-command.ts",
+    "./sdl-context": "./src/sdl-context.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl-capability-kit/test"
   },
   "dependencies": {
+    "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
