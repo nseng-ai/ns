@@ -12,7 +12,7 @@ This Objective is a child of `sdl-extension-architecture` Phase 2. The parent ar
 - Define the durable PR Address Capability boundary: Command Face, gateway-injected Domain Core, Capability API, and the remaining Pi presentation/session responsibilities.
 - Rebaseline the existing `@sdl/pr-address/api` surface. Keep or refine its PR-feedback gateway seam, status/check DTO re-exports, and review-thread mutation types so in-process consumers import from the Capability API rather than `@sdl/core/github-pr-feedback` or raw Pi helpers.
 - Move reusable PR-feedback domain behavior into PR Address-owned, gateway-injected core modules where it is currently trapped behind CLI operation code or Pi shell-out adapters. Candidate areas include feedback snapshot/summary construction, branch-to-PR mapping, PR feedback collection, check/status normalization, review-thread reply/resolve operations, and any reusable watch/fingerprint primitives proven by the Pi workflow.
-- Decide and implement the command-face disposition for PR Address. The expected direction is an SDL-owned command face for portable operations if it fits the current grouped-command architecture; otherwise record why the standalone `pr-address` CLI remains transitional for this child slice.
+- Decide and implement the command-face disposition for PR Address. If portable operations move into an SDL-owned grouped command face, the intended group name is `sdl address ...` rather than `sdl pr-address ...`; otherwise record why the standalone `pr-address` CLI remains transitional for this child slice.
 - Align Pi PR feedback adapters in place. Pi should keep editor prefill, stack-prompt assembly, live watch UI/state, idle/dirty gating, notifications, and prompt injection, while deterministic PR feedback collection, normalization, and review-thread mutation behavior belongs to PR Address core/API or command leaves.
 - Update PR Address, Pi, SDL, context, docs, and parent Objective tracking so future agents can see the PR Address Capability API, command face, domain-core boundary, and any parked watch/presentation residue.
 
@@ -41,7 +41,7 @@ Assumptions:
 
 - `@sdl/pr-address/api` already exists because PR-feedback has a real in-process consumer seam; this Objective should refine and expand that seam only from concrete Pi/preview/command consumers.
 - Pi's current shell-outs to `pr-address` are a useful migration baseline, not a desired final architecture for reusable PR-feedback domain behavior.
-- The PR Address command face may need an SDL `sdl pr-address ...` shape eventually, but the first decision should be based on inventory and existing grouped-command mechanics rather than preserving the standalone CLI by habit.
+- The PR Address command face may need an SDL `sdl address ...` shape eventually, but the implementation decision should still be based on inventory and existing grouped-command mechanics rather than preserving the standalone CLI by habit.
 - ADR 0016 remains binding: PR Address owns PR-feedback seams, while neutral GitHub identity/status mechanics stay in `@sdl/core` and no generic GitHub Capability is introduced.
 
 Risks:
@@ -54,7 +54,7 @@ Risks:
 
 ## Open Questions
 
-- Should PR Address gain a grouped SDL command face such as `sdl pr-address ...`, or should the standalone `pr-address` CLI remain a transitional command face until another migration slice proves the SDL shape?
+- Should PR Address gain the grouped SDL command face `sdl address ...`, or should the standalone `pr-address` CLI remain a transitional command face until another migration slice proves the SDL shape?
 - Which Pi PR feedback watch primitives are truly reusable PR Address domain behavior, and which are presentation/session concerns that should remain in Pi?
 - Which existing `@sdl/pr-address/api` exports are stable Capability API vocabulary, and which should stay command-private or lower-infra-only?
 - Should local PR preview behavior consume more PR Address API surface, or is it correctly bounded as a Pi-tool presentation package over already-collected feedback/check data?

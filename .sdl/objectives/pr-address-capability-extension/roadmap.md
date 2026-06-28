@@ -15,8 +15,8 @@
   - Evidence: fake-backed PR Address tests cover the domain seams without real GitHub, `gh`, git subprocesses, or Pi runtime state; real adapters remain at command/Pi edges.
 
 - [ ] Decide the PR Address command-face disposition.
-  - Guidance: evaluate whether portable operations should move to an SDL grouped command face such as `sdl pr-address ...` using existing grouped-command mechanics, or whether the standalone `pr-address` CLI remains a documented transitional surface for now. Do not remove or alias command surfaces before call-site inventory and parity evidence exist.
-  - Evidence: an explicit decision record and implementation/docs either establish SDL command leaves with targeted tests or document why the standalone CLI remains and what would trigger a later cutover.
+  - Guidance: evaluate whether portable operations should move to the SDL grouped command face `sdl address ...` using existing grouped-command mechanics, or whether the standalone `pr-address` CLI remains a documented transitional surface for now. Do not remove or alias command surfaces before call-site inventory and parity evidence exist.
+  - Evidence: an explicit decision record and implementation/docs either establish `sdl address ...` command leaves with targeted tests or document why the standalone CLI remains and what would trigger a later cutover.
 
 - [ ] Align Pi PR feedback adapters over PR Address API/core or command leaves.
   - Guidance: preserve public Pi UX and command names while moving deterministic collection, normalization, branch/PR mapping, and review-thread mutation behavior to PR Address-owned seams where useful. Keep editor prefill, stack-prompt assembly, live watch UI/state, dirty-tree/idle gating, notifications, prompt injection, and session orchestration in Pi.
