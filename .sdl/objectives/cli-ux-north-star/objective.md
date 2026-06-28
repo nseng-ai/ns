@@ -40,9 +40,12 @@ human-facing CLI surfaces mechanically by shape.
   seam, not independent `process.*` sniffing.
 - **Rebuild** `objective list` and `flow submit` for real on those foundations to match the
   signed-off north star, preserving machine mode for `objective list`.
-- **Audit and roll out** the house style across the remaining human-facing CLI surfaces. The inventory
-  lives in `cli-surface-audit.md`; feature-building migrations lead, and hidden `exec`/LM payload/full-screen
-  TUI surfaces are exempt by default unless they grow a real human-facing mode.
+- **Audit and roll out** the house style across the remaining eligible human-facing CLI surfaces. Eligibility
+  is gated by the SDL extension architecture migration: this Objective migrates commands only after their
+  command surface has been ported to an SDL extension / Capability command face. The inventory lives in
+  `cli-surface-audit.md`; it must be re-evaluated as extension-architecture work ports more commands.
+  Feature-building migrations lead, and hidden `exec`/LM payload/full-screen TUI surfaces are exempt by
+  default unless they grow a real human-facing mode.
 
 ## Non-Goals
 
@@ -54,6 +57,8 @@ human-facing CLI surfaces mechanically by shape.
 - Growing `SdlExtensionApi` beyond, at most, a single deferred optional caps field.
 - Themed `--help`, branded gradients/figlet, or bordered tables as the list default
   (explicitly rejected — lists stay restrained).
+- Styling standalone tools or unported capability commands before the SDL extension architecture has
+  given them an extension / Capability command face. Those surfaces can be re-evaluated when they port.
 - Reconciling raw `gt` subprocess passthrough against the in-place live region inside the
   throwaway prototype (faked there; handled for real at rebuild).
 
@@ -68,12 +73,14 @@ human-facing CLI surfaces mechanically by shape.
 - `objective list` and `flow submit` rebuilt on the foundations and matching the north star,
   with `--format json` machine mode preserved for `objective list`.
 - `cli-surface-audit.md` stays current and covers every first-party TypeScript CLI surface, with each
-  surface marked done, feature-building, mechanical, or exempt.
-- The feature-building front of the migration backlog is complete: side-effect workflow/progress,
-  destructive preview/confirmation, actionable shell/navigation output, registry/agent-run reporting,
-  and generalized list/detail/report primitives are stable enough that remaining migrations are mechanical.
-- Every non-exempt human-facing CLI surface in `cli-surface-audit.md` is either migrated to the house
-  style or explicitly deferred with rationale.
+  surface marked done, eligible feature-building/mechanical, exempt, or extension-gated until its command
+  face ports.
+- The eligible feature-building front of the migration backlog is complete: side-effect workflow/progress,
+  destructive preview/confirmation, actionable shell/navigation output, and generalized list/detail/report
+  primitives are stable enough that remaining eligible migrations are mechanical.
+- Every eligible non-exempt human-facing CLI surface in `cli-surface-audit.md` is either migrated to the
+  house style or explicitly deferred with rationale; extension-gated surfaces are outside this Objective
+  until a later audit pass finds that they have ported.
 - Evidence: targeted tests and relevant repo checks (`just`) pass; the opt-in property is
   verified — a core-only consumer pulls in none of the display dependencies.
 
@@ -89,6 +96,9 @@ human-facing CLI surfaces mechanically by shape.
   host-supplied caps through the clinkr IO / host-extension seam.
 - Most users run modern terminals, but the chosen ladder A means 16-color / mono / ASCII degradation
   remains intentionally supported as part of the real renderer contract.
+- The SDL extension architecture migration is still moving. The rollout backlog is therefore a snapshot:
+  command eligibility must be recalculated from the current extension / Capability command-face inventory
+  before each new batch is selected.
 - `ansis` (truecolor/hex) and `log-update` (in-place) are the right libraries; latitude to
   experiment was explicitly granted.
 
@@ -103,9 +113,10 @@ human-facing CLI surfaces mechanically by shape.
 - Degradation correctness (mono / no-unicode / non-TTY / narrow width) is where rich CLIs break;
   it remains a regression risk for future rollout even though the representative surfaces now have
   focused coverage.
-- The audited rollout can still become open-ended if every command invents bespoke presentation. Mitigate by
-  doing feature-building migrations first, freezing reusable renderer shapes, and then batching the remaining
-  surfaces mechanically by shape.
+- The audited rollout can still become open-ended if every command invents bespoke presentation or if the
+  backlog silently expands ahead of the extension-architecture migration. Mitigate by doing eligible
+  feature-building migrations first, freezing reusable renderer shapes, rechecking extension eligibility at
+  batch boundaries, and then batching the remaining eligible surfaces mechanically by shape.
 - Keeping `SdlExtensionApi` narrow while delivering caps through clinkr was de-risked with the
   existing generic `extensions` seam (`sdl.clinkr.caps`), avoiding a dedicated new caps field;
   the broader streaming machine-output contract is explicitly parked as a follow-on instead of being
