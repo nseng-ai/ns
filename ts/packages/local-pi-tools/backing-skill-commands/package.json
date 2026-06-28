@@ -1,0 +1,17 @@
+{
+  "name": "@local-pi-tools/backing-skill-commands",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/local-pi-tools/backing-skill-commands/test"
+  },
+  "dependencies": {
+    "@sdl/pi": "workspace:*"
+  },
+  "devDependencies": {}
+}

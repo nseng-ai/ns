@@ -56,9 +56,11 @@ export interface BasePiSurfaceParity {
 	 */
 	readonly sourcePackage:
 		| "@sdl/pi"
-		| "@sdl/pi-context-profiler"
-		| "@sdl/pi-grill"
-		| "@sdl/pi-thermo-council"
+		| "@local-pi-tools/backing-skill-commands"
+		| "@local-pi-tools/context-profiler"
+		| "@local-pi-tools/grill"
+		| "@local-pi-tools/pr-previews"
+		| "@local-pi-tools/thermo-council"
 		| "@sdl/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;

@@ -1,0 +1,21 @@
+{
+  "name": "@local-pi-tools/pr-previews",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/local-pi-tools/pr-previews/test"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-tui": "catalog:",
+    "@sdl/core": "workspace:*",
+    "@sdl/pi": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {}
+}

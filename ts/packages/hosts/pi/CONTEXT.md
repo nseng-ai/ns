@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi-native standalone tools may instead live in Pi-tool packages stacked above `@sdl/pi`; those packages consume neutral host helpers while their discovery adapters import the tool package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi-native standalone tools may instead live in Local Pi-tool packages stacked above `@sdl/pi`; those packages consume neutral host helpers while their discovery adapters import the tool package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; after the single-package cutover CCC may consume neutral `@sdl/pi/...` helper subpaths, while `@sdl/pi` no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
 
 ## Language
 
@@ -20,8 +20,8 @@ A thin project-local extension file whose job is to register Pi commands or tool
 A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as Branch Context, Handoff, Objective commands, PR views, worktree status, SDL flow mirrors, terminal presentation, host-owned runner-subagent runtime helpers, and command registration helpers.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
-**Pi-tool package**:
-A private workspace package under `ts/packages/pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-thermo-council`, or the dispatch-focused `@sdl/pi-runner-subagents`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
+**Local Pi-tool package**:
+A private workspace package under `ts/packages/local-pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@local-pi-tools/context-profiler`, `@local-pi-tools/grill`, `@local-pi-tools/thermo-council`, `@local-pi-tools/backing-skill-commands`, `@local-pi-tools/pr-previews`, or the dispatch-focused `@local-pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
 *Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
@@ -49,7 +49,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining Pi presentation/session behavior around PR feedback workflows: editor prefill, modal previews, stack-prompt assembly, live watch state, dirty-tree/idle gating, check-log display, and prompt injection. Portable download/check/thread primitives belong to `pr-address` / `@sdl/pr-address/api` and its command face; future reusable watch/fingerprint seams should move through a focused `pr-address` Capability/API follow-up, not a Pi-tool extraction.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@local-pi-tools/pr-previews`; portable download/check/thread primitives belong to `pr-address` / `@sdl/pr-address/api` and its command face; future reusable watch/fingerprint seams should move through a focused `pr-address` Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, portable review-thread mutation API.
 
 **Immediate command acknowledgement**:
@@ -61,7 +61,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Runner subagent**:
-A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool lives in `@sdl/pi-runner-subagents`; the shared runtime, process, JSON-event, and presentation helpers remain intentional neutral `@sdl/pi/runner-subagents*` subpaths while host runtime and downstream tools still consume them.
+A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool lives in `@local-pi-tools/runner-subagents`; the shared runtime, process, JSON-event, and presentation helpers remain intentional neutral `@sdl/pi/runner-subagents*` subpaths while host runtime and downstream tools still consume them.
 *Avoid*: queued slash command, child thread, transcript scrape, forcing `@sdl/pi` to import the extracted dispatch package.
 
 **Terminal helper surface**:

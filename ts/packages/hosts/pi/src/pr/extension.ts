@@ -16,19 +16,11 @@ import {
 	type PrFeedbackDownloadCounts,
 } from "./feedback-download.ts";
 import prFeedbackWatchExtension from "./feedback-watch.ts";
-import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
-import type { PiModelRegistryLike } from "../models/call.ts";
-import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
-export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
-export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";
-
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
-const PREVIEW_FEEDBACK_STATUS_KEY = PR_PREVIEW_FEEDBACK_COMMAND_NAME;
-const PREVIEW_CHECKS_STATUS_KEY = PR_PREVIEW_CHECKS_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
 const STACK_FEEDBACK_INSTRUCTIONS = readFileSync(
@@ -85,35 +77,10 @@ export const prExtensionParity = definePiSurfaceParity([
 		notes:
 			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",
 	},
-	{
-		kind: "command",
-		surface: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
-		workflow: "Preview unresolved PR review threads in a read-only Pi modal overlay",
-		parity: "WAIVED",
-		fallback:
-			"Use pr-address exec download-feedback --format json, then pr-address exec pr-review-threads --pr-number <n> --format json.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
-		sourceModule: "pr",
-		notes:
-			"The browser modal is Pi-native TUI/session behavior; pr-address owns portable read-only feedback collection.",
-	},
-	{
-		kind: "command",
-		surface: PR_PREVIEW_CHECKS_COMMAND_NAME,
-		workflow: "Preview GitHub PR checks in a read-only Pi modal overlay",
-		parity: "WAIVED",
-		fallback: "Use pr-address exec pr-checks [--pr-number <n>] --format json.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
-		sourceModule: "pr",
-		notes: "Pi owns modal/session UI; pr-address owns portable check collection.",
-	},
 ] as const);
 
 export interface ExtensionContext {
 	cwd: string;
-	modelRegistry?: PiModelRegistryLike | undefined;
 	hasUI?: boolean;
 	ui?: {
 		notify?(message: string, level?: "info" | "warning" | "error"): void;
@@ -190,28 +157,6 @@ export default function prExtension(pi: ExtensionAPI): void {
 				await runPrDownloadStackFeedbackCommand(pi, rawArgs, ctx);
 			},
 		},
-	});
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: PR_PREVIEW_FEEDBACK_COMMAND_NAME,
-		commandDefinition: createPrPreviewFeedbackCommand(pi, {
-			statusKey: PREVIEW_FEEDBACK_STATUS_KEY,
-			commandTimeoutMs: COMMAND_TIMEOUT_MS,
-			parseOptionalPrNumberArgs,
-			parseEnvelopeWithSchema,
-			notify,
-		}),
-	});
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: PR_PREVIEW_CHECKS_COMMAND_NAME,
-		commandDefinition: createPrPreviewChecksCommand(pi, {
-			statusKey: PREVIEW_CHECKS_STATUS_KEY,
-			commandTimeoutMs: COMMAND_TIMEOUT_MS,
-			parseOptionalPrNumberArgs,
-			parseEnvelopeWithSchema,
-			notify,
-		}),
 	});
 }
 

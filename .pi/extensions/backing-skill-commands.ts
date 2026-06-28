@@ -1,3 +1,3 @@
-import registerBackingSkillCommands from "../../ts/packages/hosts/pi/src/extensions/backing-skill-commands.ts";
+import registerBackingSkillCommands from "../../ts/packages/local-pi-tools/backing-skill-commands/src/extension.ts";
 
 export default registerBackingSkillCommands;
