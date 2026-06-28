@@ -2,7 +2,7 @@
 
 ## Work
 
-- [ ] Inventory current Aretro capability boundary and consumers.
+- [x] Inventory current Aretro capability boundary and consumers.
   - Policy: direct execution after preview for read-only inventory and tracking updates.
   - Evidence to collect: package exports/bin in `ts/packages/aretro/package.json`; command implementation in `src/cli.ts`; injectable seams in `src/context.ts`, operations, sessions, and payload modules; tests; docs in `docs/aretro.md`; `branch-retro` skill/runner usage; and repo-wide imports/invocations of `@sdl/aretro`, `aretro exec`, or any SDL/Pi/CCC Aretro surface.
 
