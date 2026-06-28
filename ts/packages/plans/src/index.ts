@@ -20,6 +20,7 @@ export {
 export {
 	NoSavedPlanAvailableError,
 	buildPlanFileName,
+	buildPlanStoreBranchDirectoryPath,
 	buildRepoPlanStoreKey,
 	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
@@ -56,5 +57,6 @@ export {
 	type ResolveSelectedSavedPlanFileOptions,
 	type SelectedSavedPlanFile,
 	type SessionSavedPlanValidation,
+	type ValidateSessionSavedPlanCandidateOptions,
 	type ValidatedSessionSavedPlan,
 } from "./saved-plan-selection.ts";

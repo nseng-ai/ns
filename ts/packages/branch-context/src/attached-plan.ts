@@ -206,6 +206,7 @@ async function loadSavedPlanFallback(
 		git: options.context.git,
 		planStoreRoot: options.planStoreRoot,
 		sessionEntries: options.sessionEntries,
+		shouldAllowSessionSourceBranchMismatch: true,
 		shouldFallbackToLatest: true,
 	});
 	const fileInfo = selectedSavedPlanFileInfo(selected);
