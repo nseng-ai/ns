@@ -8,6 +8,7 @@ import type {
 } from "../api.ts";
 
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
+import { resolvePrTarget } from "./pr-target.ts";
 
 export interface PrChecksTargetPayload {
 	kind: "github_pr";
@@ -64,13 +65,11 @@ export interface CollectPrChecksOptions {
 	prNumber?: number | undefined;
 }
 
-type ChecksTarget =
-	| { type: "found"; pr: GithubPrSummary; branch: string | null }
-	| { type: "miss"; branch: string | null }
-	| Exclude<PrChecksResult, { type: "ok" }>;
-
 export async function collectPrChecks(options: CollectPrChecksOptions): Promise<PrChecksResult> {
-	const target = await resolveChecksTarget(options);
+	const target = await resolvePrTarget({
+		...options,
+		detachedHeadMessage: "Detached HEAD: pr-checks requires a checked-out branch or --pr-number.",
+	});
 	if (target.type === "git_failure") return target;
 	if (target.type === "pr_feedback_failure") return target;
 	if (target.type === "detached_head") return target;
@@ -101,53 +100,6 @@ export async function collectPrChecks(options: CollectPrChecksOptions): Promise<
 			checks: checks.value,
 		}),
 	};
-}
-
-async function resolveChecksTarget(options: CollectPrChecksOptions): Promise<ChecksTarget> {
-	if (options.prNumber !== undefined) {
-		const lookup = await options.prFeedback.getPr({
-			...options.gatewayOptions,
-			prNumber: options.prNumber,
-		});
-		if (!lookup.ok) {
-			return {
-				type: "pr_feedback_failure",
-				message: `Failed to look up PR ${options.prNumber}`,
-				failure: lookup.error,
-			};
-		}
-		if (!lookup.value.found) return { type: "miss", branch: null };
-		return { type: "found", pr: lookup.value.pr, branch: null };
-	}
-
-	const branch = await options.git.currentBranch(options.gatewayOptions);
-	if (branch.type === "failure") {
-		return {
-			type: "git_failure",
-			message: "Failed to determine current branch",
-			failure: branch.error,
-		};
-	}
-	if (branch.type === "detached") {
-		return {
-			type: "detached_head",
-			message: "Detached HEAD: pr-checks requires a checked-out branch or --pr-number.",
-		};
-	}
-
-	const lookup = await options.prFeedback.getPrForBranch({
-		...options.gatewayOptions,
-		branch: branch.branch,
-	});
-	if (!lookup.ok) {
-		return {
-			type: "pr_feedback_failure",
-			message: `Failed to look up PR for branch ${branch.branch}`,
-			failure: lookup.error,
-		};
-	}
-	if (!lookup.value.found) return { type: "miss", branch: branch.branch };
-	return { type: "found", pr: lookup.value.pr, branch: branch.branch };
 }
 
 function prChecksPayload(options: {
