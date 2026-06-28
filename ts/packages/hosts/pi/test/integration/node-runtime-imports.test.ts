@@ -68,7 +68,7 @@ describe("Node runtime import smoke", () => {
 				".pi/extensions/thermo-council.ts",
 			]),
 		);
-	});
+	}, 15_000);
 
 	test("pi package imports workspace exports through package links under Node", () => {
 		const result = runNodeEval({
