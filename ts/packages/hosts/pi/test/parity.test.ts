@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import codeWorkflowsExtension from "../src/flow/code-workflows.ts";
-import codeExtension from "../src/pr/code-extension.ts";
 import investigateExtension from "../src/investigate/extension.ts";
 import modelShortcutExtension from "../src/models/shortcuts.ts";
 import prExtension from "../src/pr/extension.ts";
@@ -14,17 +12,13 @@ import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
 import { definePiSurfaceParity } from "../src/parity/extension.ts";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
-import sdlExtension from "../src/flow/sdl-extension.ts";
 
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 
-	await registerWithFakeHost(pi, codeWorkflowsExtension);
-	await registerWithFakeHost(pi, codeExtension);
 	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, prExtension);
-	await registerWithFakeHost(pi, sdlExtension);
 	// The worktree-status implementation lives in @sdl/worktree-status and is
 	// discovered through .pi/extensions/worktree-status.ts, but @sdl/pi owns the
 	// static parity registry. Include its live command shape without importing the

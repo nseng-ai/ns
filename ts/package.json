@@ -28,6 +28,7 @@
     "@sdl/capability-kit": "workspace:*",
     "@sdl/ccc": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/flow-pi": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/handoff-pi": "workspace:*",
     "@sdl/objective-pi": "workspace:*",

@@ -4,7 +4,7 @@ import stackSquashExtension, {
 	STACK_SQUASH_COMMAND_NAME,
 	runStackSquash,
 	type StackSquashExtensionAPI,
-} from "../src/flow/stack-squash.ts";
+} from "../src/stack-squash.ts";
 
 const TEST_CWD = process.cwd();
 

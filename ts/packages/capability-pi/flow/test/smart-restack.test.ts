@@ -4,7 +4,7 @@ import smartRestackExtension, {
 	SMART_RESTACK_COMMAND_NAME,
 	runSmartRestack,
 	type SmartRestackExtensionAPI,
-} from "../src/flow/smart-restack.ts";
+} from "../src/smart-restack.ts";
 
 const TEST_CWD = process.cwd();
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import codeExtension from "../src/pr/code-extension.ts";
+import codeExtension from "../src/code-extension.ts";
 
 interface RegisteredCommand {
 	description?: string;

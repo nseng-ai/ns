@@ -3,8 +3,8 @@ import { runCli, type SdlCommandInfo } from "@sdl/kernel/cli";
 import {
 	registerCliCommandExtension,
 	type CliCommandExtensionAPI,
-} from "../commands/cli-extension.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
+} from "@sdl/pi/commands/cli-extension";
+import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
 
 export type SdlExtensionAPI = CliCommandExtensionAPI;
 
@@ -53,7 +53,7 @@ export const sdlExtensionParity = definePiSurfaceParity(
 		parity: "FULL" as const,
 		cli: `sdl ${command.displayName}`,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi" as const,
+		sourcePackage: "@sdl/flow-pi" as const,
 		sourceModule: "sdl-extension",
 		notes: `Pi command delegates to sdl ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
 	})),

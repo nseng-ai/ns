@@ -1,5 +1,5 @@
-import smartRestackExtension from "../flow/smart-restack.ts";
-import stackSquashExtension from "../flow/stack-squash.ts";
+import smartRestackExtension from "./smart-restack.ts";
+import stackSquashExtension from "./stack-squash.ts";
 
 type CodeExtensionAPI = Parameters<typeof smartRestackExtension>[0] &
 	Parameters<typeof stackSquashExtension>[0];
