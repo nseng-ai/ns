@@ -60,14 +60,17 @@ Useful evidence includes targeted Handoff package tests, fake-gateway Domain Cor
 
 ## Runner Policy
 
-This Objective is execution-friendly for `objective-next` under the boundaries below.
+This Objective is execution-friendly for `objective-stack-impl` and `objective-next` under the boundaries below. Future `objective-stack-impl` sessions should try to execute the remaining Objective end-to-end, one reviewable Graphite slice at a time, after the normal preview/confirmation gate. The inventory baseline in `updates/2026-06-27T230253Z-handoff-surface-inventory-baseline.md` is the compatibility source of truth for the migration.
 
-- Direct execution is allowed after a preview for one bounded slice, such as inventorying Handoff surfaces and call sites, adding or narrowing `@sdl/handoff/api`, extracting one gateway-injected Handoff Domain Core, adding one nested-command infrastructure proof, migrating one `sdl handoff <operation>` leaf, aligning one Pi adapter family, updating docs/context, or running the standalone CLI cutover inventory.
-- Direct execution may remove the standalone `handoff` binary/shim only after the preview states the parity evidence, call-site inventory, docs/test updates, and rollback/stop conditions; otherwise standalone CLI cutover is steer-first.
-- Steer or ask first when choosing nested command manifest/schema shape, public SDL SDK author API, command names or aliases, JSON output contract, slug derivation policy, storage compatibility changes, destructive deletion/gc behavior, pickup continuation behavior, dynamic Pi mirroring, or agent-resource installation scope.
+- Direct execution is allowed after a preview for any remaining bounded slice, including adding or narrowing `@sdl/handoff/api`, extracting gateway-injected Handoff Domain Core functions, proving or extending nested `sdl handoff <operation>` command loading, migrating `list`/`delete`/`gc`/`create`/`pickup` leaves, aligning one Pi adapter family, updating docs/context/skills, and cutting over the standalone CLI once parity evidence is present.
+- Use existing SDL grouped-command manifest mechanics as the default nested command-tree contract: a package-style SDL extension with `sdl.group: "handoff"`, leaf names `list`, `delete`, `gc`, `create`, and `pickup`, and selected leaf loading through the existing SDL command catalog. Implement the smallest internal SDL discovery/CLI/help fixes needed to make that contract work; do not add public SDL SDK author API or aliases unless repeated command evidence forces a separate steer.
+- Use `@sdl/handoff/api` as an additive Capability API over the Handoff Domain Core. It may expose identity helpers, summaries, technical locators, list/read/create/delete/gc operations, selection helpers, and gateway-injected request/result types. It must not expose Pi UI, model/session authoring, cmux/tab launch, Claude launch, or session-replacement behavior.
+- Use these default command contracts unless implementation evidence proves they are insufficient: `sdl handoff create` stores final Markdown from `--file` or stdin, requires an explicit validated `--slug`, defaults to the current branch with optional `--branch`, refuses overwrite by default, and returns technical locator evidence; `sdl handoff pickup` mechanically selects/reads an artifact and returns content plus metadata/locator, with no summarization, launch, or automatic continuation.
+- Preserve existing storage behavior unless the user explicitly requests a compatibility-breaking decision: namespace `handoff`, flat `<slug>.md` keys, strict semantic slug validation, branch-scoped artifacts, all-branches inventory semantics, deleted-branch garbage collection, delete/gc confirmation semantics, and Handoff Technical Locator fields.
+- Standalone `handoff` binary/shim removal is direct-executable once the preview states the concrete parity evidence (`sdl handoff list/delete/gc/create/pickup` tests), call-site inventory/cutover result, docs/skill updates, and rollback/stop conditions. Stop only if an unclassified external or repo-local call site still requires the old binary.
 - Work may edit repo-local TypeScript, package metadata, tests, docs/context files, Pi adapters, skills/prompts that describe Handoff workflows, SDL command infrastructure, and Objective tracking. Work may be left as local file changes on the current branch after the confirmed slice.
 - Validation before keeping work should include targeted tests/checks for touched packages and import-boundary/storage searches relevant to the slice. Full `just` is useful evidence for broad command-system or cutover slices but is not a standalone roadmap row.
-- The runner must not push, submit, land, publish packages, mutate GitHub issues/PRs, mutate real Branch Memory entries as validation, or call external write APIs unless the user explicitly includes that action in the confirmed preview scope.
+- Stop and ask before changing public Pi command names, changing Branch Memory storage compatibility, adding dynamic arbitrary Pi mirroring, adding agent-resource installation/marketplace behavior, adding automatic pickup continuation, introducing a public SDL SDK author API change, or mutating real Branch Memory entries as validation. The runner must not push, submit, land, publish packages, mutate GitHub issues/PRs, or call external write APIs unless the user explicitly includes that action in the confirmed preview scope.
 
 ## Assumptions and Risks
 
@@ -90,9 +93,11 @@ Risks:
 
 ## Open Questions
 
-- What exact nested command manifest/schema and selected leaf authoring helper should SDL expose for `sdl handoff <operation>`?
-- Which Handoff lifecycle operations should become first-class `@sdl/handoff/api` functions versus command-private helpers?
-- What structured output should `sdl handoff pickup` return so Pi/skills can present summaries and ask for user-controlled continuation without parsing human text?
-- Should `sdl handoff create` derive slugs from final Markdown, require explicit slugs, support both, or delegate derivation to a shared Handoff API helper?
-- Which Pi/skill call sites still shell out or embed Branch Memory recipes after the API and command leaves exist?
-- What minimum parity evidence is required before removing the standalone `handoff` binary and documentation references?
+No open question should block `objective-stack-impl` from continuing through the Objective after its normal preview/confirmation gate. Use the Runner Policy defaults above unless implementation evidence proves a default is insufficient.
+
+- Nested command contract default: use existing grouped SDL extension manifest mechanics (`sdl.group: "handoff"`) and selected leaf loading. Ask only before adding public SDL SDK author API, aliases, or a new manifest schema beyond the existing grouped-command shape.
+- Capability API default: make lifecycle operations first-class when needed by SDL leaves or Pi adapters (`list`, `read`/pickup selection, `create`, `delete`, `gc`, identity/locator helpers); keep command-private only formatting, CLI option parsing, and presentation.
+- Pickup output default: return artifact content plus selected Handoff Summary / Handoff Technical Locator metadata in the Clinkr result envelope; leave conversational summary and continuation control to Pi/skills.
+- Create slug default: require explicit validated `--slug` for `sdl handoff create`; content-derived/model-derived slugging remains a Pi/skill authoring responsibility unless a later explicit decision adds a deterministic API helper.
+- Call-site inventory default: start from `updates/2026-06-27T230253Z-handoff-surface-inventory-baseline.md`, then rerun source searches before Pi adapter migration and standalone CLI removal.
+- Standalone cutover evidence default: require passing SDL command scenario tests for all five leaves, Handoff storage compatibility tests, Pi adapter tests where touched, docs/skill updates, and import/search evidence that no durable public call site still depends on the standalone binary.
