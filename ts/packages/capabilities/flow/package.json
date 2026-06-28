@@ -7,6 +7,12 @@
   ],
   "type": "module",
   "exports": {
+    "./api": "./src/api.ts",
+    "./autoslot": "./src/autoslot.ts",
+    "./land": "./src/land.ts",
+    "./trunk-pull": "./src/trunk-pull.ts",
+    "./land-stack": "./src/land-stack.ts",
+    "./land-stack/*": "./src/land-stack/*.ts",
     "./commands/changes": "./src/commands/changes.ts",
     "./commands/cp": "./src/commands/cp.ts",
     "./commands/autobranch": "./src/commands/autobranch.ts",
@@ -25,13 +31,13 @@
   },
   "dependencies": {
     "@sdl/autobranch": "workspace:*",
-    "@sdl/ccc": "workspace:*",
     "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
+    "@sdl/slot": "workspace:*",
     "sdl-sdk": "workspace:*"
   },
   "devDependencies": {},

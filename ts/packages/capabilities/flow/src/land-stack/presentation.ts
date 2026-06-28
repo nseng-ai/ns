@@ -1,0 +1,514 @@
+import { formatCommand } from "@sdl/core/exec";
+import {
+	linkifyPrReferences,
+	prLinksFromDetails,
+	truncateDisplayLine,
+} from "./terminal-presentation.ts";
+import { formatCommandDetails, shortSha } from "./command-exec.ts";
+import {
+	AUTO_CHUNK_LANDING_SIZE,
+	AUTO_CHUNK_LANDING_THRESHOLD,
+	COMMAND_NAME,
+	STATUS_KEY,
+} from "./constants.ts";
+import { emptyResult, type LandStackFailure } from "./errors.ts";
+import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
+import { formatPrSubmitRequirement } from "./pr-facts.ts";
+import type {
+	CommandStreamMessageDetails,
+	DescendantMaintenancePlan,
+	LandStackCommandContext,
+	LandedChunk,
+	LandedPr,
+	LandingPlan,
+	LandingWarning,
+	LandResultKind,
+	NotifyLevel,
+	RemainingCleanup,
+} from "./types.ts";
+import { formatConflict, formatSlotConflict } from "./worktrees.ts";
+
+const MAX_NOTIFICATION_CHARS = 160;
+
+export function formatPlan(plan: LandingPlan): string {
+	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
+	const lines: string[] = [];
+
+	lines.push(`Land Graphite stack path: ${[stack.trunk, ...stack.landingBranches].join(" -> ")}`);
+	if (stack.remainingLandingBranches.length > 0) {
+		lines.push(
+			`Full remaining path after this bounded landing scope: ${[stack.trunk, ...stack.landingBranches, ...stack.remainingLandingBranches].join(" -> ")}`,
+		);
+	}
+	lines.push("");
+	lines.push(`Current branch: ${stack.actualCurrentBranch}`);
+	lines.push(`Landing target branch: ${stack.landingTargetBranch}`);
+	lines.push(`Trunk branch: ${stack.trunk}`);
+	lines.push("");
+	lines.push("Will merge, in order:");
+	branchPlans.forEach((planEntry, index) => {
+		const currentLabel = planEntry.branch === stack.actualCurrentBranch ? " Current branch" : "";
+		const targetLabel =
+			planEntry.branch === stack.landingTargetBranch &&
+			planEntry.branch !== stack.actualCurrentBranch
+				? " Landing target"
+				: "";
+		const labels = `${currentLabel}${targetLabel}`;
+		lines.push(
+			`  ${index + 1}. #${planEntry.pr.number} ${planEntry.branch} ${shortSha(planEntry.localSha)} ${planEntry.pr.title}${labels}`,
+		);
+	});
+
+	if (stack.remainingLandingBranches.length > 0) {
+		lines.push("", "Will leave for future automatic chunk(s):");
+		for (const branch of stack.remainingLandingBranches) {
+			lines.push(`  - ${branch}`);
+		}
+	}
+
+	lines.push("");
+	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
+
+	if (stack.warnings.length > 0) {
+		lines.push("", "Warnings:");
+		for (const warning of stack.warnings) {
+			lines.push(`  - ${warning}`);
+		}
+	}
+
+	lines.push("");
+	if (managedSlotConflicts.length > 0) {
+		lines.push(
+			"Before merging, this command will ask before freeing these landing-branch slots only:",
+		);
+		for (const conflict of managedSlotConflicts) {
+			lines.push(`  - ${formatSlotConflict(conflict)}`);
+		}
+	} else {
+		lines.push("No landing-branch managed slot cleanup is required before merging.");
+	}
+
+	lines.push("");
+	if (prSubmitRequirements.length > 0) {
+		const restackTarget = restackTargetForSubmit(plan);
+		lines.push(
+			restackTarget
+				? "Before merging, this command will ask before running gt restack + submit/update because local branch reachability shows restack is required and GitHub PR metadata is behind local refs:"
+				: "Before merging, this command will ask before running gt submit/update because GitHub PR metadata is behind local refs:",
+		);
+		if (restackTarget) {
+			for (const requirement of plan.submitRestackRequirements) {
+				lines.push(`  Restack: ${requirement.branch} on ${requirement.parent}`);
+			}
+		}
+		for (const requirement of prSubmitRequirements) {
+			lines.push(`  ${formatPrSubmitRequirement(requirement)}`);
+		}
+		if (restackTarget) {
+			lines.push(`  Command: ${formatCommand("gt", restackForSubmitArgs(restackTarget))}`);
+		}
+		lines.push(`  Command: ${formatCommand("gt", submitUpdateArgs(stack.landingTargetBranch))}`);
+	} else {
+		lines.push("No pre-merge PR submit/update is required.");
+	}
+
+	lines.push(
+		"",
+		"For each merged PR:",
+		"  - gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
+		`  - verify PR is MERGED on ${stack.trunk}`,
+		"  - if another landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
+		"  - gt delete <landed-branch> -f -q, retaining the final landed local branch when it is checked out in this worktree",
+		"  - restack/submit the next landing branch when required; descendant restack/update is optional after target PRs land",
+		"",
+		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
+	);
+
+	return lines.join("\n");
+}
+
+export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string {
+	const fullLandingBranches = [
+		...plan.stack.landingBranches,
+		...plan.stack.remainingLandingBranches,
+	];
+	const chunks = chunkBranches(fullLandingBranches, chunkSize);
+	const lines = [
+		`Land ${fullLandingBranches.length} PRs in ${chunks.length} chunks.`,
+		"",
+		"Path:",
+		`${plan.stack.trunk} -> ${fullLandingBranches.join(" -> ")}`,
+		"",
+		`Current branch: ${plan.stack.actualCurrentBranch}`,
+		`Trunk branch: ${plan.stack.trunk}`,
+		`Total PRs: ${fullLandingBranches.length}`,
+		`Chunk size: ${chunkSize}`,
+		`Chunks: ${chunks.length}`,
+		"",
+		"Chunks:",
+	];
+	chunks.forEach((chunk, index) => {
+		const start = index * chunkSize + 1;
+		const end = start + chunk.length - 1;
+		lines.push(`  ${index + 1}. PRs ${start}-${end}: ${chunk.join(" -> ")}`);
+	});
+	lines.push(
+		"",
+		"This single confirmation covers the full chunked landing operation, including required managed-slot cleanup and Graphite restack/submit/update if encountered.",
+		"The command will squash-merge PRs in order, refresh/delete local Graphite branches where safe, and stop on first failure.",
+	);
+	return lines.join("\n");
+}
+
+function chunkBranches(branches: readonly string[], chunkSize: number): string[][] {
+	const chunks: string[][] = [];
+	for (let index = 0; index < branches.length; index += chunkSize) {
+		chunks.push(branches.slice(index, index + chunkSize));
+	}
+	return chunks;
+}
+
+function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
+	if (maintenance.kind === "none") {
+		return ["No descendant PRs above the current branch will be merged."];
+	}
+
+	if (maintenance.kind === "auto") {
+		return [
+			"Will leave open and try to restack/update after target PRs land:",
+			...maintenance.branches.map((branch) => `  - ${branch}`),
+		];
+	}
+
+	return [
+		"Will leave open without automatic restack/update because these descendants are checked out elsewhere:",
+		...maintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
+	];
+}
+
+export function usage(): string {
+	return [
+		"Usage:",
+		`/${COMMAND_NAME} [--yes] [--dry-run] [--free] [--force] [--help]`,
+		"",
+		"Lands the current PR or Graphite stack into gt trunk.",
+		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
+		`Stacks with more than ${AUTO_CHUNK_LANDING_THRESHOLD} PRs are landed automatically in chunks of ${AUTO_CHUNK_LANDING_SIZE} without switching this worktree to each chunk tip.`,
+		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
+		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree unless --free is requested from a managed slot.",
+		"",
+		"Options:",
+		"  --yes, -y       Skip stack/global landing confirmation. In single-plan mode, landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation; in chunked mode, --yes approves the full chunked operation.",
+		"  --dry-run       Show the full or chunked plan and exit before mutating refs or PRs.",
+		"  --free          After successful landing, free the current managed slot and delete the landed local branch.",
+		"  --force, -f     Skip the post-landing --free confirmation.",
+		"  --help, -h      Show this help.",
+	].join("\n");
+}
+
+export function formatSuccessSummary(
+	landed: LandedPr[],
+	descendantMaintenance: DescendantMaintenancePlan,
+	warnings: LandingWarning[],
+	cleanup: RemainingCleanup,
+): string {
+	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
+	const noteEntries = warnings.filter((warning) => landingWarningLevel(warning) === "info");
+	const landedText = landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
+	const lines = [`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"}: ${landedText}.`];
+	if (descendantMaintenance.kind === "auto" && descendantMaintenance.branches.length > 0) {
+		if (hasDescendantMaintenanceDeferral(noteEntries)) {
+			lines.push(
+				`Left open; restack/update deferred: ${descendantMaintenance.branches.join(", ")}.`,
+			);
+		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
+			lines.push(
+				`Left open; restack/update needs follow-up: ${descendantMaintenance.branches.join(", ")}.`,
+			);
+		} else {
+			lines.push(`Left open/restacked: ${descendantMaintenance.branches.join(", ")}.`);
+		}
+	} else if (descendantMaintenance.kind === "skipped") {
+		lines.push(`Left open; restack/update skipped: ${descendantMaintenance.branches.join(", ")}.`);
+		lines.push(`Reason: ${descendantMaintenance.reason}.`);
+	}
+	lines.push("", "Remaining cleanup:");
+	lines.push("  - Remote branches were not deleted.");
+	for (const retained of cleanup.retainedLocalBranches) {
+		lines.push(
+			`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`,
+		);
+	}
+	if (cleanup.retainedLocalBranches.length === 0) {
+		lines.push(
+			"  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
+		);
+	}
+	if (warningEntries.length > 0) {
+		lines.push(
+			"",
+			`Completed with ${warningEntries.length} warning${warningEntries.length === 1 ? "" : "s"}:`,
+		);
+		for (const warning of warningEntries) {
+			lines.push(...formatLandingWarning(warning));
+		}
+	}
+	if (noteEntries.length > 0) {
+		lines.push("", "Notes:");
+		for (const note of noteEntries) {
+			lines.push(...formatLandingWarning(note));
+		}
+	}
+	return lines.join("\n");
+}
+
+function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
+	return warning.level ?? "warning";
+}
+
+function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
+	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
+}
+
+function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
+	return warnings.some((warning) => {
+		const message = warning.message.toLowerCase();
+		return message.includes("descendant") && message.includes("deferred");
+	});
+}
+
+export function formatChunkedSuccessSummary(
+	chunks: readonly LandedChunk[],
+	descendantMaintenance: DescendantMaintenancePlan,
+	warnings: LandingWarning[],
+	cleanup: RemainingCleanup,
+): string {
+	const landed = chunks.flatMap((chunk) => chunk.landed);
+	const baseSummary = formatSuccessSummary(landed, descendantMaintenance, warnings, cleanup);
+	const lines = [
+		`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"} across ${chunks.length} chunks:`,
+	];
+	for (const chunk of chunks) {
+		lines.push(
+			`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
+		);
+	}
+	lines.push("", ...baseSummary.split("\n").slice(1));
+	return lines.join("\n");
+}
+
+function formatLandedEntries(landed: readonly LandedPr[]): string {
+	return landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
+}
+
+export function formatLandingWarning(warning: LandingWarning): string[] {
+	const lines = [`- ${warning.message}`];
+	if (warning.commandDisplay || warning.result) {
+		lines.push(
+			...indentLines(
+				formatCommandDetails(warning.result ?? emptyResult(), warning.commandDisplay),
+				"  ",
+			),
+		);
+	}
+	if (warning.suggestedAction) {
+		lines.push(`  Suggested next action: ${warning.suggestedAction}`);
+	}
+	return lines;
+}
+
+export function indentLines(text: string, prefix: string): string[] {
+	return text.split("\n").map((line) => `${prefix}${line}`);
+}
+
+export function formatRestackFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
+	if (beforeAnotherMerge) {
+		return `Restack failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
+	}
+	return `Restack failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual restack/update.`;
+}
+
+export function formatSubmitFailureMessage(
+	previousPrNumber: number,
+	branch: string,
+	beforeAnotherMerge: boolean,
+): string {
+	if (beforeAnotherMerge) {
+		return `Submit/update failed after merging #${previousPrNumber}; stopping before merging ${branch}.`;
+	}
+	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
+}
+
+export function formatFailure(
+	failure: LandStackFailure,
+	landed: readonly LandedPr[],
+	landedChunks: readonly LandedChunk[] = [],
+): string {
+	const simple =
+		landed.length === 0 &&
+		landedChunks.length === 0 &&
+		!failure.commandDisplay &&
+		!failure.failedBranch &&
+		!failure.failedPr &&
+		!failure.suggestedAction;
+	if (simple) {
+		return failure.message;
+	}
+
+	const lines = ["land stopped."];
+	if (landedChunks.length > 0) {
+		lines.push("", "Already landed by chunk:");
+		for (const chunk of landedChunks) {
+			lines.push(
+				`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
+			);
+		}
+		lines.push(
+			"",
+			"Fix the reported issue, then rerun /sdl:flow:land from the desired branch. Already-landed PRs will not be retried automatically.",
+		);
+	} else if (landed.length > 0) {
+		lines.push("", "Already landed:");
+		for (const entry of landed) {
+			lines.push(`  - #${entry.number} ${entry.branch}`);
+		}
+	}
+	if (failure.failedBranch || failure.failedPr) {
+		lines.push("", `Failed at: ${formatFailedTarget(failure)}`);
+	}
+	lines.push("", failure.message);
+	if (failure.commandDisplay || failure.result) {
+		lines.push("", formatCommandDetails(failure.result ?? emptyResult(), failure.commandDisplay));
+	}
+	if (failure.suggestedAction) {
+		lines.push("", `Suggested next action: ${failure.suggestedAction}`);
+	}
+	return lines.join("\n");
+}
+
+export function formatFailedTarget(failure: LandStackFailure): string {
+	const parts: string[] = [];
+	if (failure.failedPr) parts.push(`#${failure.failedPr}`);
+	if (failure.failedBranch) parts.push(failure.failedBranch);
+	return parts.join(" ") || "unknown";
+}
+
+export interface FormatSuccessNotificationOptions {
+	details?: CommandStreamMessageDetails | undefined;
+	warnings?: readonly LandingWarning[] | undefined;
+}
+
+export function formatSuccessNotification(
+	message: string,
+	options: FormatSuccessNotificationOptions = {},
+): string {
+	const { details, warnings = [] } = options;
+	const warningNotification = formatWarningSuccessNotification(warnings, details);
+	if (warningNotification !== undefined) return warningNotification;
+
+	const firstLine = firstNonEmptyLine(message) ?? "land completed.";
+	return details ? linkifyPrReferences(firstLine, prLinksFromDetails(details)) : firstLine;
+}
+
+function formatWarningSuccessNotification(
+	warnings: readonly LandingWarning[],
+	details?: CommandStreamMessageDetails,
+): string | undefined {
+	const warningEntries = warnings.filter((warning) => landingWarningLevel(warning) === "warning");
+	const action = firstWarningAction(warningEntries);
+	if (action === undefined) return undefined;
+
+	const compact = truncateDisplayLine(singleLine(action), MAX_NOTIFICATION_CHARS);
+	return details ? linkifyPrReferences(compact, prLinksFromDetails(details)) : compact;
+}
+
+function firstWarningAction(warnings: readonly LandingWarning[]): string | undefined {
+	for (const warning of warnings) {
+		const action = nonBlank(warning.notificationAction) ?? nonBlank(warning.suggestedAction);
+		if (action !== undefined) return action;
+	}
+	return nonBlank(warnings[0]?.message);
+}
+
+function singleLine(text: string): string {
+	return text.replace(/\s+/g, " ").trim();
+}
+
+function nonBlank(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+export function formatFailureNotification(failure: LandStackFailure): string {
+	const detail = firstNonEmptyLine(failure.message) ?? "unknown error";
+	if (failure.failedBranch || failure.failedPr) {
+		return `land stopped at ${formatFailedTarget(failure)}: ${detail}`;
+	}
+	if (failure.level === "info") {
+		return detail;
+	}
+	return `land stopped: ${detail}`;
+}
+
+/**
+ * Map a typed failure onto its house-style visual intent (§7.3). A declined guardrail renders warn
+ * (`refusal`); a real subprocess/preflight error renders red (`failure`). The notify level is left
+ * untouched so stdout/stderr routing and exit codes are preserved.
+ */
+export function landFailureKind(failure: LandStackFailure): LandResultKind {
+	return failure.outcome === "refusal" ? "refusal" : "failure";
+}
+
+interface PresentOptions {
+	ctx: LandStackCommandContext;
+	message: string;
+	level: NotifyLevel;
+	kind?: LandResultKind;
+}
+
+export function present(options: PresentOptions): void {
+	presentBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+		uiMessage: options.message,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
+}
+
+interface PresentBriefOptions {
+	ctx: LandStackCommandContext;
+	fullMessage: string;
+	level: NotifyLevel;
+	uiMessage: string;
+	kind?: LandResultKind;
+}
+
+export function presentBrief(options: PresentBriefOptions): void {
+	const { ctx, fullMessage, level, uiMessage } = options;
+	const shown = ctx.hasUI ? uiMessage : fullMessage;
+	// House-style ANSI is applied only when the CLI edge wired `renderResultBlock`; the Pi
+	// command-stream context leaves it undefined, so the shared notify text stays plain there.
+	const rendered =
+		options.kind !== undefined && ctx.renderResultBlock !== undefined
+			? ctx.renderResultBlock(options.kind, shown)
+			: shown;
+	ctx.ui.notify(rendered, level);
+}
+
+export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {
+	if (ctx.hasUI) {
+		ctx.ui.setStatus(STATUS_KEY, message ? `land: ${message}` : undefined);
+	}
+}
+
+function firstNonEmptyLine(output: string): string | undefined {
+	return output
+		.split("\n")
+		.map((line) => line.trim())
+		.find(Boolean);
+}

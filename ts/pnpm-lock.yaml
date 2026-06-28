@@ -230,9 +230,6 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
-      '@sdl/ccc':
-        specifier: workspace:*
-        version: link:../../ccc
       '@sdl/cli-theme':
         specifier: workspace:*
         version: link:../../infra/cli-theme
@@ -248,6 +245,9 @@ importers:
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
+      '@sdl/slot':
+        specifier: workspace:*
+        version: link:../slot
       sdl-sdk:
         specifier: workspace:*
         version: link:../../sdl-sdk
@@ -344,9 +344,6 @@ importers:
 
   packages/ccc:
     dependencies:
-      '@sdl/autobranch':
-        specifier: workspace:*
-        version: link:../autobranch
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../branch-context
@@ -383,6 +380,9 @@ importers:
       '@sdl/slot':
         specifier: workspace:*
         version: link:../capabilities/slot
+      sdl-flow:
+        specifier: workspace:*
+        version: link:../capabilities/flow
       zod:
         specifier: 'catalog:'
         version: 4.4.3

@@ -1,4 +1,4 @@
-import { runLandCli } from "@sdl/ccc/land";
+import { runLandCli } from "../land.ts";
 import { defineExtension, z, type SdlCommand } from "sdl-sdk";
 
 import { runFlowCccCli } from "../shared/ccc-cli.ts";
