@@ -7,18 +7,22 @@ import {
 	executeDeletedBranchGarbageCollection,
 	planDeletedBranchGarbageCollection,
 	type DeletedBranchGarbageCollectionAction,
-	type DeletedBranchGarbageCollectionPlan,
 	type DeletedBranchGarbageCollectionReport,
 } from "../gc-core.ts";
 import { handoffSummarySchema } from "../inventory.ts";
 
-const GC_ACTION_VALUES = [
-	"kept_active",
-	"would_delete",
-	"deleted",
-	"error",
-] as const satisfies readonly DeletedBranchGarbageCollectionAction[];
-export const gcActionSchema = z.enum(GC_ACTION_VALUES);
+const GC_ACTION_VALUE_BY_ACTION = {
+	kept_active: "kept_active",
+	would_delete: "would_delete",
+	deleted: "deleted",
+	error: "error",
+} as const satisfies { readonly [K in DeletedBranchGarbageCollectionAction]: K };
+export const gcActionSchema = z.enum([
+	GC_ACTION_VALUE_BY_ACTION.kept_active,
+	GC_ACTION_VALUE_BY_ACTION.would_delete,
+	GC_ACTION_VALUE_BY_ACTION.deleted,
+	GC_ACTION_VALUE_BY_ACTION.error,
+]);
 export type GcAction = DeletedBranchGarbageCollectionAction;
 
 export const gcRequestSchema = z.object({
@@ -123,13 +127,10 @@ async function loadAllSummaries(ctx: HandoffCliContext) {
 
 async function executeAndFormat(
 	ctx: HandoffCliContext,
-	plan: DeletedBranchGarbageCollectionPlan,
+	plan: DeletedBranchGarbageCollectionReport,
 	options: { dryRun: boolean; cancelled: boolean },
 ): Promise<GcResult> {
-	const result = await executeDeletedBranchGarbageCollection(
-		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
-		plan,
-	);
+	const result = await executeDeletedBranchGarbageCollection({ brmem: ctx.brmem }, plan);
 	return toGcResult(result, options);
 }
 

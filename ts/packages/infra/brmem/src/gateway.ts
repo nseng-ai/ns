@@ -36,16 +36,9 @@ export interface GitRemoteConfig {
 	fetch: readonly string[];
 }
 
-export interface BrmemGateway {
-	currentBranch(): Promise<BrmemResult<string>>;
-
+export interface BrmemReadGateway {
 	listEntries(options: {
 		namespace: string;
-		key?: string | undefined;
-		branch?: string | undefined;
-	}): Promise<BrmemResult<readonly ListedEntry[]>>;
-
-	listAllEntries(options: {
 		key?: string | undefined;
 		branch?: string | undefined;
 	}): Promise<BrmemResult<readonly ListedEntry[]>>;
@@ -63,6 +56,15 @@ export interface BrmemGateway {
 		branch: string;
 		at?: string | undefined;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
+}
+
+export interface BrmemGateway extends BrmemReadGateway {
+	currentBranch(): Promise<BrmemResult<string>>;
+
+	listAllEntries(options: {
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	putEntry(options: {
 		namespace: string;

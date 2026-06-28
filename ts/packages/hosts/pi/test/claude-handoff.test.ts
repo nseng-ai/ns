@@ -196,7 +196,7 @@ describe("claude handoff command", () => {
 			ANTHROPIC_AUTH_TOKEN: "token",
 			ANTHROPIC_BASE_URL: "https://anthropic.example",
 		};
-		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
+		const pi = new FakePi([...checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi, {
 			runClaude: fakeRunClaude({ type: "exited", code: 0, signal: null }),
 			env,
@@ -237,7 +237,7 @@ describe("claude handoff command", () => {
 	});
 
 	test("launch tool names the Claude session with the source Pi session id when available", async () => {
-		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
+		const pi = new FakePi([...checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({
 			mode: "tui",
@@ -313,24 +313,11 @@ describe("claude handoff command", () => {
 		},
 		{
 			name: "check failure",
-			check: step(
-				"brmem",
-				[
-					"check",
-					"fix-auth-flow.md",
-					"--namespace",
-					"handoff",
-					"--branch",
-					BRANCH,
-					"--format",
-					"json",
-				],
-				{ code: 2, stderr: "boom" },
-			),
-			expected: "brmem check failed",
+			check: [step("git", ["check-ref-format", "--branch", BRANCH], { code: 1, stderr: "boom" })],
+			expected: "Failed to check handoff",
 		},
 	])("launch tool does not launch when verification reports $name", async ({ check, expected }) => {
-		const pi = new FakePi([check]);
+		const pi = new FakePi(check);
 		const runClaude = registerTestCommand(pi);
 		const context = createContext({ mode: "tui", hasCustomUi: true });
 		const tool = getRegisteredTool(pi, CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
@@ -351,7 +338,7 @@ describe("claude handoff command", () => {
 	});
 
 	test("launch tool reports spawn failure after resuming the TUI", async () => {
-		const pi = new FakePi([checkStep(BRANCH, "fix-auth-flow.md", true)]);
+		const pi = new FakePi([...checkStep(BRANCH, "fix-auth-flow.md", true)]);
 		const runClaude = registerTestCommand(pi, {
 			runClaude: fakeRunClaude({ type: "spawn-failed", message: "spawn claude ENOENT" }),
 		});

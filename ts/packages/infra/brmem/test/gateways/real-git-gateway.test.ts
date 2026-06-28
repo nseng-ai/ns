@@ -3,9 +3,106 @@ import { describe, expect, it } from "vitest";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 
-import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
+import { RealGitBrmemGateway, RealGitBrmemReadGateway } from "../../src/real-git-gateway.ts";
 
 describe("RealGitBrmemGateway", () => {
+	it("constructs the read-only gateway with a plain command executor", async () => {
+		const commands = new PlainRecordingCommands([
+			{
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"],
+				result: { stdout: "refs/brmem/ns/handoff/feat---x\n" },
+			},
+			{
+				command: "git",
+				args: [
+					"ls-tree",
+					"-r",
+					"--full-tree",
+					"--format=%(path)%x09%(objectname)",
+					"refs/brmem/ns/handoff/feat---x",
+				],
+				result: { stdout: "alpha.md\tbody-sha\n" },
+			},
+			{
+				command: "git",
+				args: ["log", "--format=%cI", "--name-status", "refs/brmem/ns/handoff/feat---x"],
+				result: { stdout: "2026-02-03T04:05:06Z\nA\talpha.md\n" },
+			},
+		]);
+		const gateway = new RealGitBrmemReadGateway({
+			cwd: "/work",
+			commands,
+			git: new InMemoryGitGateway(),
+		});
+
+		const listed = await gateway.listEntries({ namespace: "handoff", branch: "feat/x" });
+
+		expect(listed).toMatchObject({
+			type: "ok",
+			value: [
+				{
+					namespace: "handoff",
+					branch: "feat/x",
+					key: "alpha.md",
+					entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+					updatedAt: "2026-02-03T04:05:06+00:00",
+				},
+			],
+		});
+		commands.assertDone();
+	});
+
+	it("preserves read semantics on the read-only gateway", async () => {
+		const commands = new PlainRecordingCommands([
+			{ command: "git", args: ["cat-file", "-e", "refs/brmem/ns/handoff/feat---x:alpha.md"] },
+			{
+				command: "git",
+				args: ["rev-parse", "refs/brmem/ns/handoff/feat---x:alpha.md"],
+				result: { stdout: "blob-sha\n" },
+			},
+			{
+				command: "git",
+				args: ["cat-file", "-s", "refs/brmem/ns/handoff/feat---x:alpha.md"],
+				result: { stdout: "7\n" },
+			},
+			{
+				command: "git",
+				args: ["log", "-1", "--format=%H%x09%cI", "refs/brmem/ns/handoff/feat---x"],
+				result: { stdout: "commit-sha\t2026-02-03T04:05:06Z\n" },
+			},
+			{
+				command: "git",
+				args: ["show", "refs/brmem/ns/handoff/feat---x:alpha.md"],
+				result: { stdout: "# Alpha\n" },
+			},
+			{
+				command: "git",
+				args: ["show", "refs/brmem/ns/handoff/feat---x:missing.md"],
+				result: { code: 128 },
+			},
+		]);
+		const gateway = new RealGitBrmemReadGateway({
+			cwd: "/work",
+			commands,
+			git: new InMemoryGitGateway(),
+		});
+
+		expect(
+			await gateway.checkEntry({ namespace: "handoff", branch: "feat/x", key: "alpha.md" }),
+		).toMatchObject({
+			type: "found",
+			value: { headSha: "commit-sha", blobSha: "blob-sha", sizeBytes: 7 },
+		});
+		expect(
+			await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "alpha.md" }),
+		).toEqual({ type: "found", value: { content: "# Alpha\n" } });
+		expect(
+			await gateway.getEntry({ namespace: "handoff", branch: "feat/x", key: "missing.md" }),
+		).toEqual({ type: "missing" });
+		commands.assertDone();
+	});
+
 	it("delegates current branch resolution to the injected Git gateway", async () => {
 		const commands = new RecordingCommands([]);
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x" });
@@ -211,8 +308,7 @@ interface CommandCall {
 	options: ExecOptions | undefined;
 }
 
-class RecordingCommands implements CommandExecApi {
-	readonly supportsStdin = true as const;
+class PlainRecordingCommands implements CommandExecApi {
 	readonly calls: CommandCall[] = [];
 	private readonly steps: CommandStep[];
 
@@ -227,6 +323,14 @@ class RecordingCommands implements CommandExecApi {
 		expect({ command, args }).toEqual({ command: step.command, args: step.args });
 		return execResult(step.result);
 	}
+
+	assertDone(): void {
+		expect(this.steps).toEqual([]);
+	}
+}
+
+class RecordingCommands extends PlainRecordingCommands {
+	readonly supportsStdin = true as const;
 }
 
 function execResult(overrides: Partial<ExecResult> = {}): ExecResult {

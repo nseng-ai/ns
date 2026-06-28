@@ -276,7 +276,7 @@ describe("handoff-tab extension", () => {
 
 	test("handoff-tab launch tool opens a focused pickup cmux tab", async () => {
 		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
+			...checkStep(BRANCH, "finish-widget.md", true),
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
 			step("cmux", [
@@ -350,7 +350,7 @@ describe("handoff-tab extension", () => {
 
 	test("handoff-tab launch tool accepts current cmux surface ref output", async () => {
 		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
+			...checkStep(BRANCH, "finish-widget.md", true),
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceRefStep(),
 			step("cmux", [
@@ -409,7 +409,7 @@ describe("handoff-tab extension", () => {
 	});
 
 	test("handoff-tab launch tool stops before cmux when handoff is missing", async () => {
-		const pi = new FakePi([checkStep(BRANCH, "missing.md", false)]);
+		const pi = new FakePi([...checkStep(BRANCH, "missing.md", false)]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("handoff_tab_launch");
 		expect(tool).toBeDefined();
@@ -427,33 +427,19 @@ describe("handoff-tab extension", () => {
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem"]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["git", "git"]);
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toBe(
 			`No handoff missing found on branch ${BRANCH}; no cmux tab was opened.`,
 		);
 	});
 
-	test("handoff-tab launch tool reports brmem check failures instead of treating exit 1 tracebacks as missing", async () => {
+	test("handoff-tab launch tool reports gateway check failures instead of treating them as missing", async () => {
 		const pi = new FakePi([
-			step(
-				"brmem",
-				[
-					"check",
-					"finish-widget.md",
-					"--namespace",
-					"handoff",
-					"--branch",
-					BRANCH,
-					"--format",
-					"json",
-				],
-				{
-					code: 1,
-					stderr:
-						"Traceback (most recent call last):\nModuleNotFoundError: No module named 'brmem'\n",
-				},
-			),
+			step("git", ["check-ref-format", "--branch", BRANCH], {
+				code: 1,
+				stderr: "Traceback (most recent call last):\nModuleNotFoundError: No module named 'git'\n",
+			}),
 		]);
 		handoffExtension(pi);
 		const tool = pi.tools.get("handoff_tab_launch");
@@ -472,16 +458,16 @@ describe("handoff-tab extension", () => {
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem"]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["git"]);
 		expect(result.isError).toBe(true);
-		expect(result.content[0]?.text).toContain("brmem check failed");
+		expect(result.content[0]?.text).toContain("Failed to check handoff");
 		expect(result.content[0]?.text).toContain("ModuleNotFoundError");
 		expect(result.content[0]?.text).not.toContain("No handoff finish-widget found");
 	});
 
 	test("handoff-tab launch tool reports manual recovery when rename fails after surface creation", async () => {
 		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
+			...checkStep(BRANCH, "finish-widget.md", true),
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
 			step(
@@ -520,7 +506,16 @@ describe("handoff-tab extension", () => {
 		);
 
 		pi.assertDone();
-		expect(pi.execCalls.map((call) => call.command)).toEqual(["brmem", "cmux", "cmux", "cmux"]);
+		expect(pi.execCalls.map((call) => call.command)).toEqual([
+			"git",
+			"git",
+			"git",
+			"git",
+			"git",
+			"cmux",
+			"cmux",
+			"cmux",
+		]);
 		expect(result.isError).toBe(true);
 		expect(result.content[0]?.text).toContain("rename failed");
 		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
@@ -531,7 +526,7 @@ describe("handoff-tab extension", () => {
 
 	test("handoff-tab launch tool reports manual recovery when sending launch command fails", async () => {
 		const pi = new FakePi([
-			checkStep(BRANCH, "finish-widget.md", true),
+			...checkStep(BRANCH, "finish-widget.md", true),
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
 			step("cmux", [
@@ -582,7 +577,11 @@ describe("handoff-tab extension", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls.map((call) => call.command)).toEqual([
-			"brmem",
+			"git",
+			"git",
+			"git",
+			"git",
+			"git",
 			"cmux",
 			"cmux",
 			"cmux",

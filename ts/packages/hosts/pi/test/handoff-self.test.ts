@@ -30,7 +30,7 @@ Create a handoff from the skill body.
 
 describe("handoff:self extension", () => {
 	test("handoff:self command sends create prompt with command-owned rendezvous instructions", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -80,7 +80,7 @@ describe("handoff:self extension", () => {
 	});
 
 	test("handoff:self waits for verified tool result, terminates the old turn, then replaces the session", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -154,7 +154,7 @@ describe("handoff:self extension", () => {
 	});
 
 	test("cancelled replacement keeps verified handoff and reports manual recovery", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -197,7 +197,7 @@ describe("handoff:self extension", () => {
 	});
 
 	test("failed replacement keeps verified handoff and reports manual recovery", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -241,7 +241,7 @@ describe("handoff:self extension", () => {
 	});
 
 	test("starting lock is released when session replacement support is unavailable", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -326,7 +326,7 @@ describe("handoff:self extension", () => {
 	test("missing handoff does not resolve the workflow or clear context", async () => {
 		vi.useFakeTimers();
 		try {
-			const pi = new FakePi([branchStep(), checkStep(BRANCH, "missing.md", false)]);
+			const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "missing.md", false)]);
 			registerSelfOnly(pi, 1);
 			const command = getRegisteredCommand(pi, "handoff:self");
 			const tool = getRegisteredTool(pi, SELF_TOOL_NAME);
@@ -397,7 +397,7 @@ describe("handoff:self extension", () => {
 	});
 
 	test("concurrent handoff:self invocation is rejected while one workflow is active", async () => {
-		const pi = new FakePi([branchStep(), checkStep(BRANCH, "finish-widget.md", true)]);
+		const pi = new FakePi([branchStep(), ...checkStep(BRANCH, "finish-widget.md", true)]);
 		registerSelfOnly(pi, 30_000);
 		const command = getRegisteredCommand(pi, "handoff:self");
 		const tool = getRegisteredTool(pi, SELF_TOOL_NAME);

@@ -31,7 +31,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	if (branch.type !== "resolved") return branch;
 
 	const target = await prepareHandoffDeletion(
-		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ brmem: ctx.brmem },
 		{ branch: branch.value, slug: request.slug },
 	);
 	if (target.type === "error") return failure(target.error.code, target.error.message);
@@ -52,7 +52,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	}
 
 	const deleted = await deleteHandoffArtifact(
-		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		{ brmem: ctx.brmem },
 		{ branch: target.value.branch, key: target.value.key },
 	);
 	if (deleted.type === "error") return failure(deleted.error.code, deleted.error.message);

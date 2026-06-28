@@ -196,11 +196,11 @@ describe("handoff extension", () => {
 		const artifact = "# Handoff: Continue tests\n\n## Next Steps\n\nRun the tests.";
 		const result = await runCommand("handoff:pickup", "continue-tests", [
 			branchStep(),
-			listStep(BRANCH, ["continue-tests.md"]),
+			...listStep(BRANCH, ["continue-tests.md"]),
 			branchPresenceStep(BRANCH),
-			listStep(BRANCH, ["continue-tests.md"]),
+			...listStep(BRANCH, ["continue-tests.md"]),
 			branchPresenceStep(BRANCH),
-			getStep(BRANCH, "continue-tests.md", artifact),
+			...getStep(BRANCH, "continue-tests.md", artifact),
 		]);
 
 		result.pi.assertDone();
@@ -210,10 +210,11 @@ describe("handoff extension", () => {
 		});
 		expect(result.pi.execCalls).toContainEqual(
 			expect.objectContaining({
-				command: "brmem",
-				args: ["list", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"],
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"],
 			}),
 		);
+		expect(result.pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 		expect(result.pi.execCalls.some((call) => call.command === "handoff")).toBe(false);
 		expect(result.selections).toEqual([]);
 		expect(result.notifications.at(-1)).toEqual({
@@ -232,21 +233,20 @@ describe("handoff extension", () => {
 
 	test("pickup command uses an explicit branch and key without reading current branch", async () => {
 		const result = await runCommand("handoff:pickup", "--branch other/branch foo.md", [
-			listStep("other/branch", ["foo.md"]),
+			...listStep("other/branch", ["foo.md"]),
 			branchPresenceStep("other/branch"),
-			listStep("other/branch", ["foo.md"]),
+			...listStep("other/branch", ["foo.md"]),
 			branchPresenceStep("other/branch"),
-			getStep("other/branch", "foo.md", "# Handoff"),
+			...getStep("other/branch", "foo.md", "# Handoff"),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual([
-			"brmem",
-			"git",
-			"brmem",
-			"git",
-			"brmem",
-		]);
+		expect(result.pi.execCalls.every((call) => call.command === "git")).toBe(true);
+		expect(
+			result.pi.execCalls.some(
+				(call) => call.command === "git" && call.args.join(" ") === "branch --show-current",
+			),
+		).toBe(false);
 		expect(result.pi.sentUserMessages[0]).toContain("Branch: other/branch");
 		expect(result.pi.sentUserMessages[0]).toContain("Entry: foo.md");
 	});
@@ -257,17 +257,17 @@ describe("handoff extension", () => {
 			"",
 			[
 				branchStep(),
-				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
 				branchPresenceStep(BRANCH),
-				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
 				branchPresenceStep(BRANCH),
-				getStep(BRANCH, "alpha.md", "Continuation focus: Alpha next step\n"),
-				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				...getStep(BRANCH, "alpha.md", "Continuation focus: Alpha next step\n"),
+				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
 				branchPresenceStep(BRANCH),
-				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
-				listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				...getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
+				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
 				branchPresenceStep(BRANCH),
-				getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
+				...getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
 			],
 			{ selectIndex: 1 },
 		);
@@ -286,7 +286,7 @@ describe("handoff extension", () => {
 		const result = await runCommand(
 			"handoff:pickup",
 			"",
-			[branchStep(), listStep(BRANCH, ["alpha.md", "bravo.md"]), branchPresenceStep(BRANCH)],
+			[branchStep(), ...listStep(BRANCH, ["alpha.md", "bravo.md"]), branchPresenceStep(BRANCH)],
 			{ hasUI: false },
 		);
 
@@ -303,11 +303,11 @@ describe("handoff extension", () => {
 	test("list current branch sends a card-style custom message", async () => {
 		const result = await runCommand("handoff:list", "", [
 			branchStep(),
-			listStep(BRANCH, ["address-review-feedback.md"]),
+			...listStep(BRANCH, ["address-review-feedback.md"]),
 			branchPresenceStep(BRANCH),
-			listStep(BRANCH, ["address-review-feedback.md"]),
+			...listStep(BRANCH, ["address-review-feedback.md"]),
 			branchPresenceStep(BRANCH),
-			getStep(
+			...getStep(
 				BRANCH,
 				"address-review-feedback.md",
 				"Continuation focus: Address review feedback\n",
@@ -321,10 +321,11 @@ describe("handoff extension", () => {
 		});
 		expect(result.pi.execCalls).toContainEqual(
 			expect.objectContaining({
-				command: "brmem",
-				args: ["list", "--namespace", "handoff", "--branch", BRANCH, "--format", "json"],
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"],
 			}),
 		);
+		expect(result.pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 		expect(result.pi.execCalls.some((call) => call.command === "handoff")).toBe(false);
 		expect(result.notifications).toEqual([]);
 		expect(result.pi.sentMessages).toHaveLength(1);
@@ -362,32 +363,22 @@ describe("handoff extension", () => {
 
 	test("list all branches sends grouped pickup commands", async () => {
 		const result = await runCommand("handoff:list", "--all", [
-			listAllStep([
+			...listAllStep([
 				{ key: "alpha.md", branch: "feat/a" },
 				{ key: "bravo.md", branch: "feat/b" },
 			]),
 			branchPresenceStep("feat/a"),
 			branchPresenceStep("feat/b"),
-			listStep("feat/a", ["alpha.md"]),
+			...listStep("feat/a", ["alpha.md"]),
 			branchPresenceStep("feat/a"),
-			getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
-			listStep("feat/b", ["bravo.md"]),
+			...getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
+			...listStep("feat/b", ["bravo.md"]),
 			branchPresenceStep("feat/b"),
-			getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
+			...getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
 		]);
 
 		result.pi.assertDone();
-		expect(result.pi.execCalls.map((call) => call.command)).toEqual([
-			"brmem",
-			"git",
-			"git",
-			"brmem",
-			"git",
-			"brmem",
-			"brmem",
-			"git",
-			"brmem",
-		]);
+		expect(result.pi.execCalls.every((call) => call.command === "git")).toBe(true);
 		expect(result.notifications).toEqual([]);
 		expect(result.pi.sentMessages).toHaveLength(1);
 
@@ -419,11 +410,11 @@ describe("handoff extension", () => {
 			"",
 			[
 				branchStep(),
-				listStep(BRANCH, ["address-review-feedback.md"]),
+				...listStep(BRANCH, ["address-review-feedback.md"]),
 				branchPresenceStep(BRANCH),
-				listStep(BRANCH, ["address-review-feedback.md"]),
+				...listStep(BRANCH, ["address-review-feedback.md"]),
 				branchPresenceStep(BRANCH),
-				getStep(
+				...getStep(
 					BRANCH,
 					"address-review-feedback.md",
 					"Continuation focus: Address review feedback\n",
@@ -456,8 +447,8 @@ describe("handoff extension", () => {
 	});
 
 	test("list empty messages distinguish current branch and all branches", async () => {
-		const current = await runCommand("handoff:list", "", [branchStep(), listStep(BRANCH, [])]);
-		const all = await runCommand("handoff:list", "--all", [listAllStep([])]);
+		const current = await runCommand("handoff:list", "", [branchStep(), ...listStep(BRANCH, [])]);
+		const all = await runCommand("handoff:list", "--all", [...listAllStep([])]);
 
 		current.pi.assertDone();
 		all.pi.assertDone();

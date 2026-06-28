@@ -19,6 +19,7 @@ import {
 } from "./contracts.ts";
 import type {
 	BrmemGateway,
+	BrmemReadGateway,
 	CopyEntriesResult,
 	DeleteEntryResult,
 	EntryContent,
@@ -80,40 +81,34 @@ interface MktreeEntry {
 
 const SNAPSHOT_CORRUPT_SAMPLE_LIMIT = 5;
 
+export interface RealGitBrmemReadGatewayOptions {
+	cwd: string;
+	commands: CommandExecApi;
+	git: Pick<GitGateway, "validateBranchRef">;
+}
+
 export interface RealGitBrmemGatewayOptions {
 	cwd: string;
 	commands: StdinCapableCommandExecApi;
 	git: GitGateway;
 }
 
-export class RealGitBrmemGateway implements BrmemGateway {
-	private readonly cwd: string;
-	private readonly commands: StdinCapableCommandExecApi;
-	private readonly git: GitGateway;
+export class RealGitBrmemReadGateway implements BrmemReadGateway {
+	protected readonly cwd: string;
+	protected readonly commands: CommandExecApi;
+	protected readonly git: Pick<GitGateway, "validateBranchRef">;
 
-	constructor(options: RealGitBrmemGatewayOptions) {
+	constructor(options: RealGitBrmemReadGatewayOptions) {
 		this.cwd = options.cwd;
 		this.commands = options.commands;
 		this.git = options.git;
-	}
-
-	async currentBranch(): Promise<BrmemResult<string>> {
-		const result = await this.git.currentBranch({ cwd: this.cwd });
-		if (result.type === "branch") return brmemOk(result.branch);
-		if (result.type === "detached") {
-			return brmemError(
-				"detached_head",
-				"Could not resolve current branch; HEAD appears detached.",
-			);
-		}
-		return brmemError(result.error.code, result.error.message, result.error.displayCommand);
 	}
 
 	async listEntries(options: {
 		namespace: string;
 		key?: string | undefined;
 		branch?: string | undefined;
-	}) {
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		const validation = validateNamespaceName(options.namespace);
 		if (validation.type === "invalid")
 			return brmemError<readonly ListedEntry[]>(
@@ -128,20 +123,12 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		});
 	}
 
-	async listAllEntries(options: { key?: string | undefined; branch?: string | undefined }) {
-		return await this.collectEntries({
-			allNamespaces: true,
-			key: options.key,
-			branch: options.branch,
-		});
-	}
-
 	async getEntry(options: {
 		namespace: string;
 		key: string;
 		branch: string;
 		at?: string | undefined;
-	}) {
+	}): Promise<BrmemOptionalResult<EntryContent>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error")
 			return brmemOptionalError<EntryContent>(
@@ -163,7 +150,7 @@ export class RealGitBrmemGateway implements BrmemGateway {
 		key: string;
 		branch: string;
 		at?: string | undefined;
-	}) {
+	}): Promise<BrmemOptionalResult<EntryDiagnostic>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") {
 			return brmemOptionalError<EntryDiagnostic>(
@@ -213,6 +200,141 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			headDate: normalizeBrmemTimestamp(headDate),
 			blobSha: blobSha.stdout.trim(),
 			sizeBytes: Number(size.stdout.trim()),
+		});
+	}
+	protected async validateEntryAddress(options: {
+		namespace: string;
+		key: string;
+		branch: string;
+	}): Promise<BrmemResult<void>> {
+		const namespaceValidation = validateNamespaceName(options.namespace);
+		if (namespaceValidation.type === "invalid")
+			return brmemError(
+				"invalid_namespace",
+				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
+			);
+		const keyValidation = validateEntryKey(options.key);
+		if (keyValidation.type === "invalid")
+			return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+		return await this.validateGitBranch(options.branch);
+	}
+
+	protected async validateGitBranch(branch: string): Promise<BrmemResult<void>> {
+		const branchValidation = validateBranchName(branch);
+		if (branchValidation.type === "invalid")
+			return brmemError(
+				"invalid_branch_name",
+				formatInvalid("branch name", branch, branchValidation.reason),
+			);
+		const gitValidation = await this.git.validateBranchRef({ cwd: this.cwd, branch });
+		if (!gitValidation.ok) {
+			const code =
+				gitValidation.error.code === "branch_ref_invalid"
+					? "invalid_branch_name"
+					: gitValidation.error.code;
+			return brmemError(code, gitValidation.error.message, gitValidation.error.displayCommand);
+		}
+		return brmemOk(undefined);
+	}
+
+	protected async collectEntries(options: {
+		allNamespaces: boolean;
+		namespace?: string | undefined;
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
+		if (options.key !== undefined) {
+			const keyValidation = validateEntryKey(options.key);
+			if (keyValidation.type === "invalid")
+				return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+		}
+		if (options.branch !== undefined) {
+			const branchValidation = validateBranchName(options.branch);
+			if (branchValidation.type === "invalid")
+				return brmemError(
+					"invalid_branch_name",
+					formatInvalid("branch name", options.branch, branchValidation.reason),
+				);
+		}
+		const result = await runGit(
+			this.commands,
+			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
+			{ cwd: this.cwd },
+		);
+		if (result.code !== 0) return brmemOk([]);
+		const entries: ListedEntry[] = [];
+		for (const line of result.stdout.split("\n")) {
+			const snapshotRef = line.trim();
+			if (snapshotRef.length === 0) continue;
+			const parsed = parseSnapshotRef(snapshotRef);
+			if (parsed === undefined) continue;
+			if (!options.allNamespaces && parsed.namespace !== options.namespace) continue;
+			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
+			const treeEntries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+			const updatedAtByPath = await enumerateEntryUpdatedAt(this.commands, this.cwd, snapshotRef);
+			if (updatedAtByPath.type === "error") return updatedAtByPath;
+			for (const path of treeEntries.keys()) {
+				if (options.key !== undefined && path !== options.key) continue;
+				// Defensive: a Snapshot Ref may contain paths that are not valid Entry
+				// Keys — e.g. a historically corrupted snapshot that captured unrelated
+				// working-tree files. Skip them so a single invalid path cannot abort
+				// listing for the entire namespace.
+				if (validateEntryKey(path).type === "invalid") continue;
+				const updatedAt = updatedAtByPath.value.get(path);
+				if (updatedAt === undefined) {
+					return brmemError(
+						"entry_metadata_unavailable",
+						`Could not resolve Entry update metadata for ${JSON.stringify(path)}.`,
+					);
+				}
+				const locator = buildEntryLocator(parsed.namespace, path, parsed.branch);
+				if (locator.type === "error") {
+					return brmemError(
+						"invalid_snapshot_tree",
+						`Snapshot Ref ${JSON.stringify(snapshotRef)} contains invalid Entry Key ${JSON.stringify(path)}: ${locator.error.message}`,
+					);
+				}
+				entries.push({
+					namespace: parsed.namespace,
+					key: path,
+					branch: parsed.branch,
+					entryLocator: locator.value,
+					updatedAt,
+				});
+			}
+		}
+		return brmemOk(entries.sort(compareEntries));
+	}
+}
+
+export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements BrmemGateway {
+	private readonly currentBranchGit: GitGateway;
+
+	constructor(options: RealGitBrmemGatewayOptions) {
+		super(options);
+		this.currentBranchGit = options.git;
+	}
+
+	async currentBranch(): Promise<BrmemResult<string>> {
+		const result = await this.currentBranchGit.currentBranch({ cwd: this.cwd });
+		if (result.type === "branch") return brmemOk(result.branch);
+		if (result.type === "detached") {
+			return brmemError(
+				"detached_head",
+				"Could not resolve current branch; HEAD appears detached.",
+			);
+		}
+		return brmemError(result.error.code, result.error.message, result.error.displayCommand);
+	}
+
+	async listAllEntries(options: {
+		key?: string | undefined;
+		branch?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedEntry[]>> {
+		return await this.collectEntries({
+			allNamespaces: true,
+			key: options.key,
+			branch: options.branch,
 		});
 	}
 
@@ -368,110 +490,6 @@ export class RealGitBrmemGateway implements BrmemGateway {
 			});
 		}
 		return this.copyWithGlob({ ...options, sourceRef, destRef, destSha, keyGlob: options.keyGlob });
-	}
-
-	private async validateEntryAddress(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-	}): Promise<BrmemResult<void>> {
-		const namespaceValidation = validateNamespaceName(options.namespace);
-		if (namespaceValidation.type === "invalid")
-			return brmemError(
-				"invalid_namespace",
-				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
-			);
-		const keyValidation = validateEntryKey(options.key);
-		if (keyValidation.type === "invalid")
-			return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
-		return await this.validateGitBranch(options.branch);
-	}
-
-	private async validateGitBranch(branch: string): Promise<BrmemResult<void>> {
-		const branchValidation = validateBranchName(branch);
-		if (branchValidation.type === "invalid")
-			return brmemError(
-				"invalid_branch_name",
-				formatInvalid("branch name", branch, branchValidation.reason),
-			);
-		const gitValidation = await this.git.validateBranchRef({ cwd: this.cwd, branch });
-		if (!gitValidation.ok) {
-			const code =
-				gitValidation.error.code === "branch_ref_invalid"
-					? "invalid_branch_name"
-					: gitValidation.error.code;
-			return brmemError(code, gitValidation.error.message, gitValidation.error.displayCommand);
-		}
-		return brmemOk(undefined);
-	}
-
-	private async collectEntries(options: {
-		allNamespaces: boolean;
-		namespace?: string | undefined;
-		key?: string | undefined;
-		branch?: string | undefined;
-	}): Promise<BrmemResult<readonly ListedEntry[]>> {
-		if (options.key !== undefined) {
-			const keyValidation = validateEntryKey(options.key);
-			if (keyValidation.type === "invalid")
-				return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
-		}
-		if (options.branch !== undefined) {
-			const branchValidation = validateBranchName(options.branch);
-			if (branchValidation.type === "invalid")
-				return brmemError(
-					"invalid_branch_name",
-					formatInvalid("branch name", options.branch, branchValidation.reason),
-				);
-		}
-		const result = await runGit(
-			this.commands,
-			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
-			{ cwd: this.cwd },
-		);
-		if (result.code !== 0) return brmemOk([]);
-		const entries: ListedEntry[] = [];
-		for (const line of result.stdout.split("\n")) {
-			const snapshotRef = line.trim();
-			if (snapshotRef.length === 0) continue;
-			const parsed = parseSnapshotRef(snapshotRef);
-			if (parsed === undefined) continue;
-			if (!options.allNamespaces && parsed.namespace !== options.namespace) continue;
-			if (options.branch !== undefined && parsed.branch !== options.branch) continue;
-			const treeEntries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
-			const updatedAtByPath = await enumerateEntryUpdatedAt(this.commands, this.cwd, snapshotRef);
-			if (updatedAtByPath.type === "error") return updatedAtByPath;
-			for (const path of treeEntries.keys()) {
-				if (options.key !== undefined && path !== options.key) continue;
-				// Defensive: a Snapshot Ref may contain paths that are not valid Entry
-				// Keys — e.g. a historically corrupted snapshot that captured unrelated
-				// working-tree files. Skip them so a single invalid path cannot abort
-				// listing for the entire namespace.
-				if (validateEntryKey(path).type === "invalid") continue;
-				const updatedAt = updatedAtByPath.value.get(path);
-				if (updatedAt === undefined) {
-					return brmemError(
-						"entry_metadata_unavailable",
-						`Could not resolve Entry update metadata for ${JSON.stringify(path)}.`,
-					);
-				}
-				const locator = buildEntryLocator(parsed.namespace, path, parsed.branch);
-				if (locator.type === "error") {
-					return brmemError(
-						"invalid_snapshot_tree",
-						`Snapshot Ref ${JSON.stringify(snapshotRef)} contains invalid Entry Key ${JSON.stringify(path)}: ${locator.error.message}`,
-					);
-				}
-				entries.push({
-					namespace: parsed.namespace,
-					key: path,
-					branch: parsed.branch,
-					entryLocator: locator.value,
-					updatedAt,
-				});
-			}
-		}
-		return brmemOk(entries.sort(compareEntries));
 	}
 
 	private async copySnapshot(options: {

@@ -3,6 +3,7 @@ import {
 	brmemOk,
 	mustEntryLocator,
 	type BrmemGateway,
+	type BrmemReadGateway,
 	type BrmemResult,
 } from "@sdl/brmem";
 import type { GitGateway } from "@sdl/core/git";
@@ -15,11 +16,32 @@ import {
 } from "./identity.ts";
 import type { BranchState, HandoffSummary } from "./inventory.ts";
 
-export type HandoffBrmemGateway = Pick<
-	BrmemGateway,
-	"listEntries" | "getEntry" | "checkEntry" | "putEntry" | "deleteEntry"
->;
+export type HandoffReadBrmemGateway = BrmemReadGateway;
+export type HandoffCheckBrmemGateway = Pick<BrmemReadGateway, "checkEntry">;
+export type HandoffCreateBrmemGateway = Pick<BrmemGateway, "putEntry">;
+export type HandoffDeleteBrmemGateway = Pick<BrmemGateway, "deleteEntry">;
+export type HandoffBrmemGateway = HandoffReadBrmemGateway &
+	HandoffCreateBrmemGateway &
+	HandoffDeleteBrmemGateway;
 export type HandoffGitGateway = Pick<GitGateway, "localBranchPresence">;
+
+export interface HandoffReadStorageDeps {
+	brmem: HandoffReadBrmemGateway;
+	git: HandoffGitGateway;
+	cwd: string;
+}
+
+export interface HandoffCheckStorageDeps {
+	brmem: HandoffCheckBrmemGateway;
+}
+
+export interface HandoffCreateStorageDeps {
+	brmem: HandoffCreateBrmemGateway;
+}
+
+export interface HandoffDeleteStorageDeps {
+	brmem: HandoffDeleteBrmemGateway;
+}
 
 export interface HandoffStorageDeps {
 	brmem: HandoffBrmemGateway;
@@ -32,33 +54,27 @@ export interface ListHandoffSummariesOptions {
 	shouldIncludeDeleted: boolean;
 }
 
-export interface HandoffCreationTarget {
+export interface HandoffTarget {
 	branch: string;
 	slug: string;
 	key: string;
 	entry_locator: string;
+}
+
+export type HandoffCreationTarget = HandoffTarget;
+export type HandoffDeletionTarget = HandoffTarget;
+export type HandoffReadTarget = HandoffTarget;
+
+export interface HandoffArtifactCheck extends HandoffTarget {
+	exists: boolean;
 }
 
 export interface CreateHandoffArtifactResult extends HandoffCreationTarget {
 	commit: string;
 }
 
-export interface HandoffDeletionTarget {
-	branch: string;
-	slug: string;
-	key: string;
-	entry_locator: string;
-}
-
 export interface DeleteHandoffArtifactResult extends HandoffDeletionTarget {
 	commit: string;
-}
-
-export interface HandoffReadTarget {
-	branch: string;
-	slug: string;
-	key: string;
-	entry_locator: string;
 }
 
 export interface ReadHandoffArtifactResult extends HandoffReadTarget {
@@ -67,7 +83,7 @@ export interface ReadHandoffArtifactResult extends HandoffReadTarget {
 }
 
 export async function listHandoffSummaries(
-	deps: HandoffStorageDeps,
+	deps: HandoffReadStorageDeps,
 	options: ListHandoffSummariesOptions,
 ): Promise<BrmemResult<readonly HandoffSummary[]>> {
 	const entries = await deps.brmem.listEntries({
@@ -110,7 +126,7 @@ export async function listHandoffSummaries(
 }
 
 export async function readHandoffArtifact(
-	deps: HandoffStorageDeps,
+	deps: HandoffReadStorageDeps,
 	options: { branch: string; slug: string },
 ): Promise<BrmemResult<ReadHandoffArtifactResult>> {
 	const key = handoffKeyFromSlug(options.slug);
@@ -144,16 +160,16 @@ export async function readHandoffArtifact(
 	});
 }
 
-export async function prepareHandoffCreation(
-	deps: HandoffStorageDeps,
+export async function checkHandoffArtifact(
+	deps: HandoffCheckStorageDeps,
 	options: { branch: string; slug: string },
-): Promise<BrmemResult<HandoffCreationTarget>> {
+): Promise<BrmemResult<HandoffArtifactCheck>> {
 	const key = handoffKeyFromSlug(options.slug);
 	if (key.type === "error") {
 		return brmemError(key.error.code, key.error.message);
 	}
 
-	const target = creationTarget({ branch: options.branch, key: key.value });
+	const target = handoffTarget({ branch: options.branch, key: key.value });
 	const existing = await deps.brmem.checkEntry({
 		namespace: HANDOFF_NAMESPACE,
 		key: target.key,
@@ -162,17 +178,26 @@ export async function prepareHandoffCreation(
 	if (existing.type === "error") {
 		return brmemError(existing.error.code, `Failed to check handoff: ${existing.error.message}`);
 	}
-	if (existing.type === "found") {
-		return brmemError("handoff_already_exists", alreadyExistsMessage(target));
+	return brmemOk({ ...target, exists: existing.type === "found" });
+}
+
+export async function prepareHandoffCreation(
+	deps: HandoffCheckStorageDeps,
+	options: { branch: string; slug: string },
+): Promise<BrmemResult<HandoffCreationTarget>> {
+	const checked = await checkHandoffArtifact(deps, options);
+	if (checked.type === "error") return checked;
+	if (checked.value.exists) {
+		return brmemError("handoff_already_exists", alreadyExistsMessage(checked.value));
 	}
-	return brmemOk(target);
+	return brmemOk(targetFromCheck(checked.value));
 }
 
 export async function createHandoffArtifact(
-	deps: HandoffStorageDeps,
+	deps: HandoffCreateStorageDeps,
 	options: { branch: string; key: string; content: string },
 ): Promise<BrmemResult<CreateHandoffArtifactResult>> {
-	const target = creationTarget(options);
+	const target = handoffTarget(options);
 	const created = await deps.brmem.putEntry({
 		namespace: HANDOFF_NAMESPACE,
 		key: target.key,
@@ -186,34 +211,22 @@ export async function createHandoffArtifact(
 }
 
 export async function prepareHandoffDeletion(
-	deps: HandoffStorageDeps,
+	deps: HandoffCheckStorageDeps,
 	options: { branch: string; slug: string },
 ): Promise<BrmemResult<HandoffDeletionTarget>> {
-	const key = handoffKeyFromSlug(options.slug);
-	if (key.type === "error") {
-		return brmemError(key.error.code, key.error.message);
+	const checked = await checkHandoffArtifact(deps, options);
+	if (checked.type === "error") return checked;
+	if (!checked.value.exists) {
+		return brmemError("handoff_not_found", notFoundMessage(checked.value));
 	}
-
-	const target = deletionTarget({ branch: options.branch, key: key.value });
-	const existing = await deps.brmem.checkEntry({
-		namespace: HANDOFF_NAMESPACE,
-		key: target.key,
-		branch: target.branch,
-	});
-	if (existing.type === "error") {
-		return brmemError(existing.error.code, `Failed to check handoff: ${existing.error.message}`);
-	}
-	if (existing.type === "missing") {
-		return brmemError("handoff_not_found", notFoundMessage(target));
-	}
-	return brmemOk(target);
+	return brmemOk(targetFromCheck(checked.value));
 }
 
 export async function deleteHandoffArtifact(
-	deps: HandoffStorageDeps,
+	deps: HandoffDeleteStorageDeps,
 	options: { branch: string; key: string },
 ): Promise<BrmemResult<DeleteHandoffArtifactResult>> {
-	const target = deletionTarget(options);
+	const target = handoffTarget(options);
 	const deleted = await deps.brmem.deleteEntry({
 		namespace: HANDOFF_NAMESPACE,
 		key: target.key,
@@ -229,7 +242,7 @@ export async function deleteHandoffArtifact(
 }
 
 async function classifyBranchState(
-	deps: HandoffStorageDeps,
+	deps: HandoffReadStorageDeps,
 	branch: string,
 	cache: Map<string, BranchState>,
 ): Promise<BrmemResult<BranchState>> {
@@ -245,7 +258,7 @@ async function classifyBranchState(
 }
 
 async function findActiveHandoffSummary(
-	deps: HandoffStorageDeps,
+	deps: HandoffReadStorageDeps,
 	target: HandoffReadTarget,
 ): Promise<BrmemResult<HandoffSummary | null>> {
 	const summaries = await listHandoffSummaries(deps, {
@@ -260,21 +273,22 @@ async function findActiveHandoffSummary(
 	);
 }
 
-function handoffTarget(options: { branch: string; key: string }): HandoffReadTarget {
+function targetFromCheck(checked: HandoffArtifactCheck): HandoffTarget {
+	return {
+		branch: checked.branch,
+		slug: checked.slug,
+		key: checked.key,
+		entry_locator: checked.entry_locator,
+	};
+}
+
+function handoffTarget(options: { branch: string; key: string }): HandoffTarget {
 	return {
 		branch: options.branch,
 		slug: handoffKeyToSlug(options.key),
 		key: options.key,
 		entry_locator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
 	};
-}
-
-function creationTarget(options: { branch: string; key: string }): HandoffCreationTarget {
-	return handoffTarget(options);
-}
-
-function deletionTarget(options: { branch: string; key: string }): HandoffDeletionTarget {
-	return handoffTarget(options);
 }
 
 function alreadyExistsMessage(target: HandoffCreationTarget): string {
