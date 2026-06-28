@@ -103,6 +103,48 @@ describe("slot gt navigation CLI", () => {
 		]);
 	});
 
+	it("renders checked-out, main-worktree, and no-clipboard navigation variants", async () => {
+		const checkedOut = runScenario(["gt", "down", "--no-clipboard"], {
+			git: {
+				localBranches: ["master", "feature/parent", "feature/current"],
+				worktrees: [{ path: "/repo", branch: "feature/current" }, slotWorktree("slot-01")],
+			},
+			gt: { parent: { type: "parent", branch: "feature/parent" } },
+		});
+		expect(await checkedOut.exit).toBe(0);
+		expect(stripAnsi(checkedOut.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ Checked out slot-01 -> feature/parent",
+			"cd /slots/repos/repo/worktrees/slot-01",
+		]);
+
+		const main = runScenario(["gt", "down"], {
+			git: {
+				worktrees: [
+					{ path: "/repo", branch: "feature/parent" },
+					slotWorktree("slot-01", "feature/current"),
+				],
+			},
+			cwd: "/slots/repos/repo/worktrees/slot-01",
+			gt: { parent: { type: "parent", branch: "feature/parent" } },
+		});
+		expect(await main.exit).toBe(0);
+		expect(stripAnsi(main.stdout.join("")).trimEnd().split("\n")[0]).toBe(
+			"✓ feature/parent is checked out at /repo",
+		);
+	});
+
+	it("gt down reports a missing parent as a negative exit", async () => {
+		const run = runScenario(["gt", "down", "--format", "json"], {
+			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
+			gt: { parent: { type: "no_parent" } },
+		});
+		expect(await run.exit).toBe(1);
+		expect(parseJsonOutput(run)).toMatchObject({
+			exitCode: 1,
+			message: "No downstack branch for 'feature/current'.",
+		});
+	});
+
 	it("gt up reports multiple children as a negative exit", async () => {
 		const run = runScenario(["gt", "up", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
