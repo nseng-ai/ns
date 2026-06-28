@@ -1,9 +1,10 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../../lifecycle/free.ts";
+import { renderSlotDestructiveResultBlock } from "../destructive-presentation.ts";
 import { freedSlotSchema } from "../result-schemas.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 import { collectStackBranches } from "./stack-walk.ts";
@@ -95,17 +96,38 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 	);
 }
 
-export function renderGtFreeStack(result: GtFreeStackResult): string {
+export function renderGtFreeStack(
+	result: GtFreeStackResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	return renderSlotDestructiveResultBlock(caps, {
+		kind: "success",
+		headline: gtFreeStackHeadline(result),
+		body: renderGtFreeStackDetails(result),
+	});
+}
+
+function gtFreeStackHeadline(result: GtFreeStackResult): string {
+	if (result.noop_reason === "on_trunk") return "On trunk; no stack slots freed.";
+	if (result.noop_reason === "no_slots") return "No stack slots freed.";
+	return `Freed ${result.freed.length} stack slot(s).`;
+}
+
+function renderGtFreeStackDetails(result: GtFreeStackResult): string | undefined {
 	if (result.noop_reason === "on_trunk")
-		return `On trunk (${result.trunk_branch}); nothing to free.`;
+		return `Current branch ${result.current_branch} is trunk ${result.trunk_branch}.`;
 	if (result.noop_reason === "no_slots")
-		return `No slots in stack to free${result.downstack ? " (downstack only)" : ""}.`;
+		return `No assigned ${scopeText(result.downstack)} slots were found.`;
 	return result.freed
 		.map(
 			(entry) =>
-				`Freed ${entry.slot_name} (${entry.branch_name})\n  Worktree kept at ${entry.worktree_path}; detached HEAD at trunk`,
+				`Freed ${entry.slot_name} -> ${entry.branch_name}\nWorktree kept at ${entry.worktree_path}; detached HEAD at ${result.trunk_branch}`,
 		)
 		.join("\n");
+}
+
+function scopeText(isDownstack: boolean): string {
+	return isDownstack ? "downstack" : "stack";
 }
 
 function buildResult(options: {

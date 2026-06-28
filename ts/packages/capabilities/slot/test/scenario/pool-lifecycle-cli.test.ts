@@ -51,6 +51,18 @@ describe("slot resize CLI", () => {
 		});
 	});
 
+	it("renders human grow output", async () => {
+		const run = runScenario(["resize", "--size", "4"], {
+			git: { worktrees: [slotWorktree("slot-01", null), slotWorktree("slot-03", null)] },
+		});
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Grew slot pool 2 -> 4.");
+		expect(output).toContain("Created slot-02");
+		expect(output).toContain("Created slot-04");
+		expect(output).toContain("Worktrees: /slots/repos/repo/worktrees");
+	});
+
 	it("shrinks by removing the highest records after the target prefix", async () => {
 		const run = runScenario(["resize", "--size", "2", "--format", "json"], {
 			git: {
@@ -72,6 +84,24 @@ describe("slot resize CLI", () => {
 		]);
 	});
 
+	it("renders human shrink output", async () => {
+		const run = runScenario(["resize", "--size", "2"], {
+			git: {
+				worktrees: [
+					slotWorktree("slot-01", null),
+					slotWorktree("slot-02", null),
+					slotWorktree("slot-03", null),
+					slotWorktree("slot-04", null),
+				],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("Shrank slot pool 4 -> 2.");
+		expect(output).toContain("Removed slot-03");
+		expect(output).toContain("Removed slot-04");
+	});
+
 	it("returns no-op when already at the requested size", async () => {
 		const run = runScenario(["resize", "--size", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
@@ -81,6 +111,14 @@ describe("slot resize CLI", () => {
 			data: { previous_pool_size: 1, pool_size: 1, created: [], removed: [] },
 		});
 		expect(run.git.operations()).toEqual([]);
+	});
+
+	it("renders human no-op output", async () => {
+		const run = runScenario(["resize", "--size", "1"], {
+			git: { worktrees: [slotWorktree("slot-01", null)] },
+		});
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("Pool already at size 1.");
 	});
 
 	it("reports all unsafe shrink offenders", async () => {
