@@ -1,56 +1,72 @@
 ---
 name: architecture-topology-report
 disable-model-invocation: true
-description: Build a self-contained HTML report that maps a workspace's package dependency topology against a target architecture and scores how well it is tracking toward it. Use when someone wants a topology report, a dependency-graph or package-graph audit, a layering/cycle check, or to see how close a monorepo is to a stated architectural end-state (e.g. an objective's target, an ADR's layering rules). Reaches for the bundled extract-graph script rather than re-deriving the graph by hand.
+description: Build a self-contained HTML report for a workspace's package dependency topology: either score it against a named target architecture, or (when no target is supplied) produce a raw topology inventory. Use when someone wants a topology report, a dependency-graph or package-graph audit, a layering/cycle check, or to see how close a monorepo is to a stated architectural end-state (e.g. an objective's target, an ADR's layering rules). Reaches for the bundled extract-graph script rather than re-deriving the graph by hand.
 metadata:
   internal: true
 ---
 
 # Architecture Topology Report
 
-Produce a **topology scorecard**: the actual runtime package dependency graph of a
-workspace, rendered as an editorial HTML report and measured against a *stated target
-architecture*. The question this answers is "how well are we tracking toward the
-coherent architecture we said we wanted?" — not "find me refactors" (that is the
-sibling `improve-codebase-architecture` skill).
+Produce an **architecture topology report**: the actual runtime package dependency graph of a
+workspace, rendered as an editorial HTML report. It has two modes:
 
-Two inputs, always:
+1. **Target scorecard mode** (preferred when a target is named): measure the graph against a
+   *stated target architecture*. The question is "how well are we tracking toward the
+   coherent architecture we said we wanted?" — not "find me refactors" (that is the sibling
+   `improve-codebase-architecture` skill).
+2. **Raw inventory mode** (when no target is named): render and summarize the graph as-is —
+   cycles, tier violations, fan-in/out, `/api` seams, kit/transitional consumers, orphans, and
+   other manifest-derived topology facts — without pretending to grade them against an
+   unstated architecture.
 
-1. **The graph as it is** — extracted deterministically from `package.json` files by the
-   bundled script. Never eyeball this; the script is faster and correct.
-2. **The target as it should be** — prose the agent reads: an objective's `objective.md`
-   / `roadmap.md` / `orientation.md`, an ADR, or whatever the user names. The whole
-   point is the *gap* between the two, so you must actually load the target, not assume one.
+The graph input is always required and must be extracted deterministically from
+`package.json` files by the bundled script. Never eyeball this; the script is faster and
+correct. The target input is optional: load it when the user names one, but do not block on it
+when they ask for a topology report, dependency-graph audit, package-graph inventory, or raw
+layering/cycle check without a target.
 
-These two inputs (plus the spec template you author from) are independent — fetch them in a
-single parallel batch rather than across sequential turns.
+When a target is supplied, fetch the graph, target docs, and spec template in a single parallel
+batch rather than across sequential turns. When no target is supplied, fetch the graph and spec
+template in that same first batch and write the spec as an inventory report.
 
 ## Process
 
 **Fast path** (a clean run is ~4 turns and **one** graph extraction):
 
 1. **One parallel batch:** run `extract-graph.mjs --pretty --out <tmp>/graph.json` (caches the
-   JSON *and* prints the facts); read the target docs (`objective.md` / `roadmap.md` /
+   JSON *and* prints the facts); read any supplied target docs (`objective.md` / `roadmap.md` /
    `orientation.md` + any named ADRs); read `references/example-spec.mjs` and only the
    "Spec contract" table in `references/HTML-REPORT.md`.
 2. **≤2 targeted greps** for the few things the JSON can't see.
-3. Write the spec.
+3. Write the spec. In target mode, make the scorecard rows target invariants. In raw inventory
+   mode, make the scorecard rows factual topology checks/readings from the JSON (for example
+   cycles, tier violations, fan-in/fan-out shape, API-only packages, transitional consumers,
+   kit consumers, orphans) and set `targetName`/intro/provenance to clearly say no target was
+   supplied.
 4. `build-report.mjs --graph <tmp>/graph.json --spec <spec> --open`.
 
 The detailed steps below expand each of these.
 
-### 1. Load the target architecture
+### 1. Load the target architecture, if supplied
 
-Read the document(s) that define the intended end-state. If the user named an objective,
-read its `objective.md` (the "Architecture Model" and "Completion Criteria" sections carry
-the invariants), `roadmap.md` (what is done vs. pending), and `orientation.md` (the
-standing rule). Follow ADR references — the target invariants usually live there.
+If the user named a target, read the document(s) that define the intended end-state. If the
+user named an objective, read its `objective.md` (the "Architecture Model" and "Completion
+Criteria" sections carry the invariants), `roadmap.md` (what is done vs. pending), and
+`orientation.md` (the standing rule). Follow ADR references — the target invariants usually
+live there.
 
 Extract the target into a checklist of **invariants** — testable statements like "the
 dependency graph is acyclic", "below-SDK packages hold no domain", "every capability
 exposes a command face", "package X must delete to zero". These become the report's
 scorecard rows. Use the project's own vocabulary (from `CONTEXT.md` and the target doc)
 for layer and seam names — don't invent your own.
+
+If no target is supplied, do **not** ask a blocking clarification just to get one. Run raw
+inventory mode instead. Use neutral labels such as `targetName: "raw topology inventory"`,
+make the intro explicit that there is no target architecture, and avoid normative language like
+"drift", "on track", or "violates the architecture" unless the fact is directly encoded by the
+package metadata (for example declared-tier `tierViolations`).
 
 ### 2. Extract the real topology
 
@@ -86,11 +102,13 @@ flags for a different workspace. The script reports, over **runtime edges only**
 
 The script reads each workspace package's declared `sdl.tier`, validates it against the
 canonical seven-tier taxonomy, emits `packages[name].tier`, and reports computed
-`tierViolations` over runtime package edges. It still does not write the editorial verdict:
-map the measured facts to the target's invariants yourself. When you need finer detail than
-package-level edges (e.g. "does ccc import a capability through `/api` or through
-internals?"), grep the consumer's `src` for the import subpaths — package-level edges tell
-you *that* an edge exists, subpath grep tells you *whether it is clean*.
+`tierViolations` over runtime package edges. It still does not write the editorial verdict. In
+target mode, map the measured facts to the target's invariants yourself. In raw inventory
+mode, present the measured facts as inventory rows and observations, not as a target-gap
+verdict. When you need finer detail than package-level edges (e.g. "does ccc import a
+capability through `/api` or through internals?"), grep the consumer's `src` for the import
+subpaths — package-level edges tell you *that* an edge exists, subpath grep tells you
+*whether it is clean*.
 
 **This JSON is the evidence base** — it already answers most scorecard rows (`cycles`,
 `tierViolations`, `kitConsumers`, `transitionalConsumers`, `exposesApi`, `apiOnly`, `orphans`,
@@ -101,24 +119,31 @@ validation lane?). Cap it at a couple of targeted greps — this is evidence *co
 investigation. A topology report reads manifests, never behavior, so **never run the test suite
 or `just` to gather evidence**; read the relevant config / justfile files directly instead.
 
-### 3. Map facts to invariants
+### 3. Map facts to invariants or inventory rows
 
-For each target invariant, find the supporting fact and assign a status. Keep statuses
-honest and few: `holds` (green), `partial` / `N of M` (amber), `open` / `blocked` / `gap`
-(red). Cite the concrete evidence (the cycle members, the consumer count, the leaking
+In target mode, for each target invariant, find the supporting fact and assign a status. Keep
+statuses honest and few: `holds` (green), `partial` / `N of M` (amber), `open` / `blocked` /
+`gap` (red). Cite the concrete evidence (the cycle members, the consumer count, the leaking
 subpaths) — a status with no evidence is noise.
+
+In raw inventory mode, do not invent invariants. Use the same scorecard shape for factual
+readings: `cycles`, `tierViolations`, top fan-in/fan-out, `exposesApi`/`apiOnly`,
+`kitConsumers`, `transitionalConsumers`, and `orphans`. Status labels should describe the
+fact (`none`, `present`, `N packages`, `top fan-out`, etc.) rather than target compliance. The
+finding cards should be "notable topology facts" and the keystone should become a "best first
+deeper-read" or "highest-leverage inspection point", not a mandated architecture move.
 
 Look specifically for:
 
-- **Cycles** — every SCC is debt against an acyclicity invariant, even ones the target
-  doc explicitly defers. Surface deferred cycles as such ("acknowledged debt"), don't hide
-  them — they are usually the last thing between the graph and the invariant.
-- **Migration distance vs. drift** — distinguish "the layering is wrong" (architectural
-  drift, serious) from "most capabilities just haven't been migrated yet" (distance,
-  expected mid-flight). Say which one you are looking at; they have very different fixes.
-- **The keystone** — the single move that unblocks the most invariants at once (often a
-  package that sits inside a cycle *and* is mid-migration). That becomes the top
-  recommendation.
+- **Cycles** — in target mode, every SCC is debt against an acyclicity invariant, even ones
+  the target doc explicitly defers. In raw inventory mode, report SCCs as cycle inventory and
+  avoid calling them debt unless a declared rule says so.
+- **Migration distance vs. drift** — only make this distinction when a target exists. Without
+  a target, say "migration signals" or "declared-tier signals" and keep the claim factual.
+- **The keystone / first deeper read** — in target mode, name the single move that unblocks
+  the most invariants at once. In raw inventory mode, name the package/edge/SCC that deserves
+  first human inspection because it is largest, most connected, cyclic, tier-violating, or a
+  manifest anomaly.
 
 ### 4. Render the HTML report
 
@@ -159,6 +184,8 @@ a register the spec does not express — and prefer extending `build-report.mjs`
 
 ### 5. Summarize in chat
 
-Give the user the path, the scorecard verdict in a compact table, the keystone
-recommendation, and any sharp loose ends (an orphan capability, an api-only package, a
-debt edge from a package that is supposed to disappear). Offer to drill into any finding.
+Give the user the path, the scorecard/inventory verdict in a compact table, the keystone
+recommendation (target mode) or first deeper-read recommendation (raw inventory mode), and any
+sharp loose ends (an orphan capability, an api-only package, a declared tier violation, a debt
+edge from a package that is supposed to disappear when a target says so). Offer to drill into
+any finding.
