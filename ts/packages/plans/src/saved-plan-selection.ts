@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import {
 	buildPlanFileName,
+	buildPlanStoreBranchDirectoryPath,
+	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
 	resolvePlanStoreDirectory,
 	type LatestSavedPlanFileEvidence,
@@ -52,6 +54,11 @@ export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
 	explicitPath?: string | undefined;
 	sessionEntries?: readonly unknown[] | undefined;
 	shouldFallbackToLatest?: boolean | undefined;
+	shouldAllowSessionSourceBranchMismatch?: boolean | undefined;
+}
+
+export interface ValidateSessionSavedPlanCandidateOptions {
+	shouldAllowSourceBranchMismatch?: boolean | undefined;
 }
 
 const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);
@@ -100,6 +107,7 @@ function toSavedPlanFileEvidence(
 export async function validateSessionSavedPlanCandidate(
 	evidence: SavedPlanFileEvidence,
 	directory: PlanStoreDirectoryEvidence,
+	options: ValidateSessionSavedPlanCandidateOptions = {},
 ): Promise<SessionSavedPlanValidation> {
 	if (!isAbsolute(evidence.filePath)) {
 		return unsafe(
@@ -127,16 +135,17 @@ export async function validateSessionSavedPlanCandidate(
 		);
 	}
 
-	const metadataError = validateDirectoryMetadata(evidence, directory);
-	if (metadataError !== undefined) {
-		return unsafe(metadataError);
+	const metadata = validateDirectoryMetadata(evidence, directory, options);
+	if (metadata.type === "invalid") {
+		return unsafe(metadata.message);
 	}
 
-	if (!isPathInside(directory.directoryPath, evidence.filePath)) {
+	const expectedDirectoryPath = metadata.directoryPath;
+	if (!isPathInside(expectedDirectoryPath, evidence.filePath)) {
 		return unsafe(
 			[
-				"Session saved-plan evidence points outside the current local plan store directory.",
-				`Plan store directory: ${directory.directoryPath}`,
+				formatOutsidePlanStoreDirectoryMessage(expectedDirectoryPath, directory.directoryPath),
+				`Plan store directory: ${expectedDirectoryPath}`,
 				`Saved plan path: ${evidence.filePath}`,
 			].join("\n"),
 		);
@@ -155,7 +164,7 @@ export async function validateSessionSavedPlanCandidate(
 		return unsafe(`Session saved-plan evidence path is not a regular file: ${evidence.filePath}`);
 	}
 
-	const realDirectoryPath = await realpathIfPossible(directory.directoryPath);
+	const realDirectoryPath = await realpathIfPossible(expectedDirectoryPath);
 	const realFilePath = await realpathIfPossible(evidence.filePath);
 	if (!isPathInside(realDirectoryPath, realFilePath)) {
 		return unsafe(
@@ -171,6 +180,9 @@ export async function validateSessionSavedPlanCandidate(
 
 	const plan: ValidatedSessionSavedPlan = {
 		...directory,
+		sourceBranch: evidence.sourceBranch,
+		branchKey: evidence.branchKey,
+		directoryPath: expectedDirectoryPath,
 		slug: evidence.slug,
 		filePath: evidence.filePath,
 		fileName,
@@ -183,6 +195,7 @@ export async function validateSessionSavedPlanCandidate(
 export async function findLatestSessionSavedPlanFile(
 	entries: readonly unknown[],
 	directory: PlanStoreDirectoryEvidence,
+	options: ValidateSessionSavedPlanCandidateOptions = {},
 ): Promise<LatestSessionSavedPlanResult> {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const entry = entries[index];
@@ -191,7 +204,7 @@ export async function findLatestSessionSavedPlanFile(
 			continue;
 		}
 
-		const validation = await validateSessionSavedPlanCandidate(evidence, directory);
+		const validation = await validateSessionSavedPlanCandidate(evidence, directory, options);
 		switch (validation.type) {
 			case "valid":
 				return { type: "found", plan: validation.plan };
@@ -233,7 +246,9 @@ export async function resolveSelectedSavedPlanFile(
 	const sessionEntries = options.sessionEntries ?? [];
 	if (sessionEntries.length > 0) {
 		const directory = await resolvePlanStoreDirectory(pi, options);
-		const sessionResult = await findLatestSessionSavedPlanFile(sessionEntries, directory);
+		const sessionResult = await findLatestSessionSavedPlanFile(sessionEntries, directory, {
+			shouldAllowSourceBranchMismatch: options.shouldAllowSessionSourceBranchMismatch ?? false,
+		});
 		switch (sessionResult.type) {
 			case "found":
 				return {
@@ -256,10 +271,53 @@ export async function resolveSelectedSavedPlanFile(
 	throw new Error("No usable saved plan was found in the current session branch.");
 }
 
+type DirectoryMetadataValidation =
+	| { type: "valid"; directoryPath: string }
+	| { type: "invalid"; message: string };
+
 function validateDirectoryMetadata(
 	evidence: SavedPlanFileEvidence,
 	directory: PlanStoreDirectoryEvidence,
-): string | undefined {
+	options: ValidateSessionSavedPlanCandidateOptions,
+): DirectoryMetadataValidation {
+	const mismatches = validateRepoMetadata(evidence, directory);
+	if (mismatches.length > 0) {
+		return metadataInvalid(mismatches);
+	}
+
+	const expectedBranchKey = encodeBranchForPlanPath(evidence.sourceBranch);
+	if (evidence.branchKey !== expectedBranchKey) {
+		return metadataInvalid([
+			`branchKey: evidence ${evidence.branchKey}, expected ${expectedBranchKey} for sourceBranch ${evidence.sourceBranch}`,
+		]);
+	}
+
+	const branchMatchesCurrent =
+		evidence.sourceBranch === directory.sourceBranch && evidence.branchKey === directory.branchKey;
+	if (branchMatchesCurrent) {
+		return { type: "valid", directoryPath: directory.directoryPath };
+	}
+
+	if (!(options.shouldAllowSourceBranchMismatch ?? false)) {
+		return metadataInvalid([
+			`sourceBranch: evidence ${evidence.sourceBranch}, current ${directory.sourceBranch}`,
+			`branchKey: evidence ${evidence.branchKey}, current ${directory.branchKey}`,
+		]);
+	}
+
+	return {
+		type: "valid",
+		directoryPath: buildPlanStoreBranchDirectoryPath({
+			repoDirectoryPath: directory.repoDirectoryPath,
+			branchKey: evidence.branchKey,
+		}),
+	};
+}
+
+function validateRepoMetadata(
+	evidence: SavedPlanFileEvidence,
+	directory: PlanStoreDirectoryEvidence,
+): string[] {
 	const mismatches: string[] = [];
 	if (evidence.repoRoot !== directory.repoRoot) {
 		mismatches.push(`repoRoot: evidence ${evidence.repoRoot}, current ${directory.repoRoot}`);
@@ -272,21 +330,27 @@ function validateDirectoryMetadata(
 			`repoIdentitySource: evidence ${evidence.repoIdentitySource}, current ${directory.repoIdentitySource}`,
 		);
 	}
-	if (evidence.sourceBranch !== directory.sourceBranch) {
-		mismatches.push(
-			`sourceBranch: evidence ${evidence.sourceBranch}, current ${directory.sourceBranch}`,
-		);
+	return mismatches;
+}
+
+function metadataInvalid(mismatches: readonly string[]): DirectoryMetadataValidation {
+	return {
+		type: "invalid",
+		message: [
+			"Latest saved plan belongs to a different repo or branch than the current checkout, or an incompatible source branch.",
+			...mismatches,
+		].join("\n"),
+	};
+}
+
+function formatOutsidePlanStoreDirectoryMessage(
+	expectedDirectoryPath: string,
+	currentDirectoryPath: string,
+): string {
+	if (expectedDirectoryPath === currentDirectoryPath) {
+		return "Session saved-plan evidence points outside the current local plan store directory.";
 	}
-	if (evidence.branchKey !== directory.branchKey) {
-		mismatches.push(`branchKey: evidence ${evidence.branchKey}, current ${directory.branchKey}`);
-	}
-	if (mismatches.length === 0) {
-		return undefined;
-	}
-	return [
-		"Latest saved plan belongs to a different repo or branch than the current checkout.",
-		...mismatches,
-	].join("\n");
+	return "Session saved-plan evidence points outside the saved plan source-branch local plan store directory.";
 }
 
 function unsafe(message: string): SessionSavedPlanValidation {

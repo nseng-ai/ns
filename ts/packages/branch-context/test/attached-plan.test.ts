@@ -211,6 +211,67 @@ describe("loadAttachedPlan", () => {
 		});
 	});
 
+	test("loads session saved-plan fallback from the planning source branch on an implementation branch", async () => {
+		const planStoreRoot = await mkdtemp(join(tmpdir(), "branch-context-fallback-source-"));
+		tempDirs.push(planStoreRoot);
+		const sourceBranch = "feature/planning-source";
+		const implementationBranch = "feature/implementation-upstack";
+		const repoKey = buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git");
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const fileName = buildPlanFileName(PLAN_SLUG);
+		const directory = join(planStoreRoot, repoKey, branchKey);
+		const filePath = join(directory, fileName);
+		await mkdir(directory, { recursive: true });
+		await writeFile(filePath, PLAN_CONTENT, "utf8");
+
+		const plan = await loadBranchContextPlan(
+			NO_COMMANDS,
+			{},
+			{
+				cwd: ROOT,
+				context: branchContext({
+					git: new InMemoryGitGateway({
+						currentBranch: implementationBranch,
+						trunkBranch: "main",
+						originUrl: "git@github.com:sdl/sdl-tools.git",
+						headCommit: "1111111111111111111111111111111111111111",
+					}),
+					brmem: new InMemoryBranchMemoryGateway(),
+				}),
+				planStoreRoot,
+				sessionEntries: [
+					{
+						type: "message",
+						message: {
+							role: "toolResult",
+							toolName: "write_saved_plan_file",
+							isError: false,
+							details: {
+								slug: PLAN_SLUG,
+								repoRoot: ROOT,
+								repoKey,
+								repoIdentitySource: "origin-url",
+								sourceBranch,
+								branchKey,
+								filePath,
+							},
+						},
+					},
+				],
+			},
+		);
+
+		expect(plan).toMatchObject({
+			branch: implementationBranch,
+			namespace: "local-plan-store",
+			selectedKey: fileName,
+			refName: filePath,
+			source: "saved",
+			sourceFile: filePath,
+		});
+		expect(plan.content).toBe(PLAN_CONTENT);
+	});
+
 	test("refuses detached HEAD before Branch Memory reads", async () => {
 		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],

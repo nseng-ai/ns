@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+	buildPlanStoreBranchDirectoryPath,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	extractSavedPlanFileEvidenceFromSessionEntry,
@@ -217,6 +218,7 @@ describe("saved plan session selection", () => {
 			mutate: (fixture, filePath) => ({
 				...evidence(fixture.directory, { filePath }),
 				sourceBranch: "other-branch",
+				branchKey: encodeBranchForPlanPath("other-branch"),
 			}),
 			expected: "sourceBranch",
 		},
@@ -260,6 +262,34 @@ describe("saved plan session selection", () => {
 			}
 		});
 	}
+
+	test("allows same-repo session evidence from a different source branch when requested", async () => {
+		const fixture = await makeFixture();
+		const sourceBranch = "feature/planning-branch";
+		const branchKey = encodeBranchForPlanPath(sourceBranch);
+		const directoryPath = buildPlanStoreBranchDirectoryPath({
+			repoDirectoryPath: fixture.directory.repoDirectoryPath,
+			branchKey,
+		});
+		const sourceDirectory = { ...fixture.directory, sourceBranch, branchKey, directoryPath };
+		const filePath = await writePlanFile(sourceDirectory, PLAN_KEY, 1_800_000_000_000);
+
+		const result = await validateSessionSavedPlanCandidate(
+			evidence(sourceDirectory, { filePath }),
+			fixture.directory,
+			{ shouldAllowSourceBranchMismatch: true },
+		);
+
+		expect(result).toMatchObject({
+			type: "valid",
+			plan: {
+				sourceBranch,
+				branchKey,
+				directoryPath,
+				filePath,
+			},
+		});
+	});
 });
 
 interface Fixture {
@@ -272,15 +302,17 @@ async function makeFixture(): Promise<Fixture> {
 	const planStoreRoot = await makeTempDir();
 	const repoKey = buildRepoPlanStoreKey(root, ORIGIN);
 	const branchKey = encodeBranchForPlanPath(SOURCE_BRANCH);
+	const repoDirectoryPath = join(planStoreRoot, repoKey);
 	return {
 		root,
 		directory: {
 			repoRoot: root,
 			repoKey,
 			repoIdentitySource: "origin-url",
+			repoDirectoryPath,
 			sourceBranch: SOURCE_BRANCH,
 			branchKey,
-			directoryPath: join(planStoreRoot, repoKey, branchKey),
+			directoryPath: buildPlanStoreBranchDirectoryPath({ repoDirectoryPath, branchKey }),
 		},
 	};
 }

@@ -40,10 +40,7 @@ export interface PlanStoreRepoEvidence {
 	repoDirectoryPath: string;
 }
 
-export interface PlanStoreDirectoryEvidence {
-	repoRoot: string;
-	repoKey: string;
-	repoIdentitySource: RepoIdentitySource;
+export interface PlanStoreDirectoryEvidence extends PlanStoreRepoEvidence {
 	sourceBranch: string;
 	branchKey: string;
 	directoryPath: string;
@@ -157,6 +154,13 @@ export function buildPlanFileName(slug: string): string {
 	return `${slug}${PLAN_FILE_SUFFIX}`;
 }
 
+export function buildPlanStoreBranchDirectoryPath(params: {
+	repoDirectoryPath: string;
+	branchKey: string;
+}): string {
+	return join(params.repoDirectoryPath, params.branchKey);
+}
+
 export function formatSavedPlanFileEvidence(evidence: SavedPlanFileEvidence): string {
 	const lines = [
 		"Saved plan file in local plan store.",
@@ -187,12 +191,13 @@ export async function resolvePlanStoreRepoDirectory(
 	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
+	const repoDirectoryPath = join(planStoreRoot, repoKey);
 
 	return {
 		repoRoot,
 		repoKey,
 		repoIdentitySource: repoIdentity.source,
-		repoDirectoryPath: join(planStoreRoot, repoKey),
+		repoDirectoryPath,
 	};
 }
 
@@ -211,12 +216,14 @@ export async function resolvePlanStoreDirectory(
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
 	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
-	const directoryPath = join(planStoreRoot, repoKey, branchKey);
+	const repoDirectoryPath = join(planStoreRoot, repoKey);
+	const directoryPath = buildPlanStoreBranchDirectoryPath({ repoDirectoryPath, branchKey });
 
 	return {
 		repoRoot,
 		repoKey,
 		repoIdentitySource: repoIdentity.source,
+		repoDirectoryPath,
 		sourceBranch,
 		branchKey,
 		directoryPath,

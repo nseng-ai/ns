@@ -20,5 +20,6 @@ export {
 	findLatestSessionSavedPlanFile,
 	resolveSelectedSavedPlanFile,
 	type SelectedSavedPlanFile,
+	type ValidateSessionSavedPlanCandidateOptions,
 	type ValidatedSessionSavedPlan,
 } from "./saved-plan-selection.ts";
