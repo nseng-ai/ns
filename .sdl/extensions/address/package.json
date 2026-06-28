@@ -5,57 +5,57 @@
 			{
 				"name": "exec-download-feedback",
 				"description": "Run Address download-feedback operation.",
-				"entry": "./src/commands/exec-download-feedback.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-map-branch-prs",
 				"description": "Run Address map-branch-prs operation.",
-				"entry": "./src/commands/exec-map-branch-prs.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-pr-details",
 				"description": "Run Address pr-details operation.",
-				"entry": "./src/commands/exec-pr-details.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-branch-pr",
 				"description": "Run Address branch-pr operation.",
-				"entry": "./src/commands/exec-branch-pr.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-open-prs",
 				"description": "Run Address open-prs operation.",
-				"entry": "./src/commands/exec-open-prs.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-pr-reviews",
 				"description": "Run Address pr-reviews operation.",
-				"entry": "./src/commands/exec-pr-reviews.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-pr-review-threads",
 				"description": "Run Address pr-review-threads operation.",
-				"entry": "./src/commands/exec-pr-review-threads.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-pr-discussion-comments",
 				"description": "Run Address pr-discussion-comments operation.",
-				"entry": "./src/commands/exec-pr-discussion-comments.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-pr-checks",
 				"description": "Run Address pr-checks operation.",
-				"entry": "./src/commands/exec-pr-checks.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-reply-review-thread",
 				"description": "Run Address reply-review-thread operation.",
-				"entry": "./src/commands/exec-reply-review-thread.ts"
+				"entry": "./src/commands/exec.ts"
 			},
 			{
 				"name": "exec-resolve-review-thread",
 				"description": "Run Address resolve-review-thread operation.",
-				"entry": "./src/commands/exec-resolve-review-thread.ts"
+				"entry": "./src/commands/exec.ts"
 			}
 		]
 	}

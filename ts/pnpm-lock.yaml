@@ -146,6 +146,9 @@ importers:
 
   packages/address:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../sdl-capability-kit
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr

@@ -40,7 +40,7 @@ describe("collectPrChecks", () => {
 
 		expect(result).toEqual({
 			type: "ok",
-			value: {
+			checks: {
 				found: true,
 				target: {
 					kind: "github_pr",
@@ -84,7 +84,7 @@ describe("collectPrChecks", () => {
 
 		expect(result).toEqual({
 			type: "ok",
-			value: {
+			checks: {
 				found: false,
 				target: {
 					kind: "github_pr",
@@ -133,7 +133,7 @@ describe("collectPrChecks", () => {
 
 		expect(result).toMatchObject({
 			type: "ok",
-			value: {
+			checks: {
 				found: true,
 				target: { pr_number: 21, branch: "feature/current" },
 				counts: { passing: 1, pending: 0, failing: 0, unknown: 0 },
@@ -150,7 +150,7 @@ describe("collectPrChecks", () => {
 
 		expect(result).toMatchObject({
 			type: "ok",
-			value: {
+			checks: {
 				found: false,
 				target: { pr_number: null, branch: "feature/missing" },
 				counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
@@ -222,8 +222,8 @@ describe("collectPrChecks", () => {
 
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.value.counts).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
-		expect(Object.hasOwn(result.value.counts, "has_more")).toBe(false);
+		expect(result.checks.counts).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+		expect(Object.hasOwn(result.checks.counts, "has_more")).toBe(false);
 	});
 });
 

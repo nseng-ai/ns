@@ -246,7 +246,7 @@ async function runPrChecks(
 	});
 	switch (result.type) {
 		case "ok":
-			return ok(result.value);
+			return ok(result.checks);
 		case "git_failure":
 			return gatewayFailureExit(result.message, result.failure);
 		case "pr_feedback_failure":

@@ -52,7 +52,7 @@ export interface PrChecksPayload {
 }
 
 export type PrChecksResult =
-	| { type: "ok"; value: PrChecksPayload }
+	| { type: "ok"; checks: PrChecksPayload }
 	| { type: "git_failure"; message: string; failure: GatewayFailure }
 	| { type: "pr_feedback_failure"; message: string; failure: GithubPrFeedbackFailure }
 	| { type: "detached_head"; message: string };
@@ -77,7 +77,7 @@ export async function collectPrChecks(options: CollectPrChecksOptions): Promise<
 	if (target.type === "miss") {
 		return {
 			type: "ok",
-			value: prChecksPayload({ found: false, pr: null, branch: target.branch }),
+			checks: prChecksPayload({ found: false, pr: null, branch: target.branch }),
 		};
 	}
 
@@ -94,7 +94,7 @@ export async function collectPrChecks(options: CollectPrChecksOptions): Promise<
 	}
 	return {
 		type: "ok",
-		value: prChecksPayload({
+		checks: prChecksPayload({
 			found: true,
 			pr: target.pr,
 			branch: target.branch,
