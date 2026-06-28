@@ -1,7 +1,13 @@
 ---
 name: architecture-topology-report
 disable-model-invocation: true
-description: Build a self-contained HTML report for a workspace's package dependency topology: either score it against a named target architecture, or (when no target is supplied) produce a raw topology inventory. Use when someone wants a topology report, a dependency-graph or package-graph audit, a layering/cycle check, or to see how close a monorepo is to a stated architectural end-state (e.g. an objective's target, an ADR's layering rules). Reaches for the bundled extract-graph script rather than re-deriving the graph by hand.
+description: >-
+  Build a self-contained HTML report for a workspace's package dependency topology: either
+  score it against a named target architecture, or (when no target is supplied) produce a raw
+  topology inventory. Use when someone wants a topology report, a dependency-graph or
+  package-graph audit, a layering/cycle check, or to see how close a monorepo is to a stated
+  architectural end-state (e.g. an objective's target, an ADR's layering rules). Reaches for
+  the bundled extract-graph script rather than re-deriving the graph by hand.
 metadata:
   internal: true
 ---
