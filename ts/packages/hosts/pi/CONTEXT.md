@@ -33,8 +33,12 @@ The private TypeScript workspace package at `ts/packages/ccc/` for repo-opiniona
 *Avoid*: Pi discovery adapter, lower capability package, public npm API.
 
 **Pi command namespace**:
-The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/sdl:flow:*` names SDL lifecycle mirrors; `/handoff:*` names durable Handoff artifact lifecycle operations.
+The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/sdl:flow:*` names SDL lifecycle mirrors; `/sdl:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
+
+**Branch Context Pi command surface**:
+The Pi-owned slash-command presentation for Branch Context workflows, including `/sdl:branch-context:from-plan`, `/sdl:branch-context:upstack-impl-from-plan`, `/sdl:branch-context:impl-attached-plan`, and formatting an implementation launch command as `/sdl:branch-context:impl-attached-plan <attached-key>` for Pi sessions or CCC Pi launch commands. Branch Context domain/API behavior stays in `@sdl/branch-context/api`.
+*Avoid*: Branch Context domain owner, attached-plan storage semantics, Capability API replacement.
 
 **Immediate command acknowledgement**:
 The command-registration requirement that repo-owned Pi slash commands acknowledge receipt synchronously before waiting for idle state or starting slow work. Use `@sdl/pi/commands/ack` helpers rather than hand-writing acknowledgement behavior.
