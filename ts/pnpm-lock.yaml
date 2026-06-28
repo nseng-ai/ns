@@ -714,6 +714,9 @@ importers:
 
   packages/sdl-capability-kit:
     dependencies:
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../infra/clinkr
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core

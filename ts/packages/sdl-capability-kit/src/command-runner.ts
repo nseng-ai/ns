@@ -1,4 +1,10 @@
-import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
+import type {
+	CommandExecApi,
+	CommandRunner,
+	ExecOptions,
+	ExecResult,
+	StdinCapableCommandExecApi,
+} from "@sdl/core/exec";
 
 import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 
@@ -20,6 +26,13 @@ export class SdlCommandExecApi implements CommandExecApi {
 	exec(command: string, args: string[], options: ExecOptions = {}): Promise<ExecResult> {
 		return this.runner(command, args, options);
 	}
+}
+
+export class SdlStdinCapableCommandExecApi
+	extends SdlCommandExecApi
+	implements StdinCapableCommandExecApi
+{
+	readonly supportsStdin = true as const;
 }
 
 function convertExecOptions(options: ExecOptions | undefined): SdlExecOptions | undefined {

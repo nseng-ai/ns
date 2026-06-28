@@ -1,3 +1,4 @@
+import { createSdlCwdEnvStdinContext } from "@sdl/capability-kit/sdl-context";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
@@ -12,9 +13,7 @@ export function prAddressSdlCommand(operationName: string) {
 function createExecContext(ctx: SdlExtensionApi): PrAddressExecContext {
 	return {
 		context: createRealPrAddressContext(),
-		cwd: ctx.cwd,
-		env: ctx.env,
-		stdin: async () => "",
+		...createSdlCwdEnvStdinContext(ctx),
 	};
 }
 
