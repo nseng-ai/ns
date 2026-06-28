@@ -22,7 +22,22 @@ Two inputs, always:
    / `roadmap.md` / `orientation.md`, an ADR, or whatever the user names. The whole
    point is the *gap* between the two, so you must actually load the target, not assume one.
 
+These two inputs (plus the spec template you author from) are independent — fetch them in a
+single parallel batch rather than across sequential turns.
+
 ## Process
+
+**Fast path** (a clean run is ~4 turns and **one** graph extraction):
+
+1. **One parallel batch:** run `extract-graph.mjs --pretty --out <tmp>/graph.json` (caches the
+   JSON *and* prints the facts); read the target docs (`objective.md` / `roadmap.md` /
+   `orientation.md` + any named ADRs); read `references/example-spec.mjs` and only the
+   "Spec contract" table in `references/HTML-REPORT.md`.
+2. **≤2 targeted greps** for the few things the JSON can't see.
+3. Write the spec.
+4. `build-report.mjs --graph <tmp>/graph.json --spec <spec> --open`.
+
+The detailed steps below expand each of these.
 
 ### 1. Load the target architecture
 
@@ -42,8 +57,11 @@ for layer and seam names — don't invent your own.
 Run the bundled script; it emits JSON with everything structural:
 
 ```bash
-node <skill-dir>/scripts/extract-graph.mjs --pretty
+node <skill-dir>/scripts/extract-graph.mjs --pretty --out <tmp>/graph.json
 ```
+
+`--out` tees the JSON to a file as well as stdout, so step 4 can pass `--graph <tmp>/graph.json`
+and skip a second extraction — one invocation surfaces the facts *and* caches them.
 
 Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @sdl/capability-kit`,
 `--transitional @sdl/domain-primitives-transitional`, `--api-needle api`). Override the
@@ -73,6 +91,15 @@ map the measured facts to the target's invariants yourself. When you need finer 
 package-level edges (e.g. "does ccc import a capability through `/api` or through
 internals?"), grep the consumer's `src` for the import subpaths — package-level edges tell
 you *that* an edge exists, subpath grep tells you *whether it is clean*.
+
+**This JSON is the evidence base** — it already answers most scorecard rows (`cycles`,
+`tierViolations`, `kitConsumers`, `transitionalConsumers`, `exposesApi`, `apiOnly`, `orphans`,
+`fanOut`/`fanIn`) directly. Read it once and lean on it; don't drift into open-ended
+investigation. Only two kinds of question need a grep: **subpath cleanliness** (`/api` vs.
+internals, as above) and **non-manifest facts** (e.g. is a guard wired into the default
+validation lane?). Cap it at a couple of targeted greps — this is evidence *confirmation*, not
+investigation. A topology report reads manifests, never behavior, so **never run the test suite
+or `just` to gather evidence**; read the relevant config / justfile files directly instead.
 
 ### 3. Map facts to invariants
 
@@ -106,18 +133,23 @@ renders the page, writes it to the OS temp dir, and (with `--open`) opens it.
 # (a) inspect the declared tier map, or copy entries only when you need overrides:
 node <skill-dir>/scripts/build-report.mjs --tiers-template            # prints declared {pkg: tier}
 # (b) write a spec module (see references/HTML-REPORT.md "Spec contract"), then render:
-node <skill-dir>/scripts/build-report.mjs --spec /abs/path/report-spec.mjs --open
+node <skill-dir>/scripts/build-report.mjs --graph <tmp>/graph.json --spec /abs/path/report-spec.mjs --open
 ```
 
-The generator re-runs `extract-graph.mjs` itself (pass through `--root`/`--kit`/… for a
-different workspace), or accepts a cached `--graph <json>`. It prints the absolute output
-path; relay it to the user. The only per-run thinking is the spec: whether any package tier
-needs an explicit report-only override, and the invariant analysis from step 3.
+Always pass `--graph <tmp>/graph.json` (the cache from step 2) so the generator renders from the
+already-extracted graph instead of re-running `extract-graph.mjs`. It still falls back to
+auto-extraction when `--graph` is absent (pass through `--root`/`--kit`/… for a different
+workspace). It prints the absolute output path; relay it to the user. The only per-run thinking
+is the spec: whether any package tier needs an explicit report-only override, and the invariant
+analysis from step 3.
 
-The spec contract, every field, and the full section sequence live in
-[references/HTML-REPORT.md](references/HTML-REPORT.md). The report mixes three visual
+To author the spec, work from `references/example-spec.mjs` (a complete, validated template)
+plus the "Spec contract" table in
+[references/HTML-REPORT.md](references/HTML-REPORT.md) — the rest of that reference is the
+generator-owned D3 scaffold and design rationale, which you don't need to read to write a spec.
+The full field list and section sequence live there if you need them. The report mixes three visual
 registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
-(node area ∝ LOC, layered-DAG ⇄ force toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
+(node area ∝ LOC, layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
 before/after cycle diagrams in finding cards, and **hand-built Tailwind** for the tier stack,
 verdict strip, and scorecard. Package color comes from declared `sdl.tier` by default; the
 generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.

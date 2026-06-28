@@ -17,7 +17,7 @@ and renders. You provide:
 | ------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `repo`, `targetName`, `date`   | string                                                                                             | header identity                                                                                                                                                                                                    |
 | `intro`                        | html string                                                                                        | one paragraph under the title                                                                                                                                                                                      |
-| `tiers?`                       | `{ "<pkg>": "<tierId>" }`                                                                          | optional report-only overrides. Canonical tier ids: `capability capability-kit sdk transitional neutral-infra host tool`. Omit this field to use declared package tiers. Invalid override values fail fast.        |
+| `tiers?`                       | `{ "<pkg>": "<tierId>" }`                                                                          | optional report-only overrides. Canonical tier ids: `capability capability-kit sdk transitional neutral-infra host standalone-tool local-pi-tool`. Omit this field to use declared package tiers. Invalid override values fail fast.        |
 | `verdict`                      | `{ headline, drift:bool, stats:[{value,total?,label,sub,health}], read }`                          | `health`: `green\|amber\|red`. `drift:false` ⇒ the green "distance not drift" framing.                                                                                                                             |
 | `northStar`                    | `{ rule, bands:[{label,bg,labelBg,chipBorder,noteColor,packages,note}], offAxis? }`                | `packages` items are strings or `{name,dashed}` (dashed = "delete to zero").                                                                                                                                       |
 | `graphIntro?`, `graphCaption?` | html string                                                                                        | the LOC-reading prose under the graph                                                                                                                                                                              |
@@ -37,8 +37,8 @@ A single self-contained HTML file in the OS temp dir. Tailwind, D3, and Mermaid 
 Three visual registers, each for what it does best:
 
 - **D3 force/DAG graph** (section 4) — the *actual* full dependency graph, interactive:
-  node area ∝ source LOC, drag/zoom/hover-trace/tier-filter, and a layered-DAG ⇄ force
-  layout toggle. This is the centrepiece "reality" view.
+  node area ∝ source LOC, drag/zoom/hover-trace/tier-filter, and a three-way layout toggle
+  (layered-DAG / tier-clustered / force). This is the centrepiece "reality" view.
 - **Mermaid** (section 6 finding cards only) — the small before/after cycle diagrams,
   where a fixed two-node-cut schematic reads better than a physics sim.
 - **Hand-built Tailwind divs** — the editorial visuals: the layered north-star stack, the
@@ -131,10 +131,13 @@ What it must do:
 - **Cycle edges in red** with an arrowhead, drawn against the layout flow. Mark a link
   `cycle: true` when its `source→target` pair appears inside any SCC from the script's
   `cycles`. In the layered view a red edge visibly points *upward* — that *is* the violation.
-- **Layered-DAG ⇄ Force toggle.** Default to **Layered**: rank each node by longest
+- **Layout toggle (three modes).** Default to **Layered (DAG)**: rank each node by longest
   dependency path (cycle edges excluded from ranking so it stays a DAG), pin `forceY` to the
-  rank — consumers on top, neutral infra at the bottom, mirroring the north-star tiers. The
-  **Force** mode is the organic spring layout for comparison.
+  rank — consumers on top, neutral infra at the bottom, mirroring the north-star tiers.
+  **Clustered (tiers)** groups same-tier nodes into horizontal swimlanes stacked by the tier's
+  *mean* DAG depth, so the clusters broadly stack in dependency order (consumers up, neutral
+  infra down) and cross-tier edges read as the lines that jump bands. **Force** is the organic
+  spring layout for comparison.
 - **Interactions:** drag (pins a node), scroll-zoom + background-pan, hover a node to trace
   its direct dependencies/dependents (fade the rest, tooltip with tier · LOC · rank ·
   fan-in/out), clickable tier chips to toggle whole layers, and a reset.
@@ -154,7 +157,7 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
   <div id="tier-toolbar" class="flex flex-wrap items-center gap-2 text-xs"></div>
 </div>
 <div class="relative rounded-lg border border-slate-200 bg-white">
-  <svg id="depgraph" class="w-full" style="height:680px; display:block; cursor:grab;"></svg>
+  <svg id="depgraph" class="w-full" style="height:820px; display:block; cursor:grab;"></svg>
   <div id="g-tip" class="pointer-events-none absolute hidden rounded-md bg-slate-900/95 text-slate-100 text-xs px-3 py-2 shadow-lg leading-relaxed" style="max-width:260px"></div>
 </div>
 <script>
@@ -168,10 +171,11 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
     transitional:{fill:"#fef3c7",stroke:"#d97706",name:"transitional"},
     "neutral-infra":{fill:"#cbd5e1",stroke:"#64748b",name:"neutral infra"},
     host:{fill:"#475569",stroke:"#0f172a",name:"presentation host"},
-    tool:{fill:"#f1f5f9",stroke:"#94a3b8",name:"off-axis tool"},
+    "standalone-tool":{fill:"#f1f5f9",stroke:"#94a3b8",name:"standalone tool"},
+    "local-pi-tool":{fill:"#e7e5e4",stroke:"#a8a29e",name:"local pi tool"},
   };
   const svg = d3.select("#depgraph"), el = svg.node();
-  let W = el.clientWidth || 900, H = 680;
+  let W = el.clientWidth || 900, H = 820;
   svg.attr("viewBox", [0,0,W,H]);
 
   const maxLoc = d3.max(DATA.nodes, d=>d.loc);
@@ -187,6 +191,14 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
   const maxDepth=d3.max(DATA.nodes,d=>d.depth)||1;
   const layerY=d=>50+(d.depth/maxDepth)*(H-100);
   DATA.nodes.forEach(n=>{ n.y=layerY(n); n.x=W/2+(Math.random()-0.5)*W*0.6; });
+
+  // tier clustering stacked in DAG order: order tiers by mean dependency depth and give each a swimlane
+  const tierDepthSum=new Map(), tierCount=new Map();
+  DATA.nodes.forEach(n=>{ tierDepthSum.set(n.tier,(tierDepthSum.get(n.tier)||0)+n.depth); tierCount.set(n.tier,(tierCount.get(n.tier)||0)+1); });
+  const meanDepth=t=>tierDepthSum.get(t)/tierCount.get(t);
+  const presentTiers=[...tierCount.keys()].sort((a,b)=>meanDepth(a)-meanDepth(b));
+  const tierBand=new Map(presentTiers.map((t,i)=>[t,i])), nBands=Math.max(1,presentTiers.length);
+  const bandSpan=()=>(H-120)/nBands, bandY=t=>60+(tierBand.get(t)+0.5)*bandSpan();
 
   const defs=svg.append("defs");
   [["arrow","#94a3b8"],["arrow-cy","#dc2626"]].forEach(([id,col])=>{
@@ -205,6 +217,13 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
     .attr("font-size",d=>Math.max(9,Math.min(13,8+d.r/6))).attr("fill","#334155")
     .attr("paint-order","stroke").attr("stroke","#f8fafc").attr("stroke-width",3);
 
+  // per-tier cluster captions, shown only in the clustered layout
+  const clusterLabels=root.append("g").attr("pointer-events","none").style("display","none");
+  const clusterText=clusterLabels.selectAll("text").data(presentTiers).join("text")
+    .attr("text-anchor","middle").attr("font-size",12).attr("font-weight",700)
+    .attr("fill",t=>TIERS[t].stroke).attr("paint-order","stroke").attr("stroke","#f8fafc").attr("stroke-width",4)
+    .style("text-transform","uppercase").style("letter-spacing","0.08em").text(t=>TIERS[t].name);
+
   const sim=d3.forceSimulation(DATA.nodes).on("tick",tick);
   function tick(){
     linkSel.each(function(d){
@@ -222,12 +241,17 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
     d3.selectAll(".layout-btn").style("opacity",function(){return this.dataset.mode===m?1:0.4;})
       .style("font-weight",function(){return this.dataset.mode===m?600:400;});
     sim.force("link",d3.forceLink(DATA.links).id(d=>d.id)
-         .distance(d=>m==="layered"?70:(r(d.source.loc)+r(d.target.loc)+46)).strength(m==="layered"?0.05:0.35))
+         .distance(d=>m==="force"?(r(d.source.loc)+r(d.target.loc)+46):(m==="clustered"?46:70))
+         .strength(m==="clustered"?0.02:(m==="layered"?0.05:0.35)))
        .force("collide",d3.forceCollide().radius(d=>d.r+7).strength(0.92));
     if(m==="layered") sim.force("charge",d3.forceManyBody().strength(d=>-90-d.r*5))
                          .force("x",d3.forceX(W/2).strength(0.05)).force("y",d3.forceY(d=>layerY(d)).strength(1.0));
+    else if(m==="clustered") sim.force("charge",d3.forceManyBody().strength(d=>-70-d.r*4))
+                         .force("x",d3.forceX(W/2).strength(0.12)).force("y",d3.forceY(d=>bandY(d.tier)).strength(0.94));
     else              sim.force("charge",d3.forceManyBody().strength(d=>-170-d.r*9))
                          .force("x",d3.forceX(W/2).strength(0.05)).force("y",d3.forceY(H/2).strength(0.07));
+    clusterLabels.style("display",m==="clustered"?null:"none");
+    if(m==="clustered") clusterText.attr("x",W/2).attr("y",t=>Math.max(16,bandY(t)-bandSpan()*0.5+13));
     sim.alpha(0.9).restart();
   }
   const zoom=d3.zoom().scaleExtent([0.3,4]).on("zoom",e=>root.attr("transform",e.transform));
@@ -250,7 +274,7 @@ The full, self-contained renderer — drop it in after the `#graphdata` script t
 
   const lt=d3.select("#layout-toolbar");
   lt.append("span").attr("class","uppercase tracking-wider text-slate-400 mr-1").text("layout:");
-  [["layered","Layered (DAG)"],["force","Force"]].forEach(([m,label])=>
+  [["layered","Layered (DAG)"],["clustered","Clustered (tiers)"],["force","Force"]].forEach(([m,label])=>
     lt.append("button").attr("class","layout-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-mode",m).text(label).on("click",()=>setLayout(m)));
   const tb=d3.select("#tier-toolbar");
   tb.append("span").attr("class","uppercase tracking-wider text-slate-400 mr-1").text("tiers:");

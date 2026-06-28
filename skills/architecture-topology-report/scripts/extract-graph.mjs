@@ -23,7 +23,7 @@
 // devDependencies are excluded because they are not part of the shipped
 // Extension Dependency Graph.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 
@@ -40,7 +40,11 @@ const TRANSITIONAL = arg("transitional", "@sdl/domain-primitives-transitional");
 const API_NEEDLE = arg("api-needle", "api");
 const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
+const OUT = arg("out", false);
 
+// Canonical taxonomy — keep in sync with the workspace source of truth:
+// ts/packages/infra/core/test/support/typescript-style-guard/config.ts
+// (`packageTierValues` + `packageTierAllowedTargets`).
 const TIERS = [
   "capability",
   "capability-kit",
@@ -48,7 +52,8 @@ const TIERS = [
   "transitional",
   "neutral-infra",
   "host",
-  "tool",
+  "standalone-tool",
+  "local-pi-tool",
 ];
 const TIER_SET = new Set(TIERS);
 const TIER_POLICY = {
@@ -58,7 +63,16 @@ const TIER_POLICY = {
   transitional: new Set(["neutral-infra"]),
   "neutral-infra": new Set(["neutral-infra"]),
   host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
-  tool: new Set(["tool", "host", "capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
+  "standalone-tool": new Set([
+    "standalone-tool",
+    "host",
+    "capability",
+    "capability-kit",
+    "sdk",
+    "neutral-infra",
+    "transitional",
+  ]),
+  "local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
 
 // Approximate source size per package: meaningful lines of TypeScript under
@@ -293,4 +307,13 @@ const out = {
   orphans, // zero fan-in: unwired leaves
 };
 
-process.stdout.write(JSON.stringify(out, null, PRETTY ? 2 : 0) + "\n");
+if (OUT === true) {
+  console.error("`--out` requires a path");
+  process.exit(1);
+}
+
+const json = JSON.stringify(out, null, PRETTY ? 2 : 0) + "\n";
+// Tee: always print to stdout (default), and additionally persist to --out so
+// build-report.mjs can reuse it via --graph without re-extracting.
+process.stdout.write(json);
+if (typeof OUT === "string") writeFileSync(OUT, json);
