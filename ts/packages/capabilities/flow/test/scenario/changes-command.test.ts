@@ -42,9 +42,9 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("- Update app behavior");
+		expect(output).toContain("Summary\n- Update app behavior");
 		expect(output).toContain("- Add reviewer notes");
-		expect(output).toContain("Files:\n M src/app.ts\n?? notes.md");
+		expect(output).toContain("Files\n M src/app.ts\n?? notes.md");
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
@@ -165,7 +165,7 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\n- Update many files\n\nFiles:",
+			"Outstanding changes on feature/demo\n\nSummary\n- Update many files\n\nFiles",
 		);
 		expect(output).toContain(" M file-49.ts");
 		expect(output).not.toContain(" M file-50.ts");

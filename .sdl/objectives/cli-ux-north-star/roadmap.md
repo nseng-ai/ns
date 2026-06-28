@@ -236,8 +236,13 @@
   using direct `@sdl/cli-theme renderTable` with a `Slots for <repo>` title, accent slot names,
   success/muted status styling, unchanged empty-pool wording, and unchanged JSON/schema/alias
   contracts. The repeated title/table/empty glue is still thin enough that a generalized report wrapper
-  remains deferred. Semantic updates: `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`,
-  `updates/2026-06-28T194258Z-slot-list-buffered-table.md`.
+  remains deferred. Follow-up semantic update: `sdl flow changes` is now the next buffered report pilot:
+  clean output stays minimal, dirty output uses a direct title + `Summary` + `Files` section renderer,
+  raw porcelain lines and the 50-line cap are preserved, and report-wrapper extraction remains deferred
+  because the command-local sectioning is still small. Semantic updates:
+  `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`,
+  `updates/2026-06-28T194258Z-slot-list-buffered-table.md`,
+  `updates/2026-06-28T195329Z-flow-changes-buffered-report.md`.
 - [ ] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
       surfaces to Done, keep exemptions explicit, mark unported surfaces extension-gated, and avoid adding
       new human-facing CLI output outside the house-style primitives.
