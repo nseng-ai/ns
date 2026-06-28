@@ -34,6 +34,7 @@ const PULL_TRUNK_COMMAND_PATH = join(
 	REPO_ROOT,
 	"ts/packages/capabilities/flow/src/commands/pull-trunk.ts",
 );
+const FLOW_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/package.json");
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
 	["ts/packages/capabilities/flow/src/shared", "branch-availability.ts"],
@@ -58,27 +59,26 @@ describe("project extension shared flow foundations", () => {
 		}
 	});
 
-	test("flow CCC CLI commands delegate exec adaptation through the shared CCC CLI helper", async () => {
+	test("flow CLI commands own their orchestration instead of importing CCC", async () => {
 		const autoslotSource = await readFile(AUTOSLOT_COMMAND_PATH, "utf8");
 		const landSource = await readFile(LAND_COMMAND_PATH, "utf8");
 		const pullTrunkSource = await readFile(PULL_TRUNK_COMMAND_PATH, "utf8");
 		const autobranchSource = await readFile(AUTOBRANCH_COMMAND_PATH, "utf8");
 		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 		const worktreeSource = await readFile(SHARED_WORKTREE_PATH, "utf8");
+		const flowPackage = await readFile(FLOW_PACKAGE_PATH, "utf8");
 
 		expect(worktreeSource).toContain("@sdl/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execSdlCommand");
-		for (const source of [autoslotSource, landSource]) {
-			expect(source).toContain("runFlowCccCli");
-			expect(source).toContain("../shared/ccc-cli.ts");
-			expect(source).not.toContain("createCliExecAdapter");
-			expect(source).not.toContain("options?.cwd");
+		const cccPackageName = ["@sdl", "ccc"].join("/");
+		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
+			expect(source).not.toContain(cccPackageName);
 		}
-		expect(pullTrunkSource).toContain("runFlowCccOperation");
-		expect(pullTrunkSource).toContain("../shared/ccc-cli.ts");
-		expect(pullTrunkSource).not.toContain("createCliExecAdapter");
-		expect(pullTrunkSource).not.toContain("options?.cwd");
+		expect(flowPackage).toContain('"./api": "./src/api.ts"');
+		expect(autoslotSource).toContain("../autoslot.ts");
+		expect(landSource).toContain("../land.ts");
+		expect(pullTrunkSource).toContain("../trunk-pull.ts");
 		expect(autobranchSource).not.toContain("_cwd");
 		expect(branchLatestCommitSource).not.toContain("_cwd");
 	});

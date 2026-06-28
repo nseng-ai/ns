@@ -11,8 +11,11 @@ import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
-import { createAutobranchCheckpointFlow, type AutobranchFlowInput } from "./autobranch/flow.ts";
-import type { ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
+import {
+	createFlowAutobranchCheckpointFlow,
+	type FlowAutobranchCheckpointInput,
+	type FlowAutobranchRequest,
+} from "sdl-flow/api";
 import {
 	applyCmuxWorkspaceSummaryCommand,
 	cmuxWorkspaceSummaryRequestSchema,
@@ -25,7 +28,7 @@ export const AUTOBRANCH_SUMMARY =
 
 type AutobranchSeamOverrides = Partial<
 	Pick<
-		AutobranchFlowInput,
+		FlowAutobranchCheckpointInput,
 		"prepareCheckpointMessage" | "commitPreparedCheckpointMessage" | "readFile" | "stat" | "now"
 	>
 >;
@@ -125,9 +128,9 @@ async function handleCmuxWorkspaceSummary(
 }
 
 async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest): Promise<number> {
-	const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
+	const args: FlowAutobranchRequest = request.slug === undefined ? {} : { slug: request.slug };
 	const autobranch = ctx.autobranch ?? {};
-	const result = await createAutobranchCheckpointFlow({
+	const result = await createFlowAutobranchCheckpointFlow({
 		cwd: ctx.cwd,
 		args,
 		exec: (command, commandArgs, timeout) =>

@@ -1,4 +1,4 @@
-import { runAutoslotCli } from "@sdl/ccc/autoslot";
+import { runAutoslotCli } from "../autoslot.ts";
 import { defineExtension, z, type SdlCommand } from "sdl-sdk";
 
 import { runFlowCccCli } from "../shared/ccc-cli.ts";
