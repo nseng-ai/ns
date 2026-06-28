@@ -16,6 +16,7 @@ import {
 } from "./feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "./feedback-summary.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
+import { resolvePrTarget, type PrTargetResolution } from "./pr-target.ts";
 
 export interface DownloadFeedbackTargetPayload {
 	kind: "github_pr";
@@ -67,23 +68,23 @@ interface IncludedFeedback {
 	counts: DownloadFeedbackCountsPayload;
 }
 
-type TargetPrResult =
-	| { type: "found"; pr: GithubPrSummary; branch: string | null }
-	| { type: "miss"; target: DownloadFeedbackTargetPayload; message: string }
-	| Exclude<DownloadFeedbackResult, { type: "ok" | "miss" }>;
-
 export async function collectDownloadFeedback(
 	options: CollectDownloadFeedbackOptions,
 ): Promise<DownloadFeedbackResult> {
-	const target = await resolveTargetPr(options);
+	const target = await resolvePrTarget({
+		...options,
+		detachedHeadMessage:
+			"Detached HEAD: download-feedback requires a checked-out branch or --pr-number.",
+	});
 	if (target.type === "git_failure") return target;
 	if (target.type === "pr_feedback_failure") return target;
 	if (target.type === "detached_head") return target;
 	if (target.type === "miss") {
+		const message = targetMissMessage(target);
 		return {
 			type: "miss",
-			message: target.message,
-			feedback: buildMissingPrResult(target.target, target.message),
+			message,
+			feedback: buildMissingPrResult(targetMissPayload(target), message),
 		};
 	}
 
@@ -117,65 +118,18 @@ export async function collectDownloadFeedback(
 	};
 }
 
-async function resolveTargetPr(options: CollectDownloadFeedbackOptions): Promise<TargetPrResult> {
-	if (options.prNumber !== undefined) {
-		const lookupResult = await options.prFeedback.getPr({
-			...options.gatewayOptions,
-			prNumber: options.prNumber,
-		});
-		if (!lookupResult.ok) {
-			return {
-				type: "pr_feedback_failure",
-				message: `Failed to look up PR ${options.prNumber}`,
-				failure: lookupResult.error,
-			};
-		}
-		const outcome = lookupResult.value;
-		if (!outcome.found) {
-			return {
-				type: "miss",
-				target: emptyTarget({ prNumber: options.prNumber }),
-				message: `No PR found for PR ${options.prNumber}: ${outcome.miss.stderr}`,
-			};
-		}
-		return { type: "found", pr: outcome.pr, branch: null };
-	}
-
-	const branchResult = await options.git.currentBranch(options.gatewayOptions);
-	if (branchResult.type === "failure") {
-		return {
-			type: "git_failure",
-			message: "Failed to determine current branch",
-			failure: branchResult.error,
-		};
-	}
-	if (branchResult.type === "detached") {
-		return {
-			type: "detached_head",
-			message: "Detached HEAD: download-feedback requires a checked-out branch or --pr-number.",
-		};
-	}
-
-	const lookupResult = await options.prFeedback.getPrForBranch({
-		...options.gatewayOptions,
-		branch: branchResult.branch,
+function targetMissPayload(
+	target: Extract<PrTargetResolution, { type: "miss" }>,
+): DownloadFeedbackTargetPayload {
+	return emptyTarget({
+		...(target.prNumber === null ? {} : { prNumber: target.prNumber }),
+		...(target.branch === null ? {} : { branch: target.branch }),
 	});
-	if (!lookupResult.ok) {
-		return {
-			type: "pr_feedback_failure",
-			message: `Failed to look up PR for branch ${branchResult.branch}`,
-			failure: lookupResult.error,
-		};
-	}
-	const outcome = lookupResult.value;
-	if (!outcome.found) {
-		return {
-			type: "miss",
-			target: emptyTarget({ branch: branchResult.branch }),
-			message: `No PR found for branch ${branchResult.branch}: ${outcome.miss.stderr}`,
-		};
-	}
-	return { type: "found", pr: outcome.pr, branch: branchResult.branch };
+}
+
+function targetMissMessage(target: Extract<PrTargetResolution, { type: "miss" }>): string {
+	if (target.prNumber !== null) return `No PR found for PR ${target.prNumber}: ${target.stderr}`;
+	return `No PR found for branch ${target.branch}: ${target.stderr}`;
 }
 
 function selectIncludedFeedback(

@@ -4,17 +4,17 @@ import type {
 	GithubPrDiscussionComment,
 	GithubPrLookupOutcome,
 	GithubPrReview,
-	GithubPrReviewComment,
 	GithubPrReviewThread,
 	GithubPrSummary,
 } from "./api.ts";
+
+import { reviewCommentPayload } from "./review-comment-payload.ts";
 
 import type {
 	openPrsResultSchema,
 	prDiscussionCommentSchema,
 	prDiscussionCommentsResultSchema,
 	prLookupResultSchema,
-	prReviewCommentSchema,
 	prReviewsResultSchema,
 	prReviewSchema,
 	prReviewThreadsResultSchema,
@@ -87,22 +87,7 @@ function reviewThreadResult(thread: GithubPrReviewThread): z.output<typeof prRev
 		start_line: thread.startLine,
 		is_resolved: thread.isResolved,
 		is_outdated: thread.isOutdated,
-		comments: thread.comments.map(reviewCommentResult),
-	};
-}
-
-function reviewCommentResult(
-	comment: GithubPrReviewComment,
-): z.output<typeof prReviewCommentSchema> {
-	return {
-		id: comment.id,
-		body: comment.body,
-		author: comment.author,
-		path: comment.path,
-		line: comment.line,
-		start_line: comment.startLine,
-		created_at: comment.createdAt,
-		...(comment.url === undefined ? {} : { url: comment.url }),
+		comments: thread.comments.map(reviewCommentPayload),
 	};
 }
 
