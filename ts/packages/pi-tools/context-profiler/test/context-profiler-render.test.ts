@@ -1,13 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { normalizeMessage } from "../src/context-profiler/model.ts";
-import type {
-	BaseRegion,
-	LiveRegion,
-	LiveTurn,
-	TokenCount,
-} from "../src/context-profiler/model.ts";
+import { fitToWidth } from "@sdl/pi/terminal/layout";
+import { normalizeMessage } from "../src/model.ts";
+import type { BaseRegion, LiveRegion, LiveTurn, TokenCount } from "../src/model.ts";
 import {
 	BAR_WIDTH,
 	BASE_DETAIL_CLAIM,
@@ -23,7 +19,6 @@ import {
 	contentSourceForTurn,
 	delegationClaimText,
 	delegationSummaryLine,
-	fitToWidth,
 	formatByteSize,
 	formatCompactNumber,
 	formatTokenCount,
@@ -34,7 +29,6 @@ import {
 	overviewLabelWidth,
 	overviewRowSegments,
 	PERCENT_COLUMN_WIDTH,
-	reconcileScroll,
 	sanitizeContentText,
 	scrollNote,
 	segmentationStatusText,
@@ -43,7 +37,7 @@ import {
 	turnListClaim,
 	turnListRowText,
 	type OverviewRowSource,
-} from "../src/context-profiler/render.ts";
+} from "../src/render.ts";
 
 const INNER_WIDTH = 80;
 
@@ -525,28 +519,5 @@ describe("verbatim content", () => {
 		expect(source.title).toBe("t3 assistant · bash");
 		expect(source.meta).toBe("≈120 tok");
 		expect(source.text).toContain("doing things");
-	});
-});
-
-describe("fitToWidth", () => {
-	test("truncates then pads to the exact display width", () => {
-		expect(visibleWidth(fitToWidth("abcdef", 4))).toBe(4);
-		expect(fitToWidth("abcdef", 4)).toContain("…");
-		expect(fitToWidth("ab", 5)).toBe("ab   ");
-	});
-});
-
-describe("reconcileScroll", () => {
-	test("keeps the anchor visible at the top and bottom of the viewport", () => {
-		expect(reconcileScroll({ scroll: 0, anchor: 9, areaHeight: 5, totalLines: 20 })).toBe(5);
-		expect(reconcileScroll({ scroll: 12, anchor: 9, areaHeight: 5, totalLines: 20 })).toBe(9);
-	});
-
-	test("handles area taller than content", () => {
-		expect(reconcileScroll({ scroll: 10, anchor: 2, areaHeight: 20, totalLines: 3 })).toBe(0);
-	});
-
-	test("clamps scroll past the end", () => {
-		expect(reconcileScroll({ scroll: 99, anchor: 99, areaHeight: 5, totalLines: 12 })).toBe(7);
 	});
 });

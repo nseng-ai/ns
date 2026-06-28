@@ -4,8 +4,8 @@ import {
 	buildEpisodeAnalysisPayload,
 	EPISODE_ANALYSIS_SYSTEM_PROMPT,
 	parseEpisodeAnalysisResponseText,
-} from "../src/context-profiler/analysis.ts";
-import type { EpisodeAnnotation } from "../src/context-profiler/model.ts";
+} from "../src/analysis.ts";
+import type { EpisodeAnnotation } from "../src/model.ts";
 import { makeProfile, makeTurn } from "./context-profiler-fakes.ts";
 
 const EPISODES: EpisodeAnnotation[] = [

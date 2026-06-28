@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { z } from "zod";
-import { extractJsonObjectText, parseLmJson } from "../src/context-profiler/lm-json.ts";
+import { extractJsonObjectText, parseLmJson } from "../src/models/lm-json.ts";
 
 const valueSchema = z.object({ value: z.string() });
 

@@ -11,8 +11,8 @@ import {
 	SEGMENTATION_SYSTEM_PROMPT,
 	type LmDelegationClaim,
 	type LmEpisodeStart,
-} from "../src/context-profiler/segmentation.ts";
-import { MAX_DELEGATIONS } from "../src/context-profiler/model.ts";
+} from "../src/segmentation.ts";
+import { MAX_DELEGATIONS } from "../src/model.ts";
 import {
 	makeProfile,
 	makeTurn,
