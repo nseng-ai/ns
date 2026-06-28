@@ -81,3 +81,19 @@ Risks:
 - Is there a concrete in-process consumer that justifies `@sdl/aretro/api`, or should Aretro be command-face-only for now?
 - Which root exports, if any, should stay public after the Capability API decision?
 - Does `branch-retro` need any runner or docs change once the command-face disposition is chosen?
+
+## Closure
+
+Closed as completed. The Objective produced an explicit Aretro capability-layer disposition: hard-cutover to the SDL command face (`sdl aretro exec collect-evidence` and `sdl aretro exec read-evidence-detail`) through the project-local Aretro SDL extension, with Aretro domain logic remaining package-owned.
+
+The Capability API decision is command-face-only for now. No `@sdl/aretro/api` subpath was added because inventory found no in-process consumer, and `ts/packages/aretro/package.json` now avoids a broad root export or standalone bin in favor of explicit SDL command module subpaths.
+
+The implementation preserved the privacy-conscious evidence/judgment boundary: Aretro continues to emit deterministic factual evidence and sanitized payload details, while `branch-retro` remains responsible for semantic retrospective interpretation. The `branch-retro` skill now invokes `sdl aretro exec ...` directly, and docs/context/package README/parent Objective tracking were refreshed to record the final command/API boundary.
+
+Validation evidence recorded during the completing slice:
+
+- `pnpm --dir ts --filter @sdl/aretro run test`
+- `pnpm --dir ts --filter @sdl/aretro run check`
+- `pnpm --dir ts exec vitest run --config vitest.integration.config.ts packages/kernel/test/integration/aretro-extension-cli.test.ts`
+
+No Aretro Capability API follow-up remains open without a concrete in-process consumer. Broader CLI conformance findings for Aretro result/error shapes remain separate CLI-UX work, and parked future scope remains outside this Objective: new evidence kinds or deterministic recommendations, registry/checkout-free distribution, dynamic Pi mirrors, and shared evidence/session foundations before a second consumer proves reuse.

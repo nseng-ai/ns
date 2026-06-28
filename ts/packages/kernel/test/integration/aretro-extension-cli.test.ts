@@ -1,20 +1,15 @@
-import { cpSync, mkdirSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { installCheckedInAretroExtension } from "../helpers/aretro-extension.ts";
 import {
 	parseJsonOutput,
 	runCliWithFakes,
 	type ScriptedExecResponse,
 } from "../scenario/sdl-cli-fakes.ts";
-
-const ARETRO_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/aretro", import.meta.url),
-);
 
 const tempDirs: string[] = [];
 
@@ -99,12 +94,6 @@ async function createAretroProject(): Promise<string> {
 	tempDirs.push(directory);
 	installCheckedInAretroExtension(directory);
 	return directory;
-}
-
-function installCheckedInAretroExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".sdl", "extensions", "aretro");
-	mkdirSync(dirname(destination), { recursive: true });
-	cpSync(ARETRO_EXTENSION_SOURCE, destination, { recursive: true });
 }
 
 function runWithRealAretroExtension(options: { args: readonly string[]; cwd: string }) {
