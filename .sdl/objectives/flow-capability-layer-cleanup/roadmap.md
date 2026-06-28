@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Inventory and classify current misplaced surfaces.
-  - Identify every runtime and test import of `@sdl/core/submit`, `@sdl/graphite/submit`, and `@sdl/autobranch/*`; classify each symbol as Flow policy, reusable protocol/mechanics, or shared capability substrate. Evidence should include package export maps, style-guard allowlists, and jiti/module-loader aliases that would otherwise preserve stale edges.
+- [x] Inventory and classify current misplaced surfaces.
+  - Evidence recorded in `updates/20260628T220604Z-misplaced-surface-inventory.md`: runtime/test imports, package export maps, manifest tiers, style-guard graph membership, and jiti aliases were classified. The inventory confirms Flow-owned PR-description/submit/autobranch policy currently leaks through `@sdl/core/submit`, `@sdl/graphite/submit`, and `@sdl/autobranch/*`; shared result/error helpers should move to Capability Kit; low-level Graphite/GitHub/Git mechanics need deliberate split decisions during the move slices.
 
 - [ ] Design the Flow Capability API seam for CCC.
   - Decide the cohesive API shape for CCC-needed submit/autobranch behavior, keeping command faces separate from in-process Capability API consumption. Evidence should show CCC can consume Flow as a provider capability without direct imports of `@sdl/autobranch/*` or private Flow internals.
