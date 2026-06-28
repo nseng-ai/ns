@@ -123,6 +123,7 @@ export const publishFindingsResultSchema = z.object({
 });
 
 export type PublishFindingsCommandResult = z.infer<typeof publishFindingsResultSchema>;
+export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
 
 export const recordFindingsRequestSchema = z.object({
 	reviewKey: nonBlankStringSchema.describe("Review key that produced the findings."),

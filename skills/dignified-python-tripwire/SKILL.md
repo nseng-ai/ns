@@ -13,7 +13,7 @@ First read `.sdl/reviews/dignified-python-tripwire.md`, then apply that review d
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-roaster review run dignified-python-tripwire
+sdl roaster review run dignified-python-tripwire
 ```
 
 In Pi, the equivalent isolated runner surface is `roaster:run:dignified-python-tripwire`.
@@ -21,7 +21,7 @@ In Pi, the equivalent isolated runner surface is `roaster:run:dignified-python-t
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-roaster exec record-findings --review-key dignified-python-tripwire --format json < findings.json
+sdl roaster exec record-findings --review-key dignified-python-tripwire --format json < findings.json
 ```
 
-Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `sdl roaster exec publish-findings` when publishing to GitHub.

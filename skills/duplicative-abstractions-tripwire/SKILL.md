@@ -13,7 +13,7 @@ First read `.sdl/reviews/duplicative-abstractions-tripwire.md`, then apply that 
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-roaster review run duplicative-abstractions-tripwire
+sdl roaster review run duplicative-abstractions-tripwire
 ```
 
 In Pi, the equivalent isolated runner surface is `roaster:run:duplicative-abstractions-tripwire`.
@@ -21,7 +21,7 @@ In Pi, the equivalent isolated runner surface is `roaster:run:duplicative-abstra
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-roaster exec record-findings --review-key duplicative-abstractions-tripwire --format json < findings.json
+sdl roaster exec record-findings --review-key duplicative-abstractions-tripwire --format json < findings.json
 ```
 
-Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `sdl roaster exec publish-findings` when publishing to GitHub.

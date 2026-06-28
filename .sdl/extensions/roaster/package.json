@@ -28,6 +28,11 @@
         "entry": "./src/commands/exec-record-findings.ts"
       },
       {
+        "name": "exec-publish-findings",
+        "description": "Publish Roaster findings from stdin.",
+        "entry": "./src/commands/exec-publish-findings.ts"
+      },
+      {
         "path": ["roast", "list"],
         "description": "List Roaster review-skill commands.",
         "entry": "./src/commands/roast-list.ts"

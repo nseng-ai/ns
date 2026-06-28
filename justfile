@@ -64,11 +64,6 @@ install-sdl: (_install-ts-shim "sdl" "ts/packages/kernel/src/cli.ts" "just insta
     rm -f "{{justfile_directory()}}/.venv/bin/sdl"
     @echo "removed stale project venv sdl script if present"
 
-# Install the roaster shim to ~/.local/bin so `roaster` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-roaster: (_install-ts-shim "roaster" "ts/packages/roaster/src/cli.ts" "just install-roaster")
-
 # Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.

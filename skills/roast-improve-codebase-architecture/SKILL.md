@@ -13,7 +13,7 @@ First read `.sdl/reviews/improve-codebase-architecture.md`, then apply that revi
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-roaster review run improve-codebase-architecture
+sdl roaster review run improve-codebase-architecture
 ```
 
 In Pi, the equivalent isolated runner surface is `roaster:run:improve-codebase-architecture`.
@@ -21,7 +21,7 @@ In Pi, the equivalent isolated runner surface is `roaster:run:improve-codebase-a
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-roaster exec record-findings --review-key improve-codebase-architecture --format json < findings.json
+sdl roaster exec record-findings --review-key improve-codebase-architecture --format json < findings.json
 ```
 
-Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `sdl roaster exec publish-findings` when publishing to GitHub.

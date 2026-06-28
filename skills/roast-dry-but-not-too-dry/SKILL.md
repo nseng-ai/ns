@@ -13,7 +13,7 @@ First read `.sdl/reviews/dry-but-not-too-dry.md`, then apply that review definit
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-roaster review run dry-but-not-too-dry
+sdl roaster review run dry-but-not-too-dry
 ```
 
 In Pi, the equivalent isolated runner surface is `roaster:run:dry-but-not-too-dry`.
@@ -21,7 +21,7 @@ In Pi, the equivalent isolated runner surface is `roaster:run:dry-but-not-too-dr
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-roaster exec record-findings --review-key dry-but-not-too-dry --format json < findings.json
+sdl roaster exec record-findings --review-key dry-but-not-too-dry --format json < findings.json
 ```
 
-Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `sdl roaster exec publish-findings` when publishing to GitHub.
