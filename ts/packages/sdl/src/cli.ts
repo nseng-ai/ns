@@ -140,7 +140,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const confirm = deps.confirm ?? baseContext.confirm;
 		const contextExtensions = {
 			...(baseContext.extensions ?? {}),
-			"sdl.clinkr.caps": io.caps,
+			...(io.caps === undefined ? {} : { "sdl.clinkr.caps": io.caps }),
 		};
 		const context: SdlExtensionApi = {
 			cwd: resolvedCwd,

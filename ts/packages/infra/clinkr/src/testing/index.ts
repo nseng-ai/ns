@@ -1,4 +1,5 @@
 import { resolveSettledNonInteractiveCaps } from "../caps.ts";
+export { stripAnsi } from "../ansi.ts";
 import type {
 	ClinkrInteraction,
 	ConfirmationRequest,

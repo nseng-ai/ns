@@ -118,17 +118,19 @@ export function createPhaseStream(
 	return { begin, emit, note, fail, finish, stop };
 }
 
-export async function runPhaseStream<T>(
-	caps: Caps,
-	specs: readonly PhaseSpec[],
-	deps: StreamSinkDeps,
-	title: string,
-	body: (stream: PhaseStream) => Promise<T>,
-): Promise<T> {
-	const stream = createPhaseStream(caps, specs, deps);
-	stream.begin(title);
+export interface RunPhaseStreamOptions<T> {
+	caps: Caps;
+	specs: readonly PhaseSpec[];
+	deps: StreamSinkDeps;
+	title: string;
+	body: (stream: PhaseStream) => Promise<T>;
+}
+
+export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Promise<T> {
+	const stream = createPhaseStream(options.caps, options.specs, options.deps);
+	stream.begin(options.title);
 	try {
-		return await body(stream);
+		return await options.body(stream);
 	} finally {
 		await stream.stop();
 	}
@@ -154,13 +156,13 @@ function capsFromHostExtension(value: unknown): Caps | undefined {
 			candidate.colorDepth === "ansi16" ||
 			candidate.colorDepth === "none") &&
 		typeof candidate.columns === "number" &&
-		typeof candidate.supportsUnicode === "boolean"
+		typeof candidate.canRenderUnicode === "boolean"
 	) {
 		return {
 			isTty: candidate.isTty,
 			colorDepth: candidate.colorDepth,
 			columns: candidate.columns,
-			supportsUnicode: candidate.supportsUnicode,
+			canRenderUnicode: candidate.canRenderUnicode,
 		};
 	}
 	return undefined;

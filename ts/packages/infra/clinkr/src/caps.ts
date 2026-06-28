@@ -15,7 +15,7 @@ export interface Caps {
 	/** Terminal width in columns; DEFAULT_COLUMNS when the width is unknown. */
 	columns: number;
 	/** Whether the sink can render non-ASCII glyphs, derived from the locale. */
-	supportsUnicode: boolean;
+	canRenderUnicode: boolean;
 }
 
 /** Raw capability signals snapshotted from the environment; the input to resolveCaps. */
@@ -34,7 +34,7 @@ export function resolveCaps(snapshot: CapsEnv): Caps {
 		isTty: snapshot.isTty,
 		colorDepth: resolveColorDepth(snapshot),
 		columns: snapshot.columns ?? DEFAULT_COLUMNS,
-		supportsUnicode: detectUnicode(snapshot.env),
+		canRenderUnicode: detectUnicode(snapshot.env),
 	};
 }
 
@@ -64,7 +64,7 @@ export function resolveSettledNonInteractiveCaps(
 		isTty: false,
 		colorDepth: "none",
 		columns: DEFAULT_COLUMNS,
-		supportsUnicode: detectUnicode(env),
+		canRenderUnicode: detectUnicode(env),
 	};
 }
 

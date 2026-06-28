@@ -1,5 +1,5 @@
-import ansis from "ansis";
 import { describe, expect, test } from "vitest";
+import { stripAnsi } from "../../src/ansi.ts";
 import type { Caps, ColorDepth } from "../../src/caps.ts";
 import { glyph } from "../../src/theme/glyphs.ts";
 import { dim, paint } from "../../src/theme/palette.ts";
@@ -9,13 +9,13 @@ import { visibleWidth } from "../../src/theme/text.ts";
 const DIM = "\x1b[2m";
 
 function caps(
-	parts: { colorDepth?: ColorDepth; columns?: number; supportsUnicode?: boolean } = {},
+	parts: { colorDepth?: ColorDepth; columns?: number; canRenderUnicode?: boolean } = {},
 ): Caps {
 	return {
 		isTty: true,
 		colorDepth: parts.colorDepth ?? "truecolor",
 		columns: parts.columns ?? 80,
-		supportsUnicode: parts.supportsUnicode ?? true,
+		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
 }
 
@@ -42,7 +42,7 @@ describe("renderTable column alignment", () => {
 		const lines = renderTable({ caps: c, columns, rows });
 		const data = lines.slice(1); // drop header row
 
-		const offsets = data.map((line) => ansis.strip(line).indexOf(token));
+		const offsets = data.map((line) => stripAnsi(line).indexOf(token));
 		expect(offsets[0]).toBeGreaterThan(0);
 		expect(offsets[0]).toBe(offsets[1]); // dates line up despite differing slug widths + SGR
 	});
@@ -53,7 +53,7 @@ describe("renderTable column alignment", () => {
 		];
 		const lines = renderTable({ caps: c, columns, rows });
 		expect(lines[0]).toContain(DIM);
-		expect(ansis.strip(lines[0] ?? "").startsWith("OBJECTIVE")).toBe(true);
+		expect(stripAnsi(lines[0] ?? "").startsWith("OBJECTIVE")).toBe(true);
 	});
 });
 
@@ -65,15 +65,15 @@ describe("renderTable truncation at caps.columns", () => {
 		const lines = renderTable({ caps: c, columns, rows: [[cell(long, long)]] });
 		const dataLine = lines[1] ?? "";
 		expect(visibleWidth(dataLine)).toBeLessThanOrEqual(20);
-		expect(ansis.strip(dataLine).endsWith("…")).toBe(true);
+		expect(stripAnsi(dataLine).endsWith("…")).toBe(true);
 	});
 
 	test("ascii caps degrade the ellipsis to dots", () => {
-		const c = caps({ columns: 20, supportsUnicode: false });
+		const c = caps({ columns: 20, canRenderUnicode: false });
 		const columns: readonly Column[] = [{ header: "NAME", width: "fill", min: 4 }];
 		const long = "this-is-a-very-long-objective-slug";
 		const lines = renderTable({ caps: c, columns, rows: [[cell(long, long)]] });
-		expect(ansis.strip(lines[1] ?? "").endsWith("...")).toBe(true);
+		expect(stripAnsi(lines[1] ?? "").endsWith("...")).toBe(true);
 	});
 });
 
@@ -85,7 +85,7 @@ describe("renderTable right alignment", () => {
 			{ header: "X", width: "fill", min: 3 },
 		];
 		const lines = renderTable({ caps: c, columns, rows: [[cell("7", "7"), cell("end", "end")]] });
-		const data = ansis.strip(lines[1] ?? "");
+		const data = stripAnsi(lines[1] ?? "");
 		expect(data.startsWith("    7")).toBe(true); // 4 spaces then the digit
 	});
 });

@@ -5,7 +5,7 @@
 Current local stack evidence shows the prototype north star has been rebuilt on real clinkr foundations:
 
 - `@sdl/clinkr/theme` and `@sdl/clinkr/stream` exist as opt-in subpath exports. The core barrel exports caps/emit/io but does not re-export theme or stream; the display subpaths own `ansis` and `log-update` usage.
-- `Caps` settled on `{ isTty, colorDepth, columns, supportsUnicode }`, with pure `resolveCaps(snapshot)`, real-process caps for direct terminals, and settled non-interactive caps for callback/hosted sinks.
+- `Caps` settled on `{ isTty, colorDepth, columns, canRenderUnicode }`, with pure `resolveCaps(snapshot)`, real-process caps for direct terminals, and settled non-interactive caps for callback/hosted sinks.
 - The stream sink owns the TTY live region through `log-update`, restores the cursor, decouples spinner repaint from step dwell, and degrades under non-TTY to one settled plain frame plus per-phase transients through the host `onOutput` path.
 - `objective list` now uses `@sdl/clinkr/theme` for the human surface while preserving the clinkr `--format json` machine path.
 - `flow submit` (and `flow cp`) now drive `@sdl/clinkr/stream`; TTY raw submit transcript text is routed through the live tail so the in-place writer remains the sole stdout owner, while Pi/callback/pipe/test sinks get settled non-interactive caps unless a host caps hint is supplied.

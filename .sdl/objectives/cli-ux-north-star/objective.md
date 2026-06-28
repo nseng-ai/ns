@@ -28,7 +28,7 @@ the system is the explicit follow-on, not part of this Objective.
   accent cyan / muted dim); in-place-only streaming for TTYs, with a settled non-TTY frame;
   `log-tail` of the latest subprocess line during streaming phases.
 - **The real clinkr foundations:** widen `Caps` (`{ isTty, colorDepth, columns,
-  supportsUnicode }`) and add `resolveCaps()` in clinkr **core**; opt-in
+  canRenderUnicode }`) and add `resolveCaps()` in clinkr **core**; opt-in
   `@sdl/clinkr/theme` (ansis) and `@sdl/clinkr/stream` (log-update) **subpaths**; buffered
   machine/human emit plus human streaming emit; and import-boundary lint/guardrails that keep display
   strictly opt-in. Process caps are used only for the real stdout path; hosted/callback/pipe/test and
@@ -106,7 +106,7 @@ the system is the explicit follow-on, not part of this Objective.
   clinkr-shaped data path for now**, preserving `--format json` while adding the pretty human
   renderer.
 - The exact widened `Caps` shape — **decided by implementation (2026-06-27):** `{ isTty,
-  colorDepth, columns, supportsUnicode }`.
+  colorDepth, columns, canRenderUnicode }`.
 - What the durable streaming machine-output contract should be (for example JSONL on stdout) now that
   `flow submit` has a polished human stream but still explicitly has no `--format` path — **decided
   for this Objective (2026-06-27): park it as a follow-on.** `flow submit` is a side-effecting human
