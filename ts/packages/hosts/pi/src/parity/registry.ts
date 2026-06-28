@@ -10,7 +10,6 @@ import { prExtensionParity } from "../pr/extension.ts";
 import { sdlExtensionParity } from "../flow/sdl-extension.ts";
 import { smartRestackParity } from "../flow/smart-restack.ts";
 import { stackSquashParity } from "../flow/stack-squash.ts";
-import { thermoCouncilParity } from "../thermo-council/extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 import type { PiSurfaceParity } from "./extension.ts";
 
@@ -27,7 +26,6 @@ export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...sdlExtensionParity,
 	...smartRestackParity,
 	...stackSquashParity,
-	...thermoCouncilParity,
 	...worktreeStatusParity,
 ] as const;
 

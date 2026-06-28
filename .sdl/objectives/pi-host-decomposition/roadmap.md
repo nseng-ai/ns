@@ -17,25 +17,25 @@
   - Move source and tests using the repo's separate `test/` directory convention; preserve Pi command registration/parity behavior through a dependency direction that keeps the extracted package stacked on `@sdl/pi`.
   - Evidence: no non-context-profiler host source imports `src/context-profiler/*`; focused tests for context-profiler, helper seams, affected PR/thermo views, and parity behavior pass; `just ts-check` and `just ts-guard` confirm no type or package-cycle regression; `updates/2026-06-27-context-profiler-recipe-recorded.md` records the recipe slice.
 
-- [~] Apply the reference extraction recipe to the next obvious Pi-native tool candidates.
+- [x] Apply the reference extraction recipe to the next obvious Pi-native tool candidates.
   - Use the `context-profiler` result to guide how Pi-native tool packages should consume host helpers, own tests, expose registration or parity surfaces, and avoid host→tool dependency inversion.
   - `grill` portion complete in local branch evidence — `@sdl/pi-grill` now owns the structured grill source, tests, package parity metadata, and direct discovery adapter, while stable surface constants remain behind neutral `@sdl/pi/grill/surfaces` and `@sdl/pi` does not import the extracted package.
-  - Apply the recipe to `thermo-council` unless inventory evidence shows a different follow-on candidate.
-  - Evidence: each moved or dispositioned tool has a clear package-boundary decision and preserved user-visible Pi behavior; `updates/2026-06-27-grill-package-extracted.md` records the grill extraction slice.
+  - `thermo-council` portion complete in local branch evidence — `@sdl/pi-thermo-council` now owns the council source, tests, package parity metadata, and direct discovery adapter; it depends on `@sdl/pi-runner-subagents` plus neutral `@sdl/pi/...` helper/runtime subpaths, and `@sdl/pi` does not import it.
+  - Evidence: each moved or dispositioned tool has a clear package-boundary decision and preserved user-visible Pi behavior; `updates/2026-06-27-grill-package-extracted.md` and `updates/2026-06-28-runner-terminal-thermo-extraction.md` record the applied-recipe slices.
 
-- [ ] Disposition `runner-subagents` and `terminal` with runtime-boundary evidence.
-  - Determine whether each is a standalone Pi-native feature package, a neutral Pi runtime/helper surface that should remain in `@sdl/pi`, or a split between runtime primitives and feature presentation.
-  - Do not extract runtime infrastructure merely to reduce LOC; extract only if the package boundary is deep, acyclic, and easier for future agents to understand.
-  - Evidence: each area has either an extraction PR/slice or a durable disposition explaining why it remains in the host and which neutral exports are intentional.
+- [x] Disposition `runner-subagents` and `terminal` with runtime-boundary evidence.
+  - `runner-subagents` is a split surface: `@sdl/pi-runner-subagents` owns the model-visible dispatch tool, curated context preparation, focused widget behavior, and package tests, while host-owned neutral `@sdl/pi/runner-subagents*` subpaths retain runtime/process/JSON-event/presentation helpers still consumed by the Pi runtime, investigate, thermo-council, and host runner tests.
+  - `terminal` remains an intentional neutral `@sdl/pi/terminal/*` helper surface; extracting it would create broad consumer churn without improving dependency direction.
+  - Evidence: `updates/2026-06-28-runner-terminal-thermo-extraction.md` records the dependency-direction checks, focused tests, and durable context update for both dispositions.
 
 - [ ] Thin vertically integrated capability mirrors without confusing them with Pi-native tools.
   - Inspect Handoff, Branch Context, PR feedback, Objective, and Plans-adjacent Pi surfaces for remaining capability-specific decisions in the host.
   - Repoint Pi shells toward owning Capability APIs/packages where the seam already exists; when the owning capability needs a migration, update or spawn the appropriate capability Objective instead of creating a Pi-stacked tool package.
   - Evidence: each major capability mirror has a recorded status: thin shell complete, delegated to capability work, or accepted Pi presentation-only residue.
 
-- [ ] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
+- [~] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
   - Ensure package exports describe intentional neutral helper/runtime surfaces rather than accidental feature-domain entrypoints.
-  - Update relevant context or architecture prose once the package convention is proven; report and fix stale path language through the appropriate context/objective workflow.
+  - Current Pi-tool convention language is updated for `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`; remaining rebaseline work should focus on host exports and capability-mirror surfaces after mirror thinning.
   - Evidence: future agents can tell where to put a new Pi-native tool versus a capability mirror, and the final package graph remains acyclic.
 
 ## Parked

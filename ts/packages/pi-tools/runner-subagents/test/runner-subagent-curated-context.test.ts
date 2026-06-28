@@ -9,7 +9,7 @@ import type { ExecResult } from "@sdl/core/exec";
 import {
 	buildCuratedRunnerSubagentContext,
 	type CuratedContextExecGit,
-} from "../src/runner-subagents/curated-context.ts";
+} from "../src/curated-context.ts";
 
 function tempRepo(): string {
 	const root = mkdtempSync(join(tmpdir(), "runner-subagent-context-"));

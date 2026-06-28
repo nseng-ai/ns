@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentUpdate } from "../src/runner-subagents/extension-api.ts";
+import type { RunnerSubagentUpdate } from "@sdl/pi/runner-subagents";
 import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,
 	withRunnerSubagentWidget,
-} from "../src/runner-subagents/widget.ts";
+} from "../src/widget.ts";
 
 const METADATA_ONLY_LAUNCH = {
 	model: { provider: "anthropic", id: "claude-sonnet-4-5" },

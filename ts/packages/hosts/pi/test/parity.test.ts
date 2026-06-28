@@ -4,7 +4,6 @@ import registerBranchContextExtension from "../src/branch-context/extension.ts";
 import claudeExtension from "../src/claude/extension.ts";
 import codeWorkflowsExtension from "../src/flow/code-workflows.ts";
 import codeExtension from "../src/pr/code-extension.ts";
-import dispatchRunnerSubagentExtension from "../src/runner-subagents/dispatch-extension.ts";
 import handoffExtension from "../src/handoff/extension.ts";
 import investigateExtension from "../src/investigate/extension.ts";
 import modelShortcutExtension from "../src/models/shortcuts.ts";
@@ -19,7 +18,6 @@ import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
 import { definePiSurfaceParity } from "../src/parity/extension.ts";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 import sdlExtension from "../src/flow/sdl-extension.ts";
-import thermoCouncilExtension from "../src/thermo-council/extension.ts";
 
 interface RegisteredToolLike {
 	readonly name?: unknown;
@@ -93,14 +91,12 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, claudeExtension);
 	await registerWithFakeHost(pi, codeWorkflowsExtension);
 	await registerWithFakeHost(pi, codeExtension);
-	await registerWithFakeHost(pi, registerDispatchRunnerSubagentWithFakeDefinition);
 	await registerWithFakeHost(pi, handoffExtension);
 	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, objectiveExtension);
 	await registerWithFakeHost(pi, prExtension);
 	await registerWithFakeHost(pi, sdlExtension);
-	await registerWithFakeHost(pi, thermoCouncilExtension);
 	// The worktree-status implementation lives in @sdl/worktree-status and is
 	// discovered through .pi/extensions/worktree-status.ts, but @sdl/pi owns the
 	// static parity registry. Include its live command shape without importing the
@@ -126,29 +122,10 @@ function registerBranchContextWithFakeHostOptions(
 	registerBranchContextExtension(pi, { branchContextDefaultCreation: "graphite" });
 }
 
-function registerDispatchRunnerSubagentWithFakeDefinition(
-	pi: Parameters<typeof dispatchRunnerSubagentExtension>[0],
-): void {
-	dispatchRunnerSubagentExtension(pi, { loadAgentDefinition: () => fakeRunnerAgentDefinition() });
-}
-
 function registerInvestigateWithFakeDefinition(
 	pi: Parameters<typeof investigateExtension>[0],
 ): void {
 	investigateExtension(pi, { loadAgentDefinition: () => fakeInvestigatorAgentDefinition() });
-}
-
-function fakeRunnerAgentDefinition(): PiAgentDefinition {
-	return {
-		schema: "sdl.pi-agent.v1",
-		name: "runner",
-		toolName: "dispatch_runner_subagent",
-		label: "Dispatch Forked Pi Session",
-		description: "Dispatch a focused runner subagent fixture.",
-		promptGuidelines: [],
-		body: "{{prompt}}",
-		filePath: "/fixture/.sdl/pi/agents/runner.md",
-	};
 }
 
 function fakeInvestigatorAgentDefinition(): PiAgentDefinition {

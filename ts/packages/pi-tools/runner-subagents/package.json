@@ -1,0 +1,19 @@
+{
+  "name": "@sdl/pi-runner-subagents",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/pi-tools/runner-subagents/test"
+  },
+  "dependencies": {
+    "@sdl/core": "workspace:*",
+    "@sdl/pi": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {}
+}

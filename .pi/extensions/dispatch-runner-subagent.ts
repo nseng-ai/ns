@@ -1,3 +1,3 @@
-import dispatchRunnerSubagentExtension from "../../ts/packages/hosts/pi/src/runner-subagents/dispatch-extension.ts";
-
-export default dispatchRunnerSubagentExtension;
+// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
+// package exports are not resolvable without the ts workspace's node_modules ancestry.
+export { default } from "../../ts/packages/pi-tools/runner-subagents/src/extension.ts";

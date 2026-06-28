@@ -61,14 +61,14 @@ Assumptions:
 
 - `@sdl/pi` is large because it has accreted multiple feature subsystems, not because all of that code is intrinsically part of the Pi runtime host.
 - `context-profiler` remains the best first extraction because its production code has no known Capability-package dependency and its entanglement appears to be mostly Pi helper/runtime usage plus a few reverse imports from sibling Pi views.
-- Pi-native tools such as `grill`, `thermo-council`, `runner-subagents`, and `terminal` can be evaluated as packages stacked on `@sdl/pi` even when the final disposition for some of them may be “host runtime primitive” rather than “standalone tool package.”
+- Pi-native tools can be evaluated as packages stacked on `@sdl/pi` while still allowing split dispositions when implementation proves a runtime/helper residue belongs in the host. Current evidence supports `grill` and `thermo-council` as extracted Pi-tool packages, `runner-subagents` as a split between an extracted dispatch tool and neutral host runtime/process/JSON-event helpers, and `terminal` as an intentional neutral host helper surface.
 - Capability mirrors should thin toward owning Capability packages/APIs rather than becoming new Pi-stacked packages; this keeps domain logic out of the Presentation Host and avoids duplicating the architecture parent.
 - Project-local `.pi/extensions/*.ts` discovery adapters can preserve registration behavior while implementation packages move, provided dependency direction is designed explicitly.
 
 Risks:
 
 - The `context-profiler` extraction may reveal shared Pi TUI utilities that deserve a neutral helper subpath or small support package before the feature package can move cleanly.
-- Moving runner-subagents or terminal too aggressively could extract runtime infrastructure that should remain a neutral Pi helper surface; require disposition evidence before treating them like ordinary tools.
+- Runner-subagents and terminal have now been de-risked by evidence-backed split/disposition work: extracting the runner dispatch tool is safe, but runner runtime/process/JSON-event helpers and terminal layout/presentation helpers remain neutral host surfaces. Future work should not force these residues into feature packages without new acyclic evidence.
 - Capability mirror thinning can overlap with `sdl-extension-architecture` child Objectives; mitigate by spawning or updating capability-specific Objectives instead of silently absorbing their domain migrations here.
 - Pi command parity may regress if package extraction changes registration order, command names, tool schemas, acknowledgement behavior, or runtime output plumbing without focused tests.
 - The dependency direction can accidentally invert if `@sdl/pi` imports extracted feature packages directly; the intended direction is extracted package → `@sdl/pi`, with registration/discovery designed around that constraint.
@@ -76,8 +76,8 @@ Risks:
 
 ## Open Questions
 
-- What package naming and workspace location should extracted Pi-native tool packages use: a host-adjacent tier, a Pi-tool tier, or another explicit convention?
-- Which shared render, scroll, width, and LM-JSON helpers should remain in `@sdl/pi` as neutral helper subpaths versus move into a separate Pi UI/support package?
-- Which of `runner-subagents` and `terminal` are true standalone Pi-native tools versus core Pi runtime/presentation infrastructure that should stay in the host behind neutral exports?
+- The Pi-tool tier convention is now proven for the extracted standalone tools so far: `ts/packages/pi-tools/<tool>/` packages stack above `@sdl/pi`, while project-local discovery adapters import package source entrypoints directly.
+- Shared render/scroll/width and LM-JSON helpers are currently accepted neutral `@sdl/pi` helper subpaths; revisit only if a future support package can be introduced without new cycles or broad churn.
+- Runner-subagents and terminal are dispositioned as split/neutral surfaces: the dispatch tool is extracted to `@sdl/pi-runner-subagents`, runner runtime/process/JSON-event helpers remain `@sdl/pi/runner-subagents*`, and terminal layout/presentation remains `@sdl/pi/terminal/*`.
 - For PR feedback, Handoff, Branch Context, Objective, and Plans-adjacent Pi surfaces, which remaining logic is presentation-only and which belongs in the owning Capability package/API?
 - Should successful extraction of the first two Pi-native tools update `sdl-extension-architecture`, create narrower child Objectives, or remain tracked only here until closure?

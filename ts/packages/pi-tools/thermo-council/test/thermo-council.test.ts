@@ -4,15 +4,15 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagents/subagent-process.ts";
-import type { RuntimeResultV1 } from "../src/runner-subagents/subagent-runtime.ts";
-import { createRuntimeConfig } from "../src/runner-subagents/subagent-runtime.ts";
+import type { RunnerSubagentDispatcherDependencies } from "@sdl/pi/runner-subagents/process";
+import type { RuntimeResultV1 } from "@sdl/pi/runner-subagents/runtime";
+import { createRuntimeConfig } from "@sdl/pi/runner-subagents/runtime";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,
 	type RunnerSubagentCompletedResult,
 	type RunnerSubagentStoppedWithoutTerminalResult,
-} from "../src/runner-subagents/extension-api.ts";
+} from "@sdl/pi-runner-subagents";
 import thermoCouncilExtension, {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
 	SUBMIT_THERMO_COUNCIL_REVIEW_TOOL,
@@ -25,8 +25,8 @@ import thermoCouncilExtension, {
 	type ThermoCouncilReviewerOutcome,
 	type ThermoCouncilScope,
 	type ThermoCouncilSeatConfig,
-} from "../src/thermo-council/extension.ts";
-import { reviewerOutcomeFromRunnerResult } from "../src/thermo-council/orchestrator.ts";
+} from "../src/extension.ts";
+import { reviewerOutcomeFromRunnerResult } from "../src/orchestrator.ts";
 import {
 	FakeSpawnedChildProcess,
 	createFakeRunnerSubagentDispatcher,
@@ -203,7 +203,7 @@ function completedOutcome(
 					confidence: "likely",
 					severity: "high",
 					validationHints: [
-						"pnpm --dir ts vitest run packages/hosts/pi/test/thermo-council.test.ts",
+						"pnpm --dir ts vitest run packages/pi-tools/thermo-council/test/thermo-council.test.ts",
 					],
 				},
 			],

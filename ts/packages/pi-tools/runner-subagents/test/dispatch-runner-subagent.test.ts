@@ -7,13 +7,13 @@ import { describe, expect, test } from "vitest";
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { createManualClock } from "@sdl/core/testing";
 
-import type { ThinkingLevel } from "../src/runtime/types.ts";
+import type { ThinkingLevel } from "@sdl/pi/runtime/types";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-} from "../src/runner-subagents/extension-api.ts";
-import type { RunnerSubagentDispatcherDependencies } from "../src/runner-subagents/subagent-process.ts";
+} from "@sdl/pi/runner-subagents";
+import type { RunnerSubagentDispatcherDependencies } from "@sdl/pi/runner-subagents/process";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,
@@ -21,8 +21,8 @@ import dispatchRunnerSubagentExtension, {
 	type DispatchRunnerSubagentExtensionAPI,
 	type DispatchRunnerSubagentToolDefinition,
 	type ToolResult,
-} from "../src/runner-subagents/dispatch-extension.ts";
-import type { ToolContext } from "../src/handoff/runtime-types.ts";
+} from "../src/extension.ts";
+import type { ToolContext } from "../src/extension.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,
