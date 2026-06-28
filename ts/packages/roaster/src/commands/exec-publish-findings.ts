@@ -11,13 +11,13 @@ import {
 } from "../operations/cli-operations.ts";
 import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
 
-const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish inline and summary findings from a Roaster run envelope on stdin.
+const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Roaster findings to GitHub.
 
-This hidden SDL automation command replaces the standalone roaster exec publish-findings binary path for CI. It preserves the existing stdin envelope contract and keeps GitHub publication guarded inside Roaster-owned domain logic.`;
+This hidden SDL automation command preserves the standalone roaster exec publish-findings stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
 
 export const roasterExecPublishFindingsCommand = createSdlDomainCommand({
 	name: "exec-publish-findings",
-	summary: "Publish Roaster findings from stdin.",
+	summary: "Publish Roaster findings to GitHub.",
 	description: EXEC_PUBLISH_FINDINGS_DESCRIPTION,
 	schema: publishFindingsRequestSchema,
 	resultSchema: publishFindingsResultSchema,
@@ -29,6 +29,11 @@ export const roasterExecPublishFindingsCommand = createSdlDomainCommand({
 			env: runtime.runScope.env,
 			runtime,
 		}).publishFindings(request);
+		if (outcome.type === "ok") {
+			runtime.stderr(
+				renderPublishFindingsDiagnostics(publishFindingsResultSchema.parse(outcome.value)),
+			);
+		}
 		return clinkrExitFromPublishFindingsOutcome(outcome);
 	},
 });

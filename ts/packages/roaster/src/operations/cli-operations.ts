@@ -4,13 +4,18 @@ import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
 import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
-import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
+import {
+	publishFindings,
+	type PublicationError,
+	type PublishFindingsResult,
+} from "../findings-publication.ts";
 import {
 	ROASTER_REVIEW_LOG_NAMESPACE,
 	type ReviewLogEntry,
 	type ReviewLogWriteResult,
 } from "../gateways/review-log.ts";
 import {
+	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -113,14 +118,9 @@ export const publishFindingsRequestSchema = z.object({
 	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
 
-export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
-
 export const publishFindingsResultSchema = z
 	.object({
-		inlinePostedCount: z.int().min(0),
-		inlineSkippedDuplicateCount: z.int().min(0),
-		inlineFallbackOnlyCount: z.int().min(0),
-		inlineApiError: z.string().nullable(),
+		inlineStatus: postInlineFindingsResultSchema,
 		summaryStatus: z
 			.object({
 				type: z.enum(["posted", "updated"]),
@@ -130,6 +130,7 @@ export const publishFindingsResultSchema = z
 	})
 	.strict();
 
+export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
 export type PublishFindingsCliResult = z.infer<typeof publishFindingsResultSchema>;
 export type PublishFindingsCommandResult = PublishFindingsCliResult;
 
@@ -475,13 +476,7 @@ export async function publishFindingsFromStdin(
 export function clinkrExitFromPublishFindingsOutcome(
 	outcome: PublishFindingsResult,
 ): ClinkrExit<PublishFindingsCliResult> {
-	if (outcome.type === "error") {
-		return failure(
-			outcome.error.reason,
-			`publish-findings: ${outcome.error.message}`,
-			outcome.error,
-		);
-	}
+	if (outcome.type === "error") return failureFromPublicationError(outcome.error);
 	return ok(publishFindingsCliResult(outcome.value));
 }
 
@@ -490,10 +485,6 @@ export async function runPublishFindings(
 	request: PublishFindingsRequest,
 ): Promise<ClinkrExit<PublishFindingsCliResult>> {
 	return clinkrExitFromPublishFindingsOutcome(await publishFindingsFromStdin(ctx, request));
-}
-
-export function renderPublishFindings(result: PublishFindingsCommandResult): string {
-	return renderPublishFindingsDiagnostics(result);
 }
 
 interface LoadedDefinition {
@@ -546,6 +537,13 @@ function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {
 	return failure(error.type, error.message);
 }
 
+function failureFromPublicationError(error: PublicationError): ClinkrExit<never> {
+	return failure("roaster-publish-findings-failed", `publish-findings: ${error.message}`, {
+		fatalFailurePhase: error.fatalFailurePhase,
+		reason: error.reason,
+	});
+}
+
 function clinkrExitFromRoasterResult<T>(result: RoasterResult<T>): ClinkrExit<T> {
 	if (result.type === "ok") return ok(result.value);
 	return failureFromRoaster(result.error);
@@ -561,10 +559,13 @@ function loadDiffFromRequest(
 	});
 }
 
+export function renderPublishFindings(result: PublishFindingsCommandResult): string {
+	return renderPublishFindingsDiagnostics(result);
+}
+
 export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResult): string {
-	const apiError = result.inlineApiError?.replace(/\s+/gu, " ") ?? "none";
 	return [
-		`inline findings: posted=${result.inlinePostedCount} skipped_duplicate=${result.inlineSkippedDuplicateCount} fallback_only=${result.inlineFallbackOnlyCount} api_error=${apiError}`,
+		renderInlineFindingsSummary(result),
 		`${result.summaryStatus.type} findings comment`,
 		"",
 	].join("\n");
@@ -573,11 +574,10 @@ export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResul
 function publishFindingsCliResult(
 	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
 ): PublishFindingsCliResult {
-	return publishFindingsResultSchema.parse({
-		inlinePostedCount: result.inlineStatus.postedCount,
-		inlineSkippedDuplicateCount: result.inlineStatus.skippedDuplicateCount,
-		inlineFallbackOnlyCount: result.inlineStatus.fallbackOnlyCount,
-		inlineApiError: result.inlineStatus.apiError,
-		summaryStatus: result.summaryStatus,
-	});
+	return publishFindingsResultSchema.parse(result);
+}
+
+function renderInlineFindingsSummary(result: PublishFindingsCliResult): string {
+	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
+	return `inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`;
 }

@@ -29,7 +29,7 @@
       },
       {
         "name": "exec-publish-findings",
-        "description": "Publish Roaster findings from stdin.",
+        "description": "Publish Roaster findings to GitHub.",
         "entry": "./src/commands/exec-publish-findings.ts"
       },
       {
