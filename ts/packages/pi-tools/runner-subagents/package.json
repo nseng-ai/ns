@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./extension": "./src/extension.ts"
+    "./extension": "./src/extension.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

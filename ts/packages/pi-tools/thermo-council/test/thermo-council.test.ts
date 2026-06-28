@@ -20,6 +20,7 @@ import thermoCouncilExtension, {
 	THERMO_COUNCIL_MESSAGE_TYPE,
 	buildReviewerPrompt,
 	clusterFindings,
+	parseThermoCouncilMaxConcurrency,
 	parseThermoCouncilSeats,
 	renderThermoCouncilReport,
 	type ThermoCouncilReviewerOutcome,
@@ -32,7 +33,7 @@ import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,
 	type SpawnCall,
-} from "./runner-subagent-fakes.ts";
+} from "@sdl/pi-runner-subagents/testing";
 
 interface RegisteredCommand {
 	readonly description?: string;
@@ -263,6 +264,22 @@ describe("thermo council extension", () => {
 		).toThrow("THERMO_COUNCIL_MODELS has 4 entries but only 3 council seats are configured");
 	});
 
+	test("parses positive thermo council concurrency overrides and softly falls back", () => {
+		expect(parseThermoCouncilMaxConcurrency({ get: () => undefined })).toBe(3);
+		expect(
+			parseThermoCouncilMaxConcurrency({
+				get: (name) => (name === "THERMO_COUNCIL_MAX_CONCURRENCY" ? " 1 " : undefined),
+			}),
+		).toBe(1);
+		for (const value of ["", " ", "0", "-1", "1.5", "three"]) {
+			expect(
+				parseThermoCouncilMaxConcurrency({
+					get: (name) => (name === "THERMO_COUNCIL_MAX_CONCURRENCY" ? value : undefined),
+				}),
+			).toBe(3);
+		}
+	});
+
 	test("stops dirty preflight before reviewer launch", async () => {
 		const pi = new FakePi({
 			execResults: new Map([["git status --short", { stdout: " M src/file.ts\n" }]]),
@@ -436,6 +453,81 @@ describe("thermo council extension", () => {
 
 		for (const call of runner.calls.slice(0, 3)) call.process.close(0);
 		await waitForSpawnCount(runner.calls, 4);
+		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
+		runner.calls[3]?.process.close(0);
+		await running;
+	});
+
+	test("honors a lower thermo council concurrency override", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			runnerDependencies: runner.dependencies,
+		});
+		thermoCouncilExtension(pi);
+
+		await withProcessEnv("THERMO_COUNCIL_MAX_CONCURRENCY", "1", async () => {
+			const running = pi.commands
+				.get(THERMO_COUNCIL_COMMAND_NAME)
+				?.handler("origin/master", fakeContext());
+			await waitForSpawnCount(runner.calls, 1);
+			await Promise.resolve();
+			expect(runner.calls).toHaveLength(1);
+			runner.calls[0]?.process.close(0);
+			await waitForSpawnCount(runner.calls, 2);
+			expect(runner.calls).toHaveLength(2);
+			runner.calls[1]?.process.close(0);
+			await waitForSpawnCount(runner.calls, 3);
+			expect(runner.calls).toHaveLength(3);
+			runner.calls[2]?.process.close(0);
+			await waitForSpawnCount(runner.calls, 4);
+			runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
+			runner.calls[3]?.process.close(0);
+			await running;
+		});
+	});
+
+	test("invalid thermo council concurrency override falls back to default three", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			runnerDependencies: runner.dependencies,
+		});
+		thermoCouncilExtension(pi);
+
+		await withProcessEnv("THERMO_COUNCIL_MAX_CONCURRENCY", "not-a-number", async () => {
+			const running = pi.commands
+				.get(THERMO_COUNCIL_COMMAND_NAME)
+				?.handler("origin/master", fakeContext());
+			await waitForSpawnCount(runner.calls, 3);
+			await Promise.resolve();
+			expect(runner.calls).toHaveLength(3);
+			for (const call of runner.calls.slice(0, 3)) call.process.close(0);
+			await waitForSpawnCount(runner.calls, 4);
+			runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
+			runner.calls[3]?.process.close(0);
+			await running;
+		});
+	});
+
+	test("preserves reviewer outcome order when seats finish out of order", async () => {
+		const runner = createFakeRunnerSubagentDispatcher({ runtimeResult: completedRunnerResult() });
+		const pi = new FakePi({
+			execResults: successfulScopeExecResults(),
+			runnerDependencies: runner.dependencies,
+		});
+		thermoCouncilExtension(pi);
+
+		const running = pi.commands
+			.get(THERMO_COUNCIL_COMMAND_NAME)
+			?.handler("origin/master", fakeContext());
+		await waitForSpawnCount(runner.calls, 3);
+		runner.calls[2]?.process.close(0);
+		runner.calls[0]?.process.close(0);
+		runner.calls[1]?.process.close(0);
+		await waitForSpawnCount(runner.calls, 4);
+		const finalSynthesisPrompt = runner.calls[3]?.args.join("\n") ?? "";
+		expectInOrder(finalSynthesisPrompt, ["Anthropic Opus", "OpenAI High", "Gemini High"]);
 		runner.calls[3]?.process.emitStdout(finalAssistantTextEvent(defaultFinalSynthesisText()));
 		runner.calls[3]?.process.close(0);
 		await running;
@@ -988,6 +1080,29 @@ async function waitForSpawnCount(calls: readonly SpawnCall[], count: number): Pr
 		await new Promise((resolve) => setTimeout(resolve, 0));
 	}
 	throw new Error(`Expected ${count} child processes to be spawned.`);
+}
+
+async function withProcessEnv<T>(name: string, value: string, run: () => Promise<T>): Promise<T> {
+	const previous = process.env[name];
+	process.env[name] = value;
+	try {
+		return await run();
+	} finally {
+		if (previous === undefined) {
+			delete process.env[name];
+		} else {
+			process.env[name] = previous;
+		}
+	}
+}
+
+function expectInOrder(text: string, fragments: readonly string[]): void {
+	let previousIndex = -1;
+	for (const fragment of fragments) {
+		const index = text.indexOf(fragment, previousIndex + 1);
+		expect(index).toBeGreaterThan(previousIndex);
+		previousIndex = index;
+	}
 }
 
 function successfulInferredScopeExecResults(): Map<

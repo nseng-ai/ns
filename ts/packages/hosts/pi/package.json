@@ -12,6 +12,7 @@
     "./models/lm-json": "./src/models/lm-json.ts",
     "./parity/check": "./src/parity/check.ts",
     "./parity/extension": "./src/parity/extension.ts",
+    "./parity/testing": "./src/parity/testing.ts",
     "./runtime/agent-definition": "./src/runtime/agent-definition.ts",
     "./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
     "./objectives/picker": "./src/objectives/picker.ts",

@@ -6,16 +6,39 @@ import { extractJsonObjectText, parseLmJson } from "../src/models/lm-json.ts";
 const valueSchema = z.object({ value: z.string() });
 
 describe("extractJsonObjectText", () => {
-	test("strips JSON fences", () => {
+	test("strips supported JSON fences", () => {
 		expect(extractJsonObjectText('```json\n{"value":"ok"}\n```')).toBe('{"value":"ok"}');
+		expect(extractJsonObjectText('```JSON\n{"value":"ok"}\n```')).toBe('{"value":"ok"}');
+		expect(extractJsonObjectText('```jsonc\n{"value":"ok"}\n```')).toBe('{"value":"ok"}');
+		expect(extractJsonObjectText('```\n{"value":"ok"}\n```')).toBe('{"value":"ok"}');
+	});
+
+	test("rejects unsupported full-response fence languages", () => {
+		expect(extractJsonObjectText('```ts\n{"value":"ok"}\n```')).toBeNull();
 	});
 
 	test("slices prose wrapped around an object", () => {
 		expect(extractJsonObjectText('before {"value":"ok"} after')).toBe('{"value":"ok"}');
 	});
 
-	test("uses the outer brace span", () => {
+	test("ignores braces inside strings", () => {
 		expect(extractJsonObjectText('x {"value":"{nested}"} y')).toBe('{"value":"{nested}"}');
+	});
+
+	test("handles escaped quotes and escaped backslashes inside strings", () => {
+		const text = 'before {"value":"quote: \\\" and slash: \\\\"} after';
+		expect(extractJsonObjectText(text)).toBe('{"value":"quote: \\\" and slash: \\\\"}');
+	});
+
+	test("returns the first complete object when multiple objects appear", () => {
+		expect(extractJsonObjectText('first {"value":"one"} second {"value":"two"}')).toBe(
+			'{"value":"one"}',
+		);
+	});
+
+	test("returns null for malformed or incomplete objects", () => {
+		expect(extractJsonObjectText('before {"value":"ok"')).toBeNull();
+		expect(extractJsonObjectText('before {"value": [1} after')).toBeNull();
 	});
 });
 

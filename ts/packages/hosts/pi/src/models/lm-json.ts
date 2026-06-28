@@ -25,13 +25,63 @@ export function parseLmJson<T>(
 }
 
 export function extractJsonObjectText(text: string): string | null {
+	const candidate = normalizeLmJsonCandidate(text);
+	if (candidate === null) return null;
+	for (let index = 0; index < candidate.length; index += 1) {
+		if (candidate[index] !== "{") continue;
+		const objectText = scanJsonObjectAt(candidate, index);
+		if (objectText !== null) return objectText;
+	}
+	return null;
+}
+
+function normalizeLmJsonCandidate(text: string): string | null {
 	const trimmed = text.trim();
-	const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(trimmed);
-	const candidate = fenced?.[1] ?? trimmed;
-	const first = candidate.indexOf("{");
-	const last = candidate.lastIndexOf("}");
-	if (first === -1 || last <= first) return null;
-	return candidate.slice(first, last + 1);
+	const fenced = /^```([^\n`]*)\n?([\s\S]*?)\s*```$/i.exec(trimmed);
+	if (fenced === null) return trimmed;
+	const language = fenced[1]?.trim().toLowerCase() ?? "";
+	if (language !== "" && language !== "json" && language !== "jsonc") return null;
+	return fenced[2] ?? "";
+}
+
+function scanJsonObjectAt(text: string, start: number): string | null {
+	const stack: string[] = [];
+	let isInString = false;
+	let isEscaped = false;
+	for (let index = start; index < text.length; index += 1) {
+		const char = text[index];
+		if (char === undefined) return null;
+		if (isInString) {
+			if (isEscaped) {
+				isEscaped = false;
+				continue;
+			}
+			if (char === "\\") {
+				isEscaped = true;
+				continue;
+			}
+			if (char === '"') isInString = false;
+			continue;
+		}
+		if (char === '"') {
+			isInString = true;
+			continue;
+		}
+		if (char === "{" || char === "[") {
+			stack.push(char);
+			continue;
+		}
+		if (char === "}" || char === "]") {
+			const opener = stack.pop();
+			if (opener === undefined || !isMatchingJsonDelimiter(opener, char)) return null;
+			if (stack.length === 0) return text.slice(start, index + 1);
+		}
+	}
+	return null;
+}
+
+function isMatchingJsonDelimiter(opener: string, closer: string): boolean {
+	return (opener === "{" && closer === "}") || (opener === "[" && closer === "]");
 }
 
 function errorMessage(error: unknown): string {
