@@ -139,6 +139,13 @@ export async function runForTest<TContext>(
 }
 
 export { machineEnvelopeSchema } from "../exit.ts";
+export {
+	fileForReport,
+	literalSpecifierUsesOf,
+	literalSpecifiersOf,
+	sourceFilesUnder,
+} from "./import-scanner.ts";
+export type { LiteralSpecifierUse } from "./import-scanner.ts";
 
 export function parseEnvelope(stdout: string): MachineEnvelope {
 	return machineEnvelopeSchema.parse(JSON.parse(stdout)) as MachineEnvelope;
