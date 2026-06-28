@@ -121,6 +121,19 @@
       and `flow branch-latest-commit` (eligibility refusals) now render warn instead of red. The shared
       `flow/src/shared/pending-worktree-result.ts` helper renders snapshot-probe failures for both
       commands. `flow autobranch` keeps its `CommandIo` progress phases for hosted/Pi contexts.
+      Follow-up landed with `flow autoslot`: unlike the flow-local commands above, autoslot's
+      autobranch + slot-checkout orchestration lives in CCC and reports through `CommandIo.notify`, so
+      presentation landed **CCC-local** (`ts/packages/ccc/src/autoslot-presentation.ts`, the CCC twin of
+      `workflow-result-block.ts`) next to where the outcome facts are computed — flow capability
+      renderers can't be imported downward into CCC, and the plan forbids cross-package extraction. The
+      flow wrapper resolves caps via `resolveFlowStreamCaps` and threads them into `runAutoslotCli`. The
+      four durable outcomes (slot move; branch-created-but-skipped on a dirty post-autobranch worktree;
+      slot checkout failed; autobranch failure/refusal) render success/warn/error; the PR-2 `outcome`
+      discriminator makes a declined autobranch guardrail render warn (still exit 1 via the `error`
+      notify level — intent lives in the rendered block, the level owns routing/exit), and the
+      `sdl slot co <branch>` navigation line stays copyable at normal weight. CCC `CommandIo` semantics
+      (transient `phase`, durable `notify`, error flips exit) are unchanged. The general
+      navigation/shell renderer row below is untouched.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
