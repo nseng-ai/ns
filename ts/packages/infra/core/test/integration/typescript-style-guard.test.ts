@@ -257,6 +257,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/ccc",
 		"@sdl/domain-primitives-transitional",
 		"@sdl/handoff",
+		"@sdl/handoff-pi",
 		"@sdl/pi",
 		"@sdl/sdl",
 		"@sdl/slot",
@@ -268,6 +269,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@sdl/ccc", "capability"],
 		["@sdl/domain-primitives-transitional", "transitional"],
 		["@sdl/handoff", "capability"],
+		["@sdl/handoff-pi", "capability-pi"],
 		["@sdl/pi", "host"],
 		["@sdl/sdl", "sdk"],
 		["@sdl/slot", "capability"],
@@ -307,6 +309,21 @@ describe("TypeScript style guard package tier layering rules", () => {
 			name: "capability to capability is allowed",
 			edges: [{ from: "@sdl/ccc", to: "@sdl/handoff" }],
 			expectedViolation: false,
+		},
+		{
+			name: "capability pi to host is allowed",
+			edges: [{ from: "@sdl/handoff-pi", to: "@sdl/pi" }],
+			expectedViolation: false,
+		},
+		{
+			name: "capability pi to capability is allowed",
+			edges: [{ from: "@sdl/handoff-pi", to: "@sdl/handoff" }],
+			expectedViolation: false,
+		},
+		{
+			name: "capability to capability pi is rejected",
+			edges: [{ from: "@sdl/handoff", to: "@sdl/handoff-pi" }],
+			expectedTextIncludes: "capability-must-not-depend-on-capability-pi",
 		},
 		{
 			name: "standalone tool to host is allowed",
@@ -602,6 +619,7 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 		value === "transitional" ||
 		value === "neutral-infra" ||
 		value === "host" ||
+		value === "capability-pi" ||
 		value === "standalone-tool" ||
 		value === "local-pi-tool"
 	);
