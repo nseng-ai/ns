@@ -1,3 +1,5 @@
+import type { Caps } from "@sdl/clinkr";
+
 import {
 	applyRegeneratedPrDescription,
 	createSdlPrDescriptionRuntime,
@@ -5,6 +7,8 @@ import {
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
 } from "../shared/pr-description.ts";
+import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
+import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
@@ -35,6 +39,13 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
 	async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
+		// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
+		// metadata, and reports one settled outcome whose body is domain-authored prose rather than a
+		// single git/Graphite `ExecResult` transcript. So it renders through the flow-local
+		// `workflow-result-block` (success / failure / refusal), the same finite house-style block
+		// `branch-latest-commit` uses — there is no per-step journey to stream and no subprocess
+		// transcript to mine for cause markers. Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.
+		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
 		const prepared = await prepareRegeneratedPrDescriptionForCurrentBranch({
 			cwd: ctx.cwd,
@@ -44,22 +55,45 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 			textGenerator: ctx.textGenerator,
 		});
 		if (!prepared.ok) {
-			return failed(prepared.error, prepared.exitCode ?? 1);
+			// PR lookup / diff / prompt / generation failure: the domain string already leads with a
+			// summary sentence, so route its first line to the bold headline and the rest to the body
+			// (house-style §7.1 "direct domain message"). The cause stays visible; GitHub was not edited.
+			return failed(
+				renderDomainFailureBlock(caps, ctx.cwd, prepared.error),
+				prepared.exitCode ?? 1,
+			);
 		}
 
+		// A missing confirmation channel is a declined guardrail, not a subprocess failure: render it
+		// as a first-class warn refusal (house-style §7.3). No `gh pr edit` runs.
 		if (ctx.confirm === undefined) {
 			return failed(
-				"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+				renderWorkflowResultBlock(caps, {
+					kind: "refusal",
+					headline:
+						"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+					cwd: ctx.cwd,
+				}),
 				1,
 			);
 		}
 
+		// Keep the confirmation body plain prose — confirmation surfaces are not guaranteed to render
+		// ANSI, and the prompt is not a machine contract (house-style §7.3, plan PR 4 step 3).
 		const confirmed = await ctx.confirm(
 			"Regenerate PR metadata?",
 			formatConfirmationMessage({ generated: prepared.value, force: request.force }),
 		);
 		if (!confirmed) {
-			return failed("PR metadata regeneration was cancelled; GitHub was not edited.", 1);
+			// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
+			return failed(
+				renderWorkflowResultBlock(caps, {
+					kind: "refusal",
+					headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
+					cwd: ctx.cwd,
+				}),
+				1,
+			);
 		}
 
 		const edited = await applyRegeneratedPrDescription({
@@ -69,18 +103,27 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		});
 		if (!edited.ok) {
 			return failed(
-				`Generated a PR description, but failed to update PR #${prepared.value.pr.number}.\n${edited.error}`,
+				renderWorkflowResultBlock(caps, {
+					kind: "failure",
+					headline: `Generated a PR description, but failed to update PR #${prepared.value.pr.number}.`,
+					cwd: ctx.cwd,
+					body: edited.error.trimEnd(),
+				}),
 				1,
 			);
 		}
 
 		return ok(
-			[
-				"Regenerated PR title and description.",
-				`PR: #${prepared.value.pr.number} ${prepared.value.pr.url}`,
-				`Title: ${prepared.value.title}`,
-				`Prompt: ${formatPromptSourceLabel(prepared.value.promptSource)}`,
-			].join("\n"),
+			renderWorkflowResultBlock(caps, {
+				kind: "success",
+				headline: "Regenerated PR title and description.",
+				cwd: ctx.cwd,
+				body: [
+					`PR: #${prepared.value.pr.number} ${prepared.value.pr.url}`,
+					`Title: ${prepared.value.title}`,
+					`Prompt: ${formatPromptSourceLabel(prepared.value.promptSource)}`,
+				].join("\n"),
+			}),
 		);
 	},
 };
@@ -88,6 +131,19 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 export default defineExtension({
 	commands: [flowRegeneratePrCommand],
 });
+
+// Render a domain-authored failure string as a house-style failure block: the leading summary line
+// becomes the bold error headline and any remaining lines become the normal-weight cause body.
+function renderDomainFailureBlock(caps: Caps, cwd: string, error: string): string {
+	const [headline, ...rest] = error.split("\n");
+	const body = rest.join("\n").trimEnd();
+	return renderWorkflowResultBlock(caps, {
+		kind: "failure",
+		headline: headline ?? "Could not regenerate the PR.",
+		cwd,
+		body: body === "" ? undefined : body,
+	});
+}
 
 function formatConfirmationMessage(input: {
 	generated: RegeneratedPrDescription;
