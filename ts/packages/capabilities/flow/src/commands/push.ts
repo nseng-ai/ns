@@ -1,15 +1,10 @@
-import {
-	commandSucceeded,
-	defineExtension,
-	failed,
-	formatCommandEvidence,
-	ok,
-	type SdlCommand,
-} from "sdl-sdk";
+import { commandSucceeded, defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import type { ExecResult, SdlExtensionApi } from "sdl-sdk";
 import type { GitErrorInfo, GitGateway } from "@sdl/core/git";
 
 import { execFlowGit, readFlowGitPorcelainStatus } from "../shared/git.ts";
+import { renderGitResultBlock } from "../shared/git-result-block.ts";
+import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
@@ -57,20 +52,43 @@ export async function runPushCore(options: RunPushCoreOptions): Promise<RunPushC
 }
 
 async function runPush(ctx: SdlExtensionApi) {
+	const caps = resolveFlowStreamCaps(ctx);
+
 	const status = await readFlowGitPorcelainStatus(ctx);
 	if (!status.ok) {
-		return failed(formatStatusFailure(ctx.cwd, status.result));
+		return failed(
+			renderGitResultBlock(caps, {
+				kind: "failure",
+				headline: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
+				command: "git status --porcelain",
+				cwd: ctx.cwd,
+				result: status.result,
+				guidance:
+					"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
+			}),
+		);
 	}
 
 	if (!status.isClean) {
-		return failed(formatDirtyWorktreeMessage(ctx.cwd, status.stdout));
+		return failed(
+			renderGitResultBlock(caps, {
+				kind: "refusal",
+				headline: "`sdl flow push` requires a clean worktree and did not run `git push`.",
+				command: "git status --porcelain",
+				cwd: ctx.cwd,
+				detail: status.stdout,
+				guidance:
+					"Commit or stash outstanding changes first, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
+			}),
+		);
 	}
 
 	const pushResult = await execFlowGit(ctx, ["push"], PUSH_TIMEOUT_MS);
 	if (commandSucceeded(pushResult)) {
 		return ok(
-			formatCommandEvidence({
-				intro: "`git push` completed successfully.",
+			renderGitResultBlock(caps, {
+				kind: "success",
+				headline: "`git push` completed successfully.",
 				command: "git push",
 				cwd: ctx.cwd,
 				result: pushResult,
@@ -79,39 +97,13 @@ async function runPush(ctx: SdlExtensionApi) {
 	}
 
 	return failed(
-		formatCommandEvidence({
-			intro:
+		renderGitResultBlock(caps, {
+			kind: "failure",
+			headline:
 				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl flow submit` / `/sdl:flow:submit` when appropriate.",
 			command: "git push",
 			cwd: ctx.cwd,
 			result: pushResult,
 		}),
 	);
-}
-
-function formatStatusFailure(cwd: string, result: ExecResult): string {
-	return formatCommandEvidence({
-		intro: "Could not inspect the worktree status. `sdl flow push` did not run `git push`.",
-		command: "git status --porcelain",
-		cwd,
-		result,
-		guidance:
-			"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
-	});
-}
-
-function formatDirtyWorktreeMessage(cwd: string, stdout: string): string {
-	return [
-		"`sdl flow push` requires a clean worktree and did not run `git push`.",
-		"Commit or stash outstanding changes first, or use `sdl flow submit` / `/sdl:flow:submit` for the Graphite submit flow when appropriate.",
-		"Command: git status --porcelain",
-		`Cwd: ${cwd}`,
-		"stdout:",
-		formatOutput(stdout),
-	].join("\n");
-}
-
-function formatOutput(output: string): string {
-	if (output === "") return "<empty>";
-	return output.endsWith("\n") ? output.trimEnd() : output;
 }

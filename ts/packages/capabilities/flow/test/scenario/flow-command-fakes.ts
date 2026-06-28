@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
+import { flowPushCommand } from "../../src/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/commands/submit.ts";
 import type { SdlCommand, SdlExtensionApi, SdlResult } from "sdl-sdk";
@@ -38,6 +39,21 @@ export function runFlowCpCommandWithFakes(options: RunFlowCommandWithFakesOption
 		defaults: options.defaults ?? {
 			execResponses: dirtyCpExecResponses,
 			textGenerationResults: () => [{ ok: true, text: defaultCpMessage() }],
+		},
+	});
+}
+
+export function runFlowPushCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowPushCommand,
+		request: options.request ?? {},
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [
+				{ match: "git status --porcelain", result: { stdout: "" } },
+				{ match: "git push", result: { stdout: "Everything up-to-date\n" } },
+			],
+			textGenerationResults: () => [],
 		},
 	});
 }

@@ -43,8 +43,8 @@ These surfaces should lead the rollout because they are likely to force new reus
 | `sdl flow autobranch`                                                    | P0 feature-building   | Needs git/Graphite side-effect success/failure grammar.                                   |
 | `sdl flow autoslot`                                                      | P0 feature-building   | Combines branch creation and slot navigation; exercises workflow + navigation primitives. |
 | `sdl flow branch-latest-commit`                                          | P0 feature-building   | Git/Graphite side-effect result and failure blocks.                                       |
-| `sdl flow push`                                                          | P0 feature-building   | Git subprocess result/failure block.                                                      |
-| `sdl flow pull-trunk`                                                    | P0 feature-building   | Git subprocess result/failure block.                                                      |
+| `sdl flow push`                                                          | Done                  | Reference git subprocess result/failure block (`flow/src/shared/git-result-block.ts`).    |
+| `sdl flow pull-trunk`                                                    | P0 feature-building   | Git subprocess result/failure block (reuse `flow/src/shared/git-result-block.ts`).        |
 | `sdl slot list`, `sdl slot ls`                                           | P1 mechanical         | Dense table with status markers/legend after list primitive settles.                      |
 | `sdl slot checkout`, `sdl slot co`                                       | P0 feature-building   | Navigation footer/cd directive.                                                           |
 | `sdl slot goto`                                                          | P0 feature-building   | Navigation footer/cd directive.                                                           |

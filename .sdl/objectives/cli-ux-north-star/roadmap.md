@@ -85,6 +85,17 @@
       migrate the P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
       `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`, plus
       `vibechk run` / `roaster review run` if their runner UX needs the same primitive).
+      Semantic update (first audited slice, landed): `flow push` migrated to the house style. The
+      first stabilized side-effect primitive — the **git subprocess result/failure block** — lives at
+      `ts/packages/capabilities/flow/src/shared/git-result-block.ts` (caps-aware success/failure/refusal
+      block on `@sdl/clinkr/theme`; three-tier styling: bold+intent headline, salient `error:`/`fatal:`/
+      `rejected` cause lines at normal weight, dimmed plumbing + transcript). Home is deliberately narrow
+      (flow, not clinkr core) per the anti-generalization rule; `flow pull-trunk` is the next identical-need
+      consumer and `flow autobranch`/`flow branch-latest-commit` reuse it partially — generalize into
+      clinkr only when a second command proves the shape. `flow push` deliberately ships **no live
+      phase-stream region** (preflight + one buffered `git push` is too fast to animate); the
+      transcript-tail / live-region option for slower git ops is a revealed-but-deferred seam, not built
+      here.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
