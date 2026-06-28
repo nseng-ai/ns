@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { flowBranchLatestCommitCommand } from "../../src/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/commands/pull-trunk.ts";
@@ -79,6 +80,109 @@ export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFake
 			textGenerationResults: () => [],
 		},
 	});
+}
+
+export function runFlowBranchLatestCommitCommandWithFakes(
+	options: RunFlowCommandWithFakesOptions = {},
+) {
+	return runFlowCommandWithFakes({
+		command: flowBranchLatestCommitCommand,
+		request: options.request ?? { slug: "demo-branch" },
+		options,
+		defaults: options.defaults ?? {
+			execResponses: branchLatestCommitHappyExec,
+			textGenerationResults: () => [],
+		},
+	});
+}
+
+// Subprocess script for `sdl flow branch-latest-commit` with an explicit `slug: "demo-branch"` (which
+// skips model slug generation) on source branch `feature`, up to and including the source-branch reset
+// — the prefix shared by the success and Graphite-create-failure paths. The scripted fake consumes
+// each response once, so duplicated commands (status/upstream/show-current/rev-parse) list one entry
+// per call; the timestamped recovery-branch commands match by regex.
+function branchLatestCommitExecThroughSourceReset(): ScriptedExecResponse[] {
+	return [
+		// Load the pending-worktree snapshot (clean).
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: "" } },
+		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "" } },
+		// Preparation: upstream HEAD check (no upstream → eligible).
+		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
+		{
+			match: "git for-each-ref --format=%(upstream:short) refs/heads/feature",
+			result: { stdout: "" },
+		},
+		// Preparation: no Graphite children, single-parent commit, commit evidence.
+		{ match: "gt children --no-interactive", result: { stdout: "" } },
+		{ match: "git rev-list --parents -n 1 HEAD", result: { stdout: "abc123 parent456\n" } },
+		{ match: "git log -1 --format=%B", result: { stdout: "Add demo feature\n" } },
+		{ match: "git diff HEAD^ HEAD --no-ext-diff", result: { stdout: "diff --git a/x b/x\n" } },
+		// Preparation: branch name availability for the requested slug.
+		{ match: "git check-ref-format --branch demo-branch", result: {} },
+		{ match: "git show-ref --verify --quiet refs/heads/demo-branch", result: { code: 1 } },
+		{
+			match: "git for-each-ref --format=%(refname) refs/heads/demo-branch/",
+			result: { stdout: "" },
+		},
+		// Transaction: upstream recheck before mutation.
+		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
+		{
+			match: "git for-each-ref --format=%(upstream:short) refs/heads/feature",
+			result: { stdout: "" },
+		},
+		// Transaction: recovery (backup) branch availability.
+		{ match: /^git check-ref-format --branch autobranch-backup\/feature\/\d+$/, result: {} },
+		{
+			match: /^git show-ref --verify --quiet refs\/heads\/autobranch-backup\/feature\/\d+$/,
+			result: { code: 1 },
+		},
+		{ match: "git show-ref --verify --quiet refs/heads/autobranch-backup", result: { code: 1 } },
+		{
+			match: "git show-ref --verify --quiet refs/heads/autobranch-backup/feature",
+			result: { code: 1 },
+		},
+		{
+			match:
+				/^git for-each-ref --format=%\(refname\) refs\/heads\/autobranch-backup\/feature\/\d+\/$/,
+			result: { stdout: "" },
+		},
+		// Transaction: create recovery branch, reset source to parent.
+		{ match: /^git branch autobranch-backup\/feature\/\d+ abc123$/, result: {} },
+		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
+		{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
+		{ match: "git reset --hard parent456", result: {} },
+	];
+}
+
+function branchLatestCommitHappyExec(): ScriptedExecResponse[] {
+	return [
+		...branchLatestCommitExecThroughSourceReset(),
+		// Transaction: create the Graphite branch, move it to the original commit, verify HEAD.
+		{ match: "gt create demo-branch --no-interactive --no-ai", result: { stdout: "created\n" } },
+		{ match: "git reset --hard abc123", result: {} },
+		{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
+		// Transaction: delete the recovery branch.
+		{ match: /^git branch -D autobranch-backup\/feature\/\d+$/, result: {} },
+		// Final worktree cleanliness check.
+		{ match: "git status --porcelain=v1", result: { stdout: "" } },
+	];
+}
+
+// The Graphite-create step fails after the source branch was reset, so the transaction restores the
+// source branch and deletes the partially-created branch before reporting recovery guidance.
+export function branchLatestCommitGtCreateFailExec(): ScriptedExecResponse[] {
+	return [
+		...branchLatestCommitExecThroughSourceReset(),
+		{
+			match: "gt create demo-branch --no-interactive --no-ai",
+			result: { code: 1, stderr: "gt create failed\n" },
+		},
+		{ match: "git checkout feature", result: {} },
+		{ match: "git reset --hard abc123", result: {} },
+		{ match: "git branch -D demo-branch", result: {} },
+	];
 }
 
 export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
