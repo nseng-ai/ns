@@ -1,6 +1,6 @@
 **Direction: Flow workflow domain moves up; Capability Kit holds only shared capability substrate.**
 
-Getting to: submit/PR-description/Graphite-submit/autobranch policy lives in the Flow Capability and CCC consumes it through a curated Flow Capability API; shared gateway result/error shapes and `SdlExtensionApi`→gateway adapter patterns live in `@sdl/capability-kit` (ADR 0009/0012/0016).
+Getting to: submit/PR-description/Graphite-submit/autobranch policy lives in the Flow Capability; CCC consumes checkpoint/autobranch behavior through `sdl-flow/api` and other curated Flow API subpaths; shared gateway result/error shapes and `SdlExtensionApi`→gateway adapter patterns live in `@sdl/capability-kit` (ADR 0009/0012/0016).
 
 What you see now — legacy, do not copy: Flow submit policy exported from `@sdl/core/submit` and `@sdl/graphite/submit`; `sdl-flow/api` exists but delegates to `@sdl/autobranch/*`; autobranch is still declared as neutral infra; capability gateway result shapes still leak through neutral/submit-specific modules.
 
