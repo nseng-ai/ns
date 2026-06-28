@@ -250,6 +250,72 @@ describe("extension registry", () => {
 		]);
 	});
 
+	test("catalog carries manifest group metadata", async () => {
+		const workspace = await createWorkspace();
+		writeProjectManifest(workspace, "handoff", {
+			sdl: {
+				group: "handoff",
+				commands: [
+					{
+						name: "list",
+						description: "List stored handoffs.",
+						fullDescription: "List stored handoffs with descriptions.",
+						entry: "./src/list.ts",
+					},
+				],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "list.ts"),
+			commandEntry("list", "list"),
+		);
+
+		const catalog = await loadSdlCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+
+		expect([...catalog.candidates.keys()]).toEqual(["handoff/list"]);
+		expect(catalog.commandInfos).toEqual([
+			{
+				group: "handoff",
+				name: "list",
+				description: "List stored handoffs.",
+				fullDescription: "List stored handoffs with descriptions.",
+			},
+		]);
+	});
+
+	test("listing command infos preserve manifest group metadata without importing modules", async () => {
+		const workspace = await createWorkspace();
+		writeProjectManifest(workspace, "handoff", {
+			sdl: {
+				group: "handoff",
+				commands: [{ name: "create", description: "Create handoffs.", entry: "./src/create.ts" }],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "create.ts"),
+			"throw new Error('group manifest entries should not load for listing');\n",
+		);
+
+		const catalog = await loadSdlCommandCatalog({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
+		const loaded = await loadListingCommandInfos(catalog);
+
+		expect(loaded.diagnostics).toEqual([]);
+		expect(loaded.commandInfos).toEqual([
+			{
+				group: "handoff",
+				name: "create",
+				description: "Create handoffs.",
+				fullDescription: "Create handoffs.",
+			},
+		]);
+	});
+
 	test("listing command infos keep placeholders and diagnose failed imports", async () => {
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "hello.ts", "throw new Error('listing boom');\n");
@@ -363,6 +429,33 @@ export default defineExtension({
 		expect(loaded.diagnostics).toContainEqual(
 			expect.objectContaining({ code: "extension_command_duplicate_in_level" }),
 		);
+	});
+
+	test("group command names that collide with top-level commands are rejected", async () => {
+		const workspace = await createWorkspace();
+		writeProjectExtension(workspace, "handoff.ts", commandEntry("handoff", "top"));
+		writeProjectManifest(workspace, "handoff", {
+			sdl: {
+				group: "handoff",
+				commands: [{ name: "list", description: "List", entry: "./src/list.ts" }],
+			},
+		});
+		writeFile(
+			join(workspace.cwd, ".sdl", "extensions", "handoff", "src", "list.ts"),
+			commandEntry("list", "list"),
+		);
+
+		const loaded = await loadSdlCommandCatalog({ cwd: workspace.cwd, homeDir: workspace.homeDir });
+
+		expect(hasExtensionErrors(loaded.diagnostics)).toBe(true);
+		expect(loaded.diagnostics).toContainEqual(
+			expect.objectContaining({
+				code: "extension_command_group_collision",
+				commandName: "handoff/list",
+			}),
+		);
+		expect(loaded.candidates.has("handoff/list")).toBe(false);
+		expect(loaded.candidates.has("handoff")).toBe(true);
 	});
 
 	test("invalid inferred command names and selected import failures are structured errors", async () => {

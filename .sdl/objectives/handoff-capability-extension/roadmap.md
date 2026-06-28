@@ -7,10 +7,10 @@
   - Guidance: inspect `ts/packages/handoff/**`, `ts/packages/hosts/pi/src/handoff/**`, Handoff-related Pi tests, `.pi` adapters, handoff skills/prompts, install/shim references, docs, and import surfaces. Record current standalone CLI behavior, Pi command names, Branch Memory namespace/key/branch semantics, create/pickup authoring boundaries, list/delete/gc contracts, and all call sites that would be affected by `sdl handoff ...` parity or standalone CLI removal.
   - Evidence: an Objective update or durable roadmap note names the exact current surfaces and compatibility constraints, with source searches for `handoff`, `/handoff:`, `@sdl/handoff`, and standalone binary references.
 
-- [ ] Prove the SDL nested command-tree contract needed by Handoff.
+- [x] Prove the SDL nested command-tree contract needed by Handoff. (Evidence: updates/2026-06-27T232531Z-sdl-handoff-group-contract.md)
   - Policy: direct execution after preview using the Runner Policy defaults; stop only before public SDL SDK author API changes, aliases, or a new manifest schema beyond existing grouped-command mechanics.
   - Guidance: represent Handoff as grouped SDL commands with `sdl.group: "handoff"` and leaves `list`, `delete`, `gc`, `create`, and `pickup` unless implementation evidence proves that existing grouped-command mechanics are insufficient. Keep discovery/help side-effect-light, load only the selected leaf, diagnose group/leaf collisions, and prefer internal SDL command infrastructure fixes over public SDK expansion.
-  - Evidence: implementation notes plus targeted SDL tests for grouped discovery, selected loading, help/unknown diagnostics, group/leaf collision behavior, and non-eager-loading.
+  - Evidence: grouped Handoff-shaped extension tests now cover package-level `sdl.group`, selected leaf loading, help/schema routing, unknown leaf diagnostics, group/leaf collision rejection, and non-eager-loading.
 
 - [ ] Establish `@sdl/handoff/api` and gateway-injected Handoff Domain Core seams.
   - Policy: direct execution after preview for additive API/core slices; stop before changing storage semantics or exposing Pi/session presentation in the API.
