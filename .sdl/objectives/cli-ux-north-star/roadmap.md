@@ -159,6 +159,20 @@
       preserving all safety semantics (confirmation gates, `--yes`/`--force`/dry-run, partial-success
       and recovery guidance, post-landing `--free` cleanup, no hidden auto-merge) and the untouched Pi
       surface. `flow land` is NOT marked Done until PR 5b.
+      Follow-up landed with `flow land` PR 5b (**this completes the flow side-effect migration stack** —
+      `push`, `pull-trunk`, `submit`, `cp`, `branch-latest-commit`, `autobranch`, `autoslot`,
+      `regenerate-pr`, and now `land` are all house-style): the CLI edge wires a CLI-only
+      `renderResultBlock` hook on the land context and threads resolved `caps` via `LandCliInput.caps`;
+      every settled land state renders through `renderLandResultBlock` (bold intent-painted glyph
+      headline + normal-weight body) on the right stdout/stderr stream. A typed
+      `LandStackFailure.outcome` discriminator carries the refusal/failure split so declined guardrails
+      render warn (never red, §7.3) while keeping their `error` level and exit 1. The Pi command-stream
+      path stays ANSI-free (the hook is wired only on the CLI context), and streaming progress remains
+      the plain `CommandIo` ✓/✗/→ fallback. Semantic update:
+      `updates/2026-06-27-flow-land-ux-redesign.md`. Parked (no-extraction rule): colorizing the CLI
+      streaming progress lines, and promoting the three near-identical CCC/flow result-block builders
+      (`land-presentation.ts`, `autoslot-presentation.ts`, `workflow-result-block.ts`) to a shared
+      renderer. `flow land` is now Done.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg

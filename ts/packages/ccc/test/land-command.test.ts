@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
+import type { Caps } from "@sdl/clinkr";
+import { stripAnsi } from "@sdl/clinkr/testing";
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	parsePullRequestView,
@@ -1006,11 +1008,23 @@ describe("code land command", () => {
 	});
 });
 
-describe("code land CLI house-style seam baseline (PR 5a)", () => {
-	// PR 5a isolates the CLI-edge house-style renderer (`land-stack/land-presentation.ts`) without
-	// rerouting live land output. These pin the pre-restyle plain baseline so PR 5b's CLI restyle is a
-	// deliberate, visible diff, and document that house-style ANSI is not yet emitted on the CLI surface.
-	test("success summary CLI output is plain text with no ANSI escapes", async () => {
+describe("code land CLI house-style result blocks (PR 5b)", () => {
+	// PR 5b threads resolved caps to the CLI edge (`LandCliInput.caps`) and routes the settled land
+	// result blocks through `renderLandResultBlock`. These assert the house-style surface: a bold
+	// intent-painted glyph headline on the settled block (stdout/stderr per routing), full semantic
+	// text preserved under `stripAnsi`, refusal rendered warn (never red, house-style §7.3), and the
+	// streaming progress on stderr left plain — ANSI is confined to the CLI result blocks and never
+	// leaks into the shared Pi command-stream path.
+	const TRUECOLOR_CAPS: Caps = {
+		isTty: true,
+		colorDepth: "truecolor",
+		columns: 80,
+		canRenderUnicode: true,
+	};
+	const SUCCESS_TRUECOLOR = "\x1b[38;2;63;185;80m";
+	const ERROR_TRUECOLOR = "\x1b[38;2;248;81;73m";
+
+	test("stack success summary renders a green check headline on stdout", async () => {
 		const pi = new FakePi([
 			...graphiteShapeSteps(DB_WITH_DESCENDANT),
 			...successfulStackLandingSteps(),
@@ -1021,6 +1035,7 @@ describe("code land CLI house-style seam baseline (PR 5a)", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "--yes",
+			caps: TRUECOLOR_CAPS,
 			exec: async (command, args, options) => await pi.exec(command, args, options),
 			stdout: (text) => {
 				stdout += text;
@@ -1031,13 +1046,17 @@ describe("code land CLI house-style seam baseline (PR 5a)", () => {
 		});
 
 		expect(exitCode).toBe(0);
-		expect(stdout).toContain("Landed 1 PR: #42 feature-branch.");
-		expect(stdout).not.toContain("\x1b");
+		// Semantic content preserved; headline carries the success glyph.
+		expect(stripAnsi(stdout)).toContain("✓ Landed 1 PR: #42 feature-branch.");
+		expect(stripAnsi(stdout)).toContain("Remaining cleanup:");
+		// Headline is styled with the success swatch; streaming progress on stderr stays plain.
+		expect(stdout).toContain(SUCCESS_TRUECOLOR);
 		expect(stderr).not.toContain("\x1b");
+		expect(stderr).toContain("→ Merging PR #42 feature-branch...");
 		pi.assertDone();
 	});
 
-	test("non-interactive stack refusal CLI output is plain text with no ANSI escapes", async () => {
+	test("non-interactive stack refusal renders a warn headline on stderr, never red", async () => {
 		const pi = new FakePi(graphiteShapeSteps(DB_WITH_DESCENDANT));
 		let stdout = "";
 		let stderr = "";
@@ -1045,6 +1064,7 @@ describe("code land CLI house-style seam baseline (PR 5a)", () => {
 		const exitCode = await runLandCli({
 			cwd: ROOT,
 			rawArgs: "",
+			caps: TRUECOLOR_CAPS,
 			exec: async (command, args, options) => await pi.exec(command, args, options),
 			stdout: (text) => {
 				stdout += text;
@@ -1055,15 +1075,45 @@ describe("code land CLI house-style seam baseline (PR 5a)", () => {
 		});
 
 		expect(exitCode).toBe(1);
-		expect(stderr).toContain(
-			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		expect(stripAnsi(stderr)).toContain(
+			"✗ Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
 		);
-		expect(stdout).not.toContain("\x1b");
+		// Refusal is a first-class warn kind: styled, but never the red error swatch (house-style §7.3).
+		expect(stderr).toContain("\x1b");
+		expect(stderr).not.toContain(ERROR_TRUECOLOR);
+		expect(stdout).toBe("");
+		pi.assertDone();
+	});
+
+	test("fast-path dry-run renders a green check preview block on stdout", async () => {
+		const pi = new FakePi([
+			...graphiteShapeSteps(DB_SINGLE_BRANCH),
+			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
+		]);
+		let stdout = "";
+		let stderr = "";
+
+		const exitCode = await runLandCli({
+			cwd: ROOT,
+			rawArgs: "--dry-run",
+			caps: TRUECOLOR_CAPS,
+			exec: async (command, args, options) => await pi.exec(command, args, options),
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+		});
+
+		expect(exitCode).toBe(0);
+		expect(stripAnsi(stdout)).toContain("✓ Dry run only; would merge PR #42 into main.");
+		expect(stdout).toContain(SUCCESS_TRUECOLOR);
 		expect(stderr).not.toContain("\x1b");
 		pi.assertDone();
 	});
 
-	test("fast-path dry-run CLI output is plain text with no ANSI escapes", async () => {
+	test("omitting caps keeps the CLI result block plain (no ANSI)", async () => {
 		const pi = new FakePi([
 			...graphiteShapeSteps(DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),

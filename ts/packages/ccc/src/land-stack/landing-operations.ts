@@ -129,6 +129,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 					].join("\n"),
 					{
 						suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+						outcome: "refusal",
 					},
 				),
 			);
@@ -140,7 +141,10 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		);
 		if (!confirmed) {
 			return failure(
-				landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }),
+				landStackFailure("Cancelled before merge; no PRs were landed.", {
+					level: "info",
+					outcome: "refusal",
+				}),
 			);
 		}
 	}
@@ -293,6 +297,7 @@ export async function confirmAndFreeManagedSlots(
 						details,
 						`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:flow:land --yes.`,
 					].join("\n"),
+					{ outcome: "refusal" },
 				),
 			);
 		}
@@ -300,7 +305,10 @@ export async function confirmAndFreeManagedSlots(
 		const confirmed = await ctx.ui.confirm("Free landing slots?", details);
 		if (!confirmed) {
 			return failure(
-				landStackFailure("Cancelled before merge; no PRs were landed.", { level: "info" }),
+				landStackFailure("Cancelled before merge; no PRs were landed.", {
+					level: "info",
+					outcome: "refusal",
+				}),
 			);
 		}
 	}

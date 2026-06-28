@@ -40,6 +40,7 @@ import {
 	formatPlan,
 	formatSuccessNotification,
 	formatSuccessSummary,
+	landFailureKind,
 	present,
 	presentBrief,
 	setStatus,
@@ -191,7 +192,12 @@ async function executeSinglePlanLanding(
 
 	if (parsedArgs.dryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${planText}`, "info");
+		present(
+			ctx,
+			`Dry run only; no PRs or local refs were changed.\n\n${planText}`,
+			"info",
+			"success",
+		);
 		return success(undefined);
 	}
 
@@ -199,6 +205,7 @@ async function executeSinglePlanLanding(
 		if (!ctx.hasUI) {
 			const landFailure = landStackFailure(
 				`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,
+				{ outcome: "refusal" },
 			);
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
 			return failure(landFailure);
@@ -207,6 +214,7 @@ async function executeSinglePlanLanding(
 		if (!confirmed) {
 			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
 				level: "info",
+				outcome: "refusal",
 			});
 			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
 			return failure(landFailure);
@@ -254,6 +262,7 @@ async function executeSinglePlanLanding(
 		successSummary,
 		completionLevel,
 		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
+		"success",
 	);
 	return success(undefined);
 }
@@ -305,7 +314,12 @@ async function executeChunkedStackLanding(
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
 	if (parsedArgs.dryRun) {
 		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present(ctx, `Dry run only; no PRs or local refs were changed.\n\n${chunkPlanText}`, "info");
+		present(
+			ctx,
+			`Dry run only; no PRs or local refs were changed.\n\n${chunkPlanText}`,
+			"info",
+			"success",
+		);
 		return completed();
 	}
 
@@ -313,6 +327,7 @@ async function executeChunkedStackLanding(
 		if (!ctx.hasUI) {
 			const landFailure = landStackFailure(
 				`Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
+				{ outcome: "refusal" },
 			);
 			presentLandStackFailure({
 				ctx,
@@ -327,6 +342,7 @@ async function executeChunkedStackLanding(
 		if (!confirmed) {
 			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
 				level: "info",
+				outcome: "refusal",
 			});
 			presentLandStackFailure({
 				ctx,
@@ -444,6 +460,7 @@ async function executeChunkedStackLanding(
 		successSummary,
 		completionLevel,
 		formatSuccessNotification(successSummary, { details: commandStreamDetails, warnings }),
+		"success",
 	);
 	return completed();
 }
@@ -558,7 +575,13 @@ function presentLandStackFailure(options: PresentLandStackFailureOptions): void 
 	const { ctx, commandStream, landed, landedChunks, failure } = options;
 	const formatted = formatFailure(failure, landed, landedChunks);
 	commandStream.finishFailure(formatted);
-	presentBrief(ctx, formatted, failure.level, formatFailureNotification(failure));
+	presentBrief(
+		ctx,
+		formatted,
+		failure.level,
+		formatFailureNotification(failure),
+		landFailureKind(failure),
+	);
 }
 
 export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
