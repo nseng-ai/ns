@@ -26,6 +26,17 @@ export interface ListHandoffSummariesOptions {
 	shouldIncludeDeleted: boolean;
 }
 
+export interface HandoffCreationTarget {
+	branch: string;
+	slug: string;
+	key: string;
+	entry_locator: string;
+}
+
+export interface CreateHandoffArtifactResult extends HandoffCreationTarget {
+	commit: string;
+}
+
 export interface HandoffDeletionTarget {
 	branch: string;
 	slug: string;
@@ -78,6 +89,47 @@ export async function listHandoffSummaries(
 			a.summary.slug.localeCompare(b.summary.slug),
 	);
 	return brmemOk(handoffs.map((item) => item.summary));
+}
+
+export async function prepareHandoffCreation(
+	deps: HandoffStorageDeps,
+	options: { branch: string; slug: string },
+): Promise<BrmemResult<HandoffCreationTarget>> {
+	const key = handoffKeyFromSlug(options.slug);
+	if (key.type === "error") {
+		return brmemError(key.error.code, key.error.message);
+	}
+
+	const target = creationTarget({ branch: options.branch, key: key.value });
+	const existing = await deps.brmem.checkEntry({
+		namespace: HANDOFF_NAMESPACE,
+		key: target.key,
+		branch: target.branch,
+	});
+	if (existing.type === "error") {
+		return brmemError(existing.error.code, `Failed to check handoff: ${existing.error.message}`);
+	}
+	if (existing.type === "found") {
+		return brmemError("handoff_already_exists", alreadyExistsMessage(target));
+	}
+	return brmemOk(target);
+}
+
+export async function createHandoffArtifact(
+	deps: HandoffStorageDeps,
+	options: { branch: string; key: string; content: string },
+): Promise<BrmemResult<CreateHandoffArtifactResult>> {
+	const target = creationTarget(options);
+	const created = await deps.brmem.putEntry({
+		namespace: HANDOFF_NAMESPACE,
+		key: target.key,
+		branch: target.branch,
+		content: options.content,
+	});
+	if (created.type === "error") {
+		return brmemError(created.error.code, `Failed to create handoff: ${created.error.message}`);
+	}
+	return brmemOk({ ...target, commit: created.value.commitSha });
 }
 
 export async function prepareHandoffDeletion(
@@ -139,6 +191,15 @@ async function classifyBranchState(
 	return brmemOk(state);
 }
 
+function creationTarget(options: { branch: string; key: string }): HandoffCreationTarget {
+	return {
+		branch: options.branch,
+		slug: handoffKeyToSlug(options.key),
+		key: options.key,
+		entry_locator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
+	};
+}
+
 function deletionTarget(options: { branch: string; key: string }): HandoffDeletionTarget {
 	return {
 		branch: options.branch,
@@ -146,6 +207,10 @@ function deletionTarget(options: { branch: string; key: string }): HandoffDeleti
 		key: options.key,
 		entry_locator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
 	};
+}
+
+function alreadyExistsMessage(target: HandoffCreationTarget): string {
+	return `Handoff \`${target.slug}\` already exists on branch \`${target.branch}\`.`;
 }
 
 function notFoundMessage(target: HandoffDeletionTarget): string {
