@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
-const PACKAGE_DIR = resolve(TEST_DIR, "..");
+const PACKAGE_DIR = resolve(TEST_DIR, "../..");
 const PACKAGE_JSON = resolve(PACKAGE_DIR, "package.json");
 const SRC_DIR = resolve(PACKAGE_DIR, "src");
 const THEME_DIR = resolve(SRC_DIR, "theme");

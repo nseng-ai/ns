@@ -1,7 +1,6 @@
 export const INTEGRATION_TEST_GLOBS = [
 	"packages/*/test/integration/**/*.test.ts",
-	"packages/extensions/*/test/integration/**/*.test.ts",
-	"packages/hosts/*/test/integration/**/*.test.ts",
+	"packages/*/*/test/integration/**/*.test.ts",
 ] as const;
 
 export const sharedTestConfig = {

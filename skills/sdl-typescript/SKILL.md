@@ -79,10 +79,10 @@ This is intentional. Do not copy rules from projects that ban this pattern unles
 sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
-## Hard bans enforced by `just ts-guard`
+## Hard bans enforced by TypeScript integration tests
 
-The repository TypeScript guard runs an adversarial self-review and enforces these uniquely greppable
-rules:
+The repository TypeScript style guard integration tests run adversarial self-review cases and enforce these
+uniquely greppable rules through `just ts-test-integration`:
 
 - `SDL_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
   launders the type instead of modeling the fixture or boundary honestly.
@@ -113,5 +113,5 @@ just ts-format-check
 just ts-lint
 just ts-check
 just ts-test
-just ts-guard
+just ts-test-integration
 ```

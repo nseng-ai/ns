@@ -103,7 +103,7 @@ Tests and review:
 - [ ] Assert that ordinary `ctx.ui.setStatus` calls remain status calls and do not create `sdl-command-progress` messages.
 - [ ] Assert explicit progress helper behavior when transcript progress is part of the user-visible contract.
 - [ ] Keep tests that filter `sdl-command-ack` / `sdl-command-progress` deliberate; do not delete meaningful assertions just to quiet output drift.
-- [ ] Run focused tests first, then repo TypeScript gates when TypeScript changed: `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`, `just ts-guard`.
+- [ ] Run focused tests first, then repo TypeScript gates when TypeScript changed: `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`; include `just ts-test-integration` for architectural guard or integration-lane coverage.
 
 Final stale-pattern check:
 
