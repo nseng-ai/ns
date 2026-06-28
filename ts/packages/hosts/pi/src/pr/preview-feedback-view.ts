@@ -11,7 +11,7 @@ import {
 	type PrPreviewFeedbackThread,
 	type PrPreviewFeedbackViewModel,
 } from "./preview-feedback-model.ts";
-import { clamp, fitToWidth, reconcileScroll } from "../context-profiler/render.ts";
+import { clamp, fitToWidth, reconcileScroll } from "../terminal/layout.ts";
 import {
 	PREVIEW_OVERLAY_MARGIN,
 	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,

@@ -1,5 +1,3 @@
-import { errorMessage } from "./errors.ts";
-
 export type LmJsonParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 type SafeParseResult<T> = { success: true; data: T } | { success: false };
@@ -34,4 +32,8 @@ export function extractJsonObjectText(text: string): string | null {
 	const last = candidate.lastIndexOf("}");
 	if (first === -1 || last <= first) return null;
 	return candidate.slice(first, last + 1);
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
