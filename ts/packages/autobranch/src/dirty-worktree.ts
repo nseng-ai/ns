@@ -261,9 +261,18 @@ export interface AutobranchFlowInput {
 	now?: (() => number) | undefined;
 }
 
+/**
+ * Distinguishes a guardrail that declined to run (`refusal`, rendered warn per house-style §7.3)
+ * from a real workflow failure (`failure`, rendered error). Threaded through `AutobranchFlowResult`
+ * so consumers no longer flatten declined guardrails — pushed-HEAD / child-branch / root- and
+ * merge-commit — into red failure blocks. Classification of each typed cause lives next to the
+ * cause's `format*Failure` helper (see `latest-commit-formatting.ts`).
+ */
+export type AutobranchFlowOutcome = "refusal" | "failure";
+
 export type AutobranchFlowResult =
 	| { ok: true; summary: string; warnings: string[] }
-	| { ok: false; error: string };
+	| { ok: false; outcome: AutobranchFlowOutcome; error: string };
 
 export async function runDirtyAutobranchFlow(
 	input: AutobranchFlowInput,
@@ -279,7 +288,10 @@ export async function runDirtyAutobranchFlow(
 		...(input.stat ? { stat: input.stat } : {}),
 	});
 	if (!prepared.ok) {
-		return { ok: false, error: formatAutobranchPreparationFailure(prepared) };
+		// The dirty-worktree preparation failures (invalid slug, slug generation, branch name, checkpoint
+		// prep) are all real failures, not declined guardrails — the clean-worktree guardrail is checked
+		// by the caller before this flow runs.
+		return { ok: false, outcome: "failure", error: formatAutobranchPreparationFailure(prepared) };
 	}
 
 	const warnings = prepared.warnings.map(formatAutobranchPreparationWarning);
@@ -295,6 +307,7 @@ export async function runDirtyAutobranchFlow(
 	if (!transaction.ok) {
 		return {
 			ok: false,
+			outcome: "failure",
 			error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName),
 		};
 	}

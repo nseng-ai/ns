@@ -40,7 +40,8 @@ export async function createAutobranchCheckpointFlow(
 		execGit: (args, timeout) => input.exec("git", args, timeout),
 	});
 	if (!loaded.ok) {
-		return { ok: false, error: formatAutobranchSnapshotError(loaded.error) };
+		// A failed worktree probe is a real failure, not a declined guardrail.
+		return { ok: false, outcome: "failure", error: formatAutobranchSnapshotError(loaded.error) };
 	}
 
 	const snapshot = loaded.snapshot;

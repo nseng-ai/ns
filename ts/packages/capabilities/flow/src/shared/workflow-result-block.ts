@@ -30,7 +30,13 @@ export type WorkflowResultBlockInput =
 	/** The workflow completed; concise success headline plus the settled summary body. */
 	| ({ kind: "success" } & WorkflowResultFacts)
 	/** The workflow failed mid-transaction; the domain body carries the cause and recovery guidance. */
-	| ({ kind: "failure" } & WorkflowResultFacts);
+	| ({ kind: "failure" } & WorkflowResultFacts)
+	/**
+	 * A guardrail declined to run the workflow (e.g. a clean worktree, or a latest-commit eligibility
+	 * guardrail) — a first-class warn outcome per house-style §7.3, never a red failure. The domain
+	 * body carries the actionable reason; `guidance` points to the right command where one exists.
+	 */
+	| ({ kind: "refusal" } & WorkflowResultFacts);
 
 /** Render a flow workflow result block to a string, styled and degraded for `caps`. */
 export function renderWorkflowResultBlock(caps: Caps, input: WorkflowResultBlockInput): string {
@@ -51,5 +57,7 @@ function headlineLine(caps: Caps, input: WorkflowResultBlockInput): string {
 			return bold(paint(caps, "success", `${glyph(caps, "done")} ${input.headline}`));
 		case "failure":
 			return bold(paint(caps, "error", `${glyph(caps, "fail")} ${input.headline}`));
+		case "refusal":
+			return bold(paint(caps, "warn", `${glyph(caps, "fail")} ${input.headline}`));
 	}
 }

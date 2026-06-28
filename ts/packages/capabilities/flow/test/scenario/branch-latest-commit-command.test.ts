@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
 import {
+	branchLatestCommitChildBranchRefusalExec,
 	branchLatestCommitGtCreateFailExec,
 	runFlowBranchLatestCommitCommandWithFakes,
 } from "./flow-command-fakes.ts";
@@ -49,6 +50,30 @@ describe("flow branch-latest-commit command outcomes", () => {
 		const calls = formattedExecCalls(run.context);
 		expect(calls).not.toContain("gt children --no-interactive");
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
+	});
+
+	test("eligibility guardrail declines with a warn refusal, not a red failure", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes({
+			state: { exec: branchLatestCommitChildBranchRefusalExec() },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const ERROR_TRUECOLOR = "\x1b[38;2;248;81;73m";
+		const rawStderr = run.stderr.join("");
+		const stderr = stripAnsi(rawStderr);
+		// A declined guardrail renders warn — its headline must not carry the red error swatch.
+		const headline = rawStderr.split("\n")[0] ?? "";
+		expect(headline).not.toContain(ERROR_TRUECOLOR);
+		expect(stderr).toContain("Did not move the latest commit to a new Graphite branch.");
+		expect(stderr).toContain(
+			"Refusing to move latest commit because the source branch has Graphite child branches.",
+		);
+		expect(stderr).toContain("- child-a");
+		// The flow declined before mutating refs.
+		const calls = formattedExecCalls(run.context);
+		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
+		expect(calls).not.toContain("git rev-list --parents -n 1 HEAD");
 	});
 
 	test("snapshot load failure exits 1 on stderr with a failure block", async () => {

@@ -1,20 +1,27 @@
-import { runDirtyAutobranchFlow, type ParsedAutobranchArgs } from "@sdl/autobranch/dirty-worktree";
+import {
+	runDirtyAutobranchFlow,
+	type AutobranchFlowOutcome,
+	type ParsedAutobranchArgs,
+} from "@sdl/autobranch/dirty-worktree";
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";
+import { renderPendingWorktreeFailure } from "../shared/pending-worktree-result.ts";
+import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
 } from "../shared/text-generation.ts";
+import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
 import {
 	createCommitWithPreparedMessage,
 	execExtensionCommand,
-	formatPendingWorktreeError,
 	loadFlowPendingWorktreeSnapshot,
+	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "../shared/worktree.ts";
 
@@ -43,17 +50,68 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 	description: AUTOBRANCH_DESCRIPTION,
 	schema: autobranchRequestSchema,
 	async run(ctx, request: AutobranchRequest) {
+		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
 		const io = commandIoFromSdlExtensionApi(ctx);
 		return await runWithCommandIo(io, async (io) => {
 			const result = await createAutobranchCheckpointFlow(ctx, args, io);
-			if (!result.ok) {
-				return failed(result.error.trimEnd(), 1);
+			if (result.ok) {
+				for (const warning of result.warnings) {
+					ctx.stderr?.(`${warning.trimEnd()}\n`);
+				}
+				return ok(
+					renderWorkflowResultBlock(caps, {
+						kind: "success",
+						headline: "Created a Graphite branch from dirty worktree changes.",
+						cwd: result.root,
+						body: result.summary.trimEnd(),
+					}),
+				);
 			}
-			for (const warning of result.warnings) {
-				ctx.stderr?.(`${warning.trimEnd()}\n`);
+
+			if (result.reason === "pending_worktree") {
+				return failed(
+					renderPendingWorktreeFailure(caps, {
+						error: result.error,
+						cwd: ctx.cwd,
+						commandLabel: "`sdl flow autobranch`",
+					}),
+					1,
+				);
 			}
-			return ok(result.summary.trimEnd());
+
+			if (result.reason === "clean_worktree") {
+				// A clean worktree is a declined guardrail (warn refusal, house-style §7.3), not a failure;
+				// point the user at the command that handles a clean worktree.
+				return failed(
+					renderWorkflowResultBlock(caps, {
+						kind: "refusal",
+						headline: "`sdl flow autobranch` requires pending worktree changes and did not run.",
+						cwd: result.root,
+						body: "Working tree is clean.",
+						guidance:
+							"Use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+					}),
+					1,
+				);
+			}
+
+			return failed(
+				result.outcome === "refusal"
+					? renderWorkflowResultBlock(caps, {
+							kind: "refusal",
+							headline: "Did not create a Graphite branch from dirty worktree changes.",
+							cwd: result.root,
+							body: result.error.trimEnd(),
+						})
+					: renderWorkflowResultBlock(caps, {
+							kind: "failure",
+							headline: "Could not create a Graphite branch from dirty worktree changes.",
+							cwd: result.root,
+							body: result.error.trimEnd(),
+						}),
+				1,
+			);
 		});
 	},
 };
@@ -62,27 +120,29 @@ export default defineExtension({
 	commands: [flowAutobranchCommand],
 });
 
+type AutobranchCheckpointResult =
+	| { ok: true; root: string; summary: string; warnings: string[] }
+	| { ok: false; reason: "pending_worktree"; error: PendingWorktreeError }
+	| { ok: false; reason: "clean_worktree"; root: string }
+	| { ok: false; reason: "flow"; root: string; outcome: AutobranchFlowOutcome; error: string };
+
 async function createAutobranchCheckpointFlow(
 	ctx: SdlExtensionApi,
 	args: ParsedAutobranchArgs,
 	io: CommandIo,
-) {
+): Promise<AutobranchCheckpointResult> {
 	io.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 	if (!loaded.ok) {
-		return { ok: false as const, error: formatPendingWorktreeError(loaded.error) };
+		return { ok: false, reason: "pending_worktree", error: loaded.error };
 	}
 
 	const snapshot = loaded.snapshot;
 	if (snapshot.clean) {
-		return {
-			ok: false as const,
-			error:
-				"Working tree is clean; use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
-		};
+		return { ok: false, reason: "clean_worktree", root: snapshot.root };
 	}
 
-	return runDirtyAutobranchFlow({
+	const flow = await runDirtyAutobranchFlow({
 		cwd: snapshot.root,
 		args,
 		snapshot,
@@ -93,4 +153,15 @@ async function createAutobranchCheckpointFlow(
 		commitPreparedCheckpointMessage: (message) => createCommitWithPreparedMessage(ctx, message),
 		onPhase: (message) => io.phase(message),
 	});
+	if (!flow.ok) {
+		return {
+			ok: false,
+			reason: "flow",
+			root: snapshot.root,
+			outcome: flow.outcome,
+			error: flow.error,
+		};
+	}
+
+	return { ok: true, root: snapshot.root, summary: flow.summary, warnings: flow.warnings };
 }

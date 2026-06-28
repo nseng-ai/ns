@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { stripAnsi } from "@sdl/clinkr/testing";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
@@ -162,15 +163,12 @@ describe("project-local autobranch extension", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(
-			[
-				"New branch: move-work",
-				"Stacked on: feature/source",
-				"Commit: abc1234 [cp] Move pending work",
-				"Working directory is clean.",
-				"",
-			].join("\n"),
-		);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Created a Graphite branch from dirty worktree changes.");
+		expect(stdout).toContain("New branch: move-work");
+		expect(stdout).toContain("Stacked on: feature/source");
+		expect(stdout).toContain("Commit: abc1234 [cp] Move pending work");
+		expect(stdout).toContain("Working directory is clean.");
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",

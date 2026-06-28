@@ -1,6 +1,8 @@
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchFlowResult, ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import {
+	classifyLatestCommitPreparationFailure,
+	classifyLatestCommitTransactionFailure,
 	formatLatestCommitPreparationFailure,
 	formatLatestCommitTransactionFailure,
 } from "./latest-commit-formatting.ts";
@@ -10,7 +12,10 @@ import { shortSha } from "./short-sha.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 
+export type { AutobranchFlowOutcome } from "./dirty-worktree.ts";
 export {
+	classifyLatestCommitPreparationFailure,
+	classifyLatestCommitTransactionFailure,
 	formatLatestCommitPreparationFailure,
 	formatLatestCommitTransactionFailure,
 } from "./latest-commit-formatting.ts";
@@ -48,7 +53,11 @@ export async function createLatestCommitAutobranchFlow(
 ): Promise<AutobranchFlowResult> {
 	const prepared = await prepareLatestCommitAutobranchPlan(input);
 	if (!prepared.ok) {
-		return { ok: false, error: formatLatestCommitPreparationFailure(prepared) };
+		return {
+			ok: false,
+			outcome: classifyLatestCommitPreparationFailure(prepared),
+			error: formatLatestCommitPreparationFailure(prepared),
+		};
 	}
 
 	input.onPhase?.("Creating Graphite branch from latest commit…");
@@ -59,7 +68,11 @@ export async function createLatestCommitAutobranchFlow(
 		now: input.now,
 	});
 	if (!transaction.ok) {
-		return { ok: false, error: formatLatestCommitTransactionFailure(transaction) };
+		return {
+			ok: false,
+			outcome: classifyLatestCommitTransactionFailure(transaction),
+			error: formatLatestCommitTransactionFailure(transaction),
+		};
 	}
 
 	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_TIMEOUT_MS);

@@ -3,17 +3,13 @@ import {
 	type LatestCommitAutobranchInput,
 } from "@sdl/autobranch/latest-commit";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
-import { defineExtension, failed, ok, z, type ExecResult, type SdlCommand } from "sdl-sdk";
+import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 
 import { renderGitResultBlock } from "../shared/git-result-block.ts";
+import { renderPendingWorktreeFailure } from "../shared/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 import { renderWorkflowResultBlock } from "../shared/workflow-result-block.ts";
-import {
-	execExtensionCommand,
-	loadFlowPendingWorktreeSnapshot,
-	type PendingWorktreeError,
-	type WorktreeCommandResult,
-} from "../shared/worktree.ts";
+import { execExtensionCommand, loadFlowPendingWorktreeSnapshot } from "../shared/worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
 
@@ -46,12 +42,10 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 		const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 		if (!loaded.ok) {
 			return failed(
-				renderGitResultBlock(caps, {
-					kind: "failure",
-					headline: pendingWorktreeHeadline(loaded.error),
-					command: pendingWorktreeCommand(loaded.error),
+				renderPendingWorktreeFailure(caps, {
+					error: loaded.error,
 					cwd: ctx.cwd,
-					result: toExecResult(loaded.error.result),
+					commandLabel: "`sdl flow branch-latest-commit`",
 				}),
 			);
 		}
@@ -79,13 +73,22 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 				execExtensionCommand({ ctx, command, args: commandArgs, timeoutMs: timeout }),
 		});
 		if (!result.ok) {
+			// A declined eligibility guardrail (already-pushed HEAD, Graphite children, root/merge commit)
+			// is a first-class warn refusal, not a red failure (house-style §7.3).
 			return failed(
-				renderWorkflowResultBlock(caps, {
-					kind: "failure",
-					headline: "Could not move the latest commit to a new Graphite branch.",
-					cwd: snapshot.root,
-					body: result.error.trimEnd(),
-				}),
+				result.outcome === "refusal"
+					? renderWorkflowResultBlock(caps, {
+							kind: "refusal",
+							headline: "Did not move the latest commit to a new Graphite branch.",
+							cwd: snapshot.root,
+							body: result.error.trimEnd(),
+						})
+					: renderWorkflowResultBlock(caps, {
+							kind: "failure",
+							headline: "Could not move the latest commit to a new Graphite branch.",
+							cwd: snapshot.root,
+							body: result.error.trimEnd(),
+						}),
 			);
 		}
 
@@ -106,40 +109,3 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 export default defineExtension({
 	commands: [flowBranchLatestCommitCommand],
 });
-
-// The snapshot load runs the standard pending-worktree git probes; map each failed probe to the
-// command that ran so the house-style failure block names the real step (house style §4 plumbing).
-function pendingWorktreeCommand(error: PendingWorktreeError): string {
-	switch (error.kind) {
-		case "not_git_repo":
-			return "git rev-parse --show-toplevel";
-		case "detached_head":
-			return "git symbolic-ref --short HEAD";
-		case "status_failed":
-			return "git status --porcelain=v1";
-		case "diff_failed":
-			return "git diff HEAD --no-ext-diff";
-	}
-}
-
-function pendingWorktreeHeadline(error: PendingWorktreeError): string {
-	switch (error.kind) {
-		case "not_git_repo":
-			return "Not inside a git repository. `sdl flow branch-latest-commit` did not run.";
-		case "detached_head":
-			return "Could not determine the current branch. `sdl flow branch-latest-commit` did not run.";
-		case "status_failed":
-			return "Could not inspect the worktree status. `sdl flow branch-latest-commit` did not run.";
-		case "diff_failed":
-			return "Could not capture the worktree diff. `sdl flow branch-latest-commit` did not run.";
-	}
-}
-
-function toExecResult(result: WorktreeCommandResult): ExecResult {
-	return {
-		code: result.code,
-		stdout: result.stdout,
-		stderr: result.stderr,
-		killed: result.killed ?? false,
-	};
-}
