@@ -10,10 +10,11 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `skills/<name>/SKILL.md`: user-facing agent procedure. Public skills should describe CLI operations and avoid implementation internals.
 - `.sdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
 - `.sdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
-- `docs/adr/`: durable architecture decision records.
+- `docs/adr/`: durable architecture decision records. Accepted ADRs are historical records; update mutable guidance for tooling drift, or add a superseding/refining ADR for a new architectural decision.
 
 ## Index
 
+- [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Branch retrospective evidence](aretro.md): deterministic session evidence aggregation and the tool-vs-LM boundary.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.

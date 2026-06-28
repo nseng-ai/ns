@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
@@ -15,7 +15,7 @@ import {
 	type ManifestDependencyField,
 } from "../support/typescript-style-guard/config.ts";
 import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
-import { createSourceScanShards } from "../support/typescript-style-guard/file-discovery.ts";
+import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
 import {
 	loadPackageMetadata,
 	type PackageManifest,
@@ -28,7 +28,42 @@ import {
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(TEST_FILE), "../../../../../..");
-const REAL_REPO_SOURCE_SCAN_SHARD_COUNT = 8;
+const sourceRuleShards: readonly SourceRuleShard[] = [
+	{
+		name: "ts/packages/hosts",
+		includes: (path) => isInDirectory(path, "ts/packages/hosts"),
+	},
+	{
+		name: "ts/packages/infra",
+		includes: (path) => isInDirectory(path, "ts/packages/infra"),
+	},
+	{
+		name: "ts/packages/capabilities",
+		includes: (path) => isInDirectory(path, "ts/packages/capabilities"),
+	},
+	{
+		name: "other ts/packages",
+		includes: (path) =>
+			isInDirectory(path, "ts/packages") &&
+			!isInAnyDirectory(path, [
+				"ts/packages/hosts",
+				"ts/packages/infra",
+				"ts/packages/capabilities",
+			]),
+	},
+	{
+		name: ".sdl/extensions",
+		includes: (path) => isInDirectory(path, ".sdl/extensions"),
+	},
+	{
+		name: "docs-site",
+		includes: (path) => isInDirectory(path, "docs-site"),
+	},
+	{
+		name: "top-level TS configs and other source files",
+		includes: (path) => !isInAnyDirectory(path, ["ts/packages", ".sdl/extensions", "docs-site"]),
+	},
+];
 
 describe("TypeScript style guard source rules", () => {
 	const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
@@ -160,20 +195,55 @@ describe("TypeScript style guard source rules", () => {
 		expect([...actualRules].sort()).toEqual([...testCase.expectedRules].sort());
 	});
 
-	test.each(createSourceScanShards(REPO_ROOT, REAL_REPO_SOURCE_SCAN_SHARD_COUNT))(
-		"real repo TypeScript sources satisfy style/import guard rules (shard $shardNumber/$totalShards)",
-		(scanShard) => {
+	const repoSourcePaths = collectTypeScriptSourcePaths(REPO_ROOT);
+
+	test("real repo TypeScript source shards cover every source exactly once", () => {
+		expect(formatShardCoverageErrors(repoSourcePaths, sourceRuleShards)).toEqual([]);
+	});
+
+	test.each(sourceRuleShards)(
+		"real repo TypeScript sources in $name satisfy style/import guard rules",
+		(shard) => {
 			const violations: SourceRuleViolation[] = [];
-			for (const fullPath of scanShard.paths) {
-				const content = readFileSync(fullPath, "utf8");
-				violations.push(
-					...collectViolations(content, relative(REPO_ROOT, fullPath), packageMetadataByName),
-				);
+			for (const path of repoSourcePaths) {
+				if (!shard.includes(path)) continue;
+				const content = readFileSync(join(REPO_ROOT, path), "utf8");
+				violations.push(...collectViolations(content, path, packageMetadataByName));
 			}
 
 			expect(formatViolations(violations)).toBe("");
 		},
 	);
+});
+
+describe("TypeScript style guard documentation references", () => {
+	test("mutable guidance no longer points at the retired ts-guard target", () => {
+		const checkedFiles = [
+			".github/workflows/ci.yml",
+			"docs/README.md",
+			"docs/adr/README.md",
+			"docs/pi/extension-command-checklist.md",
+			"justfile",
+			"skills/sdl-typescript/SKILL.md",
+		];
+
+		const offenders = checkedFiles.filter((path) => {
+			const content = readFileSync(join(REPO_ROOT, path), "utf8");
+			return content.includes("ts-guard") || content.includes("guard-typescript-style");
+		});
+
+		expect(offenders).toEqual([]);
+	});
+
+	test("historical ADR text is preserved instead of rewritten for guard target migrations", () => {
+		const adr = readFileSync(
+			join(REPO_ROOT, "docs/adr/0009-extension-layering-and-peer-dependencies.md"),
+			"utf8",
+		);
+
+		expect(adr).toContain("define curated subpaths, and `just ts-guard` rejects");
+		expect(adr).toContain("topological cycle analysis in `just ts-guard` enforces this invariant");
+	});
 });
 
 describe("TypeScript style guard extension dependency graph rules", () => {
@@ -277,6 +347,11 @@ interface SourceRuleCase {
 	readonly expectedRules: readonly string[];
 }
 
+interface SourceRuleShard {
+	readonly name: string;
+	readonly includes: (path: string) => boolean;
+}
+
 type SyntheticDependencyField = ManifestDependencyField | "devDependencies";
 
 interface SyntheticEdge {
@@ -376,6 +451,49 @@ function buildSyntheticManifest(
 			? {}
 			: { peerDependencies: fields.peerDependencies }),
 	};
+}
+
+function collectTypeScriptSourcePaths(root: string): readonly string[] {
+	return findTypeScriptSourceFiles(root)
+		.map((path) => relative(root, path))
+		.sort();
+}
+
+function formatShardCoverageErrors(
+	paths: readonly string[],
+	shards: readonly SourceRuleShard[],
+): readonly string[] {
+	const errors: string[] = [];
+	const assignedCountsByShard = new Map(shards.map((shard) => [shard.name, 0]));
+	for (const path of paths) {
+		const matchingShards = shards.filter((shard) => shard.includes(path));
+		if (matchingShards.length === 0) {
+			errors.push(`${path}: not assigned to a TypeScript source shard`);
+			continue;
+		}
+		if (matchingShards.length > 1) {
+			errors.push(
+				`${path}: assigned to multiple TypeScript source shards (${matchingShards
+					.map((shard) => shard.name)
+					.join(", ")})`,
+			);
+		}
+		for (const shard of matchingShards)
+			assignedCountsByShard.set(shard.name, (assignedCountsByShard.get(shard.name) ?? 0) + 1);
+	}
+
+	for (const [shardName, count] of assignedCountsByShard) {
+		if (count === 0) errors.push(`${shardName}: TypeScript source shard is empty`);
+	}
+	return errors.sort();
+}
+
+function isInAnyDirectory(path: string, directories: readonly string[]): boolean {
+	return directories.some((directory) => isInDirectory(path, directory));
+}
+
+function isInDirectory(path: string, directory: string): boolean {
+	return path === directory || path.startsWith(`${directory}/`);
 }
 
 function formatViolations(violations: readonly SourceRuleViolation[]): string {
