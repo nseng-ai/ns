@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
+import { importTypeScriptWorkspaceDefault } from "./workspace-packages.ts";
 
-const requireFromTypeScriptWorkspace = createRequire(new URL("../../ts/package.json", import.meta.url));
-const { default: codeWorkflowsExtension } = await import(
-	requireFromTypeScriptWorkspace.resolve("@sdl/flow-pi/code-workflows-extension"),
-);
+const codeWorkflowsExtension = await importTypeScriptWorkspaceDefault("@sdl/flow-pi/code-workflows-extension");
 
 export default codeWorkflowsExtension;

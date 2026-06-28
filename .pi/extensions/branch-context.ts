@@ -1,8 +1,7 @@
-import { createRequire } from "node:module";
+import { importTypeScriptWorkspaceDefault } from "./workspace-packages.ts";
 
-const requireFromTypeScriptWorkspace = createRequire(new URL("../../ts/package.json", import.meta.url));
-const { default: registerBranchContextExtension } = await import(
-	requireFromTypeScriptWorkspace.resolve("@sdl/branch-context-pi/extension"),
+const registerBranchContextExtension = await importTypeScriptWorkspaceDefault(
+	"@sdl/branch-context-pi/extension",
 );
 
 export default function branchContextProjectExtension(pi) {
