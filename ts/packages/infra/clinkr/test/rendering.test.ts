@@ -80,23 +80,18 @@ describe("renderHuman", () => {
 		expect(renderCalls()).toBe(0);
 	});
 
-	test("renders attached negative data to stderr in human mode", async () => {
-		let renderCalls = 0;
+	test("negative human override renders to stderr", async () => {
 		const group = new ClinkrGroup<null>({ name: "probe" });
 		group.command({
 			name: "act",
 			schema: z.object({}),
-			handler: async () => negative("none", { count: 2 }),
-			renderHuman: (data) => {
-				renderCalls += 1;
-				return `plans: ${data.count}`;
-			},
+			handler: async () => negative("none", { count: 2 }, { human: "rendered negative" }),
+			renderHuman: (data) => `plans: ${data.count}`,
 		});
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(run.stdout).toBe("");
-		expect(run.stderr).toBe("plans: 2\n");
-		expect(renderCalls).toBe(1);
+		expect(run.stderr).toBe("rendered negative\n");
 	});
 
 	test("is not called in json mode", async () => {

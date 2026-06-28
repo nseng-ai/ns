@@ -5,12 +5,16 @@ export interface ClinkrOkRenderOverrides {
 	readonly markdown?: string;
 }
 
+export interface ClinkrNegativeRenderOverrides {
+	readonly human?: string;
+}
+
 export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
 	readonly type: "ok";
 	readonly data: T;
 }
 
-export interface ClinkrNegativeExit<T> {
+export interface ClinkrNegativeExit<T> extends ClinkrNegativeRenderOverrides {
 	type: "negative";
 	message: string;
 	data?: T;
@@ -155,9 +159,17 @@ export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrO
 	};
 }
 
-export function negative<T = never>(message: string, data?: T): ClinkrNegativeExit<T> {
-	if (data === undefined) return { type: "negative", message };
-	return { type: "negative", message, data };
+export function negative<T = never>(
+	message: string,
+	data?: T,
+	overrides: ClinkrNegativeRenderOverrides = {},
+): ClinkrNegativeExit<T> {
+	return {
+		type: "negative",
+		message,
+		...(data === undefined ? {} : { data }),
+		...(overrides.human === undefined ? {} : { human: overrides.human }),
+	};
 }
 
 export function failure(errorType: string, message: string, data?: unknown): ClinkrFailureExit {

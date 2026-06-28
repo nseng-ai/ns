@@ -61,10 +61,9 @@ function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): st
 }
 
 function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOptions<T>): string {
-	if (exit.data === undefined || options.renderHuman === undefined) return exit.message;
+	if (exit.human === undefined) return exit.message;
 	const caps = renderCapabilities(options);
-	const rendered = options.renderHuman(exit.data, caps);
-	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
+	return caps.canEmitAnsi ? exit.human : stripAnsi(exit.human);
 }
 
 function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities {
