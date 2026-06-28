@@ -54,6 +54,34 @@ export default defineExtension({
 		expect(command?.schema).toBeInstanceOf(z.ZodObject);
 	});
 
+	test("validates nested-path manifest entries against the loaded command leaf", async () => {
+		const modulePath = await createModule(`
+import { defineExtension, ok } from "sdl-sdk";
+
+export default defineExtension({
+	commands: [{
+		name: "list",
+		summary: "List things.",
+		description: "List things with details.",
+		run() { return ok({}); },
+	}],
+});
+`);
+
+		const loaded = await loadSdlExtensionContribution(modulePath);
+
+		expect(loaded.ok).toBe(true);
+		if (!loaded.ok) return;
+		const validation = validateSdlExtensionContribution(
+			loaded.defaultExport,
+			{ name: "review-list", segments: ["roaster", "review", "list"] },
+			modulePath,
+		);
+		expect(validation.ok).toBe(true);
+		if (!validation.ok) return;
+		expect(validation.command.name).toBe("list");
+	});
+
 	test("object-shaped commandless default export is left to selected command validation", async () => {
 		const modulePath = await createModule("export default { name: 'greet' };\n");
 
