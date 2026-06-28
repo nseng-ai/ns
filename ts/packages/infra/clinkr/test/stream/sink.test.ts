@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vitest";
 import type { Caps, ColorDepth } from "../../src/caps.ts";
-import { spinnerFrame } from "../../src/theme/glyphs.ts";
-import { bold, dim, paint } from "../../src/theme/palette.ts";
-import { statusLine } from "../../src/theme/status-line.ts";
 import {
 	createStreamSink,
 	lineDwellMs,
@@ -15,6 +12,11 @@ import {
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const ERROR = "\x1b[38;2;248;81;73m";
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸"] as const;
 
 function caps(
 	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
@@ -25,6 +27,33 @@ function caps(
 		columns: 80,
 		canRenderUnicode: parts.canRenderUnicode ?? true,
 	};
+}
+
+function spinnerFrame(tick: number): string {
+	return SPINNER_FRAMES[tick % SPINNER_FRAMES.length] ?? SPINNER_FRAMES[0];
+}
+
+function bold(text: string): string {
+	return `${BOLD}${text}${RESET}`;
+}
+
+function dim(text: string): string {
+	return `${DIM}${text}${RESET}`;
+}
+
+function error(text: string): string {
+	return `${ERROR}${text}${RESET}`;
+}
+
+function phaseLine(state: "active" | "done" | "failed", tick = 0): string {
+	switch (state) {
+		case "active":
+			return `  ${spinnerFrame(tick)} Push          pushing branches`;
+		case "done":
+			return `  ✓ Push          ${dim("pushed 3 branches")}`;
+		case "failed":
+			return `  ✗ Push          ${error("pushing branches")}`;
+	}
 }
 
 // Fake clock: records every requested sleep duration and resolves synchronously, so no real time
@@ -93,8 +122,6 @@ function harness(): Harness {
 	return { deps, clock, writes, redraws, dones, outputs };
 }
 
-const item = { name: "Push", detail: "pushed 3 branches", label: "pushing branches" };
-
 // No cursor-control escapes: hide/show (`?25l`/`?25h`), cursor moves (CSI n A/B/C/D), or
 // erase-display/line (CSI n J/K). Color/dim/bold SGR codes (CSI ... m) are allowed.
 function expectNoCursorEscapes(text: string): void {
@@ -126,10 +153,10 @@ describe("non-tty settle path (Pi correctness)", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render(() => [statusLine({ caps: c, item: item, state: "active", tick: 0 })]);
+		sink.render(() => [phaseLine("active", 0)]);
 		await sink.hold({ tickMs: 100, transient: "Pushing to origin" });
 		await sink.hold({ tickMs: 100, transient: "Validating locally" });
-		sink.render(() => [statusLine({ caps: c, item: item, state: "done" })]);
+		sink.render(() => [phaseLine("done")]);
 		sink.finish(["", bold("Submitted")]);
 		sink.stop();
 
@@ -184,16 +211,14 @@ describe("tty live region", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render((tick: number) => [
-			statusLine({ caps: c, item: item, state: "active", tick: tick }),
-		]);
+		sink.render((tick: number) => [phaseLine("active", tick)]);
 		await sink.hold({ tickMs: 900, transient: "Pushing to origin" });
 
 		// Many redraws (initial + one per tick); the spinner glyph advances frame to frame.
 		expect(redraws.length).toBeGreaterThan(1);
 		expect(redraws[0]).not.toBe(redraws[1]);
-		expect(redraws[0]).toContain(spinnerFrame(c, 0));
-		expect(redraws[1]).toContain(spinnerFrame(c, 1));
+		expect(redraws[0]).toContain(spinnerFrame(0));
+		expect(redraws[1]).toContain(spinnerFrame(1));
 
 		// All dwell happened through the injected clock at the spinner cadence — no real time.
 		expect(clock.sleeps.length).toBeGreaterThan(0);
@@ -206,11 +231,9 @@ describe("tty live region", () => {
 		const sink = createStreamSink(c, deps);
 
 		sink.start();
-		sink.render((tick: number) => [
-			statusLine({ caps: c, item: item, state: "active", tick: tick }),
-		]);
+		sink.render((tick: number) => [phaseLine("active", tick)]);
 		await sink.hold({ tickMs: 90, transient: "Validating locally" });
-		sink.render(() => [statusLine({ caps: c, item: item, state: "done" })]);
+		sink.render(() => [phaseLine("done")]);
 		sink.finish(["", bold("Submitted")]);
 		sink.stop();
 
@@ -225,16 +248,12 @@ describe("dwell math under the fake clock", () => {
 
 		const net = harness();
 		const netSink = createStreamSink(c, net.deps);
-		netSink.render((tick: number) => [
-			statusLine({ caps: c, item: item, state: "active", tick: tick }),
-		]);
+		netSink.render((tick: number) => [phaseLine("active", tick)]);
 		await netSink.hold({ tickMs: 900, transient: "Pushing to origin" });
 
 		const local = harness();
 		const localSink = createStreamSink(c, local.deps);
-		localSink.render((tick: number) => [
-			statusLine({ caps: c, item: item, state: "active", tick: tick }),
-		]);
+		localSink.render((tick: number) => [phaseLine("active", tick)]);
 		await localSink.hold({ tickMs: 900, transient: "Validating locally" });
 
 		const netTotal = net.clock.sleeps.reduce((a, b) => a + b, 0);
@@ -250,9 +269,7 @@ describe("dwell math under the fake clock", () => {
 		const c = caps();
 		const { deps, clock } = harness();
 		const sink = createStreamSink(c, deps);
-		sink.render((tick: number) => [
-			statusLine({ caps: c, item: item, state: "active", tick: tick }),
-		]);
+		sink.render((tick: number) => [phaseLine("active", tick)]);
 		await sink.hold({ tickMs: 900 });
 
 		// round(900*1.4) = 1260 -> round(1260/90) = 14 ticks of 90ms.
@@ -268,7 +285,7 @@ describe("runStream cursor lifetime", () => {
 
 		await expect(
 			runStream(c, deps, async (sink) => {
-				sink.render(() => [statusLine({ caps: c, item: item, state: "active", tick: 0 })]);
+				sink.render(() => [phaseLine("active", 0)]);
 				throw new Error("boom");
 			}),
 		).rejects.toThrow("boom");
@@ -284,8 +301,8 @@ describe("runStream cursor lifetime", () => {
 		const { deps, writes, dones } = harness();
 
 		await runStream(c, deps, async (sink) => {
-			sink.render(() => [statusLine({ caps: c, item: item, state: "failed" })]);
-			sink.finish(["", paint(c, "error", bold("submit failed: rejected"))]);
+			sink.render(() => [phaseLine("failed")]);
+			sink.finish(["", error(bold("submit failed: rejected"))]);
 		});
 
 		const failWrites = writes.filter((w) => w.includes("submit failed: rejected"));

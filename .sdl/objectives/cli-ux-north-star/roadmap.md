@@ -43,14 +43,15 @@
       comes from locale precedence (LC_ALL > LC_CTYPE > LANG). 22 caps tests; core stays
       dependency-free (no `ansis`/`log-update`) and exports settled non-interactive caps for
       callback/hosted sinks.
-- [x] Add the opt-in display library: `@sdl/clinkr/theme` (semantic tokens, palette ladder,
-      glyph + status-line grammar, kv/table; imports `ansis`) and `@sdl/clinkr/stream`
-      (in-place pretty sink; imports `log-update`). **Done 2026-06-27 on the current stack.** Theme
-      and stream are separate opt-in package subpaths, not re-exported by the core `@sdl/clinkr`
-      barrel, with tests for palette/glyph/text/table/status-line behavior and stream sink TTY vs
-      non-TTY settling. The stream sink branches on `caps.isTty`: TTY gets a `log-update` live region
-      and cursor restore; non-TTY emits a single settled frame and routes per-phase transients through
-      `onOutput`/the host live channel without cursor escapes.
+- [x] Add the opt-in display library: originally `@sdl/clinkr/theme`, now extracted to
+      `@sdl/cli-theme` (semantic tokens, palette ladder, glyph + status-line grammar, kv/table), plus
+      `@sdl/clinkr/stream` (in-place pretty sink; imports `log-update`). **Done 2026-06-27 on the
+      current stack; package extraction landed later under `sdl-cli-theme-extraction`.** Theme and stream
+      are separate opt-in surfaces, and theme is no longer re-exported by `@sdl/clinkr`, with tests for
+      palette/glyph/text/table/status-line behavior and stream sink TTY vs non-TTY settling. The stream
+      sink branches on `caps.isTty`: TTY gets a `log-update` live region and cursor restore; non-TTY
+      emits a single settled frame and routes per-phase transients through `onOutput`/the host live
+      channel without cursor escapes.
 - [x] Add machine/human emit for this UX slice: preserve the buffered `--format json` path and add
       human streaming emit. Buffered clinkr emit now passes resolved `Caps` into human renderers while
       preserving `objective list --format json`; flow has a human stream over `@sdl/clinkr/stream` with
@@ -58,17 +59,17 @@
       contract in this Objective. Side-effecting streaming machine output needs a cross-command
       protocol decision, so it is parked as follow-on work.
 - [x] Add the import-boundary lint that enforces opt-in display (core / raw / completion / testing
-      never import `theme`/`stream`; `ansis`/`log-update` importable only from those subpaths).
-      **Done 2026-06-27.** The early `core-import-isolation` canary is now a formal clinkr-owned Vitest
-      production source-boundary guard. It scans `src/**`, walks the root / raw / completion / testing
-      public entrypoint graphs, forbids relative or package imports of `theme`/`stream` from non-display
-      graphs, and enforces `ansis` only under `src/theme/**` plus `log-update` only under `src/stream/**`.
+      never import display packages/subpaths; Clinkr production source must not import `@sdl/cli-theme`,
+      and `log-update` is importable only from `src/stream/**`). **Done 2026-06-27, updated with the
+      theme package extraction.** The `core-import-isolation` guard scans `src/**`, walks the root / raw /
+      completion / testing public entrypoint graphs, forbids package imports of `@sdl/cli-theme` or
+      `@sdl/clinkr/stream` from non-display graphs, and enforces `log-update` only under `src/stream/**`.
       Tests remain free to use display dependencies as assertion helpers. Targeted validation passed for
       the focused guard test, full clinkr test suite, TS check, format check, and lint.
 - [x] Rebuild `objective list` and `flow submit` from scratch on the foundations to match the
       signed-off north star, preserving `--format json` for `objective list`.
       **Done 2026-06-27 on the current stack.** `objective list` renders the house-style human surface
-      through `@sdl/clinkr/theme` while the JSON/Markdown paths keep raw machine data. `flow submit`
+      through `@sdl/cli-theme` while the JSON/Markdown paths keep raw machine data. `flow submit`
       and `flow cp` use the clinkr stream sink, route raw submit transcript through the live tail in
       TTY mode, and use settled non-interactive caps for Pi/callback/pipe/test sinks unless a host
       caps hint is supplied. Current PR #2222 further improves submit phase labels and PR-description
@@ -97,7 +98,7 @@
       Semantic update (first audited slice, landed): `flow push` migrated to the house style. The
       first stabilized side-effect primitive — the **git subprocess result/failure block** — lives at
       `ts/packages/capabilities/flow/src/shared/git-result-block.ts` (caps-aware success/failure/refusal
-      block on `@sdl/clinkr/theme`; three-tier styling: bold+intent headline, salient `error:`/`fatal:`/
+      block on `@sdl/cli-theme`; three-tier styling: bold+intent headline, salient `error:`/`fatal:`/
       `rejected` cause lines at normal weight, dimmed plumbing + transcript). Follow-up semantic update:
       `flow pull-trunk` is now the second consumer, using the same buffered finite result block for
       Graphite trunk resolution and git update success/failure, with cause promotion extended only for
@@ -174,7 +175,7 @@
       path stays ANSI-free (the hook is wired only on the CLI context), and streaming progress remains
       the plain `CommandIo` ✓/✗/→ fallback. Semantic update:
       `updates/2026-06-27-flow-land-ux-redesign.md`. Follow-up remediation promoted the now-proven
-      generic finite result-block layout into `@sdl/clinkr/theme` (`renderResultBlock` plus
+      generic finite result-block layout into `@sdl/cli-theme` (`renderResultBlock` plus
       `resultBlockHeadline`) after the repeated-shape precondition fired across Flow and CCC; git
       transcript rendering remains flow-local around the shared headline helper. Still parked:
       colorizing the CLI streaming progress lines. `flow land` is now Done.

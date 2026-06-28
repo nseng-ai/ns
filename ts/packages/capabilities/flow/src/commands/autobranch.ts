@@ -3,7 +3,7 @@ import {
 	type AutobranchFlowOutcome,
 	type ParsedAutobranchArgs,
 } from "@sdl/autobranch/dirty-worktree";
-import { renderResultBlock } from "@sdl/clinkr/theme";
+import { renderResultBlock } from "@sdl/cli-theme";
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";

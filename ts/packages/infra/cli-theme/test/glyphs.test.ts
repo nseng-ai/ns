@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "../../src/caps.ts";
+import type { Caps } from "@sdl/clinkr";
 import {
 	ellipsisFor,
 	glyph,
@@ -7,7 +7,7 @@ import {
 	ruleChar,
 	spinnerFrame,
 	treeMarkers,
-} from "../../src/theme/glyphs.ts";
+} from "../src/glyphs.ts";
 
 function caps(canRenderUnicode: boolean): Caps {
 	return { isTty: true, colorDepth: "truecolor", columns: 80, canRenderUnicode };

@@ -18,12 +18,12 @@ hidden `exec` surfaces.
 
 ## 1. Foundations: build only on the theme, never hand-rolled ANSI
 
-All styling goes through the opt-in `@sdl/clinkr/theme` and `@sdl/clinkr/stream` subpaths.
+All styling goes through the opt-in `@sdl/cli-theme` and `@sdl/clinkr/stream` subpaths.
 Never emit raw SGR escapes or hand-roll color/glyph fallbacks — the theme already folds the
 full caps ladder (truecolor → 256 → 16 → mono, unicode → ascii) for free, and the
 import-boundary guard keeps these subpaths opt-in.
 
-Theme vocabulary to build on (`@sdl/clinkr/theme`):
+Theme vocabulary to build on (`@sdl/cli-theme`):
 
 | Tool                          | Use                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------- |
@@ -54,7 +54,7 @@ Renderers are **pure string builders**: they take `caps` + typed facts and retur
 A side-effect command renders in exactly one of two shapes. Pick by the **nature of the
 work**, not by taste:
 
-- **Finite result block** (`@sdl/clinkr/theme` `renderResultBlock` for generic
+- **Finite result block** (`@sdl/cli-theme` `renderResultBlock` for generic
   domain-authored outcomes; `shared/git-result-block.ts` layers git transcript plumbing
   around `resultBlockHeadline`). Use when the command runs one (or a few) git/Graphite
   subprocesses or reports a single settled domain outcome. The user sees the result, not
@@ -103,7 +103,7 @@ glyph + bold carry the whole signal.
 
 ## 4. The finite result block
 
-Reference: `@sdl/clinkr/theme` `renderResultBlock` for generic domain-authored finite blocks, and
+Reference: `@sdl/cli-theme` `renderResultBlock` for generic domain-authored finite blocks, and
 `ts/packages/capabilities/flow/src/shared/git-result-block.ts` for git/Graphite subprocess blocks
 that need local command/cwd/exit/transcript/cause plumbing. Three kinds: `success`, `failure`,
 `refusal`.

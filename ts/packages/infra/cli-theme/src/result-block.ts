@@ -4,7 +4,7 @@
 // and CCC. Domain-specific facts (git transcripts, land plans, autoslot state) stay in their owning
 // packages; this module owns only the common headline + body/guidance/cwd layout grammar.
 
-import type { Caps } from "../caps.ts";
+import type { Caps } from "@sdl/clinkr";
 import { glyph } from "./glyphs.ts";
 import { bold, dim, paint, type Intent } from "./palette.ts";
 

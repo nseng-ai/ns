@@ -7,8 +7,7 @@
     "./completion": "./src/completion.ts",
     "./raw": "./src/raw/index.ts",
     "./stream": "./src/stream/index.ts",
-    "./testing": "./src/testing/index.ts",
-    "./theme": "./src/theme/index.ts"
+    "./testing": "./src/testing/index.ts"
   },
   "files": [
     "src"
@@ -18,7 +17,6 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/clinkr/test"
   },
   "dependencies": {
-    "ansis": "catalog:",
     "commander": "catalog:",
     "log-update": "catalog:",
     "zod": "catalog:"

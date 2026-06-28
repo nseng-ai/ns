@@ -1,4 +1,4 @@
-// House-style human renderer for `objective list`, built on the @sdl/clinkr/theme display
+// House-style human renderer for `objective list`, built on the @sdl/cli-theme display
 // primitives (palette / glyphs / width helpers). This is the buffered "north-star" surface from the
 // CLI UX design harness, ported onto the real Objective list result.
 //
@@ -17,8 +17,8 @@ import {
 	padPlain,
 	treeMarkers,
 	truncatePlain,
-} from "@sdl/clinkr/theme";
-import type { GlyphName, Intent } from "@sdl/clinkr/theme";
+} from "@sdl/cli-theme";
+import type { GlyphName, Intent } from "@sdl/cli-theme";
 
 import { MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 import type {

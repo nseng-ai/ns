@@ -32,8 +32,8 @@ human-facing CLI surfaces mechanically by shape.
   accent cyan / muted dim); in-place-only streaming for TTYs, with a settled non-TTY frame;
   `log-tail` of the latest subprocess line during streaming phases.
 - **The real clinkr foundations:** widen `Caps` (`{ isTty, colorDepth, columns,
-  canRenderUnicode }`) and add `resolveCaps()` in clinkr **core**; opt-in
-  `@sdl/clinkr/theme` (ansis) and `@sdl/clinkr/stream` (log-update) **subpaths**; buffered
+  canRenderUnicode }`) and add `resolveCaps()` in clinkr **core**; dedicated `@sdl/cli-theme`
+  package for house-style primitives plus opt-in `@sdl/clinkr/stream` (log-update) subpath; buffered
   machine/human emit plus human streaming emit; and import-boundary lint/guardrails that keep display
   strictly opt-in. Process caps are used only for the real stdout path; hosted/callback/pipe/test and
   in-process host sinks get settled or host-supplied caps through the clinkr IO / host-extension
@@ -99,8 +99,7 @@ human-facing CLI surfaces mechanically by shape.
 - The SDL extension architecture migration is still moving. The rollout backlog is therefore a snapshot:
   command eligibility must be recalculated from the current extension / Capability command-face inventory
   before each new batch is selected.
-- `ansis` (truecolor/hex) and `log-update` (in-place) are the right libraries; latitude to
-  experiment was explicitly granted.
+- `log-update` remains the right Clinkr stream library; theme coloring now emits the signed-off SGR ladder directly in `@sdl/cli-theme` rather than depending on `ansis`.
 
 **Risks**
 

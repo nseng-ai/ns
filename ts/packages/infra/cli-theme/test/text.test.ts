@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import type { Caps } from "../../src/caps.ts";
-import { paint } from "../../src/theme/palette.ts";
-import { padCell, padPlain, truncatePlain, visibleWidth } from "../../src/theme/text.ts";
+import type { Caps } from "@sdl/clinkr";
+import { paint } from "../src/palette.ts";
+import { padCell, padPlain, truncatePlain, visibleWidth } from "../src/text.ts";
 
 function caps(): Caps {
 	return { isTty: true, colorDepth: "truecolor", columns: 80, canRenderUnicode: true };

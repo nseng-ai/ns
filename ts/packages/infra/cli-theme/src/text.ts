@@ -1,13 +1,13 @@
-// Width and layout helpers for clinkr's theme. Layout math must measure VISIBLE cells, not bytes, so
+// Width and layout helpers for SDL CLI theme. Layout math must measure VISIBLE cells, not bytes, so
 // `visibleWidth` strips terminal escapes before counting and the padders pad by plain width.
 
-import { stripAnsi } from "../ansi.ts";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 // LIMITATION: width is `.length`-based (UTF-16 code units after stripping escapes). It is NOT east-asian-
 // wide aware — CJK/full-width and emoji that occupy two terminal cells are counted as one. That is out
 // of scope for this layer; callers needing grapheme-accurate width must measure upstream.
 export function visibleWidth(text: string): number {
-	return stripAnsi(text).length;
+	return stripTerminalEscapes(text).length;
 }
 
 /** Truncate plain (unstyled) text to `width`, appending an ellipsis when it overflows. */

@@ -1,4 +1,4 @@
-// The visual core of clinkr's opt-in theme: a semantic palette (success/warn/error/accent/muted)
+// The visual core of SDL CLI theme: a semantic palette (success/warn/error/accent/muted)
 // and the `paint`/`paintSwatch`/`dim`/`bold` colorizers that degrade it across color rungs.
 //
 // Design decision (approved 2026-06-27): emit the dialed-in SGR strings DIRECTLY rather than letting
@@ -7,7 +7,7 @@
 // We drive the rung explicitly off `caps.colorDepth` (already resolved by caps.ts), with no auto-
 // detection from a styling library.
 
-import type { Caps } from "../caps.ts";
+import type { Caps } from "@sdl/clinkr";
 
 const RESET = "\x1b[0m";
 const DIM = "\x1b[2m";

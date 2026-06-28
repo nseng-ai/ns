@@ -1,4 +1,4 @@
-// Composable aligned-column + key/value primitives for clinkr's buffered surfaces. Generalized from
+// Composable aligned-column + key/value primitives for SDL CLI theme buffered surfaces. Generalized from
 // the throwaway harness's `renderObjectiveList` column math, with the objective-specific columns lifted
 // out into a caller-supplied column spec + rows. Pure: column specs + rows in, styled lines out.
 //
@@ -7,8 +7,8 @@
 // by min/max), and `fill` (split the leftover terminal width) — and cells clip to their column width
 // with a caps-aware ellipsis.
 
-import { stripAnsi } from "../ansi.ts";
-import type { Caps } from "../caps.ts";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import type { Caps } from "@sdl/clinkr";
 import { ellipsisFor } from "./glyphs.ts";
 import { dim, paint } from "./palette.ts";
 import { padCell, truncatePlain } from "./text.ts";
@@ -80,7 +80,7 @@ interface RenderCellOptions {
  * which is correct for fully-wrapped styled text; pass `plain` explicitly when the two differ in length.
  */
 export function cell(styled: string, plain?: string): Cell {
-	return { styled, plain: plain ?? stripAnsi(styled) };
+	return { styled, plain: plain ?? stripTerminalEscapes(styled) };
 }
 
 /**

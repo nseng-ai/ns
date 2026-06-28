@@ -1,4 +1,4 @@
-// Per-phase status line grammar for clinkr's streaming surface. A status line is one composed row that
+// Per-phase status line grammar for SDL CLI theme streaming surface. A status line is one composed row that
 // reports where a single phase stands (pending → active → done/skipped/failed). This module is a PURE
 // string builder: it owns the glyph/color/indent grammar for each state but no sequencing, no timers,
 // and no I/O. The streaming sink advances `tick` and composes whole frames from these lines.
@@ -6,7 +6,7 @@
 // Generalized from the throwaway harness's `inPlacePhaseLine`, decoupled from any flow-specific phase
 // type: it takes a small `StatusLineItem` (name + two presentational texts) rather than a `SubmitPhase`.
 
-import type { Caps } from "../caps.ts";
+import type { Caps } from "@sdl/clinkr";
 import { glyph, spinnerFrame } from "./glyphs.ts";
 import { bold, dim, paint } from "./palette.ts";
 import { padPlain } from "./text.ts";

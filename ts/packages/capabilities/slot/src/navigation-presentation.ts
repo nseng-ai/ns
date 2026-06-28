@@ -1,5 +1,5 @@
 import { resolveSettledNonInteractiveCaps, type RenderCapabilities } from "@sdl/clinkr";
-import { dim, paint, resultBlockHeadline } from "@sdl/clinkr/theme";
+import { dim, paint, resultBlockHeadline } from "@sdl/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
 
