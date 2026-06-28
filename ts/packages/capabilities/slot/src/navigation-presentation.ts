@@ -1,10 +1,11 @@
 import { resolveSettledNonInteractiveCaps, type RenderCapabilities } from "@sdl/clinkr";
-import { dim, paint, resultBlockHeadline } from "@sdl/cli-theme";
+import { dim, paint, renderResultBlock } from "@sdl/cli-theme";
 
 import type { NavigationResultFields } from "./navigation-result.ts";
 
 export interface SlotNavigationPresentationInput extends NavigationResultFields {
 	headline: string;
+	details?: readonly string[];
 }
 
 export function renderSlotNavigationSuccess(
@@ -12,13 +13,13 @@ export function renderSlotNavigationSuccess(
 	renderCapabilities: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const caps = renderCapabilities.caps ?? resolveSettledNonInteractiveCaps();
-	const lines = [
-		resultBlockHeadline(caps, { kind: "success", headline: input.headline }),
-		input.cd_command,
-	];
 	const clipboardLine = renderClipboardLine(input, caps);
-	if (clipboardLine !== undefined) lines.push(clipboardLine);
-	return lines.join("\n");
+	return renderResultBlock(caps, {
+		kind: "success",
+		headline: input.headline,
+		body: [...(input.details ?? []), input.cd_command].join("\n"),
+		...(clipboardLine === undefined ? {} : { guidance: clipboardLine }),
+	});
 }
 
 function renderClipboardLine(

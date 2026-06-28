@@ -1,3 +1,4 @@
+import { stripAnsi } from "@sdl/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
@@ -45,6 +46,21 @@ describe("slot checkout CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: { slot_name: "slot-01", branch_name: "feature/a" },
 		});
+	});
+
+	it("renders house-style human navigation output", async () => {
+		const run = runScenario(["checkout", "feature/a"], {
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ Checked out slot-01 -> feature/a",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
 	});
 
 	it("reports missing branch without mutation", async () => {

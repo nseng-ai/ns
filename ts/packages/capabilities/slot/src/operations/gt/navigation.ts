@@ -1,15 +1,12 @@
 import { basename } from "node:path";
 
-import { failure, type ClinkrFailureExit } from "@sdl/clinkr";
+import { failure, type ClinkrFailureExit, type RenderCapabilities } from "@sdl/clinkr";
 
 import type { SlotCliContext } from "../../context.ts";
 import { findByBranch, buildSlotInventory } from "../../inventory.ts";
 import { checkoutBranch } from "../../lifecycle/checkout.ts";
-import {
-	prepareNavigation,
-	renderNavigationFooter,
-	type NavigationResultFields,
-} from "../../navigation-result.ts";
+import { prepareNavigation, type NavigationResultFields } from "../../navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../../navigation-presentation.ts";
 import { extractSlotNumber } from "../../naming.ts";
 
 export type GtNavigationResult = {
@@ -72,14 +69,21 @@ export async function buildGtNavigationResult(
 	};
 }
 
-export function renderGtNavigationResult(result: GtNavigationResult): string {
-	const lines: string[] = [];
+export function renderGtNavigationResult(
+	result: GtNavigationResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	return renderSlotNavigationSuccess(
+		{ ...result, headline: renderGtNavigationHeadline(result) },
+		caps,
+	);
+}
+
+function renderGtNavigationHeadline(result: GtNavigationResult): string {
 	if (result.slot_name === null)
-		lines.push(`${result.branch_name} is checked out at ${result.worktree_path}`);
-	else if (result.already_assigned) lines.push(`${result.slot_name} -> ${result.branch_name}`);
-	else lines.push(`Checked out ${result.slot_name} -> ${result.branch_name}`);
-	lines.push(...renderNavigationFooter(result));
-	return lines.join("\n");
+		return `${result.branch_name} is checked out at ${result.worktree_path}`;
+	if (result.already_assigned) return `${result.slot_name} -> ${result.branch_name}`;
+	return `Checked out ${result.slot_name} -> ${result.branch_name}`;
 }
 
 async function findWorktreeForBranch(

@@ -18,6 +18,10 @@ const DIM = "\x1b[2m";
 const ERROR = "\x1b[38;2;248;81;73m";
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸"] as const;
 
+// Local ANSI fixtures are intentional here: @sdl/clinkr owns generic stream mechanics, while
+// @sdl/cli-theme depends on @sdl/clinkr and owns the exact house-style palette tests. Importing the
+// theme package from this Clinkr test would create a reverse package edge, so these fixed literals only
+// exercise sink behavior at the writer/cursor/onOutput seams.
 function caps(
 	parts: { isTty?: boolean; colorDepth?: ColorDepth; canRenderUnicode?: boolean } = {},
 ): Caps {
@@ -29,30 +33,30 @@ function caps(
 	};
 }
 
-function spinnerFrame(tick: number): string {
+function fixtureSpinnerFrame(tick: number): string {
 	return SPINNER_FRAMES[tick % SPINNER_FRAMES.length] ?? SPINNER_FRAMES[0];
 }
 
-function bold(text: string): string {
+function fixtureBold(text: string): string {
 	return `${BOLD}${text}${RESET}`;
 }
 
-function dim(text: string): string {
+function fixtureDim(text: string): string {
 	return `${DIM}${text}${RESET}`;
 }
 
-function error(text: string): string {
+function fixtureError(text: string): string {
 	return `${ERROR}${text}${RESET}`;
 }
 
 function phaseLine(state: "active" | "done" | "failed", tick = 0): string {
 	switch (state) {
 		case "active":
-			return `  ${spinnerFrame(tick)} Push          pushing branches`;
+			return `  ${fixtureSpinnerFrame(tick)} Push          pushing branches`;
 		case "done":
-			return `  ✓ Push          ${dim("pushed 3 branches")}`;
+			return `  ✓ Push          ${fixtureDim("pushed 3 branches")}`;
 		case "failed":
-			return `  ✗ Push          ${error("pushing branches")}`;
+			return `  ✗ Push          ${fixtureError("pushing branches")}`;
 	}
 }
 
@@ -157,7 +161,7 @@ describe("non-tty settle path (Pi correctness)", () => {
 		await sink.hold({ tickMs: 100, transient: "Pushing to origin" });
 		await sink.hold({ tickMs: 100, transient: "Validating locally" });
 		sink.render(() => [phaseLine("done")]);
-		sink.finish(["", bold("Submitted")]);
+		sink.finish(["", fixtureBold("Submitted")]);
 		sink.stop();
 
 		// No animation in a non-tty: no live-region redraws, no clock sleeps.
@@ -196,7 +200,7 @@ describe("tty live region", () => {
 		sink.start();
 		expect(writes).toEqual([CURSOR_HIDE]);
 
-		sink.finish([bold("Submitted")]);
+		sink.finish([fixtureBold("Submitted")]);
 		sink.stop();
 
 		const hideIdx = writes.indexOf(CURSOR_HIDE);
@@ -217,8 +221,8 @@ describe("tty live region", () => {
 		// Many redraws (initial + one per tick); the spinner glyph advances frame to frame.
 		expect(redraws.length).toBeGreaterThan(1);
 		expect(redraws[0]).not.toBe(redraws[1]);
-		expect(redraws[0]).toContain(spinnerFrame(0));
-		expect(redraws[1]).toContain(spinnerFrame(1));
+		expect(redraws[0]).toContain(fixtureSpinnerFrame(0));
+		expect(redraws[1]).toContain(fixtureSpinnerFrame(1));
 
 		// All dwell happened through the injected clock at the spinner cadence — no real time.
 		expect(clock.sleeps.length).toBeGreaterThan(0);
@@ -234,7 +238,7 @@ describe("tty live region", () => {
 		sink.render((tick: number) => [phaseLine("active", tick)]);
 		await sink.hold({ tickMs: 90, transient: "Validating locally" });
 		sink.render(() => [phaseLine("done")]);
-		sink.finish(["", bold("Submitted")]);
+		sink.finish(["", fixtureBold("Submitted")]);
 		sink.stop();
 
 		expect(dones).toHaveLength(1);
@@ -302,7 +306,7 @@ describe("runStream cursor lifetime", () => {
 
 		await runStream(c, deps, async (sink) => {
 			sink.render(() => [phaseLine("failed")]);
-			sink.finish(["", error(bold("submit failed: rejected"))]);
+			sink.finish(["", fixtureError(fixtureBold("submit failed: rejected"))]);
 		});
 
 		const failWrites = writes.filter((w) => w.includes("submit failed: rejected"));
@@ -316,7 +320,7 @@ describe("runStream cursor lifetime", () => {
 		const { deps, writes } = harness();
 
 		await runStream(c, deps, async (sink) => {
-			sink.render(() => [dim("working")]);
+			sink.render(() => [fixtureDim("working")]);
 			await sink.hold({ tickMs: 50, transient: "Pushing to origin" });
 			sink.finish(["done"]);
 		});

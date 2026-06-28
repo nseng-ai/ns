@@ -64,6 +64,24 @@ describe("slot navigation presentation", () => {
 
 		expect(stripAnsi(rendered).split("\n")[0]).toBe("v slot-01 -> feature/a");
 	});
+
+	it("renders optional navigation details before the bare cd line", () => {
+		const rendered = renderSlotNavigationSuccess(
+			{
+				...copiedInput(),
+				details: ["Trunk branch is busy; left caller on a detached HEAD."],
+			},
+			{ canEmitAnsi: true, caps: unicodeColorCaps },
+		);
+
+		expect(stripAnsi(rendered).split("\n")).toEqual([
+			"✓ slot-01 -> feature/a",
+			"Trunk branch is busy; left caller on a detached HEAD.",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
+		expect(findRenderedCdLine(rendered)).toBe("cd /slots/repos/repo/worktrees/slot-01");
+	});
 });
 
 function copiedInput(): SlotNavigationPresentationInput {

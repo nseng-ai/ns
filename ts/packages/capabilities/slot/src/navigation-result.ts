@@ -68,15 +68,3 @@ async function buildNavigationResultFields(
 		clipboard_failure_detail: copyResult.detail,
 	};
 }
-
-export function renderNavigationFooter(result: NavigationResultFields): string[] {
-	const lines = [result.cd_command];
-	if (!result.clipboard_skipped) {
-		lines.push(
-			result.clipboard_copied
-				? "Copied cd command to clipboard."
-				: `Clipboard unavailable (${result.clipboard_failure_detail ?? "pbcopy failed"})`,
-		);
-	}
-	return lines;
-}
