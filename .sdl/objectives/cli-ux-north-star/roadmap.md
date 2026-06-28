@@ -222,28 +222,32 @@
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
       whether this Objective or a follow-on owns their UX migration.
-- [~] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
-  P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
-  faces), leaving extension-gated surfaces for later re-evaluation.
-  Semantic update (pilot in progress): after the P0 destructive boundary, the active P1 eligibility
-  set remains the Objective/Flow/Slot/Handoff surfaces already listed in `cli-surface-audit.md`;
-  no newly ported command faces were added in this slice. `sdl handoff list` is the first buffered
-  report pilot: its human output now uses `@sdl/cli-theme` `renderTable` instead of
-  `@sdl/core/text-table`, while JSON and Markdown contracts stay unchanged. Existing table
-  primitives were sufficient for title + table + empty-state output, so a new generalized report
-  wrapper remains deferred until another P1 surface proves repeated title/empty/footer plumbing.
-  Follow-up semantic update: `sdl slot list` / `sdl slot ls` is now the second buffered table pilot,
-  using direct `@sdl/cli-theme renderTable` with a `Slots for <repo>` title, accent slot names,
-  success/muted status styling, unchanged empty-pool wording, and unchanged JSON/schema/alias
-  contracts. The repeated title/table/empty glue is still thin enough that a generalized report wrapper
-  remains deferred. Follow-up semantic update: `sdl flow changes` is now the next buffered report pilot:
-  clean output stays minimal, dirty output uses a direct title + `Summary` + `Files` section renderer,
-  raw porcelain lines and the 50-line cap are preserved, and report-wrapper extraction remains deferred
-  because the command-local sectioning is still small. Semantic updates:
-  `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`,
-  `updates/2026-06-28T194258Z-slot-list-buffered-table.md`,
-  `updates/2026-06-28T195329Z-flow-changes-buffered-report.md`.
-- [ ] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
+- [x] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
+      P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
+      faces), leaving extension-gated surfaces for later re-evaluation.
+      Semantic update (pilot in progress): after the P0 destructive boundary, the active P1 eligibility
+      set remains the Objective/Flow/Slot/Handoff surfaces already listed in `cli-surface-audit.md`;
+      no newly ported command faces were added in this slice. `sdl handoff list` is the first buffered
+      report pilot: its human output now uses `@sdl/cli-theme` `renderTable` instead of
+      `@sdl/core/text-table`, while JSON and Markdown contracts stay unchanged. Existing table
+      primitives were sufficient for title + table + empty-state output, so a new generalized report
+      wrapper remains deferred until another P1 surface proves repeated title/empty/footer plumbing.
+      Follow-up semantic update: `sdl slot list` / `sdl slot ls` is now the second buffered table pilot,
+      using direct `@sdl/cli-theme renderTable` with a `Slots for <repo>` title, accent slot names,
+      success/muted status styling, unchanged empty-pool wording, and unchanged JSON/schema/alias
+      contracts. The repeated title/table/empty glue is still thin enough that a generalized report wrapper
+      remains deferred. Follow-up semantic update: `sdl flow changes` is now the next buffered report pilot:
+      clean output stays minimal, dirty output uses a direct title + `Summary` + `Files` section renderer,
+      raw porcelain lines and the 50-line cap are preserved, and report-wrapper extraction remains deferred
+      because the command-local sectioning is still small. Final tail semantic update: `sdl objective check`,
+      `sdl objective archive`, `sdl slot claim`, `sdl slot init`, and `sdl slot foreach` now cover status/check
+      reports, status-aware action summaries, creation summaries, and multi-slot tables through direct
+      `@sdl/cli-theme` usage. No new generalized wrapper was extracted. Semantic updates:
+      `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`,
+      `updates/2026-06-28T194258Z-slot-list-buffered-table.md`,
+      `updates/2026-06-28T195329Z-flow-changes-buffered-report.md`,
+      `updates/2026-06-28T211200Z-objective-slot-tail-buffered-migration.md`.
+- [x] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
       surfaces to Done, keep exemptions explicit, mark unported surfaces extension-gated, and avoid adding
       new human-facing CLI output outside the house-style primitives.
 

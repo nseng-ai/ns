@@ -1,4 +1,12 @@
-import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type ClinkrExit,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
+import { cell, kv, paint, renderTable } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
@@ -125,31 +133,57 @@ export async function runCheckObjective(
 	return ok(result.value);
 }
 
-export function renderCheckObjective(result: CheckObjectiveResult): string {
+export function renderCheckObjective(
+	result: CheckObjectiveResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	const renderCaps = resolveRenderCapabilities(caps);
 	if (
 		result.status === "missing_slug" ||
 		result.status === "invalid_slug" ||
 		result.status === "not_found"
 	) {
-		return "No Objective record selected.";
+		const label =
+			result.status === "not_found" && result.slug !== null
+				? `No Objective record found for ${result.slug}.`
+				: "No Objective record selected.";
+		return [label, kv(renderCaps, "Root", rootPresence(result))].join("\n");
 	}
 
-	const rootState = result.hasRoot ? "present" : "missing";
 	const state = result.isClosed ? "closed" : "open";
-	const parts = [
-		`Objective check \`${result.slug}\`\n`,
-		`Root: ${result.rootPath} (${rootState})\n`,
-		`Path: ${result.path}\n`,
-		`State: ${state}\n`,
-		`Files: ${renderFilePresence(result.files)}\n`,
-		`Updates: ${result.updateCount}\n`,
-		`Result: ${result.status} (${result.errorCount} error(s), ${result.warningCount} warning(s))\n`,
-		"\n",
-	];
-	for (const check of result.checks) {
-		parts.push(`${check.isPassed ? "✓" : "✗"} ${check.label}: ${check.detail}\n`);
-	}
-	return removeOneTrailingNewline(parts.join(""));
+	const rows = renderTable({
+		caps: renderCaps,
+		columns: [
+			{ header: "STATUS", width: "auto" },
+			{ header: "SEVERITY", width: "auto" },
+			{ header: "CHECK", width: "fill", min: "CHECK".length },
+			{ header: "DETAIL", width: "auto" },
+		],
+		rows: result.checks.map((check) => [
+			checkStatusCell(renderCaps, check),
+			cell(check.severity),
+			cell(check.label),
+			cell(check.detail),
+		]),
+	});
+	return removeOneTrailingNewline(
+		[
+			`Objective check ${result.slug}`,
+			"",
+			kv(renderCaps, "Root", rootPresence(result)),
+			kv(renderCaps, "Path", result.path),
+			kv(renderCaps, "State", state),
+			kv(renderCaps, "Files", renderFilePresence(result.files)),
+			kv(renderCaps, "Updates", String(result.updateCount)),
+			kv(
+				renderCaps,
+				"Result",
+				`${result.status} (${result.errorCount} error(s), ${result.warningCount} warning(s))`,
+			),
+			"",
+			...rows,
+		].join("\n"),
+	);
 }
 
 async function checkObjective(
@@ -255,6 +289,19 @@ async function checkObjective(
 		return { type: "ok", value: { ...evaluatedFacts, status: "ok", error: null } };
 	}
 	return { type: "ok", value: { ...evaluatedFacts, status: "failed", error: "check_failed" } };
+}
+
+function rootPresence(result: CheckObjectiveResult): string {
+	return `${result.rootPath} (${result.hasRoot ? "present" : "missing"})`;
+}
+
+function checkStatusCell(
+	caps: ReturnType<typeof resolveRenderCapabilities>,
+	check: ObjectiveCheckItem,
+) {
+	if (check.isPassed) return cell(paint(caps, "success", "ok"), "ok");
+	const text = check.severity === "warning" ? "warn" : "fail";
+	return cell(paint(caps, check.severity === "warning" ? "warn" : "error", text), text);
 }
 
 function emptyResult(options: {
