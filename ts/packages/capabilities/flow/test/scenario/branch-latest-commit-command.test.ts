@@ -2,8 +2,11 @@ import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
 import {
+	branchLatestCommitBackupCleanupWarningExec,
+	branchLatestCommitBackupCreateFailExec,
 	branchLatestCommitChildBranchRefusalExec,
 	branchLatestCommitGtCreateFailExec,
+	branchLatestCommitSuffixedExec,
 	runFlowBranchLatestCommitCommandWithFakes,
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
@@ -26,7 +29,17 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stdout).not.toContain("Killed:");
 		expect(stdout).not.toContain("stdout:");
 		const calls = formattedExecCalls(run.context);
-		expect(calls).toContain("gt create demo-branch --no-interactive --no-ai");
+		expect(calls).toEqual(
+			expect.arrayContaining([
+				"gt children --no-interactive",
+				expect.stringMatching(/^git branch autobranch-backup\/feature\/\d+ abc123$/),
+				"git reset --hard parent456",
+				"gt create demo-branch --no-interactive --no-ai",
+				"git reset --hard abc123",
+				expect.stringMatching(/^git branch -D autobranch-backup\/feature\/\d+$/),
+			]),
+		);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("dirty worktree refuses with a warn block on stderr and does not run the flow", async () => {
@@ -94,6 +107,20 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stderr).toContain("fatal: not a git repository");
 	});
 
+	test("suffixes when the requested branch exists exactly", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes({
+			state: { exec: branchLatestCommitSuffixedExec() },
+		});
+
+		expect(await run.exit).toBe(0);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("New branch: demo-branch-2 (base slug demo-branch was unavailable)");
+		expect(formattedExecCalls(run.context)).toContain(
+			"gt create demo-branch-2 --no-interactive --no-ai",
+		);
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
 	test("Graphite create failure exits 1 on stderr and surfaces recovery guidance", async () => {
 		const run = runFlowBranchLatestCommitCommandWithFakes({
 			state: { exec: branchLatestCommitGtCreateFailExec() },
@@ -108,5 +135,32 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stderr).toContain("Restored source branch to the original HEAD.");
 		expect(stderr).toContain("Deleted incomplete branch demo-branch.");
 		expect(stderr).toContain("Cwd: /work");
+	});
+
+	test("recovery branch creation failure stops before source reset", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes({
+			state: { exec: branchLatestCommitBackupCreateFailExec() },
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("Failed to create recovery branch before moving latest commit.");
+		expect(stderr).toContain("fatal: cannot lock ref");
+		const calls = formattedExecCalls(run.context);
+		expect(calls).not.toContain("git reset --hard parent456");
+		expect(calls).not.toContain("gt create demo-branch --no-interactive --no-ai");
+	});
+
+	test("recovery cleanup warning stays on stderr while success stays on stdout", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes({
+			state: { exec: branchLatestCommitBackupCleanupWarningExec() },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("New branch: demo-branch");
+		expect(run.stdout.join("")).not.toContain("recovery branch");
+		expect(run.stderr.join("")).toContain("Warning: recovery branch autobranch-backup/feature/");
+		expect(run.stderr.join("")).toContain("could not be deleted");
 	});
 });
