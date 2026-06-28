@@ -157,9 +157,12 @@ describe("real areg gateways", () => {
 				recursive: true,
 			});
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
-			await mkdir(path.join(project, "ts", "packages", "hosts", "pi", "src", "extensions"), {
-				recursive: true,
-			});
+			await mkdir(
+				path.join(project, "ts", "packages", "local-pi-tools", "backing-skill-commands", "src"),
+				{
+					recursive: true,
+				},
+			);
 			await writeFile(path.join(project, "skills", "demo", "SKILL.md"), "---\nname: demo\n---\n");
 			await writeFile(path.join(project, "skills", "demo", "README.md"), "nested docs\n");
 			await writeFile(
@@ -187,11 +190,10 @@ describe("real areg gateways", () => {
 					project,
 					"ts",
 					"packages",
-					"hosts",
-					"pi",
+					"local-pi-tools",
+					"backing-skill-commands",
 					"src",
-					"extensions",
-					"backing-skill-commands.ts",
+					"extension.ts",
 				),
 				"export {};\n",
 			);
