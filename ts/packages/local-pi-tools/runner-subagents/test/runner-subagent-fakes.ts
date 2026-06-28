@@ -7,13 +7,13 @@ import type {
 	RunnerSubagentDispatcherDependencies,
 	SpawnChildProcessOptions,
 	SpawnedChildProcess,
-} from "../src/runner-subagents/subagent-process.ts";
+} from "../src/subagent-process.ts";
 import {
 	createRuntimeConfig,
 	type RunnerSubagentRuntimeFiles,
 	type RuntimeResultReadResult,
 	type RuntimeResultV1,
-} from "../src/runner-subagents/subagent-runtime.ts";
+} from "../src/subagent-runtime.ts";
 
 export interface SpawnCall {
 	command: string;

@@ -10,7 +10,7 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentTerminalToolDefinition,
-} from "../src/runner-subagents/extension-api.ts";
+} from "../src/extension-api.ts";
 import { createFakeRunnerSubagentDispatcher, waitForSpawn } from "./runner-subagent-fakes.ts";
 
 interface CompletionInput {

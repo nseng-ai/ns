@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../src/runner-subagents/json-events.ts";
+import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "../src/json-events.ts";
 import { jsonLine } from "./runner-subagent-fakes.ts";
 
 const TARGET_TOOL = "submit_thermo_council_review";

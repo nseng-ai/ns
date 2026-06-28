@@ -1,5 +1,4 @@
 import type { ModelInfo } from "../runtime/types.ts";
-import type { RunnerSubagentPi } from "../runner-subagents/extension-api.ts";
 
 export interface PiCommandContext {
 	cwd: string;
@@ -24,7 +23,7 @@ export interface PiCommandRegistration {
 	handler(args: string, ctx: PiCommandContext): Promise<void> | void;
 }
 
-export interface PiCommandHost extends RunnerSubagentPi {
+export interface PiCommandHost {
 	registerCommand(name: string, options: PiCommandRegistration): void;
 	sendUserMessage(content: string): Promise<void> | void;
 }

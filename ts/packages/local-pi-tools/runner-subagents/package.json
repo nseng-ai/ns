@@ -5,7 +5,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./extension": "./src/extension.ts",
-    "./testing": "./src/testing.ts"
+    "./json-events": "./src/json-events.ts",
+    "./presentation": "./src/presentation.ts",
+    "./process": "./src/subagent-process.ts",
+    "./runtime": "./src/subagent-runtime.ts",
+    "./testing": "./src/testing.ts",
+    "./usage": "./src/usage.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

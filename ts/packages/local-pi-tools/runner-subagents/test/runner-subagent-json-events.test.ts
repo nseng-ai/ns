@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { createManualClock } from "@sdl/core/testing";
 
-import { createRunnerSubagentJsonEventParser } from "../src/runner-subagents/json-events.ts";
+import { createRunnerSubagentJsonEventParser } from "../src/json-events.ts";
 
 function jsonLine(value: unknown): string {
 	return `${JSON.stringify(value)}\n`;
