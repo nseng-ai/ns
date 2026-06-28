@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import type { CommandExecApi } from "@sdl/core/exec";
 import { RealCmuxGateway, type CmuxGateway, type CmuxGatewayFailure } from "@sdl/cmux/gateway";
 
@@ -183,7 +183,7 @@ function commandFailure(
 function failedExit(
 	request: CmuxWorkspaceSummaryRequest,
 	workspace: string | null,
-	failure: CmuxWorkspaceSummaryFailure,
+	failureResult: CmuxWorkspaceSummaryFailure,
 ): ClinkrExit<CmuxWorkspaceSummaryResult> {
 	const result: CmuxWorkspaceSummaryResult = {
 		success: false,
@@ -192,20 +192,23 @@ function failedExit(
 		description: null,
 		status_key: request.statusKey,
 		error: {
-			code: failure.code,
-			message: failure.message,
+			code: failureResult.code,
+			message: failureResult.message,
 			command_failure:
-				failure.commandFailure === undefined
+				failureResult.commandFailure === undefined
 					? null
 					: {
-							command: failure.commandFailure.command,
-							exitCode: failure.commandFailure.exitCode,
-							stdout: failure.commandFailure.stdout,
-							stderr: failure.commandFailure.stderr,
+							command: failureResult.commandFailure.command,
+							exitCode: failureResult.commandFailure.exitCode,
+							stdout: failureResult.commandFailure.stdout,
+							stderr: failureResult.commandFailure.stderr,
 						},
 		},
 	};
-	return negative(failure.message, { data: result });
+	if (failureResult.code === "missing_workspace" || failureResult.code === "missing_description") {
+		return usageError(failureResult.message, result);
+	}
+	return failure(failureResult.code, failureResult.message, result);
 }
 
 function nonBlank(value: string | undefined): string | undefined {

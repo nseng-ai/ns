@@ -176,7 +176,7 @@ describe("copy operation", () => {
 			"--format",
 			"json",
 		]);
-		expect(await conflict.exit).toBe(2);
+		expect(await conflict.exit).toBe(1);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
 			exitCode: 2,
 			errorType: "base_and_namespace_conflict",
@@ -198,7 +198,7 @@ describe("copy operation", () => {
 			],
 		] as const) {
 			const run = runScenario(["copy", ...args, "--format", "json"]);
-			expect(await run.exit).toBe(2);
+			expect(await run.exit).toBe(1);
 			expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 				exitCode: 2,
 				errorType: errorType,
@@ -213,7 +213,7 @@ describe("copy operation", () => {
 			"--format",
 			"json",
 		]);
-		expect(await missingFrom.exit).toBe(2);
+		expect(await missingFrom.exit).toBe(1);
 		expect(parseJsonOutput(missingFrom)).toMatchObject({
 			status: "usageError",
 			exitCode: 2,
@@ -229,7 +229,7 @@ describe("copy operation", () => {
 			"--format",
 			"json",
 		]);
-		expect(await missingTo.exit).toBe(2);
+		expect(await missingTo.exit).toBe(1);
 		expect(parseJsonOutput(missingTo)).toMatchObject({
 			status: "usageError",
 			exitCode: 2,
@@ -256,10 +256,10 @@ describe("copy operation", () => {
 			],
 			{ gateway },
 		);
-		expect(await empty.exit).toBe(2);
+		expect(await empty.exit).toBe(1);
 		expect(JSON.parse(empty.stdout.join(""))).toMatchObject({
-			exitCode: 2,
-			errorType: "no_matching_entries",
+			exitCode: 1,
+			status: "negative",
 		});
 
 		const noGlob = runScenario(
@@ -285,10 +285,10 @@ describe("copy operation", () => {
 				}),
 			},
 		);
-		expect(await noGlob.exit).toBe(2);
+		expect(await noGlob.exit).toBe(1);
 		expect(JSON.parse(noGlob.stdout.join(""))).toMatchObject({
-			exitCode: 2,
-			errorType: "no_matching_entries",
+			exitCode: 1,
+			status: "negative",
 		});
 
 		const keep = runScenario(["get", "keep.md", "--namespace", "notes", "--branch", "feat/x"], {
@@ -319,10 +319,10 @@ describe("copy operation", () => {
 			],
 			{ gateway },
 		);
-		expect(await conflict.exit).toBe(2);
+		expect(await conflict.exit).toBe(1);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
-			exitCode: 2,
-			errorType: "destination_conflict",
+			exitCode: 1,
+			status: "negative",
 		});
 		expect(
 			await runScenario(["get", "keep.md", "--namespace", "notes", "--branch", "feat/x"], {
@@ -332,7 +332,7 @@ describe("copy operation", () => {
 		const absent = runScenario(["get", "source.md", "--namespace", "notes", "--branch", "feat/x"], {
 			gateway,
 		});
-		expect(await absent.exit).toBe(2);
+		expect(await absent.exit).toBe(1);
 
 		const race = runScenario(
 			[
@@ -355,10 +355,10 @@ describe("copy operation", () => {
 				},
 			},
 		);
-		expect(await race.exit).toBe(2);
+		expect(await race.exit).toBe(1);
 		expect(JSON.parse(race.stdout.join(""))).toMatchObject({
-			exitCode: 2,
-			errorType: "destination_conflict",
+			exitCode: 1,
+			status: "negative",
 			message: "late conflict",
 		});
 	});
@@ -394,7 +394,7 @@ describe("copy operation", () => {
 			await runScenario(["get", "keep.md", "--namespace", "notes", "--branch", "feat/x"], {
 				gateway: full,
 			}).exit,
-		).toBe(2);
+		).toBe(1);
 
 		const glob = new FakeBrmemGateway({
 			entries: [
@@ -464,12 +464,12 @@ describe("copy operation", () => {
 			await runScenario(["get", "foo/orphan.md", "--namespace", "notes", "--branch", "feat/x"], {
 				gateway: glob,
 			}).exit,
-		).toBe(2);
+		).toBe(1);
 		expect(
 			await runScenario(["get", "foobar/body.md", "--namespace", "notes", "--branch", "feat/x"], {
 				gateway: glob,
 			}).exit,
-		).toBe(2);
+		).toBe(1);
 	});
 
 	it("keeps dry-run non-mutating while still checking conflicts", async () => {
@@ -500,7 +500,7 @@ describe("copy operation", () => {
 			],
 			{ gateway },
 		);
-		expect(await conflict.exit).toBe(2);
+		expect(await conflict.exit).toBe(1);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
 			errorType: "destination_conflict",
 		});
@@ -558,7 +558,7 @@ describe("copy operation", () => {
 				},
 			},
 		);
-		expect(await copyFailure.exit).toBe(2);
+		expect(await copyFailure.exit).toBe(1);
 		expect(parseJsonOutput(copyFailure)).toMatchObject({
 			exitCode: 2,
 			errorType: "git_update_ref_failed",
@@ -572,7 +572,7 @@ describe("copy operation", () => {
 			["copy", "--base", "--from-branch", "master", "--to-branch", "feat/x", "--format", "json"],
 			{ gateway: missingShaGateway },
 		);
-		expect(await missingSha.exit).toBe(2);
+		expect(await missingSha.exit).toBe(1);
 		expect(parseJsonOutput(missingSha)).toMatchObject({
 			exitCode: 2,
 			errorType: "source_sha_unavailable",

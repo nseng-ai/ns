@@ -1,4 +1,4 @@
-import { ok, negative } from "@sdl/clinkr";
+import { failure, negative, ok, usageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { AretroCliContext } from "../context.ts";
@@ -234,7 +234,22 @@ function collectFailure(
 		error: options.error,
 		warnings: [...options.warnings],
 	});
+	const exitKind = classifyCollectEvidenceError(options.error.code);
+	if (exitKind === "usageError") return usageError(options.error.message, result);
+	if (exitKind === "failure") return failure(options.error.code, options.error.message, result);
 	return negative(options.error.message, { data: result });
+}
+
+function classifyCollectEvidenceError(
+	code: string,
+): "usageError" | "failure" | "negative" {
+	switch (code) {
+		case "not_a_git_repo":
+		case "detached_head":
+			return "usageError";
+		default:
+			return "failure";
+	}
 }
 
 interface ResolvedBranch {

@@ -2,7 +2,7 @@
 
 import { resolve } from "node:path";
 
-import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
+import { ClinkrGroup, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
@@ -18,6 +18,7 @@ import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-
 import {
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
+	NoSavedPlanAvailableError,
 	listSavedPlans,
 	writeSavedPlanFile,
 	type LatestSavedPlanFileEvidence,
@@ -204,7 +205,14 @@ async function handleResolve(
 	request: ResolveRequest,
 ): Promise<ClinkrExit<ResolvePlanData>> {
 	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
-		return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
+		try {
+			return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
+		} catch (error) {
+			if (error instanceof NoSavedPlanAvailableError) {
+				return negative(error.message);
+			}
+			throw error;
+		}
 	});
 }
 

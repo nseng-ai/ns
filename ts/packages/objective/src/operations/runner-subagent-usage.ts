@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
@@ -93,9 +93,9 @@ export async function runRunnerSubagentUsage(
 ): Promise<ClinkrExit<RunnerSubagentUsageResult>> {
 	const result = await summarizeRunnerSubagentUsage(request.sessionFiles);
 	if (request.sessionFiles.length === 0) {
-		return negative(
+		return usageError(
 			"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
-			{ data: result },
+			result,
 		);
 	}
 	return ok(result);
