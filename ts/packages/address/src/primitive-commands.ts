@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
-import type { GithubPrFeedbackFailure, GithubPrSummary } from "./api.ts";
+import type { GithubPrFeedbackFailure } from "./api.ts";
 import type { Result } from "@sdl/core/result";
 
 import {
@@ -22,10 +22,10 @@ import {
 	replyReviewThreadResultSchema,
 	resolveReviewThreadResultSchema,
 } from "./operation-schemas/collection.ts";
+import { collectPrChecks } from "./core/pr-checks.ts";
 import {
 	discussionCommentsResult,
 	lookupResult,
-	prChecksResult,
 	openPrsResult,
 	replyReviewThreadResult,
 	resolveReviewThreadResult,
@@ -238,64 +238,22 @@ async function runPrChecks(
 	ctx: PrAddressExecContext,
 	request: { prNumber?: number | undefined },
 ): Promise<ClinkrExit<PrChecksResult>> {
-	const target = await resolveChecksTarget(ctx, request.prNumber);
-	if (target.type === "failure") return target.exit;
-	if (target.type === "miss")
-		return ok(prChecksResult({ found: false, pr: null, branch: target.branch }));
-	const checks = await ctx.context.prFeedback.getPrChecks({
-		...gatewayOptions(ctx),
-		prNumber: target.pr.number,
+	const result = await collectPrChecks({
+		git: ctx.context.git,
+		prFeedback: ctx.context.prFeedback,
+		gatewayOptions: gatewayOptions(ctx),
+		prNumber: request.prNumber,
 	});
-	if (!checks.ok)
-		return prFeedbackFailureExit(`Failed to fetch checks for PR ${target.pr.number}`, checks.error);
-	return ok(
-		prChecksResult({ found: true, pr: target.pr, branch: target.branch, checks: checks.value }),
-	);
-}
-
-async function resolveChecksTarget(
-	ctx: PrAddressExecContext,
-	prNumber: number | undefined,
-): Promise<
-	| { type: "found"; pr: GithubPrSummary; branch: string | null }
-	| { type: "miss"; branch: string | null }
-	| { type: "failure"; exit: ClinkrExit<PrChecksResult> }
-> {
-	if (prNumber !== undefined) {
-		const lookup = await ctx.context.prFeedback.getPr({ ...gatewayOptions(ctx), prNumber });
-		if (!lookup.ok)
-			return {
-				type: "failure",
-				exit: prFeedbackFailureExit(`Failed to look up PR ${prNumber}`, lookup.error),
-			};
-		if (!lookup.value.found) return { type: "miss", branch: null };
-		return { type: "found", pr: lookup.value.pr, branch: null };
+	switch (result.type) {
+		case "ok":
+			return ok(result.value);
+		case "git_failure":
+			return gatewayFailureExit(result.message, result.failure);
+		case "pr_feedback_failure":
+			return prFeedbackFailureExit(result.message, result.failure);
+		case "detached_head":
+			return failure("detached_head", result.message);
 	}
-	const branch = await ctx.context.git.currentBranch(gatewayOptions(ctx));
-	if (branch.type === "failure")
-		return {
-			type: "failure",
-			exit: gatewayFailureExit("Failed to determine current branch", branch.error),
-		};
-	if (branch.type === "detached")
-		return {
-			type: "failure",
-			exit: failure(
-				"detached_head",
-				"Detached HEAD: pr-checks requires a checked-out branch or --pr-number.",
-			),
-		};
-	const lookup = await ctx.context.prFeedback.getPrForBranch({
-		...gatewayOptions(ctx),
-		branch: branch.branch,
-	});
-	if (!lookup.ok)
-		return {
-			type: "failure",
-			exit: prFeedbackFailureExit(`Failed to look up PR for branch ${branch.branch}`, lookup.error),
-		};
-	if (!lookup.value.found) return { type: "miss", branch: branch.branch };
-	return { type: "found", pr: lookup.value.pr, branch: branch.branch };
 }
 
 async function runReplyReviewThread(

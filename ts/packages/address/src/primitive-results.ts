@@ -7,14 +7,12 @@ import type {
 	GithubPrReviewComment,
 	GithubPrReviewThread,
 	GithubPrSummary,
-	GithubStatusChecks,
 } from "./api.ts";
 
 import type {
 	openPrsResultSchema,
 	prDiscussionCommentSchema,
 	prDiscussionCommentsResultSchema,
-	prChecksResultSchema,
 	prLookupResultSchema,
 	prReviewCommentSchema,
 	prReviewsResultSchema,
@@ -59,52 +57,6 @@ export function discussionCommentsResult(
 	comments: readonly GithubPrDiscussionComment[],
 ): z.output<typeof prDiscussionCommentsResultSchema> {
 	return { discussion_comments: comments.map(discussionCommentResult) };
-}
-
-export function prChecksResult(options: {
-	readonly found: boolean;
-	readonly pr: GithubPrSummary | null;
-	readonly branch: string | null;
-	readonly checks?: GithubStatusChecks | undefined;
-}): z.output<typeof prChecksResultSchema> {
-	return {
-		found: options.found,
-		target: {
-			kind: "github_pr",
-			pr_number: options.pr?.number ?? null,
-			branch: options.branch,
-			title: options.pr?.title ?? null,
-			url: options.pr?.url ?? null,
-			head_ref_name: options.pr?.headRefName ?? null,
-			base_ref_name: options.pr?.baseRefName ?? null,
-			head_ref_oid: options.pr?.headRefOid ?? null,
-		},
-		counts: {
-			passing: options.checks?.counts.passing ?? 0,
-			pending: options.checks?.counts.pending ?? 0,
-			failing: options.checks?.counts.failing ?? 0,
-			unknown: options.checks?.counts.unknown ?? 0,
-			...(options.checks?.counts.hasMore === undefined
-				? {}
-				: { has_more: options.checks.counts.hasMore }),
-		},
-		checks:
-			options.checks?.checks.map((check) => ({
-				bucket: check.bucket,
-				kind: check.kind,
-				name: check.name,
-				workflow_name: check.workflowName,
-				status: check.status,
-				conclusion: check.conclusion,
-				state: check.state,
-				started_at: check.startedAt,
-				completed_at: check.completedAt,
-				created_at: check.createdAt,
-				details_url: check.detailsUrl,
-				target_url: check.targetUrl,
-				identity: check.identity,
-			})) ?? [],
-	};
 }
 
 export function replyReviewThreadResult(options: {

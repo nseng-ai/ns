@@ -62,6 +62,7 @@ export interface InMemoryPrFeedbackState {
 		| Record<number, readonly GithubPrDiscussionComment[]>
 		| undefined;
 	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks> | undefined;
+	checksFailurePrNumbers?: ReadonlySet<number> | undefined;
 	listOpenPrsFailure?: GithubPrFeedbackFailure | undefined;
 	lookupFailureBranches?: ReadonlySet<string> | undefined;
 	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
@@ -89,6 +90,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly reviewThreads: ReadonlyMap<number, readonly GithubPrReviewThread[]>;
 	private readonly discussionComments: ReadonlyMap<number, readonly GithubPrDiscussionComment[]>;
 	private readonly checks: ReadonlyMap<number, GithubStatusChecks>;
+	private readonly checksFailurePrNumbers: ReadonlySet<number>;
 	private readonly listOpenPrsFailure: GithubPrFeedbackFailure | undefined;
 	private readonly lookupFailureBranches: ReadonlySet<string>;
 	private readonly lookupFailurePrNumbers: ReadonlySet<number>;
@@ -116,6 +118,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.reviewThreads = numberMap(state.reviewThreads);
 		this.discussionComments = numberMap(state.discussionComments);
 		this.checks = numberMap(state.checks);
+		this.checksFailurePrNumbers = state.checksFailurePrNumbers ?? new Set();
 		this.listOpenPrsFailure = state.listOpenPrsFailure;
 		this.lookupFailureBranches = state.lookupFailureBranches ?? new Set();
 		this.lookupFailurePrNumbers = state.lookupFailurePrNumbers ?? new Set();
@@ -206,6 +209,11 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	async getPrChecks(
 		params: GithubPrFeedbackOptions & { readonly prNumber: number },
 	): Promise<Result<GithubStatusChecks, GithubPrFeedbackFailure>> {
+		if (this.checksFailurePrNumbers.has(params.prNumber))
+			return {
+				ok: false,
+				error: fakePrFeedbackFailure(FAKE_GH_AUTH_FAILED_STDERR, "getPrChecks"),
+			};
 		return {
 			ok: true,
 			value: clone(
