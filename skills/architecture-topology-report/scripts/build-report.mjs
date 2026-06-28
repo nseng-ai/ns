@@ -31,7 +31,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 // ── Tier registry: single source of truth for colours, shared by the graph and
-//    the north-star legend. Keys are canonical manifest `sdl.tier` values.
+//    the north-star legend. Keys are canonical manifest `sdl.tier` values — keep
+//    in sync with the workspace source of truth:
+//    ts/packages/infra/core/test/support/typescript-style-guard/config.ts
+//    (`packageTierValues`). The two off-axis tool tiers share a neutral family
+//    (cool slate vs. warm stone) to read as related but distinct.
 const TIERS = {
   capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
   "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
@@ -39,8 +43,12 @@ const TIERS = {
   transitional: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
   "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
   host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
-  tool: { fill: "#f1f5f9", stroke: "#94a3b8", name: "off-axis tool" },
+  "standalone-tool": { fill: "#f1f5f9", stroke: "#94a3b8", name: "standalone tool" },
+  "local-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "local pi tool" },
 };
+// Defensive fallback for any tier not in the registry above (should not happen
+// once workspace tier enforcement is in effect); renders in the off-axis bucket.
+const FALLBACK_TIER = "standalone-tool";
 
 const STATUS_KIND = {
   holds: "bg-emerald-100 text-emerald-700",
@@ -111,7 +119,7 @@ function assembleGraph(analysis, tierOverrides = {}) {
       id,
       label: label(id),
       loc: analysis.packages[id].loc ?? 0,
-      tier: Object.hasOwn(TIERS, tier) ? tier : "tool",
+      tier: Object.hasOwn(TIERS, tier) ? tier : FALLBACK_TIER,
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
     };
@@ -502,7 +510,7 @@ async function main() {
 
   const { graph, warnings } = assembleGraph(analysis, spec.tiers || {});
   if (warnings.length) {
-    console.error(`warning: ${warnings.length} package(s) had no known declared/overridden tier (defaulted to "tool"):`);
+    console.error(`warning: ${warnings.length} package(s) had no known declared/overridden tier (defaulted to "${FALLBACK_TIER}"):`);
     console.error("  " + warnings.join(", "));
   }
 
