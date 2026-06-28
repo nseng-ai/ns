@@ -58,7 +58,7 @@ jobs:
           version: 10.14.0
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.12.0
+          node-version: 26.3.0
           cache: pnpm
           cache-dependency-path: docs-site/pnpm-lock.yaml
       - name: Install docs dependencies
@@ -79,7 +79,7 @@ jobs:
           version: 11.8.0
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.12.0
+          node-version: 26.3.0
           cache: pnpm
           cache-dependency-path: ts/pnpm-lock.yaml
       - name: Use vendored just
