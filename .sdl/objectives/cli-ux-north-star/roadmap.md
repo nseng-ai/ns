@@ -193,9 +193,14 @@
       it is stable for this row; shared clinkr/theme navigation extraction remains deferred until broader
       non-Slot consumers appear. Semantic update:
       `updates/2026-06-28T180147Z-slot-navigation-migration-complete.md`.
-- [ ] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
+- [~] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
       mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
       unported destructive surfaces extension-gated until they port.
+      Semantic update (pilot in progress): `sdl slot free` now has the first Slot-local destructive
+      result-block wrapper over the shared `@sdl/cli-theme` finite result block, covering dry-run,
+      success, cancellation/refusal, and cleanup-error outcomes while preserving machine/JSON behavior.
+      This starts but does not complete the row; next prove the same grammar on adjacent Slot destructive
+      surfaces before considering shared extraction or Handoff migration.
 - [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
