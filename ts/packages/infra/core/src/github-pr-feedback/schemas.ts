@@ -24,7 +24,7 @@ export const ghReviewSchema = z
 		author: ghAuthorSchema,
 		body: z.string(),
 		state: z.string(),
-		submittedAt: z.string(),
+		submittedAt: z.string().nullable(),
 	})
 	.loose();
 

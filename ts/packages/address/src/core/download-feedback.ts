@@ -283,7 +283,7 @@ function renderReviews(reviews: readonly GithubPrReview[]): string[] {
 		`### Review ${index + 1}: ${review.id}`,
 		`- Author: ${review.author}`,
 		`- State: ${review.state}`,
-		`- Submitted at: ${review.submittedAt}`,
+		`- Submitted at: ${review.submittedAt ?? "(pending)"}`,
 		"",
 		...blockquote(review.body),
 	]);

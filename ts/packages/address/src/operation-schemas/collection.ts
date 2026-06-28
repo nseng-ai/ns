@@ -131,7 +131,7 @@ export const prReviewSchema = z.object({
 	author: z.string(),
 	body: z.string(),
 	state: z.string(),
-	submitted_at: z.string(),
+	submitted_at: z.string().nullable(),
 });
 
 export const prReviewsResultSchema = z.object({ reviews: z.array(prReviewSchema) });
