@@ -23,5 +23,9 @@ The workflow that attaches an existing plan source to a branch-context key while
 The package's command surface (the CLI/Pi-facing shell that parses arguments, builds real **Gateways**, resolves host-context inputs, and formats user output) and its domain logic (branch-context workflow logic over injected Git, Branch Memory, and Graphite **Gateways** plus resolved source values, which does not accept raw host context, construct real adapters, or format user-facing prose) are ordinary architectural layers, not defined terms. That domain logic's dependency on `@sdl/plans` is intentional for saved-plan sources, naming, validation, and selection.
 
 **Branch Context Capability API**:
-The curated `@sdl/branch-context/api` surface used by downstream consumer packages and their tests for in-process composition without broad package-root imports. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
-*Avoid*: private source import, command shell, root barrel contract
+The curated `@sdl/branch-context/api` surface used by downstream consumer packages and their tests for in-process composition without broad package-root imports. It owns portable Branch Context behavior: Branch Memory attachment semantics, saved-plan-to-**Attached Plan** behavior, attached-plan loading, implementation prompt content, branch-context evidence, and gateway-injected helpers for branch creation, attachment, and existing-branch reuse. Owning `@sdl/branch-context` tests may still import the package root when covering root compatibility.
+*Avoid*: private source import, command shell, root barrel contract, Pi slash-command registry
+
+**Branch Context Presentation Boundary**:
+Concrete Pi slash-command registration, command names such as `/sdl:branch-context:impl-attached-plan`, and launch-command formatting are owned by Pi/CCC presentation code, not by `@sdl/branch-context`. Branch Context must not depend on the Pi package because Pi is a Presentation Host above capabilities; importing Pi would pull host-specific command surfaces into the Branch Context provider boundary.
+*Avoid*: Capability API command-name export, duplicated Pi command string in Branch Context, host-specific launch formatter

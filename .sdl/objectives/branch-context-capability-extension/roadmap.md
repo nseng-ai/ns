@@ -19,15 +19,15 @@
   - Likely files: `ts/packages/branch-context/package.json`, `ts/pnpm-lock.yaml`, `ts/scripts/typescript-style-guard/config.mjs`, and `ts/scripts/typescript-style-guard/adversarial-review.mjs`.
   - Evidence: clean `rg -n "@sdl/pi" ts/packages/branch-context ts/packages/branch-context/package.json`; clean `just ts-guard`; package check/test for Branch Context; style-guard adversarial tests updated so a new Branch Context cycle is rejected rather than grandfathered.
 
-- [ ] Preserve and document the final Branch Context Capability API boundary.
+- [x] Preserve and document the final Branch Context Capability API boundary.
   - Policy: direct execution after preview; steer first before introducing a new public SDK surface or changing saved-plan/Branch Memory compatibility language.
   - Target: `ts/packages/branch-context/CONTEXT.md` (and README if useful) records that Branch Context owns domain/API behavior, while Pi/CCC presentation code owns concrete slash-command surfaces and launch formatting. If Pi docs/context need a small note for the moved formatter, update the nearest applicable context doc. Keep `@sdl/plans/api` and saved-plan storage behavior out of scope unless directly affected by the command-surface cleanup.
-  - Evidence: docs explain why Branch Context must not depend on the Pi Presentation Host; consumer import-boundary search shows CCC/Pi still use `@sdl/branch-context/api` for domain behavior and presentation-owned code for command surfaces.
+  - Evidence: `ts/packages/branch-context/CONTEXT.md` now distinguishes Branch Context Capability API/domain responsibilities from the Pi/CCC presentation boundary and states why `@sdl/branch-context` must not depend on the Pi Presentation Host. `ts/packages/hosts/pi/CONTEXT.md` records the Pi-owned branch-context slash-command surface and implementation launch formatter.
 
-- [ ] Record completion and parent tracking.
+- [x] Record completion and parent tracking.
   - Policy: direct execution after validation passes; use normal Objective update semantics and do not create stack ledgers or Branch Memory state.
   - Target: create a Semantic Update under this Objective with the final API/export decision, validation/stale-edge evidence, and any remaining parked work; update `sdl-extension-architecture` Phase 2 step 4/progress or an update file so the parent can treat Branch Context's de-Pi boundary as complete once the child closes or is ready to close.
-  - Evidence: final stale-edge searches for Branch Context → Pi, preserved command names/prompt/launch behavior, `just ts-check`, `just ts-test`, `just ts-guard` (or documented narrower validation plus reason), and parent Objective tracking.
+  - Evidence: `updates/2026-06-27-boundary-documented.md` records final stale-edge and validation evidence; `sdl-extension-architecture` has a matching parent update and Phase 2 step-4 progress note for the Branch Context de-Pi boundary. Final parent validation passed `just ts-check`, `just ts-test`, and `just ts-guard`.
 
 ## Parked
 
