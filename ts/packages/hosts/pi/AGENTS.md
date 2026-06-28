@@ -11,6 +11,8 @@ This package contains unified Pi runtime helper and extension modules. Keep exte
 
 Other workspace packages may import curated neutral `@sdl/pi/...` exports. They must not import project-local extension entrypoints or deep-import `ts/packages/pi/src/**` as helpers. If a non-Pi package needs behavior that currently lives only in a project-local entrypoint, extract a neutral helper subpath or move the orchestration to the owning package instead.
 
+`@sdl/pi/shared/*` exports are curated neutral infrastructure helpers for Pi-hosted code and extracted Local Pi-tool packages. A Local Pi-tool package may import helpers such as `@sdl/pi/shared/exec-gateway` or `@sdl/pi/shared/gh-command` when the helper is host/runtime infrastructure. Do not invert the dependency by making `@sdl/pi` import Local Pi-tool packages, and do not move tool-specific PR feedback/watch/preview domain behavior into `@sdl/pi/shared/*` just to deduplicate it.
+
 ## Process I/O
 
 Extension modules must not import `node:child_process` or perform synchronous process/spawning I/O. Execute processes through the injected `pi.exec` host capability or a narrow injected function built from it.

@@ -1,7 +1,7 @@
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { describe, expect, test } from "vitest";
 
-import { loadGhCommand } from "../src/pr/gh-command.ts";
+import { loadGhCommand } from "../src/shared/gh-command.ts";
 
 function execResult(result: Partial<ExecResult> = {}): ExecResult {
 	return {
