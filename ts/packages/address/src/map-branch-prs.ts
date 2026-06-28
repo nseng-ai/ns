@@ -62,7 +62,7 @@ async function runMapBranchPrsOperation(
 		gatewayOptions: gatewayOptions(ctx),
 	});
 	if (mapping.type === "failure") return prFeedbackFailureExit(mapping.message, mapping.failure);
-	const result = mapping.value;
+	const result = mapping.mapping;
 	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0)
 		return ok(result);
 	return negative(mappingFailureMessage(result), result);

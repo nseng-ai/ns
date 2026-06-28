@@ -29,7 +29,7 @@ export interface BranchPrMapping {
 }
 
 export type BranchPrMappingResult =
-	| { type: "ok"; value: BranchPrMapping }
+	| { type: "ok"; mapping: BranchPrMapping }
 	| { type: "failure"; message: string; failure: GithubPrFeedbackFailure };
 
 export interface MapBranchesToOpenPrsOptions {
@@ -42,12 +42,7 @@ export async function mapBranchesToOpenPrs(
 	options: MapBranchesToOpenPrsOptions,
 ): Promise<BranchPrMappingResult> {
 	const openPrsResult = await options.prFeedback.listOpenPrs(options.gatewayOptions);
-	if (!openPrsResult.ok)
-		return {
-			type: "failure",
-			message: "Failed to list open PRs",
-			failure: openPrsResult.error,
-		};
+	if (!openPrsResult.ok) return mappingFailure("Failed to list open PRs", openPrsResult.error);
 
 	const prsByHeadBranch = prsGroupedByHeadBranch(openPrsResult.value);
 	const branchPrs: BranchPrMappingEntry[] = [];
@@ -76,7 +71,7 @@ export async function mapBranchesToOpenPrs(
 	}
 	return {
 		type: "ok",
-		value: {
+		mapping: {
 			branch_prs: branchPrs,
 			missing_branches: missingBranches,
 			ambiguous_branches: ambiguousBranches,
@@ -88,6 +83,10 @@ export async function mapBranchesToOpenPrs(
 			},
 		},
 	};
+}
+
+function mappingFailure(message: string, failure: GithubPrFeedbackFailure): BranchPrMappingResult {
+	return { type: "failure", message, failure };
 }
 
 function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrMappingEntry {
