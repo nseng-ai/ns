@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
+import { stripAnsi } from "@sdl/clinkr/testing";
 
 import { formatManagedGeneratedRegion, GENERATED_BODY_MARKER } from "@sdl/core/submit";
 
@@ -11,6 +12,8 @@ import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+// The truecolor red swatch used for `error`-intent headlines; a warn refusal must never carry it.
+const ERROR_TRUECOLOR = "\x1b[38;2;248;81;73m";
 const generatedText = `Improve PR descriptions
 
 This regenerates the PR title and body with the sdl-owned prompt.
@@ -110,9 +113,15 @@ describe("project-local regenerate-pr extension behavior", () => {
 		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Regenerated PR title and description.");
-		expect(run.stdout.join("")).toContain(`PR: #123 ${PR_URL}`);
-		expect(run.stdout.join("")).toContain("Prompt: built-in");
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Regenerated PR title and description.");
+		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
+		expect(stdout).toContain("Title: Improve PR descriptions");
+		expect(stdout).toContain("Prompt: built-in");
+		expect(stdout).toContain("Cwd: /work");
+		// Success stays concise: no failure/debug plumbing leaks into the success block.
+		expect(stdout).not.toContain("Exit:");
+		expect(stdout).not.toContain("stdout:");
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
@@ -134,25 +143,38 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("## Diff");
 	});
 
-	test("declined confirmation does not edit GitHub", async () => {
+	test("declined confirmation renders a warn refusal and does not edit GitHub", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { confirm: () => false, exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("cancelled");
+		expect(run.stdout.join("")).toBe("");
+		const rawStderr = run.stderr.join("");
+		// A declined guardrail renders warn — its headline must not carry the red error swatch.
+		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
+		const stderr = stripAnsi(rawStderr);
+		expect(stderr).toContain("PR metadata regeneration was cancelled; GitHub was not edited.");
+		expect(stderr).toContain("Cwd: /work");
 		expect(formattedExecCalls(run.context)).not.toContainEqual(
 			expect.stringContaining("gh pr edit"),
 		);
 	});
 
-	test("missing confirmation channel does not edit GitHub", async () => {
+	test("missing confirmation channel renders a warn refusal and does not edit GitHub", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("Confirmation is unavailable");
+		expect(run.stdout.join("")).toBe("");
+		const rawStderr = run.stderr.join("");
+		// Missing confirmation is a declined guardrail (warn), not a red subprocess failure.
+		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
+		const stderr = stripAnsi(rawStderr);
+		expect(stderr).toContain(
+			"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+		);
 		expect(formattedExecCalls(run.context)).not.toContainEqual(
 			expect.stringContaining("gh pr edit"),
 		);
@@ -218,7 +240,11 @@ describe("project-local regenerate-pr extension behavior", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("Could not resolve current branch PR");
+		const stderr = stripAnsi(run.stderr.join(""));
+		// The domain summary becomes the failure headline; the cause line stays visible in the body.
+		expect(stderr).toContain("Could not resolve current branch PR.");
+		expect(stderr).toContain("Could not read GitHub PR details.");
+		expect(stderr).toContain("Cwd: /work");
 		expect(run.context.execCalls).toHaveLength(1);
 	});
 

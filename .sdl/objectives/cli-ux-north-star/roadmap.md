@@ -134,6 +134,18 @@
       `sdl slot co <branch>` navigation line stays copyable at normal weight. CCC `CommandIo` semantics
       (transient `phase`, durable `notify`, error flips exit) are unchanged. The general
       navigation/shell renderer row below is untouched.
+      Follow-up landed with `flow regenerate-pr`: a flow-local finite command (no CCC, no streaming)
+      that reuses `workflow-result-block.ts` for its single settled outcome. Success renders concise
+      (PR number/url, new title, prompt source); the two confirmation guardrails — declined and
+      missing-confirmation-channel — render as first-class warn refusals (§7.3), never red, and never
+      run `gh pr edit`; PR lookup/diff/prompt/generation failures and the post-confirmation edit
+      failure render as failures with the domain cause visible (the domain string's leading summary
+      becomes the bold headline, the rest the body — §7.1 direct-domain-message). The `ctx.confirm`
+      body stays plain prose (confirmation surfaces are not guaranteed to render ANSI and the prompt is
+      not a machine contract). GitHub write safety is unchanged: confirmation is still required,
+      `--force` is still a compatibility no-op that does not bypass it, and human-authored body text
+      outside the SDL-managed region is preserved. Next: `flow land` (PR 5a discovery/seams, 5b full
+      redesign) is the last and largest flow side-effect surface.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
