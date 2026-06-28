@@ -28,15 +28,17 @@
   - `terminal` remains an intentional neutral `@sdl/pi/terminal/*` helper surface; extracting it would create broad consumer churn without improving dependency direction.
   - Evidence: `updates/2026-06-28-runner-terminal-thermo-extraction.md` records the dependency-direction checks, focused tests, and durable context update for both dispositions.
 
-- [ ] Thin vertically integrated capability mirrors without confusing them with Pi-native tools.
-  - Inspect Handoff, Branch Context, PR feedback, Objective, and Plans-adjacent Pi surfaces for remaining capability-specific decisions in the host.
-  - Repoint Pi shells toward owning Capability APIs/packages where the seam already exists; when the owning capability needs a migration, update or spawn the appropriate capability Objective instead of creating a Pi-stacked tool package.
-  - Evidence: each major capability mirror has a recorded status: thin shell complete, delegated to capability work, or accepted Pi presentation-only residue.
+- [x] Thin vertically integrated capability mirrors without confusing them with Pi-native tools.
+  - Handoff status: thin Pi shell complete; portable artifact lifecycle is owned by `@sdl/handoff` / `@sdl/handoff/api`, while Pi keeps tab/self/session/Claude launch and prompt presentation.
+  - Branch Context + Plans status: thin Pi shell complete; saved-plan selection and branch-context creation/load/attach behavior flow through `@sdl/plans/api` and `@sdl/branch-context/api`, while Pi keeps slash-command parsing, status output, and implementation-session launch orchestration.
+  - Objective status: thin Pi shell complete; Objective list/candidate/selection/picker behavior flows through `@sdl/objective/api`, while Pi keeps slash-command registration, completions, and skill invocation presentation.
+  - PR feedback status: accepted Pi presentation-only residue plus delegated portable collection/mutation behavior; `pr-address` owns download/check/thread primitives through its command face and `@sdl/pr-address/api`, while Pi keeps editor prefill, TUI previews, stack prompt assembly, live watch state, and prompt injection. Future PR feedback thinning should be a focused `pr-address` Capability/API follow-up, not a Pi-tool package.
+  - Evidence: `updates/2026-06-28-capability-mirror-rebaseline.md` records the capability-mirror status matrix and PR feedback disposition.
 
-- [~] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
-  - Ensure package exports describe intentional neutral helper/runtime surfaces rather than accidental feature-domain entrypoints.
-  - Current Pi-tool convention language is updated for `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`; remaining rebaseline work should focus on host exports and capability-mirror surfaces after mirror thinning.
-  - Evidence: future agents can tell where to put a new Pi-native tool versus a capability mirror, and the final package graph remains acyclic.
+- [x] Rebaseline `@sdl/pi` exports, context language, and decomposition guidance.
+  - Final host export language now describes the remaining package exports as intentional neutral/runtime/presentation families rather than accidental feature-domain entrypoints.
+  - Pi-tool convention language covers `@sdl/pi-context-profiler`, `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`; capability-mirror language records Handoff, Branch Context + Plans, and Objective as thin shells over Capability APIs, and PR feedback as accepted Pi presentation residue around `pr-address` rather than a Pi-tool candidate.
+  - Evidence: future agents can tell where to put a new Pi-native tool versus a capability mirror, the final package graph remains acyclic, and `updates/2026-06-28-final-host-export-rebaseline.md` records the export/context audit.
 
 ## Parked
 

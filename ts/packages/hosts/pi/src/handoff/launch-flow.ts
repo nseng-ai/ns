@@ -1,5 +1,5 @@
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/handoff/identity";
+import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/handoff/api";
 
 import { isRecord, stringField } from "../runtime/primitives.ts";
 import { formatPickupHandoffCommand } from "./identity.ts";

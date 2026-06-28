@@ -79,5 +79,25 @@ Risks:
 - The Pi-tool tier convention is now proven for the extracted standalone tools so far: `ts/packages/pi-tools/<tool>/` packages stack above `@sdl/pi`, while project-local discovery adapters import package source entrypoints directly.
 - Shared render/scroll/width and LM-JSON helpers are currently accepted neutral `@sdl/pi` helper subpaths; revisit only if a future support package can be introduced without new cycles or broad churn.
 - Runner-subagents and terminal are dispositioned as split/neutral surfaces: the dispatch tool is extracted to `@sdl/pi-runner-subagents`, runner runtime/process/JSON-event helpers remain `@sdl/pi/runner-subagents*`, and terminal layout/presentation remains `@sdl/pi/terminal/*`.
-- For PR feedback, Handoff, Branch Context, Objective, and Plans-adjacent Pi surfaces, which remaining logic is presentation-only and which belongs in the owning Capability package/API?
-- Should successful extraction of the first two Pi-native tools update `sdl-extension-architecture`, create narrower child Objectives, or remain tracked only here until closure?
+- Capability mirror rebaseline answer: Handoff, Branch Context + Plans, and Objective are thin Pi shells over their owning Capability APIs; PR feedback is not a Pi-tool candidate and remains Pi presentation/session residue around `pr-address` portable collection/mutation behavior unless a future focused `pr-address` Capability/API follow-up moves reusable watch/fingerprint seams.
+- Successful Pi-tool extraction evidence remains tracked in this Objective through closure; no `sdl-extension-architecture` update or new child Objective is needed unless future work changes Capability layering rather than Pi host decomposition.
+
+## Closure
+
+Outcome: completed. `@sdl/pi` is no longer treated as the home for large Pi-native feature subsystems or vertically integrated capability-domain logic. The host now has recorded, evidence-backed boundaries for extracted Pi tools, intentional neutral helper/runtime/presentation exports, thin capability mirrors, and accepted Pi presentation residue.
+
+Key completion evidence:
+
+- `context-profiler` was extracted to `@sdl/pi-context-profiler` with source, focused tests, parity metadata, direct project-local discovery registration, and neutral helper seams for terminal layout and LM JSON parsing.
+- The reference extraction recipe was applied to `@sdl/pi-grill`, `@sdl/pi-runner-subagents`, and `@sdl/pi-thermo-council`, while preserving the dependency direction that extracted Pi-tool packages depend on `@sdl/pi` and `@sdl/pi` does not import them.
+- `runner-subagents` and `terminal` were dispositioned with runtime-boundary evidence: dispatch behavior moved above the host, while runner runtime/process/JSON-event helpers and terminal layout/presentation remain intentional neutral `@sdl/pi/...` helper surfaces.
+- The capability-mirror lane was rebaselined: Handoff, Branch Context + Plans, and Objective are thin Pi shells over their owning Capability APIs; PR feedback is not a Pi-tool candidate and remains Pi presentation/session residue around portable `pr-address` behavior.
+- `ts/packages/hosts/pi/CONTEXT.md`, `CONTEXT-MAP.md`, and this Objective now record the final convention future agents should apply when choosing between a Pi-tool package, a thin capability mirror, and a neutral host helper surface.
+- Local validation evidence across the slices includes focused package tests, host parity/handoff tests, `pnpm --dir ts run check`, `pnpm --dir ts run test`, `just ts-deps-check`, `just ts-guard`, `just ts-format-check`, `just ts-lint`, `just dprint-check`, `git diff --check`, and full `just` where recorded in Semantic Updates.
+
+Caveats and follow-ups:
+
+- Do not force runner runtime/process/JSON-event helpers or terminal layout/presentation helpers out of `@sdl/pi` without new acyclic evidence.
+- If PR feedback is thinned further, it should be a focused `pr-address` Capability/API follow-up, not a Pi-tool package extraction.
+- Broader `sdl-extension-architecture` work, including transitional-package retirement and unrelated Capability layering, remains outside this Objective.
+- The durable rule that should survive this initiative is already reflected in context language and should be preserved in future architecture guidance: `@sdl/pi` is a thin Presentation Host; Pi-native standalone tools stack above it, and capability domain logic belongs in owning Capabilities.
