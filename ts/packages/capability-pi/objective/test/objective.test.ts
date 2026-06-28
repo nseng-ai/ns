@@ -1,12 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ScriptedQueue } from "@sdl/core/testing";
 import type {
+	ObjectiveClient,
 	ObjectiveListResult,
 	ObjectiveSelectionContext,
 	ObjectiveSelectionListLoadResult,
@@ -20,8 +19,6 @@ import objectiveExtension, {
 	type NotifyLevel,
 } from "../src/extension.ts";
 import type { AgentEndContext, ExecOptions, SessionStartContext } from "@sdl/pi/runtime/types";
-
-const execFileAsync = promisify(execFile);
 
 const ROOT = "/repo";
 const TRUNK = "master";
@@ -295,24 +292,6 @@ async function withTempSkill<T>(
 	}
 }
 
-async function withTempObjectiveRepo<T>(callback: (cwd: string) => Promise<T>): Promise<T> {
-	const repoDir = await mkdtemp(join(tmpdir(), "objective-list-"));
-	try {
-		await execFileAsync("git", ["init", "-b", "main"], { cwd: repoDir });
-		const objectiveDir = join(repoDir, ".sdl", "objectives", "alpha", "updates");
-		await mkdir(objectiveDir, { recursive: true });
-		await writeFile(
-			join(repoDir, ".sdl", "objectives", "alpha", "objective.md"),
-			"# Alpha\n",
-			"utf8",
-		);
-		await writeFile(join(objectiveDir, "2026-05-20T10:00:00Z-progress.md"), "progress\n", "utf8");
-		return await callback(repoDir);
-	} finally {
-		await rm(repoDir, { recursive: true, force: true });
-	}
-}
-
 type ObjectiveCommandContextOptions = {
 	cancelSelect?: boolean;
 	selectIndex?: number;
@@ -392,6 +371,7 @@ async function runObjectiveList(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
+	objectiveClient: ObjectiveClient | undefined = undefined,
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -399,7 +379,10 @@ async function runObjectiveList(
 	waitForIdleCalls: () => number;
 }> {
 	const pi = new FakePi(script);
-	objectiveExtension(pi);
+	objectiveExtension(
+		pi,
+		objectiveClient === undefined ? {} : { createObjectiveClient: () => objectiveClient },
+	);
 	const command = pi.commands.get("objective:list");
 	expect(command).toBeDefined();
 	if (!command) {
@@ -498,6 +481,20 @@ function statusStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedE
 	});
 }
 
+function fakeObjectiveListClient(
+	listObjectives: ObjectiveClient["listObjectives"],
+): ObjectiveClient {
+	return {
+		listObjectives,
+		async readObjective() {
+			throw new Error("unexpected readObjective call");
+		},
+		async listActiveCandidates() {
+			throw new Error("unexpected listActiveCandidates call");
+		},
+	};
+}
+
 async function objectiveCommandCompletions(
 	commandName: ObjectiveCommandName,
 	prefix: string,
@@ -520,19 +517,44 @@ async function objectiveCommandCompletions(
 
 describe("objective:list command", () => {
 	test("renders accepted status arguments through the Objective Capability API", async () => {
-		await withTempObjectiveRepo(async (cwd) => {
-			const result = await runObjectiveList("--names --minimal --status all", [], { cwd });
-
-			result.pi.assertDone();
-			expect(result.pi.execCalls).toEqual([]);
-			expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
-			expect(result.pi.sentMessages[0]).toMatchObject({
-				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-				content: "alpha\n",
-				details: {
-					argv: ["list", "--names", "--minimal", "--status", "all"],
+		const listRequests: unknown[] = [];
+		const objectiveClient = fakeObjectiveListClient(async (request) => {
+			listRequests.push(request);
+			return {
+				ok: true,
+				result: {
+					trunkBranch: "main",
+					rootPath: ".sdl/objectives",
+					statusFilter: "all",
+					namesOnly: true,
+					records: [
+						{
+							slug: "alpha",
+							status: "open",
+							latestUpdateIso: "2026-05-20T10:00:00Z",
+							hasOutstandingChanges: false,
+						},
+					],
 				},
-			});
+			};
+		});
+		const result = await runObjectiveList(
+			"--names --minimal --status all",
+			[],
+			{},
+			objectiveClient,
+		);
+
+		result.pi.assertDone();
+		expect(listRequests).toEqual([{ names: true, minimal: true, status: "all" }]);
+		expect(result.pi.execCalls).toEqual([]);
+		expect(result.pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
+		expect(result.pi.sentMessages[0]).toMatchObject({
+			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+			content: "alpha\n",
+			details: {
+				argv: ["list", "--names", "--minimal", "--status", "all"],
+			},
 		});
 	});
 

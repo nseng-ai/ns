@@ -4,6 +4,7 @@ import { flowAutobranchCommand } from "../../src/commands/autobranch.ts";
 import { flowAutoslotCommand } from "../../src/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/commands/changes.ts";
+import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/commands/exec-read-graphite-branch-metadata.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
 import { flowPullTrunkCommand } from "../../src/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/commands/push.ts";
@@ -93,6 +94,20 @@ export function runFlowBranchLatestCommitCommandWithFakes(
 		options,
 		defaults: options.defaults ?? {
 			execResponses: branchLatestCommitHappyExec,
+			textGenerationResults: () => [],
+		},
+	});
+}
+
+export function runFlowExecReadGraphiteBranchMetadataCommandWithFakes(
+	options: RunFlowCommandWithFakesOptions = {},
+) {
+	return runFlowCommandWithFakes({
+		command: flowExecReadGraphiteBranchMetadataCommand,
+		request: options.request ?? { dbPath: "/work/.git/.graphite_metadata.db" },
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [],
 			textGenerationResults: () => [],
 		},
 	});

@@ -17,6 +17,8 @@ import { type ExecResult } from "@sdl/core/exec";
 import {
 	completeObjectiveListArgs,
 	createObjectiveClient,
+	type ObjectiveClient,
+	type ObjectiveClientOptions,
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
@@ -76,6 +78,10 @@ const OBJECTIVE_LIST_COMMAND = {
 	getArgumentCompletions: completeObjectiveListArgs,
 	mapParsedArgs: mapObjectiveListParsedArgs,
 } satisfies CliCommandInfo;
+
+export interface ObjectiveExtensionOptions {
+	createObjectiveClient?: (options: ObjectiveClientOptions) => ObjectiveClient;
+}
 
 interface InvokeObjectiveCreateSkillOptions {
 	pi: ObjectiveExtensionAPI;
@@ -326,6 +332,7 @@ function mapObjectiveListParsedArgs(args: readonly string[]): ParsedCliCommandAr
 async function runObjectiveCliCommand(
 	argv: readonly string[],
 	deps: CliCommandRunDeps,
+	options: ObjectiveExtensionOptions = {},
 ): Promise<number> {
 	const commandName = argv[0];
 	if (commandName !== "list") {
@@ -333,12 +340,13 @@ async function runObjectiveCliCommand(
 		return 2;
 	}
 
-	return await runObjectiveListCommand(argv.slice(1), deps);
+	return await runObjectiveListCommand(argv.slice(1), deps, options);
 }
 
 async function runObjectiveListCommand(
 	args: readonly string[],
 	deps: CliCommandRunDeps,
+	options: ObjectiveExtensionOptions = {},
 ): Promise<number> {
 	const parsed = parseObjectiveListArgTokens(args);
 	if (parsed.type === "invalid") {
@@ -352,7 +360,8 @@ async function runObjectiveListCommand(
 	}
 
 	const request = objectiveListRequestFromParsedArgs(parsed.args);
-	const listing = await createObjectiveClient({ cwd: deps.cwd }).listObjectives(request);
+	const objectiveClientFactory = options.createObjectiveClient ?? createObjectiveClient;
+	const listing = await objectiveClientFactory({ cwd: deps.cwd }).listObjectives(request);
 	if (!listing.ok) {
 		deps.stderr(`Error: ${listing.failure.message}\n`);
 		return 1;
@@ -448,7 +457,10 @@ export const objectiveParity = definePiSurfaceParity([
 	),
 ] as const);
 
-export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
+export default function objectiveExtension(
+	pi: ObjectiveExtensionAPI,
+	options: ObjectiveExtensionOptions = {},
+): void {
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi);
 
 	registerCliCommandExtension(pi, {
@@ -456,7 +468,7 @@ export default function objectiveExtension(pi: ObjectiveExtensionAPI): void {
 		piNamespace: "objective",
 		commands: [OBJECTIVE_LIST_COMMAND],
 		piCommandAliases: { list: OBJECTIVE_LIST_COMMAND_NAME },
-		runCli: runObjectiveCliCommand,
+		runCli: async (args, deps) => await runObjectiveCliCommand(args, deps, options),
 	});
 
 	registerCommandWithImmediateAck({
