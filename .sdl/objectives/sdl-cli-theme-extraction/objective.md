@@ -68,3 +68,13 @@ This Objective starts with the package boundary change, then deliberately reasse
 - Caps-resolution placement is resolved: keep Flow's `SdlExtensionApi`-aware stream caps resolver Flow-local for now; Clinkr owns generic caps/process/host-extension primitives, and `@sdl/cli-theme` remains a pure consumer of injected `Caps`.
 - Table rendering is resolved: keep `@sdl/core/text-table` and `@sdl/cli-theme` `renderTable` intentionally distinct; add no Markdown table composer until repeated domain-free Markdown boilerplate appears.
 - Status-to-intent helper placement is resolved: keep theme-owned closed visual grammars in `@sdl/cli-theme`, but keep domain status policy, routing, exit behavior, and command-specific status cells local.
+
+## Closure
+
+Outcome: completed. SDL house-style CLI presentation now has a dedicated `@sdl/cli-theme` package, live consumers use that package instead of `@sdl/clinkr/theme`, Clinkr no longer owns or exports the SDL house-style theme subpath, and boundary tests cover the intended dependency direction.
+
+The post-extraction consolidation candidates were each reconciled against the new boundary. Outcome mapping, success-with-warnings behavior, caps host resolution, Slot navigation rendering, table/Markdown composition, and status-to-intent mapping are either implemented at the appropriate local seam or intentionally kept out of the theme package with rationale recorded in Semantic Updates. Package/context guidance now records Clinkr as the generic command/runtime/caps/IO/stream substrate and `@sdl/cli-theme` as the owner of SDL house-style presentation primitives.
+
+The parked items remain intentionally parked rather than blockers: moving `@sdl/clinkr/stream` requires future evidence that streaming display grammar is SDL-specific rather than generic terminal mechanics; broad result-block redesign requires a new concrete surface; and hidden `exec`/agent-only styling remains outside normal CLI UX rollout criteria.
+
+Durable rule candidate from the closed orientation: keep SDL-specific presentation primitives out of Clinkr, use `@sdl/cli-theme` for house-style CLI presentation, and keep caps/IO/exit/domain policy in Clinkr or command/capability packages rather than the theme package.
