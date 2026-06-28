@@ -78,7 +78,7 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (SDL kernel `@sdl/sdl` + the `sdl-sdk` package), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (SDL kernel `@sdl/kernel` + the `sdl-sdk` package), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 

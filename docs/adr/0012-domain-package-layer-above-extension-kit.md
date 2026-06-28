@@ -30,7 +30,7 @@ feature area implemented as one. The name "Extension Kit" is reserved for a futu
 substrate for building *all* extensions, third-party included.
 
 **Domain logic lives only in the Capabilities.** The `@sdl/pi` runtime host and the
-`@sdl/sdl` kernel must not own capability domain. When a downstream **consumer** extension
+`@sdl/kernel` kernel must not own capability domain. When a downstream **consumer** extension
 needs capability domain in-process, it consumes the providing capability's **Capability
 API** (`@sdl/<cap>/api`) — it does not reach into the `@sdl/pi` runtime host. Capability domain
 currently stranded in `@sdl/pi/*` is relocated into its owning capability and re-consumed
@@ -49,21 +49,21 @@ Capabilities  (first-party Extensions, above the Capability Kit)   <- most domai
         |  built on
 Capability Kit  (@sdl/capability-kit, thin)                  <- ctx->gateway adapter
         |                                                       + shared result/error shapes
-SDK  (SDL kernel @sdl/sdl + sdl-sdk package)
+SDK  (SDL kernel @sdl/kernel + sdl-sdk package)
         |
 Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem)
 ```
 
 ## Consequences
 
-- Making `ccc` a clean **consumer** now means removing both `@sdl/sdl/*`
+- Making `ccc` a clean **consumer** now means removing both `@sdl/kernel/*`
   internal-subpath imports **and** `@sdl/pi/*` domain imports in favor of Capability APIs.
 - Phase-2 completion of the `sdl-extension-architecture` Objective requires that no
   capability domain remains in `@sdl/pi`; the `@sdl/pi` runtime host consumes capability
   domain through Capability APIs only.
 - Each per-capability migration gains a structural test: `@sdl/<cap>` sits among the
   Capabilities (depends on the Capability Kit), owns its domain logic there, and does not
-  scatter domain into `@sdl/pi` or `@sdl/sdl`.
+  scatter domain into `@sdl/pi` or `@sdl/kernel`.
 - `@sdl/capability-kit` is held to its thin-substrate role: shared, capability-agnostic
   plumbing only — it is not a second home for domain logic.
 

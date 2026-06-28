@@ -1,7 +1,7 @@
 // Slot intentionally exports a mountable command face rather than a standalone
 // `defineCli` entrypoint. The supported user-facing surface is `sdl slot ...`,
 // so root CLI metadata such as `--version` and `--runtime` stays owned by
-// `@sdl/sdl` instead of this capability package.
+// `@sdl/kernel` instead of this capability package.
 import { ClinkrGroup } from "@sdl/clinkr";
 
 import type { SlotCliContext } from "./context.ts";

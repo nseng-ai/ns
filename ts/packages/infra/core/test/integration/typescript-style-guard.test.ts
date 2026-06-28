@@ -259,7 +259,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/handoff",
 		"@sdl/handoff-pi",
 		"@sdl/pi",
-		"@sdl/sdl",
+		"@sdl/kernel",
 		"@sdl/slot",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
@@ -271,7 +271,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@sdl/handoff", "capability"],
 		["@sdl/handoff-pi", "capability-pi"],
 		["@sdl/pi", "host"],
-		["@sdl/sdl", "sdk"],
+		["@sdl/kernel", "sdk"],
 		["@sdl/slot", "capability"],
 	]);
 	const cases: readonly TierLayeringCase[] = [
@@ -297,12 +297,12 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "sdk to capability is rejected",
-			edges: [{ from: "@sdl/sdl", to: "@sdl/handoff" }],
+			edges: [{ from: "@sdl/kernel", to: "@sdl/handoff" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "allowlisted sdk to capability debt is accepted",
-			edges: [{ from: "@sdl/sdl", to: "@sdl/slot" }],
+			edges: [{ from: "@sdl/kernel", to: "@sdl/slot" }],
 			expectedViolation: false,
 		},
 		{
@@ -392,12 +392,12 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 		"@sdl/branch-context",
 		"@sdl/ccc",
 		"@sdl/pi",
-		"@sdl/sdl",
+		"@sdl/kernel",
 	]);
 	const legacyDeferredCycleEdges: readonly SyntheticEdge[] = [
 		{ from: "@sdl/autobranch", to: "@sdl/pi" },
-		{ from: "@sdl/pi", to: "@sdl/sdl" },
-		{ from: "@sdl/sdl", to: "@sdl/autobranch" },
+		{ from: "@sdl/pi", to: "@sdl/kernel" },
+		{ from: "@sdl/kernel", to: "@sdl/autobranch" },
 	];
 	const cases: readonly DependencyGraphCase[] = [
 		{

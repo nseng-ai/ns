@@ -1,5 +1,5 @@
 {
-  "name": "@sdl/sdl",
+  "name": "@sdl/kernel",
   "version": "0.1.0",
   "private": true,
   "description": "Emerging customer-facing Source Development Lifecycle CLI.",
@@ -25,7 +25,7 @@
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/sdl/test"
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/kernel/test"
   },
   "dependencies": {
     "@earendil-works/pi-ai": "catalog:",

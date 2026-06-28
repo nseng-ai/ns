@@ -6,7 +6,7 @@ import {
 import { renderResultBlock } from "@sdl/cli-theme";
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
-import { commandIoFromSdlExtensionApi } from "@sdl/sdl/command-io";
+import { commandIoFromSdlExtensionApi } from "@sdl/kernel/command-io";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import { renderAutobranchFailureResultBlock } from "../shared/autobranch-result-block.ts";

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { listSdlCommands } from "@sdl/sdl/cli";
+import { listSdlCommands } from "@sdl/kernel/cli";
 
 import {
 	formattedExecCalls,

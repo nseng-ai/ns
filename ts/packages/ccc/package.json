@@ -29,7 +29,7 @@
     "@sdl/objective": "workspace:*",
     "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
-    "@sdl/sdl": "workspace:*",
+    "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",
     "zod": "catalog:"
   },

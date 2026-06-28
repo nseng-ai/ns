@@ -9,7 +9,7 @@ const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../ccc/", import.meta.url));
-const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../sdl/", import.meta.url));
+const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
@@ -18,7 +18,7 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
-	"@sdl/sdl/cli",
+	"@sdl/kernel/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
@@ -31,10 +31,10 @@ const CCC_WORKSPACE_IMPORTS = [
 const SDL_EXPORT_IMPORTS = [
 	"@sdl/domain-primitives-transitional/checkpoint-flow",
 	"@sdl/domain-primitives-transitional/checkpoint-message",
-	"@sdl/sdl/cli",
-	"@sdl/sdl/context",
+	"@sdl/kernel/cli",
+	"@sdl/kernel/context",
 	"@sdl/domain-primitives-transitional/pending-worktree",
-	"@sdl/sdl/pi-text-generation",
+	"@sdl/kernel/pi-text-generation",
 	"sdl-sdk",
 	"@sdl/domain-primitives-transitional/text-generation",
 	"@sdl/domain-primitives-transitional/text-repair",
@@ -132,13 +132,13 @@ describe("Node runtime import smoke", () => {
 		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 
-	test("sdl package imports every declared export subpath under Node", () => {
+	test("kernel package imports every declared export subpath under Node", () => {
 		const result = runNodeEval({
 			cwd: SDL_PACKAGE_ROOT,
 			source: buildPackageImportScript(SDL_EXPORT_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result, { cwd: SDL_PACKAGE_ROOT, label: "sdl package imports" });
+		expectSuccessfulNodeRun(result, { cwd: SDL_PACKAGE_ROOT, label: "kernel package imports" });
 		expect(result.stdout).toContain("imported 9 package specifiers");
 	});
 });
