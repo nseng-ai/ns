@@ -29,8 +29,29 @@ describe("flow autobranch command outcomes", () => {
 		expect(stdout).not.toContain("Exit:");
 		expect(stdout).not.toContain("Killed:");
 		expect(stdout).not.toContain("stdout:");
-		const calls = formattedExecCalls(run.context);
-		expect(calls).toContain("gt create move-work --no-interactive --no-ai");
+		expect(formattedExecCalls(run.context)).toEqual([
+			"git rev-parse --show-toplevel",
+			"git symbolic-ref --short HEAD",
+			"git status --porcelain=v1",
+			"git diff HEAD --no-ext-diff",
+			"git check-ref-format --branch move-work",
+			"git show-ref --verify --quiet refs/heads/move-work",
+			"git for-each-ref --format=%(refname) refs/heads/move-work/",
+			expect.stringMatching(/^git stash push --include-untracked -m pi-autobranch:\d+:move-work$/),
+			"git stash list --format=%gd%x00%s",
+			"gt create move-work --no-interactive --no-ai",
+			"git stash pop stash@{0}",
+			"git add -A",
+			expect.stringMatching(/^git commit -F /),
+			"git log -1 --oneline",
+			"git status --porcelain=v1",
+		]);
+		expect(run.context.execCalls.some((call) => call.command === "pi")).toBe(false);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]).toMatchObject({
+			operation: "checkpoint-message",
+			modelRef: "openai-codex/gpt-5.4-mini",
+		});
 	});
 
 	test("clean worktree refuses with a warn block on stderr and does not run the flow", async () => {
@@ -78,6 +99,7 @@ describe("flow autobranch command outcomes", () => {
 		const calls = formattedExecCalls(run.context);
 		expect(calls.some((call) => call.startsWith("gt create"))).toBe(false);
 		expect(run.context.execCalls.some((call) => call.args.includes("stash"))).toBe(false);
+		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
 	test("snapshot load failure exits 1 on stderr with a failure block", async () => {

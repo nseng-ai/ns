@@ -93,6 +93,57 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
+	test("real loader exposes branch-latest-commit help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+
+		const help = runWithRealFlowExtension({
+			args: ["flow", "branch-latest-commit", "--help"],
+			cwd,
+		});
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl flow branch-latest-commit");
+		expect(output).toContain("--slug");
+		expect(output).toContain("clean worktree");
+		expect(output).toContain("latest eligible unpushed single-parent commit");
+		expect(output).toContain("does not push, publish, submit, or update PRs");
+		expect(output).toContain("sdl flow autobranch");
+		expect(output).not.toContain("stashes pending changes");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({
+			args: ["flow", "branch-latest-commit", "--json-schema"],
+			cwd,
+		});
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+		expect(schema.stdout.join("")).toContain("latest commit");
+		expect(schema.stdout.join("")).toContain("slug");
+	});
+
+	test("real loader exposes autobranch help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+
+		const help = runWithRealFlowExtension({ args: ["flow", "autobranch", "--help"], cwd });
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("");
+		expect(output).toContain("Usage: sdl flow autobranch");
+		expect(output).toContain("--slug");
+		expect(output).toContain("gt create");
+		expect(output).toContain("dirty worktree changes");
+		expect(output).toContain("sdl flow branch-latest-commit");
+		expect(output).not.toContain(["eligible unpushed", "non-merge commit"].join(" "));
+		expect(output).toContain("SDL_SLUG_MODEL");
+		expect(output).toContain("SDL_CHECKPOINT_MODEL");
+		expect(output).toContain("SDL_DEV_CHECKPOINT_MODEL");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({ args: ["flow", "autobranch", "--json-schema"], cwd });
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+		expect(schema.stdout.join("")).toContain("slug");
+	});
+
 	test("real loader rejects unexpected push arguments before git or model calls", async () => {
 		const cwd = await createFlowProject();
 		const run = runWithRealFlowExtension({ args: ["flow", "push", "unexpected"], cwd });
