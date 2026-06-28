@@ -3,10 +3,11 @@ import {
 	exitCodeForExit,
 	toMachineEnvelope,
 	type ClinkrExit,
+	type ClinkrNegativeExit,
 	type ClinkrOkExit,
 } from "./exit.ts";
 import { stripAnsi } from "./ansi.ts";
-import type { Caps } from "./caps.ts";
+import { resolveSettledNonInteractiveCaps, type Caps } from "./caps.ts";
 import type { ClinkrIo } from "./io.ts";
 
 export type ClinkrFormat = "human" | "json" | "markdown";
@@ -17,6 +18,10 @@ export interface RenderCapabilities {
 	canEmitAnsi: boolean;
 	/** Full terminal capabilities for the resolved output sink. */
 	caps?: Caps | undefined;
+}
+
+export function resolveRenderCapabilities(renderCapabilities: RenderCapabilities): Caps {
+	return renderCapabilities.caps ?? resolveSettledNonInteractiveCaps();
 }
 
 export interface EmitExitOptions<T> {
@@ -39,9 +44,11 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 			options.io.stdout(`${renderOkExit(exit, options)}\n`);
 			return 0;
 		}
-		case "negative":
-			options.io.stderr(`${exit.message}\n`);
+		case "negative": {
+			const rendered = renderNegativeExit(exit, options);
+			options.io.stderr(`${rendered}\n`);
 			return 1;
+		}
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
 			return 2;
@@ -52,12 +59,22 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 }
 
 function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {
-	const caps: RenderCapabilities = {
+	const caps = renderCapabilities(options);
+	const rendered = renderOkExitText(exit, options, caps);
+	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
+}
+
+function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOptions<T>): string {
+	if (exit.human === undefined) return exit.message;
+	const caps = renderCapabilities(options);
+	return caps.canEmitAnsi ? exit.human : stripAnsi(exit.human);
+}
+
+function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities {
+	return {
 		canEmitAnsi: options.io.canEmitAnsi === true,
 		caps: options.io.caps,
 	};
-	const rendered = renderOkExitText(exit, options, caps);
-	return caps.canEmitAnsi ? rendered : stripAnsi(rendered);
 }
 
 function renderOkExitText<T>(

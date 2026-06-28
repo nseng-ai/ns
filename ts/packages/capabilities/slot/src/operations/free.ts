@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@sdl/clinkr";
+import { failure, negative, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../collections.ts";
@@ -19,6 +19,7 @@ import {
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
+import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
 import { cleanupSchema, freedSlotSchema } from "./result-schemas.ts";
 
 export const freeRequestSchema = z.object({
@@ -128,21 +129,59 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		isCancelled: false,
 	});
 	if (cleanupErrorCount(result.cleanup) > 0)
-		return negative("Slot free completed with cleanup errors.", result);
+		return negative("Slot free completed with cleanup errors.", result, {
+			human: renderFree(result),
+		});
 	return ok(result);
 }
 
-export function renderFree(result: FreeResult): string {
-	if (result.cancelled) return "Cancelled slot free.";
+export function renderFree(
+	result: FreeResult,
+	caps: RenderCapabilities = { canEmitAnsi: false },
+): string {
+	const targets = result.dry_run ? result.would_free : result.freed;
+	if (result.cancelled) {
+		return renderSlotDestructiveResultBlock(caps, {
+			kind: "refusal",
+			headline: "Cancelled slot free.",
+			body: renderFreeDetails(result, targets),
+		});
+	}
+	const cleanupErrors = cleanupErrorCount(result.cleanup);
+	if (cleanupErrors > 0) {
+		return renderSlotDestructiveResultBlock(caps, {
+			kind: "failure",
+			headline: "Slot free completed with cleanup errors.",
+			body: renderFreeDetails(result, targets),
+		});
+	}
+	const headline = result.dry_run
+		? dryRunHeadline(targets.length)
+		: freeSuccessHeadline(targets.length);
+	return renderSlotDestructiveResultBlock(caps, {
+		kind: "success",
+		headline,
+		body: renderFreeDetails(result, targets),
+	});
+}
+
+function renderFreeDetails(result: FreeResult, targets: readonly FreedSlot[]): string | undefined {
 	const lines: string[] = [];
-	for (const slot of result.dry_run ? result.would_free : result.freed)
+	for (const slot of targets)
 		lines.push(
 			`${result.dry_run ? "Would free" : "Freed"} ${slot.slot_name} -> ${slot.branch_name}`,
 		);
 	lines.push(...result.skipped);
-	lines.push(...renderCleanupLines(result.cleanup));
-	if (lines.length === 0) return result.dry_run ? "No slots would be freed." : "No slots freed.";
-	return lines.join("\n");
+	lines.push(...renderCleanupLines(result.cleanup, { isDryRun: result.dry_run }));
+	return lines.length === 0 ? undefined : lines.join("\n");
+}
+
+function dryRunHeadline(targetCount: number): string {
+	return targetCount === 0 ? "No slots would be freed." : `Would free ${targetCount} slot(s).`;
+}
+
+function freeSuccessHeadline(targetCount: number): string {
+	return targetCount === 0 ? "No slots freed." : `Freed ${targetCount} slot(s).`;
 }
 
 function resolveTargets(

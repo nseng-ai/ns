@@ -74,6 +74,23 @@ describe("slot free CLI", () => {
 		expect(run.pr.operations()).toEqual([{ type: "get-pr-for-branch", branch: "feature/a" }]);
 	});
 
+	it("renders human dry-run summary through the destructive result block", async () => {
+		const run = runScenario(["free", "-n", "1", "--all", "--dry-run"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/a")],
+				localBranches: ["master", "feature/a"],
+			},
+			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const stdout = run.stdout.join("");
+		expect(stdout).toContain("Would free 1 slot(s).");
+		expect(stdout).toContain("Would free slot-01 -> feature/a");
+		expect(stdout).toContain("PR: close #12");
+		expect(stdout).not.toContain("\u001B[");
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("requires --yes for destructive --all in JSON mode", async () => {
 		const run = runScenario(["free", "--wt", "slot-01", "--all", "--format", "json"], {
 			git: {
@@ -164,5 +181,39 @@ describe("slot free CLI", () => {
 			{ type: "get-pr-for-branch", branch: "feature/a" },
 			{ type: "close-pr", number: 12 },
 		]);
+	});
+
+	it("renders cleanup failures as destructive errors while preserving negative JSON", async () => {
+		const json = runScenario(["free", "-b", "feature/a", "--all", "--yes", "--format", "json"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/a")],
+				localBranches: ["master", "feature/a"],
+			},
+			pr: {
+				prsByBranch: { "feature/a": { number: 12, state: "OPEN" } },
+				closeFailures: { 12: "permission denied" },
+			},
+		});
+		expect(await json.exit).toBe(1);
+		expect(parseJsonOutput(json)).toMatchObject({
+			message: "Slot free completed with cleanup errors.",
+			data: { cleanup: [{ action: "pr", status: "error", message: "permission denied" }] },
+		});
+
+		const human = runScenario(["free", "-b", "feature/a", "--all", "--yes"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/a")],
+				localBranches: ["master", "feature/a"],
+			},
+			pr: {
+				prsByBranch: { "feature/a": { number: 12, state: "OPEN" } },
+				closeFailures: { 12: "permission denied" },
+			},
+		});
+		expect(await human.exit).toBe(1);
+		expect(human.stdout.join("")).toBe("");
+		const stderr = human.stderr.join("");
+		expect(stderr).toContain("Slot free completed with cleanup errors.");
+		expect(stderr).toContain("✗ Failed to close PR #12: permission denied");
 	});
 });

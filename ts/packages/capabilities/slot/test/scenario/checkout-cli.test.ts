@@ -38,14 +38,16 @@ describe("slot checkout CLI", () => {
 		]);
 	});
 
-	it("co alias routes to checkout", async () => {
-		const run = runScenario(["co", "feature/a", "--format", "json"], {
+	it("co alias routes through the checkout human renderer", async () => {
+		const run = runScenario(["co", "feature/a"], {
 			git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
-			data: { slot_name: "slot-01", branch_name: "feature/a" },
-		});
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ Checked out slot-01 -> feature/a",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
 	});
 
 	it("renders house-style human navigation output", async () => {
@@ -61,6 +63,50 @@ describe("slot checkout CLI", () => {
 			"cd /slots/repos/repo/worktrees/slot-01",
 			"Copied cd command to clipboard.",
 		]);
+	});
+
+	it("renders --current redirect notes before the bare cd line", async () => {
+		const run = runScenario(["checkout", "--current"], {
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [
+					{ path: "/repo", branch: "feature/a" },
+					{ path: "/other", branch: "master" },
+					slotWorktree("slot-01"),
+				],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join("")).trimEnd().split("\n")).toEqual([
+			"✓ Checked out slot-01 -> feature/a",
+			"Trunk branch 'master' is checked out in /other; left /repo on a detached HEAD at feature/a.",
+			"cd /slots/repos/repo/worktrees/slot-01",
+			"Copied cd command to clipboard.",
+		]);
+	});
+
+	it("preserves distinct already-assigned human headlines", async () => {
+		const main = runScenario(["checkout", "feature/a"], {
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [{ path: "/repo", branch: "feature/a" }, slotWorktree("slot-01")],
+			},
+		});
+		expect(await main.exit).toBe(0);
+		expect(stripAnsi(main.stdout.join("")).trimEnd().split("\n")[0]).toBe(
+			"✓ feature/a is already checked out in the main worktree at /repo",
+		);
+
+		const slot = runScenario(["checkout", "feature/a"], {
+			git: {
+				localBranches: ["master", "feature/a"],
+				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
+			},
+		});
+		expect(await slot.exit).toBe(0);
+		expect(stripAnsi(slot.stdout.join("")).trimEnd().split("\n")[0]).toBe(
+			"✓ feature/a is already assigned to slot-01",
+		);
 	});
 
 	it("reports missing branch without mutation", async () => {

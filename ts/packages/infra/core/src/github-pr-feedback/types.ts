@@ -21,7 +21,7 @@ export interface GithubPrReview {
 	readonly author: string;
 	readonly body: string;
 	readonly state: string;
-	readonly submittedAt: string;
+	readonly submittedAt: string | null;
 }
 
 export interface GithubPrReviewComment {

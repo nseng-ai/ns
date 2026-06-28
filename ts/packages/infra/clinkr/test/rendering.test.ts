@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrFailure, ClinkrGroup, negative, ok, type ClinkrExit } from "../src/index.ts";
+import {
+	ClinkrFailure,
+	ClinkrGroup,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type ClinkrExit,
+} from "../src/index.ts";
 import type { Caps } from "../src/caps.ts";
 import { runForTest } from "../src/testing/index.ts";
 
@@ -63,6 +70,25 @@ function buildMarkdownGroup(
 	return { group, humanCalls: () => humanCalls, markdownCalls: () => markdownCalls };
 }
 
+describe("resolveRenderCapabilities", () => {
+	test("uses sink caps when present", () => {
+		const caps: Caps = {
+			isTty: false,
+			colorDepth: "none",
+			columns: 72,
+			canRenderUnicode: false,
+		};
+		expect(resolveRenderCapabilities({ canEmitAnsi: false, caps })).toBe(caps);
+	});
+
+	test("falls back to settled non-interactive caps", () => {
+		expect(resolveRenderCapabilities({ canEmitAnsi: false })).toMatchObject({
+			isTty: false,
+			colorDepth: "none",
+		});
+	});
+});
+
 describe("renderHuman", () => {
 	test("renders the ok data as a string the dispatcher writes", async () => {
 		const { group } = buildGroup("ok");
@@ -71,13 +97,27 @@ describe("renderHuman", () => {
 		expect(run.stdout).toBe("plans: 2\n");
 	});
 
-	test("is not called for the negative channel", async () => {
+	test("is not called for the negative channel when no data is attached", async () => {
 		const { group, renderCalls } = buildGroup("negative");
 		const run = await runForTest(group, ["act"], { context: null });
 		expect(run.exitCode).toBe(1);
 		expect(run.stdout).toBe("");
 		expect(run.stderr).toBe("none\n");
 		expect(renderCalls()).toBe(0);
+	});
+
+	test("negative human override renders to stderr", async () => {
+		const group = new ClinkrGroup<null>({ name: "probe" });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => negative("none", { count: 2 }, { human: "rendered negative" }),
+			renderHuman: (data) => `plans: ${data.count}`,
+		});
+		const run = await runForTest(group, ["act"], { context: null });
+		expect(run.exitCode).toBe(1);
+		expect(run.stdout).toBe("");
+		expect(run.stderr).toBe("rendered negative\n");
 	});
 
 	test("is not called in json mode", async () => {

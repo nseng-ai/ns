@@ -179,17 +179,28 @@
       `resultBlockHeadline`) after the repeated-shape precondition fired across Flow and CCC; git
       transcript rendering remains flow-local around the shared headline helper. Still parked:
       colorizing the CLI streaming progress lines. `flow land` is now Done.
-- [ ] Stabilize actionable shell/navigation rendering, then migrate currently eligible Slot command-face
+- [x] Stabilize actionable shell/navigation rendering, then migrate currently eligible Slot command-face
       surfaces: `sdl slot checkout/co/goto` and `sdl slot gt up/down`. Re-evaluate shell-wrapper commands
       only if/when they gain an SDL extension / Capability command face.
-      Pilot landed with `sdl slot goto`: a Slot-local navigation presentation helper now renders the
-      house-style success headline and clipboard guidance while the `cd ...` command remains a bare,
-      unstyled, copyable line. JSON output, clipboard side effects, and Shell Directive behavior are
-      unchanged. Remaining consumers for this row are `checkout/co` and `gt up/down`; clinkr-wide
-      navigation extraction stays deferred until those repeated consumers prove the shape.
-- [ ] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
+      **Done 2026-06-28.** The `sdl slot goto` pilot's Slot-local navigation presentation helper now
+      covers `checkout`, `co`, `gt up`, and `gt down`: all human success output routes through
+      `renderSlotNavigationSuccess`, keeps the generated `cd ...` command bare/unstyled/copyable, and
+      preserves clipboard copied/failure/skipped guidance plus JSON and Shell Directive behavior. Scenario
+      coverage verifies checkout/co alias rendering, `--current` redirect details, already-assigned
+      headlines, GT existing-slot/new-checkout/main-worktree/no-clipboard variants, negative exits, and
+      old boolean-name regressions; renderer unit coverage verifies unicode/ascii degradation and
+      copyability. The helper fits the repeated Slot consumers without awkward command-specific hacks, so
+      it is stable for this row; shared clinkr/theme navigation extraction remains deferred until broader
+      non-Slot consumers appear. Semantic update:
+      `updates/2026-06-28T180147Z-slot-navigation-migration-complete.md`.
+- [~] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
       mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
       unported destructive surfaces extension-gated until they port.
+      Semantic update (pilot in progress): `sdl slot free` now has the first Slot-local destructive
+      result-block wrapper over the shared `@sdl/cli-theme` finite result block, covering dry-run,
+      success, cancellation/refusal, and cleanup-error outcomes while preserving machine/JSON behavior.
+      This starts but does not complete the row; next prove the same grammar on adjacent Slot destructive
+      surfaces before considering shared extraction or Handoff migration.
 - [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
