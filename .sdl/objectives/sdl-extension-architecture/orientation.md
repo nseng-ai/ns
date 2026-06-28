@@ -6,7 +6,7 @@ the Extension Dependency Graph stays acyclic. (ADR 0009 / 0012 / 0016; vocabular
 CONTEXT.md "Extension Layering".)
 
 What you see now — legacy, mid-migration, do not copy: `@sdl/domain-primitives-transitional`
-still has live consumers, other capabilities still need migration, and a deferred manifest cycle remains.
+still has live consumers, and remaining capabilities still need migration or child Objective completion.
 
 Avoid: new domain logic in the host/kernel; new deps on internals or the transitional package;
 new edges that deepen a cycle.
