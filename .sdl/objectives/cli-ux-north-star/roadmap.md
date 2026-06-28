@@ -89,11 +89,13 @@
       first stabilized side-effect primitive — the **git subprocess result/failure block** — lives at
       `ts/packages/capabilities/flow/src/shared/git-result-block.ts` (caps-aware success/failure/refusal
       block on `@sdl/clinkr/theme`; three-tier styling: bold+intent headline, salient `error:`/`fatal:`/
-      `rejected` cause lines at normal weight, dimmed plumbing + transcript). Home is deliberately narrow
-      (flow, not clinkr core) per the anti-generalization rule; `flow pull-trunk` is the next identical-need
-      consumer and `flow autobranch`/`flow branch-latest-commit` reuse it partially — generalize into
-      clinkr only when a second command proves the shape. `flow push` deliberately ships **no live
-      phase-stream region** (preflight + one buffered `git push` is too fast to animate); the
+      `rejected` cause lines at normal weight, dimmed plumbing + transcript). Follow-up semantic update:
+      `flow pull-trunk` is now the second consumer, using the same buffered finite result block for
+      Graphite trunk resolution and git update success/failure, with cause promotion extended only for
+      observed pull-trunk needs (`not fast-forward`, `denied`). The renderer should still remain
+      flow-local for another command before extraction; this second consumer proves the shape is useful
+      but not yet broad enough for clinkr/core promotion. `flow push` and `flow pull-trunk` deliberately
+      ship **no live phase-stream region** (their buffered subprocess evidence is sufficient); the
       transcript-tail / live-region option for slower git ops is a revealed-but-deferred seam, not built
       here.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,

@@ -22,6 +22,25 @@ export interface TrunkPullCliInput {
 	stderr(text: string): void;
 }
 
+export type TrunkPullDetailedResult =
+	| {
+			ok: true;
+			trunk: string;
+			command: "git";
+			args: readonly string[];
+			cwd: string;
+			result: ExecResult;
+	  }
+	| {
+			ok: false;
+			reason: "trunk-command-failed" | "trunk-empty" | "worktree-list-failed" | "update-failed";
+			trunk?: string | undefined;
+			command: "gt" | "git";
+			args: readonly string[];
+			cwd: string;
+			result: ExecResult;
+	  };
+
 export async function runTrunkPullCli(input: TrunkPullCliInput): Promise<number> {
 	const result = await runTrunkPull({ exec: input.exec }, input.cwd);
 	const output = `${result.message.trimEnd()}\n`;
@@ -37,22 +56,30 @@ export async function runTrunkPull(
 	commands: Pick<TrunkPullCliInput, "exec">,
 	cwd: string,
 ): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+	return formatTrunkPullResult(await runTrunkPullDetailed(commands, cwd));
+}
+
+export async function runTrunkPullDetailed(
+	commands: Pick<TrunkPullCliInput, "exec">,
+	cwd: string,
+): Promise<TrunkPullDetailedResult> {
+	const trunkArgs = ["trunk", "--no-interactive"];
 	const trunkResult = await runGraphiteCommand(
 		(command, args, options) => commands.exec(command, [...args], options),
 		{
 			cwd,
-			args: ["trunk", "--no-interactive"],
+			args: trunkArgs,
 			timeoutMs: GT_TIMEOUT_MS,
 		},
 	);
 	if (!isSuccessfulExecResult(trunkResult)) {
 		return {
 			ok: false,
-			message: formatCommandFailure(
-				"Could not resolve Graphite trunk. Local trunk was not updated.",
-				"gt trunk --no-interactive",
-				trunkResult,
-			),
+			reason: "trunk-command-failed",
+			command: "gt",
+			args: trunkArgs,
+			cwd,
+			result: trunkResult,
 		};
 	}
 
@@ -60,57 +87,28 @@ export async function runTrunkPull(
 	if (trunk === undefined) {
 		return {
 			ok: false,
-			message: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
+			reason: "trunk-empty",
+			command: "gt",
+			args: trunkArgs,
+			cwd,
+			result: trunkResult,
 		};
 	}
 
-	const planResult = await planTrunkPull(commands, cwd, trunk);
-	if (!planResult.ok) return planResult;
-
-	const updateResult = await commands.exec("git", planResult.args, {
-		cwd: planResult.cwd,
-		timeout: GIT_TIMEOUT_MS,
-	});
-	if (!isSuccessfulExecResult(updateResult)) {
-		return {
-			ok: false,
-			message: formatCommandFailureWithCwd(
-				`Could not update local trunk branch \`${trunk}\`.`,
-				formatCommand("git", planResult.args),
-				planResult.cwd,
-				updateResult,
-			),
-		};
-	}
-
-	return {
-		ok: true,
-		message: formatSuccess({
-			trunk,
-			result: updateResult,
-			args: planResult.args,
-			cwd: planResult.cwd,
-		}),
-	};
-}
-
-async function planTrunkPull(
-	commands: Pick<TrunkPullCliInput, "exec">,
-	cwd: string,
-	trunk: string,
-): Promise<{ ok: true; args: string[]; cwd: string } | { ok: false; message: string }> {
-	const worktreeResult = await commands.exec("git", ["worktree", "list", "--porcelain"], {
+	const worktreeArgs = ["worktree", "list", "--porcelain"];
+	const worktreeResult = await commands.exec("git", worktreeArgs, {
 		cwd,
 		timeout: GIT_TIMEOUT_MS,
 	});
 	if (!isSuccessfulExecResult(worktreeResult)) {
 		return {
 			ok: false,
-			message: formatCommandFailure(
-				"Could not inspect Git worktrees. Local trunk was not updated.",
-				"git worktree list --porcelain",
-				worktreeResult,
-			),
+			reason: "worktree-list-failed",
+			trunk,
+			command: "git",
+			args: worktreeArgs,
+			cwd,
+			result: worktreeResult,
 		};
 	}
 
@@ -119,7 +117,82 @@ async function planTrunkPull(
 		cwd,
 		worktreePorcelain: worktreeResult.stdout,
 	});
-	return { ok: true, args: plan.args, cwd: plan.cwd };
+	const updateResult = await commands.exec("git", plan.args, {
+		cwd: plan.cwd,
+		timeout: GIT_TIMEOUT_MS,
+	});
+	if (!isSuccessfulExecResult(updateResult)) {
+		return {
+			ok: false,
+			reason: "update-failed",
+			trunk,
+			command: "git",
+			args: plan.args,
+			cwd: plan.cwd,
+			result: updateResult,
+		};
+	}
+
+	return {
+		ok: true,
+		trunk,
+		command: "git",
+		args: plan.args,
+		cwd: plan.cwd,
+		result: updateResult,
+	};
+}
+
+function formatTrunkPullResult(
+	result: TrunkPullDetailedResult,
+): { ok: true; message: string } | { ok: false; message: string } {
+	if (result.ok) {
+		return {
+			ok: true,
+			message: formatSuccess({
+				trunk: result.trunk,
+				result: result.result,
+				args: result.args,
+				cwd: result.cwd,
+			}),
+		};
+	}
+
+	switch (result.reason) {
+		case "trunk-command-failed":
+			return {
+				ok: false,
+				message: formatCommandFailure(
+					"Could not resolve Graphite trunk. Local trunk was not updated.",
+					formatCommand(result.command, result.args),
+					result.result,
+				),
+			};
+		case "trunk-empty":
+			return {
+				ok: false,
+				message: "gt trunk --no-interactive returned no branch. Local trunk was not updated.",
+			};
+		case "worktree-list-failed":
+			return {
+				ok: false,
+				message: formatCommandFailure(
+					"Could not inspect Git worktrees. Local trunk was not updated.",
+					formatCommand(result.command, result.args),
+					result.result,
+				),
+			};
+		case "update-failed":
+			return {
+				ok: false,
+				message: formatCommandFailureWithCwd(
+					`Could not update local trunk branch \`${result.trunk}\`.`,
+					formatCommand(result.command, result.args),
+					result.cwd,
+					result.result,
+				),
+			};
+	}
 }
 
 function formatCommandFailureWithCwd(

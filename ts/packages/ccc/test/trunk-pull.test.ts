@@ -2,7 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/core/exec";
 
-import { runTrunkPull, runTrunkPullCli, type TrunkPullCliInput } from "../src/trunk-pull.ts";
+import {
+	runTrunkPull,
+	runTrunkPullCli,
+	runTrunkPullDetailed,
+	type TrunkPullCliInput,
+} from "../src/trunk-pull.ts";
 
 type ExecOptions = Parameters<TrunkPullCliInput["exec"]>[2];
 
@@ -181,6 +186,110 @@ describe("runTrunkPull", () => {
 		expect(result.message).toContain("Command: git pull --ff-only origin master");
 		expect(result.message).toContain("Cwd: /Users/schrockn/code/sdl-tools");
 		expect(result.message).toContain("not fast-forward");
+	});
+});
+
+describe("runTrunkPullDetailed", () => {
+	test("returns the resolved trunk and planned fetch command on success", async () => {
+		const commands = new FakeCommands([
+			step("gt", ["trunk", "--no-interactive"], { stdout: "main\n" }),
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout: "worktree /repo\nHEAD abc123\nbranch refs/heads/feature\n",
+			}),
+			step("git", ["fetch", "origin", "refs/heads/main:refs/heads/main"], {
+				stdout: "updated\n",
+			}),
+		]);
+
+		const result = await runTrunkPullDetailed(commands, "/repo");
+
+		expect(result).toMatchObject({
+			ok: true,
+			trunk: "main",
+			command: "git",
+			args: ["fetch", "origin", "refs/heads/main:refs/heads/main"],
+			cwd: "/repo",
+			result: { stdout: "updated\n", code: 0, killed: false },
+		});
+	});
+
+	test("returns a structured Graphite trunk command failure", async () => {
+		const commands = new FakeCommands([
+			step("gt", ["trunk", "--no-interactive"], { code: 1, stderr: "no trunk\n" }),
+		]);
+
+		const result = await runTrunkPullDetailed(commands, "/repo");
+
+		expect(result).toMatchObject({
+			ok: false,
+			reason: "trunk-command-failed",
+			command: "gt",
+			args: ["trunk", "--no-interactive"],
+			cwd: "/repo",
+			result: { stderr: "no trunk\n", code: 1, killed: false },
+		});
+	});
+
+	test("returns a structured empty-trunk failure with the original result", async () => {
+		const commands = new FakeCommands([
+			step("gt", ["trunk", "--no-interactive"], { stdout: "\n" }),
+		]);
+
+		const result = await runTrunkPullDetailed(commands, "/repo");
+
+		expect(result).toMatchObject({
+			ok: false,
+			reason: "trunk-empty",
+			command: "gt",
+			args: ["trunk", "--no-interactive"],
+			cwd: "/repo",
+			result: { stdout: "\n", code: 0, killed: false },
+		});
+	});
+
+	test("returns a structured worktree-list failure", async () => {
+		const commands = new FakeCommands([
+			step("gt", ["trunk", "--no-interactive"], { stdout: "main\n" }),
+			step("git", ["worktree", "list", "--porcelain"], {
+				code: 1,
+				stderr: "fatal: worktree metadata unavailable\n",
+			}),
+		]);
+
+		const result = await runTrunkPullDetailed(commands, "/repo");
+
+		expect(result).toMatchObject({
+			ok: false,
+			reason: "worktree-list-failed",
+			trunk: "main",
+			command: "git",
+			args: ["worktree", "list", "--porcelain"],
+			cwd: "/repo",
+			result: { stderr: "fatal: worktree metadata unavailable\n", code: 1, killed: false },
+		});
+	});
+
+	test("returns a structured update failure with the planned cwd", async () => {
+		const commands = new FakeCommands([
+			step("gt", ["trunk", "--no-interactive"], { stdout: "master\n" }),
+			step("git", ["worktree", "list", "--porcelain"], { stdout: worktreesPorcelain() }),
+			step("git", ["pull", "--ff-only", "origin", "master"], {
+				code: 1,
+				stderr: "not fast-forward\n",
+			}),
+		]);
+
+		const result = await runTrunkPullDetailed(commands, "/repo");
+
+		expect(result).toMatchObject({
+			ok: false,
+			reason: "update-failed",
+			trunk: "master",
+			command: "git",
+			args: ["pull", "--ff-only", "origin", "master"],
+			cwd: "/Users/schrockn/code/sdl-tools",
+			result: { stderr: "not fast-forward\n", code: 1, killed: false },
+		});
 	});
 });
 

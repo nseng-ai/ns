@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { flowChangesCommand } from "../../src/commands/changes.ts";
 import { flowCpCommand } from "../../src/commands/cp.ts";
+import { flowPullTrunkCommand } from "../../src/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/commands/submit.ts";
@@ -52,6 +53,28 @@ export function runFlowPushCommandWithFakes(options: RunFlowCommandWithFakesOpti
 			execResponses: () => [
 				{ match: "git status --porcelain", result: { stdout: "" } },
 				{ match: "git push", result: { stdout: "Everything up-to-date\n" } },
+			],
+			textGenerationResults: () => [],
+		},
+	});
+}
+
+export function runFlowPullTrunkCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+	return runFlowCommandWithFakes({
+		command: flowPullTrunkCommand,
+		request: options.request ?? {},
+		options,
+		defaults: options.defaults ?? {
+			execResponses: () => [
+				{ match: "gt trunk --no-interactive", result: { stdout: "main\n" } },
+				{
+					match: "git worktree list --porcelain",
+					result: { stdout: "worktree /work\nHEAD abc123\nbranch refs/heads/feature\n" },
+				},
+				{
+					match: "git fetch origin refs/heads/main:refs/heads/main",
+					result: { stdout: "updated\n" },
+				},
 			],
 			textGenerationResults: () => [],
 		},

@@ -98,6 +98,22 @@ describe("renderGitResultBlock — failure", () => {
 		expect(block).toContain(`${DIM}Killed: false${RESET}`);
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
 	});
+
+	test("surfaces pull-trunk not-fast-forward failures as cause lines", () => {
+		const fastForwardBlock = renderGitResultBlock(caps(), {
+			kind: "failure",
+			headline: "Could not update local trunk branch `main`.",
+			command: "git pull --ff-only origin main",
+			cwd: "/repo",
+			result: execResult({ stderr: "not fast-forward\n", code: 1 }),
+		});
+
+		expect(
+			fastForwardBlock
+				.split("\n")
+				.some((line) => stripAnsi(line) === "not fast-forward" && !line.includes(DIM)),
+		).toBe(true);
+	});
 });
 
 describe("renderGitResultBlock — refusal (dirty worktree)", () => {

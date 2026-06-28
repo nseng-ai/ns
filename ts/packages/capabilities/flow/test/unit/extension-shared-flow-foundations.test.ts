@@ -69,12 +69,16 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).toContain("@sdl/capability-kit/git");
 		expect(worktreeSource).toContain("createCliExecAdapter");
 		expect(worktreeSource).toContain("execSdlCommand");
-		for (const source of [autoslotSource, landSource, pullTrunkSource]) {
+		for (const source of [autoslotSource, landSource]) {
 			expect(source).toContain("runFlowCccCli");
 			expect(source).toContain("../shared/ccc-cli.ts");
 			expect(source).not.toContain("createCliExecAdapter");
 			expect(source).not.toContain("options?.cwd");
 		}
+		expect(pullTrunkSource).toContain("runFlowCccOperation");
+		expect(pullTrunkSource).toContain("../shared/ccc-cli.ts");
+		expect(pullTrunkSource).not.toContain("createCliExecAdapter");
+		expect(pullTrunkSource).not.toContain("options?.cwd");
 		expect(autobranchSource).not.toContain("_cwd");
 		expect(branchLatestCommitSource).not.toContain("_cwd");
 	});

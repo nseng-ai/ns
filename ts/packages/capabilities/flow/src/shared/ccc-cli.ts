@@ -12,14 +12,24 @@ export interface FlowCccCliExecOptions {
 	timeout?: number | undefined;
 }
 
-export interface FlowCccCliRunnerInput {
+export interface FlowCccOperationInput {
 	exec(
 		command: string,
 		args: string[],
 		options?: FlowCccCliExecOptions | undefined,
 	): Promise<ExecResult>;
+}
+
+export interface FlowCccCliRunnerInput extends FlowCccOperationInput {
 	stdout(text: string): void;
 	stderr(text: string): void;
+}
+
+export interface RunFlowCccOperationOptions<T> {
+	ctx: SdlExtensionApi;
+	shouldForwardLiveOutput?: boolean | undefined;
+	trustedExec?: CommandExecApi | undefined;
+	run(input: FlowCccOperationInput): Promise<T>;
 }
 
 export interface RunFlowCccCliOptions {
@@ -31,27 +41,42 @@ export interface RunFlowCccCliOptions {
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
-export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
-	let stdout = "";
-	let stderr = "";
-	const exitCode = await options.run({
+export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions<T>): Promise<T> {
+	const trustedExec = options.trustedExec ?? createTrustedFlowCccExec();
+	return await options.run({
 		exec: async (command, args, execOptions) =>
 			await execFlowCccCommand({
 				ctx: options.ctx,
-				trustedExec: options.trustedExec ?? createTrustedFlowCccExec(),
+				trustedExec,
 				command,
 				args,
 				options: execOptions,
 				liveOutput: { shouldForwardLiveOutput: options.shouldForwardLiveOutput === true },
 			}),
-		stdout: (text) => {
-			stdout += text;
-			options.ctx.stdout?.(text);
-		},
-		stderr: (text) => {
-			stderr += text;
-			options.ctx.stderr?.(text);
-		},
+	});
+}
+
+export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
+	let stdout = "";
+	let stderr = "";
+	const exitCode = await runFlowCccOperation({
+		ctx: options.ctx,
+		...(options.trustedExec === undefined ? {} : { trustedExec: options.trustedExec }),
+		...(options.shouldForwardLiveOutput === undefined
+			? {}
+			: { shouldForwardLiveOutput: options.shouldForwardLiveOutput }),
+		run: async (io) =>
+			await options.run({
+				exec: io.exec,
+				stdout: (text) => {
+					stdout += text;
+					options.ctx.stdout?.(text);
+				},
+				stderr: (text) => {
+					stderr += text;
+					options.ctx.stderr?.(text);
+				},
+			}),
 	});
 	if (exitCode === 0) return ok(stdout === "" ? options.successMessage : "");
 	return failed(stderr === "" ? options.failureMessage : "", exitCode);
