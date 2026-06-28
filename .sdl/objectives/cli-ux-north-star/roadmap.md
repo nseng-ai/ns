@@ -222,9 +222,17 @@
       milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
       an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
       whether this Objective or a follow-on owns their UX migration.
-- [ ] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
-      P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
-      faces), leaving extension-gated surfaces for later re-evaluation.
+- [~] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
+  P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
+  faces), leaving extension-gated surfaces for later re-evaluation.
+  Semantic update (pilot in progress): after the P0 destructive boundary, the active P1 eligibility
+  set remains the Objective/Flow/Slot/Handoff surfaces already listed in `cli-surface-audit.md`;
+  no newly ported command faces were added in this slice. `sdl handoff list` is the first buffered
+  report pilot: its human output now uses `@sdl/cli-theme` `renderTable` instead of
+  `@sdl/core/text-table`, while JSON and Markdown contracts stay unchanged. Existing table
+  primitives were sufficient for title + table + empty-state output, so a new generalized report
+  wrapper remains deferred until another P1 surface proves repeated title/empty/footer plumbing.
+  Semantic update: `updates/2026-06-28T193257Z-handoff-list-buffered-pilot.md`.
 - [ ] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
       surfaces to Done, keep exemptions explicit, mark unported surfaces extension-gated, and avoid adding
       new human-facing CLI output outside the house-style primitives.

@@ -58,7 +58,6 @@ describe("handoff list rendering", () => {
 			"Handoffs on feat/x",
 			"",
 			"HANDOFF         UPDATED",
-			"──────────────  ─────────────────────────",
 			"alpha           2026-01-01T00:00:02+00:00",
 			"longer-handoff  2026-01-01T00:00:01+00:00",
 		]);
@@ -69,7 +68,6 @@ describe("handoff list rendering", () => {
 			"Handoffs across branches",
 			"",
 			"BRANCH        STATE    HANDOFF  UPDATED",
-			"────────────  ───────  ───────  ─────────────────────────",
 			"feat/a        active   alpha    2026-01-01T00:00:02+00:00",
 			"feat/deleted  deleted  stale    2026-01-01T00:00:01+00:00",
 		]);
@@ -78,10 +76,13 @@ describe("handoff list rendering", () => {
 	test("defaults human output to plain text and styles only table cells when color is enabled", () => {
 		expect(renderList(BRANCH_SCOPE_RESULT)).not.toContain(esc);
 
-		const colored = renderList(BRANCH_SCOPE_RESULT, { canEmitAnsi: true });
-		expect(colored).toContain(`${esc}[1;36mHANDOFF${esc}[0m`);
-		expect(colored).toContain(`${esc}[1;36malpha${esc}[0m`);
-		expect(colored).toContain(`${esc}[2m2026-01-01T00:00:02+00:00${esc}[0m`);
+		const colored = renderList(BRANCH_SCOPE_RESULT, {
+			canEmitAnsi: true,
+			caps: { isTty: true, colorDepth: "truecolor", columns: 80, canRenderUnicode: true },
+		});
+		expect(colored).toContain(`${esc}[2mHANDOFF${esc}[0m`);
+		expect(colored).toContain(`${esc}[38;2;34;211;238malpha${esc}[0m`);
+		expect(colored).toContain("2026-01-01T00:00:02+00:00");
 		expect(colored.startsWith("Handoffs on feat/x\n\n")).toBe(true);
 	});
 
