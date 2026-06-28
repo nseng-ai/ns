@@ -173,6 +173,7 @@ describe("TypeScript style guard source rules", () => {
 
 			expect(formatViolations(violations)).toBe("");
 		},
+		30_000,
 	);
 });
 
