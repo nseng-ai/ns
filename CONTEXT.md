@@ -109,3 +109,7 @@ The directed edge of the **Extension Dependency Graph**: a **consumer** (downstr
 **CCC**:
 A **first-party extension** (the cmux command-and-control surface) that composes cmux, Graphite, and other first-party extensions through their **Capability APIs**; it is the highest-fan-out **consumer** in the **Extension Dependency Graph** but holds no privileged tier or status.
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
+
+**Package Tier**:
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `transitional`, `host`, and `tool`. `host` and `tool` are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. `transitional` is deletion debt; new dependencies on it require explicit debt handling.
+*Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer

@@ -16,5 +16,8 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/pi": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "standalone-tool"
+  }
 }

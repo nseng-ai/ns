@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
+import { packageTierSet, type PackageTier } from "./config.ts";
 import { findPackageJsonFiles } from "./file-discovery.ts";
 
 export interface PackageManifest {
@@ -10,6 +11,7 @@ export interface PackageManifest {
 	readonly optionalDependencies?: unknown;
 	readonly peerDependencies?: unknown;
 	readonly devDependencies?: unknown;
+	readonly sdl?: unknown;
 	readonly [key: string]: unknown;
 }
 
@@ -19,6 +21,8 @@ export interface PackageMetadata {
 	readonly packageJsonPath: string;
 	manifest: PackageManifest;
 	manifestContent: string;
+	readonly sdlTier: PackageTier | undefined;
+	readonly rawSdlTier: unknown;
 	readonly exportSubpaths: ReadonlySet<string>;
 }
 
@@ -29,16 +33,29 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		const manifestContent = readFileSync(packageJsonPath, "utf8");
 		const parsed: unknown = JSON.parse(manifestContent);
 		if (!isPackageManifest(parsed)) continue;
+		const rawSdlTier = readRawSdlTier(parsed.sdl);
 		metadataByName.set(parsed.name, {
 			name: parsed.name,
 			packageDir: relative(repoRoot, packageDir),
 			packageJsonPath: relative(repoRoot, packageJsonPath),
 			manifest: parsed,
 			manifestContent,
+			sdlTier: parsePackageTier(rawSdlTier),
+			rawSdlTier,
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
 	return metadataByName;
+}
+
+export function readRawSdlTier(sdlField: unknown): unknown {
+	if (!isRecord(sdlField)) return undefined;
+	return sdlField.tier;
+}
+
+export function parsePackageTier(value: unknown): PackageTier | undefined {
+	if (typeof value !== "string") return undefined;
+	return packageTierSet.has(value) ? (value as PackageTier) : undefined;
 }
 
 export function collectExportSubpaths(exportsField: unknown): Set<string> {

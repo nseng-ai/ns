@@ -1,24 +1,27 @@
 {
-	"name": "@sdl/slot",
-	"version": "0.1.0",
-	"files": [
-		"src"
-	],
-	"type": "module",
-	"exports": {
-		".": "./src/index.ts",
-		"./api": "./src/api.ts",
-		"./command-face": "./src/command-face.ts"
-	},
-	"scripts": {
-		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/slot/test"
-	},
-	"dependencies": {
-		"@sdl/cli-theme": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/graphite": "workspace:*",
-		"zod": "catalog:"
-	}
+  "name": "@sdl/slot",
+  "version": "0.1.0",
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./command-face": "./src/command-face.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/slot/test"
+  },
+  "dependencies": {
+    "@sdl/cli-theme": "workspace:*",
+    "@sdl/clinkr": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/graphite": "workspace:*",
+    "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "capability"
+  }
 }

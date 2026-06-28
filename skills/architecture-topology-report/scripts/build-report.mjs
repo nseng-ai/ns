@@ -5,18 +5,18 @@
 // This script owns everything MECHANICAL and REPEATED so a future run never
 // hand-builds it again:
 //   - runs/loads extract-graph and reuses its cycles / fan-in / fan-out / loc
-//   - turns packages into graph nodes (tier looked up from the spec) and edges
+//   - turns packages into graph nodes (tier read from package metadata, with optional spec overrides) and edges
 //   - marks an edge `cycle:true` when both endpoints sit in a `cycles` SCC
 //   - bakes the full D3 renderer + HTML scaffold + every section's markup
 //
-// The agent only supplies the IRREDUCIBLE editorial judgement: the tier map,
-// the verdict read, the scorecard rows, the finding cards, the keystone — as a
-// plain data object. No copy-pasting the D3 renderer, no `${}` escaping, no
-// re-deriving fan-in/out, no drift from the reference.
+// The agent only supplies the IRREDUCIBLE editorial judgement: optional tier
+// overrides, the verdict read, the scorecard rows, the finding cards, the
+// keystone — as a plain data object. No copy-pasting the D3 renderer, no `${}`
+// escaping, no re-deriving fan-in/out, no drift from the reference.
 //
 // Usage:
 //   node build-report.mjs --spec <spec.mjs|spec.json> [--graph <graph.json>] [--open]
-//                         [--tiers-template]   # print a seed tier map and exit
+//                         [--tiers-template]   # print declared tier map and exit
 //   plus any extract-graph flags (--root, --kit, --transitional, --api-needle, --src-dir)
 //
 // Spec shape: see the `## Spec` block in references/HTML-REPORT.md (and the
@@ -31,15 +31,14 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 // ── Tier registry: single source of truth for colours, shared by the graph and
-//    the north-star legend. Keys are the tier ids the spec assigns to packages.
+//    the north-star legend. Keys are canonical manifest `sdl.tier` values.
 const TIERS = {
-  cons: { fill: "#1e293b", stroke: "#0f172a", name: "consumer" },
+  capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
+  "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
+  sdk: { fill: "#c7d2fe", stroke: "#6366f1", name: "SDK" },
+  transitional: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
+  "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
   host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
-  cap: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
-  util: { fill: "#fbcfe8", stroke: "#db2777", name: "lower utility" },
-  sdk: { fill: "#c7d2fe", stroke: "#6366f1", name: "SDK / kit" },
-  trans: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
-  infra: { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
   tool: { fill: "#f1f5f9", stroke: "#94a3b8", name: "off-axis tool" },
 };
 
@@ -84,8 +83,15 @@ function getAnalysis(args) {
   return JSON.parse(out);
 }
 
-// ── 2. mechanical graph assembly: nodes (+ looked-up tier) and edges (+cycle) ─
-function assembleGraph(analysis, tiers) {
+// ── 2. mechanical graph assembly: nodes (+ declared/overridden tier) and edges (+cycle) ─
+function assembleGraph(analysis, tierOverrides = {}) {
+  const overrideEntries = Object.entries(tierOverrides || {});
+  const invalidOverrides = overrideEntries.filter(([, tier]) => !Object.hasOwn(TIERS, tier));
+  if (invalidOverrides.length) {
+    throw new Error(
+      `Invalid spec.tiers override(s): ${invalidOverrides.map(([id, tier]) => `${id}=${tier}`).join(", ")}. Known tiers: ${Object.keys(TIERS).join(", ")}`,
+    );
+  }
   const pkgs = Object.keys(analysis.packages);
   const fanOut = new Map(pkgs.map((n) => [n, 0]));
   const fanIn = new Map(pkgs.map((n) => [n, 0]));
@@ -98,13 +104,14 @@ function assembleGraph(analysis, tiers) {
   const scc = new Set((analysis.cycles || []).flat());
   const warnings = [];
   const nodes = pkgs.map((id) => {
-    const tier = tiers[id];
-    if (!tier) warnings.push(id);
+    const declaredTier = analysis.packages[id].tier;
+    const tier = tierOverrides[id] ?? declaredTier;
+    if (!Object.hasOwn(TIERS, tier)) warnings.push(id);
     return {
       id,
       label: label(id),
       loc: analysis.packages[id].loc ?? 0,
-      tier: tier || "tool",
+      tier: Object.hasOwn(TIERS, tier) ? tier : "tool",
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
     };
@@ -116,20 +123,13 @@ function assembleGraph(analysis, tiers) {
   return { graph: { nodes, links }, warnings };
 }
 
-// ── 3. tier-seed template: pre-classify from structural facts so the agent only
-//        confirms/edits, instead of typing 30+ entries from scratch. ─────────
+// ── 3. tier template: dump declared manifest tiers for review/optional override. ─
 function tiersTemplate(analysis) {
-  const pkgs = Object.keys(analysis.packages);
-  const caps = new Set([...(analysis.kitConsumers || []), ...Object.keys(analysis.exposesApi || {})]);
-  const trans = analysis.meta?.transitional;
-  const out = {};
-  for (const id of pkgs) {
-    if (id === trans) out[id] = "trans";
-    else if (caps.has(id)) out[id] = "cap";
-    else if ((analysis.orphans || []).includes(id)) out[id] = "tool";
-    else out[id] = "infra"; // best-guess seed; agent re-tags sdk/host/cons/util
-  }
-  return out;
+  return Object.fromEntries(
+    Object.entries(analysis.packages)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([id, pkg]) => [id, pkg.tier]),
+  );
 }
 
 // ── 4. the baked D3 renderer (a real function; stringified into the page so
@@ -179,7 +179,7 @@ function GRAPH_RENDERER() {
     .attr("marker-end", (d) => d.cycle ? "url(#arrow-cy)" : "url(#arrow)");
   const nodeG = rootG.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor", "pointer").call(drag());
   nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => TIERS[d.tier].fill).attr("stroke", (d) => TIERS[d.tier].stroke)
-    .attr("stroke-width", 1.4).attr("stroke-dasharray", (d) => d.tier === "trans" ? "4 3" : null);
+    .attr("stroke-width", 1.4).attr("stroke-dasharray", (d) => d.tier === "transitional" ? "4 3" : null);
   nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
     .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
     .attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 3);
@@ -252,7 +252,7 @@ function GRAPH_RENDERER() {
 // ── 5. section renderers (editorial markup; content comes from the spec) ─────
 function legendSwatch(t) {
   const v = TIERS[t];
-  const dash = t === "trans" ? "border:1px dashed " + v.stroke : "border:1px solid " + v.stroke;
+  const dash = t === "transitional" ? "border:1px dashed " + v.stroke : "border:1px solid " + v.stroke;
   return `<span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm" style="background:${v.fill};${dash}"></span>${esc(v.name)}</span>`;
 }
 
@@ -502,7 +502,7 @@ async function main() {
 
   const { graph, warnings } = assembleGraph(analysis, spec.tiers || {});
   if (warnings.length) {
-    console.error(`warning: ${warnings.length} package(s) had no tier in spec.tiers (defaulted to "tool"):`);
+    console.error(`warning: ${warnings.length} package(s) had no known declared/overridden tier (defaulted to "tool"):`);
     console.error("  " + warnings.join(", "));
   }
 

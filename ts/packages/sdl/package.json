@@ -11,6 +11,7 @@
     "./pi-text-generation": "./src/sdk/pi-text-generation.ts"
   },
   "sdl": {
+    "tier": "sdk",
     "publicPluginApi": [],
     "internalWorkspaceExports": [
       "./cli",
@@ -34,7 +35,6 @@
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/plans": "workspace:*",
     "@sdl/slot": "workspace:*",
     "sdl-sdk": "workspace:*",
     "jiti": "catalog:",

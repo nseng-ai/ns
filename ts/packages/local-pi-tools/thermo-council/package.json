@@ -16,5 +16,8 @@
     "@local-pi-tools/runner-subagents": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "local-pi-tool"
+  }
 }

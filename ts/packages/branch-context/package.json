@@ -25,5 +25,8 @@
     "@sdl/plans": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability"
+  }
 }

@@ -21,5 +21,8 @@
     "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "local-pi-tool"
+  }
 }

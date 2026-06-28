@@ -19,5 +19,8 @@
   "dependencies": {
     "@sdl/core": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "neutral-infra"
+  }
 }

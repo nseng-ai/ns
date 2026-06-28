@@ -15,5 +15,8 @@
     "@earendil-works/pi-tui": "catalog:",
     "@sdl/pi": "workspace:*"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "local-pi-tool"
+  }
 }

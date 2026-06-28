@@ -50,5 +50,8 @@
     "@sdl/clinkr": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {},
+  "sdl": {
+    "tier": "neutral-infra"
+  }
 }

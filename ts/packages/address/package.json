@@ -19,5 +19,8 @@
     "@sdl/core": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
+  },
+  "sdl": {
+    "tier": "capability"
   }
 }
