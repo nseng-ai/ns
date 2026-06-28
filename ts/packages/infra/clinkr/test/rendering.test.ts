@@ -111,7 +111,7 @@ describe("renderHuman", () => {
 		group.command({
 			name: "act",
 			schema: z.object({}),
-			handler: async () => negative("none", { count: 2 }, { human: "rendered negative" }),
+			handler: async () => negative("none", { data: { count: 2 }, human: "rendered negative" }),
 			renderHuman: (data) => `plans: ${data.count}`,
 		});
 		const run = await runForTest(group, ["act"], { context: null });

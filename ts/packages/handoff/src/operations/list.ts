@@ -1,6 +1,5 @@
 import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { cell, paint, renderTable } from "@sdl/cli-theme";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { cell, paint, renderBufferedReport, renderTable } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -75,7 +74,12 @@ export function renderList(
 				cell(handoff.updatedAt),
 			]),
 		});
-		return stripAnsiWhenDisabled([allBranchesTitle(result), "", ...table].join("\n"), caps);
+		return renderBufferedReport({
+			caps,
+			title: allBranchesTitle(result),
+			titleStyle: "plain",
+			sections: [{ title: "", lines: table }],
+		});
 	}
 	const table = renderTable({
 		caps: resolvedCaps,
@@ -88,7 +92,12 @@ export function renderList(
 			cell(handoff.updatedAt),
 		]),
 	});
-	return stripAnsiWhenDisabled([`Handoffs on ${result.branch}`, "", ...table].join("\n"), caps);
+	return renderBufferedReport({
+		caps,
+		title: `Handoffs on ${result.branch}`,
+		titleStyle: "plain",
+		sections: [{ title: "", lines: table }],
+	});
 }
 
 export function renderListMarkdown(result: ListResult): string {
@@ -114,10 +123,6 @@ export function renderListMarkdown(result: ListResult): string {
 			(handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updatedAt)} |`,
 		),
 	].join("\n");
-}
-
-function stripAnsiWhenDisabled(output: string, caps: RenderCapabilities): string {
-	return caps.canEmitAnsi ? output : stripTerminalEscapes(output);
 }
 
 function allBranchesTitle(result: ListResult): string {

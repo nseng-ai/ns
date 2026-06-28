@@ -121,16 +121,18 @@ interface InitMutationFailureOptions {
 
 function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<InitResult> {
 	return negative(options.message, {
-		mutation_failed: true,
-		project_dir: options.projectDir,
-		agents: [...options.agents],
-		bootstrap_repo: BOOTSTRAP_REPO,
-		bootstrap_skills: [...BOOTSTRAP_SKILLS],
-		written_files: options.operations
-			.filter((operation) => operation.type === "write" && operation.status === "applied")
-			.map((operation) => operation.path),
-		skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
-		operations: options.operations.map((operation) => ({ ...operation })),
+		data: {
+			mutation_failed: true,
+			project_dir: options.projectDir,
+			agents: [...options.agents],
+			bootstrap_repo: BOOTSTRAP_REPO,
+			bootstrap_skills: [...BOOTSTRAP_SKILLS],
+			written_files: options.operations
+				.filter((operation) => operation.type === "write" && operation.status === "applied")
+				.map((operation) => operation.path),
+			skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
+			operations: options.operations.map((operation) => ({ ...operation })),
+		},
 	});
 }
 

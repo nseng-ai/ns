@@ -229,7 +229,7 @@ export async function runReviewByKey(
 	if (outcome.type === "completed_log_failed") {
 		return negative(
 			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
-			outcome.result,
+			{ data: outcome.result },
 		);
 	}
 	return ok(outcome.result);
@@ -288,7 +288,7 @@ export async function runRecordFindings(
 	if (logResult.type === "error") {
 		return negative(
 			`${renderReviewRun(result)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,
-			result,
+			{ data: result },
 		);
 	}
 

@@ -46,14 +46,13 @@ export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBr
 		for (const warning of integrity.warnings) ctx.stderr(`${warning}\n`);
 	}
 	if (stackResult.stack.current === stackResult.stack.trunk)
-		return negative(
-			`On trunk '${stackResult.stack.trunk}'; no stack is checked out.`,
-			resultForStack(stackResult.stack, {
+		return negative(`On trunk '${stackResult.stack.trunk}'; no stack is checked out.`, {
+			data: resultForStack(stackResult.stack, {
 				downstack: request.downstack,
 				branches: [],
 				warnings: [],
 			}),
-		);
+		});
 	const branches = collectStackBranches(stackResult.stack, {
 		current: stackResult.stack.current,
 		trunk: stackResult.stack.trunk,

@@ -95,7 +95,7 @@ export async function runRunnerSubagentUsage(
 	if (request.sessionFiles.length === 0) {
 		return negative(
 			"Missing session file (missing_session_file). Pass at least one Pi runner subagent JSONL file.",
-			result,
+			{ data: result },
 		);
 	}
 	return ok(result);

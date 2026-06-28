@@ -1,6 +1,5 @@
 import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { cell, paint, renderTable } from "@sdl/cli-theme";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { cell, paint, renderBufferedReport, renderTable } from "@sdl/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
@@ -64,7 +63,12 @@ export function renderList(
 			cell(row.worktree_path),
 		]),
 	});
-	return stripAnsiWhenDisabled([`Slots for ${result.repo_name}`, "", ...table].join("\n"), caps);
+	return renderBufferedReport({
+		caps,
+		title: `Slots for ${result.repo_name}`,
+		titleStyle: "plain",
+		sections: [{ title: "", lines: table }],
+	});
 }
 
 function statusCell(
@@ -73,8 +77,4 @@ function statusCell(
 ) {
 	const intent = status === "assigned" ? "success" : "muted";
 	return cell(paint(caps, intent, status), status);
-}
-
-function stripAnsiWhenDisabled(output: string, caps: RenderCapabilities): string {
-	return caps.canEmitAnsi ? output : stripTerminalEscapes(output);
 }

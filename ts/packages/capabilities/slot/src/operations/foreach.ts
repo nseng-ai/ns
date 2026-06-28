@@ -90,7 +90,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	if (failedCount > 0)
 		return negative(
 			`sdl slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
-			result,
+			{ data: result },
 		);
 	return ok(result);
 }
@@ -103,7 +103,7 @@ export function renderForeach(
 	const renderCaps = resolveRenderCapabilities(caps);
 	const succeeded = result.slots.filter((slot) => slot.succeeded).length;
 	const failed = result.slots.length - succeeded;
-	const lines = [
+	return [
 		`Slot foreach: ${formatCommand(result.command[0] ?? "", result.command.slice(1))}`,
 		`${succeeded}/${result.slots.length} slots succeeded${failed === 0 ? "" : `; ${failed} failed`}`,
 		"",
@@ -122,11 +122,8 @@ export function renderForeach(
 				statusCell(renderCaps, slot.succeeded),
 			]),
 		}),
-	];
-	for (const slot of result.slots) {
-		appendSlotOutput(lines, slot);
-	}
-	return lines.join("\n");
+		...result.slots.flatMap(slotOutputLines),
+	].join("\n");
 }
 
 function inProgressMessage(records: readonly SlotRecord[]): string {
@@ -151,17 +148,18 @@ function statusCell(caps: ReturnType<typeof resolveRenderCapabilities>, succeede
 	return cell(paint(caps, succeeded ? "success" : "error", text), text);
 }
 
-function appendSlotOutput(lines: string[], slot: ForeachSlotResult): void {
-	if (slot.stdout.length === 0 && slot.stderr.length === 0) return;
-	lines.push("");
-	lines.push(`${slot.slot_name} output:`);
-	appendIndented(lines, slot.stdout, "stdout");
-	appendIndented(lines, slot.stderr, "stderr");
+function slotOutputLines(slot: ForeachSlotResult): string[] {
+	if (slot.stdout.length === 0 && slot.stderr.length === 0) return [];
+	return [
+		"",
+		`${slot.slot_name} output:`,
+		...indentedOutputLines(slot.stdout, "stdout"),
+		...indentedOutputLines(slot.stderr, "stderr"),
+	];
 }
 
-function appendIndented(lines: string[], text: string, stream: "stdout" | "stderr"): void {
+function indentedOutputLines(text: string, stream: "stdout" | "stderr"): string[] {
 	const trimmed = text.replace(/\s+$/, "");
-	if (trimmed.length === 0) return;
-	lines.push(`  ${stream}:`);
-	for (const line of trimmed.split("\n")) lines.push(`    ${line}`);
+	if (trimmed.length === 0) return [];
+	return [`  ${stream}:`, ...trimmed.split("\n").map((line) => `    ${line}`)];
 }

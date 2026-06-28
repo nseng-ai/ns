@@ -65,7 +65,7 @@ async function runMapBranchPrsOperation(
 	const result = mapping.mapping;
 	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0)
 		return ok(result);
-	return negative(mappingFailureMessage(result), result);
+	return negative(mappingFailureMessage(result), { data: result });
 }
 
 export function branchesValidationMessage(

@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import {
+	renderDestructiveResultBlock,
 	renderResultBlock,
 	renderResultBlockFromMessage,
 	resultBlockHeadline,
@@ -45,6 +46,17 @@ describe("resultBlockHeadline", () => {
 		expect(headline).toContain(WARN_TRUECOLOR);
 		expect(headline).not.toContain(ERROR_TRUECOLOR);
 		expect(headline).toContain("✗ declined");
+	});
+});
+
+describe("renderDestructiveResultBlock", () => {
+	test("resolves render capabilities before delegating to result-block rendering", () => {
+		const block = renderDestructiveResultBlock(
+			{ canEmitAnsi: true, caps: caps({ canRenderUnicode: false }) },
+			{ kind: "refusal", headline: "Stopped.", guidance: "Retry later." },
+		);
+
+		expect(stripTerminalEscapes(block).split("\n")).toEqual(["x Stopped.", "Retry later."]);
 	});
 });
 

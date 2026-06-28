@@ -26,7 +26,8 @@ function buildGroup(): ClinkrGroup<null> {
 	group.command({
 		name: "no-data",
 		schema: z.object({}),
-		handler: async (): Promise<ClinkrExit<{ count: number }>> => negative("empty", { count: 0 }),
+		handler: async (): Promise<ClinkrExit<{ count: number }>> =>
+			negative("empty", { data: { count: 0 } }),
 	});
 	group.command({
 		name: "usage",

@@ -205,7 +205,7 @@ function failedExit(
 						},
 		},
 	};
-	return negative(failure.message, result);
+	return negative(failure.message, { data: result });
 }
 
 function nonBlank(value: string | undefined): string | undefined {

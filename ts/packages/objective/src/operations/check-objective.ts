@@ -121,13 +121,13 @@ export async function runCheckObjective(
 	if (result.value.status === "not_found") {
 		return negative(
 			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
-			result.value,
+			{ data: result.value },
 		);
 	}
 	if (result.value.status === "failed") {
 		return negative(
 			`Objective check failed for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.errorCount} error(s), ${result.value.warningCount} warning(s).`,
-			result.value,
+			{ data: result.value },
 		);
 	}
 	return ok(result.value);

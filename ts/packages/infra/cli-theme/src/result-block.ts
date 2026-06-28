@@ -4,7 +4,7 @@
 // and CCC. Domain-specific facts (git transcripts, land plans, autoslot state) stay in their owning
 // packages; this module owns only the common headline + body/guidance/cwd layout grammar.
 
-import type { Caps } from "@sdl/clinkr";
+import { resolveRenderCapabilities, type Caps, type RenderCapabilities } from "@sdl/clinkr";
 import { glyph } from "./glyphs.ts";
 import { bold, dim, paint, type Intent } from "./palette.ts";
 
@@ -26,6 +26,13 @@ export interface ResultBlockMessageInput {
 	cwd?: string | undefined;
 }
 
+export interface DestructiveResultBlock {
+	kind: ResultBlockKind;
+	headline: string;
+	body?: string | undefined;
+	guidance?: string | undefined;
+}
+
 export function resultBlockHeadline(
 	caps: Caps,
 	input: Pick<ResultBlockInput, "kind" | "headline">,
@@ -44,6 +51,13 @@ export function renderResultBlock(caps: Caps, input: ResultBlockInput): string {
 		lines.push(dim(`Cwd: ${input.cwd}`));
 	}
 	return lines.join("\n");
+}
+
+export function renderDestructiveResultBlock(
+	renderCapabilities: RenderCapabilities,
+	input: DestructiveResultBlock,
+): string {
+	return renderResultBlock(resolveRenderCapabilities(renderCapabilities), input);
 }
 
 export function renderResultBlockFromMessage(caps: Caps, input: ResultBlockMessageInput): string {

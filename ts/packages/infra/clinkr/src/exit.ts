@@ -9,6 +9,10 @@ export interface ClinkrNegativeRenderOverrides {
 	readonly human?: string;
 }
 
+export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides {
+	readonly data?: T | undefined;
+}
+
 export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
 	readonly type: "ok";
 	readonly data: T;
@@ -161,14 +165,13 @@ export function ok<T>(data: T, overrides: ClinkrOkRenderOverrides = {}): ClinkrO
 
 export function negative<T = never>(
 	message: string,
-	data?: T,
-	overrides: ClinkrNegativeRenderOverrides = {},
+	options: ClinkrNegativeOptions<T> = {},
 ): ClinkrNegativeExit<T> {
 	return {
 		type: "negative",
 		message,
-		...(data === undefined ? {} : { data }),
-		...(overrides.human === undefined ? {} : { human: overrides.human }),
+		...(options.data === undefined ? {} : { data: options.data }),
+		...(options.human === undefined ? {} : { human: options.human }),
 	};
 }
 

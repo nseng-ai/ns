@@ -1,5 +1,5 @@
-import { resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { renderResultBlock, type ResultBlockKind } from "@sdl/cli-theme";
+import type { RenderCapabilities } from "@sdl/clinkr";
+import { renderDestructiveResultBlock, type ResultBlockKind } from "@sdl/cli-theme";
 
 export type SlotDestructiveResultKind = ResultBlockKind;
 
@@ -14,5 +14,5 @@ export function renderSlotDestructiveResultBlock(
 	renderCapabilities: RenderCapabilities,
 	input: SlotDestructiveResultBlock,
 ): string {
-	return renderResultBlock(resolveRenderCapabilities(renderCapabilities), input);
+	return renderDestructiveResultBlock(renderCapabilities, input);
 }

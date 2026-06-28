@@ -50,7 +50,7 @@ async function runDownloadFeedbackOperation(
 		case "ok":
 			return ok(commandPayload(result.feedback));
 		case "miss":
-			return negative(result.message, commandPayload(result.feedback));
+			return negative(result.message, { data: commandPayload(result.feedback) });
 		case "git_failure":
 			return gatewayFailureExit(result.message, result.failure);
 		case "pr_feedback_failure":
