@@ -15,5 +15,8 @@
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*"
+  },
+  "sdl": {
+    "tier": "neutral-infra"
   }
 }
