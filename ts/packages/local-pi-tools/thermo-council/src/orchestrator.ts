@@ -186,6 +186,7 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	progressTracker,
 	reviewGuidance,
 }: RunCouncilSeatsOptions): Promise<ThermoCouncilReviewerOutcome[]> {
+	// Keep this local until a second caller needs the same ordered outcome/progress coupling.
 	if (seats.length === 0) return [];
 	const outcomes: Array<ThermoCouncilReviewerOutcome | undefined> = Array.from({
 		length: seats.length,

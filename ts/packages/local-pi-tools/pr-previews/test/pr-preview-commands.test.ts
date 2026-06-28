@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import type { ExecResult } from "@sdl/core/exec";
+
 import prPreviewsExtension, {
 	PR_PREVIEW_CHECKS_COMMAND_NAME,
 	PR_PREVIEW_FEEDBACK_COMMAND_NAME,
@@ -7,7 +9,6 @@ import prPreviewsExtension, {
 	type ExtensionContext,
 	type RegisteredCommand,
 } from "../src/extension.ts";
-import type { ExecResult } from "../src/extension.ts";
 import {
 	buildThreadDetailLines,
 	buildThreadRowLabel,
@@ -64,7 +65,7 @@ class FakeContext implements ExtensionContext {
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
 	readonly editorTexts: string[] = [];
 	readonly customCalls: Array<{ options: unknown }> = [];
-	readonly ui: NonNullable<ExtensionContext["ui"]>;
+	readonly ui: ExtensionContext["ui"];
 
 	constructor(options: { hasUI?: boolean; custom?: boolean } = {}) {
 		this.hasUI = options.hasUI ?? true;
@@ -85,6 +86,8 @@ class FakeContext implements ExtensionContext {
 					}),
 		};
 	}
+
+	async waitForIdle(): Promise<void> {}
 }
 
 function execResult(overrides: Partial<ExecResult> = {}): ExecResult {

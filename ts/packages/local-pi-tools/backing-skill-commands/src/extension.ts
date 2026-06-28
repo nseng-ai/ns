@@ -3,8 +3,17 @@ import {
 	genericCommandStyleSkillNames,
 	KNOWN_PI_COMMAND_NAMESPACES,
 } from "@sdl/pi/commands";
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import {
+	registerCommandWithImmediateAck,
+	type ImmediateCommandAckCommandRegistrar,
+	type ImmediateCommandNotifyContext,
+} from "@sdl/pi/commands/ack";
 import { definePiSurfaceParity, type PiSurfaceParity } from "@sdl/pi/parity/extension";
+import type {
+	PiCommandContext,
+	PiCommandHost,
+	PiCommandRegistration,
+} from "@sdl/pi/runtime/command-host";
 import { buildSkillInvocationPrompt, expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
 
 export interface DerivedPiCommand {
@@ -14,25 +23,19 @@ export interface DerivedPiCommand {
 	command: string;
 }
 
-export interface BackingSkillCommandContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui?: {
-		notify?(message: string, level?: "info" | "warning" | "error"): void;
-	};
+export interface BackingSkillCommandContext
+	extends
+		Pick<PiCommandContext, "cwd" | "hasUI">,
+		ImmediateCommandNotifyContext<"info" | "warning" | "error"> {
 	waitForIdle(): Promise<void> | void;
 }
 
-export interface BackingSkillCommand {
-	description?: string;
-	argumentHint?: string;
+export type BackingSkillCommand = Omit<PiCommandRegistration, "handler"> & {
 	handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
-}
+};
 
-export interface BackingSkillCommandHost {
-	registerCommand(name: string, command: BackingSkillCommand): unknown;
-	sendUserMessage(content: string): unknown;
-}
+export type BackingSkillCommandHost = ImmediateCommandAckCommandRegistrar<BackingSkillCommand> &
+	Pick<PiCommandHost, "sendUserMessage">;
 
 interface HandleBackingSkillCommandOptions {
 	host: BackingSkillCommandHost;

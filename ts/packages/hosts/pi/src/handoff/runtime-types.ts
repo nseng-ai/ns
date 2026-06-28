@@ -6,11 +6,12 @@ import type {
 	SessionUserMessageOptions,
 } from "../sessions/replacement.ts";
 import type { ThinkingLevel } from "../runtime/types.ts";
-import type { ToolContext, ToolDefinition } from "../runtime/tool-types.ts";
+import type { ExtensionMode, ToolContext, ToolDefinition } from "../runtime/tool-types.ts";
 
 export type { ExecResult } from "@sdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "../runtime/types.ts";
 export type {
+	ExtensionMode,
 	NotifyLevel,
 	SetWidgetFunction,
 	ToolContext,
@@ -19,8 +20,6 @@ export type {
 	WidgetPlacement,
 	WidgetRuntimeContext,
 } from "../runtime/tool-types.ts";
-
-export type ExtensionMode = "tui" | "rpc" | "json" | "print";
 
 export interface AutocompleteItem {
 	value: string;

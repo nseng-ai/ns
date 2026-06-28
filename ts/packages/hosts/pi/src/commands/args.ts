@@ -66,7 +66,7 @@ export function parseCliCommandArgs(rawArgs: string): ParsedCliCommandArgs {
 			tokenStarted = true;
 			continue;
 		}
-		if (/\s/u.test(char)) {
+		if (/\s/.test(char)) {
 			if (tokenStarted) {
 				args.push(current);
 				current = "";
@@ -79,10 +79,18 @@ export function parseCliCommandArgs(rawArgs: string): ParsedCliCommandArgs {
 		tokenStarted = true;
 	}
 
-	if (escaping) return { ok: false, error: "Trailing backslash escape." };
-	if (quote === "single") return { ok: false, error: "Unterminated single quote." };
-	if (quote === "double") return { ok: false, error: "Unterminated double quote." };
-	if (tokenStarted) args.push(current);
+	if (escaping) {
+		return { ok: false, error: "Trailing backslash escape." };
+	}
+	if (quote === "single") {
+		return { ok: false, error: "Unterminated single quote." };
+	}
+	if (quote === "double") {
+		return { ok: false, error: "Unterminated double quote." };
+	}
+	if (tokenStarted) {
+		args.push(current);
+	}
 
 	return { ok: true, args };
 }
