@@ -85,6 +85,8 @@ describe("genericBackingSkillCommandSpecs", () => {
 
 		expect(surfaces).toContain("pr:address");
 		expect(surfaces).toContain("code:workflows");
+		expect(surfaces).not.toContain("grill:me");
+		expect(surfaces).not.toContain("grill:with-docs");
 		expect(surfaces).not.toContain("objective:close");
 		expect(surfaces).not.toContain("objective:create");
 		expect(surfaces).not.toContain("objective:current");

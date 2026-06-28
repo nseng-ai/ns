@@ -57,8 +57,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"duplicative-abstractions-tripwire",
 	"enriched-plan-save",
 	"fdt-refactor-mock-to-fake",
-	"grill-me",
-	"grill-with-docs",
 	"handoff-create",
 	"handoff-pickup",
 	"improve-codebase-architecture",
