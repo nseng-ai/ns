@@ -1,5 +1,6 @@
-import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
-import { renderTextTable } from "@sdl/core/text-table";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
+import { cell, paint, renderTable } from "@sdl/cli-theme";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -57,37 +58,37 @@ export function renderList(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	if (result.handoffs.length === 0) return emptyMessage(result);
+	const resolvedCaps = resolveRenderCapabilities(caps);
 	if (result.scope === "all-branches") {
-		const table = renderTextTable({
+		const table = renderTable({
+			caps: resolvedCaps,
 			columns: [
-				{ header: "BRANCH", style: "bold-cyan" },
-				{ header: "STATE" },
-				{ header: "HANDOFF" },
-				{ header: "UPDATED", style: "dim" },
+				{ header: "BRANCH", width: "auto" },
+				{ header: "STATE", width: "auto" },
+				{ header: "HANDOFF", width: "auto" },
+				{ header: "UPDATED", width: "auto" },
 			],
 			rows: result.handoffs.map((handoff) => [
-				handoff.branch,
-				handoff.branchState,
-				handoff.slug,
-				handoff.updatedAt,
+				cell(handoff.branch),
+				cell(handoff.branchState),
+				cell(paint(resolvedCaps, "accent", handoff.slug), handoff.slug),
+				cell(handoff.updatedAt),
 			]),
-			canEmitAnsi: caps.canEmitAnsi,
-			shouldDrawRule: true,
-			headerStyle: "bold-cyan",
 		});
-		return [allBranchesTitle(result), "", table].join("\n");
+		return stripAnsiWhenDisabled([allBranchesTitle(result), "", ...table].join("\n"), caps);
 	}
-	const table = renderTextTable({
+	const table = renderTable({
+		caps: resolvedCaps,
 		columns: [
-			{ header: "HANDOFF", style: "bold-cyan" },
-			{ header: "UPDATED", style: "dim" },
+			{ header: "HANDOFF", width: "auto" },
+			{ header: "UPDATED", width: "auto" },
 		],
-		rows: result.handoffs.map((handoff) => [handoff.slug, handoff.updatedAt]),
-		canEmitAnsi: caps.canEmitAnsi,
-		shouldDrawRule: true,
-		headerStyle: "bold-cyan",
+		rows: result.handoffs.map((handoff) => [
+			cell(paint(resolvedCaps, "accent", handoff.slug), handoff.slug),
+			cell(handoff.updatedAt),
+		]),
 	});
-	return [`Handoffs on ${result.branch}`, "", table].join("\n");
+	return stripAnsiWhenDisabled([`Handoffs on ${result.branch}`, "", ...table].join("\n"), caps);
 }
 
 export function renderListMarkdown(result: ListResult): string {
@@ -113,6 +114,10 @@ export function renderListMarkdown(result: ListResult): string {
 			(handoff) => `| ${markdownCell(handoff.slug)} | ${markdownCell(handoff.updatedAt)} |`,
 		),
 	].join("\n");
+}
+
+function stripAnsiWhenDisabled(output: string, caps: RenderCapabilities): string {
+	return caps.canEmitAnsi ? output : stripTerminalEscapes(output);
 }
 
 function allBranchesTitle(result: ListResult): string {
