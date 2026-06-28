@@ -93,7 +93,7 @@ function defaultPrFeedback(): InMemoryGithubPrFeedbackGateway {
 	});
 }
 
-describe("pr-address exec download-feedback", () => {
+describe("sdl address exec download-feedback", () => {
 	test("downloads current-branch PR feedback as a Markdown triage prompt", async () => {
 		const run = runScenario(["exec", "download-feedback", "--format", "json"], {
 			git: new InMemoryGitGateway({ currentBranch: "feature/demo" }),
@@ -145,10 +145,10 @@ describe("pr-address exec download-feedback", () => {
 		expect(markdown).toContain("If the human asks you to address the feedback");
 		expect(markdown).toContain("inspect the current repository state before acting");
 		expect(markdown).toContain(
-			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
 		);
 		expect(markdown).toContain(
-			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
 		);
 		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
 		expect(markdown.trim()).toMatch(/those mutations\.$/u);

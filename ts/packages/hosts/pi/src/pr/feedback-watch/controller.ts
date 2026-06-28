@@ -1,5 +1,3 @@
-import { join } from "node:path";
-
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
 import { unrefTimer } from "../../shared/timers.ts";
 
@@ -43,7 +41,7 @@ import type {
 	WatchStatus,
 } from "./model.ts";
 import { buildDetectedFeedbackPrompt } from "./prompt.ts";
-import { isWorkingTreeDirty, notify, pathExists, resolveRepoRoot } from "./runtime.ts";
+import { isWorkingTreeDirty, notify } from "./runtime.ts";
 import { defaultStatusLine, initialWatchStatus, shouldRefreshStatusAge } from "./status.ts";
 import type {
 	ActiveSession,
@@ -564,32 +562,18 @@ export class PrFeedbackWatchController {
 		session: ActiveSession,
 	): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const pathPrAddress = await this.pi.exec("which", ["pr-address"], {
+		const pathSdl = await this.pi.exec("which", ["sdl"], {
 			cwd: session.cwd,
 			timeout: GIT_TIMEOUT_MS,
 			signal: session.abortController.signal,
 		});
-		if (
-			!pathPrAddress.killed &&
-			pathPrAddress.code === 0 &&
-			pathPrAddress.stdout.trim().length > 0
-		) {
-			this.runner = { command: "pr-address", baseArgs: [] };
-			return { type: "resolved", runner: this.runner };
-		}
-		const repoRoot = await resolveRepoRoot(this.pi, session.cwd, session.abortController.signal);
-		const checkoutCli =
-			repoRoot === undefined
-				? undefined
-				: join(repoRoot, "ts", "packages", "pr-address", "src", "cli.ts");
-		if (checkoutCli !== undefined && pathExists(checkoutCli)) {
-			this.runner = { command: "node", baseArgs: [checkoutCli] };
+		if (!pathSdl.killed && pathSdl.code === 0 && pathSdl.stdout.trim().length > 0) {
+			this.runner = { command: "sdl", baseArgs: ["address"] };
 			return { type: "resolved", runner: this.runner };
 		}
 		return {
 			type: "failed",
-			message:
-				"Could not find pr-address. Expected `pr-address` on PATH (installed with `just install-pr-address`) or an sdl checkout containing ts/packages/pr-address/src/cli.ts.",
+			message: "Could not find sdl. Expected `sdl` on PATH (installed with `just install-tools`).",
 		};
 	}
 

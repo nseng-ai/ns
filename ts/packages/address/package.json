@@ -1,23 +1,22 @@
 {
-  "name": "@sdl/pr-address",
+  "name": "@sdl/address",
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    "./api": "./src/api.ts"
+    "./api": "./src/api.ts",
+    "./sdl-command": "./src/sdl-command.ts"
   },
   "files": [
     "src"
   ],
-  "bin": {
-    "pr-address": "./src/cli.ts"
-  },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/pr-address/test"
+    "test": "cd ../.. && vitest run --config vitest.config.ts packages/address/test"
   },
   "dependencies": {
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   }
 }

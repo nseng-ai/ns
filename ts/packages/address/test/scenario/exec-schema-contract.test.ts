@@ -11,7 +11,7 @@ import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
  */
 const CONTRACT_DELTAS: Record<string, string[]> = {};
 
-describe("pr-address exec operation parse↔document schema contract", () => {
+describe("sdl address exec operation parse↔document schema contract", () => {
 	test("every exec operation's parse schema keys match published document schema keys (modulo deltas)", () => {
 		for (const operation of EXEC_OPERATIONS) {
 			const { parseKeys, documentKeys } = schemaKeysForOperation(operation.name, operation.schema);

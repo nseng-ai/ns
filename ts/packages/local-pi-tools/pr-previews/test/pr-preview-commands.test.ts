@@ -336,10 +336,10 @@ describe("/pr:preview-feedback", () => {
 		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
-			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+			{ command: "sdl", args: ["address", "exec", "download-feedback", "--format", "json"] },
 			{
-				command: "pr-address",
-				args: ["exec", "pr-review-threads", "--pr-number", "456", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "pr-review-threads", "--pr-number", "456", "--format", "json"],
 			},
 		]);
 		expect(ctx.customCalls).toHaveLength(1);
@@ -366,12 +366,12 @@ describe("/pr:preview-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "pr-address",
-				args: ["exec", "download-feedback", "--pr-number", "123", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "download-feedback", "--pr-number", "123", "--format", "json"],
 			},
 			{
-				command: "pr-address",
-				args: ["exec", "pr-review-threads", "--pr-number", "789", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "pr-review-threads", "--pr-number", "789", "--format", "json"],
 			},
 		]);
 	});
@@ -398,7 +398,7 @@ describe("/pr:preview-feedback", () => {
 		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
-			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+			{ command: "sdl", args: ["address", "exec", "download-feedback", "--format", "json"] },
 		]);
 		expect(ctx.customCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
@@ -418,7 +418,7 @@ describe("/pr:preview-feedback", () => {
 		expect(ctx.customCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"Malformed pr-address pr-review-threads #456",
+			"Malformed sdl address exec pr-review-threads #456",
 		);
 		expect(ctx.notifications.at(-1)?.message).toContain("boom");
 	});

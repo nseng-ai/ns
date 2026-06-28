@@ -1,10 +1,10 @@
-# pr-address exec CLI reference notes
+# sdl address exec CLI reference notes
 
-`pr-address exec` is the machine-readable PR feedback primitive surface: feedback download, stack plumbing, structured PR reads, and confirmed review-thread mutations.
+`sdl address exec` is the machine-readable PR feedback primitive surface: feedback download, stack plumbing, structured PR reads, and confirmed review-thread mutations.
 
 ## JSON envelope
 
-All retained `pr-address exec <command> --format json` helpers emit a machine envelope:
+All retained `sdl address exec <command> --format json` helpers emit a machine envelope:
 
 - success: `{ "exit_code": 0, "data": ... }`
 - negative/validation: `{ "exit_code": 1, "message": ..., "data": ... }`
@@ -22,24 +22,24 @@ Use `--json-schema` before relying on a helper shape.
 ## Examples
 
 ```bash
-pr-address exec download-feedback --pr-number <pr-number> --format json
-pr-address exec map-branch-prs --format json
-pr-address exec pr-details --pr-number <pr-number> --format json
-pr-address exec branch-pr --branch <branch> --format json
-pr-address exec open-prs --format json
-pr-address exec pr-reviews --pr-number <pr-number> --format json
-pr-address exec pr-review-threads --pr-number <pr-number> --format json
-pr-address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
-pr-address exec pr-discussion-comments --pr-number <pr-number> --format json
-pr-address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
-pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+sdl address exec download-feedback --pr-number <pr-number> --format json
+sdl address exec map-branch-prs --format json
+sdl address exec pr-details --pr-number <pr-number> --format json
+sdl address exec branch-pr --branch <branch> --format json
+sdl address exec open-prs --format json
+sdl address exec pr-reviews --pr-number <pr-number> --format json
+sdl address exec pr-review-threads --pr-number <pr-number> --format json
+sdl address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+sdl address exec pr-discussion-comments --pr-number <pr-number> --format json
+sdl address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json
 ```
 
 For multiple thread IDs, loop over the primitive instead of using raw GraphQL:
 
 ```bash
 for thread_id in <THREAD_ID_1> <THREAD_ID_2> <THREAD_ID_3>; do
-  pr-address exec resolve-review-thread --thread-id "$thread_id" --format json
+  sdl address exec resolve-review-thread --thread-id "$thread_id" --format json
 done
 ```
 

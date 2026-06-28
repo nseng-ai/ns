@@ -81,11 +81,11 @@ describe("harness session extension", () => {
 		const state = register(pi);
 
 		await pi.emitSessionStart({ sessionFile: "/tmp/session.jsonl" });
-		const bash = await pi.emitBash("pr-address exec get-feedback 123 --format json");
+		const bash = await pi.emitBash("sdl address exec get-feedback 123 --format json");
 
 		expect(state.harnessSessionId).toBe("pi-session-file-29e67821bedc391a811d7fd8fcdf12be");
 		expect(bash.command).toBe(
-			"export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\npr-address exec get-feedback 123 --format json",
+			"export HARNESS_SESSION_ID='pi-session-file-29e67821bedc391a811d7fd8fcdf12be'\nsdl address exec get-feedback 123 --format json",
 		);
 		expect(bash.result).toBeUndefined();
 	});
@@ -135,15 +135,15 @@ describe("harness session extension", () => {
 		await pi.emitSessionStart({ sessionFile: "/tmp/session.jsonl" });
 
 		await expect(
-			pi.emitBash("HARNESS_SESSION_ID=manual pr-address exec get-feedback 123"),
+			pi.emitBash("HARNESS_SESSION_ID=manual sdl address exec get-feedback 123"),
 		).resolves.toEqual({
-			command: "HARNESS_SESSION_ID=manual pr-address exec get-feedback 123",
+			command: "HARNESS_SESSION_ID=manual sdl address exec get-feedback 123",
 			result: undefined,
 		});
 		await expect(
-			pi.emitBash("export HARNESS_SESSION_ID=manual\npr-address exec get-feedback 123"),
+			pi.emitBash("export HARNESS_SESSION_ID=manual\nsdl address exec get-feedback 123"),
 		).resolves.toEqual({
-			command: "export HARNESS_SESSION_ID=manual\npr-address exec get-feedback 123",
+			command: "export HARNESS_SESSION_ID=manual\nsdl address exec get-feedback 123",
 			result: undefined,
 		});
 	});

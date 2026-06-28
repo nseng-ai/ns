@@ -1,4 +1,4 @@
-// Capability API (`@sdl/pr-address/api`): the curated, in-process surface for
+// Capability API (`@sdl/address/api`): the curated, in-process surface for
 // PR-feedback consumers. The gateway seam and feedback/check payload vocabulary are
 // stable here so consumers do not import `@sdl/core/github-pr-feedback`, Pi modules,
 // command operation schemas, or PR Address internals.
@@ -15,7 +15,7 @@
 //   command schemas, Clinkr/exec wrappers, and Pi presentation/session helpers.
 //
 // ADR 0016 keeps the lower type declarations and real mechanics in `@sdl/core` so
-// dependency direction remains `@sdl/pr-address` -> `@sdl/core`; this file owns the
+// dependency direction remains `@sdl/address` -> `@sdl/core`; this file owns the
 // capability-facing seam vocabulary by re-exporting only the consumer-facing types.
 
 import type {

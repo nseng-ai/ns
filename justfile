@@ -64,11 +64,6 @@ install-sdl: (_install-ts-shim "sdl" "ts/packages/sdl/src/cli.ts" "just install-
     rm -f "{{justfile_directory()}}/.venv/bin/sdl"
     @echo "removed stale project venv sdl script if present"
 
-# Install the pr-address shim to ~/.local/bin so `pr-address` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an sdl checkout, this checkout's sources everywhere else.
-install-pr-address: (_install-ts-shim "pr-address" "ts/packages/pr-address/src/cli.ts" "just install-pr-address")
-
 # Install the roaster shim to ~/.local/bin so `roaster` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.

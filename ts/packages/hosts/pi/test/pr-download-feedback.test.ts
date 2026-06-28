@@ -200,7 +200,7 @@ describe("/pr:download-feedback", () => {
 		const ctx = await runCommand(pi);
 
 		expect(pi.calls).toEqual([
-			{ command: "pr-address", args: ["exec", "download-feedback", "--format", "json"] },
+			{ command: "sdl", args: ["address", "exec", "download-feedback", "--format", "json"] },
 		]);
 		expect(ctx.editorTexts).toEqual([markdown]);
 		expect(ctx.notifications.at(-1)).toEqual({
@@ -223,8 +223,8 @@ describe("/pr:download-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "pr-address",
-				args: ["exec", "download-feedback", "--pr-number", "123", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "download-feedback", "--pr-number", "123", "--format", "json"],
 			},
 		]);
 	});
@@ -264,7 +264,9 @@ describe("/pr:download-feedback", () => {
 
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
-		expect(ctx.notifications.at(-1)?.message).toContain("Malformed pr-address download-feedback");
+		expect(ctx.notifications.at(-1)?.message).toContain(
+			"Malformed sdl address exec download-feedback",
+		);
 		expect(pi.userMessages).toEqual([]);
 	});
 
@@ -344,8 +346,9 @@ describe("/pr:download-stack-feedback", () => {
 				args: ["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 			},
 			{
-				command: "pr-address",
+				command: "sdl",
 				args: [
+					"address",
 					"exec",
 					"map-branch-prs",
 					"--branches-json",
@@ -355,12 +358,12 @@ describe("/pr:download-stack-feedback", () => {
 				],
 			},
 			{
-				command: "pr-address",
-				args: ["exec", "download-feedback", "--pr-number", "101", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "download-feedback", "--pr-number", "101", "--format", "json"],
 			},
 			{
-				command: "pr-address",
-				args: ["exec", "download-feedback", "--pr-number", "102", "--format", "json"],
+				command: "sdl",
+				args: ["address", "exec", "download-feedback", "--pr-number", "102", "--format", "json"],
 			},
 		]);
 		expect(ctx.editorTexts).toHaveLength(1);
@@ -399,10 +402,10 @@ describe("/pr:download-stack-feedback", () => {
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
 		expect(prompt).toContain("resolve all automation review threads stack-wide");
 		expect(prompt).toContain(
-			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
 		);
 		expect(prompt).toContain(
-			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
 		);
 		expect(prompt).toContain(
 			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt",

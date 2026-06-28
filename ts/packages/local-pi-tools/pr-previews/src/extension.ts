@@ -33,7 +33,7 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 		workflow: "Preview unresolved PR review threads in a read-only Pi modal overlay",
 		parity: "WAIVED",
 		fallback:
-			"Use pr-address exec download-feedback --format json, then pr-address exec pr-review-threads --pr-number <n> --format json.",
+			"Use sdl address exec download-feedback --format json, then sdl address exec pr-review-threads --pr-number <n> --format json.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@local-pi-tools/pr-previews",
 		sourceModule: "pr-previews",
@@ -45,7 +45,7 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 		surface: PR_PREVIEW_CHECKS_COMMAND_NAME,
 		workflow: "Preview GitHub PR checks in a read-only Pi modal overlay",
 		parity: "WAIVED",
-		fallback: "Use pr-address exec pr-checks [--pr-number <n>] --format json.",
+		fallback: "Use sdl address exec pr-checks [--pr-number <n>] --format json.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@local-pi-tools/pr-previews",
 		sourceModule: "pr-previews",

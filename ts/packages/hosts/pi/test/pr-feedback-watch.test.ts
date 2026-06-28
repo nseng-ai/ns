@@ -425,10 +425,10 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("Do not push, submit, create branches");
 		expect(prompt).toContain("present remaining feedback for human curation");
 		expect(prompt).toContain(
-			"pr-address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
 		);
 		expect(prompt).toContain(
-			"pr-address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
+			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
 		);
 		expect(prompt).toContain("rather than raw `gh api graphql`");
 		expect(prompt).not.toContain("Do not edit files yet");
