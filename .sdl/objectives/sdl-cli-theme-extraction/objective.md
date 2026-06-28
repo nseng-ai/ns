@@ -62,4 +62,4 @@ This Objective starts with the package boundary change, then deliberately reasse
 - Resolved for the extraction slice: the package name is `@sdl/cli-theme`.
 - Resolved for the extraction slice: `@sdl/cli-theme` depends on public `@sdl/clinkr` for `Caps`/render-capability types and `@sdl/core/terminal-escapes` for escape stripping; Clinkr does not depend back on `@sdl/cli-theme`.
 - Still open/parked: whether `@sdl/clinkr/stream` should remain in Clinkr permanently, or whether any SDL-specific streaming presentation should move later.
-- Still open: which consolidation candidates belong in the theme package versus Flow/Slot-local helpers or a different CLI presentation utility layer.
+- Still open: which of the remaining non-Slot consolidation candidates belong in the theme package versus Flow/command-local helpers or a different CLI presentation utility layer. Slot navigation is resolved as Slot-local presentation over `@sdl/cli-theme` primitives rather than a theme-package promotion.
