@@ -1,4 +1,5 @@
 import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
@@ -7,22 +8,7 @@ const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.u
 const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../ccc/", import.meta.url));
 const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../sdl/", import.meta.url));
 
-const PROJECT_EXTENSION_ADAPTERS = [
-	".pi/extensions/ccc.ts",
-	".pi/extensions/claude.ts",
-	".pi/extensions/code.ts",
-	".pi/extensions/dispatch-runner-subagent.ts",
-	".pi/extensions/grill-ui.ts",
-	".pi/extensions/handoff.ts",
-	".pi/extensions/harness-session.ts",
-	".pi/extensions/code-workflows.ts",
-	".pi/extensions/home-directory-guard.ts",
-	".pi/extensions/just-fix.ts",
-	".pi/extensions/objective.ts",
-	".pi/extensions/branch-context.ts",
-	".pi/extensions/sdl.ts",
-	".pi/extensions/worktree-status.ts",
-] as const;
+const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@sdl/graphite/status",
@@ -56,6 +42,11 @@ interface NodeEvalOptions {
 	source: string;
 }
 
+interface NodeRunExpectationContext {
+	readonly cwd: string;
+	readonly label: string;
+}
+
 describe("Node runtime import smoke", () => {
 	test("project-local Pi extension adapters import directly under Node", () => {
 		const result = runNodeEval({
@@ -63,9 +54,17 @@ describe("Node runtime import smoke", () => {
 			source: buildExtensionAdapterImportScript(PROJECT_EXTENSION_ADAPTERS),
 		});
 
-		expectSuccessfulNodeRun(result);
+		expectSuccessfulNodeRun(result, { cwd: REPO_ROOT, label: "project-local Pi adapters" });
 		expect(result.stdout).toContain(
 			`imported ${PROJECT_EXTENSION_ADAPTERS.length} extension adapters`,
+		);
+		expect(PROJECT_EXTENSION_ADAPTERS).toEqual(
+			expect.arrayContaining([
+				".pi/extensions/context-profiler.ts",
+				".pi/extensions/dispatch-runner-subagent.ts",
+				".pi/extensions/grill-ui.ts",
+				".pi/extensions/thermo-council.ts",
+			]),
 		);
 	});
 
@@ -75,7 +74,10 @@ describe("Node runtime import smoke", () => {
 			source: buildPackageImportScript(PI_EXTENSIONS_WORKSPACE_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result);
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_EXTENSIONS_PACKAGE_ROOT,
+			label: "pi package imports",
+		});
 		expect(result.stdout).toContain("imported 5 package specifiers");
 	});
 
@@ -85,7 +87,7 @@ describe("Node runtime import smoke", () => {
 			source: buildPackageImportScript(CCC_WORKSPACE_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result);
+		expectSuccessfulNodeRun(result, { cwd: CCC_PACKAGE_ROOT, label: "ccc package imports" });
 		expect(result.stdout).toContain("imported 4 package specifiers");
 	});
 
@@ -95,7 +97,7 @@ describe("Node runtime import smoke", () => {
 			source: buildPackageImportScript(SDL_EXPORT_IMPORTS),
 		});
 
-		expectSuccessfulNodeRun(result);
+		expectSuccessfulNodeRun(result, { cwd: SDL_PACKAGE_ROOT, label: "sdl package imports" });
 		expect(result.stdout).toContain("imported 9 package specifiers");
 	});
 });
@@ -108,6 +110,13 @@ function runNodeEval(options: NodeEvalOptions): SpawnSyncReturns<string> {
 	});
 }
 
+function discoverProjectExtensionAdapters(): readonly string[] {
+	return readdirSync(new URL("../../../../../../.pi/extensions/", import.meta.url))
+		.filter((entry) => entry.endsWith(".ts"))
+		.map((entry) => `.pi/extensions/${entry}`)
+		.sort();
+}
+
 function buildExtensionAdapterImportScript(relativePaths: readonly string[]): string {
 	return `
 import { resolve } from "node:path";
@@ -115,10 +124,15 @@ import { pathToFileURL } from "node:url";
 
 const relativePaths = ${JSON.stringify(relativePaths)};
 for (const relativePath of relativePaths) {
-	const moduleUrl = pathToFileURL(resolve(process.cwd(), relativePath)).href;
-	const importedModule = await import(moduleUrl);
-	if (typeof importedModule.default !== "function") {
-		throw new Error(relativePath + " did not default-export an extension registration function.");
+	try {
+		const moduleUrl = pathToFileURL(resolve(process.cwd(), relativePath)).href;
+		const importedModule = await import(moduleUrl);
+		if (typeof importedModule.default !== "function") {
+			throw new Error(relativePath + " did not default-export an extension registration function");
+		}
+	} catch (error) {
+		console.error("Failed while importing extension adapter: " + relativePath);
+		throw error;
 	}
 }
 console.log("imported ${relativePaths.length} extension adapters");
@@ -135,7 +149,25 @@ console.log("imported ${specifiers.length} package specifiers");
 `;
 }
 
-function expectSuccessfulNodeRun(result: SpawnSyncReturns<string>): void {
-	const output = [result.stdout, result.stderr].filter((text) => text !== "").join("\n");
-	expect(result.status, output).toBe(0);
+function expectSuccessfulNodeRun(
+	result: SpawnSyncReturns<string>,
+	context: NodeRunExpectationContext,
+): void {
+	expect(result.status, formatNodeRunFailure(result, context)).toBe(0);
+}
+
+function formatNodeRunFailure(
+	result: SpawnSyncReturns<string>,
+	context: NodeRunExpectationContext,
+): string {
+	return [
+		`Node runtime import smoke failed: ${context.label}`,
+		`cwd: ${context.cwd}`,
+		`status: ${result.status ?? "null"}`,
+		`signal: ${result.signal ?? "null"}`,
+		"----- stdout -----",
+		result.stdout,
+		"----- stderr -----",
+		result.stderr,
+	].join("\n");
 }

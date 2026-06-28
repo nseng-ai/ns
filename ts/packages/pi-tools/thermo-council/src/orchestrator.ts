@@ -45,6 +45,8 @@ import { parseThermoCouncilSeats } from "./seats.ts";
 import type { EnvReader, ThermoCouncilCommandContext, ThermoCouncilExtensionAPI } from "./types.ts";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
+const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
+const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
 
 interface LaunchThermoCouncilReviewerOptions {
 	readonly pi: ThermoCouncilExtensionAPI;
@@ -61,6 +63,16 @@ interface CouncilSeatRunState {
 	readonly outcome?: ThermoCouncilReviewerOutcome;
 }
 
+interface RunCouncilSeatsOptions {
+	readonly pi: ThermoCouncilExtensionAPI;
+	readonly ctx: ThermoCouncilCommandContext;
+	readonly scope: ThermoCouncilScope;
+	readonly seats: readonly ThermoCouncilSeatConfig[];
+	readonly maxConcurrency: number;
+	readonly progressTracker: ReturnType<typeof createCouncilProgressTracker>;
+	readonly reviewGuidance?: string;
+}
+
 export async function runThermoCouncilCommand(
 	pi: ThermoCouncilExtensionAPI,
 	ctx: ThermoCouncilCommandContext,
@@ -75,23 +87,20 @@ export async function runThermoCouncilCommand(
 			return;
 		}
 
-		const seats = parseThermoCouncilSeats(processEnvReader());
+		const env = processEnvReader();
+		const seats = parseThermoCouncilSeats(env);
+		const maxConcurrency = parseThermoCouncilMaxConcurrency(env);
 		const progressTracker = createCouncilProgressTracker(ctx, seats);
 		setStatus(ctx, `launching ${seats.length} council seats: ${seatLabels(seats)}…`);
-		const outcomes = await Promise.all(
-			seats.map(async (seat) => {
-				const outcome = await launchThermoCouncilReviewer({
-					pi,
-					ctx,
-					scope: scopeResult.scope,
-					seat,
-					...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-					onProgress: (update) => progressTracker.recordProgress(seat, update),
-				});
-				progressTracker.recordOutcome(seat, outcome);
-				return outcome;
-			}),
-		);
+		const outcomes = await runCouncilSeatsWithConcurrencyLimit({
+			pi,
+			ctx,
+			scope: scopeResult.scope,
+			seats,
+			maxConcurrency,
+			progressTracker,
+			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+		});
 		setStatus(ctx, "aggregating thermo council findings…");
 		const deterministicReport = renderThermoCouncilReport(scopeResult.scope, outcomes);
 		if (!outcomes.some((outcome) => outcome.type === "completed")) {
@@ -155,6 +164,58 @@ async function launchThermoCouncilReviewer({
 		...(onProgress === undefined ? {} : { onProgress }),
 	});
 	return await reviewerOutcomeFromRunnerResult(seat, result, { pi, ctx });
+}
+
+export function parseThermoCouncilMaxConcurrency(env: EnvReader): number {
+	const raw = env.get(THERMO_COUNCIL_MAX_CONCURRENCY_ENV);
+	if (raw === undefined) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	const trimmed = raw.trim();
+	if (!/^\d+$/.test(trimmed)) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	const parsed = Number(trimmed);
+	if (!Number.isSafeInteger(parsed) || parsed < 1) return DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY;
+	return parsed;
+}
+
+async function runCouncilSeatsWithConcurrencyLimit({
+	pi,
+	ctx,
+	scope,
+	seats,
+	maxConcurrency,
+	progressTracker,
+	reviewGuidance,
+}: RunCouncilSeatsOptions): Promise<ThermoCouncilReviewerOutcome[]> {
+	if (seats.length === 0) return [];
+	const outcomes: Array<ThermoCouncilReviewerOutcome | undefined> = Array.from({
+		length: seats.length,
+	});
+	let nextIndex = 0;
+	const workerCount = Math.min(maxConcurrency, seats.length);
+	async function runNextSeat(): Promise<void> {
+		for (;;) {
+			const index = nextIndex;
+			nextIndex += 1;
+			const seat = seats[index];
+			if (seat === undefined) return;
+			const outcome = await launchThermoCouncilReviewer({
+				pi,
+				ctx,
+				scope,
+				seat,
+				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+				onProgress: (update) => progressTracker.recordProgress(seat, update),
+			});
+			progressTracker.recordOutcome(seat, outcome);
+			outcomes[index] = outcome;
+		}
+	}
+	await Promise.all(Array.from({ length: workerCount }, () => runNextSeat()));
+	return outcomes.map((outcome, index) => {
+		if (outcome === undefined) {
+			throw new Error(`Missing thermo-council outcome for seat index ${index}.`);
+		}
+		return outcome;
+	});
 }
 
 function reviewerRunnerContext(ctx: ThermoCouncilCommandContext): RunnerSubagentContext {

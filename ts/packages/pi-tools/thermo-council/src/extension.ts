@@ -25,7 +25,7 @@ export { buildReviewerPrompt } from "./prompt.ts";
 export { renderThermoCouncilReport } from "./report.ts";
 export { parseThermoCouncilSeats } from "./seats.ts";
 export { clusterFindings } from "./synthesis.ts";
-export { runThermoCouncilCommand } from "./orchestrator.ts";
+export { parseThermoCouncilMaxConcurrency, runThermoCouncilCommand } from "./orchestrator.ts";
 
 export const thermoCouncilParity = definePiSurfaceParity([
 	{

@@ -28,7 +28,7 @@ import {
 	jsonLine,
 	sessionMessageLine,
 	waitForSpawn,
-} from "./runner-subagent-fakes.ts";
+} from "@sdl/pi-runner-subagents/testing";
 
 const ROOT = "/repo";
 const SESSION_FILE = "/tmp/text-child.jsonl";

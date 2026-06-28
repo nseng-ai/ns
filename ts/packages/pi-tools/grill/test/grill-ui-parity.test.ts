@@ -5,42 +5,8 @@ import {
 	formatParityComparisonFailure,
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
+import { FakePiSurfaceHost } from "@sdl/pi/parity/testing";
 import { grillUiParity, registerGrillUiExtension } from "../src/extension.ts";
-
-interface RegisteredToolLike {
-	readonly name?: unknown;
-}
-
-class FakePiSurfaceHost {
-	private readonly registeredSurfaces: LivePiSurface[] = [];
-	private readonly surfaceKeys = new Set<string>();
-
-	registerCommand(name: string, _options: unknown): void {
-		this.recordSurface({ kind: "command", surface: name });
-	}
-
-	registerTool(definition: RegisteredToolLike): void {
-		if (typeof definition.name !== "string" || definition.name.length === 0) {
-			throw new Error("registered tool definition is missing a non-empty name");
-		}
-		this.recordSurface({ kind: "tool", surface: definition.name });
-	}
-
-	sendUserMessage(): void {}
-
-	surfaces(): LivePiSurface[] {
-		return [...this.registeredSurfaces];
-	}
-
-	private recordSurface(surface: LivePiSurface): void {
-		const key = `${surface.kind}:${surface.surface}`;
-		if (this.surfaceKeys.has(key)) {
-			throw new Error(`duplicate ${surface.kind} registration: ${surface.surface}`);
-		}
-		this.surfaceKeys.add(key);
-		this.registeredSurfaces.push(surface);
-	}
-}
 
 async function collectGrillSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
