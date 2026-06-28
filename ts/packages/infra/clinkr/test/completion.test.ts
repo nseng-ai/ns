@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { describe, expect, test } from "vitest";
 
-import { ClinkrGroup, ok } from "../src/index.ts";
+import {
+	ClinkrGroup,
+	ok,
+	renderClinkrCompletionScript,
+	renderCompletionCandidatesNewline,
+} from "../src/index.ts";
 import { rawCommand } from "../src/raw/index.ts";
 
 interface ProbeContext {
@@ -143,5 +148,40 @@ describe("clinkr static completion", () => {
 		});
 
 		expect(candidateValues(group, ["choose", "--name", "t"])).toEqual([]);
+	});
+});
+
+describe("clinkr shell completion helpers", () => {
+	test("renders newline candidate values without descriptions", () => {
+		expect(
+			renderCompletionCandidatesNewline({
+				candidates: [
+					{ value: "alpha", type: "command", description: "Alpha command." },
+					{ value: "--beta", type: "option", description: "Beta option." },
+				],
+			}),
+		).toBe("alpha\n--beta\n");
+	});
+
+	test("renders dynamic resolver setup scripts for supported shells", () => {
+		const resolverCommand = ["completion", "exec", "resolve"];
+		const bash = renderClinkrCompletionScript({
+			commandName: "sdl",
+			shell: "bash",
+			resolverCommand,
+		});
+		const zsh = renderClinkrCompletionScript({ commandName: "sdl", shell: "zsh", resolverCommand });
+		const fish = renderClinkrCompletionScript({
+			commandName: "sdl",
+			shell: "fish",
+			resolverCommand,
+		});
+
+		expect(bash).toContain("complete -F _sdl_completion 'sdl'");
+		expect(bash).toContain("'sdl' 'completion' 'exec' 'resolve' --");
+		expect(zsh).toContain("compdef _sdl_completion 'sdl'");
+		expect(zsh).toContain("'sdl' 'completion' 'exec' 'resolve' --");
+		expect(fish).toContain("complete -c 'sdl'");
+		expect(fish).toContain("'sdl' 'completion' 'exec' 'resolve' --");
 	});
 });

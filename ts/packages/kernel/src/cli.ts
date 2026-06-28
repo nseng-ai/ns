@@ -6,9 +6,11 @@ import {
 	CLINKR_CAPS_EXTENSION_KEY,
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
+	ok,
 	resolveClinkrInteraction,
 	type ClinkrCommandSpec,
 } from "@sdl/clinkr";
+import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
@@ -35,8 +37,14 @@ import {
 	loadListingCommandInfos,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
+	type SdlCommandCatalog,
 } from "./extension-registry.ts";
 import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "sdl-sdk";
+import {
+	buildSdlCompletionScript,
+	renderSdlCompletionScriptResult,
+	sdlCompletionScriptResultSchema,
+} from "./operations/completion.ts";
 import {
 	renderSdlShellInstall,
 	renderSdlShellShow,
@@ -92,7 +100,18 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			cwd: resolvedCwd,
 			homeDir: deps.homeDir ?? resolvedEnv.HOME,
 		});
-		const selectedCommandKey = requestedCommandKey(args, commandCatalog.commandInfos);
+		if (isCompletionResolverInvocation(args)) {
+			return await handleCompletionResolverInvocation({
+				args,
+				commandCatalog,
+				stdout: resolvedStdout,
+				stderr: resolvedStderr,
+			});
+		}
+		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
+		const selectedCommandKey = isCompletionScriptRequest
+			? undefined
+			: requestedCommandKey(args, commandCatalog.commandInfos);
 		const selectedCandidate =
 			selectedCommandKey === undefined
 				? undefined
@@ -102,19 +121,25 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			requestedCommandName: selectedCommandKey,
 			selectedCandidate,
 		});
-		if (diagnosticClassification.fatal.length > 0) {
+		if (!isCompletionScriptRequest && diagnosticClassification.fatal.length > 0) {
 			resolvedStderr(`${formatExtensionErrorDiagnostics(diagnosticClassification.fatal)}\n`);
 			return { type: "handled", exitCode: 2 };
 		}
 
 		let commandInfos = commandCatalog.commandInfos;
 		let listingDiagnostics: typeof diagnosticClassification.warnings = [];
-		if (selectedCommandKey === undefined && !isStaticTopLevelMetadataRequest(args)) {
+		if (
+			!isCompletionScriptRequest &&
+			selectedCommandKey === undefined &&
+			!isStaticTopLevelMetadataRequest(args)
+		) {
 			const loadedListing = await loadListingCommandInfos(commandCatalog);
 			commandInfos = loadedListing.commandInfos;
 			listingDiagnostics = loadedListing.diagnostics;
 		}
-		const warnings = [...diagnosticClassification.warnings, ...listingDiagnostics];
+		const warnings = isCompletionScriptRequest
+			? []
+			: [...diagnosticClassification.warnings, ...listingDiagnostics];
 		if (warnings.length > 0) {
 			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
 		}
@@ -183,6 +208,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		slotGroup.group(buildSdlShellGroup());
 		root.group(slotGroup);
 		root.group(buildSdlShellGroup());
+		root.group(buildSdlCompletionGroup());
 		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo);
@@ -259,6 +285,93 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 	return await entry.run(args, deps);
 }
 
+async function handleCompletionResolverInvocation(options: {
+	args: readonly string[];
+	commandCatalog: SdlCommandCatalog;
+	stdout: (text: string) => void;
+	stderr: (text: string) => void;
+}): Promise<{ type: "handled"; exitCode: number }> {
+	const words = completionResolverWords(options.args);
+	const selectedCommandKey = requestedCompletedCommandKey(
+		words,
+		options.commandCatalog.commandInfos,
+	);
+	const selectedCandidate =
+		selectedCommandKey === undefined
+			? undefined
+			: options.commandCatalog.candidates.get(selectedCommandKey);
+	const loadedSelectedCommand =
+		selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
+	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
+		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
+		return { type: "handled", exitCode: 0 };
+	}
+	const selectedCommand = loadedSelectedCommand?.command;
+	const selectedSource = loadedSelectedCommand?.source;
+	const selectedPath = loadedSelectedCommand?.path;
+	const commandInfos = commandInfosForSelectedCommand(
+		options.commandCatalog.commandInfos,
+		selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
+			? undefined
+			: { command: selectedCommand, source: selectedSource, path: selectedPath },
+	);
+	const candidates = buildCli({
+		commandInfos,
+		...(selectedCommand === undefined ? {} : { selectedCommand }),
+		...(selectedPath === undefined ? {} : { selectedCommandPath: selectedPath }),
+	}).complete({ words });
+	options.stdout(renderCompletionCandidatesNewline(candidates));
+	return { type: "handled", exitCode: 0 };
+}
+
+function isCompletionResolverInvocation(args: readonly string[]): boolean {
+	return args[0] === "completion" && args[1] === SDL_EXEC_GROUP_NAME && args[2] === "resolve";
+}
+
+function isCompletionScriptInvocation(args: readonly string[]): boolean {
+	return args[0] === "completion" && ["bash", "zsh", "fish"].includes(args[1] ?? "");
+}
+
+function completionResolverWords(args: readonly string[]): readonly string[] {
+	const resolverArgs = args.slice(3);
+	if (resolverArgs[0] !== "--") return resolverArgs;
+	return resolverArgs.slice(1);
+}
+
+function requestedCompletedCommandKey(
+	words: readonly string[],
+	commandInfos: readonly SdlCommandCliInfo[],
+): string | undefined {
+	const firstWord = words[0];
+	if (firstWord === undefined || firstWord === "" || firstWord.startsWith("-")) return undefined;
+	const directCommand = commandInfos.find(
+		(commandInfo) => commandInfo.group === undefined && commandInfo.name === firstWord,
+	);
+	if (directCommand !== undefined) return directCommand.name;
+
+	const groupedCommands = commandInfos.filter((commandInfo) => commandInfo.group === firstWord);
+	if (groupedCommands.length === 0) return undefined;
+	const secondWord = words[1];
+	if (secondWord === undefined || secondWord === "" || secondWord.startsWith("-")) return undefined;
+	if (secondWord === SDL_EXEC_GROUP_NAME) {
+		const execCommand = words[2];
+		if (execCommand === undefined || execCommand === "" || execCommand.startsWith("-")) {
+			return undefined;
+		}
+		const key = commandKey({ group: firstWord, name: execInternalCommandName(execCommand) });
+		return optionsIncludesCommandKey(groupedCommands, key) ? key : undefined;
+	}
+	const key = commandKey({ group: firstWord, name: secondWord });
+	return optionsIncludesCommandKey(groupedCommands, key) ? key : undefined;
+}
+
+function optionsIncludesCommandKey(
+	commandInfos: readonly SdlCommandCliInfo[],
+	key: string,
+): boolean {
+	return commandInfos.some((commandInfo) => commandKey(commandInfo) === key);
+}
+
 function requestedCommandKey(
 	args: readonly string[],
 	commandInfos: readonly SdlCommandCliInfo[],
@@ -300,6 +413,39 @@ function execInternalCommandName(displayName: string): string {
 function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
 	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
+}
+
+function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
+	const completion = new ClinkrGroup<SdlCliContext>({
+		name: "completion",
+		description: "Print shell completion setup scripts.",
+	});
+	for (const shell of ["bash", "zsh", "fish"] as const) {
+		completion.command({
+			name: shell,
+			description: `Print ${shell} completion setup for sdl.`,
+			schema: z.object({}),
+			resultSchema: sdlCompletionScriptResultSchema,
+			handler: async () => ok(buildSdlCompletionScript(shell)),
+			renderHuman: renderSdlCompletionScriptResult,
+		});
+	}
+	const exec = new ClinkrGroup<SdlCliContext>({
+		name: SDL_EXEC_GROUP_NAME,
+		description: "Shell completion resolver operations.",
+		isHidden: true,
+	});
+	exec.command(
+		rawCommand({
+			name: "resolve",
+			description: "Resolve newline-delimited shell completion candidates.",
+			schema: z.object({ words: z.array(z.string()).default([]) }),
+			positionals: { words: { position: 0 } },
+			run: async () => 0,
+		}),
+	);
+	completion.group(exec);
+	return completion;
 }
 
 type ShellCommandSchema = z.ZodObject<{ shell: z.ZodOptional<z.ZodString> }>;
