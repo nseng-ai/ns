@@ -105,7 +105,18 @@
       but not yet broad enough for clinkr/core promotion. `flow push` and `flow pull-trunk` deliberately
       ship **no live phase-stream region** (their buffered subprocess evidence is sufficient); the
       transcript-tail / live-region option for slower git ops is a revealed-but-deferred seam, not built
-      here.
+      here. Follow-up semantic update: `flow branch-latest-commit` migrated to the house style. It
+      revealed a complementary finite shape — a **multi-step workflow result block** — because its
+      outcome is a domain-authored transaction summary (new branch, moved commit, source reset,
+      cleanliness) with no single `ExecResult` to mine. That lives in a new flow-local
+      `ts/packages/capabilities/flow/src/shared/workflow-result-block.ts` (success/failure tiers,
+      direct-domain-message body per house style §7.1), while the dirty-worktree refusal and snapshot
+      probe failure honestly reuse `git-result-block.ts` (they are real git-status guardrails/failures).
+      Known follow-up: `createLatestCommitAutobranchFlow` still flattens domain guardrail refusals
+      (pushed-HEAD / child-branch / root-/merge-commit) into its `{ ok: false, error }` string, so they
+      currently render as `failure` rather than first-class `warn` refusals (house style §7.3);
+      threading a refusal/failure discriminator up belongs with the shared `autobranch` work in the
+      `flow autobranch` slice (the type is shared with CCC), not a flow-local hack here.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg

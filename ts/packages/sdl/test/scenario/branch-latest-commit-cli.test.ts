@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
+import { stripAnsi } from "@sdl/clinkr/testing";
 
 import { listSdlCommands } from "@sdl/sdl/cli";
 
@@ -191,15 +192,13 @@ describe("project-local branch-latest-commit extension", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toBe(
-			[
-				"New branch: extract-commit",
-				"Moved commit: aaaaaaa Add autobranch",
-				"Source branch feature/source reset to bbbbbbb.",
-				"Working directory is clean.",
-				"",
-			].join("\n"),
-		);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("Moved the latest commit to a new Graphite branch.");
+		expect(stdout).toContain("New branch: extract-commit");
+		expect(stdout).toContain("Moved commit: aaaaaaa Add autobranch");
+		expect(stdout).toContain("Source branch feature/source reset to bbbbbbb.");
+		expect(stdout).toContain("Working directory is clean.");
+		expect(stdout).toContain("Cwd: /work");
 		expect(run.stderr.join("")).toBe("");
 		expect(formattedExecCalls(run.context)).toEqual(
 			expect.arrayContaining([
@@ -233,8 +232,11 @@ describe("project-local branch-latest-commit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
-		expect(run.stderr.join("")).toContain("use `sdl flow autobranch`");
-		expect(run.stderr.join("")).toContain("requires a clean worktree");
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain("requires a clean worktree");
+		expect(stderr).toContain("Use `sdl flow autobranch`");
+		// The dirty porcelain status is surfaced as the actionable refusal detail.
+		expect(stderr).toContain("M src/app.ts");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
