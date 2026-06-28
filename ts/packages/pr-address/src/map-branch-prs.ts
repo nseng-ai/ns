@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit, type ClinkrFailureExit } from "@sdl/clinkr";
-import type { GithubPrFeedbackGateway, GithubPrSummary } from "./api.ts";
+import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { mapBranchesToOpenPrs } from "./core/branch-pr-mapping.ts";
 import { duplicateValues } from "./duplicate-values.ts";
 import {
 	defineExecOperation,
@@ -56,71 +56,16 @@ async function runMapBranchPrsOperation(
 	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
 	if (validationMessage !== null) return failure("invalid_request", validationMessage);
 
-	const mapping = await mapBranchesToOpenPrs({ branches, prFeedback: ctx.context.prFeedback, ctx });
-	if (mapping.type === "error") return mapping.exit;
+	const mapping = await mapBranchesToOpenPrs({
+		branches,
+		prFeedback: ctx.context.prFeedback,
+		gatewayOptions: gatewayOptions(ctx),
+	});
+	if (mapping.type === "failure") return prFeedbackFailureExit(mapping.message, mapping.failure);
 	const result = mapping.value;
 	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0)
 		return ok(result);
 	return negative(mappingFailureMessage(result), result);
-}
-
-export async function mapBranchesToOpenPrs(options: {
-	branches: readonly string[];
-	prFeedback: GithubPrFeedbackGateway;
-	ctx: PrAddressExecContext;
-}): Promise<
-	{ type: "ok"; value: MapBranchPrsResult } | { type: "error"; exit: ClinkrFailureExit }
-> {
-	const openPrsResult = await options.prFeedback.listOpenPrs(gatewayOptions(options.ctx));
-	if (!openPrsResult.ok)
-		return {
-			type: "error",
-			exit: prFeedbackFailureExit("Failed to list open PRs", openPrsResult.error),
-		};
-
-	const prsByHeadBranch = prsGroupedByHeadBranch(openPrsResult.value);
-	const branchPrs: BranchPrEntry[] = [];
-	const missingBranches: string[] = [];
-	const ambiguousBranches: AmbiguousBranchPrEntry[] = [];
-	for (const branch of options.branches) {
-		const candidates = prsByHeadBranch.get(branch) ?? [];
-		if (candidates.length === 0) {
-			missingBranches.push(branch);
-			continue;
-		}
-		if (candidates.length > 1) {
-			ambiguousBranches.push({
-				branch,
-				candidates: candidates.map((pr) => branchPrEntry(branch, pr)),
-			});
-			continue;
-		}
-		const [pr] = candidates;
-		if (pr === undefined) {
-			return {
-				type: "error",
-				exit: failure(
-					"internal_error",
-					`Expected exactly one PR candidate for branch ${branch}, but none was available after singleton validation.`,
-				),
-			};
-		}
-		branchPrs.push(branchPrEntry(branch, pr));
-	}
-	return {
-		type: "ok",
-		value: {
-			branch_prs: branchPrs,
-			missing_branches: missingBranches,
-			ambiguous_branches: ambiguousBranches,
-			summary: {
-				requested: options.branches.length,
-				matched: branchPrs.length,
-				missing: missingBranches.length,
-				ambiguous: ambiguousBranches.length,
-			},
-		},
-	};
 }
 
 export function branchesValidationMessage(
@@ -134,29 +79,6 @@ export function branchesValidationMessage(
 	if (duplicates.length > 0)
 		return `${commandName} branches contain duplicates: ${duplicates.join(", ")}`;
 	return null;
-}
-
-function branchPrEntry(branch: string, pr: GithubPrSummary): BranchPrEntry {
-	return {
-		branch,
-		pr_number: pr.number,
-		title: pr.title,
-		url: pr.url,
-		head_ref_name: pr.headRefName,
-		base_ref_name: pr.baseRefName,
-	};
-}
-
-function prsGroupedByHeadBranch(
-	prs: readonly GithubPrSummary[],
-): ReadonlyMap<string, readonly GithubPrSummary[]> {
-	const byBranch = new Map<string, GithubPrSummary[]>();
-	for (const pr of prs) {
-		const existing = byBranch.get(pr.headRefName) ?? [];
-		existing.push(pr);
-		byBranch.set(pr.headRefName, existing);
-	}
-	return byBranch;
 }
 
 function mappingFailureMessage(result: MapBranchPrsResult): string {
