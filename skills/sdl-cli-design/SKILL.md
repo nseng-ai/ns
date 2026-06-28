@@ -84,7 +84,7 @@ These apply to every sdl CLI command regardless of audience.
 
 Design *to* the typed machine envelope.
 
-- Return an exit constructor: `ok(data)`, `negative(message, data?)`,
+- Return an exit constructor: `ok(data)`, `negative(message, { data?, human? }?)`,
   `failure(errorType, message, data?)`, or `usageError(message, data?)`.
 - The envelope is a camelCase discriminated union keyed on `status`, carrying
   `exitCode` plus `errorType`/`message`/`data` where the variant has them. No
