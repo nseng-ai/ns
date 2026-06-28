@@ -169,10 +169,11 @@
       render warn (never red, §7.3) while keeping their `error` level and exit 1. The Pi command-stream
       path stays ANSI-free (the hook is wired only on the CLI context), and streaming progress remains
       the plain `CommandIo` ✓/✗/→ fallback. Semantic update:
-      `updates/2026-06-27-flow-land-ux-redesign.md`. Parked (no-extraction rule): colorizing the CLI
-      streaming progress lines, and promoting the three near-identical CCC/flow result-block builders
-      (`land-presentation.ts`, `autoslot-presentation.ts`, `workflow-result-block.ts`) to a shared
-      renderer. `flow land` is now Done.
+      `updates/2026-06-27-flow-land-ux-redesign.md`. Follow-up remediation promoted the now-proven
+      generic finite result-block layout into `@sdl/clinkr/theme` (`renderResultBlock` plus
+      `resultBlockHeadline`) after the repeated-shape precondition fired across Flow and CCC; git
+      transcript rendering remains flow-local around the shared headline helper. Still parked:
+      colorizing the CLI streaming progress lines. `flow land` is now Done.
 - [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
       `sdl slot gt up/down`, and `sdl shell show/install`.
 - [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
