@@ -15,9 +15,15 @@ import {
 } from "./identity.ts";
 import type { BranchState, HandoffSummary } from "./inventory.ts";
 
+export type HandoffBrmemGateway = Pick<
+	BrmemGateway,
+	"listEntries" | "getEntry" | "checkEntry" | "putEntry" | "deleteEntry"
+>;
+export type HandoffGitGateway = Pick<GitGateway, "localBranchPresence">;
+
 export interface HandoffStorageDeps {
-	brmem: BrmemGateway;
-	git: GitGateway;
+	brmem: HandoffBrmemGateway;
+	git: HandoffGitGateway;
 	cwd: string;
 }
 
@@ -46,6 +52,18 @@ export interface HandoffDeletionTarget {
 
 export interface DeleteHandoffArtifactResult extends HandoffDeletionTarget {
 	commit: string;
+}
+
+export interface HandoffReadTarget {
+	branch: string;
+	slug: string;
+	key: string;
+	entry_locator: string;
+}
+
+export interface ReadHandoffArtifactResult extends HandoffReadTarget {
+	content: string;
+	summary: HandoffSummary | null;
 }
 
 export async function listHandoffSummaries(
@@ -89,6 +107,41 @@ export async function listHandoffSummaries(
 			a.summary.slug.localeCompare(b.summary.slug),
 	);
 	return brmemOk(handoffs.map((item) => item.summary));
+}
+
+export async function readHandoffArtifact(
+	deps: HandoffStorageDeps,
+	options: { branch: string; slug: string },
+): Promise<BrmemResult<ReadHandoffArtifactResult>> {
+	const key = handoffKeyFromSlug(options.slug);
+	if (key.type === "error") {
+		return brmemError(key.error.code, key.error.message);
+	}
+
+	const target = handoffTarget({ branch: options.branch, key: key.value });
+	const summary = await findActiveHandoffSummary(deps, target);
+	if (summary.type === "error") return summary;
+	if (summary.value === null) {
+		return brmemError("handoff_not_found", notFoundMessage(target));
+	}
+
+	const entry = await deps.brmem.getEntry({
+		namespace: HANDOFF_NAMESPACE,
+		key: target.key,
+		branch: target.branch,
+	});
+	if (entry.type === "error") {
+		return brmemError(entry.error.code, `Failed to read handoff: ${entry.error.message}`);
+	}
+	if (entry.type === "missing") {
+		return brmemError("handoff_not_found", notFoundMessage(target));
+	}
+
+	return brmemOk({
+		...target,
+		content: entry.value.content,
+		summary: summary.value,
+	});
 }
 
 export async function prepareHandoffCreation(
@@ -191,7 +244,23 @@ async function classifyBranchState(
 	return brmemOk(state);
 }
 
-function creationTarget(options: { branch: string; key: string }): HandoffCreationTarget {
+async function findActiveHandoffSummary(
+	deps: HandoffStorageDeps,
+	target: HandoffReadTarget,
+): Promise<BrmemResult<HandoffSummary | null>> {
+	const summaries = await listHandoffSummaries(deps, {
+		branch: target.branch,
+		shouldIncludeDeleted: false,
+	});
+	if (summaries.type === "error") return summaries;
+	return brmemOk(
+		summaries.value.find(
+			(summary) => summary.key === target.key && summary.branch === target.branch,
+		) ?? null,
+	);
+}
+
+function handoffTarget(options: { branch: string; key: string }): HandoffReadTarget {
 	return {
 		branch: options.branch,
 		slug: handoffKeyToSlug(options.key),
@@ -200,19 +269,18 @@ function creationTarget(options: { branch: string; key: string }): HandoffCreati
 	};
 }
 
+function creationTarget(options: { branch: string; key: string }): HandoffCreationTarget {
+	return handoffTarget(options);
+}
+
 function deletionTarget(options: { branch: string; key: string }): HandoffDeletionTarget {
-	return {
-		branch: options.branch,
-		slug: handoffKeyToSlug(options.key),
-		key: options.key,
-		entry_locator: mustEntryLocator(HANDOFF_NAMESPACE, options.key, options.branch),
-	};
+	return handoffTarget(options);
 }
 
 function alreadyExistsMessage(target: HandoffCreationTarget): string {
 	return `Handoff \`${target.slug}\` already exists on branch \`${target.branch}\`.`;
 }
 
-function notFoundMessage(target: HandoffDeletionTarget): string {
+function notFoundMessage(target: { slug: string; branch: string }): string {
 	return `No handoff \`${target.slug}\` found on branch \`${target.branch}\`.`;
 }

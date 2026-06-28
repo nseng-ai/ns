@@ -1,4 +1,3 @@
-export { buildCli, runCli, VERSION, type CliDeps } from "./cli.ts";
 export type { HandoffCliContext } from "./context.ts";
 export {
 	HANDOFF_KEY_SUFFIX,

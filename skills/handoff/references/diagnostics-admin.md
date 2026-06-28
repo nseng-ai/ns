@@ -4,9 +4,9 @@ Use this reference for non-happy-path handoff work. Keep diagnostics narrow, ins
 
 ## General diagnostics posture
 
-- Prefer `handoff list` for inventory.
-- Prefer `handoff gc --dry-run` before deleting stale deleted-branch handoffs.
-- Use direct `brmem` commands only for storage/recovery/admin cases where no handoff CLI helper exists.
+- Prefer `sdl handoff list` for inventory.
+- Prefer `sdl handoff gc --dry-run` before deleting stale deleted-branch handoffs.
+- Use direct `brmem` commands only for storage/recovery/admin cases where no `sdl handoff ...` helper exists.
 - Always pass explicit branches in automation.
 - Always include `--namespace handoff` for direct Branch Memory operations.
 - For one-handoff copy/move, always include `--key-glob '<semantic-slug>.md'`; otherwise a namespace-level copy may copy or replace more than intended.
@@ -17,9 +17,10 @@ Use this reference for non-happy-path handoff work. Keep diagnostics narrow, ins
 ## Read-only inspection
 
 ```bash
-handoff list --branch <branch> --format json
-handoff list --all --format json
-handoff list --all --include-deleted --format json
+sdl handoff list --branch <branch> --format json
+sdl handoff list --all --format json
+sdl handoff list --all --include-deleted --format json
+sdl handoff pickup <semantic-slug> --branch <branch> --format json
 brmem check <semantic-slug>.md --namespace handoff --branch <branch> --format json
 brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
@@ -53,7 +54,7 @@ brmem copy \
   --format json
 ```
 
-Do not add `--overwrite` unless the user explicitly wants replacement. After copying, verify with `handoff list --branch <destination-branch> --format json` or `brmem check`.
+Do not add `--overwrite` unless the user explicitly wants replacement. After copying, verify with `sdl handoff list --branch <destination-branch> --format json` or `brmem check`.
 
 ## Move one handoff
 
@@ -81,13 +82,13 @@ Report the destination branch, source branch, namespace, key, entry locator/ref,
 
 Only delete one explicit handoff that the user or workflow has identified. Preflight with `brmem check` unless the current command already verified it.
 
-Prefer the first-party CLI, which deletes one exact-slug handoff (pass the slug without `.md`):
+Prefer the first-party SDL command face, which deletes one exact-slug handoff (pass the slug without `.md`):
 
 ```bash
-handoff delete [--branch <branch>] [-y|--yes] <slug>
+sdl handoff delete [--branch <branch>] [--yes] <slug>
 ```
 
-There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only. Use the storage layer directly only when no `handoff delete` helper is available:
+There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only. Use the storage layer directly only when no `sdl handoff delete` helper is available:
 
 ```bash
 brmem delete <semantic-slug>.md --namespace handoff --branch <branch> --format json
@@ -97,7 +98,7 @@ Report branch, namespace, key, locator/ref, and commit.
 
 ## Garbage collection
 
-Use `handoff gc --dry-run` first to preview handoffs whose local branch is deleted. Use `handoff gc -f` only after the user confirms deletion or explicitly asked to force cleanup.
+Use `sdl handoff gc --dry-run` first to preview handoffs whose local branch is deleted. Use `sdl handoff gc --force` only after the user confirms deletion or explicitly asked to force cleanup.
 
 Do not confuse deleted-branch cleanup with deleting active-branch handoffs.
 

@@ -9,14 +9,12 @@
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
 		"./sdl/commands/gc": "./src/sdl/commands/gc.ts",
-		"./sdl/commands/create": "./src/sdl/commands/create.ts"
+		"./sdl/commands/create": "./src/sdl/commands/create.ts",
+		"./sdl/commands/pickup": "./src/sdl/commands/pickup.ts"
 	},
 	"files": [
 		"src"
 	],
-	"bin": {
-		"handoff": "./src/cli.ts"
-	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../.. && vitest run --config vitest.config.ts packages/handoff/test"

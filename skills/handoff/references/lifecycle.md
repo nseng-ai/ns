@@ -54,18 +54,20 @@ Pi surfaces:
 /handoff:list [--branch <branch>|--all]
 ```
 
-CLI surfaces:
+SDL command face:
 
 ```text
-handoff list [--branch <branch>|--all] [--include-deleted] --format json
-handoff delete [--branch <branch>] [-y|--yes] <slug>
-handoff gc [--dry-run|-f]
+sdl handoff list [--branch <branch>|--all] [--include-deleted] --format json
+sdl handoff pickup [--branch <branch>] <slug>
+sdl handoff create --slug <slug> [--branch <branch>] [--file <path>]
+sdl handoff delete [--branch <branch>] [--yes] <slug>
+sdl handoff gc [--dry-run|--force]
 brmem get|check|put|copy|delete ... --namespace handoff
 ```
 
 There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only.
 
-`brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when a handoff CLI or Pi surface exists.
+`brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when an `sdl handoff ...` command or Pi surface exists.
 
 ## Branch and list scope
 

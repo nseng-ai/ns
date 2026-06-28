@@ -16,7 +16,7 @@ export interface HandoffCliContext {
 	brmem: BrmemGateway;
 	sourceReader: BrmemSourceReader;
 	interaction: ClinkrInteraction;
-	// Interactive prompt/status sink; Clinkr framework stderr is supplied separately through runCli IO.
+	// Interactive prompt/status sink; Clinkr framework stderr is supplied separately by command runners.
 	stderr: (text: string) => void;
 }
 

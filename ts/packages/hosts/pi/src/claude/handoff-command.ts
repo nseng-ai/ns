@@ -201,7 +201,7 @@ export function buildClaudeHandoffLaunchTool(
 			"Launch Claude Code to pick up a saved handoff after the handoff has been saved successfully.",
 		promptGuidelines: [
 			`Use ${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} only after a /${CLAUDE_HANDOFF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
-			`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} verifies the handoff exists before launching Claude; do not call it before brmem put succeeds.`,
+			`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} verifies the handoff exists before launching Claude; do not call it before sdl handoff create succeeds.`,
 		],
 		statusKey: CLAUDE_HANDOFF_STATUS_KEY,
 		verifyStatus: (params) => `verifying ${params.slug}…`,

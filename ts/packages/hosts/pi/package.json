@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@sdl/branch-context": "workspace:*",
+    "@sdl/brmem": "workspace:*",
     "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/domain-primitives-transitional": "workspace:*",

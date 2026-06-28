@@ -1,4 +1,3 @@
-import { checkBrmemEntry } from "@sdl/core/brmem-cli";
 import {
 	formatCommand,
 	formatCommandFailure,
@@ -6,8 +5,14 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/identity";
+import {
+	HANDOFF_KEY_SUFFIX,
+	HANDOFF_NAMESPACE,
+	handoffKeyToSlug,
+	prepareHandoffCreation,
+} from "@sdl/handoff/api";
 import { expandRepoSkillBlock, type ExpandedSkillBlock } from "../skills/expansion.ts";
+import { createPiHandoffStorageDeps } from "./api-context.ts";
 import type { BaseRuntimeContext, CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
 export const CREATE_HANDOFF_COMMAND_NAME = "handoff:create";
@@ -35,8 +40,8 @@ Storage contract:
 - Namespace: \`${HANDOFF_NAMESPACE}\`
 - Entry key shape: \`<semantic-slug>${HANDOFF_KEY_SUFFIX}\`
 - Compose the final Markdown handoff content first, then derive \`<semantic-slug>\` from that final content unless the user provided an explicit specific slug/key.
-- Check for an existing artifact with \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\`.
-- Store final Markdown directly with \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
+- Store final Markdown with \`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
+- If \`sdl handoff create\` is unavailable, the Branch Memory recovery path is \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\` followed by \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`.
 
 If review or editing is needed before creating, iterate in chat, structured UI, or another explicit surface; do not use a hidden temporary Markdown file as the review mechanism.
 
@@ -146,22 +151,17 @@ export async function checkHandoffExists(
 	branch: string,
 	key: string,
 ): Promise<HandoffExistsResult> {
-	const result = await checkBrmemEntry({
-		gateway: pi,
-		cwd,
-		key,
-		namespace: HANDOFF_NAMESPACE,
+	const result = await prepareHandoffCreation(createPiHandoffStorageDeps(pi, cwd), {
 		branch,
-		timeoutMs: BRMEM_TIMEOUT_MS,
+		slug: handoffKeyToSlug(key),
 	});
-	switch (result.type) {
-		case "present":
-			return { type: "exists" };
-		case "absent":
-			return { type: "missing" };
-		case "error":
-			return { type: "failed", message: result.error.message };
+	if (result.type === "ok") {
+		return { type: "missing" };
 	}
+	if (result.error.code === "handoff_already_exists") {
+		return { type: "exists" };
+	}
+	return { type: "failed", message: result.error.message };
 }
 
 export function setStatus(ctx: BaseRuntimeContext, key: string, value: string | undefined): void {

@@ -16,6 +16,7 @@ export type { BranchState, HandoffSummary } from "./inventory.ts";
 
 export {
 	listHandoffSummaries,
+	readHandoffArtifact,
 	prepareHandoffCreation,
 	createHandoffArtifact,
 	prepareHandoffDeletion,
@@ -24,10 +25,14 @@ export {
 export type {
 	CreateHandoffArtifactResult,
 	DeleteHandoffArtifactResult,
+	HandoffBrmemGateway,
 	HandoffCreationTarget,
 	HandoffDeletionTarget,
+	HandoffGitGateway,
+	HandoffReadTarget,
 	HandoffStorageDeps,
 	ListHandoffSummariesOptions,
+	ReadHandoffArtifactResult,
 } from "./artifact-storage.ts";
 
 export {

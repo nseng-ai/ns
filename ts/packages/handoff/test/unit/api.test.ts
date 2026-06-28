@@ -19,6 +19,7 @@ import {
 	planDeletedBranchGarbageCollection,
 	prepareHandoffCreation,
 	prepareHandoffDeletion,
+	readHandoffArtifact,
 } from "../../src/api.ts";
 
 describe("@sdl/handoff/api", () => {
@@ -53,6 +54,7 @@ describe("@sdl/handoff/api", () => {
 
 	test("exports storage and garbage-collection cores", () => {
 		expect(typeof listHandoffSummaries).toBe("function");
+		expect(typeof readHandoffArtifact).toBe("function");
 		expect(typeof prepareHandoffCreation).toBe("function");
 		expect(typeof createHandoffArtifact).toBe("function");
 		expect(typeof prepareHandoffDeletion).toBe("function");
