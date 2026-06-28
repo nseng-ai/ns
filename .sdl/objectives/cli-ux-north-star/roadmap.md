@@ -85,6 +85,11 @@
       migrate the P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
       `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`, plus
       `vibechk run` / `roaster review run` if their runner UX needs the same primitive).
+      Precursor (landed): the side-effect house style is consolidated into one normative spec at
+      `house-style.md` — the single source of truth that later command ports cite instead of
+      re-deriving the style from the four ported renderers; it reconciles the known cross-renderer
+      divergences (failure-detail strategy, transcript inline/file/omit, refusal kind, title
+      presence, guidance optionality) into rules or explicit discretion calls.
       Semantic update (first audited slice, landed): `flow push` migrated to the house style. The
       first stabilized side-effect primitive — the **git subprocess result/failure block** — lives at
       `ts/packages/capabilities/flow/src/shared/git-result-block.ts` (caps-aware success/failure/refusal

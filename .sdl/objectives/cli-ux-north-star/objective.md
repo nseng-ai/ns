@@ -22,7 +22,11 @@ human-facing CLI surfaces mechanically by shape.
   so the palette ladder can be felt rather than guessed.
 - **Decide the palette ladder approach by feel:** A = full capability ladder
   (truecolor → 256 → 16 → mono → ascii) vs B = modern-only (truecolor/256 → straight to mono).
-- **The house visual language** (signed off/settled by feel): minimal/gh chrome for list/tabular
+- **The house visual language** — consolidated into the normative spec `house-style.md`, which
+  pins down the side-effect result/progress grammar (the two output shapes, intent→glyph/color
+  mapping, finite three-tier failure, streaming phase surface, and the reconciled cross-renderer
+  divergences). The sign-offs below remain the source of the by-feel decisions; `house-style.md`
+  consolidates them for porting and does not supersede them. (Signed off/settled by feel): minimal/gh chrome for list/tabular
   surfaces; richness budget spent on color + motion, not boxes; glyph set `✓ ● ✗ – •` with the
   glyph colored and text default; semantic palette (success green / warn yellow / error red /
   accent cyan / muted dim); in-place-only streaming for TTYs, with a settled non-TTY frame;

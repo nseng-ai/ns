@@ -9,6 +9,10 @@
 // `flow autobranch` / `flow branch-latest-commit` — have the identical need and are the expected next
 // consumers; generalize then, not now.
 //
+// Reference renderer for the FINITE result-block shape in the consolidated house style; the
+// normative rules (intent→glyph mapping, success-concise / failure-detailed tiers, refusal kind,
+// transcript handling) live in `.sdl/objectives/cli-ux-north-star/house-style.md`.
+//
 // Three-tier styling (house-style sign-off):
 //   - headline: bold + intent-painted, with a leading status glyph;
 //   - successful side effects stay concise: headline, human guidance, and dimmed command/cwd evidence;
