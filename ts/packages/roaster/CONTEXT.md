@@ -20,7 +20,7 @@ Avoid: putting Roaster domain behavior in the SDL kernel, Pi host, or generic in
 
 The canonical user-facing command surface for Roaster: `sdl roaster ...`, including `sdl roaster review list`, `sdl roaster review run <key>`, `sdl roaster review log`, `sdl roaster roast list`, and hidden automation leaves under `sdl roaster exec ...`.
 
-Avoid: teaching the standalone `roaster` binary as the canonical invocation path; it remains a compatibility surface until its binary-disposition work is resolved.
+Avoid: teaching the removed standalone `roaster` binary as an active compatibility surface or canonical invocation path.
 
 ### Roaster Capability API
 

@@ -13,7 +13,7 @@ import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
 
 const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Roaster findings to GitHub.
 
-This hidden SDL automation command preserves the standalone roaster exec publish-findings stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
+This hidden SDL automation command preserves Roaster's review-run envelope stdin contract: it reads a review-run Clinkr envelope from stdin, publishes inline and summary findings through Roaster's gateway-injected GitHub publication boundary, and returns an enveloped publication result. It keeps diagnostics on stderr for automation logs and does not prompt for confirmation.`;
 
 export const roasterExecPublishFindingsCommand = createSdlDomainCommand({
 	name: "exec-publish-findings",

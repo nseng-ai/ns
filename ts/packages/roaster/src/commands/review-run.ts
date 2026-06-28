@@ -13,7 +13,7 @@ import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
 
 const REVIEW_RUN_DESCRIPTION = `Run a configured Roaster review over the current diff.
 
-This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, delegates review execution through the curated @sdl/roaster/api facade, writes the same Roaster Branch Memory review log as the standalone roaster CLI, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
+This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, delegates review execution through the curated @sdl/roaster/api facade, writes the Roaster Branch Memory review log, and preserves review-run failure semantics. Discovery and group help read only manifest metadata; selected execution may run git, model, and Branch Memory operations.`;
 
 export const roasterReviewRunCommand = createSdlDomainCommand({
 	name: "run",

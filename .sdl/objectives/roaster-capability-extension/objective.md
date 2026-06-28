@@ -2,7 +2,7 @@
 
 ## Thesis
 
-Roaster should become an SDL Capability above the thin SDL kernel: its review catalog, local-diff review execution, findings recording/publication, review-log storage, and review-skill discovery should remain Roaster-owned domain behavior, exposed through a thin SDL Command Face and a curated `@sdl/roaster/api` only where in-process consumers need it. The current package is already TypeScript and gateway-oriented, but it is still surfaced as a standalone `roaster` CLI package with selected root exports and public skills/docs that invoke the binary directly. This Objective owns the architecture migration from standalone tool shape to Capability shape without changing Roaster's product semantics.
+Roaster should become an SDL Capability above the thin SDL kernel: its review catalog, local-diff review execution, findings recording/publication, review-log storage, and review-skill discovery should remain Roaster-owned domain behavior, exposed through a thin SDL Command Face and a curated `@sdl/roaster/api` only where in-process consumers need it. At Objective start, the TypeScript gateway-oriented package was still surfaced as a standalone `roaster` CLI package with selected root exports and public skills/docs that invoked the binary directly; the migration records the cutover from that standalone tool shape to Capability shape without changing Roaster's product semantics.
 
 This Objective is a child of `sdl-extension-architecture` Phase 2. It follows ADR 0009 / 0012 / 0016 vocabulary: Roaster is an above-SDK Capability, `@sdl/capability-kit` is the shared above-SDK substrate, the SDL kernel remains small, and consumers must depend on `@sdl/roaster/api` rather than package internals. Roaster's existing domain is review-only by default: it runs configured PR-diff checks and emits findings; remediation, Objective evidence, review-thread addressing, and arbitrary PR workflow orchestration remain outside Roaster unless a later Objective explicitly adds them.
 
@@ -14,7 +14,7 @@ This Objective is a child of `sdl-extension-architecture` Phase 2. It follows AD
 - Model Roaster's user-facing command surface as an SDL command contribution, preserving the existing review operations intentionally: `review list`/`ls`, `review run`, `review log`, `roast list`, and hidden automation operations for recording/publishing findings unless a steer-first decision changes the command taxonomy.
 - Keep Roaster's domain core gateway-injected. Existing gateways for git/local diff, review catalog, review log, GitHub publication, and review runners should stay fake-testable; command shells should adapt host context to gateways rather than passing raw SDL extension context into domain logic.
 - Align public skills and Pi metadata over the chosen command face while preserving user-facing review-skill names such as `roast-thermonuclear-review` and the semantics of `.sdl/reviews/<key>.md` review definitions.
-- Decide and execute the standalone `roaster` binary disposition after SDL parity is proven: either hard-cut it like completed child capability migrations, or record an explicit compatibility exception if external tool ergonomics require retaining it temporarily.
+- Record the standalone `roaster` binary disposition after SDL parity is proven: hard-cut like completed child capability migrations, or retain only with an explicit compatibility exception if external tool ergonomics require it temporarily.
 - Update Roaster, SDL, Pi, context, docs, and parent Objective tracking so future agents can discover the Capability API, Command Face, Domain Core, storage boundary, and any parked follow-up work.
 
 ## Non-Goals
@@ -90,6 +90,4 @@ Risks:
 
 - Should the durable public command face become `sdl roaster ...`, `sdl roast ...`, or another grouped SDL shape that preserves current `review`/`roast` subgroups? Default to preserving current user vocabulary unless the first inventory finds a better command taxonomy.
 - Does any sibling package or host need a broad Roaster Capability API, or is `@sdl/roaster/api` initially a small set of review/run/log/publish contracts and types?
-- Should the standalone `roaster` binary be hard-cut after SDL parity, or retained temporarily as an explicit compatibility shim because public skills and external habits use it heavily?
 - Which pieces of the closed `roaster-graphite-stack-workflow` Objective should remain parked provenance versus future Roaster product work outside this Capability migration?
-- Should `exec publish-findings` be converted away from `rawCommand` as part of command-face parity, or tracked under CLI surface conformance instead if it is orthogonal to Capability migration?

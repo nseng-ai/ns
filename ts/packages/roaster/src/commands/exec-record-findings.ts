@@ -13,7 +13,7 @@ import { createSdlRoasterRuntime } from "./sdl-runtime.ts";
 
 const EXEC_RECORD_FINDINGS_DESCRIPTION = `Record same-session Roaster findings from stdin.
 
-This hidden SDL automation command preserves the standalone roaster exec record-findings JSON stdin contract, validates the findings payload inside Roaster-owned logic, and writes the same Branch Memory review log under namespace roaster and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
+This hidden SDL automation command preserves Roaster's record-findings JSON stdin contract, validates the findings payload inside Roaster-owned logic, and writes the same Branch Memory review log under namespace roaster and reviews/<review-key>/... keys. It intentionally does not publish findings to GitHub.`;
 
 export const roasterExecRecordFindingsCommand = createSdlDomainCommand({
 	name: "exec-record-findings",
