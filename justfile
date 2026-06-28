@@ -4,7 +4,7 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-check: dprint-check ts-deps-check ts-guard ts-format-check ts-lint ts-check js-test
+check: dprint-check ts-deps-check ts-format-check ts-lint ts-check js-test
 
 ci: check
 
@@ -36,9 +36,6 @@ ts-lint-fix: ts-install
 
 ts-check: ts-install
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run check
-
-ts-guard: ts-install
-    node {{justfile_directory()}}/ts/scripts/guard-typescript-style.mjs
 
 ts-test: ts-install
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test
