@@ -12,10 +12,10 @@
   - Guidance: represent Handoff as grouped SDL commands with `sdl.group: "handoff"` and leaves `list`, `delete`, `gc`, `create`, and `pickup` unless implementation evidence proves that existing grouped-command mechanics are insufficient. Keep discovery/help side-effect-light, load only the selected leaf, diagnose group/leaf collisions, and prefer internal SDL command infrastructure fixes over public SDK expansion.
   - Evidence: grouped Handoff-shaped extension tests now cover package-level `sdl.group`, selected leaf loading, help/schema routing, unknown leaf diagnostics, group/leaf collision rejection, and non-eager-loading.
 
-- [ ] Establish `@sdl/handoff/api` and gateway-injected Handoff Domain Core seams.
+- [~] Establish `@sdl/handoff/api` and gateway-injected Handoff Domain Core seams. (Admin-core evidence: updates/2026-06-27T233608Z-handoff-api-admin-core.md)
   - Policy: direct execution after preview for additive API/core slices; stop before changing storage semantics or exposing Pi/session presentation in the API.
   - Guidance: start from concrete consumers: SDL command leaves and Pi adapters. Expected API/Core candidates include identity/slug helpers, summaries, technical locators, list/read/create/delete/gc operations, selection helpers, and gateway-injected request/result types. Keep Pi UI/session continuation out of the API.
-  - Evidence: package export-map diff, fake-backed tests for core behavior, and import-boundary searches showing consumers use `@sdl/handoff/api` rather than package roots, identity-only subpaths for domain decisions, or Pi-local copies.
+  - Evidence: `@sdl/handoff/api` now exports identity, summaries, storage/admin functions, and deleted-branch GC planning/execution with fake-backed tests. Remaining API/core work should extend the seam for create and pickup/read when those leaves are implemented.
 
 - [ ] Migrate Handoff inventory/admin commands to `sdl handoff list`, `sdl handoff delete`, and `sdl handoff gc`.
   - Policy: direct execution after preview for implementation and tests; ask before running real delete/gc against real Branch Memory as validation.

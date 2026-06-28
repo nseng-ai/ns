@@ -2,11 +2,24 @@ import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
-import { deleteHandoffArtifact, listHandoffSummaries } from "../artifact-storage.ts";
-import { handoffSummarySchema, type HandoffSummary } from "../inventory.ts";
+import { listHandoffSummaries } from "../artifact-storage.ts";
+import {
+	executeDeletedBranchGarbageCollection,
+	planDeletedBranchGarbageCollection,
+	type DeletedBranchGarbageCollectionAction,
+	type DeletedBranchGarbageCollectionPlan,
+	type DeletedBranchGarbageCollectionReport,
+} from "../gc-core.ts";
+import { handoffSummarySchema } from "../inventory.ts";
 
-const gcActionSchema = z.enum(["kept_active", "would_delete", "deleted", "error"]);
-export type GcAction = z.infer<typeof gcActionSchema>;
+const GC_ACTION_VALUES = [
+	"kept_active",
+	"would_delete",
+	"deleted",
+	"error",
+] as const satisfies readonly DeletedBranchGarbageCollectionAction[];
+export const gcActionSchema = z.enum(GC_ACTION_VALUES);
+export type GcAction = DeletedBranchGarbageCollectionAction;
 
 export const gcRequestSchema = z.object({
 	dryRun: z.boolean().default(false).describe("Preview deletions without deleting."),
@@ -38,9 +51,18 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 		return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
 	const summaries = await loadAllSummaries(ctx);
 	if (summaries.type !== "resolved") return summaries;
-	const preview = previewResult(summaries.value, request.dryRun);
-	if (request.dryRun || preview.would_delete_count === 0) return ok(preview);
-	if (request.force) return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
+
+	const plan = planDeletedBranchGarbageCollection({ summaries: summaries.value });
+	const preview = toGcResult(plan, { dryRun: request.dryRun, cancelled: false });
+	if (request.dryRun || plan.counts.wouldDelete === 0) return ok(preview);
+	if (request.force)
+		return ok(
+			await executeAndFormat(ctx, plan, {
+				dryRun: false,
+				cancelled: false,
+			}),
+		);
+
 	const gate = requireInteractiveOrUsageError(ctx.interaction, {
 		message: "Deleting handoffs with gc requires --force when non-interactive.",
 		missingFlag: "--force",
@@ -54,9 +76,14 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 		defaultAnswer: "no",
 	});
 	if (confirmed.type === "confirmed")
-		return ok(await deleteDeletedBranchHandoffs(ctx, summaries.value));
+		return ok(
+			await executeAndFormat(ctx, plan, {
+				dryRun: false,
+				cancelled: false,
+			}),
+		);
 	if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
-	return ok(resultFromEntries(preview.entries, { dryRun: false, cancelled: true }));
+	return ok(toGcResult(plan, { dryRun: false, cancelled: true }));
 }
 
 export function renderGc(result: GcResult): string {
@@ -94,68 +121,28 @@ async function loadAllSummaries(ctx: HandoffCliContext) {
 	return { type: "resolved" as const, value: summaries.value };
 }
 
-function previewResult(summaries: readonly HandoffSummary[], dryRun: boolean): GcResult {
-	return resultFromEntries(
-		summaries.map((summary) =>
-			entryFromSummary(
-				summary,
-				summary.branch_state === "deleted" ? "would_delete" : "kept_active",
-			),
-		),
-		{ dryRun, cancelled: false },
-	);
-}
-
-async function deleteDeletedBranchHandoffs(
+async function executeAndFormat(
 	ctx: HandoffCliContext,
-	summaries: readonly HandoffSummary[],
+	plan: DeletedBranchGarbageCollectionPlan,
+	options: { dryRun: boolean; cancelled: boolean },
 ): Promise<GcResult> {
-	const entries: GcResultEntry[] = [];
-	for (const summary of summaries) {
-		if (summary.branch_state === "active") {
-			entries.push(entryFromSummary(summary, "kept_active"));
-			continue;
-		}
-		const deleted = await deleteHandoffArtifact(
-			{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
-			{ branch: summary.branch, key: summary.key },
-		);
-		if (deleted.type === "error") {
-			const message =
-				deleted.error.code === "handoff_not_found"
-					? `Handoff disappeared before deletion: ${deleted.error.message}`
-					: deleted.error.message;
-			entries.push(entryFromSummary(summary, "error", { message }));
-			continue;
-		}
-		entries.push(entryFromSummary(summary, "deleted", { commit: deleted.value.commit }));
-	}
-	return resultFromEntries(entries, { dryRun: false, cancelled: false });
+	const result = await executeDeletedBranchGarbageCollection(
+		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
+		plan,
+	);
+	return toGcResult(result, options);
 }
 
-function entryFromSummary(
-	summary: HandoffSummary,
-	action: GcAction,
-	options: { commit?: string | undefined; message?: string | undefined } = {},
-): GcResultEntry {
-	return {
-		...summary,
-		action,
-		commit: options.commit ?? null,
-		message: options.message ?? null,
-	};
-}
-
-function resultFromEntries(
-	entries: readonly GcResultEntry[],
+function toGcResult(
+	report: DeletedBranchGarbageCollectionReport,
 	options: { dryRun: boolean; cancelled: boolean },
 ): GcResult {
 	return {
-		entries: [...entries],
-		would_delete_count: entries.filter((entry) => entry.action === "would_delete").length,
-		deleted_count: entries.filter((entry) => entry.action === "deleted").length,
-		kept_count: entries.filter((entry) => entry.action === "kept_active").length,
-		error_count: entries.filter((entry) => entry.action === "error").length,
+		entries: report.entries.map((entry) => ({ ...entry })),
+		would_delete_count: report.counts.wouldDelete,
+		deleted_count: report.counts.deleted,
+		kept_count: report.counts.kept,
+		error_count: report.counts.error,
 		dry_run: options.dryRun,
 		cancelled: options.cancelled,
 	};
