@@ -79,3 +79,13 @@ Research findings captured for future implementers:
 - Answered for SDL diagnostics: unrelated malformed extensions are not loaded for unrelated completion contexts, selected broken command diagnostics go to stderr, resolver stdout remains candidate-only, and shell-facing failures use exit code 0 where needed to avoid breaking completion.
 - Answered for the first dynamic/custom provider API: providers append to static Clinkr candidates on the async path and candidates are deduped; provider failures are captured so static candidates remain available.
 - Answered for now: rich file/directory helper APIs are out of scope and remain parked; shell-native fallback behavior is preferred when Clinkr has no candidate.
+
+## Closure
+
+Outcome: completed.
+
+All non-parked roadmap work and completion criteria are satisfied. Clinkr now exposes a tested first-party completion surface (`ClinkrGroup.complete()` / async completion plus `@sdl/clinkr/completion`) covering commands, visible options, framework options, and enum choices without invoking handlers. SDL proves the pattern with `sdl completion bash|zsh|fish` setup generation and hidden `sdl completion exec resolve` resolver behavior, while preserving lazy extension catalog discovery, selected-command-only import, candidate-only stdout, and stderr diagnostics for selected broken commands.
+
+The dynamic/custom completion decision was resolved by implementing a small command-owned provider API across Clinkr, `sdl-sdk`, and the SDL resolver, proven with local-branch completion for `sdl slot checkout` / `sdl slot co`. User-facing and extension-author documentation landed in `ts/packages/kernel/README.md` and `ts/packages/kernel/docs/sdk-reference.md`, including supported shells, installation examples, resolver behavior, limitations, and the explicit no-compatibility-aliases-for-autocomplete boundary.
+
+Validation evidence is recorded in the Semantic Updates, especially `20260628T224146Z-sdl-shell-completion-proving-consumer.md`, `20260628T232011Z-dynamic-completion-hooks-slot-branches.md`, and `20260628T233257Z-completion-docs.md`. Remaining parked ideas — PowerShell completion, optional Carapace export, richer file/directory helpers, and wider monorepo dynamic completion adoption — are intentionally out of scope for this completed Objective and can become follow-up Objectives if prioritized.
