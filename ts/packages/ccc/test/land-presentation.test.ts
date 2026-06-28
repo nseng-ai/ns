@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { renderLandResultBlock } from "sdl-flow/land-stack/land-presentation";
+import { renderLandResultBlock } from "../src/land-stack/land-presentation.ts";
 
 const DIM = "\x1b[2m";
 

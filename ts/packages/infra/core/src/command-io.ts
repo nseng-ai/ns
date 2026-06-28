@@ -34,14 +34,16 @@ export interface CommandIo {
 }
 
 export interface CliCommandIoInput {
-	stdout(text: string): void;
-	stderr(text: string): void;
+	stdout?: ((text: string) => void) | undefined;
+	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ExecOutputListener | undefined;
 }
 
 export interface CliCommandIoOptions {
 	/** Invoked once per error-level notification, e.g. to flip a CLI exit flag. */
 	onNotifyError?: () => void;
+	/** Suppress transient phase and info notifications for structured output modes. */
+	shouldSuppress?: boolean;
 }
 
 export interface CommandIoChannels {
@@ -93,9 +95,10 @@ export function createCliCommandIo(
 		...(input.onOutput === undefined
 			? {}
 			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
-		phaseFallback: input.stderr,
-		notifyInfo: input.stdout,
-		notifyDiagnostic: input.stderr,
+		...(input.stderr === undefined ? {} : { phaseFallback: input.stderr }),
+		...(input.stdout === undefined ? {} : { notifyInfo: input.stdout }),
+		...(input.stderr === undefined ? {} : { notifyDiagnostic: input.stderr }),
+		...(options.shouldSuppress === undefined ? {} : { shouldSuppress: options.shouldSuppress }),
 	});
 
 	const onNotifyError = options.onNotifyError;

@@ -6,8 +6,8 @@ import { describe, expect, test } from "vitest";
 
 import { formatCommandResultFailure, runCommand, type ExecResult } from "@sdl/core/exec";
 import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/graphite/metadata";
-import { loadStackSnapshot } from "sdl-flow/land-stack/stack-facts";
-import type { LandStackExtensionAPI } from "sdl-flow/land-stack/types";
+import { loadStackSnapshot } from "../../src/land-stack/stack-facts.ts";
+import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";
 
 const COMMAND_TIMEOUT_MS = 60_000;
 const REAL_GT_TEST_TIMEOUT_MS = 5 * 60_000;

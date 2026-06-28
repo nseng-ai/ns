@@ -8,31 +8,31 @@ import {
 	parseGitCheckedOutElsewhere,
 	shortSha,
 	stripAnsi,
-} from "sdl-flow/land-stack/command-exec";
-import { landStackFailure, type LandStackResult } from "sdl-flow/land-stack/errors";
+} from "../src/land-stack/command-exec.ts";
+import { landStackFailure, type LandStackResult } from "../src/land-stack/errors.ts";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
 	withCommandStreaming,
-} from "sdl-flow/land-stack/command-stream";
-import { executeStackLanding, parseArgs, registerLandStackRenderer } from "sdl-flow/land-stack";
+} from "../src/land-stack/command-stream.ts";
+import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../src/land-stack.ts";
 import {
 	derivePathToTrunk,
 	deriveDescendantSubtree,
 	detectForkViolations,
 	type GraphiteTopology,
-} from "sdl-flow/land-stack/graphite-topology";
+} from "../src/land-stack/graphite-topology.ts";
 import {
 	loadPr,
 	validateInitialPrPreflight,
 	validateOpenPrBasics,
-} from "sdl-flow/land-stack/pr-facts";
+} from "../src/land-stack/pr-facts.ts";
 import {
 	formatFailure,
 	formatPlan,
 	formatSuccessNotification,
-} from "sdl-flow/land-stack/presentation";
-import { detectInProgressOperation, loadStackSnapshot } from "sdl-flow/land-stack/stack-facts";
+} from "../src/land-stack/presentation.ts";
+import { detectInProgressOperation, loadStackSnapshot } from "../src/land-stack/stack-facts.ts";
 import type {
 	BranchPlan,
 	LandStackExtensionAPI,
@@ -43,13 +43,13 @@ import type {
 	NotifyLevel,
 	PullRequestSnapshot,
 	StackSnapshot,
-} from "sdl-flow/land-stack/types";
+} from "../src/land-stack/types.ts";
 import {
 	detectWorktreeConflicts,
 	isManagedSlotPath,
 	parseWorktreeList,
 	slotNameFromPath,
-} from "sdl-flow/land-stack/worktrees";
+} from "../src/land-stack/worktrees.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS =

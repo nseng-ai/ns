@@ -159,6 +159,19 @@ describe("createCliCommandIo", () => {
 		expect(stderr).toEqual(["Careful\n", "Broken\n"]);
 		expect(errorNotifications).toBe(1);
 	});
+
+	test("supports optional SDK-style callbacks and suppression", () => {
+		const output: Array<{ stream: string; text: string }> = [];
+		const io = createCliCommandIo(
+			{ onOutput: (stream, text) => output.push({ stream, text }) },
+			{ shouldSuppress: true },
+		);
+
+		io.phase("Hidden");
+		io.notify("Info");
+
+		expect(output).toEqual([]);
+	});
 });
 
 describe("runWithCommandIo", () => {
