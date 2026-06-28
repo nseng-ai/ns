@@ -30,9 +30,10 @@
   - Provider failures are explicitly captured so static candidates remain available and shell stdout remains candidate-only.
   - Evidence: `20260628T232011Z-dynamic-completion-hooks-slot-branches.md` plus Clinkr/kernel/Slot tests.
 
-- [ ] Document the completion feature and its boundaries.
+- [x] Document the completion feature and its boundaries.
   - Explain supported shells, installation examples, resolver behavior, limitations, and how extension authors should think about completion metadata.
   - Explicitly state that SDL does not retain old command names or compatibility aliases for autocomplete convenience.
+  - Evidence: "Shell completion" section in `ts/packages/kernel/README.md` and expanded `completionProvider` reference in `ts/packages/kernel/docs/sdk-reference.md`, recorded in `20260628T233257Z-completion-docs.md`.
 
 ## Parked
 

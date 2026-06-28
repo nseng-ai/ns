@@ -152,6 +152,44 @@ type SdlCommandCompletionProvider = (
 
 Provides dynamic completion candidates for the selected command without invoking `run`. Use it for cheap, read-only lookups such as branch names. Return either a candidate array or `{ candidates }`; candidate values are newline-rendered by the shell resolver, while descriptions are currently ignored by the newline renderer.
 
+**Boundaries.**
+
+- The provider runs only on the async completion path for the selected command; it is never invoked for unrelated commands and does not eager-load other extensions.
+- Provider candidates are appended to the static command/option/enum candidates and deduped; the provider augments rather than replaces static completion.
+- Keep it cheap and read-only: do not mutate state, prompt, or perform expensive work. It runs on every completion keystroke for the selected command.
+- Provider failures are captured by the host: static candidates are still returned, resolver stdout stays candidate-only, and the resolver keeps exit code `0`. Errors may be reported concisely on stderr.
+
+**Example.** Complete local branch names for a positional argument:
+
+```ts
+import { defineExtension, ok, z } from "sdl-sdk";
+import { commandSucceeded } from "sdl-sdk";
+
+export default defineExtension({
+  commands: [
+    {
+      name: "checkout",
+      summary: "Check out a branch.",
+      description: "Check out an existing local branch.",
+      schema: z.object({ branch: z.string().optional() }),
+      positionals: { branch: { position: 0 } },
+      async completionProvider(ctx) {
+        const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
+        if (!commandSucceeded(result)) return [];
+        return result.stdout
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+          .map((value) => ({ value }));
+      },
+      run: (ctx, request) => ok(request.branch ?? "(current)"),
+    },
+  ],
+});
+```
+
+The user-facing setup, resolver behavior, supported shells, and limitations for SDL shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
+
 ### `SdlCommandSchema`
 
 ```ts
