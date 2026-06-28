@@ -5,14 +5,14 @@ import {
 	type RunnerSubagentLaunchMetadata,
 	type RunnerSubagentProgressCallback,
 	type RunnerSubagentUpdate,
-} from "@sdl/pi/runner-subagents";
+} from "./extension-api.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
 	formatRunnerSubagentThinkingText,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
-} from "@sdl/pi/runner-subagents/presentation";
+} from "./presentation.ts";
 
 export type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
 

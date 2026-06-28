@@ -4,7 +4,7 @@ export {
 	dispatchRunnerSubagent,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
-} from "@sdl/pi/runner-subagents";
+} from "./extension-api.ts";
 export type {
 	JsonObject,
 	RunnerSubagentBlockedResult,
@@ -35,14 +35,14 @@ export type {
 	RunnerSubagentUsageTotals,
 	RunnerSubagentUsageUnavailableReason,
 	TypeBoxLikeSchema,
-} from "@sdl/pi/runner-subagents";
+} from "./extension-api.ts";
 export {
 	assistantTextFromContent,
 	captureAssistantTextFromMessage,
 	createRunnerSubagentJsonEventParser,
 	extractRunnerSubagentToolCallPayloadsFromSessionJsonl,
 	isRecord,
-} from "@sdl/pi/runner-subagents/json-events";
+} from "./json-events.ts";
 export type {
 	JsonRecord,
 	RunnerSubagentJsonEventParserOptions,
@@ -50,7 +50,7 @@ export type {
 	RunnerSubagentJsonProtocolError,
 	RunnerSubagentJsonSessionHeader,
 	RunnerSubagentJsonTerminalExecutionError,
-} from "@sdl/pi/runner-subagents/json-events";
+} from "./json-events.ts";
 export {
 	DISPATCH_RUNNER_SUBAGENT_PARAMETERS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,

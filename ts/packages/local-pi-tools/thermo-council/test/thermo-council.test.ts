@@ -4,9 +4,9 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentDispatcherDependencies } from "@sdl/pi/runner-subagents/process";
-import type { RuntimeResultV1 } from "@sdl/pi/runner-subagents/runtime";
-import { createRuntimeConfig } from "@sdl/pi/runner-subagents/runtime";
+import type { RunnerSubagentDispatcherDependencies } from "@local-pi-tools/runner-subagents/process";
+import type { RuntimeResultV1 } from "@local-pi-tools/runner-subagents/runtime";
+import { createRuntimeConfig } from "@local-pi-tools/runner-subagents/runtime";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type JsonObject,

@@ -21,11 +21,11 @@ A tested host-resident implementation area under `ts/packages/hosts/pi/src/<doma
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Local Pi-tool package**:
-A private workspace package under `ts/packages/local-pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@local-pi-tools/context-profiler`, `@local-pi-tools/grill`, `@local-pi-tools/thermo-council`, `@local-pi-tools/backing-skill-commands`, `@local-pi-tools/pr-previews`, or the dispatch-focused `@local-pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; depends on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
+A private workspace package under `ts/packages/local-pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@local-pi-tools/context-profiler`, `@local-pi-tools/grill`, `@local-pi-tools/thermo-council`, `@local-pi-tools/backing-skill-commands`, `@local-pi-tools/pr-previews`, or the dispatch-focused `@local-pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
 *Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
-A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, runner-subagent runtime/process/JSON-event/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `branches/slug`, `grill/surfaces`, `models/*`, `objectives/picker`, `objectives/selection`, `parity/*`, `runtime/*`, `runner-subagents*`, `sessions/replacement`, `skills/expansion`, `terminal/*`, `shared/errors`, and `shared/timers`.
+A curated `@sdl/pi/...` package export for helper code intentionally reusable by other workspace packages or extracted Pi-tool packages, including command acknowledgement, command I/O, command names, branch slug normalization, model-call and LM-JSON helpers, shared error/timer helpers, machine-envelope parsing, Objective selection/list/picker helpers, session replacement, skill expansion, terminal layout/presentation helpers, parity helpers, and cmux/Pi runtime/tool types. The current export map is intentionally limited to these neutral/runtime/presentation families: `commands/*`, `branches/slug`, `grill/surfaces`, `models/*`, `objectives/picker`, `objectives/selection`, `parity/*`, `runtime/*`, `sessions/replacement`, `skills/expansion`, `terminal/*`, `shared/errors`, and `shared/timers`.
 *Avoid*: project-local extension entrypoint, Pi-tool implementation, CCC orchestration, private source deep import.
 
 **Project-local extension entrypoint**:
@@ -61,7 +61,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Runner subagent**:
-A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool lives in `@local-pi-tools/runner-subagents`; the shared runtime, process, JSON-event, and presentation helpers remain intentional neutral `@sdl/pi/runner-subagents*` subpaths while host runtime and downstream tools still consume them.
+A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool and its shared runtime, process, JSON-event, and presentation helpers live in `@local-pi-tools/runner-subagents`; the package still consumes neutral `@sdl/pi/...` runtime/tool helper subpaths where it needs Pi host types or agent-definition loading.
 *Avoid*: queued slash command, child thread, transcript scrape, forcing `@sdl/pi` to import the extracted dispatch package.
 
 **Terminal helper surface**:

@@ -5,7 +5,7 @@ import {
 	previewJsonEventValue,
 	runnerSubagentPrimaryActivityPreview,
 	toolResultPreviewFromEvent,
-} from "../src/runner-subagents/activity.ts";
+} from "../src/activity.ts";
 
 describe("runner subagent activity previews", () => {
 	test("compacts strings and truncates with a visible suffix", () => {

@@ -11,12 +11,12 @@ import {
 	readRuntimeResultFile,
 	writeRuntimeResultFileSync,
 	type RuntimeResultV1,
-} from "../src/runner-subagents/subagent-runtime.ts";
-import { createRunnerSubagentRuntimeExtension } from "../src/runner-subagents/subagent-runtime-extension.ts";
+} from "../src/subagent-runtime.ts";
+import { createRunnerSubagentRuntimeExtension } from "../src/subagent-runtime-extension.ts";
 import type {
 	RunnerSubagentTerminalStatus,
 	RunnerSubagentTerminalToolDefinition,
-} from "../src/runner-subagents/extension-api.ts";
+} from "../src/extension-api.ts";
 
 const completionTool: RunnerSubagentTerminalToolDefinition<{ summary: string }> = {
 	name: "complete_runner_subagent",

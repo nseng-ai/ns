@@ -12,8 +12,8 @@ import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
-} from "@sdl/pi/runner-subagents";
-import type { RunnerSubagentDispatcherDependencies } from "@sdl/pi/runner-subagents/process";
+} from "@local-pi-tools/runner-subagents";
+import type { RunnerSubagentDispatcherDependencies } from "@local-pi-tools/runner-subagents/process";
 import dispatchRunnerSubagentExtension, {
 	MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS,
 	DISPATCH_RUNNER_SUBAGENT_TOOL_NAME,

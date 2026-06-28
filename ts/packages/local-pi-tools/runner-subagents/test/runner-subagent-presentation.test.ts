@@ -1,16 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import type {
-	RunnerSubagentProgress,
-	RunnerSubagentResult,
-} from "../src/runner-subagents/extension-api.ts";
+import type { RunnerSubagentProgress, RunnerSubagentResult } from "../src/extension-api.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentProgressWidgetLines,
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
-} from "../src/runner-subagents/presentation.ts";
+} from "../src/presentation.ts";
 
 const PROGRESS: RunnerSubagentProgress = {
 	title: "Progress title",

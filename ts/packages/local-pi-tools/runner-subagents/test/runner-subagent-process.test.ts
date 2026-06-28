@@ -6,14 +6,14 @@ import {
 	normalizeChildToolAllowlist,
 	resolvePiInvocation,
 	dispatchRunnerSubagentProcess,
-} from "../src/runner-subagents/subagent-process.ts";
+} from "../src/subagent-process.ts";
 import type {
 	RunnerSubagentContext,
 	RunnerSubagentOptions,
 	RunnerSubagentPi,
 	RunnerSubagentTerminalToolDefinition,
 	RunnerSubagentUpdate,
-} from "../src/runner-subagents/extension-api.ts";
+} from "../src/extension-api.ts";
 import {
 	createFakeRunnerSubagentDispatcher,
 	jsonLine,

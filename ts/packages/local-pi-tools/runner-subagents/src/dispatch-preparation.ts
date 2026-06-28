@@ -9,12 +9,12 @@ import {
 	type RunnerSubagentPi,
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
-} from "@sdl/pi/runner-subagents";
+} from "./extension-api.ts";
 import {
 	buildCuratedRunnerSubagentContext,
 	type CuratedRunnerSubagentContext,
 } from "./curated-context.ts";
-import { resolveRunnerSubagentLaunch } from "@sdl/pi/runner-subagents/process";
+import { resolveRunnerSubagentLaunch } from "./subagent-process.ts";
 import type { WidgetRuntimeContext } from "@sdl/pi/runtime/tool-types";
 import { buildInitialRunnerSubagentUpdate, withRunnerSubagentWidget } from "./widget.ts";
 

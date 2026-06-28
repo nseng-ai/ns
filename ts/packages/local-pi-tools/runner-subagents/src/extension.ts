@@ -11,7 +11,7 @@ import {
 	type RunnerSubagentProgress,
 	type RunnerSubagentResult,
 	type RunnerSubagentUsageMetadata,
-} from "@sdl/pi/runner-subagents";
+} from "./extension-api.ts";
 import {
 	formatRunnerSubagentElapsed,
 	formatRunnerSubagentModelText,
@@ -19,12 +19,12 @@ import {
 	runnerSubagentDisplayTitle,
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
-} from "@sdl/pi/runner-subagents/presentation";
+} from "./presentation.ts";
 import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
-export { resultDiagnostic } from "@sdl/pi/runner-subagents";
+export { resultDiagnostic } from "./extension-api.ts";
 export type { ToolContext, ToolDefinition, ToolResult } from "@sdl/pi/runtime/tool-types";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { RunnerSubagentUpdate } from "@sdl/pi/runner-subagents";
+import type { RunnerSubagentUpdate } from "@local-pi-tools/runner-subagents";
 import {
 	formatRunnerSubagentActivityWidgetLines,
 	setRunnerSubagentWidget,
