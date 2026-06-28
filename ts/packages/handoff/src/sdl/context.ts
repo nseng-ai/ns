@@ -1,4 +1,9 @@
-import { RealGitBrmemGateway, type BrmemGateway } from "@sdl/brmem";
+import {
+	NodeBrmemSourceReader,
+	RealGitBrmemGateway,
+	type BrmemGateway,
+	type BrmemSourceReader,
+} from "@sdl/brmem";
 import { SdlCommandExecApi, createSdlGitGateway } from "@sdl/capability-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
@@ -10,6 +15,7 @@ import type { HandoffCliContext } from "../context.ts";
 interface HandoffSdlExtensionOverrides {
 	brmem?: BrmemGateway;
 	git?: GitGateway;
+	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
 }
 
@@ -29,6 +35,7 @@ export async function createSdlHandoffContext(ctx: SdlExtensionApi): Promise<Han
 		env: ctx.env as NodeJS.ProcessEnv,
 		git,
 		brmem,
+		sourceReader: overrides?.sourceReader ?? new NodeBrmemSourceReader(),
 		interaction: overrides?.interaction ?? createHandoffInteraction(ctx),
 		stderr,
 	};
@@ -41,6 +48,7 @@ function readHandoffOverrides(ctx: SdlExtensionApi): HandoffSdlExtensionOverride
 	return {
 		...(overrides.brmem === undefined ? {} : { brmem: overrides.brmem }),
 		...(overrides.git === undefined ? {} : { git: overrides.git }),
+		...(overrides.sourceReader === undefined ? {} : { sourceReader: overrides.sourceReader }),
 		...(overrides.interaction === undefined ? {} : { interaction: overrides.interaction }),
 	};
 }

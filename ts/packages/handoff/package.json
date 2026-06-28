@@ -8,7 +8,8 @@
 		"./api": "./src/api.ts",
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
-		"./sdl/commands/gc": "./src/sdl/commands/gc.ts"
+		"./sdl/commands/gc": "./src/sdl/commands/gc.ts",
+		"./sdl/commands/create": "./src/sdl/commands/create.ts"
 	},
 	"files": [
 		"src"

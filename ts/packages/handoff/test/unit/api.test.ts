@@ -4,6 +4,7 @@ import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
 	branchStateSchema,
+	createHandoffArtifact,
 	deleteHandoffArtifact,
 	deriveSemanticHandoffSlug,
 	executeDeletedBranchGarbageCollection,
@@ -16,6 +17,7 @@ import {
 	listHandoffSummaries,
 	parseFlatHandoffSlug,
 	planDeletedBranchGarbageCollection,
+	prepareHandoffCreation,
 	prepareHandoffDeletion,
 } from "../../src/api.ts";
 
@@ -51,6 +53,8 @@ describe("@sdl/handoff/api", () => {
 
 	test("exports storage and garbage-collection cores", () => {
 		expect(typeof listHandoffSummaries).toBe("function");
+		expect(typeof prepareHandoffCreation).toBe("function");
+		expect(typeof createHandoffArtifact).toBe("function");
 		expect(typeof prepareHandoffDeletion).toBe("function");
 		expect(typeof deleteHandoffArtifact).toBe("function");
 		expect(typeof planDeletedBranchGarbageCollection).toBe("function");

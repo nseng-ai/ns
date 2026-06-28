@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { FakeBrmemGateway } from "@sdl/brmem";
+import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@sdl/brmem";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -30,6 +30,7 @@ describe("sdl handoff commands", () => {
 		expect(output).toContain("list");
 		expect(output).toContain("delete");
 		expect(output).toContain("gc");
+		expect(output).toContain("create");
 		expect(help.stderr.join("")).toBe("");
 	});
 
@@ -90,6 +91,143 @@ describe("sdl handoff commands", () => {
 		});
 		const remaining = await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" });
 		expect(remaining).toBeUndefined();
+	});
+
+	test("handoff create stores stdin content on the current branch", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Alpha\n" });
+
+		const run = runHandoffCli({
+			args: ["handoff", "create", "--slug", "alpha", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git, sourceReader }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				namespace: "handoff",
+				branch: "feat/x",
+				slug: "alpha",
+				key: "alpha.md",
+				entry_locator: "refs/brmem/ns/handoff/feat---x:alpha.md",
+				source_file: "<stdin>",
+			},
+		});
+		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("# Alpha\n");
+	});
+
+	test("handoff create stores file content on an explicit branch", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const sourceReader = new FakeHandoffSourceReader({
+			files: { "artifact.md": "# File artifact\n" },
+		});
+
+		const run = runHandoffCli({
+			args: [
+				"handoff",
+				"create",
+				"--slug",
+				"file-alpha",
+				"--file",
+				"artifact.md",
+				"--branch",
+				"feat/y",
+				"--format",
+				"json",
+			],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git, sourceReader }) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				branch: "feat/y",
+				slug: "file-alpha",
+				key: "file-alpha.md",
+				source_file: "artifact.md",
+			},
+		});
+		expect(await getHandoffContent(brmem, { key: "file-alpha.md", branch: "feat/y" })).toBe(
+			"# File artifact\n",
+		);
+	});
+
+	test("handoff create requires slug and refuses existing key", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "old" });
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "new" });
+
+		const missingSlug = runHandoffCli({
+			args: ["handoff", "create", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git, sourceReader }) },
+		});
+		expect(await missingSlug.exit).toBe(2);
+		expect(parseJsonOutput(missingSlug)).toMatchObject({ status: "usageError" });
+
+		const existing = runHandoffCli({
+			args: ["handoff", "create", "--slug", "alpha", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git, sourceReader }) },
+		});
+		expect(await existing.exit).toBe(2);
+		expect(parseJsonOutput(existing)).toMatchObject({
+			status: "failure",
+			errorType: "handoff_already_exists",
+		});
+		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("old");
+	});
+
+	test("handoff create reports detached head and source read failures without writing", async () => {
+		const cwd = await createHandoffProject();
+		const brmem = new FakeBrmemGateway();
+		const detachedGit = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
+		const sourceReader = new FakeHandoffSourceReader({ files: {} });
+
+		const detached = runHandoffCli({
+			args: ["handoff", "create", "--slug", "alpha", "--format", "json"],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git: detachedGit, sourceReader }) },
+		});
+		expect(await detached.exit).toBe(2);
+		expect(parseJsonOutput(detached)).toMatchObject({
+			status: "failure",
+			errorType: "detached_head",
+		});
+
+		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
+		const missingFile = runHandoffCli({
+			args: [
+				"handoff",
+				"create",
+				"--slug",
+				"file-alpha",
+				"--file",
+				"missing.md",
+				"--format",
+				"json",
+			],
+			cwd,
+			state: { extensions: handoffExtensionOverrides({ brmem, git, sourceReader }) },
+		});
+		expect(await missingFile.exit).toBe(2);
+		expect(parseJsonOutput(missingFile)).toMatchObject({
+			status: "failure",
+			errorType: "source_file_missing",
+		});
+		expect(
+			await getHandoffContent(brmem, { key: "file-alpha.md", branch: "feat/x" }),
+		).toBeUndefined();
 	});
 
 	test("handoff gc dry-run previews deletions and --force is required for mutation", async () => {
@@ -170,6 +308,33 @@ async function getHandoffContent(
 function handoffExtensionOverrides(overrides: {
 	brmem: FakeBrmemGateway;
 	git: InMemoryGitGateway;
+	sourceReader?: BrmemSourceReader | undefined;
 }) {
-	return { handoff: { brmem: overrides.brmem, git: overrides.git } } as const;
+	return {
+		handoff: {
+			brmem: overrides.brmem,
+			git: overrides.git,
+			...(overrides.sourceReader === undefined ? {} : { sourceReader: overrides.sourceReader }),
+		},
+	} as const;
+}
+
+class FakeHandoffSourceReader implements BrmemSourceReader {
+	private readonly stdin: string;
+	private readonly files: Readonly<Record<string, string>>;
+
+	constructor(options: { stdin?: string | undefined; files?: Readonly<Record<string, string>> }) {
+		this.stdin = options.stdin ?? "";
+		this.files = { ...(options.files ?? {}) };
+	}
+
+	async readFileBytes(path: string): Promise<SourceBytesResult> {
+		const content = this.files[path];
+		if (content === undefined) return { type: "missing" };
+		return { type: "ok", bytes: new TextEncoder().encode(content) };
+	}
+
+	async readStdinBytes(): Promise<Uint8Array> {
+		return new TextEncoder().encode(this.stdin);
+	}
 }

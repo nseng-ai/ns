@@ -22,7 +22,7 @@
   - Guidance: these are the lowest-risk leaves because `@sdl/handoff` already owns standalone list/delete/gc operations. Preserve JSON/Markdown output intent, branch/all-branches/deleted-branch behavior, confirmation and dry-run/force semantics, and technical locator evidence.
   - Evidence: grouped SDL `handoff` extension leaves now exist for `list`, `delete`, and `gc`, with SDL scenario tests over fake Branch Memory/Git and shared Handoff-owned schemas/renderers/core. Remaining parity evidence includes the `-y`/`-f` short-alias gap in SDL contributed commands and broader call-site/cutover inventory.
 
-- [ ] Implement deterministic `sdl handoff create`.
+- [x] Implement deterministic `sdl handoff create`. (Evidence: updates/2026-06-28T005922Z-deterministic-sdl-handoff-create.md)
   - Policy: direct execution after preview using the Runner Policy defaults; stop before adding content-derived/model-derived slugging or overwrite behavior.
   - Guidance: SDL create should store final Markdown supplied through stdin or `--file`; require an explicit validated `--slug`, default to the current branch with optional `--branch`, refuse overwrite by default, and return technical locator evidence. Pi/skills remain responsible for composing the final Markdown artifact from session context and deriving content-based slugs.
   - Evidence: fake-backed storage tests, SDL command scenarios for stdin/file/missing slug/existing key/branch failures, and Pi/skill docs updated away from raw Branch Memory recipes where possible.
