@@ -76,15 +76,19 @@
       phase-stream, submit/cp scenarios, and SDL flow-extension integration; full `just` remains
       closure evidence, not a separate work row.
 - [x] Audit all remaining first-party TypeScript CLI surfaces and turn the result into a prioritized
-      migration backlog. **Done 2026-06-27.** Inventory lives in `cli-surface-audit.md`; it classifies
-      each surface as done, feature-building, mechanical, or exempt. Front-of-queue feature blockers are:
-      side-effect workflow/progress, destructive preview/confirmation, actionable shell/navigation
-      output, registry/agent-run reporting, and generalized list/detail/report primitives. Hidden
+      migration backlog. **Done 2026-06-27; scoped 2026-06-28 to extension-ported command faces only.**
+      Inventory lives in `cli-surface-audit.md`; it classifies each surface as done, eligible
+      feature-building/mechanical, exempt, or extension-gated until the SDL extension architecture ports
+      the command face. Front-of-queue eligible blockers are: side-effect workflow/progress, destructive
+      preview/confirmation, actionable shell/navigation output, and generalized list/detail/report
+      primitives. Registry/agent-run and other standalone/unported surfaces are no longer active UX
+      migration targets in this Objective; re-evaluate them when their command surfaces port. Hidden
       `exec`/LM payload/full-screen TUI surfaces stay exempt by default.
 - [ ] Stabilize reusable side-effect workflow/progress primitives beyond `flow submit`/`flow cp`, then
-      migrate the P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
-      `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`, plus
-      `vibechk run` / `roaster review run` if their runner UX needs the same primitive).
+      migrate the eligible P0 flow/workflow commands called out in `cli-surface-audit.md` (`flow land`,
+      `regenerate-pr`, `autobranch`, `autoslot`, `branch-latest-commit`, `push`, `pull-trunk`).
+      Standalone/unported runner commands such as `vibechk run` / `roaster review run` are now
+      extension-gated until a later eligibility pass marks them ported.
       Precursor (landed): the side-effect house style is consolidated into one normative spec at
       `house-style.md` — the single source of truth that later command ports cite instead of
       re-deriving the style from the four ported renderers; it reconciles the known cross-renderer
@@ -174,17 +178,22 @@
       `resultBlockHeadline`) after the repeated-shape precondition fired across Flow and CCC; git
       transcript rendering remains flow-local around the shared headline helper. Still parked:
       colorizing the CLI streaming progress lines. `flow land` is now Done.
-- [ ] Stabilize actionable shell/navigation rendering, then migrate `sdl slot checkout/co/goto`,
-      `sdl slot gt up/down`, and `sdl shell show/install`.
-- [ ] Stabilize destructive preview/confirmation/result rendering, then migrate slot/brmem/handoff/areg
-      mutation surfaces marked P0 in `cli-surface-audit.md`.
-- [ ] Stabilize registry/agent-run report cards, then migrate `packagechk NAME`, `packagechk claim-pypi`,
-      `packagechk claim-npm`, `vibechk run`, and `roaster review run` as needed.
-- [ ] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the P1
-      batches in `cli-surface-audit.md` (list/table, status/check, simple mutation summaries,
-      detail/report views, and remaining destructive/preview surfaces).
-- [ ] Keep `cli-surface-audit.md` current as migrations land: move surfaces to Done, keep exemptions
-      explicit, and avoid adding new human-facing CLI output outside the house-style primitives.
+- [ ] Stabilize actionable shell/navigation rendering, then migrate currently eligible Slot command-face
+      surfaces: `sdl slot checkout/co/goto` and `sdl slot gt up/down`. Re-evaluate shell-wrapper commands
+      only if/when they gain an SDL extension / Capability command face.
+- [ ] Stabilize destructive preview/confirmation/result rendering, then migrate eligible Slot and Handoff
+      mutation surfaces marked P0 in `cli-surface-audit.md`. Keep brmem/areg and other standalone or
+      unported destructive surfaces extension-gated until they port.
+- [ ] Re-evaluate extension eligibility at each rollout boundary and after material SDL extension-architecture
+      milestones. If registry/agent-run commands (`packagechk`, `vibechk`, `roaster`, etc.) later port to
+      an SDL extension / Capability command face, classify them in `cli-surface-audit.md` before deciding
+      whether this Objective or a follow-on owns their UX migration.
+- [ ] Stabilize generalized buffered list/detail/report primitives, then mechanically migrate the eligible
+      P1 batches in `cli-surface-audit.md` (Objective, Flow, Slot, Handoff, and any newly ported command
+      faces), leaving extension-gated surfaces for later re-evaluation.
+- [ ] Keep `cli-surface-audit.md` current as migrations and extension-architecture ports land: move eligible
+      surfaces to Done, keep exemptions explicit, mark unported surfaces extension-gated, and avoid adding
+      new human-facing CLI output outside the house-style primitives.
 
 ## Parked
 
@@ -199,3 +208,6 @@
 - [ ] Define a cross-command streaming machine-output contract (`--format jsonl` or equivalent) for
       side-effecting flow commands, including event schema, stdout/stderr split, transcript policy,
       final envelope, and Pi/onOutput consumption.
+- [ ] House-style migration for standalone tools or unported capabilities (`packagechk`, `vibechk`,
+      `roaster`, `areg`, `brmem`, `sdl shell`, and similar) is parked until the SDL extension architecture
+      gives the relevant surface an extension / Capability command face and a fresh audit marks it eligible.
