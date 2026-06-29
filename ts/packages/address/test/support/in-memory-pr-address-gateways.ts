@@ -16,7 +16,7 @@ import type {
 } from "@sdl/address/api";
 import type { Result } from "@sdl/core/result";
 
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 

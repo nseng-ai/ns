@@ -16,8 +16,10 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/vibechk/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/git": "workspace:*",
     "zod": "catalog:"
   },
   "sdl": {

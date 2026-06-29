@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@sdl/roaster/api";

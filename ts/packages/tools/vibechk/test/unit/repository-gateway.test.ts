@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import { describe, expect, it } from "vitest";
 

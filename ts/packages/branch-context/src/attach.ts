@@ -16,7 +16,7 @@ import {
 import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@sdl/brmem";
 import type { CommandExecApi } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/core/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@sdl/plans";
 
 export interface BranchContextPrimitiveOptions {

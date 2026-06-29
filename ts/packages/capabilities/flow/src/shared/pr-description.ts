@@ -1,4 +1,4 @@
-import type { GitGateway } from "@sdl/core/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import {
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	RealGithubPrGateway,
@@ -14,7 +14,9 @@ import {
 	type TextGenerator,
 } from "../submit/index.ts";
 
-import { createSdlCommandRunner, createSdlGitGateway } from "@sdl/capability-kit";
+import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
+import { RealGitGateway } from "@sdl/git";
+import { createSdlCommandRunner } from "@sdl/capability-kit";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 export { preparePrDescription } from "../submit/index.ts";
@@ -47,7 +49,7 @@ export function createSdlPrDescriptionRuntime(ctx: SdlExtensionApi): SdlPrDescri
 	const runner = createSdlCommandRunner(ctx);
 	return {
 		githubPr: new RealGithubPrGateway(runner),
-		git: createSdlGitGateway(ctx),
+		git: new RealGitGateway(new SdlCommandExecApi(ctx)),
 	};
 }
 

@@ -6,7 +6,10 @@ import {
 	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
 } from "@sdl/core/exec";
-import { planLocalBranchRefreshFromWorktrees, type LocalBranchRefreshPlan } from "@sdl/core/git";
+import {
+	planLocalBranchRefreshFromWorktrees,
+	type LocalBranchRefreshPlan,
+} from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 

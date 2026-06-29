@@ -26,6 +26,7 @@
     "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/git": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },

@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
-import type { GitResult } from "@sdl/core/git";
+import type { GitResult } from "@sdl/capability-kit/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@sdl/core/result";
 

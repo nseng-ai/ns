@@ -6,7 +6,8 @@ import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from 
 import { defineCli, runOperationCommand } from "@sdl/core/cli-entry";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { readStdin } from "@sdl/core/stdin";
 import { z } from "zod";
 

@@ -2,7 +2,8 @@ import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,

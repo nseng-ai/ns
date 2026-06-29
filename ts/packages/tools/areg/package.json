@@ -16,8 +16,10 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/git": "workspace:*",
     "@sdl/pi": "workspace:*",
     "smol-toml": "catalog:",
     "zod": "catalog:"

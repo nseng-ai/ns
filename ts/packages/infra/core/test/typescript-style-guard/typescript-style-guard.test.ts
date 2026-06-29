@@ -122,13 +122,13 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "neutral infra import is allowed for capabilities",
-			code: 'import { RealGitGateway } from "@sdl/core/git";',
+			code: 'import { RealGitGateway } from "@sdl/git";',
 			path: "ts/packages/ccc/src/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createSdlGitGateway } from "@sdl/capability-kit";',
+			code: 'import { createSdlCliExecAdapter } from "@sdl/capability-kit/git";',
 			path: "ts/packages/ccc/src/peer.ts",
 			expectedRules: [],
 		},

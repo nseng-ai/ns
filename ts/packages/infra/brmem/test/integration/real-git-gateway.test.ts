@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
 import {
 	DroppingOptionsCommandExecApi,
 	createTempGitRepo,

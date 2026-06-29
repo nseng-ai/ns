@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
 import { formatCommand, piExecApiToCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
 import { reconcileTopologyToLiveBranches } from "@sdl/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, execGraphite, formatCommandDetails } from "./command-exec.ts";

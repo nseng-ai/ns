@@ -1,6 +1,6 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AregCliContext } from "../../src/context.ts";

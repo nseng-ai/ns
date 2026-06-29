@@ -19,6 +19,7 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/graphite/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/core": "workspace:*"
   },
   "devDependencies": {},

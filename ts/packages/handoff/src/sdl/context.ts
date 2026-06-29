@@ -4,13 +4,11 @@ import {
 	type BrmemGateway,
 	type BrmemSourceReader,
 } from "@sdl/brmem";
-import {
-	createSdlClinkrInteraction,
-	createSdlGitGateway,
-	SdlStdinCapableCommandExecApi,
-} from "@sdl/capability-kit";
+import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
+import { RealGitGateway } from "@sdl/git";
+import { createSdlClinkrInteraction, SdlStdinCapableCommandExecApi } from "@sdl/capability-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
-import type { GitGateway } from "@sdl/core/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -24,7 +22,7 @@ interface HandoffSdlExtensionOverrides {
 
 export async function createSdlHandoffContext(ctx: SdlExtensionApi): Promise<HandoffCliContext> {
 	const overrides = readHandoffOverrides(ctx);
-	const git = overrides?.git ?? createSdlGitGateway(ctx);
+	const git = overrides?.git ?? new RealGitGateway(new SdlCommandExecApi(ctx));
 	const brmem =
 		overrides?.brmem ??
 		new RealGitBrmemGateway({

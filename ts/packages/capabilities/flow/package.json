@@ -30,10 +30,11 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/capability-kit": "workspace:*",
+    "@sdl/git": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",

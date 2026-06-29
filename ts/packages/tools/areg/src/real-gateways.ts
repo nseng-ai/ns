@@ -12,7 +12,8 @@ import {
 import path from "node:path";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
 

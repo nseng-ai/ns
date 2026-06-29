@@ -1,6 +1,6 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@sdl/brmem";
 import { usageError, type ClinkrExit, type ClinkrInteraction } from "@sdl/clinkr";
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import type {
 	ExecResult,
 	SdlCommand,

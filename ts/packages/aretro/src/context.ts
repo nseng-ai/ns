@@ -1,7 +1,8 @@
 import process from "node:process";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import type { SessionSource } from "./sessions/source.ts";
 import { PiJsonlSessionSource } from "./sessions/pi-jsonl-source.ts";
 

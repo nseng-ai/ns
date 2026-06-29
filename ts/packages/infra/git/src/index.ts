@@ -1,115 +1,25 @@
 import path from "node:path";
 
-import {
-	formatCommand,
-	formatCommandFailure,
-	type CommandExecApi,
-	type ExecOptions,
-	type ExecResult,
-} from "../exec.ts";
-import { formatErrorMessage } from "../primitives.ts";
-
-export {
-	readLocalBranchRefs,
-	type LocalBranchRefDirent,
-	type LocalBranchRefReaderFs,
-	type LocalBranchRefReadResult,
-	type ReadLocalBranchRefsOptions,
-} from "./ref-reader.ts";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { formatCommand, formatCommandFailure } from "@sdl/core/exec";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import type {
+	GitBranchParams,
+	GitBranchPresenceResult,
+	GitCurrentBranchResult,
+	GitCwdParams,
+	GitErrorInfo,
+	GitGateway,
+	GitLocalBranchTip,
+	GitOperationResult,
+	GitOptionalResult,
+	GitPathParams,
+	GitRefsPathParams,
+	GitResult,
+	GitRevisionRangePathParams,
+} from "@sdl/capability-kit/git";
 
 const GIT_TIMEOUT_MS = 10_000;
-
-export interface GitCwdParams {
-	cwd: string;
-	env?: NodeJS.ProcessEnv | undefined;
-	signal?: AbortSignal | undefined;
-}
-
-export interface GitErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string;
-}
-
-export type GitResult<T> = { ok: true; value: T } | { ok: false; error: GitErrorInfo };
-export type GitCurrentBranchResult =
-	| { type: "branch"; branch: string }
-	| { type: "detached" }
-	| { type: "failure"; error: GitErrorInfo };
-export type GitOptionalResult<T> =
-	| { type: "found"; value: T }
-	| { type: "missing" }
-	| { type: "error"; error: GitErrorInfo };
-
-export interface GitBranchParams extends GitCwdParams {
-	branch: string;
-}
-
-export interface GitPathParams extends GitCwdParams {
-	relativePath: string;
-}
-
-export interface GitRefsPathParams extends GitPathParams {
-	refs: readonly string[];
-}
-
-export interface GitRevisionRangePathParams extends GitPathParams {
-	revisionRange: string;
-}
-
-export interface GitLocalBranchTip {
-	name: string;
-	headIso: string | null;
-}
-
-export type GitOperationResult = { ok: true } | { ok: false; error: GitErrorInfo };
-export type GitBranchPresenceResult =
-	| { type: "present"; refName: string; displayCommand: string }
-	| { type: "absent"; refName: string }
-	| { type: "error"; error: GitErrorInfo };
-
-export interface GitGateway {
-	repoRoot(params: GitCwdParams): Promise<GitResult<string>>;
-	optionalRepoRoot(params: GitCwdParams): Promise<GitOptionalResult<string>>;
-	currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult>;
-	isInsideWorkTree(params: GitCwdParams): Promise<GitResult<boolean>>;
-	trunkBranch(params: GitCwdParams): Promise<GitOptionalResult<string>>;
-	originUrl(params: GitCwdParams): Promise<GitOptionalResult<string>>;
-	headCommit(params: GitCwdParams): Promise<GitResult<string>>;
-	gitPath(params: GitPathParams): Promise<GitResult<string>>;
-	validateBranchRef(params: GitBranchParams): Promise<GitOperationResult>;
-	localBranchPresence(params: GitBranchParams): Promise<GitBranchPresenceResult>;
-	createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult>;
-	hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>>;
-	listLocalBranchTips(params: GitCwdParams): Promise<GitResult<readonly GitLocalBranchTip[]>>;
-	treeOidsAtRefs(
-		params: GitRefsPathParams,
-	): Promise<GitResult<Readonly<Record<string, string | null>>>>;
-	changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>>;
-}
-
-export interface GitWorktreePorcelainEntry {
-	path: string;
-	branch: string | null;
-}
-
-export type LocalBranchRefreshPlan =
-	| {
-			type: "pull-checked-out-branch";
-			cwd: string;
-			args: string[];
-	  }
-	| {
-			type: "fetch-local-branch";
-			cwd: string;
-			args: string[];
-	  };
-
-export interface LocalBranchRefreshPlanOptions {
-	branch: string;
-	cwd: string;
-	worktreePorcelain: string;
-}
 
 interface CommandRun {
 	result: ExecResult;
@@ -533,56 +443,4 @@ function nonEmptyLines(value: string): string[] {
 		.split(/\r?\n/u)
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0);
-}
-
-export function planLocalBranchRefreshFromWorktrees(
-	options: LocalBranchRefreshPlanOptions,
-): LocalBranchRefreshPlan {
-	const checkedOutPath = parseGitWorktreePorcelain(options.worktreePorcelain).find(
-		(entry) => entry.branch === options.branch,
-	)?.path;
-	if (checkedOutPath !== undefined) {
-		return {
-			type: "pull-checked-out-branch",
-			cwd: checkedOutPath,
-			args: ["pull", "--ff-only", "origin", options.branch],
-		};
-	}
-
-	return {
-		type: "fetch-local-branch",
-		cwd: options.cwd,
-		args: ["fetch", "origin", `refs/heads/${options.branch}:refs/heads/${options.branch}`],
-	};
-}
-
-export function parseGitWorktreePorcelain(stdout: string): GitWorktreePorcelainEntry[] {
-	const entries: GitWorktreePorcelainEntry[] = [];
-	let current: GitWorktreePorcelainEntry | null = null;
-
-	function pushCurrent(): void {
-		if (current !== null) entries.push(current);
-		current = null;
-	}
-
-	for (const line of stdout.split("\n")) {
-		if (line.length === 0) {
-			pushCurrent();
-			continue;
-		}
-		if (line.startsWith("worktree ")) {
-			pushCurrent();
-			current = { path: line.slice("worktree ".length), branch: null };
-			continue;
-		}
-		if (current !== null && line.startsWith("branch ")) {
-			const ref = line.slice("branch ".length);
-			current = {
-				...current,
-				branch: ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref,
-			};
-		}
-	}
-	pushCurrent();
-	return entries;
 }

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { parseGitWorktreePorcelain, planLocalBranchRefreshFromWorktrees } from "@sdl/core/git";
+import {
+	parseGitWorktreePorcelain,
+	planLocalBranchRefreshFromWorktrees,
+} from "@sdl/capability-kit/git";
 
 describe("parseGitWorktreePorcelain", () => {
 	test("parses git worktree porcelain records", () => {

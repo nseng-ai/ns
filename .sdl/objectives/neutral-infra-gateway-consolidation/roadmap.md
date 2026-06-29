@@ -11,11 +11,17 @@
     `CONTEXT.md` now carries the concise vocabulary and ADR 0016 cross-references the GitHub
     placement refinement.
 
-- [ ] Relocate the `git` gateway per ADR 0019: `@sdl/capability-kit/git` owns the
+- [x] Relocate the `git` gateway per ADR 0019: `@sdl/capability-kit/git` owns the
       capability-facing interface, fake/testing support, and light adapter, while the complex real
       implementation may stay standalone if the placement gate still justifies it; repoint all
       capability/consumer imports off `@sdl/core/git`; delete the `@sdl/core/git` door in the same
       slice.
+  - Evidence: `@sdl/capability-kit/git` and `@sdl/capability-kit/git/testing` now own the seam,
+    helper functions, ref-reader utility, and in-memory fake; `@sdl/git` owns `RealGitGateway`;
+    `@sdl/core` no longer exports `./git` or `./git/testing`; source search confirms no
+    `@sdl/core/git` live import sites remain. Validation: `just ts-deps-check`,
+    `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`, and
+    `just ts-test-integration`.
 
 - [ ] Relocate the `exec` gateway per ADR 0019; stabilize `ExecResult`/formatting at the
       SDK/kit boundary before moving real child-process execution, repoint all `@sdl/core/exec`
