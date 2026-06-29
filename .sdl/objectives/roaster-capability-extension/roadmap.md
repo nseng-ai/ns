@@ -27,10 +27,10 @@
   - Guidance: move `review run` and `exec record-findings` through the SDL command face while keeping Domain Core gateway-injected. Preserve read-only review execution plus additive Branch Memory review-log writes, model-profile resolution, base-ref behavior, input coverage, failure semantics, and same-session findings payload validation.
   - Evidence: completed by `updates/2026-06-28T211200Z-review-run-record-findings-sdl-face.md`; SDL now exposes `sdl roaster review run <key>` and hidden `sdl roaster exec record-findings`, threads minimal full-payload stdin through `SdlExtensionApi`, adds a narrow same-session findings API/domain seam, and fake-backed tests cover review-run/result-preserving log failure plus record-findings stdin validation without live model, Branch Memory, or GitHub writes.
 
-- [ ] Migrate or explicitly disposition GitHub findings publication.
+- [x] Migrate or explicitly disposition GitHub findings publication.
   - Policy: steer first before changing publication semantics; ask before any live GitHub write validation.
   - Guidance: `exec publish-findings` is write-capable and currently uses a raw command surface. Decide whether command-face parity should convert it to an enveloped command now, preserve it as a hidden automation leaf, or defer raw-command remediation to CLI surface conformance. Keep publication fake-backed and guarded.
-  - Evidence: a Semantic Update records the disposition; implementation tests cover fake GitHub publication or a parked follow-up names the owning Objective if not migrated here.
+  - Evidence: completed by `updates/2026-06-28T212949Z-roaster-publish-findings-sdl-face.md`; SDL now exposes hidden `sdl roaster exec publish-findings` as an enveloped command with JSON schema, shared publication handling, stderr diagnostics, and fake-backed publication/failure scenario coverage. Standalone `roaster exec publish-findings` intentionally remains raw-compatible for the later binary cutover row.
 
 - [ ] Align public skills, Pi metadata, docs, and context over the Roaster Capability boundary.
   - Policy: direct execution after preview; steer first before changing public skill names or review terminology.

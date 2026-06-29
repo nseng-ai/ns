@@ -8,6 +8,7 @@ import {
 	formattedExecCalls,
 	parseJsonOutput,
 	runCliWithFakes,
+	type ExecCall,
 	type RunWithFakesOptions,
 } from "./sdl-cli-fakes.ts";
 
@@ -65,6 +66,54 @@ function brmemPutFailureResponse() {
 			call.command === "brmem" && call.args[0] === "put",
 		result: { code: 1, stderr: "simulated brmem write failure\n" },
 	};
+}
+
+function ghApiResponse(match: string | RegExp, stdout: unknown = {}) {
+	return {
+		match: (call: ExecCall) =>
+			call.command === "gh" && responseMatchesText(match, call.args.join(" ")),
+		result: { stdout: `${JSON.stringify(stdout)}\n` },
+	};
+}
+
+function responseMatchesText(match: string | RegExp, text: string): boolean {
+	return typeof match === "string" ? text.includes(match) : match.test(text);
+}
+
+function findingsEnvelope(): string {
+	return JSON.stringify({
+		status: "ok",
+		exitCode: 0,
+		data: {
+			reviewName: "typescript-style",
+			reviewPath: "/repo/.sdl/reviews/typescript-style.md",
+			modelProfile: "quick",
+			model: "haiku",
+			baseRef: "main",
+			format: "findings",
+			count: 1,
+			findings: [
+				{
+					path: "src/app.ts",
+					line: 1,
+					severity: "warning",
+					summary: "Inline this",
+					details: "This line is in the PR diff.",
+				},
+			],
+			usage: null,
+			inputCoverage: null,
+		},
+	});
+}
+
+function failedReviewEnvelope(): string {
+	return JSON.stringify({
+		status: "failure",
+		exitCode: 2,
+		errorType: "review-failed",
+		message: "review failed",
+	});
 }
 
 function claudeReviewResponse() {
@@ -350,6 +399,92 @@ describe("Roaster SDL command face", () => {
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("failure");
 		expect(envelope.errorType).toBe("review-execution-invalid-json");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("hidden Roaster publish-findings publishes its machine schema", async () => {
+		const run = runWithFakes({
+			args: ["roaster", "exec", "publish-findings", "--json-schema"],
+			cwd: repoRoot(),
+			homeDir: await isolatedHome(),
+			state: { exec: [] },
+		});
+
+		expect(await run.exit).toBe(0);
+		const schema = parseJsonOutput(run);
+		expect(schema).toHaveProperty("inputJsonSchema");
+		expect(schema).toHaveProperty("outputJsonSchema");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+	});
+
+	test("hidden Roaster publish-findings reads SDL stdin and returns an enveloped publication result", async () => {
+		const run = runWithFakes({
+			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
+			cwd: repoRoot(),
+			homeDir: await isolatedHome(),
+			state: {
+				stdin: findingsEnvelope(),
+				exec: [
+					ghApiResponse("repos/{owner}/{repo}/pulls/47/files", [
+						{ filename: "src/app.ts", status: "modified", patch: "@@ -1 +1 @@\n+changed" },
+					]),
+					ghApiResponse("repos/{owner}/{repo}/pulls/47/comments", []),
+					ghApiResponse(/--method POST repos\/\{owner\}\/\{repo\}\/pulls\/47\/reviews/u),
+					ghApiResponse("repos/{owner}/{repo}/issues/47/comments", []),
+					ghApiResponse(/--method POST repos\/\{owner\}\/\{repo\}\/issues\/47\/comments/u, {
+						id: 1,
+						body: "<!-- roaster:typescript-style -->",
+					}),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const envelope = parseJsonOutput(run);
+		expect(envelope.status).toBe("ok");
+		expect(envelope.data).toMatchObject({
+			inlineStatus: { postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 0 },
+			summaryStatus: { type: "posted", marker: "<!-- roaster:typescript-style -->" },
+		});
+		expect(run.stderr.join("")).toContain("inline findings: posted=1");
+		expect(run.context.execCalls.map((call) => call.command)).toEqual([
+			"gh",
+			"gh",
+			"gh",
+			"gh",
+			"gh",
+		]);
+		const summaryWrite = run.context.execCalls.find((call) => {
+			const text = call.args.join(" ");
+			return (
+				text.includes("--method POST") && text.includes("repos/{owner}/{repo}/issues/47/comments")
+			);
+		});
+		expect(summaryWrite?.args.join(" ")).toContain("<!-- roaster:typescript-style -->");
+		const inlineReview = run.context.execCalls.find((call) =>
+			call.args.join(" ").includes("repos/{owner}/{repo}/pulls/47/reviews"),
+		);
+		expect(inlineReview?.args.join(" ")).toContain("--input");
+		expect(run.context.textGeneratorCalls).toEqual([]);
+	});
+
+	test("hidden Roaster publish-findings maps publication failures to an SDL failure envelope", async () => {
+		const run = runWithFakes({
+			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
+			cwd: repoRoot(),
+			homeDir: await isolatedHome(),
+			state: { exec: [], stdin: failedReviewEnvelope() },
+		});
+
+		expect(await run.exit).toBe(2);
+		const envelope = parseJsonOutput(run);
+		expect(envelope.status).toBe("failure");
+		expect(envelope.errorType).toBe("roaster-publish-findings-failed");
+		expect(envelope.data).toMatchObject({
+			fatalFailurePhase: "payload-parse",
+			reason: "invalid-payload",
+		});
 		expect(run.context.execCalls).toEqual([]);
 	});
 
