@@ -35,11 +35,11 @@ export interface AutoslotCliInput {
 	exec(
 		command: string,
 		args: string[],
-		options?: { cwd?: string | undefined; timeout?: number | undefined },
+		options?: { cwd?: string; timeout?: number },
 	): Promise<{ stdout: string; stderr: string; code: number; killed: boolean }>;
 	stdout(text: string): void;
 	stderr(text: string): void;
-	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
+	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
 }
 
 export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {

@@ -245,14 +245,14 @@ export interface LandCliInput {
 	): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
-	onOutput?: ExecOutputListener | undefined;
-	confirm?: LandCliConfirmPrompt | undefined;
+	onOutput?: ExecOutputListener;
+	confirm?: LandCliConfirmPrompt;
 	/**
 	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
 	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
 	 * un-styled rather than guessing caps, and the Pi command-stream path is never affected.
 	 */
-	caps?: Caps | undefined;
+	caps?: Caps;
 }
 
 export async function runLandCli(input: LandCliInput): Promise<number> {

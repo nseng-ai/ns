@@ -109,7 +109,7 @@ interface RunGtOptions {
 
 export type SubmitSemanticFailureCause = {
 	kind: "empty_branch_skipped";
-	branchName?: string | undefined;
+	branchName?: string;
 };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
@@ -117,17 +117,17 @@ export type SubmitPreflightFailureCause = "trunk_out_of_date" | "merged_pr_not_i
 export type SubmitFailurePresentation = "deterministic" | "unknown";
 
 export interface SubmitFailureTranscriptCommand {
-	commandDisplay?: string | undefined;
+	commandDisplay?: string;
 	stdout: string;
 	stderr: string;
 	exitCode: number;
-	startupError?: string | undefined;
-	killed?: boolean | undefined;
+	startupError?: string;
+	killed?: boolean;
 }
 
 export interface SubmitFailureTranscript {
 	phase: string;
-	summary?: string | undefined;
+	summary?: string;
 	commands: readonly SubmitFailureTranscriptCommand[];
 }
 
@@ -143,7 +143,7 @@ export type SubmitPreflightResult =
 	| {
 			kind: "failed";
 			output: SubmitCommandOutput;
-			cause?: SubmitPreflightFailureCause | undefined;
+			cause?: SubmitPreflightFailureCause;
 	  };
 
 export type SubmitRestackResult =
@@ -171,7 +171,7 @@ export type SubmitRunResult =
 	| {
 			kind: "failed";
 			output: SubmitCommandOutput;
-			cause?: SubmitPreflightFailureCause | undefined;
+			cause?: SubmitPreflightFailureCause;
 	  };
 
 export type CurrentPrVerificationResult =
@@ -202,8 +202,8 @@ export interface SubmitCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-	failurePresentation?: SubmitFailurePresentation | undefined;
-	rawFailureTranscript?: SubmitFailureTranscript | undefined;
+	failurePresentation?: SubmitFailurePresentation;
+	rawFailureTranscript?: SubmitFailureTranscript;
 }
 
 export interface SubmitPrDescriptionOptions {
@@ -729,7 +729,7 @@ function success(stdout: string): SubmitCommandResult {
 
 interface SubmitFailureResultOptions {
 	failurePresentation: SubmitFailurePresentation;
-	rawFailureTranscript?: SubmitFailureTranscript | undefined;
+	rawFailureTranscript?: SubmitFailureTranscript;
 }
 
 function failure(
@@ -911,9 +911,10 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 		/GitHub does not allow empty PRs/i.test(strippedOutput);
 
 	if (emptyBranchWarning && skippedSubmissionWarning) {
+		const branchName = parseSubmitValidationBranchName(strippedOutput);
 		return {
 			kind: "empty_branch_skipped",
-			branchName: parseSubmitValidationBranchName(strippedOutput),
+			...(branchName === undefined ? {} : { branchName }),
 		};
 	}
 

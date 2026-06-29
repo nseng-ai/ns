@@ -56,7 +56,7 @@ export interface RunCheckpointCommandOptions {
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
-	onPhase?: ProgressPhaseListener | undefined;
+	onPhase?: ProgressPhaseListener;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
