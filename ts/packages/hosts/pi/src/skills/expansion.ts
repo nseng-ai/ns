@@ -1,7 +1,8 @@
 import { lstat, readFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, parse, resolve } from "node:path";
+import { dirname, join, parse, resolve } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
+import { isPathInside } from "@sdl/core/primitives";
 
 export interface SkillCommandInfo {
 	name: string;
@@ -145,25 +146,32 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 	const root = parse(current).root;
 
 	while (true) {
-		const skillPath = join(current, "skills", options.skillName, "SKILL.md");
-		const found = await fileExists(statPath, skillPath);
-		if (found) {
-			const skillStat = await statPath(skillPath);
-			if (skillStat.isSymbolicLink()) {
-				throw new Error(`Refusing to read symlinked backing skill at ${skillPath}.`);
+		const skillPaths = [
+			join(current, "skills", options.skillName, "SKILL.md"),
+			join(current, ".agents", "skills", options.skillName, "SKILL.md"),
+		];
+		for (const skillPath of skillPaths) {
+			const found = await fileExists(statPath, skillPath);
+			if (found) {
+				const skillStat = await statPath(skillPath);
+				if (skillStat.isSymbolicLink()) {
+					throw new Error(`Refusing to read symlinked backing skill at ${skillPath}.`);
+				}
+				const resolvedSkillPath = resolve(skillPath);
+				const resolvedRepoRoot = resolve(current);
+				if (!isPathInside(resolvedRepoRoot, resolvedSkillPath)) {
+					throw new Error(
+						`Backing skill path ${skillPath} resolves outside repository root ${current}.`,
+					);
+				}
+				return skillPath;
 			}
-			const resolvedSkillPath = resolve(skillPath);
-			const resolvedRepoRoot = resolve(current);
-			if (!isPathInside(resolvedSkillPath, resolvedRepoRoot)) {
-				throw new Error(
-					`Backing skill path ${skillPath} resolves outside repository root ${current}.`,
-				);
-			}
-			return skillPath;
 		}
 
 		if (current === root) {
-			throw new Error(`Could not find skills/${options.skillName}/SKILL.md from ${options.cwd}.`);
+			throw new Error(
+				`Could not find skills/${options.skillName}/SKILL.md or .agents/skills/${options.skillName}/SKILL.md from ${options.cwd}.`,
+			);
 		}
 		current = dirname(current);
 	}
@@ -299,14 +307,4 @@ async function fileExists(
 	} catch {
 		return false;
 	}
-}
-
-function isPathInside(path: string, parent: string): boolean {
-	const normalizedPath = resolve(path);
-	const normalizedParent = resolve(parent);
-	return (
-		normalizedPath === normalizedParent ||
-		normalizedPath.startsWith(`${normalizedParent}/`) ||
-		(isAbsolute(normalizedParent) && normalizedPath.startsWith(`${normalizedParent}\\`))
-	);
 }

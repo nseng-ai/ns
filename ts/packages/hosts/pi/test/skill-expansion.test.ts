@@ -291,6 +291,49 @@ describe("repo skill expansion", () => {
 		}
 	});
 
+	test("falls back to vendored .agents/skills/<name>/SKILL.md backing skills", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "repo-vendored-skill-expansion-"));
+		try {
+			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
+			const nestedCwd = join(repo, "packages", "example");
+			await mkdir(skillDir, { recursive: true });
+			await mkdir(nestedCwd, { recursive: true });
+			await writeFile(
+				join(skillDir, "SKILL.md"),
+				"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
+				"utf8",
+			);
+
+			expect(
+				await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "improve-codebase-architecture" }),
+			).toBe(join(skillDir, "SKILL.md"));
+			const expanded = await expandRepoSkillBlock({
+				cwd: nestedCwd,
+				skillName: "improve-codebase-architecture",
+			});
+			expect(expanded.block).toContain("# Improve Codebase Architecture");
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
+
+	test("rejects traversal to sibling paths when resolving repo skills", async () => {
+		const workspace = await mkdtemp(join(tmpdir(), "repo-skill-containment-"));
+		try {
+			const repo = join(workspace, "repo");
+			const siblingSkillDir = join(workspace, "repo-other", "outside");
+			await mkdir(join(repo, "skills"), { recursive: true });
+			await mkdir(siblingSkillDir, { recursive: true });
+			await writeFile(join(siblingSkillDir, "SKILL.md"), "# Outside\n", "utf8");
+
+			await expect(
+				resolveRepoSkillPath({ cwd: repo, skillName: "../../repo-other/outside" }),
+			).rejects.toThrow("resolves outside repository root");
+		} finally {
+			await rm(workspace, { recursive: true, force: true });
+		}
+	});
+
 	test("builds fences longer than embedded backticks", () => {
 		expect(buildFencedTextBlock("has ``` inside")).toBe("````text\nhas ``` inside\n````");
 	});
