@@ -1,66 +1,40 @@
 {
-  "name": "@sdl/branch-context",
-  "version": "0.1.0",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./api": "./src/api.ts",
-    "./extension": "./src/extension.ts",
-    "./testing": "./src/testing/index.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/branch-context/test"
-  },
-  "dependencies": {
-    "@sdl/brmem": "workspace:*",
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/plans": "workspace:*",
-    "sdl-sdk": "workspace:*",
-    "zod": "catalog:"
-  },
-  "devDependencies": {},
-  "sdl": {
-    "tier": "capability",
-    "commands": [
-      {
-        "path": ["branch-context", "exec", "from-plan"],
-        "description": "Create branch context from a saved plan.",
-        "entry": "./src/extension.ts"
-      },
-      {
-        "path": ["branch-context", "exec", "load"],
-        "description": "Load a branch-context entry and render the implementation prompt for agent invocation.",
-        "entry": "./src/extension.ts"
-      },
-      {
-        "path": ["branch-context", "exec", "attach"],
-        "description": "Attach a saved plan or file as branch context.",
-        "entry": "./src/extension.ts"
-      },
-      {
-        "path": ["branch-context", "exec", "list"],
-        "description": "List branch-context entries.",
-        "entry": "./src/extension.ts"
-      },
-      {
-        "path": ["branch-context", "exec", "check"],
-        "description": "Check whether a branch-context entry exists.",
-        "entry": "./src/extension.ts"
-      },
-      {
-        "path": ["branch-context", "exec", "delete"],
-        "description": "Delete a branch-context entry.",
-        "entry": "./src/extension.ts"
-      }
-    ]
-  }
+	"name": "@sdl/branch-context",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./api": "./src/api.ts",
+		"./extension": "./src/extension.ts",
+		"./sdl/commands/attach": "./src/sdl/commands/attach.ts",
+		"./sdl/commands/check": "./src/sdl/commands/check.ts",
+		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
+		"./sdl/commands/from-plan": "./src/sdl/commands/from-plan.ts",
+		"./sdl/commands/list": "./src/sdl/commands/list.ts",
+		"./sdl/commands/load": "./src/sdl/commands/load.ts",
+		"./testing": "./src/testing/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/branch-context/test"
+	},
+	"dependencies": {
+		"@sdl/brmem": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/exec": "workspace:*",
+		"@sdl/git": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"sdl-sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"devDependencies": {},
+	"sdl": {
+		"tier": "capability"
+	}
 }
