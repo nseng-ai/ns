@@ -601,6 +601,84 @@ describe("pr feedback watch extension", () => {
 		pi.assertDone();
 	});
 
+	test("restores valid normalized dispatched events without redispatching attempted feedback", async () => {
+		const pi = new FakePi([
+			downloadStep(downloadData()),
+			currentUserStep(),
+			headOidStep(),
+			cleanStep(),
+		]);
+		const ctx = new FakeContext([
+			{
+				type: "custom",
+				customType: "pr-watch-feedback-state",
+				data: {
+					version: 1,
+					type: "dispatched",
+					branch: "feature/pr-watch",
+					prNumber: 123,
+					itemKeys: ["download-feedback:123:1"],
+					createdAt: "2026-06-07T00:00:00Z",
+				},
+			},
+		]);
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("pr:watch-feedback")?.handler("once --dispatch-existing", ctx);
+
+		expect(pi.userMessages).toEqual([]);
+		pi.assertDone();
+	});
+
+	test("drops malformed legacy watch events during restore", async () => {
+		const malformedEntries = [
+			{
+				type: "custom",
+				customType: "pr-watch-feedback-state",
+				data: {
+					version: 1,
+					type: "dispatched",
+					branch: "feature/pr-watch",
+					prNumber: 123,
+					itemKeys: ["download-feedback:123:1"],
+				},
+			},
+			{
+				type: "custom",
+				customType: "pr-watch-feedback-state",
+				data: {
+					version: 1,
+					type: "baseline",
+					createdAt: "2026-06-07T00:00:00Z",
+				},
+			},
+			{
+				type: "custom",
+				customType: "pr-watch-feedback-state",
+				data: {
+					version: 1,
+					type: "ignored",
+					itemKeys: ["download-feedback:123:1", 7],
+					createdAt: "2026-06-07T00:00:00Z",
+				},
+			},
+		];
+		const pi = new FakePi([
+			downloadStep(downloadData()),
+			currentUserStep(),
+			headOidStep(),
+			cleanStep(),
+		]);
+		const ctx = new FakeContext(malformedEntries);
+		prFeedbackWatchExtension(pi, { runner: RUNNER });
+
+		await pi.commands.get("pr:watch-feedback")?.handler("once --dispatch-existing", ctx);
+
+		expect(pi.userMessages).toHaveLength(1);
+		expect(pi.userMessages[0]).toContain("download-feedback:123:1");
+		pi.assertDone();
+	});
+
 	test("agent_end redispatches actionable feedback that arrived while queued", async () => {
 		const pi = new FakePi([
 			downloadStep(downloadData([10])),
