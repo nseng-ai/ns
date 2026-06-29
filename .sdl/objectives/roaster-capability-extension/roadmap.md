@@ -37,15 +37,15 @@
   - Guidance: update Roaster-related skills to point at the chosen SDL command face once parity exists, preserve skill names such as `roast-thermonuclear-review`, keep Pi metadata consistent, and refresh `ts/packages/roaster/CONTEXT.md`, SDL/root context as needed, and docs such as `docs/roaster-pierre-diffs.md` only when their boundary claims change.
   - Evidence: completed by `updates/2026-06-28T214557Z-command-face-alignment.md`; public skills and `.github/workflows/roaster.yml` now invoke `sdl roaster ...`, Roaster context and the context map describe the SDL Capability/Command Face/API/storage/publication boundary, the CLI audit scopes the remaining raw publication item to the standalone entrypoint, and the standalone `roaster` binary remains intentionally open for the next row.
 
-- [ ] Decide and execute standalone `roaster` binary cutover.
+- [x] Decide and execute standalone `roaster` binary cutover.
   - Policy: steer first if call-site inventory finds an external or repo-local compatibility reason to retain the binary; otherwise direct execution after preview once SDL parity evidence is present.
   - Guidance: classify every durable public `roaster` binary/shim/doc/test/skill reference as migrated, removed, or intentionally retained. If removing, do not leave a long-lived duplicate public implementation. If retaining temporarily, record the compatibility reason and follow-up.
-  - Evidence: call-site inventory, package metadata/shim diffs, docs/skill updates, and tests proving the chosen command face covers the public lifecycle.
+  - Evidence: completed by `updates/2026-06-28T220008Z-roaster-binary-cutover.md`; repo-local inventory found no active compatibility blocker after CI and skills had already migrated to `sdl roaster ...`. The package `bin.roaster`, standalone `src/cli.ts`, `just install-roaster`, standalone runtime/scenario tests, and CLI-only root exports were removed; active context/audit docs now describe `sdl roaster ...` as the canonical face and the standalone raw-exit exception as resolved by removal. Verification: targeted Roaster/SDL package checks and Roaster extension scenarios passed; `just ts-format-check`, `just ts-lint` (warnings only in unrelated `handoff-cli-contract.test.ts`), `just ts-check`, `just ts-test`, and `just dprint-check` passed after `just dprint-fix`.
 
-- [ ] Close out Roaster capability migration and update parent Objective.
+- [x] Close out Roaster capability migration and update parent Objective.
   - Policy: direct execution after preview for Objective tracking and docs closeout.
   - Guidance: mark the child complete only when command/API/docs/storage evidence satisfies completion criteria, then update parent `sdl-extension-architecture` Phase 2 step 4 to record Roaster as completed.
-  - Evidence: child closure records validation, compatibility caveats, parked follow-ups, and parent tracking update.
+  - Evidence: completed by `updates/2026-06-28T220522Z-roaster-capability-closure.md`; the child Objective is closed, records PR #2339 as cutover evidence, and parent `sdl-extension-architecture` Phase 2 step 4 now records Roaster as a completed child migration.
 
 ## Parked
 

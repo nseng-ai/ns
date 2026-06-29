@@ -161,6 +161,38 @@ describe("extension discovery", () => {
 		]);
 	});
 
+	test("manifest path entries may include compatibility names", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "roaster", "package.json"),
+			JSON.stringify({
+				sdl: {
+					group: "roaster",
+					commands: [
+						{
+							name: "review-list",
+							path: ["review", "list"],
+							description: "List Roaster reviews.",
+							entry: "./src/review-list.ts",
+						},
+					],
+				},
+			}),
+		);
+		writeFile(join(root, "roaster", "src", "review-list.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.commands).toEqual([
+			expect.objectContaining({
+				group: "roaster",
+				name: "review-list",
+				segments: ["roaster", "review", "list"],
+			}),
+		]);
+	});
+
 	test("manifest entry groups override the package-level group", async () => {
 		const root = await createTempDir();
 		writeFile(

@@ -1,4 +1,3 @@
-export { runCli, type CliDeps } from "./cli.ts";
 export {
 	createRealRoasterContext,
 	createRoasterRuntime,

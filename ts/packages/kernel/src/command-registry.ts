@@ -146,7 +146,7 @@ export function validateSdlExtensionContribution(
 	expectedPath: SdlCommandPath | string,
 	sourceLabel: string,
 ): { ok: true; command: SdlCommand } | { ok: false; message: string } {
-	const expectedName = typeof expectedPath === "string" ? expectedPath : expectedPath.name;
+	const expectedName = expectedCommandName(expectedPath);
 	const parsed = sdlExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
@@ -210,6 +210,11 @@ export function validateSdlClinkrExit(result: unknown, commandName: string): Cli
 
 export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function expectedCommandName(expectedPath: SdlCommandPath | string): string {
+	if (typeof expectedPath === "string") return expectedPath;
+	return expectedPath.segments?.at(-1) ?? expectedPath.name;
 }
 
 function findCommandEntry(

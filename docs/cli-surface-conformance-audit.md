@@ -23,7 +23,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 
 ## Scope and method
 
-14 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
+13 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
 `@sdl/slot` command group that is mounted only under `sdl slot`; each leaf command
 (including nested groups and hidden `exec` subgroups) was classified.
 
@@ -63,23 +63,23 @@ framework does not enforce:
 
 ## Coverage
 
-| Package        | Leaf commands audited                                                                                                                                                         | Notes                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| areg           | `init`, `check`, `update-skills`, `skill list/show/apply`, `exec skillx parse/list/fetch/cleanup`                                                                             | own readline prompt gateway                                                               |
-| aretro         | `exec collect-evidence`, `exec read-evidence-detail`                                                                                                                          | all hidden `exec`                                                                         |
-| branch-context | `exec from-plan/load/attach/list/check/delete`                                                                                                                                | all hidden `exec`; generic error wrapper                                                  |
-| brmem          | `put/get/delete/list/check/copy/export/setup-git`, `exec resolve-prompt`                                                                                                      | reference `--force` (put)                                                                 |
-| ccc            | `exec cmux-workspace-summary`, `exec autobranch`                                                                                                                              | `land`/`land-stack`/`cmux/*` are a Pi slash-command surface, not Clinkr CLI               |
-| handoff        | `list`, `delete`, `gc`                                                                                                                                                        | **reference** Tier 2 (`delete`) + Tier 3 (`gc`)                                           |
-| objective      | `archive`, `check`, `list`, `exec list-candidates/read-objective/runner-subagent-usage`                                                                                       | forwards kebab-case storage codes                                                         |
-| packagechk     | `NAME` (check), `claim-pypi`, `claim-npm`                                                                                                                                     | all `rawCommand` (raw-exit)                                                               |
-| plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                                     |
-| pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                                  |
-| roaster        | `review list/ls/run/log`, `roast list`, `exec record-findings/publish-findings`                                                                                               | standalone `publish-findings` is raw-exit; SDL extension command-face parity is enveloped |
-| sdl            | `shell show/install` (local; dual-mounted under `sdl` and `sdl slot`); mounts `@sdl/slot` group + runtime extension commands                                                  | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)                          |
-| sdlcc          | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                                    |
-| slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `sdl slot`; **reference** Tier 3 (`gc`)                                     |
-| vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                                           |
+| Package        | Leaf commands audited                                                                                                                                                         | Notes                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| areg           | `init`, `check`, `update-skills`, `skill list/show/apply`, `exec skillx parse/list/fetch/cleanup`                                                                             | own readline prompt gateway                                                 |
+| aretro         | `exec collect-evidence`, `exec read-evidence-detail`                                                                                                                          | all hidden `exec`                                                           |
+| branch-context | `exec from-plan/load/attach/list/check/delete`                                                                                                                                | all hidden `exec`; generic error wrapper                                    |
+| brmem          | `put/get/delete/list/check/copy/export/setup-git`, `exec resolve-prompt`                                                                                                      | reference `--force` (put)                                                   |
+| ccc            | `exec cmux-workspace-summary`, `exec autobranch`                                                                                                                              | `land`/`land-stack`/`cmux/*` are a Pi slash-command surface, not Clinkr CLI |
+| handoff        | `list`, `delete`, `gc`                                                                                                                                                        | **reference** Tier 2 (`delete`) + Tier 3 (`gc`)                             |
+| objective      | `archive`, `check`, `list`, `exec list-candidates/read-objective/runner-subagent-usage`                                                                                       | forwards kebab-case storage codes                                           |
+| packagechk     | `NAME` (check), `claim-pypi`, `claim-npm`                                                                                                                                     | all `rawCommand` (raw-exit)                                                 |
+| plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                       |
+| pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                    |
+| roaster        | `sdl roaster review list/ls/run/log`, `sdl roaster roast list`, `sdl roaster exec record-findings/publish-findings`                                                           | standalone binary removed; SDL extension command face is the active surface |
+| sdl            | `shell show/install` (local; dual-mounted under `sdl` and `sdl slot`); mounts `@sdl/slot` group + runtime extension commands                                                  | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
+| sdlcc          | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
+| slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `sdl slot`; **reference** Tier 3 (`gc`)                       |
+| vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                             |
 
 `sdl` umbrella note: the only commands physically defined under `ts/packages/kernel/src/`
 are `shell show`/`shell install`. All other `sdl ...` commands are either the
@@ -103,7 +103,7 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
 | 11 | c    | kebab-case `errorType` (violates stable snake_case)                                                                                    | `areg exec skillx list/fetch` (`missing-tool`), `brmem exec resolve-prompt` (`prompt-not-found`), `objective` (all storage codes: `move-directory-failed`, etc.) | land-now-fix                                          |
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
 | 13 | c    | `failure(...)` carries message only, no structured `data` (near-universal)                                                             | most packages                                                                                                                                                    | land-now-fix                                          |
-| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `sdlcc cmux report`, `vibechk run`, standalone `roaster exec publish-findings`, `ccc exec autobranch`                                        | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
+| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `sdlcc cmux report`, `vibechk run`, `ccc exec autobranch`                                                                                    | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
 | 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `aretro` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)   | mixed (land-now-fix / parked)                         |
 
 ## Cross-cutting themes
@@ -145,8 +145,8 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
    violations.
 
 5. **`rawCommand`/`isRawExit` packages opt out of the envelope contract.**
-   `packagechk`, `sdlcc cmux report`, `vibechk run`, standalone `roaster exec publish-findings`,
-   and `ccc exec autobranch` deliberately bypass `ok/negative/failure/usageError`,
+   `packagechk`, `sdlcc cmux report`, `vibechk run`, and `ccc exec autobranch`
+   deliberately bypass `ok/negative/failure/usageError`,
    `resultSchema`, and `--json-schema`, returning bare exit codes. Whether raw-exit
    is a sanctioned exemption from the pre-ship envelope items, or these commands
    should migrate onto the envelope, was a cross-cutting ADR-needed question,
@@ -454,29 +454,32 @@ inconsistency — predicate lookups stay `ok`, requested-target/action misses st
 
 ### roaster
 
-| Command                 | Mutating? | Area  | Finding                                                                                                          | Classification | Evidence (file:line)                         |
-| ----------------------- | --------- | ----- | ---------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------- |
-| `review list`           | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog                                                   | conformant     | `cli.ts:84`; `cli-operations.ts:122,161`     |
-| `review ls`             | No        | all   | Tier 0 read-only alias                                                                                           | conformant     | `cli.ts:92`                                  |
-| `review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive                                             | conformant     | `cli.ts:100`; `review-run.ts:127,174`        |
-| `review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema                                               | conformant     | `cli-operations.ts:220`; `models.ts:158`     |
-| `review run`            | Yes       | c     | snake_case errorType via `failureFromRoaster`; no structured `data`                                              | land-now-fix   | `cli-operations.ts:225,433`                  |
-| `review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct                                                  | conformant     | `cli-operations.ts:229-234`                  |
-| `review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch                                          | land-now-fix   | `cli-operations.ts:332,341`                  |
-| `review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                                                                 | conformant     | `cli-operations.ts:340,352`                  |
-| `roast list`            | No        | all   | Tier 0 read-only; finite catalog, `count`                                                                        | conformant     | `cli.ts:124`; `cli-operations.ts:190,209`    |
-| `exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                                                          | conformant     | `cli.ts:139`; `cli-operations.ts:287`        |
-| `exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                                                       | land-now-fix   | `cli-operations.ts:312,323`                  |
-| `exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                                                        | conformant     | `cli-operations.ts:289-293`                  |
-| `exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive                                                | conformant     | `cli.ts:147`; `findings-publication.ts:1-34` |
-| `exec publish-findings` | Yes       | c/d   | rawCommand: no envelope/`resultSchema`/`errorType`; real backend error returns exit 1 (should be failure/exit 2) | land-now-fix   | `cli-operations.ts:368-385,458`              |
+Roaster's standalone binary has been removed. The active CLI audit surface is the SDL extension command face.
+
+| Command                             | Mutating? | Area  | Finding                                                                    | Classification | Evidence (file:line)                           |
+| ----------------------------------- | --------- | ----- | -------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |
+| `sdl roaster review list`           | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog             | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
+| `sdl roaster review ls`             | No        | all   | Tier 0 read-only alias                                                     | conformant     | `commands/review-ls.ts`                        |
+| `sdl roaster review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive       | conformant     | `commands/review-run.ts`; `review-run.ts`      |
+| `sdl roaster review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema         | conformant     | `cli-operations.ts`; `models.ts`               |
+| `sdl roaster review run`            | Yes       | c     | snake_case errorType via `failureFromRoaster`; no structured `data`        | land-now-fix   | `cli-operations.ts`                            |
+| `sdl roaster review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct            | conformant     | `cli-operations.ts`                            |
+| `sdl roaster review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch    | land-now-fix   | `cli-operations.ts`                            |
+| `sdl roaster review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                           | conformant     | `cli-operations.ts`                            |
+| `sdl roaster roast list`            | No        | all   | Tier 0 read-only; finite catalog, `count`                                  | conformant     | `commands/roast-list.ts`; `cli-operations.ts`  |
+| `sdl roaster exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                    | conformant     | `commands/exec-record-findings.ts`             |
+| `sdl roaster exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                 | land-now-fix   | `cli-operations.ts`                            |
+| `sdl roaster exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                  | conformant     | `cli-operations.ts`                            |
+| `sdl roaster exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive          | conformant     | `commands/exec-publish-findings.ts`            |
+| `sdl roaster exec publish-findings` | Yes       | c/d   | Enveloped command with result schema and failure envelope; no raw-exit gap | conformant     | `commands/exec-publish-findings.ts`            |
 
 **roaster notes:** Largely conformant: clean Tier-1-only danger profile (no destructive
 flows, no prompt-hang surface), disciplined snake_case `errorType`, semantically correct
 `negative` for partial-success log-write failures, good input-coverage bounding on review
-runs. Main fix for the standalone binary remains: `exec publish-findings` rawCommand skips the envelope and returns exit 1
-instead of `failure` exit 2 on genuine GitHub failures. The SDL extension command face now has an enveloped `sdl roaster exec publish-findings` leaf, so this audit row is intentionally scoped to the standalone `roaster` entrypoint until the binary cutover row runs. Secondary: attach structured
-`data` to remaining `failure(...)` calls; consider bound/continuation state for `review log`.
+runs, and an enveloped `sdl roaster exec publish-findings` publication leaf. The former
+standalone raw-exit publication exception was resolved by removing the standalone binary.
+Remaining Roaster follow-ups: attach structured `data` to remaining `failure(...)` calls;
+consider bound/continuation state for `review log`.
 
 ### sdl
 
