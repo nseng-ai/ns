@@ -2,206 +2,49 @@
 
 ## Work
 
-> **Blocked / sequencing note:** do not start new uncompleted rows from this
-> Objective until `sdl-extension-architecture` has advanced the ADR 0009
-> architecture endgame enough to rebaseline this roadmap. The completed rows stay
-> valid history. The remaining rows should be reclassified after that work into
-> neutral structural cleanup, capability-owned migration work, or obsolete debt.
+> **Blocked / sequencing note:** do not start new uncompleted rows from this Objective until `sdl-extension-architecture` has advanced far enough to rebaseline this roadmap row-by-row. The completed rows stay valid history. The remaining rows should be classified as neutral structural cleanup, capability-owned migration work, or obsolete debt before implementation.
 
-- [x] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation,
-      version reading, IO/cwd/env defaulting, `import.meta.main` entry guard);
-      migrate all 15 `cli.ts` files onto it.
-      See `references/cli-wiring-layer.md`. Pure subtraction; done first.
-      Evidence: `defineCli` exists in `ts/packages/infra/core/src/cli-entry.ts`, all
-      `ts/packages/**/src/cli.ts` entrypoints (14 at HEAD) consume it, no old hand-written
-      `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations remain in
-      those entrypoints, package-local `sdlcc` `--runtime` coverage now exists, and
-      `just ts-format-check && just ts-lint && just ts-check && just ts-test` passed.
-- [x] Rejected: `clinkr` `execGroup(description?)` factory defaulting
-      `name:"exec"` + `isHidden:true`; replace the hand-rolled hidden-exec
-      constructions. See `references/cli-wiring-layer.md`.
-      Decision: the implementation was reverted because it added a thin wrapper
-      around already-correct, obvious `ClinkrGroup` construction and did not
-      delete meaningful complexity. Do not reintroduce this helper without new
-      evidence that it prevents plausible drift or removes substantial mental
-      load.
-- [x] Unify Branch-Memory access: point `branch-context` at the in-process
-      `@sdl/brmem` `BrmemGateway`; delete the parsing half of its
-      `brmem-gateway.ts` and its `@sdl/core/brmem-cli` dependency.
-      Decision: `branch-context` should use the in-process gateway rather than a
-      user-installed `brmem` shim, so implementation can proceed.
-      Evidence: `branch-context` now uses `RealGitBrmemGateway` / `BrmemGateway`,
-      `src/brmem-gateway.ts` and the branch-context JSON-envelope parser tests are
-      gone, no `@sdl/core/brmem-cli` references remain under branch-context, the
-      dry-run preview names the in-process gateway instead of `brmem put`, and
-      CLI scenario tests cover attach/list/get/check/delete failure diagnostics.
-      Validation passed with focused branch-context + affected consumer tests and
-      the normal TypeScript gates (`ts-format-check`, `ts-lint`, `ts-check`,
-      `ts-test`, `ts-deps-check`, `ts-guard`).
-      See `references/branch-memory-access.md`.
-- [x] Collapse the `@sdl/core/brmem-cli` multi-candidate framework to a single
-      `runBrmem`; fix the duplicated candidate-loop at `ccc/worktree-status.ts`;
-      delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`.
-      Evidence: `@sdl/core/brmem-cli` now exports one runner, `runBrmem`, returning
-      `CompletedBrmemRun | { type: "unavailable"; failures }`; the public
-      candidate-iteration surface (`resolveBrmemCommandCandidates`,
-      `runBrmemCandidate`, `runFirstAvailableBrmemCommand`, and the candidate/option
-      types) is gone — grep across `ts/packages` finds zero occurrences of those
-      names plus `readOptionalBrmemBooleanField` and `graphqlErrorsFromJson`.
-      `ccc/worktree-status.ts:loadBrmemStatus` now calls `runBrmem` once instead of
-      looping `resolveBrmemCommandCandidates`. **Behavior preserved**: the
-      two-candidate fallback (PATH `brmem`, then
-      `pnpm --config.verify-deps-before-run=false --dir <tsRoot> exec brmem`) lives
-      inside `runBrmem` and is locked by a new fallback unit test — the original
-      review's "single hardcoded candidate" premise was stale (commit `0ae09c8d9`
-      added the fallback) and was deliberately NOT dropped. Gates green:
-      `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`
-      (3022 passed), `just ts-deps-check`, `just ts-guard`.
-      See `references/branch-memory-access.md` and `references/asdl-core.md`.
-- [x] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove the
-      duplicated `currentBranch` and Git branch-ref validation primitives while
-      keeping Branch Memory Snapshot object/ref plumbing local to brmem.
-      Evidence: `RealGitBrmemGateway` now requires an options object with shared
-      `commands` and `git` seams, delegates current-branch and Git branch-ref
-      checks to `GitGateway`, keeps brmem's `---` Snapshot Ref encoding pre-check,
-      and production contexts share one command executor between core Git and
-      brmem. `branch-context` now validates target branches only through
-      `GitGateway.validateBranchRef`; the old handwritten target-branch validator
-      is gone and invalid branches fail before plan-file I/O, branch creation, or
-      Branch Memory attachment. Gates green: focused brmem/branch-context/handoff
-      and core tests plus `just ts-format-check`, `just ts-lint`, `just ts-check`,
-      `just ts-test`, `just ts-deps-check`, `just ts-guard`.
-      See `references/cross-package-dedup.md`.
-- [ ] Add `resolveBranchOrCurrent` to `@sdl/core` and replace the per-package
-      copies; pick one canonical branch-name validator and remove the divergent
-      rule-sets. Note: no `resolveBranchOrCurrent` symbol exists yet (the helper was
-      proposed, never added); re-verify the per-package copy count post-rehome before
-      picking this up — the review's "4 copies / 3 rule-sets" tallies predate the
-      workspace rehome and the GitHub-gateway-layering refactor.
-      See `references/cross-package-dedup.md`.
-- [ ] Export `ghAuthorSchema`/`normalizeAuthor`/`numericGithubIdentity` from the
-      `github-pr-feedback` barrel; delete roaster's divergent leaf-helper copies
-      (resolves the `numericId` id-policy drift).
-      See `references/cross-package-dedup.md`.
-- [ ] Delete the vestigial `@sdl/core` root `.` export (still present:
-      `"." : "./src/index.ts"` in `ts/packages/infra/core/package.json`); repoint the
-      single bare importer (now `ts/packages/hosts/pi/src/sessions/harness-session.ts`,
-      importing `truncatedSha256Digest`) at `/primitives`.
-      See `references/asdl-core.md`.
-- [ ] Decompose `areg/real-gateways.ts` (1383 at HEAD,
-      `ts/packages/tools/areg/src/real-gateways.ts`) per-gateway into `src/gateways/*`
-      + extract `project-fs.ts`; collapse the `init`/`skill-kind` policy fork to a
-      `{isAllowed, codePrefix}` descriptor; extract a shared pure
-      `classifySkillSpecResolution` so the fake stops reimplementing policy.
-      See `references/areg.md`.
-- [ ] Decompose `ccc performGraphiteMaintenance` (270-line god-function) per
-      phase, resolving `maintenance.kind` into a plan object once; split
-      `landing-operations.ts` (1052 at HEAD, `ts/packages/ccc/src/land-stack/`) and
-      move message-English to `presentation.ts`.
-      Highest-risk item — land test coverage first. See `references/ccc.md`.
-- [ ] Unify ccc Graphite-metadata reads into one `loadGraphiteTopology` (two read
-      paths today: `ccc/src/land-stack/graphite-topology.ts` and `stack-facts.ts`);
-      confirm canonical home at pickup — original target `@sdl/core/graphite-metadata`,
-      but the newer `@sdl/graphite` infra package may now be the owner. Route
-      `land-stack` git facts through `RealGitGateway` and GitHub access through
-      `@sdl/core/github-cli`. See `references/ccc.md`.
-- [ ] sdlcc: replace the hand-rolled validation tower in
-      `stack-map-model-loader.ts` with Zod boundary schemas; delete the
-      parsed-but-unread `edges` (and its required-gate), `surfaceType`, `tty`.
-      See `references/per-package-cleanups.md`.
-- [ ] aretro: split generic JSON accessors out of `pi-jsonl-source.ts` (767) into
-      `pi-json-accessors.ts`; unify the two divergent `bashExecution` count paths.
-      See `references/per-package-cleanups.md`.
-- [ ] sdl: replace the reflective `MANIFEST_COMMAND_FIELDS` engine in
-      `extension-discovery.ts` (583 at HEAD) with a Zod schema; de-dup the
-      `index.ts`/`index.js` dir-index block. See `references/per-package-cleanups.md`.
-- [ ] packagechk: collapse `ClaimPolicy`/`ClaimPlan` (N=2 over-abstraction) into
-      two linear `runPypiClaim`/`runNpmClaim` functions sharing small helpers.
-      See `references/per-package-cleanups.md`.
-- [ ] vibechk: refactor `workflow.ts:executeRun` (mutable-`let`/dual-try-catch)
-      into `runRunner`/`capturePostRun`; delete the dead empty-diff write, the
-      duplicate `GitProvenance`, dead `artifacts`/`transcript`, the redundant
-      `models.ts:137` cast, and `normalizeRunsFormatArgs` (rename field to
-      `format`). See `references/per-package-cleanups.md`.
-- [ ] asdl-core `submit/`: collapse prewrite vs post-submit PR-description
-      duplication + the `reconcilePrewrittenPr` third path; extract the 3×
-      failure-transcript spread; resolve the two same-named `formatOutputSection`;
-      prune `submit/index.ts` no-consumer re-exports; delete alias-only
-      `submit/result.ts`. See `references/asdl-core.md`.
-- [ ] ccc small dedup: promote `firstNonEmptyLine` (2×) and reuse the canonical
-      `isRecord` (3×); import the canonical `gt restack`/`submit` arg builders
-      instead of re-inlining; present `presentLandStackFailure` once instead of at
-      15 early-return sites. See `references/ccc.md`.
+- [x] Shared `defineCli` helper in `@sdl/core/cli-entry` (runtimeInfo derivation, version reading, IO/cwd/env defaulting, `import.meta.main` entry guard); migrate all current `cli.ts` files onto it. See `references/cli-wiring-layer.md`.
+      Evidence: `defineCli` exists in `ts/packages/infra/core/src/cli-entry.ts`; current `ts/packages/**/src/cli.ts` entrypoints consume it; old hand-written `const VERSION`/`runtimeInfo`/`readPackageVersion` implementations are absent from those entrypoints; package-local `sdlcc` `--runtime` coverage exists; prior validation passed.
+- [x] Rejected: `clinkr` `execGroup(description?)` factory defaulting `name:"exec"` + `isHidden:true`; replace hand-rolled hidden-exec constructions. See `references/cli-wiring-layer.md`.
+      Decision: the implementation was reverted because it added a thin wrapper around already-correct, obvious `ClinkrGroup` construction and did not delete meaningful complexity. Do not reintroduce this helper without new evidence that it prevents plausible drift or removes substantial mental load.
+- [x] Unify Branch-Memory access: point `branch-context` at the in-process `@sdl/brmem` `BrmemGateway`; delete the parsing half of its old `brmem-gateway.ts` and its `@sdl/core/brmem-cli` dependency. See `references/branch-memory-access.md`.
+      Evidence: `branch-context` uses `RealGitBrmemGateway` / `BrmemGateway`; `ts/packages/branch-context/src/brmem-gateway.ts` is absent; no `@sdl/core/brmem-cli` references remain under `branch-context`; the dry-run preview avoids promising a `brmem put` subprocess; CLI scenario tests cover Branch Memory diagnostics.
+- [x] Collapse the `@sdl/core/brmem-cli` multi-candidate framework to one public `runBrmem`; fix the duplicated candidate-loop at worktree status; delete dead exports `graphqlErrorsFromJson`, `readOptionalBrmemBooleanField`. See `references/branch-memory-access.md` and `references/asdl-core.md`.
+      Evidence: `@sdl/core/brmem-cli` exports `runBrmem`; the former public candidate-iteration names (`resolveBrmemCommandCandidates`, `runBrmemCandidate`, `runFirstAvailableBrmemCommand`) plus `readOptionalBrmemBooleanField` and `graphqlErrorsFromJson` grep to zero under `ts/packages`; the two-candidate fallback behavior lives privately inside `runBrmem` and is covered by prior tests.
+- [x] Compose core `GitGateway` inside `brmem/real-git-gateway.ts`; remove duplicated generic `currentBranch` and Git branch-ref validation primitives while keeping Branch Memory Snapshot object/ref plumbing local to brmem. See `references/cross-package-dedup.md`.
+      Evidence: `RealGitBrmemGateway` takes shared `commands` and `git` seams, delegates generic branch-ref checks to `GitGateway`, retains brmem's Snapshot Ref encoding pre-check, and branch-context validates target branches through core Git before plan-file I/O or mutation.
+- [ ] Rebaseline and, if still valid, add `resolveBranchOrCurrent` to `@sdl/core` and replace per-package copies; pick a canonical branch-name policy only for genuinely shared Git semantics.
+      Note: no `resolveBranchOrCurrent` symbol exists at HEAD. Do not use the original "4 copies / 3 rule-sets" tally without re-counting against the rehomed workspace and the deliberate split between core Git ref validation and brmem Snapshot Ref encoding validation. See `references/cross-package-dedup.md`.
+- [ ] Export or otherwise share GitHub PR feedback leaf helpers (`ghAuthorSchema` / author normalization / numeric GitHub identity policy) from the current core feedback boundary; delete roaster's divergent copies if the helper is neutral rather than roaster-domain-specific.
+      Evidence to recheck at pickup: core has `ghAuthorSchema` and private normalization/identity helpers under `ts/packages/infra/core/src/github-pr-feedback/`; roaster still has its own `ghAuthorSchema` and `normalizeAuthor` in `ts/packages/roaster/src/gateways/github.ts`. See `references/cross-package-dedup.md`.
+- [ ] Delete the vestigial `@sdl/core` root `.` export if it is still only supporting convenience imports; repoint live bare importers at explicit subpaths.
+      Evidence at refresh: `ts/packages/infra/core/package.json` still exports `"."`, and `ts/packages/hosts/pi/src/sessions/harness-session.ts` imports `truncatedSha256Digest` from `@sdl/core`. Reconfirm style-guard/test fixture implications before editing. See `references/asdl-core.md`.
+- [ ] Rebaseline and decompose `@sdl/areg`'s real gateway/file-system god-file.
+      Current fact: `ts/packages/tools/areg/src/real-gateways.ts` is 1383 lines. Original intent remains: split per-gateway into `src/gateways/*`, extract project filesystem concerns, collapse the `init`/`skill-kind` policy fork to a data descriptor, and share pure `classifySkillSpecResolution` so fakes stop reimplementing policy. See `references/areg.md`.
+- [ ] Rebaseline Flow/ccc land-stack decomposition before implementing.
+      Current fact: `ts/packages/ccc/src/land-stack/landing-operations.ts` is now a 14-line re-export, while `ts/packages/capabilities/flow/src/land-stack/landing-operations.ts` is 1222 lines and still contains `performGraphiteMaintenance`. If this row remains in scope after extension-architecture reclassification, decompose by phase while preserving expected-SHA and merge→verify→cleanup ordering. Highest-risk item — land test coverage first. See `references/ccc.md`.
+- [ ] Rebaseline Graphite topology ownership before deduping.
+      Current fact: the active reads are in the Flow land-stack implementation (`graphite-topology.ts` and `stack-facts.ts`); `@sdl/graphite` exists and may be the canonical home for neutral mechanics, while Flow owns capability policy. Do not assume the original `@sdl/core/graphite-metadata` target. See `references/ccc.md`.
+- [ ] `sdlcc`: replace the hand-rolled validation tower in `ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts` with Zod boundary schemas; delete parsed-but-unread fields if still unused. See `references/per-package-cleanups.md`.
+- [ ] `@sdl/aretro`: split generic JSON accessors out of `ts/packages/aretro/src/sessions/pi-jsonl-source.ts`; unify the two divergent `bashExecution` count paths if still present. See `references/per-package-cleanups.md`.
+- [ ] `@sdl/kernel`: replace the reflective `MANIFEST_COMMAND_FIELDS` engine in `ts/packages/kernel/src/extension-discovery.ts` with a Zod schema; de-dup the `index.ts`/`index.js` dir-index block if still present. See `references/per-package-cleanups.md`.
+- [ ] `@sdl/packagechk`: collapse `ClaimPolicy`/`ClaimPlan` over-abstraction in `ts/packages/tools/packagechk/src/claim-command.ts` into two linear claim functions sharing small helpers if the shape remains. See `references/per-package-cleanups.md`.
+- [ ] `@sdl/vibechk`: refactor `workflow.ts:executeRun`; re-verify and delete any remaining dead empty-diff write, duplicate provenance/type debris, redundant casts, and `normalizeRunsFormatArgs`. See `references/per-package-cleanups.md`.
+- [ ] Flow submit / former `asdl-core submit` tidy-ups: rebaseline ownership after the Flow capability migration before attempting prewrite/post-submit PR-description dedup, failure-transcript extraction, duplicate formatter cleanup, no-consumer re-export pruning, or alias-file deletion. See `references/asdl-core.md`.
+- [ ] ccc/flow small dedup: re-verify `firstNonEmptyLine`, canonical `isRecord`, gt restack/submit arg builders, and repeated `presentLandStackFailure` call sites against the current split between `@sdl/ccc`, `sdl-flow`, `@sdl/core`, and `@sdl/graphite`. See `references/ccc.md`.
 
 ### Absorbed from `ts-cli-architecture-deepening` (subsumed)
 
-These deepening candidates migrated from the closed `ts-cli-architecture-deepening`
-Objective. They use the `improve-codebase-architecture` vocabulary (module /
-interface / depth / seam / deletion test); the reasoning is carried across intact,
-not flattened. The audit `reference/` directory remains in the closed Objective.
-They are especially subject to the blocked/sequencing note above: after
-`sdl-extension-architecture` lands its foundation, rebaseline these rows before
-implementing any of them.
+These deepening candidates migrated from the closed `ts-cli-architecture-deepening` Objective. They use the `improve-codebase-architecture` vocabulary (module / interface / depth / seam / deletion test); the reasoning is carried across intact, not flattened. They are especially subject to the blocked sequencing note above.
 
-- [ ] **Collapse slot-dispatch into one orchestration module** (`ccc/cmux`) —
-      `dispatch-prompt.ts` (432), `dispatch-from-trunk.ts` (198), and
-      `slot-dispatch-plan.ts` (548) re-spell the same four-step sequence (branch →
-      Branch Memory payload → slot checkout → cmux workspace). Introduce a
-      `SlotDispatchPlan` module owning the sequence behind `(branch, payload,
-      metadata)`; the dispatch handlers become thin call sites. Deletion test:
-      complexity concentrates in one module instead of three. *Open Question
-      (carried): does `slot-dispatch-plan.ts` already contain most of the target
-      shape, making this a consolidation of the two handlers onto it rather than a
-      new module?*
-- [ ] **Hide occupancy reconciliation behind the slot inventory** (`slot`) —
-      `inventory.ts`, `planning.ts`, and `operations/gt/navigation.ts` each
-      re-derive slot state by pattern-matching `SlotRecord.branch === null`. A
-      reconciler module owns merging worktree state with occupancy metadata and
-      exposes `reconcile()` plus a pure occupancy lookup; `SlotRecord` becomes
-      immutable output. Deletion test: the `branch === null` discriminant stops
-      leaking into three callers.
-- [ ] **Put a stack-navigator adapter over Graphite's discriminants** (`slot/gt`)
-      — `SlotGtGateway` exposes raw topology discriminants and entangles git
-      checkout with Graphite reasoning, forcing tests to mock both gateways for one
-      move. A `GraphiteStackNavigator` adapter absorbs the discriminants and error
-      classification behind `{ branch | error }`. *Must stay inside the `slot gt`
-      boundary and use Graphite plumbing (`gt parent/children --no-interactive`),
-      never parsed display output (runtime Graphite-dependency boundary).*
-- [ ] **Pull objective-markdown rules into one validator** (`objective`) —
-      `ObjectiveStorage` only reads files while each operation re-applies its own
-      heading/structure rules. An `ObjectiveMarkdownValidator` owns
-      objective/roadmap/update structure so a schema change lands in one module;
-      I/O stays a thin gateway. *If a live `objective` capability migration takes
-      ownership of this surface first, cross-reference that ownership instead of
-      duplicating the validator here.*
-- [ ] **Deepen Branch Memory behind an entry locator** (`brmem` / `handoff` /
-      `branch-context`) — next-layer deepening on this Objective's *already-shipped*
-      gateway migration (in-process `BrmemGateway`, `@sdl/core/brmem-cli` collapse,
-      brmem/core `GitGateway` composition), not a duplicate of those completed rows.
-      Concentrate ref naming/encoding (`buildSnapshotRef`, `encodeBranchName`) +
-      validation that currently leak into brmem operations, handoff, and
-      branch-context behind a `BrmemEntryLocator.parse()` and a thin
-      `BrmemEntriesGateway`. Ref encoding/locator mechanics belong in `@sdl/brmem`
-      **only** as neutral Branch Memory storage infrastructure; any branch-context
-      capability-domain API shape must respect ADR 0009 layering (see the layering
-      guardrail in `objective.md`). *Widest blast radius — treat ref encoding as
-      compatible/append-only and cover it with the locator's own tests before
-      migrating callers.*
-- [ ] **Replace the shallow brmem adapter with a plan-attachment module**
-      (`branch-context`) — branch-context-side next layer composing onto the entry
-      locator above. The branch-context gateway is a shallow adapter over brmem CLI
-      output; `attach.ts` and `attached-plan.ts` still reference the namespace
-      constant and construct entry keys. A `PlanAttachmentStorage` module hides
-      namespace + key semantics so callers work in slugs. *This is a branch-context
-      capability/domain seam and a likely input to the future branch-context
-      capability-extension migration tracked by `sdl-extension-architecture`; classify
-      it against ADR 0009 layering before placing it. Does not subsume or conflict
-      with the parked `legacyCommand`-migration row below — that row is about the
-      CLI command-rendering path, this one is about Branch Memory plan storage.*
+- [ ] **Collapse slot-dispatch into one orchestration module** (`ccc`/cmux/slot dispatch) — re-verify current homes first. Original deletion test: complexity concentrates in one module instead of three handlers/planners.
+- [ ] **Hide occupancy reconciliation behind the slot inventory** (`@sdl/slot`) — stop leaking `SlotRecord.branch === null` pattern matching into multiple callers if current code still does so.
+- [ ] **Put a stack-navigator adapter over Graphite's discriminants** (`@sdl/slot`/gt) — keep inside the `slot gt` boundary and use Graphite plumbing, never parsed display output.
+- [ ] **Pull objective-markdown rules into one validator** (`@sdl/objective`) — if a live objective capability migration owns this first, cross-reference that ownership instead of duplicating the validator here.
+- [ ] **Deepen Branch Memory behind an entry locator** (`@sdl/brmem` / `@sdl/handoff` / `@sdl/branch-context`) — next layer on the already-shipped gateway migration. Keep ref encoding/locator mechanics in `@sdl/brmem` only as neutral Branch Memory storage infrastructure, and cover compatibility before migrating callers.
+- [ ] **Replace the shallow brmem adapter with a plan-attachment module** (`@sdl/branch-context`) — likely a branch-context capability/domain seam that may belong under `sdl-extension-architecture`; classify against ADR 0009 before placing it.
 
 ## Parked
 
-- [ ] Migrate the two `legacyCommand`-based CLIs (`plans`, `branch-context`) off
-      the deprecated `legacyCommand` path onto the rendered `command(...)` shape.
-      Parked pending the open question of whether this belongs in this Objective
-      or its own. See `references/cli-wiring-layer.md`.
+- [ ] Migrate the two `legacyCommand`-based CLIs (`plans`, `branch-context`) off the deprecated `legacyCommand` path onto the rendered `command(...)` shape. Parked pending the open question of whether this belongs in this Objective or its own. See `references/cli-wiring-layer.md`.
