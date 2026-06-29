@@ -66,6 +66,10 @@
 - [ ] Move the SDK-provided services: place `command-io` and `progress-phase` interfaces in
       `sdl-sdk`, hide their implementations in the kernel, route capability access through
       `ctx`, and repoint `flow`'s direct `progress-phase` import.
+  - Design evidence: ADR 0021 chooses narrow explicit SDK services (`ctx.commandIo?: SdlCommandIo`
+    and `ctx.progress?: SdlProgress`) with SDK-owned command/progress types, existing low-level
+    output hooks retained as compatibility primitives, and kernel/host-owned command I/O factories.
+    The next slice should implement that shape and delete both old `@sdl/core` doors atomically.
 
 - [ ] Re-home the runtime harness and residual subpaths: move `cli-entry` to its
       kernel/neutral-runtime home; confirm `runner-usage` is I/O-free and keep it a `@sdl/core`
