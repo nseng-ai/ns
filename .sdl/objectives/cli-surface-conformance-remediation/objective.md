@@ -55,6 +55,12 @@ Risks:
 
 ## Open Questions
 
-- Which audit rows were already satisfied or materially changed by the later CLI house-style and extension-architecture work? This must be answered row-by-row with current-source probes before claiming completion.
-- Does Aretro's current `maxSessions`/payload-mode design fully satisfy area (b), or does it still need explicit completion/bound state beyond the existing query/result fields?
-- Should any raw-exit migrations be split into separate Objectives if they become larger than command-local remediation?
+- Resolved by final reconciliation: later CLI house-style and extension-architecture work were accounted for row-by-row as remediation slices landed; no known non-parked implementation gap remains.
+- Resolved: Aretro needed explicit `outputBounds` / `valueBounds` metadata beyond its earlier `maxSessions` and payload-mode shape; that remediation is landed.
+- Resolved: raw-exit migrations stayed within this Objective except `vibechk run`, which is intentionally parked as an ADR 0015 process-control/runner passthrough.
+
+## Closure
+
+Closed after the final current-source reconciliation pass. The historical audit matrix remains in `docs/cli-surface-conformance-audit.md` as point-in-time evidence with a current-status banner. The Objective's tracked remediation slices landed or parked every surviving row: Area (a) danger-tier fixes, Area (d) exit-semantics migrations, Area (c) kebab-case and modeled error-type discipline including Branch Context / Plans, and Area (b) output-bound remediation for Aretro/Vibechk with Roaster review-log parking below the ADR 0012 threshold.
+
+Final source probes found no uncommitted changes and no known non-parked implementation gap. Remaining parked items are intentionally out of this Objective's completion path: domain-small unbounded lists below the ADR 0012 threshold, the non-Clinkr `ccc land`/`land-stack` Pi surface, new conformance tooling, and structural/DRY cleanup owned by other work.

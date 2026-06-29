@@ -21,14 +21,16 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > kebab-case migration has since been applied across the CLI surface and is
 > enforced by the `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard.
 >
-> **Current status note (2026-06-29):** historical row 12's generic Branch Context /
-> Plans wrappers have since been remediated in current source. `branch-context` now
-> emits operation-level failure types such as `branch-context-load-failed` and
-> `branch-context-attach-failed`, while Plans emits types such as
-> `saved-plan-write-failed` and `saved-plan-resolution-failed`; both surfaces carry
-> structured recovery data (`data.code` plus command-specific fields) and use
-> `usageError(...)` / structured `negative(...)` where appropriate. Historical
-> file:line anchors below may have drifted and remain point-in-time evidence.
+> **Current status note (2026-06-29):** this audit is now a historical evidence
+> map, not an open remediation queue. The `cli-surface-conformance-remediation`
+> Objective reconciled the rows against current source: danger-tier rows were
+> remediated, raw finite-result commands were migrated or explicitly parked under
+> ADR 0015, serialized SDL machine values were migrated to kebab-case with
+> camelCase JSON property names, Branch Context / Plans generic error wrappers
+> were replaced by modeled failure types with structured recovery data, and the
+> Aretro/Vibechk output-bound rows were remediated while `roaster review log` was
+> parked below the ADR 0012 evidence threshold. Historical file:line anchors and
+> per-row classifications below remain point-in-time audit evidence.
 
 ## Scope and method
 
@@ -601,11 +603,13 @@ which structurally blocks enveloped errors until converted. Open question: `run`
 (Tier 1 vs Tier 2 — it switches the working branch and runs an arbitrary agent runner; a
 mid-run crash can leave the workdir on `vibechk/<runId>`).
 
-## Recommended remediation sequencing (safety-first)
+## Historical remediation sequencing (completed)
 
-Per the seeding handoff, sequence remediation safety-first: **(a) danger tiers → (d)
-negative/exit semantics → (c) errorType → (b) output bounding.** Use the conformant
-references (`handoff delete`/`gc`, `slot gc`, `brmem put`) as templates.
+Per the seeding handoff, remediation was sequenced safety-first: **(a) danger tiers →
+(d) negative/exit semantics → (c) errorType → (b) output bounding.** Use the
+conformant references (`handoff delete`/`gc`, `slot gc`, `brmem put`) as templates.
+The list below is retained as the original execution plan; the Objective's 2026-06-29
+Semantic Updates record the current-source remediations and parking decisions.
 
 1. **Area (a), land-now (safety):** add `--yes`/`-y` + `requireInteractiveOrUsageError`
    gating to human-facing `brmem delete` and `sdl shell install` (Tier 2 per ADR
