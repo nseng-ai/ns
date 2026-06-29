@@ -8,7 +8,7 @@
 
 - [x] **Hidden `exec` danger-tier rebaseline:** `branch-context exec delete` and the Address review-thread mutators stay prompt-free under ADR 0015 #2; their operation arguments supply agent/script intent. `branch-context` remains relevant under area (c) for modeled error types, not area (a) confirmation.
 
-- [~] **Current-source reconciliation before remediation:** active remediation rows have been rebaselined as they were fixed, including the Branch Context / Plans generic-wrapper row. Remaining work is a final close-read/checklist pass to decide whether the historical audit matrix needs broader current-status annotation before closing the Objective; no known non-parked implementation gap is currently parked here.
+- [x] **Current-source reconciliation before remediation:** active remediation rows were rebaselined as they were fixed, including Branch Context / Plans generic-wrapper modeling, Aretro/Vibechk output bounds, and Roaster review-log parking. Final close-read confirmed no known non-parked implementation gap remains; `docs/cli-surface-conformance-audit.md` now carries a current-status banner and retains historical row details as point-in-time evidence.
 
 - [x] **Area (a) — danger-tier safety remediation (landed for currently listed human-facing gaps).** Human-facing destructive/user-environment commands now use canonical confirmation behavior, while hidden `exec` destructive/external writes remain prompt-free under ADR 0015 #2. Landed evidence:
   - `brmem delete`: added `--yes`/`-y`, `ClinkrInteraction` plumbing, non-interactive `usageError` with `missingFlag: "--yes"`, interactive confirm/decline/abort handling, and explicit cancelled result data.
