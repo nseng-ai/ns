@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*",
     "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   },

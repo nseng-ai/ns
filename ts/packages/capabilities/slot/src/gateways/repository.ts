@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
-import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { parseGitWorktreePorcelain } from "@sdl/capability-kit/git";
 import { RealGitGateway, type GitGateway } from "@sdl/git";
 

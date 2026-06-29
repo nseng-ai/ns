@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,

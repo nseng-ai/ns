@@ -1,5 +1,5 @@
-import type { ExecResult } from "@sdl/core/exec";
-import { commandSucceeded, type SdlExtensionApi } from "sdl-sdk";
+import { commandSucceeded, type ExecResult } from "@sdl/exec";
+import type { SdlExtensionApi } from "sdl-sdk";
 
 export interface GitWorktreePorcelainEntry {
 	path: string;

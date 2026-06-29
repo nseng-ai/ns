@@ -1,4 +1,4 @@
-import { commandSucceeded, formatCommand, tailText } from "@sdl/core/exec";
+import { commandSucceeded, formatCommand, tailText } from "@sdl/exec";
 import {
 	failure,
 	negative,

@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { NodeCommandExecApi, type ExecOptions, type ExecResult } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
+import type { ExecOptions, ExecResult } from "@sdl/exec";
 import { copyExecOptionsWithout, createTempDirTracker, createTempGitRepo } from "@sdl/core/testing";
 import registerBranchContextExtension from "../../src/extension.ts";
 import {

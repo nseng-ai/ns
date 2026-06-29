@@ -1,10 +1,5 @@
-import {
-	defaultCommandResolver,
-	type CommandExecApi,
-	type CommandResolver,
-	type ExecOptions,
-	type ExecResult,
-} from "@sdl/core/exec";
+import { type CommandResolver, defaultCommandResolver } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { isClaudeCodeSupportedModelPattern } from "@sdl/core/model-slug";
 import { formatErrorMessage, mapFromRecordOrMap } from "@sdl/core/primitives";
 

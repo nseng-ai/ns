@@ -1,4 +1,4 @@
-import { tailText, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, tailText } from "@sdl/exec";
 export { err, ok, resultErr, resultOk } from "@sdl/core/result";
 export type { ErrorInfo, Result, Result as GatewayResult } from "@sdl/core/result";
 import type { ErrorInfo } from "@sdl/core/result";

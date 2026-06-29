@@ -1,5 +1,6 @@
-import { commandSucceeded, defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
-import type { ExecResult, SdlExtensionApi } from "sdl-sdk";
+import { commandSucceeded, type ExecResult } from "@sdl/exec";
+import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
+import type { SdlExtensionApi } from "sdl-sdk";
 import type { GitErrorInfo, GitGateway } from "@sdl/git";
 
 import { execFlowGit, readFlowGitPorcelainStatus } from "../shared/git.ts";

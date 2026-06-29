@@ -1,4 +1,4 @@
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import type { PendingWorktreeSnapshot } from "@sdl/capability-kit/pending-worktree";
 

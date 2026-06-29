@@ -9,7 +9,7 @@ import {
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "./exec.ts";
+} from "./command.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
 import { findWorkspaceRootByMarkers } from "./workspace-root.ts";
 

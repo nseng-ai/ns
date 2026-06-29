@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@sdl/core/exec";
+import { formatCommandDetails } from "@sdl/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 
 import {

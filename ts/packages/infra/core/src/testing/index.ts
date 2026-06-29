@@ -7,13 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import type { Clock } from "../clock.ts";
-import {
-	NodeCommandExecApi,
-	type CommandExecApi,
-	type CommandRunner,
-	type ExecOptions,
-	type ExecResult,
-} from "../exec.ts";
+import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "../command.ts";
 import { TimerScheduler, type ScheduledTimer } from "../timers.ts";
 export interface TextGenerationRequest {
 	modelRef: string;
@@ -93,7 +87,7 @@ export interface DropExecOptionsFields {
 }
 
 export interface DroppingOptionsCommandExecApiOptions extends DropExecOptionsFields {
-	readonly delegate?: CommandExecApi;
+	readonly delegate: CommandExecApi;
 }
 
 export interface RunnerCall {
@@ -280,8 +274,8 @@ export class DroppingOptionsCommandExecApi implements CommandExecApi {
 	private readonly delegate: CommandExecApi;
 	private readonly dropFields: DropExecOptionsFields;
 
-	constructor(options: DroppingOptionsCommandExecApiOptions = {}) {
-		this.delegate = options.delegate ?? new NodeCommandExecApi();
+	constructor(options: DroppingOptionsCommandExecApiOptions) {
+		this.delegate = options.delegate;
 		this.dropFields = {
 			...(options.shouldDropEnv === undefined ? {} : { shouldDropEnv: options.shouldDropEnv }),
 			...(options.shouldDropStdin === undefined

@@ -54,5 +54,8 @@
   ],
   "patchedDependencies": {
     "@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
+  },
+  "dependencies": {
+    "@sdl/exec": "workspace:*"
   }
 }

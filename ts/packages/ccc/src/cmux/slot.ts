@@ -1,4 +1,4 @@
-import { piExecApiToCommandExecApi } from "@sdl/core/exec";
+import { piExecApiToCommandExecApi } from "@sdl/exec";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "../slot-checkout.ts";
 import { RealCmuxGateway, type CmuxGatewayFailure } from "@sdl/cmux/gateway";

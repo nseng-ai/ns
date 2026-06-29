@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
-import type { ExecResult } from "@sdl/core/exec";
-import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/exec";
 
 const CWD = "/repo";
 const SAVED_PLAN_CONTENT =

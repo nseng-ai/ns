@@ -16,7 +16,7 @@ import {
 	formatShellArg,
 	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";

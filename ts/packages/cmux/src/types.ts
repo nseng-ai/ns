@@ -1,6 +1,6 @@
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 
-export type { ExecResult } from "@sdl/core/exec";
+export type { ExecResult } from "@sdl/exec";
 
 export type NotifyLevel = "info" | "warning" | "error" | "success";
 export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";

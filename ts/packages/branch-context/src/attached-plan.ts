@@ -14,7 +14,7 @@ import {
 	UNSUPPORTED_ATTACHED_PLAN_KEY,
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
 import { resolveSelectedSavedPlanFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";

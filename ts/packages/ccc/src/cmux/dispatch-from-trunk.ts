@@ -5,7 +5,7 @@ import {
 	formatCommandFailure,
 	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,

@@ -3,7 +3,7 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 } from "@sdl/core/brmem-cli";
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { withTemporaryFile } from "@sdl/core/temp-files";
 
 import type { RoasterEnvironmentOptions } from "../context.ts";

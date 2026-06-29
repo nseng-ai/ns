@@ -1,12 +1,12 @@
 import { appendFile } from "node:fs/promises";
 
 import {
-	formatCommand,
 	type CommandExecApi,
 	type CommandRunner,
 	type ExecOptions,
 	type ExecResult,
-} from "@sdl/core/exec";
+	formatCommand,
+} from "@sdl/exec";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "SDL_SLOT_DIAGNOSTIC_LOG";
 

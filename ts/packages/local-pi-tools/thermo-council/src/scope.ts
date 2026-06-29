@@ -1,4 +1,4 @@
-import { formatCommandResultFailure, normalizeExecResult, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, formatCommandResultFailure, normalizeExecResult } from "@sdl/exec";
 import type {
 	ThermoCouncilCommandContext,
 	ThermoCouncilExtensionAPI,

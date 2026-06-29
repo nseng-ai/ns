@@ -20,6 +20,7 @@
     "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "sdl-sdk": "workspace:*",

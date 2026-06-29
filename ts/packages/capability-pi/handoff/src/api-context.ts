@@ -1,5 +1,5 @@
 import { RealGitBrmemReadGateway } from "@sdl/brmem";
-import { piExecApiToCommandExecApi } from "@sdl/core/exec";
+import { piExecApiToCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { HandoffReadStorageDeps } from "@sdl/handoff/api";
 

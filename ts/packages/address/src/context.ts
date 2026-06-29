@@ -1,4 +1,4 @@
-import { NodeCommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi, runCommand } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { RealGithubPrFeedbackGateway } from "@sdl/core/github-pr-feedback";
@@ -12,6 +12,6 @@ export interface PrAddressContext {
 export function createRealPrAddressContext(): PrAddressContext {
 	return {
 		git: new RealGitGateway(new NodeCommandExecApi()),
-		prFeedback: new RealGithubPrFeedbackGateway(),
+		prFeedback: new RealGithubPrFeedbackGateway(runCommand),
 	};
 }

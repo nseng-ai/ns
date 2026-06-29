@@ -22,7 +22,7 @@ import {
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
 } from "@sdl/plans/api";
-import { formatCommand, formatShellArg } from "@sdl/core/exec";
+import { formatCommand, formatShellArg } from "@sdl/exec";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
 import {

@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/core/exec";
+import { formatCommand } from "@sdl/exec";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE, GIT_TIMEOUT_MS } from "./constants.ts";
 import { exec } from "./command-exec.ts";
 import {

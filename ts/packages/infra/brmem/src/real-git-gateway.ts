@@ -1,11 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-	formatCommand,
-	type CommandExecApi,
-	type StdinCapableCommandExecApi,
-} from "@sdl/core/exec";
+import { type CommandExecApi, formatCommand, type StdinCapableCommandExecApi } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
 
 import {

@@ -1,9 +1,9 @@
 import {
+	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-	type ExecResult,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,

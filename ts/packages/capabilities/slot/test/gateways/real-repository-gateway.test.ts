@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";

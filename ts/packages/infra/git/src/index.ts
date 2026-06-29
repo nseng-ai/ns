@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import { formatCommand, formatCommandFailure } from "@sdl/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import { formatCommand, formatCommandFailure } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type {
 	GitBranchParams,

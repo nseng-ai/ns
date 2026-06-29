@@ -1,12 +1,12 @@
 import {
+	type CommandExecApi,
+	type ExecOptions,
+	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
 	isSuccessfulExecResult,
-	type CommandExecApi,
-	type ExecOptions,
-	type ExecResult,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
 // Neutral cmux command runner: keep process execution behind CommandExecApi for package extraction.

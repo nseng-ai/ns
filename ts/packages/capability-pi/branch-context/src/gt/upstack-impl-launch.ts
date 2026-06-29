@@ -1,6 +1,6 @@
 import { type BranchContextEvidence } from "@sdl/branch-context/api";
 import { formatImplBranchContextCommand } from "@sdl/pi/commands";
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 import { setRuntimeStatus } from "@sdl/pi/runtime/status";
 import type {
 	ExtensionAPI,

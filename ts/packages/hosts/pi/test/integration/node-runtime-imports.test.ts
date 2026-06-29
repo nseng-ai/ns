@@ -15,14 +15,14 @@ const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 	"@sdl/graphite/status",
-	"@sdl/core/exec",
+	"@sdl/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
 	"@sdl/kernel/cli",
 ] as const;
 
 const CCC_WORKSPACE_IMPORTS = [
-	"@sdl/core/exec",
+	"@sdl/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",
 	"@sdl/capability-kit/checkpoint-flow",
@@ -31,6 +31,7 @@ const CCC_WORKSPACE_IMPORTS = [
 const SDL_EXPORT_IMPORTS = [
 	"@sdl/capability-kit/checkpoint-flow",
 	"@sdl/capability-kit/checkpoint-message",
+	"@sdl/exec",
 	"@sdl/kernel/cli",
 	"@sdl/kernel/context",
 	"@sdl/capability-kit/pending-worktree",
@@ -139,7 +140,7 @@ describe("Node runtime import smoke", () => {
 		});
 
 		expectSuccessfulNodeRun(result, { cwd: SDL_PACKAGE_ROOT, label: "kernel package imports" });
-		expect(result.stdout).toContain("imported 9 package specifiers");
+		expect(result.stdout).toContain("imported 10 package specifiers");
 	});
 });
 

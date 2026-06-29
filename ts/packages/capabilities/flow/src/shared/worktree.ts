@@ -6,18 +6,15 @@ import {
 	type WorktreeCommandResult,
 } from "@sdl/capability-kit/pending-worktree";
 import { createSdlCliExecAdapter, execSdlCommand } from "@sdl/capability-kit/git";
-import {
-	formatCommandError,
-	withTemporaryFile,
-	type ExecResult,
-	type SdlExtensionApi,
-} from "sdl-sdk";
+import { formatCommandDetails, formatCommandError, type ExecResult } from "@sdl/exec";
+import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
+import type { SdlExtensionApi } from "sdl-sdk";
 
 import { execFlowGit } from "./git.ts";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
-export { formatCommandDetails } from "sdl-sdk";
+export { formatCommandDetails };
 
 export async function loadFlowPendingWorktreeSnapshot(
 	ctx: SdlExtensionApi,

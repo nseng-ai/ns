@@ -1,4 +1,4 @@
-import { commandFailureReason, execApiToCommandRunner, type CommandExecApi } from "@sdl/core/exec";
+import { type CommandExecApi, commandFailureReason, execApiToCommandRunner } from "@sdl/exec";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,

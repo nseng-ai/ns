@@ -1,4 +1,4 @@
-import type { ExecOutputListener } from "./exec.ts";
+import type { ExecOutputListener } from "./command.ts";
 
 export type NotifyLevel = "info" | "warning" | "error";
 

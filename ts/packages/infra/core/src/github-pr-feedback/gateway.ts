@@ -1,7 +1,7 @@
 import type { z } from "zod";
 
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../github-pr-status.ts";
-import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
+import type { CommandRunner, ExecResult } from "../command.ts";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../github-cli.ts";
 import type { MaybePromise } from "../primitives.ts";
 import type { Result } from "../result.ts";
@@ -113,7 +113,7 @@ interface CollectGraphqlPagesOptions<TResponse, TNode, TOutput> {
 export class RealGithubPrFeedbackGateway {
 	private readonly runner: CommandRunner;
 
-	constructor(runner: CommandRunner = runCommand) {
+	constructor(runner: CommandRunner) {
 		this.runner = runner;
 	}
 

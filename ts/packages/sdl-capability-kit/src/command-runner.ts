@@ -4,7 +4,7 @@ import type {
 	ExecOptions,
 	ExecResult,
 	StdinCapableCommandExecApi,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
 
 import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 

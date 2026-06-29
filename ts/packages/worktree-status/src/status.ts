@@ -4,13 +4,13 @@ import { basename, dirname, join, resolve } from "node:path";
 import { runAvailableBrmemCommand } from "@sdl/core/brmem-cli";
 import {
 	execApiToCommandRunner,
+	type ExecOptions,
 	formatCommand,
 	normalizeExecResult,
 	piExecApiToCommandExecApi,
-	tailText,
-	type ExecOptions,
 	type PiExecResultLike,
-} from "@sdl/core/exec";
+	tailText,
+} from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { runGitHubCli } from "@sdl/core/github-cli";

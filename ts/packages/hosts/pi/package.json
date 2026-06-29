@@ -1,64 +1,65 @@
 {
-	"name": "@sdl/pi",
-	"private": true,
-	"type": "module",
-	"exports": {
-		"./commands": "./src/commands/surfaces.ts",
-		"./commands/ack": "./src/commands/ack.ts",
-		"./commands/args": "./src/commands/args.ts",
-		"./commands/events": "./src/commands/events.ts",
-		"./commands/helpers": "./src/command-helpers.ts",
-		"./commands/io": "./src/commands/io.ts",
-		"./grill/surfaces": "./src/grill/surfaces.ts",
-		"./models/call": "./src/models/call.ts",
-		"./models/lm-json": "./src/models/lm-json.ts",
-		"./parity/check": "./src/parity/check.ts",
-		"./parity/extension": "./src/parity/extension.ts",
-		"./parity/testing": "./src/parity/testing.ts",
-		"./runtime/agent-definition": "./src/runtime/agent-definition.ts",
-		"./runtime/command-host": "./src/runtime/command-host.ts",
-		"./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
-		"./runtime/tool-types": "./src/runtime/tool-types.ts",
-		"./sessions/replacement": "./src/sessions/replacement.ts",
-		"./skills/expansion": "./src/skills/expansion.ts",
-		"./terminal/layout": "./src/terminal/layout.ts",
-		"./terminal/presentation": "./src/terminal/presentation.ts",
-		"./shared/errors": "./src/shared/errors.ts",
-		"./shared/gh-command": "./src/shared/gh-command.ts",
-		"./shared/text-lines": "./src/shared/text-lines.ts",
-		"./shared/timers": "./src/shared/timers.ts",
-		"./runtime/types": "./src/runtime/types.ts",
-		"./commands/cli-extension": "./src/commands/cli-extension.ts",
-		"./runtime/extension-types": "./src/runtime/extension-types.ts",
-		"./runtime/primitives": "./src/runtime/primitives.ts",
-		"./runtime/status": "./src/runtime/status.ts",
-		"./shared/exec-gateway": "./src/shared/exec-gateway.ts",
-		"./shared/message-delivery": "./src/shared/message-delivery.ts"
-	},
-	"scripts": {
-		"check": "tsgo -p tsconfig.json",
-		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/pi/test"
-	},
-	"dependencies": {
-		"@sdl/cmux": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/graphite": "workspace:*",
-		"@sdl/kernel": "workspace:*",
-		"sdl-sdk": "workspace:*",
-		"zod": "catalog:"
-	},
-	"peerDependencies": {
-		"@earendil-works/pi-ai": "*",
-		"@earendil-works/pi-coding-agent": "*",
-		"@earendil-works/pi-tui": "*"
-	},
-	"devDependencies": {
-		"@earendil-works/pi-ai": "catalog:",
-		"@earendil-works/pi-coding-agent": "catalog:",
-		"@earendil-works/pi-tui": "catalog:"
-	},
-	"sdl": {
-		"tier": "host"
-	}
+  "name": "@sdl/pi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./commands": "./src/commands/surfaces.ts",
+    "./commands/ack": "./src/commands/ack.ts",
+    "./commands/args": "./src/commands/args.ts",
+    "./commands/events": "./src/commands/events.ts",
+    "./commands/helpers": "./src/command-helpers.ts",
+    "./commands/io": "./src/commands/io.ts",
+    "./grill/surfaces": "./src/grill/surfaces.ts",
+    "./models/call": "./src/models/call.ts",
+    "./models/lm-json": "./src/models/lm-json.ts",
+    "./parity/check": "./src/parity/check.ts",
+    "./parity/extension": "./src/parity/extension.ts",
+    "./parity/testing": "./src/parity/testing.ts",
+    "./runtime/agent-definition": "./src/runtime/agent-definition.ts",
+    "./runtime/command-host": "./src/runtime/command-host.ts",
+    "./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
+    "./runtime/tool-types": "./src/runtime/tool-types.ts",
+    "./sessions/replacement": "./src/sessions/replacement.ts",
+    "./skills/expansion": "./src/skills/expansion.ts",
+    "./terminal/layout": "./src/terminal/layout.ts",
+    "./terminal/presentation": "./src/terminal/presentation.ts",
+    "./shared/errors": "./src/shared/errors.ts",
+    "./shared/gh-command": "./src/shared/gh-command.ts",
+    "./shared/text-lines": "./src/shared/text-lines.ts",
+    "./shared/timers": "./src/shared/timers.ts",
+    "./runtime/types": "./src/runtime/types.ts",
+    "./commands/cli-extension": "./src/commands/cli-extension.ts",
+    "./runtime/extension-types": "./src/runtime/extension-types.ts",
+    "./runtime/primitives": "./src/runtime/primitives.ts",
+    "./runtime/status": "./src/runtime/status.ts",
+    "./shared/exec-gateway": "./src/shared/exec-gateway.ts",
+    "./shared/message-delivery": "./src/shared/message-delivery.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/pi/test"
+  },
+  "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
+    "@sdl/cmux": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*",
+    "@sdl/graphite": "workspace:*",
+    "@sdl/kernel": "workspace:*",
+    "sdl-sdk": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:",
+    "@earendil-works/pi-tui": "catalog:"
+  },
+  "sdl": {
+    "tier": "host"
+  }
 }

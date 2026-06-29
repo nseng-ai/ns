@@ -1,4 +1,4 @@
-import { shellQuote } from "@sdl/core/exec";
+import { shellQuote } from "@sdl/exec";
 import { truncatedSha256Digest } from "@sdl/core/primitives";
 
 const HARNESS_SESSION_ENTRY_TYPE = "sdl-harness-session-id";

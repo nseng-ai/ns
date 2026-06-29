@@ -1,10 +1,10 @@
+import { NodeCommandExecApi } from "@sdl/exec";
 import {
-	formatCommand,
-	formatCommandFailure,
-	NodeCommandExecApi,
 	type CommandExecApi,
 	type ExecResult,
-} from "@sdl/core/exec";
+	formatCommand,
+	formatCommandFailure,
+} from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway, GitOperationResult, GitResult } from "@sdl/git";
 

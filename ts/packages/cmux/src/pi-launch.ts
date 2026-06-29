@@ -1,4 +1,4 @@
-import { formatShellArg } from "@sdl/core/exec";
+import { formatShellArg } from "@sdl/exec";
 
 export type PiLaunchThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
 

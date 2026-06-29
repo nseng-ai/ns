@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/core/exec";
+import { formatCommand } from "@sdl/exec";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,

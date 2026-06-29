@@ -1,9 +1,9 @@
 import {
 	execApiToCommandRunner,
-	piExecApiToCommandExecApi,
 	type ExecOptions,
 	type ExecResult,
-} from "@sdl/core/exec";
+	piExecApiToCommandExecApi,
+} from "@sdl/exec";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 

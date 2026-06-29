@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCli } from "../../src/cli.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { createTempDirTracker } from "@sdl/core/testing";
 import { encodeBranchForPlanPath } from "@sdl/plans";

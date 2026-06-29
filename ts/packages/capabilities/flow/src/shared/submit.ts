@@ -1,4 +1,4 @@
-import type { CommandRunner } from "@sdl/core/exec";
+import type { CommandRunner } from "@sdl/exec";
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { RealGitGateway } from "@sdl/git";
 import { createSdlCommandRunner } from "@sdl/capability-kit";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions } from "@sdl/core/exec";
+import type { CommandRunner, ExecOptions } from "../src/command.ts";
 import { RealGithubPrFeedbackGateway } from "@sdl/core/github-pr-feedback";
 import { ScriptedCommandRunner, step } from "@sdl/core/testing";
 

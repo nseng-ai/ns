@@ -19,7 +19,8 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/cmux/test"
   },
   "dependencies": {
-    "@sdl/core": "workspace:*"
+    "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {

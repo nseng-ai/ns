@@ -1,4 +1,4 @@
-import { formatCommand, formatOutputSection } from "./exec.ts";
+import { formatCommand, formatOutputSection } from "./command.ts";
 
 export interface ParsedModelRef {
 	provider: string;

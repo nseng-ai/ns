@@ -1,4 +1,4 @@
-import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "./exec.ts";
+import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "./command.ts";
 import { formatErrorMessage } from "./primitives.ts";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;

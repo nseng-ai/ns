@@ -1,4 +1,4 @@
-import { isSuccessfulExecResult, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, isSuccessfulExecResult } from "@sdl/exec";
 import { planLocalBranchRefreshFromWorktrees } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 

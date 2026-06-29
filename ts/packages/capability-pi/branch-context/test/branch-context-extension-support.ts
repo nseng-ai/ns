@@ -14,7 +14,7 @@ import {
 	type LoadedAttachedPlan,
 } from "@sdl/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	buildRepoPlanStoreKey,
