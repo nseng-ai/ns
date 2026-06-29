@@ -1,7 +1,7 @@
 export type WorktreeStatusRemoteRefreshMode = "skip" | "cached" | "force";
 
 export interface WorktreeStatusRefreshOptions {
-	readonly remoteRefresh?: WorktreeStatusRemoteRefreshMode | undefined;
+	readonly remoteRefresh?: WorktreeStatusRemoteRefreshMode;
 }
 
 export interface WorktreeStatusRefreshChannel<TSession> {
