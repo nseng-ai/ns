@@ -80,6 +80,7 @@ describe("aretro exec collect-evidence", () => {
 		expect(envelope).toHaveProperty("sessions");
 		expect(envelope).toHaveProperty("warnings");
 		expect(envelope).toHaveProperty("evidenceItems");
+		expect(envelope).toHaveProperty("outputBounds");
 	});
 
 	it("includes optional query fields when provided", async () => {
@@ -152,6 +153,43 @@ describe("aretro exec read-evidence-detail", () => {
 		const result = parseJsonOutput(run) as { exitCode: number; errorType: string };
 		expect(result.exitCode).toBe(2);
 		expect(result.errorType).toBe("invalid-request");
+	});
+
+	it("reports broad detail pointer bounds", async () => {
+		const payloadPath = writePayloadEnvelope(
+			{
+				status: "ok",
+				exitCode: 0,
+				data: { schemaVersion: 1, sessions: [{ sessionId: "s1" }], evidenceItems: [] },
+			},
+			"broad-pointer",
+		);
+		const run = runScenario([
+			"exec",
+			"read-evidence-detail",
+			"--payload-path",
+			payloadPath,
+			"--json-pointer",
+			"/data/sessions",
+			"--format",
+			"json",
+		]);
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			exitCode: 0,
+			data: {
+				jsonPointer: "/data/sessions",
+				valueBounds: {
+					jsonPointer: "/data/sessions",
+					valueKind: "array",
+					childCount: 1,
+					estimatedJsonBytes: expect.any(Number),
+					isBroadPointer: true,
+					isComplete: true,
+					narrowingGuidance: expect.stringContaining("narrower"),
+				},
+			},
+		});
 	});
 
 	it("rejects non-success and unsupported-schema payload envelopes", async () => {

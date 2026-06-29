@@ -54,6 +54,80 @@ describe("aretro exec collect-evidence", () => {
 			sessions: expect.any(Array),
 			warnings: expect.any(Array),
 			evidenceItems: expect.any(Array),
+			outputBounds: {
+				sessions: {
+					appliedLimit: 20,
+					returnedCount: 0,
+					isComplete: true,
+					hasMore: false,
+					continuation: null,
+				},
+				detail: {
+					mode: "inline",
+					guidance: expect.any(String),
+					locatorHints: [],
+				},
+			},
+		});
+	});
+
+	it("reports truncation metadata when more sessions are available", async () => {
+		const sessions = [sampleSession("/repo"), sampleSession("/repo"), sampleSession("/repo")];
+		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
+		const sessionSource = new FakeSessionSource({ sessions });
+		const context: AretroCliContext = {
+			cwd: "/repo",
+			env: {},
+			git,
+			sessionSource,
+		};
+
+		const run = runScenario(
+			["exec", "collect-evidence", "--format", "json", "--max-sessions", "2"],
+			{ context },
+		);
+		expect(await run.exit).toBe(0);
+		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
+		expect(result.data.sessions).toHaveLength(2);
+		expect(result.data.outputBounds).toMatchObject({
+			sessions: {
+				appliedLimit: 2,
+				returnedCount: 2,
+				hasMore: true,
+				isComplete: false,
+				continuation: {
+					kind: "narrow-session-root",
+					message: expect.stringContaining("--max-sessions"),
+				},
+			},
+		});
+		expect(sessionSource.queries).toMatchObject([{ max_sessions: 3 }]);
+	});
+
+	it("reports complete bounds when returned sessions fit the applied limit", async () => {
+		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
+		const sessionSource = new FakeSessionSource({ sessions: [sampleSession("/repo")] });
+		const context: AretroCliContext = {
+			cwd: "/repo",
+			env: {},
+			git,
+			sessionSource,
+		};
+
+		const run = runScenario(
+			["exec", "collect-evidence", "--format", "json", "--max-sessions", "2"],
+			{ context },
+		);
+		expect(await run.exit).toBe(0);
+		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
+		expect(result.data.outputBounds).toMatchObject({
+			sessions: {
+				appliedLimit: 2,
+				returnedCount: 1,
+				hasMore: false,
+				isComplete: true,
+				continuation: null,
+			},
 		});
 	});
 
@@ -287,7 +361,14 @@ describe("aretro exec collect-evidence", () => {
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.payloadMode).toBe("payload");
-		expect(result.data.detailLocatorHints).toContain("/data/sessions");
+		expect(result.data.detailLocatorHints).toContain("/data/sessions/0");
+		expect(result.data.outputBounds).toMatchObject({
+			detail: {
+				mode: "payload",
+				guidance: expect.stringContaining("read-evidence-detail"),
+				locatorHints: expect.arrayContaining(["/data/sessions/0"]),
+			},
+		});
 		const payloadReference = result.data.payloadReference as Record<string, unknown>;
 		expect(payloadReference.descriptor).toBe("aretro-collect-evidence");
 		expect(payloadReference.role).toBe("raw");
@@ -309,8 +390,18 @@ describe("aretro exec collect-evidence", () => {
 			"json",
 		]);
 		expect(await detailRun.exit).toBe(0);
-		const detailResult = parseJsonOutput(detailRun) as { data: { value: unknown } };
+		const detailResult = parseJsonOutput(detailRun) as {
+			data: { value: unknown; valueBounds: Record<string, unknown> };
+		};
 		expect(detailResult.data.value).toBe(1);
+		expect(detailResult.data.valueBounds).toMatchObject({
+			jsonPointer: "/data/schemaVersion",
+			valueKind: "number",
+			childCount: null,
+			isBroadPointer: false,
+			isComplete: true,
+			narrowingGuidance: null,
+		});
 	});
 
 	it("returns human-readable output when format is human", async () => {
@@ -332,6 +423,27 @@ describe("aretro exec collect-evidence", () => {
 		expect(output).toContain("Collected 1 session(s)");
 		expect(output).toContain("feature/retro");
 		expect(output).toContain("fake/fake");
+		expect(output).not.toContain("More sessions available");
+	});
+
+	it("mentions more available sessions in human output", async () => {
+		const git = new InMemoryGitGateway({ repoRoot: "/repo", currentBranch: "feature/retro" });
+		const sessionSource = new FakeSessionSource({
+			sessions: [sampleSession("/repo"), sampleSession("/repo")],
+		});
+		const context: AretroCliContext = {
+			cwd: "/repo",
+			env: {},
+			git,
+			sessionSource,
+		};
+
+		const run = runScenario(
+			["exec", "collect-evidence", "--format", "human", "--max-sessions", "1"],
+			{ context },
+		);
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("More sessions available");
 	});
 });
 
