@@ -22,10 +22,10 @@
   - Guidance: start with `review list`, `review ls`, `review log`, and `roast list` because they exercise catalog/log rendering without model execution or GitHub publication. Preserve JSON/Markdown behavior, finite counts where applicable, and review-log namespace/key semantics. While doing this row, split read/list/log builders into domain-result operations before CLI/API wrapping, following the Objective `buildObjectiveListResult()` precedent; the initial API boundary intentionally kept a transitional `ClinkrExit` conversion and parked that cleanup here.
   - Evidence: completed by `updates/2026-06-28T204211Z-roaster-nested-read-list-migration.md`; SDL now supports structured nested extension paths and Roaster contributes `sdl roaster review list`, `review ls`, `review log [key]`, and `roast list`. Fake-backed SDL scenarios cover discovery/help/schema and JSON execution including Branch Memory review-log namespace/key semantics; existing Roaster CLI/API suites remain green, and read/list API methods consume domain-result builders instead of `ClinkrExit` conversion.
 
-- [ ] Migrate review execution and same-session findings recording.
+- [x] Migrate review execution and same-session findings recording.
   - Policy: direct execution after preview for fake-backed implementation; ask before running real model-backed reviews or writing real Branch Memory logs as validation.
   - Guidance: move `review run` and `exec record-findings` through the SDL command face while keeping Domain Core gateway-injected. Preserve read-only review execution plus additive Branch Memory review-log writes, model-profile resolution, base-ref behavior, input coverage, failure semantics, and same-session findings payload validation.
-  - Evidence: fake review-runner/review-log tests and command scenarios prove review-run and record-findings behavior without real model or Branch Memory mutation.
+  - Evidence: completed by `updates/2026-06-28T211200Z-review-run-record-findings-sdl-face.md`; SDL now exposes `sdl roaster review run <key>` and hidden `sdl roaster exec record-findings`, threads minimal full-payload stdin through `SdlExtensionApi`, adds a narrow same-session findings API/domain seam, and fake-backed tests cover review-run/result-preserving log failure plus record-findings stdin validation without live model, Branch Memory, or GitHub writes.
 
 - [ ] Migrate or explicitly disposition GitHub findings publication.
   - Policy: steer first before changing publication semantics; ask before any live GitHub write validation.

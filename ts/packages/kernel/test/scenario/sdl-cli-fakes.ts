@@ -15,6 +15,7 @@ export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGe
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
 	result: Partial<ExecResult>;
+	repeatable?: boolean | undefined;
 }
 
 export interface ExecCall {
@@ -27,6 +28,7 @@ export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: SdlConfirmPrompt | undefined;
+	stdin?: string | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 }
 
@@ -58,6 +60,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
+	stdin?: (() => Promise<string>) | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
@@ -70,6 +73,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		this.confirm = state.confirm;
+		this.stdin = async () => state.stdin ?? "";
 		this.extensions = state.extensions;
 	}
 
@@ -80,10 +84,11 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		if (index === -1) {
 			return execResult({ code: 99, stderr: `unexpected command: ${formatExecCall(call)}` });
 		}
-		const [response] = this.execResponses.splice(index, 1);
+		const response = this.execResponses[index];
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
 		}
+		if (response.repeatable !== true) this.execResponses.splice(index, 1);
 		const result = execResult(response.result);
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);

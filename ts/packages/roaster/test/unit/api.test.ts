@@ -2,7 +2,12 @@ import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@sdl/roaster/api";
-import type { ReviewListResult, RoasterRuntime, RunRoasterReviewOutcome } from "@sdl/roaster/api";
+import type {
+	RecordFindingsOutcome,
+	ReviewListResult,
+	RoasterRuntime,
+	RunRoasterReviewOutcome,
+} from "@sdl/roaster/api";
 import { createRoasterRuntime } from "../../src/context.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
@@ -69,6 +74,7 @@ function runtimeWithFakes(
 		readonly response?: ReviewExecutionResponse;
 		readonly reviewLog?: FakeReviewLogGateway;
 		readonly reviewCatalog?: FakeReviewCatalogGateway;
+		readonly stdin?: string | undefined;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
 ): RoasterRuntime {
@@ -106,6 +112,7 @@ function runtimeWithFakes(
 					},
 				}),
 			...(options.reviewLog === undefined ? {} : { reviewLog: options.reviewLog }),
+			...(options.stdin === undefined ? {} : { stdin: async () => options.stdin ?? "" }),
 		}),
 	);
 }
@@ -189,6 +196,50 @@ describe("@sdl/roaster/api", () => {
 		expect(reviewLog.writtenEntries()[0]?.namespace).toBe("roaster");
 		if (outcome.type !== "completed") throw new Error("expected completed outcome");
 		expect(outcome.result.findings).toEqual([finding]);
+	});
+
+	test("recordFindings reads stdin and writes a same-session review log", async () => {
+		const reviewLog = new FakeReviewLogGateway({ branch: "feature/api" });
+		const client = createRoasterClient({
+			cwd: "/repo",
+			runtime: runtimeWithFakes({
+				reviewLog,
+				stdin: JSON.stringify({
+					findings: [
+						{
+							path: "src/app.ts",
+							line: 9,
+							severity: "error",
+							summary: "Finding from same-session review.",
+							details: "The finding payload is preserved in the review log.",
+						},
+					],
+				}),
+			}),
+		});
+
+		const outcome: RecordFindingsOutcome = await client.recordFindings({ reviewKey: REVIEW_KEY });
+
+		expect(outcome.type).toBe("recorded");
+		expect(reviewLog.writtenEntries()).toHaveLength(1);
+		expect(reviewLog.writtenEntries()[0]?.key).toMatch(/^reviews\/typescript-style\/.+\.md$/u);
+		if (outcome.type !== "recorded") throw new Error("expected recorded outcome");
+		expect(outcome.result.model).toBe("same-session");
+		expect(outcome.result.findings[0]?.summary).toBe("Finding from same-session review.");
+	});
+
+	test("recordFindings returns domain failures for malformed stdin", async () => {
+		const client = createRoasterClient({
+			cwd: "/repo",
+			runtime: runtimeWithFakes({ stdin: "not json" }),
+		});
+
+		const outcome = await client.recordFindings({ reviewKey: REVIEW_KEY });
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			error: { type: "review-execution-invalid-json" },
+		});
 	});
 
 	test("maps command-faced failures without exposing ClinkrExit", async () => {

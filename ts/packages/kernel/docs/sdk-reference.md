@@ -509,6 +509,7 @@ interface SdlExtensionApi {
   textGenerator: TextGenerator;
   stdout?: ((text: string) => void) | undefined;
   stderr?: ((text: string) => void) | undefined;
+  stdin?: (() => Promise<string>) | undefined;
   onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
   confirm?: SdlConfirmPrompt | undefined;
   extensions?: Readonly<Record<string, unknown>> | undefined;
@@ -522,6 +523,7 @@ interface SdlExtensionApi {
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
 - `stdout?` / `stderr?` — durable output hooks for commands that stream multiple chunks before returning. `stdout` is reserved for primary output.
+- `stdin?` — optional full stdin reader for commands that consume a finite payload.
 - `onOutput?` — transient live-progress hook for UI bridges, tagged by `SdlOutputStream`.
 - `confirm?` — optional interactive confirmation hook (`SdlConfirmPrompt`).
 - `extensions?` — project-local extension bag. A command owns any values it reads from it.

@@ -14,6 +14,7 @@ import {
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
+import { readStdin } from "@sdl/core/stdin";
 import { buildSlotCommandGroup } from "@sdl/slot/command-face";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
@@ -356,6 +357,7 @@ async function buildSdlCliContext(options: {
 		options.injectedContext ?? createRealSdlCommandContext({ cwd: options.cwd, env: options.env });
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
+	const stdin = baseContext.stdin ?? readStdin;
 	const contextExtensions = {
 		...(baseContext.extensions ?? {}),
 		...(options.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps }),
@@ -367,6 +369,7 @@ async function buildSdlCliContext(options: {
 		exec: baseContext.exec.bind(baseContext),
 		stdout: options.stdout,
 		stderr: options.stderr,
+		stdin,
 		...(onOutput === undefined ? {} : { onOutput }),
 		...(confirm === undefined ? {} : { confirm }),
 		extensions: contextExtensions,

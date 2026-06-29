@@ -13,7 +13,7 @@ First read `.sdl/reviews/thermonuclear-review.md`, then apply that review defini
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 
 ```bash
-roaster review run thermonuclear-review
+sdl roaster review run thermonuclear-review
 ```
 
 In Pi, the equivalent isolated runner surface is `roaster:run:thermonuclear-review`.
@@ -21,7 +21,7 @@ In Pi, the equivalent isolated runner surface is `roaster:run:thermonuclear-revi
 For durable logging or publication after a same-session review, convert findings to `{ "findings": [...] }` and run:
 
 ```bash
-roaster exec record-findings --review-key thermonuclear-review --format json < findings.json
+sdl roaster exec record-findings --review-key thermonuclear-review --format json < findings.json
 ```
 
-Pipe that JSON envelope to `roaster exec publish-findings` when publishing to GitHub.
+Pipe that JSON envelope to `sdl roaster exec publish-findings` when publishing to GitHub.

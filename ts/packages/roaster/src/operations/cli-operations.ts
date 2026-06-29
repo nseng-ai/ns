@@ -3,11 +3,14 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
-import type { RoasterFailure, RoasterResult } from "../failures.ts";
+import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
-import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import {
-	postInlineFindingsResultSchema,
+	ROASTER_REVIEW_LOG_NAMESPACE,
+	type ReviewLogEntry,
+	type ReviewLogWriteResult,
+} from "../gateways/review-log.ts";
+import {
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -110,15 +113,25 @@ export const publishFindingsRequestSchema = z.object({
 	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
 
-export const publishFindingsResultSchema = z.object({
-	inlineStatus: postInlineFindingsResultSchema,
-	summaryStatus: z.object({
-		type: z.enum(["posted", "updated"]),
-		marker: nonBlankStringSchema,
-	}),
-});
+export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
 
-export type PublishFindingsCommandResult = z.infer<typeof publishFindingsResultSchema>;
+export const publishFindingsResultSchema = z
+	.object({
+		inlinePostedCount: z.int().min(0),
+		inlineSkippedDuplicateCount: z.int().min(0),
+		inlineFallbackOnlyCount: z.int().min(0),
+		inlineApiError: z.string().nullable(),
+		summaryStatus: z
+			.object({
+				type: z.enum(["posted", "updated"]),
+				marker: z.string(),
+			})
+			.strict(),
+	})
+	.strict();
+
+export type PublishFindingsCliResult = z.infer<typeof publishFindingsResultSchema>;
+export type PublishFindingsCommandResult = PublishFindingsCliResult;
 
 export const recordFindingsRequestSchema = z.object({
 	reviewKey: nonBlankStringSchema.describe("Review key that produced the findings."),
@@ -129,6 +142,19 @@ export const recordFindingsRequestSchema = z.object({
 });
 
 export type RecordFindingsRequest = z.infer<typeof recordFindingsRequestSchema>;
+
+export type RecordFindingsOutcome =
+	| {
+			readonly type: "recorded";
+			readonly result: ReviewRunResult;
+			readonly logEntry: ReviewLogWriteResult;
+	  }
+	| {
+			readonly type: "recorded_log_failed";
+			readonly result: ReviewRunResult;
+			readonly error: ReviewLogFailure;
+	  }
+	| { readonly type: "failed"; readonly error: RoasterFailure };
 
 export async function buildReviewListResult(
 	ctx: RoasterRuntime,
@@ -250,7 +276,13 @@ export async function runReviewByKey(
 	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
-	const outcome = await runRoasterReview(ctx, request);
+	return clinkrExitFromReviewRunOutcome(ctx, await runRoasterReview(ctx, request));
+}
+
+export function clinkrExitFromReviewRunOutcome(
+	ctx: Pick<RoasterRuntime, "stderr">,
+	outcome: Awaited<ReturnType<typeof runRoasterReview>>,
+): ClinkrExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromRoaster(outcome.error);
 	ctx.stderr(
 		`resolved model=${outcome.progress.model} model_profile=${outcome.progress.modelProfile} base_ref=${outcome.progress.baseRef} changed_paths=${outcome.progress.changedPathCount}\n`,
@@ -290,14 +322,21 @@ export async function runRecordFindings(
 	ctx: RoasterRuntime,
 	request: RecordFindingsRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
+	return clinkrExitFromRecordFindingsOutcome(ctx, await recordSameSessionFindings(ctx, request));
+}
+
+export async function recordSameSessionFindings(
+	ctx: RoasterRuntime,
+	request: RecordFindingsRequest,
+): Promise<RecordFindingsOutcome> {
 	const payload = await readFindingsPayload(ctx);
-	if (payload.type === "failure") return payload.exit;
+	if (payload.type === "error") return { type: "failed", error: payload.error };
 
 	const loaded = await loadReviewExecutionContext(ctx, {
 		reviewKey: request.reviewKey,
 		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
 	});
-	if (loaded.type === "error") return failureFromRoaster(loaded.error);
+	if (loaded.type === "error") return { type: "failed", error: loaded.error };
 	const { source, definition, diff } = loaded.value;
 
 	const result = reviewRunResultSchema.parse({
@@ -315,47 +354,64 @@ export async function runRecordFindings(
 
 	const logResult = await writeReviewRunLog(ctx, { reviewKey: source.key, result });
 	if (logResult.type === "error") {
-		return negative(
-			`${renderReviewRun(result)}\n\nroaster: failed to write Branch Memory review log:\n${logResult.error.message}`,
-			{ data: result },
-		);
+		if (!isReviewLogFailure(logResult.error)) return { type: "failed", error: logResult.error };
+		return { type: "recorded_log_failed", result, error: logResult.error };
 	}
 
-	ctx.stderr(`recorded review log: ${logResult.value.key}\n`);
-	return ok(result);
+	return { type: "recorded", result, logEntry: logResult.value };
+}
+
+export function clinkrExitFromRecordFindingsOutcome(
+	ctx: Pick<RoasterRuntime, "stderr">,
+	outcome: RecordFindingsOutcome,
+): ClinkrExit<ReviewRunResult> {
+	if (outcome.type === "failed") return failureFromRoaster(outcome.error);
+	if (outcome.type === "recorded_log_failed") {
+		return negative(
+			`${renderReviewRun(outcome.result)}\n\nroaster: failed to write Branch Memory review log:\n${outcome.error.message}`,
+			{ data: outcome.result },
+		);
+	}
+	ctx.stderr(`recorded review log: ${outcome.logEntry.key}\n`);
+	return ok(outcome.result);
 }
 
 async function readFindingsPayload(
 	ctx: RoasterRuntime,
-): Promise<
-	| { readonly type: "ok"; readonly value: ReviewFindingsPayload }
-	| { readonly type: "failure"; readonly exit: ClinkrExit<never> }
-> {
+): Promise<RoasterResult<ReviewFindingsPayload>> {
 	const text = await ctx.stdin();
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(text);
 	} catch (caught) {
 		return {
-			type: "failure",
-			exit: failure(
-				"review-execution-invalid-json",
-				`record-findings stdin must be JSON: ${formatErrorMessage(caught)}`,
-			),
+			type: "error",
+			error: {
+				type: "review-execution-invalid-json",
+				message: `record-findings stdin must be JSON: ${formatErrorMessage(caught)}`,
+			},
 		};
 	}
 
 	const payload = reviewFindingsPayloadSchema.safeParse(parsed);
 	if (!payload.success) {
 		return {
-			type: "failure",
-			exit: failure(
-				"review-execution-invalid-findings",
-				`record-findings stdin must match { findings: [...] }: ${z.prettifyError(payload.error)}`,
-			),
+			type: "error",
+			error: {
+				type: "review-execution-invalid-findings",
+				message: `record-findings stdin must match { findings: [...] }: ${z.prettifyError(payload.error)}`,
+			},
 		};
 	}
 	return { type: "ok", value: payload.data };
+}
+
+function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
+	return (
+		error.type === "review-log-write-failed" ||
+		error.type === "review-log-list-failed" ||
+		error.type === "review-log-response-invalid"
+	);
 }
 
 export async function buildReviewLogResult(
@@ -402,23 +458,38 @@ export function renderReviewLog(result: ReviewLogResult): string {
 	return lines.join("\n");
 }
 
-export async function runPublishFindings(
+export async function publishFindingsFromStdin(
 	ctx: RoasterRuntime,
-	request: z.infer<typeof publishFindingsRequestSchema>,
-): Promise<ClinkrExit<PublishFindingsCommandResult>> {
+	request: PublishFindingsRequest,
+): Promise<PublishFindingsResult> {
 	const envelope = await ctx.stdin();
-	const result = await publishFindings(ctx, {
+	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,
 		...(request.runUrl === undefined ? {} : { runUrl: request.runUrl }),
 		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
 		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
-	if (result.type === "error") {
-		return failure(result.error.reason, `publish-findings: ${result.error.message}`, result.error);
-	}
+}
 
-	return ok(publishFindingsResultSchema.parse(result.value));
+export function clinkrExitFromPublishFindingsOutcome(
+	outcome: PublishFindingsResult,
+): ClinkrExit<PublishFindingsCliResult> {
+	if (outcome.type === "error") {
+		return failure(
+			outcome.error.reason,
+			`publish-findings: ${outcome.error.message}`,
+			outcome.error,
+		);
+	}
+	return ok(publishFindingsCliResult(outcome.value));
+}
+
+export async function runPublishFindings(
+	ctx: RoasterRuntime,
+	request: PublishFindingsRequest,
+): Promise<ClinkrExit<PublishFindingsCliResult>> {
+	return clinkrExitFromPublishFindingsOutcome(await publishFindingsFromStdin(ctx, request));
 }
 
 export function renderPublishFindings(result: PublishFindingsCommandResult): string {
@@ -490,13 +561,23 @@ function loadDiffFromRequest(
 	});
 }
 
-function renderPublishFindingsDiagnostics(
-	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
-): string {
-	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
+export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResult): string {
+	const apiError = result.inlineApiError?.replace(/\s+/gu, " ") ?? "none";
 	return [
-		`inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`,
+		`inline findings: posted=${result.inlinePostedCount} skipped_duplicate=${result.inlineSkippedDuplicateCount} fallback_only=${result.inlineFallbackOnlyCount} api_error=${apiError}`,
 		`${result.summaryStatus.type} findings comment`,
 		"",
 	].join("\n");
+}
+
+function publishFindingsCliResult(
+	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
+): PublishFindingsCliResult {
+	return publishFindingsResultSchema.parse({
+		inlinePostedCount: result.inlineStatus.postedCount,
+		inlineSkippedDuplicateCount: result.inlineStatus.skippedDuplicateCount,
+		inlineFallbackOnlyCount: result.inlineStatus.fallbackOnlyCount,
+		inlineApiError: result.inlineStatus.apiError,
+		summaryStatus: result.summaryStatus,
+	});
 }
