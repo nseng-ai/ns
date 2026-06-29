@@ -82,13 +82,20 @@ const TIER_POLICY = {
   ]),
   "local-pi-tool": new Set(["local-pi-tool", "host", "capability-gateway-backend", "neutral-infra"]),
 };
-// Policy-violating edges that are explicitly tolerated (tracked debt) rather than
-// hard failures. Mirror of `allowedPackageTierDebtEdges`; keyed `<from>\0<to>`.
-const DEBT_EDGES = new Set([
-  "@sdl/ccc\0@sdl/pi",
-  "@sdl/kernel\0@sdl/slot",
-  "@sdl/brmem\0@sdl/capability-kit",
-  "@sdl/brmem\0@sdl/git",
+// Tier-policy violations that are explicitly tracked as accepted debt (NUL-joined
+// "from\0to" keys) — kept in sync with `allowedPackageTierDebtEdges` in the source
+// of truth. A violating edge on this list is reported `severity: "debt"`, not "hard".
+const ALLOWED_DEBT_EDGES = new Map([
+  ["@sdl/ccc\0@sdl/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
+  ["@sdl/kernel\0@sdl/slot", "SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly."],
+  [
+    "@sdl/brmem\0@sdl/capability-kit",
+    "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
+  ],
+  [
+    "@sdl/brmem\0@sdl/git",
+    "Git gateway backend relocation debt: brmem consumes @sdl/git until the separate brmem follow-up retier lands.",
+  ],
 ]);
 
 // Approximate source size per package: meaningful lines of TypeScript under
@@ -245,13 +252,17 @@ function tierViolationForEdge(from, to) {
   const toTier = pkgs[to]?.tier;
   if (fromTier === undefined || toTier === undefined) return undefined;
   if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
-  // A policy-violating edge is tracked "debt" when explicitly allowlisted, else "hard".
+  // The edge breaks tier policy. Accepted-debt edges are tracked, not hard failures.
+  const debt = ALLOWED_DEBT_EDGES.get(`${from}\0${to}`);
+  if (debt !== undefined) {
+    return { from, to, fromTier, toTier, severity: "debt", policy: `${fromTier}-must-not-depend-on-${toTier}`, debtNote: debt };
+  }
   return {
     from,
     to,
     fromTier,
     toTier,
-    severity: DEBT_EDGES.has(`${from}\0${to}`) ? "debt" : "hard",
+    severity: "hard",
     policy: `${fromTier}-must-not-depend-on-${toTier}`,
   };
 }
