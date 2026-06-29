@@ -150,10 +150,26 @@ export async function runClinkrCommand<T>(
 	errorType: string,
 	operation: () => Promise<ClinkrExit<T>>,
 ): Promise<ClinkrExit<T>> {
+	return await runOperationCommand({
+		operation: errorType,
+		action: operation,
+		failureFromError: (operation, error) => failure(operation, formatErrorMessage(error)),
+	});
+}
+
+export interface RunOperationCommandOptions<TOperation, TData> {
+	readonly operation: TOperation;
+	readonly action: () => Promise<ClinkrExit<TData>>;
+	readonly failureFromError: (operation: TOperation, error: unknown) => ClinkrExit<never>;
+}
+
+export async function runOperationCommand<TOperation, TData>(
+	options: RunOperationCommandOptions<TOperation, TData>,
+): Promise<ClinkrExit<TData>> {
 	try {
-		return await operation();
+		return await options.action();
 	} catch (error) {
-		return failure(errorType, formatErrorMessage(error));
+		return options.failureFromError(options.operation, error);
 	}
 }
 

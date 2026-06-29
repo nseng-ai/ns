@@ -171,6 +171,7 @@ function estimatedJsonBytes(value: JsonValue): number | null {
 	try {
 		return JSON.stringify(value).length;
 	} catch {
+		// Treat unexpected boundary values that cannot stringify as unknown size.
 		return null;
 	}
 }
