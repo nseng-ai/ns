@@ -42,6 +42,11 @@ const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "branch-context");
 const BRANCH_CONTEXT_PACKAGE_JSON_PATH = join(BRANCH_CONTEXT_PACKAGE_DIR, "package.json");
+const BRANCH_CONTEXT_EXTENSION_MODULE_PATH = join(
+	BRANCH_CONTEXT_PACKAGE_DIR,
+	"src",
+	"extension.ts",
+);
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "roaster");
@@ -132,10 +137,34 @@ function buildPackageCommandAliases(options: {
 	return Object.fromEntries(
 		Object.entries(packageJson.exports)
 			.filter(([subpath]) => subpath.startsWith(options.exportPrefix))
-			.map(([subpath, target]) => [
-				`${options.packageName}/${subpath.slice("./".length)}`,
-				join(options.packageDir, stripLeadingDotSlash(target)),
-			]),
+			.map(([subpath, target]) => {
+				const resolvedTarget = resolveCommandExportTarget({
+					packageName: options.packageName,
+					subpath,
+					target,
+				});
+				return [
+					`${options.packageName}/${subpath.slice("./".length)}`,
+					join(options.packageDir, stripLeadingDotSlash(resolvedTarget)),
+				];
+			}),
+	);
+}
+
+export function resolveCommandExportTarget(options: {
+	packageName: string;
+	subpath: string;
+	target: unknown;
+}): string {
+	if (typeof options.target === "string") return options.target;
+	if (isRecord(options.target)) {
+		const importTarget = options.target.import;
+		if (typeof importTarget === "string") return importTarget;
+		const defaultTarget = options.target.default;
+		if (typeof defaultTarget === "string") return defaultTarget;
+	}
+	throw new Error(
+		`Invalid ${options.packageName} package.json export for ${options.subpath}: expected string target or conditional object with string import/default.`,
 	);
 }
 
@@ -149,16 +178,14 @@ function readCommandPackageJson(path: string, packageName: string): CommandPacka
 
 interface CommandPackageJson {
 	name: string;
-	exports: Record<string, string>;
+	exports: Record<string, unknown>;
 }
 
 function isCommandPackageJson(value: unknown): value is CommandPackageJson {
 	if (!isRecord(value)) return false;
 	if (typeof value.name !== "string") return false;
 	if (!isRecord(value.exports)) return false;
-	return Object.entries(value.exports).every(
-		([subpath, target]) => typeof subpath === "string" && typeof target === "string",
-	);
+	return true;
 }
 
 function stripLeadingDotSlash(path: string): string {
@@ -201,6 +228,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			...buildBranchContextCommandAliases(),
 			...buildFlowCommandAliases(),
 			...buildRoasterCommandAliases(),
+			["@sdl/branch-context/extension"]: BRANCH_CONTEXT_EXTENSION_MODULE_PATH,
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,

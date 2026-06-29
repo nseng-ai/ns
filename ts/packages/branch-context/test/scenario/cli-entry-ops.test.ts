@@ -474,7 +474,7 @@ describe("branch-context exec", () => {
 
 	test("load writes the implementation prompt to a file for bounded JSON output", async () => {
 		const repoRoot = await makeTempDir();
-		const promptFile = join(await makeTempDir(), "implementation-prompt.md");
+		const promptFile = join(await makeTempDir(), "nested", "dir", "implementation-prompt.md");
 		const branch = "branch-contexts/branch-scoped-plan";
 		const content = "# Attached Plan\n\n- Implement from this.\n";
 		const run = runWithFakes(["exec", "load", "--prompt-file", promptFile, "--format", "json"], {

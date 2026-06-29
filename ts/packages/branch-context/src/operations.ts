@@ -1,4 +1,5 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import { runOperationCommand } from "@sdl/core/cli-entry";
@@ -242,6 +243,7 @@ export async function handleLoad(
 				request.promptFile === undefined ? undefined : normalizePlanFilePath(request.promptFile);
 			const implementationPrompt = buildImplBranchContextPrompt(plan);
 			if (promptFile !== undefined) {
+				await mkdir(dirname(promptFile), { recursive: true });
 				await writeFile(promptFile, implementationPrompt, "utf8");
 			}
 			const data = loadedPlanJson(plan, {

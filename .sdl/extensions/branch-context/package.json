@@ -5,32 +5,32 @@
 			{
 				"path": ["exec", "from-plan"],
 				"description": "Create branch context from a saved plan.",
-				"entry": "./src/commands/from-plan.ts"
+				"entry": "./src/extension.ts"
 			},
 			{
 				"path": ["exec", "load"],
 				"description": "Load a branch-context entry and render the implementation prompt for agent invocation.",
-				"entry": "./src/commands/load.ts"
+				"entry": "./src/extension.ts"
 			},
 			{
 				"path": ["exec", "attach"],
 				"description": "Attach a saved plan or file as branch context.",
-				"entry": "./src/commands/attach.ts"
+				"entry": "./src/extension.ts"
 			},
 			{
 				"path": ["exec", "list"],
 				"description": "List branch-context entries.",
-				"entry": "./src/commands/list.ts"
+				"entry": "./src/extension.ts"
 			},
 			{
 				"path": ["exec", "check"],
 				"description": "Check whether a branch-context entry exists.",
-				"entry": "./src/commands/check.ts"
+				"entry": "./src/extension.ts"
 			},
 			{
 				"path": ["exec", "delete"],
 				"description": "Delete a branch-context entry.",
-				"entry": "./src/commands/delete.ts"
+				"entry": "./src/extension.ts"
 			}
 		]
 	}

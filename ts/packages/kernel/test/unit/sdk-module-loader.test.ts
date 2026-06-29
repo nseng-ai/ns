@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk/module-loader.ts";
+import { createSdlJiti, resolveCommandExportTarget } from "../../src/sdk/module-loader.ts";
 
 function sortedKeys(value: object): string[] {
 	return Object.keys(value).sort();
@@ -16,6 +16,36 @@ test("virtual SDK module mirrors SDK runtime value exports", async () => {
 		const sdkKey = key as keyof typeof sdkModule;
 		expect(virtualModule[sdkKey]).toBe(sdkModule[sdkKey]);
 	}
+});
+
+test("command export targets prefer import conditions over default conditions", () => {
+	expect(
+		resolveCommandExportTarget({
+			packageName: "@sdl/example",
+			subpath: "./commands/run",
+			target: { import: "./src/run.ts", default: "./dist/run.js" },
+		}),
+	).toBe("./src/run.ts");
+});
+
+test("command export targets fall back to default conditions", () => {
+	expect(
+		resolveCommandExportTarget({
+			packageName: "@sdl/example",
+			subpath: "./commands/run",
+			target: { default: "./dist/run.js" },
+		}),
+	).toBe("./dist/run.js");
+});
+
+test("invalid command export targets name the package and subpath", () => {
+	expect(() =>
+		resolveCommandExportTarget({
+			packageName: "@sdl/example",
+			subpath: "./commands/run",
+			target: { require: "./dist/run.cjs" },
+		}),
+	).toThrow(/@sdl\/example package\.json export for \.\/commands\/run/);
 });
 
 test("repo-local migration extensions can import internal migration subpaths", async () => {
@@ -46,4 +76,20 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const modelSlugModule =
 		await jiti.import<typeof import("@sdl/core/model-slug")>("@sdl/core/model-slug");
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
+
+	const branchContextExtensionModule = await jiti.import<
+		typeof import("@sdl/branch-context/extension")
+	>("@sdl/branch-context/extension");
+	const branchContextCommands = branchContextExtensionModule.default.commands;
+	if (branchContextCommands === undefined) {
+		throw new Error("Expected branch-context extension to define commands.");
+	}
+	expect(branchContextCommands.map((command) => command.name)).toEqual([
+		"from-plan",
+		"load",
+		"attach",
+		"list",
+		"check",
+		"delete",
+	]);
 });
