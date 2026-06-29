@@ -54,20 +54,26 @@ interface VibechkCliContext {
 	stderr: (text: string) => void;
 }
 
+const DEFAULT_RUNS_LIMIT = 50;
+const DEFAULT_ARTIFACT_BYTE_LIMIT = 200_000;
+
 const runsRequestSchema = z.object({
 	store: z.string().optional(),
 	outputFormat: z.enum(["table", "json"]).default("table"),
+	maxRuns: z.number().int().positive().default(DEFAULT_RUNS_LIMIT),
 });
 
 const showRequestSchema = z.object({
 	idOrPrefix: z.string(),
 	store: z.string().optional(),
+	maxArtifactBytes: z.number().int().positive().default(DEFAULT_ARTIFACT_BYTE_LIMIT),
 });
 
 const diffRequestSchema = z.object({
 	baselineId: z.string(),
 	treatmentId: z.string(),
 	store: z.string().optional(),
+	maxArtifactBytes: z.number().int().positive().default(DEFAULT_ARTIFACT_BYTE_LIMIT),
 });
 
 const runRequestSchema = z.object({
@@ -168,33 +174,77 @@ type ShowRequest = z.infer<typeof showRequestSchema>;
 type DiffRequest = z.infer<typeof diffRequestSchema>;
 type RunRequest = z.infer<typeof runRequestSchema>;
 
-type RunsResult = { type: "json"; entries: unknown[] } | { type: "table"; loaded: LoadedBundle[] };
+interface RunsOutputBounds {
+	kind: "runs-list";
+	appliedLimit: number;
+	returnedCount: number;
+	totalCount: number;
+	isComplete: boolean;
+	continuation: string | null;
+}
+
+interface ArtifactOutputBounds {
+	kind: "artifact";
+	artifact: "plan" | "transcript" | "diff";
+	appliedByteLimit: number;
+	originalBytes: number;
+	returnedBytes: number;
+	isComplete: boolean;
+	continuation: string | null;
+}
+
+type BoundedBundle = Omit<LoadedBundle, "planText" | "transcript" | "diffPatch"> & {
+	planText: string;
+	transcript: string;
+	diffPatch: string;
+	outputBounds: {
+		plan: ArtifactOutputBounds;
+		transcript: ArtifactOutputBounds;
+		diff: ArtifactOutputBounds;
+	};
+};
+
+type RunsResult =
+	| { type: "json"; entries: unknown[]; outputBounds: RunsOutputBounds }
+	| { type: "table"; loaded: LoadedBundle[]; outputBounds: RunsOutputBounds };
 type VibechkReadOnlyErrorData = {
-	type: "lookup_error";
+	type: "lookup-error";
 	idOrPrefix?: unknown;
 	matches?: unknown;
 };
-type ShowResult = { loaded: LoadedBundle } | VibechkReadOnlyErrorData;
-type DiffResult = { baseline: LoadedBundle; treatment: LoadedBundle } | VibechkReadOnlyErrorData;
+type ShowResult = { loaded: BoundedBundle } | VibechkReadOnlyErrorData;
+type DiffResult = { baseline: BoundedBundle; treatment: BoundedBundle } | VibechkReadOnlyErrorData;
 
 async function runRuns(ctx: VibechkCliContext, request: RunsRequest) {
 	const storeRoot = resolveStoreRoot(request.store, ctx.env);
 	const loaded = await listBundles(storeRoot);
+	const bounded = loaded.slice(0, request.maxRuns);
+	const outputBounds = runsOutputBounds({
+		returnedCount: bounded.length,
+		totalCount: loaded.length,
+		appliedLimit: request.maxRuns,
+	});
 
 	if (request.outputFormat === "json") {
-		return ok<RunsResult>({ type: "json", entries: loaded.map(runListEntryToJson) });
+		return ok<RunsResult>({
+			type: "json",
+			entries: bounded.map(runListEntryToJson),
+			outputBounds,
+		});
 	}
-	return ok<RunsResult>({ type: "table", loaded });
+	return ok<RunsResult>({ type: "table", loaded: bounded, outputBounds });
 }
 
 function renderRuns(result: RunsResult, caps: RenderCapabilities = { canEmitAnsi: false }): string {
 	if (result.type === "json") {
-		return JSON.stringify(result.entries);
+		return JSON.stringify({ entries: result.entries, outputBounds: result.outputBounds });
 	}
 	if (result.loaded.length === 0) {
 		return "No vibechk runs found.";
 	}
-	return renderRunsTable(result.loaded, caps);
+	const table = renderRunsTable(result.loaded, caps);
+	if (result.outputBounds.isComplete) return table;
+	return `${table}\n${result.outputBounds.continuation ?? "More runs are available."}`;
 }
 
 async function runShow(
@@ -204,7 +254,7 @@ async function runShow(
 	try {
 		const storeRoot = resolveStoreRoot(request.store, ctx.env);
 		const loaded = await readBundle(storeRoot, request.idOrPrefix);
-		return ok<ShowResult>({ loaded });
+		return ok<ShowResult>({ loaded: boundBundleArtifacts(loaded, request.maxArtifactBytes) });
 	} catch (error) {
 		return vibechkReadOnlyErrorExit(error);
 	}
@@ -226,7 +276,10 @@ async function runDiff(
 		const storeRoot = resolveStoreRoot(request.store, ctx.env);
 		const baseline = await readBundle(storeRoot, request.baselineId);
 		const treatment = await readBundle(storeRoot, request.treatmentId);
-		return ok<DiffResult>({ baseline, treatment });
+		return ok<DiffResult>({
+			baseline: boundBundleArtifacts(baseline, request.maxArtifactBytes),
+			treatment: boundBundleArtifacts(treatment, request.maxArtifactBytes),
+		});
 	} catch (error) {
 		return vibechkReadOnlyErrorExit(error);
 	}
@@ -238,6 +291,89 @@ function renderDiff(
 ): string {
 	if (!("baseline" in result)) return result.type;
 	return renderComparisonReport(result.baseline, result.treatment);
+}
+
+function runsOutputBounds(options: {
+	readonly returnedCount: number;
+	readonly totalCount: number;
+	readonly appliedLimit: number;
+}): RunsOutputBounds {
+	const isComplete = options.returnedCount >= options.totalCount;
+	return {
+		kind: "runs-list",
+		appliedLimit: options.appliedLimit,
+		returnedCount: options.returnedCount,
+		totalCount: options.totalCount,
+		isComplete,
+		continuation: isComplete
+			? null
+			: `Showing ${options.returnedCount} of ${options.totalCount} runs. Re-run with --max-runs ${options.totalCount} or use a narrower store.`,
+	};
+}
+
+function boundBundleArtifacts(loaded: LoadedBundle, maxArtifactBytes: number): BoundedBundle {
+	const plan = boundArtifact(loaded.planText, "plan", maxArtifactBytes);
+	const transcript = boundArtifact(loaded.transcript, "transcript", maxArtifactBytes);
+	const diff = boundArtifact(loaded.diffPatch, "diff", maxArtifactBytes);
+	return {
+		...loaded,
+		planText: plan.text,
+		transcript: transcript.text,
+		diffPatch: diff.text,
+		outputBounds: {
+			plan: plan.outputBounds,
+			transcript: transcript.outputBounds,
+			diff: diff.outputBounds,
+		},
+	};
+}
+
+function boundArtifact(
+	text: string,
+	artifact: ArtifactOutputBounds["artifact"],
+	maxArtifactBytes: number,
+): { text: string; outputBounds: ArtifactOutputBounds } {
+	const originalBytes = Buffer.byteLength(text, "utf-8");
+	if (originalBytes <= maxArtifactBytes) {
+		return {
+			text,
+			outputBounds: {
+				kind: "artifact",
+				artifact,
+				appliedByteLimit: maxArtifactBytes,
+				originalBytes,
+				returnedBytes: originalBytes,
+				isComplete: true,
+				continuation: null,
+			},
+		};
+	}
+
+	const boundedText = textByByteLimit(text, maxArtifactBytes);
+	return {
+		text: boundedText,
+		outputBounds: {
+			kind: "artifact",
+			artifact,
+			appliedByteLimit: maxArtifactBytes,
+			originalBytes,
+			returnedBytes: Buffer.byteLength(boundedText, "utf-8"),
+			isComplete: false,
+			continuation: `${artifact} was truncated to ${maxArtifactBytes} bytes. Re-run with --max-artifact-bytes ${originalBytes} or inspect the run directory directly.`,
+		},
+	};
+}
+
+function textByByteLimit(text: string, maxBytes: number): string {
+	let bytes = 0;
+	let endIndex = 0;
+	for (const character of text) {
+		const nextBytes = bytes + Buffer.byteLength(character, "utf-8");
+		if (nextBytes > maxBytes) break;
+		bytes = nextBytes;
+		endIndex += character.length;
+	}
+	return text.slice(0, endIndex);
 }
 
 function vibechkReadOnlyErrorExit(
@@ -253,7 +389,7 @@ function vibechkReadOnlyErrorExit(
 
 function vibechkReadOnlyErrorData(data: Record<string, unknown>): VibechkReadOnlyErrorData {
 	return {
-		type: "lookup_error",
+		type: "lookup-error",
 		...(data["idOrPrefix"] === undefined ? {} : { idOrPrefix: data["idOrPrefix"] }),
 		...(data["matches"] === undefined ? {} : { matches: data["matches"] }),
 	};

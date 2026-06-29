@@ -12,10 +12,21 @@ export const readEvidenceDetailRequestSchema = z.object({
 
 export type ReadEvidenceDetailRequest = z.infer<typeof readEvidenceDetailRequestSchema>;
 
+export const detailValueBoundsSchema = z.object({
+	jsonPointer: z.string(),
+	valueKind: z.enum(["null", "boolean", "number", "string", "array", "object"]),
+	childCount: z.number().nullable(),
+	estimatedJsonBytes: z.number().nullable(),
+	isBroadPointer: z.boolean(),
+	isComplete: z.literal(true),
+	narrowingGuidance: z.string().nullable(),
+});
+
 export const readEvidenceDetailResultSchema = z.object({
 	payloadPath: z.string(),
 	jsonPointer: z.string(),
 	value: z.unknown(),
+	valueBounds: detailValueBoundsSchema,
 });
 
 export type ReadEvidenceDetailResult = z.infer<typeof readEvidenceDetailResultSchema>;
@@ -49,6 +60,7 @@ export async function runReadEvidenceDetail(
 		payloadPath: request.payloadPath,
 		jsonPointer: request.jsonPointer,
 		value,
+		valueBounds: valueBoundsFor(request.jsonPointer, value),
 	});
 }
 
@@ -121,6 +133,57 @@ function validatePayloadData(envelope: JsonValue, payloadPath: string): void {
 
 function resolveDetailValue(envelope: JsonValue, pointer: string): JsonValue {
 	return resolveJsonPointer(envelope, pointer);
+}
+
+function valueBoundsFor(
+	jsonPointer: string,
+	value: JsonValue,
+): z.infer<typeof detailValueBoundsSchema> {
+	const isBroadPointer = isBroadDetailPointer(jsonPointer, value);
+	return {
+		jsonPointer,
+		valueKind: valueKind(value),
+		childCount: childCount(value),
+		estimatedJsonBytes: estimatedJsonBytes(value),
+		isBroadPointer,
+		isComplete: true,
+		narrowingGuidance: isBroadPointer
+			? "This pointer selects a broad container. Prefer a narrower /data/... pointer such as /data/sessions/0, /data/sessions/0/toolCalls, or /data/evidenceItems/0/supportingEventPointers."
+			: null,
+	};
+}
+
+function valueKind(value: JsonValue): z.infer<typeof detailValueBoundsSchema>["valueKind"] {
+	if (value === null) return "null";
+	if (Array.isArray(value)) return "array";
+	const type = typeof value;
+	if (type === "boolean" || type === "number" || type === "string") return type;
+	return "object";
+}
+
+function childCount(value: JsonValue): number | null {
+	if (Array.isArray(value)) return value.length;
+	if (typeof value === "object" && value !== null) return Object.keys(value).length;
+	return null;
+}
+
+function estimatedJsonBytes(value: JsonValue): number | null {
+	try {
+		return JSON.stringify(value).length;
+	} catch {
+		return null;
+	}
+}
+
+function isBroadDetailPointer(jsonPointer: string, value: JsonValue): boolean {
+	if (
+		jsonPointer === "/data" ||
+		jsonPointer === "/data/sessions" ||
+		jsonPointer === "/data/evidenceItems"
+	) {
+		return true;
+	}
+	return childCount(value) !== null && jsonPointer.split("/").length <= 3;
 }
 
 function failureForPayloadError(error: unknown) {

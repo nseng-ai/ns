@@ -18,6 +18,8 @@ import {
 	type AggregateMetricsDto,
 	type EvidenceItemDto,
 	type PayloadReference,
+	type OutputBoundsDto,
+	type SessionResultBoundsDto,
 } from "../contracts.ts";
 import type {
 	ParsedSession,
@@ -81,7 +83,7 @@ export async function runCollectEvidence(
 
 		const payloadData = buildEvidencePayloadData({
 			compactResult: resolved.compactResult,
-			sessions: resolved.queryResult.sessions,
+			sessions: resolved.publicQueryResult.sessions,
 		});
 
 		let payloadReference: PayloadReference;
@@ -108,17 +110,10 @@ export async function runCollectEvidence(
 
 		const payloadResult: CollectEvidenceResult = {
 			...resolved.compactResult,
+			outputBounds: withPayloadDetailBounds(resolved.compactResult.outputBounds),
 			payloadMode: "payload",
 			payloadReference: payloadReference,
-			detailLocatorHints: [
-				"/data/repo",
-				"/data/query",
-				"/data/source",
-				"/data/aggregateMetrics",
-				"/data/sessions",
-				"/data/warnings",
-				"/data/evidenceItems",
-			],
+			detailLocatorHints: [...DETAIL_LOCATOR_HINTS],
 		};
 		return ok(payloadResult);
 	}
@@ -128,17 +123,112 @@ export async function runCollectEvidence(
 	return ok(resolved.compactResult);
 }
 
+const DETAIL_LOCATOR_HINTS = [
+	"/data/repo",
+	"/data/query",
+	"/data/source",
+	"/data/aggregateMetrics",
+	"/data/sessions/0",
+	"/data/sessions/0/toolCalls",
+	"/data/evidenceItems/0/supportingEventPointers",
+] as const;
+
 export function renderCollectEvidence(_result: CollectEvidenceResult): string {
 	const branch = _result.repo.branch ?? "<unresolved>";
 	const sessionCount = _result.aggregateMetrics.sessionCount;
 	const harness = _result.source.harness;
 	const adapterName = _result.source.adapterName;
 	const warningCount = _result.aggregateMetrics.warningCount;
+	const truncationLine = _result.outputBounds.sessions.hasMore
+		? "More sessions available; increase --max-sessions or narrow the query.\n"
+		: "";
 	return (
 		`Collected ${sessionCount} session(s) from ${harness}/${adapterName} for branch ${branch}.\n` +
+		truncationLine +
 		`Warnings: ${warningCount}\n` +
 		`Run with --format json for the skill-facing evidence envelope.`
 	);
+}
+
+function overfetchLimit(maxSessions: number): number {
+	return Math.max(0, maxSessions) + 1;
+}
+
+function publicQueryResultFromOverfetch(
+	queryResult: SessionQueryResult,
+	requestedMaxSessions: number,
+): SessionQueryResult {
+	const publicSessionCount = Math.max(0, requestedMaxSessions);
+	const sessions = queryResult.sessions.slice(0, publicSessionCount);
+	const sentinelSessions = queryResult.sessions.slice(publicSessionCount);
+	return {
+		source_info: queryResult.source_info,
+		sessions,
+		warnings: warningsWithoutSentinel(queryResult.warnings, sentinelSessions),
+	};
+}
+
+function warningsWithoutSentinel(
+	warnings: readonly SessionWarning[],
+	sentinelSessions: readonly ParsedSession[],
+): readonly SessionWarning[] {
+	if (sentinelSessions.length === 0) return warnings;
+	const sentinelWarningKeys = new Set(
+		sentinelSessions.flatMap((session) => session.warnings.map((warning) => warningKey(warning))),
+	);
+	return warnings.filter((warning) => !sentinelWarningKeys.has(warningKey(warning)));
+}
+
+function warningKey(warning: SessionWarning): string {
+	return JSON.stringify({
+		code: warning.code,
+		message: warning.message,
+		sourceRef: warning.source_ref,
+		harness: warning.harness,
+		adapterName: warning.adapter_name,
+	});
+}
+
+function sessionBoundsFromOverfetch(
+	request: CollectEvidenceRequest,
+	queryResult: SessionQueryResult,
+	publicQueryResult: SessionQueryResult,
+): SessionResultBoundsDto {
+	const hasMore = queryResult.sessions.length > publicQueryResult.sessions.length;
+	return {
+		appliedLimit: request.maxSessions,
+		returnedCount: publicQueryResult.sessions.length,
+		isComplete: !hasMore,
+		hasMore,
+		continuation: hasMore
+			? {
+					kind: request.sessionRoot === undefined ? "narrow-session-root" : "increase-max-sessions",
+					message:
+						"More sessions are available. Increase --max-sessions or narrow with --session-root, --branch, or --repo.",
+				}
+			: null,
+	};
+}
+
+function inlineDetailBounds(): OutputBoundsDto["detail"] {
+	return {
+		mode: "inline",
+		guidance:
+			"Inline results contain compact summaries only. Rerun with --payload-mode payload --payload-session-id <id> to write raw detail for read-evidence-detail.",
+		locatorHints: [],
+	};
+}
+
+function withPayloadDetailBounds(outputBounds: OutputBoundsDto): OutputBoundsDto {
+	return {
+		...outputBounds,
+		detail: {
+			mode: "payload",
+			guidance:
+				"Use sdl aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+			locatorHints: [...DETAIL_LOCATOR_HINTS],
+		},
+	};
 }
 
 async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEvidenceRequest) {
@@ -198,17 +288,20 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 	const query: SessionQuery = {
 		repo_root: repoRoot,
 		session_root: request.sessionRoot ?? null,
-		max_sessions: request.maxSessions,
+		max_sessions: overfetchLimit(request.maxSessions),
 	};
 
 	const queryResult = await context.sessionSource.query(query);
-	const compactResult = resultFromQueryResult(request, repo, queryResult);
+	const publicQueryResult = publicQueryResultFromOverfetch(queryResult, request.maxSessions);
+	const sessionBounds = sessionBoundsFromOverfetch(request, queryResult, publicQueryResult);
+	const compactResult = resultFromQueryResult(request, repo, publicQueryResult, sessionBounds);
 
 	return {
 		ok: true as const,
 		repo,
 		resolvedBranch,
 		queryResult,
+		publicQueryResult,
 		compactResult,
 	};
 }
@@ -299,6 +392,7 @@ function resultFromQueryResult(
 	request: CollectEvidenceRequest,
 	repo: RepoContextDto,
 	queryResult: SessionQueryResult,
+	sessionBounds: SessionResultBoundsDto,
 ): CollectEvidenceResult {
 	const summaries = queryResult.sessions.map((session) => summarizeSession(session));
 	const warnings = queryResult.warnings.map((warning) => warningToDto(warning));
@@ -316,6 +410,10 @@ function resultFromQueryResult(
 		sessions: summaries,
 		warnings,
 		evidenceItems: evidenceItems,
+		outputBounds: {
+			sessions: sessionBounds,
+			detail: inlineDetailBounds(),
+		},
 	};
 }
 
@@ -346,6 +444,16 @@ function emptyResult(options: {
 		sessions: [],
 		warnings: options.warnings,
 		evidenceItems: [],
+		outputBounds: {
+			sessions: {
+				appliedLimit: options.request.maxSessions,
+				returnedCount: 0,
+				isComplete: true,
+				hasMore: false,
+				continuation: null,
+			},
+			detail: inlineDetailBounds(),
+		},
 	};
 }
 
