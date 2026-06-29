@@ -24,7 +24,13 @@ import {
 } from "./claim-command.ts";
 import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
-import { REGISTRIES, reportExitCode, type PackageCheckReport, type Registry } from "./models.ts";
+import {
+	REGISTRIES,
+	reportExitCode,
+	type PackageCheckReport,
+	type Registry,
+	type RegistryCheckResult,
+} from "./models.ts";
 import { renderHuman } from "./output.ts";
 import {
 	RealNpmPublishGateway,
@@ -109,18 +115,31 @@ const checkRequestSchema = z.object({
 	showJson: z.boolean().optional().describe("Deprecated; use --format json."),
 });
 
-const registryCheckResultSchema = z.object({
-	registry: registrySchema,
-	inputName: z.string(),
-	lookupName: z.string(),
-	status: z.enum(["available", "taken", "invalid", "error"]),
-	message: z.string(),
-	packageUrl: z.string().optional(),
-	latestVersion: z.string().optional(),
-	description: z.string().optional(),
-});
+const registryCheckResultSchema: z.ZodType<RegistryCheckResult> = z
+	.object({
+		registry: registrySchema,
+		inputName: z.string(),
+		lookupName: z.string(),
+		status: z.enum(["available", "taken", "invalid", "error"]),
+		message: z.string(),
+		packageUrl: z.string().optional(),
+		latestVersion: z.string().optional(),
+		description: z.string().optional(),
+	})
+	.transform(
+		(result): RegistryCheckResult => ({
+			registry: result.registry,
+			inputName: result.inputName,
+			lookupName: result.lookupName,
+			status: result.status,
+			message: result.message,
+			...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
+			...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
+			...(result.description === undefined ? {} : { description: result.description }),
+		}),
+	);
 
-const packageCheckReportSchema = z.object({
+const packageCheckReportSchema: z.ZodType<PackageCheckReport> = z.object({
 	inputName: z.string(),
 	results: z.array(registryCheckResultSchema),
 });
@@ -156,7 +175,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 async function runCheck(
 	ctx: PackagechkCliContext,
 	request: CheckRequest,
-): Promise<ClinkrExit<z.output<typeof packageCheckReportSchema>>> {
+): Promise<ClinkrExit<PackageCheckReport>> {
 	if (request.showJson === true) {
 		return usageError("--show-json is deprecated; use --format json.", {
 			flag: "showJson",
@@ -190,9 +209,7 @@ async function runCheck(
 	return failure("registry-check-failed", "One or more registry checks failed.", { report: data });
 }
 
-function packageCheckReportData(
-	report: PackageCheckReport,
-): z.output<typeof packageCheckReportSchema> {
+function packageCheckReportData(report: PackageCheckReport): PackageCheckReport {
 	return {
 		inputName: report.inputName,
 		results: [...report.results],
