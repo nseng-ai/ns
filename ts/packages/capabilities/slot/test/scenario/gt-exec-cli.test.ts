@@ -118,6 +118,40 @@ describe("slot gt exec quiescence CLI", () => {
 		expect(run.stdout.join("")).toBe('{"isQuiescent":true,"blockers":[]}\n');
 	});
 
+	it("returns a negative non-quiescent result on trunk", async () => {
+		const run = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git: { worktrees: [{ path: "/repo", branch: "master" }] },
+			gt: {
+				stack: {
+					type: "stack",
+					stack: fakeStackInfo({
+						trunk: "master",
+						current: "master",
+						ancestors: [],
+						descendants: [],
+					}),
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(parseJsonOutput(run)).toMatchObject({
+			exitCode: 1,
+			message: "On trunk 'master'; no stack is checked out.",
+			data: {
+				isQuiescent: false,
+				branches: [],
+				blockers: [],
+				snapshot: {
+					scope: "downstack",
+					trunk: "master",
+					current: "master",
+					branches: [],
+				},
+			},
+		});
+	});
+
 	it("returns the JSON envelope with downstack branches and snapshot heads", async () => {
 		const run = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
 			git: {

@@ -8,6 +8,7 @@ import {
 	createSlotDiagnosticSinkFromEnv,
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
+import { parseJsonObject } from "../json.ts";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -281,16 +282,6 @@ function prLookupResultFromNodes(
 
 function uniqueStrings(values: readonly string[]): readonly string[] {
 	return [...new Set(values)];
-}
-
-function parseJsonObject(
-	text: string,
-): { type: "ok"; value: unknown } | { type: "failure"; message: string } {
-	try {
-		return { type: "ok", value: JSON.parse(text) };
-	} catch (error) {
-		return { type: "failure", message: error instanceof Error ? error.message : String(error) };
-	}
 }
 
 function isPrLookupMiss(stdout: string, stderr: string): boolean {
