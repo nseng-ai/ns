@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, ok, type RenderCapabilities } from "@sdl/clinkr";
+import {
+	ClinkrGroup,
+	failure,
+	negative,
+	ok,
+	usageError,
+	type ClinkrExit,
+	type ClinkrFailureExit,
+	type ClinkrNegativeExit,
+	type ClinkrUsageErrorExit,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { z } from "zod";
@@ -158,8 +169,13 @@ type DiffRequest = z.infer<typeof diffRequestSchema>;
 type RunRequest = z.infer<typeof runRequestSchema>;
 
 type RunsResult = { type: "json"; entries: unknown[] } | { type: "table"; loaded: LoadedBundle[] };
-type ShowResult = { loaded: LoadedBundle };
-type DiffResult = { baseline: LoadedBundle; treatment: LoadedBundle };
+type VibechkReadOnlyErrorData = {
+	type: "lookup_error";
+	idOrPrefix?: unknown;
+	matches?: unknown;
+};
+type ShowResult = { loaded: LoadedBundle } | VibechkReadOnlyErrorData;
+type DiffResult = { baseline: LoadedBundle; treatment: LoadedBundle } | VibechkReadOnlyErrorData;
 
 async function runRuns(ctx: VibechkCliContext, request: RunsRequest) {
 	const storeRoot = resolveStoreRoot(request.store, ctx.env);
@@ -181,31 +197,66 @@ function renderRuns(result: RunsResult, caps: RenderCapabilities = { canEmitAnsi
 	return renderRunsTable(result.loaded, caps);
 }
 
-async function runShow(ctx: VibechkCliContext, request: ShowRequest) {
-	const storeRoot = resolveStoreRoot(request.store, ctx.env);
-	const loaded = await readBundle(storeRoot, request.idOrPrefix);
-	return ok<ShowResult>({ loaded });
+async function runShow(
+	ctx: VibechkCliContext,
+	request: ShowRequest,
+): Promise<ClinkrExit<ShowResult>> {
+	try {
+		const storeRoot = resolveStoreRoot(request.store, ctx.env);
+		const loaded = await readBundle(storeRoot, request.idOrPrefix);
+		return ok<ShowResult>({ loaded });
+	} catch (error) {
+		return vibechkReadOnlyErrorExit(error);
+	}
 }
 
 function renderShow(
 	result: ShowResult,
 	_caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
+	if (!("loaded" in result)) return result.type;
 	return renderRunReport(result.loaded);
 }
 
-async function runDiff(ctx: VibechkCliContext, request: DiffRequest) {
-	const storeRoot = resolveStoreRoot(request.store, ctx.env);
-	const baseline = await readBundle(storeRoot, request.baselineId);
-	const treatment = await readBundle(storeRoot, request.treatmentId);
-	return ok<DiffResult>({ baseline, treatment });
+async function runDiff(
+	ctx: VibechkCliContext,
+	request: DiffRequest,
+): Promise<ClinkrExit<DiffResult>> {
+	try {
+		const storeRoot = resolveStoreRoot(request.store, ctx.env);
+		const baseline = await readBundle(storeRoot, request.baselineId);
+		const treatment = await readBundle(storeRoot, request.treatmentId);
+		return ok<DiffResult>({ baseline, treatment });
+	} catch (error) {
+		return vibechkReadOnlyErrorExit(error);
+	}
 }
 
 function renderDiff(
 	result: DiffResult,
 	_caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
+	if (!("baseline" in result)) return result.type;
 	return renderComparisonReport(result.baseline, result.treatment);
+}
+
+function vibechkReadOnlyErrorExit(
+	error: unknown,
+): ClinkrNegativeExit<VibechkReadOnlyErrorData> | ClinkrFailureExit | ClinkrUsageErrorExit {
+	if (!(error instanceof VibechkError)) throw error;
+	if (error.code === "run_not_found" || error.code === "ambiguous_run") {
+		return negative(error.message, { data: vibechkReadOnlyErrorData(error.data) });
+	}
+	if (error.code === "store_config_error") return usageError(error.message, error.data);
+	return failure(error.code, error.message, error.data);
+}
+
+function vibechkReadOnlyErrorData(data: Record<string, unknown>): VibechkReadOnlyErrorData {
+	return {
+		type: "lookup_error",
+		...(data["idOrPrefix"] === undefined ? {} : { idOrPrefix: data["idOrPrefix"] }),
+		...(data["matches"] === undefined ? {} : { matches: data["matches"] }),
+	};
 }
 
 async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<number> {

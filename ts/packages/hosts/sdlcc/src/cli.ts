@@ -2,15 +2,17 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@sdl/clinkr";
+import { ClinkrGroup, failure, ok, usageError } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
-import { rawCommand } from "@sdl/clinkr/raw";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {
 	formatSdlccCmuxReportHuman,
-	formatSdlccCmuxReportJson,
+	isSdlccCmuxReportUsageFailure,
 	runSdlccCmuxReport,
+	sdlccCmuxReportData,
+	sdlccCmuxReportFailureData,
+	sdlccCmuxReportResultSchema,
 } from "./cmux-report.ts";
 
 export interface SdlccCliDeps {
@@ -57,36 +59,25 @@ const entry = defineCli<SdlccCliContext, SdlccCliDeps>({
 			name: "cmux",
 			description: "cmux integration helpers for sdlcc.",
 		});
-		cmuxGroup.command(
-			rawCommand({
-				name: "report",
-				description: "Report the current git worktree identity to the current cmux surface.",
-				summary: "Report branch/worktree identity into cmux surface resume metadata.",
-				schema: z.object({
-					json: z
-						.boolean()
-						.default(false)
-						.describe("Emit machine-readable JSON on stdout, including failures."),
-				}),
-				run: async (ctx, request) => {
-					const result = await runSdlccCmuxReport({
-						cwd: ctx.cwd,
-						env: ctx.env,
-						runCommand: ctx.runCommand,
-					});
-					if (request.json) {
-						ctx.stdout(formatSdlccCmuxReportJson(result));
-						return result.type === "reported" ? 0 : 1;
-					}
-					if (result.type === "reported") {
-						ctx.stdout(formatSdlccCmuxReportHuman(result));
-						return 0;
-					}
-					ctx.stderr(formatSdlccCmuxReportHuman(result));
-					return 1;
-				},
-			}),
-		);
+		cmuxGroup.command({
+			name: "report",
+			description: "Report the current git worktree identity to the current cmux surface.",
+			summary: "Report branch/worktree identity into cmux surface resume metadata.",
+			schema: z.object({}),
+			resultSchema: sdlccCmuxReportResultSchema,
+			handler: async (ctx) => {
+				const result = await runSdlccCmuxReport({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					runCommand: ctx.runCommand,
+				});
+				if (result.type === "reported") return ok(sdlccCmuxReportData(result.metadata));
+				const data = sdlccCmuxReportFailureData(result);
+				if (isSdlccCmuxReportUsageFailure(result.code)) return usageError(result.message, data);
+				return failure(result.code, result.message, data);
+			},
+			renderHuman: formatSdlccCmuxReportHuman,
+		});
 		root.group(cmuxGroup);
 	},
 });

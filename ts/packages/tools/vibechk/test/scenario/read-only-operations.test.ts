@@ -143,6 +143,17 @@ describe("vibechk read-only operations", () => {
 			expect(run.stdout.join("")).toContain("# Vibechk Run `abc11111`");
 		});
 
+		it("reports negative envelope for missing run", async () => {
+			const run = runScenario(["show", "missing", "--store", storeRoot, "--format", "json"]);
+			expect(await run.exit).toBe(1);
+			expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+				status: "negative",
+				exitCode: 1,
+				message: "No run matches prefix 'missing'.",
+				data: { idOrPrefix: "missing" },
+			});
+		});
+
 		it("reports error for missing run", async () => {
 			const run = runScenario(["show", "missing", "--store", storeRoot]);
 			expect(await run.exit).toBe(1);
@@ -157,6 +168,14 @@ describe("vibechk read-only operations", () => {
 			expect(await run.exit).toBe(1);
 			expect(run.stderr.join("")).toContain("Run prefix 'abc' is ambiguous");
 			expect(run.stderr.join("")).toContain("abc11111, abc22222");
+
+			const jsonRun = runScenario(["show", "abc", "--store", storeRoot, "--format", "json"]);
+			expect(await jsonRun.exit).toBe(1);
+			expect(JSON.parse(jsonRun.stdout.join(""))).toMatchObject({
+				status: "negative",
+				exitCode: 1,
+				data: { idOrPrefix: "abc", matches: ["abc11111", "abc22222"] },
+			});
 		});
 
 		it("handles missing optional artifact files", async () => {
@@ -227,6 +246,27 @@ describe("vibechk read-only operations", () => {
 			const output = run.stdout.join("");
 			expect(output).toContain("Warning");
 			expect(output).toContain("plans differ");
+		});
+
+		it("reports negative envelope for missing diff run", async () => {
+			await writeTestBundle(storeRoot, { runId: "aaaabbbb" });
+
+			const run = runScenario([
+				"diff",
+				"aaaabbbb",
+				"missing",
+				"--store",
+				storeRoot,
+				"--format",
+				"json",
+			]);
+			expect(await run.exit).toBe(1);
+			expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+				status: "negative",
+				exitCode: 1,
+				message: "No run matches prefix 'missing'.",
+				data: { idOrPrefix: "missing" },
+			});
 		});
 
 		it("handles null metrics in both baseline and treatment", async () => {

@@ -2,8 +2,7 @@
 
 import { z } from "zod";
 
-import { ClinkrGroup } from "@sdl/clinkr";
-import { rawCommand } from "@sdl/clinkr/raw";
+import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { defineCli } from "@sdl/core/cli-entry";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 
@@ -60,6 +59,20 @@ const autobranchRequestSchema = z.object({
 
 type AutobranchRequest = z.infer<typeof autobranchRequestSchema>;
 
+const autobranchSuccessSchema = z.object({
+	summary: z.string(),
+	warnings: z.array(z.string()),
+});
+
+const autobranchErrorDataSchema = z.object({
+	outcome: z.enum(["refusal", "failure"]),
+});
+
+const autobranchResultSchema = z.union([autobranchSuccessSchema, autobranchErrorDataSchema]);
+
+type AutobranchResult = z.infer<typeof autobranchResultSchema>;
+type AutobranchErrorData = z.infer<typeof autobranchErrorDataSchema>;
+
 const entry = defineCli<CccCliContext, CccCliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
@@ -92,17 +105,17 @@ const entry = defineCli<CccCliContext, CccCliDeps, undefined>({
 			handler: handleCmuxWorkspaceSummary,
 			renderHuman: renderCmuxWorkspaceSummaryHuman,
 		});
-		execGroup.command(
-			rawCommand({
-				name: "autobranch",
-				summary: AUTOBRANCH_SUMMARY,
-				description: `Create a Graphite branch using \`gt create\` from dirty worktree changes or from the latest eligible unpushed commit.
+		execGroup.command({
+			name: "autobranch",
+			summary: AUTOBRANCH_SUMMARY,
+			description: `Create a Graphite branch using \`gt create\` from dirty worktree changes or from the latest eligible unpushed commit.
 
 Dirty worktree mode stashes pending changes, creates a Graphite branch, restores the stash, and creates a checkpoint commit. Clean worktree mode moves the latest eligible unpushed non-merge commit onto a new Graphite branch using recovery-branch verification.`,
-				schema: autobranchRequestSchema,
-				run: handleAutobranch,
-			}),
-		);
+			schema: autobranchRequestSchema,
+			resultSchema: autobranchResultSchema,
+			handler: handleAutobranch,
+			renderHuman: renderAutobranch,
+		});
 		root.group(execGroup);
 	},
 });
@@ -127,7 +140,10 @@ async function handleCmuxWorkspaceSummary(
 	});
 }
 
-async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest): Promise<number> {
+async function handleAutobranch(
+	ctx: CccCliContext,
+	request: AutobranchRequest,
+): Promise<ClinkrExit<AutobranchResult>> {
 	const args: FlowAutobranchRequest = request.slug === undefined ? {} : { slug: request.slug };
 	const autobranch = ctx.autobranch ?? {};
 	const result = await createFlowAutobranchCheckpointFlow({
@@ -153,14 +169,21 @@ async function handleAutobranch(ctx: CccCliContext, request: AutobranchRequest):
 	});
 
 	if (!result.ok) {
-		ctx.stderr(`${result.error.trimEnd()}\n`);
-		return 1;
+		const data: AutobranchErrorData = { outcome: result.outcome };
+		if (result.outcome === "refusal") {
+			return negative(result.error, { data, human: result.error });
+		}
+		return failure("autobranch_failed", result.error, data);
 	}
 	for (const warning of result.warnings) {
 		ctx.stderr(`${warning.trimEnd()}\n`);
 	}
-	ctx.stdout(`${result.summary.trimEnd()}\n`);
-	return 0;
+	return ok({ summary: result.summary, warnings: result.warnings });
+}
+
+function renderAutobranch(result: AutobranchResult): string {
+	if (!("summary" in result)) return result.outcome;
+	return result.summary;
 }
 
 await entry.runIfMain({ isImportMetaMain: import.meta.main });

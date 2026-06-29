@@ -240,9 +240,7 @@ function collectFailure(
 	return negative(options.error.message, { data: result });
 }
 
-function classifyCollectEvidenceError(
-	code: string,
-): "usageError" | "failure" | "negative" {
+function classifyCollectEvidenceError(code: string): "usageError" | "failure" | "negative" {
 	switch (code) {
 		case "not_a_git_repo":
 		case "detached_head":

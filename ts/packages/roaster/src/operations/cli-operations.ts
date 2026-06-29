@@ -7,6 +7,7 @@ import type { RoasterFailure } from "../failures.ts";
 import { publishFindings, type PublishFindingsResult } from "../findings-publication.ts";
 import { ROASTER_REVIEW_LOG_NAMESPACE, type ReviewLogEntry } from "../gateways/review-log.ts";
 import {
+	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -108,6 +109,16 @@ export const publishFindingsRequestSchema = z.object({
 	reviewName: z.string().optional().describe("Fallback review key for failed run envelopes."),
 	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
+
+export const publishFindingsResultSchema = z.object({
+	inlineStatus: postInlineFindingsResultSchema,
+	summaryStatus: z.object({
+		type: z.enum(["posted", "updated"]),
+		marker: nonBlankStringSchema,
+	}),
+});
+
+export type PublishFindingsCommandResult = z.infer<typeof publishFindingsResultSchema>;
 
 export const recordFindingsRequestSchema = z.object({
 	reviewKey: nonBlankStringSchema.describe("Review key that produced the findings."),
@@ -368,7 +379,7 @@ export function renderReviewLog(result: ReviewLogResult): string {
 export async function runPublishFindings(
 	ctx: RoasterRuntime,
 	request: z.infer<typeof publishFindingsRequestSchema>,
-): Promise<number> {
+): Promise<ClinkrExit<PublishFindingsCommandResult>> {
 	const envelope = await ctx.stdin();
 	const result = await publishFindings(ctx, {
 		prNumber: request.prNumber,
@@ -377,11 +388,15 @@ export async function runPublishFindings(
 		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
 		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
-	if (result.type === "error")
-		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
+	if (result.type === "error") {
+		return failure(result.error.reason, `publish-findings: ${result.error.message}`, result.error);
+	}
 
-	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
-	return 0;
+	return ok(publishFindingsResultSchema.parse(result.value));
+}
+
+export function renderPublishFindings(result: PublishFindingsCommandResult): string {
+	return renderPublishFindingsDiagnostics(result);
 }
 
 interface LoadedDefinition {
@@ -453,9 +468,4 @@ function renderPublishFindingsDiagnostics(
 		`${result.summaryStatus.type} findings comment`,
 		"",
 	].join("\n");
-}
-
-function stderrFailure(ctx: RoasterRuntime, message: string): number {
-	ctx.stderr(message);
-	return 1;
 }

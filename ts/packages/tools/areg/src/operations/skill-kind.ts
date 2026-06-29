@@ -301,18 +301,16 @@ export async function runSkillKindApply(
 		removeEmptyDirs: plans.flatMap(plannedRemoveEmptyDirs),
 	});
 	if (!applyResult.ok) {
-		return negative(applyResult.error.message, {
-			data: {
-				project_dir: projectDir,
-				kind: request.kind,
-				dry_run: false,
-				mutation_failed: true,
-				operations: [...applyResult.operationStatuses],
-				skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
-					skill: skill.skill,
-					operations: [...skill.operations],
-				})),
-			},
+		return failure("skill_kind_apply_failed", applyResult.error.message, {
+			project_dir: projectDir,
+			kind: request.kind,
+			dry_run: false,
+			mutation_failed: true,
+			operations: [...applyResult.operationStatuses],
+			skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
+				skill: skill.skill,
+				operations: [...skill.operations],
+			})),
 		});
 	}
 	return ok({

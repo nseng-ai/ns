@@ -229,7 +229,8 @@ describe("areg skill apply CLI", () => {
 			yes: false,
 		});
 
-		expect(result.type).toBe("negative");
+		if (result.type !== "failure") throw new Error(`expected failure, got ${result.type}`);
+		expect(result.errorType).toBe("skill_kind_apply_failed");
 		expect(project.text("skills/alpha/SKILL.md")).toBeUndefined();
 		expect(mutationOperations(project.operations())).toEqual([]);
 		expect(result).toMatchObject({
@@ -259,10 +260,12 @@ describe("areg skill apply CLI", () => {
 			},
 		);
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exitCode: 1,
+			status: "failure",
+			errorType: "skill_kind_apply_failed",
+			exitCode: 2,
 			data: {
 				mutation_failed: true,
 				project_dir: "/repo",
@@ -301,7 +304,8 @@ describe("areg skill apply CLI", () => {
 			yes: false,
 		});
 
-		expect(result.type).toBe("negative");
+		if (result.type !== "failure") throw new Error(`expected failure, got ${result.type}`);
+		expect(result.errorType).toBe("skill_kind_apply_failed");
 		expect(project.text("skills/alpha/SKILL.md")).toContain("disable-model-invocation: true");
 		expect(project.text("skills/beta/SKILL.md")).toBeUndefined();
 		expect(result).toMatchObject({

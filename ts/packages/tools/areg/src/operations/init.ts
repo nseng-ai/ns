@@ -3,7 +3,6 @@ import path from "node:path";
 import {
 	failure,
 	ok,
-	negative,
 	requireInteractiveOrUsageError,
 	usageError,
 	type ClinkrExit,
@@ -127,19 +126,17 @@ interface InitMutationFailureOptions {
 }
 
 function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<InitResult> {
-	return negative(options.message, {
-		data: {
-			mutation_failed: true,
-			project_dir: options.projectDir,
-			agents: [...options.agents],
-			bootstrap_repo: BOOTSTRAP_REPO,
-			bootstrap_skills: [...BOOTSTRAP_SKILLS],
-			written_files: options.operations
-				.filter((operation) => operation.type === "write" && operation.status === "applied")
-				.map((operation) => operation.path),
-			skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
-			operations: options.operations.map((operation) => ({ ...operation })),
-		},
+	return failure("areg_init_mutation_failed", options.message, {
+		mutation_failed: true,
+		project_dir: options.projectDir,
+		agents: [...options.agents],
+		bootstrap_repo: BOOTSTRAP_REPO,
+		bootstrap_skills: [...BOOTSTRAP_SKILLS],
+		written_files: options.operations
+			.filter((operation) => operation.type === "write" && operation.status === "applied")
+			.map((operation) => operation.path),
+		skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
+		operations: options.operations.map((operation) => ({ ...operation })),
 	});
 }
 

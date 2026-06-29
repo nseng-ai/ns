@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@sdl/clinkr";
+import { negative, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -41,6 +41,7 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 					namespace,
 					key,
 					branch,
+					content: "",
 					ref_name: locator,
 					target,
 					at: request.at ?? null,

@@ -199,7 +199,7 @@ describe("areg init CLI", () => {
 		expect(conflict.projectGateway.operations()).toEqual([]);
 
 		const npxFail = runInit([], { npxSkills: { failure: { code: "boom", message: "boom" } } });
-		expect(await npxFail.exit).toBe(1);
+		expect(await npxFail.exit).toBe(2);
 		expect(npxFail.stderr.join("")).toContain("npx skills add failed: boom");
 		expect(npxFail.stderr.join("")).not.toContain('"operations"');
 		expect(npxFail.projectGateway.text("sdl.toml")).toBeUndefined();
@@ -242,10 +242,12 @@ describe("areg init CLI", () => {
 			project: { preflightFailures: { "AGENTS.md": { code: "blocked", message: "blocked" } } },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exitCode: 1,
+			status: "failure",
+			errorType: "areg_init_mutation_failed",
+			exitCode: 2,
 			data: {
 				mutation_failed: true,
 				project_dir: "/repo",
@@ -275,10 +277,12 @@ describe("areg init CLI", () => {
 			npxSkills: { failure: { code: "boom", message: "boom" } },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exitCode: 1,
+			status: "failure",
+			errorType: "areg_init_mutation_failed",
+			exitCode: 2,
 			data: {
 				mutation_failed: true,
 				operations: [
@@ -305,10 +309,12 @@ describe("areg init CLI", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
-			exitCode: 1,
+			status: "failure",
+			errorType: "areg_init_mutation_failed",
+			exitCode: 2,
 			data: {
 				mutation_failed: true,
 				operations: [

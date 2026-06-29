@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdin } from "@sdl/core/stdin";
 
@@ -13,7 +12,9 @@ import {
 } from "./context.ts";
 import {
 	publishFindingsRequestSchema,
+	publishFindingsResultSchema,
 	recordFindingsRequestSchema,
+	renderPublishFindings,
 	renderReviewList,
 	renderReviewLog,
 	renderReviewRun,
@@ -144,14 +145,14 @@ const entry = defineCli<RoasterRuntime, CliDeps, undefined>({
 			handler: runRecordFindings,
 			renderHuman: renderReviewRun,
 		});
-		execGroup.command(
-			rawCommand({
-				name: "publish-findings",
-				description: "Publish inline and summary findings from a roaster run envelope on stdin.",
-				schema: publishFindingsRequestSchema,
-				run: runPublishFindings,
-			}),
-		);
+		execGroup.command({
+			name: "publish-findings",
+			description: "Publish inline and summary findings from a roaster run envelope on stdin.",
+			schema: publishFindingsRequestSchema,
+			resultSchema: publishFindingsResultSchema,
+			handler: runPublishFindings,
+			renderHuman: renderPublishFindings,
+		});
 		root.group(execGroup);
 		return root;
 	},

@@ -190,7 +190,10 @@ describe("delete operation", () => {
 			{ gateway },
 		);
 		expect(await secondDelete.exit).toBe(1);
-		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({ status: "negative", exitCode: 1 });
+		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+		});
 	});
 
 	it("validates namespace, key, and branch before deleting", async () => {

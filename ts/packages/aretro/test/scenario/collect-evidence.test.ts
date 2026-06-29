@@ -140,9 +140,14 @@ describe("aretro exec collect-evidence", () => {
 			["exec", "collect-evidence", "--repo", "/not-a-repo", "--format", "json"],
 			{ context },
 		);
-		expect(await run.exit).toBe(1);
-		const result = parseJsonOutput(run) as { exitCode: number; data: Record<string, unknown> };
-		expect(result.exitCode).toBe(1);
+		expect(await run.exit).toBe(2);
+		const result = parseJsonOutput(run) as {
+			status: string;
+			exitCode: number;
+			data: Record<string, unknown>;
+		};
+		expect(result.status).toBe("usageError");
+		expect(result.exitCode).toBe(2);
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("not_a_git_repo");
 		expect(result.data.sessions).toEqual([]);
@@ -163,8 +168,9 @@ describe("aretro exec collect-evidence", () => {
 		};
 
 		const run = runScenario(["exec", "collect-evidence", "--format", "json"], { context });
-		expect(await run.exit).toBe(1);
-		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
+		expect(await run.exit).toBe(2);
+		const result = parseJsonOutput(run) as { status: string; data: Record<string, unknown> };
+		expect(result.status).toBe("usageError");
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("detached_head");
 		expect((result.data.repo as Record<string, unknown>).branch_source).toBe("detached");
@@ -243,8 +249,9 @@ describe("aretro exec collect-evidence", () => {
 			["exec", "collect-evidence", "--payload-mode", "payload", "--format", "json"],
 			{ context },
 		);
-		expect(await run.exit).toBe(1);
-		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
+		expect(await run.exit).toBe(2);
+		const result = parseJsonOutput(run) as { status: string; data: Record<string, unknown> };
+		expect(result.status).toBe("failure");
 		expect(result.data.success).toBe(false);
 		expect((result.data.error as Record<string, unknown>).code).toBe("payload_session_required");
 		expect(git.optionalRepoRootCalls).toEqual([]);

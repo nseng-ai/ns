@@ -171,7 +171,7 @@ describe("runSdlccCli", () => {
 	});
 
 	test("reports cmux surface identity as JSON", async () => {
-		const run = runWithFakes(["cmux", "report", "--json"], {
+		const run = runWithFakes(["cmux", "report", "--format", "json"], {
 			cwd: "/repo/slot-05",
 			env: reportEnv(),
 			runCommand: successRunner(),
@@ -179,13 +179,17 @@ describe("runSdlccCli", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			ok: true,
-			branch: "feature/report",
-			worktree_path: "/repo/slot-05",
-			workspace_id: "workspace:45",
-			surface_id: "surface:117",
-			kind: "sdlcc-branch",
-			source: "sdlcc",
+			status: "ok",
+			exitCode: 0,
+			data: {
+				branch: "feature/report",
+				worktree_path: "/repo/slot-05",
+				workspace_id: "workspace:45",
+				surface_id: "surface:117",
+				kind: "sdlcc-branch",
+				source: "sdlcc",
+				shell: "/bin/bash",
+			},
 		});
 		expect(run.stderr).toEqual([]);
 	});
@@ -198,23 +202,26 @@ describe("runSdlccCli", () => {
 			runCommand: successRunner(calls),
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stdout).toEqual([]);
 		expect(run.stderr.join("")).toContain("CMUX_SURFACE_ID is not set");
 		expect(calls).toEqual([]);
 	});
 
 	test("emits JSON failures on stdout", async () => {
-		const run = runWithFakes(["cmux", "report", "--json"], {
+		const run = runWithFakes(["cmux", "report", "--format", "json"], {
 			cwd: "/repo/slot-05",
 			env: reportEnv({ CMUX_SURFACE_ID: undefined }),
 			runCommand: successRunner(),
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
-			ok: false,
-			error: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set.",
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set.",
+			data: { code: "missing_surface_id", command_failure: null },
 		});
 		expect(run.stderr).toEqual([]);
 	});
@@ -230,7 +237,7 @@ describe("runSdlccCli", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("must run inside a git worktree");
 		expect(calls).toEqual([
 			{
@@ -256,7 +263,7 @@ describe("runSdlccCli", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("detached HEAD is not supported");
 		expect(calls.map((call) => call.command)).toEqual(["git", "git"]);
 	});
@@ -276,7 +283,7 @@ describe("runSdlccCli", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("cmux surface resume set failed");
 		expect(run.stderr.join("")).toContain("no current surface");
 	});
