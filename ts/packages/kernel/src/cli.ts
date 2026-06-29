@@ -580,7 +580,7 @@ function withShellOption<T>(spec: ShellCommandSpec<T>): ShellCommandSpec<T> {
 
 function groupForCommand(
 	root: ClinkrGroup<SdlCliContext>,
-	groups: Map<string, ClinkrGroup<SdlCliContext>>,
+	groupCache: Map<string, ClinkrGroup<SdlCliContext>>,
 	commandInfo: SdlCommandCliInfo,
 ): ClinkrGroup<SdlCliContext> {
 	const displaySegments = displaySegmentsForCommand(commandInfo);
@@ -590,7 +590,7 @@ function groupForCommand(
 		const segment = parentSegments[index];
 		if (segment === undefined) continue;
 		const groupKey = parentSegments.slice(0, index + 1).join("/");
-		const existing = groups.get(groupKey);
+		const existing = groupCache.get(groupKey);
 		if (existing !== undefined) {
 			parent = existing;
 			continue;
@@ -602,7 +602,7 @@ function groupForCommand(
 				? { isHidden: true }
 				: {}),
 		});
-		groups.set(groupKey, group);
+		groupCache.set(groupKey, group);
 		parent.group(group);
 		parent = group;
 	}

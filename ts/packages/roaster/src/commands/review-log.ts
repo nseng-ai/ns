@@ -1,11 +1,10 @@
-import { failure, ok } from "@sdl/clinkr";
 import { defineExtension } from "sdl-sdk";
 
-import { createRoasterClient } from "../api.ts";
 import {
 	renderReviewLog,
 	reviewLogRequestSchema,
 	reviewLogResultSchema,
+	runReviewLog,
 	type ReviewLogRequest,
 } from "../operations/cli-operations.ts";
 import { roasterSdlCommand } from "../sdl/command.ts";
@@ -21,13 +20,7 @@ export const roasterReviewLogCommand = roasterSdlCommand({
 	resultSchema: reviewLogResultSchema,
 	renderHuman: (data, _caps) => renderReviewLog(data),
 	async handler(runtime, request) {
-		const result = await createRoasterClient({
-			cwd: runtime.runScope.cwd,
-			env: runtime.runScope.env,
-			runtime,
-		}).listReviewLogs(request);
-		if (!result.ok) return failure(result.failure.errorType, result.failure.message);
-		return ok(result.result);
+		return await runReviewLog(runtime, request);
 	},
 });
 
