@@ -2,14 +2,10 @@ import { failure, negative, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../context.ts";
-import type { StackFork, StackInfo } from "@sdl/graphite/stack";
+import type { StackInfo } from "@sdl/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches, collectStackEdges } from "../stack-walk.ts";
-import {
-	renderChildrenCorruption,
-	renderTrunkMarkerWarnings,
-	renderWalkTerminationWarning,
-} from "./metadata-warnings.ts";
+import { validateStackIntegrity } from "./stack-integrity.ts";
 
 const edgeSchema = z.object({ parent: z.string(), child: z.string() });
 
@@ -40,7 +36,10 @@ export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBr
 		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure")
 		return failure("gt-stack-read-failed", stackResult.failure.message);
-	const integrity = validateStackIntegrity(stackResult.stack, { downstack: request.downstack });
+	const integrity = validateStackIntegrity(stackResult.stack, {
+		downstack: request.downstack,
+		forkHint: "--downstack",
+	});
 	if (integrity.type === "failure") return failure(integrity.errorType, integrity.message);
 	if (ctx.shouldWriteCdDirective) {
 		for (const warning of integrity.warnings) ctx.stderr(`${warning}\n`);
@@ -87,67 +86,4 @@ function resultForStack(
 		],
 		warnings: [...options.warnings],
 	};
-}
-
-function validateStackIntegrity(
-	stack: StackInfo,
-	options: { downstack: boolean },
-):
-	| { type: "ok"; warnings: readonly string[] }
-	| { type: "failure"; errorType: string; message: string } {
-	const markerWarnings = renderTrunkMarkerWarnings(stack.trunkMarker);
-	if (markerWarnings.length > 0)
-		return {
-			type: "failure",
-			errorType: "stack-metadata-inconsistent",
-			message: markerWarnings.join("; "),
-		};
-	if (stack.current === stack.trunk) return { type: "ok", warnings: [] };
-	const ancestorProblem = renderWalkTerminationWarning({
-		kind: "ancestor",
-		termination: stack.ancestorTermination,
-		label: "walk",
-	});
-	if (options.downstack) {
-		if (ancestorProblem !== null)
-			return {
-				type: "failure",
-				errorType: "stack-metadata-inconsistent",
-				message: ancestorProblem,
-			};
-		const warnings = stack.descendantWalk.forks.map(renderStackFork);
-		const descendantProblem = renderWalkTerminationWarning({
-			kind: "descendant",
-			termination: stack.descendantWalk.termination,
-			label: "walk",
-		});
-		if (descendantProblem !== null) warnings.push(descendantProblem);
-		return { type: "ok", warnings };
-	}
-	const fork = stack.descendantWalk.forks[0];
-	if (fork !== undefined)
-		return { type: "failure", errorType: "forked-stack", message: forkedStackMessage(fork) };
-	const messages = stack.descendantWalk.childrenCorruptions.map(renderChildrenCorruption);
-	if (ancestorProblem !== null) messages.push(ancestorProblem);
-	const descendantProblem = renderWalkTerminationWarning({
-		kind: "descendant",
-		termination: stack.descendantWalk.termination,
-		label: "walk",
-	});
-	if (descendantProblem !== null) messages.push(descendantProblem);
-	if (messages.length > 0)
-		return {
-			type: "failure",
-			errorType: "stack-metadata-inconsistent",
-			message: messages.join("; "),
-		};
-	return { type: "ok", warnings: [] };
-}
-
-function forkedStackMessage(fork: StackFork): string {
-	return `Graphite stack forks at '${fork.branch}' with children: ${fork.children.join(", ")}. Check out the intended tip and rerun, or pass \`--downstack\`.`;
-}
-
-function renderStackFork(fork: StackFork): string {
-	return `branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`;
 }
