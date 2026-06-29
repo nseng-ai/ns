@@ -22,9 +22,9 @@ export interface AutoslotResultBlock {
 	/** The working directory the workflow operated in, shown as dimmed plumbing evidence. */
 	cwd: string;
 	/** Domain-authored detail (slot target / skip reason / failure cause) at normal weight. */
-	body?: string | undefined;
+	body?: string;
 	/** Optional normal-weight "what to do next" line (e.g. the copyable `sdl slot co <branch>`). */
-	guidance?: string | undefined;
+	guidance?: string;
 }
 
 /** Render an autoslot result block to a string, styled and degraded for `caps`. */

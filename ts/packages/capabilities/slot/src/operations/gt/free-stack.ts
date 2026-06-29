@@ -100,10 +100,11 @@ export function renderGtFreeStack(
 	result: GtFreeStackResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
+	const body = renderGtFreeStackDetails(result);
 	return renderSlotDestructiveResultBlock(caps, {
 		kind: "success",
 		headline: gtFreeStackHeadline(result),
-		body: renderGtFreeStackDetails(result),
+		...(body === undefined ? {} : { body }),
 	});
 }
 

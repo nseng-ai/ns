@@ -150,11 +150,12 @@ export function renderFree(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const targets = result.dryRun ? result.wouldFree : result.freed;
+	const body = renderFreeDetails(result, targets, resolveRenderCapabilities(caps));
 	if (result.cancelled) {
 		return renderSlotDestructiveResultBlock(caps, {
 			kind: "refusal",
 			headline: "Cancelled slot free.",
-			body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
+			...(body === undefined ? {} : { body }),
 		});
 	}
 	const cleanupErrors = cleanupErrorCount(result.cleanup);
@@ -162,7 +163,7 @@ export function renderFree(
 		return renderSlotDestructiveResultBlock(caps, {
 			kind: "failure",
 			headline: "Slot free completed with cleanup errors.",
-			body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
+			...(body === undefined ? {} : { body }),
 		});
 	}
 	const headline = result.dryRun
@@ -171,7 +172,7 @@ export function renderFree(
 	return renderSlotDestructiveResultBlock(caps, {
 		kind: "success",
 		headline,
-		body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
+		...(body === undefined ? {} : { body }),
 	});
 }
 
