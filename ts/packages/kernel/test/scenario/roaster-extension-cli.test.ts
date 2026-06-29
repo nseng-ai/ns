@@ -4,7 +4,12 @@ import { resolve, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
+import {
+	formattedExecCalls,
+	parseJsonOutput,
+	runCliWithFakes,
+	type RunWithFakesOptions,
+} from "./sdl-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -82,6 +87,19 @@ function isGitDiffAgainstHeadCall(call: { command: string; args: string[] }): bo
 
 function diffText(): string {
 	return "diff --git a/src/app.ts b/src/app.ts\n@@ -1 +1 @@\n+changed\n";
+}
+
+function formatRunDiagnostics(run: ReturnType<typeof runWithFakes>): string {
+	return [
+		"stdout:",
+		run.stdout.join("") || "<empty>",
+		"stderr:",
+		run.stderr.join("") || "<empty>",
+		"exec calls:",
+		formattedExecCalls(run.context).join("\n") || "<none>",
+	]
+		.map((line) => `  ${line}`)
+		.join("\n");
 }
 
 async function isolatedHome(): Promise<string> {
@@ -268,7 +286,7 @@ describe("Roaster SDL command face", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit, formatRunDiagnostics(run)).toBe(1);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("negative");
 		expect(envelope.data).toMatchObject({
