@@ -11,7 +11,7 @@ import { cell, dim, paint, renderTable } from "@sdl/cli-theme";
 import { stripTerminalEscapes } from "@sdl/core/exec";
 import { z } from "zod";
 
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
+import { readSlotCapsFromContext, type RepoSlotContext, type SlotCliContext } from "../context.ts";
 import {
 	outcomeFromGcPlan,
 	planGc,
@@ -87,7 +87,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 		});
 		if (gate) return gate;
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
-		const renderCapabilities = renderCapabilitiesFromCaps(repoCtx.caps);
+		const renderCapabilities = renderCapabilitiesFromCaps(readSlotCapsFromContext(repoCtx));
 		const preview = renderGc(
 			toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })),
 			renderCapabilities,

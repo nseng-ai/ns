@@ -5,8 +5,8 @@ import { z } from "zod";
 import {
 	CLINKR_CAPS_EXTENSION_KEY,
 	ClinkrGroup,
+	isClinkrHumanOutputInvocation,
 	ok,
-	resolveClinkrInteraction,
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
@@ -14,7 +14,8 @@ import {
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
-import { readStdin, readStdinLine } from "@sdl/core/stdin";
+import { readStdin } from "@sdl/core/stdin";
+import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {
 	commandDisplayName,
@@ -89,13 +90,9 @@ export interface BuildSdlCliOptions {
 	selectedCommandPath?: SdlCommandPath | undefined;
 }
 
-export interface SdlCliContext {
+export interface SdlCliContext extends SlotCliContext {
 	context: SdlExtensionApi;
-	cwd: string;
-	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
-	stderr: (text: string) => void;
-	interaction: ReturnType<typeof resolveClinkrInteraction>;
 }
 
 interface SdlCliBuildState {
@@ -391,13 +388,21 @@ async function buildSdlCliContext(options: {
 		...(confirm === undefined ? {} : { confirm }),
 		extensions: contextExtensions,
 	};
+	const slotContext = await createRealSlotContext({
+		cwd: options.cwd,
+		env: options.env,
+		stderr: options.stderr,
+		extensions: contextExtensions,
+		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
+		...(options.caps === undefined ? {} : { caps: options.caps }),
+	});
 	return {
+		...slotContext,
 		context,
 		cwd: options.cwd,
 		env: options.env,
 		stdout: options.stdout,
 		stderr: options.stderr,
-		interaction: resolveClinkrInteraction({ stdin: readStdinLine, stderr: options.stderr }),
 	};
 }
 
