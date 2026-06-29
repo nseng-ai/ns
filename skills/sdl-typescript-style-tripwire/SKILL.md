@@ -8,7 +8,7 @@ description: Invoke the SDL TypeScript style Tripwire against a supplied diff or
 
 Use `.sdl/reviews/sdl-typescript-style-tripwire.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
 
-If running inside this repository and the Roaster CLI is available, prefer:
+If running inside this repository and the SDL command face is available, prefer:
 
 ```bash
 sdl roaster review run sdl-typescript-style-tripwire

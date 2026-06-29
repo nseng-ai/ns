@@ -32,10 +32,10 @@
   - Guidance: `exec publish-findings` is write-capable and currently uses a raw command surface. Decide whether command-face parity should convert it to an enveloped command now, preserve it as a hidden automation leaf, or defer raw-command remediation to CLI surface conformance. Keep publication fake-backed and guarded.
   - Evidence: completed by `updates/2026-06-28T212949Z-roaster-publish-findings-sdl-face.md`; SDL now exposes hidden `sdl roaster exec publish-findings` as an enveloped command with JSON schema, shared publication handling, stderr diagnostics, and fake-backed publication/failure scenario coverage. Standalone `roaster exec publish-findings` intentionally remains raw-compatible for the later binary cutover row.
 
-- [ ] Align public skills, Pi metadata, docs, and context over the Roaster Capability boundary.
+- [x] Align public skills, Pi metadata, docs, and context over the Roaster Capability boundary.
   - Policy: direct execution after preview; steer first before changing public skill names or review terminology.
   - Guidance: update Roaster-related skills to point at the chosen SDL command face once parity exists, preserve skill names such as `roast-thermonuclear-review`, keep Pi metadata consistent, and refresh `ts/packages/roaster/CONTEXT.md`, SDL/root context as needed, and docs such as `docs/roaster-pierre-diffs.md` only when their boundary claims change.
-  - Evidence: source searches show stale standalone-only wording is gone or intentionally retained; context/docs describe Command Face, Capability API, Domain Core, Branch Memory review logs, and publication boundary.
+  - Evidence: completed by `updates/2026-06-28T214557Z-command-face-alignment.md`; public skills and `.github/workflows/roaster.yml` now invoke `sdl roaster ...`, Roaster context and the context map describe the SDL Capability/Command Face/API/storage/publication boundary, the CLI audit scopes the remaining raw publication item to the standalone entrypoint, and the standalone `roaster` binary remains intentionally open for the next row.
 
 - [ ] Decide and execute standalone `roaster` binary cutover.
   - Policy: steer first if call-site inventory finds an external or repo-local compatibility reason to retain the binary; otherwise direct execution after preview once SDL parity evidence is present.
