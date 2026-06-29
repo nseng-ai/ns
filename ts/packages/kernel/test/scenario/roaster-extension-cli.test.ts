@@ -2,10 +2,10 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
+import type { SdlCliDeps } from "../../src/cli.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
-	SdlCommandCatalog,
 } from "../../src/extension-registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
 import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
@@ -143,7 +143,9 @@ describe("Roaster SDL command face", () => {
 
 interface FakeRoasterRegistry {
 	loadLog: string[];
-	loadCommandCatalog: () => Promise<SdlCommandCatalog>;
+	loadCommandCatalog: NonNullable<
+		NonNullable<SdlCliDeps["extensionRegistry"]>["loadCommandCatalog"]
+	>;
 	loadSelectedCommand: (
 		candidate: ExtensionCommandCandidate,
 	) => Promise<SelectedSdlCommandLoadResult>;
@@ -260,7 +262,7 @@ function fakeRoasterRegistry(): FakeRoasterRegistry {
 	);
 	return {
 		loadLog,
-		async loadCommandCatalog() {
+		async loadCommandCatalog(_options) {
 			return {
 				candidates: candidatesByKey,
 				commandInfos: candidates.map(({ group, name, segments, description, fullDescription }) => ({

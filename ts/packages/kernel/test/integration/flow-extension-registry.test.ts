@@ -25,7 +25,11 @@ describe("checked-in flow SDL extension registry loading", () => {
 		const homeDir = join(directory, "home");
 		installCheckedInFlowExtension(cwd);
 
-		const catalog = await loadSdlCommandCatalog({ cwd, homeDir });
+		const catalog = await loadSdlCommandCatalog({
+			cwd,
+			homeDir,
+			env: { SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS: "1" },
+		});
 
 		expect(catalog.diagnostics).toEqual([]);
 		expect([...catalog.candidates.keys()]).toEqual([

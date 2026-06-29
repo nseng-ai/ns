@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
 import { commandInfoForLoadedCommand } from "../../src/command-registry.ts";
 import {
@@ -15,6 +15,7 @@ import {
 } from "../../src/extension-registry.ts";
 
 const tempDirs: string[] = [];
+const previousFirstPartyExtensionSetting = process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
 
 interface Workspace {
 	cwd: string;
@@ -66,6 +67,18 @@ export default defineExtension({
 `;
 }
 
+beforeAll(() => {
+	process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+});
+
+afterAll(() => {
+	if (previousFirstPartyExtensionSetting === undefined) {
+		delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		return;
+	}
+	process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;
+});
+
 afterEach(() => {
 	for (const directory of tempDirs.splice(0)) {
 		rmSync(directory, { recursive: true, force: true });
@@ -81,6 +94,26 @@ describe("extension registry", () => {
 		expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
 		expect([...loaded.candidates.keys()]).toEqual([]);
 		expect(loaded.commandInfos).toEqual([]);
+	});
+
+	test("bundled first-party manifests contribute commands without kernel imports", async () => {
+		const workspace = await createWorkspace();
+		delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
+		try {
+			const loaded = await loadSdlCommandCatalog({
+				cwd: workspace.cwd,
+				homeDir: workspace.homeDir,
+			});
+
+			expect(hasExtensionErrors(loaded.diagnostics)).toBe(false);
+			expect(loaded.candidates.get("slot/list")).toMatchObject({
+				name: "list",
+				segments: ["slot", "list"],
+				source: { level: "first-party" },
+			});
+		} finally {
+			process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = "1";
+		}
 	});
 
 	test("XDG global commands are loaded and legacy global commands are ignored", async () => {

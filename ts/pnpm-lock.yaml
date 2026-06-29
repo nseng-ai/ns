@@ -254,6 +254,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -525,9 +528,6 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
-      '@sdl/slot':
-        specifier: workspace:*
-        version: link:../capabilities/slot
       jiti:
         specifier: 'catalog:'
         version: 2.7.0

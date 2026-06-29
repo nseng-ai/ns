@@ -2,10 +2,10 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
+import type { SdlCliDeps } from "../../src/cli.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
-	SdlCommandCatalog,
 } from "../../src/extension-registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
 import type { SdlCommand } from "sdl-sdk";
@@ -159,7 +159,9 @@ interface FakeCompletionRegistryOptions {
 
 interface FakeCompletionRegistry {
 	loadLog: string[];
-	loadCommandCatalog: () => Promise<SdlCommandCatalog>;
+	loadCommandCatalog: NonNullable<
+		NonNullable<SdlCliDeps["extensionRegistry"]>["loadCommandCatalog"]
+	>;
 	loadSelectedCommand: (
 		candidate: ExtensionCommandCandidate,
 	) => Promise<SelectedSdlCommandLoadResult>;
@@ -174,7 +176,7 @@ function fakeCompletionRegistry(
 	const loadLog: string[] = [];
 	return {
 		loadLog,
-		async loadCommandCatalog() {
+		async loadCommandCatalog(_options) {
 			return {
 				candidates: candidateMap,
 				commandInfos: candidates.map(({ name, description, fullDescription }) => ({

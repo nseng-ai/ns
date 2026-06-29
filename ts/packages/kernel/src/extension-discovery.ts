@@ -193,11 +193,13 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 	};
 }
 
-function discoverPackageCommands(
+export function discoverSdlPackageCommands(
 	rootDir: string,
 	packageDir: string,
-	packageJsonPath: string,
 ): ExtensionDiscoveryResult {
+	const packageJsonPath = join(packageDir, "package.json");
+	if (!existsSync(packageJsonPath)) return { commands: [], diagnostics: [] };
+
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
@@ -212,6 +214,35 @@ function discoverPackageCommands(
 				),
 			],
 		};
+	}
+	if (!isRecord(parsed) || !isRecord(parsed.sdl) || !Array.isArray(parsed.sdl.commands)) {
+		return { commands: [], diagnostics: [] };
+	}
+	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, parsed);
+}
+
+function discoverPackageCommands(
+	rootDir: string,
+	packageDir: string,
+	packageJsonPath: string,
+	parsedManifest?: unknown,
+): ExtensionDiscoveryResult {
+	let parsed: unknown = parsedManifest;
+	if (parsed === undefined) {
+		try {
+			parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+		} catch (error) {
+			return {
+				commands: [],
+				diagnostics: [
+					diagnostic(
+						"extension_manifest_parse_failed",
+						`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+						{ path: packageJsonPath },
+					),
+				],
+			};
+		}
 	}
 
 	if (!isRecord(parsed) || !isRecord(parsed.sdl)) {
