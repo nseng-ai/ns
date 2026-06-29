@@ -6,6 +6,20 @@ SDL's TypeScript code should reserve `?: T | undefined` for boundaries where cal
 
 This Objective turns the optional-undefined advisory into semantic cleanup of inappropriate boundary leaks. The goal is not to reach zero candidates, but to stop letting accidental `undefined` enter internal APIs and force downstream surfaces to compensate.
 
+## Process
+
+Treat this Objective as semantic boundary normalization, not a regex cleanup campaign. The working process is intentionally conservative so implementation proceeds in coherent slices with low review noise and minimal type-thrash.
+
+1. **Inventory before editing, but do not optimize for zero.** Start from the optional-undefined advisory or a scoped grep and classify each candidate before changing it. The expected categories are: internal model leak, boundary/input compatibility, external payload mirror, fixture/test-builder ergonomics, parser intermediate, and ambiguous/null-sensitive case.
+2. **Fix only candidates with a semantic claim.** A removal is appropriate when we can say: this is an internal normalized domain/state/result/presentation/durable-record model, and accepting explicit `undefined` is not part of its contract. If that claim is unclear, preserve or defer the candidate.
+3. **Work in vertical slices.** Prefer one coherent callstack at a time: a result model with its builders/renderers, a status/state model with its ingest/parser boundary, a presentation facade with its direct callsites, or a durable record shape with serializer/deserializer. Avoid package-wide mechanical sweeps.
+4. **Normalize at the edge before narrowing internals.** Trace where `undefined` enters. Loose CLI/JSON/GitHub/GraphQL/process/Zod inputs may accept explicit `undefined`; builders/parsers should convert that looseness into omitted optional keys, required defaults such as empty arrays, preserved `null` where meaningful, or explicit discriminated domain states before internal consumers see it.
+5. **Edit producers before interfaces.** Do not start by deleting `| undefined` from type declarations and chasing compiler fallout. First update constructors, builders, parsers, and emitters to omit absent keys or produce normalized defaults; then narrow the internal type and simplify downstream compensation such as `?? []` that only existed for loose builders.
+6. **Preserve compatibility surfaces deliberately.** Options, overrides, dependency bags, config, public SDK/CLI inputs, external payload mirrors, env/process records, parser staging types, and fixture/fake builders may legitimately keep `?: T | undefined`. Prefer introducing a separate normalized internal type instead of tightening a public or external mirror in place.
+7. **Handle null-union cases cautiously.** Do not collapse `null`, omission, and explicit `undefined` unless the domain meaning is understood. If `null` carries external or domain state, preserve it or introduce an explicit state representation.
+8. **Summarize each slice.** Each implementation summary should include touched cluster, before/after candidate count for that cluster, fields changed, rationale for removed explicit-undefined acceptance, preserved/deferred candidates with categories, and targeted validation run.
+9. **Close with a rebaseline, not a ban.** The endpoint is a classified remaining inventory, not a hard style-guard failure, checked-in allowlist, or zero-count target.
+
 ## Scope
 
 In scope:
