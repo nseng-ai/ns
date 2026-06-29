@@ -8,15 +8,18 @@ capabilities import `@sdl/core/exec` (112 sites) and `@sdl/core/git` (45 sites) 
 reaching raw process and git I/O that the architecture says they should only ever see
 through injected gateways. This Objective decomposes `@sdl/core` and re-homes every subpath
 by one classification rule, so each tier means exactly one thing: neutral-infra is pure,
-real-world/external-tool gateways live in `@sdl/capability-kit`, and intrinsic host services
-are provided by the SDK and hidden in the kernel.
+real-world/external-tool gateways expose capability-facing seams through `@sdl/capability-kit`
+with large real implementations placed by an explicit package-placement gate, and intrinsic host
+services are provided by the SDK and hidden in the kernel.
 
 It executes a structural rule that the umbrella `sdl-extension-architecture` Objective
-asserts but never owns ("gateways are derivable from `exec` and belong above the SDK in
-`@sdl/capability-kit`"). That Objective drives capability migration and deleting the
-transitional holding-pen; this sibling owns making the infra tier underneath it coherent. It
-is a standalone, cross-referenced Objective, not a child of the umbrella and not a rename of
-existing work.
+asserts but never owns ("gateways are derivable from `exec` and belong above the SDK"). ADR
+0019 refines that rule: Capability Kit owns the capability-facing seam, fake, and light adapter,
+while large reusable real implementations may remain in or move to standalone packages so the kit
+does not become a real-adapter dumping ground. That Objective drives capability migration and
+deleting the transitional holding-pen; this sibling owns making the infra tier underneath it
+coherent. It is a standalone, cross-referenced Objective, not a child of the umbrella and not a
+rename of existing work.
 
 ## The classification rule
 
@@ -27,10 +30,12 @@ Each module is classified by **how a consumer reaches it**:
   slug parsers). Stays in `@sdl/core` as the pure-utility library; any layer may depend on it
   directly, no injection needed.
 - **Kit gateway** — wraps real-world I/O or an external tool and is *derivable from `exec`*
-  (`git`, `github-*`, `exec`, `graphite`, `cmux`). Moves into `@sdl/capability-kit` as a
-  **per-domain subpath** (`@sdl/capability-kit/git`, `/github`, `/exec`, …) that co-locates
-  the interface, the real adapter, and the in-memory fake. Capabilities depend on the kit
-  laterally.
+  (`git`, `github-*`, `exec`, `graphite`, `cmux`). Its capability-facing seam moves to
+  `@sdl/capability-kit` as a **per-domain subpath** (`@sdl/capability-kit/git`, `/github`,
+  `/exec`, …) that owns the interface, fake/testing support, and any light adapter. ADR 0019's
+  package-placement gate decides whether a large real implementation is kit-owned or remains in a
+  standalone real package. Capabilities depend on the kit seam laterally and must not import raw
+  `@sdl/core` I/O doors.
 - **SDK-provided service** — an *intrinsic* host service the author reaches through `ctx` /
   the vended api object (`command-io` → `ctx.stdout`; `progress-phase` → progress). Its
   **interface lives in `sdl-sdk`** and its **implementation is hidden in the kernel**. The
@@ -48,9 +53,11 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
 - Decompose `@sdl/core`: classify all ~36 subpaths by the rule above and re-home each. What
   remains in `@sdl/core` is pure utilities by construction.
 - Relocate the kit gateways (`git`, `github-*`, `exec`, and the standalone `@sdl/graphite`
-  and `@sdl/cmux` packages) into `@sdl/capability-kit` as per-domain subpaths co-locating
-  interface + real + fake. Repoint every capability/consumer import and **delete the old
-  doors** in the same slice.
+  and `@sdl/cmux` packages) to canonical package homes selected by ADR 0019: usually a
+  `@sdl/capability-kit/<domain>` seam for interface + fake + light adapter, with large real
+  implementations allowed to remain in standalone packages when the placement gate justifies it.
+  Repoint every capability/consumer import and **delete the old `@sdl/core` doors** in the same
+  slice.
 - Move the SDK-provided services (`command-io`, `progress-phase`) so their interfaces sit in
   `sdl-sdk` and their implementations are hidden in the kernel behind `ctx`; repoint `flow`'s
   direct `progress-phase` import onto `ctx`.
@@ -61,6 +68,9 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
   `brmem-cli`) by the `ctx`/I/O test and document each disposition.
 - Document the four-bucket classification rule in CONTEXT/ADR so the tiers stay coherent after
   the move.
+- As the final cleanup slice, reorganize capability packages/import structure around the final
+  `@sdl/capability-kit` seams and SDK-provided services so capabilities no longer carry legacy
+  organization imposed by the old `@sdl/core` doors.
 
 ## Non-Goals
 
@@ -70,9 +80,12 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
 - Do not add a lint guard forbidding capability→real-adapter imports in this Objective.
   Enforcement of "capabilities use the interface, not the real adapter" is **review-only for
   now**; the guard is a tracked follow-up.
-- Do not redesign capability behavior, command faces, or the `sdl-sdk` author API beyond
-  moving existing interfaces to their classified home.
-- Do not take on the umbrella's capability-migration or transitional-package-deletion work.
+- Do not redesign capability behavior, command faces, or the `sdl-sdk` author API beyond moving
+  existing interfaces to their classified home and reorganizing capability package layout/imports to
+  consume the final seams cleanly.
+- Do not take on the umbrella's transitional-package-deletion work. Capability reorganization is now
+  in scope only as the final cleanup slice needed to align capability package layout/imports with the
+  completed gateway/service re-homing; do not redesign capability behavior or product domain policy.
 - Do not migrate the standalone tools (`areg`, `vibechk`, `packagechk`, `worktree-status`)
   off-axis, except where they import a relocated `@sdl/core/*` subpath.
 
@@ -81,9 +94,10 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
 - `@sdl/core` exports only pure utilities; no `@sdl/core` subpath performs real-world I/O or
   wraps an external tool. `@sdl/core/exec` and `@sdl/core/git` no longer exist as
   capability-facing doors.
-- `git`, `github-*`, `exec`, `graphite`, and `cmux` are reachable only as
-  `@sdl/capability-kit/<domain>` per-domain subpaths, each co-locating interface + real +
-  fake; no capability imports the raw I/O directly.
+- `git`, `github-*`, `exec`, `graphite`, and `cmux` no longer have `@sdl/core` raw-I/O doors;
+  capability-facing access goes through `@sdl/capability-kit/<domain>` seams, while large real
+  implementations may live in standalone packages when ADR 0019's placement gate justifies it.
+  No capability imports raw I/O directly.
 - `command-io` and `progress-phase` are reached by capabilities through `ctx`; their
   interfaces live in `sdl-sdk` and implementations in the kernel; `flow` no longer imports
   `progress-phase` directly.
@@ -91,6 +105,8 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
   I/O, is reclassified and re-homed accordingly.
 - Every one of `@sdl/core`'s original subpaths has a documented disposition under the
   four-bucket rule, and the rule itself is recorded in CONTEXT/ADR.
+- Capability packages are reorganized around the final gateway/service seams, with legacy
+  `@sdl/core`-driven package/import organization removed where it no longer matches the architecture.
 - Evidence: targeted package tests for touched packages pass; source searches confirm
   capability imports of `@sdl/core/exec` / `@sdl/core/git` are gone; the runtime dependency
   graph remains acyclic.
@@ -104,18 +120,19 @@ Assumptions:
   author touches them through the api object or only as a pure shape.
 - Gateways genuinely are derivable from `exec`, so moving them above the SDK into
   `@sdl/capability-kit` requires no new kernel surface.
-- `@sdl/capability-kit` absorbing all gateway adapters is acceptable even though it stops
-  being the ~882-LOC thin seam the umbrella describes; its character intentionally changes
-  from "thin `ctx`→gateway adapter" to "the gateway library."
+- Revised by ADR 0019: `@sdl/capability-kit` should not automatically absorb every large real
+  gateway adapter. Its durable role is the capability-facing seam/fake/light-adapter substrate;
+  complex reusable real implementations may remain in standalone packages while `@sdl/core` doors
+  are still deleted.
 - `@sdl/brmem` is separable as the one stateful service that follows the SDK-provided pattern
   rather than the kit pattern, and isolating it does not block the rest of this work.
 
 Risks:
 
-- **Review-only enforcement leak.** With reals and interfaces co-located in
-  `@sdl/capability-kit/<domain>`, a capability can still import the real adapter and skip the
-  gateway, re-creating today's `core/exec` leak one tier up. Mitigation: a `SDL_TS_BAN_*`
-  subpath guard is an easy follow-up; track whether leaks actually appear before building it.
+- **Review-only enforcement leak.** Whether real adapters are kit-owned or standalone, a
+  capability can still import a real adapter directly and skip the injected gateway seam,
+  re-creating today's `core/exec` leak one tier up. Mitigation: a `SDL_TS_BAN_*` subpath guard is
+  an easy follow-up; track whether leaks actually appear before building it.
 - **Broad mechanical repoint.** `@sdl/core` has fan-in 31 and `exec` alone has 112 import
   sites; repointing touches nearly every package, risking a partial migration that leaves two
   doors open at once. Mitigation: delete each old subpath in the *same* slice that repoints
@@ -137,6 +154,7 @@ Risks:
 - When `brmem` becomes SDK-provided in its follow-up Objective, is the umbrella's "no domain
   gateways in `sdl-sdk`" Non-Goal rewritten, or does `brmem` ride a distinct "host service"
   surface kept separate from the gateway non-goal?
-- Should the per-domain kit subpaths expose `real` and `fake` under nested subpaths
-  (`/git/real`, `/git/testing`) now, to make a future ban-guard trivial, even though
-  enforcement is deferred?
+- Should per-domain kit seams expose `real` and `fake` under nested subpaths (`/git/real`,
+  `/git/testing`) only for kit-owned real implementations, and use separate standalone-real package
+  names for complex implementations, to make a future ban-guard trivial even though enforcement is
+  deferred?

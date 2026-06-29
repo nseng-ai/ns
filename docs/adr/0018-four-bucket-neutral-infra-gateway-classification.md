@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted — refines ADR 0009, ADR 0012, ADR 0016, and ADR 0017.
+Accepted — refines ADR 0009, ADR 0012, ADR 0016, and ADR 0017. Refined by ADR 0019, which
+adds a package-placement gate: this ADR's per-domain *bucket* stands, but the *concrete package*
+that owns a large real implementation (and whether it folds into `@sdl/capability-kit` or stays in
+a standalone/deferred home) is governed by ADR 0019.
 
 ## Context
 

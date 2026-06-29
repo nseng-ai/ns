@@ -2,14 +2,16 @@
 
 Direction: `@sdl/core` is being decomposed by a four-bucket rule so each tier means one
 thing — neutral-infra is pure utilities; real-world / external-tool gateways (`git`,
-`github-*`, `exec`, `graphite`, `cmux`) live in `@sdl/capability-kit` as per-domain subpaths
-co-locating interface + real + fake; intrinsic host services (`command-io`, `progress-phase`)
-are SDK-provided (interface in `sdl-sdk`, implementation hidden in the kernel, reached via
-`ctx`); and program-boot harness (`cli-entry`) lives in the kernel.
+`github-*`, `exec`, `graphite`, `cmux`) expose capability-facing seams through
+`@sdl/capability-kit` per-domain subpaths, while ADR 0019's placement gate decides whether large
+real implementations stay standalone; intrinsic host services (`command-io`, `progress-phase`) are
+SDK-provided (interface in `sdl-sdk`, implementation hidden in the kernel, reached via `ctx`); and
+program-boot harness (`cli-entry`) lives in the kernel.
 
 Getting to: ADR 0018 records the classification rule and per-`@sdl/core` export disposition;
-read this objective's `objective.md` for the migration scope and `CONTEXT.md` for Capability Kit
-and SDK vocabulary; keep ADRs 0009 / 0012 / 0016 in mind for the layering history.
+ADR 0019 records the package-placement gate for large real gateway implementations; read this
+objective's `objective.md` for the migration scope and `CONTEXT.md` for Capability Kit and SDK
+vocabulary; keep ADRs 0009 / 0012 / 0016 in mind for the layering history.
 
 What you see now: `@sdl/core` still exports `exec`, `git`, and `github-*`, and capabilities
 import them directly (~112 `exec`, ~45 `git` sites); gateway code is split across `@sdl/core`,
