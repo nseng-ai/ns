@@ -38,7 +38,12 @@ import type { PhaseSpec } from "./phase-stream-specs.ts";
 import { createPhaseStateStore } from "./phase-stream-state.ts";
 import { createTranscriptTail } from "./phase-stream-tail.ts";
 
-export { checkpointEventLabel, CP_PHASES, SUBMIT_PHASES } from "./phase-stream-specs.ts";
+export {
+	checkpointEventLabel,
+	CP_PHASES,
+	LAND_PHASES,
+	SUBMIT_PHASES,
+} from "./phase-stream-specs.ts";
 export type { PhaseSpec } from "./phase-stream-specs.ts";
 
 /** The driver surface a command drives: title once, feed events, finalize. */

@@ -941,7 +941,7 @@ describe("code land command", () => {
 			{
 				title: "Land stack?",
 				message:
-					"Land 1 PRs from feature-branch through feature-branch into main?\nDescendants above feature-branch will not be merged; this command will try to maintain them after landing.",
+					"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.\n\nStep     What happens\nPreflight Check PR state, branch refs, worktree safety, and landing order.\nMerge    Merge each PR using its current PR title/body as the squash commit message.\nRefresh  Fetch/restack/update the remaining upstack PRs after each merge.\nCleanup  Delete landed local Graphite branches when they are no longer checked out.\n\nStack: 1 PR from feature-branch through feature-branch\nTarget: main\nDescendants: child-branch will not be merged; the command will try to maintain them after landing.\n\nProceed with landing?",
 			},
 		]);
 		expect(notifications).toEqual([
@@ -1010,7 +1010,7 @@ describe("code land command", () => {
 			{
 				title: "Land stack?",
 				message:
-					"Land 1 PRs from feature-branch through feature-branch into main?\nDescendants above feature-branch will not be merged; this command will try to maintain them after landing.",
+					"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.\n\nStep     What happens\nPreflight Check PR state, branch refs, worktree safety, and landing order.\nMerge    Merge each PR using its current PR title/body as the squash commit message.\nRefresh  Fetch/restack/update the remaining upstack PRs after each merge.\nCleanup  Delete landed local Graphite branches when they are no longer checked out.\n\nStack: 1 PR from feature-branch through feature-branch\nTarget: main\nDescendants: child-branch will not be merged; the command will try to maintain them after landing.\n\nProceed with landing?",
 			},
 		]);
 		expect(stdout).toBe("Cancelled before merge; no PRs were landed.\n");
