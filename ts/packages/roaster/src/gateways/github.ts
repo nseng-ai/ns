@@ -3,8 +3,8 @@ import { runGitHubCli } from "@sdl/github/cli";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,
-	numericGithubIdentity,
 	parseGithubJson,
+	withNumericGithubIdentity,
 } from "@sdl/github/pr-feedback";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { withTemporaryJsonFile } from "@sdl/core/temp-files";
@@ -43,18 +43,7 @@ const ghDiscussionCommentSchema = z
 		user: ghAuthorSchema.optional(),
 	})
 	.loose()
-	.transform((comment, ctx) => {
-		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
-		if (numericId === null) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["databaseId"],
-				message: "Discussion comment must include a positive integer databaseId or numeric id.",
-			});
-			return z.NEVER;
-		}
-		return { ...comment, numericId };
-	});
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
 
 export interface GitHubGatewayOptions {
 	readonly cwd: string;

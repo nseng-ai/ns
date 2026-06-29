@@ -177,7 +177,7 @@ export const ghResolveReviewThreadResponseSchema = z
 	})
 	.loose();
 
-function withNumericGithubIdentity<
+export function withNumericGithubIdentity<
 	T extends {
 		readonly databaseId?: number | null | undefined;
 		readonly id?: number | string | undefined;
