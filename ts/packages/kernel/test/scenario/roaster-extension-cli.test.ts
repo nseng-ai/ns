@@ -1,6 +1,6 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { resolve, join } from "node:path";
+import { delimiter, resolve, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -106,6 +106,30 @@ async function isolatedHome(): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "sdl-roaster-extension-home-"));
 	tempDirs.push(directory);
 	return directory;
+}
+
+async function isolatedExecutableOnPath(
+	name: string,
+): Promise<{ directory: string; restore: () => void }> {
+	const directory = await mkdtemp(join(tmpdir(), "sdl-roaster-extension-bin-"));
+	tempDirs.push(directory);
+	const executable = join(directory, name);
+	await writeFile(executable, "#!/bin/sh\nexit 0\n");
+	await chmod(executable, 0o755);
+	const previousPath = process.env.PATH;
+	process.env.PATH = [directory, previousPath ?? ""]
+		.filter((entry) => entry !== "")
+		.join(delimiter);
+	return {
+		directory,
+		restore: () => {
+			if (previousPath === undefined) {
+				delete process.env.PATH;
+				return;
+			}
+			process.env.PATH = previousPath;
+		},
+	};
 }
 
 afterEach(async () => {
@@ -256,49 +280,54 @@ describe("Roaster SDL command face", () => {
 
 	test("selected Roaster review run preserves review result when review-log write fails", async () => {
 		const root = repoRoot();
-		const run = runWithFakes({
-			args: [
-				"roaster",
-				"review",
-				"run",
-				"sdl-typescript-style-tripwire",
-				"--model",
-				"haiku",
-				"--base-ref",
-				"main",
-				"--format",
-				"json",
-			],
-			cwd: root,
-			homeDir: await isolatedHome(),
-			state: {
-				exec: [
-					...repoRootResponses(root),
-					{
-						match: isGitDiffAgainstHeadCall,
-						result: { stdout: diffText() },
-					},
-					claudeReviewResponse(),
-					{ match: "git branch --show-current", result: { stdout: "feature/roaster\n" } },
-					{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
-					brmemPutFailureResponse(),
+		const fakeClaude = await isolatedExecutableOnPath("claude");
+		try {
+			const run = runWithFakes({
+				args: [
+					"roaster",
+					"review",
+					"run",
+					"sdl-typescript-style-tripwire",
+					"--model",
+					"haiku",
+					"--base-ref",
+					"main",
+					"--format",
+					"json",
 				],
-			},
-		});
+				cwd: root,
+				homeDir: await isolatedHome(),
+				state: {
+					exec: [
+						...repoRootResponses(root),
+						{
+							match: isGitDiffAgainstHeadCall,
+							result: { stdout: diffText() },
+						},
+						claudeReviewResponse(),
+						{ match: "git branch --show-current", result: { stdout: "feature/roaster\n" } },
+						{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
+						brmemPutFailureResponse(),
+					],
+				},
+			});
 
-		expect(await run.exit, formatRunDiagnostics(run)).toBe(1);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("negative");
-		expect(envelope.data).toMatchObject({
-			reviewName: "sdl-typescript-style-tripwire",
-			model: "haiku",
-			baseRef: "main",
-			count: 0,
-		});
-		expect(run.stderr.join("")).toContain(
-			"resolved model=haiku model_profile=quick base_ref=main changed_paths=1",
-		);
-		expect(run.context.execCalls.map((call) => call.command)).not.toContain("gh");
+			expect(await run.exit, formatRunDiagnostics(run)).toBe(1);
+			const envelope = parseJsonOutput(run);
+			expect(envelope.status).toBe("negative");
+			expect(envelope.data).toMatchObject({
+				reviewName: "sdl-typescript-style-tripwire",
+				model: "haiku",
+				baseRef: "main",
+				count: 0,
+			});
+			expect(run.stderr.join("")).toContain(
+				"resolved model=haiku model_profile=quick base_ref=main changed_paths=1",
+			);
+			expect(run.context.execCalls.map((call) => call.command)).not.toContain("gh");
+		} finally {
+			fakeClaude.restore();
+		}
 	});
 
 	test("hidden Roaster record-findings reads SDL stdin and preserves invalid-JSON failure", async () => {
