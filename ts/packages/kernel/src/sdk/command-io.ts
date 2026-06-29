@@ -4,7 +4,6 @@ import type {
 	SdlExtensionApi,
 	SdlNotifyLevel,
 	SdlOutputStream,
-	SdlProgress,
 } from "sdl-sdk";
 
 export interface SdlExtensionCommandIoOptions {
@@ -48,16 +47,7 @@ export interface CommandIoChannels {
 	shouldSuppress?: boolean;
 }
 
-export const noopSdlCommandIo: SdlCommandIo = {
-	phase: () => {},
-	notify: () => {},
-	message: () => {},
-	clearPhase: () => {},
-};
-
-export const noopSdlProgress: SdlProgress = {
-	phase: () => {},
-};
+export { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 
 export async function runWithSdlCommandIo<T>(
 	io: SdlCommandIo,

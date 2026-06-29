@@ -1,9 +1,4 @@
-import {
-	formatCommand,
-	type CommandRunner,
-	type ExecOptions,
-	type ExecResult,
-} from "@sdl/core/command";
+import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;

@@ -31,6 +31,13 @@ export interface SdlCommandIo {
 	clearPhase(): void;
 }
 
+export const noopSdlCommandIo: SdlCommandIo = {
+	phase: () => {},
+	notify: () => {},
+	message: () => {},
+	clearPhase: () => {},
+};
+
 export type SdlProgressPhaseEvent =
 	| { type: "phase-started"; phaseKey: string; label?: string }
 	| { type: "phase-progress"; phaseKey: string; label: string }
@@ -42,3 +49,7 @@ export type SdlProgressPhaseListener = (event: SdlProgressPhaseEvent) => void;
 export interface SdlProgress {
 	phase(event: SdlProgressPhaseEvent): void;
 }
+
+export const noopSdlProgress: SdlProgress = {
+	phase: () => {},
+};

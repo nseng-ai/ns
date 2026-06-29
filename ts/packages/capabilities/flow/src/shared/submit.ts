@@ -1,7 +1,6 @@
-import type { CommandRunner } from "@sdl/exec";
-import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
-import { RealGitGateway } from "@sdl/git";
 import { createSdlCommandRunner } from "@sdl/capability-kit";
+import { createSdlGitGateway } from "@sdl/capability-kit/git";
+import type { CommandRunner } from "@sdl/exec";
 import {
 	RealGithubPrGateway,
 	RealSubmitGateway,
@@ -34,7 +33,7 @@ export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
 		prDescription: {
 			githubPr: new RealGithubPrGateway(commandRunner),
 			textGenerator: ctx.textGenerator,
-			git: new RealGitGateway(new SdlCommandExecApi(ctx)),
+			git: createSdlGitGateway(ctx),
 			env: ctx.env,
 		},
 	};

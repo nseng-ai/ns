@@ -1,6 +1,7 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@sdl/brmem";
 import { usageError, type ClinkrExit, type ClinkrInteraction } from "@sdl/clinkr";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type {
 	ExecResult,
 	SdlCommand,
@@ -34,13 +35,8 @@ export class FakeHandoffSdlApi implements SdlExtensionApi {
 		options: SdlExecOptions | undefined;
 	}> = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = {
-		phase: () => {},
-		notify: () => {},
-		message: () => {},
-		clearPhase: () => {},
-	};
-	readonly progress = { phase: () => {} };
+	readonly commandIo = noopSdlCommandIo;
+	readonly progress = noopSdlProgress;
 	readonly stderr: (text: string) => void;
 
 	constructor(options: FakeHandoffSdlApiOptions = {}) {
