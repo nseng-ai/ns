@@ -63,13 +63,20 @@
     `@sdl/capability-kit`; no new `@sdl/capability-kit/graphite` or `@sdl/capability-kit/cmux` seam
     was introduced.
 
-- [ ] Move the SDK-provided services: place `command-io` and `progress-phase` interfaces in
+- [x] Move the SDK-provided services: place `command-io` and `progress-phase` interfaces in
       `sdl-sdk`, hide their implementations in the kernel, route capability access through
       `ctx`, and repoint `flow`'s direct `progress-phase` import.
-  - Design evidence: ADR 0021 chooses narrow explicit SDK services (`ctx.commandIo?: SdlCommandIo`
-    and `ctx.progress?: SdlProgress`) with SDK-owned command/progress types, existing low-level
-    output hooks retained as compatibility primitives, and kernel/host-owned command I/O factories.
-    The next slice should implement that shape and delete both old `@sdl/core` doors atomically.
+  - Design evidence: ADR 0021 chooses narrow explicit SDK services (`ctx.commandIo: SdlCommandIo`
+    and `ctx.progress: SdlProgress`) with SDK-owned command/progress types, existing low-level output
+    hooks retained as compatibility primitives, and kernel/host-owned command I/O factories.
+  - Evidence: `sdl-sdk` owns and exports `SdlCommandIo`, `SdlCommandMessageOptions`,
+    `SdlNotifyLevel`, `SdlProgress`, `SdlProgressPhaseEvent`, and `SdlProgressPhaseListener`;
+    `SdlExtensionApi` requires `commandIo` and `progress`; kernel real/CLI contexts populate both;
+    Flow/CCC/Pi consumers use SDK types plus the kernel command-I/O adapter; the former core source
+    files, tests, and package exports for command I/O and progress phase are deleted. Validation passed:
+    `just ts-deps-check`, `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`,
+    `just ts-test-integration`, and `just dprint-check`. Source search found no
+    `@sdl/core/(command-io|progress-phase)` references.
 
 - [ ] Re-home the runtime harness and residual subpaths: move `cli-entry` to its
       kernel/neutral-runtime home; confirm `runner-usage` is I/O-free and keep it a `@sdl/core`

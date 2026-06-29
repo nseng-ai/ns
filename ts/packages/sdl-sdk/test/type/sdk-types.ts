@@ -2,8 +2,14 @@ import { defineExtension, failed, ok, z } from "sdl-sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
+	SdlCommandIo,
+	SdlCommandMessageOptions,
 	SdlCommandRequest,
 	SdlExtensionApi,
+	SdlNotifyLevel,
+	SdlProgress,
+	SdlProgressPhaseEvent,
+	SdlProgressPhaseListener,
 	SdlResult,
 	TextGenerationRequest,
 	TextGenerationResult,
@@ -67,8 +73,21 @@ const execResult: ExecResult = { code: 0, stdout: "ok", stderr: "", killed: fals
 const commandOk: boolean = execResult.code === 0 && !execResult.killed;
 const successfulResult: SdlResult = ok("done");
 const failedResult: SdlResult = failed("nope", 2);
+const notifyLevel: SdlNotifyLevel = "info";
+const messageOptions: SdlCommandMessageOptions = { level: notifyLevel, details: { ok: true } };
+const commandIo: SdlCommandIo = {
+	phase: () => {},
+	notify: () => {},
+	message: () => {},
+	clearPhase: () => {},
+};
+const progressEvent: SdlProgressPhaseEvent = { type: "phase-started", phaseKey: "test" };
+const progressListener: SdlProgressPhaseListener = (_event) => {};
+const progress: SdlProgress = { phase: progressListener };
 
 function acceptsExtensionApi(api: SdlExtensionApi): string {
+	api.commandIo.notify("checked");
+	api.progress.phase(progressEvent);
 	return api.cwd;
 }
 
@@ -80,4 +99,7 @@ void textGenerator;
 void commandOk;
 void successfulResult;
 void failedResult;
+void messageOptions;
+void commandIo;
+void progress;
 void acceptsExtensionApi;

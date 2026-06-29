@@ -138,6 +138,13 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
+				commandIo: {
+					phase: () => {},
+					notify: () => {},
+					message: () => {},
+					clearPhase: () => {},
+				},
+				progress: { phase: () => {} },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -181,6 +188,13 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
+				commandIo: {
+					phase: () => {},
+					notify: () => {},
+					message: () => {},
+					clearPhase: () => {},
+				},
+				progress: { phase: () => {} },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -431,6 +445,13 @@ export default defineExtension({
 			{
 				cwd: workspace.cwd,
 				env: {},
+				commandIo: {
+					phase: () => {},
+					notify: () => {},
+					message: () => {},
+					clearPhase: () => {},
+				},
+				progress: { phase: () => {} },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},

@@ -105,6 +105,13 @@ function createFakeApi(results: readonly ExecResult[]): {
 		api: {
 			cwd: "/repo",
 			env: {},
+			commandIo: {
+				phase: () => {},
+				notify: () => {},
+				message: () => {},
+				clearPhase: () => {},
+			},
+			progress: { phase: () => {} },
 			textGenerator: {
 				async generateText() {
 					return { ok: false, error: "unexpected model call" };

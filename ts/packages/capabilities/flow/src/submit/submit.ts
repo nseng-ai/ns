@@ -39,7 +39,7 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { ProgressPhaseEvent, ProgressPhaseListener } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "sdl-sdk";
 
 const SUBMIT_BASE_ARGS = [
 	"submit",
@@ -222,7 +222,7 @@ export interface RunSubmitCommandOptions {
 	shouldForwardCommandOutput?: boolean;
 	onOutput?: SubmitOutputListener;
 	/** Typed phase sequencing for a presentation driver. Separate channel from the raw `onOutput`. */
-	onPhase?: ProgressPhaseListener;
+	onPhase?: SdlProgressPhaseListener;
 	confirmRestack?: SubmitRestackConfirmation;
 	prDescription: SubmitPrDescriptionOptions;
 }
@@ -678,7 +678,7 @@ function optionalOutputListenerParam(
 
 function emitPhase(
 	options: Pick<RunSubmitCommandOptions, "onPhase">,
-	event: ProgressPhaseEvent,
+	event: SdlProgressPhaseEvent,
 ): void {
 	options.onPhase?.(event);
 }

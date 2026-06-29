@@ -1,4 +1,5 @@
-import { createCommandIo, type CommandIo } from "@sdl/core/command-io";
+import { createCommandIo } from "@sdl/kernel/command-io";
+import type { SdlCommandIo } from "sdl-sdk";
 import { type ExecResult, formatCommand, runNormalizedExecResult } from "@sdl/exec";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import {
@@ -30,17 +31,17 @@ interface LandStackCommandStreamOptions {
 }
 
 /**
- * Builds the Pi-slash-command CommandIo for land orchestration. Transient
+ * Builds the Pi-slash-command SdlCommandIo for land orchestration. Transient
  * running-command status maps to the Pi status footer; durable command-stream
  * entries become `COMMAND_STREAM_MESSAGE_TYPE` custom scrollback messages (with
  * optional PR-link details) rendered by `registerLandStackRenderer`. CLI surfaces
- * build a text-only CommandIo instead (see `createCccCliCommandIo`), so the same
+ * build a text-only SdlCommandIo instead (see `createCccCliCommandIo`), so the same
  * `LandStackCommandStream` emission path serves both without per-call branching.
  */
 export function createLandUiCommandIo(
 	pi: Pick<LandStackExtensionAPI, "sendMessage">,
 	ctx: Pick<LandStackCommandContext, "ui">,
-): CommandIo {
+): SdlCommandIo {
 	return createCommandIo({
 		phaseSticky: (value) => ctx.ui.setStatus(STATUS_KEY, value),
 		notifyUi: (message, level) => ctx.ui.notify(message, level),
@@ -59,13 +60,13 @@ export function createLandUiCommandIo(
 }
 
 export class LandStackCommandStream {
-	private readonly io: CommandIo;
+	private readonly io: SdlCommandIo;
 	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 	private readonly nowMs: () => number;
 	private readonly commandStarts = new Map<string, number>();
 
-	constructor(io: CommandIo, options: LandStackCommandStreamOptions = {}) {
+	constructor(io: SdlCommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
 		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;

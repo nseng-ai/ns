@@ -1,6 +1,6 @@
 import { runCommand } from "@sdl/exec";
 import type { CommandRunner, ExecResult } from "@sdl/exec";
-import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseListener } from "sdl-sdk";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@sdl/capability-kit/text-repair";
@@ -57,7 +57,7 @@ export interface RunCheckpointCommandOptions {
 	gateway: CheckpointGateway;
 	textGenerator: TextGenerator;
 	/** Typed phase sequencing for a presentation driver (inspect → generate → commit). */
-	onPhase?: ProgressPhaseListener;
+	onPhase?: SdlProgressPhaseListener;
 }
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {

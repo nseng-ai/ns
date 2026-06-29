@@ -4,7 +4,8 @@ import {
 	type ParsedAutobranchArgs,
 } from "../autobranch/dirty-worktree.ts";
 import { renderResultBlock } from "@sdl/cli-theme";
-import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
+import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
+import type { SdlCommandIo } from "sdl-sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/kernel/command-io";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
@@ -54,7 +55,7 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
 		const io = commandIoFromSdlExtensionApi(ctx);
-		return await runWithCommandIo(io, async (io) => {
+		return await runWithSdlCommandIo(io, async (io) => {
 			const result = await createAutobranchCheckpointFlow(ctx, args, io);
 			if (result.ok) {
 				for (const warning of result.warnings) {
@@ -125,7 +126,7 @@ type AutobranchCheckpointResult =
 async function createAutobranchCheckpointFlow(
 	ctx: SdlExtensionApi,
 	args: ParsedAutobranchArgs,
-	io: CommandIo,
+	io: SdlCommandIo,
 ): Promise<AutobranchCheckpointResult> {
 	io.phase("Inspecting worktree…");
 	const loaded = await loadFlowPendingWorktreeSnapshot(ctx);

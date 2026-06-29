@@ -388,6 +388,8 @@ interface SdlExtensionApi {
   env: Record<string, string | undefined>;
   exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
   textGenerator: TextGenerator;
+  commandIo: SdlCommandIo;
+  progress: SdlProgress;
   stdout?: ((text: string) => void) | undefined;
   stderr?: ((text: string) => void) | undefined;
   stdin?: (() => Promise<string>) | undefined;
@@ -403,6 +405,8 @@ interface SdlExtensionApi {
 - `env` — environment visible to the command and to shell execution.
 - `exec(command, args, options?)` — low-level argv execution. The command owns exactly which programs it runs. Returns an `ExecResult`.
 - `textGenerator` — the text-generation capability; see [Text generation](#text-generation). The command owns its prompts, validation, and repair policy.
+- `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.
+- `progress` — required structured phase-progress sink. Command authors can call `ctx.progress.phase(event)` with `SdlProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
 - `stdout?` / `stderr?` — durable output hooks for commands that stream multiple chunks before returning. `stdout` is reserved for primary output.
 - `stdin?` — optional full stdin reader for commands that consume a finite payload.
 - `onOutput?` — transient live-progress hook for UI bridges, tagged by `SdlOutputStream`.
@@ -420,6 +424,52 @@ async run(ctx: SdlExtensionApi) {
   return ok(root.stdout.trim());
 }
 ```
+
+### `SdlCommandIo`
+
+Host-adapted human command-output service. It is always present on `SdlExtensionApi`.
+
+```ts
+type SdlNotifyLevel = "info" | "warning" | "error";
+
+interface SdlCommandMessageOptions {
+  level?: SdlNotifyLevel;
+  details?: unknown;
+  isRichOnly?: boolean;
+}
+
+interface SdlCommandIo {
+  phase(message: string): void;
+  notify(message: string, level?: SdlNotifyLevel): void;
+  message(message: string, options?: SdlCommandMessageOptions): void;
+  clearPhase(): void;
+}
+```
+
+- `phase` emits transient human-facing phase text.
+- `notify` emits a terminal human notification.
+- `message` emits durable human-facing scrollback; rich hosts may use `details`, while text-only hosts may render as phase text or drop `isRichOnly` messages.
+- `clearPhase` clears sticky transient phase state where the host has one.
+
+### `SdlProgress`
+
+Structured phase-progress sink. It is always present on `SdlExtensionApi` and may be a no-op in non-interactive hosts.
+
+```ts
+type SdlProgressPhaseEvent =
+  | { type: "phase-started"; phaseKey: string; label?: string }
+  | { type: "phase-progress"; phaseKey: string; label: string }
+  | { type: "phase-done"; phaseKey: string; detail?: string }
+  | { type: "phase-failed"; phaseKey: string; detail: string };
+
+type SdlProgressPhaseListener = (event: SdlProgressPhaseEvent) => void;
+
+interface SdlProgress {
+  phase(event: SdlProgressPhaseEvent): void;
+}
+```
+
+Low-level `stdout`, `stderr`, and `onOutput` hooks remain compatibility primitives for durable stream output and transient live-output bridges. `ctx.commandIo` and `ctx.progress` are the preferred SDK services for command-authored human output and typed progress.
 
 ### `SdlExecOptions`
 

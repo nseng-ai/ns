@@ -3,6 +3,7 @@ import { createInterface } from "node:readline/promises";
 
 import { runCommand } from "@sdl/exec";
 
+import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
 import { PiTextGenerator } from "./sdk/pi-text-generation.ts";
 import type { SdlConfirmPrompt, SdlExtensionApi } from "sdl-sdk";
 import type { TextGenerator } from "sdl-sdk";
@@ -23,10 +24,17 @@ export function createRealSdlCommandContext(
 	const env = options.env ?? process.env;
 	const textGenerator = createTextGenerator();
 	const confirm = createTerminalConfirmPrompt();
+	const stdout = (text: string) => process.stdout.write(text);
+	const stderr = (text: string) => process.stderr.write(text);
+	const commandIo = createCliCommandIo({ stdout, stderr });
 	return {
 		cwd,
 		env,
 		textGenerator,
+		commandIo,
+		progress: noopSdlProgress,
+		stdout,
+		stderr,
 		exec: async (command, args, execOptions = {}) => {
 			const result = await runCommand(command, args, {
 				cwd,

@@ -1,6 +1,8 @@
 import { defineExtension, ok, z } from "sdl-sdk";
 import type {
+	SdlCommandIo,
 	SdlExtensionApi,
+	SdlProgress,
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
@@ -83,8 +85,17 @@ const textGenerator: TextGenerator = {
 		return { ok: true, text: request.prompt };
 	},
 };
+const commandIo: SdlCommandIo = {
+	phase: () => {},
+	notify: () => {},
+	message: () => {},
+	clearPhase: () => {},
+};
+const progress: SdlProgress = { phase: () => {} };
 
 function acceptsExtensionApi(api: SdlExtensionApi): string {
+	api.commandIo.phase("checking");
+	api.progress.phase({ type: "phase-done", phaseKey: "checking" });
 	return api.cwd;
 }
 
@@ -101,6 +112,8 @@ const commandOk: boolean = commandResult.code === 0 && !commandResult.killed;
 void extension;
 void commandlessExtension;
 void textGenerator;
+void commandIo;
+void progress;
 void acceptsExtensionApi;
 void arbitraryOperationRequest;
 void commandOk;
