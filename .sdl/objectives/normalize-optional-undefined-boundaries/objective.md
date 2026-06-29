@@ -49,6 +49,7 @@ Assumptions:
 - The current advisory policy remains advisory: this Objective should improve semantics without turning the pattern into a blanket ban.
 - Public input compatibility matters for CLI deps/options/config and some SDK surfaces; those may legitimately preserve explicit `undefined`.
 - Some external payload mirrors are better left loose unless a separate normalized internal type is introduced.
+- SDLCC stack-map branch tree collections can represent "loaded and empty" as empty arrays; absence no longer carries separate internal meaning for `children`, `slots`, or `cmuxTabs`.
 
 Risks:
 
@@ -61,4 +62,4 @@ Risks:
 
 - Which remaining public SDK surfaces should preserve explicit `undefined` for compatibility, and which should introduce normalized internal types?
 - For PR feedback watch, which fields are true external payload mirrors versus internal watch-state facts that should be required, omitted, or represented by explicit domain variants?
-- For SDLCC stack-map, should empty arrays become required everywhere in the internal tree, or should some absent collections still encode “not loaded”?
+- For SDLCC stack-map follow-up, no open modeling question remains for branch-node collections: empty arrays are the normalized internal representation for loaded-empty `children`, `slots`, and `cmuxTabs`.
