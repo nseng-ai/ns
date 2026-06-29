@@ -267,7 +267,7 @@ async function executeSinglePlanLanding(
 		fullMessage: successSummary,
 		level: completionLevel,
 		uiMessage: formatSuccessNotification(successSummary, {
-			details: commandStreamDetails,
+			...(commandStreamDetails === undefined ? {} : { details: commandStreamDetails }),
 			warnings,
 		}),
 		kind: "success",
@@ -473,7 +473,7 @@ async function executeChunkedStackLanding(
 		fullMessage: successSummary,
 		level: completionLevel,
 		uiMessage: formatSuccessNotification(successSummary, {
-			details: commandStreamDetails,
+			...(commandStreamDetails === undefined ? {} : { details: commandStreamDetails }),
 			warnings,
 		}),
 		kind: "success",

@@ -398,8 +398,8 @@ export function formatFailedTarget(failure: LandStackFailure): string {
 }
 
 export interface FormatSuccessNotificationOptions {
-	details?: CommandStreamMessageDetails | undefined;
-	warnings?: readonly LandingWarning[] | undefined;
+	details?: CommandStreamMessageDetails;
+	warnings?: readonly LandingWarning[];
 }
 
 export function formatSuccessNotification(

@@ -8,16 +8,12 @@ import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "sdl-sdk";
 
 export interface FlowCccCliExecOptions {
-	cwd?: string | undefined;
-	timeout?: number | undefined;
+	cwd?: string;
+	timeout?: number;
 }
 
 export interface FlowCccOperationInput {
-	exec(
-		command: string,
-		args: string[],
-		options?: FlowCccCliExecOptions | undefined,
-	): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: FlowCccCliExecOptions): Promise<ExecResult>;
 }
 
 export interface FlowCccCliRunnerInput extends FlowCccOperationInput {
@@ -27,8 +23,8 @@ export interface FlowCccCliRunnerInput extends FlowCccOperationInput {
 
 export interface RunFlowCccOperationOptions<T> {
 	ctx: SdlExtensionApi;
-	shouldForwardLiveOutput?: boolean | undefined;
-	trustedExec?: CommandExecApi | undefined;
+	shouldForwardLiveOutput?: boolean;
+	trustedExec?: CommandExecApi;
 	run(input: FlowCccOperationInput): Promise<T>;
 }
 
@@ -36,8 +32,8 @@ export interface RunFlowCccCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
-	shouldForwardLiveOutput?: boolean | undefined;
-	trustedExec?: CommandExecApi | undefined;
+	shouldForwardLiveOutput?: boolean;
+	trustedExec?: CommandExecApi;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 

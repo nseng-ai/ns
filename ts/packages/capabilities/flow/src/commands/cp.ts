@@ -93,7 +93,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	onPhase?: ProgressPhaseListener | undefined;
+	onPhase?: ProgressPhaseListener;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {

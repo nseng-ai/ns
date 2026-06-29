@@ -34,7 +34,7 @@ export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
 					exec: io.exec,
 					stdout: io.stdout,
 					stderr: io.stderr,
-					onOutput: ctx.onOutput,
+					...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
 				}),
 		});
 	},

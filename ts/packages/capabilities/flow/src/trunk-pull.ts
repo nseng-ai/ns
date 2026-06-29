@@ -9,7 +9,7 @@ interface TrunkPullCommands {
 	exec(
 		command: string,
 		args: string[],
-		options?: { cwd?: string | undefined; timeout?: number | undefined },
+		options?: { cwd?: string; timeout?: number },
 	): Promise<ExecResult>;
 }
 
