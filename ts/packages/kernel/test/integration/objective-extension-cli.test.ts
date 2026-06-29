@@ -31,6 +31,7 @@ describe("checked-in Objective SDL extension loading", () => {
 		expect(output).toContain("check");
 		expect(output).toContain("archive");
 		expect(output).not.toContain("read-objective");
+		expect(output).not.toContain("tracking-gate");
 		expect(help.stderr.join("")).toBe("");
 	});
 
@@ -97,6 +98,15 @@ describe("checked-in Objective SDL extension loading", () => {
 			"Usage: sdl objective exec load-orientations",
 		);
 		expect(orientationsHelp.stdout.join("")).toContain("Load active Objective orientation files");
+
+		const trackingGateHelp = runWithRealObjectiveExtension({
+			args: ["objective", "exec", "tracking-gate", "--help"],
+			cwd,
+		});
+		expect(await trackingGateHelp.exit).toBe(0);
+		expect(trackingGateHelp.stdout.join("")).toContain(
+			"Usage: sdl objective exec tracking-gate [options] [slug]",
+		);
 	});
 
 	test("exec commands without dedicated coverage preserve their behavior", async () => {

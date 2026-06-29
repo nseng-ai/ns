@@ -20,7 +20,7 @@ Active root: `.sdl/objectives/<slug>/`. Archived records under `.sdl/objective-a
 - `orientation.md`: optional, agent-facing standing rule; present only for cross-cutting Objectives.
 - `closed.md`: optional Closure Marker; existence means closed.
 
-Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `sdl objective exec` for deterministic mechanics like candidate listing, file inventory, and closed-marker detection.
+Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `sdl objective exec` for deterministic mechanics like candidate listing, file inventory, closed-marker detection, and tracking-gate git evidence.
 
 The Objective slug directory is durable identity. Command/product/prose renames do not imply an Objective slug rename.
 
@@ -35,17 +35,31 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 
 ## Tracking Gate
 
-Before recommending work or offering execution:
+Before recommending work or offering execution, run:
 
-1. Inspect uncommitted changes and branch diff when available.
-2. Look for material non-Objective changes that plausibly advance the selected Objective.
-3. Look for corresponding changes under `.sdl/objectives/<slug>/`.
-4. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and repo evidence and re-apply this gate before recommending work or offering execution.
-5. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
-6. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
-7. If evidence is absent or clearly unrelated, proceed with a concise note.
+```sh
+sdl objective exec tracking-gate <slug> --format json
+```
 
-The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into.
+Use the JSON payload as deterministic evidence; do not hand-roll branch-base detection or shell pipelines for this gate. In particular:
+
+- `git.trunkBranch` and `git.revisionRange` are the resolved branch-diff basis.
+- `uncommitted.repository` reports whether the worktree has uncommitted changes.
+- `uncommitted.objective` reports whether the selected Objective record has uncommitted changes.
+- `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.sdl/objectives/<slug>/`.
+- `branchDiff.materialNonObjectivePaths` reports committed branch-diff changes outside that Objective record.
+- `summary.*` gives booleans/nulls for quick gate decisions.
+
+Then:
+
+1. Inspect `materialNonObjectivePaths` plus uncommitted evidence for current-branch or worktree progress that plausibly advances the selected Objective.
+2. Compare with `objectiveChangedPaths` and `uncommitted.objective` to decide whether corresponding Objective tracking appears present.
+3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `sdl objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
+4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
+5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
+6. If evidence is absent or clearly unrelated, proceed with a concise note that names the resolved diff basis (for example `master...HEAD`) and whether material non-Objective paths were present.
+
+The Tracking Gate check itself is read-only. Any file changes during this phase belong only to the explicit `objective-update` workflow that the gate routes into. If the tracking-gate command itself fails because the extension is unavailable or the git evidence cannot be collected, report the failure and ask whether to proceed with a degraded manual read; do not silently fall back to ad hoc shell.
 
 ## Conditional references
 
@@ -71,7 +85,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
-3. Apply the Tracking Gate. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence. If the gate is ambiguous and the user confirms update-and-continue, do the same.
+3. Apply the Tracking Gate by running `sdl objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
 5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
 6. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
