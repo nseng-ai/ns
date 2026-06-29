@@ -8,7 +8,6 @@ import {
 	PLAN_SLUG,
 	START_POINT,
 	expectNoGitOrBrmemCalls,
-	jsonFailure,
 	makeTempDir,
 	parseJson,
 	runWithFakes,
@@ -258,7 +257,17 @@ describe("branch-context CLI parse failures", () => {
 			{ cwd: repoRoot },
 		);
 		expect(await json.exit).toBe(2);
-		expect(json.stdout.join("")).toBe(jsonFailure(message));
+		expect(parseJson(json)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message,
+			data: {
+				code: "invalid-slug",
+				argument: "slug",
+				reason: "Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+			},
+		});
 		expect(json.stderr.join("")).toBe("");
 	});
 });

@@ -185,8 +185,20 @@ export class AttachBranchContextError extends Error {
 	}
 }
 
+export class AttachBranchContextUsageError extends Error {
+	readonly code: string;
+
+	constructor(code: string, message: string) {
+		super(message);
+		this.name = "AttachBranchContextUsageError";
+		this.code = code;
+	}
+}
+
 export class BranchContextNamespaceInvalidError extends Error {
-	readonly code = "branch_context_namespace_invalid";
+	readonly code = "branch-context-namespace-invalid";
+	readonly branch: string;
+	readonly unsupportedKeys: readonly string[];
 
 	constructor(branch: string, unsupportedKeys: readonly string[]) {
 		super(
@@ -198,6 +210,8 @@ export class BranchContextNamespaceInvalidError extends Error {
 			].join("\n"),
 		);
 		this.name = "BranchContextNamespaceInvalidError";
+		this.branch = branch;
+		this.unsupportedKeys = [...unsupportedKeys];
 	}
 }
 
@@ -257,7 +271,10 @@ async function resolveAttachSource(
 ): Promise<{ key: string; sourceFile: string; planSlug?: string }> {
 	if (params.planSlug !== undefined) {
 		if (params.key !== undefined || params.filePath !== undefined) {
-			throw new Error("Pass either --plan <slug> or <key> --file <path>, not both.");
+			throw new AttachBranchContextUsageError(
+				"invalid-attach-source",
+				"Pass either --plan <slug> or <key> --file <path>, not both.",
+			);
 		}
 		const available = await listSavedPlans(pi, planStoreOptions(options));
 		const matches = available.filter((plan) => plan.slug === params.planSlug);
@@ -288,16 +305,21 @@ async function resolveAttachSource(
 		};
 	}
 	if (params.key === undefined || params.filePath === undefined) {
-		throw new Error("Attach requires either --plan <slug> or <key> --file <path>.");
+		throw new AttachBranchContextUsageError(
+			"missing-attach-source",
+			"Attach requires either --plan <slug> or <key> --file <path>.",
+		);
 	}
 	const key = normalizeRequestedBranchContextKey(params.key);
 	if (key === UNSUPPORTED_ATTACHED_PLAN_KEY) {
-		throw new Error(
+		throw new AttachBranchContextUsageError(
+			"unsupported-attach-key",
 			"Legacy branch-context key plan.md is no longer supported; attach the plan under a named Markdown key such as <slug>.md.",
 		);
 	}
 	if (!isSupportedBranchContextPlanKey(key)) {
-		throw new Error(
+		throw new AttachBranchContextUsageError(
+			"unsupported-attach-key",
 			"Branch-context attach keys must be named Markdown plan keys derived from a valid plan slug, such as <slug>.md.",
 		);
 	}
@@ -385,7 +407,7 @@ function assertAttachChangedNamespaceByOneKey(
 		return;
 	}
 	throw new AttachBranchContextError(
-		"branch_context_namespace_invalid",
+		"branch-context-namespace-invalid",
 		[
 			`Branch-context attach did not change namespace by exactly the intended key on branch ${JSON.stringify(options.branch)}.`,
 			`Expected keys: ${formatAvailableKeys([...expectedKeys].sort())}`,

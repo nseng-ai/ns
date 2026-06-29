@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
+import { formatErrorMessage } from "@sdl/core/primitives";
+
 import {
 	getBranchContextPlan,
 	listBranchContextPlans,
@@ -68,6 +70,7 @@ export class NoAttachedBranchContextEntriesError extends Error {
 
 export class AmbiguousBranchContextPlanEntryError extends Error {
 	readonly branch: string;
+	readonly availableKeys: readonly string[];
 
 	constructor(branch: string, availableKeys: readonly string[]) {
 		super(
@@ -81,6 +84,7 @@ export class AmbiguousBranchContextPlanEntryError extends Error {
 		);
 		this.name = "AmbiguousBranchContextPlanEntryError";
 		this.branch = branch;
+		this.availableKeys = [...availableKeys];
 	}
 }
 
@@ -98,6 +102,7 @@ export class UnsupportedBranchContextPlanKeyError extends Error {
 
 export class NoSupportedBranchContextPlanEntriesError extends Error {
 	readonly branch: string;
+	readonly availableKeys: readonly string[];
 
 	constructor(branch: string, availableKeys: readonly string[]) {
 		super(
@@ -111,6 +116,63 @@ export class NoSupportedBranchContextPlanEntriesError extends Error {
 		);
 		this.name = "NoSupportedBranchContextPlanEntriesError";
 		this.branch = branch;
+		this.availableKeys = [...availableKeys];
+	}
+}
+
+export class RequestedBranchContextPlanKeyNotFoundError extends Error {
+	readonly branch: string;
+	readonly key: string;
+	readonly availableKeys: readonly string[];
+	readonly supportedKeys: readonly string[];
+
+	constructor(params: {
+		branch: string;
+		key: string;
+		availableKeys: readonly string[];
+		supportedKeys: readonly string[];
+	}) {
+		super(
+			[
+				`Requested branch-context key \`${params.key}\` was not found on branch \`${params.branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
+				"",
+				"Supported keys:",
+				formatAvailableKeys(params.supportedKeys),
+				"",
+				"Available keys:",
+				formatAvailableKeys(params.availableKeys),
+			].join("\n"),
+		);
+		this.name = "RequestedBranchContextPlanKeyNotFoundError";
+		this.branch = params.branch;
+		this.key = params.key;
+		this.availableKeys = [...params.availableKeys];
+		this.supportedKeys = [...params.supportedKeys];
+	}
+}
+
+export class SavedPlanFallbackLoadError extends Error {
+	readonly branch: string;
+	readonly attachedMessage: string;
+	readonly fallbackMessage: string;
+
+	constructor(params: { branch: string; attachedError: Error; fallbackError: unknown }) {
+		const fallbackMessage = formatErrorMessage(params.fallbackError);
+		super(
+			[
+				"Failed to load an attached branch-context plan and no saved-plan fallback could be loaded.",
+				"",
+				"Attached-plan failure:",
+				params.attachedError.message,
+				"",
+				"Saved-plan fallback failure:",
+				fallbackMessage,
+			].join("\n"),
+		);
+		this.name = "SavedPlanFallbackLoadError";
+		this.branch = params.branch;
+		this.attachedMessage = params.attachedError.message;
+		this.fallbackMessage = fallbackMessage;
 	}
 }
 
@@ -129,17 +191,11 @@ export async function loadBranchContextPlan(
 		try {
 			return await loadSavedPlanFallback(pi, error.branch, options);
 		} catch (fallbackError) {
-			throw new Error(
-				[
-					"Failed to load an attached branch-context plan and no saved-plan fallback could be loaded.",
-					"",
-					"Attached-plan failure:",
-					error.message,
-					"",
-					"Saved-plan fallback failure:",
-					fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-				].join("\n"),
-			);
+			throw new SavedPlanFallbackLoadError({
+				branch: error.branch,
+				attachedError: error,
+				fallbackError,
+			});
 		}
 	}
 }
@@ -280,17 +336,12 @@ export function selectAttachedPlanKey(input: {
 	if (supported.has(key)) {
 		return key;
 	}
-	throw new Error(
-		[
-			`Requested branch-context key \`${key}\` was not found on branch \`${input.branch}\` in namespace \`${BRANCH_CONTEXT_NAMESPACE}\`.`,
-			"",
-			"Supported keys:",
-			formatAvailableKeys(supportedKeys),
-			"",
-			"Available keys:",
-			formatAvailableKeys(availableKeys),
-		].join("\n"),
-	);
+	throw new RequestedBranchContextPlanKeyNotFoundError({
+		branch: input.branch,
+		key,
+		availableKeys,
+		supportedKeys,
+	});
 }
 
 export function buildImplBranchContextPrompt(plan: LoadedAttachedPlan): string {

@@ -9,7 +9,6 @@ import {
 	PLAN_SLUG,
 	SOURCE_BRANCH,
 	START_POINT,
-	jsonFailure,
 	makeTempDir,
 	parseJson,
 	runWithFakes,
@@ -157,7 +156,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-create-failed",
+			data: { code: "unexpected-error" },
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -214,7 +214,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-create-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain(
 			"Created local Git branch but failed to track it with Graphite.",
@@ -269,7 +270,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-create-failed",
+			data: { code: "unexpected-error" },
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -337,7 +339,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-load-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain("Branch Memory list failed.");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
@@ -365,11 +368,72 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-load-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain("Branch Memory get failed.");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
+	});
+
+	test("load reports modeled plan-selection failures", async () => {
+		const repoRoot = await makeTempDir();
+		const branch = "branch-contexts/branch-scoped-plan";
+		const ambiguous = runWithFakes(["exec", "load", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+			brmem: {
+				entries: [
+					{ branch, key: PLAN_KEY, content: "# Plan\n" },
+					{ branch, key: "other-target-plan.md", content: "# Other\n" },
+				],
+			},
+		});
+		expect(await ambiguous.exit).toBe(2);
+		expect(parseJson(ambiguous)).toMatchObject({
+			status: "failure",
+			errorType: "branch-context-load-failed",
+			data: {
+				code: "ambiguous-attached-plan",
+				branch,
+				availableKeys: ["branch-scoped-plan.md", "other-target-plan.md"],
+			},
+		});
+
+		const unsupported = runWithFakes(["exec", "load", "notes", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+			brmem: { entries: [{ branch, key: PLAN_KEY, content: "# Plan\n" }] },
+		});
+		expect(await unsupported.exit).toBe(2);
+		expect(parseJson(unsupported)).toMatchObject({
+			status: "failure",
+			errorType: "branch-context-load-failed",
+			data: { code: "unsupported-attached-plan-key", branch, key: "notes" },
+		});
+
+		const legacyOnly = runWithFakes(["exec", "load", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+			brmem: { entries: [{ branch, key: "plan.md", content: "# Legacy\n" }] },
+		});
+		expect(await legacyOnly.exit).toBe(2);
+		expect(parseJson(legacyOnly)).toMatchObject({
+			status: "failure",
+			errorType: "branch-context-load-failed",
+			data: { code: "no-supported-attached-plans", branch, availableKeys: ["plan.md"] },
+		});
+
+		const noAttached = runWithFakes(["exec", "load", "--format", "json"], {
+			cwd: repoRoot,
+			git: { currentBranch: branch, trunkBranch: "main" },
+		});
+		expect(await noAttached.exit).toBe(2);
+		expect(parseJson(noAttached)).toMatchObject({
+			status: "failure",
+			errorType: "branch-context-load-failed",
+			data: { code: "fallback-resolution-failed", branch },
+		});
 	});
 
 	test("load falls back to the latest saved source-branch plan when no plan is attached", async () => {
@@ -568,7 +632,13 @@ describe("branch-context exec", () => {
 		);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(jsonFailure(message));
+		expect(parseJson(run)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message,
+			data: { code: "invalid-attach-source" },
+		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
@@ -589,7 +659,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-attach-failed",
+			data: { code: "unexpected-error" },
 		});
 		const message = String(payload.message);
 		expect(message).toContain("No saved plan found for slug `missing-plan`.");
@@ -615,7 +686,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-attach-failed",
+			data: { code: "unexpected-error" },
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -633,7 +705,13 @@ describe("branch-context exec", () => {
 		const run = runWithFakes(["exec", "attach", "--format", "json"], { cwd: repoRoot });
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(jsonFailure(message));
+		expect(parseJson(run)).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			errorType: "usageError",
+			message,
+			data: { code: "missing-attach-source" },
+		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});
@@ -683,7 +761,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-attach-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain(
 			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
@@ -733,7 +812,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-check-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain("Branch Memory check failed.");
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: "missing" }]);
@@ -780,7 +860,8 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch-context-error",
+			errorType: "branch-context-delete-failed",
+			data: { code: "unexpected-error" },
 		});
 		expect(String(payload.message)).toContain("Branch Memory delete failed.");
 		expect(run.brmem.deleteEntryCalls).toEqual([{ branch, key: "notes" }]);

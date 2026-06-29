@@ -2,12 +2,16 @@
 
 import { writeFile } from "node:fs/promises";
 
-import { ClinkrGroup, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
+import { ClinkrGroup, failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
 
 import {
+	AttachBranchContextError,
+	AttachBranchContextUsageError,
+	BranchContextNamespaceInvalidError,
 	attachBranchContextEntry,
 	checkBranchContextEntry,
 	deleteBranchContextEntry,
@@ -22,6 +26,12 @@ import {
 	type BranchContextListEvidence,
 } from "./attach.ts";
 import {
+	AmbiguousBranchContextPlanEntryError,
+	NoAttachedBranchContextEntriesError,
+	NoSupportedBranchContextPlanEntriesError,
+	RequestedBranchContextPlanKeyNotFoundError,
+	SavedPlanFallbackLoadError,
+	UnsupportedBranchContextPlanKeyError,
 	buildImplBranchContextPrompt,
 	formatLoadedAttachedPlanEvidence,
 	loadBranchContextPlan,
@@ -36,7 +46,7 @@ import {
 } from "./branch-context-creation.ts";
 import { createRealBranchContextContext, type BranchContextContext } from "./context.ts";
 
-const BRANCH_CONTEXT_ERROR_TYPE = "branch-context-error";
+type BranchContextOperation = "create" | "load" | "attach" | "list" | "check" | "delete";
 
 const createRequestSchema = z.object({
 	slug: z.string().describe("Branch context slug."),
@@ -181,9 +191,15 @@ async function handleCreate(
 	ctx: BranchContextCliContext,
 	request: CreateRequest,
 ): Promise<ClinkrExit<BranchContextData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("create", async () => {
 		const slugError = validatePlanSlug(request.slug);
-		if (slugError !== undefined) throw new Error(`Invalid branch context slug: ${slugError}`);
+		if (slugError !== undefined) {
+			return usageError(`Invalid branch context slug: ${slugError}`, {
+				code: "invalid-slug",
+				argument: "slug",
+				reason: slugError,
+			});
+		}
 		const evidence = await createBranchContextFromFile(
 			ctx.context.commands,
 			{
@@ -203,7 +219,7 @@ async function handleLoad(
 	ctx: BranchContextCliContext,
 	request: LoadRequest,
 ): Promise<ClinkrExit<LoadPlanData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("load", async () => {
 		const requestedKey = request.key;
 		const plan = await loadBranchContextPlan(
 			ctx.context.commands,
@@ -229,7 +245,7 @@ async function handleAttach(
 	ctx: BranchContextCliContext,
 	request: AttachRequest,
 ): Promise<ClinkrExit<AttachData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("attach", async () => {
 		const evidence = await attachBranchContextEntry(
 			ctx.context.commands,
 			{ key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch },
@@ -243,7 +259,7 @@ async function handleList(
 	ctx: BranchContextCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<ListData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("list", async () => {
 		const list = await listBranchContextEntries({ branch: request.branch }, operationOptions(ctx));
 		return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
 	});
@@ -253,7 +269,7 @@ async function handleCheck(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<CheckData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("check", async () => {
 		const evidence = await checkBranchContextEntry(request, operationOptions(ctx));
 		return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
 	});
@@ -263,10 +279,105 @@ async function handleDelete(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<DeleteData>> {
-	return await runClinkrCommand(BRANCH_CONTEXT_ERROR_TYPE, async () => {
+	return await runBranchContextCommand("delete", async () => {
 		const evidence = await deleteBranchContextEntry(request, operationOptions(ctx));
 		return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
 	});
+}
+
+async function runBranchContextCommand<T>(
+	operation: BranchContextOperation,
+	action: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
+	try {
+		return await action();
+	} catch (error) {
+		return branchContextExitFromError(operation, error);
+	}
+}
+
+function branchContextExitFromError(
+	operation: BranchContextOperation,
+	error: unknown,
+): ClinkrExit<never> {
+	if (error instanceof AttachBranchContextUsageError) {
+		return usageError(error.message, { code: error.code });
+	}
+	return failure(branchContextErrorType(operation), formatErrorMessage(error), {
+		code: branchContextErrorCode(error),
+		...branchContextErrorData(error),
+	});
+}
+
+function branchContextErrorType(operation: BranchContextOperation): string {
+	switch (operation) {
+		case "create":
+			return "branch-context-create-failed";
+		case "load":
+			return "branch-context-load-failed";
+		case "attach":
+			return "branch-context-attach-failed";
+		case "list":
+			return "branch-context-list-failed";
+		case "check":
+			return "branch-context-check-failed";
+		case "delete":
+			return "branch-context-delete-failed";
+	}
+}
+
+function branchContextErrorCode(error: unknown): string {
+	if (error instanceof NoAttachedBranchContextEntriesError) return "no-attached-entries";
+	if (error instanceof AmbiguousBranchContextPlanEntryError) return "ambiguous-attached-plan";
+	if (error instanceof UnsupportedBranchContextPlanKeyError) {
+		return "unsupported-attached-plan-key";
+	}
+	if (error instanceof NoSupportedBranchContextPlanEntriesError) {
+		return "no-supported-attached-plans";
+	}
+	if (error instanceof RequestedBranchContextPlanKeyNotFoundError) {
+		return "attached-plan-key-not-found";
+	}
+	if (error instanceof SavedPlanFallbackLoadError) return "fallback-resolution-failed";
+	if (error instanceof BranchContextNamespaceInvalidError) return error.code;
+	if (error instanceof AttachBranchContextError) return normalizeErrorCode(error.code);
+	return "unexpected-error";
+}
+
+function branchContextErrorData(error: unknown): Record<string, unknown> {
+	if (error instanceof NoAttachedBranchContextEntriesError) return { branch: error.branch };
+	if (error instanceof AmbiguousBranchContextPlanEntryError) {
+		return { branch: error.branch, availableKeys: error.availableKeys };
+	}
+	if (error instanceof UnsupportedBranchContextPlanKeyError) {
+		return { branch: error.branch, key: error.key };
+	}
+	if (error instanceof NoSupportedBranchContextPlanEntriesError) {
+		return { branch: error.branch, availableKeys: error.availableKeys };
+	}
+	if (error instanceof RequestedBranchContextPlanKeyNotFoundError) {
+		return {
+			branch: error.branch,
+			key: error.key,
+			availableKeys: error.availableKeys,
+			supportedKeys: error.supportedKeys,
+		};
+	}
+	if (error instanceof SavedPlanFallbackLoadError) {
+		return {
+			branch: error.branch,
+			attachedMessage: error.attachedMessage,
+			fallbackMessage: error.fallbackMessage,
+		};
+	}
+	if (error instanceof BranchContextNamespaceInvalidError) {
+		return { branch: error.branch, unsupportedKeys: error.unsupportedKeys };
+	}
+	return {};
+}
+
+function normalizeErrorCode(code: string): string {
+	return code.replaceAll("_", "-");
 }
 
 function operationOptions(ctx: BranchContextCliContext) {

@@ -177,12 +177,28 @@ async function writePlanFile(
 	return filePath;
 }
 
-function jsonFailure(message: string): string {
-	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "plans-error", message }, null, 2)}\n`;
+function jsonFailure(message: string, errorType: string): string {
+	return `${JSON.stringify(
+		{ status: "failure", exitCode: 2, errorType, message, data: { code: "unexpected-error" } },
+		null,
+		2,
+	)}\n`;
 }
 
-function jsonNegative(message: string): string {
-	return `${JSON.stringify({ status: "negative", exitCode: 1, message }, null, 2)}\n`;
+function jsonNegative(message: string, data?: Record<string, unknown>): string {
+	return `${JSON.stringify(
+		{ status: "negative", exitCode: 1, message, ...(data === undefined ? {} : { data }) },
+		null,
+		2,
+	)}\n`;
+}
+
+function jsonUsageError(message: string, data: Record<string, unknown>): string {
+	return `${JSON.stringify(
+		{ status: "usageError", exitCode: 2, errorType: "usageError", message, data },
+		null,
+		2,
+	)}\n`;
 }
 
 function jsonSuccess(data: Record<string, unknown>): string {
@@ -448,7 +464,10 @@ describe("plans exec save pins", () => {
 		]);
 		expect(await neitherJson.exit).toBe(2);
 		expect(neitherJson.stdout.join("")).toBe(
-			jsonFailure("Pass exactly one of --stdin or --content-file <path>."),
+			jsonUsageError("Pass exactly one of --stdin or --content-file <path>.", {
+				code: "invalid-save-input",
+				requiredExactlyOneOf: ["--stdin", "--content-file"],
+			}),
 		);
 	});
 
@@ -467,7 +486,13 @@ describe("plans exec save pins", () => {
 		const run = await runWithFakes(["exec", "save", "--slug", slug, "--stdin", "--format", "json"]);
 
 		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(jsonFailure(`Invalid saved plan slug: ${message}`));
+		expect(run.stdout.join("")).toBe(
+			jsonUsageError(`Invalid saved plan slug: ${message}`, {
+				code: "invalid-slug",
+				argument: "slug",
+				reason: message,
+			}),
+		);
 	});
 
 	test("accepts single-dash flag value before slug validation fails", async () => {
@@ -483,8 +508,13 @@ describe("plans exec save pins", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe(
-			jsonFailure(
+			jsonUsageError(
 				"Invalid saved plan slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+				{
+					code: "invalid-slug",
+					argument: "slug",
+					reason: "Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
+				},
 			),
 		);
 		// PINNED QUIRK (clinkr-migration): parseFlagValue rejects --values but accepts single-dash values.
@@ -638,8 +668,9 @@ describe("plans exec save pins", () => {
 		expect(await missingJson.exit).toBe(2);
 		expect(parseJson(missingJson)).toMatchObject({
 			exitCode: 2,
-			errorType: "plans-error",
+			errorType: "saved-plan-write-failed",
 			message: expect.stringContaining("ENOENT"),
+			data: { code: "unexpected-error" },
 		});
 	});
 });
@@ -676,7 +707,10 @@ describe("plans exec resolve pins", () => {
 		);
 		expect(await relativePath.exit).toBe(2);
 		expect(relativePath.stdout.join("")).toBe(
-			jsonFailure("Plan file path must be absolute or home-relative; got relative-plan.md."),
+			jsonFailure(
+				"Plan file path must be absolute or home-relative; got relative-plan.md.",
+				"saved-plan-resolution-failed",
+			),
 		);
 
 		const missing = await runWithFakes(
@@ -687,6 +721,7 @@ describe("plans exec resolve pins", () => {
 		expect(missing.stdout.join("")).toBe(
 			jsonFailure(
 				`Plan file does not exist or is not accessible: ${join(fixture.repoRoot, "missing.md")}`,
+				"saved-plan-resolution-failed",
 			),
 		);
 
@@ -696,7 +731,10 @@ describe("plans exec resolve pins", () => {
 		);
 		expect(await directory.exit).toBe(2);
 		expect(directory.stdout.join("")).toBe(
-			jsonFailure(`Plan file must be a regular file: ${fixture.repoRoot}`),
+			jsonFailure(
+				`Plan file must be a regular file: ${fixture.repoRoot}`,
+				"saved-plan-resolution-failed",
+			),
 		);
 
 		const insidePath = join(fixture.repoRoot, "inside-plan.md");
@@ -710,6 +748,7 @@ describe("plans exec resolve pins", () => {
 		expect(inside.stdout.join("")).toBe(
 			jsonFailure(
 				`Plan file must be outside the repository; got ${insidePath} inside ${fixture.repoRoot}.`,
+				"saved-plan-resolution-failed",
 			),
 		);
 	});
@@ -848,6 +887,7 @@ describe("plans exec resolve pins", () => {
 					`Branch path segment: ${fixture.branchKey}`,
 					"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
 				].join("\n"),
+				{ code: "missing-directory", directoryPath: directory },
 			),
 		);
 	});

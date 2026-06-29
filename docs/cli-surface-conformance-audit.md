@@ -20,6 +20,15 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > point-in-time evidence — read them against the current convention. The
 > kebab-case migration has since been applied across the CLI surface and is
 > enforced by the `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard.
+>
+> **Current status note (2026-06-29):** historical row 12's generic Branch Context /
+> Plans wrappers have since been remediated in current source. `branch-context` now
+> emits operation-level failure types such as `branch-context-load-failed` and
+> `branch-context-attach-failed`, while Plans emits types such as
+> `saved-plan-write-failed` and `saved-plan-resolution-failed`; both surfaces carry
+> structured recovery data (`data.code` plus command-specific fields) and use
+> `usageError(...)` / structured `negative(...)` where appropriate. Historical
+> file:line anchors below may have drifted and remain point-in-time evidence.
 
 ## Scope and method
 
