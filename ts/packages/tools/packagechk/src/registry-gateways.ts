@@ -1,4 +1,6 @@
 import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
+import type { TimerScheduler } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/core/timers";
 
 import {
 	availableResult,
@@ -35,6 +37,7 @@ export interface RegistryHttpResponse {
 export type RegistryResponseFetcher = (
 	url: string,
 	timeoutMs: number,
+	timers?: TimerScheduler,
 ) => Promise<RegistryHttpResponse>;
 
 interface Metadata {
@@ -51,6 +54,14 @@ interface RegistryCheckConfig {
 	metadata(lookupName: string, jsonBody: Record<string, unknown> | null): Metadata;
 	unexpectedStatusMessage(statusCode: number): string;
 	lookupFailedMessage(error: unknown): string;
+}
+
+interface RunRegistryCheckOptions {
+	config: RegistryCheckConfig;
+	packageName: string;
+	responseFetcher: RegistryResponseFetcher;
+	timeoutMs: number;
+	timers: TimerScheduler;
 }
 
 const PYPI_REGISTRY_CHECK = {
@@ -99,19 +110,28 @@ const REGISTRY_LABELS = {
 export class RealPackageRegistryGateway implements PackageRegistryGateway {
 	private readonly responseFetcher: RegistryResponseFetcher;
 	private readonly timeoutMs: number;
+	private readonly timers: TimerScheduler;
 
-	constructor(options: { responseFetcher?: RegistryResponseFetcher; timeoutMs?: number } = {}) {
+	constructor(
+		options: {
+			responseFetcher?: RegistryResponseFetcher;
+			timeoutMs?: number;
+			timers?: TimerScheduler;
+		} = {},
+	) {
 		this.responseFetcher = options.responseFetcher ?? fetchRegistryResponse;
 		this.timeoutMs = options.timeoutMs ?? 5000;
+		this.timers = options.timers ?? systemTimerScheduler;
 	}
 
 	async check(registry: Registry, packageName: string): Promise<RegistryCheckResult> {
-		return await runRegistryCheck(
-			REGISTRY_CHECKS[registry],
+		return await runRegistryCheck({
+			config: REGISTRY_CHECKS[registry],
 			packageName,
-			this.responseFetcher,
-			this.timeoutMs,
-		);
+			responseFetcher: this.responseFetcher,
+			timeoutMs: this.timeoutMs,
+			timers: this.timers,
+		});
 	}
 }
 
@@ -148,12 +168,8 @@ function fakeResultKey(registry: Registry, packageName: string): string {
 	return `${registry}:${packageName}`;
 }
 
-async function runRegistryCheck(
-	config: RegistryCheckConfig,
-	packageName: string,
-	responseFetcher: RegistryResponseFetcher,
-	timeoutMs: number,
-): Promise<RegistryCheckResult> {
+async function runRegistryCheck(options: RunRegistryCheckOptions): Promise<RegistryCheckResult> {
+	const { config, packageName, responseFetcher, timeoutMs, timers } = options;
 	const lookupName = config.lookupName(packageName);
 	const validationError = config.validate(packageName);
 	if (validationError !== null) {
@@ -164,7 +180,7 @@ async function runRegistryCheck(
 		});
 	}
 	try {
-		const response = await responseFetcher(config.url(lookupName), timeoutMs);
+		const response = await responseFetcher(config.url(lookupName), timeoutMs, timers);
 		if (response.statusCode === 200) {
 			const metadata = config.metadata(lookupName, response.jsonBody);
 			return takenResult(config.registry, { inputName: packageName, lookupName, ...metadata });
@@ -197,9 +213,10 @@ function toReadonlyMap<T>(
 async function fetchRegistryResponse(
 	url: string,
 	timeoutMs: number,
+	timers: TimerScheduler = systemTimerScheduler,
 ): Promise<RegistryHttpResponse> {
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+	const timeout = timers.setTimeout(() => controller.abort(), timeoutMs);
 	try {
 		const response = await fetch(url, {
 			headers: { Accept: "application/json", "User-Agent": "packagechk/0.1" },
@@ -219,7 +236,7 @@ async function fetchRegistryResponse(
 		}
 		return { statusCode: response.status, jsonBody };
 	} finally {
-		clearTimeout(timeout);
+		timeout.cancel();
 	}
 }
 

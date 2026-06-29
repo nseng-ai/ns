@@ -1,4 +1,4 @@
-import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { TimerScheduler, type ScheduledTimer } from "@sdl/core/timers";
 
 export function unrefTimer(
 	timer: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>,
@@ -14,12 +14,22 @@ export function unrefTimer(
  * difference from `@sdl/core`'s `systemTimerScheduler`, whose consumers are
  * short-lived awaited timeouts that intentionally do not unref.
  */
-export const unrefTimerScheduler: TimerScheduler = {
-	setTimeout(callback, delayMs): ScheduledTimer {
+class UnrefTimerScheduler extends TimerScheduler {
+	setTimeout(callback: () => void, delayMs: number): ScheduledTimer {
 		const timeout = setTimeout(callback, delayMs);
 		unrefTimer(timeout);
 		return {
 			cancel: () => clearTimeout(timeout),
 		};
-	},
-};
+	}
+
+	setInterval(callback: () => void, delayMs: number): ScheduledTimer {
+		const interval = setInterval(callback, delayMs);
+		unrefTimer(interval);
+		return {
+			cancel: () => clearInterval(interval),
+		};
+	}
+}
+
+export const unrefTimerScheduler: TimerScheduler = new UnrefTimerScheduler();

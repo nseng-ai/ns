@@ -14,7 +14,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 } from "../exec.ts";
-import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
+import { TimerScheduler, type ScheduledTimer } from "../timers.ts";
 export interface TextGenerationRequest {
 	modelRef: string;
 	system: string;
@@ -393,6 +393,7 @@ export function createManualClock(startMs: number): ManualClock {
 	};
 }
 
+// Narrow scheduler-only convenience; delegates to the harness so manual timer behavior has one implementation.
 export function createManualTimerScheduler(): ManualTimerScheduler {
 	return createManualTimerHarness();
 }
@@ -406,6 +407,10 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 		timer.hasFired = true;
 		currentMs = timer.dueMs;
 		timer.callback();
+		if (timer.kind === "interval" && !timer.isCancelled) {
+			timer.hasFired = false;
+			timer.dueMs = validateFiniteMs(currentMs + timer.intervalMs, "dueMs");
+		}
 	}
 
 	function nextPendingTimer(): ManualScheduledTimerState | undefined {
@@ -423,6 +428,16 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 		return earliest;
 	}
 
+	const timers = new ManualTimerSchedulerImpl({
+		nowMs: () => currentMs,
+		allocateId: () => {
+			const id = nextId;
+			nextId += 1;
+			return id;
+		},
+		pushTimer: (timer) => scheduledTimers.push(timer),
+	});
+
 	return {
 		clock: {
 			nowMs: () => currentMs,
@@ -430,25 +445,7 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 		nowMs() {
 			return currentMs;
 		},
-		timers: {
-			setTimeout(callback, delayMs): ScheduledTimer {
-				const normalizedDelayMs = Math.max(0, validateFiniteMs(delayMs, "delayMs"));
-				const timer: ManualScheduledTimerState = {
-					id: nextId,
-					dueMs: validateFiniteMs(currentMs + normalizedDelayMs, "dueMs"),
-					callback,
-					isCancelled: false,
-					hasFired: false,
-				};
-				nextId += 1;
-				scheduledTimers.push(timer);
-				return {
-					cancel() {
-						timer.isCancelled = true;
-					},
-				};
-			},
-		},
+		timers,
 		advanceMs(deltaMs) {
 			const targetMs = validateFiniteMs(currentMs + validateDeltaMs(deltaMs), "targetMs");
 			let nextTimer = nextPendingTimer();
@@ -586,12 +583,75 @@ export async function withTempRepoSkill<T>(
 	}
 }
 
-interface ManualScheduledTimerState {
+class ManualTimerSchedulerImpl extends TimerScheduler {
+	private readonly options: ManualTimerSchedulerImplOptions;
+
+	constructor(options: ManualTimerSchedulerImplOptions) {
+		super();
+		this.options = options;
+	}
+
+	setTimeout(callback: () => void, delayMs: number): ScheduledTimer {
+		const normalizedDelayMs = Math.max(0, validateFiniteMs(delayMs, "delayMs"));
+		const timer: ManualScheduledTimerState = {
+			kind: "timeout",
+			id: this.options.allocateId(),
+			dueMs: validateFiniteMs(this.options.nowMs() + normalizedDelayMs, "dueMs"),
+			callback,
+			isCancelled: false,
+			hasFired: false,
+		};
+		this.options.pushTimer(timer);
+		return {
+			cancel() {
+				timer.isCancelled = true;
+			},
+		};
+	}
+
+	setInterval(callback: () => void, delayMs: number): ScheduledTimer {
+		const normalizedDelayMs = Math.max(1, validateFiniteMs(delayMs, "delayMs"));
+		const timer: ManualScheduledTimerState = {
+			kind: "interval",
+			id: this.options.allocateId(),
+			dueMs: validateFiniteMs(this.options.nowMs() + normalizedDelayMs, "dueMs"),
+			intervalMs: normalizedDelayMs,
+			callback,
+			isCancelled: false,
+			hasFired: false,
+		};
+		this.options.pushTimer(timer);
+		return {
+			cancel() {
+				timer.isCancelled = true;
+			},
+		};
+	}
+}
+
+interface ManualTimerSchedulerImplOptions {
+	nowMs(): number;
+	allocateId(): number;
+	pushTimer(timer: ManualScheduledTimerState): void;
+}
+
+type ManualScheduledTimerState = ManualTimeoutState | ManualIntervalState;
+
+interface ManualTimerStateBase {
 	readonly id: number;
-	readonly dueMs: number;
 	readonly callback: () => void;
+	dueMs: number;
 	isCancelled: boolean;
 	hasFired: boolean;
+}
+
+interface ManualTimeoutState extends ManualTimerStateBase {
+	readonly kind: "timeout";
+}
+
+interface ManualIntervalState extends ManualTimerStateBase {
+	readonly kind: "interval";
+	readonly intervalMs: number;
 }
 
 function isPendingTimer(timer: ManualScheduledTimerState): boolean {

@@ -235,7 +235,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		const retryDelaysMs = params.retryDelaysMs ?? [];
 		for (const [attemptIndex, retryDelayMs] of [...retryDelaysMs, undefined].entries()) {
 			if (attemptIndex > 0) {
-				await sleepWithTimers(this.timers, retryDelaysMs[attemptIndex - 1] ?? 0);
+				await this.timers.delay(retryDelaysMs[attemptIndex - 1] ?? 0);
 			}
 
 			const result = await this.runGh(params.args, params.cwd, VIEW_TIMEOUT_MS);
@@ -343,10 +343,4 @@ function parseJson(text: string): unknown {
 		// Malformed gh JSON is converted to a gateway parse failure by the caller.
 		return undefined;
 	}
-}
-
-async function sleepWithTimers(timers: TimerScheduler, ms: number): Promise<void> {
-	await new Promise<void>((resolve) => {
-		timers.setTimeout(resolve, ms);
-	});
 }

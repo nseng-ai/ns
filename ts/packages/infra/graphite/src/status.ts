@@ -14,6 +14,8 @@ import {
 } from "./metadata.ts";
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/core/git";
 import { isRecord } from "@sdl/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/core/timers";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",
@@ -73,6 +75,7 @@ export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	signal?: AbortSignal | undefined;
 	timeoutMs?: number | undefined;
 	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
+	timers?: TimerScheduler | undefined;
 	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
 }
 
@@ -125,15 +128,16 @@ export async function loadGraphiteMetadataStatusInWorker(
 	const worker = acquired.worker;
 
 	const timeoutMs = options.timeoutMs ?? GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS;
+	const timers = options.timers ?? systemTimerScheduler;
 	return new Promise((resolve) => {
 		let finished = false;
-		let timeout: ReturnType<typeof setTimeout> | undefined;
+		let timeout: ScheduledTimer | undefined;
 		let abortListener: (() => void) | undefined;
 
 		function finish(status: GraphiteMetadataStatus, mode: GraphiteMetadataWorkerFinishMode): void {
 			if (finished) return;
 			finished = true;
-			if (timeout !== undefined) clearTimeout(timeout);
+			if (timeout !== undefined) timeout.cancel();
 			if (abortListener !== undefined) options.signal?.removeEventListener("abort", abortListener);
 			worker.onmessage = null;
 			worker.onerror = null;
@@ -173,7 +177,7 @@ export async function loadGraphiteMetadataStatusInWorker(
 			finish(unavailableFromWorker(input, "read-timeout"), "terminate");
 			return;
 		}
-		timeout = setTimeout(() => {
+		timeout = timers.setTimeout(() => {
 			emitWorkerDiagnostic(options, { type: "worker-timeout", timeoutMs });
 			finish(unavailableFromWorker(input, "read-timeout"), "terminate");
 		}, timeoutMs);

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
+import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
 export const DEFAULT_HARNESS = "codex-pi";
@@ -247,11 +248,11 @@ async function withSpinner<T>(
 	};
 
 	render();
-	const timer = setInterval(render, 120);
+	const timer = unrefTimerScheduler.setInterval(render, 120);
 	try {
 		return await operation();
 	} finally {
-		clearInterval(timer);
+		timer.cancel();
 		clearProgress(ctx, spinnerKey);
 	}
 }

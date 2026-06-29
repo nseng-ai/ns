@@ -1,3 +1,6 @@
+import type { TimerScheduler } from "./timers.ts";
+import { systemTimerScheduler } from "./timers.ts";
+
 const MAX_ATTEMPTS = 2;
 const DEFAULT_ATTEMPT_PROGRESS_HEARTBEAT_MS = 5_000;
 
@@ -35,6 +38,7 @@ export interface PrepareRepairedTextOptions<T> {
 	}) => string;
 	onProgress?: (event: TextRepairProgressEvent) => void;
 	progressHeartbeatMs?: number;
+	timers?: TimerScheduler;
 }
 
 export async function prepareRepairedText<T>(
@@ -98,9 +102,10 @@ function startAttemptProgressHeartbeat<T>(
 	if (heartbeatMs <= 0) return undefined;
 
 	let elapsedMs = 0;
-	const timer = setInterval(() => {
+	const timers = options.timers ?? systemTimerScheduler;
+	const timer = timers.setInterval(() => {
 		elapsedMs += heartbeatMs;
 		options.onProgress?.({ type: "attempt_waiting", attempt, maxAttempts, elapsedMs });
 	}, heartbeatMs);
-	return () => clearInterval(timer);
+	return () => timer.cancel();
 }

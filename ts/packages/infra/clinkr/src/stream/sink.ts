@@ -12,8 +12,7 @@
 // Determinism comes from two injected seams: a `StreamClock` (so tests record/advance dwell instead of
 // sleeping) and a `StreamWriter` (so tests capture emitted strings instead of touching `process.stdout`).
 
-import { setTimeout as delay } from "node:timers/promises";
-
+import { systemTimerScheduler } from "@sdl/core/timers";
 import { createLogUpdate } from "log-update";
 
 import { stripAnsi } from "../ansi.ts";
@@ -41,10 +40,10 @@ export interface StreamClock {
 	sleep(ms: number): Promise<void>;
 }
 
-/** The real clock, backed by `node:timers/promises`. */
+/** The real clock, backed by SDL's timer scheduler seam. */
 export const systemStreamClock: StreamClock = {
 	async sleep(ms: number): Promise<void> {
-		await delay(ms);
+		await systemTimerScheduler.delay(ms);
 	},
 };
 

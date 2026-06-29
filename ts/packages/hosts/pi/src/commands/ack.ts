@@ -1,3 +1,4 @@
+import { unrefTimerScheduler } from "../shared/timers.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
@@ -324,8 +325,7 @@ function emitStatusAck(params: EmitStatusAckOptions): void {
 	const setStatus = ctx.ui?.setStatus;
 	if (setStatus === undefined) return;
 	setStatus(key, message);
-	const timer = setTimeout(() => setStatus(key, startedMessage), clearDelayMs);
-	timer.unref?.();
+	unrefTimerScheduler.setTimeout(() => setStatus(key, startedMessage), clearDelayMs);
 }
 
 function markAcknowledged(ctx: unknown, commandName: string): boolean {
