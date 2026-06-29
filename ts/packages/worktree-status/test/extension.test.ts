@@ -340,9 +340,23 @@ describe("worktree status extension registration and rendering", () => {
 			pi.assertDone();
 			expect(footerFactory).toBeDefined();
 			if (footerFactory === undefined) throw new Error("expected custom footer factory");
+			const footerTheme = {
+				...TEST_THEME,
+				fg(color, value) {
+					const code =
+						color === "accent"
+							? "36"
+							: color === "error"
+								? "31"
+								: color === "warning"
+									? "33"
+									: "90";
+					return `\x1B[${code}m${value}\x1B[39m`;
+				},
+			} satisfies typeof TEST_THEME;
 			const footer = footerFactory(
 				{ requestRender() {} },
-				TEST_THEME,
+				footerTheme,
 				footerData(statuses, "stale-branch"),
 			);
 
@@ -351,6 +365,7 @@ describe("worktree status extension registration and rendering", () => {
 			expect(wideFooterRaw).toContain("\x1B[36mfeature-wt\x1B[39m");
 			expect(wideFooterRaw).toContain("\x1B[36mts/界面/pi-extensions\x1B[39m");
 			expect(wideFooterRaw).toContain("\x1B[31m✗\x1B[39m");
+			expect(wideFooterRaw).toContain("\x1B[33mfeature/generic-worktree\x1B[39m");
 			const wideFooter = stripTerminalEscapes(wideFooterRaw);
 			expect(wideFooter).toBe(
 				"[wt] repo:sdl-tools wt:feature-wt pwd:ts/界面/pi-extensions (✗) | br:feature/generic-worktree ↓:- commits:? ↑:-",
@@ -360,7 +375,15 @@ describe("worktree status extension registration and rendering", () => {
 			const narrowIdentity = stripTerminalEscapes(narrowIdentityRaw);
 			expect(narrowIdentity).toContain("[wt] repo:sdl-tools wt:feature-wt");
 			expect(narrowIdentity).toContain("...");
+			expect(narrowIdentityRaw).toContain("\x1B[36msdl-tools\x1B[39m");
+			expect(narrowIdentityRaw).toContain("\x1B[36mfeature-wt\x1B[39m");
 			expect(visibleWidth(narrowIdentityRaw)).toBeLessThanOrEqual(46);
+
+			const branchTruncatedIdentityRaw = footer.render(80)[0] ?? "";
+			expect(branchTruncatedIdentityRaw).toContain("\x1B[31m✗\x1B[39m");
+			expect(branchTruncatedIdentityRaw).toContain("\x1B[33mfeature/");
+			expect(stripTerminalEscapes(branchTruncatedIdentityRaw)).toContain("...");
+			expect(visibleWidth(branchTruncatedIdentityRaw)).toBeLessThanOrEqual(80);
 			await pi.sessionShutdown?.();
 		} finally {
 			rmSync(fixture.tempRoot, { recursive: true, force: true });
