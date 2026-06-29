@@ -37,10 +37,19 @@ import type {
 	FeedbackFingerprint,
 	FeedbackItemKey,
 	FeedbackSnapshot,
+	PrCheckSummary,
 	PrFeedbackWatchGithubPrIdentity,
 	WatchEventEntry,
 	WatchStatus,
 } from "./model.ts";
+
+type WatchEventAppendInput = {
+	branch?: string;
+	prNumber?: number;
+	headRefOid?: string;
+	itemKeys?: string[];
+	details?: Record<string, unknown>;
+};
 import { buildDetectedFeedbackPrompt } from "./prompt.ts";
 import { isWorkingTreeDirty, notify } from "./runtime.ts";
 import { defaultStatusLine, initialWatchStatus, shouldRefreshStatusAge } from "./status.ts";
@@ -103,13 +112,15 @@ export class PrFeedbackWatchController {
 	async start(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		this.state = {
-			...this.state,
-			isEnabled: true,
-			state: "polling",
-			intervalMs: options.intervalMs,
-			lastError: undefined,
-		};
+		this.state = clearStatusField(
+			{
+				...this.state,
+				isEnabled: true,
+				state: "polling",
+				intervalMs: options.intervalMs,
+			},
+			"lastError",
+		);
 		this.appendEvent("config", {
 			details: {
 				intervalMs: options.intervalMs,
@@ -393,7 +404,7 @@ export class PrFeedbackWatchController {
 		options: { scheduleNext: boolean; existingFeedbackMode: ExistingFeedbackMode },
 		context: {
 			reason: "normal" | "fallback" | "rest_changed";
-			fingerprint?: FeedbackFingerprint | undefined;
+			fingerprint?: FeedbackFingerprint;
 		},
 	): Promise<void> {
 		if (context.reason === "fallback") this.renderStatus("PR watch: fallback polling 60s");
@@ -440,9 +451,10 @@ export class PrFeedbackWatchController {
 		const candidateItems =
 			context.fingerprint === undefined
 				? snapshot.items
-				: filterIgnoredFeedback(feedbackItemKeysFromFingerprint(context.fingerprint.items), {
-						currentUserLogin: this.currentUserLogin,
-					}).actionableTriggerItems;
+				: filterIgnoredFeedback(
+						feedbackItemKeysFromFingerprint(context.fingerprint.items),
+						currentUserLoginOptions(this.currentUserLogin),
+					).actionableTriggerItems;
 		const newItems =
 			options.existingFeedbackMode === "dispatch"
 				? candidateItems.filter((item) => !this.attemptedKeys.has(item.key))
@@ -488,14 +500,16 @@ export class PrFeedbackWatchController {
 
 	private markRestFingerprintSuccess(fingerprint: FeedbackFingerprint): void {
 		this.hasNotifiedRestFailure = false;
-		this.state = {
-			...this.state,
-			mode: "rest_fingerprint",
-			restFailures: 0,
-			lastRestPollAt: fingerprint.fetchedAt,
-			lastPollAt: fingerprint.fetchedAt,
-			lastError: undefined,
-		};
+		this.state = clearStatusField(
+			{
+				...this.state,
+				mode: "rest_fingerprint",
+				restFailures: 0,
+				lastRestPollAt: fingerprint.fetchedAt,
+				lastPollAt: fingerprint.fetchedAt,
+			},
+			"lastError",
+		);
 	}
 
 	private markFingerprintItemsSeen(fingerprint: FeedbackFingerprint): void {
@@ -510,10 +524,7 @@ export class PrFeedbackWatchController {
 			prNumber,
 			signal: session.abortController.signal,
 		});
-		this.state = {
-			...this.state,
-			checkSummary: result.type === "loaded" ? result.summary : undefined,
-		};
+		this.state = setCheckSummary(this.state, result.type === "loaded" ? result.summary : undefined);
 	}
 
 	private async loadSnapshot(
@@ -547,16 +558,17 @@ export class PrFeedbackWatchController {
 			headRefOidPromise,
 		]);
 		this.currentUserLogin = currentUserLogin;
-		const filtered = filterIgnoredFeedback(feedbackItemKeyFromDownload(download.data), {
-			currentUserLogin,
-		});
+		const filtered = filterIgnoredFeedback(
+			feedbackItemKeyFromDownload(download.data),
+			currentUserLoginOptions(currentUserLogin),
+		);
 		return {
 			type: "loaded",
 			snapshot: {
 				data: download.data,
 				items: filtered.actionableTriggerItems,
 				ignoredItems: filtered.ignoredItems,
-				headRefOid,
+				...(headRefOid === undefined ? {} : { headRefOid }),
 			},
 		};
 	}
@@ -585,15 +597,12 @@ export class PrFeedbackWatchController {
 		for (const item of [...snapshot.items, ...snapshot.ignoredItems.map((ignored) => ignored.item)])
 			this.seenKeys.add(item.key);
 		this.appendEvent("baseline", {
-			branch: snapshot.data.target.branch ?? undefined,
-			prNumber: snapshot.data.target.pr_number ?? undefined,
-			headRefOid: snapshot.headRefOid,
+			...eventFieldsFromSnapshot(snapshot),
 			itemKeys: snapshot.items.map((item) => item.key),
 		});
 		if (snapshot.ignoredItems.length > 0) {
 			this.appendEvent("ignored", {
-				branch: snapshot.data.target.branch ?? undefined,
-				prNumber: snapshot.data.target.pr_number ?? undefined,
+				...eventFieldsFromSnapshot(snapshot),
 				itemKeys: snapshot.ignoredItems.map((ignored) => ignored.item.key),
 			});
 		}
@@ -610,7 +619,7 @@ export class PrFeedbackWatchController {
 
 	private async pauseIfWorkingTreeDirty(
 		session: ActiveSession,
-		options: { queuedCount?: number | undefined } = {},
+		options: { queuedCount?: number } = {},
 	): Promise<boolean> {
 		const dirty = await isWorkingTreeDirty(this.pi, session.cwd, session.abortController.signal);
 		if (!dirty || this.options.shouldAllowDirty) {
@@ -643,9 +652,7 @@ export class PrFeedbackWatchController {
 		const itemKeys = items.map((item) => item.key);
 		this.state = { ...this.state, state: "dispatching", queuedCount: items.length };
 		this.appendEvent("detected", {
-			branch: snapshot.data.target.branch ?? undefined,
-			prNumber: snapshot.data.target.pr_number ?? undefined,
-			headRefOid: snapshot.headRefOid,
+			...eventFieldsFromSnapshot(snapshot),
 			itemKeys,
 		});
 		this.renderStatus(`PR watch: dispatching ${items.length} item(s)`);
@@ -671,9 +678,7 @@ export class PrFeedbackWatchController {
 			session.ctx.ui?.setEditorText?.(prompt);
 		}
 		this.appendEvent("dispatched", {
-			branch: snapshot.data.target.branch ?? undefined,
-			prNumber: snapshot.data.target.pr_number ?? undefined,
-			headRefOid: snapshot.headRefOid,
+			...eventFieldsFromSnapshot(snapshot),
 			itemKeys,
 		});
 	}
@@ -688,16 +693,20 @@ export class PrFeedbackWatchController {
 
 	private updateContextFromSnapshot(snapshot: FeedbackSnapshot): void {
 		const checkedAt = new Date().toISOString();
-		this.state = {
-			...this.state,
-			prNumber: snapshot.data.target.pr_number ?? undefined,
-			branch: snapshot.data.target.branch ?? snapshot.data.target.head_ref_name ?? undefined,
-			lastPollAt: checkedAt,
-			lastHeavyCheckAt: checkedAt,
-			lastError: undefined,
-			seenCount: this.seenKeys.size,
-			attemptedCount: this.attemptedKeys.size,
-		};
+		const prNumber = snapshot.data.target.pr_number;
+		const branch = snapshot.data.target.branch ?? snapshot.data.target.head_ref_name ?? undefined;
+		this.state = clearStatusField(
+			{
+				...this.state,
+				...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
+				...(branch === undefined ? {} : { branch }),
+				lastPollAt: checkedAt,
+				lastHeavyCheckAt: checkedAt,
+				seenCount: this.seenKeys.size,
+				attemptedCount: this.attemptedKeys.size,
+			},
+			"lastError",
+		);
 	}
 
 	private scheduleNextPoll(session: ActiveSession): void {
@@ -760,15 +769,12 @@ export class PrFeedbackWatchController {
 		}
 	}
 
-	private appendEvent(
-		type: WatchEventEntry["type"],
-		overrides: Partial<WatchEventEntry> = {},
-	): void {
+	private appendEvent(type: WatchEventEntry["type"], overrides: WatchEventAppendInput = {}): void {
 		this.pi.appendEntry?.(PR_FEEDBACK_WATCH_STATE_TYPE, {
 			version: 1,
 			type,
-			branch: this.state.branch,
-			prNumber: this.state.prNumber,
+			...(this.state.branch === undefined ? {} : { branch: this.state.branch }),
+			...(this.state.prNumber === undefined ? {} : { prNumber: this.state.prNumber }),
 			createdAt: new Date().toISOString(),
 			...overrides,
 		} satisfies WatchEventEntry);
@@ -788,4 +794,36 @@ export class PrFeedbackWatchController {
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));
 		this.updateStatusRefreshTimer(value === undefined);
 	}
+}
+
+function clearStatusField<K extends keyof WatchStatus>(status: WatchStatus, field: K): WatchStatus {
+	const next = { ...status };
+	delete next[field];
+	return next;
+}
+
+function setCheckSummary(status: WatchStatus, summary: PrCheckSummary | undefined): WatchStatus {
+	const next = { ...status };
+	if (summary === undefined) {
+		delete next.checkSummary;
+		return next;
+	}
+	next.checkSummary = summary;
+	return next;
+}
+
+function currentUserLoginOptions(currentUserLogin: string | undefined): {
+	currentUserLogin?: string;
+} {
+	return currentUserLogin === undefined ? {} : { currentUserLogin };
+}
+
+function eventFieldsFromSnapshot(snapshot: FeedbackSnapshot): WatchEventAppendInput {
+	const branch = snapshot.data.target.branch ?? undefined;
+	const prNumber = snapshot.data.target.pr_number;
+	return {
+		...(branch === undefined ? {} : { branch }),
+		...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
+		...(snapshot.headRefOid === undefined ? {} : { headRefOid: snapshot.headRefOid }),
+	};
 }

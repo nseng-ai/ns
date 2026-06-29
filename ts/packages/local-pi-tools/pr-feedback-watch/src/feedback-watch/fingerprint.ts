@@ -28,8 +28,8 @@ export function feedbackItemKeysFromFingerprint(
 		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
 		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
 		author: item.author,
-		path: item.path,
-		line: item.line,
+		...(item.path === undefined ? {} : { path: item.path }),
+		...(item.line === undefined ? {} : { line: item.line }),
 	}));
 }
 
@@ -40,11 +40,13 @@ export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFinge
 		if (!isRecord(item)) continue;
 		const id = idField(item, "id");
 		if (id === undefined) continue;
+		const updatedAt = stringField(item, "updated_at") ?? stringField(item, "created_at");
+		const author = authorFromValue(item);
 		items.push({
 			kind: "discussion_comment",
 			id,
-			updatedAt: stringField(item, "updated_at") ?? stringField(item, "created_at"),
-			author: authorFromValue(item),
+			...(updatedAt === undefined ? {} : { updatedAt }),
+			...(author === undefined ? {} : { author }),
 		});
 	}
 	return items;
@@ -57,13 +59,17 @@ export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[
 		if (!isRecord(item)) continue;
 		const id = idField(item, "id") ?? stringField(item, "node_id");
 		if (id === undefined) continue;
+		const updatedAt = stringField(item, "submitted_at");
+		const author = authorFromValue(item);
+		const state = stringField(item, "state");
+		const commitId = stringField(item, "commit_id");
 		items.push({
 			kind: "review",
 			id,
-			updatedAt: stringField(item, "submitted_at"),
-			author: authorFromValue(item),
-			state: stringField(item, "state"),
-			commitId: stringField(item, "commit_id"),
+			...(updatedAt === undefined ? {} : { updatedAt }),
+			...(author === undefined ? {} : { author }),
+			...(state === undefined ? {} : { state }),
+			...(commitId === undefined ? {} : { commitId }),
 		});
 	}
 	return items;
@@ -76,15 +82,21 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		if (!isRecord(item)) continue;
 		const id = idField(item, "id");
 		if (id === undefined) continue;
+		const updatedAt = stringField(item, "updated_at") ?? stringField(item, "created_at");
+		const author = authorFromValue(item);
+		const path = stringField(item, "path");
+		const line = numberField(item, "line");
+		const reviewId = idField(item, "pull_request_review_id");
+		const inReplyToId = idField(item, "in_reply_to_id");
 		items.push({
 			kind: "review_comment",
 			id,
-			updatedAt: stringField(item, "updated_at") ?? stringField(item, "created_at"),
-			author: authorFromValue(item),
-			path: stringField(item, "path"),
-			line: numberField(item, "line"),
-			reviewId: idField(item, "pull_request_review_id"),
-			inReplyToId: idField(item, "in_reply_to_id"),
+			...(updatedAt === undefined ? {} : { updatedAt }),
+			...(author === undefined ? {} : { author }),
+			...(path === undefined ? {} : { path }),
+			...(line === undefined ? {} : { line }),
+			...(reviewId === undefined ? {} : { reviewId }),
+			...(inReplyToId === undefined ? {} : { inReplyToId }),
 		});
 	}
 	return items;
@@ -95,10 +107,11 @@ export function buildFeedbackFingerprint(
 	fetchedAt = new Date().toISOString(),
 ): FeedbackFingerprint {
 	const copied = [...items];
+	const latestTimestamp = maxFingerprintTimestamp(copied);
 	return {
 		key: fingerprintKeyFromOwnedItems(copied),
 		items: copied,
-		latestTimestamp: maxFingerprintTimestamp(copied),
+		...(latestTimestamp === undefined ? {} : { latestTimestamp }),
 		fetchedAt,
 	};
 }
@@ -140,7 +153,7 @@ export function maxFingerprintTimestamp(
 
 export function filterIgnoredFeedback(
 	items: readonly FeedbackItemKey[],
-	options: { currentUserLogin?: string | undefined } = {},
+	options: { currentUserLogin?: string } = {},
 ): FilteredFeedbackItems {
 	const actionableTriggerItems: FeedbackItemKey[] = [];
 	const ignoredItems: IgnoredFeedbackItem[] = [];

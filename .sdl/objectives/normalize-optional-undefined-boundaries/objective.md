@@ -61,5 +61,5 @@ Risks:
 ## Open Questions
 
 - Which remaining public SDK surfaces should preserve explicit `undefined` for compatibility, and which should introduce normalized internal types?
-- For PR feedback watch, which fields are true external payload mirrors versus internal watch-state facts that should be required, omitted, or represented by explicit domain variants?
+- For PR feedback watch, no open modeling question remains for the cleaned watch-state slice: internal status, event, fingerprint, and snapshot records now omit absent fields, while UI status-clearing and GitHub REST/options/query surfaces remain compatibility boundaries.
 - For SDLCC stack-map follow-up, no open modeling question remains for branch-node collections: empty arrays are the normalized internal representation for loaded-empty `children`, `slots`, and `cmuxTabs`.

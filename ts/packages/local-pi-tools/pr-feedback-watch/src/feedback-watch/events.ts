@@ -7,17 +7,22 @@ export function parseWatchEventEntry(value: unknown): WatchEventEntry | undefine
 	if (value.version !== 1) return undefined;
 	if (typeof value.type !== "string") return undefined;
 	if (!isWatchEventType(value.type)) return undefined;
-	const itemKeys = Array.isArray(value.itemKeys)
-		? value.itemKeys.filter((item): item is string => typeof item === "string")
-		: undefined;
+	const createdAt = stringField(value, "createdAt");
+	if (createdAt === undefined) return undefined;
+	const itemKeys = parseItemKeys(value.itemKeys);
+	if (isRestoreRelevantEventType(value.type) && itemKeys === undefined) return undefined;
+	const branch = stringField(value, "branch");
+	const prNumber = numberField(value, "prNumber");
+	const headRefOid = stringField(value, "headRefOid");
 	return {
 		version: 1,
 		type: value.type,
-		branch: stringField(value, "branch"),
-		prNumber: numberField(value, "prNumber"),
-		headRefOid: stringField(value, "headRefOid"),
-		itemKeys,
-		createdAt: stringField(value, "createdAt") ?? "",
+		...(branch === undefined ? {} : { branch }),
+		...(prNumber === undefined ? {} : { prNumber }),
+		...(headRefOid === undefined ? {} : { headRefOid }),
+		...(itemKeys === undefined ? {} : { itemKeys }),
+		createdAt,
+		...(isRecord(value.details) ? { details: value.details } : {}),
 	};
 }
 function isWatchEventType(value: string): value is WatchEventEntry["type"] {
@@ -30,6 +35,16 @@ function isWatchEventType(value: string): value is WatchEventEntry["type"] {
 		value === "config" ||
 		value === "error"
 	);
+}
+
+function isRestoreRelevantEventType(value: WatchEventEntry["type"]): boolean {
+	return value === "baseline" || value === "dispatched" || value === "ignored";
+}
+
+function parseItemKeys(value: unknown): string[] | undefined {
+	if (value === undefined) return undefined;
+	if (!Array.isArray(value)) return undefined;
+	return value.every((item): item is string => typeof item === "string") ? value : undefined;
 }
 
 function numberField(value: Record<string, unknown>, key: string): number | undefined {

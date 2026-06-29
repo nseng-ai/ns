@@ -11,10 +11,10 @@ export interface FeedbackItemKey {
 	kind: FeedbackItemKind;
 	key: string;
 	author: string | undefined;
-	path?: string | undefined;
-	line?: number | undefined;
-	jsonPointer?: string | undefined;
-	itemPointer?: string | undefined;
+	path?: string;
+	line?: number;
+	jsonPointer?: string;
+	itemPointer?: string;
 }
 
 export interface IgnoredFeedbackItem {
@@ -23,26 +23,26 @@ export interface IgnoredFeedbackItem {
 }
 
 export interface PrFeedbackWatchGithubPrIdentity extends GithubPrIdentity {
-	url?: string | undefined;
+	url?: string;
 }
 
 export interface FeedbackFingerprintItem {
 	kind: FeedbackFingerprintItemKind;
 	id: string;
-	updatedAt?: string | undefined;
-	author?: string | undefined;
-	path?: string | undefined;
-	line?: number | undefined;
-	state?: string | undefined;
-	commitId?: string | undefined;
-	reviewId?: string | undefined;
-	inReplyToId?: string | undefined;
+	updatedAt?: string;
+	author?: string;
+	path?: string;
+	line?: number;
+	state?: string;
+	commitId?: string;
+	reviewId?: string;
+	inReplyToId?: string;
 }
 
 export interface FeedbackFingerprint {
 	key: string;
 	items: FeedbackFingerprintItem[];
-	latestTimestamp?: string | undefined;
+	latestTimestamp?: string;
 	fetchedAt: string;
 }
 
@@ -55,25 +55,25 @@ export interface FeedbackSnapshot {
 	data: PrFeedbackDownloadData;
 	items: FeedbackItemKey[];
 	ignoredItems: IgnoredFeedbackItem[];
-	headRefOid?: string | undefined;
+	headRefOid?: string;
 }
 
 export interface WatchStatus {
 	isEnabled: boolean;
 	state: "stopped" | "active" | "polling" | "paused" | "dispatching" | "error";
 	mode: WatchMode;
-	prNumber?: number | undefined;
-	branch?: string | undefined;
+	prNumber?: number;
+	branch?: string;
 	intervalMs: number;
 	seenCount: number;
 	attemptedCount: number;
 	queuedCount: number;
-	lastPollAt?: string | undefined;
-	lastRestPollAt?: string | undefined;
-	lastHeavyCheckAt?: string | undefined;
-	checkSummary?: PrCheckSummary | undefined;
+	lastPollAt?: string;
+	lastRestPollAt?: string;
+	lastHeavyCheckAt?: string;
+	checkSummary?: PrCheckSummary;
 	restFailures: number;
-	lastError?: string | undefined;
+	lastError?: string;
 }
 
 export interface PrCheckSummary {
@@ -86,12 +86,12 @@ export interface PrCheckSummary {
 export interface WatchEventEntry {
 	version: 1;
 	type: "baseline" | "detected" | "dispatched" | "ignored" | "stopped" | "config" | "error";
-	branch: string | undefined;
-	prNumber: number | undefined;
-	headRefOid?: string | undefined;
-	itemKeys?: string[] | undefined;
+	branch?: string;
+	prNumber?: number;
+	headRefOid?: string;
+	itemKeys?: string[];
 	createdAt: string;
-	details?: Record<string, unknown> | undefined;
+	details?: Record<string, unknown>;
 }
 
 export interface DispatchPromptInput {
