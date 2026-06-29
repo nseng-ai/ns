@@ -1,5 +1,7 @@
+import { existsSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
-import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
@@ -21,6 +23,7 @@ import {
 } from "./command-registry.ts";
 import {
 	discoverExtensionsInRoot,
+	discoverSdlPackageCommands,
 	type DiscoveredExtensionCommand,
 	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
@@ -81,6 +84,7 @@ interface LoadSdlCommandCatalogOptions {
 
 const ORDERED_SOURCE_LEVELS = [
 	"built-in",
+	"first-party",
 	"global",
 	"project",
 ] as const satisfies readonly ExtensionSourceLevel[];
@@ -99,6 +103,15 @@ export async function loadSdlCommandCatalog(
 		label: string;
 		candidates: readonly ExtensionCommandCandidate[];
 	}> = [{ level: "built-in", label: "built-in", candidates: builtInCandidates }];
+	if (env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS !== "1") {
+		const firstPartyCandidates = loadFirstPartyCandidates();
+		diagnostics.push(...firstPartyCandidates.diagnostics);
+		orderedSources.push({
+			level: "first-party",
+			label: "first-party workspace packages",
+			candidates: firstPartyCandidates.candidates,
+		});
+	}
 	for (const rootDir of uniquePaths(globalRoots)) {
 		const loaded = loadRootCandidates({ level: "global", rootDir });
 		diagnostics.push(...loaded.diagnostics);
@@ -310,9 +323,72 @@ function loadRootCandidates(options: { level: "global" | "project"; rootDir: str
 	};
 }
 
+function loadFirstPartyCandidates(): {
+	diagnostics: readonly ExtensionDiagnostic[];
+	candidates: readonly ExtensionCommandCandidate[];
+} {
+	const packagesRoot = firstPartyPackagesRoot();
+	if (packagesRoot === undefined) return { diagnostics: [], candidates: [] };
+	const packageDirs = discoverWorkspacePackageDirs(packagesRoot);
+	const diagnostics: ExtensionDiagnostic[] = [];
+	const candidates: ExtensionCommandCandidate[] = [];
+	for (const packageDir of packageDirs) {
+		const discovered = discoverSdlPackageCommands(packagesRoot, packageDir);
+		diagnostics.push(
+			...discovered.diagnostics.map((diagnostic) =>
+				fromDiscoveryDiagnostic(diagnostic, "first-party"),
+			),
+		);
+		candidates.push(
+			...discovered.commands.map((command) => externalCandidateForLevel(command, "first-party")),
+		);
+	}
+	return { diagnostics, candidates };
+}
+
+function firstPartyPackagesRoot(): string | undefined {
+	const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+	return existsSync(sourceRoot) ? sourceRoot : undefined;
+}
+
+function discoverWorkspacePackageDirs(packagesRoot: string): readonly string[] {
+	const packageDirs: string[] = [];
+	collectPackageDirs({ root: packagesRoot, current: packagesRoot, depth: 0, packageDirs });
+	return packageDirs.sort((left, right) => left.localeCompare(right));
+}
+
+function collectPackageDirs(options: {
+	root: string;
+	current: string;
+	depth: number;
+	packageDirs: string[];
+}): void {
+	if (options.depth > 3) return;
+	const packageJsonPath = join(options.current, "package.json");
+	if (options.current !== options.root && existsSync(packageJsonPath)) {
+		options.packageDirs.push(options.current);
+		return;
+	}
+	let entries;
+	try {
+		entries = readdirSync(options.current, { withFileTypes: true });
+	} catch {
+		return;
+	}
+	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+		if (!entry.isDirectory() || entry.name === "node_modules") continue;
+		collectPackageDirs({
+			root: options.root,
+			current: join(options.current, entry.name),
+			depth: options.depth + 1,
+			packageDirs: options.packageDirs,
+		});
+	}
+}
+
 function externalCandidateForLevel(
 	command: DiscoveredExtensionCommand,
-	level: "global" | "project",
+	level: "first-party" | "global" | "project",
 ): ExternalSdlCommandCandidate {
 	return {
 		...(command.group === undefined ? {} : { group: command.group }),

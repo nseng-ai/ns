@@ -33,7 +33,6 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/slot": "workspace:*",
     "sdl-sdk": "workspace:*",
     "jiti": "catalog:",
     "zod": "catalog:"

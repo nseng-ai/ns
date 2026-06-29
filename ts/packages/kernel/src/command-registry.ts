@@ -9,7 +9,7 @@ import {
 	type SdlResult,
 } from "sdl-sdk";
 
-export type SdlCommandSourceLevel = "built-in" | "global" | "project";
+export type SdlCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
 
 export interface SdlCommandPath {
 	group?: string | undefined;

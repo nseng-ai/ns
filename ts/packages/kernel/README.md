@@ -13,9 +13,9 @@ Migrated lifecycle commands target one deliberate SDL command surface. Generic e
 
 A migration slice should delete old command names and old `/code:<name>` Pi mirrors in the same slice unless an explicit, documented exception is approved before implementation. Do not keep compatibility aliases only for autocomplete or habit.
 
-## Built-in Slot command face
+## Slot extension command face
 
-`sdl slot ...` is the only supported Slot CLI surface. `@sdl/slot` remains the implementation and Capability API owner, but the package no longer exposes a standalone `slot` executable. Humans and agents should invoke Slot operations through `sdl slot`, including navigation commands and hidden agent-facing `sdl slot gt exec ...` helpers.
+`sdl slot ...` is contributed by the bundled `@sdl/slot` SDL extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary SDL help/parsing paths. `@sdl/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `sdl slot`, including navigation commands and agent-facing `sdl slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -27,7 +27,7 @@ sdl slot shell show --shell zsh
 sdl slot shell install --shell zsh
 ```
 
-Both `sdl shell` and `sdl slot shell` install the canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
+`sdl shell` is the canonical kernel-owned shell integration. The Slot extension contributes `sdl slot shell ...` compatibility aliases that install the same canonical `sdl()` wrapper. The wrapper uses `SDL_CD_DIRECTIVE_FILE` and invokes `command sdl "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@sdl/slot/api` rather than parsing `sdl slot --format json` output.
 
 ## Shell completion
 
@@ -93,12 +93,12 @@ The SDL kernel owns the stable host mechanics: command discovery, precedence, se
 
 Project-local SDL extensions own repo-specific command behavior. In this repository, flow commands such as `changes`, `cp`, `autobranch`, `submit`, `regenerate-pr`, and `push` are checked in under the grouped `.sdl/extensions/flow/` package; their presence here does not make them universal built-in SDL commands.
 
-Future bundled first-party extensions are still a design space, not the current mechanism for this command-first migration. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
+Bundled first-party extensions are used for reusable capability-owned commands such as Slot. A workflow should become bundled only after the project-local form proves a stable reusable contract and the repository-specific policy has been separated from the portable behavior.
 
 Command catalogs are discovered in increasing precedence:
 
 ```text
-built-in command table < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
+built-in command table < bundled first-party package manifests < $XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions
 ```
 
 Global and project roots support these one-level entry shapes:
@@ -149,7 +149,7 @@ export default defineExtension({
 });
 ```
 
-Command names must be flat and match `[a-z][a-z0-9-]*`. Nested groups, slashes, colons, spaces, and uppercase names are not supported in this prototype.
+Command path segments must match `[a-z][a-z0-9-]*`. Manifest `path` entries can declare nested command paths such as `slot gt up`; slashes, colons, spaces, and uppercase names are not supported.
 
 Duplicate command names within one extension root are errors. Across roots, higher-precedence sources override lower-precedence sources: project overrides XDG global and built-in; XDG global overrides built-in. Overrides are recorded as non-fatal diagnostics.
 

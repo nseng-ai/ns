@@ -44,12 +44,14 @@ export async function createRealSlotContext(options: {
 	env?: NodeJS.ProcessEnv | undefined;
 	caps?: Caps | undefined;
 	formatPrompt?: ConfirmationPromptFormatter | undefined;
+	stderr?: ((text: string) => void) | undefined;
+	shouldWriteCdDirective?: boolean | undefined;
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
 	const slotsRoot = resolveSlotsRoot(env);
 	const git = new RealSlotRepositoryGateway({ cwd: options.cwd, env });
 	const repo = await discoverRepoOrSentinel({ cwd: options.cwd, slotsRoot, git });
-	const stderr = (text: string) => process.stderr.write(text);
+	const stderr = options.stderr ?? ((text: string) => process.stderr.write(text));
 	return {
 		repo,
 		git,
@@ -69,7 +71,7 @@ export async function createRealSlotContext(options: {
 		stderr,
 		env,
 		slotsRoot,
-		shouldWriteCdDirective: true,
+		shouldWriteCdDirective: options.shouldWriteCdDirective ?? true,
 	};
 }
 
