@@ -64,3 +64,11 @@ export type LocalDiffFailure = RoasterFailure & { readonly type: LocalDiffFailur
 export type ReviewRunnerFailure = RoasterFailure & { readonly type: ReviewRunnerFailureType };
 export type GitHubGatewayFailure = RoasterFailure & { readonly type: GitHubGatewayFailureType };
 export type ReviewLogFailure = RoasterFailure & { readonly type: ReviewLogFailureType };
+
+export function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
+	return (
+		error.type === "review-log-write-failed" ||
+		error.type === "review-log-list-failed" ||
+		error.type === "review-log-response-invalid"
+	);
+}

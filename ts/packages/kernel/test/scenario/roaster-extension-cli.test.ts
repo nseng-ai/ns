@@ -33,7 +33,7 @@ function gitRootResponse(root: string) {
 	return {
 		match: "git rev-parse --show-toplevel",
 		result: { stdout: `${root}\n` },
-		repeatable: true,
+		isRepeatable: true,
 	};
 }
 
