@@ -12,6 +12,13 @@ const colorCaps: Caps = {
 	canRenderUnicode: true,
 };
 
+const monoCaps: Caps = {
+	isTty: true,
+	colorDepth: "none",
+	columns: 80,
+	canRenderUnicode: true,
+};
+
 describe("slot gc CLI", () => {
 	it("appears in root help", async () => {
 		const run = runScenario(["--help"]);
@@ -186,6 +193,25 @@ describe("slot gc CLI", () => {
 		expect(stripped).toContain("Would free 1 slot(s).");
 		expect(stripped).toContain("slot-01");
 		expect(stripped).toContain("#1 CLOSED");
+	});
+
+	it("renders the confirmation preview without ANSI when terminal caps are monochrome", async () => {
+		const run = runScenario(["gc"], {
+			stdin: "no\n",
+			caps: monoCaps,
+			canEmitAnsi: true,
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/closed")],
+				localBranches: ["master", "feature/closed"],
+			},
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const stderr = run.stderr.join("");
+		expect(stderr).not.toContain("\u001b[");
+		expect(stderr).toContain("Would free 1 slot(s).");
+		expect(stderr).toContain("slot-01");
+		expect(stderr).toContain("#1 CLOSED");
 	});
 
 	it("human --delete-branches prompt previews branch cleanup before confirmation", async () => {

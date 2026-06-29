@@ -8,6 +8,7 @@ import {
 	type RenderCapabilities,
 } from "@sdl/clinkr";
 import { cell, dim, paint, renderTable } from "@sdl/cli-theme";
+import { stripTerminalEscapes } from "@sdl/core/exec";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -86,12 +87,12 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 		});
 		if (gate) return gate;
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
-		repoCtx.stderr(
-			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })), {
-				canEmitAnsi: true,
-				caps: repoCtx.caps,
-			})}\n`,
+		const renderCapabilities = renderCapabilitiesFromCaps(repoCtx.caps);
+		const preview = renderGc(
+			toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })),
+			renderCapabilities,
 		);
+		repoCtx.stderr(`${renderCapabilities.canEmitAnsi ? preview : stripTerminalEscapes(preview)}\n`);
 		const accepted = await repoCtx.interaction.confirm({
 			message: confirmationMessage(plan.outcome.wouldFreeCount, {
 				shouldDeleteBranches: request.deleteBranches,
@@ -144,6 +145,13 @@ function gcHeadline(result: GcResult): string {
 	}
 	if (result.freedCount === 0) return "No slots freed.";
 	return `Freed ${result.freedCount} slot(s).`;
+}
+
+function renderCapabilitiesFromCaps(caps: Caps | undefined): RenderCapabilities {
+	return {
+		canEmitAnsi: caps !== undefined && caps.colorDepth !== "none",
+		...(caps === undefined ? {} : { caps }),
+	};
 }
 
 function renderGcDetails(result: GcResult, caps: Caps): string | undefined {
