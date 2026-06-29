@@ -86,7 +86,8 @@ describe("slot free CLI", () => {
 		const stdout = run.stdout.join("");
 		expect(stdout).toContain("Would free 1 slot(s).");
 		expect(stdout).toContain("Would free slot-01 -> feature/a");
-		expect(stdout).toContain("PR: close #12");
+		expect(stdout).toContain("would close PR #12");
+		expect(stdout).toContain("would force-delete local branch feature/a");
 		expect(stdout).not.toContain("\u001B[");
 		expect(run.git.operations()).toEqual([]);
 	});

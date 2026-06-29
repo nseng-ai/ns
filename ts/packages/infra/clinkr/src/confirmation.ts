@@ -8,6 +8,8 @@ export interface ConfirmationRequest {
 	defaultAnswer: ConfirmationDefault;
 }
 
+export type ConfirmationPromptFormatter = (request: ConfirmationRequest, suffix: string) => string;
+
 export type ConfirmationResult = { type: "confirmed" } | { type: "declined" } | { type: "aborted" };
 
 /**
@@ -27,6 +29,7 @@ export interface CreateClinkrInteractionOptions {
 	stderr: (text: string) => void;
 	isInteractive?: (() => boolean) | undefined;
 	injectedStdin?: (() => Promise<string | null>) | undefined;
+	formatPrompt?: ConfirmationPromptFormatter | undefined;
 }
 
 export interface ResolveClinkrInteractionOptions extends CreateClinkrInteractionOptions {
@@ -65,7 +68,7 @@ async function confirmWithLineReader(
 	options: CreateClinkrInteractionOptions,
 	request: ConfirmationRequest,
 ): Promise<ConfirmationResult> {
-	writePrompt(options.stderr, request);
+	writePrompt(options, request);
 	for (;;) {
 		const input = await options.stdin();
 		if (input === null) return { type: "aborted" };
@@ -74,13 +77,17 @@ async function confirmWithLineReader(
 			const parsed = parseConfirmationLine(rawLine, request.defaultAnswer);
 			if (parsed !== null) return parsed;
 			options.stderr("Error: invalid input\n");
-			writePrompt(options.stderr, request);
+			writePrompt(options, request);
 		}
 	}
 }
 
-function writePrompt(stderr: (text: string) => void, request: ConfirmationRequest): void {
-	stderr(`${request.message} ${promptSuffix(request.defaultAnswer)}: `);
+function writePrompt(
+	options: Pick<CreateClinkrInteractionOptions, "stderr" | "formatPrompt">,
+	request: ConfirmationRequest,
+): void {
+	const suffix = promptSuffix(request.defaultAnswer);
+	options.stderr(options.formatPrompt?.(request, suffix) ?? `${request.message} ${suffix}: `);
 }
 
 function promptSuffix(defaultAnswer: ConfirmationDefault): string {

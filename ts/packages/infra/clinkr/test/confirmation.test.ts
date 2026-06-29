@@ -73,6 +73,42 @@ describe("ClinkrInteraction.confirm", () => {
 		]);
 	});
 
+	test("uses a custom prompt formatter", async () => {
+		const stderr: string[] = [];
+		let unreadInput: string | null = "y";
+		const interaction = createClinkrInteraction({
+			stdin: async () => {
+				const value = unreadInput;
+				unreadInput = null;
+				return value;
+			},
+			stderr: (text) => stderr.push(text),
+			formatPrompt: (request, suffix) => `PROMPT ${request.message} ${suffix}> `,
+		});
+		await expect(
+			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
+		).resolves.toEqual({ type: "confirmed" });
+		expect(stderr).toEqual(["PROMPT Continue? [y/N]> "]);
+	});
+
+	test("uses a custom prompt formatter when reprompting", async () => {
+		const stderr: string[] = [];
+		const lines = ["maybe", "y"];
+		const interaction = createClinkrInteraction({
+			stdin: async () => lines.shift() ?? null,
+			stderr: (text) => stderr.push(text),
+			formatPrompt: (request, suffix) => `PROMPT ${request.message} ${suffix}> `,
+		});
+		await expect(
+			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
+		).resolves.toEqual({ type: "confirmed" });
+		expect(stderr).toEqual([
+			"PROMPT Continue? [y/N]> ",
+			"Error: invalid input\n",
+			"PROMPT Continue? [y/N]> ",
+		]);
+	});
+
 	test("reprompts when stdin provides one interactive line at a time", async () => {
 		const result = await confirmLines(["maybe", "y"], "no");
 		expect(result.result).toEqual({ type: "confirmed" });

@@ -6,6 +6,7 @@ export {
 export type {
 	ClinkrInteraction,
 	ConfirmationDefault,
+	ConfirmationPromptFormatter,
 	ConfirmationRequest,
 	ConfirmationResult,
 	CreateClinkrInteractionOptions,
