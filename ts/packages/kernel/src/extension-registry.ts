@@ -373,6 +373,7 @@ function collectPackageDirs(options: {
 	try {
 		entries = readdirSync(options.current, { withFileTypes: true });
 	} catch {
+		// Package discovery is best-effort; unreadable subtrees simply cannot contribute commands.
 		return;
 	}
 	for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
