@@ -1,4 +1,4 @@
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { ClinkrDynamicCompletionRequest, SdlExtensionApi } from "sdl-sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -30,6 +30,30 @@ describe("SDL domain command helper", () => {
 			type: "ok",
 			data: { greeting: "Ada from /repo" },
 		});
+	});
+
+	test("preserves dynamic completion providers", async () => {
+		const command = createSdlDomainCommand({
+			name: "hello",
+			summary: "Say hello",
+			description: "Says hello through a domain context.",
+			schema: requestSchema,
+			resultSchema,
+			completionProvider: (_ctx, request) => [{ value: request.current, type: "positional-value" }],
+			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
+			handler: async () => ({ type: "ok", data: { greeting: "unused" } }),
+		});
+		const request: ClinkrDynamicCompletionRequest = {
+			words: ["hello", "Ad"],
+			current: "Ad",
+			previous: ["hello"],
+			args: ["Ad"],
+			positionalIndex: 0,
+		};
+
+		await expect(
+			Promise.resolve(command.completionProvider?.(fakeApi(), request)),
+		).resolves.toEqual([{ value: "Ad", type: "positional-value" }]);
 	});
 
 	test("parses unknown render payloads through the result schema", () => {
