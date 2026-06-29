@@ -218,7 +218,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 			ok: true,
 			value: clone(
 				this.checks.get(params.prNumber) ?? {
-					counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+					counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
 					checks: [],
 				},
 			),

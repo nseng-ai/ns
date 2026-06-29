@@ -96,7 +96,7 @@ describe("collectPrChecks", () => {
 					base_ref_name: null,
 					head_ref_oid: null,
 				},
-				counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+				counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
 				checks: [],
 			},
 		});
@@ -136,7 +136,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: true,
 				target: { pr_number: 21, branch: "feature/current" },
-				counts: { passing: 1, pending: 0, failing: 0, unknown: 0 },
+				counts: { passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false },
 			},
 		});
 	});
@@ -153,7 +153,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: false,
 				target: { pr_number: null, branch: "feature/missing" },
-				counts: { passing: 0, pending: 0, failing: 0, unknown: 0 },
+				counts: { passing: 0, pending: 0, failing: 0, unknown: 0, hasMore: false },
 				checks: [],
 			},
 		});
@@ -209,7 +209,7 @@ describe("collectPrChecks", () => {
 		});
 	});
 
-	test("omits hasMore when the gateway omits hasMore", async () => {
+	test("defaults hasMore to false when the gateway reports no additional checks", async () => {
 		const result = await collectPrChecks({
 			git: new InMemoryGitGateway(),
 			prFeedback: new InMemoryGithubPrFeedbackGateway({
@@ -222,8 +222,13 @@ describe("collectPrChecks", () => {
 
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
-		expect(result.checks.counts).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
-		expect(Object.hasOwn(result.checks.counts, "hasMore")).toBe(false);
+		expect(result.checks.counts).toEqual({
+			passing: 1,
+			pending: 0,
+			failing: 0,
+			unknown: 0,
+			hasMore: false,
+		});
 	});
 });
 
@@ -240,7 +245,7 @@ function statusChecks(counts: {
 			pending: counts.pending ?? 0,
 			failing: counts.failing ?? 0,
 			unknown: counts.unknown ?? 0,
-			...(counts.hasMore === undefined ? {} : { hasMore: counts.hasMore }),
+			hasMore: counts.hasMore ?? false,
 		},
 		checks: [],
 	};

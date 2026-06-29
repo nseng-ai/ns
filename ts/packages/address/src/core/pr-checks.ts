@@ -26,7 +26,7 @@ export interface PrChecksCountsPayload {
 	pending: number;
 	failing: number;
 	unknown: number;
-	hasMore?: boolean | undefined;
+	hasMore: boolean;
 }
 
 export interface PrCheckEntryPayload {
@@ -106,7 +106,7 @@ function prChecksPayload(options: {
 	readonly found: boolean;
 	readonly pr: GithubPrSummary | null;
 	readonly branch: string | null;
-	readonly checks?: GithubStatusChecks | undefined;
+	readonly checks?: GithubStatusChecks;
 }): PrChecksPayload {
 	return {
 		found: options.found,
@@ -125,9 +125,7 @@ function prChecksPayload(options: {
 			pending: options.checks?.counts.pending ?? 0,
 			failing: options.checks?.counts.failing ?? 0,
 			unknown: options.checks?.counts.unknown ?? 0,
-			...(options.checks?.counts.hasMore === undefined
-				? {}
-				: { hasMore: options.checks.counts.hasMore }),
+			hasMore: options.checks?.counts.hasMore ?? false,
 		},
 		checks:
 			options.checks?.checks.map((check) => ({

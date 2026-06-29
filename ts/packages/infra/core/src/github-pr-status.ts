@@ -16,7 +16,7 @@ export interface GithubCheckTally {
 	pending: number;
 	failing: number;
 	unknown: number;
-	hasMore?: boolean | undefined;
+	hasMore: boolean;
 }
 
 export type GithubStatusCheckKind = "check_run" | "status_context" | "unknown";
@@ -196,9 +196,14 @@ export function normalizeGithubStatusChecks(
 	options: { hasMore?: boolean | undefined } = {},
 ): GithubStatusChecks {
 	const checks = latestGithubStatusChecks(items).map(normalizeGithubStatusCheck);
-	const counts: GithubCheckTally = { passing: 0, pending: 0, failing: 0, unknown: 0 };
+	const counts: GithubCheckTally = {
+		passing: 0,
+		pending: 0,
+		failing: 0,
+		unknown: 0,
+		hasMore: options.hasMore === true,
+	};
 	for (const check of checks) counts[check.bucket] += 1;
-	if (options.hasMore === true) counts.hasMore = true;
 	return { counts, checks };
 }
 
