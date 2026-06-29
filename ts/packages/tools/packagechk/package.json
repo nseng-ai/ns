@@ -16,6 +16,7 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/packagechk/test"
   },
   "dependencies": {
+    "@sdl/cli-runtime": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",

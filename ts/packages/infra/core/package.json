@@ -5,7 +5,6 @@
   "exports": {
     "./branch-slug": "./src/branch-slug.ts",
     "./brmem-cli": "./src/brmem-cli.ts",
-    "./cli-entry": "./src/cli-entry.ts",
     "./clock": "./src/clock.ts",
     "./command": "./src/command.ts",
     "./machine-envelope": "./src/machine-envelope.ts",

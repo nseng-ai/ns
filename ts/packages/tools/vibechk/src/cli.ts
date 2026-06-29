@@ -13,7 +13,7 @@ import {
 	type RenderCapabilities,
 } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/cli-runtime";
 import { z } from "zod";
 
 import type { LoadedBundle } from "./models.ts";

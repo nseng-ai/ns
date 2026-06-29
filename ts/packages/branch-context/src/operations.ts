@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { runOperationCommand } from "@sdl/core/cli-entry";
+import { runOperationCommand } from "@sdl/cli-runtime";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";

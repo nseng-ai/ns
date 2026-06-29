@@ -83,6 +83,11 @@
       util; classify and re-home the remaining ambiguous subpaths (`machine-envelope`,
       `model-slug`, `branch-slug`, `temp-files`, `xdg`, `clock`, `timers`, `stdin`,
       `workspace-root`, `brmem-cli`) per the rule.
+  - Evidence: `cli-entry` moved to new neutral-infra package `@sdl/cli-runtime`; live consumers import
+    `@sdl/cli-runtime`; `@sdl/core` no longer exports `./cli-entry`, and the old core source/test files
+    were removed. Focused validation passed for `@sdl/cli-runtime` and `@sdl/core`; source-search
+    invariants confirmed no `@sdl/core/cli-entry` imports and no core `./cli-entry` export. Residual
+    subpaths remain open for later slices.
 
 - [ ] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
       performs real-world I/O and no capability imports `@sdl/core/exec` or `@sdl/core/git`,

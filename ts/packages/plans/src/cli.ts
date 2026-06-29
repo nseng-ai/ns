@@ -3,7 +3,7 @@
 import { resolve } from "node:path";
 
 import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, runOperationCommand } from "@sdl/core/cli-entry";
+import { defineCli, runOperationCommand } from "@sdl/cli-runtime";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
