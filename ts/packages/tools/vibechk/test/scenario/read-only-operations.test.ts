@@ -28,7 +28,17 @@ describe("vibechk read-only operations", () => {
 
 			const jsonRun = runScenario(["runs", "--format", "json", "--store", missingStore]);
 			expect(await jsonRun.exit).toBe(0);
-			expect(JSON.parse(jsonRun.stdout.join(""))).toEqual([]);
+			expect(JSON.parse(jsonRun.stdout.join(""))).toEqual({
+				entries: [],
+				outputBounds: {
+					kind: "runs-list",
+					appliedLimit: 50,
+					returnedCount: 0,
+					totalCount: 0,
+					isComplete: true,
+					continuation: null,
+				},
+			});
 
 			const tableAliasRun = runScenario(["runs", "--format=table", "--store", missingStore]);
 			expect(await tableAliasRun.exit).toBe(0);
@@ -64,7 +74,43 @@ describe("vibechk read-only operations", () => {
 			expect(lines[2]).toContain("2026-05-23T12:00:00");
 		});
 
-		it("lists bundles in JSON format with snake_case output", async () => {
+		it("limits listed bundles and reports continuation guidance", async () => {
+			await writeTestBundle(storeRoot, {
+				runId: "aaaabbbb",
+				startedAt: new Date("2026-05-23T12:00:00Z"),
+			});
+			await writeTestBundle(storeRoot, {
+				runId: "ccccdddd",
+				startedAt: new Date("2026-05-23T12:00:02Z"),
+			});
+
+			const jsonRun = runScenario([
+				"runs",
+				"--format",
+				"json",
+				"--max-runs",
+				"1",
+				"--store",
+				storeRoot,
+			]);
+			expect(await jsonRun.exit).toBe(0);
+			const result = JSON.parse(jsonRun.stdout.join(""));
+			expect(result.entries).toHaveLength(1);
+			expect(result.entries[0].run_id).toBe("ccccdddd");
+			expect(result.outputBounds).toMatchObject({
+				appliedLimit: 1,
+				returnedCount: 1,
+				totalCount: 2,
+				isComplete: false,
+			});
+			expect(result.outputBounds.continuation).toContain("--max-runs 2");
+
+			const tableRun = runScenario(["runs", "--max-runs", "1", "--store", storeRoot]);
+			expect(await tableRun.exit).toBe(0);
+			expect(tableRun.stdout.join("")).toContain("Showing 1 of 2 runs");
+		});
+
+		it("lists bundles in JSON format with output bounds", async () => {
 			await writeTestBundle(storeRoot, {
 				runId: "aaaabbbb",
 				startedAt: new Date("2026-05-23T12:00:00Z"),
@@ -82,9 +128,17 @@ describe("vibechk read-only operations", () => {
 			const run = runScenario(["runs", "--format", "json", "--store", storeRoot]);
 			expect(await run.exit).toBe(0);
 
-			const entries = JSON.parse(run.stdout.join(""));
-			expect(entries).toHaveLength(2);
-			expect(entries[0]).toMatchObject({
+			const result = JSON.parse(run.stdout.join(""));
+			expect(result.outputBounds).toMatchObject({
+				kind: "runs-list",
+				appliedLimit: 50,
+				returnedCount: 2,
+				totalCount: 2,
+				isComplete: true,
+				continuation: null,
+			});
+			expect(result.entries).toHaveLength(2);
+			expect(result.entries[0]).toMatchObject({
 				run_id: "ccccdddd",
 				started_at: "2026-05-23T12:00:02.000Z",
 				model: "model-b",
@@ -92,13 +146,13 @@ describe("vibechk read-only operations", () => {
 				branch_created: true,
 				runner_exit_code: 0,
 			});
-			expect(entries[0].metrics).toMatchObject({
+			expect(result.entries[0].metrics).toMatchObject({
 				wall_time_seconds: 1.2,
 				total_tokens: null,
 			});
-			expect(entries[0].run_dir).toContain("ccccdddd");
-			expect(entries[1].run_id).toBe("aaaabbbb");
-			expect(entries[1].metrics.total_tokens).toBe(10);
+			expect(result.entries[0].run_dir).toContain("ccccdddd");
+			expect(result.entries[1].run_id).toBe("aaaabbbb");
+			expect(result.entries[1].metrics.total_tokens).toBe(10);
 		});
 	});
 
@@ -178,6 +232,61 @@ describe("vibechk read-only operations", () => {
 			});
 		});
 
+		it("bounds large artifacts in show reports", async () => {
+			await writeTestBundle(storeRoot, {
+				runId: "aaaabbbb",
+				planText: "1234567890",
+				transcript: "abcdef",
+				diffPatch: "+0123456789",
+			});
+
+			const run = runScenario([
+				"show",
+				"aaaabbbb",
+				"--max-artifact-bytes",
+				"5",
+				"--store",
+				storeRoot,
+			]);
+			expect(await run.exit).toBe(0);
+
+			const output = run.stdout.join("");
+			expect(output).toContain("## Output Bounds");
+			expect(output).toContain("plan truncated");
+			expect(output).toContain("transcript truncated");
+			expect(output).toContain("diff truncated");
+			expect(output).toContain("12345");
+			expect(output).not.toContain("123456");
+
+			const jsonRun = runScenario([
+				"show",
+				"aaaabbbb",
+				"--max-artifact-bytes",
+				"5",
+				"--store",
+				storeRoot,
+				"--format",
+				"json",
+			]);
+			expect(await jsonRun.exit).toBe(0);
+			expect(JSON.parse(jsonRun.stdout.join(""))).toMatchObject({
+				status: "ok",
+				data: {
+					loaded: {
+						planText: "12345",
+						outputBounds: {
+							plan: {
+								appliedByteLimit: 5,
+								originalBytes: 10,
+								returnedBytes: 5,
+								isComplete: false,
+							},
+						},
+					},
+				},
+			});
+		});
+
 		it("handles missing optional artifact files", async () => {
 			await writeTestBundle(storeRoot, {
 				runId: "aaaabbbb",
@@ -246,6 +355,39 @@ describe("vibechk read-only operations", () => {
 			const output = run.stdout.join("");
 			expect(output).toContain("Warning");
 			expect(output).toContain("plans differ");
+		});
+
+		it("bounds large artifacts in diff reports", async () => {
+			await writeTestBundle(storeRoot, {
+				runId: "aaaabbbb",
+				planText: "shared plan",
+				diffPatch: "+baseline-output",
+			});
+			await writeTestBundle(storeRoot, {
+				runId: "ccccdddd",
+				planText: "shared plan",
+				diffPatch: "+treatment-output",
+			});
+
+			const run = runScenario([
+				"diff",
+				"aaaabbbb",
+				"ccccdddd",
+				"--max-artifact-bytes",
+				"5",
+				"--store",
+				storeRoot,
+			]);
+			expect(await run.exit).toBe(0);
+
+			const output = run.stdout.join("");
+			expect(output).toContain("## Output Bounds");
+			expect(output).toContain("Baseline diff truncated");
+			expect(output).toContain("Treatment diff truncated");
+			expect(output).toContain("+base");
+			expect(output).toContain("+trea");
+			expect(output).not.toContain("+baseline");
+			expect(output).not.toContain("+treatment");
 		});
 
 		it("reports negative envelope for missing diff run", async () => {

@@ -4,6 +4,23 @@ import { renderTextTable, type TextTableColumn } from "@sdl/core/text-table";
 import type { LoadedBundle } from "./models.ts";
 import { encodeMetrics } from "./models.ts";
 
+type ArtifactOutputBounds = {
+	readonly artifact: "plan" | "transcript" | "diff";
+	readonly appliedByteLimit: number;
+	readonly originalBytes: number;
+	readonly returnedBytes: number;
+	readonly isComplete: boolean;
+	readonly continuation: string | null;
+};
+
+type RenderableBundle = LoadedBundle & {
+	readonly outputBounds?: {
+		readonly plan: ArtifactOutputBounds;
+		readonly transcript: ArtifactOutputBounds;
+		readonly diff: ArtifactOutputBounds;
+	};
+};
+
 type MetricRow = [string, keyof LoadedBundle["bundle"]["metrics"]];
 
 const METRIC_ROWS: MetricRow[] = [
@@ -24,7 +41,7 @@ const RUNS_TABLE_COLUMNS = [
 	{ header: "WORKDIR" },
 ] satisfies readonly TextTableColumn[];
 
-export function renderRunReport(loaded: LoadedBundle): string {
+export function renderRunReport(loaded: RenderableBundle): string {
 	const bundle = loaded.bundle;
 	const resultBranch = bundle.resultBranch ?? "null";
 	const diffPatch = diffBody(loaded.diffPatch);
@@ -55,8 +72,9 @@ export function renderRunReport(loaded: LoadedBundle): string {
 		lines.push(`| ${label} | ${formatValue(bundle.metrics[fieldName])} |`);
 	}
 
+	lines.push("", ...renderArtifactBounds(loaded), "");
+
 	lines.push(
-		"",
 		"<details>",
 		"<summary>Plan</summary>",
 		"",
@@ -118,7 +136,10 @@ export function runListEntryToJson(loaded: LoadedBundle): Record<string, unknown
 	};
 }
 
-export function renderComparisonReport(baseline: LoadedBundle, treatment: LoadedBundle): string {
+export function renderComparisonReport(
+	baseline: RenderableBundle,
+	treatment: RenderableBundle,
+): string {
 	const baselineBundle = baseline.bundle;
 	const treatmentBundle = treatment.bundle;
 
@@ -185,7 +206,7 @@ export function renderComparisonReport(baseline: LoadedBundle, treatment: Loaded
 		);
 	}
 
-	lines.push("");
+	lines.push("", ...renderComparisonArtifactBounds(baseline, treatment), "");
 	lines.push(...renderPlanComparison(baseline.planText, treatment.planText));
 	lines.push(
 		"",
@@ -262,6 +283,49 @@ function renderPlanComparison(baselinePlan: string, treatmentPlan: string): stri
 		"",
 		"</details>",
 	];
+}
+
+function renderArtifactBounds(loaded: RenderableBundle): string[] {
+	if (loaded.outputBounds === undefined) return [];
+	const truncated = Object.values(loaded.outputBounds).filter((bounds) => !bounds.isComplete);
+	if (truncated.length === 0) return [];
+	return [
+		"## Output Bounds",
+		"",
+		...truncated.map(
+			(bounds) =>
+				`- ${artifactLabel(bounds.artifact)} truncated: returned ${bounds.returnedBytes} of ${bounds.originalBytes} bytes (limit ${bounds.appliedByteLimit}). ${bounds.continuation ?? ""}`,
+		),
+	];
+}
+
+function renderComparisonArtifactBounds(
+	baseline: RenderableBundle,
+	treatment: RenderableBundle,
+): string[] {
+	const lines: string[] = [];
+	const baselineBounds = renderNamedArtifactBounds("Baseline", baseline);
+	const treatmentBounds = renderNamedArtifactBounds("Treatment", treatment);
+	if (baselineBounds.length === 0 && treatmentBounds.length === 0) return [];
+	lines.push("## Output Bounds", "");
+	lines.push(...baselineBounds, ...treatmentBounds);
+	return lines;
+}
+
+function renderNamedArtifactBounds(label: string, loaded: RenderableBundle): string[] {
+	if (loaded.outputBounds === undefined) return [];
+	return Object.values(loaded.outputBounds)
+		.filter((bounds) => !bounds.isComplete)
+		.map(
+			(bounds) =>
+				`- ${label} ${artifactLabel(bounds.artifact)} truncated: returned ${bounds.returnedBytes} of ${bounds.originalBytes} bytes (limit ${bounds.appliedByteLimit}). ${bounds.continuation ?? ""}`,
+		);
+}
+
+function artifactLabel(artifact: ArtifactOutputBounds["artifact"]): string {
+	if (artifact === "diff") return "diff";
+	if (artifact === "plan") return "plan";
+	return "transcript";
 }
 
 function formatValue(value: string | number | null): string {
