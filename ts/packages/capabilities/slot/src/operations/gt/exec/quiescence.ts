@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip, WorktreeOccupancy } from "../../../gateways/repository.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
+import { parseJsonObject } from "../../../json.ts";
 import type { StackInfo } from "@sdl/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
@@ -204,17 +205,15 @@ function parseExpectedSnapshot(
 	| { type: "ok"; snapshot: QuiescenceSnapshot | null }
 	| { type: "usage-error"; message: string; data: { argument: string } } {
 	if (value === undefined) return { type: "ok", snapshot: null };
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(value);
-	} catch (caught) {
+	const parsed = parseJsonObject(value);
+	if (parsed.type === "failure") {
 		return {
 			type: "usage-error",
-			message: `Invalid --expect-snapshot-json: ${errorMessage(caught)}`,
+			message: `Invalid --expect-snapshot-json: ${parsed.message}`,
 			data: { argument: "--expect-snapshot-json" },
 		};
 	}
-	const validation = quiescenceSnapshotSchema.safeParse(parsed);
+	const validation = quiescenceSnapshotSchema.safeParse(parsed.value);
 	if (!validation.success) {
 		return {
 			type: "usage-error",
@@ -315,8 +314,4 @@ function compareSnapshots(options: {
 		}
 	}
 	return { type: "ok", blockers };
-}
-
-function errorMessage(caught: unknown): string {
-	return caught instanceof Error ? caught.message : String(caught);
 }
