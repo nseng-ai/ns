@@ -83,10 +83,10 @@ to omitting `env`.
 
 Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `systemTimerScheduler` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` from `@sdl/core/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
-## Hard bans enforced by TypeScript integration tests
+## Hard bans enforced by TypeScript style guard tests
 
-The repository TypeScript style guard integration tests run adversarial self-review cases and enforce these
-uniquely greppable rules through `just ts-test-integration`:
+The repository TypeScript style guard tests run adversarial self-review cases and enforce these uniquely
+greppable rules through `just ts-test-typescript-style-guard`:
 
 - `SDL_TS_BAN_AS_UNKNOWN_AS`: `as unknown as T` is banned everywhere in TypeScript, including tests. It
   launders the type instead of modeling the fixture or boundary honestly.
@@ -119,4 +119,5 @@ just ts-lint
 just ts-check
 just ts-test
 just ts-test-integration
+just ts-test-typescript-style-guard
 ```

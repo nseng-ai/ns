@@ -16,7 +16,8 @@
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
     "test": "vitest run --config vitest.config.ts",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
   },
   "devDependencies": {
     "@local-pi-tools/pr-feedback-watch": "workspace:*",

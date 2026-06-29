@@ -21,8 +21,16 @@ pnpm --dir ts run test:integration
 just ts-test-integration
 ```
 
-CI reports the default TypeScript suite and TypeScript integration suite as separate non-draft PR jobs.
-Do not hide integration tests behind environment variables or make the default command silently run them.
+The repository-wide TypeScript style guard is a separate long-running architectural guard suite:
+
+```bash
+pnpm --dir ts run test:typescript-style-guard
+# or
+just ts-test-typescript-style-guard
+```
+
+CI reports the default TypeScript suite, TypeScript integration suite, and TypeScript style guard suite as separate non-draft PR jobs.
+Do not hide integration or guard tests behind environment variables or make the default command silently run them.
 
 ## Integration test locator
 
@@ -30,6 +38,12 @@ Put TypeScript integration tests at:
 
 ```text
 ts/packages/<package>/test/integration/**/*.test.ts
+```
+
+Put repository-wide TypeScript style guard tests at:
+
+```text
+ts/packages/<package>/test/typescript-style-guard/**/*.test.ts
 ```
 
 Use integration tests for coverage that intentionally exercises real adapters or runtime boundaries, such
