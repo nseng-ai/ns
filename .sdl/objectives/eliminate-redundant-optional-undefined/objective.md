@@ -6,7 +6,7 @@ This Objective is the single open standing record for autonomous follow-up work 
 
 It continues from the closed `.sdl/objectives/normalize-optional-undefined-boundaries` Objective. The closed Objective established the semantic process: inventory before editing, normalize loose inputs at boundaries, preserve compatibility surfaces deliberately, avoid regex-driven sweeps, and summarize before/after counts and rationale for every slice.
 
-The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective should operate like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make the smallest safe improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
+The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective should operate like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make a review-substantive coherent improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
 
 ## Scope
 
@@ -63,19 +63,21 @@ Useful evidence includes scoped before/after grep counts, a short list of change
 
 This is an autonomy-designed standing Objective for `objective-next`.
 
-Direct local execution is allowed when the runner can select a small, coherent slice that satisfies the Definition of Progress and stays within repository-local edits, local validation, and Objective tracking. Future `objective-next` sessions may proactively offer or run such a slice under the normal confirmed-execution preview rules without asking the human to choose a candidate cluster first.
+Direct local execution is allowed when the runner can select a coherent, review-substantive slice that satisfies the Definition of Progress and stays within repository-local edits, local validation, and Objective tracking. Future `objective-next` sessions may proactively offer or run such a slice under the normal confirmed-execution preview rules without asking the human to choose a candidate cluster first.
+
+Slice sizing should avoid both extremes: do not run broad repo-wide syntactic sweeps, but also do not spend a PR/commit on a single trivial field when nearby candidates form one semantic package/subsystem cluster. Prefer slices such as all safe internal `worktree-status` omission-only option/result fields, a cohesive `pr-previews` internal command/model cleanup, a `pr-feedback-watch` internal model/rendering cleanup, or a GitHub PR feedback parser/fingerprint internal-shape cleanup.
 
 Default runner loop:
 
 1. Recompute or narrow an inventory of `?: ... | undefined` candidates.
 2. Classify candidates before editing: remove now, preserve, or defer.
-3. Pick the smallest coherent safe slice, biased toward internal result/diagnostic/presentation/durable shapes and nearby producers/builders/parsers.
+3. Pick the smallest review-substantive coherent safe slice, biased toward one package/subsystem cluster of internal result/diagnostic/presentation/durable shapes and nearby producers/builders/parsers.
 4. Normalize construction or boundary code before narrowing types.
 5. Run relevant TypeScript validation before keeping work.
 6. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, or roadmap/policy changes.
 7. Leave local edits uncommitted unless the user explicitly asks for commit/PR workflow, then continue in a later invocation.
 
-Ask or stop when candidate meaning is ambiguous, public compatibility is at risk, external schemas are involved, validation fallout crosses unrelated packages, a proposed slice is too broad to review, or the next useful step requires branch creation, committing, PR submission, merging, publishing, deployment, GitHub mutation, or another external write action not explicitly authorized.
+Ask or stop when candidate meaning is ambiguous, public compatibility is at risk, external schemas are involved, validation fallout crosses unrelated packages, a proposed slice is too broad to review or too tiny to justify a standalone PR/commit, or the next useful step requires branch creation, committing, PR submission, merging, publishing, deployment, GitHub mutation, or another external write action not explicitly authorized.
 
 PR submission, merging, publishing, deployment, and external write actions are out of scope unless explicitly requested or separately authorized in the current workflow.
 
