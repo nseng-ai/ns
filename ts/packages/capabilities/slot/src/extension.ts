@@ -61,6 +61,12 @@ import {
 	runGtStackBranches,
 } from "./operations/gt/exec/stack-branches.ts";
 import {
+	gtQuiescenceRequestSchema,
+	gtQuiescenceResultSchema,
+	renderGtQuiescence,
+	runGtQuiescence,
+} from "./operations/gt/exec/quiescence.ts";
+import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderStackMapBranches,
@@ -364,6 +370,15 @@ export default defineExtension({
 			resultSchema: gtStackMapBranchesResultSchema,
 			renderHuman: renderStackMapBranches,
 			handler: runGtStackMapBranches,
+		}),
+		slotCommand({
+			name: "quiescence",
+			summary: "Preflight whether the current Graphite stack scope is safe to mutate.",
+			description: "Preflight whether the current Graphite stack scope is safe to mutate.",
+			schema: gtQuiescenceRequestSchema,
+			resultSchema: gtQuiescenceResultSchema,
+			renderHuman: renderGtQuiescence,
+			handler: runGtQuiescence,
 		}),
 		{
 			name: "show",
