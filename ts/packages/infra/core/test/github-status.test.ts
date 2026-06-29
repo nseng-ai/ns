@@ -310,7 +310,7 @@ describe("GitHub status check classification", () => {
 				{ __typename: "CheckRun", status: "COMPLETED", conclusion: "MYSTERY" },
 				null,
 			]),
-		).toEqual({ passing: 1, pending: 1, failing: 1, unknown: 2 });
+		).toEqual({ passing: 1, pending: 1, failing: 1, unknown: 2, hasMore: false });
 	});
 
 	test("ignores a superseded canceled check run", () => {
@@ -331,7 +331,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:05:00Z",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
 	});
 
 	test("keeps the newest canceled or stale check run as failing", () => {
@@ -352,7 +352,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:05:00Z",
 				}),
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0 });
+		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0, hasMore: false });
 	});
 
 	test("ignores check runs from older workflow runs even when matrix names change", () => {
@@ -395,7 +395,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:22:00Z",
 				}),
 			]),
-		).toEqual({ passing: 3, pending: 0, failing: 0, unknown: 0 });
+		).toEqual({ passing: 3, pending: 0, failing: 0, unknown: 0, hasMore: false });
 	});
 
 	test("keeps a canceled check run from the latest workflow run as failing", () => {
@@ -420,7 +420,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-06-26T14:22:00Z",
 				}),
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0 });
+		).toEqual({ passing: 0, pending: 0, failing: 1, unknown: 0, hasMore: false });
 	});
 
 	test("keeps distinct workflow and check name pairs separate", () => {
@@ -441,7 +441,7 @@ describe("GitHub status check classification", () => {
 					completedAt: "2026-01-01T00:01:00Z",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 1, unknown: 0 });
+		).toEqual({ passing: 1, pending: 0, failing: 1, unknown: 0, hasMore: false });
 	});
 
 	test("dedupes status contexts by context name", () => {
@@ -460,7 +460,7 @@ describe("GitHub status check classification", () => {
 					createdAt: "2026-01-01T00:05:00Z",
 				},
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
 	});
 
 	test("preserves multiple unknown-identity entries", () => {
@@ -470,7 +470,7 @@ describe("GitHub status check classification", () => {
 				{ __typename: "StatusContext", state: "MYSTERY" },
 				null,
 			]),
-		).toEqual({ passing: 0, pending: 0, failing: 0, unknown: 3 });
+		).toEqual({ passing: 0, pending: 0, failing: 0, unknown: 3, hasMore: false });
 	});
 
 	test("uses the last returned check when matching identities have no timestamps", () => {
@@ -489,7 +489,7 @@ describe("GitHub status check classification", () => {
 					conclusion: "SUCCESS",
 				}),
 			]),
-		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
+		).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0, hasMore: false });
 	});
 });
 

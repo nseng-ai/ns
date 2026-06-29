@@ -103,6 +103,7 @@ describe("@sdl/address/api boundary", () => {
 			pending: 0,
 			failing: 0,
 			unknown: 0,
+			hasMore: false,
 		};
 		const failureDetails: GithubPrFeedbackFailureDetails = {
 			operation: "getPrChecks",

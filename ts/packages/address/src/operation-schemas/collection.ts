@@ -70,7 +70,7 @@ const prChecksCountsSchema = z.object({
 	pending: z.int(),
 	failing: z.int(),
 	unknown: z.int(),
-	hasMore: z.boolean().optional(),
+	hasMore: z.boolean(),
 });
 
 export const prChecksResultSchema = z.object({
