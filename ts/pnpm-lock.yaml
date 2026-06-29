@@ -622,6 +622,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
+      '@sdl/exec':
+        specifier: workspace:*
+        version: link:../exec
       zod:
         specifier: 'catalog:'
         version: 4.4.3

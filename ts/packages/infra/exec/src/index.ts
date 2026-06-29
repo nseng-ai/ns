@@ -7,7 +7,42 @@ import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/c
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
 
-export * from "@sdl/core/command";
+export {
+	commandFailureReason,
+	commandSucceeded,
+	execApiToCommandRunner,
+	formatCommand,
+	formatCommandDetails,
+	formatCommandError,
+	formatCommandEvidence,
+	formatCommandFailure,
+	formatCommandResultFailure,
+	formatCommandStartupFailure,
+	formatOutputSection,
+	formatShellArg,
+	isSuccessfulExecResult,
+	MAX_ERROR_CHARS,
+	normalizeExecResult,
+	outputListenerToExecCallbacks,
+	piExecApiToCommandExecApi,
+	runNormalizedExecResult,
+	shellQuote,
+	stripTerminalEscapes,
+	tailText,
+	type CommandExecApi,
+	type CommandPrefix,
+	type CommandResolver,
+	type CommandRunner,
+	type ExecOptions,
+	type ExecOutputListener,
+	type ExecOutputStream,
+	type ExecResult,
+	type FormatCommandEvidenceOptions,
+	type PiExecApiLike,
+	type PiExecResultLike,
+	type StdinCapableCommandExecApi,
+	type TailTextOptions,
+} from "@sdl/core/command";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;

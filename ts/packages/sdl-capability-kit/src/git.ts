@@ -1,5 +1,12 @@
 import { commandSucceeded, type ExecResult } from "@sdl/exec";
+import { RealGitGateway, type GitGateway } from "@sdl/git";
 import type { SdlExtensionApi } from "sdl-sdk";
+
+import { SdlCommandExecApi } from "./command-runner.ts";
+
+export function createSdlGitGateway(ctx: SdlExtensionApi): GitGateway {
+	return new RealGitGateway(new SdlCommandExecApi(ctx));
+}
 
 export interface GitWorktreePorcelainEntry {
 	path: string;

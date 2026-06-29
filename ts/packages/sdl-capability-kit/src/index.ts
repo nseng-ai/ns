@@ -5,6 +5,7 @@ export {
 } from "./command-runner.ts";
 export {
 	createSdlCliExecAdapter,
+	createSdlGitGateway,
 	execSdlCommand,
 	execSdlGit,
 	readSdlGitPorcelainStatus,
