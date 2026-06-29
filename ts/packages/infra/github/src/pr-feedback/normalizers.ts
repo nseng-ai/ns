@@ -65,18 +65,6 @@ export function normalizeReviewThread(
 export function normalizeReviewComment(
 	comment: z.infer<typeof ghReviewCommentSchema>,
 ): GithubPrReviewComment {
-	if (comment.url !== undefined) {
-		return {
-			id: comment.numericId,
-			body: comment.body,
-			author: normalizeAuthor(comment.author),
-			path: comment.path,
-			line: comment.line,
-			startLine: comment.startLine ?? null,
-			createdAt: comment.createdAt,
-			url: comment.url,
-		};
-	}
 	return {
 		id: comment.numericId,
 		body: comment.body,
@@ -85,6 +73,7 @@ export function normalizeReviewComment(
 		line: comment.line,
 		startLine: comment.startLine ?? null,
 		createdAt: comment.createdAt,
+		...(comment.url === undefined ? {} : { url: comment.url }),
 	};
 }
 

@@ -51,14 +51,26 @@ export function failureFromStartup(
 	};
 }
 
+export interface GithubPrFeedbackFailureContextFields {
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
+}
+
+export function failureContextFields(
+	context: GithubPrFeedbackFailureContextFields,
+): GithubPrFeedbackFailureContextFields {
+	return {
+		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
+		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
+		...(context.cursorContext === undefined ? {} : { cursorContext: context.cursorContext }),
+	};
+}
+
 export function failureFromCompleted(
 	run: Extract<RunGitHubCliResult, { readonly type: "completed" }>,
 	operation: GithubPrFeedbackOperation,
-	context: {
-		readonly prNumber?: number;
-		readonly threadId?: string;
-		readonly cursorContext?: string;
-	} = {},
+	context: GithubPrFeedbackFailureContextFields = {},
 ): GithubPrFeedbackFailure {
 	return failureFromMessage({
 		code: "github_pr_feedback_gh_failed",
@@ -73,9 +85,7 @@ export function failureFromCompleted(
 		stderr: run.result.stderr,
 		exitCode: run.result.code,
 		killed: run.result.killed,
-		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
-		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
-		...(context.cursorContext === undefined ? {} : { cursorContext: context.cursorContext }),
+		...failureContextFields(context),
 	});
 }
 
@@ -92,9 +102,7 @@ export function failureFromMessage(options: FailureFromMessageOptions): GithubPr
 function buildFailureDetails(options: FailureFromMessageOptions): GithubPrFeedbackFailureDetails {
 	return {
 		operation: options.operation,
-		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
-		...(options.threadId === undefined ? {} : { threadId: options.threadId }),
-		...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
+		...failureContextFields(options),
 		...(options.run === undefined
 			? {}
 			: { command: options.run.command, displayCommand: options.run.displayCommand }),

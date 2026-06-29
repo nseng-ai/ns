@@ -39,6 +39,10 @@ export function stringArrayField(
 	return value.every((item): item is string => typeof item === "string") ? value : undefined;
 }
 
+export function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
+	return value === undefined ? {} : { [key]: value };
+}
+
 export function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }

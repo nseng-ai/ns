@@ -74,12 +74,33 @@ interface Report {
 	objectiveTracking: string[];
 }
 
+interface ExecCheckedOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	command: string;
+	args: string[];
+}
+
+interface VerifyAfterChildOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	report: Report;
+	startingBranch: string;
+}
+
 interface CommitAndMaybeSubmitOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
 	report: Report;
 	changedFiles: string[];
 	shouldSubmit: boolean;
+}
+
+interface SendSummaryOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	text: string;
+	level?: NotifyLevel;
 }
 
 class UsageError extends Error {}
@@ -147,7 +168,8 @@ function trimOutput(result: ExecResult): string {
 	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 }
 
-async function execChecked(pi: ExtensionAPI, ctx: CommandContext, command: string, args: string[]): Promise<string> {
+async function execChecked(options: ExecCheckedOptions): Promise<string> {
+	const { pi, ctx, command, args } = options;
 	const result = normalizeExecResult(await pi.exec(command, args, { cwd: ctx.cwd }));
 	if (result.code !== 0 || result.isKilled) {
 		throw new Error(`Command failed: ${command} ${args.join(" ")}\n${trimOutput(result)}`);
@@ -156,7 +178,7 @@ async function execChecked(pi: ExtensionAPI, ctx: CommandContext, command: strin
 }
 
 async function git(pi: ExtensionAPI, ctx: CommandContext, args: string[]): Promise<string> {
-	return execChecked(pi, ctx, "git", args);
+	return execChecked({ pi, ctx, command: "git", args });
 }
 
 function objectiveDirectory(objective: string): string {
@@ -232,6 +254,7 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 				try {
 					event = JSON.parse(line) as Record<string, unknown>;
 				} catch {
+					// Ignore malformed streaming event lines; later JSON events can still carry the final answer.
 					return;
 				}
 				if (event.type !== "message_end" || !event.message || typeof event.message !== "object") return;
@@ -334,7 +357,8 @@ function parseReport(text: string): Report | undefined {
 	return report;
 }
 
-async function verifyAfterChild(pi: ExtensionAPI, ctx: CommandContext, report: Report, startingBranch: string): Promise<string[]> {
+async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<string[]> {
+	const { pi, ctx, report, startingBranch } = options;
 	if (report.status !== "ready-for-parent-commit") throw new Error(`Child stopped: ${report.stopReason ?? report.status ?? "unknown"}`);
 	const status = await git(pi, ctx, ["status", "--short"]);
 	if (!status) throw new Error("Child reported ready, but git status is clean.");
@@ -344,8 +368,8 @@ async function verifyAfterChild(pi: ExtensionAPI, ctx: CommandContext, report: R
 		throw new Error(`Report branch ${report.branch} does not match current branch ${currentBranch}.`);
 	}
 	if (currentBranch === startingBranch) throw new Error("Implementation did not move to a branch distinct from the starting branch.");
-	await execChecked(pi, ctx, "gt", ["branch", "info"]);
-	await execChecked(pi, ctx, "git", ["diff", "--check"]);
+	await execChecked({ pi, ctx, command: "gt", args: ["branch", "info"] });
+	await execChecked({ pi, ctx, command: "git", args: ["diff", "--check"] });
 	const changedFiles = status.split("\n").map((line) => line.slice(3).trim()).filter(Boolean);
 	const nonObjectiveChanges = changedFiles.some((file) => !file.startsWith(".sdl/objectives/"));
 	if (nonObjectiveChanges && report.objectiveTracking.length === 0) {
@@ -369,20 +393,21 @@ function submitSummary(submitOutput: string | undefined): string {
 
 async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promise<{ commitOutput: string; submitOutput?: string }> {
 	const { pi, ctx, report, changedFiles, shouldSubmit } = options;
-	await execChecked(pi, ctx, "git", ["add", "--", ...changedFiles]);
+	await execChecked({ pi, ctx, command: "git", args: ["add", "--", ...changedFiles] });
 	const message = usableReportText(report.commitMessage) ?? usableReportText(report.recommendedSlice) ?? "Objective autopilot update";
 	let commitOutput: string;
 	try {
-		commitOutput = await execChecked(pi, ctx, "gt", ["modify", "-m", message]);
+		commitOutput = await execChecked({ pi, ctx, command: "gt", args: ["modify", "-m", message] });
 	} catch {
-		commitOutput = await execChecked(pi, ctx, "git", ["commit", "-m", message]);
+		commitOutput = await execChecked({ pi, ctx, command: "git", args: ["commit", "-m", message] });
 	}
 	if (!shouldSubmit) return { commitOutput };
-	const submitOutput = await execChecked(pi, ctx, "gt", ["submit", "--no-interactive"]);
+	const submitOutput = await execChecked({ pi, ctx, command: "gt", args: ["submit", "--no-interactive"] });
 	return { commitOutput, submitOutput };
 }
 
-function sendSummary(pi: ExtensionAPI, ctx: CommandContext, text: string, level: NotifyLevel = "info"): void {
+function sendSummary(options: SendSummaryOptions): void {
+	const { pi, ctx, text, level = "info" } = options;
 	if (pi.sendUserMessage) pi.sendUserMessage(text);
 	else if (ctx.hasUI) ctx.ui.notify(text, level);
 }
@@ -397,7 +422,7 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 		args = parseArgs(rawArgs);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		sendSummary(pi, ctx, `${message}\n\n${usage()}`, "error");
+		sendSummary({ pi, ctx, text: `${message}\n\n${usage()}`, level: "error" });
 		return;
 	}
 
@@ -417,7 +442,7 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 				summaries.push(`iteration ${iteration}: stopped (${usableReportText(report.stopReason) ?? "child requested stop"}).`);
 				break;
 			}
-			const changedFiles = await verifyAfterChild(pi, ctx, report, startingBranch);
+			const changedFiles = await verifyAfterChild({ pi, ctx, report, startingBranch });
 			if (args.isDryRun) {
 				summaries.push(`iteration ${iteration}: verified dry-run on ${report.branch}; ${changedFiles.length} changed file(s).`);
 				break;
@@ -436,10 +461,10 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 			if (postStatus) throw new Error(`Worktree is dirty after commit/submit:\n${postStatus}`);
 			startingBranch = await git(pi, ctx, ["branch", "--show-current"]);
 		}
-		sendSummary(pi, ctx, [`/objective:autopilot complete`, ...summaries].join("\n\n"));
+		sendSummary({ pi, ctx, text: [`/objective:autopilot complete`, ...summaries].join("\n\n") });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		sendSummary(pi, ctx, `/objective:autopilot stopped.\n\n${message}`, "error");
+		sendSummary({ pi, ctx, text: `/objective:autopilot stopped.\n\n${message}`, level: "error" });
 	} finally {
 		ctx.ui.setStatus(STATUS_KEY, undefined);
 		ctx.ui.setWidget?.(STATUS_KEY, undefined);

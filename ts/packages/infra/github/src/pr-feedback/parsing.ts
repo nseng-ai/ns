@@ -5,7 +5,7 @@ import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../graphql-json.ts"
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { Result } from "@sdl/core/result";
 
-import { failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
+import { failureContextFields, failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
 import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";
 
 export type GithubJsonParseResult<T> =
@@ -144,20 +144,4 @@ export interface GithubPrFeedbackFailureContext {
 	readonly prNumber?: number;
 	readonly threadId?: string;
 	readonly cursorContext?: string;
-}
-
-function failureContextFields(context: {
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
-}): {
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
-} {
-	return {
-		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
-		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
-		...(context.cursorContext === undefined ? {} : { cursorContext: context.cursorContext }),
-	};
 }

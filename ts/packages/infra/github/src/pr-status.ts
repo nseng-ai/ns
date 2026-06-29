@@ -510,7 +510,7 @@ function githubWorktreePrStatusesFromResponse(
 ): GithubWorktreePrStatus[] {
 	return response.data.repository.pullRequests.nodes.map((node) => {
 		const contexts = node.statusCheckRollup?.contexts;
-		const status: GithubWorktreePrStatus = {
+		return {
 			number: node.number,
 			headRefName: node.headRefName,
 			headRefOid: node.headRefOid,
@@ -518,9 +518,8 @@ function githubWorktreePrStatusesFromResponse(
 			checks: tallyGithubStatusChecks(contexts?.nodes ?? [], {
 				hasMore: contexts?.pageInfo.hasNextPage ?? false,
 			}),
+			...(node.url === undefined ? {} : { url: node.url }),
 		};
-		if (node.url !== undefined) status.url = node.url;
-		return status;
 	});
 }
 

@@ -35,11 +35,11 @@ export interface RegistryCheckMetadataInput {
 export function registryCheckMetadataFields(
 	fields: RegistryCheckMetadataInput,
 ): RegistryCheckMetadataFields {
-	const metadata: RegistryCheckMetadataFields = {};
-	if (fields.packageUrl !== undefined) metadata.packageUrl = fields.packageUrl;
-	if (fields.latestVersion !== undefined) metadata.latestVersion = fields.latestVersion;
-	if (fields.description !== undefined) metadata.description = fields.description;
-	return metadata;
+	return {
+		...(fields.packageUrl === undefined ? {} : { packageUrl: fields.packageUrl }),
+		...(fields.latestVersion === undefined ? {} : { latestVersion: fields.latestVersion }),
+		...(fields.description === undefined ? {} : { description: fields.description }),
+	};
 }
 
 export function availableResult(

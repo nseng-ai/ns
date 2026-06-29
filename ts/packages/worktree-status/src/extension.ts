@@ -280,7 +280,7 @@ interface ActiveSession {
 	abortController: AbortController;
 	isClosed: boolean;
 	isDormant: boolean;
-	activityUnsubscribe?: () => void;
+	activityUnsubscribe: (() => void) | undefined;
 	activityController?: WorktreeStatusActivityController;
 	refreshTimer?: WorktreeStatusRefreshTimer;
 	localStatus?: LocalWorktreeStatus;
@@ -336,6 +336,7 @@ export default function worktreeStatusExtension(
 			abortController: new AbortController(),
 			isClosed: false,
 			isDormant: false,
+			activityUnsubscribe: undefined,
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
@@ -343,8 +344,7 @@ export default function worktreeStatusExtension(
 		session.refreshTimer = controllers.refreshTimer;
 		session.activityController = controllers.activityController;
 		freshnessRenderTimer = controllers.freshnessRenderTimer;
-		const activityUnsubscribe = installActivityTracking(session);
-		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
+		session.activityUnsubscribe = installActivityTracking(session);
 		return session;
 	}
 
