@@ -114,7 +114,7 @@ describe("branch-context CLI help, version, and dispatch pins", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/branch-context bin branch-context -> ts/packages/branch-context/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/branch-context bin branch-context -> ts/packages/branch-context/(no package bin)\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 		expectNoGitOrBrmemCalls(run);

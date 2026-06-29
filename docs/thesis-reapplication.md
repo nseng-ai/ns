@@ -76,7 +76,7 @@ is confirmed dead — otherwise you are doing expensive work a cheap tool would 
   brmem get <key> --namespace branch-context --branch <branch>
   ```
 
-  If you are currently on the branch, `branch-context exec load [key]
+  If you are currently on the branch, `sdl branch-context exec load [key]
   --prompt-file <path> --format json` is the higher-level loader for bounded
   stdout; read the returned `data.implementation_prompt_file` from the standard
   Clinkr JSON envelope. Treat an attached plan as authored intent, not incidental
