@@ -197,11 +197,11 @@ describe("ccc CLI", () => {
 			},
 		);
 
-		expect(missing).toBe(1);
+		expect(missing).toBe(2);
 		expect(missingStderr.join("")).toBe("");
 		expect(JSON.parse(missingStdout.join(""))).toMatchObject({
-			status: "negative",
-			exitCode: 1,
+			status: "usageError",
+			exitCode: 2,
 			message: "Provide --description.",
 			data: { success: false, error: { code: "missing_description" } },
 		});
@@ -229,9 +229,9 @@ describe("ccc CLI", () => {
 			},
 		);
 
-		expect(failed).toBe(1);
+		expect(failed).toBe(2);
 		expect(JSON.parse(failedStdout.join(""))).toMatchObject({
-			exitCode: 1,
+			exitCode: 2,
 			data: {
 				success: false,
 				error: {
@@ -320,7 +320,7 @@ describe("ccc CLI", () => {
 
 	test("flow errors exit nonzero and write actionable guidance to stderr", async () => {
 		const detached = runWithFakes(["exec", "autobranch"], { isDetachedHead: true });
-		expect(await detached.exit).toBe(1);
+		expect(await detached.exit).toBe(2);
 		expect(output(detached).stdout).toBe("");
 		expect(output(detached).stderr).toContain(
 			"Detached HEAD; check out a branch before autobranching.",
@@ -329,7 +329,7 @@ describe("ccc CLI", () => {
 		const graphite = runWithFakes(["exec", "autobranch", "--slug", "failed branch"], {
 			shouldGtCreateFail: true,
 		});
-		expect(await graphite.exit).toBe(1);
+		expect(await graphite.exit).toBe(2);
 		expect(output(graphite).stdout).toBe("");
 		expect(output(graphite).stderr).toContain("Failed to create Graphite branch failed-branch.");
 		expect(output(graphite).stderr).toContain("Restored pending changes to the original branch.");

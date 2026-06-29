@@ -24,7 +24,7 @@ describe("delete operation", () => {
 		expect(deleted.stderr).toEqual([]);
 
 		const get = runScenario(["get", "plan/plan.md", "--namespace", "scratch"], { gateway });
-		expect(await get.exit).toBe(2);
+		expect(await get.exit).toBe(1);
 		expect(get.stderr.join("")).toContain("No content for Entry Key plan/plan.md");
 	});
 
@@ -113,7 +113,7 @@ describe("delete operation", () => {
 		const human = runScenario(["delete", "plan/plan.md", "--namespace", "scratch", "--yes"], {
 			fake: { currentBranch: "feat/x" },
 		});
-		expect(await human.exit).toBe(2);
+		expect(await human.exit).toBe(1);
 		const humanError = human.stderr.join("");
 		expect(humanError).toContain("No Entry to delete");
 		expect(humanError).toContain("Entry Key=plan/plan.md");
@@ -127,9 +127,9 @@ describe("delete operation", () => {
 				fake: { currentBranch: "feat/x" },
 			},
 		);
-		expect(await json.exit).toBe(2);
+		expect(await json.exit).toBe(1);
 		const parsed = JSON.parse(json.stdout.join(""));
-		expect(parsed).toMatchObject({ status: "failure", exitCode: 2, errorType: "key_not_found" });
+		expect(parsed).toMatchObject({ status: "negative", exitCode: 1 });
 		expect(parsed.message).toContain("No Entry to delete");
 	});
 
@@ -147,7 +147,7 @@ describe("delete operation", () => {
 		).toBe(0);
 
 		const getA = runScenario(["get", "plan/a.md", "--namespace", "scratch"], { gateway });
-		expect(await getA.exit).toBe(2);
+		expect(await getA.exit).toBe(1);
 		const getB = runScenario(["get", "plan/b.md", "--namespace", "scratch"], { gateway });
 		expect(await getB.exit).toBe(0);
 		expect(getB.stdout.join("")).toBe("b\n");
@@ -189,8 +189,11 @@ describe("delete operation", () => {
 			["delete", "explicit", "--namespace", "base", "--yes", "--format", "json"],
 			{ gateway },
 		);
-		expect(await secondDelete.exit).toBe(2);
-		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({ errorType: "key_not_found" });
+		expect(await secondDelete.exit).toBe(1);
+		expect(JSON.parse(secondDelete.stdout.join(""))).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+		});
 	});
 
 	it("validates namespace, key, and branch before deleting", async () => {

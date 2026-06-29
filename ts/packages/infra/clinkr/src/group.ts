@@ -86,6 +86,15 @@ export interface DefaultRawCommandSpec<TContext, S extends z.ZodObject> extends 
 	description?: never;
 }
 
+export interface DefaultCommandSpec<TContext, S extends z.ZodObject, T> extends Omit<
+	ClinkrCommandSpec<TContext, S, T>,
+	"name" | "summary" | "description"
+> {
+	name?: never;
+	summary?: never;
+	description?: never;
+}
+
 export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
@@ -198,7 +207,11 @@ export class ClinkrGroup<TContext> {
 		return this;
 	}
 
-	defaultCommand<S extends z.ZodObject>(spec: DefaultRawCommandSpec<TContext, S>): this {
+	defaultCommand<S extends z.ZodObject>(spec: DefaultRawCommandSpec<TContext, S>): this;
+	defaultCommand<S extends z.ZodObject, T>(spec: DefaultCommandSpec<TContext, S, T>): this;
+	defaultCommand<S extends z.ZodObject, T>(
+		spec: DefaultRawCommandSpec<TContext, S> | DefaultCommandSpec<TContext, S, T>,
+	): this {
 		if (this.defaultRegisteredCommand !== undefined) {
 			throw new Error(`clinkr: group '${this.name}' already has a default command`);
 		}
@@ -211,7 +224,7 @@ export class ClinkrGroup<TContext> {
 		this.defaultRegisteredCommand = {
 			name: this.name,
 			schema: spec.schema,
-			execution: rawExecutionOf(spec),
+			execution: executionOf(spec),
 			plan,
 			completionProvider: spec.completionProvider,
 		};
@@ -329,7 +342,11 @@ export class ClinkrGroup<TContext> {
 }
 
 function executionOf<TContext, S extends z.ZodObject, T>(
-	spec: ClinkrCommandSpec<TContext, S, T> | RawCommandSpec<TContext, S>,
+	spec:
+		| ClinkrCommandSpec<TContext, S, T>
+		| RawCommandSpec<TContext, S>
+		| DefaultCommandSpec<TContext, S, T>
+		| DefaultRawCommandSpec<TContext, S>,
 ): RenderedExecution<TContext> | RawExecution<TContext> {
 	if (spec.isRawExit === true) return rawExecutionOf(spec);
 	return {

@@ -1,4 +1,4 @@
-import { failure, ok, type ClinkrFailureExit } from "@sdl/clinkr";
+import { failure, negative, ok, type ClinkrFailureExit } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -98,7 +98,9 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		.filter((entry) => request.keyGlob === undefined || keyGlobMatches(entry.key, request.keyGlob))
 		.sort(compareEntries);
 	if (selectedSourceEntries.length === 0) {
-		return failure("no_matching_entries", noMatchingEntriesMessage(namespace, request));
+		return negative(noMatchingEntriesMessage(namespace, request), {
+			data: emptyCopyResult(namespace, request),
+		});
 	}
 
 	const destinationEntriesResult = await ctx.gateway.listEntries({
@@ -112,9 +114,11 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		.map((entry) => entry.key)
 		.sort();
 	if (conflicts.length > 0 && !request.overwrite) {
-		return failure(
-			"destination_conflict",
+		return negative(
 			`Destination has conflicting Entries: ${conflicts.join(", ")}. Pass --overwrite to replace them.`,
+			{
+				data: emptyCopyResult(namespace, request),
+			},
 		);
 	}
 
@@ -140,8 +144,11 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		keyGlob: request.keyGlob,
 	});
 	if (copied.type === "error") {
-		if (copied.error.code === "copy_conflict")
-			return failure("destination_conflict", copied.error.message);
+		if (copied.error.code === "copy_conflict") {
+			return negative(copied.error.message, {
+				data: result,
+			});
+		}
 		return gatewayFailure<CopyResult>(copied.error);
 	}
 	return ok(result);
@@ -213,4 +220,16 @@ function noMatchingEntriesMessage(namespace: string, request: CopyRequest): stri
 	if (request.keyGlob === undefined)
 		return `No Entries found on Branch ${request.fromBranch} in ${scope}.`;
 	return `No Entries on Branch ${request.fromBranch} in ${scope} match --key-glob ${JSON.stringify(request.keyGlob)}.`;
+}
+
+function emptyCopyResult(namespace: string, request: CopyRequest): CopyResult {
+	return {
+		namespace,
+		from_branch: request.fromBranch,
+		to_branch: request.toBranch,
+		overwrite: request.overwrite,
+		dry_run: request.dryRun,
+		copied: [],
+		key_glob: request.keyGlob ?? null,
+	};
 }

@@ -1,4 +1,4 @@
-import { failure, ok } from "@sdl/clinkr";
+import { negative, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -34,9 +34,19 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 	const locator = mustEntryLocator(namespace, key, branch);
 	const target = request.at ?? locator;
 	if (result.type === "missing") {
-		return failure(
-			"branch_memory_missing",
+		return negative(
 			`No content for Entry Key ${key} in Namespace ${namespaceValueLabel(namespace)} on Branch ${branch} at ${target}. Inspect with: git show ${request.at === undefined ? locator : `${request.at}:${key}`}`,
+			{
+				data: {
+					namespace,
+					key,
+					branch,
+					content: "",
+					ref_name: locator,
+					target,
+					at: request.at ?? null,
+				},
+			},
 		);
 	}
 	return ok({

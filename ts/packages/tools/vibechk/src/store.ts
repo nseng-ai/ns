@@ -13,10 +13,28 @@ export const TRANSCRIPT_FILE_NAME = "transcript.txt";
 export const DIFF_FILE_NAME = "diff.patch";
 export const ARTIFACTS_DIR_NAME = "artifacts";
 
+export type VibechkErrorCode =
+	| "ambiguous_run"
+	| "bundle_missing"
+	| "invalid_bundle"
+	| "operation_failed"
+	| "run_id_allocation_failed"
+	| "run_not_found"
+	| "store_config_error";
+
 export class VibechkError extends Error {
-	constructor(message: string) {
+	readonly code: VibechkErrorCode;
+	readonly data: Record<string, unknown>;
+
+	constructor(
+		message: string,
+		code: VibechkErrorCode = "operation_failed",
+		data: Record<string, unknown> = {},
+	) {
 		super(message);
 		this.name = "VibechkError";
+		this.code = code;
+		this.data = data;
 	}
 }
 
@@ -29,11 +47,11 @@ export function resolveStoreRoot(
 	}
 
 	const vibechkHome = resolvePathOverride({ env, name: "VIBECHK_HOME" });
-	if (!vibechkHome.ok) throw new VibechkError(vibechkHome.error.message);
+	if (!vibechkHome.ok) throw new VibechkError(vibechkHome.error.message, "store_config_error");
 	if (vibechkHome.value !== undefined) return vibechkHome.value;
 
 	const xdgStateHome = resolveXdgHome("state", env);
-	if (!xdgStateHome.ok) throw new VibechkError(xdgStateHome.error.message);
+	if (!xdgStateHome.ok) throw new VibechkError(xdgStateHome.error.message, "store_config_error");
 	return join(xdgStateHome.value, "vibechk");
 }
 
@@ -41,7 +59,7 @@ function expandExplicitStoreRoot(path: string, env: Record<string, string | unde
 	if (!path.startsWith("~/")) return path;
 	const home = env["HOME"];
 	if (home === undefined) {
-		throw new VibechkError("HOME environment variable is not set");
+		throw new VibechkError("HOME environment variable is not set", "store_config_error");
 	}
 	return join(home, path.slice(2));
 }
@@ -55,7 +73,9 @@ export async function resolveRunId(storeRoot: string, idOrPrefix: string): Promi
 		runDirs = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name.toString());
 	} catch (error: unknown) {
 		if (isNodeError(error) && error.code === "ENOENT") {
-			throw new VibechkError(`No run matches prefix '${idOrPrefix}'.`);
+			throw new VibechkError(`No run matches prefix '${idOrPrefix}'.`, "run_not_found", {
+				idOrPrefix,
+			});
 		}
 		throw error;
 	}
@@ -69,11 +89,20 @@ export async function resolveRunId(storeRoot: string, idOrPrefix: string): Promi
 	const matches = runDirs.filter((name) => name.startsWith(idOrPrefix)).sort();
 
 	if (matches.length === 0) {
-		throw new VibechkError(`No run matches prefix '${idOrPrefix}'.`);
+		throw new VibechkError(`No run matches prefix '${idOrPrefix}'.`, "run_not_found", {
+			idOrPrefix,
+		});
 	}
 
 	if (matches.length > 1) {
-		throw new VibechkError(`Run prefix '${idOrPrefix}' is ambiguous: ${matches.join(", ")}.`);
+		throw new VibechkError(
+			`Run prefix '${idOrPrefix}' is ambiguous: ${matches.join(", ")}.`,
+			"ambiguous_run",
+			{
+				idOrPrefix,
+				matches,
+			},
+		);
 	}
 
 	return matches[0]!;
@@ -124,7 +153,9 @@ async function loadBundleFromRunDir(runDir: string, context: string): Promise<Lo
 		bundleText = await readFile(bundlePath, "utf-8");
 	} catch (error: unknown) {
 		if (isNodeError(error) && error.code === "ENOENT") {
-			throw new VibechkError(`${context} is missing bundle.json.`);
+			throw new VibechkError(`${context} is missing bundle.json.`, "bundle_missing", {
+				context,
+			});
 		}
 		throw error;
 	}
@@ -133,14 +164,18 @@ async function loadBundleFromRunDir(runDir: string, context: string): Promise<Lo
 	try {
 		data = JSON.parse(bundleText);
 	} catch (error: unknown) {
-		throw new VibechkError(`${context} has an invalid bundle.json: ${error}`);
+		throw new VibechkError(`${context} has an invalid bundle.json: ${error}`, "invalid_bundle", {
+			context,
+		});
 	}
 
 	let bundle: RunBundle;
 	try {
 		bundle = parseRunBundle(data);
 	} catch (error: unknown) {
-		throw new VibechkError(`${context} has an invalid bundle.json: ${error}`);
+		throw new VibechkError(`${context} has an invalid bundle.json: ${error}`, "invalid_bundle", {
+			context,
+		});
 	}
 
 	const planText = await readOptionalFile(join(runDir, PLAN_FILE_NAME));
@@ -195,7 +230,10 @@ export async function createRunDir(
 		}
 	}
 
-	throw new VibechkError("Failed to allocate a unique run ID after 100 attempts.");
+	throw new VibechkError(
+		"Failed to allocate a unique run ID after 100 attempts.",
+		"run_id_allocation_failed",
+	);
 }
 
 export async function writeBundle(runDir: string, bundle: RunBundle): Promise<void> {

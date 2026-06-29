@@ -190,14 +190,14 @@ describe("roaster exec CLI", () => {
 			github: gateway,
 		});
 		expect(publish.exitCode).toBe(0);
-		expect(publish.stderr).toContain("inline findings: posted=1");
+		expect(publish.stdout).toContain("inline findings: posted=1");
 	});
 
 	test("publish-findings rejects malformed stdin", async () => {
 		const run = await runRoaster(["exec", "publish-findings", "--pr-number", "47"], {
 			stdin: "not json",
 		});
-		expect(run.exitCode).toBe(1);
+		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toContain("valid JSON");
 	});
 
@@ -207,7 +207,7 @@ describe("roaster exec CLI", () => {
 			github: new UnexpectedInlineQueryGateway(),
 		});
 
-		expect(run.exitCode).toBe(1);
+		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toContain("--review-name");
 		expect(run.stderr).toContain("--base-ref");
 	});
@@ -219,9 +219,9 @@ describe("roaster exec CLI", () => {
 			github: emptyGateway,
 		});
 		expect(empty.exitCode).toBe(0);
-		expect(empty.stdout).toBe("");
-		expect(empty.stderr).toContain("inline findings: posted=0");
-		expect(empty.stderr).toContain("posted findings comment");
+		expect(empty.stderr).toBe("");
+		expect(empty.stdout).toContain("inline findings: posted=0");
+		expect(empty.stdout).toContain("posted findings comment");
 		const emptyComment = await findSummaryComment(
 			emptyGateway,
 			"<!-- roaster:dignified-python-tripwire -->",
@@ -243,7 +243,7 @@ describe("roaster exec CLI", () => {
 			{ stdin: failedEnvelope(), github: failedGateway },
 		);
 		expect(failed.exitCode).toBe(0);
-		expect(failed.stderr).toContain("inline findings: posted=0");
+		expect(failed.stdout).toContain("inline findings: posted=0");
 		const failedComment = await findSummaryComment(
 			failedGateway,
 			"<!-- roaster:fallback-review -->",
@@ -265,11 +265,11 @@ describe("roaster exec CLI", () => {
 			},
 		);
 		expect(run.exitCode).toBe(0);
-		expect(run.stdout).toBe("");
-		expect(run.stderr).toContain(
+		expect(run.stderr).toBe("");
+		expect(run.stdout).toContain(
 			"inline findings: posted=1 skipped_duplicate=0 fallback_only=1 api_error=none",
 		);
-		expect(run.stderr).toContain("posted findings comment");
+		expect(run.stdout).toContain("posted findings comment");
 
 		const createdReview = gateway.createdReviews()[0];
 		expect(createdReview?.comments).toHaveLength(1);
@@ -327,10 +327,10 @@ describe("roaster exec CLI", () => {
 			github: duplicateGateway,
 		});
 		expect(duplicate.exitCode).toBe(0);
-		expect(duplicate.stderr).toContain(
+		expect(duplicate.stdout).toContain(
 			"inline findings: posted=0 skipped_duplicate=1 fallback_only=0 api_error=none",
 		);
-		expect(duplicate.stderr).toContain("updated findings comment");
+		expect(duplicate.stdout).toContain("updated findings comment");
 		expect(duplicateGateway.createdReviews()).toHaveLength(0);
 		const comment = await findSummaryComment(
 			duplicateGateway,
@@ -346,7 +346,7 @@ describe("roaster exec CLI", () => {
 			stdin: buildFindingsEnvelope([inlineFinding], EXEC_CLI_FINDINGS_ENVELOPE_OPTIONS),
 			github: gateway,
 		});
-		expect(run.exitCode).toBe(1);
+		expect(run.exitCode).toBe(2);
 		expect(run.stderr).toContain("publish-findings: discussion write failed");
 	});
 
@@ -357,8 +357,8 @@ describe("roaster exec CLI", () => {
 			github: gateway,
 		});
 		expect(run.exitCode).toBe(0);
-		expect(run.stderr).toContain("api_error=validation failed");
-		expect(run.stderr).toContain("posted findings comment");
+		expect(run.stdout).toContain("api_error=validation failed");
+		expect(run.stdout).toContain("posted findings comment");
 		const comment = await findSummaryComment(gateway, "<!-- roaster:dignified-python-tripwire -->");
 		expect(comment?.body).toContain("API error:** validation failed");
 	});

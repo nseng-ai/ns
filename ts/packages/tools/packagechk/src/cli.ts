@@ -1,7 +1,16 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup, resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
-import { rawCommand } from "@sdl/clinkr/raw";
+import {
+	ClinkrGroup,
+	failure,
+	negative,
+	ok,
+	resolveClinkrInteraction,
+	usageError,
+	type ClinkrExit,
+	type ClinkrInteraction,
+} from "@sdl/clinkr";
+
 import { defineCli } from "@sdl/core/cli-entry";
 import { readStdinLine } from "@sdl/core/stdin";
 import { z } from "zod";
@@ -9,13 +18,14 @@ import { z } from "zod";
 import {
 	buildNpmClaimPolicy,
 	buildPypiClaimPolicy,
+	claimCommandResultSchema,
 	claimRequestSchema,
 	runClaimCommand,
 } from "./claim-command.ts";
 import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
-import { REGISTRIES, reportExitCode, type Registry } from "./models.ts";
-import { renderHuman, renderJson } from "./output.ts";
+import { REGISTRIES, reportExitCode, type PackageCheckReport, type Registry } from "./models.ts";
+import { renderHuman } from "./output.ts";
 import {
 	RealNpmPublishGateway,
 	RealPypiPublishGateway,
@@ -49,53 +59,70 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 		root.defaultCommand({
 			schema: checkRequestSchema,
 			positionals: { name: { position: 0 } },
-			isRawExit: true,
-			run: runCheck,
+			resultSchema: packageCheckReportSchema,
+			handler: runCheck,
+			renderHuman,
 		});
 
-		root.command(
-			rawCommand({
-				name: "claim-pypi",
-				description: "Claim a PyPI package name by publishing a minimal placeholder package.",
-				schema: claimRequestSchema,
-				positionals: { name: { position: 0 } },
-				options: { yes: { short: "-y" } },
-				run: async (ctx, request) =>
-					runClaimCommand({
-						request,
-						policy: buildPypiClaimPolicy(ctx),
-						io: ctx.io,
-						interaction: ctx.interaction,
-					}),
-			}),
-		);
+		root.command({
+			name: "claim-pypi",
+			description: "Claim a PyPI package name by publishing a minimal placeholder package.",
+			schema: claimRequestSchema,
+			positionals: { name: { position: 0 } },
+			options: { yes: { short: "-y" } },
+			resultSchema: claimCommandResultSchema,
+			handler: async (ctx, request) =>
+				runClaimCommand({
+					request,
+					policy: buildPypiClaimPolicy(ctx),
+					io: ctx.io,
+					interaction: ctx.interaction,
+				}),
+		});
 
-		root.command(
-			rawCommand({
-				name: "claim-npm",
-				description:
-					"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
-				schema: claimRequestSchema,
-				positionals: { name: { position: 0 } },
-				options: { yes: { short: "-y" } },
-				run: async (ctx, request) =>
-					runClaimCommand({
-						request,
-						policy: buildNpmClaimPolicy(ctx),
-						io: ctx.io,
-						interaction: ctx.interaction,
-					}),
-			}),
-		);
+		root.command({
+			name: "claim-npm",
+			description:
+				"Claim an npm package name by publishing a minimal placeholder package. Requires `~/.npmrc` with a `_authToken` line (granular token with publish + bypass-2FA scopes) or equivalent auth picked up by `npm publish`.",
+			schema: claimRequestSchema,
+			positionals: { name: { position: 0 } },
+			options: { yes: { short: "-y" } },
+			resultSchema: claimCommandResultSchema,
+			handler: async (ctx, request) =>
+				runClaimCommand({
+					request,
+					policy: buildNpmClaimPolicy(ctx),
+					io: ctx.io,
+					interaction: ctx.interaction,
+				}),
+		});
 	},
 });
 
 export const VERSION = entry.version;
 
+const registrySchema = z.enum(REGISTRIES);
+
 const checkRequestSchema = z.object({
 	name: z.string().describe("Package name to check."),
 	registry: z.array(z.string()).optional().describe("Registry to check; may be repeated."),
-	showJson: z.boolean().optional().describe("Emit JSON output."),
+	showJson: z.boolean().optional().describe("Deprecated; use --format json."),
+});
+
+const registryCheckResultSchema = z.object({
+	registry: registrySchema,
+	inputName: z.string(),
+	lookupName: z.string(),
+	status: z.enum(["available", "taken", "invalid", "error"]),
+	message: z.string(),
+	packageUrl: z.string().optional(),
+	latestVersion: z.string().optional(),
+	description: z.string().optional(),
+});
+
+const packageCheckReportSchema = z.object({
+	inputName: z.string(),
+	results: z.array(registryCheckResultSchema),
 });
 
 type CheckRequest = z.output<typeof checkRequestSchema>;
@@ -126,11 +153,22 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 	return await entry.run(args, deps);
 }
 
-async function runCheck(ctx: PackagechkCliContext, request: CheckRequest): Promise<number> {
+async function runCheck(
+	ctx: PackagechkCliContext,
+	request: CheckRequest,
+): Promise<ClinkrExit<z.output<typeof packageCheckReportSchema>>> {
+	if (request.showJson === true) {
+		return usageError("--show-json is deprecated; use --format json.", {
+			flag: "showJson",
+			replacement: "--format json",
+		});
+	}
 	const selectedRegistries = parseRegistryOptions(request.registry ?? []);
 	if (typeof selectedRegistries === "string") {
-		ctx.io.stderr(`${selectedRegistries}\n`);
-		return 2;
+		return usageError(selectedRegistries, {
+			option: "registry",
+			allowedValues: REGISTRIES,
+		});
 	}
 	const report = await checkPackageName({
 		packageName: request.name,
@@ -138,20 +176,33 @@ async function runCheck(ctx: PackagechkCliContext, request: CheckRequest): Promi
 		registryGateway: ctx.registryGateway,
 	});
 	const exitCode = reportExitCode(report);
-	if (request.showJson === true) {
-		ctx.io.stdout(`${renderJson(report)}\n`);
-	} else if (exitCode === 2) {
-		ctx.io.stderr(`${renderHuman(report)}\n`);
-	} else {
-		ctx.io.stdout(`${renderHuman(report)}\n`);
+	const data = packageCheckReportData(report);
+	if (exitCode === 0) return ok(data);
+	if (exitCode === 1) {
+		return negative("One or more package names are already taken.", {
+			data,
+			human: renderHuman(report),
+		});
 	}
-	return exitCode;
+	if (report.results.some((result) => result.status === "invalid")) {
+		return usageError(renderHuman(report), { report: data });
+	}
+	return failure("registry_check_failed", "One or more registry checks failed.", { report: data });
+}
+
+function packageCheckReportData(
+	report: PackageCheckReport,
+): z.output<typeof packageCheckReportSchema> {
+	return {
+		inputName: report.inputName,
+		results: [...report.results],
+	};
 }
 
 function parseRegistryOptions(options: readonly string[]): Registry[] | string {
 	const registries: Registry[] = [];
 	for (const option of options) {
-		if (!isRegistry(option)) return `error: --registry: expected one of ${REGISTRIES.join(", ")}`;
+		if (!isRegistry(option)) return `--registry: expected one of ${REGISTRIES.join(", ")}`;
 		registries.push(option);
 	}
 	return registries;

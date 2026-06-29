@@ -46,14 +46,14 @@ describe("packagechk CLI", () => {
 		const run = await runPackagechk([SAMPLE], { registryGateway: gateway });
 
 		expect(run.code).toBe(1);
-		expect(splitLines(run.stdout)).toEqual(["pypi: available", "npm: taken", "brew: available"]);
-		expect(run.stderr).toBe("");
+		expect(run.stdout).toBe("");
+		expect(splitLines(run.stderr)).toEqual(["pypi: available", "npm: taken", "brew: available"]);
 		expect(gateway.checkedNames("pypi")).toEqual([SAMPLE]);
 		expect(gateway.checkedNames("npm")).toEqual([SAMPLE]);
 		expect(gateway.checkedNames("brew")).toEqual([SAMPLE]);
 	});
 
-	test("emits schema-versioned JSON", async () => {
+	test("emits Clinkr JSON envelope", async () => {
 		const gateway = new FakePackageRegistryGateway({
 			results: {
 				[`pypi:${SAMPLE}`]: takenResult("pypi", {
@@ -66,27 +66,31 @@ describe("packagechk CLI", () => {
 			},
 		});
 
-		const run = await runPackagechk([SAMPLE, "--registry", "pypi", "--show-json"], {
+		const run = await runPackagechk([SAMPLE, "--registry", "pypi", "--format", "json"], {
 			registryGateway: gateway,
 		});
 
 		expect(run.code).toBe(1);
+		expect(run.stderr).toBe("");
 		expect(JSON.parse(run.stdout)).toEqual({
+			status: "negative",
 			exitCode: 1,
-			name: SAMPLE,
-			schema_version: 1,
-			results: [
-				{
-					description: "Sample PyPI package",
-					input_name: SAMPLE,
-					latest_version: "1.2.3",
-					lookup_name: SAMPLE,
-					message: "pypi package name is already taken",
-					package_url: "https://pypi.org/project/sample-name/",
-					registry: "pypi",
-					status: "taken",
-				},
-			],
+			message: "One or more package names are already taken.",
+			data: {
+				inputName: SAMPLE,
+				results: [
+					{
+						description: "Sample PyPI package",
+						inputName: SAMPLE,
+						latestVersion: "1.2.3",
+						lookupName: SAMPLE,
+						message: "pypi package name is already taken",
+						packageUrl: "https://pypi.org/project/sample-name/",
+						registry: "pypi",
+						status: "taken",
+					},
+				],
+			},
 		});
 	});
 
@@ -141,7 +145,7 @@ describe("packagechk CLI", () => {
 
 		expect(run.code).toBe(1);
 		expect(requestedUrls).toEqual(["https://registry.npmjs.org/@sdl-io%2Faretro"]);
-		expect(run.stdout).toContain("https://www.npmjs.com/package/@sdl-io/aretro");
+		expect(run.stderr).toContain("https://www.npmjs.com/package/@sdl-io/aretro");
 	});
 
 	test("real gateway preserves validation and metadata behavior", async () => {
@@ -165,7 +169,8 @@ describe("packagechk CLI", () => {
 			await runPackagechk([SAMPLE, "--registry", "pypi"], { registryGateway: taken }),
 		).toMatchObject({
 			code: 1,
-			stdout:
+			stdout: "",
+			stderr:
 				"pypi: taken — latest 1.2.3 — Sample PyPI package — https://pypi.org/project/sample-name/\n",
 		});
 

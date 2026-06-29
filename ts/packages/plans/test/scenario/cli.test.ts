@@ -181,6 +181,10 @@ function jsonFailure(message: string): string {
 	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "plans_error", message }, null, 2)}\n`;
 }
 
+function jsonNegative(message: string): string {
+	return `${JSON.stringify({ status: "negative", exitCode: 1, message }, null, 2)}\n`;
+}
+
 function jsonSuccess(data: Record<string, unknown>): string {
 	return `${JSON.stringify({ status: "ok", exitCode: 0, data }, null, 2)}\n`;
 }
@@ -833,9 +837,9 @@ describe("plans exec resolve pins", () => {
 		});
 		const directory = join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey);
 
-		expect(await run.exit).toBe(2);
+		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe(
-			jsonFailure(
+			jsonNegative(
 				[
 					"No local plan store directory exists for the current repository and branch.",
 					`Plan store directory: ${directory}`,

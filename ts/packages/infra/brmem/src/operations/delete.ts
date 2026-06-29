@@ -1,4 +1,4 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
+import { failure, negative, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -59,9 +59,19 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 	const result = await ctx.gateway.deleteEntry({ namespace, key, branch });
 	if (result.type === "error") {
 		if (result.error.code === "key_not_found") {
-			return failure(
-				"key_not_found",
+			return negative(
 				`No Entry to delete: Entry Key=${key} Namespace=${namespaceValueLabel(namespace)} Branch=${branch} at ${locator}. Underlying error: ${result.error.message}`,
+				{
+					data: {
+						namespace,
+						key,
+						branch,
+						ref_name: locator,
+						deleted: false,
+						cancelled: false,
+						commit: null,
+					},
+				},
 			);
 		}
 		return gatewayFailure<DeleteResult>(result.error);
