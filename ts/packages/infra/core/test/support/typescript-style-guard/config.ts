@@ -84,10 +84,6 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
 	[
-		"@sdl/ccc\0@sdl/pi",
-		"CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5.",
-	],
-	[
 		"@sdl/kernel\0@sdl/slot",
 		"SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly.",
 	],

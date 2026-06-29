@@ -1,5 +1,3 @@
-import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -35,29 +33,15 @@ import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "@sdl/cmux/types";
 
-const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";
-const SURFACE_COMMAND_NAME = "ccc:surface:dispatch-plan";
 const BRANCH_CREATION = "graphite";
 
-type DispatchDestination = "workspace" | "surface";
+export type DispatchDestination = "workspace" | "surface";
 
-interface DispatchPlanConfig {
+export interface DispatchPlanConfig {
 	commandName: string;
 	statusKey: string;
 	destination: DispatchDestination;
 }
-
-const WORKSPACE_CONFIG: DispatchPlanConfig = {
-	commandName: WORKSPACE_COMMAND_NAME,
-	statusKey: WORKSPACE_COMMAND_NAME,
-	destination: "workspace",
-};
-
-const SURFACE_CONFIG: DispatchPlanConfig = {
-	commandName: SURFACE_COMMAND_NAME,
-	statusKey: SURFACE_COMMAND_NAME,
-	destination: "surface",
-};
 
 interface CommandArgs {
 	isDryRun: boolean;
@@ -74,6 +58,8 @@ interface HandleCommandOptions {
 	ctx: CommandContext;
 	options: CccSlotDispatchPlanOptions;
 	config: DispatchPlanConfig;
+	notifyProgress: (message: string) => void;
+	formatBranchContextCommand: (key: string) => string;
 }
 
 interface AttachSlotAndLaunchOptions {
@@ -83,6 +69,8 @@ interface AttachSlotAndLaunchOptions {
 	operation: BranchContextCreateOperation;
 	config: DispatchPlanConfig;
 	options: CccSlotDispatchPlanOptions;
+	notifyProgress: (message: string) => void;
+	formatBranchContextCommand: (key: string) => string;
 }
 
 interface FormatDryRunOptions {
@@ -92,12 +80,14 @@ interface FormatDryRunOptions {
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
 	config: DispatchPlanConfig;
+	formatBranchContextCommand: (key: string) => string;
 }
 
 interface FormatFinalSuccessOptions {
 	operation: Pick<BranchContextCreateOperation, "branch" | "key">;
 	target: SlotCheckoutTarget;
 	launchOptions: PiLaunchOptions;
+	formatBranchContextCommand: (key: string) => string;
 }
 
 interface FormatSurfaceSuccessOptions {
@@ -114,44 +104,14 @@ export interface CccSlotDispatchPlanOptions {
 	slotClient?: SlotClient;
 }
 
-export function registerCccSlotDispatchPlanCommand(
-	pi: ExtensionAPI,
-	options: CccSlotDispatchPlanOptions = {},
-): void {
-	registerDispatchPlanCommand(pi, WORKSPACE_CONFIG, options);
-}
-
-export function registerCccSurfaceDispatchPlanCommand(
-	pi: ExtensionAPI,
-	options: CccSlotDispatchPlanOptions = {},
-): void {
-	registerDispatchPlanCommand(pi, SURFACE_CONFIG, options);
-}
-
-function registerDispatchPlanCommand(
-	pi: ExtensionAPI,
-	config: DispatchPlanConfig,
-	options: CccSlotDispatchPlanOptions,
-): void {
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: config.commandName,
-		commandDefinition: {
-			description: `Dispatch the latest saved plan into a new cmux ${config.destination} for implementation.`,
-			argumentHint: "[--dry-run]",
-			handler: async (args, ctx) => {
-				await handleCommand({ pi, rawArgs: args, ctx, options, config });
-			},
-		},
-	});
-}
-
-async function handleCommand({
+export async function handleCccSlotDispatchPlan({
 	pi,
 	rawArgs,
 	ctx,
 	options,
 	config,
+	notifyProgress,
+	formatBranchContextCommand,
 }: HandleCommandOptions): Promise<void> {
 	const parsed = parseCommandArgs(rawArgs);
 	if ("error" in parsed) {
@@ -164,11 +124,7 @@ async function handleCommand({
 		return;
 	}
 
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message: "Finding latest saved plan…",
-	});
+	notifyProgress("Finding latest saved plan…");
 	await ctx.waitForIdle();
 
 	setStatus(ctx, config, "finding latest saved plan…");
@@ -217,6 +173,7 @@ async function handleCommand({
 					branchContextPreview,
 					launchOptions,
 					config,
+					formatBranchContextCommand,
 				}),
 				{ status: "dry-run", targetBranch: operation.branch, key: operation.key },
 				"info",
@@ -231,6 +188,8 @@ async function handleCommand({
 			operation,
 			config,
 			options,
+			notifyProgress,
+			formatBranchContextCommand,
 		});
 	} catch (error) {
 		present(ctx, formatUnexpectedError(error), "error");
@@ -341,13 +300,19 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 			pi,
 			cwd: checkout.directory.repoRoot,
 			branchName: operation.branch,
-			command: formatPiLaunchCommand(operation, launchOptions),
+			command: formatPiLaunchCommand(operation, launchOptions, options.formatBranchContextCommand),
 			description: `dispatch-plan from ${checkout.directory.sourceBranch}`,
 			slotClient:
 				options.options.slotClient ?? createCccSlotClient({ cwd: checkout.directory.repoRoot }),
 			notify: (message, level) => ctx.ui.notify(message, level),
 			onStatus: (message) => setStatus(ctx, config, message),
-			successMessage: (target) => formatFinalSuccess({ operation, target, launchOptions }),
+			successMessage: (target) =>
+				formatFinalSuccess({
+					operation,
+					target,
+					launchOptions,
+					formatBranchContextCommand: options.formatBranchContextCommand,
+				}),
 		});
 		return;
 	}
@@ -357,7 +322,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		ctx,
 		cwd: checkout.directory.repoRoot,
 		branchName: operation.branch,
-		command: formatPiLaunchCommand(operation, launchOptions),
+		command: formatPiLaunchCommand(operation, launchOptions, options.formatBranchContextCommand),
 		tabTitle: operation.branch,
 		operation,
 		config,
@@ -396,7 +361,11 @@ function setStatus(
 
 function formatDryRun(options: FormatDryRunOptions): string {
 	const { plan, checkout, operation, branchContextPreview, launchOptions, config } = options;
-	const launchCommand = formatPiLaunchCommand(operation, launchOptions);
+	const launchCommand = formatPiLaunchCommand(
+		operation,
+		launchOptions,
+		options.formatBranchContextCommand,
+	);
 	const description = `dispatch-plan from ${checkout.directory.sourceBranch}`;
 	return [
 		`Dry run: no branch was created, no plan was attached, and no cmux ${config.destination} was opened.`,
@@ -448,15 +417,16 @@ function formatFinalSuccess(options: FormatFinalSuccessOptions): string {
 		`Slot: ${target.slotName}`,
 		`Worktree: ${target.worktreePath}`,
 		`Attached plan: ${BRANCH_CONTEXT_NAMESPACE}/${operation.key}`,
-		`Command: ${formatPiLaunchCommand(operation, launchOptions)}`,
+		`Command: ${formatPiLaunchCommand(operation, launchOptions, options.formatBranchContextCommand)}`,
 	].join("\n");
 }
 
 function formatPiLaunchCommand(
 	operation: Pick<BranchContextCreateOperation, "key">,
 	launchOptions: PiLaunchOptions,
+	formatBranchContextCommand: (key: string) => string,
 ): string {
-	return buildPiLaunchCommand(formatImplBranchContextCommand(operation.key), launchOptions);
+	return buildPiLaunchCommand(formatBranchContextCommand(operation.key), launchOptions);
 }
 
 function formatSurfaceSuccess(options: FormatSurfaceSuccessOptions): string {

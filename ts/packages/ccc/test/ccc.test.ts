@@ -3,22 +3,27 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { buildPlanContentSlugPrompt, createBranchContextContext } from "@sdl/branch-context/api";
-import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
+
+// Mock Pi command formatting for tests
+function formatImplBranchContextCommand(key: string): string {
+	return `/sdl:branch-context:impl-attached-plan ${key}`;
+}
 import type { StdinCapableCommandExecApi } from "@sdl/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";
 import { buildSlugModelArgs } from "@sdl/core/model-slug";
-import registerCccExtension from "../src/ccc.ts";
+import registerCccExtension from "../../capability-pi/ccc/src/extension.ts";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
-import { registerCccSlotDispatchFromTrunkCommand } from "../src/cmux/dispatch-from-trunk.ts";
-import { registerCccSlotDispatchPromptCommand } from "../src/cmux/dispatch-prompt.ts";
 import {
+	createCccSidebarControllerWithPiWiring,
+	registerCccSidebarCommands,
+	registerCccSlotDispatchFromTrunkCommand,
 	registerCccSlotDispatchPlanCommand,
+	registerCccSlotDispatchPromptCommand,
+	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-	type CccSlotDispatchPlanOptions,
-} from "../src/cmux/slot-dispatch-plan.ts";
-import { registerCccSlotOpenBranchCommand } from "../src/cmux/slot-open-branch.ts";
-import { createCccSidebarController, registerCccSidebarCommands } from "../src/cmux/sidebar.ts";
+} from "../../capability-pi/ccc/src/index.ts";
+import { type CccSlotDispatchPlanOptions } from "@sdl/ccc/api";
 import {
 	BRANCH,
 	FAST_MODEL,
@@ -158,7 +163,7 @@ describe("CCC cmux command suite", () => {
 			},
 			async ({ repoDir, skillPath }) => {
 				const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
-				const controller = createCccSidebarController(pi);
+				const controller = createCccSidebarControllerWithPiWiring(pi);
 				registerCccSidebarCommands(pi, controller);
 				const ctx = new FakeCommandContext({
 					cwd: repoDir,
@@ -196,7 +201,7 @@ describe("CCC cmux command suite", () => {
 	test("sidebar fallback uses one-line Goal description and missing workspace skips send", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi();
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -229,7 +234,7 @@ describe("CCC cmux command suite", () => {
 			},
 			async ({ repoDir, skillPath }) => {
 				const pi = new FakePi({ skillCommands: [skillCommand("ccc-sidebar", skillPath)] });
-				const controller = createCccSidebarController(pi);
+				const controller = createCccSidebarControllerWithPiWiring(pi);
 				registerCccSidebarCommands(pi, controller);
 				const ctx = new FakeCommandContext({
 					cwd: repoDir,

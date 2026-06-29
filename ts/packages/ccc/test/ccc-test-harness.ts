@@ -20,8 +20,14 @@ import type {
 	SessionStartContext,
 	ThinkingLevel,
 } from "@sdl/cmux/types";
-import type { SkillCommandInfo } from "@sdl/pi/skills/expansion";
 import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
+
+// Local test type for skill command info
+interface SkillCommandInfo {
+	name: string;
+	source: string;
+	sourceInfo: { path: string };
+}
 import {
 	parseObjectiveListData,
 	type ObjectiveListParseResult,

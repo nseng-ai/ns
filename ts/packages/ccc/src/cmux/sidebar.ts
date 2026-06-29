@@ -4,8 +4,7 @@ import {
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
 } from "@sdl/objective/api";
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
+
 import {
 	applyObjectiveSidebarFields,
 	formatObjectiveSidebarFields,
@@ -24,9 +23,6 @@ import type {
 	ThinkingLevel,
 } from "@sdl/cmux/types";
 
-const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
-const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";
-const OBJECTIVE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:objective-summary";
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";
 const SIDEBAR_MODEL_ENV = "SDL_CCC_SIDEBAR_MODEL";
@@ -45,71 +41,47 @@ export interface CccSidebarController {
 	handleSessionCommand(ctx: CommandContext): Promise<void>;
 	handleBranchStateCommand(ctx: CommandContext): Promise<void>;
 	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
+	onAgentEnd: (event: unknown, ctx: AgentEndContext) => Promise<void>;
 }
 
-export function createCccSidebarController(pi: ExtensionAPI): CccSidebarController {
+export interface ObjectiveSidebarHandlerOptions {
+	expandSkillBlock: (cwd: string, skillName: string) => Promise<{ block: string | undefined }>;
+}
+
+export function createCccSidebarController(
+	pi: ExtensionAPI,
+	objectiveSidebarOptions: ObjectiveSidebarHandlerOptions,
+): CccSidebarController {
 	let pendingRestore: RestoreState | undefined;
 
-	pi.on("agent_end", async (_event, ctx) => {
+	const onAgentEnd = async (_event: unknown, ctx: AgentEndContext): Promise<void> => {
 		if (pendingRestore === undefined) {
 			return;
 		}
 		const restoreState = pendingRestore;
 		pendingRestore = undefined;
 		await restoreModelState(pi, ctx, restoreState);
-	});
+	};
 
 	return {
 		async handleSessionCommand(ctx): Promise<void> {
-			await queueSessionSidebar(pi, ctx, (state) => {
+			await queueSessionSidebar(pi, ctx, objectiveSidebarOptions, (state) => {
 				pendingRestore = state;
 			});
 		},
 
 		async handleBranchStateCommand(ctx): Promise<void> {
-			await queueBranchStateSidebar(pi, ctx, (state) => {
+			await queueBranchStateSidebar(pi, ctx, objectiveSidebarOptions, (state) => {
 				pendingRestore = state;
 			});
 		},
 
 		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, args, ctx);
+			await handleDeterministicObjectiveSidebar(pi, args, ctx, objectiveSidebarOptions);
 		},
+
+		onAgentEnd,
 	};
-}
-
-export function registerCccSidebarCommands(
-	pi: ExtensionAPI,
-	controller: CccSidebarController,
-): void {
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: SESSION_SIDEBAR_COMMAND_NAME,
-		commandDefinition: {
-			description: "Summarize this Pi session into the caller cmux sidebar.",
-			handler: async (_args, ctx) => controller.handleSessionCommand(ctx),
-		},
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: BRANCH_STATE_SIDEBAR_COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Summarize the current branch state versus its parent into the caller cmux sidebar.",
-			handler: async (_args, ctx) => controller.handleBranchStateCommand(ctx),
-		},
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: OBJECTIVE_SIDEBAR_COMMAND_NAME,
-		commandDefinition: {
-			description: "Pick or format an sdl Objective into the caller cmux sidebar.",
-			argumentHint: "[objective-slug-or-path]",
-			handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
-		},
-	});
 }
 
 export function getCallerWorkspaceId(env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -185,6 +157,7 @@ async function handleDeterministicObjectiveSidebar(
 	pi: ExtensionAPI,
 	args: string,
 	ctx: CommandContext,
+	_options: ObjectiveSidebarHandlerOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
 
@@ -259,9 +232,10 @@ async function resolveObjectiveSidebarSlug(
 async function queueSessionSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
+	options: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
 ): Promise<void> {
-	await queueModelAssistedSidebar(pi, ctx, setPendingRestore, {
+	await queueModelAssistedSidebar(pi, ctx, options, setPendingRestore, {
 		status: "preparing cmux sidebar…",
 		successMessage: "Invoking cmux session sidebar summary.",
 		fallbackMessage: "cmux sidebar skill not found; using fallback prompt.",
@@ -272,9 +246,10 @@ async function queueSessionSidebar(
 async function queueBranchStateSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
+	options: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
 ): Promise<void> {
-	await queueModelAssistedSidebar(pi, ctx, setPendingRestore, {
+	await queueModelAssistedSidebar(pi, ctx, options, setPendingRestore, {
 		status: "preparing cmux branch-state sidebar…",
 		successMessage: "Invoking cmux branch-state sidebar summary.",
 		fallbackMessage: "cmux sidebar skill not found; using branch-state fallback prompt.",
@@ -285,6 +260,7 @@ async function queueBranchStateSidebar(
 async function queueModelAssistedSidebar(
 	pi: ExtensionAPI,
 	ctx: CommandContext,
+	sidebarOptions: ObjectiveSidebarHandlerOptions,
 	setPendingRestore: (state: RestoreState) => void,
 	options: {
 		status: string;
@@ -304,7 +280,7 @@ async function queueModelAssistedSidebar(
 	setStatus(ctx, options.status);
 	let restoreState: RestoreState | undefined;
 	try {
-		const skillBlock = await expandSidebarSkillBlock(ctx);
+		const skillBlock = await expandSidebarSkillBlock(ctx, sidebarOptions);
 		restoreState = await switchToFastSidebarModel(pi, ctx);
 		if (restoreState !== undefined) {
 			setPendingRestore(restoreState);
@@ -325,9 +301,12 @@ async function queueModelAssistedSidebar(
 	}
 }
 
-async function expandSidebarSkillBlock(ctx: CommandContext): Promise<string | undefined> {
+async function expandSidebarSkillBlock(
+	ctx: CommandContext,
+	options: ObjectiveSidebarHandlerOptions,
+): Promise<string | undefined> {
 	try {
-		return (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: SKILL_NAME })).block;
+		return (await options.expandSkillBlock(ctx.cwd, SKILL_NAME)).block;
 	} catch (error) {
 		notify(
 			ctx,

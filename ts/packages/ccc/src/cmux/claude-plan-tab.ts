@@ -1,7 +1,3 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { homedir } from "node:os";
-import { join } from "node:path";
-
 import { formatShellArg } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
@@ -9,39 +5,13 @@ import {
 	type FocusedCmuxTabLaunchResult,
 } from "@sdl/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "@sdl/core/primitives";
-import {
-	resolvePromptFileOptions,
-	writeTimestampedPromptFile,
-	type PromptFileOptions,
-	type ResolvedPromptFileOptions,
-} from "./prompt-file.ts";
+import { writeTimestampedPromptFile, type ResolvedPromptFileOptions } from "./prompt-file.ts";
 import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
-const COMMAND_NAME = "ccc:claude-plan-tab";
-const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;
 
-export function registerCccClaudePlanTabCommand(
-	pi: ExtensionAPI,
-	options: PromptFileOptions = {},
-): void {
-	const promptOptions = resolvePromptFileOptions(options, PROMPT_DIR);
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Open a new cmux tab running Claude Code in plan mode, seeded with the provided prompt or last assistant message.",
-			argumentHint: "[seed prompt]",
-			handler: async (args, ctx) => {
-				await handleCccClaudePlanTab({ pi, ctx, args, promptOptions });
-			},
-		},
-	});
-}
-
-async function handleCccClaudePlanTab(options: {
+export async function handleCccClaudePlanTab(options: {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
 	args: string;

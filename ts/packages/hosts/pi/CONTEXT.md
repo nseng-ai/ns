@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability-pi packages stacked above `@sdl/pi`; Pi-native standalone tools may live in Local Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the planned `@sdl/ccc-pi` capability-pi adapter imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers so the target end state is no direct `@sdl/ccc` imports from `@sdl/pi/...` and no `@sdl/pi` import or declaration of `@sdl/ccc`.
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability-pi packages stacked above `@sdl/pi`; Pi-native standalone tools may live in Local Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@sdl/ccc-pi` capability-pi adapter imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers so there are no direct `@sdl/ccc` imports from `@sdl/pi/...` and no `@sdl/pi` import or declaration of `@sdl/ccc`.
 
 ## Language
 
@@ -37,7 +37,7 @@ The private TypeScript workspace package at `ts/packages/ccc/` for repo-opiniona
 *Avoid*: Pi discovery adapter, lower capability package, public npm API.
 
 **CCC Pi adapter**:
-The planned `@sdl/ccc-pi` `capability-pi` package that wires CCC workflows into Pi/cmux presentation by importing `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@sdl/pi` itself still must not import or declare `@sdl/ccc`.
+The `@sdl/ccc-pi` `capability-pi` package that wires CCC workflows into Pi/cmux presentation by importing `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@sdl/pi` itself still must not import or declare `@sdl/ccc`.
 *Avoid*: Pi host dependency on CCC, CCC importing Pi host helpers directly, generic local Pi-tool package.
 
 **Pi command namespace**:

@@ -6,8 +6,8 @@ import {
 	buildClaudePlanLaunchCommand,
 	buildClaudePlanTabTitle,
 	extractLastAssistantText,
-	registerCccClaudePlanTabCommand,
-} from "../src/cmux/claude-plan-tab.ts";
+} from "@sdl/ccc/api";
+import { registerCccClaudePlanTabCommand } from "../../capability-pi/ccc/src/index.ts";
 import {
 	FakeCommandContext,
 	FakePi,
