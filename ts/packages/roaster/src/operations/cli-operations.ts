@@ -125,6 +125,23 @@ export const publishFindingsResultSchema = z.object({
 export type PublishFindingsCommandResult = z.infer<typeof publishFindingsResultSchema>;
 export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
 
+export const publishFindingsResultSchema = z
+	.object({
+		inlinePostedCount: z.int().min(0),
+		inlineSkippedDuplicateCount: z.int().min(0),
+		inlineFallbackOnlyCount: z.int().min(0),
+		inlineApiError: z.string().nullable(),
+		summaryStatus: z
+			.object({
+				type: z.enum(["posted", "updated"]),
+				marker: z.string(),
+			})
+			.strict(),
+	})
+	.strict();
+
+export type PublishFindingsCliResult = z.infer<typeof publishFindingsResultSchema>;
+
 export const recordFindingsRequestSchema = z.object({
 	reviewKey: nonBlankStringSchema.describe("Review key that produced the findings."),
 	baseRef: z.string().optional().describe("Base ref for the local diff."),
@@ -450,18 +467,24 @@ export function renderReviewLog(result: ReviewLogResult): string {
 	return lines.join("\n");
 }
 
-export async function runPublishFindings(
+export async function publishFindingsFromStdin(
 	ctx: RoasterRuntime,
+<<<<<<< HEAD
 	request: z.infer<typeof publishFindingsRequestSchema>,
 ): Promise<ClinkrExit<PublishFindingsCommandResult>> {
+=======
+	request: PublishFindingsRequest,
+): Promise<PublishFindingsResult> {
+>>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)
 	const envelope = await ctx.stdin();
-	const result = await publishFindings(ctx, {
+	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,
 		...(request.runUrl === undefined ? {} : { runUrl: request.runUrl }),
 		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
 		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
+<<<<<<< HEAD
 	if (result.type === "error") {
 		return failure(result.error.reason, `publish-findings: ${result.error.message}`, result.error);
 	}
@@ -471,6 +494,29 @@ export async function runPublishFindings(
 
 export function renderPublishFindings(result: PublishFindingsCommandResult): string {
 	return renderPublishFindingsDiagnostics(result);
+=======
+}
+
+export function clinkrExitFromPublishFindingsOutcome(
+	outcome: PublishFindingsResult,
+): ClinkrExit<PublishFindingsCliResult> {
+	if (outcome.type === "error") {
+		return failure("publish_findings_failed", `publish-findings: ${outcome.error.message}`);
+	}
+	return ok(publishFindingsCliResult(outcome.value));
+}
+
+export async function runPublishFindings(
+	ctx: RoasterRuntime,
+	request: z.infer<typeof publishFindingsRequestSchema>,
+): Promise<number> {
+	const result = await publishFindingsFromStdin(ctx, request);
+	if (result.type === "error")
+		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
+
+	ctx.stderr(renderPublishFindingsDiagnostics(publishFindingsCliResult(result.value)));
+	return 0;
+>>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)
 }
 
 interface LoadedDefinition {
@@ -538,13 +584,31 @@ function loadDiffFromRequest(
 	});
 }
 
-function renderPublishFindingsDiagnostics(
-	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
-): string {
-	const apiError = result.inlineStatus.apiError?.replace(/\s+/gu, " ") ?? "none";
+export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResult): string {
+	const apiError = result.inlineApiError?.replace(/\s+/gu, " ") ?? "none";
 	return [
-		`inline findings: posted=${result.inlineStatus.postedCount} skipped_duplicate=${result.inlineStatus.skippedDuplicateCount} fallback_only=${result.inlineStatus.fallbackOnlyCount} api_error=${apiError}`,
+		`inline findings: posted=${result.inlinePostedCount} skipped_duplicate=${result.inlineSkippedDuplicateCount} fallback_only=${result.inlineFallbackOnlyCount} api_error=${apiError}`,
 		`${result.summaryStatus.type} findings comment`,
 		"",
 	].join("\n");
 }
+<<<<<<< HEAD
+=======
+
+function publishFindingsCliResult(
+	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
+): PublishFindingsCliResult {
+	return publishFindingsResultSchema.parse({
+		inlinePostedCount: result.inlineStatus.postedCount,
+		inlineSkippedDuplicateCount: result.inlineStatus.skippedDuplicateCount,
+		inlineFallbackOnlyCount: result.inlineStatus.fallbackOnlyCount,
+		inlineApiError: result.inlineStatus.apiError,
+		summaryStatus: result.summaryStatus,
+	});
+}
+
+function stderrFailure(ctx: RoasterRuntime, message: string): number {
+	ctx.stderr(message);
+	return 1;
+}
+>>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)

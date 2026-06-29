@@ -20,7 +20,9 @@ import {
 	buildReviewListResult,
 	buildReviewLogResult,
 	buildRoastSkillListResult,
+	publishFindingsFromStdin,
 	recordSameSessionFindings,
+	type PublishFindingsRequest,
 	type RecordFindingsOutcome,
 	type RecordFindingsRequest,
 	type ReviewListRequest,
@@ -36,6 +38,7 @@ import {
 	type RunRoasterReviewProgress,
 	type RunRoasterReviewRequest,
 } from "./operations/review-run.ts";
+import type { PublishFindingsResult } from "./findings-publication.ts";
 
 export { ROASTER_REVIEW_LOG_NAMESPACE };
 export type {
@@ -49,6 +52,7 @@ export type {
 	ReviewListResult,
 	ReviewLogEntry,
 	ReviewLogRequest,
+	PublishFindingsRequest,
 	RecordFindingsOutcome,
 	RecordFindingsRequest,
 	ReviewLogResult,
@@ -64,6 +68,7 @@ export type {
 	RunRoasterReviewProgress,
 	RunRoasterReviewRequest,
 };
+export type { PublishFindingsResult };
 
 export interface RoasterApiFailure {
 	readonly errorType: string;
@@ -95,6 +100,8 @@ export interface RoasterClient {
 	runReview(request: RunRoasterReviewRequest): Promise<RunRoasterReviewOutcome>;
 	/** Records same-session findings from stdin and writes a Roaster review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
+	/** Publishes inline and summary findings from a review-run envelope on stdin. */
+	publishFindings(request: PublishFindingsRequest): Promise<PublishFindingsResult>;
 }
 
 export function createRoasterClient(options: RoasterClientOptions): RoasterClient {
@@ -122,6 +129,9 @@ export function createRoasterClient(options: RoasterClientOptions): RoasterClien
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);
+		},
+		async publishFindings(request) {
+			return await publishFindingsFromStdin(getRuntime(), request);
 		},
 	};
 }
