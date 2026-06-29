@@ -41,6 +41,8 @@ import {
 	loadListingCommandInfos,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
+	type ExtensionCommandCandidate,
+	type SelectedSdlCommandLoadResult,
 	type SdlCommandCatalog,
 } from "./extension-registry.ts";
 import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "sdl-sdk";
@@ -62,6 +64,15 @@ import {
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 
+interface SdlCliExtensionRegistryDeps {
+	loadCommandCatalog?:
+		| ((options: { cwd: string; homeDir?: string | undefined }) => Promise<SdlCommandCatalog>)
+		| undefined;
+	loadSelectedCommand?:
+		| ((candidate: ExtensionCommandCandidate) => Promise<SelectedSdlCommandLoadResult>)
+		| undefined;
+}
+
 export interface SdlCliDeps {
 	context?: SdlExtensionApi | undefined;
 	cwd?: string | undefined;
@@ -71,6 +82,7 @@ export interface SdlCliDeps {
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	env?: Record<string, string | undefined> | undefined;
+	extensionRegistry?: SdlCliExtensionRegistryDeps | undefined;
 }
 
 export interface BuildSdlCliOptions {
@@ -100,7 +112,9 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
 		const resolvedCwd = deps.cwd ?? injectedContext?.cwd ?? cwd;
 		const resolvedEnv = deps.env ?? injectedContext?.env ?? env;
-		const commandCatalog = await loadSdlCommandCatalog({
+		const commandCatalog = await (
+			deps.extensionRegistry?.loadCommandCatalog ?? loadSdlCommandCatalog
+		)({
 			cwd: resolvedCwd,
 			homeDir: deps.homeDir ?? resolvedEnv.HOME,
 		});
@@ -108,6 +122,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			return await handleCompletionResolverInvocation({
 				args,
 				commandCatalog,
+				loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
 				cwd: resolvedCwd,
 				env: resolvedEnv,
 				stdout: resolvedStdout,
@@ -154,8 +169,10 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
 		}
 
+		const selectedCommandLoader =
+			deps.extensionRegistry?.loadSelectedCommand ?? loadSelectedSdlCommand;
 		const loadedSelectedCommand =
-			selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
+			selectedCandidate === undefined ? undefined : await selectedCommandLoader(selectedCandidate);
 		if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
 			resolvedStderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
 			return { type: "handled", exitCode: 2 };
@@ -282,6 +299,9 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 async function handleCompletionResolverInvocation(options: {
 	args: readonly string[];
 	commandCatalog: SdlCommandCatalog;
+	loadSelectedCommand?:
+		| ((candidate: ExtensionCommandCandidate) => Promise<SelectedSdlCommandLoadResult>)
+		| undefined;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
@@ -300,8 +320,9 @@ async function handleCompletionResolverInvocation(options: {
 		selectedCommandKey === undefined
 			? undefined
 			: options.commandCatalog.candidates.get(selectedCommandKey);
+	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedSdlCommand;
 	const loadedSelectedCommand =
-		selectedCandidate === undefined ? undefined : await loadSelectedSdlCommand(selectedCandidate);
+		selectedCandidate === undefined ? undefined : await selectedCommandLoader(selectedCandidate);
 	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
 		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
 		return { type: "handled", exitCode: 0 };

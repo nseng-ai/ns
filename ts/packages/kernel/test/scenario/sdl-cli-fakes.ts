@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { runCli } from "@sdl/kernel/cli";
+import { runCli, type SdlCliDeps } from "@sdl/kernel/cli";
 import type {
 	SdlExecOptions,
 	ExecResult,
@@ -38,6 +38,7 @@ export interface RunWithFakesOptions {
 	cwd?: string | undefined;
 	env?: Record<string, string | undefined> | undefined;
 	homeDir?: string | undefined;
+	extensionRegistry?: SdlCliDeps["extensionRegistry"] | undefined;
 }
 
 export interface RunWithFakesDefaults {
@@ -140,6 +141,9 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 				liveOutput.push({ stream, text });
 			},
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
+			...(options.extensionRegistry === undefined
+				? {}
+				: { extensionRegistry: options.extensionRegistry }),
 		}),
 	};
 }
