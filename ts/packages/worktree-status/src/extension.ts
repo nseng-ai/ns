@@ -328,7 +328,12 @@ export default function worktreeStatusExtension(
 	function activateSession(ctx: ExtensionContext): ActiveSession {
 		closeActiveSession();
 
-		const session: ActiveSession = {
+		let session: ActiveSession;
+		const activityUnsubscribe = ctx.ui.onTerminalInput?.(() => {
+			recordSessionActivity(session);
+			return undefined;
+		});
+		session = {
 			id: ++nextSessionId,
 			ctx,
 			cwd: ctx.cwd,
@@ -336,6 +341,7 @@ export default function worktreeStatusExtension(
 			abortController: new AbortController(),
 			isClosed: false,
 			isDormant: false,
+			...(activityUnsubscribe === undefined ? {} : { activityUnsubscribe }),
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
@@ -604,13 +610,6 @@ export default function worktreeStatusExtension(
 		});
 	}
 
-	function installActivityTracking(session: ActiveSession): (() => void) | undefined {
-		return session.ctx.ui.onTerminalInput?.(() => {
-			recordSessionActivity(session);
-			return undefined;
-		});
-	}
-
 	function recordActiveSessionActivity(): void {
 		const session = activeSession;
 		if (session === undefined) return;
@@ -711,8 +710,6 @@ export default function worktreeStatusExtension(
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
-		const activityUnsubscribe = installActivityTracking(session);
-		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
 		await refreshSession(session, { remoteRefresh: "force" });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();

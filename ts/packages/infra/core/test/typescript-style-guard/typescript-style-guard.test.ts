@@ -331,43 +331,43 @@ describe("optional undefined property advisory audit", () => {
 			name: "flags optional properties that also union undefined",
 			code: "interface Context { extensions?: Record<string, unknown> | undefined; }",
 			expectedProperties: ["extensions"],
-			expectedSuggestsOptionsInput: false,
-			expectedIncludesNull: false,
+			expectedHasOptionsInputName: false,
+			expectedHasNull: false,
 		},
 		{
 			name: "flags type literal members",
 			code: "type Result = { value?: string | undefined };",
 			expectedProperties: ["value"],
-			expectedSuggestsOptionsInput: false,
-			expectedIncludesNull: false,
+			expectedHasOptionsInputName: false,
+			expectedHasNull: false,
 		},
 		{
 			name: "does not flag optional-only properties",
 			code: "interface Context { extensions?: Record<string, unknown>; }",
 			expectedProperties: [],
-			expectedSuggestsOptionsInput: false,
-			expectedIncludesNull: false,
+			expectedHasOptionsInputName: false,
+			expectedHasNull: false,
 		},
 		{
 			name: "does not flag required properties whose value may be undefined",
 			code: "interface State { extensions: Record<string, unknown> | undefined; }",
 			expectedProperties: [],
-			expectedSuggestsOptionsInput: false,
-			expectedIncludesNull: false,
+			expectedHasOptionsInputName: false,
+			expectedHasNull: false,
 		},
 		{
 			name: "classifies options-style containers without allowing them as a hard rule",
 			code: "interface Options { env?: NodeJS.ProcessEnv | undefined; }",
 			expectedProperties: ["env"],
-			expectedSuggestsOptionsInput: true,
-			expectedIncludesNull: false,
+			expectedHasOptionsInputName: true,
+			expectedHasNull: false,
 		},
 		{
 			name: "reports null unions for extra remediation care",
 			code: "interface Payload { body?: string | null | undefined; }",
 			expectedProperties: ["body"],
-			expectedSuggestsOptionsInput: false,
-			expectedIncludesNull: true,
+			expectedHasOptionsInputName: false,
+			expectedHasNull: true,
 		},
 	];
 
@@ -384,12 +384,10 @@ describe("optional undefined property advisory audit", () => {
 			testCase.expectedProperties,
 		);
 		if (candidates.length > 0) {
-			expect(candidates.every((candidate) => candidate.suggestsOptionsInput)).toBe(
-				testCase.expectedSuggestsOptionsInput,
+			expect(candidates.every((candidate) => candidate.hasOptionsInputName)).toBe(
+				testCase.expectedHasOptionsInputName,
 			);
-			expect(candidates.every((candidate) => candidate.includesNull)).toBe(
-				testCase.expectedIncludesNull,
-			);
+			expect(candidates.every((candidate) => candidate.hasNull)).toBe(testCase.expectedHasNull);
 		}
 	});
 });
@@ -666,8 +664,8 @@ interface OptionalUndefinedAuditCase {
 	readonly name: string;
 	readonly code: string;
 	readonly expectedProperties: readonly string[];
-	readonly expectedSuggestsOptionsInput: boolean;
-	readonly expectedIncludesNull: boolean;
+	readonly expectedHasOptionsInputName: boolean;
+	readonly expectedHasNull: boolean;
 }
 
 type SyntheticDependencyField = ManifestDependencyField | "devDependencies";

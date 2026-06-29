@@ -6,6 +6,7 @@ import {
 	availableResult,
 	errorResult,
 	invalidResult,
+	registryCheckMetadataFields,
 	takenResult,
 	type Registry,
 	type RegistryCheckResult,
@@ -274,8 +275,10 @@ function buildMetadata(options: {
 }): Metadata {
 	return {
 		packageUrl: options.packageUrl,
-		...(options.latestVersion === undefined ? {} : { latestVersion: options.latestVersion }),
-		...(options.description === undefined ? {} : { description: options.description }),
+		...registryCheckMetadataFields({
+			latestVersion: options.latestVersion,
+			description: options.description,
+		}),
 	};
 }
 

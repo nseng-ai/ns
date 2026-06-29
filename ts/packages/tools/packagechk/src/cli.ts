@@ -26,6 +26,7 @@ import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
 import {
 	REGISTRIES,
+	registryCheckMetadataFields,
 	reportExitCode,
 	type PackageCheckReport,
 	type Registry,
@@ -146,9 +147,7 @@ function normalizeRegistryCheckResult(result: RegistryCheckResultBoundary): Regi
 		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
-		...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
-		...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
-		...(result.description === undefined ? {} : { description: result.description }),
+		...registryCheckMetadataFields(result),
 	};
 }
 
