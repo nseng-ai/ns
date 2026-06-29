@@ -1,6 +1,7 @@
 import { tailText, type ExecResult } from "@sdl/core/exec";
-
-import type { ErrorInfo } from "./result.ts";
+export { err, ok, resultErr, resultOk } from "@sdl/core/result";
+export type { ErrorInfo, Result, Result as GatewayResult } from "@sdl/core/result";
+import type { ErrorInfo } from "@sdl/core/result";
 
 const STDERR_DETAIL_LIMIT_CHARS = 1_200;
 

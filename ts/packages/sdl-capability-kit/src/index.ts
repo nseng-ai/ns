@@ -12,6 +12,17 @@ export {
 	type ExecSdlCommandOptions,
 	type SdlGitPorcelainStatusResult,
 } from "./git.ts";
+export {
+	commandFailure,
+	err,
+	ok,
+	resultErr,
+	resultOk,
+	type CommandFailureOptions,
+	type ErrorInfo,
+	type GatewayResult,
+	type Result,
+} from "./gateway-result.ts";
 export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./sdl-command.ts";
 export {
 	createSdlClinkrInteraction,

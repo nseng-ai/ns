@@ -51,10 +51,9 @@ Risks:
 - Moving autobranch into Flow may expose broader CCC clean-consumer coupling than this Objective intends to own; if that happens, keep the Flow API seam in scope but park unrelated CCC orchestration cleanup.
 - Package export-map and jiti/module-loader assumptions may hide stale aliases to `@sdl/core/submit`, `@sdl/graphite/submit`, or `@sdl/autobranch/*`; stale-edge searches and style-guard updates are required completion evidence.
 - Over-promoting helpers to `@sdl/capability-kit` could turn the kit into a second domain home. The kit must stay capability-agnostic: adapters and shared result/error shapes only.
-- The initial `sdl-flow/api` seam is transitional: Flow and CCC tests still have direct `@sdl/autobranch/*` imports until the autobranch implementation and tests move under Flow ownership.
+- The remaining package-tier/import-guard/docs/context rebaseline may expose stale wording or guard expectations from earlier slices; treat that as final cleanup evidence, not as permission to reopen moved Flow policy or Capability Kit substrate decisions.
 
 ## Open Questions
 
-- Which pieces, if any, of the current `RealGithubPrGateway` / PR-description implementation are reusable lower-level mechanics that should remain in `@sdl/core` after Flow owns the seam and policy?
-- Does moving `@sdl/graphite/submit` reveal Graphite helper functions that should be retained as neutral non-submit primitives under existing `@sdl/graphite` subpaths?
-- Can `@sdl/autobranch` be deleted as a package in one cutover, or is a short-lived re-export/compatibility step useful inside the private workspace while consumers are repointed?
+- Does the final package-tier/import-guard/docs/context rebaseline reveal any stale forward guidance or guard exceptions that should be updated before closing this child Objective?
+- Should parent `sdl-extension-architecture` receive a concise child-completion update after this Objective's final rebaseline lands?
