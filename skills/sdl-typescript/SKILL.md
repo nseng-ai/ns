@@ -79,6 +79,21 @@ This is intentional. Do not copy rules from projects that ban this pattern unles
 sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
+Use these type shapes deliberately:
+
+- `foo?: T` means omission is the state; if the key is present, the value is a real `T`.
+- `foo: T | undefined` means the key is part of the shape, but the value may be unavailable.
+- `foo?: T | undefined` means callers may omit the key or explicitly provide/forward `undefined`; reserve
+  it for options, input, override, and compatibility bags where that distinction is meaningful.
+
+Review guidance:
+
+- For domain, context, result, and durable record objects, question `?: T | undefined` unless explicit
+  `undefined` is a meaningful present-key state.
+- If construction code conditionally omits the field with object spread, prefer `foo?: T`.
+- If every consumer expects the property to exist and checks the value, prefer `foo: T | undefined`.
+- Do not turn this into a blanket ban: option/input bags can legitimately accept explicit `undefined`.
+
 ## Time seams
 
 Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `systemTimerScheduler` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` from `@sdl/core/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
