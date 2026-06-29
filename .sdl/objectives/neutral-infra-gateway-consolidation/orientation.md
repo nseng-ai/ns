@@ -7,9 +7,9 @@ co-locating interface + real + fake; intrinsic host services (`command-io`, `pro
 are SDK-provided (interface in `sdl-sdk`, implementation hidden in the kernel, reached via
 `ctx`); and program-boot harness (`cli-entry`) lives in the kernel.
 
-Getting to: read this objective's `objective.md` for the classification rule and the
-"reached-through-`ctx` ⇒ SDK-provided" test; the umbrella `sdl-extension-architecture` ADRs
-0009 / 0012 / 0016 for the layering; `CONTEXT.md` for Capability Kit and SDK vocabulary.
+Getting to: ADR 0018 records the classification rule and per-`@sdl/core` export disposition;
+read this objective's `objective.md` for the migration scope and `CONTEXT.md` for Capability Kit
+and SDK vocabulary; keep ADRs 0009 / 0012 / 0016 in mind for the layering history.
 
 What you see now: `@sdl/core` still exports `exec`, `git`, and `github-*`, and capabilities
 import them directly (~112 `exec`, ~45 `git` sites); gateway code is split across `@sdl/core`,
