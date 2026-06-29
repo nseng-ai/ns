@@ -452,6 +452,7 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			"--no-edit",
 			"--no-ai",
 			"--no-interactive",
+			"--force",
 		]),
 	];
 }
