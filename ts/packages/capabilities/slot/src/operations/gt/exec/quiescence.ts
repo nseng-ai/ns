@@ -87,6 +87,9 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	if (stackResult.type === "failure")
 		return failure("gt-stack-read-failed", stackResult.failure.message);
 
+	const expected = parseExpectedSnapshot(request.expectSnapshotJson);
+	if (expected.type === "usage-error") return usageError(expected.message, expected.data);
+
 	const stack = stackResult.stack;
 	const isDownstack = request.scope === "downstack";
 	const integrity = validateStackIntegrity(stack, {
@@ -99,13 +102,15 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	}
 
 	if (stack.current === stack.trunk) {
+		const snapshot = buildSnapshot({ stack, scope: request.scope, branches: [], branchTips: [] });
 		const result = buildResult({
 			stack,
 			scope: request.scope,
 			branches: [],
-			branchTips: await ctx.git.listLocalBranchTips(),
+			snapshot,
 			blockers: [],
 			warnings: [],
+			isQuiescent: false,
 		});
 		return negative(`On trunk '${stack.trunk}'; no stack is checked out.`, { data: result });
 	}
@@ -118,19 +123,15 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	});
 	const branchTips = await ctx.git.listLocalBranchTips();
 	const snapshot = buildSnapshot({ stack, scope: request.scope, branches, branchTips });
-	const expected = parseExpectedSnapshot(request.expectSnapshotJson);
-	if (expected.type === "usage-error") return usageError(expected.message, expected.data);
-	if (expected.type === "failure")
-		return failure(expected.errorType, expected.message, expected.data);
-	const inventory = await buildSlotInventory(ctx.git, {
-		mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot,
-	});
 	const snapshotCheck =
 		expected.snapshot === null
 			? { type: "ok" as const, blockers: [] }
 			: compareSnapshots({ expected: expected.snapshot, actual: snapshot });
 	if (snapshotCheck.type === "failure")
 		return failure(snapshotCheck.errorType, snapshotCheck.message, snapshotCheck.data);
+	const inventory = await buildSlotInventory(ctx.git, {
+		mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot,
+	});
 	const blockers = [
 		...collectOccupancyBlockers({
 			occupancies: inventory.branchOccupancies,
@@ -140,16 +141,14 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 		...collectSlotRebaseBlockers({ records: inventory.records, branches }),
 		...snapshotCheck.blockers,
 	];
-	const result: GtQuiescenceResult = {
-		isQuiescent: blockers.length === 0,
+	const result = buildResult({
+		stack,
 		scope: request.scope,
-		current: stack.current,
-		trunk: stack.trunk,
-		branches: [...branches],
+		branches,
 		snapshot,
 		blockers,
-		warnings: [...integrity.warnings],
-	};
+		warnings: integrity.warnings,
+	});
 	if (blockers.length > 0) return negative("Stack is not quiescent.", { data: result });
 	return ok(result);
 }
@@ -163,17 +162,18 @@ function buildResult(options: {
 	readonly stack: StackInfo;
 	readonly scope: QuiescenceScope;
 	readonly branches: readonly string[];
-	readonly branchTips: readonly LocalBranchTip[];
+	readonly snapshot: QuiescenceSnapshot;
 	readonly blockers: readonly QuiescenceBlocker[];
 	readonly warnings: readonly string[];
+	readonly isQuiescent?: boolean;
 }): GtQuiescenceResult {
 	return {
-		isQuiescent: options.blockers.length === 0,
+		isQuiescent: options.isQuiescent ?? options.blockers.length === 0,
 		scope: options.scope,
 		current: options.stack.current,
 		trunk: options.stack.trunk,
 		branches: [...options.branches],
-		snapshot: buildSnapshot(options),
+		snapshot: options.snapshot,
 		blockers: [...options.blockers],
 		warnings: [...options.warnings],
 	};
@@ -202,8 +202,7 @@ function parseExpectedSnapshot(
 	value: string | undefined,
 ):
 	| { type: "ok"; snapshot: QuiescenceSnapshot | null }
-	| { type: "usage-error"; message: string; data: { argument: string } }
-	| { type: "failure"; errorType: string; message: string; data: { reason: string } } {
+	| { type: "usage-error"; message: string; data: { argument: string } } {
 	if (value === undefined) return { type: "ok", snapshot: null };
 	let parsed: unknown;
 	try {
@@ -278,7 +277,7 @@ function collectSlotRebaseBlockers(options: {
 }
 
 function isRebaseOperation(operation: string): boolean {
-	return operation === "rebase" || operation.includes("rebase");
+	return operation.includes("rebase");
 }
 
 function compareSnapshots(options: {
