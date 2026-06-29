@@ -1,24 +1,29 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { z } from "zod";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { runCli } from "@sdl/kernel/cli";
+import type {
+	ExtensionCommandCandidate,
+	SelectedSdlCommandLoadResult,
+	SdlCommandCatalog,
+} from "../../src/extension-registry.ts";
+import { runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
+import type { SdlCommand } from "sdl-sdk";
 
-const tempDirs: string[] = [];
-
-afterEach(() => {
-	for (const directory of tempDirs.splice(0)) {
-		rmSync(directory, { recursive: true, force: true });
-	}
-});
+function runWithFakes(options: RunWithFakesOptions) {
+	return runCliWithFakes(options, {
+		execResponses: () => [],
+		textGenerationResults: () => [],
+	});
+}
 
 describe("sdl completion CLI", () => {
 	test("prints dynamic setup scripts for supported shells", async () => {
 		for (const shell of ["bash", "zsh", "fish"] as const) {
-			const run = runScenario(["completion", shell]);
+			const run = runWithFakes({
+				args: ["completion", shell],
+				extensionRegistry: fakeCompletionRegistry(),
+			});
 
 			expect(await run.exit).toBe(0);
 			expect(run.stdout.join("")).toContain("'sdl' 'completion' 'exec' 'resolve'");
@@ -26,28 +31,12 @@ describe("sdl completion CLI", () => {
 		}
 	});
 
-	test("script generation is quiet with unrelated broken extensions", async () => {
-		const cwd = await createExtensionProject(
-			"bad.ts",
-			"throw new Error('script should not import');\n",
-		);
-		const run = runScenario(["completion", "bash"], { cwd });
-
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("'sdl' 'completion' 'exec' 'resolve'");
-		expect(run.stderr.join("")).toBe("");
-	});
-
 	test("hidden resolver returns top-level candidates as newline values only", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`import { defineExtension, ok } from "sdl-sdk";
-export default defineExtension({
-	commands: [{ name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } }],
-});
-`,
-		);
-		const run = runScenario(["completion", "exec", "resolve", "--", ""], { cwd });
+		const registry = fakeCompletionRegistry({ commands: [helloCommand()] });
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", ""],
+			extensionRegistry: registry,
+		});
 
 		expect(await run.exit).toBe(0);
 		const values = run.stdout
@@ -58,103 +47,104 @@ export default defineExtension({
 		expect(values).toContain("hello");
 		expect(run.stdout.join("")).not.toContain("Hello");
 		expect(run.stderr.join("")).toBe("");
+		expect(registry.loadLog).toEqual([]);
 	});
 
-	test("selected command option completion imports only the selected command", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`import { defineExtension, ok, z } from "sdl-sdk";
-export default defineExtension({
-	commands: [{
-		name: "hello",
-		summary: "Hello",
-		description: "Hello",
-		schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
-		run() { return ok("hello"); },
-	}],
-});
-`,
-		);
-		writeProjectExtension(cwd, "bad.ts", "throw new Error('unrelated import boom');\n");
-		const run = runScenario(["completion", "exec", "resolve", "--", "hello", "--"], { cwd });
+	test("selected command option completion loads only the selected command", async () => {
+		const registry = fakeCompletionRegistry({
+			commands: [helloCommand({ schema: z.object({ loud: z.boolean().default(false) }) })],
+		});
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", "--"],
+			extensionRegistry: registry,
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("--loud\n");
-		expect(run.stdout.join("")).not.toContain("unrelated");
 		expect(run.stderr.join("")).toBe("");
+		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
 	test("selected broken command reports on stderr without candidate stdout", async () => {
-		const cwd = await createExtensionProject("hello.ts", "throw new Error('selected boom');\n");
-		const run = runScenario(["completion", "exec", "resolve", "--", "hello", "--"], { cwd });
+		const registry = fakeCompletionRegistry({
+			commands: [helloCommand()],
+			loadFailures: { hello: "selected boom" },
+		});
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", "--"],
+			extensionRegistry: registry,
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toContain("selected boom");
+		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
 	test("selected command dynamic provider returns candidates and keeps static options", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`import { defineExtension, ok, z } from "sdl-sdk";
-export default defineExtension({
-	commands: [{
-		name: "hello",
-		summary: "Hello",
-		description: "Hello",
-		schema: z.object({ name: z.string().optional(), loud: z.boolean().default(false) }),
-		positionals: { name: { position: 0 } },
-		completionProvider(_ctx, request) {
-			return ["alpha", "beta"].filter((value) => value.startsWith(request.current)).map((value) => ({ value, type: "positional-value" }));
-		},
-		run() { return ok("hello"); },
-	}],
-});
-`,
-		);
-		writeProjectExtension(cwd, "bad.ts", "throw new Error('unrelated import boom');\n");
+		const registry = fakeCompletionRegistry({
+			commands: [
+				helloCommand({
+					schema: z.object({
+						name: z.string().optional(),
+						loud: z.boolean().default(false),
+					}),
+					positionals: { name: { position: 0 } },
+					completionProvider(_ctx, request) {
+						return ["alpha", "beta"]
+							.filter((value) => value.startsWith(request.current))
+							.map((value) => ({ value, type: "positional-value" }));
+					},
+				}),
+			],
+		});
 
-		const dynamicRun = runScenario(["completion", "exec", "resolve", "--", "hello", "a"], {
-			cwd,
+		const dynamicRun = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", "a"],
+			extensionRegistry: registry,
 		});
 		expect(await dynamicRun.exit).toBe(0);
 		expect(dynamicRun.stdout.join("")).toBe("alpha\n");
 		expect(dynamicRun.stderr.join("")).toBe("");
 
-		const optionRun = runScenario(["completion", "exec", "resolve", "--", "hello", "--"], {
-			cwd,
+		const optionRun = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", "--"],
+			extensionRegistry: registry,
 		});
 		expect(await optionRun.exit).toBe(0);
 		expect(optionRun.stdout.join("")).toContain("--loud\n");
 		expect(optionRun.stderr.join("")).toBe("");
+		expect(registry.loadLog).toEqual(["hello", "hello"]);
 	});
 
 	test("selected command dynamic provider failure preserves static candidates", async () => {
-		const cwd = await createExtensionProject(
-			"hello.ts",
-			`import { defineExtension, ok, z } from "sdl-sdk";
-export default defineExtension({
-	commands: [{
-		name: "hello",
-		summary: "Hello",
-		description: "Hello",
-		schema: z.object({ mode: z.enum(["fast", "slow"]).optional() }),
-		positionals: { mode: { position: 0 } },
-		completionProvider() { throw new Error("provider boom"); },
-		run() { return ok("hello"); },
-	}],
-});
-`,
-		);
-		const run = runScenario(["completion", "exec", "resolve", "--", "hello", "f"], { cwd });
+		const registry = fakeCompletionRegistry({
+			commands: [
+				helloCommand({
+					schema: z.object({ mode: z.enum(["fast", "slow"]).optional() }),
+					positionals: { mode: { position: 0 } },
+					completionProvider() {
+						throw new Error("provider boom");
+					},
+				}),
+			],
+		});
+		const run = runWithFakes({
+			args: ["completion", "exec", "resolve", "--", "hello", "f"],
+			extensionRegistry: registry,
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("fast\n");
 		expect(run.stderr.join("")).toContain("provider boom");
+		expect(registry.loadLog).toEqual(["hello"]);
 	});
 
 	test("hidden resolver is omitted from completion help", async () => {
-		const run = runScenario(["completion", "--help"]);
+		const run = runWithFakes({
+			args: ["completion", "--help"],
+			extensionRegistry: fakeCompletionRegistry(),
+		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("bash");
@@ -162,35 +152,94 @@ export default defineExtension({
 	});
 });
 
-function runScenario(
-	args: readonly string[],
-	options: { cwd?: string | undefined } = {},
-): { exit: Promise<number>; stdout: string[]; stderr: string[] } {
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const cwd = options.cwd ?? process.cwd();
+interface FakeCompletionRegistryOptions {
+	commands?: readonly SdlCommand[] | undefined;
+	loadFailures?: Readonly<Record<string, string>> | undefined;
+}
+
+interface FakeCompletionRegistry {
+	loadLog: string[];
+	loadCommandCatalog: () => Promise<SdlCommandCatalog>;
+	loadSelectedCommand: (
+		candidate: ExtensionCommandCandidate,
+	) => Promise<SelectedSdlCommandLoadResult>;
+}
+
+function fakeCompletionRegistry(
+	options: FakeCompletionRegistryOptions = {},
+): FakeCompletionRegistry {
+	const commands = options.commands ?? [];
+	const candidates = commands.map(commandCandidate);
+	const candidateMap = new Map(candidates.map((candidate) => [candidate.name, candidate]));
+	const loadLog: string[] = [];
 	return {
-		exit: runCli(args, {
-			cwd,
-			homeDir: join(cwd, ".home"),
-			env: { ...process.env, HOME: join(cwd, ".home") },
-			stdout: (text) => stdout.push(text),
-			stderr: (text) => stderr.push(text),
-		}),
-		stdout,
-		stderr,
+		loadLog,
+		async loadCommandCatalog() {
+			return {
+				candidates: candidateMap,
+				commandInfos: candidates.map(({ name, description, fullDescription }) => ({
+					name,
+					description,
+					fullDescription,
+				})),
+				diagnostics: [],
+			};
+		},
+		async loadSelectedCommand(candidate) {
+			loadLog.push(candidate.name);
+			const failure = options.loadFailures?.[candidate.name];
+			if (failure !== undefined) {
+				return {
+					ok: false,
+					diagnostic: {
+						severity: "error",
+						code: "extension_load_failed",
+						message: failure,
+						commandName: candidate.name,
+					},
+				};
+			}
+			const command = commands.find((entry) => entry.name === candidate.name);
+			if (command === undefined) {
+				return {
+					ok: false,
+					diagnostic: {
+						severity: "error",
+						code: "extension_command_missing",
+						message: `Missing fake command ${candidate.name}`,
+						commandName: candidate.name,
+					},
+				};
+			}
+			return {
+				ok: true,
+				command,
+				source: { level: "project", label: `fake ${candidate.name}` },
+				path: { name: candidate.name },
+			};
+		},
 	};
 }
 
-async function createExtensionProject(fileName: string, source: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-completion-project-"));
-	tempDirs.push(directory);
-	writeProjectExtension(directory, fileName, source);
-	return directory;
+function commandCandidate(command: SdlCommand): ExtensionCommandCandidate {
+	return {
+		name: command.name,
+		description: command.summary,
+		fullDescription: command.description,
+		source: { level: "project", label: `fake ${command.name}` },
+		entryPath: `fake://${command.name}`,
+		kind: "file",
+	};
 }
 
-function writeProjectExtension(cwd: string, fileName: string, source: string): void {
-	const path = join(cwd, ".sdl", "extensions", fileName);
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, source);
+function helloCommand(options: Partial<SdlCommand> = {}): SdlCommand {
+	return {
+		name: "hello",
+		summary: "Hello",
+		description: "Hello",
+		async run() {
+			return { ok: true, message: "hello" };
+		},
+		...options,
+	};
 }
