@@ -92,4 +92,9 @@ test("repo-local migration extensions can import internal migration subpaths", a
 		"check",
 		"delete",
 	]);
+
+	const objectiveListModule = await jiti.import<{
+		objectiveListSdlCommand: { name: string };
+	}>("@sdl/objective/sdl/commands/list");
+	expect(objectiveListModule.objectiveListSdlCommand.name).toBe("list");
 });
