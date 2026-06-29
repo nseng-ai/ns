@@ -3,7 +3,10 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";
 import { resizePool } from "../lifecycle/pool.ts";
-import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
+import {
+	buildSlotDestructiveResultBlock,
+	renderSlotDestructiveResultBlock,
+} from "./destructive-presentation.ts";
 
 export const resizeRequestSchema = z.object({
 	size: z.coerce.number().int().describe("Target pool size (1..99)."),
@@ -31,11 +34,14 @@ export function renderResize(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const body = renderResizeDetails(result);
-	return renderSlotDestructiveResultBlock(caps, {
-		kind: "success",
-		headline: resizeHeadline(result),
-		...(body === undefined ? {} : { body }),
-	});
+	return renderSlotDestructiveResultBlock(
+		caps,
+		buildSlotDestructiveResultBlock({
+			kind: "success",
+			headline: resizeHeadline(result),
+			body,
+		}),
+	);
 }
 
 function resizeHeadline(result: ResizeResult): string {

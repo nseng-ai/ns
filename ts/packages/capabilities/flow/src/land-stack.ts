@@ -63,6 +63,7 @@ export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 export interface ExecuteStackLandingOptions {
 	io?: CommandIo;
 	skipMainConfirmation?: boolean;
+	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;
 }
 
@@ -229,6 +230,9 @@ async function executeSinglePlanLanding(
 		landed,
 		landedChunks,
 		commandStream,
+		...(options.preMergeConfirmation === undefined
+			? {}
+			: { preMergeConfirmation: options.preMergeConfirmation }),
 	});
 	if (readyPlan.type === "failure") return readyPlan;
 

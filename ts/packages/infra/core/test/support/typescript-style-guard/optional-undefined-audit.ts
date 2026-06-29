@@ -2,6 +2,7 @@ import * as ts from "typescript";
 
 import { ADVISORY_OPTIONAL_UNDEFINED_PROPERTY } from "./config.ts";
 import { parseTypeScriptSource } from "./module-specifiers.ts";
+import { sourceLocationFields } from "./source-location.ts";
 
 export interface OptionalUndefinedPropertyCandidate {
 	readonly rule: typeof ADVISORY_OPTIONAL_UNDEFINED_PROPERTY;
@@ -57,16 +58,11 @@ function buildCandidate(
 	sourceFile: ts.SourceFile,
 	node: ts.PropertySignature,
 ): OptionalUndefinedPropertyCandidate {
-	const start = node.getStart(sourceFile);
-	const position = sourceFile.getLineAndCharacterOfPosition(start);
 	const containingTypeName = findContainingTypeName(node);
 	const parameterName = findContainingParameterName(node);
 	return {
 		rule: ADVISORY_OPTIONAL_UNDEFINED_PROPERTY,
-		path,
-		line: position.line + 1,
-		column: position.character + 1,
-		text: singleLine(node.getText(sourceFile)),
+		...sourceLocationFields(path, sourceFile, node),
 		propertyName: propertyNameText(node.name) ?? "<computed>",
 		containingTypeName,
 		parameterName,
@@ -109,8 +105,4 @@ function propertyNameText(name: ts.PropertyName): string | undefined {
 function suggestsOptionsInput(name: string | undefined): boolean {
 	if (name === undefined) return false;
 	return /(?:options?|opts|input|inputs|override|overrides|request|params|args)$/iu.test(name);
-}
-
-function singleLine(text: string): string {
-	return text.replace(/\s+/g, " ").trim();
 }

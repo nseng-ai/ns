@@ -26,7 +26,10 @@ import {
 import type { FreedSlot } from "../lifecycle/release-target.ts";
 import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
-import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
+import {
+	buildSlotDestructiveResultBlock,
+	renderSlotDestructiveResultBlock,
+} from "./destructive-presentation.ts";
 import { cleanupSchema, freedSlotSchema } from "./result-schemas.ts";
 
 export const freeRequestSchema = z.object({
@@ -152,28 +155,33 @@ export function renderFree(
 	const targets = result.dryRun ? result.wouldFree : result.freed;
 	const body = renderFreeDetails(result, targets, resolveRenderCapabilities(caps));
 	if (result.cancelled) {
-		return renderSlotDestructiveResultBlock(caps, {
-			kind: "refusal",
-			headline: "Cancelled slot free.",
-			...(body === undefined ? {} : { body }),
-		});
+		return renderSlotDestructiveResultBlock(
+			caps,
+			buildSlotDestructiveResultBlock({
+				kind: "refusal",
+				headline: "Cancelled slot free.",
+				body,
+			}),
+		);
 	}
 	const cleanupErrors = cleanupErrorCount(result.cleanup);
 	if (cleanupErrors > 0) {
-		return renderSlotDestructiveResultBlock(caps, {
-			kind: "failure",
-			headline: "Slot free completed with cleanup errors.",
-			...(body === undefined ? {} : { body }),
-		});
+		return renderSlotDestructiveResultBlock(
+			caps,
+			buildSlotDestructiveResultBlock({
+				kind: "failure",
+				headline: "Slot free completed with cleanup errors.",
+				body,
+			}),
+		);
 	}
 	const headline = result.dryRun
 		? dryRunHeadline(targets.length)
 		: freeSuccessHeadline(targets.length);
-	return renderSlotDestructiveResultBlock(caps, {
-		kind: "success",
-		headline,
-		...(body === undefined ? {} : { body }),
-	});
+	return renderSlotDestructiveResultBlock(
+		caps,
+		buildSlotDestructiveResultBlock({ kind: "success", headline, body }),
+	);
 }
 
 function renderFreeDetails(

@@ -126,18 +126,31 @@ const registryCheckResultSchema: z.ZodType<RegistryCheckResult> = z
 		latestVersion: z.string().optional(),
 		description: z.string().optional(),
 	})
-	.transform(
-		(result): RegistryCheckResult => ({
-			registry: result.registry,
-			inputName: result.inputName,
-			lookupName: result.lookupName,
-			status: result.status,
-			message: result.message,
-			...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
-			...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
-			...(result.description === undefined ? {} : { description: result.description }),
-		}),
-	);
+	.transform(normalizeRegistryCheckResult);
+
+interface RegistryCheckResultBoundary {
+	registry: Registry;
+	inputName: string;
+	lookupName: string;
+	status: RegistryCheckResult["status"];
+	message: string;
+	packageUrl?: string | undefined;
+	latestVersion?: string | undefined;
+	description?: string | undefined;
+}
+
+function normalizeRegistryCheckResult(result: RegistryCheckResultBoundary): RegistryCheckResult {
+	return {
+		registry: result.registry,
+		inputName: result.inputName,
+		lookupName: result.lookupName,
+		status: result.status,
+		message: result.message,
+		...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
+		...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
+		...(result.description === undefined ? {} : { description: result.description }),
+	};
+}
 
 const packageCheckReportSchema: z.ZodType<PackageCheckReport> = z.object({
 	inputName: z.string(),
