@@ -17,7 +17,30 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
-} from "@sdl/capability-kit/git";
+} from "./contract.ts";
+
+export type {
+	GitBranchParams,
+	GitBranchPresenceResult,
+	GitCurrentBranchResult,
+	GitCwdParams,
+	GitErrorInfo,
+	GitGateway,
+	GitLocalBranchTip,
+	GitOperationResult,
+	GitOptionalResult,
+	GitPathParams,
+	GitRefsPathParams,
+	GitResult,
+	GitRevisionRangePathParams,
+} from "./contract.ts";
+export {
+	readLocalBranchRefs,
+	type LocalBranchRefDirent,
+	type LocalBranchRefReaderFs,
+	type LocalBranchRefReadResult,
+	type ReadLocalBranchRefsOptions,
+} from "./local-ref-reader.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 

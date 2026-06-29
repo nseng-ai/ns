@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import {
 	GENERATED_BODY_MARKER,
 	formatManagedGeneratedRegion,

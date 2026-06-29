@@ -23,6 +23,6 @@
   },
   "devDependencies": {},
   "sdl": {
-    "tier": "neutral-infra"
+    "tier": "capability-gateway-backend"
   }
 }

@@ -3,7 +3,7 @@ import { basename, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,

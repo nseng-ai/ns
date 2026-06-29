@@ -19,11 +19,11 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/graphite/test"
   },
   "dependencies": {
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/core": "workspace:*"
+    "@sdl/core": "workspace:*",
+    "@sdl/git": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {
-    "tier": "neutral-infra"
+    "tier": "capability-gateway-backend"
   }
 }

@@ -14,11 +14,10 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/git/test"
   },
   "dependencies": {
-    "@sdl/capability-kit": "workspace:*",
     "@sdl/core": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {
-    "tier": "neutral-infra"
+    "tier": "capability-gateway-backend"
   }
 }

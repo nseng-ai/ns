@@ -11,15 +11,16 @@
     `CONTEXT.md` now carries the concise vocabulary and ADR 0016 cross-references the GitHub
     placement refinement.
 
-- [x] Relocate the `git` gateway per ADR 0019: `@sdl/capability-kit/git` owns the
-      capability-facing interface, fake/testing support, and light adapter, while the complex real
-      implementation may stay standalone if the placement gate still justifies it; repoint all
-      capability/consumer imports off `@sdl/core/git`; delete the `@sdl/core/git` door in the same
-      slice.
-  - Evidence: `@sdl/capability-kit/git` and `@sdl/capability-kit/git/testing` now own the seam,
-    helper functions, ref-reader utility, and in-memory fake; `@sdl/git` owns `RealGitGateway`;
-    `@sdl/core` no longer exports `./git` or `./git/testing`; source search confirms no
-    `@sdl/core/git` live import sites remain. Validation: `just ts-deps-check`,
+- [x] Relocate the `git` gateway per ADR 0019/0020: `@sdl/git` owns the canonical
+      `GitGateway` contract, result/parameter types, local branch ref reader, and real adapter;
+      `@sdl/capability-kit/git/testing` keeps the in-memory fake; kit-owned Git helpers remain under
+      `@sdl/capability-kit/git`; repoint all capability/consumer imports off `@sdl/core/git`; delete
+      the `@sdl/core/git` door in the same slice.
+  - Evidence: ADR 0020 introduced the Capability Gateway Backend refinement; `@sdl/git` declares
+    `sdl.tier: "capability-gateway-backend"` and exports the canonical Git contract plus
+    `readLocalBranchRefs`; `@sdl/capability-kit/git/testing` imports the contract from `@sdl/git` and
+    remains the fake surface; source search confirms no `@sdl/core/git` live import sites and no
+    contract-only imports from `@sdl/capability-kit/git` remain. Validation: `just ts-deps-check`,
     `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`, and
     `just ts-test-integration`.
 
@@ -34,10 +35,13 @@
       honoring ADR 0016's address-owned PR-feedback seam; repoint consumers and delete the
       `@sdl/core` doors.
 
-- [ ] Assess standalone `@sdl/graphite` and `@sdl/cmux` with ADR 0019's placement gate;
-      explicitly confirm whether they stay standalone real packages or expose additional kit seams.
-      The stale manifest-only `@sdl/kernel` → `@sdl/graphite` edge has been removed, so the next
-      decision is kit-size/consumer-semantics driven rather than cycle-driven.
+- [x] Assess standalone `@sdl/graphite` and `@sdl/cmux` with ADR 0019/0020's placement gate;
+      confirm they stay standalone Capability Gateway Backend packages for this slice rather than
+      exposing additional kit seams.
+  - Evidence: `@sdl/graphite` and `@sdl/cmux` declare `sdl.tier: "capability-gateway-backend"`;
+    `@sdl/graphite` imports the local branch ref reader from `@sdl/git` and no longer depends on
+    `@sdl/capability-kit`; no new `@sdl/capability-kit/graphite` or `@sdl/capability-kit/cmux` seam
+    was introduced.
 
 - [ ] Move the SDK-provided services: place `command-io` and `progress-phase` interfaces in
       `sdl-sdk`, hide their implementations in the kernel, route capability access through

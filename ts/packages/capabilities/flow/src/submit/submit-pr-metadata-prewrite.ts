@@ -5,7 +5,7 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import type { MaybePromise } from "@sdl/core/primitives";
 
 import { commandFailure } from "./index.ts";

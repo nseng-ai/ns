@@ -4,7 +4,7 @@ import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants
 import type { BrmemGateway } from "@sdl/brmem";
 import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
 import { formatCommand, type CommandExecApi } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";

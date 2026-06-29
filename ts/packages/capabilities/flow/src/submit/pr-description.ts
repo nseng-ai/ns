@@ -2,7 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import {
 	parseManagedRegion,
 	replaceMalformedManagedRegionFromBegin,

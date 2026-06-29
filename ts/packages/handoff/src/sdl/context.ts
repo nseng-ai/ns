@@ -8,7 +8,7 @@ import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { RealGitGateway } from "@sdl/git";
 import { createSdlClinkrInteraction, SdlStdinCapableCommandExecApi } from "@sdl/capability-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import type { HandoffCliContext } from "../context.ts";
