@@ -37,7 +37,22 @@ interface RunFlowCccCliOptions {
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
+interface FlowCccCliOutputCapture {
+	readonly input: Pick<FlowCccCliRunnerInput, "stdout" | "stderr">;
+	readonly stdout: string;
+	readonly stderr: string;
+	flush(): void;
+	toResult(
+		exitCode: number,
+		messages: { successMessage: string; failureMessage: string },
+	): SdlResult;
+}
+
 interface FlowCccCliModule {
+	createFlowCccCliOutputCapture(options: {
+		ctx: SdlExtensionApi;
+		mode?: "forward-live" | "buffer-until-complete" | undefined;
+	}): FlowCccCliOutputCapture;
 	runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult>;
 }
 
@@ -146,6 +161,36 @@ describe("project extension shared CCC CLI helper", () => {
 		]);
 	});
 
+	test("buffers emitted output until the caller flushes after progress settles", async () => {
+		const sharedModule = await loadFlowCccCliModule();
+		const { api, stdout, stderr } = createFakeApi([]);
+		const output = sharedModule.createFlowCccCliOutputCapture({
+			ctx: api,
+			mode: "buffer-until-complete",
+		});
+
+		output.input.stdout("done\n");
+		output.input.stderr("warn\n");
+		expect(stdout).toEqual([]);
+		expect(stderr).toEqual([]);
+		expect(output.stdout).toBe("done\n");
+		expect(output.stderr).toBe("warn\n");
+
+		output.flush();
+
+		expect(stdout).toEqual(["done\n"]);
+		expect(stderr).toEqual(["warn\n"]);
+		expect(output.toResult(0, { successMessage: "completed", failureMessage: "failed" })).toEqual({
+			ok: true,
+			message: "",
+		});
+		expect(output.toResult(9, { successMessage: "completed", failureMessage: "failed" })).toEqual({
+			ok: false,
+			exitCode: 9,
+			message: "",
+		});
+	});
+
 	test("routes trusted pull-trunk execution to alternate cwd without scoped-cwd refusal", async () => {
 		const sharedModule = await loadFlowCccCliModule();
 		const { api, trustedExec, calls } = createFakeApi([makeExecResult({ stdout: "updated\n" })]);
@@ -191,6 +236,12 @@ function assertFlowCccCliModule(value: unknown): asserts value is FlowCccCliModu
 	}
 	if (!("runFlowCccCli" in value) || typeof value.runFlowCccCli !== "function") {
 		throw new Error("Expected shared CCC CLI helper to export runFlowCccCli.");
+	}
+	if (
+		!("createFlowCccCliOutputCapture" in value) ||
+		typeof value.createFlowCccCliOutputCapture !== "function"
+	) {
+		throw new Error("Expected shared CCC CLI helper to export createFlowCccCliOutputCapture.");
 	}
 }
 

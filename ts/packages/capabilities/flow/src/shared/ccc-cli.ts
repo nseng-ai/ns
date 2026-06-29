@@ -33,6 +33,22 @@ export interface RunFlowCccCliOptions {
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
+export interface FlowCccCliOutputCapture {
+	readonly input: Pick<FlowCccCliRunnerInput, "stdout" | "stderr">;
+	readonly stdout: string;
+	readonly stderr: string;
+	flush(): void;
+	toResult(
+		exitCode: number,
+		messages: { successMessage: string; failureMessage: string },
+	): SdlResult;
+}
+
+export interface CreateFlowCccCliOutputCaptureOptions {
+	ctx: SdlExtensionApi;
+	mode?: "forward-live" | "buffer-until-complete" | undefined;
+}
+
 export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions<T>): Promise<T> {
 	const trustedExec = options.trustedExec ?? createTrustedFlowCccExec();
 	return await options.run({
@@ -48,30 +64,54 @@ export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions
 	});
 }
 
-export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
+export function createFlowCccCliOutputCapture(
+	options: CreateFlowCccCliOutputCaptureOptions,
+): FlowCccCliOutputCapture {
 	let stdout = "";
 	let stderr = "";
+	const shouldForwardLive = options.mode !== "buffer-until-complete";
+	return {
+		input: {
+			stdout: (text) => {
+				stdout += text;
+				if (shouldForwardLive) options.ctx.stdout?.(text);
+			},
+			stderr: (text) => {
+				stderr += text;
+				if (shouldForwardLive) options.ctx.stderr?.(text);
+			},
+		},
+		get stdout() {
+			return stdout;
+		},
+		get stderr() {
+			return stderr;
+		},
+		flush: () => {
+			if (stdout !== "") options.ctx.stdout?.(stdout);
+			if (stderr !== "") options.ctx.stderr?.(stderr);
+		},
+		toResult: (exitCode, messages) => {
+			if (exitCode === 0) return ok(stdout === "" ? messages.successMessage : "");
+			return failed(stderr === "" ? messages.failureMessage : "", exitCode);
+		},
+	};
+}
+
+export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
+	const output = createFlowCccCliOutputCapture({ ctx: options.ctx });
 	const exitCode = await runFlowCccOperation({
 		ctx: options.ctx,
 		...(options.trustedExec === undefined ? {} : { trustedExec: options.trustedExec }),
 		...(options.shouldForwardLiveOutput === undefined
 			? {}
 			: { shouldForwardLiveOutput: options.shouldForwardLiveOutput }),
-		run: async (io) =>
-			await options.run({
-				exec: io.exec,
-				stdout: (text) => {
-					stdout += text;
-					options.ctx.stdout?.(text);
-				},
-				stderr: (text) => {
-					stderr += text;
-					options.ctx.stderr?.(text);
-				},
-			}),
+		run: async (io) => await options.run({ exec: io.exec, ...output.input }),
 	});
-	if (exitCode === 0) return ok(stdout === "" ? options.successMessage : "");
-	return failed(stderr === "" ? options.failureMessage : "", exitCode);
+	return output.toResult(exitCode, {
+		successMessage: options.successMessage,
+		failureMessage: options.failureMessage,
+	});
 }
 
 interface ExecFlowCccCommandOptions {

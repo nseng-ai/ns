@@ -10,8 +10,10 @@ import type { SdlExtensionApi } from "sdl-sdk";
 
 import {
 	createPhaseStream,
+	createPhaseStreamController,
 	resolveFlowStreamCaps,
 	runPhaseStream,
+	runSettledPhaseStream,
 	type PhaseSpec,
 } from "../../src/shared/phase-stream.ts";
 
@@ -251,6 +253,50 @@ describe("inferred completion", () => {
 });
 
 describe("runPhaseStream lifecycle", () => {
+	test("runSettledPhaseStream marks failure before settling and returns the command result", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes } = harness();
+
+		const result = await runSettledPhaseStream({
+			caps: c,
+			specs: SPECS,
+			deps,
+			title: "title",
+			body: async (stream) => {
+				stream.emit({ type: "phase-started", phaseKey: "a" });
+				stream.emit({ type: "phase-started", phaseKey: "b" });
+				return { result: "failed-result", failed: true };
+			},
+		});
+
+		expect(result).toBe("failed-result");
+		const settled = writes[0] ?? "";
+		expect(settled).toContain("alpha done");
+		expect(settled).toContain("beta working…");
+		expect(settled).toContain("✗");
+	});
+
+	test("lazy controller begins only when an externally routed event arrives", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs } = harness();
+		const controller = createPhaseStreamController({
+			caps: c,
+			specs: SPECS,
+			deps,
+			title: "title",
+			begin: "lazy",
+		});
+
+		await controller.finish();
+		expect(writes).toEqual([]);
+		controller.emit({ type: "phase-started", phaseKey: "a" });
+		expect(outputs).toEqual(["alpha working…"]);
+		await controller.finish();
+
+		expect(writes).toHaveLength(1);
+		expect(writes[0]).toContain("alpha done");
+	});
+
 	test("restores the cursor and stops the pump when core work throws", async () => {
 		const c = caps();
 		const { deps, writes } = harness();

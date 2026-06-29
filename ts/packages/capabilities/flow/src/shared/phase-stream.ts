@@ -141,6 +141,39 @@ export interface RunPhaseStreamOptions<T> {
 	body: (stream: PhaseStream) => Promise<T>;
 }
 
+export interface RunSettledPhaseStreamOptions<T> {
+	caps: Caps;
+	specs: readonly PhaseSpec[];
+	deps: StreamSinkDeps;
+	title: string;
+	body: (stream: PhaseStream) => Promise<SettledPhaseStreamOutcome<T>>;
+}
+
+export interface SettledPhaseStreamOutcome<T> {
+	result: T;
+	failed?: boolean | undefined;
+	finalLines?: readonly string[] | undefined;
+	afterFinish?: (() => Promise<void> | void) | undefined;
+}
+
+export interface PhaseStreamController {
+	emit(event: SdlProgressPhaseEvent): void;
+	note(text: string): void;
+	finish(options?: {
+		failed?: boolean | undefined;
+		finalLines?: readonly string[] | undefined;
+	}): Promise<void>;
+	stop(): Promise<void>;
+}
+
+export interface CreatePhaseStreamControllerOptions {
+	caps: Caps;
+	specs: readonly PhaseSpec[];
+	deps: StreamSinkDeps;
+	title: string;
+	begin?: "immediate" | "lazy" | undefined;
+}
+
 export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Promise<T> {
 	const stream = createPhaseStream(options.caps, options.specs, options.deps);
 	stream.begin(options.title);
@@ -149,6 +182,56 @@ export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Prom
 	} finally {
 		await stream.stop();
 	}
+}
+
+export async function runSettledPhaseStream<T>(
+	options: RunSettledPhaseStreamOptions<T>,
+): Promise<T> {
+	return await runPhaseStream({
+		caps: options.caps,
+		specs: options.specs,
+		deps: options.deps,
+		title: options.title,
+		body: async (stream) => {
+			const outcome = await options.body(stream);
+			if (outcome.failed === true) stream.fail();
+			await stream.finish(outcome.finalLines);
+			await outcome.afterFinish?.();
+			return outcome.result;
+		},
+	});
+}
+
+export function createPhaseStreamController(
+	options: CreatePhaseStreamControllerOptions,
+): PhaseStreamController {
+	let stream: PhaseStream | undefined;
+
+	function ensureStream(): PhaseStream {
+		if (stream !== undefined) return stream;
+		stream = createPhaseStream(options.caps, options.specs, options.deps);
+		stream.begin(options.title);
+		return stream;
+	}
+
+	if (options.begin !== "lazy") ensureStream();
+
+	return {
+		emit: (event) => {
+			ensureStream().emit(event);
+		},
+		note: (text) => {
+			ensureStream().note(text);
+		},
+		finish: async (finishOptions = {}) => {
+			if (stream === undefined) return;
+			if (finishOptions.failed === true) stream.fail();
+			await stream.finish(finishOptions.finalLines);
+		},
+		stop: async () => {
+			await stream?.stop();
+		},
+	};
 }
 
 /** Resolve flow streaming caps from the command host context, falling back only for direct CLI runs. */
