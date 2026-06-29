@@ -7,7 +7,6 @@ import {
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	ok,
-	resolveClinkrInteraction,
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
@@ -15,7 +14,6 @@ import {
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli } from "@sdl/core/cli-entry";
-import { readStdinLine } from "@sdl/core/stdin";
 import { buildSlotCommandGroup } from "@sdl/slot/command-face";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
@@ -372,7 +370,11 @@ async function buildSdlCliContext(options: {
 		...(confirm === undefined ? {} : { confirm }),
 		extensions: contextExtensions,
 	};
-	const slotContext = await createRealSlotContext({ cwd: options.cwd, env: options.env });
+	const slotContext = await createRealSlotContext({
+		cwd: options.cwd,
+		env: options.env,
+		...(options.caps === undefined ? {} : { caps: options.caps }),
+	});
 	return {
 		...slotContext,
 		context,
@@ -380,10 +382,7 @@ async function buildSdlCliContext(options: {
 		env: options.env,
 		stdout: options.stdout,
 		stderr: options.stderr,
-		interaction: resolveClinkrInteraction({
-			stdin: readStdinLine,
-			stderr: options.stderr,
-		}),
+		interaction: slotContext.interaction,
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
 	};
 }

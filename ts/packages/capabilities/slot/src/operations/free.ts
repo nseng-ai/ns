@@ -1,4 +1,10 @@
-import { failure, negative, ok, type RenderCapabilities } from "@sdl/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	resolveRenderCapabilities,
+	type RenderCapabilities,
+} from "@sdl/clinkr";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../collections.ts";
@@ -145,7 +151,7 @@ export function renderFree(
 		return renderSlotDestructiveResultBlock(caps, {
 			kind: "refusal",
 			headline: "Cancelled slot free.",
-			body: renderFreeDetails(result, targets),
+			body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
 		});
 	}
 	const cleanupErrors = cleanupErrorCount(result.cleanup);
@@ -153,7 +159,7 @@ export function renderFree(
 		return renderSlotDestructiveResultBlock(caps, {
 			kind: "failure",
 			headline: "Slot free completed with cleanup errors.",
-			body: renderFreeDetails(result, targets),
+			body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
 		});
 	}
 	const headline = result.dry_run
@@ -162,18 +168,22 @@ export function renderFree(
 	return renderSlotDestructiveResultBlock(caps, {
 		kind: "success",
 		headline,
-		body: renderFreeDetails(result, targets),
+		body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
 	});
 }
 
-function renderFreeDetails(result: FreeResult, targets: readonly FreedSlot[]): string | undefined {
+function renderFreeDetails(
+	result: FreeResult,
+	targets: readonly FreedSlot[],
+	caps: ReturnType<typeof resolveRenderCapabilities>,
+): string | undefined {
 	const lines: string[] = [];
 	for (const slot of targets)
 		lines.push(
 			`${result.dry_run ? "Would free" : "Freed"} ${slot.slot_name} -> ${slot.branch_name}`,
 		);
 	lines.push(...result.skipped);
-	lines.push(...renderCleanupLines(result.cleanup, { isDryRun: result.dry_run }));
+	lines.push(...renderCleanupLines(result.cleanup, { isDryRun: result.dry_run, caps }));
 	return lines.length === 0 ? undefined : lines.join("\n");
 }
 

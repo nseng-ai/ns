@@ -1,6 +1,12 @@
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
+import {
+	resolveClinkrInteraction,
+	type Caps,
+	type ClinkrInteraction,
+	type ConfirmationPromptFormatter,
+} from "@sdl/clinkr";
+import { paint } from "@sdl/cli-theme";
 import { readStdinLine } from "@sdl/core/stdin";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
@@ -36,6 +42,8 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 export async function createRealSlotContext(options: {
 	cwd: string;
 	env?: NodeJS.ProcessEnv | undefined;
+	caps?: Caps | undefined;
+	formatPrompt?: ConfirmationPromptFormatter | undefined;
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
 	const slotsRoot = resolveSlotsRoot(env);
@@ -54,6 +62,9 @@ export async function createRealSlotContext(options: {
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr,
+			...(options.formatPrompt === undefined && options.caps === undefined
+				? {}
+				: { formatPrompt: options.formatPrompt ?? formatSlotConfirmationPrompt(options.caps) }),
 		}),
 		stderr,
 		env,
@@ -64,4 +75,11 @@ export async function createRealSlotContext(options: {
 
 export function resolveSlotsRoot(env: Record<string, string | undefined>): string {
 	return requireXdgPath(resolveSdlXdgPath({ kind: "state", env, segments: ["slots"] }));
+}
+
+function formatSlotConfirmationPrompt(caps: Caps | undefined): ConfirmationPromptFormatter {
+	return (request, suffix) => {
+		if (caps === undefined || caps.colorDepth === "none") return `${request.message} ${suffix}: `;
+		return `${request.message} ${paint(caps, "muted", suffix)}: `;
+	};
 }
