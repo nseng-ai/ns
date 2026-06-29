@@ -525,9 +525,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../infra/graphite
       jiti:
         specifier: 'catalog:'
         version: 2.7.0

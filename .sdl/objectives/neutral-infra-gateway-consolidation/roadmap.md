@@ -11,22 +11,27 @@
     `CONTEXT.md` now carries the concise vocabulary and ADR 0016 cross-references the GitHub
     placement refinement.
 
-- [ ] Relocate the `git` gateway into `@sdl/capability-kit/git` (interface + real + fake
-      co-located); repoint all capability/consumer imports off `@sdl/core/git`; delete the
-      `@sdl/core/git` door in the same slice.
+- [ ] Relocate the `git` gateway per ADR 0019: `@sdl/capability-kit/git` owns the
+      capability-facing interface, fake/testing support, and light adapter, while the complex real
+      implementation may stay standalone if the placement gate still justifies it; repoint all
+      capability/consumer imports off `@sdl/core/git`; delete the `@sdl/core/git` door in the same
+      slice.
 
-- [ ] Relocate the `exec` gateway into `@sdl/capability-kit/exec`; repoint all `@sdl/core/exec`
-      import sites (~112) and delete the door. Largest mechanical slice — keep repoint + delete
-      atomic so two doors never coexist.
+- [ ] Relocate the `exec` gateway per ADR 0019; stabilize `ExecResult`/formatting at the
+      SDK/kit boundary before moving real child-process execution, repoint all `@sdl/core/exec`
+      import sites, and delete the door. Largest mechanical slice — keep repoint + delete atomic so
+      two doors never coexist.
 
 - [ ] Relocate the GitHub gateways (`github-cli`, `github-identity`, `github-pr-feedback`,
-      `github-pr-status`) into `@sdl/capability-kit/github` per-domain subpaths, honoring ADR
-      0016's address-owned PR-feedback seam; repoint consumers and delete the `@sdl/core`
-      doors.
+      `github-pr-status`) per ADR 0019: light seams under `@sdl/capability-kit/github` and
+      standalone-real placement for complex PR-feedback/status implementations if warranted,
+      honoring ADR 0016's address-owned PR-feedback seam; repoint consumers and delete the
+      `@sdl/core` doors.
 
-- [ ] Fold the standalone `@sdl/graphite` and `@sdl/cmux` gateway packages into
-      `@sdl/capability-kit` per-domain subpaths (or explicitly confirm they remain separate
-      gateway packages); repoint consumers and reconcile the resulting kernel/graphite edges.
+- [ ] Assess standalone `@sdl/graphite` and `@sdl/cmux` with ADR 0019's placement gate;
+      explicitly confirm whether they stay standalone real packages or expose additional kit seams.
+      The stale manifest-only `@sdl/kernel` → `@sdl/graphite` edge has been removed, so the next
+      decision is kit-size/consumer-semantics driven rather than cycle-driven.
 
 - [ ] Move the SDK-provided services: place `command-io` and `progress-phase` interfaces in
       `sdl-sdk`, hide their implementations in the kernel, route capability access through
@@ -40,8 +45,14 @@
 
 - [ ] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
       performs real-world I/O and no capability imports `@sdl/core/exec` or `@sdl/core/git`,
-      and the runtime dependency graph stays acyclic. This is the Objective's completion
-      marker, not a routine validation pass.
+      and the runtime dependency graph stays acyclic. This is the Objective's gateway-purity proof,
+      not a routine validation pass.
+
+- [ ] Reorganize capability packages as the final cleanup slice after the gateway/service homes are
+      settled: align capability package/import layout around the final `@sdl/capability-kit` seams,
+      SDK-provided services, and capability APIs; remove legacy organization imposed by the old
+      `@sdl/core` doors without redesigning capability behavior. Reference:
+      `references/package-layout-and-core-inventory.md`.
 
 ## Parked
 
