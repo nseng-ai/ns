@@ -8,10 +8,6 @@
   "type": "module",
   "exports": {
     "./api": "./src/api.ts",
-    "./autoslot": "./src/autoslot.ts",
-    "./land": "./src/land.ts",
-    "./trunk-pull": "./src/trunk-pull.ts",
-    "./land-stack": "./src/land-stack.ts",
     "./commands/changes": "./src/commands/changes.ts",
     "./commands/cp": "./src/commands/cp.ts",
     "./commands/autobranch": "./src/commands/autobranch.ts",
