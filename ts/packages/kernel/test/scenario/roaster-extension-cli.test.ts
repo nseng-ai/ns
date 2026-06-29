@@ -71,6 +71,15 @@ function claudeReviewResponse() {
 	};
 }
 
+function isGitDiffAgainstHeadCall(call: { command: string; args: string[] }): boolean {
+	return (
+		call.command === "git" &&
+		call.args.includes("diff") &&
+		call.args.includes("--no-ext-diff") &&
+		call.args.some((arg) => arg.endsWith("...HEAD"))
+	);
+}
+
 function diffText(): string {
 	return "diff --git a/src/app.ts b/src/app.ts\n@@ -1 +1 @@\n+changed\n";
 }
@@ -248,7 +257,7 @@ describe("Roaster SDL command face", () => {
 				exec: [
 					...repoRootResponses(root),
 					{
-						match: /git -c diff\.noprefix=false .* diff --no-ext-diff origin\/main\.\.\.HEAD/u,
+						match: isGitDiffAgainstHeadCall,
 						result: { stdout: diffText() },
 					},
 					claudeReviewResponse(),
@@ -293,7 +302,7 @@ describe("Roaster SDL command face", () => {
 		expect(await run.exit).toBe(2);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("failure");
-		expect(envelope.errorType).toBe("review_execution_invalid_json");
+		expect(envelope.errorType).toBe("review-execution-invalid-json");
 		expect(run.context.execCalls).toEqual([]);
 	});
 

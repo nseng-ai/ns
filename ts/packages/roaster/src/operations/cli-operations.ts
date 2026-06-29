@@ -11,7 +11,6 @@ import {
 	type ReviewLogWriteResult,
 } from "../gateways/review-log.ts";
 import {
-	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
 	type ReviewDefinition,
@@ -114,15 +113,6 @@ export const publishFindingsRequestSchema = z.object({
 	baseRef: z.string().optional().describe("Fallback base ref for failed run envelopes."),
 });
 
-export const publishFindingsResultSchema = z.object({
-	inlineStatus: postInlineFindingsResultSchema,
-	summaryStatus: z.object({
-		type: z.enum(["posted", "updated"]),
-		marker: nonBlankStringSchema,
-	}),
-});
-
-export type PublishFindingsCommandResult = z.infer<typeof publishFindingsResultSchema>;
 export type PublishFindingsRequest = z.infer<typeof publishFindingsRequestSchema>;
 
 export const publishFindingsResultSchema = z
@@ -141,6 +131,7 @@ export const publishFindingsResultSchema = z
 	.strict();
 
 export type PublishFindingsCliResult = z.infer<typeof publishFindingsResultSchema>;
+export type PublishFindingsCommandResult = PublishFindingsCliResult;
 
 export const recordFindingsRequestSchema = z.object({
 	reviewKey: nonBlankStringSchema.describe("Review key that produced the findings."),
@@ -469,13 +460,8 @@ export function renderReviewLog(result: ReviewLogResult): string {
 
 export async function publishFindingsFromStdin(
 	ctx: RoasterRuntime,
-<<<<<<< HEAD
-	request: z.infer<typeof publishFindingsRequestSchema>,
-): Promise<ClinkrExit<PublishFindingsCommandResult>> {
-=======
 	request: PublishFindingsRequest,
 ): Promise<PublishFindingsResult> {
->>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)
 	const envelope = await ctx.stdin();
 	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
@@ -484,39 +470,30 @@ export async function publishFindingsFromStdin(
 		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
 		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
 	});
-<<<<<<< HEAD
-	if (result.type === "error") {
-		return failure(result.error.reason, `publish-findings: ${result.error.message}`, result.error);
-	}
-
-	return ok(publishFindingsResultSchema.parse(result.value));
-}
-
-export function renderPublishFindings(result: PublishFindingsCommandResult): string {
-	return renderPublishFindingsDiagnostics(result);
-=======
 }
 
 export function clinkrExitFromPublishFindingsOutcome(
 	outcome: PublishFindingsResult,
 ): ClinkrExit<PublishFindingsCliResult> {
 	if (outcome.type === "error") {
-		return failure("publish_findings_failed", `publish-findings: ${outcome.error.message}`);
+		return failure(
+			outcome.error.reason,
+			`publish-findings: ${outcome.error.message}`,
+			outcome.error,
+		);
 	}
 	return ok(publishFindingsCliResult(outcome.value));
 }
 
 export async function runPublishFindings(
 	ctx: RoasterRuntime,
-	request: z.infer<typeof publishFindingsRequestSchema>,
-): Promise<number> {
-	const result = await publishFindingsFromStdin(ctx, request);
-	if (result.type === "error")
-		return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
+	request: PublishFindingsRequest,
+): Promise<ClinkrExit<PublishFindingsCliResult>> {
+	return clinkrExitFromPublishFindingsOutcome(await publishFindingsFromStdin(ctx, request));
+}
 
-	ctx.stderr(renderPublishFindingsDiagnostics(publishFindingsCliResult(result.value)));
-	return 0;
->>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)
+export function renderPublishFindings(result: PublishFindingsCommandResult): string {
+	return renderPublishFindingsDiagnostics(result);
 }
 
 interface LoadedDefinition {
@@ -592,8 +569,6 @@ export function renderPublishFindingsDiagnostics(result: PublishFindingsCliResul
 		"",
 	].join("\n");
 }
-<<<<<<< HEAD
-=======
 
 function publishFindingsCliResult(
 	result: Extract<PublishFindingsResult, { readonly type: "ok" }>["value"],
@@ -606,9 +581,3 @@ function publishFindingsCliResult(
 		summaryStatus: result.summaryStatus,
 	});
 }
-
-function stderrFailure(ctx: RoasterRuntime, message: string): number {
-	ctx.stderr(message);
-	return 1;
-}
->>>>>>> 9b6808dd5 ([cp] Expose publish-findings client command)

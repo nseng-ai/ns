@@ -238,7 +238,7 @@ describe("@sdl/roaster/api", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			error: { type: "review_execution_invalid_json" },
+			error: { type: "review-execution-invalid-json" },
 		});
 	});
 
