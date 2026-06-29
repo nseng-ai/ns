@@ -6,6 +6,7 @@ import {
 	createCommandIo,
 	runWithSdlCommandIo,
 } from "../src/sdk/command-io.ts";
+import { noopSdlProgress } from "sdl-sdk";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
@@ -14,7 +15,7 @@ function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 		cwd: "/repo",
 		env: {},
 		commandIo,
-		progress: { phase: () => {} },
+		progress: noopSdlProgress,
 		exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

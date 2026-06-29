@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { runCli } from "@sdl/kernel/cli";
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type {
 	SdlExecOptions,
 	ExecResult,
@@ -53,13 +54,8 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = {
-		phase: () => {},
-		notify: () => {},
-		message: () => {},
-		clearPhase: () => {},
-	};
-	readonly progress = { phase: () => {} };
+	readonly commandIo = noopSdlCommandIo;
+	readonly progress = noopSdlProgress;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;

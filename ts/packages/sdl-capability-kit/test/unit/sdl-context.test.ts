@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { ExecResult } from "@sdl/exec";
 import type { SdlExtensionApi } from "sdl-sdk";
 
@@ -78,13 +79,8 @@ function fakeApi(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
 	return {
 		cwd: "/repo",
 		env: {},
-		commandIo: {
-			phase: () => {},
-			notify: () => {},
-			message: () => {},
-			clearPhase: () => {},
-		},
-		progress: { phase: () => {} },
+		commandIo: noopSdlCommandIo,
+		progress: noopSdlProgress,
 		textGenerator: {
 			async generateText() {
 				return { ok: false, error: "unexpected model call" };

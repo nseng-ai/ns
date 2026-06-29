@@ -1,3 +1,4 @@
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { ClinkrDynamicCompletionRequest, SdlExtensionApi } from "sdl-sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -78,13 +79,8 @@ function fakeApi(): SdlExtensionApi {
 	return {
 		cwd: "/repo",
 		env: {},
-		commandIo: {
-			phase: () => {},
-			notify: () => {},
-			message: () => {},
-			clearPhase: () => {},
-		},
-		progress: { phase: () => {} },
+		commandIo: noopSdlCommandIo,
+		progress: noopSdlProgress,
 		textGenerator: {
 			async generateText() {
 				return { ok: false, error: "unexpected model call" };

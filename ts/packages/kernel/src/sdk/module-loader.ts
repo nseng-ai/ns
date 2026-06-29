@@ -9,6 +9,8 @@ import { isRecord } from "@sdl/core/primitives";
 import {
 	defineExtension,
 	failed,
+	noopSdlCommandIo,
+	noopSdlProgress,
 	normalizeTextOutput,
 	ok,
 	stripOuterCodeFence,
@@ -152,6 +154,8 @@ function stripLeadingDotSlash(path: string): string {
 const sdlSdkVirtualModule = {
 	defineExtension,
 	failed,
+	noopSdlCommandIo,
+	noopSdlProgress,
 	normalizeTextOutput,
 	ok,
 	stripOuterCodeFence,

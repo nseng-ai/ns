@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "sdl-sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
@@ -220,13 +221,8 @@ function createFakeApi(results: readonly ExecResult[]): {
 		api: {
 			cwd: "/repo",
 			env: {},
-			commandIo: {
-				phase: () => {},
-				notify: () => {},
-				message: () => {},
-				clearPhase: () => {},
-			},
-			progress: { phase: () => {} },
+			commandIo: noopSdlCommandIo,
+			progress: noopSdlProgress,
 			textGenerator: {
 				async generateText() {
 					return { ok: false, error: "unexpected model call" };

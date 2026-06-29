@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import { commandInfoForLoadedCommand } from "../../src/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -138,13 +139,8 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: {
-					phase: () => {},
-					notify: () => {},
-					message: () => {},
-					clearPhase: () => {},
-				},
-				progress: { phase: () => {} },
+				commandIo: noopSdlCommandIo,
+				progress: noopSdlProgress,
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -188,13 +184,8 @@ describe("extension registry", () => {
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: {
-					phase: () => {},
-					notify: () => {},
-					message: () => {},
-					clearPhase: () => {},
-				},
-				progress: { phase: () => {} },
+				commandIo: noopSdlCommandIo,
+				progress: noopSdlProgress,
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -445,13 +436,8 @@ export default defineExtension({
 			{
 				cwd: workspace.cwd,
 				env: {},
-				commandIo: {
-					phase: () => {},
-					notify: () => {},
-					message: () => {},
-					clearPhase: () => {},
-				},
-				progress: { phase: () => {} },
+				commandIo: noopSdlCommandIo,
+				progress: noopSdlProgress,
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},

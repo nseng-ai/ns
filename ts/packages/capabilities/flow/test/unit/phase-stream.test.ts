@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { CLINKR_CAPS_EXTENSION_KEY, DEFAULT_COLUMNS } from "@sdl/clinkr";
+import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
 import { spinnerFrame } from "@sdl/cli-theme";
@@ -43,13 +44,8 @@ function ctx(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
 	return {
 		cwd: "/work",
 		env: {},
-		commandIo: {
-			phase: () => {},
-			notify: () => {},
-			message: () => {},
-			clearPhase: () => {},
-		},
-		progress: { phase: () => {} },
+		commandIo: noopSdlCommandIo,
+		progress: noopSdlProgress,
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,
