@@ -13,7 +13,11 @@ import {
 	PREVIEW_OVERLAY_MARGIN,
 	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
 } from "./preview-view-utilities.ts";
-import { sortPreviewChecks, type PrPreviewCheck } from "./preview-checks-model.ts";
+import {
+	sortPreviewChecks,
+	type PrPreviewCheck,
+	type PrPreviewChecksCounts,
+} from "./preview-checks-model.ts";
 import type {
 	CommandResult,
 	EnvelopeWithSchemaOptions,
@@ -348,9 +352,16 @@ function buildPreviewChecksViewModel(
 	data: PreviewChecksData,
 	prNumber: number,
 ): PrPreviewChecksViewModel {
+	const counts: PrPreviewChecksCounts = {
+		passing: data.counts.passing,
+		pending: data.counts.pending,
+		failing: data.counts.failing,
+		unknown: data.counts.unknown,
+	};
+	if (data.counts.hasMore !== undefined) counts.hasMore = data.counts.hasMore;
 	return {
 		target: { ...data.target, pr_number: prNumber },
-		counts: data.counts,
+		counts,
 		fetchedAt: new Date(),
 		checks: sortPreviewChecks(data.checks),
 	};

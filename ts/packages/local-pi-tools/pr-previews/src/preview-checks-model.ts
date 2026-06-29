@@ -18,7 +18,7 @@ export interface PrPreviewChecksCounts {
 	pending: number;
 	failing: number;
 	unknown: number;
-	hasMore?: boolean | undefined;
+	hasMore?: boolean;
 }
 
 export interface PrPreviewCheck {
