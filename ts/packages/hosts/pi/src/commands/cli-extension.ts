@@ -663,13 +663,12 @@ class LiveCommandProgress {
 	close(): void {
 		if (this.isClosed) return;
 		this.isClosed = true;
-		if (this.timer !== undefined) {
-			this.timer.cancel();
-			this.timer = undefined;
-		}
+		this.clearTimer();
 		if (this.target !== "none") {
-			this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, undefined);
-			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, undefined);
+			this.withActiveContext(() => {
+				this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, undefined);
+				this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, undefined);
+			});
 		}
 		traceCliCommand("live_progress_stop", {
 			commandName: this.options.commandName,
@@ -686,9 +685,11 @@ class LiveCommandProgress {
 		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.renderStatus(elapsed);
-		this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
-			placement: "aboveEditor",
+		this.withActiveContext(() => {
+			this.renderStatus(elapsed);
+			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
+				placement: "aboveEditor",
+			});
 		});
 	}
 
@@ -700,6 +701,27 @@ class LiveCommandProgress {
 
 		this.lastStatusValue = value;
 		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, value);
+	}
+
+	private withActiveContext(action: () => void): void {
+		try {
+			action();
+		} catch (error) {
+			if (!isStaleExtensionContextError(error)) throw error;
+			this.isClosed = true;
+			this.clearTimer();
+			traceCliCommand("live_progress_stale_context", {
+				commandName: this.options.commandName,
+				piCommandName: this.options.piCommandName,
+				target: this.target,
+			});
+		}
+	}
+
+	private clearTimer(): void {
+		if (this.timer === undefined) return;
+		this.timer.cancel();
+		this.timer = undefined;
 	}
 
 	private statusValue(elapsed: string): string {
@@ -765,6 +787,10 @@ function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
 	if (hasWidget) return "widget";
 	if (hasStatus) return "status";
 	return "none";
+}
+
+function isStaleExtensionContextError(error: unknown): boolean {
+	return error instanceof Error && error.message.includes("This extension ctx is stale");
 }
 
 function formatCommandForDisplay(cliName: string, argv: readonly string[]): string {

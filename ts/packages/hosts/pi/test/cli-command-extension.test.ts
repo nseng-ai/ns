@@ -1178,6 +1178,39 @@ describe("cli command extension helper", () => {
 		}
 	});
 
+	test("stops live progress when the Pi command context becomes stale", async () => {
+		let isStale = false;
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				isStale = true;
+				deps.onOutput?.("stdout", "still running after replacement\n");
+				return 0;
+			},
+		});
+		const base = createContext();
+		const ctx = {
+			cwd: base.ctx.cwd,
+			hasUI: true,
+			get ui() {
+				if (isStale) {
+					throw new Error(
+						"This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession().",
+					);
+				}
+				return base.ctx.ui;
+			},
+			waitForIdle: base.ctx.waitForIdle,
+		} satisfies CommandContext;
+
+		await expect(commandFor(pi, "dev:preview-status").handler("", ctx)).resolves.toBeUndefined();
+
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status completed successfully with no output.",
+		);
+	});
+
 	test("streams live CLI output separately from final captured output", async () => {
 		let markLiveOutputObserved: (() => void) | undefined;
 		const liveOutputObserved = new Promise<void>((resolve) => {
