@@ -3,8 +3,11 @@ import {
 	ok,
 	requireInteractiveOrUsageError,
 	type ClinkrDynamicCompletionRequest,
-	type ClinkrExit,
 } from "@sdl/clinkr";
+import {
+	createSdlDomainCommand,
+	type SdlDomainCommandOptions,
+} from "@sdl/capability-kit/sdl-command";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,
@@ -19,8 +22,8 @@ import { z } from "zod";
 
 import {
 	defineExtension,
-	type RenderCapabilities,
 	type SdlCommand,
+	type SdlCommandSchema,
 	type SdlExtensionApi,
 } from "sdl-sdk";
 
@@ -96,38 +99,18 @@ const sdlShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
 	cancelled: z.boolean().default(false),
 });
 
-type SlotHandler<S extends z.ZodObject, T> = (
-	ctx: SlotCliContext,
-	request: z.output<S>,
-) => Promise<ClinkrExit<T>> | ClinkrExit<T>;
+type SlotSdlCommandOptions<S extends SdlCommandSchema, T> = Omit<
+	SdlDomainCommandOptions<S, T, SlotCliContext>,
+	"createContext"
+>;
 
-function slotCommand<S extends z.ZodObject, T>(options: {
-	name: string;
-	summary: string;
-	description: string;
-	schema: S;
-	resultSchema: z.ZodType<T>;
-	renderHuman: (data: T, caps?: RenderCapabilities | undefined) => string;
-	positionals?: SdlCommand<S>["positionals"] | undefined;
-	completionProvider?: SdlCommand<S>["completionProvider"] | undefined;
-	handler: SlotHandler<S, T>;
-}): SdlCommand<S, T> {
-	return {
-		name: options.name,
-		summary: options.summary,
-		description: options.description,
-		schema: options.schema,
-		resultSchema: options.resultSchema,
-		renderHuman: (data, caps) => options.renderHuman(options.resultSchema.parse(data), caps),
-		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
-		...(options.completionProvider === undefined
-			? {}
-			: { completionProvider: options.completionProvider }),
-		run: async (ctx, request) => {
-			const slotContext = await createSlotExtensionContext(ctx);
-			return await options.handler(slotContext, request);
-		},
-	};
+function slotCommand<S extends SdlCommandSchema, T>(
+	options: SlotSdlCommandOptions<S, T>,
+): SdlCommand<S, T> {
+	return createSdlDomainCommand({
+		...options,
+		createContext: createSlotExtensionContext,
+	});
 }
 
 async function createSlotExtensionContext(ctx: SdlExtensionApi): Promise<SlotCliContext> {
