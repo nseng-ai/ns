@@ -121,8 +121,8 @@ export function requireCursor(
 	context: {
 		readonly operation: GithubPrFeedbackOperation;
 		readonly message: string;
-		readonly prNumber?: number | undefined;
-		readonly threadId?: string | undefined;
+		readonly prNumber?: number;
+		readonly threadId?: string;
 		readonly cursorContext: string;
 	},
 ): Result<string, GithubPrFeedbackFailure> {
@@ -141,15 +141,15 @@ export function requireCursor(
 export interface GithubPrFeedbackFailureContext {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly run: Extract<RunGitHubCliResult, { readonly type: "completed" }>;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }
 
 function failureContextFields(context: {
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }): {
 	readonly prNumber?: number;
 	readonly threadId?: string;
