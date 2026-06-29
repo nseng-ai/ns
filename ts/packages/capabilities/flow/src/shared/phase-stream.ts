@@ -151,7 +151,7 @@ export interface RunSettledPhaseStreamOptions<T> {
 
 export interface SettledPhaseStreamOutcome<T> {
 	result: T;
-	failed?: boolean | undefined;
+	isFailed?: boolean | undefined;
 	finalLines?: readonly string[] | undefined;
 	afterFinish?: (() => Promise<void> | void) | undefined;
 }
@@ -160,7 +160,7 @@ export interface PhaseStreamController {
 	emit(event: SdlProgressPhaseEvent): void;
 	note(text: string): void;
 	finish(options?: {
-		failed?: boolean | undefined;
+		isFailed?: boolean | undefined;
 		finalLines?: readonly string[] | undefined;
 	}): Promise<void>;
 	stop(): Promise<void>;
@@ -194,7 +194,7 @@ export async function runSettledPhaseStream<T>(
 		title: options.title,
 		body: async (stream) => {
 			const outcome = await options.body(stream);
-			if (outcome.failed === true) stream.fail();
+			if (outcome.isFailed === true) stream.fail();
 			await stream.finish(outcome.finalLines);
 			await outcome.afterFinish?.();
 			return outcome.result;
@@ -225,7 +225,7 @@ export function createPhaseStreamController(
 		},
 		finish: async (finishOptions = {}) => {
 			if (stream === undefined) return;
-			if (finishOptions.failed === true) stream.fail();
+			if (finishOptions.isFailed === true) stream.fail();
 			await stream.finish(finishOptions.finalLines);
 		},
 		stop: async () => {

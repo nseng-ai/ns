@@ -91,7 +91,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 					);
 					return {
 						result: failed("", checkpoint.output.exitCode),
-						failed: true,
+						isFailed: true,
 						afterFinish: () => {
 							ctx.stderr?.(checkpointFailure.stderr);
 						},
@@ -124,7 +124,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 				return {
 					result:
 						interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode),
-					failed: interpretedResult.exitCode !== 0,
+					isFailed: interpretedResult.exitCode !== 0,
 					afterFinish: () => {
 						if (checkpoint.kind === "checkpointed") {
 							writeCommandResultOutput(checkpoint.output, ctx);

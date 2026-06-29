@@ -30,6 +30,8 @@ export interface RunFlowCccCliOptions {
 	failureMessage: string;
 	shouldForwardLiveOutput?: boolean;
 	trustedExec?: CommandExecApi;
+	outputMode?: "forward-live" | "buffer-until-complete";
+	afterExitCode?: (exitCode: number) => Promise<void> | void;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -99,7 +101,10 @@ export function createFlowCccCliOutputCapture(
 }
 
 export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
-	const output = createFlowCccCliOutputCapture({ ctx: options.ctx });
+	const output = createFlowCccCliOutputCapture({
+		ctx: options.ctx,
+		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),
+	});
 	const exitCode = await runFlowCccOperation({
 		ctx: options.ctx,
 		...(options.trustedExec === undefined ? {} : { trustedExec: options.trustedExec }),
@@ -108,6 +113,8 @@ export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlR
 			: { shouldForwardLiveOutput: options.shouldForwardLiveOutput }),
 		run: async (io) => await options.run({ exec: io.exec, ...output.input }),
 	});
+	await options.afterExitCode?.(exitCode);
+	if (options.outputMode === "buffer-until-complete") output.flush();
 	return output.toResult(exitCode, {
 		successMessage: options.successMessage,
 		failureMessage: options.failureMessage,
