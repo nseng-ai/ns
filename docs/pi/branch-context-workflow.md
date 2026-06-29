@@ -14,9 +14,9 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 ## Public workflow surface
 
 1. Save a source-branch plan with `/sdl:plan:save`, `/sdl:plan:grill-and-save`, or `enriched-plan exec save`.
-2. Create a branch and attach its branch context with `/sdl:branch-context:from-plan` or `branch-context exec from-plan`.
+2. Create a branch and attach its branch context with `/sdl:branch-context:from-plan` or `sdl branch-context exec from-plan`.
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
-4. Load and implement with `/sdl:branch-context:impl-attached-plan` or `branch-context exec load`.
+4. Load and implement with `/sdl:branch-context:impl-attached-plan` or `sdl branch-context exec load`.
 
 For Pi users, `/sdl:branch-context:upstack-impl-from-plan` creates or reuses a branch with attached branch context, checks out the target branch, starts a fresh Pi session, and sends `/sdl:branch-context:impl-attached-plan <key>` in that session. It uses Graphite by default, with `--plain-git` as an escape hatch.
 
@@ -69,7 +69,7 @@ enriched-plan list [--format json] [--plan-store-root <path>]
 Pi users run `/sdl:branch-context:from-plan`. CLI/agent workflows use:
 
 ```text
-branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
+sdl branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
 ```
 
 The branch-context slug is derived from saved plan content by the workflow surface. It drives the default target branch name and the new from-plan attached key `<branch-context-slug>.md`. Passing `--branch <branch>` changes only the target branch, not the attached key.
@@ -116,7 +116,7 @@ Useful options:
 Pi users run `/sdl:branch-context:impl-attached-plan`. CLI/agent workflows use:
 
 ```text
-branch-context exec load [<key>] [--prompt-file <path>] [--format json]
+sdl branch-context exec load [<key>] [--prompt-file <path>] [--format json]
 ```
 
 By default, load auto-selects only when the current branch has exactly one supported named Markdown branch-context entry. If multiple supported entries exist, pass an explicit key. An explicit key is treated as an exact Branch Memory key selector rather than a fuzzy slug search. Legacy `plan.md` entries are not supported; reattach those plans under a named Markdown key such as `<slug>.md`.
@@ -129,14 +129,14 @@ The code-adjacent rollback note for the trial protocol lives in `ts/packages/bra
 
 ## Branch-context primitives
 
-`branch-context exec from-plan` is documented sugar over primitive branch-context operations. The primitive operation set is also available for repair, admin, and non-plan entries:
+`sdl branch-context exec from-plan` is documented sugar over primitive branch-context operations. The primitive operation set is also available for repair, admin, and non-plan entries:
 
 ```text
-branch-context exec attach --plan <saved-plan-slug> [--branch <branch>] [--format json]
-branch-context exec attach <key> --file <path> [--branch <branch>] [--format json]
-branch-context exec list [--branch <branch>] [--format json]
-branch-context exec check <key> [--branch <branch>] [--format json]
-branch-context exec delete <key> [--branch <branch>] [--format json]
+sdl branch-context exec attach --plan <saved-plan-slug> [--branch <branch>] [--format json]
+sdl branch-context exec attach <key> --file <path> [--branch <branch>] [--format json]
+sdl branch-context exec list [--branch <branch>] [--format json]
+sdl branch-context exec check <key> [--branch <branch>] [--format json]
+sdl branch-context exec delete <key> [--branch <branch>] [--format json]
 ```
 
 Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attach <key> --file <path>` only when intentionally creating an arbitrary branch-context entry with an explicit key. Prefer `list` and `check` for read-only diagnostics before falling back to raw Branch Memory commands.
@@ -234,9 +234,9 @@ Common recovery paths:
 Read-only attached-plan inspection:
 
 ```text
-branch-context exec list --branch <branch> [--format json]
-branch-context exec check <key> --branch <branch> [--format json]
-branch-context exec load [<key>] --prompt-file <path> [--format json]
+sdl branch-context exec list --branch <branch> [--format json]
+sdl branch-context exec check <key> --branch <branch> [--format json]
+sdl branch-context exec load [<key>] --prompt-file <path> [--format json]
 ```
 
 Raw Branch Memory inspection is a fallback for diagnostics only:

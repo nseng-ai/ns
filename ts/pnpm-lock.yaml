@@ -237,6 +237,9 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3

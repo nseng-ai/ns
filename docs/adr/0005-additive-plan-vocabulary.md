@@ -46,7 +46,7 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 - **Pattern-application surface naming** (see above).
 - **Quality modifiers** (composable verification/judging add-ons applied to a pattern) — the feature is deferred and deliberately unnamed until designed.
-- **Unattended execution surface** — unbound until it exists. Today execution starts through the attached-plan loader: `branch-context exec load` for deterministic agents and `/sdl:branch-context:impl-attached-plan` in Pi.
+- **Unattended execution surface** — unbound until it exists. Today execution starts through the attached-plan loader: `sdl branch-context exec load` for deterministic agents and `/sdl:branch-context:impl-attached-plan` in Pi.
 
 ## Consequences
 

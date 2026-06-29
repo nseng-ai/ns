@@ -59,7 +59,7 @@ genuinely-raw commands.
 ### 2. Hidden `exec` destructive/external writes — operation arguments are sufficient intent (lower-friction exception; refines ADR 0014)
 
 For hidden `exec` commands that write destructive or external state — examples
-include `branch-context exec delete`, `sdl address exec reply-review-thread`, and
+include `sdl branch-context exec delete`, `sdl address exec reply-review-thread`, and
 `sdl address exec resolve-review-thread` — the explicit command name plus its
 required operation arguments constitute sufficient explicit intent. These commands
 do **not** require an added `--yes`/confirmation flag or interactive gate.
@@ -109,7 +109,7 @@ uniformity: lookup primitives (`pr-details`, `branch-pr`, `pr-checks`) keep
 
 Harmless empty success and presence predicates are ratified as `ok(...)` (exit 0)
 carrying explicit empty/false data, distinct from semantic `negative`. Concretely:
-`brmem export` with zero entries returns `ok`; `branch-context exec check` and
+`brmem export` with zero entries returns `ok`; `sdl branch-context exec check` and
 `brmem check` return `ok(present:false)` for an absent entry.
 
 This is the standard for query/no-op outcomes. It is consistent with decision 4:
@@ -136,10 +136,10 @@ The dotfile rule should not be over-applied to environment-driven metadata write
 
 - Every previously `ADR-needed` row in `docs/cli-surface-conformance-audit.md` is
   now classifiable. Specifically:
-  - `branch-context exec delete`, `sdl address exec reply-review-thread`, and
+  - `sdl branch-context exec delete`, `sdl address exec reply-review-thread`, and
     `sdl address exec resolve-review-thread` (a): conformant by decision 2.
   - `pr-address` query-miss vs action-miss (d): conformant by decision 4.
-  - `branch-context exec check` empty/absent (d): conformant by decision 5.
+  - `sdl branch-context exec check` empty/absent (d): conformant by decision 5.
   - `ccc land` single-PR fast path (a): conformant by decision 3 (rest of the Pi
     surface stays parked).
   - raw-exit envelope opt-out (`packagechk`, `sdlcc cmux report`, `vibechk run`,

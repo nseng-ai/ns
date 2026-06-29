@@ -24,13 +24,13 @@ Handoff remains a sibling concept, not a branch-context subtype. A handoff is a 
 
 sdl does not claim a special branch type. `attach` and `load` are primitives usable on any branch, created any way, at any time.
 
-The fused from-plan flow survives as documented sugar: `branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch-creation plain-git|graphite]`. That sugar keeps the branch-creation policy logic from the previous planned-branch flow: plain git by default, Graphite only when explicitly requested by the caller or wrapper.
+The fused from-plan flow survives as documented sugar: `sdl branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch-creation plain-git|graphite]`. That sugar keeps the branch-creation policy logic from the previous planned-branch flow: plain git by default, Graphite only when explicitly requested by the caller or wrapper.
 
 ### Namespace and key
 
 Branch context uses Branch Memory namespace `branch-context`.
 
-Branch-context attached plans use named Markdown keys. `branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch except that `plan.md` is rejected as an unsupported legacy plan key.
+Branch-context attached plans use named Markdown keys. `sdl branch-context exec from-plan` and Pi from-plan workflows derive `<branch-context-slug>.md`; `sdl branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md`; `attach <key> --file <path>` remains the explicit arbitrary-key escape hatch except that `plan.md` is rejected as an unsupported legacy plan key.
 
 There are no migration shims. This is unreleased private software, so pre-rename attached plans in namespace `planned-branch` with `<slug>.md` keys and old `planned-branch-output` session artifacts become orphaned. Manual recovery can read them through raw Branch Memory locators if needed.
 
@@ -39,8 +39,8 @@ There are no migration shims. This is unreleased private software, so pre-rename
 | Old surface                                                                                 | New surface                                                                                                             |
 | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `@sdl/planned-branch`, bin `planned-branch`, `ts/packages/planned-branch/`                  | `@sdl/branch-context`, bin `branch-context`, `ts/packages/branch-context/`                                              |
-| `planned-branch exec create`                                                                | `branch-context exec from-plan --slug <slug> --plan-file <path>`                                                        |
-| `planned-branch exec load-plan <key-or-slug>`                                               | `branch-context exec load [<key>]`; no argument loads only when exactly one entry exists                                |
+| `planned-branch exec create`                                                                | `sdl branch-context exec from-plan --slug <slug> --plan-file <path>`                                                        |
+| `planned-branch exec load-plan <key-or-slug>`                                               | `sdl branch-context exec load [<key>]`; no argument loads only when exactly one entry exists                                |
 | attached-plan-only operation set                                                            | branch-context primitives: `attach`, `list`, `check`, `delete`                                                          |
 | Branch Memory namespace `planned-branch`, key `<slug>.md`                                   | namespace `branch-context`, named Markdown plan keys                                                                    |
 | Pi `/planned-branch:create`, `/planned-branch:impl`, `/planned-branch:upstack-impl-session` | `/sdl:branch-context:from-plan`, `/sdl:branch-context:impl-attached-plan`, `/sdl:branch-context:upstack-impl-from-plan` |
