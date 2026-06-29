@@ -11,6 +11,7 @@
   - Policy: direct execution after preview for internal module splits that preserve public command/API behavior.
   - Target: make `src/land.ts` own CLI/Pi command shell adaptation and result presentation, while `src/land-stack.ts` delegates meaningful phases to smaller Flow-owned modules instead of carrying the whole workflow narrative.
   - Evidence: `sdl-flow/api` remains stable; Flow/CCC land tests pass; module sizes and imports show clearer ownership boundaries.
+  - Progress: chunked stack landing coordination now delegates to `src/land-stack/chunked-landing.ts`, with shared pre-merge/failure presentation in `src/land-stack/landing-coordination.ts`; single-plan extraction and `src/land.ts` shell cleanup remain.
 
 - [ ] Introduce a fake-driven land-stack domain seam.
   - Policy: preview and then execute one bounded seam; ask first if the proposed seam changes public behavior, command names, or `sdl-flow/api` shape.
