@@ -87,6 +87,7 @@ describe("RealRoasterGitHubGateway", () => {
 				stdout: JSON.stringify([
 					{ user: { login: "octocat" }, body: "body" },
 					{ author: "bot", body: "other" },
+					{ author: {}, body: "missing login" },
 				]),
 			},
 		]);
@@ -99,6 +100,7 @@ describe("RealRoasterGitHubGateway", () => {
 			value: [
 				{ author: "octocat", body: "body" },
 				{ author: "bot", body: "other" },
+				{ author: "", body: "missing login" },
 			],
 		});
 		expect(execApi.calls()[0]?.args).toEqual([
