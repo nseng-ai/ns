@@ -33,12 +33,15 @@ const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GIT_SPECIFIER = "@sdl/git";
+const BRANCH_CONTEXT_PACKAGE_NAME = "@sdl/branch-context";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
+const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "branch-context");
+const BRANCH_CONTEXT_PACKAGE_JSON_PATH = join(BRANCH_CONTEXT_PACKAGE_DIR, "package.json");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "roaster");
@@ -86,11 +89,21 @@ function buildModuleAliasMap(
 	);
 }
 
+function buildBranchContextCommandAliases(): Record<string, string> {
+	return buildPackageCommandAliases({
+		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
+		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
+		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
+		exportPrefix: "./sdl/commands/",
+	});
+}
+
 function buildFlowCommandAliases(): Record<string, string> {
 	return buildPackageCommandAliases({
 		packageName: FLOW_PACKAGE_NAME,
 		packageDir: FLOW_PACKAGE_DIR,
 		packageJsonPath: FLOW_PACKAGE_JSON_PATH,
+		exportPrefix: "./commands/",
 	});
 }
 
@@ -99,6 +112,7 @@ function buildRoasterCommandAliases(): Record<string, string> {
 		packageName: ROASTER_PACKAGE_NAME,
 		packageDir: ROASTER_PACKAGE_DIR,
 		packageJsonPath: ROASTER_PACKAGE_JSON_PATH,
+		exportPrefix: "./commands/",
 	});
 }
 
@@ -106,6 +120,7 @@ function buildPackageCommandAliases(options: {
 	packageName: string;
 	packageDir: string;
 	packageJsonPath: string;
+	exportPrefix: string;
 }): Record<string, string> {
 	const packageJson = readCommandPackageJson(options.packageJsonPath, options.packageName);
 	if (packageJson.name !== options.packageName) {
@@ -116,7 +131,7 @@ function buildPackageCommandAliases(options: {
 
 	return Object.fromEntries(
 		Object.entries(packageJson.exports)
-			.filter(([subpath]) => subpath.startsWith("./commands/"))
+			.filter(([subpath]) => subpath.startsWith(options.exportPrefix))
 			.map(([subpath, target]) => [
 				`${options.packageName}/${subpath.slice("./".length)}`,
 				join(options.packageDir, stripLeadingDotSlash(target)),
@@ -183,6 +198,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalWorkspaceAliases(),
+			...buildBranchContextCommandAliases(),
 			...buildFlowCommandAliases(),
 			...buildRoasterCommandAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,

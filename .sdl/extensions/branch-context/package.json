@@ -1,0 +1,37 @@
+{
+	"sdl": {
+		"group": "branch-context",
+		"commands": [
+			{
+				"path": ["exec", "from-plan"],
+				"description": "Create branch context from a saved plan.",
+				"entry": "./src/commands/from-plan.ts"
+			},
+			{
+				"path": ["exec", "load"],
+				"description": "Load a branch-context entry and render the implementation prompt for agent invocation.",
+				"entry": "./src/commands/load.ts"
+			},
+			{
+				"path": ["exec", "attach"],
+				"description": "Attach a saved plan or file as branch context.",
+				"entry": "./src/commands/attach.ts"
+			},
+			{
+				"path": ["exec", "list"],
+				"description": "List branch-context entries.",
+				"entry": "./src/commands/list.ts"
+			},
+			{
+				"path": ["exec", "check"],
+				"description": "Check whether a branch-context entry exists.",
+				"entry": "./src/commands/check.ts"
+			},
+			{
+				"path": ["exec", "delete"],
+				"description": "Delete a branch-context entry.",
+				"entry": "./src/commands/delete.ts"
+			}
+		]
+	}
+}
