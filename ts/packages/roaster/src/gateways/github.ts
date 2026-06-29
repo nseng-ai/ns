@@ -1,11 +1,11 @@
 import { type CommandExecApi, commandFailureReason, execApiToCommandRunner } from "@sdl/exec";
+import { runGitHubCli } from "@sdl/github/cli";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,
 	numericGithubIdentity,
 	parseGithubJson,
-} from "@sdl/core/github-pr-feedback";
-import { runGitHubCli } from "@sdl/core/github-cli";
+} from "@sdl/github/pr-feedback";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { withTemporaryJsonFile } from "@sdl/core/temp-files";
 import { z } from "zod";

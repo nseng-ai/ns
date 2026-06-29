@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import type { RunGitHubCliResult } from "../github-cli.ts";
-import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../github-graphql-json.ts";
-import { formatErrorMessage } from "../primitives.ts";
-import type { Result } from "../result.ts";
+import type { RunGitHubCliResult } from "../cli.ts";
+import { githubGraphqlErrorsSchema, parseJsonUnknown } from "../graphql-json.ts";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import type { Result } from "@sdl/core/result";
 
 import { failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
 import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";

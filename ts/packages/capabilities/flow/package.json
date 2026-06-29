@@ -36,6 +36,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
+    "@sdl/github": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",

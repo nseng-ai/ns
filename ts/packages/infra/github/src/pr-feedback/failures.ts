@@ -1,5 +1,5 @@
-import type { RunGitHubCliResult } from "../github-cli.ts";
-import { errorDetailText, resultErr, resultOk, type Result } from "../result.ts";
+import type { RunGitHubCliResult } from "../cli.ts";
+import { errorDetailText, resultErr, resultOk, type Result } from "@sdl/core/result";
 
 import type {
 	GithubPrFeedbackFailure,

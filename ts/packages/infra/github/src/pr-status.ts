@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { parseGraphqlErrors, parseJsonUnknown } from "./github-graphql-json.ts";
-import { isRecord } from "./primitives.ts";
+import { parseGraphqlErrors, parseJsonUnknown } from "./graphql-json.ts";
+import { isRecord } from "@sdl/core/primitives";
 
 export interface GithubReviewThreadCounts {
 	unresolved: number;

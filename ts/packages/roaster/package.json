@@ -28,6 +28,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
+    "@sdl/github": "workspace:*",
     "sdl-sdk": "workspace:*",
     "smol-toml": "catalog:",
     "yaml": "catalog:",

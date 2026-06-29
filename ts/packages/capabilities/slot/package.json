@@ -22,6 +22,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
+    "@sdl/github": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
