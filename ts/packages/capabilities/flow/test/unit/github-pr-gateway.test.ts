@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@sdl/core/exec";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
-import { ScriptedCommandRunner, step } from "@sdl/core/testing";
+import { ScriptedCommandRunner, createManualTimerScheduler, step } from "@sdl/core/testing";
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {
@@ -58,6 +58,42 @@ describe("RealGithubPrGateway", () => {
 				details: { command: "gh", args, exit_code: 1, stderr: "diff unavailable" },
 			},
 		});
+		runner.assertDone();
+	});
+
+	test("retries numeric PR detail reads after transient gh failures", async () => {
+		const args = ["pr", "view", "12", "--json", "number,url,title,body,headRefName,baseRefName"];
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, { exitCode: 1, stderr: "GraphQL: Could not resolve to a PullRequest" }),
+			step("gh", args, {
+				stdout: JSON.stringify({
+					number: 12,
+					url: "https://github.com/acme/project/pull/12",
+					title: "Title",
+					body: "Body",
+					headRefName: "feature/demo",
+					baseRefName: "main",
+				}),
+			}),
+		]);
+		const manualTimers = createManualTimerScheduler();
+		const gateway = new RealGithubPrGateway(runner.runner, {
+			viewPrRetryDelaysMs: [25],
+			timers: manualTimers.timers,
+		});
+
+		const result = gateway.viewPr({ cwd: "/repo", number: 12 });
+		for (let index = 0; index < 5; index += 1) {
+			await Promise.resolve();
+		}
+		expect(manualTimers.pendingTimerCount()).toBe(1);
+
+		manualTimers.advanceMs(25);
+		expect(await result).toMatchObject({
+			ok: true,
+			value: { number: 12, title: "Title" },
+		});
+		expect(manualTimers.pendingTimerCount()).toBe(0);
 		runner.assertDone();
 	});
 
