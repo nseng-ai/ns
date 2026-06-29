@@ -189,10 +189,10 @@ function formatMergedPrNotInTrunkOutput(input: {
 }
 
 interface MergedPrNotInTrunkDetails {
-	branch?: string | undefined;
-	prNumber?: string | undefined;
-	prState?: string | undefined;
-	trunk?: string | undefined;
+	branch?: string;
+	prNumber?: string;
+	prState?: string;
+	trunk?: string;
 }
 
 function parseMergedPrNotInTrunkDetails(output: SubmitCommandOutput): MergedPrNotInTrunkDetails {

@@ -16,7 +16,7 @@ import type {
 
 interface FailureState {
 	type: "failure";
-	error?: GitErrorInfo | undefined;
+	error?: GitErrorInfo;
 }
 type ValueState<T> = T | FailureState;
 type OptionalValueState<T> = T | { type: "missing" } | FailureState;
@@ -24,30 +24,30 @@ type CurrentBranchState = ValueState<string> | { type: "detached" };
 type BranchPresenceFailureState = FailureState;
 
 export interface InMemoryGitGatewayState {
-	repoRoot?: ValueState<string> | undefined;
-	optionalRepoRoot?: OptionalValueState<string> | undefined;
-	currentBranch?: CurrentBranchState | undefined;
-	isInsideWorkTree?: ValueState<boolean> | undefined;
-	trunkBranch?: OptionalValueState<string> | undefined;
-	originUrl?: OptionalValueState<string> | undefined;
-	headCommit?: ValueState<string> | undefined;
-	gitPaths?: Readonly<Record<string, ValueState<string>>> | undefined;
-	existingBranches?: readonly string[] | undefined;
-	invalidBranchRefs?: readonly string[] | undefined;
-	localBranchPresenceFailure?: BranchPresenceFailureState | undefined;
-	localBranchPresenceFailures?: Readonly<Record<string, BranchPresenceFailureState>> | undefined;
-	createBranchFailure?: GitErrorInfo | undefined;
-	dirtyPaths?: readonly string[] | undefined;
-	dirtyPathFailures?: Readonly<Record<string, GitErrorInfo>> | undefined;
-	localBranchTips?: readonly (string | GitLocalBranchTip)[] | undefined;
-	localBranchTipsFailure?: GitErrorInfo | undefined;
-	treeOids?: Readonly<Record<string, string | null | GitErrorInfo>> | undefined;
-	changedPaths?: Readonly<Record<string, readonly string[] | GitErrorInfo>> | undefined;
+	repoRoot?: ValueState<string>;
+	optionalRepoRoot?: OptionalValueState<string>;
+	currentBranch?: CurrentBranchState;
+	isInsideWorkTree?: ValueState<boolean>;
+	trunkBranch?: OptionalValueState<string>;
+	originUrl?: OptionalValueState<string>;
+	headCommit?: ValueState<string>;
+	gitPaths?: Readonly<Record<string, ValueState<string>>>;
+	existingBranches?: readonly string[];
+	invalidBranchRefs?: readonly string[];
+	localBranchPresenceFailure?: BranchPresenceFailureState;
+	localBranchPresenceFailures?: Readonly<Record<string, BranchPresenceFailureState>>;
+	createBranchFailure?: GitErrorInfo;
+	dirtyPaths?: readonly string[];
+	dirtyPathFailures?: Readonly<Record<string, GitErrorInfo>>;
+	localBranchTips?: readonly (string | GitLocalBranchTip)[];
+	localBranchTipsFailure?: GitErrorInfo;
+	treeOids?: Readonly<Record<string, string | null | GitErrorInfo>>;
+	changedPaths?: Readonly<Record<string, readonly string[] | GitErrorInfo>>;
 }
 
 export interface GitCall {
 	cwd: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 export interface GitBranchCall extends GitCall {
@@ -474,7 +474,12 @@ function defaultGitPath(
 	repoRootState: ValueState<string>,
 	relativePath: string,
 ): ValueState<string> {
-	if (isFailureState(repoRootState)) return { type: "failure", error: repoRootState.error };
+	if (isFailureState(repoRootState)) {
+		return {
+			type: "failure",
+			...(repoRootState.error === undefined ? {} : { error: repoRootState.error }),
+		};
+	}
 	return `${repoRootState}/.git/${relativePath}`;
 }
 

@@ -120,13 +120,13 @@ export interface LoadWorktreeGhStatusOptions {
 export interface WorktreeStatusIdentity {
 	readonly cwd: string;
 	readonly head: { type: "branch"; name: string } | { type: "detached" } | { type: "unknown" };
-	readonly headOid?: string | undefined;
+	readonly headOid?: string;
 }
 
 export interface GhStatus {
 	type: "available";
 	prNumber: number;
-	url?: string | undefined;
+	url?: string;
 	threads: GithubReviewThreadCounts;
 	checks: GithubCheckTally;
 }
@@ -134,7 +134,7 @@ export interface GhStatus {
 export interface GhHeadMismatchStatus {
 	type: "head-mismatch";
 	prNumber: number;
-	url?: string | undefined;
+	url?: string;
 	threads: GithubReviewThreadCounts;
 	checks: GithubCheckTally;
 	prHeadOid: string;
@@ -145,13 +145,13 @@ export type WorktreeGhStatus =
 	| GhHeadMismatchStatus
 	| { type: "pending" }
 	| { type: "no-pr" }
-	| { type: "unavailable"; message?: string | undefined };
+	| { type: "unavailable"; message?: string };
 
 export interface LocalWorktreeStatus {
 	identity: WorktreeStatusIdentity;
 	brmem: string | undefined;
 	gt: GtStatus;
-	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic | undefined;
+	gtMetadataDiagnostic?: GraphiteMetadataWorkerDiagnostic;
 }
 
 export interface WorktreeStatus extends LocalWorktreeStatus {

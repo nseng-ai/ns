@@ -26,13 +26,13 @@ export interface InMemoryAttachedPlanState {
 }
 
 export interface InMemoryBrmemGatewayState {
-	currentBranch?: FakeBrmemGatewayOptions["currentBranch"] | undefined;
-	entries?: readonly InMemoryAttachedPlanState[] | undefined;
-	presenceFailure?: { code: string; message: string } | undefined;
-	attachFailure?: { code: string; message: string } | undefined;
-	listFailure?: { code: string; message: string } | undefined;
-	getFailure?: { code: string; message: string } | undefined;
-	deleteFailure?: { code: string; message: string } | undefined;
+	currentBranch?: FakeBrmemGatewayOptions["currentBranch"];
+	entries?: readonly InMemoryAttachedPlanState[];
+	presenceFailure?: { code: string; message: string };
+	attachFailure?: { code: string; message: string };
+	listFailure?: { code: string; message: string };
+	getFailure?: { code: string; message: string };
+	deleteFailure?: { code: string; message: string };
 }
 
 export interface BrmemAttachmentCall {
@@ -41,7 +41,7 @@ export interface BrmemAttachmentCall {
 }
 
 export interface BrmemListCall {
-	branch?: string | undefined;
+	branch?: string;
 }
 
 export interface BrmemPutCall {
@@ -112,15 +112,15 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 	async listEntries(options: {
 		namespace: string;
 		key?: string | undefined;
-		branch?: string | undefined;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
-		this.listEntriesCalls.push({ branch: options.branch });
+		this.listEntriesCalls.push(options.branch === undefined ? {} : { branch: options.branch });
 		return await this.fake.listEntries(options);
 	}
 
 	async listAllEntries(options: {
 		key?: string | undefined;
-		branch?: string | undefined;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		return await this.fake.listAllEntries(options);
 	}

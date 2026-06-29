@@ -203,7 +203,7 @@ interface CommandRegistrationExtensionAPI extends ExtensionAPI {
 }
 
 export interface ExtensionAPI {
-	readonly events?: PiExtensionCommandEventBus | undefined;
+	readonly events?: PiExtensionCommandEventBus;
 	on(
 		event: "session_start",
 		handler: (event: unknown, ctx: ExtensionContext) => Promise<void> | void,
@@ -280,11 +280,11 @@ interface ActiveSession {
 	abortController: AbortController;
 	isClosed: boolean;
 	isDormant: boolean;
-	activityUnsubscribe?: (() => void) | undefined;
-	activityController?: WorktreeStatusActivityController | undefined;
-	refreshTimer?: WorktreeStatusRefreshTimer | undefined;
-	localStatus?: LocalWorktreeStatus | undefined;
-	ghStatusSnapshot?: GhStatusSnapshot | undefined;
+	activityUnsubscribe?: () => void;
+	activityController?: WorktreeStatusActivityController;
+	refreshTimer?: WorktreeStatusRefreshTimer;
+	localStatus?: LocalWorktreeStatus;
+	ghStatusSnapshot?: GhStatusSnapshot;
 }
 
 interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
@@ -406,11 +406,11 @@ export default function worktreeStatusExtension(
 			session.abortController.abort();
 			clearFreshnessRenderTimer();
 			session.refreshTimer?.close();
-			session.refreshTimer = undefined;
+			delete session.refreshTimer;
 			session.activityController?.close();
-			session.activityController = undefined;
+			delete session.activityController;
 			session.activityUnsubscribe?.();
-			session.activityUnsubscribe = undefined;
+			delete session.activityUnsubscribe;
 			requestFooterRender = undefined;
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
@@ -479,7 +479,7 @@ export default function worktreeStatusExtension(
 			previousIdentity !== undefined &&
 			!sameWorktreeStatusIdentity(previousIdentity, status.identity);
 		session.localStatus = status;
-		if (identityChanged || sharedIdentityStale) session.ghStatusSnapshot = undefined;
+		if (identityChanged || sharedIdentityStale) delete session.ghStatusSnapshot;
 		renderSessionStatus(session);
 	}
 
@@ -611,7 +611,7 @@ export default function worktreeStatusExtension(
 			recordSessionActivity(session);
 			return undefined;
 		});
-		session.activityUnsubscribe = unsubscribe;
+		if (unsubscribe !== undefined) session.activityUnsubscribe = unsubscribe;
 	}
 
 	function recordActiveSessionActivity(): void {
