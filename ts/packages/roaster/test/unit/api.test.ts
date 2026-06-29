@@ -9,6 +9,7 @@ import type {
 	RunRoasterReviewOutcome,
 } from "@sdl/roaster/api";
 import { createRoasterRuntime } from "../../src/context.ts";
+import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
 import { FakeLocalDiffGateway } from "../../src/gateways/local-diff.ts";
 import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
@@ -20,6 +21,7 @@ import {
 	type ReviewExecutionResponse,
 	type ReviewFinding,
 } from "../../src/models.ts";
+import { buildFindingsEnvelope } from "../support/findings-envelope.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
 
 const REVIEW_KEY = "typescript-style";
@@ -74,6 +76,7 @@ function runtimeWithFakes(
 		readonly response?: ReviewExecutionResponse;
 		readonly reviewLog?: FakeReviewLogGateway;
 		readonly reviewCatalog?: FakeReviewCatalogGateway;
+		readonly github?: RoasterGitHubGateway;
 		readonly stdin?: string | undefined;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
@@ -112,6 +115,7 @@ function runtimeWithFakes(
 					},
 				}),
 			...(options.reviewLog === undefined ? {} : { reviewLog: options.reviewLog }),
+			...(options.github === undefined ? {} : { github: options.github }),
 			...(options.stdin === undefined ? {} : { stdin: async () => options.stdin ?? "" }),
 		}),
 	);
@@ -240,6 +244,39 @@ describe("@sdl/roaster/api", () => {
 			type: "failed",
 			error: { type: "review-execution-invalid-json" },
 		});
+	});
+
+	test("publishFindings reads stdin and publishes through the GitHub gateway", async () => {
+		const github = new FakeRoasterGitHubGateway({
+			changedFilesByPr: new Map([
+				[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -4 +4 @@\n+new" }]],
+			]),
+		});
+		const client = createRoasterClient({
+			cwd: "/repo",
+			runtime: runtimeWithFakes({
+				github,
+				stdin: buildFindingsEnvelope([
+					{
+						path: "src/app.ts",
+						line: 4,
+						severity: "warning",
+						summary: "Published through the API facade.",
+						details: "The command can route through RoasterClient.publishFindings.",
+					},
+				]),
+			}),
+		});
+
+		const result = await client.publishFindings({ prNumber: 47 });
+
+		expect(result.type).toBe("ok");
+		if (result.type !== "ok") throw new Error(result.error.message);
+		expect(result.value.summaryStatus.type).toBe("posted");
+		expect(github.createdReviews()).toHaveLength(1);
+		expect(github.createdReviews()[0]?.comments[0]?.body).toContain(
+			"Published through the API facade.",
+		);
 	});
 
 	test("maps command-faced failures without exposing ClinkrExit", async () => {
