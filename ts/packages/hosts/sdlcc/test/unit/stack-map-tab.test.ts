@@ -14,7 +14,17 @@ const MODEL: StackMapModel = {
 	trunk: {
 		name: "main",
 		graphiteNote: "repo",
-		children: [{ name: "feature/current", graphiteNote: "current" }],
+		slots: [],
+		cmuxTabs: [],
+		children: [
+			{
+				name: "feature/current",
+				graphiteNote: "current",
+				slots: [],
+				cmuxTabs: [],
+				children: [],
+			},
+		],
 	},
 };
 

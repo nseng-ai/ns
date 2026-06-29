@@ -99,7 +99,7 @@ export function buildStackMapModelFromGraph(
 			: {
 					...root,
 					children: [
-						...(root.children ?? []),
+						...root.children,
 						...missing.map((branch) => leafBranchNode(branch, graph, slotsByBranch)),
 					],
 				};
@@ -444,6 +444,7 @@ function buildGraphBranchTree(
 		name: branchName,
 		graphiteNote: graphiteNoteForBranch({ branch, current: options.current, trunk: options.trunk }),
 		slots: slotsForBranch(branchName, options.slotsByBranch),
+		cmuxTabs: [],
 		children,
 	};
 }
@@ -457,6 +458,8 @@ function leafBranchNode(
 		name: branch.name,
 		graphiteNote: graphiteNoteForBranch({ branch, current: stack.current, trunk: stack.trunk }),
 		slots: slotsForBranch(branch.name, slotsByBranch),
+		cmuxTabs: [],
+		children: [],
 	};
 }
 
@@ -486,9 +489,8 @@ function slotsByBranchName(
 function slotsForBranch(
 	branch: string,
 	slotsByBranch: ReadonlyMap<string, readonly StackMapSlotAssignment[]>,
-): readonly StackMapSlotAssignment[] | undefined {
-	const slots = slotsByBranch.get(branch);
-	return slots === undefined || slots.length === 0 ? undefined : slots;
+): readonly StackMapSlotAssignment[] {
+	return slotsByBranch.get(branch) ?? [];
 }
 
 function collectBranchNames(root: StackMapBranchNode): ReadonlySet<string> {
@@ -498,7 +500,7 @@ function collectBranchNames(root: StackMapBranchNode): ReadonlySet<string> {
 		const branch = pending.pop();
 		if (branch === undefined || names.has(branch.name)) continue;
 		names.add(branch.name);
-		pending.push(...(branch.children ?? []));
+		pending.push(...branch.children);
 	}
 	return names;
 }
@@ -511,6 +513,9 @@ function buildUnavailableStackMapModel(diagnostics: readonly string[]): StackMap
 		trunk: {
 			name: "stack-unavailable",
 			graphiteNote: "error",
+			slots: [],
+			cmuxTabs: [],
+			children: [],
 		},
 	};
 }
