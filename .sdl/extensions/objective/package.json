@@ -36,6 +36,11 @@
 				"name": "exec-runner-subagent-usage",
 				"description": "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 				"entry": "./src/commands/exec-runner-subagent-usage.ts"
+			},
+			{
+				"name": "exec-tracking-gate",
+				"description": "Collect deterministic Objective tracking gate evidence for one slug.",
+				"entry": "./src/commands/exec-tracking-gate.ts"
 			}
 		]
 	}
