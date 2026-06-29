@@ -83,7 +83,7 @@ export async function runTrackingGate(
 	if (recordResult.type === "storage-error") {
 		return failure(recordResult.error.code, recordResult.error.message);
 	}
-	if (recordResult.value.status === "not_found") {
+	if (recordResult.value.status === "not-found") {
 		return negative(`No Objective record found for slug ${pythonStringRepr(request.slug)}.`, {
 			data: buildMissingResult(ctx, request.slug),
 		});
