@@ -37,6 +37,12 @@ import {
 	runGtStackBranches,
 } from "./operations/gt/exec/stack-branches.ts";
 import {
+	gtQuiescenceRequestSchema,
+	gtQuiescenceResultSchema,
+	renderGtQuiescence,
+	runGtQuiescence,
+} from "./operations/gt/exec/quiescence.ts";
+import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderStackMapBranches,
@@ -250,6 +256,14 @@ function buildGtGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> 
 		resultSchema: gtStackMapBranchesResultSchema,
 		handler: runGtStackMapBranches,
 		renderHuman: renderStackMapBranches,
+	});
+	exec.command({
+		name: "quiescence",
+		description: "Preflight whether the current Graphite stack scope is safe to mutate.",
+		schema: gtQuiescenceRequestSchema,
+		resultSchema: gtQuiescenceResultSchema,
+		handler: runGtQuiescence,
+		renderHuman: renderGtQuiescence,
 	});
 	gt.group(exec);
 	return gt;

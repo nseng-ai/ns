@@ -110,6 +110,228 @@ describe("slot gt exec stack-branches CLI", () => {
 	});
 });
 
+describe("slot gt exec quiescence CLI", () => {
+	it("is hidden but invocable and emits compact quiescence JSON in human mode", async () => {
+		const run = runQuiescenceScenario(["gt", "exec", "quiescence"]);
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe('{"isQuiescent":true,"blockers":[]}\n');
+	});
+
+	it("returns the JSON envelope with downstack branches and snapshot heads", async () => {
+		const run = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git: {
+				localBranchTips: [
+					{ name: "master", headIso: "master-head" },
+					{ name: "feature/a", headIso: "a-head" },
+					{ name: "feature/current", headIso: "current-head" },
+					{ name: "feature/child", headIso: "child-head" },
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				isQuiescent: true,
+				scope: "downstack",
+				branches: ["feature/a", "feature/current"],
+				snapshot: {
+					scope: "downstack",
+					trunk: "master",
+					current: "feature/current",
+					branches: [
+						{ branch: "feature/a", head: "a-head" },
+						{ branch: "feature/current", head: "current-head" },
+					],
+				},
+				blockers: [],
+			},
+		});
+	});
+
+	it("ignores descendant blockers by default but blocks them with full scope", async () => {
+		const git = {
+			worktrees: [
+				{ path: "/repo", branch: "feature/current" },
+				slotWorktree("slot-04", "feature/child"),
+			],
+		};
+		const downstack = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git,
+		});
+		expect(await downstack.exit).toBe(0);
+
+		const full = runQuiescenceScenario(
+			["gt", "exec", "quiescence", "--scope", "full", "--format", "json"],
+			{ git },
+		);
+		expect(await full.exit).toBe(1);
+		expect(parseJsonOutput(full)).toMatchObject({
+			status: "negative",
+			data: {
+				blockers: [
+					{
+						type: "checked-out-elsewhere",
+						branch: "feature/child",
+						worktreePath: "/slots/repos/repo/worktrees/slot-04",
+					},
+				],
+			},
+		});
+	});
+
+	it("allows the current worktree checkout but blocks an in-scope branch checked out elsewhere", async () => {
+		const run = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git: {
+				worktrees: [
+					{ path: "/repo", branch: "feature/current" },
+					slotWorktree("slot-03", "feature/a"),
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(parseJsonOutput(run)).toMatchObject({
+			message: "Stack is not quiescent.",
+			data: {
+				blockers: [
+					{
+						type: "checked-out-elsewhere",
+						branch: "feature/a",
+						worktreePath: "/slots/repos/repo/worktrees/slot-03",
+					},
+				],
+			},
+		});
+	});
+
+	it("blocks rebase state from occupancy and slot inventory evidence", async () => {
+		const run = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git: {
+				worktrees: [
+					{ path: "/repo", branch: "feature/current" },
+					slotWorktree("slot-03", "feature/a"),
+				],
+				branchOccupancies: [
+					{ path: "/repo", branch: "feature/current", operation: "checked-out" },
+					{
+						path: "/slots/repos/repo/worktrees/slot-03",
+						branch: "feature/a",
+						operation: "rebase",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(jsonBlockerTypes(parseJsonOutput(run))).toEqual([
+			"rebase-in-progress",
+			"slot-rebase-in-progress",
+		]);
+	});
+
+	it("emits snapshots and blocks on expected snapshot ref drift", async () => {
+		const first = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			git: {
+				localBranchTips: [
+					{ name: "feature/a", headIso: "a-1" },
+					{ name: "feature/current", headIso: "current-1" },
+				],
+			},
+		});
+		expect(await first.exit).toBe(0);
+		const snapshot = quiescenceJsonData(parseJsonOutput(first)).snapshot;
+
+		const matching = runQuiescenceScenario(
+			[
+				"gt",
+				"exec",
+				"quiescence",
+				"--expect-snapshot-json",
+				JSON.stringify(snapshot),
+				"--format",
+				"json",
+			],
+			{
+				git: {
+					localBranchTips: [
+						{ name: "feature/a", headIso: "a-1" },
+						{ name: "feature/current", headIso: "current-1" },
+					],
+				},
+			},
+		);
+		expect(await matching.exit).toBe(0);
+
+		const drift = runQuiescenceScenario(
+			[
+				"gt",
+				"exec",
+				"quiescence",
+				"--expect-snapshot-json",
+				JSON.stringify(snapshot),
+				"--format",
+				"json",
+			],
+			{
+				git: {
+					localBranchTips: [
+						{ name: "feature/a", headIso: "a-2" },
+						{ name: "feature/current", headIso: "current-1" },
+					],
+				},
+			},
+		);
+		expect(await drift.exit).toBe(1);
+		expect(parseJsonOutput(drift)).toMatchObject({
+			data: {
+				blockers: [
+					{
+						type: "ref-drift",
+						branch: "feature/a",
+						expectedHead: "a-1",
+						actualHead: "a-2",
+					},
+				],
+			},
+		});
+	});
+
+	it("rejects invalid expected snapshot JSON", async () => {
+		const run = runQuiescenceScenario([
+			"gt",
+			"exec",
+			"quiescence",
+			"--expect-snapshot-json",
+			"{",
+			"--format",
+			"json",
+		]);
+
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "usageError",
+			errorType: "usageError",
+			data: { argument: "--expect-snapshot-json" },
+		});
+	});
+
+	it("propagates existing stack failure paths", async () => {
+		const untracked = runQuiescenceScenario(["gt", "exec", "quiescence", "--format", "json"], {
+			gt: {
+				stack: {
+					type: "untracked_branch",
+					message: "current branch is not tracked by Graphite: feature/current",
+				},
+			},
+		});
+		expect(await untracked.exit).toBe(2);
+		expect(parseJsonOutput(untracked)).toMatchObject({ errorType: "untracked-branch" });
+	});
+});
+
 describe("slot gt exec stack-map-branches CLI", () => {
 	it("shows help for the hidden stack-map operation", async () => {
 		const run = runScenario(["gt", "exec", "stack-map-branches", "-h"]);
@@ -429,6 +651,54 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		}
 	});
 });
+
+interface QuiescenceScenarioOptions {
+	readonly stack?: ReturnType<typeof fakeStackInfo> | undefined;
+	readonly git?: ScenarioRunOptions["git"] | undefined;
+	readonly gt?: ScenarioRunOptions["gt"] | undefined;
+}
+
+function runQuiescenceScenario(args: readonly string[], options: QuiescenceScenarioOptions = {}) {
+	return runScenario(args, {
+		git: {
+			worktrees: [{ path: "/repo", branch: "feature/current" }],
+			...options.git,
+		},
+		gt: {
+			stack: {
+				type: "stack",
+				stack:
+					options.stack ??
+					fakeStackInfo({
+						trunk: "master",
+						current: "feature/current",
+						ancestors: ["master", "feature/a"],
+						descendants: ["feature/child"],
+					}),
+			},
+			...options.gt,
+		},
+	});
+}
+
+interface QuiescenceJsonData {
+	readonly snapshot: {
+		readonly scope: "downstack" | "full";
+		readonly trunk: string;
+		readonly current: string;
+		readonly branches: readonly { readonly branch: string; readonly head: string | null }[];
+	};
+	readonly blockers: readonly { readonly type: string }[];
+}
+
+function quiescenceJsonData(output: unknown): QuiescenceJsonData {
+	expect(output).toMatchObject({ data: expect.any(Object) });
+	return (output as { data: QuiescenceJsonData }).data;
+}
+
+function jsonBlockerTypes(output: unknown): readonly string[] {
+	return quiescenceJsonData(output).blockers.map((blocker) => blocker.type);
+}
 
 interface StackMapScenarioOptions {
 	readonly rows?: readonly GraphiteBranchTopology[] | undefined;
