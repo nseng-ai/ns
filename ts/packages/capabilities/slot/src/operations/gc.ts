@@ -21,7 +21,10 @@ import {
 } from "../lifecycle/gc.ts";
 import type { SlotFreeCleanupAction } from "../lifecycle/release-cleanup.ts";
 import { renderCleanupLines } from "./cleanup-rendering.ts";
-import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
+import {
+	buildSlotDestructiveResultBlock,
+	renderSlotDestructiveResultBlock,
+} from "./destructive-presentation.ts";
 import { cleanupSchema } from "./result-schemas.ts";
 const gcEntrySchema = z.object({
 	slotName: z.string(),
@@ -123,11 +126,14 @@ export function renderGc(
 ): string {
 	const resolvedCaps = resolveRenderCapabilities(caps);
 	const body = renderGcDetails(result, resolvedCaps);
-	return renderSlotDestructiveResultBlock(caps, {
-		kind: gcResultKind(result),
-		headline: gcHeadline(result),
-		...(body === undefined ? {} : { body }),
-	});
+	return renderSlotDestructiveResultBlock(
+		caps,
+		buildSlotDestructiveResultBlock({
+			kind: gcResultKind(result),
+			headline: gcHeadline(result),
+			body,
+		}),
+	);
 }
 
 function gcResultKind(result: GcResult): "success" | "failure" | "refusal" {

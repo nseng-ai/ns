@@ -1,5 +1,6 @@
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
+import { finiteNumberField, stringArrayField } from "./fields.ts";
 import type { WatchEventEntry } from "./model.ts";
 
 export function parseWatchEventEntry(value: unknown): WatchEventEntry | undefined {
@@ -9,10 +10,10 @@ export function parseWatchEventEntry(value: unknown): WatchEventEntry | undefine
 	if (!isWatchEventType(value.type)) return undefined;
 	const createdAt = stringField(value, "createdAt");
 	if (createdAt === undefined) return undefined;
-	const itemKeys = parseItemKeys(value.itemKeys);
+	const itemKeys = stringArrayField(value.itemKeys);
 	if (isRestoreRelevantEventType(value.type) && itemKeys === undefined) return undefined;
 	const branch = stringField(value, "branch");
-	const prNumber = numberField(value, "prNumber");
+	const prNumber = finiteNumberField(value, "prNumber");
 	const headRefOid = stringField(value, "headRefOid");
 	return {
 		version: 1,
@@ -39,15 +40,4 @@ function isWatchEventType(value: string): value is WatchEventEntry["type"] {
 
 function isRestoreRelevantEventType(value: WatchEventEntry["type"]): boolean {
 	return value === "baseline" || value === "dispatched" || value === "ignored";
-}
-
-function parseItemKeys(value: unknown): string[] | undefined {
-	if (value === undefined) return undefined;
-	if (!Array.isArray(value)) return undefined;
-	return value.every((item): item is string => typeof item === "string") ? value : undefined;
-}
-
-function numberField(value: Record<string, unknown>, key: string): number | undefined {
-	const field = value[key];
-	return typeof field === "number" && Number.isFinite(field) ? field : undefined;
 }

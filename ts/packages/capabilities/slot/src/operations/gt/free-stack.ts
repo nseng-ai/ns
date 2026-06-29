@@ -4,7 +4,10 @@ import { z } from "zod";
 import type { SlotCliContext } from "../../context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../inventory.ts";
 import { executeFreePlan, planFreeSlots } from "../../lifecycle/free.ts";
-import { renderSlotDestructiveResultBlock } from "../destructive-presentation.ts";
+import {
+	buildSlotDestructiveResultBlock,
+	renderSlotDestructiveResultBlock,
+} from "../destructive-presentation.ts";
 import { freedSlotSchema } from "../result-schemas.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 import { collectStackBranches } from "./stack-walk.ts";
@@ -101,11 +104,14 @@ export function renderGtFreeStack(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const body = renderGtFreeStackDetails(result);
-	return renderSlotDestructiveResultBlock(caps, {
-		kind: "success",
-		headline: gtFreeStackHeadline(result),
-		...(body === undefined ? {} : { body }),
-	});
+	return renderSlotDestructiveResultBlock(
+		caps,
+		buildSlotDestructiveResultBlock({
+			kind: "success",
+			headline: gtFreeStackHeadline(result),
+			body,
+		}),
+	);
 }
 
 function gtFreeStackHeadline(result: GtFreeStackResult): string {

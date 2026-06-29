@@ -2,6 +2,7 @@ import type { PrFeedbackDownloadData } from "../feedback-download.ts";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
+import { finiteNumberField } from "./fields.ts";
 import type {
 	FeedbackFingerprint,
 	FeedbackFingerprintItem,
@@ -85,7 +86,7 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		const updatedAt = stringField(item, "updated_at") ?? stringField(item, "created_at");
 		const author = authorFromValue(item);
 		const path = stringField(item, "path");
-		const line = numberField(item, "line");
+		const line = finiteNumberField(item, "line");
 		const reviewId = idField(item, "pull_request_review_id");
 		const inReplyToId = idField(item, "in_reply_to_id");
 		items.push({
@@ -202,8 +203,4 @@ function idField(value: Record<string, unknown>, key: string): string | undefine
 	const field = value[key];
 	if (typeof field === "number" && Number.isFinite(field)) return String(field);
 	return typeof field === "string" ? field : undefined;
-}
-function numberField(value: Record<string, unknown>, key: string): number | undefined {
-	const field = value[key];
-	return typeof field === "number" && Number.isFinite(field) ? field : undefined;
 }

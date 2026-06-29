@@ -10,6 +10,24 @@ export interface SlotDestructiveResultBlock {
 	guidance?: string;
 }
 
+export interface BuildSlotDestructiveResultBlockInput {
+	kind: SlotDestructiveResultKind;
+	headline: string;
+	body?: string | undefined;
+	guidance?: string | undefined;
+}
+
+export function buildSlotDestructiveResultBlock(
+	input: BuildSlotDestructiveResultBlockInput,
+): SlotDestructiveResultBlock {
+	return {
+		kind: input.kind,
+		headline: input.headline,
+		...(input.body === undefined ? {} : { body: input.body }),
+		...(input.guidance === undefined ? {} : { guidance: input.guidance }),
+	};
+}
+
 export function renderSlotDestructiveResultBlock(
 	renderCapabilities: RenderCapabilities,
 	input: SlotDestructiveResultBlock,

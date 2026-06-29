@@ -406,11 +406,8 @@ export default function worktreeStatusExtension(
 			session.abortController.abort();
 			clearFreshnessRenderTimer();
 			session.refreshTimer?.close();
-			delete session.refreshTimer;
 			session.activityController?.close();
-			delete session.activityController;
 			session.activityUnsubscribe?.();
-			delete session.activityUnsubscribe;
 			requestFooterRender = undefined;
 			session.ctx.ui.setFooter?.(undefined);
 			fullRefreshChannel.clearSession(session);
@@ -607,12 +604,11 @@ export default function worktreeStatusExtension(
 		});
 	}
 
-	function installActivityTracking(session: ActiveSession): void {
-		const unsubscribe = session.ctx.ui.onTerminalInput?.(() => {
+	function installActivityTracking(session: ActiveSession): (() => void) | undefined {
+		return session.ctx.ui.onTerminalInput?.(() => {
 			recordSessionActivity(session);
 			return undefined;
 		});
-		if (unsubscribe !== undefined) session.activityUnsubscribe = unsubscribe;
 	}
 
 	function recordActiveSessionActivity(): void {
@@ -715,7 +711,8 @@ export default function worktreeStatusExtension(
 	pi.on("session_start", async (_event, ctx) => {
 		const session = activateSession(ctx);
 		installStatusFooter(session);
-		installActivityTracking(session);
+		const activityUnsubscribe = installActivityTracking(session);
+		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
 		await refreshSession(session, { remoteRefresh: "force" });
 		if (isActiveSession(session)) {
 			session.refreshTimer?.resume();

@@ -15,6 +15,7 @@ import {
 	packageSubpathForSpecifier,
 	type PackageMetadata,
 } from "./package-metadata.ts";
+import { sourceLocationFields } from "./source-location.ts";
 
 export interface SourceRuleViolation {
 	readonly rule: string;
@@ -267,7 +268,7 @@ function buildViolation(
 	sourceFile: ts.SourceFile,
 	node: ts.Node,
 ): SourceRuleViolation {
-	return buildViolationWithText(rule, path, sourceFile, node, singleLine(node.getText(sourceFile)));
+	return { rule, ...sourceLocationFields(path, sourceFile, node) };
 }
 
 function buildViolationWithText(
@@ -286,8 +287,4 @@ function buildViolationWithText(
 		column: position.character + 1,
 		text,
 	};
-}
-
-function singleLine(text: string): string {
-	return text.replace(/\s+/g, " ").trim();
 }

@@ -43,13 +43,6 @@ import type {
 	WatchStatus,
 } from "./model.ts";
 
-type WatchEventAppendInput = {
-	branch?: string;
-	prNumber?: number;
-	headRefOid?: string;
-	itemKeys?: string[];
-	details?: Record<string, unknown>;
-};
 import { buildDetectedFeedbackPrompt } from "./prompt.ts";
 import { isWorkingTreeDirty, notify } from "./runtime.ts";
 import { defaultStatusLine, initialWatchStatus, shouldRefreshStatusAge } from "./status.ts";
@@ -59,6 +52,14 @@ import type {
 	ExtensionContext,
 	PrFeedbackWatchExtensionOptions,
 } from "./types.ts";
+
+interface WatchEventAppendInput {
+	branch?: string;
+	prNumber?: number;
+	headRefOid?: string;
+	itemKeys?: string[];
+	details?: Record<string, unknown>;
+}
 
 export class PrFeedbackWatchController {
 	private readonly pi: ExtensionAPI;
@@ -112,15 +113,12 @@ export class PrFeedbackWatchController {
 	async start(ctx: ExtensionContext, options: WatchCommandOptions): Promise<void> {
 		const session = this.ensureSession(ctx);
 		this.options = { ...options };
-		this.state = clearStatusField(
-			{
-				...this.state,
-				isEnabled: true,
-				state: "polling",
-				intervalMs: options.intervalMs,
-			},
-			"lastError",
-		);
+		this.state = clearLastError({
+			...this.state,
+			isEnabled: true,
+			state: "polling",
+			intervalMs: options.intervalMs,
+		});
 		this.appendEvent("config", {
 			details: {
 				intervalMs: options.intervalMs,
@@ -500,16 +498,13 @@ export class PrFeedbackWatchController {
 
 	private markRestFingerprintSuccess(fingerprint: FeedbackFingerprint): void {
 		this.hasNotifiedRestFailure = false;
-		this.state = clearStatusField(
-			{
-				...this.state,
-				mode: "rest_fingerprint",
-				restFailures: 0,
-				lastRestPollAt: fingerprint.fetchedAt,
-				lastPollAt: fingerprint.fetchedAt,
-			},
-			"lastError",
-		);
+		this.state = clearLastError({
+			...this.state,
+			mode: "rest_fingerprint",
+			restFailures: 0,
+			lastRestPollAt: fingerprint.fetchedAt,
+			lastPollAt: fingerprint.fetchedAt,
+		});
 	}
 
 	private markFingerprintItemsSeen(fingerprint: FeedbackFingerprint): void {
@@ -695,18 +690,15 @@ export class PrFeedbackWatchController {
 		const checkedAt = new Date().toISOString();
 		const prNumber = snapshot.data.target.pr_number;
 		const branch = snapshot.data.target.branch ?? snapshot.data.target.head_ref_name ?? undefined;
-		this.state = clearStatusField(
-			{
-				...this.state,
-				...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
-				...(branch === undefined ? {} : { branch }),
-				lastPollAt: checkedAt,
-				lastHeavyCheckAt: checkedAt,
-				seenCount: this.seenKeys.size,
-				attemptedCount: this.attemptedKeys.size,
-			},
-			"lastError",
-		);
+		this.state = clearLastError({
+			...this.state,
+			...(prNumber === undefined || prNumber === null ? {} : { prNumber }),
+			...(branch === undefined ? {} : { branch }),
+			lastPollAt: checkedAt,
+			lastHeavyCheckAt: checkedAt,
+			seenCount: this.seenKeys.size,
+			attemptedCount: this.attemptedKeys.size,
+		});
 	}
 
 	private scheduleNextPoll(session: ActiveSession): void {
@@ -796,20 +788,19 @@ export class PrFeedbackWatchController {
 	}
 }
 
-function clearStatusField<K extends keyof WatchStatus>(status: WatchStatus, field: K): WatchStatus {
-	const next = { ...status };
-	delete next[field];
-	return next;
+function clearLastError(status: WatchStatus): WatchStatus {
+	const { lastError, ...rest } = status;
+	void lastError;
+	return rest;
 }
 
 function setCheckSummary(status: WatchStatus, summary: PrCheckSummary | undefined): WatchStatus {
-	const next = { ...status };
 	if (summary === undefined) {
-		delete next.checkSummary;
-		return next;
+		const { checkSummary, ...rest } = status;
+		void checkSummary;
+		return rest;
 	}
-	next.checkSummary = summary;
-	return next;
+	return { ...status, checkSummary: summary };
 }
 
 function currentUserLoginOptions(currentUserLogin: string | undefined): {
