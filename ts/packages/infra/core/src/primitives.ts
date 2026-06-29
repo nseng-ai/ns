@@ -25,6 +25,24 @@ export function stringField(
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+export function finiteNumberField(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): number | undefined {
+	const value = record?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function stringArrayField(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): string[] | undefined {
+	const value = record?.[key];
+	if (value === undefined) return undefined;
+	if (!Array.isArray(value)) return undefined;
+	return value.every((item): item is string => typeof item === "string") ? value : undefined;
+}
+
 export function formatErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }

@@ -1,8 +1,8 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
+import { finiteNumberField } from "@sdl/core/primitives";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
-import { finiteNumberField } from "./fields.ts";
 import type {
 	FeedbackFingerprint,
 	FeedbackFingerprintItem,

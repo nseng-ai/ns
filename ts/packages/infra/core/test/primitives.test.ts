@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	finiteNumberField,
 	formatErrorMessage,
 	formatZodError,
 	formatZodIssue,
 	isRecord,
 	sha256Digest,
+	stringArrayField,
 	truncatedSha256Digest,
 } from "../src/primitives.ts";
 
@@ -24,6 +26,35 @@ describe("isRecord", () => {
 
 	test.each(["value", 123, true])("rejects primitive %p", (value) => {
 		expect(isRecord(value)).toBe(false);
+	});
+});
+
+describe("finiteNumberField", () => {
+	test("returns finite numeric fields", () => {
+		expect(finiteNumberField({ count: 3 }, "count")).toBe(3);
+		expect(finiteNumberField({ count: 0 }, "count")).toBe(0);
+	});
+
+	test("rejects absent, non-numeric, and non-finite fields", () => {
+		expect(finiteNumberField(undefined, "count")).toBeUndefined();
+		expect(finiteNumberField({}, "count")).toBeUndefined();
+		expect(finiteNumberField({ count: "3" }, "count")).toBeUndefined();
+		expect(finiteNumberField({ count: Number.NaN }, "count")).toBeUndefined();
+		expect(finiteNumberField({ count: Number.POSITIVE_INFINITY }, "count")).toBeUndefined();
+	});
+});
+
+describe("stringArrayField", () => {
+	test("returns string-array fields", () => {
+		expect(stringArrayField({ items: ["a", "b"] }, "items")).toEqual(["a", "b"]);
+		expect(stringArrayField({ items: [] }, "items")).toEqual([]);
+	});
+
+	test("rejects absent, non-array, and non-string-array fields", () => {
+		expect(stringArrayField(undefined, "items")).toBeUndefined();
+		expect(stringArrayField({}, "items")).toBeUndefined();
+		expect(stringArrayField({ items: "a" }, "items")).toBeUndefined();
+		expect(stringArrayField({ items: ["a", 2] }, "items")).toBeUndefined();
 	});
 });
 

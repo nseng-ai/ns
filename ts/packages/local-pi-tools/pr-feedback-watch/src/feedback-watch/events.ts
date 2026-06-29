@@ -1,6 +1,6 @@
+import { finiteNumberField, stringArrayField } from "@sdl/core/primitives";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
-import { finiteNumberField, stringArrayField } from "./fields.ts";
 import type { WatchEventEntry } from "./model.ts";
 
 export function parseWatchEventEntry(value: unknown): WatchEventEntry | undefined {
@@ -10,7 +10,7 @@ export function parseWatchEventEntry(value: unknown): WatchEventEntry | undefine
 	if (!isWatchEventType(value.type)) return undefined;
 	const createdAt = stringField(value, "createdAt");
 	if (createdAt === undefined) return undefined;
-	const itemKeys = stringArrayField(value.itemKeys);
+	const itemKeys = stringArrayField(value, "itemKeys");
 	if (isRestoreRelevantEventType(value.type) && itemKeys === undefined) return undefined;
 	const branch = stringField(value, "branch");
 	const prNumber = finiteNumberField(value, "prNumber");
