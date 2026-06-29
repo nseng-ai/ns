@@ -8,7 +8,6 @@
 //
 // Usage:
 //   node extract-graph.mjs [--root ts/packages] [--kit @sdl/capability-kit]
-//                          [--transitional @sdl/domain-primitives-transitional]
 //                          [--api-needle api] [--src-dir src] [--pretty]
 //
 // Each package carries an approximate `loc` (meaningful TypeScript lines under
@@ -36,20 +35,19 @@ function arg(name, fallback) {
 
 const ROOT = arg("root", "ts/packages");
 const KIT = arg("kit", "@sdl/capability-kit");
-const TRANSITIONAL = arg("transitional", "@sdl/domain-primitives-transitional");
 const API_NEEDLE = arg("api-needle", "api");
 const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
 const OUT = arg("out", false);
 
-// Canonical taxonomy — keep in sync with the workspace source of truth:
+// Canonical taxonomy — kept in sync with the workspace source of truth:
 // ts/packages/infra/core/test/support/typescript-style-guard/config.ts
-// (`packageTierValues` + `packageTierAllowedTargets`).
+// (`packageTierValues`, `packageTierAllowedTargets`, `allowedPackageTierDebtEdges`).
 const TIERS = [
   "capability",
   "capability-kit",
+  "capability-gateway-backend",
   "sdk",
-  "transitional",
   "neutral-infra",
   "host",
   "capability-pi",
@@ -58,32 +56,40 @@ const TIERS = [
 ];
 const TIER_SET = new Set(TIERS);
 const TIER_POLICY = {
-  capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra", "transitional"]),
-  "capability-kit": new Set(["sdk", "neutral-infra", "transitional"]),
-  sdk: new Set(["sdk", "neutral-infra", "transitional"]),
-  transitional: new Set(["neutral-infra"]),
+  capability: new Set(["capability", "capability-kit", "capability-gateway-backend", "sdk", "neutral-infra"]),
+  "capability-kit": new Set(["capability-gateway-backend", "sdk", "neutral-infra"]),
+  "capability-gateway-backend": new Set(["capability-gateway-backend", "neutral-infra"]),
+  sdk: new Set(["sdk", "neutral-infra"]),
   "neutral-infra": new Set(["neutral-infra"]),
-  host: new Set(["capability", "sdk", "capability-kit", "neutral-infra", "transitional"]),
+  host: new Set(["capability", "sdk", "capability-kit", "capability-gateway-backend", "neutral-infra"]),
   "capability-pi": new Set([
     "capability-pi",
     "host",
     "capability",
     "capability-kit",
+    "capability-gateway-backend",
     "sdk",
     "neutral-infra",
-    "transitional",
   ]),
   "standalone-tool": new Set([
     "standalone-tool",
     "host",
     "capability",
     "capability-kit",
+    "capability-gateway-backend",
     "sdk",
     "neutral-infra",
-    "transitional",
   ]),
-  "local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
+  "local-pi-tool": new Set(["local-pi-tool", "host", "capability-gateway-backend", "neutral-infra"]),
 };
+// Policy-violating edges that are explicitly tolerated (tracked debt) rather than
+// hard failures. Mirror of `allowedPackageTierDebtEdges`; keyed `<from>\0<to>`.
+const DEBT_EDGES = new Set([
+  "@sdl/ccc\0@sdl/pi",
+  "@sdl/kernel\0@sdl/slot",
+  "@sdl/brmem\0@sdl/capability-kit",
+  "@sdl/brmem\0@sdl/git",
+]);
 
 // Approximate source size per package: meaningful lines of TypeScript under
 // <pkg>/<SRC_DIR>, excluding tests and blank/`//`-only lines. Used by the report
@@ -238,23 +244,14 @@ function tierViolationForEdge(from, to) {
   const fromTier = pkgs[from]?.tier;
   const toTier = pkgs[to]?.tier;
   if (fromTier === undefined || toTier === undefined) return undefined;
-  if (toTier === "transitional" && fromTier !== "transitional") {
-    return {
-      from,
-      to,
-      fromTier,
-      toTier,
-      severity: "debt",
-      policy: "depends-on-transitional",
-    };
-  }
   if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
+  // A policy-violating edge is tracked "debt" when explicitly allowlisted, else "hard".
   return {
     from,
     to,
     fromTier,
     toTier,
-    severity: "hard",
+    severity: DEBT_EDGES.has(`${from}\0${to}`) ? "debt" : "hard",
     policy: `${fromTier}-must-not-depend-on-${toTier}`,
   };
 }
@@ -271,7 +268,6 @@ for (const [from, deps] of Object.entries(graph)) {
 const exposesApi = {}; // name -> [api-ish export subpaths]
 const apiOnly = []; // packages whose ONLY exports look like /api (no command/main face)
 const kitConsumers = [];
-const transitionalConsumers = [];
 const orphans = []; // zero runtime fan-in (nothing in-workspace depends on it)
 
 for (const [name, p] of Object.entries(pkgs)) {
@@ -280,7 +276,6 @@ for (const [name, p] of Object.entries(pkgs)) {
   const nonApi = p.exports.filter((e) => !e.toLowerCase().includes(API_NEEDLE.toLowerCase()));
   if (apiExports.length && nonApi.length === 0) apiOnly.push(name);
   if (graph[name]?.includes(KIT)) kitConsumers.push(name);
-  if (graph[name]?.includes(TRANSITIONAL)) transitionalConsumers.push(name);
   if (fanIn[name] === 0) orphans.push(name);
 }
 
@@ -293,7 +288,6 @@ const out = {
   meta: {
     root: ROOT,
     kit: KIT,
-    transitional: TRANSITIONAL,
     apiNeedle: API_NEEDLE,
     packageCount: names.size,
     edgeKinds: "runtime (dependencies + peerDependencies)",
@@ -313,7 +307,6 @@ const out = {
   exposesApi, // capability-API convention adoption
   apiOnly, // anomaly: API published with no command/main face
   kitConsumers, // gateway-injected-via-kit adoption
-  transitionalConsumers, // completion-marker blockers
   orphans, // zero fan-in: unwired leaves
 };
 

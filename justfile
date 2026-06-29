@@ -118,6 +118,12 @@ areg-check: ts-install
 refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
+# Render the architecture topology report (raw inventory) and open it. No agent
+# in the loop — extracts the package graph and renders from a synthesized spec.
+# Pass --no-open to print the path only, or any extract-graph flag (--root, --kit, ...).
+topology *args:
+    {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
+
 # Install public tools via TypeScript source shims.
 install-tools: install-sdl install-brmem install-areg
     @echo "installed: sdl, brmem, and areg (TypeScript shims)"
