@@ -55,5 +55,8 @@ Risks:
 
 ## Open Questions
 
-- Does the final package-tier/import-guard/docs/context rebaseline reveal any stale forward guidance or guard exceptions that should be updated before closing this child Objective?
-- Should parent `sdl-extension-architecture` receive a concise child-completion update after this Objective's final rebaseline lands?
+Closed by the final rebaseline: stale forward guidance and guard/package state were updated or verified, and parent `sdl-extension-architecture` received a concise child-completion update.
+
+## Closure
+
+Closed after the final package-tier/import-guard/docs/context rebaseline. Flow owns submit, PR-description, Graphite-submit, and autobranch workflow policy; `@sdl/capability-kit` owns shared capability gateway result/error substrate; `@sdl/core` and `@sdl/graphite` retain generic or neutral protocol/mechanics surfaces only. Package tiers, manifests, export maps, lockfile state, kernel jiti aliases, and TypeScript style-guard configuration were verified against that boundary. Forward-looking context and parent Objective current-state rows were rebaselined, and completion evidence is recorded in `updates/20260629T014747Z-final-rebaseline-and-closure.md`.
