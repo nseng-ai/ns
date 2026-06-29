@@ -32,7 +32,7 @@ export interface SlotCliContext {
 	clipboard: ClipboardGateway;
 	command: SlotCommandGateway;
 	cwd: string;
-	extensions?: Readonly<Record<string, unknown>> | undefined;
+	extensions?: Readonly<Record<string, unknown>>;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
 	env: NodeJS.ProcessEnv;

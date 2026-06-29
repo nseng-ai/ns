@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 import {
+	ADVISORY_OPTIONAL_UNDEFINED_PROPERTY,
 	BAN_AS_UNKNOWN_AS,
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
@@ -25,6 +26,7 @@ import {
 	type PackageManifest,
 	type PackageMetadata,
 } from "../support/typescript-style-guard/package-metadata.ts";
+import { collectOptionalUndefinedPropertyCandidates } from "../support/typescript-style-guard/optional-undefined-audit.ts";
 import {
 	collectViolations,
 	type SourceRuleViolation,
@@ -323,6 +325,75 @@ describe("TypeScript style guard source rules", () => {
 	);
 });
 
+describe("optional undefined property advisory audit", () => {
+	const cases: readonly OptionalUndefinedAuditCase[] = [
+		{
+			name: "flags optional properties that also union undefined",
+			code: "interface Context { extensions?: Record<string, unknown> | undefined; }",
+			expectedProperties: ["extensions"],
+			expectedSuggestsOptionsInput: false,
+			expectedIncludesNull: false,
+		},
+		{
+			name: "flags type literal members",
+			code: "type Result = { value?: string | undefined };",
+			expectedProperties: ["value"],
+			expectedSuggestsOptionsInput: false,
+			expectedIncludesNull: false,
+		},
+		{
+			name: "does not flag optional-only properties",
+			code: "interface Context { extensions?: Record<string, unknown>; }",
+			expectedProperties: [],
+			expectedSuggestsOptionsInput: false,
+			expectedIncludesNull: false,
+		},
+		{
+			name: "does not flag required properties whose value may be undefined",
+			code: "interface State { extensions: Record<string, unknown> | undefined; }",
+			expectedProperties: [],
+			expectedSuggestsOptionsInput: false,
+			expectedIncludesNull: false,
+		},
+		{
+			name: "classifies options-style containers without allowing them as a hard rule",
+			code: "interface Options { env?: NodeJS.ProcessEnv | undefined; }",
+			expectedProperties: ["env"],
+			expectedSuggestsOptionsInput: true,
+			expectedIncludesNull: false,
+		},
+		{
+			name: "reports null unions for extra remediation care",
+			code: "interface Payload { body?: string | null | undefined; }",
+			expectedProperties: ["body"],
+			expectedSuggestsOptionsInput: false,
+			expectedIncludesNull: true,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const candidates = collectOptionalUndefinedPropertyCandidates(
+			testCase.code,
+			`adversarial/${testCase.name}.ts`,
+		);
+
+		expect(candidates.map((candidate) => candidate.rule)).toEqual(
+			testCase.expectedProperties.map(() => ADVISORY_OPTIONAL_UNDEFINED_PROPERTY),
+		);
+		expect(candidates.map((candidate) => candidate.propertyName)).toEqual(
+			testCase.expectedProperties,
+		);
+		if (candidates.length > 0) {
+			expect(candidates.every((candidate) => candidate.suggestsOptionsInput)).toBe(
+				testCase.expectedSuggestsOptionsInput,
+			);
+			expect(candidates.every((candidate) => candidate.includesNull)).toBe(
+				testCase.expectedIncludesNull,
+			);
+		}
+	});
+});
+
 describe("TypeScript style guard documentation references", () => {
 	test("mutable guidance no longer points at the retired ts-guard target", () => {
 		const checkedFiles = [
@@ -589,6 +660,14 @@ interface SourceRuleCase {
 interface SourceRuleShard {
 	readonly name: string;
 	readonly includes: (path: string) => boolean;
+}
+
+interface OptionalUndefinedAuditCase {
+	readonly name: string;
+	readonly code: string;
+	readonly expectedProperties: readonly string[];
+	readonly expectedSuggestsOptionsInput: boolean;
+	readonly expectedIncludesNull: boolean;
 }
 
 type SyntheticDependencyField = ManifestDependencyField | "devDependencies";
