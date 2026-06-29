@@ -1,3 +1,5 @@
+import { finiteNumberField } from "./primitives.ts";
+
 export interface RuntimeRunnerSubagentUsageTotals {
 	input: number;
 	output: number;
@@ -180,9 +182,7 @@ function stringField(data: JsonRecord, key: string): string | null {
 }
 
 function numberField(data: JsonRecord, key: string): number {
-	const value = data[key];
-	if (typeof value !== "number" || !Number.isFinite(value)) return 0;
-	return value;
+	return finiteNumberField(data, key) ?? 0;
 }
 
 function isJsonRecord(value: unknown): value is JsonRecord {
