@@ -13,8 +13,8 @@ export interface OptionalUndefinedPropertyCandidate {
 	readonly propertyName: string;
 	readonly containingTypeName: string | undefined;
 	readonly parameterName: string | undefined;
-	readonly suggestsOptionsInput: boolean;
-	readonly includesNull: boolean;
+	readonly hasOptionsInputName: boolean;
+	readonly hasNull: boolean;
 }
 
 // Advisory by design: under exactOptionalPropertyTypes, `?: T | undefined` can be
@@ -66,9 +66,9 @@ function buildCandidate(
 		propertyName: propertyNameText(node.name) ?? "<computed>",
 		containingTypeName,
 		parameterName,
-		suggestsOptionsInput:
-			suggestsOptionsInput(containingTypeName) || suggestsOptionsInput(parameterName),
-		includesNull: typeIncludesKind(node.type, ts.SyntaxKind.NullKeyword),
+		hasOptionsInputName:
+			hasOptionsInputName(containingTypeName) || hasOptionsInputName(parameterName),
+		hasNull: typeIncludesKind(node.type, ts.SyntaxKind.NullKeyword),
 	};
 }
 
@@ -102,7 +102,7 @@ function propertyNameText(name: ts.PropertyName): string | undefined {
 	return undefined;
 }
 
-function suggestsOptionsInput(name: string | undefined): boolean {
+function hasOptionsInputName(name: string | undefined): boolean {
 	if (name === undefined) return false;
 	return /(?:options?|opts|input|inputs|override|overrides|request|params|args)$/iu.test(name);
 }

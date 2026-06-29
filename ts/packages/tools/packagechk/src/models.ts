@@ -20,6 +20,28 @@ export interface PackageCheckReport {
 	results: readonly RegistryCheckResult[];
 }
 
+export interface RegistryCheckMetadataFields {
+	packageUrl?: string;
+	latestVersion?: string;
+	description?: string;
+}
+
+export interface RegistryCheckMetadataInput {
+	packageUrl?: string | undefined;
+	latestVersion?: string | undefined;
+	description?: string | undefined;
+}
+
+export function registryCheckMetadataFields(
+	fields: RegistryCheckMetadataInput,
+): RegistryCheckMetadataFields {
+	return {
+		...(fields.packageUrl === undefined ? {} : { packageUrl: fields.packageUrl }),
+		...(fields.latestVersion === undefined ? {} : { latestVersion: fields.latestVersion }),
+		...(fields.description === undefined ? {} : { description: fields.description }),
+	};
+}
+
 export function availableResult(
 	registry: Registry,
 	options: { inputName: string; lookupName: string },
@@ -49,9 +71,7 @@ export function takenResult(
 		lookupName: options.lookupName,
 		status: "taken",
 		message: `${registry} package name is already taken`,
-		...(options.packageUrl === undefined ? {} : { packageUrl: options.packageUrl }),
-		...(options.latestVersion === undefined ? {} : { latestVersion: options.latestVersion }),
-		...(options.description === undefined ? {} : { description: options.description }),
+		...registryCheckMetadataFields(options),
 	};
 }
 
@@ -96,9 +116,7 @@ export function registryCheckResultToJson(result: RegistryCheckResult): Record<s
 		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
-		...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
-		...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
-		...(result.description === undefined ? {} : { description: result.description }),
+		...registryCheckMetadataFields(result),
 	};
 }
 
