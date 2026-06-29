@@ -23,6 +23,7 @@ import {
 	planStackMapCmuxActivation,
 	reduceStackMapState,
 	renderStackMapFrame,
+	type StackMapBranchNode,
 	type StackMapCmuxTabTarget,
 	type StackMapModel,
 } from "../../src/stack-map.ts";
@@ -31,11 +32,11 @@ const MODEL: StackMapModel = {
 	title: "stack map",
 	diagnostics: ["loaded"],
 	currentBranch: "feature/current",
-	trunk: {
+	trunk: branchNode({
 		name: "main",
 		graphiteNote: "repo",
 		children: [
-			{
+			branchNode({
 				name: "feature/current",
 				graphiteNote: "current",
 				slots: [
@@ -47,18 +48,34 @@ const MODEL: StackMapModel = {
 					},
 				],
 				children: [
-					{
+					branchNode({
 						name: "feature/child-with-longer-name",
 						graphiteNote: "needs restack",
 						slots: [
 							{ slotName: "slot-02", branch: "feature/child-with-longer-name", status: "assigned" },
 						],
-					},
+					}),
 				],
-			},
+			}),
 		],
-	},
+	}),
 };
+
+function branchNode(options: {
+	readonly name: string;
+	readonly graphiteNote?: string | undefined;
+	readonly slots?: StackMapBranchNode["slots"] | undefined;
+	readonly cmuxTabs?: StackMapBranchNode["cmuxTabs"] | undefined;
+	readonly children?: readonly StackMapBranchNode[] | undefined;
+}): StackMapBranchNode {
+	return {
+		name: options.name,
+		...(options.graphiteNote === undefined ? {} : { graphiteNote: options.graphiteNote }),
+		slots: options.slots ?? [],
+		cmuxTabs: options.cmuxTabs ?? [],
+		children: options.children ?? [],
+	};
+}
 
 describe("buildStackMapModelFromGraph", () => {
 	test("builds topology from sanctioned graph rows, slots, and needs_restack facts", () => {
@@ -101,17 +118,17 @@ describe("buildStackMapModelFromGraph", () => {
 			"Loaded from `sdl slot gt exec stack-map-branches --format json`.",
 		);
 		expect(model.diagnostics).toContain("graph warning");
-		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
+		expect(model.trunk.children.map((branch) => branch.name)).toEqual([
 			"feature/current",
 			"feature/slot",
 		]);
-		expect(model.trunk.children?.[1]?.slots?.[0]).toEqual({
+		expect(model.trunk.children[1]?.slots[0]).toEqual({
 			branch: "feature/slot",
 			slotName: "slot-04",
 			worktreePath: "/repo/worktrees/slot-04",
 			status: "assigned",
 		});
-		expect(model.trunk.children?.[1]?.children?.[0]?.graphiteNote).toBe("needs restack");
+		expect(model.trunk.children[1]?.children[0]?.graphiteNote).toBe("needs restack");
 	});
 });
 
@@ -138,13 +155,13 @@ describe("loadStackMapModel", () => {
 			"/repo$ cmux tree --json --all",
 			"/repo$ sdl slot gt exec stack-map-branches --format json",
 		]);
-		expect(model.trunk.children?.map((branch) => branch.name)).toEqual([
+		expect(model.trunk.children.map((branch) => branch.name)).toEqual([
 			"feature/a",
 			"feature/recent",
 		]);
-		expect(model.trunk.children?.[0]?.slots?.[0]?.slotName).toBe("slot-04");
-		expect(model.trunk.children?.[0]?.children?.[0]?.graphiteNote).toBe("needs restack");
-		expect(model.trunk.children?.[0]?.cmuxTabs?.[0]?.match).toEqual({
+		expect(model.trunk.children[0]?.slots[0]?.slotName).toBe("slot-04");
+		expect(model.trunk.children[0]?.children[0]?.graphiteNote).toBe("needs restack");
+		expect(model.trunk.children[0]?.cmuxTabs[0]?.match).toEqual({
 			type: "slot-worktree",
 			slotName: "slot-04",
 			worktreePath: "/repo/worktrees/slot-04",
@@ -196,7 +213,7 @@ describe("matchCmuxTabsToBranches", () => {
 			tabs: parsed.tabs,
 		});
 
-		expect(root.children?.[0]?.cmuxTabs).toBeUndefined();
+		expect(root.children[0]?.cmuxTabs).toEqual([]);
 	});
 });
 
@@ -446,14 +463,22 @@ describe("buildVisibleStackMapRows", () => {
 			title: "stack map",
 			diagnostics: [],
 			currentBranch: "b-leaf",
-			trunk: {
+			trunk: branchNode({
 				name: "main",
 				children: [
-					{ name: "c-parent" },
-					{ name: "b-parent", children: [{ name: "b-child", children: [{ name: "b-leaf" }] }] },
-					{ name: "a-parent" },
+					branchNode({ name: "c-parent" }),
+					branchNode({
+						name: "b-parent",
+						children: [
+							branchNode({
+								name: "b-child",
+								children: [branchNode({ name: "b-leaf" })],
+							}),
+						],
+					}),
+					branchNode({ name: "a-parent" }),
 				],
-			},
+			}),
 		};
 
 		const rows = buildVisibleStackMapRows(model, createInitialStackMapState(model));
@@ -477,25 +502,25 @@ describe("buildVisibleStackMapRows", () => {
 			title: "stack map",
 			diagnostics: [],
 			currentBranch: "a-parent",
-			trunk: {
+			trunk: branchNode({
 				name: "main",
 				children: [
-					{ name: "a-parent" },
-					{
+					branchNode({ name: "a-parent" }),
+					branchNode({
 						name: "b-parent",
 						children: [
-							{
+							branchNode({
 								name: "b-child",
 								slots: [{ branch: "b-child", slotName: "slot-02", status: "assigned" }],
-							},
+							}),
 						],
-					},
-					{
+					}),
+					branchNode({
 						name: "c-parent",
-						children: [{ name: "c-child", cmuxTabs: [cmuxTarget("surface:3")] }],
-					},
+						children: [branchNode({ name: "c-child", cmuxTabs: [cmuxTarget("surface:3")] })],
+					}),
 				],
-			},
+			}),
 		};
 
 		const rows = buildVisibleStackMapRows(model, {
@@ -512,13 +537,16 @@ describe("buildVisibleStackMapRows", () => {
 			title: "stack map",
 			diagnostics: [],
 			currentBranch: "a-parent",
-			trunk: {
+			trunk: branchNode({
 				name: "main",
 				children: [
-					{ name: "a-parent", children: [{ name: "needle-child" }, { name: "other-child" }] },
-					{ name: "z-parent", children: [{ name: "z-child" }] },
+					branchNode({
+						name: "a-parent",
+						children: [branchNode({ name: "needle-child" }), branchNode({ name: "other-child" })],
+					}),
+					branchNode({ name: "z-parent", children: [branchNode({ name: "z-child" })] }),
 				],
-			},
+			}),
 		};
 
 		const rows = buildVisibleStackMapRows(model, {
@@ -535,14 +563,14 @@ describe("buildVisibleStackMapRows", () => {
 			title: "stack map",
 			diagnostics: [],
 			currentBranch: "feature/current",
-			trunk: {
+			trunk: branchNode({
 				name: "main",
 				children: [
-					{ name: "feature/query-hit-without-tab" },
-					{ name: "feature/query-hit-with-tab", cmuxTabs: [matchingTab] },
-					{ name: "feature/tab-without-query", cmuxTabs: [cmuxTarget("surface:5")] },
+					branchNode({ name: "feature/query-hit-without-tab" }),
+					branchNode({ name: "feature/query-hit-with-tab", cmuxTabs: [matchingTab] }),
+					branchNode({ name: "feature/tab-without-query", cmuxTabs: [cmuxTarget("surface:5")] }),
 				],
-			},
+			}),
 		};
 
 		const rows = buildVisibleStackMapRows(model, {
@@ -732,7 +760,7 @@ function modelWithTabs(tabs: readonly StackMapCmuxTabTarget[]): StackMapModel {
 		...MODEL,
 		trunk: {
 			...MODEL.trunk,
-			children: MODEL.trunk.children?.map((branch) =>
+			children: MODEL.trunk.children.map((branch) =>
 				branch.name === "feature/current" ? { ...branch, cmuxTabs: tabs } : branch,
 			),
 		},

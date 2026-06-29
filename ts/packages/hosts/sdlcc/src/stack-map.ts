@@ -39,9 +39,9 @@ export interface StackMapCmuxTabTarget extends StackMapParsedCmuxTab {
 export interface StackMapBranchNode {
 	readonly name: string;
 	readonly graphiteNote?: string | undefined;
-	readonly slots?: readonly StackMapSlotAssignment[] | undefined;
-	readonly cmuxTabs?: readonly StackMapCmuxTabTarget[] | undefined;
-	readonly children?: readonly StackMapBranchNode[] | undefined;
+	readonly slots: readonly StackMapSlotAssignment[];
+	readonly cmuxTabs: readonly StackMapCmuxTabTarget[];
+	readonly children: readonly StackMapBranchNode[];
 }
 
 export interface StackMapModel {
@@ -277,8 +277,8 @@ export function planStackMapCmuxActivation(
 			reason: "No selected branch is visible under the current scope/query.",
 		};
 
-	const targets = branch.cmuxTabs ?? [];
-	const slot = branch.slots?.[0];
+	const targets = branch.cmuxTabs;
+	const slot = branch.slots[0];
 	if (targets.length === 0) return openNewPlan(branch.name, slot);
 	if (targets.length === 1) {
 		const target = targets[0];
@@ -340,8 +340,8 @@ function attachTargets(
 	});
 	return {
 		...branch,
-		...(matched.length === 0 ? {} : { cmuxTabs: matched }),
-		children: branch.children?.map((child) => attachTargets(child, options)),
+		cmuxTabs: matched,
+		children: branch.children.map((child) => attachTargets(child, options)),
 	};
 }
 
@@ -449,7 +449,7 @@ function buildGtLsTopologyRows(
 	model: StackMapModel,
 	state: StackMapState,
 ): readonly GtLsTopologyRow[] {
-	const laneResults = sortBranchesByName(model.trunk.children ?? [])
+	const laneResults = sortBranchesByName(model.trunk.children)
 		.map((branch) => buildFilteredLaneRows(branch, state))
 		.filter((result) => result.hasRealMatch);
 	const rows: GtLsTopologyRow[] = [];
@@ -478,7 +478,7 @@ function buildFilteredLaneRows(
 	branch: StackMapBranchNode,
 	state: StackMapState,
 ): { readonly rows: readonly GtLsTopologyRow[]; readonly hasRealMatch: boolean } {
-	const childResults = sortBranchesByName(branch.children ?? []).map((child) =>
+	const childResults = sortBranchesByName(branch.children).map((child) =>
 		buildFilteredLaneRows(child, state),
 	);
 	const visibleChildResults = childResults.filter((result) => result.hasRealMatch);
@@ -510,13 +510,13 @@ function sortBranchesByName(
 }
 
 function formatCmuxColumn(branch: StackMapBranchNode): string {
-	const tabs = branch.cmuxTabs ?? [];
+	const tabs = branch.cmuxTabs;
 	if (tabs.length === 1) {
 		const tab = tabs[0];
 		return tab === undefined ? "" : formatTabLabel(tab);
 	}
 	if (tabs.length > 1) return `${tabs.length} tabs`;
-	return formatSlotAssignments(branch.slots ?? []);
+	return formatSlotAssignments(branch.slots);
 }
 
 function formatSlotAssignments(slots: readonly StackMapSlotAssignment[]): string {
@@ -557,7 +557,7 @@ function renderSelectedBranchState(
 
 	return [
 		stateLine,
-		`Selected details: graphite=${branch.graphiteNote ?? ""}; slots=${formatSlotAssignments(branch.slots ?? []) || "none"}; cmux=${formatCmuxColumn(branch) || "none"}`,
+		`Selected details: graphite=${branch.graphiteNote ?? ""}; slots=${formatSlotAssignments(branch.slots) || "none"}; cmux=${formatCmuxColumn(branch) || "none"}`,
 		`Action: ${cmuxActionHint(branch)}`,
 		state.statusMessage === undefined ? undefined : `Status: ${state.statusMessage}`,
 	]
@@ -605,7 +605,7 @@ function diagnosticsHint(state: StackMapState, diagnosticCount: number): string 
 }
 
 function cmuxActionHint(branch: StackMapBranchNode): string {
-	const tabs = branch.cmuxTabs ?? [];
+	const tabs = branch.cmuxTabs;
 	if (tabs.length === 0) return "c: open cmux workspace";
 	if (tabs.length === 1) {
 		const tab = tabs[0];
@@ -632,7 +632,7 @@ function normalizeStackMapQuery(query: string): string {
 
 function scopeMatchesBranch(branch: StackMapBranchNode, scope: StackMapScopeFilter): boolean {
 	if (scope === "all") return true;
-	return (branch.cmuxTabs?.length ?? 0) > 0;
+	return branch.cmuxTabs.length > 0;
 }
 
 function normalizedPath(path: string | undefined): string | undefined {
