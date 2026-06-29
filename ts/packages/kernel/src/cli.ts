@@ -73,6 +73,12 @@ interface SdlCliExtensionRegistryDeps {
 		| undefined;
 }
 
+type CreateSlotContext = (options: {
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+	caps?: Caps | undefined;
+}) => Promise<SlotCliContext> | SlotCliContext;
+
 export interface SdlCliDeps {
 	context?: SdlExtensionApi | undefined;
 	cwd?: string | undefined;
@@ -83,6 +89,7 @@ export interface SdlCliDeps {
 	confirm?: SdlConfirmPrompt | undefined;
 	env?: Record<string, string | undefined> | undefined;
 	extensionRegistry?: SdlCliExtensionRegistryDeps | undefined;
+	createSlotContext?: CreateSlotContext | undefined;
 }
 
 export interface BuildSdlCliOptions {
@@ -131,6 +138,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				onOutput: deps.onOutput,
 				confirm: deps.confirm,
 				caps: io.caps,
+				createSlotContext: deps.createSlotContext,
 			});
 		}
 		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
@@ -197,6 +205,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			onOutput: deps.onOutput,
 			confirm: deps.confirm,
 			caps: io.caps,
+			createSlotContext: deps.createSlotContext,
 		});
 		return {
 			type: "run",
@@ -310,6 +319,7 @@ async function handleCompletionResolverInvocation(options: {
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	caps?: Caps | undefined;
+	createSlotContext?: CreateSlotContext | undefined;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
 	const selectedCommandKey = requestedCompletedCommandKey(
@@ -346,6 +356,7 @@ async function handleCompletionResolverInvocation(options: {
 		onOutput: options.onOutput,
 		confirm: options.confirm,
 		caps: options.caps,
+		createSlotContext: options.createSlotContext,
 	});
 	const candidates = await buildCli({
 		commandInfos,
@@ -374,6 +385,7 @@ async function buildSdlCliContext(options: {
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	caps?: Caps | undefined;
+	createSlotContext?: CreateSlotContext | undefined;
 }): Promise<SdlCliContext> {
 	const baseContext =
 		options.injectedContext ?? createRealSdlCommandContext({ cwd: options.cwd, env: options.env });
@@ -396,7 +408,8 @@ async function buildSdlCliContext(options: {
 		...(confirm === undefined ? {} : { confirm }),
 		extensions: contextExtensions,
 	};
-	const slotContext = await createRealSlotContext({
+	const createSlotContext = options.createSlotContext ?? createRealSlotContext;
+	const slotContext = await createSlotContext({
 		cwd: options.cwd,
 		env: options.env,
 		...(options.caps === undefined ? {} : { caps: options.caps }),

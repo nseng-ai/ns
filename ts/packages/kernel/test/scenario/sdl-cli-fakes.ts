@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { runCli, type SdlCliDeps } from "@sdl/kernel/cli";
+import type { SlotCliContext } from "@sdl/slot";
 import type {
 	SdlExecOptions,
 	ExecResult,
@@ -39,6 +40,8 @@ export interface RunWithFakesOptions {
 	env?: Record<string, string | undefined> | undefined;
 	homeDir?: string | undefined;
 	extensionRegistry?: SdlCliDeps["extensionRegistry"] | undefined;
+	useRealSlotContext?: boolean | undefined;
+	createSlotContext?: SdlCliDeps["createSlotContext"] | undefined;
 }
 
 export interface RunWithFakesDefaults {
@@ -121,6 +124,17 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		textGenerationResults: defaults.textGenerationResults,
 		missingTextGenerationResult: defaults.missingTextGenerationResult,
 	});
+	const createSlotContext =
+		options.createSlotContext ??
+		(options.useRealSlotContext === true
+			? undefined
+			: ({ cwd: slotCwd, env }) =>
+					fakeSlotContext({
+						cwd: slotCwd,
+						env,
+						slotsRoot: join(homeDir, ".sdl", "slots"),
+						stderr: (text) => stderr.push(text),
+					}));
 	return {
 		context,
 		stdout,
@@ -144,8 +158,140 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			...(options.extensionRegistry === undefined
 				? {}
 				: { extensionRegistry: options.extensionRegistry }),
+			...(createSlotContext === undefined ? {} : { createSlotContext }),
 		}),
 	};
+}
+
+function fakeSlotContext(options: {
+	cwd: string;
+	env: NodeJS.ProcessEnv;
+	slotsRoot: string;
+	stderr: (text: string) => void;
+}): SlotCliContext {
+	return {
+		repo: {
+			type: "no_repo",
+			errorType: "not-in-repo",
+			message: "fake kernel CLI test context: repo discovery not performed",
+		},
+		git: {
+			async pathExists(_path) {
+				return unexpectedSlotGatewayCall("git.pathExists");
+			},
+			async getGitCommonDir(_cwd) {
+				return unexpectedSlotGatewayCall("git.getGitCommonDir");
+			},
+			async getRepositoryRoot(_cwd) {
+				return unexpectedSlotGatewayCall("git.getRepositoryRoot");
+			},
+			async listWorktrees() {
+				return unexpectedSlotGatewayCall("git.listWorktrees");
+			},
+			async listBranchOccupancies() {
+				return unexpectedSlotGatewayCall("git.listBranchOccupancies");
+			},
+			async listLocalBranches() {
+				return unexpectedSlotGatewayCall("git.listLocalBranches");
+			},
+			async listLocalBranchTips() {
+				return unexpectedSlotGatewayCall("git.listLocalBranchTips");
+			},
+			async hasUncommittedChanges(_path) {
+				return unexpectedSlotGatewayCall("git.hasUncommittedChanges");
+			},
+			async getTrunkBranch() {
+				return unexpectedSlotGatewayCall("git.getTrunkBranch");
+			},
+			async getCurrentBranch(_cwd) {
+				return unexpectedSlotGatewayCall("git.getCurrentBranch");
+			},
+			async getPreviousBranch(_cwd) {
+				return unexpectedSlotGatewayCall("git.getPreviousBranch");
+			},
+			async branchExists(_branch) {
+				return unexpectedSlotGatewayCall("git.branchExists");
+			},
+			async createBranch(_branch, _startPoint, _options) {
+				return unexpectedSlotGatewayCall("git.createBranch");
+			},
+			async deleteLocalBranch(_branch, _options) {
+				return unexpectedSlotGatewayCall("git.deleteLocalBranch");
+			},
+			async checkoutBranch(_cwd, _branch) {
+				return unexpectedSlotGatewayCall("git.checkoutBranch");
+			},
+			async detachHead(_cwd, _ref) {
+				return unexpectedSlotGatewayCall("git.detachHead");
+			},
+			async addDetachedWorktree(_path, _ref) {
+				unexpectedSlotGatewayCall("git.addDetachedWorktree");
+			},
+			async removeWorktree(_path) {
+				unexpectedSlotGatewayCall("git.removeWorktree");
+			},
+		},
+		gt: {
+			async parentOf(_cwd) {
+				return unexpectedSlotGatewayCall("gt.parentOf");
+			},
+			async childrenOf(_cwd) {
+				return unexpectedSlotGatewayCall("gt.childrenOf");
+			},
+			async trunk(_cwd) {
+				return unexpectedSlotGatewayCall("gt.trunk");
+			},
+			async stack(_cwd) {
+				return unexpectedSlotGatewayCall("gt.stack");
+			},
+			async stackGraph(_cwd) {
+				return unexpectedSlotGatewayCall("gt.stackGraph");
+			},
+		},
+		pr: {
+			async getPrForBranch(_branch) {
+				return unexpectedSlotGatewayCall("pr.getPrForBranch");
+			},
+			async getPrsForBranches(_branches) {
+				return unexpectedSlotGatewayCall("pr.getPrsForBranches");
+			},
+			async closePr(_number) {
+				return unexpectedSlotGatewayCall("pr.closePr");
+			},
+		},
+		storage: {
+			async ensureDir(_path) {
+				unexpectedSlotGatewayCall("storage.ensureDir");
+			},
+		},
+		clipboard: {
+			async copy(_text) {
+				return unexpectedSlotGatewayCall("clipboard.copy");
+			},
+		},
+		command: {
+			async run(_command, _args, _runOptions) {
+				return unexpectedSlotGatewayCall("command.run");
+			},
+		},
+		cwd: options.cwd,
+		interaction: {
+			async confirm(_request) {
+				return unexpectedSlotGatewayCall("interaction.confirm");
+			},
+			isInteractive() {
+				return false;
+			},
+		},
+		stderr: options.stderr,
+		env: options.env,
+		slotsRoot: options.slotsRoot,
+		shouldWriteCdDirective: false,
+	};
+}
+
+function unexpectedSlotGatewayCall(operation: string): never {
+	throw new Error(`unexpected Slot ${operation} call in kernel CLI fake`);
 }
 
 export function execResult(result: Partial<ExecResult> = {}): ExecResult {
