@@ -14,6 +14,7 @@ export type SdlCommandSourceLevel = "built-in" | "global" | "project";
 export interface SdlCommandPath {
 	group?: string | undefined;
 	name: string;
+	segments?: readonly string[] | undefined;
 }
 
 export interface SdlCommandSourceInfo {
@@ -79,16 +80,21 @@ const sdlResultSchema = z.discriminatedUnion("ok", [
 	z.object({ ok: z.literal(false), exitCode: z.number(), message: z.string() }),
 ]);
 
+export function commandSegments(path: SdlCommandPath): readonly string[] {
+	if (path.segments !== undefined) return path.segments;
+	return path.group === undefined ? [path.name] : [path.group, path.name];
+}
+
 export function commandKey(path: SdlCommandPath): string {
-	return path.group === undefined ? path.name : `${path.group}/${path.name}`;
+	return commandSegments(path).join("/");
 }
 
 export function commandDisplayName(path: SdlCommandPath): string {
-	return path.group === undefined ? path.name : `${path.group} ${path.name}`;
+	return commandSegments(path).join(" ");
 }
 
 export function commandPathMatches(left: SdlCommandPath, right: SdlCommandPath): boolean {
-	return left.name === right.name && left.group === right.group;
+	return commandKey(left) === commandKey(right);
 }
 
 export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] {
@@ -125,8 +131,10 @@ export function commandInfoForLoadedCommand(
 			fullDescription: definition.description,
 		};
 	}
+	const segments = commandSegments(path);
 	return {
 		...(path.group === undefined ? {} : { group: path.group }),
+		...(path.segments === undefined ? {} : { segments }),
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,

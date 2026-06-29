@@ -14,7 +14,7 @@ export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
 export interface DiscoveredExtensionCommand extends Pick<
 	SdlCommandCandidate,
-	"group" | "name" | "description" | "fullDescription" | "entryPath"
+	"group" | "name" | "segments" | "description" | "fullDescription" | "entryPath"
 > {
 	entryPath: string;
 	displayPath: string;
@@ -37,13 +37,14 @@ export interface ExtensionDiscoveryResult {
 interface ParsedManifestCommandEntryFields {
 	group: string | undefined;
 	name: string | undefined;
+	segments: readonly string[] | undefined;
 	description: string | undefined;
 	entry: string | undefined;
 	fullDescription: string | undefined;
 }
 
 interface ManifestCommandFieldSpec {
-	key: keyof Omit<ParsedManifestCommandEntryFields, "group">;
+	key: keyof Omit<ParsedManifestCommandEntryFields, "group" | "segments">;
 	diagnosticField: string;
 	code: ExtensionDiscoveryDiagnostic["code"];
 	required: boolean;
@@ -361,6 +362,7 @@ function commandForManifestEntry(options: {
 		command: {
 			kind: "package",
 			...(parsedEntry.entry.group === undefined ? {} : { group: parsedEntry.entry.group }),
+			...(parsedEntry.entry.segments === undefined ? {} : { segments: parsedEntry.entry.segments }),
 			name: parsedEntry.entry.name,
 			description: parsedEntry.entry.description,
 			fullDescription: parsedEntry.entry.fullDescription,
@@ -471,18 +473,25 @@ function parseManifestCommandEntry(options: {
 	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
 	commandName: string | undefined;
 } {
-	const commandName = readNonEmptyString(options.entry.name);
+	const rawPath = parseManifestPath(options.entry.path);
+	const explicitName = readNonEmptyString(options.entry.name);
+	const commandName = explicitName ?? rawPath.value?.at(-1);
 	const rawEntryGroup = options.entry.group;
 	const entryGroup =
 		rawEntryGroup === undefined ? options.packageGroup : readNonEmptyString(rawEntryGroup);
+	const segments =
+		rawPath.value === undefined
+			? undefined
+			: [...(entryGroup === undefined ? [] : [entryGroup]), ...rawPath.value];
 	const fields: ParsedManifestCommandEntryFields = {
 		group: entryGroup,
-		name: undefined,
+		name: commandName,
+		segments,
 		description: undefined,
 		entry: undefined,
 		fullDescription: undefined,
 	};
-	const diagnostics: ExtensionDiscoveryDiagnostic[] = [];
+	const diagnostics: ExtensionDiscoveryDiagnostic[] = [...rawPath.diagnostics];
 	const entryGroupDiagnostic = groupDiagnostic({
 		group: rawEntryGroup,
 		packageJsonPath: options.packageJsonPath,
@@ -491,6 +500,9 @@ function parseManifestCommandEntry(options: {
 	if (entryGroupDiagnostic !== undefined) diagnostics.push(entryGroupDiagnostic);
 
 	for (const field of MANIFEST_COMMAND_FIELDS) {
+		if (field.key === "name" && rawPath.value !== undefined && options.entry.name === undefined) {
+			continue;
+		}
 		const rawValue = options.entry[field.key];
 		if (!field.required && rawValue === undefined) continue;
 
@@ -531,6 +543,40 @@ function groupDiagnostic(options: {
 		`Extension manifest command group must match ${SDL_COMMAND_NAME_RULE}.`,
 		{ path: options.packageJsonPath, commandName: options.commandName },
 	);
+}
+
+function parseManifestPath(value: unknown): {
+	value: readonly string[] | undefined;
+	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
+} {
+	if (value === undefined) return { value: undefined, diagnostics: [] };
+	if (!Array.isArray(value) || value.length === 0) {
+		return {
+			value: undefined,
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_command_path_invalid",
+					`Extension manifest command path must be a non-empty array of segments matching ${SDL_COMMAND_NAME_RULE}.`,
+				),
+			],
+		};
+	}
+	const segments = value.filter((segment): segment is string => typeof segment === "string");
+	if (
+		segments.length !== value.length ||
+		segments.some((segment) => !SDL_COMMAND_NAME_PATTERN.test(segment))
+	) {
+		return {
+			value: undefined,
+			diagnostics: [
+				diagnostic(
+					"extension_manifest_command_path_invalid",
+					`Extension manifest command path segments must match ${SDL_COMMAND_NAME_RULE}.`,
+				),
+			],
+		};
+	}
+	return { value: segments, diagnostics: [] };
 }
 
 function readNonEmptyString(value: unknown): string | undefined {

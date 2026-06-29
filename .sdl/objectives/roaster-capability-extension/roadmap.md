@@ -17,10 +17,10 @@
   - Guidance: model Roaster as an SDL extension command group while preserving current review/roast/exec semantics unless the inventory records a better taxonomy. Discovery/help should be side-effect-light and should not eagerly run model, git, Branch Memory, or GitHub operations.
   - Evidence: completed by `updates/2026-06-28T205700Z-roaster-sdl-command-face-proof.md`; SDL command scenario tests cover top-level manifest discovery, selected help/schema loading, and a fake-exec representative `sdl roaster review-list --format json` command without eager model, Branch Memory, or GitHub work.
 
-- [ ] Migrate low-risk read/list surfaces to the SDL command face.
+- [x] Migrate low-risk read/list surfaces to the SDL command face.
   - Policy: direct execution after preview for implementation and tests.
   - Guidance: start with `review list`, `review ls`, `review log`, and `roast list` because they exercise catalog/log rendering without model execution or GitHub publication. Preserve JSON/Markdown behavior, finite counts where applicable, and review-log namespace/key semantics. While doing this row, split read/list/log builders into domain-result operations before CLI/API wrapping, following the Objective `buildObjectiveListResult()` precedent; the initial API boundary intentionally kept a transitional `ClinkrExit` conversion and parked that cleanup here.
-  - Evidence: command scenarios and fake-backed tests prove parity with current behavior; public docs/skills no longer teach stale standalone-only invocations for these surfaces once parity exists.
+  - Evidence: completed by `updates/2026-06-28T204211Z-roaster-nested-read-list-migration.md`; SDL now supports structured nested extension paths and Roaster contributes `sdl roaster review list`, `review ls`, `review log [key]`, and `roast list`. Fake-backed SDL scenarios cover discovery/help/schema and JSON execution including Branch Memory review-log namespace/key semantics; existing Roaster CLI/API suites remain green, and read/list API methods consume domain-result builders instead of `ClinkrExit` conversion.
 
 - [ ] Migrate review execution and same-session findings recording.
   - Policy: direct execution after preview for fake-backed implementation; ask before running real model-backed reviews or writing real Branch Memory logs as validation.
