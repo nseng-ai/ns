@@ -129,4 +129,32 @@ describe("registerBackingSkillCommands", () => {
 			await rm(repo, { recursive: true, force: true });
 		}
 	});
+
+	test("generic commands can read vendored backing skills from .agents/skills", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "vendored-backing-skill-command-"));
+		try {
+			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
+			await mkdir(skillDir, { recursive: true });
+			await writeFile(
+				join(skillDir, "SKILL.md"),
+				"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
+				"utf8",
+			);
+
+			const host = new FakeBackingSkillHost();
+			registerBackingSkillCommands(host);
+			const command = host.commands.get("improve:codebase-architecture");
+			expect(command).toBeDefined();
+
+			await command?.handler("", commandContext(repo));
+
+			expect(host.sentMessages).toHaveLength(1);
+			expect(host.sentMessages[0]).toContain(
+				`<skill name="improve-codebase-architecture" location="${join(skillDir, "SKILL.md")}">`,
+			);
+			expect(host.sentMessages[0]).toContain("# Improve Codebase Architecture");
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
 });
