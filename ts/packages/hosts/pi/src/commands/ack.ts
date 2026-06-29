@@ -1,3 +1,4 @@
+import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../shared/timers.ts";
 import {
 	customMessageText,
@@ -311,7 +312,9 @@ function notifyCommandProgress<TLevel extends CommandProgressNotifyLevel>(
 	message: string,
 	level: TLevel | undefined,
 ): void {
-	ctx.ui?.notify?.(message, level ?? "info");
+	withSafePiUi(() => {
+		ctx.ui?.notify?.(message, level ?? "info");
+	});
 }
 
 function shouldAcknowledgeContext(ctx: unknown): boolean {
@@ -322,10 +325,19 @@ function shouldAcknowledgeContext(ctx: unknown): boolean {
 function emitStatusAck(params: EmitStatusAckOptions): void {
 	const { ctx, key, message, startedMessage, clearDelayMs } = params;
 	if (!isImmediateCommandStatusContext(ctx)) return;
-	const setStatus = ctx.ui?.setStatus;
+	const setStatusResult = withSafePiUiValue(() => ctx.ui?.setStatus);
+	if (setStatusResult.type === "stale-context") return;
+	const setStatus = setStatusResult.value;
 	if (setStatus === undefined) return;
-	setStatus(key, message);
-	unrefTimerScheduler.setTimeout(() => setStatus(key, startedMessage), clearDelayMs);
+	const initialResult = withSafePiUi(() => {
+		setStatus(key, message);
+	});
+	if (initialResult.type === "stale-context") return;
+	unrefTimerScheduler.setTimeout(() => {
+		withSafePiUi(() => {
+			setStatus(key, startedMessage);
+		});
+	}, clearDelayMs);
 }
 
 function markAcknowledged(ctx: unknown, commandName: string): boolean {

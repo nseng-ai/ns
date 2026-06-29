@@ -8,6 +8,7 @@ import type { ScheduledTimer } from "@sdl/core/timers";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
+import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
@@ -665,7 +666,7 @@ class LiveCommandProgress {
 		this.isClosed = true;
 		this.clearTimer();
 		if (this.target !== "none") {
-			this.withActiveContext(() => {
+			this.runLiveUiUpdate(() => {
 				this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, undefined);
 				this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, undefined);
 			});
@@ -685,7 +686,7 @@ class LiveCommandProgress {
 		if (this.target === "none" || this.isClosed) return;
 
 		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.withActiveContext(() => {
+		this.runLiveUiUpdate(() => {
 			this.renderStatus(elapsed);
 			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
 				placement: "aboveEditor",
@@ -703,19 +704,17 @@ class LiveCommandProgress {
 		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, value);
 	}
 
-	private withActiveContext(action: () => void): void {
-		try {
-			action();
-		} catch (error) {
-			if (!isStaleExtensionContextError(error)) throw error;
-			this.isClosed = true;
-			this.clearTimer();
-			traceCliCommand("live_progress_stale_context", {
-				commandName: this.options.commandName,
-				piCommandName: this.options.piCommandName,
-				target: this.target,
-			});
-		}
+	private runLiveUiUpdate(action: () => void): void {
+		const result = withSafePiUi(action);
+		if (result.type === "ok") return;
+
+		this.isClosed = true;
+		this.clearTimer();
+		traceCliCommand("live_progress_stale_context", {
+			commandName: this.options.commandName,
+			piCommandName: this.options.piCommandName,
+			target: this.target,
+		});
 	}
 
 	private clearTimer(): void {
@@ -782,15 +781,15 @@ class LiveCommandProgress {
 function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
 	if (!ctx.hasUI) return "none";
 
-	const hasStatus = ctx.ui.setStatus !== undefined;
-	const hasWidget = ctx.ui.setWidget !== undefined;
-	if (hasWidget) return "widget";
-	if (hasStatus) return "status";
-	return "none";
-}
-
-function isStaleExtensionContextError(error: unknown): boolean {
-	return error instanceof Error && error.message.includes("This extension ctx is stale");
+	const result = withSafePiUiValue(() => {
+		const hasStatus = ctx.ui.setStatus !== undefined;
+		const hasWidget = ctx.ui.setWidget !== undefined;
+		if (hasWidget) return "widget";
+		if (hasStatus) return "status";
+		return "none";
+	});
+	if (result.type === "stale-context") return "none";
+	return result.value;
 }
 
 function formatCommandForDisplay(cliName: string, argv: readonly string[]): string {

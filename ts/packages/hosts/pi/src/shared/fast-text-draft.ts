@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
+import { withSafePiUi } from "./safe-ui.ts";
 import { unrefTimerScheduler } from "./timers.ts";
 
 export const HARNESS_ENV = "PI_DRAFT_HARNESS";
@@ -241,19 +242,38 @@ async function withSpinner<T>(
 	operation: () => Promise<T>,
 ): Promise<T> {
 	let frameIndex = 0;
+	let isStale = false;
+	let timer: ReturnType<typeof unrefTimerScheduler.setInterval> | undefined;
+	const clearTimer = () => {
+		if (timer === undefined) return;
+		timer.cancel();
+		timer = undefined;
+	};
 	const render = () => {
+		if (isStale) return;
 		const frame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
 		frameIndex += 1;
-		setProgress(ctx, spinnerKey, `${frame} ${message}`);
+		const result = withSafePiUi(() => {
+			setProgress(ctx, spinnerKey, `${frame} ${message}`);
+		});
+		if (result.type === "ok") return;
+		isStale = true;
+		clearTimer();
 	};
 
 	render();
-	const timer = unrefTimerScheduler.setInterval(render, 120);
+	if (!isStale) {
+		timer = unrefTimerScheduler.setInterval(render, 120);
+	}
 	try {
 		return await operation();
 	} finally {
-		timer.cancel();
-		clearProgress(ctx, spinnerKey);
+		clearTimer();
+		if (!isStale) {
+			withSafePiUi(() => {
+				clearProgress(ctx, spinnerKey);
+			});
+		}
 	}
 }
 
