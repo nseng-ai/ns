@@ -2,8 +2,9 @@
 
 import { resolve } from "node:path";
 
-import { ClinkrGroup, negative, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, runClinkrCommand } from "@sdl/core/cli-entry";
+import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
+import { defineCli } from "@sdl/core/cli-entry";
+import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { readStdin } from "@sdl/core/stdin";
@@ -26,7 +27,7 @@ import {
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 
-const PLANS_ERROR_TYPE = "plans-error";
+type PlansOperation = "list" | "save" | "resolve";
 
 const listRequestSchema = z.object({
 	planStoreRoot: z
@@ -61,7 +62,12 @@ type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEviden
 
 type SavedPlanListData = ReturnType<typeof savedPlanListJson>;
 type SavedPlanFileData = ReturnType<typeof savedPlanFileJson>;
-type ResolvePlanData = ReturnType<typeof resolvePlanJson>;
+interface NoSavedPlanData {
+	code: NoSavedPlanAvailableError["reason"];
+	directoryPath: string;
+}
+
+type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
 
 export interface CliDeps {
 	commands?: CommandExecApi | undefined;
@@ -145,7 +151,7 @@ async function handleList(
 	ctx: PlansCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<SavedPlanListData>> {
-	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
+	return await runPlansCommand("list", async () => {
 		const cliPlanStoreRoot =
 			request.planStoreRoot === undefined
 				? undefined
@@ -165,11 +171,20 @@ async function handleSave(
 	ctx: PlansCliContext,
 	request: SaveRequest,
 ): Promise<ClinkrExit<SavedPlanFileData>> {
-	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
+	return await runPlansCommand("save", async () => {
 		const slugError = validatePlanSlug(request.slug);
-		if (slugError !== undefined) throw new Error(`Invalid saved plan slug: ${slugError}`);
+		if (slugError !== undefined) {
+			return usageError(`Invalid saved plan slug: ${slugError}`, {
+				code: "invalid-slug",
+				argument: "slug",
+				reason: slugError,
+			});
+		}
 		if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
-			throw new Error("Pass exactly one of --stdin or --content-file <path>.");
+			return usageError("Pass exactly one of --stdin or --content-file <path>.", {
+				code: "invalid-save-input",
+				requiredExactlyOneOf: ["--stdin", "--content-file"],
+			});
 		}
 
 		const contentFile = request.contentFile;
@@ -204,16 +219,46 @@ async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
 ): Promise<ClinkrExit<ResolvePlanData>> {
-	return await runClinkrCommand(PLANS_ERROR_TYPE, async () => {
+	return await runPlansCommand<ResolvePlanData>("resolve", async () => {
 		try {
 			return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
 		} catch (error) {
 			if (error instanceof NoSavedPlanAvailableError) {
-				return negative(error.message);
+				return negative(error.message, {
+					data: { code: error.reason, directoryPath: error.directoryPath },
+				});
 			}
 			throw error;
 		}
 	});
+}
+
+async function runPlansCommand<T>(
+	operation: PlansOperation,
+	action: () => Promise<ClinkrExit<T>>,
+): Promise<ClinkrExit<T>> {
+	try {
+		return await action();
+	} catch (error) {
+		return plansFailureFromError(operation, error);
+	}
+}
+
+function plansFailureFromError(operation: PlansOperation, error: unknown): ClinkrExit<never> {
+	return failure(plansErrorType(operation), formatErrorMessage(error), {
+		code: "unexpected-error",
+	});
+}
+
+function plansErrorType(operation: PlansOperation): string {
+	switch (operation) {
+		case "list":
+			return "saved-plan-list-failed";
+		case "save":
+			return "saved-plan-write-failed";
+		case "resolve":
+			return "saved-plan-resolution-failed";
+	}
 }
 
 function normalizeRootPath(rawPath: string, cwd: string): string {
@@ -263,6 +308,9 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 }
 
 function renderResolvePlanData(data: ResolvePlanData): string {
+	if (!("source" in data)) {
+		return `No saved plan available: ${data.code}\nDirectory: ${data.directoryPath}`;
+	}
 	if (data.source === "explicit") {
 		return [`Resolved explicit plan file.`, `Path: ${data.filePath}`].join("\n");
 	}
