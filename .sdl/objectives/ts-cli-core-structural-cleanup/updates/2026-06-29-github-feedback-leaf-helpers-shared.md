@@ -6,6 +6,7 @@ Implemented the neutral GitHub PR feedback leaf-helper cleanup slice.
 - `@sdl/roaster` imports those helpers through the curated `@sdl/core/github-pr-feedback` subpath and no longer defines local `ghAuthorSchema`, `normalizeAuthor`, or `numericId` copies in `src/gateways/github.ts`.
 - Roaster keeps its own gateway, review-log, file, marker, mutation, and failure-mapping policy. The shared JSON helper only reports parse vs schema errors; Roaster still maps those into `github-json-invalid` and `github-response-invalid`.
 - Roaster discussion comments now use Core's positive safe numeric GitHub identity policy. Missing, non-numeric, zero, and negative ids in listed comments or add/update mutation responses produce `github-response-invalid`; positive numeric string ids remain accepted and normalized to numbers.
+- The shared author schema preserves Roaster's prior missing-login compatibility: author objects without `login` remain valid and normalize to an empty author string.
 
 Validation:
 

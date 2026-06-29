@@ -14,7 +14,7 @@ export const prSummaryListSchema = z.array(prSummarySchema);
 
 export const ghAuthorSchema = z.union([
 	z.string(),
-	z.object({ login: z.string() }).loose(),
+	z.object({ login: z.string().optional() }).loose(),
 	z.null(),
 ]);
 
