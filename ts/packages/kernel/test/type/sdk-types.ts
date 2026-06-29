@@ -52,7 +52,7 @@ const extension = defineExtension({
 				] = [true, true];
 				void checks;
 				// @ts-expect-error missing is not part of the fourth command schema
-				request.missing;
+				void request.missing;
 				return ok(request.fourth ? "yes" : "no");
 			},
 		},
@@ -69,7 +69,7 @@ const extension = defineExtension({
 				] = [true, true];
 				void checks;
 				// @ts-expect-error missing is not part of the fifth command schema
-				request.missing;
+				void request.missing;
 				return ok(request.fifth);
 			},
 		},
