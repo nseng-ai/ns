@@ -47,6 +47,16 @@ jobs:
       - name: Run TypeScript integration tests
         run: just ts-test-integration
 
+  typescript-style-guard:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-typescript
+      - name: Run TypeScript style guard tests
+        run: just ts-test-typescript-style-guard
+
   docs-build:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest

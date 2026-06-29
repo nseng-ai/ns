@@ -43,6 +43,9 @@ ts-test: ts-install
 ts-test-integration: ts-install
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:integration
 
+ts-test-typescript-style-guard: ts-install
+    {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:typescript-style-guard
+
 docs-install:
     pnpm --dir {{justfile_directory()}}/docs-site install
 
