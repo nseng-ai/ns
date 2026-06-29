@@ -31,11 +31,11 @@ export interface LandResultBlock {
 	 * list, failure cause + command details, or post-landing cleanup details. Built by the typed
 	 * formatters in `presentation.ts`; passed through as-is so this stays a pure layout primitive.
 	 */
-	body?: string | undefined;
+	body?: string;
 	/** Optional normal-weight "what to do next" line (e.g. a suggested recovery command). */
-	guidance?: string | undefined;
+	guidance?: string;
 	/** Optional working directory / repo root, shown as dimmed plumbing evidence when present. */
-	cwd?: string | undefined;
+	cwd?: string;
 }
 
 export interface LandResultMessageBlock {
@@ -43,9 +43,9 @@ export interface LandResultMessageBlock {
 	/** Domain-authored message whose first line becomes the headline and rest becomes the body. */
 	message: string;
 	/** Optional normal-weight "what to do next" line (e.g. a suggested recovery command). */
-	guidance?: string | undefined;
+	guidance?: string;
 	/** Optional working directory / repo root, shown as dimmed plumbing evidence when present. */
-	cwd?: string | undefined;
+	cwd?: string;
 }
 
 /** Render a land result block to a string, styled and degraded for `caps`. */

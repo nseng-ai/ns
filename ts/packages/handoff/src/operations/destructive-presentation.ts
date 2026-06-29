@@ -6,8 +6,8 @@ export type HandoffDestructiveResultKind = ResultBlockKind;
 export interface HandoffDestructiveResultBlock {
 	kind: HandoffDestructiveResultKind;
 	headline: string;
-	body?: string | undefined;
-	guidance?: string | undefined;
+	body?: string;
+	guidance?: string;
 }
 
 export function renderHandoffDestructiveResultBlock(

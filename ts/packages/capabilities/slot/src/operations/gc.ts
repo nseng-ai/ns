@@ -122,10 +122,11 @@ export function renderGc(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const resolvedCaps = resolveRenderCapabilities(caps);
+	const body = renderGcDetails(result, resolvedCaps);
 	return renderSlotDestructiveResultBlock(caps, {
 		kind: gcResultKind(result),
 		headline: gcHeadline(result),
-		body: renderGcDetails(result, resolvedCaps),
+		...(body === undefined ? {} : { body }),
 	});
 }
 

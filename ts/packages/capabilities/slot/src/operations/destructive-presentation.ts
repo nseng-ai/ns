@@ -6,8 +6,8 @@ export type SlotDestructiveResultKind = ResultBlockKind;
 export interface SlotDestructiveResultBlock {
 	kind: SlotDestructiveResultKind;
 	headline: string;
-	body?: string | undefined;
-	guidance?: string | undefined;
+	body?: string;
+	guidance?: string;
 }
 
 export function renderSlotDestructiveResultBlock(

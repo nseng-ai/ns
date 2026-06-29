@@ -30,10 +30,11 @@ export function renderResize(
 	result: ResizeResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
+	const body = renderResizeDetails(result);
 	return renderSlotDestructiveResultBlock(caps, {
 		kind: "success",
 		headline: resizeHeadline(result),
-		body: renderResizeDetails(result),
+		...(body === undefined ? {} : { body }),
 	});
 }
 

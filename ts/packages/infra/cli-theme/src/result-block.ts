@@ -13,24 +13,24 @@ export type ResultBlockKind = "success" | "failure" | "refusal";
 export interface ResultBlockInput {
 	kind: ResultBlockKind;
 	headline: string;
-	body?: string | undefined;
-	guidance?: string | undefined;
-	cwd?: string | undefined;
+	body?: string;
+	guidance?: string;
+	cwd?: string;
 }
 
 export interface ResultBlockMessageInput {
 	kind: ResultBlockKind;
 	/** Domain-authored message whose first line is the headline and remaining lines are the body. */
 	message: string;
-	guidance?: string | undefined;
-	cwd?: string | undefined;
+	guidance?: string;
+	cwd?: string;
 }
 
 export interface DestructiveResultBlock {
 	kind: ResultBlockKind;
 	headline: string;
-	body?: string | undefined;
-	guidance?: string | undefined;
+	body?: string;
+	guidance?: string;
 }
 
 export function resultBlockHeadline(
