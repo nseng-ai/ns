@@ -1,4 +1,10 @@
 import { commandFailureReason, execApiToCommandRunner, type CommandExecApi } from "@sdl/core/exec";
+import {
+	ghAuthorSchema,
+	normalizeAuthor,
+	numericGithubIdentity,
+	parseGithubJson,
+} from "@sdl/core/github-pr-feedback";
 import { runGitHubCli } from "@sdl/core/github-cli";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { withTemporaryJsonFile } from "@sdl/core/temp-files";
@@ -13,11 +19,6 @@ import type {
 } from "../models.ts";
 import { ROASTER_BOT_LOGIN } from "../roaster-bot.ts";
 
-const ghAuthorSchema = z.union([
-	z.string(),
-	z.object({ login: z.string().default("") }).loose(),
-	z.null(),
-]);
 const ghChangedFileSchema = z
 	.object({
 		filename: z.string().optional(),
@@ -41,7 +42,19 @@ const ghDiscussionCommentSchema = z
 		author: ghAuthorSchema.optional(),
 		user: ghAuthorSchema.optional(),
 	})
-	.loose();
+	.loose()
+	.transform((comment, ctx) => {
+		const numericId = numericGithubIdentity(comment.databaseId ?? comment.id);
+		if (numericId === null) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["databaseId"],
+				message: "Discussion comment must include a positive integer databaseId or numeric id.",
+			});
+			return z.NEVER;
+		}
+		return { ...comment, numericId };
+	});
 
 export interface GitHubGatewayOptions {
 	readonly cwd: string;
@@ -132,7 +145,7 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		return {
 			type: "ok",
 			value: parsed.value.map((comment) => ({
-				author: normalizeAuthor(comment.user ?? comment.author),
+				author: normalizeAuthor(comment.user ?? comment.author ?? null),
 				body: comment.body,
 			})),
 		};
@@ -229,7 +242,7 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		if (parsed.type === "error") return parsed;
 		return {
 			type: "ok",
-			value: parsed.value.map(normalizeDiscussionComment).filter((comment) => comment.id !== 0),
+			value: parsed.value.map(normalizeDiscussionComment),
 		};
 	}
 
@@ -389,48 +402,30 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 }
 
 function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): RoasterResult<T> {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(text);
-	} catch (caught) {
+	const result = parseGithubJson(text, schema);
+	if (result.type === "parse-error")
 		return error({
 			type: "github-json-invalid",
-			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(caught)}`,
+			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(result.error)}`,
 		});
-	}
-	const result = schema.safeParse(parsed);
-	if (!result.success)
+	if (result.type === "schema-error")
 		return error({
 			type: "github-response-invalid",
 			message: `GitHub response for ${operation} did not match the expected shape: ${z.prettifyError(result.error)}`,
 		});
-	return { type: "ok", value: result.data };
+	return { type: "ok", value: result.value };
 }
 
 type AuthoredDiscussionComment = PRDiscussionComment & { readonly author: string };
-
-function normalizeAuthor(author: z.infer<typeof ghAuthorSchema> | undefined): string {
-	if (typeof author === "string") return author;
-	return author?.login ?? "";
-}
 
 function normalizeDiscussionComment(
 	comment: z.infer<typeof ghDiscussionCommentSchema>,
 ): AuthoredDiscussionComment {
 	return {
-		id: numericId(comment.databaseId ?? comment.id),
+		id: comment.numericId,
 		body: comment.body,
-		author: normalizeAuthor(comment.user ?? comment.author),
+		author: normalizeAuthor(comment.user ?? comment.author ?? null),
 	};
-}
-
-function numericId(value: string | number | undefined): number {
-	if (typeof value === "number") return value;
-	if (typeof value === "string") {
-		const numeric = Number(value);
-		if (Number.isInteger(numeric)) return numeric;
-	}
-	return 0;
 }
 
 function error(errorValue: GitHubGatewayFailure): RoasterResult<never> {

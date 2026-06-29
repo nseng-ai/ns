@@ -8,6 +8,19 @@ import type { Result } from "../result.ts";
 import { failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
 import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";
 
+export type GithubJsonParseResult<T> =
+	| { readonly type: "ok"; readonly value: T }
+	| { readonly type: "parse-error"; readonly error: unknown }
+	| { readonly type: "schema-error"; readonly error: z.ZodError };
+
+export function parseGithubJson<T>(text: string, schema: z.ZodType<T>): GithubJsonParseResult<T> {
+	const parsed = parseJsonUnknown(text);
+	if (parsed.type === "error") return { type: "parse-error", error: parsed.error };
+	const result = schema.safeParse(parsed.value);
+	if (!result.success) return { type: "schema-error", error: result.error };
+	return { type: "ok", value: result.data };
+}
+
 export function parseJson<T>(
 	text: string,
 	schema: z.ZodType<T>,

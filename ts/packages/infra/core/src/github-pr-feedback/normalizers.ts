@@ -78,7 +78,7 @@ export function normalizeDiscussionComment(
 	};
 }
 
-function normalizeAuthor(author: z.infer<typeof ghAuthorSchema>): string {
+export function normalizeAuthor(author: z.infer<typeof ghAuthorSchema>): string {
 	if (typeof author === "string") return author;
 	return author?.login ?? "";
 }

@@ -165,6 +165,63 @@ describe("RealRoasterGitHubGateway", () => {
 		]);
 	});
 
+	test("accepts positive numeric string ids in discussion comments", async () => {
+		const execApi = new ScriptedCommandExecApi([
+			{
+				stdout: JSON.stringify([
+					{
+						id: "42",
+						user: { login: "github-actions[bot]" },
+						body: "prefix <!-- roaster:review -->",
+					},
+				]),
+			},
+		]);
+		const gateway = new RealRoasterGitHubGateway(execApi);
+
+		const result = await gateway.findPrDiscussionCommentByMarker({
+			prNumber: 12,
+			marker: "<!-- roaster:review -->",
+			authorLogin: "github-actions[bot]",
+			cwd: "/repo",
+		});
+
+		expect(result).toEqual({
+			type: "ok",
+			value: { id: 42, body: "prefix <!-- roaster:review -->" },
+		});
+	});
+
+	test("rejects invalid ids in listed discussion comments", async () => {
+		const invalidComments = [
+			{ label: "missing", comment: { user: { login: "github-actions[bot]" }, body: "body" } },
+			{
+				label: "non-numeric",
+				comment: { id: "abc", user: { login: "github-actions[bot]" }, body: "body" },
+			},
+			{ label: "zero", comment: { id: 0, user: { login: "github-actions[bot]" }, body: "body" } },
+			{
+				label: "negative",
+				comment: { id: -1, user: { login: "github-actions[bot]" }, body: "body" },
+			},
+		];
+
+		for (const invalid of invalidComments) {
+			const execApi = new ScriptedCommandExecApi([{ stdout: JSON.stringify([invalid.comment]) }]);
+			const gateway = new RealRoasterGitHubGateway(execApi);
+
+			const result = await gateway.findPrDiscussionCommentByMarker({
+				prNumber: 12,
+				marker: "body",
+				authorLogin: "github-actions[bot]",
+				cwd: "/repo",
+			});
+
+			expect(result.type, invalid.label).toBe("error");
+			if (result.type === "error") expect(result.error.type).toBe("github-response-invalid");
+		}
+	});
+
 	test("adds and updates issue discussion comments", async () => {
 		const execApi = new ScriptedCommandExecApi([
 			{ stdout: JSON.stringify({ id: 11, body: "created" }) },
@@ -196,6 +253,34 @@ describe("RealRoasterGitHubGateway", () => {
 			"-f",
 			"body=updated",
 		]);
+	});
+
+	test("rejects invalid ids in discussion comment mutations", async () => {
+		const invalidComments = [
+			{ label: "missing", comment: { body: "body" } },
+			{ label: "non-numeric", comment: { id: "abc", body: "body" } },
+			{ label: "zero", comment: { id: 0, body: "body" } },
+			{ label: "negative", comment: { id: -1, body: "body" } },
+		];
+
+		for (const invalid of invalidComments) {
+			const addGateway = new RealRoasterGitHubGateway(
+				new ScriptedCommandExecApi([{ stdout: JSON.stringify(invalid.comment) }]),
+			);
+			const addResult = await addGateway.addPrDiscussionComment(12, "created", { cwd: "/repo" });
+			expect(addResult.type, `add ${invalid.label}`).toBe("error");
+			if (addResult.type === "error") expect(addResult.error.type).toBe("github-response-invalid");
+
+			const updateGateway = new RealRoasterGitHubGateway(
+				new ScriptedCommandExecApi([{ stdout: JSON.stringify(invalid.comment) }]),
+			);
+			const updateResult = await updateGateway.updatePrDiscussionComment(11, "updated", {
+				cwd: "/repo",
+			});
+			expect(updateResult.type, `update ${invalid.label}`).toBe("error");
+			if (updateResult.type === "error")
+				expect(updateResult.error.type).toBe("github-response-invalid");
+		}
 	});
 
 	test("returns self-contained typed failures for gh and JSON errors", async () => {
