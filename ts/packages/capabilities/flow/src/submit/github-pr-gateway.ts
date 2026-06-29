@@ -1,7 +1,7 @@
-import { runCommand, type CommandRunner, type ExecResult } from "../exec.ts";
-import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "../github-cli.ts";
-import { isRecord } from "../primitives.ts";
-import { withTemporaryFile } from "../temp-files.ts";
+import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
+import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/core/github-cli";
+import { isRecord } from "@sdl/core/primitives";
+import { withTemporaryFile } from "@sdl/core/temp-files";
 
 import { err, ok, type GatewayResult } from "./result.ts";
 import { commandFailure } from "./command-failure.ts";

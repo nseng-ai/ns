@@ -1,5 +1,5 @@
 import type { GitErrorInfo } from "@sdl/core/git";
-import type { ErrorInfo } from "@sdl/core/submit";
+import type { ErrorInfo } from "@sdl/core/result";
 
 export type GatewayFailure = (ErrorInfo | GitErrorInfo) & {
 	stderr?: string | undefined;

@@ -15,11 +15,27 @@ import {
 	type ExecResult,
 } from "../exec.ts";
 import type { ScheduledTimer, TimerScheduler } from "../timers.ts";
-import type {
-	TextGenerationRequest,
-	TextGenerationResult,
-	TextGenerator,
-} from "../submit/text-generation.ts";
+export interface TextGenerationRequest {
+	modelRef: string;
+	system: string;
+	prompt: string;
+	maxTokens?: number;
+	reasoning?: "minimal" | "low";
+	operation?: string;
+}
+
+export interface TextGenerationUsage {
+	inputTokens: number;
+	outputTokens: number;
+}
+
+export type TextGenerationResult =
+	| { ok: true; text: string; usage?: TextGenerationUsage }
+	| { ok: false; error: string };
+
+export interface TextGenerator {
+	generateText(request: TextGenerationRequest): Promise<TextGenerationResult>;
+}
 
 export interface NodeRuntimeCliEntrypointOptions {
 	readonly name: string;

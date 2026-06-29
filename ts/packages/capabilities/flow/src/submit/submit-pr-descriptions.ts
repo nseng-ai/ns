@@ -1,10 +1,7 @@
-import { orchestratePrDescription } from "@sdl/core/submit";
-import {
-	resolvePrDescriptionGeneration,
-	type PrDescriptionGenerationResolution,
-} from "@sdl/core/submit";
-import { formatItemCount } from "@sdl/core/submit";
-import type { PrewrittenPrMetadata } from "@sdl/core/submit";
+import { orchestratePrDescription } from "./index.ts";
+import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
+import { formatItemCount } from "./index.ts";
+import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
 import type { SubmitPrDescriptionOptions } from "./submit.ts";

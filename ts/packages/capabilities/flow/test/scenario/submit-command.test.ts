@@ -11,7 +11,7 @@ import {
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
-} from "@sdl/core/submit";
+} from "../../src/submit/index.ts";
 import type { TextGenerationResult } from "sdl-sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";

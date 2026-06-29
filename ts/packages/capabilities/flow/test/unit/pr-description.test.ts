@@ -21,7 +21,7 @@ import {
 	replaceOrInsertGeneratedRegion,
 	resolvePrDescriptionPrompt,
 	truncateDiff,
-} from "@sdl/core/submit";
+} from "../../src/submit/index.ts";
 
 function validDraft(): string {
 	return `Add pluggable PR descriptions

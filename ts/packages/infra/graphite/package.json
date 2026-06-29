@@ -9,7 +9,6 @@
     "./status": "./src/status.ts",
     "./branch": "./src/branch.ts",
     "./stack": "./src/stack.ts",
-    "./submit": "./src/submit/index.ts",
     "./testing": "./src/testing/index.ts"
   },
   "files": [

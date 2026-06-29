@@ -1,4 +1,4 @@
-import { tailText, type ExecResult } from "../exec.ts";
+import { tailText, type ExecResult } from "@sdl/core/exec";
 
 import type { ErrorInfo } from "./result.ts";
 

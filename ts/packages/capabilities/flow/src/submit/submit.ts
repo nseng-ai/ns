@@ -9,9 +9,9 @@ import {
 	type ExecResult,
 } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/core/git";
-import { runGraphiteCommand } from "../branch.ts";
+import { runGraphiteCommand } from "@sdl/graphite/branch";
 
-import { formatItemCount, type GithubPrGateway, type TextGenerator } from "@sdl/core/submit";
+import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,

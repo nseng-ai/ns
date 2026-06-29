@@ -34,7 +34,6 @@
     "./brmem-cli": "./src/brmem-cli.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./testing": "./src/testing/index.ts",
-    "./submit": "./src/submit/index.ts",
     "./runner-usage": "./src/runner-usage.ts",
     "./machine-envelope": "./src/machine-envelope.ts",
     "./text-repair": "./src/text-repair.ts",

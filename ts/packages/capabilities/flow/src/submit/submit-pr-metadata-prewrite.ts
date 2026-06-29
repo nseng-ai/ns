@@ -4,17 +4,17 @@ import {
 	type CommandRunner,
 	type ExecResult,
 } from "@sdl/core/exec";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "../branch.ts";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
 import type { GitGateway } from "@sdl/core/git";
 import type { MaybePromise } from "@sdl/core/primitives";
 
-import { commandFailure } from "@sdl/core/submit";
-import { formatItemCount } from "@sdl/core/submit";
-import type { PrewrittenPrMetadata, PrCommitMessage } from "@sdl/core/submit";
+import { commandFailure } from "./index.ts";
+import { formatItemCount } from "./index.ts";
+import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
-import { preparePrDescription, resolvePrDescriptionGeneration } from "@sdl/core/submit";
-import { err, ok, type ErrorInfo, type GatewayResult } from "@sdl/core/submit";
-import type { TextGenerator } from "@sdl/core/submit";
+import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts";
+import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
+import type { TextGenerator } from "./index.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;
