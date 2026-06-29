@@ -1,3 +1,3 @@
-import { registerCccExtension } from "../../ts/packages/ccc/src/index.ts";
+import registerCccPiExtension from "../../ts/packages/capability-pi/ccc/src/index.ts";
 
-export default registerCccExtension;
+export default registerCccPiExtension;

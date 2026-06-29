@@ -1,5 +1,3 @@
-export { default as registerCccExtension } from "./ccc.ts";
-
 export const CCC_PACKAGE_IDENTITY = {
 	packageName: "@sdl/ccc",
 	vocabularyName: "CCC",
@@ -7,7 +5,6 @@ export const CCC_PACKAGE_IDENTITY = {
 	visibility: "private-workspace",
 	ownedConcerns: [
 		"cmux-workspace-orchestration",
-		"pi-command-composition",
 		"graphite-stack-orchestration",
 		"worktree-flow-coordination",
 	],

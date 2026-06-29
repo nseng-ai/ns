@@ -349,6 +349,15 @@ importers:
         specifier: workspace:*
         version: link:../../plans
 
+  packages/capability-pi/ccc:
+    dependencies:
+      '@sdl/ccc':
+        specifier: workspace:*
+        version: link:../../ccc
+      '@sdl/cmux':
+        specifier: workspace:*
+        version: link:../../cmux
+
   packages/capability-pi/flow:
     dependencies:
       '@sdl/core':

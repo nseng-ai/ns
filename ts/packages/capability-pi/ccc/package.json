@@ -1,0 +1,21 @@
+{
+  "name": "@sdl/ccc-pi",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./extension": "./src/extension.ts"
+  },
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/ccc/test"
+  },
+  "dependencies": {
+    "@sdl/ccc": "workspace:*",
+    "@sdl/cmux": "workspace:*"
+  },
+  "devDependencies": {},
+  "sdl": {
+    "tier": "capability-pi"
+  }
+}
