@@ -10,9 +10,9 @@ export interface RegistryCheckResult {
 	lookupName: string;
 	status: CheckStatus;
 	message: string;
-	packageUrl?: string;
-	latestVersion?: string;
-	description?: string;
+	packageUrl?: string | undefined;
+	latestVersion?: string | undefined;
+	description?: string | undefined;
 }
 
 export interface PackageCheckReport {
