@@ -48,9 +48,7 @@ export function parseGraphqlJson<T>(
 				run: context.run,
 				stdout: text,
 				zodError: z.prettifyError(errorsResult.error),
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
+				...failureContextFields(context),
 			}),
 		);
 	}
@@ -63,9 +61,7 @@ export function parseGraphqlJson<T>(
 				run: context.run,
 				stdout: text,
 				graphqlErrors: errorsResult.data.errors,
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
+				...failureContextFields(context),
 			}),
 		);
 	}
@@ -85,9 +81,7 @@ function parseRawJsonText(
 				message: formatErrorMessage(parsed.error),
 				run: context.run,
 				stdout: text,
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
+				...failureContextFields(context),
 			}),
 		);
 	}
@@ -115,9 +109,7 @@ function validateParsedJson<T>(
 				run: context.run,
 				stdout: text,
 				zodError: z.prettifyError(result.error),
-				prNumber: context.prNumber,
-				threadId: context.threadId,
-				cursorContext: context.cursorContext,
+				...failureContextFields(context),
 			}),
 		);
 	}
@@ -141,9 +133,7 @@ export function requireCursor(
 			code: "github_pr_feedback_pagination_invalid",
 			operation: context.operation,
 			message: context.message,
-			prNumber: context.prNumber,
-			threadId: context.threadId,
-			cursorContext: context.cursorContext,
+			...failureContextFields(context),
 		}),
 	);
 }
@@ -154,4 +144,20 @@ export interface GithubPrFeedbackFailureContext {
 	readonly prNumber?: number | undefined;
 	readonly threadId?: string | undefined;
 	readonly cursorContext?: string | undefined;
+}
+
+function failureContextFields(context: {
+	readonly prNumber?: number | undefined;
+	readonly threadId?: string | undefined;
+	readonly cursorContext?: string | undefined;
+}): {
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
+} {
+	return {
+		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
+		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
+		...(context.cursorContext === undefined ? {} : { cursorContext: context.cursorContext }),
+	};
 }

@@ -12,16 +12,16 @@ interface FailureFromMessageOptions {
 	readonly code: GithubPrFeedbackFailureCode;
 	readonly operation: GithubPrFeedbackOperation;
 	readonly message: string;
-	readonly run?: Extract<RunGitHubCliResult, { readonly type: "completed" }> | undefined;
-	readonly stdout?: string | undefined;
-	readonly stderr?: string | undefined;
-	readonly exitCode?: number | undefined;
-	readonly killed?: boolean | undefined;
+	readonly run?: Extract<RunGitHubCliResult, { readonly type: "completed" }>;
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly exitCode?: number;
+	readonly killed?: boolean;
 	readonly graphqlErrors?: unknown;
-	readonly zodError?: string | undefined;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly zodError?: string;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }
 
 export function feedbackOk<T>(value: T): Result<T, GithubPrFeedbackFailure> {
@@ -55,9 +55,9 @@ export function failureFromCompleted(
 	run: Extract<RunGitHubCliResult, { readonly type: "completed" }>,
 	operation: GithubPrFeedbackOperation,
 	context: {
-		readonly prNumber?: number | undefined;
-		readonly threadId?: string | undefined;
-		readonly cursorContext?: string | undefined;
+		readonly prNumber?: number;
+		readonly threadId?: string;
+		readonly cursorContext?: string;
 	} = {},
 ): GithubPrFeedbackFailure {
 	return failureFromMessage({
@@ -73,9 +73,9 @@ export function failureFromCompleted(
 		stderr: run.result.stderr,
 		exitCode: run.result.code,
 		killed: run.result.killed,
-		prNumber: context.prNumber,
-		threadId: context.threadId,
-		cursorContext: context.cursorContext,
+		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
+		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
+		...(context.cursorContext === undefined ? {} : { cursorContext: context.cursorContext }),
 	});
 }
 
