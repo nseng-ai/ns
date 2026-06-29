@@ -22,6 +22,7 @@ import {
 
 export interface CliDeps {
 	context?: AregCliContext | undefined;
+	interaction?: AregCliContext["interaction"] | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 	stdout?: ((text: string) => void) | undefined;
@@ -38,6 +39,7 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 			...context,
 			cwd,
 			env: deps.env ?? context.env,
+			interaction: deps.interaction ?? context.interaction,
 		};
 		return { type: "run", context: runContext, buildState: undefined };
 	},
@@ -47,6 +49,7 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 			description: "Initialize an existing Git project for areg skill workflows.",
 			schema: initRequestSchema,
 			positionals: { target: { position: 0 } },
+			options: { yes: { short: "-y" } },
 			resultSchema: initResultSchema,
 			handler: runInit,
 			renderHuman: renderInit,

@@ -1,3 +1,5 @@
+import type { ConfirmationResult } from "@sdl/clinkr";
+import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -22,6 +24,8 @@ interface InitHarnessOptions {
 	git?: InMemoryGitGatewayState | undefined;
 	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	prompt?: FakeAregPromptGatewayOptions | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
+	isInteractive?: boolean | undefined;
 }
 
 interface InitHarness {
@@ -29,16 +33,22 @@ interface InitHarness {
 	projectGateway: FakeAregProjectGateway;
 	npxSkills: FakeAregNpxSkillsGateway;
 	prompt: FakeAregPromptGateway;
+	interaction: FakeClinkrInteraction;
 }
 
 function initHarness(options: InitHarnessOptions = {}): InitHarness {
 	const projectGateway = new FakeAregProjectGateway(options.project);
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const prompt = new FakeAregPromptGateway(options.prompt);
+	const interaction = createFakeClinkrInteraction({
+		confirmations: options.confirmations,
+		isInteractive: options.isInteractive,
+	});
 	return {
 		projectGateway,
 		npxSkills,
 		prompt,
+		interaction,
 		context: {
 			host: new FakeAregHostGateway(),
 			github: new FakeAregGithubGateway(),
@@ -47,6 +57,7 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 			git: new InMemoryGitGateway(options.git),
 			npxSkills,
 			prompt,
+			interaction: interaction.interaction,
 			cwd: "/repo",
 			env: { PATH: "/fake/bin" },
 		},
@@ -59,7 +70,14 @@ function runInit(
 ): InitHarness & { exit: Promise<number>; stdout: string[]; stderr: string[] } {
 	const harness = initHarness(options);
 	const run = runScenario(["init", ...args], { context: harness.context });
-	return { ...harness, ...run };
+	return {
+		...harness,
+		...run,
+		exit: run.exit.then((code) => {
+			harness.interaction.assertComplete();
+			return code;
+		}),
+	};
 }
 
 describe("areg init CLI", () => {
@@ -114,19 +132,30 @@ describe("areg init CLI", () => {
 	test("prompts before appending existing prose and honors decline", async () => {
 		const run = runInit([], {
 			project: { agentsMd: "# Existing\n" },
-			prompt: { responses: [false] },
+			confirmations: [{ type: "declined" }],
+			isInteractive: true,
 		});
 
 		expect(await run.exit).toBe(0);
 		expect(run.projectGateway.text("AGENTS.md")).toBe("# Existing\n");
-		expect(run.prompt.operations()).toEqual([
+		expect(run.interaction.requests()).toEqual([
 			{
-				type: "confirm",
 				message: "AGENTS.md exists without an areg-managed Skills block. Add one?",
-				defaultValue: false,
-				response: false,
+				defaultAnswer: "no",
 			},
 		]);
+	});
+
+	test("requires --yes before appending existing prose when non-interactive", async () => {
+		const run = runInit(["--format", "json"], { project: { agentsMd: "# Existing\n" } });
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			data: { missingFlag: "--yes" },
+		});
+		expect(run.projectGateway.text("AGENTS.md")).toBe("# Existing\n");
+		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
 	test("--yes appends prose without prompting and avoids duplicate Claude include", async () => {

@@ -1,5 +1,7 @@
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { readStdinLine } from "@sdl/core/stdin";
 
 import type {
 	AregGithubGateway,
@@ -26,6 +28,7 @@ export interface AregCliContext {
 	git: GitGateway;
 	npxSkills: AregNpxSkillsGateway;
 	prompt: AregPromptGateway;
+	interaction: ClinkrInteraction;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 }
@@ -45,6 +48,10 @@ export function createRealAregContext(
 		git,
 		npxSkills,
 		prompt: new RealAregPromptGateway(),
+		interaction: resolveClinkrInteraction({
+			stdin: readStdinLine,
+			stderr: (text) => process.stderr.write(text),
+		}),
 		cwd,
 		env,
 	};

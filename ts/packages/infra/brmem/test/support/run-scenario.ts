@@ -1,6 +1,9 @@
 import { isAbsolute, resolve } from "node:path";
 import { TextDecoder, TextEncoder } from "node:util";
 
+import type { ConfirmationResult } from "@sdl/clinkr";
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
+
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
 import { brmemError, brmemOk, type BrmemResult } from "../../src/contracts.ts";
@@ -23,6 +26,8 @@ export interface ScenarioRunOptions {
 	files?: Record<string, string | Uint8Array> | undefined;
 	unreadableFiles?: Record<string, string> | undefined;
 	sourceReader?: BrmemSourceReader | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
+	isInteractive?: boolean | undefined;
 }
 
 export interface ScenarioRun {
@@ -39,6 +44,10 @@ export function runScenario(
 	const stderr: string[] = [];
 	const stdin = options.stdin;
 	const cwd = options.cwd ?? "/repo";
+	const fakeInteraction = createFakeClinkrInteraction({
+		confirmations: options.confirmations,
+		isInteractive: options.isInteractive,
+	});
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
 		promptResolver:
@@ -61,6 +70,7 @@ export function runScenario(
 				files: options.files,
 				unreadableFiles: options.unreadableFiles,
 			}),
+		interaction: fakeInteraction.interaction,
 	};
 	const deps: CliDeps = {
 		context,
@@ -71,7 +81,14 @@ export function runScenario(
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 	};
-	return { exit: runCli(args, deps), stdout, stderr };
+	return {
+		exit: runCli(args, deps).then((code) => {
+			fakeInteraction.assertComplete();
+			return code;
+		}),
+		stdout,
+		stderr,
+	};
 }
 
 export function parseJsonOutput(run: ScenarioRun): unknown {

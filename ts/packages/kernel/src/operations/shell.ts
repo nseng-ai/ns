@@ -1,5 +1,5 @@
-import { failure, ok } from "@sdl/clinkr";
-import type { z } from "zod";
+import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
+import { z } from "zod";
 
 import {
 	installMarkerBlock,
@@ -18,9 +18,13 @@ export const sdlShellIntegrationBeginMarker = "# >>> sdl shell integration >>>";
 export const sdlShellIntegrationEndMarker = "# <<< sdl shell integration <<<";
 
 export const sdlShellShowRequestSchema = markerSurfaceShowRequestSchema;
-export const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema;
+export const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
+	yes: z.boolean().default(false).describe("Confirm shell rc-file update without prompting."),
+});
 export const sdlShellShowResultSchema = markerSurfaceShowResultSchema;
-export const sdlShellInstallResultSchema = markerSurfaceInstallResultSchema;
+export const sdlShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
+	cancelled: z.boolean().default(false),
+});
 
 export type SdlShellShowRequest = z.infer<typeof sdlShellShowRequestSchema>;
 export type SdlShellInstallRequest = z.infer<typeof sdlShellInstallRequestSchema>;
@@ -36,8 +40,30 @@ export async function runSdlShellShow(ctx: SdlCliContext, request: SdlShellShowR
 export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellInstallRequest) {
 	const selected = resolveRequestedShell(request.shell, ctx.env);
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
+	const rcPath = rcPathForShell(selected.shell, ctx.env);
+	if (!request.yes) {
+		const gate = requireInteractiveOrUsageError(ctx.interaction, {
+			message: "Installing sdl shell integration requires --yes when non-interactive.",
+			missingFlag: "--yes",
+			howToSupply: "Pass --yes (or -y) to update the shell rc file without prompting.",
+		});
+		if (gate) return gate;
+		const confirmed = await ctx.interaction.confirm({
+			message: `Install sdl shell integration for ${selected.shell} in ${rcPath}?`,
+			defaultAnswer: "no",
+		});
+		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "declined") {
+			return ok({
+				shell: selected.shell,
+				rc_path: rcPath,
+				is_already_installed: false,
+				cancelled: true,
+			} satisfies SdlShellInstallResult);
+		}
+	}
 	const installed = await installMarkerBlock({
-		rcPath: rcPathForShell(selected.shell, ctx.env),
+		rcPath,
 		beginMarker: sdlShellIntegrationBeginMarker,
 		payload: renderSdlShellWrapperScript(),
 		endMarker: sdlShellIntegrationEndMarker,
@@ -46,6 +72,7 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 		shell: selected.shell,
 		rc_path: installed.rcPath,
 		is_already_installed: installed.isAlreadyInstalled,
+		cancelled: false,
 	});
 }
 
@@ -54,6 +81,8 @@ export function renderSdlShellShow(result: SdlShellShowResult): string {
 }
 
 export function renderSdlShellInstall(result: SdlShellInstallResult): string {
+	if (result.cancelled)
+		return `Cancelled sdl shell integration install for ${result.shell} in ${result.rc_path}`;
 	if (result.is_already_installed)
 		return `sdl shell integration already installed in ${result.rc_path}`;
 	return `Installed sdl shell integration for ${result.shell} in ${result.rc_path}`;

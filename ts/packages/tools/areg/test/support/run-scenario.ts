@@ -1,3 +1,5 @@
+import type { ConfirmationResult } from "@sdl/clinkr";
+import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/core/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
@@ -26,6 +28,8 @@ export interface ScenarioRunOptions {
 	git?: InMemoryGitGatewayState | undefined;
 	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
 	prompt?: FakeAregPromptGatewayOptions | undefined;
+	confirmations?: readonly ConfirmationResult[] | undefined;
+	isInteractive?: boolean | undefined;
 	cwd?: string | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
 }
@@ -45,6 +49,10 @@ export function runScenario(
 	const cwd = options.cwd ?? "/repo";
 	const env = options.env ?? { PATH: "/fake/bin" };
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
+	const fakeInteraction = createFakeClinkrInteraction({
+		confirmations: options.confirmations,
+		isInteractive: options.isInteractive,
+	});
 	const context =
 		options.context ??
 		({
@@ -55,6 +63,7 @@ export function runScenario(
 			git: new InMemoryGitGateway(options.git),
 			npxSkills,
 			prompt: new FakeAregPromptGateway(options.prompt),
+			interaction: fakeInteraction.interaction,
 			cwd,
 			env,
 		} satisfies AregCliContext);
@@ -65,5 +74,12 @@ export function runScenario(
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 	};
-	return { exit: runCli(args, deps), stdout, stderr };
+	return {
+		exit: runCli(args, deps).then((code) => {
+			fakeInteraction.assertComplete();
+			return code;
+		}),
+		stdout,
+		stderr,
+	};
 }

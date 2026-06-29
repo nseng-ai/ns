@@ -548,12 +548,11 @@ function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 	shell.command({
 		name: "install",
 		description: "Install the parent-shell wrapper in the detected or selected rc file.",
-		...withShellOption({
-			schema: sdlShellInstallRequestSchema,
-			resultSchema: sdlShellInstallResultSchema,
-			handler: runSdlShellInstall,
-			renderHuman: renderSdlShellInstall,
-		}),
+		schema: sdlShellInstallRequestSchema,
+		options: { shell: {}, yes: { short: "-y" } },
+		resultSchema: sdlShellInstallResultSchema,
+		handler: runSdlShellInstall,
+		renderHuman: renderSdlShellInstall,
 	});
 	return shell;
 }

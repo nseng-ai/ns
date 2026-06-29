@@ -1,6 +1,7 @@
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/core/git";
-import { readStdin } from "@sdl/core/stdin";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
+import { readStdin, readStdinLine } from "@sdl/core/stdin";
 
 import type { BrmemGateway } from "./gateway.ts";
 import { RealBrmemPromptResolver, type BrmemPromptResolver } from "./prompt-resolution.ts";
@@ -14,6 +15,7 @@ export interface BrmemCliContext {
 	env: NodeJS.ProcessEnv;
 	stdin: () => Promise<string>;
 	sourceReader: BrmemSourceReader;
+	interaction: ClinkrInteraction;
 }
 
 export function createRealBrmemContext(
@@ -30,5 +32,9 @@ export function createRealBrmemContext(
 		env,
 		stdin: readStdin,
 		sourceReader: new NodeBrmemSourceReader(),
+		interaction: resolveClinkrInteraction({
+			stdin: readStdinLine,
+			stderr: (text) => process.stderr.write(text),
+		}),
 	};
 }

@@ -1,3 +1,4 @@
+import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway } from "@sdl/core/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -25,6 +26,7 @@ function skill(
 function contextWithProject(
 	project: FakeAregProjectGateway,
 	prompt = new FakeAregPromptGateway(),
+	interaction: FakeClinkrInteraction = createFakeClinkrInteraction(),
 ): AregCliContext {
 	return {
 		host: new FakeAregHostGateway(),
@@ -40,6 +42,7 @@ function contextWithProject(
 		git: new InMemoryGitGateway(),
 		npxSkills: new FakeAregNpxSkillsGateway(),
 		prompt,
+		interaction: interaction.interaction,
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
 	};
@@ -151,10 +154,24 @@ describe("areg skill apply CLI", () => {
 					skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
 				],
 			},
-			prompt: { responses: [false] },
+			confirmations: [{ type: "declined" }],
+			isInteractive: true,
 		});
 		expect(await declined.exit).toBe(0);
 		expect(declined.stdout.join("")).toContain("Declined to apply normal to demo.");
+
+		const missingYes = runScenario(["skill", "apply", "normal", "demo", "--format", "json"], {
+			project: {
+				localSkills: [
+					skill("demo", managed, { openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" }),
+				],
+			},
+		});
+		expect(await missingYes.exit).toBe(2);
+		expect(JSON.parse(missingYes.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			data: { missingFlag: "--yes" },
+		});
 
 		const accepted = runScenario(["skill", "apply", "--yes", "normal", "demo"], {
 			project: {
@@ -342,8 +359,12 @@ describe("areg skill apply CLI", () => {
 			],
 		});
 		const prompt = new FakeAregPromptGateway({ responses: [true, false] });
+		const interaction = createFakeClinkrInteraction({
+			confirmations: [{ type: "confirmed" }, { type: "declined" }],
+			isInteractive: true,
+		});
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt), {
+		const result = await runSkillKindApply(contextWithProject(project, prompt, interaction), {
 			path: ".",
 			kind: "normal",
 			skills: ["alpha", "beta"],
@@ -355,7 +376,7 @@ describe("areg skill apply CLI", () => {
 			type: "ok",
 			human: "Declined to apply normal to beta.",
 		});
-		expect(prompt.operations()).toHaveLength(2);
+		expect(interaction.requests()).toHaveLength(2);
 		expect(
 			project
 				.operations()
@@ -374,8 +395,9 @@ describe("areg skill apply CLI", () => {
 			],
 		});
 		const prompt = new FakeAregPromptGateway({ responses: [false] });
+		const interaction = createFakeClinkrInteraction({ confirmations: [{ type: "declined" }] });
 
-		const result = await runSkillKindApply(contextWithProject(project, prompt), {
+		const result = await runSkillKindApply(contextWithProject(project, prompt, interaction), {
 			path: ".",
 			kind: "normal",
 			skills: ["demo"],
@@ -384,7 +406,7 @@ describe("areg skill apply CLI", () => {
 		});
 
 		expect(result.type).toBe("ok");
-		expect(prompt.operations()).toEqual([]);
+		expect(interaction.requests()).toEqual([]);
 		expect(
 			project
 				.operations()

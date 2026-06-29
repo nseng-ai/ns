@@ -1,4 +1,4 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok, requireInteractiveOrUsageError } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -9,6 +9,7 @@ export const deleteRequestSchema = z.object({
 	key: z.string().describe("Entry Key."),
 	namespace: z.string().optional().describe("Namespace. Omit for ad-hoc base Entries."),
 	branch: z.string().optional().describe("Branch. Defaults to current branch."),
+	yes: z.boolean().default(false).describe("Confirm deletion without prompting."),
 });
 
 export const deleteResultSchema = z.object({
@@ -16,7 +17,9 @@ export const deleteResultSchema = z.object({
 	key: z.string(),
 	branch: z.string(),
 	ref_name: z.string(),
-	commit: z.string(),
+	deleted: z.boolean(),
+	cancelled: z.boolean(),
+	commit: z.string().nullable(),
 });
 
 export type DeleteRequest = z.infer<typeof deleteRequestSchema>;
@@ -27,6 +30,31 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
 	const locator = mustEntryLocator(namespace, key, branch);
+
+	if (!request.yes) {
+		const gate = requireInteractiveOrUsageError(ctx.interaction, {
+			message: "Deleting a Branch Memory Entry requires --yes when non-interactive.",
+			missingFlag: "--yes",
+			howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+		});
+		if (gate) return gate;
+		const confirmed = await ctx.interaction.confirm({
+			message: `Delete Entry Key ${key} from ${namespaceDisplayLabel(namespace)} on Branch ${branch}?`,
+			defaultAnswer: "no",
+		});
+		if (confirmed.type === "declined") {
+			return ok({
+				namespace,
+				key,
+				branch,
+				ref_name: locator,
+				deleted: false,
+				cancelled: true,
+				commit: null,
+			} satisfies DeleteResult);
+		}
+		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+	}
 
 	const result = await ctx.gateway.deleteEntry({ namespace, key, branch });
 	if (result.type === "error") {
@@ -44,11 +72,20 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 		key,
 		branch,
 		ref_name: locator,
+		deleted: true,
+		cancelled: false,
 		commit: result.value.commitSha,
 	});
 }
 
 export function renderDelete(result: DeleteResult): string {
+	if (result.cancelled) {
+		return [
+			"Cancelled Branch Memory Entry delete.",
+			`No Entry was deleted. Target: Entry Key ${result.key} from ${namespaceDisplayLabel(result.namespace)} on Branch ${result.branch}.`,
+			`Entry Locator: ${result.ref_name}`,
+		].join("\n");
+	}
 	return [
 		`Deleted Entry Key ${result.key} from ${namespaceDisplayLabel(result.namespace)} on Branch ${result.branch}.`,
 		`Entry Locator: ${result.ref_name}`,

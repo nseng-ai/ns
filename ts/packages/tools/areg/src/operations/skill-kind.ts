@@ -2,6 +2,7 @@ import {
 	failure,
 	negative,
 	ok,
+	requireInteractiveOrUsageError,
 	type ClinkrExit,
 	ClinkrGroup,
 	type RenderCapabilities,
@@ -176,6 +177,7 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 			"Apply the managed artifacts for a skill invocation kind. This reconciles managed artifacts to the requested kind. It is not a historical undo system; use git to roll back exact previous file contents.",
 		schema: skillKindApplyRequestSchema,
 		positionals: { kind: { position: 0 }, skills: { position: 1 } },
+		options: { yes: { short: "-y" } },
 		resultSchema: skillKindApplyResultSchema,
 		handler: runSkillKindApply,
 		renderHuman: renderSkillKindApply,
@@ -267,11 +269,18 @@ export async function runSkillKindApply(
 	if (!request.yes) {
 		for (const plan of plans) {
 			if (!hasDeletionPrompt(plan)) continue;
-			const confirmed = await ctx.prompt.confirm({
-				message: deletionPrompt(plan),
-				defaultValue: false,
+			const gate = requireInteractiveOrUsageError(ctx.interaction, {
+				message: "Deleting managed skill artifacts requires --yes when non-interactive.",
+				missingFlag: "--yes",
+				howToSupply: "Pass --yes (or -y) to apply deletion prompts without prompting.",
 			});
-			if (!confirmed)
+			if (gate) return gate;
+			const confirmed = await ctx.interaction.confirm({
+				message: deletionPrompt(plan),
+				defaultAnswer: "no",
+			});
+			if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+			if (confirmed.type === "declined")
 				return ok(
 					{
 						project_dir: projectDir,

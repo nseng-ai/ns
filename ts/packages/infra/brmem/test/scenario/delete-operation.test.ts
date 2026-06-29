@@ -11,7 +11,9 @@ describe("delete operation", () => {
 				{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
 			],
 		});
-		const deleted = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], { gateway });
+		const deleted = runScenario(["delete", "plan/plan.md", "--namespace", "scratch", "--yes"], {
+			gateway,
+		});
 		expect(await deleted.exit).toBe(0);
 		const output = deleted.stdout.join("");
 		expect(output).toContain(
@@ -28,7 +30,7 @@ describe("delete operation", () => {
 
 	it("emits Python-compatible JSON fields", async () => {
 		const run = runScenario(
-			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+			["delete", "plan/plan.md", "--namespace", "scratch", "--yes", "--format", "json"],
 			{
 				fake: {
 					currentBranch: "feat/x",
@@ -52,15 +54,63 @@ describe("delete operation", () => {
 		expect(parsed.data.commit).toMatch(/^commit/);
 		expect(Object.keys(parsed.data).sort()).toEqual([
 			"branch",
+			"cancelled",
 			"commit",
+			"deleted",
 			"key",
 			"namespace",
 			"ref_name",
 		]);
 	});
 
+	it("requires confirmation before deleting", async () => {
+		const missingYes = runScenario(
+			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+			{
+				fake: {
+					currentBranch: "feat/x",
+					entries: [
+						{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
+					],
+				},
+			},
+		);
+		expect(await missingYes.exit).toBe(2);
+		expect(JSON.parse(missingYes.stdout.join(""))).toMatchObject({
+			status: "usageError",
+			exitCode: 2,
+			data: { missingFlag: "--yes" },
+		});
+
+		const declined = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
+			fake: {
+				currentBranch: "feat/x",
+				entries: [
+					{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
+				],
+			},
+			confirmations: [{ type: "declined" }],
+			isInteractive: true,
+		});
+		expect(await declined.exit).toBe(0);
+		expect(declined.stdout.join("")).toContain("Cancelled Branch Memory Entry delete.");
+
+		const accepted = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
+			fake: {
+				currentBranch: "feat/x",
+				entries: [
+					{ namespace: "scratch", branch: "feat/x", key: "plan/plan.md", content: "hello\n" },
+				],
+			},
+			confirmations: [{ type: "confirmed" }],
+			isInteractive: true,
+		});
+		expect(await accepted.exit).toBe(0);
+		expect(accepted.stdout.join("")).toContain("Deleted Entry Key plan/plan.md");
+	});
+
 	it("reports missing keys with the stable public failure contract", async () => {
-		const human = runScenario(["delete", "plan/plan.md", "--namespace", "scratch"], {
+		const human = runScenario(["delete", "plan/plan.md", "--namespace", "scratch", "--yes"], {
 			fake: { currentBranch: "feat/x" },
 		});
 		expect(await human.exit).toBe(2);
@@ -72,7 +122,7 @@ describe("delete operation", () => {
 		expect(humanError).toContain("refs/brmem/ns/scratch/feat---x:plan/plan.md");
 
 		const json = runScenario(
-			["delete", "plan/plan.md", "--namespace", "scratch", "--format", "json"],
+			["delete", "plan/plan.md", "--namespace", "scratch", "--yes", "--format", "json"],
 			{
 				fake: { currentBranch: "feat/x" },
 			},
@@ -92,7 +142,8 @@ describe("delete operation", () => {
 			],
 		});
 		expect(
-			await runScenario(["delete", "plan/a.md", "--namespace", "scratch"], { gateway }).exit,
+			await runScenario(["delete", "plan/a.md", "--namespace", "scratch", "--yes"], { gateway })
+				.exit,
 		).toBe(0);
 
 		const getA = runScenario(["get", "plan/a.md", "--namespace", "scratch"], { gateway });
@@ -116,23 +167,26 @@ describe("delete operation", () => {
 				{ namespace: "base", branch: "feat/x", key: "explicit", content: "explicit\n" },
 			],
 		});
-		const human = runScenario(["delete", "scratchpad"], { gateway });
+		const human = runScenario(["delete", "scratchpad", "--yes"], { gateway });
 		expect(await human.exit).toBe(0);
 		expect(human.stdout.join("")).toContain(
 			"Deleted Entry Key scratchpad from Base Namespace on Branch feat/x.",
 		);
 		expect(human.stdout.join("")).toContain("Entry Locator: refs/brmem/base/feat---x:scratchpad");
 
-		const json = runScenario(["delete", "explicit", "--namespace", "base", "--format", "json"], {
-			gateway,
-		});
+		const json = runScenario(
+			["delete", "explicit", "--namespace", "base", "--yes", "--format", "json"],
+			{
+				gateway,
+			},
+		);
 		expect(await json.exit).toBe(0);
 		expect(JSON.parse(json.stdout.join(""))).toMatchObject({
 			data: { namespace: "base", key: "explicit", ref_name: "refs/brmem/base/feat---x:explicit" },
 		});
 
 		const secondDelete = runScenario(
-			["delete", "explicit", "--namespace", "base", "--format", "json"],
+			["delete", "explicit", "--namespace", "base", "--yes", "--format", "json"],
 			{ gateway },
 		);
 		expect(await secondDelete.exit).toBe(2);
@@ -181,12 +235,12 @@ describe("delete operation", () => {
 			currentBranch: { type: "detached" },
 			entries: [{ namespace: "base", branch: "feat/other", key: "note.md", content: "other\n" }],
 		});
-		const explicitBranch = runScenario(["delete", "note.md", "--branch", "feat/other"], {
+		const explicitBranch = runScenario(["delete", "note.md", "--branch", "feat/other", "--yes"], {
 			gateway,
 		});
 		expect(await explicitBranch.exit).toBe(0);
 
-		const detached = runScenario(["delete", "note.md", "--format", "json"], {
+		const detached = runScenario(["delete", "note.md", "--yes", "--format", "json"], {
 			fake: { currentBranch: { type: "detached" } },
 		});
 		expect(await detached.exit).toBe(2);
@@ -205,7 +259,7 @@ describe("delete operation", () => {
 	});
 
 	it("maps non-key gateway failures through the shared gateway failure path", async () => {
-		const run = runScenario(["delete", "note.md", "--format", "json"], {
+		const run = runScenario(["delete", "note.md", "--yes", "--format", "json"], {
 			fake: {
 				currentBranch: "feat/x",
 				entries: [{ namespace: "base", branch: "feat/x", key: "note.md", content: "body\n" }],
