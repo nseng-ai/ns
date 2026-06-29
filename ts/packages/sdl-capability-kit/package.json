@@ -11,6 +11,7 @@
     "./checkpoint-flow": "./src/checkpoint-flow.ts",
     "./checkpoint-message": "./src/checkpoint-message.ts",
     "./command-runner": "./src/command-runner.ts",
+    "./gateway-result": "./src/gateway-result.ts",
     "./git": "./src/git.ts",
     "./pending-worktree": "./src/pending-worktree.ts",
     "./sdl-command": "./src/sdl-command.ts",

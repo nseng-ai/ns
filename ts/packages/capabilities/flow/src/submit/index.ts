@@ -38,9 +38,16 @@ export {
 	type PreparedPrDescription,
 	type PromptSource,
 } from "./pr-description.ts";
-export { commandFailure, type CommandFailureOptions } from "./command-failure.ts";
+export {
+	commandFailure,
+	err,
+	ok,
+	type CommandFailureOptions,
+	type ErrorInfo,
+	type GatewayResult,
+	type Result,
+} from "@sdl/capability-kit/gateway-result";
 export { formatItemCount } from "./format.ts";
-export { err, ok, type ErrorInfo, type GatewayResult, type Result } from "./result.ts";
 export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,

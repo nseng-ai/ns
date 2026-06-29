@@ -2,9 +2,7 @@ import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec"
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/core/github-cli";
 import { isRecord } from "@sdl/core/primitives";
 import { withTemporaryFile } from "@sdl/core/temp-files";
-
-import { err, ok, type GatewayResult } from "./result.ts";
-import { commandFailure } from "./command-failure.ts";
+import { commandFailure, err, ok, type GatewayResult } from "@sdl/capability-kit/gateway-result";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
