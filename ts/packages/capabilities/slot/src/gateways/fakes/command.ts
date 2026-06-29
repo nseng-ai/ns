@@ -9,10 +9,10 @@ export interface FakeSlotCommandInvocation {
 }
 
 export interface FakeSlotExecResult {
-	stdout?: string | undefined;
-	stderr?: string | undefined;
-	code?: number | undefined;
-	killed?: boolean | undefined;
+	stdout?: string;
+	stderr?: string;
+	code?: number;
+	killed?: boolean;
 }
 
 export interface FakeSlotCommandGatewayOptions {

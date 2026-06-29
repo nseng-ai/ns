@@ -8,10 +8,10 @@ import type {
 } from "../branch.ts";
 
 export interface InMemoryGraphiteGatewayState {
-	checkFailure?: GraphiteErrorInfo | undefined;
-	trackFailure?: GraphiteErrorInfo | undefined;
-	untrackedBranches?: readonly string[] | ReadonlySet<string> | undefined;
-	untrackedDetail?: string | undefined;
+	checkFailure?: GraphiteErrorInfo;
+	trackFailure?: GraphiteErrorInfo;
+	untrackedBranches?: readonly string[] | ReadonlySet<string>;
+	untrackedDetail?: string;
 }
 
 export interface GraphiteCheckBranchTrackedCall {

@@ -2,9 +2,9 @@ import type { GitErrorInfo } from "@sdl/core/git";
 import type { ErrorInfo } from "@sdl/core/result";
 
 export type GatewayFailure = (ErrorInfo | GitErrorInfo) & {
-	stderr?: string | undefined;
-	stdout?: string | undefined;
-	returncode?: number | undefined;
+	stderr?: string;
+	stdout?: string;
+	returncode?: number;
 };
 
 export type RepoContextResult =

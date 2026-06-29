@@ -8,9 +8,9 @@ import type {
 import { limitSessions, type SessionSource } from "./source.ts";
 
 export interface FakeSessionSourceState {
-	sourceInfo?: SessionSourceInfo | undefined;
-	sessions?: readonly ParsedSession[] | undefined;
-	warnings?: readonly SessionWarning[] | undefined;
+	sourceInfo?: SessionSourceInfo;
+	sessions?: readonly ParsedSession[];
+	warnings?: readonly SessionWarning[];
 }
 
 export class FakeSessionSource implements SessionSource {

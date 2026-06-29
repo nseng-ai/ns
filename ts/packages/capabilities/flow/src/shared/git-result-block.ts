@@ -20,7 +20,7 @@ import { dim, resultBlockHeadline } from "@sdl/cli-theme";
 import type { ExecResult } from "sdl-sdk";
 
 type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
-	readonly killed?: boolean | undefined;
+	readonly killed?: boolean;
 };
 
 interface GitResultFacts {
@@ -31,7 +31,7 @@ interface GitResultFacts {
 	/** The working directory, shown as dimmed plumbing. */
 	cwd: string;
 	/** Optional detail or "what to do next" line, rendered at normal weight after the cause/detail. */
-	guidance?: string | undefined;
+	guidance?: string;
 }
 
 export type GitResultBlockInput =
