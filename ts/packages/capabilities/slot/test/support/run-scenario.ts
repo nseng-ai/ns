@@ -1,6 +1,7 @@
 import {
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
+	type Caps,
 	type ConfirmationResult,
 } from "@sdl/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@sdl/clinkr/testing";
@@ -36,6 +37,7 @@ export interface ScenarioRunOptions {
 	clipboardResult?: ClipboardCopyResult | undefined;
 	command?: FakeSlotCommandGatewayOptions | undefined;
 	canEmitAnsi?: boolean | undefined;
+	caps?: Caps | undefined;
 }
 
 export interface ScenarioRun {
@@ -148,6 +150,7 @@ function buildScenarioFixture(
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
 		cwd,
+		...(options.caps === undefined ? {} : { caps: options.caps }),
 		interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },

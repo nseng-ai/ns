@@ -30,6 +30,7 @@ export interface SlotCliContext {
 	clipboard: ClipboardGateway;
 	command: SlotCommandGateway;
 	cwd: string;
+	caps?: Caps | undefined;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
 	env: NodeJS.ProcessEnv;
@@ -61,6 +62,7 @@ export async function createRealSlotContext(options: {
 		clipboard: new RealClipboardGateway({ env }),
 		command: new RealSlotCommandGateway(),
 		cwd: options.cwd,
+		...(options.caps === undefined ? {} : { caps: options.caps }),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr,

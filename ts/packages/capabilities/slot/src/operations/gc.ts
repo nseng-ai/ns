@@ -87,7 +87,10 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 		if (gate) return gate;
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
 		repoCtx.stderr(
-			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })))}\n`,
+			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })), {
+				canEmitAnsi: true,
+				caps: repoCtx.caps,
+			})}\n`,
 		);
 		const accepted = await repoCtx.interaction.confirm({
 			message: confirmationMessage(plan.outcome.wouldFreeCount, {
