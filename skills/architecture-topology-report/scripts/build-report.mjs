@@ -41,6 +41,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const TIERS = {
   capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
   "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
+  "capability-gateway-backend": { fill: "#99f6e4", stroke: "#0d9488", name: "capability gateway backend" },
   sdk: { fill: "#c7d2fe", stroke: "#6366f1", name: "SDK" },
   transitional: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
   "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
@@ -191,7 +192,7 @@ function GRAPH_RENDERER() {
   // just under the SDK, above neutral infra, matching the north-star tier policy — not
   // at the very bottom where its shallow mean DAG depth (it only depends on core) would
   // otherwise drop it. Tiers absent from this list fall back to mean-depth ordering.
-  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "transitional", "neutral-infra"];
+  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "capability-gateway-backend", "sdk", "transitional", "neutral-infra"];
   const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
   const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
   const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
