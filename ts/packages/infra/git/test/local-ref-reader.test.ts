@@ -8,7 +8,7 @@ import {
 	readLocalBranchRefs,
 	type LocalBranchRefDirent,
 	type LocalBranchRefReaderFs,
-} from "@sdl/capability-kit/git";
+} from "@sdl/git";
 
 function sortedBranches(branches: ReadonlySet<string>): string[] {
 	return [...branches].sort();

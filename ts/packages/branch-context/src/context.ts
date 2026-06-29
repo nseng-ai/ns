@@ -5,7 +5,7 @@ import {
 	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { RealGraphiteBranchGateway, type GraphiteBranchGateway } from "@sdl/graphite/branch";
 
 export interface BranchContextContext {

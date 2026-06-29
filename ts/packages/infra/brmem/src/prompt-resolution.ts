@@ -3,7 +3,7 @@ import process from "node:process";
 
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 
 import { resolveSdlXdgPath } from "@sdl/core/xdg";
 

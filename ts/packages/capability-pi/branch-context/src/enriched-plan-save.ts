@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ScheduledTimer } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/core/timers";

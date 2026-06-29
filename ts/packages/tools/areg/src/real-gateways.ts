@@ -13,7 +13,7 @@ import path from "node:path";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
 

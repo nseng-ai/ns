@@ -7,7 +7,7 @@ import { defineCli, runOperationCommand } from "@sdl/core/cli-entry";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { readStdin } from "@sdl/core/stdin";
 import { z } from "zod";
 

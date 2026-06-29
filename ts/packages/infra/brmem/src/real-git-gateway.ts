@@ -6,7 +6,7 @@ import {
 	type CommandExecApi,
 	type StdinCapableCommandExecApi,
 } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 
 import {
 	brmemError,

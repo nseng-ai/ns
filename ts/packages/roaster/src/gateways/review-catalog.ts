@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { RealGitGateway } from "@sdl/git";
 import { mapFromRecordOrMap } from "@sdl/core/primitives";
 

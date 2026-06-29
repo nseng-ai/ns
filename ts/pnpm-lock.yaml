@@ -546,21 +546,18 @@ importers:
 
   packages/infra/git:
     dependencies:
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../../sdl-capability-kit
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
 
   packages/infra/graphite:
     dependencies:
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../../sdl-capability-kit
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
+      '@sdl/git':
+        specifier: workspace:*
+        version: link:../git
 
   packages/kernel:
     dependencies:
@@ -759,6 +756,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
+      '@sdl/git':
+        specifier: workspace:*
+        version: link:../infra/git
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk

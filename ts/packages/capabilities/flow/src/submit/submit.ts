@@ -8,7 +8,7 @@ import {
 	type ExecOutputStream,
 	type ExecResult,
 } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 
 import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./index.ts";

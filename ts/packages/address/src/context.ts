@@ -1,6 +1,6 @@
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { RealGithubPrFeedbackGateway } from "@sdl/core/github-pr-feedback";
 import type { GithubPrFeedbackGateway } from "./api.ts";
 

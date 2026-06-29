@@ -12,7 +12,7 @@ import {
 	type PiExecResultLike,
 } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/git";
 import { runGitHubCli } from "@sdl/core/github-cli";
 import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/core/github-identity";
 import {
