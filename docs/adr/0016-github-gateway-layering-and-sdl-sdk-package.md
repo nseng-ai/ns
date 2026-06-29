@@ -72,8 +72,11 @@ Applying it:
 
 - The author SDK implementation moves from the `@sdl/kernel/sdk` host subpath into a new
   top-level workspace package named and imported as the **unscoped** specifier
-  `sdl-sdk` (path `ts/packages/kernel-sdk`). It depends only on `@sdl/clinkr`,
-  `@sdl/core`, `@sdl/domain-primitives-transitional`, and `zod`.
+  `sdl-sdk` (path `ts/packages/kernel-sdk`). At cutover it depended only on
+  `@sdl/clinkr`, `@sdl/core`, `@sdl/domain-primitives-transitional`, and `zod`.
+  Implementation status update: after transitional deletion, the former primitive
+  dependency is no longer live; current primitive surfaces are precise
+  `@sdl/capability-kit/*` exports and are not public `sdl-sdk` author API.
 
 - `sdl-sdk` is the **only** SDL author import specifier — in code, tests, error
   messages, and the jiti virtual-module binding. The old `@sdl/kernel/sdk` author

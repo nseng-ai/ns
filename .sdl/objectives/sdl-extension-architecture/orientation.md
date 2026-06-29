@@ -5,10 +5,10 @@ domain logic only inside the Capability; consumers depend on `@sdl/<cap>/api`, n
 the Extension Dependency Graph stays acyclic. (ADR 0009 / 0012 / 0016; vocabulary in root
 CONTEXT.md "Extension Layering".)
 
-What you see now — legacy, mid-migration, do not copy: `@sdl/domain-primitives-transitional`
-still has live consumers, and remaining capabilities still need migration or child Objective completion.
+What you see now: the migration is complete and the Objective is closed; former transitional
+primitives live under precise `@sdl/capability-kit/*` subpaths.
 
-Avoid: new domain logic in the host/kernel; new deps on internals or the transitional package;
-new edges that deepen a cycle.
+Avoid: new domain logic in the host/kernel; reintroducing transitional packages/tiers; new deps on
+capability internals; new edges that deepen a cycle.
 
-Active slice: see this objective's roadmap.md.
+Closure evidence: see this objective's roadmap.md and closed.md.

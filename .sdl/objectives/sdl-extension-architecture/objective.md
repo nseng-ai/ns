@@ -25,7 +25,7 @@ Rules:
 - **Gateway-injected capability cores:** capability domain logic takes injected gateways (`GitGateway`, …), never raw `SdlExtensionApi`. `ctx` lives only in the command shell, which converts `ctx`→gateways at the edge via `@sdl/capability-kit`. This is what makes domain logic unit-testable with `InMemoryGitGateway`.
 - **Domain logic lives only in Capabilities** — never in the Presentation Host (`@sdl/pi`) or the kernel (`@sdl/sdl`). The Capability Kit is capability-agnostic (holds no domain) but purpose-built for building capabilities.
 - **ADR 0016 GitHub gateway layering:** no generic GitHub capability package is introduced; neutral identity/status mechanics live in `@sdl/core/github-identity` and `@sdl/core/github-pr-status`; the PR-feedback seam is owned by `@sdl/address/api`; lower real PR-feedback mechanics stay in `@sdl/core/github-pr-feedback`; and dependency direction remains `@sdl/address` → `@sdl/core`, never the reverse.
-- **Two packages:** `@sdl/capability-kit` (above-SDK substrate: the `ctx`→gateway adapter + shared result/error shapes) and `@sdl/domain-primitives-transitional` (below-SDK disposable holding pen for the SDK-independent primitives currently tangled in `@sdl/sdl`, deleted once consumers migrate).
+- **Capability Kit plus retired transitional holding pen:** `@sdl/capability-kit` is the live above-SDK substrate for the `ctx`→gateway adapter, shared result/error shapes, and precise first-party capability-building primitives. The temporary below-SDK package `@sdl/domain-primitives-transitional` was used only as a disposable holding pen during the migration and has been deleted after its consumers moved.
 - `internal-migration-export` is renamed **internal workspace export**; the dividing rule is SDK-dependence — `ctx`-dependent shared code lives above the SDK in `@sdl/capability-kit`, SDK-independent primitives below.
 - Standalone tools (`packagechk`, `vibechk`, `areg`) are off this axis; `pi-*` is a separate **Presentation Host**, not a Capability.
 
@@ -59,13 +59,13 @@ Rules:
 - Model each of the nine user-facing capabilities (flow, handoff, objective, branch-context, plans, address, slot, roaster, aretro) as a Capability with a gateway-injected Domain Core, a thin Command Face, and a Capability API where a consumer needs it. Per-capability migration is tracked as **child Objectives**, ordered by `ccc`-consumption; flow is the reference implementation.
 - Break the `@sdl/pi` ↔ `@sdl/ccc` package cycle to satisfy the acyclic Extension Dependency Graph: relocate the objectives domain stranded in the `@sdl/pi` Presentation Host into its owning Capability (re-consumed via its Capability API), pick a single Pi/CCC delegation direction, and land a topological acyclicity check in `just ts-guard`.
 - Convert `ccc` into the highest-fan-out consumer that depends on providers through their Capability APIs instead of `@sdl/sdl/*` internal subpaths; it holds no privileged tier.
-- Delete `@sdl/domain-primitives-transitional` once every capability is an extension and `ccc`/`pi-extensions` consume Capability APIs — its emptiness is the endgame's completion marker.
+- Delete `@sdl/domain-primitives-transitional` once every capability is an extension and `ccc`/`pi-extensions` consume Capability APIs — its deletion is the endgame's completion marker.
 
 ## Non-Goals
 
 - Do not migrate the standalone tools (`packagechk`, `vibechk`, `areg`) into the extension structure — they are off the extension axis. Phase 2 migrates only the nine product capabilities; the `pi-*` presentation host is adapted, not modeled as a capability extension.
 - Do not expand the `sdl-sdk` contract with domain gateways (no `ctx.git`): gateways are derivable from `exec` and belong above the SDK in `@sdl/capability-kit`, not in the thin host-primitive API.
-- Do not treat `@sdl/domain-primitives-transitional` as a permanent home or let it accrue `ctx`-dependent code; it holds only SDK-independent primitives and must delete to zero.
+- Do not reintroduce `@sdl/domain-primitives-transitional`, a live `transitional` tier, or a new below-SDK domain holding pen; the temporary package has deleted to zero.
 - Do not create a privileged bundled-extension path for `cp`, `submit`, `land`, or similar repository workflow commands in the first pass; model them as project-local flow commands.
 - Do not design nested SDL CLI command trees or extension-owned agent-resource installation as part of this Objective. (Capability migration for Handoff, Objective, Slot, etc. is now in Phase 2 scope; only nested command trees and agent-resource install remain parked.)
 - Do not keep long-lived compatibility aliases or duplicate public implementations when a command is intentionally moved into project-local SDL extension form.
@@ -94,6 +94,12 @@ Rules:
 - All nine user-facing capabilities (flow, handoff, objective, branch-context, plans, address, slot, roaster, aretro) are above-SDK Capabilities with a thin Command Face and a gateway-injected Domain Core; each is tracked by a completed child Objective (flow excepted, as the in-repo reference).
 - `ccc` is the highest-fan-out consumer that depends on provider Capabilities through their Capability APIs, not through `@sdl/sdl/*` internal subpaths, and holds no privileged tier.
 - Below the SDK is domain-free: `@sdl/domain-primitives-transitional` has been deleted, and no below-SDK package imports capability domain logic. Domain logic lives only in Capabilities, never in the Presentation Host (`@sdl/pi`) or kernel.
+
+## Closure
+
+Closed after Phase 2 Step 6 completed the architecture endgame: `@sdl/domain-primitives-transitional` has no tracked package files, no live `ts/packages` imports, and no workspace manifest/lockfile references; the ignored empty residue directory was removed. Former checkpoint/worktree/temp/text primitives now live under precise `@sdl/capability-kit/*` exports without becoming public `sdl-sdk` author API.
+
+The Phase 2 completion criteria are satisfied: Capability Kit exists and supplies the gateway/result substrate; Capability API, gateway-injected-core, deep-import, and acyclic graph conventions are documented and enforced; all nine user-facing capabilities have completed/dispositioned migrations (flow as reference, plus closed child dispositions for handoff, objective, branch-context, plans, address, slot, roaster, and aretro); `ccc` consumes provider APIs rather than internals; and below-SDK packages are domain-free. See `roadmap.md` Step 6 and `updates/20260629T233719Z-domain-primitives-transitional-deleted.md` for final evidence.
 
 ## Definition of Progress
 
