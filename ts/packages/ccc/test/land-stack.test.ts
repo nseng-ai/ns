@@ -295,7 +295,12 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 async function runLandStack(
 	args: string,
 	script: ScriptedExec[],
-	contextOptions: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {},
+	contextOptions: {
+		cwd?: string;
+		hasUI?: boolean;
+		confirms?: boolean[];
+		executeOptions?: Parameters<typeof executeStackLanding>[3];
+	} = {},
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
@@ -309,7 +314,7 @@ async function runLandStack(
 	registerLandStackRenderer(pi);
 	const context = createContext(contextOptions);
 	const parsedArgs = expectSuccess(parseArgs(args));
-	await executeStackLanding(pi, context.ctx, parsedArgs);
+	await executeStackLanding(pi, context.ctx, parsedArgs, contextOptions.executeOptions);
 	return { pi, messages: pi.messages, ...context };
 }
 
@@ -2990,6 +2995,59 @@ describe("land-stack command scenarios", () => {
 			pi.execCalls.findIndex((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
 		).toBeLessThan(
 			pi.execCalls.findIndex((call) => call.command === "gh" && call.args[1] === "merge"),
+		);
+		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("does not ask again for stale PR submit/update when pre-merge work is already approved", async () => {
+		const submitArgs = [
+			"submit",
+			"--branch",
+			"feature-a",
+			"--no-stack",
+			"--update-only",
+			"--no-edit",
+			"--no-ai",
+			"--no-interactive",
+		];
+		const script = [
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
+			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
+			step("gt", submitArgs),
+			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
+				stdout: `${SHA_B}\n`,
+			}),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B })),
+			}),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_B })),
+			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_B,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+			childrenRecheckStep("feature-a", []),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+		];
+		const { pi, notifications, confirmations } = await runLandStack("", script, {
+			confirms: [true],
+			executeOptions: { preMergeConfirmation: "already-approved" },
+		});
+
+		pi.assertDone();
+		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Land this stack path?");
+		expect(confirmations.map((confirmation) => confirmation.title)).not.toContain(
+			"Run gt submit/update?",
 		);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});

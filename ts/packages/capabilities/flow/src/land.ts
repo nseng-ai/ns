@@ -215,6 +215,7 @@ async function runLandCommand(
 
 	const outcome = await executeStackLanding(pi, ctx, args.value, {
 		skipMainConfirmation: true,
+		...(args.value.shouldSkipConfirmation ? {} : { preMergeConfirmation: "already-approved" }),
 		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),
 	});
