@@ -11,12 +11,12 @@ const FEEDBACK_SEVERITY_LEVELS = ["info", "warning", "error"] as const;
 export type FeedbackSeverityLevel = (typeof FEEDBACK_SEVERITY_LEVELS)[number];
 
 export interface PrPreviewFeedbackCounts {
-	included_review_threads: number;
-	included_reviews: number;
-	included_discussion_comments: number;
-	excluded_resolved_threads: number;
-	excluded_empty_reviews: number;
-	excluded_automation_comments: number;
+	includedReviewThreads: number;
+	includedReviews: number;
+	includedDiscussionComments: number;
+	excludedResolvedThreads: number;
+	excludedEmptyReviews: number;
+	excludedAutomationComments: number;
 }
 
 export interface PrPreviewFeedbackTarget {

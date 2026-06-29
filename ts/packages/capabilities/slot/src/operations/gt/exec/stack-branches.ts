@@ -37,9 +37,9 @@ export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBr
 	if (resolved.type !== "ok") return resolved;
 	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
 	if (stackResult.type === "untracked_branch")
-		return failure("untracked_branch", `${stackResult.message} — run \`gt track\` first`);
+		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure")
-		return failure("gt_stack_read_failed", stackResult.failure.message);
+		return failure("gt-stack-read-failed", stackResult.failure.message);
 	const integrity = validateStackIntegrity(stackResult.stack, { downstack: request.downstack });
 	if (integrity.type === "failure") return failure(integrity.errorType, integrity.message);
 	if (ctx.shouldWriteCdDirective) {
@@ -99,7 +99,7 @@ function validateStackIntegrity(
 	if (markerWarnings.length > 0)
 		return {
 			type: "failure",
-			errorType: "stack_metadata_inconsistent",
+			errorType: "stack-metadata-inconsistent",
 			message: markerWarnings.join("; "),
 		};
 	if (stack.current === stack.trunk) return { type: "ok", warnings: [] };
@@ -112,7 +112,7 @@ function validateStackIntegrity(
 		if (ancestorProblem !== null)
 			return {
 				type: "failure",
-				errorType: "stack_metadata_inconsistent",
+				errorType: "stack-metadata-inconsistent",
 				message: ancestorProblem,
 			};
 		const warnings = stack.descendantWalk.forks.map(renderStackFork);
@@ -126,7 +126,7 @@ function validateStackIntegrity(
 	}
 	const fork = stack.descendantWalk.forks[0];
 	if (fork !== undefined)
-		return { type: "failure", errorType: "forked_stack", message: forkedStackMessage(fork) };
+		return { type: "failure", errorType: "forked-stack", message: forkedStackMessage(fork) };
 	const messages = stack.descendantWalk.childrenCorruptions.map(renderChildrenCorruption);
 	if (ancestorProblem !== null) messages.push(ancestorProblem);
 	const descendantProblem = renderWalkTerminationWarning({
@@ -138,7 +138,7 @@ function validateStackIntegrity(
 	if (messages.length > 0)
 		return {
 			type: "failure",
-			errorType: "stack_metadata_inconsistent",
+			errorType: "stack-metadata-inconsistent",
 			message: messages.join("; "),
 		};
 	return { type: "ok", warnings: [] };

@@ -24,10 +24,10 @@ export const foreachRequestSchema = z.object({
 });
 
 export const foreachSlotResultSchema = z.object({
-	slot_name: z.string(),
-	worktree_path: z.string(),
+	slotName: z.string(),
+	worktreePath: z.string(),
 	branch: z.string().nullable(),
-	exit_code: z.number(),
+	exitCode: z.number(),
 	stdout: z.string(),
 	stderr: z.string(),
 	succeeded: z.boolean(),
@@ -48,20 +48,20 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	if (request.command.length === 0)
 		return failure(
-			"missing_command",
+			"missing-command",
 			"Pass a command after --, e.g. `sdl slot foreach -- git clean -fd`.",
 		);
 	const inventory = await buildSlotInventory(repoCtx.git, {
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
 	});
 	if (poolSize(inventory) === 0)
-		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const inProgress = inventory.records.filter((record) => record.operation !== null);
-	if (inProgress.length > 0) return failure("operation_in_progress", inProgressMessage(inProgress));
+	if (inProgress.length > 0) return failure("operation-in-progress", inProgressMessage(inProgress));
 	const records = inventory.records;
 	if (!request.yes) {
 		if (!ctx.shouldWriteCdDirective)
-			return failure("confirmation_required", "sdl slot foreach requires --yes in JSON mode.");
+			return failure("confirmation-required", "sdl slot foreach requires --yes in JSON mode.");
 		const confirmed = await repoCtx.interaction.confirm({
 			message: `Run \`${formatCommand(request.command[0]!, request.command.slice(1))}\` in ${records.length} slot(s)?`,
 			defaultAnswer: "no",
@@ -76,10 +76,10 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 			cwd: record.path,
 		});
 		slots.push({
-			slot_name: record.slotName,
-			worktree_path: record.path,
+			slotName: record.slotName,
+			worktreePath: record.path,
 			branch: record.branch,
-			exit_code: result.code,
+			exitCode: result.code,
 			stdout: tailOutput(result.stdout),
 			stderr: tailOutput(result.stderr),
 			succeeded: commandSucceeded(result),
@@ -116,9 +116,9 @@ export function renderForeach(
 				{ header: "RESULT", width: "auto" },
 			],
 			rows: result.slots.map((slot) => [
-				cell(paint(renderCaps, "accent", slot.slot_name), slot.slot_name),
+				cell(paint(renderCaps, "accent", slot.slotName), slot.slotName),
 				cell(slot.branch ?? "—"),
-				cell(String(slot.exit_code)),
+				cell(String(slot.exitCode)),
 				statusCell(renderCaps, slot.succeeded),
 			]),
 		}),
@@ -152,7 +152,7 @@ function slotOutputLines(slot: ForeachSlotResult): string[] {
 	if (slot.stdout.length === 0 && slot.stderr.length === 0) return [];
 	return [
 		"",
-		`${slot.slot_name} output:`,
+		`${slot.slotName} output:`,
 		...indentedOutputLines(slot.stdout, "stdout"),
 		...indentedOutputLines(slot.stderr, "stderr"),
 	];

@@ -183,9 +183,9 @@ describe("runSdlccCli", () => {
 			exitCode: 0,
 			data: {
 				branch: "feature/report",
-				worktree_path: "/repo/slot-05",
-				workspace_id: "workspace:45",
-				surface_id: "surface:117",
+				worktreePath: "/repo/slot-05",
+				workspaceId: "workspace:45",
+				surfaceId: "surface:117",
 				kind: "sdlcc-branch",
 				source: "sdlcc",
 				shell: "/bin/bash",
@@ -221,7 +221,7 @@ describe("runSdlccCli", () => {
 			exitCode: 2,
 			errorType: "usageError",
 			message: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set.",
-			data: { code: "missing_surface_id", command_failure: null },
+			data: { code: "missing-surface-id", commandFailure: null },
 		});
 		expect(run.stderr).toEqual([]);
 	});

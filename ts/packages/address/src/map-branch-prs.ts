@@ -23,8 +23,8 @@ const mapBranchPrsParseSchema = z.object({
 type MapBranchPrsRequest = z.output<typeof mapBranchPrsParseSchema>;
 
 export type MapBranchPrsResult = z.output<typeof mapBranchPrsResultSchema>;
-export type BranchPrEntry = MapBranchPrsResult["branch_prs"][number];
-export type AmbiguousBranchPrEntry = MapBranchPrsResult["ambiguous_branches"][number];
+export type BranchPrEntry = MapBranchPrsResult["branchPrs"][number];
+export type AmbiguousBranchPrEntry = MapBranchPrsResult["ambiguousBranches"][number];
 
 export const mapBranchPrsOperation = defineExecOperation({
 	isRepoContextRequired: true,
@@ -54,7 +54,7 @@ async function runMapBranchPrsOperation(
 
 	const branches = payloadResult.value.branches;
 	const validationMessage = branchesValidationMessage(branches, "map-branch-prs");
-	if (validationMessage !== null) return failure("invalid_request", validationMessage);
+	if (validationMessage !== null) return failure("invalid-request", validationMessage);
 
 	const mapping = await mapBranchesToOpenPrs({
 		branches,
@@ -63,7 +63,7 @@ async function runMapBranchPrsOperation(
 	});
 	if (mapping.type === "failure") return prFeedbackFailureExit(mapping.message, mapping.failure);
 	const result = mapping.mapping;
-	if (result.missing_branches.length === 0 && result.ambiguous_branches.length === 0)
+	if (result.missingBranches.length === 0 && result.ambiguousBranches.length === 0)
 		return ok(result);
 	return negative(mappingFailureMessage(result), { data: result });
 }
@@ -82,11 +82,11 @@ export function branchesValidationMessage(
 }
 
 function mappingFailureMessage(result: MapBranchPrsResult): string {
-	const ambiguousBranchNames = result.ambiguous_branches.map((entry) => entry.branch);
-	if (result.missing_branches.length > 0 && ambiguousBranchNames.length > 0) {
-		return `Could not map branches uniquely; missing: ${result.missing_branches.join(", ")}; ambiguous: ${ambiguousBranchNames.join(", ")}`;
+	const ambiguousBranchNames = result.ambiguousBranches.map((entry) => entry.branch);
+	if (result.missingBranches.length > 0 && ambiguousBranchNames.length > 0) {
+		return `Could not map branches uniquely; missing: ${result.missingBranches.join(", ")}; ambiguous: ${ambiguousBranchNames.join(", ")}`;
 	}
 	if (ambiguousBranchNames.length > 0)
 		return `Multiple open PRs found for branches: ${ambiguousBranchNames.join(", ")}`;
-	return `No open PR found for branches: ${result.missing_branches.join(", ")}`;
+	return `No open PR found for branches: ${result.missingBranches.join(", ")}`;
 }

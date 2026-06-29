@@ -25,7 +25,7 @@ export function resolveJsonPointer(document: JsonValue, pointer: string): JsonVa
 	}
 	if (!pointer.startsWith("/")) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`JSON Pointer must be empty or start with '/': ${JSON.stringify(pointer)}`,
 		);
 	}
@@ -36,7 +36,7 @@ export function resolveJsonPointer(document: JsonValue, pointer: string): JsonVa
 		const token = unescapePointerToken(rawToken, pointer);
 		if (current === null || typeof current !== "object") {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`JSON Pointer cannot traverse scalar value at token ${JSON.stringify(token)}: ${JSON.stringify(pointer)}`,
 			);
 		}
@@ -44,14 +44,14 @@ export function resolveJsonPointer(document: JsonValue, pointer: string): JsonVa
 			const index = arrayIndexForToken(token, pointer);
 			if (index >= current.length) {
 				throw new PayloadError(
-					"payload_lookup_failed",
+					"payload-lookup-failed",
 					`JSON Pointer array index ${index} is out of range for array of length ${current.length}: ${JSON.stringify(pointer)}`,
 				);
 			}
 			const arrValue = current[index];
 			if (arrValue === undefined) {
 				throw new PayloadError(
-					"payload_lookup_failed",
+					"payload-lookup-failed",
 					`JSON Pointer array index ${index} is undefined: ${JSON.stringify(pointer)}`,
 				);
 			}
@@ -62,14 +62,14 @@ export function resolveJsonPointer(document: JsonValue, pointer: string): JsonVa
 		const obj = current as { readonly [key: string]: JsonValue };
 		if (!(token in obj)) {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`JSON Pointer token ${JSON.stringify(token)} was not found in object: ${JSON.stringify(pointer)}`,
 			);
 		}
 		const objValue = obj[token];
 		if (objValue === undefined) {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`JSON Pointer token ${JSON.stringify(token)} is undefined: ${JSON.stringify(pointer)}`,
 			);
 		}
@@ -89,7 +89,7 @@ export function readJsonPayloadArtifact(
 		content = readFileSync(payloadPath, "utf-8");
 	} catch (error) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Failed to read payload artifact ${payloadPath}: ${String(error)}`,
 			error,
 		);
@@ -98,7 +98,7 @@ export function readJsonPayloadArtifact(
 		return JSON.parse(content) as JsonValue;
 	} catch (error) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Failed to parse JSON payload artifact ${payloadPath}: ${String(error)}`,
 			error,
 		);
@@ -128,7 +128,7 @@ function unescapePointerToken(token: string, pointer: string): string {
 		const escapeIndex = index + 1;
 		if (escapeIndex >= token.length) {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`Invalid JSON Pointer escape in ${JSON.stringify(pointer)}: trailing '~'`,
 			);
 		}
@@ -140,7 +140,7 @@ function unescapePointerToken(token: string, pointer: string): string {
 			result.push("/");
 		} else {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`Invalid JSON Pointer escape '~${escapeChar}' in ${JSON.stringify(pointer)}`,
 			);
 		}
@@ -152,7 +152,7 @@ function unescapePointerToken(token: string, pointer: string): string {
 function arrayIndexForToken(token: string, pointer: string): number {
 	if (token === "-") {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`JSON Pointer '-' token is not a valid array index: ${JSON.stringify(pointer)}`,
 		);
 	}
@@ -161,13 +161,13 @@ function arrayIndexForToken(token: string, pointer: string): number {
 	}
 	if (token.startsWith("0")) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`JSON Pointer array index must not contain leading zeroes: ${JSON.stringify(pointer)}`,
 		);
 	}
 	if (!/^\d+$/.test(token)) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`JSON Pointer array token is not a non-negative integer: ${JSON.stringify(pointer)}`,
 		);
 	}
@@ -180,7 +180,7 @@ function validateJsonPayloadArtifactPath(
 ): void {
 	if (!isAbsolute(payloadPath)) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact path must be absolute: ${payloadPath}`,
 		);
 	}
@@ -190,31 +190,31 @@ function validateJsonPayloadArtifactPath(
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
 			throw new PayloadError(
-				"payload_lookup_failed",
+				"payload-lookup-failed",
 				`Payload artifact path does not exist: ${payloadPath}`,
 			);
 		}
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Failed to stat payload artifact path: ${payloadPath}`,
 			error,
 		);
 	}
 	if (stats.isSymbolicLink()) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact path must not be a symlink: ${payloadPath}`,
 		);
 	}
 	if (!stats.isFile()) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact path must be a regular file: ${payloadPath}`,
 		);
 	}
 	if (basename(dirname(payloadPath)) !== "payloads") {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact must live under a payloads directory: ${payloadPath}`,
 		);
 	}
@@ -222,13 +222,13 @@ function validateJsonPayloadArtifactPath(
 	const sessionId = basename(dirname(dirname(payloadPath)));
 	if (!isSafeSegment(sessionId)) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact session id must be a safe segment: ${JSON.stringify(sessionId)}`,
 		);
 	}
 	if (basename(dirname(dirname(dirname(payloadPath)))) !== "sessions") {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact must live under sessions/<session-id>/payloads: ${payloadPath}`,
 		);
 	}
@@ -237,21 +237,21 @@ function validateJsonPayloadArtifactPath(
 	const match = PAYLOAD_FILENAME_PATTERN.exec(filename);
 	if (match === null || match.groups === undefined) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact filename does not match payload contract: ${filename}`,
 		);
 	}
 	const role = match.groups.role as string | undefined;
 	if (!role || !options.allowedRoles.has(role)) {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact role ${JSON.stringify(role ?? "")} is not allowed for this lookup: ${payloadPath}`,
 		);
 	}
 	const extension = match.groups.extension as string | undefined;
 	if (extension !== "json") {
 		throw new PayloadError(
-			"payload_lookup_failed",
+			"payload-lookup-failed",
 			`Payload artifact extension must be json: ${payloadPath}`,
 		);
 	}

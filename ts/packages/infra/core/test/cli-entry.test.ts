@@ -54,16 +54,16 @@ describe("isDirectCliInvocation", () => {
 describe("runClinkrCommand", () => {
 	test("preserves successful Clinkr exits", async () => {
 		await expect(
-			runClinkrCommand("example_error", async () => ok({ answer: 42 })),
+			runClinkrCommand("example-error", async () => ok({ answer: 42 })),
 		).resolves.toEqual({ type: "ok", data: { answer: 42 } });
 	});
 
 	test("converts thrown errors into failure exits", async () => {
 		await expect(
-			runClinkrCommand("example_error", async () => {
+			runClinkrCommand("example-error", async () => {
 				throw new Error("boom");
 			}),
-		).resolves.toEqual({ type: "failure", errorType: "example_error", message: "boom" });
+		).resolves.toEqual({ type: "failure", errorType: "example-error", message: "boom" });
 	});
 });
 

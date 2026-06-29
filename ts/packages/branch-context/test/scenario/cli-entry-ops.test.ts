@@ -48,11 +48,11 @@ describe("branch-context exec", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch,
-				branch_creation: "plain-git",
-				start_point: START_POINT,
+				branchCreation: "plain-git",
+				startPoint: START_POINT,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
-				source_file: planFile,
+				sourceFile: planFile,
 				summary: "Create it",
 			},
 		});
@@ -102,11 +102,11 @@ describe("branch-context exec", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch,
-				branch_creation: "graphite",
-				start_point: START_POINT,
+				branchCreation: "graphite",
+				startPoint: START_POINT,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
-				source_file: planFile,
+				sourceFile: planFile,
 			},
 		});
 		expect(run.graphite.checkBranchTrackedCalls).toEqual([
@@ -157,7 +157,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -214,7 +214,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain(
 			"Created local Git branch but failed to track it with Graphite.",
@@ -269,7 +269,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -305,14 +305,14 @@ describe("branch-context exec", () => {
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
-				selected_key: PLAN_KEY,
-				byte_count: content.length,
+				selectedKey: PLAN_KEY,
+				byteCount: content.length,
 				source: "attached",
 			},
 		});
 		const data = payload.data as Record<string, unknown>;
-		expect(data).not.toHaveProperty("attached_plan_content");
-		expect(data).not.toHaveProperty("implementation_prompt");
+		expect(data).not.toHaveProperty("attachedPlanContent");
+		expect(data).not.toHaveProperty("implementationPrompt");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
 		expect(run.brmem.getAttachedPlanCalls).toEqual([{ branch, key: PLAN_KEY }]);
 	});
@@ -337,7 +337,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain("Branch Memory list failed.");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
@@ -365,7 +365,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain("Branch Memory get failed.");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
@@ -397,11 +397,11 @@ describe("branch-context exec", () => {
 			data: {
 				branch: SOURCE_BRANCH,
 				namespace: "local-plan-store",
-				selected_key: PLAN_KEY,
-				ref_name: planFile,
-				byte_count: content.length,
+				selectedKey: PLAN_KEY,
+				refName: planFile,
+				byteCount: content.length,
 				source: "saved",
-				source_file: planFile,
+				sourceFile: planFile,
 			},
 		});
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch: SOURCE_BRANCH }]);
@@ -427,14 +427,14 @@ describe("branch-context exec", () => {
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
-				selected_key: PLAN_KEY,
+				selectedKey: PLAN_KEY,
 				source: "attached",
-				implementation_prompt_file: promptFile,
+				implementationPromptFile: promptFile,
 			},
 		});
 		const data = payload.data as Record<string, unknown>;
-		expect(data).not.toHaveProperty("attached_plan_content");
-		expect(data).not.toHaveProperty("implementation_prompt");
+		expect(data).not.toHaveProperty("attachedPlanContent");
+		expect(data).not.toHaveProperty("implementationPrompt");
 		const prompt = await readFile(promptFile, "utf8");
 		expect(prompt).toContain("# branch-context implementation");
 		expect(prompt).toContain("----- BEGIN ATTACHED PLAN -----\n# Attached Plan");
@@ -461,15 +461,15 @@ describe("branch-context exec", () => {
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
-				selected_key: PLAN_KEY,
-				byte_count: content.length,
+				selectedKey: PLAN_KEY,
+				byteCount: content.length,
 				source: "attached",
-				attached_plan_content: content,
+				attachedPlanContent: content,
 			},
 		});
 		const data = payload.data as Record<string, unknown>;
-		expect(String(data.implementation_prompt)).toContain("# branch-context implementation");
-		expect(String(data.implementation_prompt)).toContain(
+		expect(String(data.implementationPrompt)).toContain("# branch-context implementation");
+		expect(String(data.implementationPrompt)).toContain(
 			"----- BEGIN ATTACHED PLAN -----\n# Attached Plan",
 		);
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
@@ -520,7 +520,7 @@ describe("branch-context exec", () => {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key,
-				source_file: sourceFile,
+				sourceFile: sourceFile,
 			},
 		});
 		expect(run.brmem.attachPlanCalls).toMatchObject([
@@ -546,8 +546,8 @@ describe("branch-context exec", () => {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
-				source_file: sourceFile,
-				plan_slug: PLAN_SLUG,
+				sourceFile: sourceFile,
+				planSlug: PLAN_SLUG,
 			},
 		});
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: PLAN_KEY }]);
@@ -589,7 +589,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		const message = String(payload.message);
 		expect(message).toContain("No saved plan found for slug `missing-plan`.");
@@ -615,7 +615,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		const message = String(payload.message);
 		expect(message).toContain(
@@ -658,8 +658,8 @@ describe("branch-context exec", () => {
 			data: {
 				branch,
 				key: PLAN_KEY,
-				source_file: sourceFile,
-				plan_slug: PLAN_SLUG,
+				sourceFile: sourceFile,
+				planSlug: PLAN_SLUG,
 			},
 		});
 		expect(run.git.currentBranchCalls).toEqual([]);
@@ -683,7 +683,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain(
 			"Cannot default branch-context operation from detached HEAD. Pass --branch explicitly.",
@@ -733,7 +733,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain("Branch Memory check failed.");
 		expect(run.brmem.attachmentPresenceCalls).toEqual([{ branch, key: "missing" }]);
@@ -780,7 +780,7 @@ describe("branch-context exec", () => {
 		expect(payload).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "branch_context_error",
+			errorType: "branch-context-error",
 		});
 		expect(String(payload.message)).toContain("Branch Memory delete failed.");
 		expect(run.brmem.deleteEntryCalls).toEqual([{ branch, key: "notes" }]);

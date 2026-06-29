@@ -123,8 +123,8 @@ describe("areg check Pi replacement helpers", () => {
 		expect(
 			formatCheckReport({
 				issues: [
-					{ skill: "zeta", code: "invalid_lock_hash", message: "bad hash" },
-					{ skill: "alpha", code: "claude_missing", message: "missing claude" },
+					{ skill: "zeta", code: "invalid-lock-hash", message: "bad hash" },
+					{ skill: "alpha", code: "claude-missing", message: "missing claude" },
 				],
 			}),
 		).toBe("\nalpha:\n  missing claude\n\nzeta:\n  bad hash\n\n2 error(s)");

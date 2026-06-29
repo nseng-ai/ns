@@ -125,7 +125,7 @@ describe("RealGitBrmemGateway", () => {
 				key: "body.md",
 				content: "body",
 			}),
-		).toMatchObject({ type: "error", error: { code: "invalid_branch_name" } });
+		).toMatchObject({ type: "error", error: { code: "invalid-branch-name" } });
 		expect(git.validateBranchRefCalls).toEqual([]);
 		expect(commands.calls).toEqual([]);
 	});
@@ -142,7 +142,7 @@ describe("RealGitBrmemGateway", () => {
 				key: "body.md",
 				content: "body",
 			}),
-		).toMatchObject({ type: "error", error: { code: "invalid_branch_name" } });
+		).toMatchObject({ type: "error", error: { code: "invalid-branch-name" } });
 		expect(git.validateBranchRefCalls).toEqual([{ cwd: "/work", branch: "bad branch" }]);
 		expect(commands.calls).toEqual([]);
 	});
@@ -175,7 +175,7 @@ describe("RealGitBrmemGateway", () => {
 			content: "new body",
 		});
 
-		expect(result).toMatchObject({ type: "error", error: { code: "key_already_exists" } });
+		expect(result).toMatchObject({ type: "error", error: { code: "key-already-exists" } });
 		expect(commands.calls.some((call) => call.args[0] === "hash-object")).toBe(false);
 		commands.assertDone();
 	});
@@ -228,7 +228,7 @@ describe("RealGitBrmemGateway", () => {
 			content: "new body",
 		});
 
-		expect(result).toMatchObject({ type: "error", error: { code: "snapshot_ref_changed" } });
+		expect(result).toMatchObject({ type: "error", error: { code: "snapshot-ref-changed" } });
 		const mktreeCall = commands.calls.find((call) => call.args[0] === "mktree");
 		expect(mktreeCall?.options?.stdin).toBe("100644 blob new-blob\tbody.md\n");
 		commands.assertDone();

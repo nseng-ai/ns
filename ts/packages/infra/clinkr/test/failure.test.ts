@@ -24,7 +24,7 @@ function buildGroup(error: () => Error): ClinkrGroup<null> {
 describe("ClinkrFailure conversion", () => {
 	test("a thrown ClinkrFailure becomes the failure channel in human mode", async () => {
 		const group = buildGroup(
-			() => new ClinkrFailure({ errorType: "missing_branch", message: "no such branch" }),
+			() => new ClinkrFailure({ errorType: "missing-branch", message: "no such branch" }),
 		);
 		const run = await runForTest(group, ["explode"], { context: null });
 		expect(run.exitCode).toBe(2);
@@ -33,14 +33,14 @@ describe("ClinkrFailure conversion", () => {
 
 	test("a thrown ClinkrFailure becomes the failure envelope in json mode", async () => {
 		const group = buildGroup(
-			() => new ClinkrFailure({ errorType: "missing_branch", message: "no such branch" }),
+			() => new ClinkrFailure({ errorType: "missing-branch", message: "no such branch" }),
 		);
 		const run = await runForTest(group, ["explode", "--format", "json"], { context: null });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toEqual({
 			status: "failure",
 			exitCode: 2,
-			errorType: "missing_branch",
+			errorType: "missing-branch",
 			message: "no such branch",
 		});
 	});

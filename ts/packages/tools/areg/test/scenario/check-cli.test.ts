@@ -76,7 +76,7 @@ describe("areg check CLI", () => {
 		expect(JSON.parse(run.stdout.join(""))).toEqual({
 			status: "ok",
 			exitCode: 0,
-			data: { ok: true, project_dir: "/repo", issue_count: 0, issues: [] },
+			data: { ok: true, projectDir: "/repo", issueCount: 0, issues: [] },
 		});
 	});
 
@@ -112,12 +112,12 @@ describe("areg check CLI", () => {
 		expect(body.data.issues).toEqual([
 			expect.objectContaining({
 				skill: "demo",
-				code: "invalid_lock_hash",
+				code: "invalid-lock-hash",
 				message: expect.stringContaining("placeholder computedHash PENDING_REGEN"),
 			}),
 			expect.objectContaining({
 				skill: "short",
-				code: "invalid_lock_hash",
+				code: "invalid-lock-hash",
 				message: expect.stringContaining("invalid computedHash 'abc123'"),
 			}),
 		]);

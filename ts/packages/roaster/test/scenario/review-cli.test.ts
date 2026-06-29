@@ -160,7 +160,7 @@ function sampleInputCoverage(): ReviewInputCoverage {
 				estimatedTokens: 90,
 				addedLines: 10,
 				removedLines: 1,
-				reason: "file_exceeds_cap",
+				reason: "file-exceeds-cap",
 			},
 		],
 	};
@@ -237,8 +237,8 @@ describe("roaster review CLI", () => {
 		const envelope = JSON.parse(run.stdout);
 		expect(envelope.data.keys).toEqual(["dignified-python-tripwire", "typescript-style"]);
 		expect(envelope.data.count).toBe(2);
-		expect(envelope.data.reviews[0].model_profile).toBe("quick");
-		expect(envelope.data.reviews[0].local_only).toBe(false);
+		expect(envelope.data.reviews[0].modelProfile).toBe("quick");
+		expect(envelope.data.reviews[0].localOnly).toBe(false);
 	});
 
 	test("review ls aliases review list", async () => {
@@ -318,7 +318,7 @@ describe("roaster review CLI", () => {
 		});
 		expect(run.exitCode).toBe(2);
 		const envelope = JSON.parse(run.stdout);
-		expect(envelope.errorType).toBe("review_definition_invalid");
+		expect(envelope.errorType).toBe("review-definition-invalid");
 	});
 
 	test("review run succeeds with explicit model and emits progress to stderr", async () => {
@@ -420,7 +420,7 @@ describe("roaster review CLI", () => {
 	test("review run logging failure exits nonzero and preserves review result", async () => {
 		const reviewLog = new FakeReviewLogGateway({
 			writeFailure: {
-				type: "review_log_write_failed",
+				type: "review-log-write-failed",
 				message: "brmem put failed while writing roaster review log: missing brmem",
 			},
 		});
@@ -468,7 +468,7 @@ describe("roaster review CLI", () => {
 			}),
 		});
 		expect(failure.exitCode).toBe(2);
-		expect(JSON.parse(failure.stdout).errorType).toBe("review_definition_invalid");
+		expect(JSON.parse(failure.stdout).errorType).toBe("review-definition-invalid");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 

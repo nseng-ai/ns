@@ -10,9 +10,9 @@ describe("slot init CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				pool_size: 2,
+				poolSize: 2,
 				created: ["slot-01", "slot-02"],
-				worktrees_dir: "/slots/repos/repo/worktrees",
+				worktreesDir: "/slots/repos/repo/worktrees",
 			},
 		});
 		expect(run.storage.operations()).toEqual([
@@ -28,7 +28,7 @@ describe("slot init CLI", () => {
 	it("rejects invalid sizes", async () => {
 		const run = runScenario(["init", "--size", "100", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid_size" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid-size" });
 	});
 
 	it("rejects already initialized pools", async () => {
@@ -36,7 +36,7 @@ describe("slot init CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool_already_initialized" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool-already-initialized" });
 	});
 });
 
@@ -47,7 +47,7 @@ describe("slot resize CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previous_pool_size: 2, pool_size: 4, created: ["slot-02", "slot-04"], removed: [] },
+			data: { previousPoolSize: 2, poolSize: 4, created: ["slot-02", "slot-04"], removed: [] },
 		});
 	});
 
@@ -76,7 +76,7 @@ describe("slot resize CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previous_pool_size: 4, pool_size: 2, created: [], removed: ["slot-03", "slot-04"] },
+			data: { previousPoolSize: 4, poolSize: 2, created: [], removed: ["slot-03", "slot-04"] },
 		});
 		expect(run.git.operations()).toEqual([
 			{ type: "remove-worktree", path: "/slots/repos/repo/worktrees/slot-03" },
@@ -108,7 +108,7 @@ describe("slot resize CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { previous_pool_size: 1, pool_size: 1, created: [], removed: [] },
+			data: { previousPoolSize: 1, poolSize: 1, created: [], removed: [] },
 		});
 		expect(run.git.operations()).toEqual([]);
 	});
@@ -147,7 +147,7 @@ describe("slot resize CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const output = parseJsonOutput(run) as { message: string; errorType: string };
-		expect(output.errorType).toBe("resize_unsafe");
+		expect(output.errorType).toBe("resize-unsafe");
 		expect(output.message).toContain("slot-02 is assigned to 'feature/a'");
 		expect(output.message).toContain(
 			"slot-03 at /slots/repos/repo/worktrees/slot-03 has uncommitted changes",

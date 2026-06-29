@@ -14,9 +14,9 @@ export function feedbackItemKeyFromDownload(data: PrFeedbackDownloadData): Feedb
 	if (!data.found) return [];
 	const prNumber = data.target.pr_number ?? "unknown";
 	const total =
-		data.counts.included_review_threads +
-		data.counts.included_reviews +
-		data.counts.included_discussion_comments;
+		data.counts.includedReviewThreads +
+		data.counts.includedReviews +
+		data.counts.includedDiscussionComments;
 	if (total === 0) return [];
 	return [{ kind: "download", key: `download-feedback:${prNumber}:${total}`, author: undefined }];
 }

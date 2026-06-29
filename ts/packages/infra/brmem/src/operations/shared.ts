@@ -26,11 +26,11 @@ export async function resolveEntryRequest(
 	const namespace = normalizeNamespaceOption(request.namespace);
 	const failureResult = firstFailure(
 		[
-			"invalid_namespace",
+			"invalid-namespace",
 			validationMessage("namespace", namespace, validateNamespaceName(namespace)),
 		],
-		["invalid_key", validationMessage("key", request.key, validateEntryKey(request.key))],
-		["invalid_branch_name", validationMessage("branch name", branch, validateBranchName(branch))],
+		["invalid-key", validationMessage("key", request.key, validateEntryKey(request.key))],
+		["invalid-branch-name", validationMessage("branch name", branch, validateBranchName(branch))],
 	);
 	if (failureResult !== undefined) return failure(failureResult[0], failureResult[1]);
 	return { type: "resolved", value: { namespace, key: request.key, branch } };

@@ -22,7 +22,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "review_threads": {
+      "reviewThreads": {
         "type": "array",
         "items": {
           "type": "object",
@@ -140,7 +140,7 @@
       }
     },
     "required": [
-      "review_threads"
+      "reviewThreads"
     ],
     "additionalProperties": false
   }

@@ -34,7 +34,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "const": "github_pr"
+            "const": "github-pr"
           },
           "pr_number": {
             "anyOf": [
@@ -113,44 +113,44 @@
       "counts": {
         "type": "object",
         "properties": {
-          "included_review_threads": {
+          "includedReviewThreads": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "included_reviews": {
+          "includedReviews": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "included_discussion_comments": {
+          "includedDiscussionComments": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "excluded_resolved_threads": {
+          "excludedResolvedThreads": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "excluded_empty_reviews": {
+          "excludedEmptyReviews": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
-          "excluded_automation_comments": {
+          "excludedAutomationComments": {
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           }
         },
         "required": [
-          "included_review_threads",
-          "included_reviews",
-          "included_discussion_comments",
-          "excluded_resolved_threads",
-          "excluded_empty_reviews",
-          "excluded_automation_comments"
+          "includedReviewThreads",
+          "includedReviews",
+          "includedDiscussionComments",
+          "excludedResolvedThreads",
+          "excludedEmptyReviews",
+          "excludedAutomationComments"
         ],
         "additionalProperties": false
       },

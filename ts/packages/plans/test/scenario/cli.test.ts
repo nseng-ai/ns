@@ -178,7 +178,7 @@ async function writePlanFile(
 }
 
 function jsonFailure(message: string): string {
-	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "plans_error", message }, null, 2)}\n`;
+	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "plans-error", message }, null, 2)}\n`;
 }
 
 function jsonNegative(message: string): string {
@@ -327,15 +327,15 @@ describe("plans list CLI pins", () => {
 				plans: [
 					{
 						slug: "first-useful-saved-plan",
-						branch_key: fixture.branchKey,
-						modified_time_ms: MODIFIED_TIME_MS,
+						branchKey: fixture.branchKey,
+						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						file_name: "first-useful-saved-plan.md",
+						fileName: "first-useful-saved-plan.md",
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
-							identity_source: "origin-url",
-							plan_store_path: join(fixture.planStoreRoot, fixture.repoKey),
+							identitySource: "origin-url",
+							planStorePath: join(fixture.planStoreRoot, fixture.repoKey),
 						},
 					},
 				],
@@ -382,15 +382,15 @@ describe("plans list CLI pins", () => {
 				plans: [
 					{
 						slug: "relative-root-plan-file",
-						branch_key: fixture.branchKey,
-						modified_time_ms: MODIFIED_TIME_MS,
+						branchKey: fixture.branchKey,
+						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						file_name: "relative-root-plan-file.md",
+						fileName: "relative-root-plan-file.md",
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
-							identity_source: "origin-url",
-							plan_store_path: join(absoluteRoot, fixture.repoKey),
+							identitySource: "origin-url",
+							planStorePath: join(absoluteRoot, fixture.repoKey),
 						},
 					},
 				],
@@ -514,12 +514,12 @@ describe("plans exec save pins", () => {
 		expect(json.stdout.join("")).toBe(
 			jsonSuccess({
 				slug,
-				file_path: expectedPath,
-				repo_root: fixture.repoRoot,
-				repo_key: fixture.repoKey,
-				repo_identity_source: "origin-url",
-				source_branch: SOURCE_BRANCH,
-				branch_key: fixture.branchKey,
+				filePath: expectedPath,
+				repoRoot: fixture.repoRoot,
+				repoKey: fixture.repoKey,
+				repoIdentitySource: "origin-url",
+				sourceBranch: SOURCE_BRANCH,
+				branchKey: fixture.branchKey,
 				summary: "Save it",
 			}),
 		);
@@ -596,7 +596,7 @@ describe("plans exec save pins", () => {
 		);
 		expect(await run.exit).toBe(0);
 		const data = parseJson(run).data as Record<string, unknown>;
-		expect(fixture.planStoreGateway.readFile(String(data.file_path))).toBe("# From file\n");
+		expect(fixture.planStoreGateway.readFile(String(data.filePath))).toBe("# From file\n");
 
 		const missingHuman = await runWithFakes(
 			[
@@ -638,7 +638,7 @@ describe("plans exec save pins", () => {
 		expect(await missingJson.exit).toBe(2);
 		expect(parseJson(missingJson)).toMatchObject({
 			exitCode: 2,
-			errorType: "plans_error",
+			errorType: "plans-error",
 			message: expect.stringContaining("ENOENT"),
 		});
 	});
@@ -728,7 +728,7 @@ describe("plans exec resolve pins", () => {
 		});
 		expect(await explicitJson.exit).toBe(0);
 		expect(explicitJson.stdout.join("")).toBe(
-			jsonSuccess({ source: "explicit", file_path: realExplicit }),
+			jsonSuccess({ source: "explicit", filePath: realExplicit }),
 		);
 
 		const explicitHuman = await runWithFakes(["exec", "resolve", explicitPlan], {
@@ -752,7 +752,7 @@ describe("plans exec resolve pins", () => {
 			exitCode: 0,
 			data: {
 				source: "explicit",
-				file_path: realExplicit,
+				filePath: realExplicit,
 			},
 		});
 
@@ -771,7 +771,7 @@ describe("plans exec resolve pins", () => {
 			exitCode: 0,
 			data: {
 				source: "explicit",
-				file_path: homePlan,
+				filePath: homePlan,
 			},
 		});
 	});
@@ -791,16 +791,16 @@ describe("plans exec resolve pins", () => {
 		expect(json.stdout.join("")).toBe(
 			jsonSuccess({
 				source: "latest",
-				file_path: newer,
+				filePath: newer,
 				slug: "newer-saved-plan-file",
-				file_name: "newer-saved-plan-file.md",
-				modified_time_ms: 2_000,
-				repo_root: fixture.repoRoot,
-				repo_key: fixture.repoKey,
-				repo_identity_source: "origin-url",
-				source_branch: SOURCE_BRANCH,
-				branch_key: fixture.branchKey,
-				directory_path: join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey),
+				fileName: "newer-saved-plan-file.md",
+				modifiedTimeMs: 2_000,
+				repoRoot: fixture.repoRoot,
+				repoKey: fixture.repoKey,
+				repoIdentitySource: "origin-url",
+				sourceBranch: SOURCE_BRANCH,
+				branchKey: fixture.branchKey,
+				directoryPath: join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey),
 			}),
 		);
 

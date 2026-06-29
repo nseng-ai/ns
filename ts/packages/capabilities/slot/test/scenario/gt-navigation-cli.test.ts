@@ -40,10 +40,10 @@ describe("slot gt navigation CLI", () => {
 		const output = parseJsonOutput(run);
 		expect(output).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/child",
-				already_assigned: true,
-				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
+				slotName: "slot-01",
+				branchName: "feature/child",
+				alreadyAssigned: true,
+				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
 			},
 		});
 		expect(output).not.toMatchObject({ data: { is_already_assigned: expect.anything() } });
@@ -63,10 +63,10 @@ describe("slot gt navigation CLI", () => {
 		const output = parseJsonOutput(run);
 		expect(output).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/parent",
-				already_assigned: false,
-				clipboard_skipped: true,
+				slotName: "slot-01",
+				branchName: "feature/parent",
+				alreadyAssigned: false,
+				clipboardSkipped: true,
 			},
 		});
 		expect(output).not.toMatchObject({

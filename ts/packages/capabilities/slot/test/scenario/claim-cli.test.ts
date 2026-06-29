@@ -26,10 +26,10 @@ describe("slot claim CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/source",
-				source_slot_name: "slot-02",
-				source_worktree_path: slot2Path,
+				slotName: "slot-01",
+				branchName: "feature/source",
+				sourceSlotName: "slot-02",
+				sourceWorktreePath: slot2Path,
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -49,7 +49,7 @@ describe("slot claim CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { already_current: true, slot_name: "slot-01" },
+			data: { alreadyCurrent: true, slotName: "slot-01" },
 		});
 		expect(run.git.operations()).toEqual([]);
 	});
@@ -65,12 +65,12 @@ describe("slot claim CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/main",
-				main_worktree_path: "/repo",
-				main_checkout_branch: "master",
-				main_redirect_action: "checkout_branch",
-				main_redirect_ref: "master",
+				slotName: "slot-01",
+				branchName: "feature/main",
+				mainWorktreePath: "/repo",
+				mainCheckoutBranch: "master",
+				mainRedirectAction: "checkout-branch",
+				mainRedirectRef: "master",
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -89,12 +89,12 @@ describe("slot claim CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/main",
-				main_worktree_path: "/repo",
-				main_checkout_branch: "master",
-				main_redirect_action: "checkout_branch",
-				main_redirect_ref: "master",
+				slotName: "slot-01",
+				branchName: "feature/main",
+				mainWorktreePath: "/repo",
+				mainCheckoutBranch: "master",
+				mainRedirectAction: "checkout-branch",
+				mainRedirectRef: "master",
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -117,13 +117,13 @@ describe("slot claim CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "master",
-				main_worktree_path: "/repo",
-				main_checkout_branch: null,
-				main_redirect_action: "detach_head",
-				main_redirect_ref: "master",
-				main_redirect_note: null,
+				slotName: "slot-01",
+				branchName: "master",
+				mainWorktreePath: "/repo",
+				mainCheckoutBranch: null,
+				mainRedirectAction: "detach-head",
+				mainRedirectRef: "master",
+				mainRedirectNote: null,
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -172,7 +172,7 @@ describe("slot claim CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "dirty_source_slot" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "dirty-source-slot" });
 		expect(run.git.operations()).toEqual([]);
 	});
 });

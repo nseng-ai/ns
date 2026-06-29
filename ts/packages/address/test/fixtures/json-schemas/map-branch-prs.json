@@ -12,7 +12,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "properties": {
-      "branch_prs": {
+      "branchPrs": {
         "type": "array",
         "items": {
           "type": "object",
@@ -49,13 +49,13 @@
           "additionalProperties": false
         }
       },
-      "missing_branches": {
+      "missingBranches": {
         "type": "array",
         "items": {
           "type": "string"
         }
       },
-      "ambiguous_branches": {
+      "ambiguousBranches": {
         "type": "array",
         "items": {
           "type": "object",
@@ -142,9 +142,9 @@
       }
     },
     "required": [
-      "branch_prs",
-      "missing_branches",
-      "ambiguous_branches",
+      "branchPrs",
+      "missingBranches",
+      "ambiguousBranches",
       "summary"
     ],
     "additionalProperties": false

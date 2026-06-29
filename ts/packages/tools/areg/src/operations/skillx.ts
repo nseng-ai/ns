@@ -5,7 +5,7 @@ import type { AregCliContext } from "../context.ts";
 import type { AregSkillxInstalledSkill } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 
-const SKILLX_FORMAT_VALUES = ["url", "skill_flag", "plain", "repo_only"] as const;
+const SKILLX_FORMAT_VALUES = ["url", "skill-flag", "plain", "repo-only"] as const;
 const REPO_PATTERN = /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
 
 export const skillxParseRequestSchema = z.object({
@@ -59,29 +59,29 @@ const fetchSelectedSuccessSchema = z.object({
 	success: z.literal(true),
 	repo: z.string(),
 	skill: z.string(),
-	tmp_dir: z.string(),
-	skill_dir: z.string(),
-	skill_md: z.string(),
+	tmpDir: z.string(),
+	skillDir: z.string(),
+	skillMd: z.string(),
 	files: z.array(z.string()),
-	needs_selection: z.literal(false).optional(),
+	needsSelection: z.literal(false).optional(),
 });
 
 const fetchSelectionSuccessSchema = z.object({
 	success: z.literal(true),
 	repo: z.string(),
 	skill: z.null(),
-	tmp_dir: z.string(),
-	skill_dir: z.null(),
-	skill_md: z.null(),
+	tmpDir: z.string(),
+	skillDir: z.null(),
+	skillMd: z.null(),
 	files: z.null(),
-	needs_selection: z.literal(true),
-	available_skills: z.array(z.string()),
+	needsSelection: z.literal(true),
+	availableSkills: z.array(z.string()),
 });
 
 const fetchFailureSchema = z.object({
 	success: z.literal(false),
 	error: z.string(),
-	tmp_dir: z.null(),
+	tmpDir: z.null(),
 });
 
 export const skillxFetchResultSchema = z.union([
@@ -158,9 +158,9 @@ export function parseSkillInput(raw: string): SkillxParseResult {
 	if (repo === undefined || !isRepo(repo))
 		return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
 	if ((second === "--skill" || second === "-s") && third !== undefined && rest.length === 0) {
-		return { success: true, repo, skill: third, format: "skill_flag" };
+		return { success: true, repo, skill: third, format: "skill-flag" };
 	}
-	if (second === undefined) return { success: true, repo, skill: null, format: "repo_only" };
+	if (second === undefined) return { success: true, repo, skill: null, format: "repo-only" };
 	if (third === undefined && isSkillName(second))
 		return { success: true, repo, skill: second, format: "plain" };
 	return parseError(`Could not extract owner/repo from input: ${JSON.stringify(input)}`);
@@ -196,9 +196,9 @@ export async function runSkillxList(
 		});
 	}
 	if (result.type === "auth-error") {
-		return failure("github_auth_failed", `Authentication error accessing ${request.repo}`);
+		return failure("github-auth-failed", `Authentication error accessing ${request.repo}`);
 	}
-	return failure("github_gateway_failed", result.error.message);
+	return failure("github-gateway-failed", result.error.message);
 }
 
 export async function runSkillxFetch(
@@ -213,7 +213,7 @@ export async function runSkillxFetch(
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});
-	if (install.type === "error") return failure("skill_install_failed", install.error.message);
+	if (install.type === "error") return failure("skill-install-failed", install.error.message);
 	const workspaceRoot = install.workspace.workspaceRoot;
 	const installedSkills = sortedInstalledSkills(install.workspace.installedSkills);
 	if (installedSkills.length === 0) return fetchNegative("No skills were installed");
@@ -222,12 +222,12 @@ export async function runSkillxFetch(
 			success: true,
 			repo: request.repo,
 			skill: null,
-			tmp_dir: workspaceRoot,
-			skill_dir: null,
-			skill_md: null,
+			tmpDir: workspaceRoot,
+			skillDir: null,
+			skillMd: null,
 			files: null,
-			needs_selection: true,
-			available_skills: installedSkills.map((skill) => skill.name),
+			needsSelection: true,
+			availableSkills: installedSkills.map((skill) => skill.name),
 		});
 	}
 	const selected =
@@ -243,11 +243,11 @@ export async function runSkillxFetch(
 		success: true,
 		repo: request.repo,
 		skill: selected.name,
-		tmp_dir: workspaceRoot,
-		skill_dir: selected.directory,
-		skill_md: selected.skillFile,
+		tmpDir: workspaceRoot,
+		skillDir: selected.directory,
+		skillMd: selected.skillFile,
 		files: sortStrings(selected.relativeFiles),
-		needs_selection: false,
+		needsSelection: false,
 	});
 }
 
@@ -257,7 +257,7 @@ export async function runSkillxCleanup(
 ): Promise<ClinkrExit<SkillxCleanupResult>> {
 	const cleanup = await ctx.skillxWorkspace.cleanupWorkspace({ workspaceRoot: request.dir });
 	if (cleanup.ok) return ok({ success: true, removed: request.dir });
-	return failure("cleanup_failed", cleanup.error.message);
+	return failure("cleanup-failed", cleanup.error.message);
 }
 
 function parseGithubUrl(input: string): z.infer<typeof parseSuccessSchema> | undefined {
@@ -292,7 +292,7 @@ function parseError(error: string): SkillxParseResult {
 }
 
 function fetchNegative(error: string): ClinkrExit<SkillxFetchResult> {
-	return negative(error, { data: { success: false, error, tmp_dir: null } });
+	return negative(error, { data: { success: false, error, tmpDir: null } });
 }
 
 function sortedInstalledSkills(

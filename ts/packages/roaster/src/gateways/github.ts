@@ -261,14 +261,14 @@ export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
 		});
 		if (run.type === "startup_error") {
 			return error({
-				type: "github_cli_failed",
+				type: "github-cli-failed",
 				message: `${run.displayCommand} failed to start in ${options.cwd}: ${run.message}`,
 			});
 		}
 		const result = run.result;
 		if (result.code !== 0 || result.killed) {
 			return error({
-				type: "github_cli_failed",
+				type: "github-cli-failed",
 				message: `${run.displayCommand} failed in ${options.cwd}: ${commandFailureReason(result)}`,
 			});
 		}
@@ -375,7 +375,7 @@ export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
 			return { type: "ok", value: { id: commentId, body } };
 		}
 		return error({
-			type: "github_response_invalid",
+			type: "github-response-invalid",
 			message: `No fake discussion comment with id ${commentId}.`,
 		});
 	}
@@ -394,14 +394,14 @@ function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): Ro
 		parsed = JSON.parse(text);
 	} catch (caught) {
 		return error({
-			type: "github_json_invalid",
+			type: "github-json-invalid",
 			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(caught)}`,
 		});
 	}
 	const result = schema.safeParse(parsed);
 	if (!result.success)
 		return error({
-			type: "github_response_invalid",
+			type: "github-response-invalid",
 			message: `GitHub response for ${operation} did not match the expected shape: ${z.prettifyError(result.error)}`,
 		});
 	return { type: "ok", value: result.data };

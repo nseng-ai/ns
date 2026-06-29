@@ -193,7 +193,7 @@ function renderInputCoverage(coverage: ReviewInputCoverage): string[] {
 	);
 	for (const file of coverage.omittedFiles.slice(0, OMITTED_INPUT_FILES_RENDER_LIMIT)) {
 		lines.push(
-			`- \`${file.path}\` (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("_", " ")})`,
+			`- \`${file.path}\` (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("-", " ")})`,
 		);
 	}
 	const remaining =

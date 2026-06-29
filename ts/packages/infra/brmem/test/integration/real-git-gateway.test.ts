@@ -213,7 +213,7 @@ describe("RealGitBrmemGateway integration", () => {
 				content: "plan body",
 			});
 
-			expect(put).toMatchObject({ type: "error", error: { code: "snapshot_tree_mismatch" } });
+			expect(put).toMatchObject({ type: "error", error: { code: "snapshot-tree-mismatch" } });
 			expect(snapshotRefExists(repo, "refs/brmem/base/main")).toBe(false);
 			expect(repo.runGit(["status", "--porcelain"])).toBe("");
 			expect(repo.runGit(["write-tree"]).trim()).toBe(beforeIndexTree);
@@ -566,7 +566,7 @@ describe("RealGitBrmemGateway integration", () => {
 			repo.runGit(["checkout", "--detach"]);
 			expect(await gateway.currentBranch()).toMatchObject({
 				type: "error",
-				error: { code: "detached_head" },
+				error: { code: "detached-head" },
 			});
 		} finally {
 			repo.cleanup();
@@ -724,7 +724,7 @@ function createCorruptSnapshot(
 }
 
 function expectSnapshotCorrupt(result: SnapshotCorruptResult, invalidKey: string): void {
-	expect(result).toMatchObject({ type: "error", error: { code: "snapshot_corrupt" } });
+	expect(result).toMatchObject({ type: "error", error: { code: "snapshot-corrupt" } });
 	if (result.type !== "error") throw new Error("expected snapshot_corrupt error");
 	expect(result.error.message).toContain(invalidKey);
 }

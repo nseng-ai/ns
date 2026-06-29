@@ -3,12 +3,12 @@
  */
 
 export type PayloadErrorType =
-	| "payload_root_invalid"
-	| "payload_session_required"
-	| "payload_session_invalid"
-	| "payload_directory_unsafe"
-	| "payload_write_failed"
-	| "payload_lookup_failed";
+	| "payload-root-invalid"
+	| "payload-session-required"
+	| "payload-session-invalid"
+	| "payload-directory-unsafe"
+	| "payload-write-failed"
+	| "payload-lookup-failed";
 
 export class PayloadError extends Error {
 	readonly errorType: PayloadErrorType;

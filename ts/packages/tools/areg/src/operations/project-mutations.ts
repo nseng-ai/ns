@@ -38,7 +38,7 @@ type ApplyProjectMutationPlanRequest =
 export const PROJECT_FILE_MUTATION_OPERATION_TYPES = [
 	"write",
 	"delete",
-	"remove_empty_dir",
+	"remove-empty-dir",
 ] as const;
 export const PROJECT_MUTATION_OPERATION_TYPES = [
 	...PROJECT_FILE_MUTATION_OPERATION_TYPES,
@@ -47,7 +47,7 @@ export const PROJECT_MUTATION_OPERATION_TYPES = [
 export const PROJECT_MUTATION_OPERATION_STATUSES = [
 	"applied",
 	"failed",
-	"not_attempted",
+	"not-attempted",
 	"skipped",
 ] as const;
 
@@ -81,7 +81,7 @@ interface DeleteOperation extends ProjectMutationOperationBase {
 }
 
 interface RemoveEmptyDirOperation extends ProjectMutationOperationBase {
-	type: "remove_empty_dir";
+	type: "remove-empty-dir";
 	plan: ProjectRemoveEmptyDirPlan;
 }
 
@@ -108,7 +108,7 @@ export async function applyProjectMutationPlan(
 	for (const operation of operations) {
 		const result = await preflightOperation(request, operation);
 		if (result.ok) {
-			preflightStatuses.push(operationStatus(operation, "not_attempted"));
+			preflightStatuses.push(operationStatus(operation, "not-attempted"));
 			continue;
 		}
 		firstPreflightError ??= result.error;
@@ -138,7 +138,7 @@ export async function applyProjectMutationPlan(
 		if (!result.ok) {
 			operationStatuses.push(operationStatus(operation, "failed", result.error));
 			for (const remaining of operations.slice(index + 1))
-				operationStatuses.push(operationStatus(remaining, "not_attempted"));
+				operationStatuses.push(operationStatus(remaining, "not-attempted"));
 			return {
 				ok: false,
 				error: result.error,
@@ -193,7 +193,7 @@ function flattenProjectMutationPlan(
 	);
 	const removeEmptyDirs = request.removeEmptyDirs.map(
 		(plan): RemoveEmptyDirOperation => ({
-			type: "remove_empty_dir",
+			type: "remove-empty-dir",
 			relativePath: plan.relativePath,
 			description: plan.description,
 			plan,
@@ -225,7 +225,7 @@ async function preflightOperation(
 				policy: "skill-kind",
 				env: request.ctx.env,
 			});
-		case "remove_empty_dir":
+		case "remove-empty-dir":
 			return await request.ctx.project.preflightRemoveEmptyDir({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,
@@ -259,7 +259,7 @@ async function applyOperation(
 				policy: "skill-kind",
 				env: request.ctx.env,
 			});
-		case "remove_empty_dir": {
+		case "remove-empty-dir": {
 			const result = await request.ctx.project.removeEmptyDir({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,

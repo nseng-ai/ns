@@ -110,12 +110,12 @@ describe("sdl address exec download-feedback", () => {
 			url: "https://example.test/pr/42",
 		});
 		expect(data.counts).toEqual({
-			included_review_threads: 1,
-			included_reviews: 1,
-			included_discussion_comments: 1,
-			excluded_resolved_threads: 1,
-			excluded_empty_reviews: 1,
-			excluded_automation_comments: 1,
+			includedReviewThreads: 1,
+			includedReviews: 1,
+			includedDiscussionComments: 1,
+			excludedResolvedThreads: 1,
+			excludedEmptyReviews: 1,
+			excludedAutomationComments: 1,
 		});
 		const markdown = data.markdown;
 		if (typeof markdown !== "string") throw new Error("expected markdown string");
@@ -182,8 +182,8 @@ describe("sdl address exec download-feedback", () => {
 		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
 		expect(data.counts).toMatchObject({
-			included_review_threads: 2,
-			excluded_resolved_threads: 0,
+			includedReviewThreads: 2,
+			excludedResolvedThreads: 0,
 		});
 		const markdown = data.markdown;
 		if (typeof markdown !== "string") throw new Error("expected markdown string");
@@ -228,7 +228,7 @@ describe("sdl address exec download-feedback", () => {
 
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run.stdout);
-		expect(envelope.errorType).toBe("detached_head");
+		expect(envelope.errorType).toBe("detached-head");
 		expect(envelope.message).toContain("requires a checked-out branch or --pr-number");
 	});
 
@@ -242,9 +242,9 @@ describe("sdl address exec download-feedback", () => {
 		expect(await run.exit).toBe(0);
 		const data = dataFrom(run.stdout);
 		expect(data.counts).toMatchObject({
-			included_review_threads: 0,
-			included_reviews: 0,
-			included_discussion_comments: 0,
+			includedReviewThreads: 0,
+			includedReviews: 0,
+			includedDiscussionComments: 0,
 		});
 		expect(data.markdown).toContain("No unresolved/human feedback was found");
 		expect(data.markdown).toContain("## Summary");

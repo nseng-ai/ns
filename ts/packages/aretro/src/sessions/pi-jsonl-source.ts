@@ -21,7 +21,7 @@ import { limitSessions, type SessionSource } from "./source.ts";
 
 const PI_SOURCE_INFO: SessionSourceInfo = {
 	harness: "pi",
-	adapter_name: "pi_jsonl",
+	adapter_name: "pi-jsonl",
 	record_format: "jsonl",
 };
 
@@ -130,7 +130,7 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 		} else if (recordType === null) {
 			warnings.push(
 				adapterWarning({
-					code: "unknown_record_shape",
+					code: "unknown-record-shape",
 					message: "Pi JSONL record is missing a string type field.",
 					sourceRef,
 				}),
@@ -138,7 +138,7 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 		} else {
 			warnings.push(
 				adapterWarning({
-					code: "unknown_record_type",
+					code: "unknown-record-type",
 					message: `Ignoring unsupported Pi JSONL record type: ${recordType}.`,
 					sourceRef,
 				}),
@@ -149,7 +149,7 @@ function parsePiJsonlSession(path: string, repoRoot: string | null): ParsedSessi
 	if (!hasSessionHeader) {
 		warnings.push(
 			adapterWarning({
-				code: "missing_session_header",
+				code: "missing-session-header",
 				message: "Pi JSONL file did not contain a session header record.",
 				sourceRef: { path, uri: null, line_number: null },
 			}),
@@ -183,14 +183,14 @@ export class PiJsonlSessionSource implements SessionSource {
 			const stat = statSync(sessionRoot);
 			if (!stat.isDirectory()) {
 				return warningResult({
-					code: "session_root_not_directory",
+					code: "session-root-not-directory",
 					message: `Pi session root is not a directory: ${sessionRoot}`,
 					path: sessionRoot,
 				});
 			}
 		} catch {
 			return warningResult({
-				code: "session_root_missing",
+				code: "session-root-missing",
 				message: `Pi session root does not exist: ${sessionRoot}`,
 				path: sessionRoot,
 			});
@@ -202,14 +202,14 @@ export class PiJsonlSessionSource implements SessionSource {
 			const stat = statSync(repoSessionDir);
 			if (!stat.isDirectory()) {
 				return warningResult({
-					code: "repo_session_dir_not_directory",
+					code: "repo-session-dir-not-directory",
 					message: `Pi session path is not a directory: ${repoSessionDir}`,
 					path: repoSessionDir,
 				});
 			}
 		} catch {
 			return warningResult({
-				code: "repo_session_dir_missing",
+				code: "repo-session-dir-missing",
 				message: `Pi session directory does not exist for repo: ${query.repo_root}`,
 				path: repoSessionDir,
 			});
@@ -265,7 +265,7 @@ function decodeJsonObject(rawLine: string, sourceRef: SessionSourceRef): JsonObj
 			value: null,
 			warnings: [
 				adapterWarning({
-					code: "malformed_json",
+					code: "malformed-json",
 					message: `Could not decode Pi JSONL line: ${msg}.`,
 					sourceRef,
 				}),
@@ -281,7 +281,7 @@ function coerceJsonObject(value: unknown, sourceRef: SessionSourceRef): JsonObje
 		value: null,
 		warnings: [
 			adapterWarning({
-				code: "unknown_record_shape",
+				code: "unknown-record-shape",
 				message: "Pi JSONL line decoded to a non-object value.",
 				sourceRef,
 			}),
@@ -323,7 +323,7 @@ function parsePiMessage(options: {
 			usageEvents: [],
 			warnings: [
 				adapterWarning({
-					code: "partial_record",
+					code: "partial-record",
 					message: "Pi message record is missing an object message field.",
 					sourceRef: options.sourceRef,
 				}),
@@ -403,7 +403,7 @@ function countMessageRole(options: { role: string | null; sourceRef: SessionSour
 		messageCounts: { ...emptyMessageCounts(), other: 1 },
 		warnings: [
 			adapterWarning({
-				code: "unknown_message_role",
+				code: "unknown-message-role",
 				message: "Pi message record has an unknown or missing role.",
 				sourceRef: options.sourceRef,
 			}),
@@ -435,7 +435,7 @@ function parseToolCalls(options: {
 		if (toolName === null) {
 			warnings.push(
 				adapterWarning({
-					code: "partial_tool_call",
+					code: "partial-tool-call",
 					message: "Pi tool call block is missing a string name.",
 					sourceRef: options.sourceRef,
 				}),
@@ -493,7 +493,7 @@ function parsePiCommandExecution(options: {
 			commandExecution: null,
 			warnings: [
 				adapterWarning({
-					code: "partial_command_execution",
+					code: "partial-command-execution",
 					message: "Pi bash execution record is missing a string command.",
 					sourceRef: options.sourceRef,
 				}),
@@ -566,7 +566,7 @@ function buildAssociation(opts: {
 			repo_root: opts.repoRoot,
 			cwd: null,
 			branch: null,
-			confidence: "query_repo_root",
+			confidence: "query-repo-root",
 			evidence: ["query.repo_root"],
 		};
 	}
@@ -580,7 +580,7 @@ function buildAssociation(opts: {
 		};
 	}
 
-	const confidence = sameOrChildPath(opts.cwd, opts.repoRoot) ? "repo_cwd" : "cwd_mismatch";
+	const confidence = sameOrChildPath(opts.cwd, opts.repoRoot) ? "repo-cwd" : "cwd-mismatch";
 	return {
 		repo_root: opts.repoRoot,
 		cwd: opts.cwd,

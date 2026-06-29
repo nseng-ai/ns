@@ -15,7 +15,7 @@ export interface RepoContext {
 export interface NoRepoSentinel {
 	type: "no_repo";
 	message: string;
-	errorType: "not_in_repo" | "missing_start_path";
+	errorType: "not-in-repo" | "missing-start-path";
 }
 
 export type RepoDiscoveryResult = RepoContext | NoRepoSentinel;
@@ -29,7 +29,7 @@ export async function discoverRepoOrSentinel(options: {
 	if (!(await options.git.pathExists(cwd))) {
 		return {
 			type: "no_repo",
-			errorType: "missing_start_path",
+			errorType: "missing-start-path",
 			message: `Start path '${cwd}' does not exist`,
 		};
 	}
@@ -37,7 +37,7 @@ export async function discoverRepoOrSentinel(options: {
 	if (gitCommonDir === null) {
 		return {
 			type: "no_repo",
-			errorType: "not_in_repo",
+			errorType: "not-in-repo",
 			message: "Not inside a git repository (no .git found up the tree)",
 		};
 	}

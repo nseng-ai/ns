@@ -44,7 +44,7 @@ describe("export operation real-Git integration", () => {
 			);
 			expect(await run.exit).toBe(0);
 			expect(parseJsonOutput(run)).toMatchObject({
-				data: { exported: [{ key: "base.md", ref_name: "refs/brmem/base/source:base.md" }] },
+				data: { exported: [{ key: "base.md", refName: "refs/brmem/base/source:base.md" }] },
 			});
 			expect(await readFile(join(outputDir, "base.md"), "utf8")).toBe("base\n");
 			await expect(readFile(join(outputDir, "scratch.md"), "utf8")).rejects.toMatchObject({

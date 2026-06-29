@@ -20,11 +20,11 @@ export function promptSizedDiff(
 
 	for (const file of localDiff.files) {
 		if (file.estimatedTokens > MAX_PROMPT_DIFF_FILE_TOKENS) {
-			omittedFiles.push(omittedReviewInputFile(file, "file_exceeds_cap"));
+			omittedFiles.push(omittedReviewInputFile(file, "file-exceeds-cap"));
 			continue;
 		}
 		if (includedTokens + file.estimatedTokens > MAX_PROMPT_DIFF_TOKENS) {
-			omittedFiles.push(omittedReviewInputFile(file, "diff_budget_exhausted"));
+			omittedFiles.push(omittedReviewInputFile(file, "diff-budget-exhausted"));
 			continue;
 		}
 		includedRawTexts.push(file.rawText);
@@ -73,7 +73,7 @@ function buildCappedDiffHeader(coverage: ReviewInputCoverage): string {
 		"# Omitted file diffs:",
 		...coverage.omittedFiles.map(
 			(file) =>
-				`# - ${file.path} (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("_", " ")})`,
+				`# - ${file.path} (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("-", " ")})`,
 		),
 		"# Included file diffs follow.",
 	];

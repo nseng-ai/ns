@@ -79,7 +79,7 @@ export function firstFailure(
 	if (failures.length === 0) return undefined;
 	if (failures.length === 1) return failures[0];
 	return [
-		"invalid_request",
+		"invalid-request",
 		["Invalid brmem request:", ...failures.map((failure) => `- ${failure[1]}`)].join("\n"),
 	];
 }

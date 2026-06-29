@@ -346,13 +346,13 @@ export async function putBrmemEntryFromFile(
 				namespace: data.namespace,
 				key: data.key,
 				branch: data.branch,
-				source_file: data.sourceFile,
+				sourceFile: data.sourceFile,
 			},
 			{
 				namespace: options.namespace,
 				key: options.key,
 				branch: options.branch,
-				source_file: options.sourceFile,
+				sourceFile: options.sourceFile,
 			},
 		);
 		if (mismatches.length > 0) {
@@ -449,7 +449,7 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 	const data = parseBrmemMachineEnvelopeData(stdout, "brmem put JSON");
 	const fields = requireBrmemStringFields(
 		data,
-		["namespace", "key", "branch", "ref_name", "commit", "source_file"],
+		["namespace", "key", "branch", "refName", "commit", "sourceFile"],
 		{
 			commandName: "brmem put",
 			stdout,
@@ -460,9 +460,9 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 		namespace: fields.namespace,
 		key: fields.key,
 		branch: fields.branch,
-		refName: fields.ref_name,
+		refName: fields.refName,
 		commit: fields.commit,
-		sourceFile: fields.source_file,
+		sourceFile: fields.sourceFile,
 	};
 }
 
@@ -600,7 +600,7 @@ function parseBrmemListEntry(options: ParseBrmemListEntryOptions): BrmemListEntr
 		throw malformedBrmemEnvelope("brmem list", stdout, `expected data.entries[${index}] object`);
 	}
 
-	const fields = requireBrmemStringFields(value, ["namespace", "key", "branch", "ref_name"], {
+	const fields = requireBrmemStringFields(value, ["namespace", "key", "branch", "refName"], {
 		commandName: "brmem list",
 		stdout,
 		pathPrefix: `data.entries[${index}]`,
@@ -621,7 +621,7 @@ function parseBrmemListEntry(options: ParseBrmemListEntryOptions): BrmemListEntr
 		namespace: fields.namespace,
 		key: fields.key,
 		branch: fields.branch,
-		refName: fields.ref_name,
+		refName: fields.refName,
 	};
 }
 

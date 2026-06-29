@@ -7,11 +7,11 @@ export async function executeCurrentWorktreeRedirect(
 	ctx: RepoSlotContext,
 ): Promise<SlotLifecycleFailure | null> {
 	const action = redirect.action;
-	if (action.type === "checkout_branch") {
+	if (action.type === "checkout-branch") {
 		const failure = await ctx.git.checkoutBranch(ctx.repo.root, action.branch);
 		if (failure !== null) {
 			return {
-				error_type: "slot_allocation_error",
+				errorType: "slot-allocation-error",
 				message: `Failed to check out ${redirectFailureSubject(action)} in ${ctx.repo.root}: ${failure.message}`,
 			};
 		}
@@ -20,7 +20,7 @@ export async function executeCurrentWorktreeRedirect(
 	const failure = await ctx.git.detachHead(ctx.repo.root, action.ref);
 	if (failure === null) return null;
 	return {
-		error_type: "slot_allocation_error",
+		errorType: "slot-allocation-error",
 		message: `Failed to detach current worktree at ${ctx.repo.root} to ${action.ref}: ${failure.message}`,
 	};
 }

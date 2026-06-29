@@ -113,11 +113,11 @@ describe("areg exec skillx CLI", () => {
 				success: true,
 				repo: "owner/repo",
 				skill: "demo",
-				tmp_dir: "/tmp/skillx.fake-1",
-				skill_dir: "/tmp/skillx.fake-1/.agents/skills/demo",
-				skill_md: "/tmp/skillx.fake-1/.agents/skills/demo/SKILL.md",
+				tmpDir: "/tmp/skillx.fake-1",
+				skillDir: "/tmp/skillx.fake-1/.agents/skills/demo",
+				skillMd: "/tmp/skillx.fake-1/.agents/skills/demo/SKILL.md",
 				files: ["SKILL.md", "z.txt"],
-				needs_selection: false,
+				needsSelection: false,
 			},
 		});
 	});
@@ -141,12 +141,12 @@ describe("areg exec skillx CLI", () => {
 				success: true,
 				repo: "owner/repo",
 				skill: null,
-				tmp_dir: "/tmp/skillx.fake-1",
-				skill_dir: null,
-				skill_md: null,
+				tmpDir: "/tmp/skillx.fake-1",
+				skillDir: null,
+				skillMd: null,
 				files: null,
-				needs_selection: true,
-				available_skills: ["alpha", "beta"],
+				needsSelection: true,
+				availableSkills: ["alpha", "beta"],
 			},
 		});
 		expect(workspace.operations()).toEqual([
@@ -171,7 +171,7 @@ describe("areg exec skillx CLI", () => {
 			data: {
 				success: false,
 				error: "Skill 'demo' was not found in installed skills",
-				tmp_dir: null,
+				tmpDir: null,
 			},
 		});
 		expect(workspace.operations()).toEqual([
@@ -200,7 +200,7 @@ describe("areg exec skillx CLI", () => {
 			data: {
 				success: false,
 				error: "Skill 'demo' was not found in installed skills",
-				tmp_dir: null,
+				tmpDir: null,
 			},
 		});
 		expect(workspace.operations()).toEqual([
@@ -236,7 +236,7 @@ describe("areg exec skillx CLI", () => {
 		expect(JSON.parse(failRun.stdout.join(""))).toEqual({
 			status: "failure",
 			exitCode: 2,
-			errorType: "cleanup_failed",
+			errorType: "cleanup-failed",
 			message: "Refusing cleanup",
 		});
 	});

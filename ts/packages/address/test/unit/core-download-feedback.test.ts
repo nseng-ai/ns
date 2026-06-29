@@ -29,7 +29,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback).toMatchObject({
 			found: true,
 			target: {
-				kind: "github_pr",
+				kind: "github-pr",
 				pr_number: 42,
 				branch: "feature/demo",
 				title: "Add primitive",
@@ -38,12 +38,12 @@ describe("collectDownloadFeedback", () => {
 				base_ref_name: "main",
 			},
 			counts: {
-				included_review_threads: 1,
-				included_reviews: 1,
-				included_discussion_comments: 1,
-				excluded_resolved_threads: 1,
-				excluded_empty_reviews: 1,
-				excluded_automation_comments: 1,
+				includedReviewThreads: 1,
+				includedReviews: 1,
+				includedDiscussionComments: 1,
+				excludedResolvedThreads: 1,
+				excludedEmptyReviews: 1,
+				excludedAutomationComments: 1,
 			},
 		});
 		expect(result.feedback.markdown).toContain("# PR feedback triage request");
@@ -77,12 +77,12 @@ describe("collectDownloadFeedback", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.feedback.counts).toEqual({
-			included_review_threads: 2,
-			included_reviews: 2,
-			included_discussion_comments: 2,
-			excluded_resolved_threads: 0,
-			excluded_empty_reviews: 0,
-			excluded_automation_comments: 0,
+			includedReviewThreads: 2,
+			includedReviews: 2,
+			includedDiscussionComments: 2,
+			excludedResolvedThreads: 0,
+			excludedEmptyReviews: 0,
+			excludedAutomationComments: 0,
 		});
 		expect(result.feedback.markdown).toContain("RT_resolved");
 		expect(result.feedback.markdown).toContain("<!-- roaster: finding -->");
@@ -126,7 +126,7 @@ describe("collectDownloadFeedback", () => {
 			feedback: {
 				found: false,
 				target: {
-					kind: "github_pr",
+					kind: "github-pr",
 					pr_number: null,
 					branch: "feature/missing",
 					title: null,
@@ -165,7 +165,7 @@ describe("collectDownloadFeedback", () => {
 		if (result.type !== "miss") return;
 		expect(result.message).toBe("No PR found for PR 404: no PR found for PR 404");
 		expect(result.feedback.target).toEqual({
-			kind: "github_pr",
+			kind: "github-pr",
 			pr_number: 404,
 			branch: null,
 			title: null,
@@ -198,7 +198,7 @@ describe("collectDownloadFeedback", () => {
 			git: new InMemoryGitGateway({
 				currentBranch: {
 					type: "failure",
-					error: { code: "current_branch_failed", message: "branch exploded" },
+					error: { code: "current-branch-failed", message: "branch exploded" },
 				},
 			}),
 			prFeedback: new InMemoryGithubPrFeedbackGateway(),
@@ -211,7 +211,7 @@ describe("collectDownloadFeedback", () => {
 		expect(result).toEqual({
 			type: "git_failure",
 			message: "Failed to determine current branch",
-			failure: { code: "current_branch_failed", message: "branch exploded" },
+			failure: { code: "current-branch-failed", message: "branch exploded" },
 		});
 	});
 
@@ -350,11 +350,11 @@ function populatedPrFeedback(): InMemoryGithubPrFeedbackGateway {
 
 function zeroCounts() {
 	return {
-		included_review_threads: 0,
-		included_reviews: 0,
-		included_discussion_comments: 0,
-		excluded_resolved_threads: 0,
-		excluded_empty_reviews: 0,
-		excluded_automation_comments: 0,
+		includedReviewThreads: 0,
+		includedReviews: 0,
+		includedDiscussionComments: 0,
+		excludedResolvedThreads: 0,
+		excludedEmptyReviews: 0,
+		excludedAutomationComments: 0,
 	};
 }

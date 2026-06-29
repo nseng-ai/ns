@@ -9,14 +9,14 @@ describe("repo context", () => {
 		const git = new FakeSlotRepositoryGateway({ existingPaths: [] });
 		await expect(
 			discoverRepoOrSentinel({ cwd: "/missing", slotsRoot: "/slots", git }),
-		).resolves.toMatchObject({ type: "no_repo", errorType: "missing_start_path" });
+		).resolves.toMatchObject({ type: "no_repo", errorType: "missing-start-path" });
 	});
 
 	it("returns a not-in-repo sentinel when no git common dir is found", async () => {
 		const git = new FakeSlotRepositoryGateway({ existingPaths: ["/repo"], gitCommonDir: null });
 		await expect(
 			discoverRepoOrSentinel({ cwd: "/repo", slotsRoot: "/slots", git }),
-		).resolves.toMatchObject({ type: "no_repo", errorType: "not_in_repo" });
+		).resolves.toMatchObject({ type: "no_repo", errorType: "not-in-repo" });
 	});
 
 	it("derives stable repo name and slots paths from the main repo root", async () => {

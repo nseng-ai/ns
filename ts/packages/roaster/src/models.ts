@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const severityValues = ["info", "warning", "error"] as const;
 export const reviewInputOmissionReasonValues = [
-	"file_exceeds_cap",
-	"diff_budget_exhausted",
+	"file-exceeds-cap",
+	"diff-budget-exhausted",
 ] as const;
 export const prChangedFileStatusValues = [
 	"added",
@@ -15,17 +15,17 @@ export const prChangedFileStatusValues = [
 	"unchanged",
 ] as const;
 export const inlineFallbackReasonValues = [
-	"missing_path",
-	"missing_line",
-	"file_not_changed",
-	"patch_unavailable",
-	"line_not_in_diff",
+	"missing-path",
+	"missing-line",
+	"file-not-changed",
+	"patch-unavailable",
+	"line-not-in-diff",
 ] as const;
 export const inlinePostingOutcomeValues = [
 	"posted",
-	"skipped_duplicate",
-	"fallback_only",
-	"api_error",
+	"skipped-duplicate",
+	"fallback-only",
+	"api-error",
 ] as const;
 export const diffChangeKindValues = ["added", "modified", "deleted", "renamed", "copied"] as const;
 

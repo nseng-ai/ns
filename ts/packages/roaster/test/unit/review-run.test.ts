@@ -95,7 +95,7 @@ describe("runRoasterReview", () => {
 				reviewRunner: new FakeReviewRunnerGateway({
 					defaultResult: {
 						type: "error",
-						error: { type: "review_execution_failed", message: "runner failed" },
+						error: { type: "review-execution-failed", message: "runner failed" },
 					},
 				}),
 				reviewLog,
@@ -106,14 +106,14 @@ describe("runRoasterReview", () => {
 
 		expect(outcome).toEqual({
 			type: "failed",
-			error: { type: "review_execution_failed", message: "runner failed" },
+			error: { type: "review-execution-failed", message: "runner failed" },
 		});
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
 	test("returns completed_log_failed when only the Branch Memory review-log write fails", async () => {
 		const reviewLog = new FakeReviewLogGateway({
-			writeFailure: { type: "review_log_write_failed", message: "brmem put failed" },
+			writeFailure: { type: "review-log-write-failed", message: "brmem put failed" },
 		});
 		const ctx = createRoasterRuntime(
 			fakeRoasterContext({
@@ -131,7 +131,7 @@ describe("runRoasterReview", () => {
 		if (outcome.type !== "completed_log_failed") return;
 		expect(outcome.result.reviewName).toBe("typescript-style");
 		expect(outcome.error).toEqual({
-			type: "review_log_write_failed",
+			type: "review-log-write-failed",
 			message: "brmem put failed",
 		});
 	});

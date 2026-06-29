@@ -15,17 +15,17 @@ export const gotoRequestSchema = z.object({
 });
 
 export const gotoResultSchema = z.object({
-	slot_name: z.string(),
-	branch_name: z.string(),
+	slotName: z.string(),
+	branchName: z.string(),
 	operation: z.string().nullable(),
-	worktree_path: z.string(),
-	cd_command: z.string(),
-	clipboard_copied: z.boolean(),
-	clipboard_skipped: z.boolean(),
-	clipboard_failure_reason: z
-		.union([z.literal("backend_missing"), z.literal("subprocess_error")])
+	worktreePath: z.string(),
+	cdCommand: z.string(),
+	clipboardCopied: z.boolean(),
+	clipboardSkipped: z.boolean(),
+	clipboardFailureReason: z
+		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
 		.nullable(),
-	clipboard_failure_detail: z.string().nullable(),
+	clipboardFailureDetail: z.string().nullable(),
 });
 
 export type GotoRequest = z.infer<typeof gotoRequestSchema>;
@@ -38,27 +38,27 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
 	});
 	if (poolSize(inventory) === 0)
-		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	if (request.num !== undefined && request.wt !== undefined)
-		return failure("conflicting_slot_args", "Pass exactly one of -n/--num or -w/--wt, not both.");
+		return failure("conflicting-slot-args", "Pass exactly one of -n/--num or -w/--wt, not both.");
 	let slotName: string;
 	if (request.num !== undefined) {
 		const result = resolveNum(request.num, poolSize(inventory));
-		if (result.type === "error") return failure("invalid_slot_num", result.message);
+		if (result.type === "error") return failure("invalid-slot-num", result.message);
 		slotName = result.slotName;
 	} else if (request.wt !== undefined) {
 		const result = resolveWt(request.wt);
-		if (result.type === "error") return failure("invalid_slot_wt", result.message);
+		if (result.type === "error") return failure("invalid-slot-wt", result.message);
 		slotName = result.slotName;
 	} else {
-		return failure("missing_slot_arg", "Pass one of -n/--num or -w/--wt to identify the slot.");
+		return failure("missing-slot-arg", "Pass one of -n/--num or -w/--wt to identify the slot.");
 	}
 	const record = findBySlot(inventory, slotName);
 	if (record === null || record.branch === null)
 		return negative(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
 	if (!(await repoCtx.git.pathExists(record.path)))
 		return failure(
-			"worktree_missing",
+			"worktree-missing",
 			`Worktree for ${slotName} is missing at ${record.path}. Run \`sdl slot free --wt ${slotName}\` to clear the stale assignment.`,
 		);
 	const navigation = await prepareNavigation(repoCtx, record.path, {
@@ -66,8 +66,8 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 		shouldWriteCdDirective: repoCtx.shouldWriteCdDirective,
 	});
 	return ok({
-		slot_name: slotName,
-		branch_name: record.branch,
+		slotName: slotName,
+		branchName: record.branch,
 		operation: record.operation,
 		...navigation,
 	});
@@ -81,7 +81,7 @@ export function renderGoto(
 	return renderSlotNavigationSuccess(
 		{
 			...result,
-			headline: `${result.slot_name} -> ${result.branch_name}${operationSuffix}`,
+			headline: `${result.slotName} -> ${result.branchName}${operationSuffix}`,
 		},
 		caps,
 	);

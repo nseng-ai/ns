@@ -4,7 +4,7 @@ import { errorCodeFromUnknown } from "@sdl/core/primitives";
 
 export type ClipboardCopyResult =
 	| { type: "copied" }
-	| { type: "failure"; reason: "backend_missing" | "subprocess_error"; detail: string };
+	| { type: "failure"; reason: "backend-missing" | "subprocess-error"; detail: string };
 
 export interface ClipboardGateway {
 	copy(text: string): Promise<ClipboardCopyResult>;
@@ -16,7 +16,7 @@ export interface ProcessRunResult {
 
 export interface ProcessRunFailure {
 	type: "failure";
-	reason: "backend_missing" | "subprocess_error";
+	reason: "backend-missing" | "subprocess-error";
 	detail: string;
 }
 
@@ -60,7 +60,7 @@ export class RealClipboardProcessRunner implements ClipboardProcessRunner {
 				if (errorCodeFromUnknown(error) === "ENOENT") {
 					resolve({
 						type: "failure",
-						reason: "backend_missing",
+						reason: "backend-missing",
 						detail: "`pbcopy` not found on PATH (clipboard requires macOS).",
 					});
 					return;
@@ -68,7 +68,7 @@ export class RealClipboardProcessRunner implements ClipboardProcessRunner {
 				const code = typeof error.code === "number" ? error.code : 1;
 				resolve({
 					type: "failure",
-					reason: "subprocess_error",
+					reason: "subprocess-error",
 					detail: `\`pbcopy\` exited with code ${code}: ${stderr}`,
 				});
 			});

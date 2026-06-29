@@ -65,14 +65,14 @@ describe("applyProjectMutationPlan", () => {
 			deletedRelativePaths: [],
 			removedEmptyDirRelativePaths: [],
 			operationStatuses: [
-				{ type: "write", path: "skills/demo/SKILL.md", status: "not_attempted" },
+				{ type: "write", path: "skills/demo/SKILL.md", status: "not-attempted" },
 				{
 					type: "write",
 					path: "skills/demo/agents/openai.yaml",
 					status: "failed",
 					error: { code: "preflight-denied" },
 				},
-				{ type: "delete", path: ".pi/settings.json", status: "not_attempted" },
+				{ type: "delete", path: ".pi/settings.json", status: "not-attempted" },
 			],
 		});
 		expect(project.text("skills/demo/SKILL.md")).toBeUndefined();
@@ -126,7 +126,7 @@ describe("applyProjectMutationPlan", () => {
 					status: "failed",
 					error: { code: "write-failed" },
 				},
-				{ type: "delete", path: ".pi/settings.json", status: "not_attempted" },
+				{ type: "delete", path: ".pi/settings.json", status: "not-attempted" },
 			],
 		});
 		expect(project.text("skills/demo/SKILL.md")).toBe("demo");

@@ -41,7 +41,7 @@ const previewChecksCountsSchema = z.looseObject({
 	pending: z.number().int().nonnegative(),
 	failing: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
-	has_more: z.boolean().optional(),
+	hasMore: z.boolean().optional(),
 });
 
 const previewCheckSchema = z.looseObject({

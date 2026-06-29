@@ -32,7 +32,7 @@ export function resolvePayloadRoot(options?: {
 		return envValue;
 	}
 	throw new PayloadError(
-		"payload_root_invalid",
+		"payload-root-invalid",
 		`${SDL_PAYLOAD_ROOT_ENV} must be an absolute path: ${JSON.stringify(envValue)}`,
 	);
 }
@@ -49,7 +49,7 @@ export function resolvePayloadSessionId(
 		const envSessionId = sourceEnv[SDL_PAYLOAD_SESSION_ID_ENV];
 		if (envSessionId === undefined || envSessionId === "") {
 			throw new PayloadError(
-				"payload_session_required",
+				"payload-session-required",
 				`Payload artifact mode requires a session id from an explicit option or ${SDL_PAYLOAD_SESSION_ID_ENV}.`,
 			);
 		}
@@ -60,7 +60,7 @@ export function resolvePayloadSessionId(
 		return sessionId;
 	}
 	throw new PayloadError(
-		"payload_session_invalid",
+		"payload-session-invalid",
 		`Payload session id must be a safe segment: ${JSON.stringify(sessionId)}`,
 	);
 }

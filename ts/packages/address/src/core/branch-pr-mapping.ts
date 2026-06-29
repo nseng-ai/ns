@@ -17,9 +17,9 @@ export interface AmbiguousBranchPrMappingEntry {
 }
 
 export interface BranchPrMapping {
-	branch_prs: BranchPrMappingEntry[];
-	missing_branches: string[];
-	ambiguous_branches: AmbiguousBranchPrMappingEntry[];
+	branchPrs: BranchPrMappingEntry[];
+	missingBranches: string[];
+	ambiguousBranches: AmbiguousBranchPrMappingEntry[];
 	summary: {
 		requested: number;
 		matched: number;
@@ -72,9 +72,9 @@ export async function mapBranchesToOpenPrs(
 	return {
 		type: "ok",
 		mapping: {
-			branch_prs: branchPrs,
-			missing_branches: missingBranches,
-			ambiguous_branches: ambiguousBranches,
+			branchPrs: branchPrs,
+			missingBranches: missingBranches,
+			ambiguousBranches: ambiguousBranches,
 			summary: {
 				requested: options.branches.length,
 				matched: branchPrs.length,

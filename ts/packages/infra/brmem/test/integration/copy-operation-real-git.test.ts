@@ -58,7 +58,7 @@ describe("copy operation real-Git integration", () => {
 			);
 			expect(await dryRun.exit).toBe(0);
 			expect(parseJsonOutput(dryRun)).toMatchObject({
-				data: { dry_run: true, copied: [{ key: "source.md" }] },
+				data: { dryRun: true, copied: [{ key: "source.md" }] },
 			});
 			expect(repo.runGit(["rev-parse", destRef]).trim()).toBe(destBefore);
 

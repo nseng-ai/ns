@@ -48,7 +48,7 @@ describe("sdl shell CLI", () => {
 		expect(rc).toContain("SDL_CD_DIRECTIVE_FILE");
 		expect(rc).toContain(sdlShellIntegrationEndMarker);
 		expect(countOccurrences(rc, sdlShellIntegrationBeginMarker)).toBe(1);
-		expect(second.stdout.join("")).toContain('"is_already_installed": true');
+		expect(second.stdout.join("")).toContain('"isAlreadyInstalled": true');
 	});
 
 	it("requires --yes before non-interactive install", async () => {

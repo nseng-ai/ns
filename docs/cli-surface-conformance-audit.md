@@ -11,6 +11,16 @@ that a remediation sweep can execute from, and is intended to seed the planned
 It is an evidence map, not an ADR and not a remediation. It mirrors the format of
 `.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
 
+> **Casing convention superseded (ADR 0010).** This audit was written when
+> snake_case `errorType`/machine values were treated as the expected spelling and
+> kebab-case was flagged as a violation. That polarity is now **reversed**:
+> SDL-owned serialized enum-like values are **kebab-case** and JSON property names
+> are **camelCase**. Historical rows below that mark kebab-case as a violation or
+> snake_case as conformant reflect the old rule and are retained only as
+> point-in-time evidence — read them against the current convention. The
+> kebab-case migration has since been applied across the CLI surface and is
+> enforced by the `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard.
+
 ## Scope and method
 
 14 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
@@ -37,7 +47,9 @@ framework does not enforce:
   completion state, applied bound, and continuation/narrowing guidance in the
   result schema.
 - **(c) `errorType` discipline** (ADR 0010): every `failure(...)` uses a stable
-  snake_case `errorType` and structured, agent-actionable `data`.
+  **kebab-case** `errorType` (camelCase JSON property names) and structured,
+  agent-actionable `data`. (When this audit was taken the expected spelling was
+  snake_case; per the banner above the convention is now kebab-case.)
 - **(d) `negative(...)` semantic correctness** (ADR 0013): `negative(...)`
   (exit 1) for a real non-success; harmless empty success uses `ok(...)`.
 

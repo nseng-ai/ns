@@ -131,7 +131,7 @@ describe("FakeBrmemGateway", () => {
 			key: "existing.md",
 			content: "replacement",
 		});
-		expect(existing).toMatchObject({ type: "error", error: { code: "key_already_exists" } });
+		expect(existing).toMatchObject({ type: "error", error: { code: "key-already-exists" } });
 		expect(
 			await gateway.getEntry({ namespace: "base", branch: "main", key: "existing.md" }),
 		).toMatchObject({ type: "found", value: { content: "old" } });

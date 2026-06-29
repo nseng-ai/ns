@@ -31,8 +31,8 @@ describe("slot foreach CLI", () => {
 				command: ["git", "clean", "-fd"],
 				cancelled: false,
 				slots: [
-					{ slot_name: "slot-01", branch: "feature/a", exit_code: 0, succeeded: true },
-					{ slot_name: "slot-02", branch: "feature/b", exit_code: 0, succeeded: true },
+					{ slotName: "slot-01", branch: "feature/a", exitCode: 0, succeeded: true },
+					{ slotName: "slot-02", branch: "feature/b", exitCode: 0, succeeded: true },
 				],
 			},
 		});
@@ -55,8 +55,8 @@ describe("slot foreach CLI", () => {
 			status: "negative",
 			data: {
 				slots: [
-					{ slot_name: "slot-01", succeeded: true, exit_code: 0 },
-					{ slot_name: "slot-02", succeeded: false, exit_code: 1 },
+					{ slotName: "slot-01", succeeded: true, exitCode: 0 },
+					{ slotName: "slot-02", succeeded: false, exitCode: 1 },
 				],
 			},
 		});
@@ -76,7 +76,7 @@ describe("slot foreach CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "operation_in_progress" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "operation-in-progress" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 
@@ -85,7 +85,7 @@ describe("slot foreach CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "missing_command" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "missing-command" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 
@@ -94,7 +94,7 @@ describe("slot foreach CLI", () => {
 			git: { worktrees: [{ path: "/repo", branch: "master" }] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool_empty" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool-empty" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 
@@ -103,7 +103,7 @@ describe("slot foreach CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation_required" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "confirmation-required" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 

@@ -50,7 +50,7 @@ export function parseClaudeCodeReviewOutput(options: {
 }): RoasterResult<ReviewExecutionResponse> {
 	if (options.stdout.trim() === "") {
 		return harnessOutputError({
-			type: "review_execution_empty_output",
+			type: "review-execution-empty-output",
 			message: "Claude Code produced no JSON output.",
 		});
 	}
@@ -67,7 +67,7 @@ export function parseClaudeCodeReviewOutput(options: {
 		);
 		if (!findingsResult.success) {
 			return harnessOutputError({
-				type: "review_execution_invalid_findings",
+				type: "review-execution-invalid-findings",
 				message: `Claude Code structured output did not match the findings schema: ${findingsResult.error.message}`,
 			});
 		}
@@ -81,13 +81,13 @@ export function parseClaudeCodeReviewOutput(options: {
 	if (typeof resultEvent.value.result === "string") {
 		const prose = truncateModelResponse(resultEvent.value.result);
 		return harnessOutputError({
-			type: "review_execution_invalid_response",
+			type: "review-execution-invalid-response",
 			message: `Claude Code returned prose instead of structured_output: ${prose}\nConfirm --json-schema is honored by the installed Claude Code binary.`,
 		});
 	}
 
 	return harnessOutputError({
-		type: "review_execution_invalid_response",
+		type: "review-execution-invalid-response",
 		message: "Claude Code result event did not include structured_output.",
 	});
 }
@@ -97,7 +97,7 @@ function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<stri
 		for (const item of parsed) {
 			if (!isRecord(item)) {
 				return harnessOutputError({
-					type: "review_execution_invalid_response",
+					type: "review-execution-invalid-response",
 					message: "Claude Code event stream contained a non-object event.",
 				});
 			}
@@ -107,7 +107,7 @@ function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<stri
 		);
 		if (resultEvent === undefined) {
 			return harnessOutputError({
-				type: "review_execution_invalid_response",
+				type: "review-execution-invalid-response",
 				message: "Claude Code event stream did not include a terminal result event.",
 			});
 		}
@@ -115,7 +115,7 @@ function resultEventFromParsedOutput(parsed: unknown): RoasterResult<Record<stri
 	}
 	if (!isRecord(parsed)) {
 		return harnessOutputError({
-			type: "review_execution_invalid_response",
+			type: "review-execution-invalid-response",
 			message: "Claude Code output JSON must be an object or event array.",
 		});
 	}
@@ -136,7 +136,7 @@ function reviewResponseFromClaudePayload(
 		return { type: "ok", value: response };
 	} catch (error) {
 		return harnessOutputError({
-			type: "review_execution_invalid_findings",
+			type: "review-execution-invalid-findings",
 			message: `Claude Code structured output did not match the findings schema: ${formatErrorMessage(error)}`,
 		});
 	}
@@ -147,7 +147,7 @@ function parseClaudeCodeOutputJson(stdout: string): RoasterResult<unknown> {
 		return { type: "ok", value: JSON.parse(stdout) as unknown };
 	} catch (error) {
 		return harnessOutputError({
-			type: "review_execution_invalid_json",
+			type: "review-execution-invalid-json",
 			message: `Claude Code output was not valid JSON: ${formatErrorMessage(error)}`,
 		});
 	}

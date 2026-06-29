@@ -18,38 +18,38 @@ import {
 
 export type SlotGcAction =
 	| "freed"
-	| "would_free"
-	| "kept_open_pr"
-	| "kept_no_pr"
-	| "skipped_dirty"
-	| "skipped_operation"
+	| "would-free"
+	| "kept-open-pr"
+	| "kept-no-pr"
+	| "skipped-dirty"
+	| "skipped-operation"
 	| "error";
 
 export interface SlotGcEntry {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
 	action: SlotGcAction;
-	pr_number: number | null;
-	pr_state: PrState | null;
-	pr_url: string | null;
+	prNumber: number | null;
+	prState: PrState | null;
+	prUrl: string | null;
 	message: string | null;
 	cleanup: readonly SlotFreeCleanupResult[];
 }
 
 export interface SlotGcPlan {
 	entries: readonly SlotGcEntry[];
-	would_free_count: number;
+	wouldFreeCount: number;
 }
 
 export interface SlotGcOutcome {
 	entries: readonly SlotGcEntry[];
-	freed_count: number;
-	kept_count: number;
-	skipped_count: number;
-	error_count: number;
-	dry_run: boolean;
-	cleanup_error_count: number;
+	freedCount: number;
+	keptCount: number;
+	skippedCount: number;
+	errorCount: number;
+	dryRun: boolean;
+	cleanupErrorCount: number;
 }
 
 export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<SlotGcPlan>> {
@@ -58,7 +58,7 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 		return {
 			type: "failure",
 			failure: {
-				error_type: "pool_empty",
+				errorType: "pool-empty",
 				message: "No managed slots configured. Run `slot init --size N` first.",
 			},
 		};
@@ -71,7 +71,7 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 		return {
 			type: "failure",
 			failure: {
-				error_type: "pr_lookup_failed",
+				errorType: "pr-lookup-failed",
 				message: prFailureMessage(prLookup.failure, "gh api graphql exited"),
 			},
 		};
@@ -81,7 +81,7 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 		if (record.branch === null) continue;
 		if (record.operation !== null) {
 			entries.push(
-				entryFromRecord(record, "skipped_operation", {
+				entryFromRecord(record, "skipped-operation", {
 					message: slotOperationMessage(record, { action: "running slot gc" }),
 				}),
 			);
@@ -92,30 +92,30 @@ export async function planGc(ctx: RepoSlotContext): Promise<LifecycleResult<Slot
 			return {
 				type: "failure",
 				failure: {
-					error_type: "pr_lookup_failed",
+					errorType: "pr-lookup-failed",
 					message: `PR lookup did not return a result for ${record.branch}`,
 				},
 			};
 		if (lookup.type === "miss") {
-			entries.push(entryFromRecord(record, "kept_no_pr"));
+			entries.push(entryFromRecord(record, "kept-no-pr"));
 			continue;
 		}
 		if (lookup.type === "failure")
 			return {
 				type: "failure",
 				failure: {
-					error_type: "pr_lookup_failed",
+					errorType: "pr-lookup-failed",
 					message: prFailureMessage(lookup.failure, "gh api graphql exited"),
 				},
 			};
 		if (lookup.pr.state === "OPEN") {
-			entries.push(entryFromRecord(record, "kept_open_pr", { pr: lookup.pr }));
+			entries.push(entryFromRecord(record, "kept-open-pr", { pr: lookup.pr }));
 			continue;
 		}
-		entries.push(entryFromRecord(record, "would_free", { pr: lookup.pr }));
+		entries.push(entryFromRecord(record, "would-free", { pr: lookup.pr }));
 		wouldFreeCount += 1;
 	}
-	return { type: "ok", outcome: { entries, would_free_count: wouldFreeCount } };
+	return { type: "ok", outcome: { entries, wouldFreeCount: wouldFreeCount } };
 }
 
 export async function planGcCleanup(
@@ -143,7 +143,7 @@ export async function executeGcPlan(
 	let entries: SlotGcEntry[] = [];
 	const freedEntries: SlotGcEntry[] = [];
 	for (const entry of plan.entries) {
-		if (entry.action !== "would_free") {
+		if (entry.action !== "would-free") {
 			entries.push(entry);
 			continue;
 		}
@@ -192,36 +192,36 @@ function entryFromRecord(
 ): SlotGcEntry {
 	if (record.branch === null) throw new Error(`gc record ${record.slotName} is not assigned`);
 	return {
-		slot_name: record.slotName,
-		branch_name: record.branch,
-		worktree_path: record.path,
+		slotName: record.slotName,
+		branchName: record.branch,
+		worktreePath: record.path,
 		action,
-		pr_number: options.pr?.number ?? null,
-		pr_state: options.pr?.state ?? null,
-		pr_url: options.pr?.url ?? null,
+		prNumber: options.pr?.number ?? null,
+		prState: options.pr?.state ?? null,
+		prUrl: options.pr?.url ?? null,
 		message: options.message ?? null,
 		cleanup: [],
 	};
 }
 
 function entryFromReleaseFailure(entry: SlotGcEntry, failure: ReleaseTargetFailure): SlotGcEntry {
-	if (failure.reason === "slot_not_assigned")
+	if (failure.reason === "slot-not-assigned")
 		return withAction(
 			entry,
 			"error",
-			`slot ${entry.slot_name} was not assigned to ${entry.branch_name} during free (state changed between plan and execute).`,
+			`slot ${entry.slotName} was not assigned to ${entry.branchName} during free (state changed between plan and execute).`,
 		);
-	if (failure.reason === "operation_in_progress")
+	if (failure.reason === "operation-in-progress")
 		return withAction(
 			entry,
-			"skipped_operation",
-			`${failure.slot_name} holds '${failure.branch_name}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktree_path}; cannot continue running slot gc.`,
+			"skipped-operation",
+			`${failure.slotName} holds '${failure.branchName}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktreePath}; cannot continue running slot gc.`,
 		);
-	if (failure.reason === "dirty_worktree")
+	if (failure.reason === "dirty-worktree")
 		return withAction(
 			entry,
-			"skipped_dirty",
-			`worktree has uncommitted changes at ${failure.worktree_path}`,
+			"skipped-dirty",
+			`worktree has uncommitted changes at ${failure.worktreePath}`,
 		);
 	return withAction(entry, "error", detachFailureMessage(failure));
 }
@@ -236,15 +236,15 @@ function withAction(
 
 function freedSlotFromGcEntry(entry: SlotGcEntry): FreedSlot {
 	return {
-		slot_name: entry.slot_name,
-		branch_name: entry.branch_name,
-		worktree_path: entry.worktree_path,
+		slotName: entry.slotName,
+		branchName: entry.branchName,
+		worktreePath: entry.worktreePath,
 	};
 }
 
 function gcFreeTargets(entries: readonly SlotGcEntry[]): readonly FreedSlot[] {
 	return entries
-		.filter((entry) => entry.action === "would_free" || entry.action === "freed")
+		.filter((entry) => entry.action === "would-free" || entry.action === "freed")
 		.map(freedSlotFromGcEntry);
 }
 
@@ -255,7 +255,7 @@ function withCleanupBySlot(
 	return entries.map((entry) => ({
 		...entry,
 		cleanup: cleanup.filter(
-			(result) => result.slot_name === entry.slot_name && result.branch_name === entry.branch_name,
+			(result) => result.slotName === entry.slotName && result.branchName === entry.branchName,
 		),
 	}));
 }
@@ -265,33 +265,33 @@ function outcomeFromEntries(entries: readonly SlotGcEntry[], isDryRun: boolean):
 	return {
 		entries,
 		...counts,
-		dry_run: isDryRun,
-		cleanup_error_count: entries
+		dryRun: isDryRun,
+		cleanupErrorCount: entries
 			.flatMap((entry) => entry.cleanup)
 			.filter((result) => result.status === "error").length,
 	};
 }
 
 function countGcActions(entries: readonly SlotGcEntry[]): {
-	freed_count: number;
-	kept_count: number;
-	skipped_count: number;
-	error_count: number;
+	freedCount: number;
+	keptCount: number;
+	skippedCount: number;
+	errorCount: number;
 } {
 	let freedCount = 0;
 	let keptCount = 0;
 	let skippedCount = 0;
 	let errorCount = 0;
 	for (const entry of entries) {
-		if (entry.action === "freed" || entry.action === "would_free") freedCount += 1;
-		if (entry.action === "kept_open_pr" || entry.action === "kept_no_pr") keptCount += 1;
-		if (entry.action === "skipped_dirty" || entry.action === "skipped_operation") skippedCount += 1;
+		if (entry.action === "freed" || entry.action === "would-free") freedCount += 1;
+		if (entry.action === "kept-open-pr" || entry.action === "kept-no-pr") keptCount += 1;
+		if (entry.action === "skipped-dirty" || entry.action === "skipped-operation") skippedCount += 1;
 		if (entry.action === "error") errorCount += 1;
 	}
 	return {
-		freed_count: freedCount,
-		kept_count: keptCount,
-		skipped_count: skippedCount,
-		error_count: errorCount,
+		freedCount: freedCount,
+		keptCount: keptCount,
+		skippedCount: skippedCount,
+		errorCount: errorCount,
 	};
 }

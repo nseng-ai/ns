@@ -41,10 +41,10 @@ export const freeRequestSchema = z.object({
 
 export const freeResultSchema = z.object({
 	freed: z.array(freedSlotSchema),
-	would_free: z.array(freedSlotSchema),
+	wouldFree: z.array(freedSlotSchema),
 	cleanup: z.array(cleanupSchema),
 	skipped: z.array(z.string()),
-	dry_run: z.boolean(),
+	dryRun: z.boolean(),
 	cancelled: z.boolean(),
 });
 
@@ -65,25 +65,25 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
 	});
 	if (poolSize(inventory) === 0)
-		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const resolved = resolveTargets(repoCtx, request, inventory);
 	if (resolved.slotNames.length === 0 && resolved.errors.length === 0)
 		return failure(
-			"missing_slot_arg",
+			"missing-slot-arg",
 			"Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.",
 		);
 	const cleanupActions = request.all ? SLOT_RELEASE_ALL_CLEANUP_ACTIONS : [];
 	const plan = await planFreeSlots(repoCtx, resolved.slotNames, {
 		preflightErrors: resolved.errors,
 	});
-	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
+	if (plan.type === "failure") return failure(plan.failure.errorType, plan.failure.message);
 	const progress = createFreeAllProgressReporter(repoCtx, request, plan.outcome.targets.length);
 	progress?.checkingCleanup(plan.outcome.targets.length);
 	const previewCleanup = await planReleaseCleanup({
 		ctx: repoCtx,
 		targets: plan.outcome.targets,
 		cleanupActions,
-		trunkBranch: plan.outcome.trunk_branch,
+		trunkBranch: plan.outcome.trunkBranch,
 	});
 	if (request.dryRun)
 		return ok(
@@ -122,12 +122,12 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	}
 	const executed = await executeFreePlan(repoCtx, plan.outcome, progress?.freeProgress);
 	if (executed.type === "failure")
-		return failure(executed.failure.error_type, executed.failure.message);
+		return failure(executed.failure.errorType, executed.failure.message);
 	const cleanup = await executeReleaseCleanup({
 		ctx: repoCtx,
 		targets: executed.outcome.freed,
 		cleanupActions,
-		trunkBranch: plan.outcome.trunk_branch,
+		trunkBranch: plan.outcome.trunkBranch,
 		...(progress === null ? {} : { progress: progress.cleanupProgress }),
 	});
 	const result = buildFreeResult({
@@ -149,7 +149,7 @@ export function renderFree(
 	result: FreeResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	const targets = result.dry_run ? result.would_free : result.freed;
+	const targets = result.dryRun ? result.wouldFree : result.freed;
 	if (result.cancelled) {
 		return renderSlotDestructiveResultBlock(caps, {
 			kind: "refusal",
@@ -165,7 +165,7 @@ export function renderFree(
 			body: renderFreeDetails(result, targets, resolveRenderCapabilities(caps)),
 		});
 	}
-	const headline = result.dry_run
+	const headline = result.dryRun
 		? dryRunHeadline(targets.length)
 		: freeSuccessHeadline(targets.length);
 	return renderSlotDestructiveResultBlock(caps, {
@@ -182,11 +182,9 @@ function renderFreeDetails(
 ): string | undefined {
 	const lines: string[] = [];
 	for (const slot of targets)
-		lines.push(
-			`${result.dry_run ? "Would free" : "Freed"} ${slot.slot_name} -> ${slot.branch_name}`,
-		);
+		lines.push(`${result.dryRun ? "Would free" : "Freed"} ${slot.slotName} -> ${slot.branchName}`);
 	lines.push(...result.skipped);
-	lines.push(...renderCleanupLines(result.cleanup, { isDryRun: result.dry_run, caps }));
+	lines.push(...renderCleanupLines(result.cleanup, { isDryRun: result.dryRun, caps }));
 	return lines.length === 0 ? undefined : lines.join("\n");
 }
 
@@ -251,21 +249,21 @@ function createFreeAllProgressReporter(
 			ctx.stderr("\n");
 		},
 		freeProgress: (event) => {
-			ctx.stderr(`Freeing ${event.target.slot_name} (${event.target.branch_name})…\n`);
+			ctx.stderr(`Freeing ${event.target.slotName} (${event.target.branchName})…\n`);
 		},
 		cleanupProgress: (event) => {
 			switch (event.type) {
 				case "pr_lookup_started":
-					ctx.stderr(`Checking PR for ${event.target.branch_name}…\n`);
+					ctx.stderr(`Checking PR for ${event.target.branchName}…\n`);
 					return;
 				case "pr_close_started":
 					ctx.stderr(`Closing PR #${event.prNumber}…\n`);
 					return;
 				case "local_branch_lookup_started":
-					ctx.stderr(`Checking local branch ${event.target.branch_name}…\n`);
+					ctx.stderr(`Checking local branch ${event.target.branchName}…\n`);
 					return;
 				case "local_branch_delete_started":
-					ctx.stderr(`Deleting local branch ${event.target.branch_name}…\n`);
+					ctx.stderr(`Deleting local branch ${event.target.branchName}…\n`);
 					return;
 				case "cleanup_finished":
 					return;
@@ -284,10 +282,10 @@ function buildFreeResult(options: {
 }): FreeResult {
 	return {
 		freed: [...(options.freed ?? [])],
-		would_free: [...(options.wouldFree ?? [])],
+		wouldFree: [...(options.wouldFree ?? [])],
 		cleanup: [...options.cleanup],
 		skipped: [...options.skipped],
-		dry_run: options.isDryRun,
+		dryRun: options.isDryRun,
 		cancelled: options.isCancelled,
 	};
 }

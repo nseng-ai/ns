@@ -149,7 +149,7 @@ describe("roaster domain schemas", () => {
 					estimatedTokens: 300,
 					addedLines: 5,
 					removedLines: 2,
-					reason: "file_exceeds_cap",
+					reason: "file-exceeds-cap",
 				},
 			],
 		});
@@ -243,7 +243,7 @@ describe("GitHub and publication schemas", () => {
 		expect(
 			inlineClassificationResultSchema.parse({
 				inlineable: [{ finding, target: { path: "src/app.ts", line: 3 } }],
-				fallbackOnly: [{ finding: { ...finding, line: null }, reason: "missing_line" }],
+				fallbackOnly: [{ finding: { ...finding, line: null }, reason: "missing-line" }],
 			}).inlineable,
 		).toHaveLength(1);
 		expect(

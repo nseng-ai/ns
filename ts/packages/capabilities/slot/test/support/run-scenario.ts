@@ -32,7 +32,7 @@ export interface ScenarioRunOptions {
 	stdin?: string | (() => Promise<string | null>) | undefined;
 	confirmations?: readonly ConfirmationResult[] | undefined;
 	env?: NodeJS.ProcessEnv | undefined;
-	repo?: RepoContext | { type: "no_repo"; errorType: "not_in_repo"; message: string } | undefined;
+	repo?: RepoContext | { type: "no_repo"; errorType: "not-in-repo"; message: string } | undefined;
 	clipboardResult?: ClipboardCopyResult | undefined;
 	command?: FakeSlotCommandGatewayOptions | undefined;
 	canEmitAnsi?: boolean | undefined;

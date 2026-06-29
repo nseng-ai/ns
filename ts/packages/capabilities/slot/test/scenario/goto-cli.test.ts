@@ -25,10 +25,10 @@ describe("slot goto CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/a",
+				slotName: "slot-01",
+				branchName: "feature/a",
 				operation: null,
-				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
+				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
 			},
 		});
 	});
@@ -61,7 +61,7 @@ describe("slot goto CLI", () => {
 
 	it("renders clipboard failure as non-fatal human navigation guidance", async () => {
 		const run = runScenario(["goto", "-n", "1"], {
-			clipboardResult: { type: "failure", reason: "backend_missing", detail: "missing pbcopy" },
+			clipboardResult: { type: "failure", reason: "backend-missing", detail: "missing pbcopy" },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
@@ -81,7 +81,7 @@ describe("slot goto CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { slot_name: "slot-02", branch_name: "b" },
+			data: { slotName: "slot-02", branchName: "b" },
 		});
 	});
 
@@ -90,7 +90,7 @@ describe("slot goto CLI", () => {
 			git: { worktrees: [slotWorktree("slot-01", "a")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting_slot_args" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting-slot-args" });
 	});
 
 	it("returns negative for an unassigned slot", async () => {
@@ -118,17 +118,17 @@ describe("slot goto CLI", () => {
 
 	it("treats clipboard failure as non-fatal and still emits the cd command", async () => {
 		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
-			clipboardResult: { type: "failure", reason: "backend_missing", detail: "missing pbcopy" },
+			clipboardResult: { type: "failure", reason: "backend-missing", detail: "missing pbcopy" },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
-				clipboard_copied: false,
-				clipboard_skipped: false,
-				clipboard_failure_reason: "backend_missing",
-				clipboard_failure_detail: "missing pbcopy",
+				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+				clipboardCopied: false,
+				clipboardSkipped: false,
+				clipboardFailureReason: "backend-missing",
+				clipboardFailureDetail: "missing pbcopy",
 			},
 		});
 	});
@@ -140,10 +140,10 @@ describe("slot goto CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				clipboard_copied: false,
-				clipboard_skipped: true,
-				clipboard_failure_reason: null,
-				clipboard_failure_detail: null,
+				clipboardCopied: false,
+				clipboardSkipped: true,
+				clipboardFailureReason: null,
+				clipboardFailureDetail: null,
 			},
 		});
 	});

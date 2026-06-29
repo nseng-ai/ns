@@ -59,7 +59,7 @@ const testSlotClient = {
 		return {
 			ok: false as const,
 			failure: {
-				errorType: "unexpected_current_checkout",
+				errorType: "unexpected-current-checkout",
 				message: "Unexpected current sdl slot checkout in cmux command test.",
 			},
 		};
@@ -83,13 +83,13 @@ const failingTestSlotClient = {
 	async checkoutCurrent() {
 		return {
 			ok: false as const,
-			failure: { errorType: "slot_unavailable", message: "slot unavailable" },
+			failure: { errorType: "slot-unavailable", message: "slot unavailable" },
 		};
 	},
 	async checkoutBranch() {
 		return {
 			ok: false as const,
-			failure: { errorType: "slot_unavailable", message: "slot unavailable" },
+			failure: { errorType: "slot-unavailable", message: "slot unavailable" },
 		};
 	},
 };
@@ -121,9 +121,9 @@ function dispatchPromptPutJson(sourceFile: string): string {
 			namespace: DISPATCH_PROMPT_NAMESPACE,
 			key: DISPATCH_PROMPT_KEY,
 			branch: BRANCH,
-			ref_name: `refs/brmem/ns/${DISPATCH_PROMPT_NAMESPACE}/${BRANCH}:${DISPATCH_PROMPT_KEY}`,
+			refName: `refs/brmem/ns/${DISPATCH_PROMPT_NAMESPACE}/${BRANCH}:${DISPATCH_PROMPT_KEY}`,
 			commit: START_POINT,
-			source_file: sourceFile,
+			sourceFile: sourceFile,
 		},
 	});
 }

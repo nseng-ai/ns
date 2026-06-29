@@ -19,8 +19,8 @@ export type CheckoutPlan =
 	| { type: "pool_full"; assigned: readonly SlotRecord[] };
 
 export type CurrentWorktreeRedirectAction =
-	| { type: "checkout_branch"; branch: string; role: "previous" | "trunk" }
-	| { type: "detach_head"; ref: string };
+	| { type: "checkout-branch"; branch: string; role: "previous" | "trunk" }
+	| { type: "detach-head"; ref: string };
 
 export interface CurrentWorktreeRedirect {
 	action: CurrentWorktreeRedirectAction;
@@ -81,24 +81,24 @@ export async function planCurrentWtRedirect(
 		);
 		if (conflict === undefined)
 			return {
-				action: { type: "checkout_branch", branch: previous, role: "previous" },
+				action: { type: "checkout-branch", branch: previous, role: "previous" },
 				note: null,
 			};
 	}
 
 	const trunk = await git.getTrunkBranch();
 	if (extractSlotNumber(basename(options.cwd)) !== null)
-		return { action: { type: "detach_head", ref: trunk }, note: null };
+		return { action: { type: "detach-head", ref: trunk }, note: null };
 	if (trunk === options.movingBranch)
-		return { action: { type: "detach_head", ref: options.movingBranch }, note: null };
+		return { action: { type: "detach-head", ref: options.movingBranch }, note: null };
 
 	const busyWorktree = worktrees.find(
 		(worktree) => worktree.branch === trunk && worktree.path !== options.cwd,
 	);
 	if (busyWorktree === undefined)
-		return { action: { type: "checkout_branch", branch: trunk, role: "trunk" }, note: null };
+		return { action: { type: "checkout-branch", branch: trunk, role: "trunk" }, note: null };
 	return {
-		action: { type: "detach_head", ref: options.movingBranch },
+		action: { type: "detach-head", ref: options.movingBranch },
 		note: `Trunk branch '${trunk}' is checked out in ${busyWorktree.path}; left ${options.cwd} on a detached HEAD at ${options.movingBranch}.`,
 	};
 }

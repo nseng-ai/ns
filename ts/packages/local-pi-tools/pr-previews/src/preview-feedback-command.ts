@@ -22,12 +22,12 @@ const nullablePreviewStringSchema = z.string().nullable();
 const nullablePreviewNumberSchema = z.number().int().nullable();
 
 const previewCountsSchema = z.looseObject({
-	included_review_threads: z.number().int().nonnegative(),
-	included_reviews: z.number().int().nonnegative(),
-	included_discussion_comments: z.number().int().nonnegative(),
-	excluded_resolved_threads: z.number().int().nonnegative(),
-	excluded_empty_reviews: z.number().int().nonnegative(),
-	excluded_automation_comments: z.number().int().nonnegative(),
+	includedReviewThreads: z.number().int().nonnegative(),
+	includedReviews: z.number().int().nonnegative(),
+	includedDiscussionComments: z.number().int().nonnegative(),
+	excludedResolvedThreads: z.number().int().nonnegative(),
+	excludedEmptyReviews: z.number().int().nonnegative(),
+	excludedAutomationComments: z.number().int().nonnegative(),
 });
 
 const previewTargetSchema = z.looseObject({
@@ -66,7 +66,7 @@ const previewReviewThreadSchema = z.looseObject({
 });
 
 const previewReviewThreadsDataSchema = z.looseObject({
-	review_threads: z.array(previewReviewThreadSchema),
+	reviewThreads: z.array(previewReviewThreadSchema),
 });
 
 type ParsedPrNumberArgs = { type: "valid"; args: string[] } | { type: "invalid"; message: string };
@@ -176,7 +176,7 @@ async function runPrPreviewFeedbackCommand(
 
 		const model = buildPreviewFeedbackViewModel({
 			download: download.value,
-			threads: threads.value.review_threads,
+			threads: threads.value.reviewThreads,
 		});
 		await ctx.ui.custom<void>(
 			(tui, theme, _keybindings, done) =>

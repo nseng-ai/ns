@@ -72,7 +72,7 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("review_execution_invalid_json");
+		expect(exit.errorType).toBe("review-execution-invalid-json");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
@@ -89,7 +89,7 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("review_execution_invalid_findings");
+		expect(exit.errorType).toBe("review-execution-invalid-findings");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
@@ -107,13 +107,13 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("failure");
 		if (exit.type !== "failure") return;
-		expect(exit.errorType).toBe("review_definition_not_found");
+		expect(exit.errorType).toBe("review-definition-not-found");
 		expect(reviewLog.writtenEntries()).toEqual([]);
 	});
 
 	test("log write failure exits negative while preserving the review result", async () => {
 		const reviewLog = new FakeReviewLogGateway({
-			writeFailure: { type: "review_log_write_failed", message: "brmem put failed" },
+			writeFailure: { type: "review-log-write-failed", message: "brmem put failed" },
 		});
 		const ctx = createRoasterRuntime(
 			fakeRoasterContext({

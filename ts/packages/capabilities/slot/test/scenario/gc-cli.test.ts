@@ -30,10 +30,10 @@ describe("slot gc CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				freed_count: 1,
-				kept_count: 2,
-				dry_run: true,
-				entries: [{ action: "would_free" }, { action: "kept_open_pr" }, { action: "kept_no_pr" }],
+				freedCount: 1,
+				keptCount: 2,
+				dryRun: true,
+				entries: [{ action: "would-free" }, { action: "kept-open-pr" }, { action: "kept-no-pr" }],
 			},
 		});
 		expect(run.pr.operations()).toEqual([
@@ -94,7 +94,7 @@ describe("slot gc CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			errorType: "pr_lookup_failed",
+			errorType: "pr-lookup-failed",
 			message: "GraphQL failed",
 		});
 		expect(run.pr.operations()).toEqual([
@@ -198,12 +198,12 @@ describe("slot gc CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				freed_count: 1,
-				kept_count: 1,
-				cleanup_error_count: 0,
+				freedCount: 1,
+				keptCount: 1,
+				cleanupErrorCount: 0,
 				entries: [
-					{ action: "freed", cleanup: [{ action: "local_branch", status: "success" }] },
-					{ action: "kept_open_pr" },
+					{ action: "freed", cleanup: [{ action: "local-branch", status: "success" }] },
+					{ action: "kept-open-pr" },
 				],
 			},
 		});
@@ -228,9 +228,9 @@ describe("slot gc CLI", () => {
 		expect(parseJsonOutput(json)).toMatchObject({
 			message: "Slot gc completed with cleanup errors.",
 			data: {
-				cleanup_error_count: 1,
+				cleanupErrorCount: 1,
 				entries: [
-					{ cleanup: [{ action: "local_branch", status: "error", message: "permission denied" }] },
+					{ cleanup: [{ action: "local-branch", status: "error", message: "permission denied" }] },
 				],
 			},
 		});
@@ -257,6 +257,6 @@ describe("slot gc CLI", () => {
 	it("--dry-run conflicts with --force", async () => {
 		const run = runScenario(["gc", "--dry-run", "--force", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting_flags" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting-flags" });
 	});
 });

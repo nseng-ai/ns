@@ -92,7 +92,7 @@ function createHarness(options: HarnessOptions = {}) {
 				if (options.slotFailure !== undefined) {
 					return {
 						ok: false as const,
-						failure: { errorType: "slot_failure", message: options.slotFailure },
+						failure: { errorType: "slot-failure", message: options.slotFailure },
 					};
 				}
 				return {
@@ -112,7 +112,7 @@ function createHarness(options: HarnessOptions = {}) {
 				return {
 					ok: false as const,
 					failure: {
-						errorType: "unexpected_branch_checkout",
+						errorType: "unexpected-branch-checkout",
 						message: "Unexpected branch sdl slot checkout in autoslot test.",
 					},
 				};

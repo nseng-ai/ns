@@ -10,7 +10,7 @@ export class FailingDiscussionGateway extends FakeRoasterGitHubGateway {
 	): Promise<RoasterResult<PRDiscussionComment>> {
 		return {
 			type: "error",
-			error: { type: "github_cli_failed", message: "discussion write failed" },
+			error: { type: "github-cli-failed", message: "discussion write failed" },
 		};
 	}
 }

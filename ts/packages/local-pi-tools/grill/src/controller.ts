@@ -12,8 +12,8 @@ import {
 export type GrillAskOutcome =
 	| { action: "choice"; entry: GrillAskChoiceRow }
 	| { action: "freeform"; answer: string }
-	| { action: "status_request" }
-	| { action: "end_grill" }
+	| { action: "status-request" }
+	| { action: "end-grill" }
 	| { action: "cancelled" };
 
 export class GrillAskController {
@@ -76,9 +76,9 @@ export class GrillAskController {
 				this.currentMode = "freeform";
 				return undefined;
 			case "status":
-				return { action: "status_request" };
-			case "end_grill":
-				return { action: "end_grill" };
+				return { action: "status-request" };
+			case "end-grill":
+				return { action: "end-grill" };
 			default: {
 				const exhaustive: never = row;
 				return exhaustive;

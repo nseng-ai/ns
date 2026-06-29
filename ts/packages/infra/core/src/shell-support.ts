@@ -26,8 +26,8 @@ export const markerSurfaceShowResultSchema = z.object({
 
 export const markerSurfaceInstallResultSchema = z.object({
 	shell: z.union([z.literal("zsh"), z.literal("bash")]),
-	rc_path: z.string(),
-	is_already_installed: z.boolean(),
+	rcPath: z.string(),
+	isAlreadyInstalled: z.boolean(),
 });
 
 export type MarkerSurfaceShowRequest = z.infer<typeof markerSurfaceShowRequestSchema>;

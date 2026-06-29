@@ -41,7 +41,7 @@ const branchPrEntrySchema = z.looseObject({
 });
 
 const mapBranchPrsDataSchema = z.looseObject({
-	branch_prs: z.array(branchPrEntrySchema),
+	branchPrs: z.array(branchPrEntrySchema),
 });
 
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
@@ -327,7 +327,7 @@ async function mapStackBranchesToPrs(
 		schema: mapBranchPrsDataSchema,
 	});
 	if (parsed.type === "error") return parsed;
-	return { type: "ok", entries: parsed.value.branch_prs };
+	return { type: "ok", entries: parsed.value.branchPrs };
 }
 
 async function downloadFeedbackForPr(
@@ -411,12 +411,12 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 		),
 		"",
 		"Totals:",
-		`- Unresolved review threads included: ${totals.included_review_threads}`,
-		`- PR-level review bodies included: ${totals.included_reviews}`,
-		`- Discussion comments included: ${totals.included_discussion_comments}`,
-		`- Resolved review threads excluded: ${totals.excluded_resolved_threads}`,
-		`- Empty PR-level reviews excluded: ${totals.excluded_empty_reviews}`,
-		`- Automation-like discussion comments excluded: ${totals.excluded_automation_comments}`,
+		`- Unresolved review threads included: ${totals.includedReviewThreads}`,
+		`- PR-level review bodies included: ${totals.includedReviews}`,
+		`- Discussion comments included: ${totals.includedDiscussionComments}`,
+		`- Resolved review threads excluded: ${totals.excludedResolvedThreads}`,
+		`- Empty PR-level reviews excluded: ${totals.excludedEmptyReviews}`,
+		`- Automation-like discussion comments excluded: ${totals.excludedAutomationComments}`,
 	];
 }
 
@@ -425,25 +425,23 @@ function sumDownloadFeedbackCounts(
 ): PrFeedbackDownloadCounts {
 	return downloads.reduce<PrFeedbackDownloadCounts>(
 		(totals, download) => ({
-			included_review_threads:
-				totals.included_review_threads + download.counts.included_review_threads,
-			included_reviews: totals.included_reviews + download.counts.included_reviews,
-			included_discussion_comments:
-				totals.included_discussion_comments + download.counts.included_discussion_comments,
-			excluded_resolved_threads:
-				totals.excluded_resolved_threads + download.counts.excluded_resolved_threads,
-			excluded_empty_reviews:
-				totals.excluded_empty_reviews + download.counts.excluded_empty_reviews,
-			excluded_automation_comments:
-				totals.excluded_automation_comments + download.counts.excluded_automation_comments,
+			includedReviewThreads: totals.includedReviewThreads + download.counts.includedReviewThreads,
+			includedReviews: totals.includedReviews + download.counts.includedReviews,
+			includedDiscussionComments:
+				totals.includedDiscussionComments + download.counts.includedDiscussionComments,
+			excludedResolvedThreads:
+				totals.excludedResolvedThreads + download.counts.excludedResolvedThreads,
+			excludedEmptyReviews: totals.excludedEmptyReviews + download.counts.excludedEmptyReviews,
+			excludedAutomationComments:
+				totals.excludedAutomationComments + download.counts.excludedAutomationComments,
 		}),
 		{
-			included_review_threads: 0,
-			included_reviews: 0,
-			included_discussion_comments: 0,
-			excluded_resolved_threads: 0,
-			excluded_empty_reviews: 0,
-			excluded_automation_comments: 0,
+			includedReviewThreads: 0,
+			includedReviews: 0,
+			includedDiscussionComments: 0,
+			excludedResolvedThreads: 0,
+			excludedEmptyReviews: 0,
+			excludedAutomationComments: 0,
 		},
 	);
 }

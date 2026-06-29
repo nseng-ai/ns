@@ -50,7 +50,7 @@ export interface PlannedDeleteOperation extends PlannedApplyOperationBase {
 }
 
 export interface PlannedRemoveEmptyDirOperation extends PlannedApplyOperationBase {
-	type: "remove_empty_dir";
+	type: "remove-empty-dir";
 }
 
 export type PlannedApplyOperation =
@@ -255,7 +255,7 @@ export function planSidecarOperations(
 		value: [
 			{ type: "delete", relativePath, description: "Codex openai.yaml" },
 			{
-				type: "remove_empty_dir",
+				type: "remove-empty-dir",
 				relativePath: agentsDir,
 				description: "empty skill agents directory",
 			},
@@ -307,13 +307,13 @@ export function planPiSettingsOperation(
 
 export function hasDeletionPrompt(plan: SkillKindApplyPlan): boolean {
 	return plan.operations.some(
-		(operation) => operation.type === "delete" || operation.type === "remove_empty_dir",
+		(operation) => operation.type === "delete" || operation.type === "remove-empty-dir",
 	);
 }
 
 export function deletionPrompt(plan: SkillKindApplyPlan): string {
 	const paths = plan.operations
-		.filter((operation) => operation.type === "delete" || operation.type === "remove_empty_dir")
+		.filter((operation) => operation.type === "delete" || operation.type === "remove-empty-dir")
 		.map((operation) => `- ${operation.relativePath}`)
 		.join("\n");
 	return `Apply ${plan.kind} to ${plan.skill} will delete managed artifacts:\n${paths}\nContinue?`;
@@ -346,7 +346,7 @@ export function plannedRemoveEmptyDirs(
 	plan: SkillKindApplyPlan,
 ): readonly AregSkillKindRemoveEmptyDirPlan[] {
 	return plan.operations.flatMap((operation) =>
-		operation.type === "remove_empty_dir"
+		operation.type === "remove-empty-dir"
 			? [{ relativePath: operation.relativePath, description: operation.description }]
 			: [],
 	);
@@ -364,7 +364,7 @@ export function toApplyResult(
 		isApplied:
 			operation.type === "skip"
 				? false
-				: operation.type === "remove_empty_dir"
+				: operation.type === "remove-empty-dir"
 					? hasRemovedEmptyDir
 					: hasAppliedOperation,
 	};
@@ -397,7 +397,7 @@ export function operationStatusesForPlans(
 					type: operation.type,
 					path: operation.relativePath,
 					description: operation.description,
-					status: "not_attempted" as const,
+					status: "not-attempted" as const,
 				};
 			consumedStatusIndexes.add(statusIndex);
 			return (
@@ -405,7 +405,7 @@ export function operationStatusesForPlans(
 					type: operation.type,
 					path: operation.relativePath,
 					description: operation.description,
-					status: "not_attempted" as const,
+					status: "not-attempted" as const,
 				}
 			);
 		}),

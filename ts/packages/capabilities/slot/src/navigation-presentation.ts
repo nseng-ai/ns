@@ -17,17 +17,17 @@ export function renderSlotNavigationSuccess(
 	return renderResultBlock(caps, {
 		kind: "success",
 		headline: input.headline,
-		body: [...(input.details ?? []), input.cd_command].join("\n"),
+		body: [...(input.details ?? []), input.cdCommand].join("\n"),
 		...(clipboardLine === undefined ? {} : { guidance: clipboardLine }),
 	});
 }
 
 function renderClipboardLine(input: NavigationResultFields, caps: Caps): string | undefined {
-	if (input.clipboard_skipped) return undefined;
-	if (input.clipboard_copied) return dim("Copied cd command to clipboard.");
+	if (input.clipboardSkipped) return undefined;
+	if (input.clipboardCopied) return dim("Copied cd command to clipboard.");
 	return paint(
 		caps,
 		"warn",
-		`Clipboard unavailable (${input.clipboard_failure_detail ?? "pbcopy failed"})`,
+		`Clipboard unavailable (${input.clipboardFailureDetail ?? "pbcopy failed"})`,
 	);
 }

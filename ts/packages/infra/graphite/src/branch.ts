@@ -114,7 +114,7 @@ export class RealGraphiteBranchGateway implements GraphiteBranchGateway {
 		if (result.code !== 0 || result.killed) {
 			return {
 				ok: false,
-				error: failure("graphite_track_failed", "gt track failed", { result, displayCommand }),
+				error: failure("graphite-track-failed", "gt track failed", { result, displayCommand }),
 			};
 		}
 		return { ok: true };

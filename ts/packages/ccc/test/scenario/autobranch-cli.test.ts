@@ -161,7 +161,7 @@ describe("ccc CLI", () => {
 				workspace: "workspace:16",
 				title: "Ship cmux summary command",
 				description: "Goal: Add a project-local Pi command that labels this cmux workspace.",
-				status_key: "pi-summary",
+				statusKey: "pi-summary",
 				error: null,
 			},
 		});
@@ -203,7 +203,7 @@ describe("ccc CLI", () => {
 			status: "usageError",
 			exitCode: 2,
 			message: "Provide --description.",
-			data: { success: false, error: { code: "missing_description" } },
+			data: { success: false, error: { code: "missing-description" } },
 		});
 
 		const failedStdout: string[] = [];
@@ -235,8 +235,8 @@ describe("ccc CLI", () => {
 			data: {
 				success: false,
 				error: {
-					code: "rename_workspace_failed",
-					command_failure: {
+					code: "rename-workspace-failed",
+					commandFailure: {
 						command: ["cmux", "workspace", "rename", "workspace:16", "--title", "fail"],
 						exitCode: 2,
 						stderr: "workspace not found",

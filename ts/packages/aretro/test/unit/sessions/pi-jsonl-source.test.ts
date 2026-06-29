@@ -39,7 +39,7 @@ describe("PiJsonlSessionSource", () => {
 		const source = new PiJsonlSessionSource();
 		expect(source.sourceInfo).toEqual({
 			harness: "pi",
-			adapter_name: "pi_jsonl",
+			adapter_name: "pi-jsonl",
 			record_format: "jsonl",
 		});
 	});
@@ -60,7 +60,7 @@ describe("PiJsonlSessionSource", () => {
 			expect(result.source_info).toEqual(source.sourceInfo);
 			expect(result.sessions).toEqual([]);
 			expect(result.warnings).toHaveLength(1);
-			expect(result.warnings[0]?.code).toBe("session_root_missing");
+			expect(result.warnings[0]?.code).toBe("session-root-missing");
 			expect(result.warnings[0]?.message).toContain("does not exist");
 		});
 
@@ -80,7 +80,7 @@ describe("PiJsonlSessionSource", () => {
 
 			expect(result.sessions).toEqual([]);
 			expect(result.warnings).toHaveLength(1);
-			expect(result.warnings[0]?.code).toBe("session_root_not_directory");
+			expect(result.warnings[0]?.code).toBe("session-root-not-directory");
 		});
 
 		it("returns warning when repo session dir does not exist", async () => {
@@ -97,7 +97,7 @@ describe("PiJsonlSessionSource", () => {
 
 			expect(result.sessions).toEqual([]);
 			expect(result.warnings).toHaveLength(1);
-			expect(result.warnings[0]?.code).toBe("repo_session_dir_missing");
+			expect(result.warnings[0]?.code).toBe("repo-session-dir-missing");
 			expect(result.warnings[0]?.message).toContain("does not exist for repo");
 		});
 
@@ -118,7 +118,7 @@ describe("PiJsonlSessionSource", () => {
 
 			expect(result.sessions).toEqual([]);
 			expect(result.warnings).toHaveLength(1);
-			expect(result.warnings[0]?.code).toBe("repo_session_dir_not_directory");
+			expect(result.warnings[0]?.code).toBe("repo-session-dir-not-directory");
 		});
 
 		it("returns empty sessions when repo session dir exists but has no JSONL files", async () => {
@@ -191,7 +191,7 @@ describe("PiJsonlSessionSource", () => {
 			expect(session?.model_events).toHaveLength(1);
 			expect(session?.model_events[0]?.provider).toBe("anthropic");
 			expect(session?.model_events[0]?.model).toBe("claude-3-5-sonnet-20241022");
-			expect(session?.association.confidence).toBe("repo_cwd");
+			expect(session?.association.confidence).toBe("repo-cwd");
 			expect(session?.association.cwd).toBe("/test/repo/worktree");
 		});
 
@@ -400,7 +400,7 @@ describe("PiJsonlSessionSource", () => {
 
 			expect(result.sessions).toHaveLength(1);
 			const session = result.sessions[0];
-			expect(session?.warnings.some((w) => w.code === "malformed_json")).toBe(true);
+			expect(session?.warnings.some((w) => w.code === "malformed-json")).toBe(true);
 		});
 
 		it("warns when missing session header", async () => {
@@ -429,7 +429,7 @@ describe("PiJsonlSessionSource", () => {
 
 			expect(result.sessions).toHaveLength(1);
 			const session = result.sessions[0];
-			expect(session?.warnings.some((w) => w.code === "missing_session_header")).toBe(true);
+			expect(session?.warnings.some((w) => w.code === "missing-session-header")).toBe(true);
 		});
 
 		it("ignores known record types", async () => {

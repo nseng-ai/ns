@@ -25,10 +25,10 @@ export interface ProjectConfigError {
 }
 
 export type ProjectConfigErrorCode =
-	| "invalid_toml"
-	| "invalid_table"
-	| "invalid_exclude"
-	| "invalid_model_profiles";
+	| "invalid-toml"
+	| "invalid-table"
+	| "invalid-exclude"
+	| "invalid-model-profiles";
 
 export interface GitDiffArgsOptions {
 	readonly baseRef: string;
@@ -56,7 +56,7 @@ export function parseRoasterProjectConfigToml(
 		data = parse(source);
 	} catch (error) {
 		return failure(
-			"invalid_toml",
+			"invalid-toml",
 			formatMessage(`Invalid TOML: ${formatErrorMessage(error)}`, pathLabel),
 		);
 	}
@@ -65,7 +65,7 @@ export function parseRoasterProjectConfigToml(
 	const roaster = data.roaster;
 	if (roaster === undefined) return { type: "ok", config: EMPTY_CONFIG };
 	if (!isRecord(roaster))
-		return failure("invalid_table", formatMessage("[roaster] must be a TOML table.", pathLabel));
+		return failure("invalid-table", formatMessage("[roaster] must be a TOML table.", pathLabel));
 
 	const parsedDiff = parseDiffConfig(roaster.diff, pathLabel);
 	if (parsedDiff.type === "error") return parsedDiff;
@@ -123,7 +123,7 @@ function parseDiffConfig(value: unknown, pathLabel: string | undefined): DiffCon
 	if (value === undefined) return { type: "ok", value: EMPTY_CONFIG.diff };
 	if (!isRecord(value)) {
 		return failure(
-			"invalid_table",
+			"invalid-table",
 			formatMessage("[roaster.diff] must be a TOML table.", pathLabel),
 		);
 	}
@@ -142,7 +142,7 @@ function parseModelProfiles(
 	if (value === undefined) return { type: "ok", value: DEFAULT_ROASTER_MODEL_PROFILES };
 	if (!isRecord(value)) {
 		return failure(
-			"invalid_table",
+			"invalid-table",
 			formatMessage("[roaster.model_profiles] must be a TOML table.", pathLabel),
 		);
 	}
@@ -152,7 +152,7 @@ function parseModelProfiles(
 		.sort();
 	if (unknownKeys.length > 0) {
 		return failure(
-			"invalid_model_profiles",
+			"invalid-model-profiles",
 			formatMessage(
 				`[roaster.model_profiles] contains unknown profile key(s): ${unknownKeys.join(", ")}. Allowed keys: ${MODEL_PROFILE_KEYS.join(", ")}.`,
 				pathLabel,
@@ -166,7 +166,7 @@ function parseModelProfiles(
 		const profileValue = value[key];
 		if (typeof profileValue !== "string" || profileValue.trim() === "") {
 			return failure(
-				"invalid_model_profiles",
+				"invalid-model-profiles",
 				formatMessage(`[roaster.model_profiles].${key} must be a non-empty string.`, pathLabel),
 			);
 		}
@@ -178,7 +178,7 @@ function parseModelProfiles(
 function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): ExcludeParseResult {
 	if (!Array.isArray(value)) {
 		return failure(
-			"invalid_exclude",
+			"invalid-exclude",
 			formatMessage("[roaster.diff].exclude must be a TOML array of non-empty strings.", pathLabel),
 		);
 	}
@@ -187,7 +187,7 @@ function parseExcludeGlobs(value: unknown, pathLabel: string | undefined): Exclu
 	for (const item of value) {
 		if (typeof item !== "string" || item.trim() === "") {
 			return failure(
-				"invalid_exclude",
+				"invalid-exclude",
 				formatMessage("[roaster.diff].exclude must contain only non-empty strings.", pathLabel),
 			);
 		}
@@ -204,7 +204,7 @@ function validateRoasterExcludePattern(
 ): { readonly type: "ok" } | { readonly type: "error"; readonly error: ProjectConfigError } {
 	if (pattern.startsWith(":(")) {
 		return failure(
-			"invalid_exclude",
+			"invalid-exclude",
 			formatMessage(
 				"[roaster.diff].exclude entries must be plain glob patterns, not raw Git pathspecs.",
 				pathLabel,
@@ -213,13 +213,13 @@ function validateRoasterExcludePattern(
 	}
 	if (pattern.startsWith("/")) {
 		return failure(
-			"invalid_exclude",
+			"invalid-exclude",
 			formatMessage("[roaster.diff].exclude entries must be repo-relative patterns.", pathLabel),
 		);
 	}
 	if (pattern.split("/").includes("..")) {
 		return failure(
-			"invalid_exclude",
+			"invalid-exclude",
 			formatMessage(
 				"[roaster.diff].exclude entries must not contain '..' path segments.",
 				pathLabel,

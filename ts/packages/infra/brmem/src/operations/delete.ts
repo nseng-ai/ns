@@ -16,7 +16,7 @@ export const deleteResultSchema = z.object({
 	namespace: z.string(),
 	key: z.string(),
 	branch: z.string(),
-	ref_name: z.string(),
+	refName: z.string(),
 	deleted: z.boolean(),
 	cancelled: z.boolean(),
 	commit: z.string().nullable(),
@@ -47,7 +47,7 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 				namespace,
 				key,
 				branch,
-				ref_name: locator,
+				refName: locator,
 				deleted: false,
 				cancelled: true,
 				commit: null,
@@ -58,7 +58,7 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 
 	const result = await ctx.gateway.deleteEntry({ namespace, key, branch });
 	if (result.type === "error") {
-		if (result.error.code === "key_not_found") {
+		if (result.error.code === "key-not-found") {
 			return negative(
 				`No Entry to delete: Entry Key=${key} Namespace=${namespaceValueLabel(namespace)} Branch=${branch} at ${locator}. Underlying error: ${result.error.message}`,
 				{
@@ -66,7 +66,7 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 						namespace,
 						key,
 						branch,
-						ref_name: locator,
+						refName: locator,
 						deleted: false,
 						cancelled: false,
 						commit: null,
@@ -81,7 +81,7 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 		namespace,
 		key,
 		branch,
-		ref_name: locator,
+		refName: locator,
 		deleted: true,
 		cancelled: false,
 		commit: result.value.commitSha,
@@ -93,12 +93,12 @@ export function renderDelete(result: DeleteResult): string {
 		return [
 			"Cancelled Branch Memory Entry delete.",
 			`No Entry was deleted. Target: Entry Key ${result.key} from ${namespaceDisplayLabel(result.namespace)} on Branch ${result.branch}.`,
-			`Entry Locator: ${result.ref_name}`,
+			`Entry Locator: ${result.refName}`,
 		].join("\n");
 	}
 	return [
 		`Deleted Entry Key ${result.key} from ${namespaceDisplayLabel(result.namespace)} on Branch ${result.branch}.`,
-		`Entry Locator: ${result.ref_name}`,
+		`Entry Locator: ${result.refName}`,
 		`Commit: ${result.commit}`,
 	].join("\n");
 }

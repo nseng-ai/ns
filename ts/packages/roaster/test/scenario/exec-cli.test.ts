@@ -71,7 +71,7 @@ function failedEnvelope(): string {
 	return JSON.stringify({
 		status: "failure",
 		exitCode: 2,
-		errorType: "harness_binary_missing",
+		errorType: "harness-binary-missing",
 		message: "claude not found",
 	});
 }

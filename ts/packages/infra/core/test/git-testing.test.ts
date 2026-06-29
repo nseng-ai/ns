@@ -101,7 +101,7 @@ describe("in-memory git gateway", () => {
 		expect(await git.localBranchPresence({ cwd: ROOT, branch: BRANCH })).toEqual({
 			type: "error",
 			error: {
-				code: "branch_presence_failed",
+				code: "branch-presence-failed",
 				message: "Could not determine local branch presence.",
 			},
 		});
@@ -148,7 +148,7 @@ describe("in-memory git gateway", () => {
 			originUrl: { type: "missing" },
 			headCommit: { type: "failure" },
 			gitPaths: { "info/exclude": { type: "failure" } },
-			createBranchFailure: { code: "branch_create_failed", message: "Could not create branch." },
+			createBranchFailure: { code: "branch-create-failed", message: "Could not create branch." },
 		});
 
 		expect(await git.repoRoot({ cwd: ROOT })).toEqual({
@@ -175,7 +175,7 @@ describe("in-memory git gateway", () => {
 		});
 		expect(await git.createBranchAtHead({ cwd: ROOT, branch: BRANCH })).toEqual({
 			ok: false,
-			error: { code: "branch_create_failed", message: "Could not create branch." },
+			error: { code: "branch-create-failed", message: "Could not create branch." },
 		});
 		expect(git.existingBranches).toEqual([]);
 	});

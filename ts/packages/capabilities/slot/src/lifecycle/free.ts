@@ -10,7 +10,7 @@ import {
 
 export interface SlotFreePlan {
 	targets: readonly FreedSlot[];
-	trunk_branch: string;
+	trunkBranch: string;
 }
 
 export interface SlotFreeOutcome {
@@ -38,13 +38,13 @@ export async function planFreeSlots(
 	if (errors.length > 0)
 		return {
 			type: "failure",
-			failure: { error_type: "invalid_slot_args", message: errors.join("\n") },
+			failure: { errorType: "invalid-slot-args", message: errors.join("\n") },
 		};
 	return {
 		type: "ok",
 		outcome: {
 			targets: validation.targets,
-			trunk_branch: options.trunkBranch ?? (await ctx.git.getTrunkBranch()),
+			trunkBranch: options.trunkBranch ?? (await ctx.git.getTrunkBranch()),
 		},
 	};
 }
@@ -63,13 +63,13 @@ export async function executeFreePlan(
 			git: ctx.git,
 			inventory,
 			target,
-			trunkBranch: plan.trunk_branch,
+			trunkBranch: plan.trunkBranch,
 		});
 		if ("reason" in result)
 			return {
 				type: "failure",
 				failure: {
-					error_type: result.error_type,
+					errorType: result.errorType,
 					message: partialFailureMessage(freeExecutionFailureMessage(result), freed),
 				},
 			};
@@ -112,24 +112,24 @@ async function validatedFreeTargets(
 
 function freeExecutionFailureMessage(failure: ReleaseTargetFailure): string {
 	switch (failure.reason) {
-		case "slot_not_assigned":
-			return `${failure.slot_name} is not currently assigned (state changed during free).`;
-		case "operation_in_progress":
-			return `${failure.slot_name} holds '${failure.branch_name}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktree_path}; cannot continue freeing.`;
-		case "dirty_worktree":
-			return `${failure.slot_name} has uncommitted changes at ${failure.worktree_path} (state changed during free).`;
-		case "detach_failed":
+		case "slot-not-assigned":
+			return `${failure.slotName} is not currently assigned (state changed during free).`;
+		case "operation-in-progress":
+			return `${failure.slotName} holds '${failure.branchName}' with a ${failure.operation ?? "operation"} in progress at ${failure.worktreePath}; cannot continue freeing.`;
+		case "dirty-worktree":
+			return `${failure.slotName} has uncommitted changes at ${failure.worktreePath} (state changed during free).`;
+		case "detach-failed":
 			return detachFailureMessage(failure);
 	}
 }
 
 export function detachFailureMessage(failure: ReleaseTargetFailure): string {
-	const detachRef = failure.detach_ref ?? "target ref";
-	const detail = failure.detach_error === null ? "" : `: ${failure.detach_error}`;
-	return `Failed to detach ${failure.slot_name} at ${failure.worktree_path} to ${detachRef}${detail}`;
+	const detachRef = failure.detachRef ?? "target ref";
+	const detail = failure.detachError === null ? "" : `: ${failure.detachError}`;
+	return `Failed to detach ${failure.slotName} at ${failure.worktreePath} to ${detachRef}${detail}`;
 }
 
 function partialFailureMessage(base: string, freed: readonly FreedSlot[]): string {
 	if (freed.length === 0) return base;
-	return `${base} Already freed: ${freed.map((slot) => slot.slot_name).join(", ")}.`;
+	return `${base} Already freed: ${freed.map((slot) => slot.slotName).join(", ")}.`;
 }

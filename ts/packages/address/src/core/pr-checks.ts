@@ -11,7 +11,7 @@ import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { resolvePrTarget } from "./pr-target.ts";
 
 export interface PrChecksTargetPayload {
-	kind: "github_pr";
+	kind: "github-pr";
 	pr_number: number | null;
 	branch: string | null;
 	title: string | null;
@@ -26,7 +26,7 @@ export interface PrChecksCountsPayload {
 	pending: number;
 	failing: number;
 	unknown: number;
-	has_more?: boolean | undefined;
+	hasMore?: boolean | undefined;
 }
 
 export interface PrCheckEntryPayload {
@@ -111,7 +111,7 @@ function prChecksPayload(options: {
 	return {
 		found: options.found,
 		target: {
-			kind: "github_pr",
+			kind: "github-pr",
 			pr_number: options.pr?.number ?? null,
 			branch: options.branch,
 			title: options.pr?.title ?? null,
@@ -127,7 +127,7 @@ function prChecksPayload(options: {
 			unknown: options.checks?.counts.unknown ?? 0,
 			...(options.checks?.counts.hasMore === undefined
 				? {}
-				: { has_more: options.checks.counts.hasMore }),
+				: { hasMore: options.checks.counts.hasMore }),
 		},
 		checks:
 			options.checks?.checks.map((check) => ({

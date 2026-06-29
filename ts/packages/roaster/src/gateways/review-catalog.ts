@@ -55,13 +55,13 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const status = await directoryStatus(reviewsDir.value);
 		if (status === "missing") {
 			return error({
-				type: "reviews_dir_missing",
+				type: "reviews-dir-missing",
 				message: `No reviews directory at ${reviewsDir.value}. Create it and add \`<key>.md\` files.`,
 			});
 		}
 		if (status !== "directory") {
 			return error({
-				type: "reviews_dir_not_directory",
+				type: "reviews-dir-not-directory",
 				message: `Reviews path is not a directory: ${reviewsDir.value}`,
 			});
 		}
@@ -89,13 +89,13 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const status = await directoryStatus(resolved.value.path);
 		if (status === "missing") {
 			return error({
-				type: "review_definition_not_found",
+				type: "review-definition-not-found",
 				message: `No review found for key ${JSON.stringify(options.key)} at ${resolved.value.path}.`,
 			});
 		}
 		if (status !== "file") {
 			return error({
-				type: "review_definition_not_file",
+				type: "review-definition-not-file",
 				message: `Review definition is not a file: ${resolved.value.path}`,
 			});
 		}
@@ -105,7 +105,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 			return { type: "ok", value: { key: resolved.value.key, path: resolved.value.path, source } };
 		} catch (caught) {
 			return error({
-				type: "review_definition_read_failed",
+				type: "review-definition-read-failed",
 				message: `Unable to read review definition ${resolved.value.path}: ${caught instanceof Error ? caught.message : String(caught)}`,
 			});
 		}
@@ -117,7 +117,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 	): Promise<RoasterResult<string>> {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd, signal });
 		if (!repoRoot.ok)
-			return error({ type: "reviews_dir_missing", message: repoRoot.error.message });
+			return error({ type: "reviews-dir-missing", message: repoRoot.error.message });
 		return { type: "ok", value: join(repoRoot.value, SDL_DIRNAME, REVIEWS_DIRNAME) };
 	}
 }
@@ -174,7 +174,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		if (source === undefined) {
 			const path = join(this.reviewsDirValue, `${options.key}.md`);
 			return error({
-				type: "review_definition_not_found",
+				type: "review-definition-not-found",
 				message: `No fake review definition configured for key ${JSON.stringify(options.key)} at ${path}.`,
 			});
 		}
@@ -201,12 +201,12 @@ async function resolveReviewPath(
 	const normalized = key.trim();
 	if (normalized === "")
 		return error({
-			type: "review_key_invalid",
+			type: "review-key-invalid",
 			message: "Review key must not be empty.",
 		});
 	if (normalized.startsWith("/") || normalized.split(/[\\/]/u).includes("..")) {
 		return error({
-			type: "review_key_invalid",
+			type: "review-key-invalid",
 			message: `Review key must be a relative path without \`..\`: ${JSON.stringify(key)}`,
 		});
 	}
@@ -214,12 +214,12 @@ async function resolveReviewPath(
 	const status = await directoryStatus(reviewsDir);
 	if (status === "missing")
 		return error({
-			type: "reviews_dir_missing",
+			type: "reviews-dir-missing",
 			message: `No reviews directory at ${reviewsDir}. Create it and add \`<key>.md\` files.`,
 		});
 	if (status !== "directory")
 		return error({
-			type: "reviews_dir_not_directory",
+			type: "reviews-dir-not-directory",
 			message: `Reviews path is not a directory: ${reviewsDir}`,
 		});
 
@@ -227,7 +227,7 @@ async function resolveReviewPath(
 	const rel = relative(reviewsDir, path);
 	if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
 		return error({
-			type: "review_key_invalid",
+			type: "review-key-invalid",
 			message: `Review key ${JSON.stringify(key)} resolves outside ${reviewsDir}.`,
 		});
 	}

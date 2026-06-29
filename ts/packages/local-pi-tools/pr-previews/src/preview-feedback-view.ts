@@ -297,15 +297,15 @@ export function buildPreviewHeaderLines(model: PrPreviewFeedbackViewModel): stri
 	const base = model.target.base_ref_name ?? "?";
 	return [
 		`PR #${model.target.pr_number}: ${model.target.title ?? "(untitled)"}`,
-		`${head} → ${base} · ${model.threads.length} unresolved inline threads · excluded ${model.counts.included_reviews} PR reviews / ${model.counts.included_discussion_comments} discussion · snapshot ${model.fetchedAt.toISOString()}`,
+		`${head} → ${base} · ${model.threads.length} unresolved inline threads · excluded ${model.counts.includedReviews} PR reviews / ${model.counts.includedDiscussionComments} discussion · snapshot ${model.fetchedAt.toISOString()}`,
 		...buildCountMismatchNotice(model),
 	];
 }
 
 export function buildCountMismatchNotice(model: PrPreviewFeedbackViewModel): string[] {
-	if (model.counts.included_review_threads === model.threads.length) return [];
+	if (model.counts.includedReviewThreads === model.threads.length) return [];
 	return [
-		`Summary count was ${model.counts.included_review_threads} unresolved threads when target summary loaded; actual thread rows fetched now: ${model.threads.length}.`,
+		`Summary count was ${model.counts.includedReviewThreads} unresolved threads when target summary loaded; actual thread rows fetched now: ${model.threads.length}.`,
 	];
 }
 
@@ -314,11 +314,11 @@ export function buildEmptyStateLines(model: PrPreviewFeedbackViewModel): string[
 		`PR #${model.target.pr_number}: ${model.target.title ?? "(untitled)"}`,
 		"No unresolved review threads included.",
 		"",
-		`PR-level review bodies excluded from this list: ${model.counts.included_reviews}`,
-		`Discussion comments excluded from this list: ${model.counts.included_discussion_comments}`,
-		`Resolved review threads excluded: ${model.counts.excluded_resolved_threads}`,
-		`Empty reviews excluded: ${model.counts.excluded_empty_reviews}`,
-		`Automation-like discussion comments excluded: ${model.counts.excluded_automation_comments}`,
+		`PR-level review bodies excluded from this list: ${model.counts.includedReviews}`,
+		`Discussion comments excluded from this list: ${model.counts.includedDiscussionComments}`,
+		`Resolved review threads excluded: ${model.counts.excludedResolvedThreads}`,
+		`Empty reviews excluded: ${model.counts.excludedEmptyReviews}`,
+		`Automation-like discussion comments excluded: ${model.counts.excludedAutomationComments}`,
 		...buildCountMismatchNotice(model),
 	];
 }

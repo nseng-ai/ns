@@ -14,10 +14,10 @@ describe("slot gt free-stack CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				current_branch: "master",
-				trunk_branch: "master",
+				currentBranch: "master",
+				trunkBranch: "master",
 				freed: [],
-				noop_reason: "on_trunk",
+				noopReason: "on-trunk",
 			},
 		});
 		expect(run.gt.operations()).toEqual([{ type: "trunk", cwd: "/repo" }]);
@@ -62,10 +62,10 @@ describe("slot gt free-stack CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
 				freed: [
-					{ slot_name: "slot-01", branch_name: "feature/a" },
-					{ slot_name: "slot-02", branch_name: "feature/c" },
+					{ slotName: "slot-01", branchName: "feature/a" },
+					{ slotName: "slot-02", branchName: "feature/c" },
 				],
-				noop_reason: null,
+				noopReason: null,
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -129,7 +129,7 @@ describe("slot gt free-stack CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { freed: [{ slot_name: "slot-01", branch_name: "feature/a" }], downstack: true },
+			data: { freed: [{ slotName: "slot-01", branchName: "feature/a" }], downstack: true },
 		});
 	});
 

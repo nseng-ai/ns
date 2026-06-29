@@ -2,21 +2,21 @@ import type { RepoSlotContext } from "../context.ts";
 import { prFailureMessage } from "../gateways/pr.ts";
 import type { FreedSlot } from "./release-target.ts";
 
-export type SlotFreeCleanupAction = "pr" | "local_branch";
+export type SlotFreeCleanupAction = "pr" | "local-branch";
 export type SlotFreeCleanupStatus = "planned" | "success" | "skipped" | "error";
 
 export interface SlotFreeCleanupResult {
-	slot_name: string;
-	branch_name: string;
+	slotName: string;
+	branchName: string;
 	action: SlotFreeCleanupAction;
 	status: SlotFreeCleanupStatus;
-	pr_number: number | null;
+	prNumber: number | null;
 	message: string | null;
 }
 
 export const SLOT_RELEASE_ALL_CLEANUP_ACTIONS = [
 	"pr",
-	"local_branch",
+	"local-branch",
 ] as const satisfies readonly SlotFreeCleanupAction[];
 
 export interface PlanReleaseCleanupOptions {
@@ -91,7 +91,7 @@ async function cleanupForTargets(
 	options: CleanupForTargetsOptions,
 ): Promise<readonly SlotFreeCleanupResult[]> {
 	if (options.targets.length === 0 || options.cleanupActions.length === 0) return [];
-	const needsTrunk = options.cleanupActions.includes("local_branch");
+	const needsTrunk = options.cleanupActions.includes("local-branch");
 	const trunkBranch = needsTrunk
 		? (options.trunkBranch ?? (await options.ctx.git.getTrunkBranch()))
 		: null;
@@ -123,7 +123,7 @@ async function cleanupForTargets(
 
 async function cleanupPr(options: CleanupPrOptions): Promise<SlotFreeCleanupResult> {
 	options.progress?.({ type: "pr_lookup_started", target: options.target });
-	const lookup = await options.ctx.pr.getPrForBranch(options.target.branch_name);
+	const lookup = await options.ctx.pr.getPrForBranch(options.target.branchName);
 	if (lookup.type === "miss")
 		return cleanupResult({
 			target: options.target,
@@ -178,39 +178,39 @@ async function cleanupPr(options: CleanupPrOptions): Promise<SlotFreeCleanupResu
 async function cleanupLocalBranch(
 	options: CleanupLocalBranchOptions,
 ): Promise<SlotFreeCleanupResult> {
-	if (options.target.branch_name === options.trunkBranch)
+	if (options.target.branchName === options.trunkBranch)
 		return cleanupResult({
 			target: options.target,
-			action: "local_branch",
+			action: "local-branch",
 			status: "error",
 			message: `refusing to delete trunk branch ${options.trunkBranch}`,
 		});
 	if (!options.shouldExecute)
-		return cleanupResult({ target: options.target, action: "local_branch", status: "planned" });
+		return cleanupResult({ target: options.target, action: "local-branch", status: "planned" });
 	options.progress?.({ type: "local_branch_lookup_started", target: options.target });
-	if (!(await options.ctx.git.branchExists(options.target.branch_name)))
+	if (!(await options.ctx.git.branchExists(options.target.branchName)))
 		return cleanupResult({
 			target: options.target,
-			action: "local_branch",
+			action: "local-branch",
 			status: "skipped",
 			message: "already absent",
 		});
 	options.progress?.({ type: "local_branch_delete_started", target: options.target });
-	const failure = await options.ctx.git.deleteLocalBranch(options.target.branch_name, {
+	const failure = await options.ctx.git.deleteLocalBranch(options.target.branchName, {
 		shouldForce: true,
 	});
 	if (failure === null)
-		return cleanupResult({ target: options.target, action: "local_branch", status: "success" });
-	if (isMissingLocalBranchFailure(failure.message, options.target.branch_name))
+		return cleanupResult({ target: options.target, action: "local-branch", status: "success" });
+	if (isMissingLocalBranchFailure(failure.message, options.target.branchName))
 		return cleanupResult({
 			target: options.target,
-			action: "local_branch",
+			action: "local-branch",
 			status: "skipped",
 			message: "already absent",
 		});
 	return cleanupResult({
 		target: options.target,
-		action: "local_branch",
+		action: "local-branch",
 		status: "error",
 		message: failure.message,
 	});
@@ -218,11 +218,11 @@ async function cleanupLocalBranch(
 
 function cleanupResult(options: CleanupResultOptions): SlotFreeCleanupResult {
 	return {
-		slot_name: options.target.slot_name,
-		branch_name: options.target.branch_name,
+		slotName: options.target.slotName,
+		branchName: options.target.branchName,
 		action: options.action,
 		status: options.status,
-		pr_number: options.prNumber ?? null,
+		prNumber: options.prNumber ?? null,
 		message: options.message ?? null,
 	};
 }

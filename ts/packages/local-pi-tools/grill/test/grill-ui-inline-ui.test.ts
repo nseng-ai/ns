@@ -64,11 +64,11 @@ describe("grill_ask view helpers", () => {
 			"choice",
 			"freeform",
 			"status",
-			"end_grill",
+			"end-grill",
 		]);
 		expect(rowValue(rows[2]!)).toBe("__freeform__");
 		expect(rowValue(rows[3]!)).toBe("__status__");
-		expect(rowValue(rows[4]!)).toBe("__end_grill__");
+		expect(rowValue(rows[4]!)).toBe("__end-grill__");
 		expect(rowLabel(rows[1]!)).toBe("2. Ship the focused inline UI");
 		expect(rowLabel(rows[2]!)).toBe("3. Other / freeform answer");
 		expect(rowLabel(rows[3]!)).toBe("4. Show current grill status");
@@ -105,10 +105,10 @@ describe("GrillAskController", () => {
 		controller.moveFocus(-10);
 		expect(controller.focusIndex).toBe(0);
 		controller.setFocus(3);
-		expect(controller.submitFocused()).toEqual({ action: "status_request" });
+		expect(controller.submitFocused()).toEqual({ action: "status-request" });
 		controller.moveFocus(99);
 		expect(controller.focusIndex).toBe(4);
-		expect(controller.submitFocused()).toEqual({ action: "end_grill" });
+		expect(controller.submitFocused()).toEqual({ action: "end-grill" });
 	});
 
 	test("freeform escape returns to choices and empty submit stays open", () => {
@@ -170,7 +170,7 @@ describe("grill_ask render helpers", () => {
 				mode: "choices",
 				rows,
 				focusIndex: 1,
-				progress: { answeredQuestions: 3, source: "session_branch" },
+				progress: { answeredQuestions: 3, source: "session-branch" },
 			},
 			90,
 		).join("\n");
@@ -200,7 +200,7 @@ describe("grill_ask render helpers", () => {
 				mode: "choices",
 				rows,
 				focusIndex: 1,
-				progress: { answeredQuestions: 0, source: "session_branch" },
+				progress: { answeredQuestions: 0, source: "session-branch" },
 			},
 			160,
 			theme,
@@ -537,7 +537,7 @@ describe("grill_ask inline UI component", () => {
 		);
 		statusComponent.handleInput?.("4");
 
-		expect(statusDoneValues).toEqual([{ action: "status_request" }]);
+		expect(statusDoneValues).toEqual([{ action: "status-request" }]);
 
 		const endDoneValues: unknown[] = [];
 		const endComponent = createGrillAskInlineComponent(
@@ -549,7 +549,7 @@ describe("grill_ask inline UI component", () => {
 		);
 		endComponent.handleInput?.("5");
 
-		expect(endDoneValues).toEqual([{ action: "end_grill" }]);
+		expect(endDoneValues).toEqual([{ action: "end-grill" }]);
 	});
 
 	test("Other opens inline freeform and submits non-empty editor text", () => {

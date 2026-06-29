@@ -32,7 +32,7 @@ export function gatewayOptions(ctx: PrAddressExecContext): GatewayOptions {
 }
 
 export function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailure) {
-	return failure("pr_gateway_failure", gatewayFailureMessage(prefix, gatewayFailure));
+	return failure("pr-gateway-failure", gatewayFailureMessage(prefix, gatewayFailure));
 }
 
 export interface FailureDetailInput {
@@ -64,7 +64,7 @@ export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFai
 }
 
 export function prFeedbackFailureExit(prefix: string, prFeedbackFailure: GithubPrFeedbackFailure) {
-	return failure("pr_gateway_failure", prFeedbackFailureMessage(prefix, prFeedbackFailure));
+	return failure("pr-gateway-failure", prFeedbackFailureMessage(prefix, prFeedbackFailure));
 }
 
 export function prFeedbackFailureMessage(
@@ -93,7 +93,7 @@ export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
 	resultSchema: z.ZodType<T>;
 	/**
 	 * Operation calls GitHub through `gh`, which resolves `owner/repo` from the
-	 * cwd's git remotes. The operation fails fast with `repo_context_required`
+	 * cwd's git remotes. The operation fails fast with `repo-context-required`
 	 * when run outside a git work tree.
 	 */
 	isRepoContextRequired?: boolean | undefined;
@@ -147,7 +147,7 @@ function withRepoContextPrecondition<S extends z.ZodObject, T>(
 				return handler(ctx, request);
 			case "outside":
 				return failure(
-					"repo_context_required",
+					"repo-context-required",
 					"pr-address must run inside the target git repository (gh resolves the repo from the current directory).",
 				);
 			case "failure":

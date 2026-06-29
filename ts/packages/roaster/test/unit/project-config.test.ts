@@ -60,19 +60,19 @@ describe("parseRoasterProjectConfigToml", () => {
 	});
 
 	test.each([
-		['[roaster.diff]\nexclude = "*.py"\n', "array", "invalid_exclude"],
-		['[roaster.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid_exclude"],
-		['[roaster.diff]\nexclude = [""]\n', "non-empty strings", "invalid_exclude"],
-		['[roaster.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid_exclude"],
-		['[roaster.diff]\nexclude = ["skills/../*.py"]\n', "path segments", "invalid_exclude"],
+		['[roaster.diff]\nexclude = "*.py"\n', "array", "invalid-exclude"],
+		['[roaster.diff]\nexclude = ["*.py", 1]\n', "non-empty strings", "invalid-exclude"],
+		['[roaster.diff]\nexclude = [""]\n', "non-empty strings", "invalid-exclude"],
+		['[roaster.diff]\nexclude = ["/tmp/*.py"]\n', "repo-relative", "invalid-exclude"],
+		['[roaster.diff]\nexclude = ["skills/../*.py"]\n', "path segments", "invalid-exclude"],
 		[
 			'[roaster.diff]\nexclude = [":(exclude,glob)vendor/**/*.py"]\n',
 			"pathspecs",
-			"invalid_exclude",
+			"invalid-exclude",
 		],
-		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid_table"],
-		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid_table"],
-		["[roaster\n", "Invalid TOML", "invalid_toml"],
+		['roaster = "not a table"\n', "[roaster] must be a TOML table", "invalid-table"],
+		['[roaster]\ndiff = "not a table"\n', "[roaster.diff] must be a TOML table", "invalid-table"],
+		["[roaster\n", "Invalid TOML", "invalid-toml"],
 	] as const)("rejects invalid config %#", (source, message, code) => {
 		const error = expectError(parseRoasterProjectConfigToml(source, "sdl.toml"));
 

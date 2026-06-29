@@ -187,7 +187,7 @@ async function runCheck(
 	if (report.results.some((result) => result.status === "invalid")) {
 		return usageError(renderHuman(report), { report: data });
 	}
-	return failure("registry_check_failed", "One or more registry checks failed.", { report: data });
+	return failure("registry-check-failed", "One or more registry checks failed.", { report: data });
 }
 
 function packageCheckReportData(

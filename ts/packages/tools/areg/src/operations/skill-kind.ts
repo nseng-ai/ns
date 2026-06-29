@@ -48,11 +48,11 @@ interface ResolvedProjectInspection {
 }
 
 const skillKindArtifactFactsSchema = z.object({
-	disable_model_invocation: z.boolean(),
-	codex_sidecar: z.boolean(),
-	user_invocable_key_present: z.boolean(),
-	user_invocable_false: z.boolean(),
-	pi_excluded: z.boolean(),
+	disableModelInvocation: z.boolean(),
+	codexSidecar: z.boolean(),
+	userInvocableKeyPresent: z.boolean(),
+	userInvocableFalse: z.boolean(),
+	piExcluded: z.boolean(),
 });
 
 const skillKindReplacementSchema = z.object({
@@ -66,9 +66,9 @@ const skillKindReplacementSchema = z.object({
 const skillKindRecordSchema = z.object({
 	skill: z.string(),
 	kind: z.enum(INFERRED_SKILL_INVOCATION_KINDS),
-	model_invocation: z.enum(MODEL_INVOCATION_STATUSES),
-	native_direct: z.enum(NATIVE_DIRECT_STATUSES),
-	pi_extension: z.enum(PI_EXTENSION_STATUSES),
+	modelInvocation: z.enum(MODEL_INVOCATION_STATUSES),
+	nativeDirect: z.enum(NATIVE_DIRECT_STATUSES),
+	piExtension: z.enum(PI_EXTENSION_STATUSES),
 	artifacts: skillKindArtifactFactsSchema,
 	replacement: skillKindReplacementSchema,
 	notes: z.array(z.string()),
@@ -123,21 +123,21 @@ export const skillKindApplyRequestSchema = z.object({
 });
 
 export const skillKindListResultSchema = z.object({
-	project_dir: z.string(),
+	projectDir: z.string(),
 	skills: z.array(skillKindRecordSchema),
 });
 
 export const skillKindShowResultSchema = z.object({
-	project_dir: z.string(),
+	projectDir: z.string(),
 	skill: skillKindRecordSchema,
 });
 
 export const skillKindApplyResultSchema = z.object({
-	project_dir: z.string(),
+	projectDir: z.string(),
 	kind: z.enum(SKILL_INVOCATION_KINDS),
-	dry_run: z.boolean(),
+	dryRun: z.boolean(),
 	skills: z.array(skillKindApplySkillResultSchema),
-	mutation_failed: z.boolean().optional(),
+	mutationFailed: z.boolean().optional(),
 	operations: z.array(skillKindApplyOperationStatusSchema).optional(),
 });
 
@@ -190,15 +190,15 @@ export async function runSkillKindList(
 	request: SkillKindListRequest,
 ): Promise<ClinkrExit<SkillKindListResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
-	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
+	if (resolved.type === "error") return failure("project-inspection-failed", resolved.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
 	if (!records.ok)
 		return skillKindRecordsFailure(records.error, {
-			project_dir: resolved.value.projectDir,
+			projectDir: resolved.value.projectDir,
 			skills: [],
 		});
 	return ok({
-		project_dir: resolved.value.projectDir,
+		projectDir: resolved.value.projectDir,
 		skills: records.value.map(toSkillKindRecordResult),
 	});
 }
@@ -208,7 +208,7 @@ export async function runSkillKindShow(
 	request: SkillKindShowRequest,
 ): Promise<ClinkrExit<SkillKindShowResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
-	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
+	if (resolved.type === "error") return failure("project-inspection-failed", resolved.message);
 	const resolvedSkill = await ctx.project.resolveSkillKindSpec({
 		projectDir: resolved.value.projectDir,
 		spec: request.skill,
@@ -216,7 +216,7 @@ export async function runSkillKindShow(
 		env: ctx.env,
 	});
 	if (resolvedSkill.type === "error")
-		return failure("skill_resolution_failed", resolvedSkill.error.message);
+		return failure("skill-resolution-failed", resolvedSkill.error.message);
 	const records = buildSkillKindRecords(resolved.value.inspection);
 	if (!records.ok)
 		return skillKindRecordsFailure(
@@ -229,7 +229,7 @@ export async function runSkillKindShow(
 			data: emptyShowResult(resolved.value.projectDir, resolvedSkill.skillName),
 		});
 	}
-	return ok({ project_dir: resolved.value.projectDir, skill: toSkillKindRecordResult(record) });
+	return ok({ projectDir: resolved.value.projectDir, skill: toSkillKindRecordResult(record) });
 }
 
 export async function runSkillKindApply(
@@ -237,7 +237,7 @@ export async function runSkillKindApply(
 	request: SkillKindApplyRequest,
 ): Promise<ClinkrExit<SkillKindApplyResult>> {
 	const resolved = await inspectResolvedProject(ctx, request.path);
-	if (resolved.type === "error") return failure("project_inspection_failed", resolved.message);
+	if (resolved.type === "error") return failure("project-inspection-failed", resolved.message);
 	const projectDir = resolved.value.projectDir;
 	const plans: SkillKindApplyPlan[] = [];
 	let planningInspection = resolved.value.inspection;
@@ -249,17 +249,17 @@ export async function runSkillKindApply(
 			env: ctx.env,
 		});
 		if (resolvedSkill.type === "error")
-			return failure("skill_resolution_failed", resolvedSkill.error.message);
+			return failure("skill-resolution-failed", resolvedSkill.error.message);
 		const plan = buildSkillKindApplyPlan(planningInspection, resolvedSkill.skillName, request.kind);
-		if (!plan.ok) return failure("skill_plan_failed", plan.error.message);
+		if (!plan.ok) return failure("skill-plan-failed", plan.error.message);
 		plans.push(plan.value);
 		planningInspection = inspectionAfterPlannedApply(planningInspection, plan.value);
 	}
 	if (request.dryRun) {
 		return ok({
-			project_dir: projectDir,
+			projectDir: projectDir,
 			kind: request.kind,
-			dry_run: request.dryRun,
+			dryRun: request.dryRun,
 			skills: plans.map((plan) => ({
 				skill: plan.skill,
 				operations: plan.operations.map((operation) => toApplyResult(operation, false, false)),
@@ -283,9 +283,9 @@ export async function runSkillKindApply(
 			if (confirmed.type === "declined")
 				return ok(
 					{
-						project_dir: projectDir,
+						projectDir: projectDir,
 						kind: request.kind,
-						dry_run: request.dryRun,
+						dryRun: request.dryRun,
 						skills: [],
 					},
 					{ human: `Declined to apply ${request.kind} to ${plan.skill}.` },
@@ -301,11 +301,11 @@ export async function runSkillKindApply(
 		removeEmptyDirs: plans.flatMap(plannedRemoveEmptyDirs),
 	});
 	if (!applyResult.ok) {
-		return failure("skill_kind_apply_failed", applyResult.error.message, {
-			project_dir: projectDir,
+		return failure("skill-kind-apply-failed", applyResult.error.message, {
+			projectDir: projectDir,
 			kind: request.kind,
-			dry_run: false,
-			mutation_failed: true,
+			dryRun: false,
+			mutationFailed: true,
 			operations: [...applyResult.operationStatuses],
 			skills: operationStatusesForPlans(plans, applyResult.operationStatuses).map((skill) => ({
 				skill: skill.skill,
@@ -314,9 +314,9 @@ export async function runSkillKindApply(
 		});
 	}
 	return ok({
-		project_dir: projectDir,
+		projectDir: projectDir,
 		kind: request.kind,
-		dry_run: request.dryRun,
+		dryRun: request.dryRun,
 		skills: plans.map((plan) => ({
 			skill: plan.skill,
 			operations: plan.operations.map((operation) =>
@@ -335,7 +335,7 @@ function skillKindRecordsFailure<T>(
 	negativeData: T,
 ): ClinkrExit<T> {
 	if (isPathStateError(error)) return negative(error.message, { data: negativeData });
-	return failure("skill_records_invalid", error.message);
+	return failure("skill-records-invalid", error.message);
 }
 
 export function renderSkillKindList(
@@ -358,9 +358,9 @@ export function renderSkillKindList(
 			const base = [
 				record.skill,
 				record.kind,
-				record.model_invocation,
-				record.native_direct,
-				record.pi_extension,
+				record.modelInvocation,
+				record.nativeDirect,
+				record.piExtension,
 			];
 			if (includeNotes) base.push(record.notes.join("; "));
 			return base;
@@ -376,14 +376,14 @@ export function renderSkillKindShow(result: SkillKindShowResult): string {
 	const lines = [
 		`Skill: ${record.skill}`,
 		`Kind: ${record.kind}`,
-		`model-invocation: ${record.model_invocation}`,
-		`native-direct: ${record.native_direct}`,
-		`pi-extension: ${record.pi_extension}`,
+		`model-invocation: ${record.modelInvocation}`,
+		`native-direct: ${record.nativeDirect}`,
+		`pi-extension: ${record.piExtension}`,
 		"Artifacts:",
-		`- disable-model-invocation: ${presence(record.artifacts.disable_model_invocation)}`,
-		`- agents/openai.yaml: ${presence(record.artifacts.codex_sidecar)}`,
-		`- user-invocable:false: ${presence(record.artifacts.user_invocable_false)}`,
-		`- Pi skill exclusion: ${presence(record.artifacts.pi_excluded)}`,
+		`- disable-model-invocation: ${presence(record.artifacts.disableModelInvocation)}`,
+		`- agents/openai.yaml: ${presence(record.artifacts.codexSidecar)}`,
+		`- user-invocable:false: ${presence(record.artifacts.userInvocableFalse)}`,
+		`- Pi skill exclusion: ${presence(record.artifacts.piExcluded)}`,
 		`- Pi replacement: ${record.replacement.label}`,
 	];
 	if (record.notes.length > 0) {
@@ -398,7 +398,7 @@ export function renderSkillKindApply(result: SkillKindApplyResult): string {
 	for (const skill of result.skills) {
 		lines.push(`Applying ${result.kind} to ${skill.skill}...`);
 		for (const operation of skill.operations) {
-			const rendered = renderApplyOperation(operation, result.dry_run);
+			const rendered = renderApplyOperation(operation, result.dryRun);
 			if (rendered !== undefined) lines.push(rendered);
 		}
 	}
@@ -451,15 +451,15 @@ function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult
 	return {
 		skill: record.skill,
 		kind: record.kind,
-		model_invocation: record.modelInvocation,
-		native_direct: record.nativeDirect,
-		pi_extension: record.piExtension,
+		modelInvocation: record.modelInvocation,
+		nativeDirect: record.nativeDirect,
+		piExtension: record.piExtension,
 		artifacts: {
-			disable_model_invocation: record.artifacts.isModelInvocationDisabled,
-			codex_sidecar: record.artifacts.hasCodexSidecar,
-			user_invocable_key_present: record.artifacts.hasUserInvocableKey,
-			user_invocable_false: record.artifacts.isUserInvocableFalse,
-			pi_excluded: record.artifacts.isPiExcluded,
+			disableModelInvocation: record.artifacts.isModelInvocationDisabled,
+			codexSidecar: record.artifacts.hasCodexSidecar,
+			userInvocableKeyPresent: record.artifacts.hasUserInvocableKey,
+			userInvocableFalse: record.artifacts.isUserInvocableFalse,
+			piExcluded: record.artifacts.isPiExcluded,
 		},
 		replacement: {
 			verified: record.replacement.verified,
@@ -484,7 +484,7 @@ function renderApplyOperation(
 			return `${dryRun ? "Would skip" : "Skipped"} ${operation.path}: ${operation.reason ?? "already current"}`;
 		case "delete":
 			return `${dryRun ? "Would delete" : "Deleted"} ${operation.path}`;
-		case "remove_empty_dir":
+		case "remove-empty-dir":
 			if (dryRun) return `Would remove ${operation.path} if empty`;
 			return operation.isApplied ? `Removed ${operation.path}` : undefined;
 	}
@@ -496,19 +496,19 @@ function presence(value: boolean): "present" | "absent" {
 
 function emptyShowResult(projectDir: string, skillName: string): SkillKindShowResult {
 	return {
-		project_dir: projectDir,
+		projectDir: projectDir,
 		skill: {
 			skill: skillName,
 			kind: "inconsistent",
-			model_invocation: "enabled",
-			native_direct: "enabled",
-			pi_extension: "n/a",
+			modelInvocation: "enabled",
+			nativeDirect: "enabled",
+			piExtension: "n/a",
 			artifacts: {
-				disable_model_invocation: false,
-				codex_sidecar: false,
-				user_invocable_key_present: false,
-				user_invocable_false: false,
-				pi_excluded: false,
+				disableModelInvocation: false,
+				codexSidecar: false,
+				userInvocableKeyPresent: false,
+				userInvocableFalse: false,
+				piExcluded: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
 			notes: [],

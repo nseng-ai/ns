@@ -17,7 +17,7 @@ export async function resolveBranch(
 		const validation = validateBranchName(requestedBranch);
 		if (validation.type === "invalid") {
 			return failure(
-				"invalid_branch_name",
+				"invalid-branch-name",
 				`Invalid branch name ${JSON.stringify(requestedBranch)}: ${validation.reason}`,
 			);
 		}
@@ -25,12 +25,12 @@ export async function resolveBranch(
 	}
 
 	const current = await ctx.git.currentBranch({ cwd: ctx.cwd });
-	if (current.type === "detached") return failure("detached_head", options.detachedMessage);
+	if (current.type === "detached") return failure("detached-head", options.detachedMessage);
 	if (current.type === "failure") return failure(current.error.code, current.error.message);
 	const validation = validateBranchName(current.branch);
 	if (validation.type === "invalid")
 		return failure(
-			"invalid_branch_name",
+			"invalid-branch-name",
 			`Invalid branch name ${JSON.stringify(current.branch)}: ${validation.reason}`,
 		);
 	return resolved(current.branch);

@@ -33,15 +33,15 @@ describe("pi extension runtime helpers", () => {
 	test("parses failure machine-envelope data", () => {
 		expect(
 			parseMachineEnvelopeData(
-				JSON.stringify({ exitCode: 3, errorType: "no_available_slot", message: "No slot." }),
+				JSON.stringify({ exitCode: 3, errorType: "no-available-slot", message: "No slot." }),
 				{ label: "example JSON" },
 			),
 		).toEqual({
 			type: "failure",
 			exitCode: 3,
-			errorType: "no_available_slot",
+			errorType: "no-available-slot",
 			cliMessage: "No slot.",
-			message: "example JSON reported failure: exitCode 3: errorType no_available_slot: No slot.",
+			message: "example JSON reported failure: exitCode 3: errorType no-available-slot: No slot.",
 		});
 	});
 

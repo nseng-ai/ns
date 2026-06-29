@@ -19,7 +19,7 @@ import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { resolvePrTarget, type PrTargetResolution } from "./pr-target.ts";
 
 export interface DownloadFeedbackTargetPayload {
-	kind: "github_pr";
+	kind: "github-pr";
 	pr_number: number | null;
 	branch: string | null;
 	title: string | null;
@@ -29,12 +29,12 @@ export interface DownloadFeedbackTargetPayload {
 }
 
 export interface DownloadFeedbackCountsPayload {
-	included_review_threads: number;
-	included_reviews: number;
-	included_discussion_comments: number;
-	excluded_resolved_threads: number;
-	excluded_empty_reviews: number;
-	excluded_automation_comments: number;
+	includedReviewThreads: number;
+	includedReviews: number;
+	includedDiscussionComments: number;
+	excludedResolvedThreads: number;
+	excludedEmptyReviews: number;
+	excludedAutomationComments: number;
 }
 
 export interface DownloadFeedbackPayload {
@@ -150,16 +150,16 @@ function selectIncludedFeedback(
 		reviews,
 		discussionComments,
 		counts: {
-			included_review_threads: reviewThreads.length,
-			included_reviews: reviews.length,
-			included_discussion_comments: discussionComments.length,
-			excluded_resolved_threads: options.includeResolved
+			includedReviewThreads: reviewThreads.length,
+			includedReviews: reviews.length,
+			includedDiscussionComments: discussionComments.length,
+			excludedResolvedThreads: options.includeResolved
 				? 0
 				: snapshot.review_threads.length - reviewThreads.length,
-			excluded_empty_reviews: options.includeEmptyReviews
+			excludedEmptyReviews: options.includeEmptyReviews
 				? 0
 				: snapshot.reviews.length - reviews.length,
-			excluded_automation_comments: options.includeAutomation
+			excludedAutomationComments: options.includeAutomation
 				? 0
 				: snapshot.discussion_comments.length - discussionComments.length,
 		},
@@ -232,12 +232,12 @@ function renderDownloadFeedbackSummary(
 		`- Branch: ${formatNullable(target.branch)}`,
 		`- Head: ${formatNullable(target.head_ref_name)}`,
 		`- Base: ${formatNullable(target.base_ref_name)}`,
-		`- Unresolved review threads included: ${counts.included_review_threads}`,
-		`- PR-level review bodies included: ${counts.included_reviews}`,
-		`- Discussion comments included: ${counts.included_discussion_comments}`,
-		`- Resolved review threads excluded: ${counts.excluded_resolved_threads}`,
-		`- Empty PR-level reviews excluded: ${counts.excluded_empty_reviews}`,
-		`- Automation-like discussion comments excluded: ${counts.excluded_automation_comments}`,
+		`- Unresolved review threads included: ${counts.includedReviewThreads}`,
+		`- PR-level review bodies included: ${counts.includedReviews}`,
+		`- Discussion comments included: ${counts.includedDiscussionComments}`,
+		`- Resolved review threads excluded: ${counts.excludedResolvedThreads}`,
+		`- Empty PR-level reviews excluded: ${counts.excludedEmptyReviews}`,
+		`- Automation-like discussion comments excluded: ${counts.excludedAutomationComments}`,
 	];
 }
 
@@ -309,15 +309,15 @@ function blockquote(text: string): string[] {
 
 function hasNoIncludedFeedback(counts: DownloadFeedbackCountsPayload): boolean {
 	return (
-		counts.included_review_threads === 0 &&
-		counts.included_reviews === 0 &&
-		counts.included_discussion_comments === 0
+		counts.includedReviewThreads === 0 &&
+		counts.includedReviews === 0 &&
+		counts.includedDiscussionComments === 0
 	);
 }
 
 function targetFromPr(pr: GithubPrSummary, branch: string | null): DownloadFeedbackTargetPayload {
 	return {
-		kind: "github_pr",
+		kind: "github-pr",
 		pr_number: pr.number,
 		branch: branch ?? pr.headRefName,
 		title: pr.title,
@@ -332,7 +332,7 @@ function emptyTarget(options: {
 	readonly branch?: string | undefined;
 }): DownloadFeedbackTargetPayload {
 	return {
-		kind: "github_pr",
+		kind: "github-pr",
 		pr_number: options.prNumber ?? null,
 		branch: options.branch ?? null,
 		title: null,
@@ -344,12 +344,12 @@ function emptyTarget(options: {
 
 function zeroCounts(): DownloadFeedbackCountsPayload {
 	return {
-		included_review_threads: 0,
-		included_reviews: 0,
-		included_discussion_comments: 0,
-		excluded_resolved_threads: 0,
-		excluded_empty_reviews: 0,
-		excluded_automation_comments: 0,
+		includedReviewThreads: 0,
+		includedReviews: 0,
+		includedDiscussionComments: 0,
+		excludedResolvedThreads: 0,
+		excludedEmptyReviews: 0,
+		excludedAutomationComments: 0,
 	};
 }
 

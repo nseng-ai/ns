@@ -173,7 +173,7 @@ async function handleAutobranch(
 		if (result.outcome === "refusal") {
 			return negative(result.error, { data, human: result.error });
 		}
-		return failure("autobranch_failed", result.error, data);
+		return failure("autobranch-failed", result.error, data);
 	}
 	for (const warning of result.warnings) {
 		ctx.stderr(`${warning.trimEnd()}\n`);

@@ -81,21 +81,21 @@ async function mapCheckoutResult(
 		return {
 			ok: false,
 			failure: {
-				errorType: result.failure.error_type,
+				errorType: result.failure.errorType,
 				message: result.failure.message,
 			},
 		};
 	}
-	await prepareNavigation(ctx, result.outcome.worktree_path, sideEffects);
+	await prepareNavigation(ctx, result.outcome.worktreePath, sideEffects);
 	return {
 		ok: true,
 		target: {
-			slotName: result.outcome.slot_name,
-			branchName: result.outcome.branch_name,
-			worktreePath: result.outcome.worktree_path,
-			isAlreadyAssigned: result.outcome.already_assigned,
-			hasCreatedBranch: result.outcome.created_branch,
-			currentWorktreeNote: result.outcome.current_wt_note,
+			slotName: result.outcome.slotName,
+			branchName: result.outcome.branchName,
+			worktreePath: result.outcome.worktreePath,
+			isAlreadyAssigned: result.outcome.alreadyAssigned,
+			hasCreatedBranch: result.outcome.createdBranch,
+			currentWorktreeNote: result.outcome.currentWtNote,
 		},
 	};
 }

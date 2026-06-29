@@ -19,20 +19,20 @@ export interface ResizePlan {
 
 export interface SlotInitOutcome {
 	created: string[];
-	pool_size: number;
-	worktrees_dir: string;
+	poolSize: number;
+	worktreesDir: string;
 }
 
 export interface SlotResizeOutcome {
-	previous_pool_size: number;
-	pool_size: number;
+	previousPoolSize: number;
+	poolSize: number;
 	created: string[];
 	removed: string[];
-	worktrees_dir: string;
+	worktreesDir: string;
 }
 
 export interface SlotLifecycleFailure {
-	error_type: string;
+	errorType: string;
 	message: string;
 }
 
@@ -74,7 +74,7 @@ export async function initializePool(
 	if (ctx.repo.type !== "repo")
 		return {
 			type: "failure",
-			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+			failure: { errorType: ctx.repo.errorType, message: ctx.repo.message },
 		};
 	const sizeFailure = invalidSizeFailure(targetSize);
 	if (sizeFailure !== null) return { type: "failure", failure: sizeFailure };
@@ -83,7 +83,7 @@ export async function initializePool(
 		return {
 			type: "failure",
 			failure: {
-				error_type: "pool_already_initialized",
+				errorType: "pool-already-initialized",
 				message: `Pool already has ${poolSize(inventory)} slot(s). Use \`slot resize --size N\` to change capacity.`,
 			},
 		};
@@ -98,7 +98,7 @@ export async function initializePool(
 	}
 	return {
 		type: "ok",
-		outcome: { created, pool_size: created.length, worktrees_dir: ctx.repo.worktreesDir },
+		outcome: { created, poolSize: created.length, worktreesDir: ctx.repo.worktreesDir },
 	};
 }
 
@@ -109,7 +109,7 @@ export async function resizePool(
 	if (ctx.repo.type !== "repo")
 		return {
 			type: "failure",
-			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+			failure: { errorType: ctx.repo.errorType, message: ctx.repo.message },
 		};
 	const sizeFailure = invalidSizeFailure(targetSize);
 	if (sizeFailure !== null) return { type: "failure", failure: sizeFailure };
@@ -120,11 +120,11 @@ export async function resizePool(
 		return {
 			type: "ok",
 			outcome: {
-				previous_pool_size: previousPoolSize,
-				pool_size: previousPoolSize,
+				previousPoolSize: previousPoolSize,
+				poolSize: previousPoolSize,
 				created: [],
 				removed: [],
-				worktrees_dir: ctx.repo.worktreesDir,
+				worktreesDir: ctx.repo.worktreesDir,
 			},
 		};
 	}
@@ -133,7 +133,7 @@ export async function resizePool(
 		if (errors.length > 0)
 			return {
 				type: "failure",
-				failure: { error_type: "resize_unsafe", message: errors.join("\n") },
+				failure: { errorType: "resize-unsafe", message: errors.join("\n") },
 			};
 	}
 	await ensureSlotsMetadataDir(ctx.repo, ctx.storage);
@@ -152,11 +152,11 @@ export async function resizePool(
 	return {
 		type: "ok",
 		outcome: {
-			previous_pool_size: previousPoolSize,
-			pool_size: previousPoolSize + created.length - removed.length,
+			previousPoolSize: previousPoolSize,
+			poolSize: previousPoolSize + created.length - removed.length,
 			created,
 			removed,
-			worktrees_dir: ctx.repo.worktreesDir,
+			worktreesDir: ctx.repo.worktreesDir,
 		},
 	};
 }
@@ -195,7 +195,7 @@ function invalidSizeFailure(targetSize: number): SlotLifecycleFailure | null {
 	if (Number.isInteger(targetSize) && targetSize >= MIN_POOL_SIZE && targetSize <= MAX_POOL_SIZE)
 		return null;
 	return {
-		error_type: "invalid_size",
+		errorType: "invalid-size",
 		message: `--size must be between ${MIN_POOL_SIZE} and ${MAX_POOL_SIZE}.`,
 	};
 }

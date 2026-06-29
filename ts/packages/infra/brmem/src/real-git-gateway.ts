@@ -112,7 +112,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const validation = validateNamespaceName(options.namespace);
 		if (validation.type === "invalid")
 			return brmemError<readonly ListedEntry[]>(
-				"invalid_namespace",
+				"invalid-namespace",
 				formatInvalid("namespace", options.namespace, validation.reason),
 			);
 		return await this.collectEntries({
@@ -172,7 +172,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		});
 		if (blobSha.code !== 0)
 			return brmemOptionalError<EntryDiagnostic>(
-				"git_rev_parse_failed",
+				"git-rev-parse-failed",
 				commandMessage("Could not resolve blob SHA.", blobSha),
 				blobSha.displayCommand,
 			);
@@ -181,7 +181,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		});
 		if (size.code !== 0)
 			return brmemOptionalError<EntryDiagnostic>(
-				"git_cat_file_failed",
+				"git-cat-file-failed",
 				commandMessage("Could not resolve blob size.", size),
 				size.displayCommand,
 			);
@@ -190,7 +190,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		});
 		if (log.code !== 0)
 			return brmemOptionalError<EntryDiagnostic>(
-				"git_log_failed",
+				"git-log-failed",
 				commandMessage("Could not resolve snapshot metadata.", log),
 				log.displayCommand,
 			);
@@ -210,12 +210,12 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const namespaceValidation = validateNamespaceName(options.namespace);
 		if (namespaceValidation.type === "invalid")
 			return brmemError(
-				"invalid_namespace",
+				"invalid-namespace",
 				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
 			);
 		const keyValidation = validateEntryKey(options.key);
 		if (keyValidation.type === "invalid")
-			return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+			return brmemError("invalid-key", formatInvalid("key", options.key, keyValidation.reason));
 		return await this.validateGitBranch(options.branch);
 	}
 
@@ -223,14 +223,14 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		const branchValidation = validateBranchName(branch);
 		if (branchValidation.type === "invalid")
 			return brmemError(
-				"invalid_branch_name",
+				"invalid-branch-name",
 				formatInvalid("branch name", branch, branchValidation.reason),
 			);
 		const gitValidation = await this.git.validateBranchRef({ cwd: this.cwd, branch });
 		if (!gitValidation.ok) {
 			const code =
-				gitValidation.error.code === "branch_ref_invalid"
-					? "invalid_branch_name"
+				gitValidation.error.code === "branch-ref-invalid"
+					? "invalid-branch-name"
 					: gitValidation.error.code;
 			return brmemError(code, gitValidation.error.message, gitValidation.error.displayCommand);
 		}
@@ -246,13 +246,13 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		if (options.key !== undefined) {
 			const keyValidation = validateEntryKey(options.key);
 			if (keyValidation.type === "invalid")
-				return brmemError("invalid_key", formatInvalid("key", options.key, keyValidation.reason));
+				return brmemError("invalid-key", formatInvalid("key", options.key, keyValidation.reason));
 		}
 		if (options.branch !== undefined) {
 			const branchValidation = validateBranchName(options.branch);
 			if (branchValidation.type === "invalid")
 				return brmemError(
-					"invalid_branch_name",
+					"invalid-branch-name",
 					formatInvalid("branch name", options.branch, branchValidation.reason),
 				);
 		}
@@ -283,14 +283,14 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 				const updatedAt = updatedAtByPath.value.get(path);
 				if (updatedAt === undefined) {
 					return brmemError(
-						"entry_metadata_unavailable",
+						"entry-metadata-unavailable",
 						`Could not resolve Entry update metadata for ${JSON.stringify(path)}.`,
 					);
 				}
 				const locator = buildEntryLocator(parsed.namespace, path, parsed.branch);
 				if (locator.type === "error") {
 					return brmemError(
-						"invalid_snapshot_tree",
+						"invalid-snapshot-tree",
 						`Snapshot Ref ${JSON.stringify(snapshotRef)} contains invalid Entry Key ${JSON.stringify(path)}: ${locator.error.message}`,
 					);
 				}
@@ -320,7 +320,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		if (result.type === "branch") return brmemOk(result.branch);
 		if (result.type === "detached") {
 			return brmemError(
-				"detached_head",
+				"detached-head",
 				"Could not resolve current branch; HEAD appears detached.",
 			);
 		}
@@ -387,7 +387,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const entries = entriesResult.value;
 		if (behavior.shouldCreateOnly && entries.has(options.key)) {
 			return brmemError<PutEntryResult>(
-				"key_already_exists",
+				"key-already-exists",
 				`key ${JSON.stringify(options.key)} already exists`,
 			);
 		}
@@ -399,7 +399,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				cwd: this.cwd,
 			});
 			if (blob.code !== 0)
-				return gitError("git_hash_object_failed", "Could not write Entry blob.", blob);
+				return gitError("git-hash-object-failed", "Could not write Entry blob.", blob);
 			entries.set(options.key, blob.stdout.trim());
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
@@ -411,7 +411,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
 		if (commit.code !== 0)
 			return gitError(
-				"git_commit_tree_failed",
+				"git-commit-tree-failed",
 				"Could not create Branch Memory Snapshot commit.",
 				commit,
 			);
@@ -439,7 +439,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			cwd: this.cwd,
 		});
 		if (parent.code !== 0)
-			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
+			return brmemError("key-not-found", `key ${JSON.stringify(options.key)} not found`);
 		const entriesResult = await loadSnapshotEntries(this.commands, this.cwd, {
 			namespace: options.namespace,
 			branch: options.branch,
@@ -448,7 +448,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		if (entriesResult.type === "error") return entriesResult;
 		const entries = entriesResult.value;
 		if (!entries.has(options.key))
-			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
+			return brmemError("key-not-found", `key ${JSON.stringify(options.key)} not found`);
 		entries.delete(options.key);
 		const tree = await buildTreeFromEntries(this.commands, this.cwd, entries);
 		if (tree.type === "error") return tree;
@@ -458,7 +458,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			{ cwd: this.cwd },
 		);
 		if (commit.code !== 0)
-			return gitError("git_commit_tree_failed", "Could not create delete Snapshot commit.", commit);
+			return gitError("git-commit-tree-failed", "Could not create delete Snapshot commit.", commit);
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: snapshotRef,
 			newSha: commit.stdout.trim(),
@@ -482,7 +482,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const namespaceValidation = validateNamespaceName(options.namespace);
 		if (namespaceValidation.type === "invalid")
 			return brmemError(
-				"invalid_namespace",
+				"invalid-namespace",
 				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
 			);
 		const fromValidation = await this.validateGitBranch(options.fromBranch);
@@ -493,7 +493,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			const globValidation = validateKeyGlob(options.keyGlob);
 			if (globValidation.type === "invalid")
 				return brmemError(
-					"invalid_key_glob",
+					"invalid-key-glob",
 					formatInvalid("Entry Key glob", options.keyGlob, globValidation.reason),
 				);
 		}
@@ -549,7 +549,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		if (destEntries.type === "error") return destEntries;
 		if (destEntries.value.size > 0 && !options.shouldOverwrite) {
 			return brmemError(
-				"copy_conflict",
+				"copy-conflict",
 				`destination has conflicting entries: ${[...destEntries.value.keys()].sort().join(", ")}`,
 			);
 		}
@@ -601,7 +601,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const destMatching = [...destTree.keys()].filter((key) => keyGlobMatches(key, options.keyGlob));
 		if (destMatching.length > 0 && !options.shouldOverwrite) {
 			return brmemError(
-				"copy_conflict",
+				"copy-conflict",
 				`destination has conflicting entries: ${destMatching.sort().join(", ")}`,
 			);
 		}
@@ -619,7 +619,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		if (options.destSha !== undefined) commitArgs.splice(2, 0, "-p", options.destSha);
 		const commit = await runGit(this.commands, commitArgs, { cwd: this.cwd });
 		if (commit.code !== 0)
-			return gitError("git_commit_tree_failed", "Could not create copy Snapshot commit.", commit);
+			return gitError("git-commit-tree-failed", "Could not create copy Snapshot commit.", commit);
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
 			newSha: commit.stdout.trim(),
@@ -665,7 +665,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			);
 			if (res.code !== 0)
 				return gitError(
-					"git_config_write_failed",
+					"git-config-write-failed",
 					`Could not add Git config remote.${remote}.push.`,
 					res,
 				);
@@ -678,7 +678,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			);
 			if (res.code !== 0)
 				return gitError(
-					"git_config_write_failed",
+					"git-config-write-failed",
 					`Could not add Git config remote.${remote}.fetch.`,
 					res,
 				);
@@ -738,7 +738,7 @@ function snapshotCorruptError<T>(
 	context: SnapshotValidationContext,
 	invalidKeys: readonly SnapshotInvalidKey[],
 ): BrmemResult<T> {
-	return brmemError("snapshot_corrupt", formatSnapshotCorruptMessage(context, invalidKeys));
+	return brmemError("snapshot-corrupt", formatSnapshotCorruptMessage(context, invalidKeys));
 }
 
 function formatSnapshotCorruptMessage(
@@ -765,7 +765,7 @@ function validateWritableSnapshotEntries(entries: ReadonlyMap<string, string>): 
 	const invalidKeys = findInvalidSnapshotKeys(entries);
 	if (invalidKeys.length === 0) return brmemOk(undefined);
 	return brmemError(
-		"snapshot_corrupt",
+		"snapshot-corrupt",
 		`Refusing to write Snapshot tree containing invalid Entry Key(s): ${formatInvalidKeySamples(invalidKeys)}.`,
 	);
 }
@@ -832,7 +832,7 @@ function addSnapshotTreeEntry(
 
 function snapshotTreeConflict<T>(key: string, path: string): BrmemResult<T> {
 	return brmemError(
-		"snapshot_tree_conflict",
+		"snapshot-tree-conflict",
 		`Entry Key ${JSON.stringify(key)} conflicts with another Entry at ${JSON.stringify(path)}; Git trees cannot store one name as both an Entry and a directory.`,
 	);
 }
@@ -856,7 +856,7 @@ async function writeSnapshotTree(
 		cwd,
 		stdin: entries.map(formatMktreeEntry).join(""),
 	});
-	if (tree.code !== 0) return gitError("git_mktree_failed", "Could not build Snapshot tree.", tree);
+	if (tree.code !== 0) return gitError("git-mktree-failed", "Could not build Snapshot tree.", tree);
 	return brmemOk(tree.stdout.trim());
 }
 
@@ -878,7 +878,7 @@ async function verifyBuiltTreeMatchesEntries(
 	const actual = await enumerateTreeEntries(commands, cwd, treeSha);
 	if (doEntryMapsMatch(expected, actual)) return brmemOk(undefined);
 	return brmemError(
-		"snapshot_tree_mismatch",
+		"snapshot-tree-mismatch",
 		`Built Snapshot tree ${treeSha} did not match requested Entries; refusing to create Snapshot commit. Expected ${formatEntryMapSummary(expected)} but got ${formatEntryMapSummary(actual)}.`,
 	);
 }
@@ -932,7 +932,7 @@ async function enumerateEntryUpdatedAt(
 		cwd,
 	});
 	if (result.code !== 0)
-		return gitError("git_log_failed", "Could not resolve Entry update metadata.", result);
+		return gitError("git-log-failed", "Could not resolve Entry update metadata.", result);
 	return brmemOk(parseEntryUpdateLog(result.stdout));
 }
 
@@ -970,7 +970,7 @@ async function updateSnapshotRef(
 	);
 	if (update.code === 0) return brmemOk(undefined);
 	return brmemError(
-		"snapshot_ref_changed",
+		"snapshot-ref-changed",
 		commandMessage(
 			`Snapshot Ref ${JSON.stringify(options.ref)} changed before it could be updated.`,
 			update,

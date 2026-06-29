@@ -178,7 +178,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const result = await gateway.runReview(request(), { cwd: "/repo" });
 
 		expect(result.type).toBe("error");
-		if (result.type === "error") expect(result.error.type).toBe("harness_binary_missing");
+		if (result.type === "error") expect(result.error.type).toBe("harness-binary-missing");
 		expect(execApi.calls()).toEqual([]);
 	});
 
@@ -192,7 +192,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 		const result = await gateway.runReview(request({ model: "gpt-4" }), { cwd: "/repo" });
 
 		expect(result.type).toBe("error");
-		if (result.type === "error") expect(result.error.type).toBe("model_not_supported_by_harness");
+		if (result.type === "error") expect(result.error.type).toBe("model-not-supported-by-harness");
 		expect(execApi.calls()).toEqual([]);
 	});
 
@@ -209,7 +209,7 @@ describe("ClaudeCodeProcessReviewRunner", () => {
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(result.error.type).toBe("harness_execution_failed");
+			expect(result.error.type).toBe("harness-execution-failed");
 			expect(result.error.message).toBe("stderr wins");
 		}
 	});

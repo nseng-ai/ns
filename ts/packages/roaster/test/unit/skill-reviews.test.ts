@@ -73,7 +73,7 @@ describe("Roaster skill review catalog", () => {
 		expect(loaded).toMatchObject({
 			type: "error",
 			error: {
-				type: "review_definition_invalid",
+				type: "review-definition-invalid",
 			},
 		});
 	});

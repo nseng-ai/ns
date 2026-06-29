@@ -29,7 +29,7 @@ describe("pr-address primitive exec commands", () => {
 
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			errorType: "pr_gateway_failure",
+			errorType: "pr-gateway-failure",
 			message: "Failed to determine repository context: git probe exploded",
 		});
 	});
@@ -119,7 +119,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await openThreads.exit).toBe(0);
 		expect(dataFromJson(openThreads.stdout)).toMatchObject({
-			review_threads: [{ id: "RT_open" }],
+			reviewThreads: [{ id: "RT_open" }],
 		});
 
 		const allThreads = runScenario(
@@ -128,7 +128,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await allThreads.exit).toBe(0);
 		expect(dataFromJson(allThreads.stdout)).toMatchObject({
-			review_threads: [{ id: "RT_open" }, { id: "RT_resolved" }],
+			reviewThreads: [{ id: "RT_open" }, { id: "RT_resolved" }],
 		});
 
 		const comments = runScenario(
@@ -136,7 +136,7 @@ describe("pr-address primitive exec commands", () => {
 			{ prFeedback },
 		);
 		expect(await comments.exit).toBe(0);
-		expect(dataFromJson(comments.stdout)).toMatchObject({ discussion_comments: [{ id: 90 }] });
+		expect(dataFromJson(comments.stdout)).toMatchObject({ discussionComments: [{ id: 90 }] });
 
 		const checks = runScenario(["exec", "pr-checks", "--pr-number", "12", "--format", "json"], {
 			prFeedback,
@@ -192,7 +192,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await lookupRun.exit).toBe(2);
 		expect(JSON.parse(lookupRun.stdout.join(""))).toMatchObject({
-			errorType: "pr_gateway_failure",
+			errorType: "pr-gateway-failure",
 			message: "Failed to look up PR 500: gh auth failed",
 		});
 
@@ -215,7 +215,7 @@ describe("pr-address primitive exec commands", () => {
 		);
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			errorType: "pr_gateway_failure",
+			errorType: "pr-gateway-failure",
 			message: "Failed to reply to review thread RT_fail: reply failed",
 		});
 		expect(prFeedback.replies).toEqual([]);

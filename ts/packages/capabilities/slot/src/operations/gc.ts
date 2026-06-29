@@ -23,21 +23,21 @@ import { renderCleanupLines } from "./cleanup-rendering.ts";
 import { renderSlotDestructiveResultBlock } from "./destructive-presentation.ts";
 import { cleanupSchema } from "./result-schemas.ts";
 const gcEntrySchema = z.object({
-	slot_name: z.string(),
-	branch_name: z.string(),
-	worktree_path: z.string(),
+	slotName: z.string(),
+	branchName: z.string(),
+	worktreePath: z.string(),
 	action: z.union([
 		z.literal("freed"),
-		z.literal("would_free"),
-		z.literal("kept_open_pr"),
-		z.literal("kept_no_pr"),
-		z.literal("skipped_dirty"),
-		z.literal("skipped_operation"),
+		z.literal("would-free"),
+		z.literal("kept-open-pr"),
+		z.literal("kept-no-pr"),
+		z.literal("skipped-dirty"),
+		z.literal("skipped-operation"),
 		z.literal("error"),
 	]),
-	pr_number: z.number().int().nullable(),
-	pr_state: z.union([z.literal("OPEN"), z.literal("CLOSED"), z.literal("MERGED")]).nullable(),
-	pr_url: z.string().nullable(),
+	prNumber: z.number().int().nullable(),
+	prState: z.union([z.literal("OPEN"), z.literal("CLOSED"), z.literal("MERGED")]).nullable(),
+	prUrl: z.string().nullable(),
 	message: z.string().nullable(),
 	cleanup: z.array(cleanupSchema),
 });
@@ -50,12 +50,12 @@ export const gcRequestSchema = z.object({
 
 export const gcResultSchema = z.object({
 	entries: z.array(gcEntrySchema),
-	freed_count: z.number().int(),
-	kept_count: z.number().int(),
-	skipped_count: z.number().int(),
-	error_count: z.number().int(),
-	dry_run: z.boolean(),
-	cleanup_error_count: z.number().int(),
+	freedCount: z.number().int(),
+	keptCount: z.number().int(),
+	skippedCount: z.number().int(),
+	errorCount: z.number().int(),
+	dryRun: z.boolean(),
+	cleanupErrorCount: z.number().int(),
 	cancelled: z.boolean().optional(),
 });
 
@@ -65,18 +65,18 @@ export type GcResult = z.infer<typeof gcResultSchema>;
 export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 	if (request.dryRun && request.force)
-		return failure("conflicting_flags", "--dry-run and --force cannot be combined.");
+		return failure("conflicting-flags", "--dry-run and --force cannot be combined.");
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	const cleanupActions: readonly SlotFreeCleanupAction[] = request.deleteBranches
-		? ["local_branch"]
+		? ["local-branch"]
 		: [];
 	const plan = await planGc(repoCtx);
-	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
+	if (plan.type === "failure") return failure(plan.failure.errorType, plan.failure.message);
 	if (request.dryRun) {
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
 		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })));
 	}
-	if (plan.outcome.would_free_count === 0)
+	if (plan.outcome.wouldFreeCount === 0)
 		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false })));
 	if (!request.force) {
 		const gate = requireInteractiveOrUsageError(ctx.interaction, {
@@ -90,7 +90,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 			`${renderGc(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })))}\n`,
 		);
 		const accepted = await repoCtx.interaction.confirm({
-			message: confirmationMessage(plan.outcome.would_free_count, {
+			message: confirmationMessage(plan.outcome.wouldFreeCount, {
 				shouldDeleteBranches: request.deleteBranches,
 			}),
 			defaultAnswer: "yes",
@@ -105,7 +105,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	}
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
-	if (outcome.cleanup_error_count > 0)
+	if (outcome.cleanupErrorCount > 0)
 		return negative("Slot gc completed with cleanup errors.", {
 			data: result,
 			human: renderGc(result),
@@ -127,28 +127,28 @@ export function renderGc(
 
 function gcResultKind(result: GcResult): "success" | "failure" | "refusal" {
 	if (result.cancelled === true) return "refusal";
-	if (result.cleanup_error_count > 0 || result.error_count > 0) return "failure";
+	if (result.cleanupErrorCount > 0 || result.errorCount > 0) return "failure";
 	return "success";
 }
 
 function gcHeadline(result: GcResult): string {
 	if (result.cancelled === true) return "Cancelled slot gc.";
-	if (result.cleanup_error_count > 0) return "Slot gc completed with cleanup errors.";
-	if (result.error_count > 0) return "Slot gc completed with errors.";
-	if (result.dry_run) {
-		if (result.freed_count === 0) return "No slots would be freed.";
-		return `Would free ${result.freed_count} slot(s).`;
+	if (result.cleanupErrorCount > 0) return "Slot gc completed with cleanup errors.";
+	if (result.errorCount > 0) return "Slot gc completed with errors.";
+	if (result.dryRun) {
+		if (result.freedCount === 0) return "No slots would be freed.";
+		return `Would free ${result.freedCount} slot(s).`;
 	}
-	if (result.freed_count === 0) return "No slots freed.";
-	return `Freed ${result.freed_count} slot(s).`;
+	if (result.freedCount === 0) return "No slots freed.";
+	return `Freed ${result.freedCount} slot(s).`;
 }
 
 function renderGcDetails(result: GcResult, caps: Caps): string | undefined {
 	if (result.entries.length === 0) return undefined;
 	const tableRows = result.entries.map((entry) => [
 		gcActionCell(caps, entry.action),
-		cell(paint(caps, "accent", entry.slot_name), entry.slot_name),
-		cell(entry.branch_name),
+		cell(paint(caps, "accent", entry.slotName), entry.slotName),
+		cell(entry.branchName),
 		gcPrCell(caps, entry),
 	]);
 	const tableLines = renderTable({
@@ -167,7 +167,7 @@ function renderGcDetails(result: GcResult, caps: Caps): string | undefined {
 		const rowLine = rowLines[index];
 		if (rowLine !== undefined) lines.push(rowLine);
 		if (entry.message !== null) lines.push(`  ${paint(caps, "muted", "note:")} ${entry.message}`);
-		lines.push(...renderGcCleanupDetails(caps, entry, { isDryRun: result.dry_run }));
+		lines.push(...renderGcCleanupDetails(caps, entry, { isDryRun: result.dryRun }));
 	});
 	lines.push(gcSummaryLine(result));
 	return lines.join("\n");
@@ -180,8 +180,8 @@ function gcActionCell(caps: Caps, action: GcResult["entries"][number]["action"])
 
 function gcPrCell(caps: Caps, entry: GcResult["entries"][number]) {
 	const text = prText(entry);
-	if (entry.pr_state === null) return cell(paint(caps, "muted", text), text);
-	return cell(paint(caps, prStateIntent(entry.pr_state), text), text);
+	if (entry.prState === null) return cell(paint(caps, "muted", text), text);
+	return cell(paint(caps, prStateIntent(entry.prState), text), text);
 }
 
 function renderGcCleanupDetails(
@@ -195,10 +195,10 @@ function renderGcCleanupDetails(
 }
 
 function gcSummaryLine(result: GcResult): string {
-	const freedLabel = result.dry_run ? "would free" : "freed";
-	let summary = `${freedLabel} ${result.freed_count}; kept ${result.kept_count}; skipped ${result.skipped_count}; errors ${result.error_count}`;
-	if (result.cleanup_error_count > 0)
-		summary = `${summary}; cleanup errors ${result.cleanup_error_count}`;
+	const freedLabel = result.dryRun ? "would free" : "freed";
+	let summary = `${freedLabel} ${result.freedCount}; kept ${result.keptCount}; skipped ${result.skippedCount}; errors ${result.errorCount}`;
+	if (result.cleanupErrorCount > 0)
+		summary = `${summary}; cleanup errors ${result.cleanupErrorCount}`;
 	return dim(`Summary: ${summary}`);
 }
 
@@ -206,15 +206,15 @@ function gcActionText(action: GcResult["entries"][number]["action"]): string {
 	switch (action) {
 		case "freed":
 			return "Freed";
-		case "would_free":
+		case "would-free":
 			return "Would free";
-		case "kept_open_pr":
+		case "kept-open-pr":
 			return "Kept: open PR";
-		case "kept_no_pr":
+		case "kept-no-pr":
 			return "Kept: no PR";
-		case "skipped_dirty":
+		case "skipped-dirty":
 			return "Skipped: dirty";
-		case "skipped_operation":
+		case "skipped-operation":
 			return "Skipped: operation";
 		case "error":
 			return "Error";
@@ -227,13 +227,13 @@ function gcActionIntent(
 	switch (action) {
 		case "freed":
 			return "success";
-		case "would_free":
+		case "would-free":
 			return "accent";
-		case "kept_open_pr":
+		case "kept-open-pr":
 			return "warn";
-		case "kept_no_pr":
-		case "skipped_dirty":
-		case "skipped_operation":
+		case "kept-no-pr":
+		case "skipped-dirty":
+		case "skipped-operation":
 			return "muted";
 		case "error":
 			return "error";
@@ -241,7 +241,7 @@ function gcActionIntent(
 }
 
 function prStateIntent(
-	state: NonNullable<GcResult["entries"][number]["pr_state"]>,
+	state: NonNullable<GcResult["entries"][number]["prState"]>,
 ): "success" | "warn" | "muted" {
 	if (state === "OPEN") return "warn";
 	if (state === "MERGED") return "success";
@@ -249,8 +249,8 @@ function prStateIntent(
 }
 
 function prText(entry: GcResult["entries"][number]): string {
-	if (entry.pr_number === null) return "—";
-	return `#${entry.pr_number} ${entry.pr_state}`;
+	if (entry.prNumber === null) return "—";
+	return `#${entry.prNumber} ${entry.prState}`;
 }
 
 function confirmationMessage(count: number, options: { shouldDeleteBranches: boolean }): string {
@@ -265,12 +265,12 @@ function toGcResult(
 ): GcResult {
 	return {
 		entries: outcome.entries.map((entry) => ({ ...entry, cleanup: [...entry.cleanup] })),
-		freed_count: options.isCancelled === true ? 0 : outcome.freed_count,
-		kept_count: outcome.kept_count,
-		skipped_count: outcome.skipped_count,
-		error_count: outcome.error_count,
-		dry_run: outcome.dry_run,
-		cleanup_error_count: outcome.cleanup_error_count,
+		freedCount: options.isCancelled === true ? 0 : outcome.freedCount,
+		keptCount: outcome.keptCount,
+		skippedCount: outcome.skippedCount,
+		errorCount: outcome.errorCount,
+		dryRun: outcome.dryRun,
+		cleanupErrorCount: outcome.cleanupErrorCount,
 		...(options.isCancelled === undefined ? {} : { cancelled: options.isCancelled }),
 	};
 }

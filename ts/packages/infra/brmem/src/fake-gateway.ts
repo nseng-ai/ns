@@ -104,7 +104,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		if (typeof this.branchState === "string") return brmemOk(this.branchState);
 		if (this.branchState?.type === "error")
 			return brmemError(this.branchState.code, this.branchState.message);
-		return brmemError("detached_head", "Could not resolve current branch; HEAD appears detached.");
+		return brmemError("detached-head", "Could not resolve current branch; HEAD appears detached.");
 	}
 
 	async listEntries(options: {
@@ -166,7 +166,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		const snapshot = this.ensureSnapshot(options.namespace, options.branch);
 		if (snapshot.entries.has(options.key)) {
 			return brmemError<PutEntryResult>(
-				"key_already_exists",
+				"key-already-exists",
 				`key ${JSON.stringify(options.key)} already exists`,
 			);
 		}
@@ -178,7 +178,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		if (error !== undefined) return brmemError<DeleteEntryResult>(error.code, error.message);
 		const snapshot = this.snapshots.get(snapshotId(options.namespace, options.branch));
 		if (snapshot === undefined || !snapshot.entries.has(options.key)) {
-			return brmemError("key_not_found", `key ${JSON.stringify(options.key)} not found`);
+			return brmemError("key-not-found", `key ${JSON.stringify(options.key)} not found`);
 		}
 		snapshot.entries.delete(options.key);
 		const commitSha = this.nextSha("commit");
@@ -212,7 +212,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		);
 		if (conflicts.length > 0 && !options.shouldOverwrite) {
 			return brmemError(
-				"copy_conflict",
+				"copy-conflict",
 				`destination has conflicting entries: ${conflicts.sort().join(", ")}`,
 			);
 		}

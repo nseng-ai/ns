@@ -47,7 +47,7 @@ export async function prepareEntryContentFromSource(
 	options: PrepareEntryContentSourceOptions,
 ): Promise<BrmemResult<PreparedEntryContent>> {
 	if (options.stdin === true && options.file !== undefined) {
-		return brmemError("stdin_and_file_conflict", "--stdin and --file are mutually exclusive.");
+		return brmemError("stdin-and-file-conflict", "--stdin and --file are mutually exclusive.");
 	}
 
 	const source = await readSourceBytes(options);
@@ -57,14 +57,14 @@ export async function prepareEntryContentFromSource(
 		const sizeMessage = checkEntrySize(source.bytes);
 		if (sizeMessage !== undefined) {
 			return brmemError(
-				"entry_too_large",
+				"entry-too-large",
 				`${source.sourceFile} ${sizeMessage}. Pass -f / --force to override.`,
 			);
 		}
 		const binaryMessage = checkEntryNotBinary(source.bytes);
 		if (binaryMessage !== undefined) {
 			return brmemError(
-				"entry_appears_binary",
+				"entry-appears-binary",
 				`${source.sourceFile} ${binaryMessage}. Pass -f / --force to override.`,
 			);
 		}
@@ -125,7 +125,7 @@ async function readSourceBytes(
 		return {
 			type: "error",
 			error: brmemError(
-				"source_file_missing",
+				"source-file-missing",
 				`Cannot infer a default --file for Entry Key ${JSON.stringify(options.key)}; provide --file or --stdin.`,
 			),
 		};
@@ -135,13 +135,13 @@ async function readSourceBytes(
 	if (source.type === "missing") {
 		return {
 			type: "error",
-			error: brmemError("source_file_missing", `Source file not found: ${sourceFile}`),
+			error: brmemError("source-file-missing", `Source file not found: ${sourceFile}`),
 		};
 	}
 	return {
 		type: "error",
 		error: brmemError(
-			"source_file_unreadable",
+			"source-file-unreadable",
 			`Failed to read source file ${sourceFile}: ${source.message}`,
 		),
 	};
@@ -163,7 +163,7 @@ function decodeUtf8(bytes: Uint8Array, sourceFile: string): DecodeResult {
 		return {
 			type: "error",
 			error: brmemError(
-				"entry_not_utf8",
+				"entry-not-utf8",
 				`${sourceFile} is not valid UTF-8: ${messageForError(error)}`,
 			),
 		};

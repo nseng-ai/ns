@@ -10,11 +10,11 @@ export const resizeRequestSchema = z.object({
 });
 
 export const resizeResultSchema = z.object({
-	previous_pool_size: z.number().int().nonnegative(),
-	pool_size: z.number().int().nonnegative(),
+	previousPoolSize: z.number().int().nonnegative(),
+	poolSize: z.number().int().nonnegative(),
 	created: z.array(z.string()),
 	removed: z.array(z.string()),
-	worktrees_dir: z.string(),
+	worktreesDir: z.string(),
 });
 
 export type ResizeRequest = z.infer<typeof resizeRequestSchema>;
@@ -22,7 +22,7 @@ export type ResizeResult = z.infer<typeof resizeResultSchema>;
 
 export async function runResize(ctx: SlotCliContext, request: ResizeRequest) {
 	const result = await resizePool(ctx, request.size);
-	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
+	if (result.type === "failure") return failure(result.failure.errorType, result.failure.message);
 	return ok(result.outcome);
 }
 
@@ -39,16 +39,16 @@ export function renderResize(
 
 function resizeHeadline(result: ResizeResult): string {
 	if (result.created.length === 0 && result.removed.length === 0)
-		return `Pool already at size ${result.pool_size}.`;
+		return `Pool already at size ${result.poolSize}.`;
 	if (result.created.length > 0 && result.removed.length === 0)
-		return `Grew slot pool ${result.previous_pool_size} -> ${result.pool_size}.`;
+		return `Grew slot pool ${result.previousPoolSize} -> ${result.poolSize}.`;
 	if (result.created.length === 0 && result.removed.length > 0)
-		return `Shrank slot pool ${result.previous_pool_size} -> ${result.pool_size}.`;
-	return `Resized slot pool ${result.previous_pool_size} -> ${result.pool_size}.`;
+		return `Shrank slot pool ${result.previousPoolSize} -> ${result.poolSize}.`;
+	return `Resized slot pool ${result.previousPoolSize} -> ${result.poolSize}.`;
 }
 
 function renderResizeDetails(result: ResizeResult): string | undefined {
-	const lines = [`Worktrees: ${result.worktrees_dir}`];
+	const lines = [`Worktrees: ${result.worktreesDir}`];
 	lines.push(...result.created.map((name) => `Created ${name}`));
 	lines.push(...result.removed.map((name) => `Removed ${name}`));
 	return lines.length === 1 && result.created.length === 0 && result.removed.length === 0

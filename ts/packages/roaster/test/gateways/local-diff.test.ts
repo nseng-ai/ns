@@ -91,7 +91,7 @@ describe("RealLocalDiffGateway", () => {
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(result.error.type).toBe("git_diff_failed");
+			expect(result.error.type).toBe("git-diff-failed");
 			expect(result.error.message).toContain("git -c diff.noprefix=false");
 			expect(result.error.message).toContain("origin/trunk...HEAD");
 			expect(result.error.message).toContain(repoRoot);

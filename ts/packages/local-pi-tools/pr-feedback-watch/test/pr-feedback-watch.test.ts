@@ -309,7 +309,7 @@ function downloadData(commentIds: number[] = [10]): object {
 	return {
 		found: true,
 		target: {
-			kind: "github_pr",
+			kind: "github-pr",
 			pr_number: 123,
 			title: "PR title",
 			url: "https://github.com/acme/repo/pull/123",
@@ -318,12 +318,12 @@ function downloadData(commentIds: number[] = [10]): object {
 			base_ref_name: "main",
 		},
 		counts: {
-			included_review_threads: count,
-			included_reviews: 0,
-			included_discussion_comments: 0,
-			excluded_resolved_threads: 0,
-			excluded_empty_reviews: 0,
-			excluded_automation_comments: 0,
+			includedReviewThreads: count,
+			includedReviews: 0,
+			includedDiscussionComments: 0,
+			excludedResolvedThreads: 0,
+			excludedEmptyReviews: 0,
+			excludedAutomationComments: 0,
 		},
 		markdown: [
 			`# PR feedback triage request`,

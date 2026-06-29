@@ -5,6 +5,7 @@ import {
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
+	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 } from "./config.ts";
 import { moduleSpecifierText, parseTypeScriptSource } from "./module-specifiers.ts";
 import {
@@ -65,6 +66,18 @@ export function collectViolations(
 
 		if (isAsUnknownAsExpression(node)) {
 			violations.push(buildViolation(BAN_AS_UNKNOWN_AS, path, sourceFile, node));
+		}
+
+		const snakeCaseMachineValueNode = snakeCaseCliMachineValueNode(node);
+		if (snakeCaseMachineValueNode !== undefined) {
+			violations.push(
+				buildViolation(
+					BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
+					path,
+					sourceFile,
+					snakeCaseMachineValueNode,
+				),
+			);
 		}
 
 		ts.forEachChild(node, visit);
@@ -131,6 +144,59 @@ function hasExtendsClause(node: ts.InterfaceDeclaration): boolean {
 	return (
 		node.heritageClauses?.some((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword) === true
 	);
+}
+
+// SDL-owned serialized CLI machine-contract enum values must be kebab-case, not
+// snake_case (camelCase JSON property names are unaffected). This guard is narrow
+// on purpose: it only inspects the Clinkr `failure(errorType, ...)` first argument
+// and `errorType` property values, the two highest-confidence machine-contract
+// surfaces. It does not attempt to police arbitrary `code`/`type`/`status` values,
+// which require per-call classification and were explicitly scoped out as noisy.
+const SNAKE_CASE_MACHINE_VALUE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+
+function snakeCaseCliMachineValueNode(node: ts.Node): ts.StringLiteralLike | undefined {
+	const failureErrorType = failureCallErrorTypeArgument(node);
+	if (failureErrorType !== undefined && isSnakeCaseMachineValue(failureErrorType)) {
+		return failureErrorType;
+	}
+
+	const errorTypeValue = errorTypePropertyValue(node);
+	if (errorTypeValue !== undefined && isSnakeCaseMachineValue(errorTypeValue)) {
+		return errorTypeValue;
+	}
+
+	return undefined;
+}
+
+function failureCallErrorTypeArgument(node: ts.Node): ts.StringLiteralLike | undefined {
+	if (!ts.isCallExpression(node)) return undefined;
+	if (!isFailureCallee(node.expression)) return undefined;
+	const firstArgument = node.arguments[0];
+	if (firstArgument === undefined || !ts.isStringLiteralLike(firstArgument)) return undefined;
+	return firstArgument;
+}
+
+function isFailureCallee(expression: ts.Expression): boolean {
+	if (ts.isIdentifier(expression)) return expression.text === "failure";
+	if (ts.isPropertyAccessExpression(expression)) return expression.name.text === "failure";
+	return false;
+}
+
+function errorTypePropertyValue(node: ts.Node): ts.StringLiteralLike | undefined {
+	if (!ts.isPropertyAssignment(node)) return undefined;
+	if (propertyNameText(node.name) !== "errorType") return undefined;
+	if (!ts.isStringLiteralLike(node.initializer)) return undefined;
+	return node.initializer;
+}
+
+function propertyNameText(name: ts.PropertyName): string | undefined {
+	if (ts.isIdentifier(name)) return name.text;
+	if (ts.isStringLiteralLike(name)) return name.text;
+	return undefined;
+}
+
+function isSnakeCaseMachineValue(literal: ts.StringLiteralLike): boolean {
+	return SNAKE_CASE_MACHINE_VALUE.test(literal.text);
 }
 
 function isAsUnknownAsExpression(node: ts.Node): boolean {

@@ -100,7 +100,7 @@ describe("slot gt exec stack-branches CLI", () => {
 			gt: { stack: { type: "stack", stack } },
 		});
 		expect(await full.exit).toBe(2);
-		expect(parseJsonOutput(full)).toMatchObject({ errorType: "forked_stack" });
+		expect(parseJsonOutput(full)).toMatchObject({ errorType: "forked-stack" });
 		const down = runScenario(["gt", "exec", "stack-branches", "--downstack"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { stack: { type: "stack", stack } },
@@ -143,7 +143,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 				current: "feature/current",
 				trunk: "master",
 				scope: "stack-map",
-				recent_limit: 40,
+				recentLimit: 40,
 				edges: [
 					{ parent: "feature/current", child: "feature/child" },
 					{ parent: "master", child: "feature/current" },
@@ -153,9 +153,9 @@ describe("slot gt exec stack-map-branches CLI", () => {
 				],
 				slots: [
 					{
-						slot_name: "slot-04",
+						slotName: "slot-04",
 						branch: "feature/slot",
-						worktree_path: "/slots/repos/repo/worktrees/slot-04",
+						worktreePath: "/slots/repos/repo/worktrees/slot-04",
 						status: "assigned",
 					},
 				],
@@ -172,8 +172,8 @@ describe("slot gt exec stack-map-branches CLI", () => {
 			"feature/recent",
 		]);
 		expect(data.branches.find((branch) => branch.name === "feature/restack")).toMatchObject({
-			validation_result: "BAD_PARENT_NAME",
-			needs_restack: true,
+			validationResult: "BAD_PARENT_NAME",
+			needsRestack: true,
 		});
 		expect(run.gt.operations()).toEqual([
 			{ type: "stack", cwd: "/repo" },
@@ -325,7 +325,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(jsonData(parseJsonOutput(run)).warnings).toEqual([
-			"Graphite metadata row has an empty branch_name; row ignored",
+			"Graphite metadata row has an empty branchName; row ignored",
 			"children metadata for feature/current is not valid JSON; treating as no children",
 		]);
 	});
@@ -337,23 +337,23 @@ describe("slot gt exec stack-map-branches CLI", () => {
 				options: {
 					repo: {
 						type: "no_repo" as const,
-						errorType: "not_in_repo" as const,
+						errorType: "not-in-repo" as const,
 						message: "not in repo",
 					},
 				},
-				errorType: "not_in_repo",
+				errorType: "not-in-repo",
 			},
 			{
 				name: "current branch failure",
 				options: {
 					git: { currentBranchFailures: { "/repo": { message: "symbolic ref failed" } } },
 				},
-				errorType: "git_current_branch_failed",
+				errorType: "git-current-branch-failed",
 			},
 			{
 				name: "detached head",
 				options: { git: { worktrees: [{ path: "/repo", branch: null }] } },
-				errorType: "detached_head",
+				errorType: "detached-head",
 			},
 			{
 				name: "untracked Graphite branch",
@@ -365,7 +365,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 						},
 					},
 				},
-				errorType: "untracked_branch",
+				errorType: "untracked-branch",
 			},
 			{
 				name: "gt stack failure",
@@ -377,7 +377,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 						},
 					},
 				},
-				errorType: "gt_stack_read_failed",
+				errorType: "gt-stack-read-failed",
 			},
 			{
 				name: "git common dir missing",
@@ -389,7 +389,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 						},
 					},
 				},
-				errorType: "git_common_dir_missing",
+				errorType: "git-common-dir-missing",
 			},
 			{
 				name: "metadata read failure",
@@ -401,7 +401,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 						},
 					},
 				},
-				errorType: "gt_metadata_read_failed",
+				errorType: "gt-metadata-read-failed",
 			},
 			{
 				name: "missing trunk row",
@@ -415,7 +415,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 						},
 					},
 				},
-				errorType: "stack_metadata_inconsistent",
+				errorType: "stack-metadata-inconsistent",
 			},
 		];
 
@@ -505,8 +505,8 @@ function row(
 interface StackMapJsonData {
 	readonly branches: readonly {
 		readonly name: string;
-		readonly validation_result: string | null;
-		readonly needs_restack: boolean;
+		readonly validationResult: string | null;
+		readonly needsRestack: boolean;
 	}[];
 	readonly warnings: readonly string[];
 }

@@ -46,13 +46,13 @@ export class PayloadStore {
 
 		if (!isAbsolute(this.root)) {
 			throw new PayloadError(
-				"payload_root_invalid",
+				"payload-root-invalid",
 				`Payload root must be an absolute path: ${this.root}`,
 			);
 		}
 		if (!isSafeSegment(this.sessionId)) {
 			throw new PayloadError(
-				"payload_session_invalid",
+				"payload-session-invalid",
 				`Payload session id must be a safe segment: ${JSON.stringify(this.sessionId)}`,
 			);
 		}
@@ -62,20 +62,20 @@ export class PayloadStore {
 		this.payloadDir = join(sessionDir, "payloads");
 
 		ensurePrivateDirectory(this.root, {
-			notDirectoryErrorType: "payload_root_invalid",
-			createErrorType: "payload_root_invalid",
+			notDirectoryErrorType: "payload-root-invalid",
+			createErrorType: "payload-root-invalid",
 		});
 		ensurePrivateDirectory(sessionsDir, {
-			notDirectoryErrorType: "payload_directory_unsafe",
-			createErrorType: "payload_directory_unsafe",
+			notDirectoryErrorType: "payload-directory-unsafe",
+			createErrorType: "payload-directory-unsafe",
 		});
 		ensurePrivateDirectory(sessionDir, {
-			notDirectoryErrorType: "payload_directory_unsafe",
-			createErrorType: "payload_directory_unsafe",
+			notDirectoryErrorType: "payload-directory-unsafe",
+			createErrorType: "payload-directory-unsafe",
 		});
 		ensurePrivateDirectory(this.payloadDir, {
-			notDirectoryErrorType: "payload_directory_unsafe",
-			createErrorType: "payload_directory_unsafe",
+			notDirectoryErrorType: "payload-directory-unsafe",
+			createErrorType: "payload-directory-unsafe",
 		});
 	}
 
@@ -116,7 +116,7 @@ export class PayloadStore {
 			payloadBytes = Buffer.from(JSON.stringify(options.payload, null, 2) + "\n", "utf-8");
 		} catch (error) {
 			throw new PayloadError(
-				"payload_write_failed",
+				"payload-write-failed",
 				`Failed to serialize JSON payload for descriptor ${JSON.stringify(options.descriptor)}: ${String(error)}`,
 				error,
 			);
@@ -177,21 +177,21 @@ export class PayloadStore {
 					continue;
 				}
 				throw new PayloadError(
-					"payload_write_failed",
+					"payload-write-failed",
 					`Failed to write payload artifact ${payloadPath}: ${String(error)}`,
 					error,
 				);
 			}
 
 			return {
-				payload_path: payloadPath,
-				session_id: this.sessionId,
+				payloadPath: payloadPath,
+				sessionId: this.sessionId,
 				descriptor: options.descriptor,
 				role: options.role,
-				created_at_utc: createdAtUtc,
+				createdAtUtc: createdAtUtc,
 				sequence,
-				payload_bytes: options.payloadBytes.length,
-				content_type: options.contentType,
+				payloadBytes: options.payloadBytes.length,
+				contentType: options.contentType,
 				extension: options.extension,
 			};
 		}
@@ -204,7 +204,7 @@ export class PayloadStore {
 			payloadEntries = readdirSync(this.payloadDir);
 		} catch (error) {
 			throw new PayloadError(
-				"payload_write_failed",
+				"payload-write-failed",
 				`Failed to scan payload directory ${this.payloadDir}: ${String(error)}`,
 				error,
 			);
@@ -254,8 +254,8 @@ function payloadFilename(options: {
 function ensurePrivateDirectory(
 	dirPath: string,
 	options: {
-		notDirectoryErrorType: "payload_root_invalid" | "payload_directory_unsafe";
-		createErrorType: "payload_root_invalid" | "payload_directory_unsafe";
+		notDirectoryErrorType: "payload-root-invalid" | "payload-directory-unsafe";
+		createErrorType: "payload-root-invalid" | "payload-directory-unsafe";
 	},
 ): void {
 	let stats: Stats | undefined;
@@ -274,7 +274,7 @@ function ensurePrivateDirectory(
 	if (stats !== undefined) {
 		if (stats.isSymbolicLink()) {
 			throw new PayloadError(
-				"payload_directory_unsafe",
+				"payload-directory-unsafe",
 				`Managed payload path must not be a symlink: ${dirPath}`,
 			);
 		}
@@ -321,7 +321,7 @@ function ensurePrivateDirectory(
 		chmodSync(dirPath, 0o700);
 	} catch (error) {
 		throw new PayloadError(
-			"payload_directory_unsafe",
+			"payload-directory-unsafe",
 			`Failed to set private permissions on managed payload directory ${dirPath}: ${String(error)}`,
 			error,
 		);
@@ -338,7 +338,7 @@ function validatePrivateDirectory(dirPath: string): void {
 		stats = statSync(dirPath);
 	} catch (error) {
 		throw new PayloadError(
-			"payload_directory_unsafe",
+			"payload-directory-unsafe",
 			`Failed to inspect managed payload directory ${dirPath}: ${String(error)}`,
 			error,
 		);
@@ -346,7 +346,7 @@ function validatePrivateDirectory(dirPath: string): void {
 	const pathMode = stats.mode & 0o777;
 	if ((pathMode & 0o077) !== 0) {
 		throw new PayloadError(
-			"payload_directory_unsafe",
+			"payload-directory-unsafe",
 			`Managed payload directory must not be group/world accessible: ${dirPath}`,
 		);
 	}

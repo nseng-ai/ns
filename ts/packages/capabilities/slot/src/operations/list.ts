@@ -8,17 +8,17 @@ import { buildSlotInventory, poolSize, slotStatus } from "../inventory.ts";
 export const listRequestSchema = z.object({});
 
 export const slotRowSchema = z.object({
-	slot_name: z.string(),
+	slotName: z.string(),
 	branch: z.string().nullable(),
 	operation: z.string().nullable(),
-	worktree_path: z.string(),
+	worktreePath: z.string(),
 	status: z.union([z.literal("assigned"), z.literal("available")]),
 });
 
 export const listResultSchema = z.object({
-	pool_size: z.number().int().nonnegative(),
+	poolSize: z.number().int().nonnegative(),
 	rows: z.array(slotRowSchema),
-	repo_name: z.string(),
+	repoName: z.string(),
 });
 
 export type ListRequest = z.infer<typeof listRequestSchema>;
@@ -28,13 +28,13 @@ export async function runList(ctx: SlotCliContext, _request: ListRequest) {
 	if (ctx.repo.type !== "repo") return failure(ctx.repo.errorType, ctx.repo.message);
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	return ok({
-		pool_size: poolSize(inventory),
-		repo_name: ctx.repo.repoName,
+		poolSize: poolSize(inventory),
+		repoName: ctx.repo.repoName,
 		rows: inventory.records.map((record) => ({
-			slot_name: record.slotName,
+			slotName: record.slotName,
 			branch: record.branch,
 			operation: record.operation,
-			worktree_path: record.path,
+			worktreePath: record.path,
 			status: slotStatus(record),
 		})),
 	});
@@ -44,7 +44,7 @@ export function renderList(
 	result: ListResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	if (result.rows.length === 0) return `No slots initialized for ${result.repo_name}.`;
+	if (result.rows.length === 0) return `No slots initialized for ${result.repoName}.`;
 	const resolvedCaps = resolveRenderCapabilities(caps);
 	const table = renderTable({
 		caps: resolvedCaps,
@@ -56,16 +56,16 @@ export function renderList(
 			{ header: "WORKTREE", width: "fill", min: "WORKTREE".length },
 		],
 		rows: result.rows.map((row) => [
-			cell(paint(resolvedCaps, "accent", row.slot_name), row.slot_name),
+			cell(paint(resolvedCaps, "accent", row.slotName), row.slotName),
 			statusCell(resolvedCaps, row.status),
 			cell(row.branch ?? "—"),
 			cell(row.operation === null ? "—" : `${row.operation} in progress`),
-			cell(row.worktree_path),
+			cell(row.worktreePath),
 		]),
 	});
 	return renderBufferedReport({
 		caps,
-		title: `Slots for ${result.repo_name}`,
+		title: `Slots for ${result.repoName}`,
 		titleStyle: "plain",
 		sections: [{ title: "", lines: table }],
 	});

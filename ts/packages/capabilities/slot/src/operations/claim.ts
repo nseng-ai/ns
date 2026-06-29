@@ -10,20 +10,18 @@ export const claimRequestSchema = z.object({
 });
 
 export const claimResultSchema = z.object({
-	slot_name: z.string(),
-	branch_name: z.string(),
-	worktree_path: z.string(),
-	replaced_branch_name: z.string().nullable(),
-	source_slot_name: z.string().nullable(),
-	source_worktree_path: z.string().nullable(),
-	already_current: z.boolean(),
-	main_worktree_path: z.string().nullable(),
-	main_checkout_branch: z.string().nullable(),
-	main_redirect_action: z
-		.union([z.literal("checkout_branch"), z.literal("detach_head")])
-		.nullable(),
-	main_redirect_ref: z.string().nullable(),
-	main_redirect_note: z.string().nullable(),
+	slotName: z.string(),
+	branchName: z.string(),
+	worktreePath: z.string(),
+	replacedBranchName: z.string().nullable(),
+	sourceSlotName: z.string().nullable(),
+	sourceWorktreePath: z.string().nullable(),
+	alreadyCurrent: z.boolean(),
+	mainWorktreePath: z.string().nullable(),
+	mainCheckoutBranch: z.string().nullable(),
+	mainRedirectAction: z.union([z.literal("checkout-branch"), z.literal("detach-head")]).nullable(),
+	mainRedirectRef: z.string().nullable(),
+	mainRedirectNote: z.string().nullable(),
 });
 
 export type ClaimRequest = z.infer<typeof claimRequestSchema>;
@@ -31,7 +29,7 @@ export type ClaimResult = z.infer<typeof claimResultSchema>;
 
 export async function runClaim(ctx: SlotCliContext, request: ClaimRequest) {
 	const result = await claimBranch(ctx, request.branchName);
-	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
+	if (result.type === "failure") return failure(result.failure.errorType, result.failure.message);
 	return ok(result.outcome);
 }
 
@@ -40,40 +38,40 @@ export function renderClaim(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const renderCaps = resolveRenderCapabilities(caps);
-	if (result.already_current) {
+	if (result.alreadyCurrent) {
 		return renderResultBlock(renderCaps, {
 			kind: "success",
-			headline: `${result.slot_name} already has ${result.branch_name}.`,
-			body: `Worktree: ${result.worktree_path}`,
+			headline: `${result.slotName} already has ${result.branchName}.`,
+			body: `Worktree: ${result.worktreePath}`,
 		});
 	}
 	const body = [
-		`Slot: ${result.slot_name}`,
-		`Branch: ${result.branch_name}`,
-		`Worktree: ${result.worktree_path}`,
-		...(result.source_slot_name === null || result.main_checkout_branch !== null
+		`Slot: ${result.slotName}`,
+		`Branch: ${result.branchName}`,
+		`Worktree: ${result.worktreePath}`,
+		...(result.sourceSlotName === null || result.mainCheckoutBranch !== null
 			? []
-			: [`Source slot: ${result.source_slot_name}`]),
-		...(result.replaced_branch_name === null || result.main_checkout_branch !== null
+			: [`Source slot: ${result.sourceSlotName}`]),
+		...(result.replacedBranchName === null || result.mainCheckoutBranch !== null
 			? []
-			: [`Replaced: ${result.replaced_branch_name}`]),
+			: [`Replaced: ${result.replacedBranchName}`]),
 		...mainRedirectLines(result),
 	].join("\n");
 	return renderResultBlock(renderCaps, {
 		kind: "success",
-		headline: `Claimed ${result.slot_name} for ${result.branch_name}.`,
+		headline: `Claimed ${result.slotName} for ${result.branchName}.`,
 		body,
 	});
 }
 
 function mainRedirectLines(result: ClaimResult): string[] {
-	const note = result.main_redirect_note === null ? "" : ` (${result.main_redirect_note})`;
-	if (result.main_redirect_action === "checkout_branch") {
-		return [`Main worktree: checked out ${result.main_redirect_ref}${note}`];
+	const note = result.mainRedirectNote === null ? "" : ` (${result.mainRedirectNote})`;
+	if (result.mainRedirectAction === "checkout-branch") {
+		return [`Main worktree: checked out ${result.mainRedirectRef}${note}`];
 	}
-	if (result.main_redirect_action === "detach_head") {
-		if (result.main_redirect_ref === null) return [`Main worktree: detached${note}`];
-		return [`Main worktree: detached main worktree at ${result.main_redirect_ref}${note}`];
+	if (result.mainRedirectAction === "detach-head") {
+		if (result.mainRedirectRef === null) return [`Main worktree: detached${note}`];
+		return [`Main worktree: detached main worktree at ${result.mainRedirectRef}${note}`];
 	}
-	return result.main_redirect_note === null ? [] : [`Main worktree: ${result.main_redirect_note}`];
+	return result.mainRedirectNote === null ? [] : [`Main worktree: ${result.mainRedirectNote}`];
 }

@@ -96,6 +96,14 @@ Design *to* the typed machine envelope.
   `--shell-exit-code` opt-in (ADR 0013).
 - `failure`/`negative` carry structured `data` for recovery under a stable,
   command-local `errorType`. Do not mint a global `errorType` enum (ADR 0010).
+- Property names are camelCase; serialized enum-like **values** are **kebab-case**
+  for SDL-owned machine contracts — `errorType` values and any command-local
+  `code`/`type`/`status`/`kind` discriminants (e.g. `registry-check-failed`,
+  `dry-run`, `branch-context-error`). No snake_case, no aliases (ADR 0010). Model
+  known external strings (GitHub/Anthropic/Pi/git wire values) as TypeScript
+  literal unions and keep their exact spelling. The
+  `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard enforces this for
+  `failure(...)` error types and `errorType` literals.
 - Prefer a handler-returned `usageError(...)` whose `data` names the bad/missing
   argument over throwing.
 

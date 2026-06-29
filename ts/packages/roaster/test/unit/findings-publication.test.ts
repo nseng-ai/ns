@@ -72,13 +72,13 @@ describe("renderFindingsComment", () => {
 			count: 0,
 			findings: [],
 			inputCoverage: null,
-			errorType: "harness_failed",
+			errorType: "harness-failed",
 			errorMessage: "boom",
 		});
 
 		expect(body.startsWith("<!-- roaster:typescript-style -->\n")).toBe(true);
 		expect(body).toContain("**Roaster failed**");
-		expect(body).toContain("harness_failed");
+		expect(body).toContain("harness-failed");
 	});
 
 	test("renders no findings", () => {
@@ -103,7 +103,7 @@ describe("renderFindingsComment", () => {
 					estimatedTokens: 300,
 					addedLines: 4,
 					removedLines: 1,
-					reason: "file_exceeds_cap",
+					reason: "file-exceeds-cap",
 				},
 			],
 		};
@@ -290,8 +290,8 @@ describe("publishFindings", () => {
 
 		expect(result.type).toBe("error");
 		if (result.type === "error") {
-			expect(result.error.fatalFailurePhase).toBe("summary_write");
-			expect(result.error.reason).toBe("github_write_failed");
+			expect(result.error.fatalFailurePhase).toBe("summary-write");
+			expect(result.error.reason).toBe("github-write-failed");
 			expect(result.error.message).toBe("discussion write failed");
 		}
 	});
@@ -347,7 +347,7 @@ class InlineFailureGateway extends FakeRoasterGitHubGateway {
 	): Promise<RoasterResult<void>> {
 		return {
 			type: "error",
-			error: { type: "github_response_invalid", message: "inline validation failed" },
+			error: { type: "github-response-invalid", message: "inline validation failed" },
 		};
 	}
 }

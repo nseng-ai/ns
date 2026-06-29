@@ -48,7 +48,7 @@ describe("delete operation", () => {
 				namespace: "scratch",
 				key: "plan/plan.md",
 				branch: "feat/x",
-				ref_name: "refs/brmem/ns/scratch/feat---x:plan/plan.md",
+				refName: "refs/brmem/ns/scratch/feat---x:plan/plan.md",
 			},
 		});
 		expect(parsed.data.commit).toMatch(/^commit/);
@@ -59,7 +59,7 @@ describe("delete operation", () => {
 			"deleted",
 			"key",
 			"namespace",
-			"ref_name",
+			"refName",
 		]);
 	});
 
@@ -182,7 +182,7 @@ describe("delete operation", () => {
 		);
 		expect(await json.exit).toBe(0);
 		expect(JSON.parse(json.stdout.join(""))).toMatchObject({
-			data: { namespace: "base", key: "explicit", ref_name: "refs/brmem/base/feat---x:explicit" },
+			data: { namespace: "base", key: "explicit", refName: "refs/brmem/base/feat---x:explicit" },
 		});
 
 		const secondDelete = runScenario(
@@ -208,14 +208,14 @@ describe("delete operation", () => {
 		expect(await invalidNamespace.exit).toBe(2);
 		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_namespace",
+			errorType: "invalid-namespace",
 		});
 
 		const invalidKey = runScenario(["delete", "bad key", "--format", "json"]);
 		expect(await invalidKey.exit).toBe(2);
 		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_key",
+			errorType: "invalid-key",
 		});
 
 		const invalidBranch = runScenario([
@@ -229,7 +229,7 @@ describe("delete operation", () => {
 		expect(await invalidBranch.exit).toBe(2);
 		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_branch_name",
+			errorType: "invalid-branch-name",
 		});
 	});
 
@@ -249,7 +249,7 @@ describe("delete operation", () => {
 		expect(await detached.exit).toBe(2);
 		expect(JSON.parse(detached.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "detached_head",
+			errorType: "detached-head",
 		});
 	});
 
@@ -266,13 +266,13 @@ describe("delete operation", () => {
 			fake: {
 				currentBranch: "feat/x",
 				entries: [{ namespace: "base", branch: "feat/x", key: "note.md", content: "body\n" }],
-				operationErrors: { delete: { code: "git_update_ref_failed", message: "boom" } },
+				operationErrors: { delete: { code: "git-update-ref-failed", message: "boom" } },
 			},
 		});
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "git_update_ref_failed",
+			errorType: "git-update-ref-failed",
 			message: "boom",
 		});
 	});

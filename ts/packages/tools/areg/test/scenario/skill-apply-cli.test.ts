@@ -230,12 +230,12 @@ describe("areg skill apply CLI", () => {
 		});
 
 		if (result.type !== "failure") throw new Error(`expected failure, got ${result.type}`);
-		expect(result.errorType).toBe("skill_kind_apply_failed");
+		expect(result.errorType).toBe("skill-kind-apply-failed");
 		expect(project.text("skills/alpha/SKILL.md")).toBeUndefined();
 		expect(mutationOperations(project.operations())).toEqual([]);
 		expect(result).toMatchObject({
 			data: {
-				mutation_failed: true,
+				mutationFailed: true,
 				operations: expect.arrayContaining([
 					expect.objectContaining({
 						type: "write",
@@ -264,13 +264,13 @@ describe("areg skill apply CLI", () => {
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
 			status: "failure",
-			errorType: "skill_kind_apply_failed",
+			errorType: "skill-kind-apply-failed",
 			exitCode: 2,
 			data: {
-				mutation_failed: true,
-				project_dir: "/repo",
+				mutationFailed: true,
+				projectDir: "/repo",
 				kind: "invoke-only",
-				dry_run: false,
+				dryRun: false,
 				operations: expect.arrayContaining([
 					expect.objectContaining({
 						type: "write",
@@ -305,7 +305,7 @@ describe("areg skill apply CLI", () => {
 		});
 
 		if (result.type !== "failure") throw new Error(`expected failure, got ${result.type}`);
-		expect(result.errorType).toBe("skill_kind_apply_failed");
+		expect(result.errorType).toBe("skill-kind-apply-failed");
 		expect(project.text("skills/alpha/SKILL.md")).toContain("disable-model-invocation: true");
 		expect(project.text("skills/beta/SKILL.md")).toBeUndefined();
 		expect(result).toMatchObject({
@@ -321,7 +321,7 @@ describe("areg skill apply CLI", () => {
 							expect.objectContaining({ path: "skills/beta/SKILL.md", status: "failed" }),
 							expect.objectContaining({
 								path: "skills/beta/agents/openai.yaml",
-								status: "not_attempted",
+								status: "not-attempted",
 							}),
 						]),
 					}),

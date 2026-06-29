@@ -16,19 +16,19 @@ export const checkoutRequestSchema = z.object({
 });
 
 export const checkoutResultSchema = z.object({
-	slot_name: z.string(),
-	branch_name: z.string(),
-	worktree_path: z.string(),
-	cd_command: z.string(),
-	already_assigned: z.boolean(),
-	created_branch: z.boolean(),
-	current_wt_note: z.string().nullable(),
-	clipboard_copied: z.boolean(),
-	clipboard_skipped: z.boolean(),
-	clipboard_failure_reason: z
-		.union([z.literal("backend_missing"), z.literal("subprocess_error")])
+	slotName: z.string(),
+	branchName: z.string(),
+	worktreePath: z.string(),
+	cdCommand: z.string(),
+	alreadyAssigned: z.boolean(),
+	createdBranch: z.boolean(),
+	currentWtNote: z.string().nullable(),
+	clipboardCopied: z.boolean(),
+	clipboardSkipped: z.boolean(),
+	clipboardFailureReason: z
+		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
 		.nullable(),
-	clipboard_failure_detail: z.string().nullable(),
+	clipboardFailureDetail: z.string().nullable(),
 });
 
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
@@ -37,13 +37,13 @@ export type CheckoutResult = z.infer<typeof checkoutResultSchema>;
 export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest) {
 	const inputsProvided = Number(request.branchName !== undefined) + Number(request.current);
 	if (inputsProvided > 1)
-		return failure("mutually_exclusive_args", "Pass exactly one of BRANCH_NAME or --current.");
+		return failure("mutually-exclusive-args", "Pass exactly one of BRANCH_NAME or --current.");
 	if (inputsProvided === 0)
-		return failure("missing_arg", "Pass BRANCH_NAME or --current to identify the branch.");
+		return failure("missing-arg", "Pass BRANCH_NAME or --current to identify the branch.");
 	if (request.current && request.new)
-		return failure("mutually_exclusive_args", "-b/--new cannot be combined with --current.");
+		return failure("mutually-exclusive-args", "-b/--new cannot be combined with --current.");
 	if (request.base !== undefined && !request.new)
-		return failure("base_without_new", "BASE is only valid with -b/--new.");
+		return failure("base-without-new", "BASE is only valid with -b/--new.");
 
 	const lifecycleResult = request.current
 		? await checkoutCurrent(ctx)
@@ -52,8 +52,8 @@ export async function runCheckout(ctx: SlotCliContext, request: CheckoutRequest)
 				base: request.base ?? null,
 			});
 	if (lifecycleResult.type === "failure")
-		return failure(lifecycleResult.failure.error_type, lifecycleResult.failure.message);
-	const navigation = await prepareNavigation(ctx, lifecycleResult.outcome.worktree_path, {
+		return failure(lifecycleResult.failure.errorType, lifecycleResult.failure.message);
+	const navigation = await prepareNavigation(ctx, lifecycleResult.outcome.worktreePath, {
 		shouldCopyClipboard: request.clipboard,
 		shouldWriteCdDirective: ctx.shouldWriteCdDirective,
 	});
@@ -68,16 +68,16 @@ export function renderCheckout(
 		{
 			...result,
 			headline: renderCheckoutHeadline(result),
-			...(result.current_wt_note === null ? {} : { details: [result.current_wt_note] }),
+			...(result.currentWtNote === null ? {} : { details: [result.currentWtNote] }),
 		},
 		caps,
 	);
 }
 
 function renderCheckoutHeadline(result: CheckoutResult): string {
-	if (!result.already_assigned) return `Checked out ${result.slot_name} -> ${result.branch_name}`;
-	if (extractSlotNumber(result.slot_name) === null) {
-		return `${result.branch_name} is already checked out in the main worktree at ${result.worktree_path}`;
+	if (!result.alreadyAssigned) return `Checked out ${result.slotName} -> ${result.branchName}`;
+	if (extractSlotNumber(result.slotName) === null) {
+		return `${result.branchName} is already checked out in the main worktree at ${result.worktreePath}`;
 	}
-	return `${result.branch_name} is already assigned to ${result.slot_name}`;
+	return `${result.branchName} is already assigned to ${result.slotName}`;
 }

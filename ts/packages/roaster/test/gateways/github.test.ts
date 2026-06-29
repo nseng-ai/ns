@@ -217,20 +217,20 @@ describe("RealRoasterGitHubGateway", () => {
 
 		expect(ghFailure.type).toBe("error");
 		if (ghFailure.type === "error") {
-			expect(ghFailure.error.type).toBe("github_cli_failed");
+			expect(ghFailure.error.type).toBe("github-cli-failed");
 			expect(ghFailure.error.message).toContain("gh api --paginate");
 			expect(ghFailure.error.message).toContain("/repo");
 			expect(ghFailure.error.message).toContain("no auth");
 		}
 		expect(jsonFailure.type).toBe("error");
 		if (jsonFailure.type === "error") {
-			expect(jsonFailure.error.type).toBe("github_json_invalid");
+			expect(jsonFailure.error.type).toBe("github-json-invalid");
 			expect(jsonFailure.error.message).toContain("list PR changed files");
 			expect(jsonFailure.error.message).toContain("not valid JSON");
 		}
 		expect(shapeFailure.type).toBe("error");
 		if (shapeFailure.type === "error") {
-			expect(shapeFailure.error.type).toBe("github_response_invalid");
+			expect(shapeFailure.error.type).toBe("github-response-invalid");
 			expect(shapeFailure.error.message).toContain("list PR changed files");
 			expect(shapeFailure.error.message).toContain("expected shape");
 		}

@@ -143,7 +143,7 @@ function handoffCommandSource(options: {
 	const schemaExpression =
 		options.schemaExpression ??
 		'z.object({ scope: z.enum(["pending", "all"]).default("pending") })';
-	const defaultResultSchema = `z.object({ status: z.literal(\"ok\"), command: z.literal(${JSON.stringify(options.name)}) })`;
+	const defaultResultSchema = `z.object({ status: z.literal("ok"), command: z.literal(${JSON.stringify(options.name)}) })`;
 	const resultSchemaExpression = options.resultSchemaExpression ?? defaultResultSchema;
 	return `import { appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";

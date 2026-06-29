@@ -33,9 +33,9 @@ describe("usageError", () => {
 
 describe("failure", () => {
 	test("builds a failure exit with errorType and message", () => {
-		expect(failure("missing_branch", "branch not found")).toEqual({
+		expect(failure("missing-branch", "branch not found")).toEqual({
 			type: "failure",
-			errorType: "missing_branch",
+			errorType: "missing-branch",
 			message: "branch not found",
 		});
 	});
@@ -47,10 +47,10 @@ describe("failure", () => {
 	test("produces the same machine envelope as a hand-built failure exit", () => {
 		const handBuilt: ClinkrExit<never> = {
 			type: "failure",
-			errorType: "missing_branch",
+			errorType: "missing-branch",
 			message: "branch not found",
 		};
-		expect(toMachineEnvelope(failure("missing_branch", "branch not found"))).toEqual(
+		expect(toMachineEnvelope(failure("missing-branch", "branch not found"))).toEqual(
 			toMachineEnvelope(handBuilt),
 		);
 	});
@@ -207,14 +207,14 @@ describe("toMachineEnvelope", () => {
 	test("failure envelope orders keys exitCode, errorType, message", () => {
 		const exit: ClinkrExit<never> = {
 			type: "failure",
-			errorType: "missing_branch",
+			errorType: "missing-branch",
 			message: "branch not found",
 		};
 		const envelope = toMachineEnvelope(exit);
 		expect(envelope).toEqual({
 			status: "failure",
 			exitCode: 2,
-			errorType: "missing_branch",
+			errorType: "missing-branch",
 			message: "branch not found",
 		});
 		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "errorType", "message"]);

@@ -92,19 +92,19 @@ export function reportExitCode(report: PackageCheckReport): number {
 export function registryCheckResultToJson(result: RegistryCheckResult): Record<string, string> {
 	return {
 		registry: result.registry,
-		input_name: result.inputName,
-		lookup_name: result.lookupName,
+		inputName: result.inputName,
+		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
-		...(result.packageUrl === undefined ? {} : { package_url: result.packageUrl }),
-		...(result.latestVersion === undefined ? {} : { latest_version: result.latestVersion }),
+		...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
+		...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
 		...(result.description === undefined ? {} : { description: result.description }),
 	};
 }
 
 export function reportToJson(report: PackageCheckReport): Record<string, unknown> {
 	return {
-		schema_version: 1,
+		schemaVersion: 1,
 		name: report.inputName,
 		exitCode: reportExitCode(report),
 		results: report.results.map(registryCheckResultToJson),

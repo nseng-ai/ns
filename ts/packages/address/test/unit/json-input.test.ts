@@ -67,7 +67,7 @@ describe("JSON input source helpers", () => {
 		expect(conflict).toEqual({
 			type: "error",
 			error: {
-				errorType: "invalid_request",
+				errorType: "invalid-request",
 				message:
 					"demo accepts only one payload source; do not pass both --payload-json and --payload-file.",
 			},
@@ -82,7 +82,7 @@ describe("JSON input source helpers", () => {
 			stdin: async () => "unused",
 		});
 		expect(empty.type).toBe("error");
-		if (empty.type === "error") expect(empty.error.errorType).toBe("invalid_request");
+		if (empty.type === "error") expect(empty.error.errorType).toBe("invalid-request");
 
 		const invalidJson = await loadJsonInput({
 			optionValue: "{",
@@ -93,7 +93,7 @@ describe("JSON input source helpers", () => {
 			stdin: async () => "",
 		});
 		expect(invalidJson.type).toBe("error");
-		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid_json");
+		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid-json");
 
 		const missingFile = await loadJsonInput({
 			optionValue: undefined,
@@ -106,7 +106,7 @@ describe("JSON input source helpers", () => {
 			stdin: async () => "",
 		});
 		expect(missingFile.type).toBe("error");
-		if (missingFile.type === "error") expect(missingFile.error.errorType).toBe("invalid_request");
+		if (missingFile.type === "error") expect(missingFile.error.errorType).toBe("invalid-request");
 
 		const schemaError = await loadJsonInput({
 			optionValue: '{"value": 3}',
@@ -117,6 +117,6 @@ describe("JSON input source helpers", () => {
 			stdin: async () => "",
 		});
 		expect(schemaError.type).toBe("error");
-		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid_request");
+		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid-request");
 	});
 });

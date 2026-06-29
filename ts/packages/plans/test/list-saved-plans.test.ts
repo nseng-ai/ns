@@ -229,18 +229,18 @@ describe("plans list CLI", () => {
 				plans: [
 					{
 						slug: "first-useful-saved-plan",
-						branch_key: branchKey,
+						branchKey: branchKey,
 						path: filePath,
-						file_name: "first-useful-saved-plan.md",
+						fileName: "first-useful-saved-plan.md",
 						repo: {
 							key: "gh--owner--repo",
-							identity_source: "origin-url",
+							identitySource: "origin-url",
 						},
 					},
 				],
 			},
 		});
-		expect(payload.data.plans[0]?.modified_time_ms).toBe(1_700_000_000_000);
+		expect(payload.data.plans[0]?.modifiedTimeMs).toBe(1_700_000_000_000);
 	});
 });
 
@@ -280,16 +280,16 @@ describe("plans exec CLI", () => {
 			exitCode: 0,
 			data: {
 				slug: "branch-scoped-plan",
-				repo_key: "gh--owner--repo",
-				source_branch: "feature/source-plan",
-				branch_key: encodeBranchForPlanPath("feature/source-plan"),
+				repoKey: "gh--owner--repo",
+				sourceBranch: "feature/source-plan",
+				branchKey: encodeBranchForPlanPath("feature/source-plan"),
 				summary: "Save it",
 			},
 		});
-		expect(String(payload.data.file_path)).toContain(
+		expect(String(payload.data.filePath)).toContain(
 			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
 		);
-		expect(fixture.planStoreGateway.readFile(String(payload.data.file_path))).toBe(
+		expect(fixture.planStoreGateway.readFile(String(payload.data.filePath))).toBe(
 			"# Plan\n\nDo it.\n",
 		);
 	});
@@ -314,7 +314,7 @@ describe("plans exec CLI", () => {
 			exitCode: 0,
 			data: {
 				source: "explicit",
-				file_path: explicitPlan,
+				filePath: explicitPlan,
 			},
 		});
 
@@ -349,7 +349,7 @@ describe("plans exec CLI", () => {
 			data: {
 				source: "latest",
 				slug: "newer-plan-file",
-				file_path: newer,
+				filePath: newer,
 			},
 		});
 	});
@@ -369,7 +369,7 @@ interface JsonListPayload {
 }
 
 interface JsonListPlan {
-	modified_time_ms: number;
+	modifiedTimeMs: number;
 }
 
 function parseJsonListPayload(text: string): JsonListPayload {
@@ -391,7 +391,7 @@ function isJsonListPayload(value: unknown): value is JsonListPayload {
 }
 
 function isJsonListPlan(value: unknown): value is JsonListPlan {
-	return isRecord(value) && typeof value.modified_time_ms === "number";
+	return isRecord(value) && typeof value.modifiedTimeMs === "number";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

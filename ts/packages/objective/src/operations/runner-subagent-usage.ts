@@ -16,10 +16,10 @@ import type { ObjectiveCliContext } from "../context.ts";
 const runnerSubagentUsageStatusSchema = z.enum([
 	"ok",
 	"missing",
-	"not_file",
-	"invalid_json",
-	"read_error",
-	"no_usage",
+	"not-file",
+	"invalid-json",
+	"read-error",
+	"no-usage",
 ]);
 
 export const runnerSubagentCostTotalsSchema = z.object({
@@ -123,22 +123,22 @@ export async function summarizeRunnerSubagentSessionFile(
 		const nodeError = error as NodeJS.ErrnoException;
 		if (nodeError.code === "ENOENT")
 			return emptySummary(sessionFile, { status: "missing", error: "session file does not exist" });
-		return emptySummary(sessionFile, { status: "read_error", error: errorMessage(error) });
+		return emptySummary(sessionFile, { status: "read-error", error: errorMessage(error) });
 	}
 	if (!fileStat.isFile())
-		return emptySummary(sessionFile, { status: "not_file", error: "path is not a file" });
+		return emptySummary(sessionFile, { status: "not-file", error: "path is not a file" });
 
 	let content: string;
 	try {
 		content = await readFile(sessionFile, "utf8");
 	} catch (error) {
-		return emptySummary(sessionFile, { status: "read_error", error: errorMessage(error) });
+		return emptySummary(sessionFile, { status: "read-error", error: errorMessage(error) });
 	}
 
 	const parsed = parseRunnerSubagentUsageJsonl(content);
 	if (parsed.type === "invalid-json") {
 		return emptySummary(sessionFile, {
-			status: "invalid_json",
+			status: "invalid-json",
 			error: `invalid JSON: ${parsed.message}`,
 			errorLine: parsed.line,
 		});
@@ -176,7 +176,7 @@ function summaryFromRecords(
 ): RunnerSubagentUsageSummary {
 	if (records.length === 0)
 		return emptySummary(sessionFile, {
-			status: "no_usage",
+			status: "no-usage",
 			error: "no assistant usage records found",
 		});
 

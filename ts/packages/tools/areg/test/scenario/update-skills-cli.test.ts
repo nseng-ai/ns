@@ -223,7 +223,7 @@ describe("areg update-skills CLI", () => {
 		expect(body).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "skill_update_failed",
+			errorType: "skill-update-failed",
 			message: expect.stringContaining("1 skill(s) failed to update: alpha"),
 		});
 	});
@@ -237,18 +237,18 @@ describe("areg update-skills CLI", () => {
 			exitCode: 0,
 			data: {
 				ok: true,
-				project_dir: "/repo",
+				projectDir: "/repo",
 				agents: ["codex", "claude-code"],
-				dry_run: true,
-				selected_updates: [
+				dryRun: true,
+				selectedUpdates: [
 					{ skill: "alpha", source: "owner/repo" },
 					{ skill: "beta", source: "other/repo" },
 				],
-				attempted_updates: [
+				attemptedUpdates: [
 					{ skill: "alpha", source: "owner/repo", status: "planned" },
 					{ skill: "beta", source: "other/repo", status: "planned" },
 				],
-				failure_count: 0,
+				failureCount: 0,
 			},
 		});
 	});

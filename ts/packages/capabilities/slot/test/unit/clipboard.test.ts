@@ -14,22 +14,22 @@ describe("clipboard gateway primitives", () => {
 
 	it("reports backend_missing failure", async () => {
 		const gateway = new RealClipboardGateway({
-			runner: new ScriptedRunner({ type: "failure", reason: "backend_missing", detail: "missing" }),
+			runner: new ScriptedRunner({ type: "failure", reason: "backend-missing", detail: "missing" }),
 		});
 		await expect(gateway.copy("hello")).resolves.toEqual({
 			type: "failure",
-			reason: "backend_missing",
+			reason: "backend-missing",
 			detail: "missing",
 		});
 	});
 
 	it("reports subprocess_error failure", async () => {
 		const gateway = new RealClipboardGateway({
-			runner: new ScriptedRunner({ type: "failure", reason: "subprocess_error", detail: "bad" }),
+			runner: new ScriptedRunner({ type: "failure", reason: "subprocess-error", detail: "bad" }),
 		});
 		await expect(gateway.copy("hello")).resolves.toEqual({
 			type: "failure",
-			reason: "subprocess_error",
+			reason: "subprocess-error",
 			detail: "bad",
 		});
 	});
@@ -37,12 +37,12 @@ describe("clipboard gateway primitives", () => {
 	it("fake records attempted copied text without touching the real clipboard", async () => {
 		const gateway = new FakeClipboardGateway({
 			type: "failure",
-			reason: "backend_missing",
+			reason: "backend-missing",
 			detail: "missing",
 		});
 		await expect(gateway.copy("cd /tmp")).resolves.toMatchObject({
 			type: "failure",
-			reason: "backend_missing",
+			reason: "backend-missing",
 		});
 		expect(gateway.texts()).toEqual(["cd /tmp"]);
 	});

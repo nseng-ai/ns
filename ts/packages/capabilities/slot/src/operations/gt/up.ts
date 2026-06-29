@@ -10,17 +10,17 @@ export const gtUpRequestSchema = z.object({
 });
 
 export const gtNavigationResultSchema = z.object({
-	slot_name: z.string().nullable(),
-	branch_name: z.string(),
-	worktree_path: z.string(),
-	cd_command: z.string(),
-	already_assigned: z.boolean(),
-	clipboard_copied: z.boolean(),
-	clipboard_skipped: z.boolean(),
-	clipboard_failure_reason: z
-		.union([z.literal("backend_missing"), z.literal("subprocess_error")])
+	slotName: z.string().nullable(),
+	branchName: z.string(),
+	worktreePath: z.string(),
+	cdCommand: z.string(),
+	alreadyAssigned: z.boolean(),
+	clipboardCopied: z.boolean(),
+	clipboardSkipped: z.boolean(),
+	clipboardFailureReason: z
+		.union([z.literal("backend-missing"), z.literal("subprocess-error")])
 		.nullable(),
-	clipboard_failure_detail: z.string().nullable(),
+	clipboardFailureDetail: z.string().nullable(),
 });
 
 export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
@@ -31,10 +31,10 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	const children = await ctx.gt.childrenOf(resolved.repoCtx.repo.root);
 	if (children.type === "untracked_branch")
 		return failure(
-			"untracked_branch",
+			"untracked-branch",
 			`Current branch '${resolved.currentBranch}' is not tracked by Graphite. ${children.message}`,
 		);
-	if (children.type === "failure") return failure("gt_children_failed", children.failure.message);
+	if (children.type === "failure") return failure("gt-children-failed", children.failure.message);
 	if (children.branches.length === 0)
 		return negative(`No upstack branch for '${resolved.currentBranch}'.`);
 	if (children.branches.length > 1)

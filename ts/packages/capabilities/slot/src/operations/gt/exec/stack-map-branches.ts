@@ -26,22 +26,22 @@ import {
 
 const STACK_MAP_SCOPE = "stack-map";
 const BAD_PARENT_NAME_VALIDATION_RESULT = "BAD_PARENT_NAME";
-const EMPTY_BRANCH_NAME_WARNING = "Graphite metadata row has an empty branch_name; row ignored";
+const EMPTY_BRANCH_NAME_WARNING = "Graphite metadata row has an empty branchName; row ignored";
 
 const stackMapBranchSchema = z.object({
 	name: z.string(),
 	parent: z.string().nullable(),
 	children: z.array(z.string()),
-	validation_result: z.string().nullable(),
-	needs_restack: z.boolean(),
+	validationResult: z.string().nullable(),
+	needsRestack: z.boolean(),
 });
 
 const stackMapEdgeSchema = z.object({ parent: z.string(), child: z.string() });
 
 const stackMapSlotSchema = z.object({
-	slot_name: z.string(),
+	slotName: z.string(),
 	branch: z.string(),
-	worktree_path: z.string(),
+	worktreePath: z.string(),
 	status: z.literal("assigned"),
 });
 
@@ -58,7 +58,7 @@ export const gtStackMapBranchesResultSchema = z.object({
 	current: z.string(),
 	trunk: z.string(),
 	scope: z.literal(STACK_MAP_SCOPE),
-	recent_limit: z.number().int().nonnegative(),
+	recentLimit: z.number().int().nonnegative(),
 	branches: z.array(stackMapBranchSchema),
 	edges: z.array(stackMapEdgeSchema),
 	slots: z.array(stackMapSlotSchema),
@@ -80,18 +80,18 @@ export async function runGtStackMapBranches(
 
 	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
 	if (stackResult.type === "untracked_branch")
-		return failure("untracked_branch", `${stackResult.message} — run \`gt track\` first`);
+		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure")
-		return failure("gt_stack_read_failed", stackResult.failure.message);
+		return failure("gt-stack-read-failed", stackResult.failure.message);
 
 	const graphResult = await ctx.gt.stackGraph(resolved.repoCtx.repo.root);
 	if (graphResult.type === "git_common_dir_missing")
-		return failure("git_common_dir_missing", graphResult.message);
+		return failure("git-common-dir-missing", graphResult.message);
 	if (graphResult.type === "failure")
-		return failure("gt_metadata_read_failed", graphResult.failure.message);
+		return failure("gt-metadata-read-failed", graphResult.failure.message);
 	if (!graphResult.graph.topology.has(stackResult.stack.trunk)) {
 		return failure(
-			"stack_metadata_inconsistent",
+			"stack-metadata-inconsistent",
 			`Graphite trunk branch ${stackResult.stack.trunk} is missing from metadata graph.`,
 		);
 	}
@@ -127,7 +127,7 @@ export async function runGtStackMapBranches(
 		current: stackResult.stack.current,
 		trunk: stackResult.stack.trunk,
 		scope: STACK_MAP_SCOPE,
-		recent_limit: request.recentLimit,
+		recentLimit: request.recentLimit,
 		branches: branchResults(graphResult.graph.topology, selection.selected),
 		edges: edgeResults(graphResult.graph.topology, selection.selected),
 		slots: slotRows,
@@ -147,9 +147,9 @@ function assignedSlotRows(records: readonly SlotRecord[]): StackMapSlot[] {
 			? []
 			: [
 					{
-						slot_name: record.slotName,
+						slotName: record.slotName,
 						branch: record.branch,
-						worktree_path: record.path,
+						worktreePath: record.path,
 						status: "assigned" as const,
 					},
 				],
@@ -241,8 +241,8 @@ function branchResult(row: GraphiteBranchTopology, selected: ReadonlySet<string>
 		name: row.branch,
 		parent: row.parent ?? null,
 		children: row.children.filter((child) => selected.has(child)),
-		validation_result: row.validationResult ?? null,
-		needs_restack: row.validationResult === BAD_PARENT_NAME_VALIDATION_RESULT,
+		validationResult: row.validationResult ?? null,
+		needsRestack: row.validationResult === BAD_PARENT_NAME_VALIDATION_RESULT,
 	};
 }
 

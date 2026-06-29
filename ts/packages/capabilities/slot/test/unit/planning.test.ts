@@ -88,7 +88,7 @@ describe("checkout planning", () => {
 		await expect(
 			planCurrentWtRedirect(git, { cwd: "/repo", movingBranch: "moving" }),
 		).resolves.toEqual({
-			action: { type: "checkout_branch", branch: "prev", role: "previous" },
+			action: { type: "checkout-branch", branch: "prev", role: "previous" },
 			note: null,
 		});
 	});
@@ -100,7 +100,7 @@ describe("checkout planning", () => {
 				cwd: "/slots/repos/repo/worktrees/slot-01",
 				movingBranch: "feature/a",
 			}),
-		).resolves.toEqual({ action: { type: "detach_head", ref: "main" }, note: null });
+		).resolves.toEqual({ action: { type: "detach-head", ref: "main" }, note: null });
 	});
 
 	it("removes only the caller branch occupancy", () => {

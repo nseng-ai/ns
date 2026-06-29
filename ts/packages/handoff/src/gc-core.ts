@@ -88,7 +88,7 @@ function entryFromDeletion(
 			action: "error",
 			commit: null,
 			message:
-				result.error.code === "handoff_not_found"
+				result.error.code === "handoff-not-found"
 					? `Handoff disappeared before deletion: ${result.error.message}`
 					: result.error.message,
 		};

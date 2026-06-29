@@ -100,16 +100,16 @@ export interface PublishFindingsOptions {
 }
 
 export type PublicationFailurePhase =
-	| "payload_parse"
-	| "comment_body_parse"
-	| "summary_lookup"
-	| "summary_write";
+	| "payload-parse"
+	| "comment-body-parse"
+	| "summary-lookup"
+	| "summary-write";
 
 export type PublicationFailureReason =
-	| "invalid_payload"
-	| "invalid_comment_body"
-	| "github_lookup_failed"
-	| "github_write_failed";
+	| "invalid-payload"
+	| "invalid-comment-body"
+	| "github-lookup-failed"
+	| "github-write-failed";
 
 export interface SummaryPublicationStatus {
 	readonly type: "posted" | "updated";
@@ -137,7 +137,7 @@ export async function publishFindings(
 ): Promise<PublishFindingsResult> {
 	const parsed = parseFindingsPayloadResult(options.envelope, fallbackPayloadOptions(options));
 	if (parsed.type === "error")
-		return publicationError("payload_parse", "invalid_payload", parsed.error.message);
+		return publicationError("payload-parse", "invalid-payload", parsed.error.message);
 
 	const inlineStatus = await postInlineFindings(ctx, parsed.payload, {
 		prNumber: options.prNumber,
@@ -146,7 +146,7 @@ export async function publishFindings(
 	const renderedBody = renderFindingsComment(parsed.payload, { inlineStatus });
 	const parsedBody = parseFindingsCommentBody(renderedBody);
 	if (parsedBody.type === "error")
-		return publicationError("comment_body_parse", "invalid_comment_body", parsedBody.error.message);
+		return publicationError("comment-body-parse", "invalid-comment-body", parsedBody.error.message);
 
 	const existing = await ctx.github.findPrDiscussionCommentByMarker({
 		...environmentOptions(ctx.runScope),
@@ -155,7 +155,7 @@ export async function publishFindings(
 		authorLogin: ROASTER_BOT_LOGIN,
 	});
 	if (existing.type === "error")
-		return publicationError("summary_lookup", "github_lookup_failed", existing.error.message);
+		return publicationError("summary-lookup", "github-lookup-failed", existing.error.message);
 
 	const nextBody = preserveActivityLog(
 		existing.value?.body ?? "",
@@ -168,7 +168,7 @@ export async function publishFindings(
 			? await ctx.github.addPrDiscussionComment(options.prNumber, nextBody, githubOptions)
 			: await ctx.github.updatePrDiscussionComment(existing.value.id, nextBody, githubOptions);
 	if (written.type === "error")
-		return publicationError("summary_write", "github_write_failed", written.error.message);
+		return publicationError("summary-write", "github-write-failed", written.error.message);
 
 	return {
 		type: "ok",

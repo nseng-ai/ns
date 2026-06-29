@@ -41,9 +41,9 @@ describe("slot navigation presentation", () => {
 		const rendered = renderSlotNavigationSuccess(
 			{
 				...copiedInput(),
-				clipboard_copied: false,
-				clipboard_failure_reason: "backend_missing",
-				clipboard_failure_detail: "missing pbcopy",
+				clipboardCopied: false,
+				clipboardFailureReason: "backend-missing",
+				clipboardFailureDetail: "missing pbcopy",
 			},
 			{ canEmitAnsi: true, caps: unicodeColorCaps },
 		);
@@ -87,12 +87,12 @@ describe("slot navigation presentation", () => {
 function copiedInput(): SlotNavigationPresentationInput {
 	return {
 		headline: "slot-01 -> feature/a",
-		worktree_path: "/slots/repos/repo/worktrees/slot-01",
-		cd_command: "cd /slots/repos/repo/worktrees/slot-01",
-		clipboard_copied: true,
-		clipboard_skipped: false,
-		clipboard_failure_reason: null,
-		clipboard_failure_detail: null,
+		worktreePath: "/slots/repos/repo/worktrees/slot-01",
+		cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+		clipboardCopied: true,
+		clipboardSkipped: false,
+		clipboardFailureReason: null,
+		clipboardFailureDetail: null,
 	};
 }
 

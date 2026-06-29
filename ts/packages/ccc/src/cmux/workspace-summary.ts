@@ -30,7 +30,7 @@ const cmuxCommandFailureSchema = z.strictObject({
 const cmuxWorkspaceSummaryErrorSchema = z.strictObject({
 	code: z.string(),
 	message: z.string(),
-	command_failure: cmuxCommandFailureSchema.nullable(),
+	commandFailure: cmuxCommandFailureSchema.nullable(),
 });
 
 export const cmuxWorkspaceSummaryResultSchema = z.strictObject({
@@ -38,7 +38,7 @@ export const cmuxWorkspaceSummaryResultSchema = z.strictObject({
 	workspace: z.string().nullable(),
 	title: z.string(),
 	description: z.string().nullable(),
-	status_key: z.string(),
+	statusKey: z.string(),
 	error: cmuxWorkspaceSummaryErrorSchema.nullable(),
 });
 
@@ -46,11 +46,11 @@ export type CmuxWorkspaceSummaryRequest = z.infer<typeof cmuxWorkspaceSummaryReq
 export type CmuxWorkspaceSummaryResult = z.infer<typeof cmuxWorkspaceSummaryResultSchema>;
 
 type CmuxWorkspaceSummaryFailureCode =
-	| "missing_workspace"
-	| "missing_description"
-	| "rename_workspace_failed"
-	| "set_description_failed"
-	| "clear_status_failed";
+	| "missing-workspace"
+	| "missing-description"
+	| "rename-workspace-failed"
+	| "set-description-failed"
+	| "clear-status-failed";
 
 interface CmuxWorkspaceSummaryFailure {
 	code: CmuxWorkspaceSummaryFailureCode;
@@ -75,7 +75,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 		nonBlank(options.env["CMUX_TAB_ID"]);
 	if (workspace === undefined) {
 		return failedExit(options.request, null, {
-			code: "missing_workspace",
+			code: "missing-workspace",
 			message:
 				"Not running inside a cmux caller workspace (CMUX_WORKSPACE_ID/CMUX_TAB_ID missing).",
 		});
@@ -84,7 +84,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 	const description = nonBlank(options.request.description);
 	if (description === undefined) {
 		return failedExit(options.request, workspace, {
-			code: "missing_description",
+			code: "missing-description",
 			message: "Provide --description.",
 		});
 	}
@@ -106,7 +106,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 			options.request,
 			workspace,
 			commandFailure(
-				"rename_workspace_failed",
+				"rename-workspace-failed",
 				"Failed to rename cmux workspace.",
 				renameResult.failure,
 			),
@@ -123,7 +123,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 			options.request,
 			workspace,
 			commandFailure(
-				"set_description_failed",
+				"set-description-failed",
 				"Failed to set cmux workspace description.",
 				descriptionResult.failure,
 			),
@@ -140,7 +140,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 			options.request,
 			workspace,
 			commandFailure(
-				"clear_status_failed",
+				"clear-status-failed",
 				"Failed to clear cmux workspace status.",
 				clearStatusResult.failure,
 			),
@@ -152,7 +152,7 @@ export async function applyCmuxWorkspaceSummaryCommand(
 		workspace,
 		title: options.request.title,
 		description,
-		status_key: options.request.statusKey,
+		statusKey: options.request.statusKey,
 		error: null,
 	});
 }
@@ -163,7 +163,7 @@ export function renderCmuxWorkspaceSummaryHuman(data: CmuxWorkspaceSummaryResult
 }
 
 function commandFailure(
-	code: Exclude<CmuxWorkspaceSummaryFailureCode, "missing_workspace" | "missing_description">,
+	code: Exclude<CmuxWorkspaceSummaryFailureCode, "missing-workspace" | "missing-description">,
 	baseMessage: string,
 	failure: CmuxGatewayFailure,
 ): CmuxWorkspaceSummaryFailure {
@@ -190,11 +190,11 @@ function failedExit(
 		workspace,
 		title: request.title,
 		description: null,
-		status_key: request.statusKey,
+		statusKey: request.statusKey,
 		error: {
 			code: failureResult.code,
 			message: failureResult.message,
-			command_failure:
+			commandFailure:
 				failureResult.commandFailure === undefined
 					? null
 					: {
@@ -205,7 +205,7 @@ function failedExit(
 						},
 		},
 	};
-	if (failureResult.code === "missing_workspace" || failureResult.code === "missing_description") {
+	if (failureResult.code === "missing-workspace" || failureResult.code === "missing-description") {
 		return usageError(failureResult.message, result);
 	}
 	return failure(failureResult.code, failureResult.message, result);

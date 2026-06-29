@@ -11,12 +11,12 @@ import {
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
 
 export interface SlotCheckoutOutcome {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
-	already_assigned: boolean;
-	created_branch: boolean;
-	current_wt_note: string | null;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
+	alreadyAssigned: boolean;
+	createdBranch: boolean;
+	currentWtNote: string | null;
 }
 
 export type SlotCheckoutResult = LifecycleResult<SlotCheckoutOutcome>;
@@ -34,7 +34,7 @@ export async function checkoutBranch(
 	if (ctx.repo.type !== "repo")
 		return {
 			type: "failure",
-			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+			failure: { errorType: ctx.repo.errorType, message: ctx.repo.message },
 		};
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	await ensureSlotsMetadataDir(repoCtx.repo, repoCtx.storage);
@@ -44,23 +44,23 @@ export async function checkoutBranch(
 	if (options.shouldCreateBranch) {
 		if (branchExists)
 			return failure(
-				"branch_exists",
+				"branch-exists",
 				`Branch '${branchName}' already exists. Drop -b to check out the existing branch.`,
 			);
 		if (options.base !== null && !(await repoCtx.git.branchExists(options.base)))
-			return failure("base_missing", `Base branch '${options.base}' does not exist.`);
+			return failure("base-missing", `Base branch '${options.base}' does not exist.`);
 		const createFailure = await repoCtx.git.createBranch(branchName, options.base ?? "HEAD", {
 			shouldForce: false,
 		});
 		if (createFailure !== null)
 			return failure(
-				"branch_create_failed",
+				"branch-create-failed",
 				`Failed to create branch '${branchName}': ${createFailure.message}`,
 			);
 		hasCreatedBranch = true;
 	} else if (!branchExists) {
 		return failure(
-			"branch_missing",
+			"branch-missing",
 			`Branch '${branchName}' does not exist. Pass -b/--new to create it from HEAD.`,
 		);
 	}
@@ -87,7 +87,7 @@ export async function checkoutCurrent(ctx: SlotCliContext): Promise<SlotCheckout
 	if (ctx.repo.type !== "repo")
 		return {
 			type: "failure",
-			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+			failure: { errorType: ctx.repo.errorType, message: ctx.repo.message },
 		};
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	await ensureSlotsMetadataDir(repoCtx.repo, repoCtx.storage);
@@ -97,15 +97,15 @@ export async function checkoutCurrent(ctx: SlotCliContext): Promise<SlotCheckout
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
 	});
 	if (currentPlan.type === "allocation_failure")
-		return failure("slot_allocation_error", currentPlan.message);
+		return failure("slot-allocation-error", currentPlan.message);
 	if (currentPlan.type === "detached_head")
 		return failure(
-			"detached_head",
+			"detached-head",
 			`HEAD at ${currentPlan.cwd} is detached. Check out a branch before running \`sdl slot checkout --current\`.`,
 		);
 	if (currentPlan.type === "dirty_worktree")
 		return failure(
-			"dirty_worktree",
+			"dirty-worktree",
 			`Current worktree at ${currentPlan.cwd} has uncommitted changes. Commit or stash before running \`sdl slot checkout --current\`.`,
 		);
 	if (currentPlan.plan.type === "pool_full")
@@ -133,37 +133,37 @@ async function executeCheckoutPlan(
 ): Promise<SlotCheckoutResult> {
 	if (plan.type === "reuse_assignment") {
 		return ok({
-			slot_name: plan.record.slotName,
-			branch_name: options.branchName,
-			worktree_path: plan.record.path,
-			already_assigned: true,
-			created_branch: options.hasCreatedBranch,
-			current_wt_note: options.currentWtNote,
+			slotName: plan.record.slotName,
+			branchName: options.branchName,
+			worktreePath: plan.record.path,
+			alreadyAssigned: true,
+			createdBranch: options.hasCreatedBranch,
+			currentWtNote: options.currentWtNote,
 		});
 	}
 	if (plan.type === "branch_in_main_worktree") {
 		return ok({
-			slot_name: "",
-			branch_name: options.branchName,
-			worktree_path: plan.mainPath,
-			already_assigned: true,
-			created_branch: options.hasCreatedBranch,
-			current_wt_note: options.currentWtNote,
+			slotName: "",
+			branchName: options.branchName,
+			worktreePath: plan.mainPath,
+			alreadyAssigned: true,
+			createdBranch: options.hasCreatedBranch,
+			currentWtNote: options.currentWtNote,
 		});
 	}
 	const checkoutFailure = await ctx.git.checkoutBranch(plan.record.path, options.branchName);
 	if (checkoutFailure !== null)
 		return failure(
-			"checkout_failed",
+			"checkout-failed",
 			`Failed to check out '${options.branchName}' into ${plan.record.slotName}: ${checkoutFailure.message}`,
 		);
 	return ok({
-		slot_name: plan.record.slotName,
-		branch_name: options.branchName,
-		worktree_path: plan.record.path,
-		already_assigned: false,
-		created_branch: options.hasCreatedBranch,
-		current_wt_note: options.currentWtNote,
+		slotName: plan.record.slotName,
+		branchName: options.branchName,
+		worktreePath: plan.record.path,
+		alreadyAssigned: false,
+		createdBranch: options.hasCreatedBranch,
+		currentWtNote: options.currentWtNote,
 	});
 }
 
@@ -172,6 +172,6 @@ function ok(outcome: SlotCheckoutOutcome): SlotCheckoutResult {
 }
 
 function failure(errorType: string, message: string): SlotCheckoutResult {
-	const lifecycleFailure: SlotLifecycleFailure = { error_type: errorType, message };
+	const lifecycleFailure: SlotLifecycleFailure = { errorType: errorType, message };
 	return { type: "failure", failure: lifecycleFailure };
 }

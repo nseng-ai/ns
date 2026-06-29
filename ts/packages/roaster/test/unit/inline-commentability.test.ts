@@ -46,11 +46,11 @@ describe("classifyInlineFindings", () => {
 	});
 
 	test.each([
-		[finding({ path: null, line: 1 }), "missing_path"],
-		[finding({ path: "src/app.ts", line: null }), "missing_line"],
-		[finding({ path: "src/other.ts", line: 1 }), "file_not_changed"],
-		[finding({ path: "image.png", line: 1 }), "patch_unavailable"],
-		[finding({ path: "src/app.ts", line: 99 }), "line_not_in_diff"],
+		[finding({ path: null, line: 1 }), "missing-path"],
+		[finding({ path: "src/app.ts", line: null }), "missing-line"],
+		[finding({ path: "src/other.ts", line: 1 }), "file-not-changed"],
+		[finding({ path: "image.png", line: 1 }), "patch-unavailable"],
+		[finding({ path: "src/app.ts", line: 99 }), "line-not-in-diff"],
 	] as const)("classifies fallback reason %s", (item, reason) => {
 		const result = classifyInlineFindings([item], changedFiles);
 
