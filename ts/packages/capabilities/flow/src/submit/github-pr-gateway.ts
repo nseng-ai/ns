@@ -1,11 +1,13 @@
 import { runCommand, type CommandRunner, type ExecResult } from "@sdl/core/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/core/github-cli";
+import { systemTimerScheduler, type TimerScheduler } from "@sdl/core/timers";
 import { isRecord } from "@sdl/core/primitives";
 import { withTemporaryFile } from "@sdl/core/temp-files";
 import { commandFailure, err, ok, type GatewayResult } from "@sdl/capability-kit/gateway-result";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
 const VIEW_TIMEOUT_MS = GITHUB_CLI_TIMEOUT_MS;
+const VIEW_PR_RETRY_DELAYS_MS = [500, 1_500, 3_000] as const;
 const DIFF_TIMEOUT_MS = 60_000;
 const PATCH_ID_TIMEOUT_MS = 60_000;
 const EDIT_TIMEOUT_MS = 60_000;
@@ -15,6 +17,11 @@ interface RunGitOptions {
 	cwd: string;
 	timeoutMs: number;
 	stdin?: string;
+}
+
+interface GithubPrGatewayOptions {
+	viewPrRetryDelaysMs?: readonly number[];
+	timers?: TimerScheduler;
 }
 
 export interface GithubPrDetails {
@@ -65,9 +72,13 @@ export interface GithubPrGateway {
 
 export class RealGithubPrGateway implements GithubPrGateway {
 	private readonly runner: CommandRunner;
+	private readonly viewPrRetryDelaysMs: readonly number[];
+	private readonly timers: TimerScheduler;
 
-	constructor(runner: CommandRunner = runCommand) {
+	constructor(runner: CommandRunner = runCommand, options: GithubPrGatewayOptions = {}) {
 		this.runner = runner;
+		this.viewPrRetryDelaysMs = options.viewPrRetryDelaysMs ?? VIEW_PR_RETRY_DELAYS_MS;
+		this.timers = options.timers ?? systemTimerScheduler;
 	}
 
 	async viewCurrentBranchPr(params: { cwd: string }): Promise<GatewayResult<GithubPrDetails>> {
@@ -78,6 +89,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		return this.viewPrWithArgs({
 			cwd: params.cwd,
 			args: ["pr", "view", String(params.number), "--json", PR_VIEW_FIELDS],
+			retryDelaysMs: this.viewPrRetryDelaysMs,
 		});
 	}
 
@@ -218,20 +230,36 @@ export class RealGithubPrGateway implements GithubPrGateway {
 	private async viewPrWithArgs(params: {
 		cwd: string;
 		args: string[];
+		retryDelaysMs?: readonly number[];
 	}): Promise<GatewayResult<GithubPrDetails>> {
-		const result = await this.runGh(params.args, params.cwd, VIEW_TIMEOUT_MS);
-		const failure = commandFailure({
-			command: "gh",
-			args: params.args,
-			result,
+		const retryDelaysMs = params.retryDelaysMs ?? [];
+		for (const [attemptIndex, retryDelayMs] of [...retryDelaysMs, undefined].entries()) {
+			if (attemptIndex > 0) {
+				await sleepWithTimers(this.timers, retryDelaysMs[attemptIndex - 1] ?? 0);
+			}
+
+			const result = await this.runGh(params.args, params.cwd, VIEW_TIMEOUT_MS);
+			const failure = commandFailure({
+				command: "gh",
+				args: params.args,
+				result,
+				code: "github_pr_view_failed",
+				message: "Could not read GitHub PR details.",
+			});
+			if (failure !== undefined) {
+				if (retryDelayMs !== undefined) continue;
+				return err(failure);
+			}
+
+			const parsed = parseGithubPrDetails(result.stdout);
+			if (!parsed.ok) return err(parsed.error);
+			return ok(parsed.value);
+		}
+
+		return err({
 			code: "github_pr_view_failed",
 			message: "Could not read GitHub PR details.",
 		});
-		if (failure !== undefined) return err(failure);
-
-		const parsed = parseGithubPrDetails(result.stdout);
-		if (!parsed.ok) return err(parsed.error);
-		return ok(parsed.value);
 	}
 
 	private async getLocalPrDiff(params: {
@@ -315,4 +343,10 @@ function parseJson(text: string): unknown {
 		// Malformed gh JSON is converted to a gateway parse failure by the caller.
 		return undefined;
 	}
+}
+
+async function sleepWithTimers(timers: TimerScheduler, ms: number): Promise<void> {
+	await new Promise<void>((resolve) => {
+		timers.setTimeout(resolve, ms);
+	});
 }
