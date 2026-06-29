@@ -1,7 +1,23 @@
+import type { Caps } from "@sdl/clinkr";
+import { paint } from "@sdl/cli-theme";
 import { stripTerminalEscapes } from "@sdl/core/exec";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+
+const colorCaps: Caps = {
+	isTty: true,
+	colorDepth: "truecolor",
+	columns: 80,
+	canRenderUnicode: true,
+};
+
+const monoCaps: Caps = {
+	isTty: true,
+	colorDepth: "none",
+	columns: 80,
+	canRenderUnicode: true,
+};
 
 describe("slot gc CLI", () => {
 	it("appears in root help", async () => {
@@ -153,6 +169,49 @@ describe("slot gc CLI", () => {
 		expect(await declined.exit).toBe(0);
 		expect(stripTerminalEscapes(declined.stdout.join(""))).toContain("Cancelled slot gc.");
 		expect(declined.git.operations()).toEqual([]);
+	});
+
+	it("colorizes the preview table when the terminal caps support color", async () => {
+		const run = runScenario(["gc"], {
+			stdin: "no\n",
+			caps: colorCaps,
+			canEmitAnsi: true,
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/closed")],
+				localBranches: ["master", "feature/closed"],
+			},
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const stderr = run.stderr.join("");
+		// ACTION cell ("Would free") is painted with the accent intent in the preview table.
+		expect(stderr).toContain(paint(colorCaps, "accent", "Would free"));
+		// SLOT cell carries the accent intent too.
+		expect(stderr).toContain(paint(colorCaps, "accent", "slot-01"));
+		// Text content is unchanged from the plain rendering.
+		const stripped = stripTerminalEscapes(stderr);
+		expect(stripped).toContain("Would free 1 slot(s).");
+		expect(stripped).toContain("slot-01");
+		expect(stripped).toContain("#1 CLOSED");
+	});
+
+	it("renders the confirmation preview without ANSI when terminal caps are monochrome", async () => {
+		const run = runScenario(["gc"], {
+			stdin: "no\n",
+			caps: monoCaps,
+			canEmitAnsi: true,
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/closed")],
+				localBranches: ["master", "feature/closed"],
+			},
+			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
+		});
+		expect(await run.exit).toBe(0);
+		const stderr = run.stderr.join("");
+		expect(stderr).not.toContain("\u001b[");
+		expect(stderr).toContain("Would free 1 slot(s).");
+		expect(stderr).toContain("slot-01");
+		expect(stderr).toContain("#1 CLOSED");
 	});
 
 	it("human --delete-branches prompt previews branch cleanup before confirmation", async () => {

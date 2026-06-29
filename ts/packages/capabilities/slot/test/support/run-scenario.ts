@@ -1,6 +1,8 @@
 import {
+	CLINKR_CAPS_EXTENSION_KEY,
 	isClinkrHumanOutputInvocation,
 	resolveClinkrInteraction,
+	type Caps,
 	type ConfirmationResult,
 } from "@sdl/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@sdl/clinkr/testing";
@@ -36,6 +38,7 @@ export interface ScenarioRunOptions {
 	clipboardResult?: ClipboardCopyResult | undefined;
 	command?: FakeSlotCommandGatewayOptions | undefined;
 	canEmitAnsi?: boolean | undefined;
+	caps?: Caps | undefined;
 }
 
 export interface ScenarioRun {
@@ -137,6 +140,8 @@ function buildScenarioFixture(
 			...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
 		});
 	const repo = options.repo ?? repoContext();
+	const extensions =
+		options.caps === undefined ? undefined : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps };
 	// Slot package scenarios exercise the mounted command face directly. Entrypoint
 	// metadata (`--version`/`--runtime`) is covered by the owning `sdl` CLI tests.
 	const context: SlotCliContext = {
@@ -148,6 +153,7 @@ function buildScenarioFixture(
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
 		cwd,
+		...(extensions === undefined ? {} : { extensions }),
 		interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },

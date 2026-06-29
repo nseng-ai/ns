@@ -86,7 +86,7 @@ export {
 } from "./format.ts";
 export { createProcessIo, resolveIo } from "./io.ts";
 export type { ClinkrIo, ClinkrIoOverrides } from "./io.ts";
-export { emitExit, resolveRenderCapabilities } from "./emit.ts";
+export { emitExit, renderCapabilitiesForTerminal, resolveRenderCapabilities } from "./emit.ts";
 export type { ClinkrFormat, EmitExitOptions, RenderCapabilities } from "./emit.ts";
 export type { JsonSchemaDocument } from "./json-schema.ts";
 export type { OptionSpec, PositionalSpec } from "./surface.ts";

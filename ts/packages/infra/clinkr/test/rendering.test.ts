@@ -6,6 +6,7 @@ import {
 	ClinkrGroup,
 	negative,
 	ok,
+	renderCapabilitiesForTerminal,
 	resolveRenderCapabilities,
 	type ClinkrExit,
 } from "../src/index.ts";
@@ -69,6 +70,34 @@ function buildMarkdownGroup(
 	});
 	return { group, humanCalls: () => humanCalls, markdownCalls: () => markdownCalls };
 }
+
+describe("renderCapabilitiesForTerminal", () => {
+	test("enables ANSI when caps support color", () => {
+		const caps: Caps = {
+			isTty: true,
+			colorDepth: "ansi16",
+			columns: 80,
+			canRenderUnicode: true,
+		};
+		expect(renderCapabilitiesForTerminal(caps)).toEqual({ canEmitAnsi: true, caps });
+	});
+
+	test("disables ANSI when caps are monochrome", () => {
+		const caps: Caps = {
+			isTty: true,
+			colorDepth: "none",
+			columns: 80,
+			canRenderUnicode: true,
+		};
+		expect(renderCapabilitiesForTerminal(caps)).toEqual({ canEmitAnsi: false, caps });
+	});
+
+	test("omits caps when none are available", () => {
+		const renderCapabilities = renderCapabilitiesForTerminal(undefined);
+		expect(renderCapabilities).toEqual({ canEmitAnsi: false });
+		expect(Object.hasOwn(renderCapabilities, "caps")).toBe(false);
+	});
+});
 
 describe("resolveRenderCapabilities", () => {
 	test("uses sink caps when present", () => {

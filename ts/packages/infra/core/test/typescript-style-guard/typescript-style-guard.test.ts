@@ -33,6 +33,8 @@ import { collectPackageTierLayeringViolations } from "../support/typescript-styl
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(TEST_FILE), "../../../../../..");
+const SOURCE_RULE_SHARD_TEST_TIMEOUT_MS = 15_000;
+
 const sourceRuleShards: readonly SourceRuleShard[] = [
 	{
 		name: "ts/packages/hosts",
@@ -317,7 +319,7 @@ describe("TypeScript style guard source rules", () => {
 
 			expect(formatViolations(violations)).toBe("");
 		},
-		15_000,
+		SOURCE_RULE_SHARD_TEST_TIMEOUT_MS,
 	);
 });
 

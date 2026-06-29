@@ -1,5 +1,5 @@
 import { renderBufferedReport } from "@sdl/cli-theme";
-import type { Caps } from "@sdl/clinkr";
+import { renderCapabilitiesForTerminal, type Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
 import {
@@ -57,12 +57,12 @@ export default defineExtension({
 });
 
 function formatOutstandingChangesMessage(
-	caps: Caps,
+	terminalCaps: Caps,
 	snapshot: PendingWorktreeSnapshot,
 	summaryText: string,
 ): string {
 	return renderBufferedReport({
-		caps: { canEmitAnsi: caps.colorDepth !== "none", caps },
+		caps: renderCapabilitiesForTerminal(terminalCaps),
 		title: `Outstanding changes on ${snapshot.branch}`,
 		sections: [
 			{ title: "Summary", lines: summaryLines(summaryText) },

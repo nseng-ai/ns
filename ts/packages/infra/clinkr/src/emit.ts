@@ -20,6 +20,13 @@ export interface RenderCapabilities {
 	caps?: Caps | undefined;
 }
 
+export function renderCapabilitiesForTerminal(caps: Caps | undefined): RenderCapabilities {
+	return {
+		canEmitAnsi: caps !== undefined && caps.colorDepth !== "none",
+		...(caps === undefined ? {} : { caps }),
+	};
+}
+
 export function resolveRenderCapabilities(renderCapabilities: RenderCapabilities): Caps {
 	return renderCapabilities.caps ?? resolveSettledNonInteractiveCaps();
 }
