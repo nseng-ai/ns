@@ -7,6 +7,9 @@ and ADR 0004 (pr-address TypeScript Package Boundary). Both stand as written; th
 sharpens where GitHub gateway seams versus gateway implementation mechanics live, and
 fixes the SDL author SDK to a dedicated package.
 
+Later refined by ADR 0018 for the target placement of GitHub gateway mechanics under the
+four-bucket neutral-infra classification rule.
+
 ## Context
 
 Two coordinated structural questions came due on the same branch.

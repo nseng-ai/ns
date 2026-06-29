@@ -78,7 +78,23 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`), the SDK (SDL kernel `@sdl/kernel` + the `sdl-sdk` package), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant. The SDK boundary is permeable downward only to concepts that prove general worth (opinionated patterns such as gateways stay above the SDK). These terms name its parts.
+The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@sdl/core` as the pure utility library plus other non-domain infra such as `@sdl/clinkr`), the SDK (SDL kernel `@sdl/kernel` + the `sdl-sdk` package), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not neutral-infra long term: they belong in **Capability Kit** per-domain subpaths. Intrinsic host services expose author-facing interfaces through `sdl-sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@sdl/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule. The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
+
+**Pure Utility**:
+A deterministic transform with no I/O and no SDL runtime knowledge. Pure utilities stay in `@sdl/core` and may be imported directly by any layer.
+*Avoid*: gateway, host service, runtime harness
+
+**Kit Gateway**:
+A real-world I/O, external-tool, external-protocol, or precise filesystem-backed gateway/helper that belongs in a per-domain `@sdl/capability-kit/<domain>` subpath with its interface, real adapter, and fake/testing support. It is first-party gateway infrastructure, not product capability domain.
+*Avoid*: neutral-infra gateway, product capability, generic filesystem gateway
+
+**SDK-provided service**:
+An intrinsic host service reached by extension authors through `ctx` / the vended API object. Its author-facing interface lives in `sdl-sdk`; its implementation is hidden in the kernel. If the author reaches it through the vended API object, classify it as SDK-provided.
+*Avoid*: kit gateway, raw process/global import, capability-owned host primitive
+
+**Runtime Harness**:
+Program boot code that creates or wires the vended API object and is never reached through `ctx`. Runtime harness code belongs in the kernel or a named neutral CLI-runtime infra home, not in `@sdl/core` long term.
+*Avoid*: SDK service, capability API, imported utility
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
@@ -95,8 +111,8 @@ An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, 
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
-The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `sdl-sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
-*Avoid*: Extension Kit (reserved name), extension framework, above-SDK substrate, capability-kit core
+The shared substrate (`@sdl/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, first-party per-domain gateway seams/adapters/fakes (`exec`, `git`, `github`, shell, temp-file, and similar precise domains), and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `sdl-sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
+*Avoid*: Extension Kit (reserved name), extension framework, product capability home, neutral-infra gateway, capability-kit core
 
 **Capability API**:
 A **Capability**'s curated, typed in-process export at the required `@sdl/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.

@@ -2,12 +2,14 @@
 
 ## Work
 
-- [ ] Write the four-bucket classification rule (pure util / kit gateway / SDK-provided /
+- [x] Write the four-bucket classification rule (pure util / kit gateway / SDK-provided /
       runtime harness) and the "reached-through-`ctx` ⇒ SDK-provided" test into CONTEXT/ADR,
       and produce the per-subpath disposition table covering all ~36 current `@sdl/core`
       exports.
-  - Evidence: a checked-in classification doc/ADR plus a disposition table that names a bucket
-    and target home for every current `@sdl/core` subpath.
+  - Evidence: ADR 0018 (`docs/adr/0018-four-bucket-neutral-infra-gateway-classification.md`)
+    records the four-bucket rule and a disposition table for every current `@sdl/core` export;
+    `CONTEXT.md` now carries the concise vocabulary and ADR 0016 cross-references the GitHub
+    placement refinement.
 
 - [ ] Relocate the `git` gateway into `@sdl/capability-kit/git` (interface + real + fake
       co-located); repoint all capability/consumer imports off `@sdl/core/git`; delete the
