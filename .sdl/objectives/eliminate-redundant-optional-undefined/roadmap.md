@@ -5,19 +5,23 @@
 - [x] Consolidate tracking into one open Objective.
       Created this canonical follow-up record so agents do not choose between reopening the closed normalization Objective, following the original five-PR branch-context plan literally, or adopting a separate hard-enforcement interpretation. The closed Objective remains precedent; this Objective owns active follow-up tracking.
 
-- [~] Finish the current branch-local continuation slice.
-      Complete and validate the cleanup already present on `eliminate-optional-undefined-five-pr-stack`: packagechk metadata helpers, GitHub PR feedback fingerprint/status helpers, pr-feedback-watch models, local preview/check models, and worktree-status presentation/internal cleanup. Keep this slice coherent; do not broaden into address, branch-context, handoff, objective, or roaster unless directly connected to existing changes.
+- [x] Deliver the initial branch-local continuation slice.
+      The packagechk / GitHub PR feedback / pr-feedback-watch / preview-checks / worktree-status cleanup stack was submitted as PRs #2420, #2423, #2428, and #2429. It provides the seed evidence for the standing loop and proves the process of classifying candidates, narrowing internal shapes, preserving compatibility surfaces, and validating touched TypeScript.
 
-- [ ] Record slice evidence and rebaseline touched clusters.
-      For the current branch-local slice, record scoped pre/post counts, changed fields, semantic claims, preserved/deferred categories, and validation. Current recomputed touched-cluster inventory at consolidation time was 67 matches across the changed source areas: 30 in `infra/github`, 18 in `worktree-status/src`, 11 in `local-pi-tools/pr-feedback-watch`, and 8 in `local-pi-tools/pr-previews`; `tools/packagechk/src` had no remaining matches in that scoped grep.
+- [~] Continuously reduce semantically redundant optional-undefined declarations.
+  Policy: `objective-next` may autonomously inventory, classify, edit, validate, and record small local cleanup slices under the Objective's Runner Policy. Prefer internal result, diagnostic, presentation, durable-record, and helper-only types when construction evidence shows absence is modeled by omission. Avoid public/input/options/dependency/environment/signal/external-schema surfaces unless a normalized internal boundary justifies the narrowing.
+  Evidence: scoped before/after counts, changed fields, semantic claim, preserved/deferred categories, construction-path notes, and relevant TypeScript validation.
 
-- [ ] Decide whether this branch should split before review.
-      If packagechk, PR feedback, previews, and worktree-status are not review-coherent as one slice, narrow or split before submission. Preserve the Objective narrative either way.
+- [~] Maintain reusable candidate-classification knowledge.
+  Record durable findings about recurring preserved categories, safe normalization patterns, and ruled-out approaches in Semantic Updates. Do not write per-run logs; record only knowledge that changes future runner behavior or explains kept progress.
 
-- [ ] Close after the active slice is delivered or explicitly deferred.
-      Closure should summarize the final touched-cluster counts, validation evidence, preserved categories, and any recommended next Objective if a broader hard guard/allowlist policy is later desired.
+- [~] Keep review slices coherent and small.
+  Autonomous runs should leave small local diffs that a human or later Graphite workflow can review. If an inventory suggests unrelated clusters, choose one cluster rather than batching by syntax. If a slice grows broad, stop and record the split/narrowing rationale.
+
+- [ ] Periodically consider whether a hard guard / allowlist deserves a separate Objective.
+      Do not implement enforcement in this Objective unless explicitly approved. If autonomous cleanup repeatedly finds the same accidental pattern and a guard would prevent recurrence, record the evidence and recommend a separate bounded Objective.
 
 ## Parked
 
-- [ ] Consider a separate hard enforcement / allowlist Objective only if explicitly approved.
-      This Objective deliberately does not adopt a repo-wide ban, checked-in allowlist, or zero-count target.
+- [ ] Repo-wide hard enforcement / allowlist campaign.
+      Parked until explicitly approved. This standing Objective deliberately remains semantic and incremental rather than a blanket zero-count target.
