@@ -1,200 +1,30 @@
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { delimiter, resolve, join } from "node:path";
+import { z } from "zod";
 
-import { afterEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import {
-	formattedExecCalls,
-	parseJsonOutput,
-	runCliWithFakes,
-	type ExecCall,
-	type RunWithFakesOptions,
-} from "./sdl-cli-fakes.ts";
+import type {
+	ExtensionCommandCandidate,
+	SelectedSdlCommandLoadResult,
+	SdlCommandCatalog,
+} from "../../src/extension-registry.ts";
+import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
+import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
 
-const tempDirs: string[] = [];
-
-function runWithFakes(options: RunWithFakesOptions) {
-	return runCliWithFakes(options, {
-		execResponses: () => [],
-		textGenerationResults: () => [],
-	});
-}
-
-function repoRoot(): string {
-	return resolve(process.cwd(), "..");
-}
-
-function repoRootResponses(root: string) {
-	return [gitRootResponse(root)];
-}
-
-function gitRootResponse(root: string) {
-	return {
-		match: "git rev-parse --show-toplevel",
-		result: { stdout: `${root}\n` },
-		isRepeatable: true,
-	};
-}
-
-function brmemListResponse() {
-	return {
-		match: "brmem list --namespace roaster --format json",
-		result: {
-			stdout: `${JSON.stringify({
-				status: "ok",
-				exitCode: 0,
-				data: {
-					entries: [
-						{
-							namespace: "roaster",
-							key: "reviews/typescript-style/2026-06-20T18-43-11-123Z.md",
-							branch: "feature/roaster",
-							refName:
-								"refs/brmem/ns/roaster/feature/roaster:reviews/typescript-style/2026-06-20T18-43-11-123Z.md",
-						},
-					],
-				},
-			})}\n`,
+function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
+	const registry = fakeRoasterRegistry();
+	const run = runCliWithFakes(
+		{ ...options, extensionRegistry: registry },
+		{
+			execResponses: () => [],
+			textGenerationResults: () => [],
 		},
-	};
-}
-
-function brmemPutFailureResponse() {
-	return {
-		match: (call: { command: string; args: string[] }) =>
-			call.command === "brmem" && call.args[0] === "put",
-		result: { code: 1, stderr: "simulated brmem write failure\n" },
-	};
-}
-
-function ghApiResponse(match: string | RegExp, stdout: unknown = {}) {
-	return {
-		match: (call: ExecCall) =>
-			call.command === "gh" && responseMatchesText(match, call.args.join(" ")),
-		result: { stdout: `${JSON.stringify(stdout)}\n` },
-	};
-}
-
-function responseMatchesText(match: string | RegExp, text: string): boolean {
-	return typeof match === "string" ? text.includes(match) : match.test(text);
-}
-
-function findingsEnvelope(): string {
-	return JSON.stringify({
-		status: "ok",
-		exitCode: 0,
-		data: {
-			reviewName: "typescript-style",
-			reviewPath: "/repo/.sdl/reviews/typescript-style.md",
-			modelProfile: "quick",
-			model: "haiku",
-			baseRef: "main",
-			format: "findings",
-			count: 1,
-			findings: [
-				{
-					path: "src/app.ts",
-					line: 1,
-					severity: "warning",
-					summary: "Inline this",
-					details: "This line is in the PR diff.",
-				},
-			],
-			usage: null,
-			inputCoverage: null,
-		},
-	});
-}
-
-function failedReviewEnvelope(): string {
-	return JSON.stringify({
-		status: "failure",
-		exitCode: 2,
-		errorType: "review-failed",
-		message: "review failed",
-	});
-}
-
-function claudeReviewResponse() {
-	return {
-		match: (call: { command: string }) => call.command === "claude",
-		result: {
-			stdout: `${JSON.stringify({ type: "result", structured_output: { findings: [] } })}\n`,
-		},
-	};
-}
-
-function isGitDiffAgainstHeadCall(call: { command: string; args: string[] }): boolean {
-	return (
-		call.command === "git" &&
-		call.args.includes("diff") &&
-		call.args.includes("--no-ext-diff") &&
-		call.args.some((arg) => arg.endsWith("...HEAD"))
 	);
+	return { ...run, registry };
 }
-
-function diffText(): string {
-	return "diff --git a/src/app.ts b/src/app.ts\n@@ -1 +1 @@\n+changed\n";
-}
-
-function formatRunDiagnostics(run: ReturnType<typeof runWithFakes>): string {
-	return [
-		"stdout:",
-		run.stdout.join("") || "<empty>",
-		"stderr:",
-		run.stderr.join("") || "<empty>",
-		"exec calls:",
-		formattedExecCalls(run.context).join("\n") || "<none>",
-	]
-		.map((line) => `  ${line}`)
-		.join("\n");
-}
-
-async function isolatedHome(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-roaster-extension-home-"));
-	tempDirs.push(directory);
-	return directory;
-}
-
-async function isolatedExecutableOnPath(
-	name: string,
-): Promise<{ directory: string; restore: () => void }> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-roaster-extension-bin-"));
-	tempDirs.push(directory);
-	const executable = join(directory, name);
-	await writeFile(executable, "#!/bin/sh\nexit 0\n");
-	await chmod(executable, 0o755);
-	const previousPath = process.env.PATH;
-	process.env.PATH = [directory, previousPath ?? ""]
-		.filter((entry) => entry !== "")
-		.join(delimiter);
-	return {
-		directory,
-		restore: () => {
-			if (previousPath === undefined) {
-				delete process.env.PATH;
-				return;
-			}
-			process.env.PATH = previousPath;
-		},
-	};
-}
-
-afterEach(async () => {
-	for (const directory of tempDirs.splice(0)) {
-		await rm(directory, { recursive: true, force: true });
-	}
-});
 
 describe("Roaster SDL command face", () => {
 	test("top-level help discovers Roaster manifest metadata without loading selected code", async () => {
-		const run = runWithFakes({
-			args: ["--help"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [] },
-		});
+		const run = runWithFakeRoasterExtension({ args: ["--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
@@ -204,15 +34,11 @@ describe("Roaster SDL command face", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual([]);
 	});
 
 	test("group help exposes nested Roaster commands without running backends", async () => {
-		const run = runWithFakes({
-			args: ["roaster", "review", "--help"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [] },
-		});
+		const run = runWithFakeRoasterExtension({ args: ["roaster", "review", "--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
@@ -226,15 +52,11 @@ describe("Roaster SDL command face", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual([]);
 	});
 
-	test("selected Roaster help loads the command schema without running backends", async () => {
-		const run = runWithFakes({
-			args: ["roaster", "review", "list", "--help"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [] },
-		});
+	test("selected Roaster help loads only the selected command schema", async () => {
+		const run = runWithFakeRoasterExtension({ args: ["roaster", "review", "list", "--help"] });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
@@ -246,14 +68,12 @@ describe("Roaster SDL command face", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual(["roaster/review/list"]);
 	});
 
 	test("selected Roaster command publishes its machine schema", async () => {
-		const run = runWithFakes({
+		const run = runWithFakeRoasterExtension({
 			args: ["roaster", "review", "log", "--json-schema"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [] },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -262,15 +82,27 @@ describe("Roaster SDL command face", () => {
 		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual(["roaster/review/log"]);
 	});
 
-	test("selected Roaster review list runs through SDL exec-scoped gateways", async () => {
-		const root = repoRoot();
-		const run = runWithFakes({
-			args: ["roaster", "review", "list", "--format", "json"],
-			cwd: root,
-			homeDir: await isolatedHome(),
-			state: { exec: repoRootResponses(root) },
+	test("hidden Roaster publish-findings publishes its machine schema", async () => {
+		const run = runWithFakeRoasterExtension({
+			args: ["roaster", "exec", "publish-findings", "--json-schema"],
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		const schema = parseJsonOutput(run);
+		expect(schema).toHaveProperty("inputJsonSchema");
+		expect(schema).toHaveProperty("outputJsonSchema");
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.execCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual(["roaster/exec-publish-findings"]);
+	});
+
+	test("selected visible Roaster path routes parsed requests and the SDL API", async () => {
+		const run = runWithFakeRoasterExtension({
+			args: ["roaster", "review", "list", "--format", "json", "--ci", "--base-ref", "main"],
+			cwd: "/workspace/project",
 		});
 
 		expect(await run.exit).toBe(0);
@@ -278,232 +110,251 @@ describe("Roaster SDL command face", () => {
 		expect(envelope.status).toBe("ok");
 		expect(envelope.exitCode).toBe(0);
 		expect(envelope.data).toMatchObject({
-			reviewsDir: `${root}/.sdl/reviews`,
-			count: expect.any(Number),
+			commandKey: "roaster/review/list",
+			cwd: "/workspace/project",
+			request: { ci: true, baseRef: "main" },
 		});
 		expect(run.stderr.join("")).toBe("");
-		expect(run.context.execCalls.length).toBeGreaterThan(0);
-		expect(run.context.execCalls.every((call) => call.command === "git")).toBe(true);
+		expect(run.context.execCalls).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual(["roaster/review/list"]);
 	});
 
-	test("selected Roaster review ls aliases list", async () => {
-		const root = repoRoot();
-		const run = runWithFakes({
-			args: ["roaster", "review", "ls", "--format", "json"],
-			cwd: root,
-			homeDir: await isolatedHome(),
-			state: { exec: repoRootResponses(root) },
+	test("selected hidden Roaster path routes parsed requests and SDL stdin", async () => {
+		const run = runWithFakeRoasterExtension({
+			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
+			state: { stdin: '{"status":"ok"}' },
 		});
 
-		expect(await run.exit).toBe(0);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("ok");
-		expect(envelope.data).toMatchObject({ count: expect.any(Number) });
-		expect(run.context.textGeneratorCalls).toEqual([]);
-	});
-
-	test("selected Roaster review log preserves namespace and review-key semantics", async () => {
-		const root = repoRoot();
-		const run = runWithFakes({
-			args: ["roaster", "review", "log", "typescript-style", "--format", "json"],
-			cwd: root,
-			homeDir: await isolatedHome(),
-			state: { exec: [brmemListResponse()] },
-		});
-
-		expect(await run.exit).toBe(0);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
 		expect(envelope.data).toMatchObject({
-			namespace: "roaster",
-			reviewKey: "typescript-style",
-			count: 1,
+			commandKey: "roaster/exec-publish-findings",
+			stdin: '{"status":"ok"}',
+			request: { prNumber: 47 },
 		});
-		expect((envelope.data as { entries: Array<{ entryKey: string }> }).entries[0]?.entryKey).toBe(
-			"reviews/typescript-style/2026-06-20T18-43-11-123Z.md",
-		);
-		expect(run.context.execCalls.map((call) => call.command)).toEqual(["brmem"]);
-		expect(run.context.textGeneratorCalls).toEqual([]);
-	});
-
-	test("selected Roaster review run preserves review result when review-log write fails", async () => {
-		const root = repoRoot();
-		const fakeClaude = await isolatedExecutableOnPath("claude");
-		try {
-			const run = runWithFakes({
-				args: [
-					"roaster",
-					"review",
-					"run",
-					"sdl-typescript-style-tripwire",
-					"--model",
-					"haiku",
-					"--base-ref",
-					"main",
-					"--format",
-					"json",
-				],
-				cwd: root,
-				homeDir: await isolatedHome(),
-				state: {
-					exec: [
-						...repoRootResponses(root),
-						{
-							match: isGitDiffAgainstHeadCall,
-							result: { stdout: diffText() },
-						},
-						claudeReviewResponse(),
-						{ match: "git branch --show-current", result: { stdout: "feature/roaster\n" } },
-						{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
-						brmemPutFailureResponse(),
-					],
-				},
-			});
-
-			expect(await run.exit, formatRunDiagnostics(run)).toBe(1);
-			const envelope = parseJsonOutput(run);
-			expect(envelope.status).toBe("negative");
-			expect(envelope.data).toMatchObject({
-				reviewName: "sdl-typescript-style-tripwire",
-				model: "haiku",
-				baseRef: "main",
-				count: 0,
-			});
-			expect(run.stderr.join("")).toContain(
-				"resolved model=haiku model_profile=quick base_ref=main changed_paths=1",
-			);
-			expect(run.context.execCalls.map((call) => call.command)).not.toContain("gh");
-		} finally {
-			fakeClaude.restore();
-		}
-	});
-
-	test("hidden Roaster record-findings reads SDL stdin and preserves invalid-JSON failure", async () => {
-		const run = runWithFakes({
-			args: [
-				"roaster",
-				"exec",
-				"record-findings",
-				"--review-key",
-				"typescript-style",
-				"--format",
-				"json",
-			],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [], stdin: "not json" },
-		});
-
-		expect(await run.exit).toBe(2);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("failure");
-		expect(envelope.errorType).toBe("review-execution-invalid-json");
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("hidden Roaster publish-findings publishes its machine schema", async () => {
-		const run = runWithFakes({
-			args: ["roaster", "exec", "publish-findings", "--json-schema"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [] },
-		});
-
-		expect(await run.exit).toBe(0);
-		const schema = parseJsonOutput(run);
-		expect(schema).toHaveProperty("inputJsonSchema");
-		expect(schema).toHaveProperty("outputJsonSchema");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("hidden Roaster publish-findings reads SDL stdin and returns an enveloped publication result", async () => {
-		const run = runWithFakes({
-			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: {
-				stdin: findingsEnvelope(),
-				exec: [
-					ghApiResponse("repos/{owner}/{repo}/pulls/47/files", [
-						{ filename: "src/app.ts", status: "modified", patch: "@@ -1 +1 @@\n+changed" },
-					]),
-					ghApiResponse("repos/{owner}/{repo}/pulls/47/comments", []),
-					ghApiResponse(/--method POST repos\/\{owner\}\/\{repo\}\/pulls\/47\/reviews/u),
-					ghApiResponse("repos/{owner}/{repo}/issues/47/comments", []),
-					ghApiResponse(/--method POST repos\/\{owner\}\/\{repo\}\/issues\/47\/comments/u, {
-						id: 1,
-						body: "<!-- roaster:typescript-style -->",
-					}),
-				],
-			},
-		});
-
-		expect(await run.exit).toBe(0);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("ok");
-		expect(envelope.data).toMatchObject({
-			inlineStatus: { postedCount: 1, skippedDuplicateCount: 0, fallbackOnlyCount: 0 },
-			summaryStatus: { type: "posted", marker: "<!-- roaster:typescript-style -->" },
-		});
-		expect(run.stderr.join("")).toContain("inline findings: posted=1");
-		expect(run.context.execCalls.map((call) => call.command)).toEqual([
-			"gh",
-			"gh",
-			"gh",
-			"gh",
-			"gh",
-		]);
-		const summaryWrite = run.context.execCalls.find((call) => {
-			const text = call.args.join(" ");
-			return (
-				text.includes("--method POST") && text.includes("repos/{owner}/{repo}/issues/47/comments")
-			);
-		});
-		expect(summaryWrite?.args.join(" ")).toContain("<!-- roaster:typescript-style -->");
-		const inlineReview = run.context.execCalls.find((call) =>
-			call.args.join(" ").includes("repos/{owner}/{repo}/pulls/47/reviews"),
-		);
-		expect(inlineReview?.args.join(" ")).toContain("--input");
 		expect(run.context.textGeneratorCalls).toEqual([]);
-	});
-
-	test("hidden Roaster publish-findings maps publication failures to an SDL failure envelope", async () => {
-		const run = runWithFakes({
-			args: ["roaster", "exec", "publish-findings", "--pr-number", "47", "--format", "json"],
-			cwd: repoRoot(),
-			homeDir: await isolatedHome(),
-			state: { exec: [], stdin: failedReviewEnvelope() },
-		});
-
-		expect(await run.exit).toBe(2);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("failure");
-		expect(envelope.errorType).toBe("roaster-publish-findings-failed");
-		expect(envelope.data).toMatchObject({
-			fatalFailurePhase: "payload-parse",
-			reason: "invalid-payload",
-		});
-		expect(run.context.execCalls).toEqual([]);
-	});
-
-	test("selected Roaster roast list exposes review-skill entries", async () => {
-		const root = repoRoot();
-		const run = runWithFakes({
-			args: ["roaster", "roast", "list", "--format", "json"],
-			cwd: root,
-			homeDir: await isolatedHome(),
-			state: { exec: repoRootResponses(root) },
-		});
-
-		expect(await run.exit).toBe(0);
-		const envelope = parseJsonOutput(run);
-		expect(envelope.status).toBe("ok");
-		const data = envelope.data as { entries: Array<{ surface: string }> };
-		expect(data.entries.map((entry) => entry.surface)).toContain(
-			"skill:roast-thermonuclear-review",
-		);
-		expect(run.context.textGeneratorCalls).toEqual([]);
+		expect(run.registry.loadLog).toEqual(["roaster/exec-publish-findings"]);
 	});
 });
+
+interface FakeRoasterRegistry {
+	loadLog: string[];
+	loadCommandCatalog: () => Promise<SdlCommandCatalog>;
+	loadSelectedCommand: (
+		candidate: ExtensionCommandCandidate,
+	) => Promise<SelectedSdlCommandLoadResult>;
+}
+
+interface FakeRoasterCommandSpec {
+	readonly name: string;
+	readonly description: string;
+	readonly entryPath: string;
+	readonly segments?: readonly string[] | undefined;
+	readonly command: SdlCommand;
+}
+
+const fakeRoasterCommandSpecs = [
+	{
+		name: "review-list",
+		description: "List configured Roaster review definitions.",
+		entryPath: "fake://roaster/src/commands/review-list.ts",
+		segments: ["roaster", "review", "list"],
+		command: fakeRoasterCommand({
+			key: "roaster/review/list",
+			name: "list",
+			summary: "List configured Roaster review definitions.",
+			description:
+				"List configured Roaster review definitions through a gateway-injected fake command.",
+			schema: z.object({
+				applicable: z.boolean().optional(),
+				ci: z.boolean().default(false),
+				baseRef: z.string().optional(),
+			}),
+		}),
+	},
+	{
+		name: "review-ls",
+		description: "Alias for review list.",
+		entryPath: "fake://roaster/src/commands/review-ls.ts",
+		segments: ["roaster", "review", "ls"],
+		command: fakeRoasterCommand({
+			key: "roaster/review/ls",
+			name: "ls",
+			summary: "Alias for review list.",
+			description: "Alias for the fake Roaster review list command.",
+		}),
+	},
+	{
+		name: "review-log",
+		description: "List Roaster review logs for this branch.",
+		entryPath: "fake://roaster/src/commands/review-log.ts",
+		segments: ["roaster", "review", "log"],
+		command: fakeRoasterCommand({
+			key: "roaster/review/log",
+			name: "log",
+			summary: "List Roaster review logs for this branch.",
+			description: "List fake Roaster review logs for this branch.",
+			schema: z.object({ key: z.string().optional() }),
+		}),
+	},
+	{
+		name: "review-run",
+		description: "Run a configured Roaster review over the current diff.",
+		entryPath: "fake://roaster/src/commands/review-run.ts",
+		segments: ["roaster", "review", "run"],
+		command: fakeRoasterCommand({
+			key: "roaster/review/run",
+			name: "run",
+			summary: "Run a configured Roaster review over the current diff.",
+			description: "Run a fake Roaster review over the current diff.",
+		}),
+	},
+	{
+		name: "exec-record-findings",
+		description: "Record same-session Roaster findings from stdin.",
+		entryPath: "fake://roaster/src/commands/exec-record-findings.ts",
+		command: fakeRoasterCommand({
+			key: "roaster/exec-record-findings",
+			name: "exec-record-findings",
+			summary: "Record same-session Roaster findings from stdin.",
+			description: "Record fake same-session Roaster findings from stdin.",
+		}),
+	},
+	{
+		name: "exec-publish-findings",
+		description: "Publish Roaster findings to GitHub.",
+		entryPath: "fake://roaster/src/commands/exec-publish-findings.ts",
+		command: fakeRoasterCommand({
+			key: "roaster/exec-publish-findings",
+			name: "exec-publish-findings",
+			summary: "Publish Roaster findings to GitHub.",
+			description: "Publish fake Roaster findings to GitHub.",
+			schema: z.object({
+				prNumber: z.coerce.number().int().positive(),
+			}),
+		}),
+	},
+	{
+		name: "roast-list",
+		description: "List Roaster review-skill commands.",
+		entryPath: "fake://roaster/src/commands/roast-list.ts",
+		segments: ["roaster", "roast", "list"],
+		command: fakeRoasterCommand({
+			key: "roaster/roast/list",
+			name: "list",
+			summary: "List Roaster review-skill commands.",
+			description: "List fake Roaster review-skill commands.",
+		}),
+	},
+] as const satisfies readonly FakeRoasterCommandSpec[];
+
+function fakeRoasterRegistry(): FakeRoasterRegistry {
+	const loadLog: string[] = [];
+	const candidates = fakeRoasterCommandSpecs.map(roasterCandidate);
+	const candidatesByKey = new Map(
+		candidates.map((candidate) => [candidateKey(candidate), candidate]),
+	);
+	return {
+		loadLog,
+		async loadCommandCatalog() {
+			return {
+				candidates: candidatesByKey,
+				commandInfos: candidates.map(({ group, name, segments, description, fullDescription }) => ({
+					...(group === undefined ? {} : { group }),
+					...(segments === undefined ? {} : { segments }),
+					name,
+					description,
+					fullDescription,
+				})),
+				diagnostics: [],
+			};
+		},
+		async loadSelectedCommand(candidate) {
+			const key = candidateKey(candidate);
+			loadLog.push(key);
+			const spec = fakeRoasterCommandSpecs.find((entry) => roasterSpecKey(entry) === key);
+			if (spec === undefined) {
+				return {
+					ok: false,
+					diagnostic: {
+						severity: "error",
+						code: "extension_command_missing",
+						message: `Missing fake Roaster command ${key}`,
+						commandName: key,
+					},
+				};
+			}
+			return {
+				ok: true,
+				command: spec.command,
+				source: candidate.source,
+				path: candidate,
+			};
+		},
+	};
+}
+
+function roasterCandidate(spec: FakeRoasterCommandSpec): ExtensionCommandCandidate {
+	return {
+		group: "roaster",
+		...(spec.segments === undefined ? {} : { segments: spec.segments }),
+		name: spec.name,
+		description: spec.description,
+		fullDescription: spec.description,
+		source: { level: "project", label: "fake checked-in Roaster extension" },
+		entryPath: spec.entryPath,
+		kind: "package",
+	};
+}
+
+function fakeRoasterCommand(options: {
+	key: string;
+	name: string;
+	summary: string;
+	description: string;
+	schema?: z.ZodObject | undefined;
+}): SdlCommand {
+	return {
+		name: options.name,
+		summary: options.summary,
+		description: options.description,
+		schema: options.schema ?? z.object({}),
+		resultSchema: z.object({
+			commandKey: z.string(),
+			cwd: z.string(),
+			request: z.record(z.string(), z.unknown()),
+			stdin: z.string(),
+		}),
+		async run(ctx, request) {
+			return {
+				type: "ok",
+				data: {
+					commandKey: options.key,
+					cwd: ctx.cwd,
+					request,
+					stdin: await readStdin(ctx),
+				},
+			};
+		},
+	};
+}
+
+async function readStdin(ctx: SdlExtensionApi): Promise<string> {
+	return await (ctx.stdin?.() ?? Promise.resolve(""));
+}
+
+function roasterSpecKey(spec: FakeRoasterCommandSpec): string {
+	if (spec.segments !== undefined) return spec.segments.join("/");
+	return `roaster/${spec.name}`;
+}
+
+function candidateKey(
+	candidate: Pick<ExtensionCommandCandidate, "group" | "name" | "segments">,
+): string {
+	if (candidate.segments !== undefined) return candidate.segments.join("/");
+	return candidate.group === undefined ? candidate.name : `${candidate.group}/${candidate.name}`;
+}
