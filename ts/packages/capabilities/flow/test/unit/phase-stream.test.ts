@@ -43,6 +43,13 @@ function ctx(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
 	return {
 		cwd: "/work",
 		env: {},
+		commandIo: {
+			phase: () => {},
+			notify: () => {},
+			message: () => {},
+			clearPhase: () => {},
+		},
+		progress: { phase: () => {} },
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

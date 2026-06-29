@@ -1,4 +1,4 @@
-import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseEvent } from "sdl-sdk";
 import type { StatusLineItem } from "@sdl/cli-theme";
 
 /** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
@@ -78,7 +78,7 @@ export const SUBMIT_PHASES: readonly PhaseSpec[] = [
  * Translate a checkpoint-workflow event (keyed inspect/generate/commit) into a single presentational
  * label, so `flow submit` can fold the whole checkpoint into its one "Checkpoint" phase.
  */
-export function checkpointEventLabel(event: ProgressPhaseEvent): string | undefined {
+export function checkpointEventLabel(event: SdlProgressPhaseEvent): string | undefined {
 	if (event.type === "phase-progress") return event.label;
 	if (event.type === "phase-started") {
 		if (event.label !== undefined) return event.label;

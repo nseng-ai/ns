@@ -32,6 +32,7 @@
     "@sdl/plans": "workspace:*",
     "@sdl/slot": "workspace:*",
     "sdl-flow": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {},

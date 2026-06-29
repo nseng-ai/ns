@@ -6,9 +6,9 @@ Accepted — refines ADR 0018 and ADR 0019 for the `command-io` and `progress-ph
 
 ## Context
 
-ADR 0018 classifies `@sdl/core/command-io` and `@sdl/core/progress-phase` as SDK-provided services: author-facing interfaces belong in `sdl-sdk`, implementations are hidden in the kernel, and capability code reaches the service through the vended `ctx` object. ADR 0019 repeats the `sdk-provided` placement pattern and preserves the invariant that the old `@sdl/core` doors are deleted in the same atomic relocation slice.
+ADR 0018 classifies the former `@sdl/core` command-io door and the former `@sdl/core` progress-phase door as SDK-provided services: author-facing interfaces belong in `sdl-sdk`, implementations are hidden in the kernel, and capability code reaches the service through the vended `ctx` object. ADR 0019 repeats the `sdk-provided` placement pattern and preserves the invariant that the old `@sdl/core` doors are deleted in the same atomic relocation slice.
 
-The existing code does not yet expose named SDK services. `SdlExtensionApi` has low-level output hooks (`stdout`, `stderr`, `onOutput`) plus `stdin`, `confirm`, `exec`, `textGenerator`, and `extensions`. `@sdl/core/command-io` layers a richer command-output abstraction over those hooks and Pi rich UI sinks. `@sdl/core/progress-phase` is pure event/listener vocabulary used by Flow to drive ordered progress presentation.
+The existing code does not yet expose named SDK services. `SdlExtensionApi` has low-level output hooks (`stdout`, `stderr`, `onOutput`) plus `stdin`, `confirm`, `exec`, `textGenerator`, and `extensions`. the former `@sdl/core` command-io door layers a richer command-output abstraction over those hooks and Pi rich UI sinks. the former `@sdl/core` progress-phase door is pure event/listener vocabulary used by Flow to drive ordered progress presentation.
 
 Current import inventory:
 
@@ -21,7 +21,7 @@ Current import inventory:
 | `command-io`     | core tests and capability tests                                | verifies factory behavior and injects fake/no-op output                                                          | tests can build object-literal fakes for the SDK interface; factory tests move with the kernel implementation  |
 | `progress-phase` | Flow `cp`, `checkpoint`, `phase-stream*`, and `submit` modules | passes `ProgressPhaseEvent` / `ProgressPhaseListener` through lower workflows into Flow's presentation driver    | SDK progress event/listener vocabulary plus a `ctx.progress` sink for host-observed progress                   |
 
-No non-Flow package currently imports `@sdl/core/progress-phase` directly.
+No non-Flow package currently imports the former `@sdl/core` progress-phase door directly.
 
 ## Considered options
 
@@ -124,7 +124,7 @@ Do not promote those factories to public `sdl-sdk` unless repeated extension-aut
 
 ## Flow migration guidance
 
-Flow's lower-layer workflow hooks should import `SdlProgressPhaseEvent` and `SdlProgressPhaseListener` from `sdl-sdk`, not `@sdl/core/progress-phase`.
+Flow's lower-layer workflow hooks should import `SdlProgressPhaseEvent` and `SdlProgressPhaseListener` from `sdl-sdk`, not the former `@sdl/core` progress-phase door.
 
 Flow command entry points should derive the listener they pass into lower layers from the command context:
 
@@ -142,13 +142,13 @@ The kernel constructs `ctx.commandIo` and `ctx.progress` when creating `SdlExten
 
 ## Compatibility and deletion stance
 
-The next implementation slice can delete `@sdl/core/command-io` and `@sdl/core/progress-phase` atomically after:
+The next implementation slice can delete the former `@sdl/core` command-io door and the former `@sdl/core` progress-phase door atomically after:
 
 1. SDK types and `SdlExtensionApi` fields exist.
 2. Kernel/host adapters own command I/O construction.
 3. Flow and CCC imports no longer reference the old core doors.
 4. Factory tests have moved to the owning implementation package or been replaced by SDK-interface fake tests.
-5. Source search confirms no live `@sdl/core/command-io` or `@sdl/core/progress-phase` imports remain.
+5. Source search confirms no live the former `@sdl/core` command-io door or the former `@sdl/core` progress-phase door imports remain.
 
 ## Non-goals
 

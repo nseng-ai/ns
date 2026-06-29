@@ -33,6 +33,14 @@ export type {
 } from "@sdl/core/text-truncation";
 export { failed, ok } from "./result.ts";
 export type { SdlResult } from "./result.ts";
+export type {
+	SdlCommandIo,
+	SdlCommandMessageOptions,
+	SdlNotifyLevel,
+	SdlProgress,
+	SdlProgressPhaseEvent,
+	SdlProgressPhaseListener,
+} from "./services.ts";
 export { z } from "./schema.ts";
 export type {
 	TextGenerationRequest,

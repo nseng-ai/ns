@@ -6,11 +6,11 @@
 //
 // Flow owns the ordered phase list and typed progress events. This module wires the small stream seams
 // together: phase-state transitions, transcript tail buffering, lifecycle cleanup, and clinkr-backed
-// TTY/non-TTY rendering. Lower layers stay domain-pure and emit `ProgressPhaseEvent`s keyed by stable
+// TTY/non-TTY rendering. Lower layers stay domain-pure and emit `SdlProgressPhaseEvent`s keyed by stable
 // `phaseKey`s.
 //
-// This is the one `flow → clinkr` edge. The event type lives in `@sdl/core` (graphite already depends
-// on it), so clinkr stays free of any `@sdl/*` dependency and is never imported by graphite.
+// This is the one `flow → clinkr` edge. The event type lives in `sdl-sdk`, so clinkr stays free
+// of any `@sdl/*` dependency and is never imported by graphite.
 //
 // Flow resolves streaming `Caps` from its command host context when present; direct command execution
 // falls back to the real process terminal.
@@ -28,7 +28,7 @@ import {
 	systemStreamClock,
 	type StreamSinkDeps,
 } from "@sdl/clinkr/stream";
-import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseEvent } from "sdl-sdk";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
@@ -46,7 +46,7 @@ export interface PhaseStream {
 	/** Take ownership of the live region and start the spinner pump (TTY only). */
 	begin(title: string): void;
 	/** The `onPhase` listener: advance the phase list and repaint / emit a transient. */
-	emit(event: ProgressPhaseEvent): void;
+	emit(event: SdlProgressPhaseEvent): void;
 	/**
 	 * Feed a raw subprocess transcript chunk into the live region's tail line (TTY only; a no-op
 	 * otherwise). Routing the transcript THROUGH the sink keeps `log-update` the sole writer, so its
@@ -84,7 +84,7 @@ export function createPhaseStream(
 		lifecycle.startPump();
 	}
 
-	function emit(event: ProgressPhaseEvent): void {
+	function emit(event: SdlProgressPhaseEvent): void {
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":

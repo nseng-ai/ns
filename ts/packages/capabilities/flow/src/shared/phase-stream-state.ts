@@ -1,4 +1,4 @@
-import type { ProgressPhaseEvent } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseEvent } from "sdl-sdk";
 import type { PhaseState, StatusLineItem } from "@sdl/cli-theme";
 
 import type { PhaseSpec } from "./phase-stream-specs.ts";
@@ -16,7 +16,7 @@ export type PhaseTransition =
 
 export interface PhaseStateStore {
 	views(): readonly PhaseView[];
-	apply(event: ProgressPhaseEvent): PhaseTransition;
+	apply(event: SdlProgressPhaseEvent): PhaseTransition;
 	failActive(): void;
 	settleOpenPhases(): void;
 }
@@ -48,7 +48,7 @@ export function createPhaseStateStore(specs: readonly PhaseSpec[]): PhaseStateSt
 		activeIndex = index;
 	}
 
-	function apply(event: ProgressPhaseEvent): PhaseTransition {
+	function apply(event: SdlProgressPhaseEvent): PhaseTransition {
 		const index = indexByKey.get(event.phaseKey);
 		if (index === undefined) return { type: "ignored" };
 		const spec = specs[index];

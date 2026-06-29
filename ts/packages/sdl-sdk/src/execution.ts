@@ -1,3 +1,4 @@
+import type { SdlCommandIo, SdlProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
 export interface ExecResult {
@@ -27,6 +28,10 @@ export interface SdlExtensionApi {
 	exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult>;
 	/** Text-generation capability; SDL commands own prompts, validation, and repair policy. */
 	textGenerator: TextGenerator;
+	/** Higher-level human command-output service provided by the host/kernel. */
+	commandIo: SdlCommandIo;
+	/** Structured phase progress sink provided by the host/kernel. */
+	progress: SdlProgress;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
 	stdout?: ((text: string) => void) | undefined;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */

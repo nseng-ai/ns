@@ -2,22 +2,22 @@ import {
 	createCliCommandIo,
 	type CliCommandIoInput,
 	type CliCommandIoOptions,
-} from "@sdl/core/command-io";
-import type { CommandIo } from "@sdl/core/command-io";
+} from "@sdl/kernel/command-io";
+import type { SdlCommandIo } from "sdl-sdk";
 
-/** Minimal CLI stream/callback surface that CCC standalone commands adapt to CommandIo. */
+/** Minimal CLI stream/callback surface that CCC standalone commands adapt to SdlCommandIo. */
 export type CccCliCommandIoInput = CliCommandIoInput;
 
 export type CccCliCommandIoOptions = CliCommandIoOptions;
 
 /**
- * CCC edge adapter mapping CLI stdout/stderr/onOutput callbacks onto a CommandIo.
- * The implementation lives in `@sdl/core/command-io` because the mapping is CLI
- * plumbing shared with Flow, not CCC orchestration or Flow domain behavior.
+ * CCC edge adapter mapping CLI stdout/stderr/onOutput callbacks onto an SdlCommandIo.
+ * The implementation lives in the kernel because command I/O is an intrinsic
+ * SDK service, not CCC orchestration behavior.
  */
 export function createCccCliCommandIo(
 	input: CccCliCommandIoInput,
 	options: CccCliCommandIoOptions = {},
-): CommandIo {
+): SdlCommandIo {
 	return createCliCommandIo(input, options);
 }

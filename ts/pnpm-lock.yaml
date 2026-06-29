@@ -444,6 +444,9 @@ importers:
       sdl-flow:
         specifier: workspace:*
         version: link:../capabilities/flow
+      sdl-sdk:
+        specifier: workspace:*
+        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3

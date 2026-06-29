@@ -32,6 +32,7 @@ import {
 	type SdlCommandPath,
 } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
+import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	commandInfosForSelectedCommand,
@@ -376,10 +377,17 @@ async function buildSdlCliContext(options: {
 		...(baseContext.extensions ?? {}),
 		...(options.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps }),
 	};
+	const commandIo = createCliCommandIo({
+		stdout: options.stdout,
+		stderr: options.stderr,
+		...(onOutput === undefined ? {} : { onOutput }),
+	});
 	const context: SdlExtensionApi = {
 		cwd: options.cwd,
 		env: options.env,
 		textGenerator: baseContext.textGenerator,
+		commandIo,
+		progress: noopSdlProgress,
 		exec: baseContext.exec.bind(baseContext),
 		stdout: options.stdout,
 		stderr: options.stderr,

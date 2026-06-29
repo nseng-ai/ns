@@ -22,6 +22,6 @@ No old `@sdl/core` doors were deleted in this spike, and no broad Flow/CCC/Pi im
 
 ## Follow-Ups
 
-- Implement ADR 0021 in one atomic relocation slice: add SDK types/fields, move kernel/host command I/O construction out of core, repoint Flow/CCC/Pi imports, move/replace tests, and delete `@sdl/core/command-io` plus `@sdl/core/progress-phase` in the same slice.
+- Implement ADR 0021 in one atomic relocation slice: add SDK types/fields, move kernel/host command I/O construction out of core, repoint Flow/CCC/Pi imports, move/replace tests, and delete the former `@sdl/core` command-io door plus the former `@sdl/core` progress-phase door in the same slice.
 - Update `ts/packages/kernel/docs/sdk-reference.md` and `ts/packages/sdl-sdk/src/index.ts` when the SDK fields/types are implemented.
 - During implementation, decide locally whether `runWithCommandIo` / `noopCommandIo` remain local helpers or get SDK-named equivalents; they are not part of the minimum service shape.

@@ -1,4 +1,4 @@
-import type { CommandIo } from "@sdl/core/command-io";
+import type { SdlCommandIo } from "sdl-sdk";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	LandStackCommandStream,
@@ -61,7 +61,7 @@ import type {
 export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
-	io?: CommandIo;
+	io?: SdlCommandIo;
 	skipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;

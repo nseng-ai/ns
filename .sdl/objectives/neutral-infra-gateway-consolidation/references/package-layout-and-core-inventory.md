@@ -162,8 +162,8 @@ a generic filesystem gateway.
 These are intrinsic host services and should become `sdl-sdk` interfaces plus hidden kernel
 implementations:
 
-- `@sdl/core/command-io`
-- `@sdl/core/progress-phase`
+- the former `@sdl/core` command-io door
+- the former `@sdl/core` progress-phase door
 - `@sdl/core/stdin`
 - `@sdl/core/clock`
 - `@sdl/core/timers`

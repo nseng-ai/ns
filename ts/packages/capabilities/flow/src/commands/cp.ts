@@ -1,4 +1,4 @@
-import type { ProgressPhaseListener } from "@sdl/core/progress-phase";
+import type { SdlProgressPhaseListener } from "sdl-sdk";
 import type { TextGenerator } from "@sdl/capability-kit/text-generation";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import {
@@ -93,7 +93,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	isDryRun: boolean;
 	checkpointGateway: CheckpointGateway;
-	onPhase?: ProgressPhaseListener;
+	onPhase?: SdlProgressPhaseListener;
 }
 
 export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreResult> {

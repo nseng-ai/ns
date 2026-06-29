@@ -55,7 +55,7 @@ describe("flow autoslot command outcomes", () => {
 		});
 
 		await run.exit;
-		// CCC `CommandIo` phases are transient stderr-side progress (`onOutput`), keeping stdout clean.
+		// CCC `SdlCommandIo` phases are transient stderr-side progress (`onOutput`), keeping stdout clean.
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
 		expect(run.liveOutput.some((entry) => entry.stream === "stdout")).toBe(false);
 	});

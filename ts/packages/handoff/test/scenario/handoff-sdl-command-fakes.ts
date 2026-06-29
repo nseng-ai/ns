@@ -34,6 +34,13 @@ export class FakeHandoffSdlApi implements SdlExtensionApi {
 		options: SdlExecOptions | undefined;
 	}> = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
+	readonly commandIo = {
+		phase: () => {},
+		notify: () => {},
+		message: () => {},
+		clearPhase: () => {},
+	};
+	readonly progress = { phase: () => {} };
 	readonly stderr: (text: string) => void;
 
 	constructor(options: FakeHandoffSdlApiOptions = {}) {

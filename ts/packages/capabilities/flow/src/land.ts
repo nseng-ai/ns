@@ -1,4 +1,5 @@
-import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
+import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
+import type { SdlCommandIo } from "sdl-sdk";
 import { type ExecOutputListener, formatCommand, normalizeExecResult } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
@@ -120,7 +121,7 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
 
 interface RunLandCommandOptions {
-	progressIo?: CommandIo;
+	progressIo?: SdlCommandIo;
 }
 
 async function runLandCommand(
@@ -273,7 +274,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const confirm = input.confirm;
 	const caps = input.caps;
 	const progressIo = createFlowCliCommandIo(input);
-	const outcome = await runWithCommandIo(
+	const outcome = await runWithSdlCommandIo(
 		progressIo,
 		async () =>
 			await runLandCommand(
@@ -553,7 +554,7 @@ async function runFastLand(
 	pi: LandExtensionAPI,
 	ctx: LandCommandContext,
 	target: LandingShape,
-	options: { isDryRun: boolean; progressIo?: CommandIo },
+	options: { isDryRun: boolean; progressIo?: SdlCommandIo },
 ): Promise<LandStackOutcome> {
 	const pr = await loadPullRequest(pi, target.repoRoot);
 	if ("error" in pr) {
@@ -622,7 +623,7 @@ async function runFastLand(
 function progress(
 	ctx: LandCommandContext,
 	message: string,
-	options: { progressIo?: CommandIo } = {},
+	options: { progressIo?: SdlCommandIo } = {},
 ): void {
 	if (ctx.mode === "print") {
 		const output = message.endsWith("\n") ? message : `${message}\n`;
