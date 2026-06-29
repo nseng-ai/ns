@@ -343,7 +343,8 @@ export default function worktreeStatusExtension(
 		session.refreshTimer = controllers.refreshTimer;
 		session.activityController = controllers.activityController;
 		freshnessRenderTimer = controllers.freshnessRenderTimer;
-		installActivityTracking(session);
+		const activityUnsubscribe = installActivityTracking(session);
+		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
 		return session;
 	}
 
@@ -567,12 +568,11 @@ export default function worktreeStatusExtension(
 		}
 	}
 
-	function installActivityTracking(session: ActiveSession): void {
-		const activityUnsubscribe = session.ctx.ui.onTerminalInput?.(() => {
+	function installActivityTracking(session: ActiveSession): (() => void) | undefined {
+		return session.ctx.ui.onTerminalInput?.(() => {
 			recordSessionActivity(session);
 			return undefined;
 		});
-		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
 	}
 
 	function installStatusFooter(session: ActiveSession): void {
