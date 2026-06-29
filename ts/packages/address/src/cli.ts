@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/cli-runtime";
 import { readStdin } from "@sdl/core/stdin";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";

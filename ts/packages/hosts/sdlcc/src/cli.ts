@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, ok, usageError } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/cli-runtime";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
 import {

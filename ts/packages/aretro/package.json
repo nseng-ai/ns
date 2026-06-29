@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@sdl/capability-kit": "workspace:*",
+    "@sdl/cli-runtime": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli } from "@sdl/cli-runtime";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";

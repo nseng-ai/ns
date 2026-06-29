@@ -11,7 +11,7 @@ import {
 	runClinkrCommand,
 	runOperationCommand,
 	type CliPrepareRunInput,
-} from "@sdl/core/cli-entry";
+} from "@sdl/cli-runtime";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -356,7 +356,7 @@ function defineNoopCli(root: string): void {
 }
 
 function makePackage(packageJson: unknown): string {
-	const root = mkdtempSync(join(tmpdir(), "asdl-core-cli-entry-"));
+	const root = mkdtempSync(join(tmpdir(), "asdl-cli-runtime-"));
 	tempRoots.push(root);
 	mkdirSync(join(root, "src"));
 	writeFileSync(join(root, "src", "cli.ts"), "#!/usr/bin/env node\n");

@@ -115,6 +115,7 @@ export const capabilityPackageNames = new Set([
 ]);
 
 export const neutralPeerPackageNames = new Set([
+	"/cli-runtime",
 	"@sdl/brmem",
 	"@sdl/clinkr",
 	"@sdl/cmux",

@@ -1,5 +1,5 @@
 {
-  "name": "@sdl/brmem",
+  "name": "@sdl/cli-runtime",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -8,20 +8,13 @@
   "files": [
     "src"
   ],
-  "bin": {
-    "brmem": "./src/cli.ts"
-  },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/brmem/test"
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/cli-runtime/test"
   },
   "dependencies": {
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/cli-runtime": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/git": "workspace:*",
     "zod": "catalog:"
   },
   "sdl": {

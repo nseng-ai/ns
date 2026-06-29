@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@sdl/clinkr";
 import { z } from "zod";
 
-import { formatErrorMessage } from "./primitives.ts";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
 export type CliRuntime = "typescript" | "bun";
 
