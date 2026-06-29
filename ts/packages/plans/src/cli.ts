@@ -3,7 +3,7 @@
 import { resolve } from "node:path";
 
 import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli, runOperationCommand } from "@sdl/core/cli-entry";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
@@ -151,19 +151,23 @@ async function handleList(
 	ctx: PlansCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<SavedPlanListData>> {
-	return await runPlansCommand("list", async () => {
-		const cliPlanStoreRoot =
-			request.planStoreRoot === undefined
-				? undefined
-				: normalizeRootPath(request.planStoreRoot, ctx.cwd);
-		const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
-		const plans = await listSavedPlans(ctx.commands, {
-			cwd: ctx.cwd,
-			git: ctx.git,
-			planStoreGateway: ctx.planStoreGateway,
-			...(planStoreRoot === undefined ? {} : { planStoreRoot }),
-		});
-		return ok(savedPlanListJson(plans));
+	return await runOperationCommand({
+		operation: "list",
+		action: async () => {
+			const cliPlanStoreRoot =
+				request.planStoreRoot === undefined
+					? undefined
+					: normalizeRootPath(request.planStoreRoot, ctx.cwd);
+			const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
+			const plans = await listSavedPlans(ctx.commands, {
+				cwd: ctx.cwd,
+				git: ctx.git,
+				planStoreGateway: ctx.planStoreGateway,
+				...(planStoreRoot === undefined ? {} : { planStoreRoot }),
+			});
+			return ok(savedPlanListJson(plans));
+		},
+		failureFromError: plansFailureFromError,
 	});
 }
 
@@ -171,47 +175,51 @@ async function handleSave(
 	ctx: PlansCliContext,
 	request: SaveRequest,
 ): Promise<ClinkrExit<SavedPlanFileData>> {
-	return await runPlansCommand("save", async () => {
-		const slugError = validatePlanSlug(request.slug);
-		if (slugError !== undefined) {
-			return usageError(`Invalid saved plan slug: ${slugError}`, {
-				code: "invalid-slug",
-				argument: "slug",
-				reason: slugError,
-			});
-		}
-		if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
-			return usageError("Pass exactly one of --stdin or --content-file <path>.", {
-				code: "invalid-save-input",
-				requiredExactlyOneOf: ["--stdin", "--content-file"],
-			});
-		}
-
-		const contentFile = request.contentFile;
-		let content: string;
-		if (request.stdin === true) {
-			content = await ctx.stdin();
-		} else {
-			if (contentFile === undefined) {
-				throw new Error("Save input validation invariant failed.");
+	return await runOperationCommand({
+		operation: "save",
+		action: async () => {
+			const slugError = validatePlanSlug(request.slug);
+			if (slugError !== undefined) {
+				return usageError(`Invalid saved plan slug: ${slugError}`, {
+					code: "invalid-slug",
+					argument: "slug",
+					reason: slugError,
+				});
 			}
-			content = await ctx.planStoreGateway.readTextFile(normalizePlanFilePath(contentFile));
-		}
-		const evidence = await writeSavedPlanFile(
-			ctx.commands,
-			{
-				slug: request.slug,
-				content,
-				...(request.summary === undefined ? {} : { summary: request.summary }),
-			},
-			{
-				cwd: ctx.cwd,
-				git: ctx.git,
-				planStoreGateway: ctx.planStoreGateway,
-				...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
-			},
-		);
-		return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
+			if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
+				return usageError("Pass exactly one of --stdin or --content-file <path>.", {
+					code: "invalid-save-input",
+					requiredExactlyOneOf: ["--stdin", "--content-file"],
+				});
+			}
+
+			const contentFile = request.contentFile;
+			let content: string;
+			if (request.stdin === true) {
+				content = await ctx.stdin();
+			} else {
+				if (contentFile === undefined) {
+					throw new Error("Save input validation invariant failed.");
+				}
+				content = await ctx.planStoreGateway.readTextFile(normalizePlanFilePath(contentFile));
+			}
+			const evidence = await writeSavedPlanFile(
+				ctx.commands,
+				{
+					slug: request.slug,
+					content,
+					...(request.summary === undefined ? {} : { summary: request.summary }),
+				},
+				{
+					cwd: ctx.cwd,
+					git: ctx.git,
+					planStoreGateway: ctx.planStoreGateway,
+					...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
+				},
+			);
+			return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
+		},
+		failureFromError: plansFailureFromError,
 	});
 }
 
@@ -219,29 +227,22 @@ async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
 ): Promise<ClinkrExit<ResolvePlanData>> {
-	return await runPlansCommand<ResolvePlanData>("resolve", async () => {
-		try {
-			return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
-		} catch (error) {
-			if (error instanceof NoSavedPlanAvailableError) {
-				return negative(error.message, {
-					data: { code: error.reason, directoryPath: error.directoryPath },
-				});
+	return await runOperationCommand<PlansOperation, ResolvePlanData>({
+		operation: "resolve",
+		action: async () => {
+			try {
+				return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
+			} catch (error) {
+				if (error instanceof NoSavedPlanAvailableError) {
+					return negative(error.message, {
+						data: { code: error.reason, directoryPath: error.directoryPath },
+					});
+				}
+				throw error;
 			}
-			throw error;
-		}
+		},
+		failureFromError: plansFailureFromError,
 	});
-}
-
-async function runPlansCommand<T>(
-	operation: PlansOperation,
-	action: () => Promise<ClinkrExit<T>>,
-): Promise<ClinkrExit<T>> {
-	try {
-		return await action();
-	} catch (error) {
-		return plansFailureFromError(operation, error);
-	}
 }
 
 function plansFailureFromError(operation: PlansOperation, error: unknown): ClinkrExit<never> {

@@ -3,12 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, ok } from "@sdl/clinkr";
+import { ClinkrGroup, failure, ok } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
 import {
 	defineCli,
 	isDirectCliInvocation,
 	runClinkrCommand,
+	runOperationCommand,
 	type CliPrepareRunInput,
 } from "@sdl/core/cli-entry";
 import { afterEach, describe, expect, test } from "vitest";
@@ -64,6 +65,45 @@ describe("runClinkrCommand", () => {
 				throw new Error("boom");
 			}),
 		).resolves.toEqual({ type: "failure", errorType: "example-error", message: "boom" });
+	});
+});
+
+describe("runOperationCommand", () => {
+	test("preserves successful Clinkr exits", async () => {
+		await expect(
+			runOperationCommand({
+				operation: "save",
+				action: async () => ok({ answer: 42 }),
+				failureFromError: () => failure("unused", "unused"),
+			}),
+		).resolves.toEqual({ type: "ok", data: { answer: 42 } });
+	});
+
+	test("maps thrown errors with operation context", async () => {
+		const thrown = new Error("boom");
+		let mappedOperation: string | undefined;
+		let mappedError: unknown;
+
+		await expect(
+			runOperationCommand({
+				operation: "save",
+				action: async () => {
+					throw thrown;
+				},
+				failureFromError: (operation, error) => {
+					mappedOperation = operation;
+					mappedError = error;
+					return failure("example-save-failed", "boom", { code: "unexpected-error" });
+				},
+			}),
+		).resolves.toEqual({
+			type: "failure",
+			errorType: "example-save-failed",
+			message: "boom",
+			data: { code: "unexpected-error" },
+		});
+		expect(mappedOperation).toBe("save");
+		expect(mappedError).toBe(thrown);
 	});
 });
 

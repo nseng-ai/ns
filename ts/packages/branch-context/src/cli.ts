@@ -3,7 +3,7 @@
 import { writeFile } from "node:fs/promises";
 
 import { ClinkrGroup, failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-entry";
+import { defineCli, runOperationCommand } from "@sdl/core/cli-entry";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
@@ -191,27 +191,31 @@ async function handleCreate(
 	ctx: BranchContextCliContext,
 	request: CreateRequest,
 ): Promise<ClinkrExit<BranchContextData>> {
-	return await runBranchContextCommand("create", async () => {
-		const slugError = validatePlanSlug(request.slug);
-		if (slugError !== undefined) {
-			return usageError(`Invalid branch context slug: ${slugError}`, {
-				code: "invalid-slug",
-				argument: "slug",
-				reason: slugError,
-			});
-		}
-		const evidence = await createBranchContextFromFile(
-			ctx.context.commands,
-			{
-				slug: request.slug,
-				filePath: request.planFile,
-				...(request.branch === undefined ? {} : { branchName: request.branch }),
-				branchCreation: request.branchCreation,
-				...(request.summary === undefined ? {} : { summary: request.summary }),
-			},
-			operationOptions(ctx),
-		);
-		return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
+	return await runOperationCommand({
+		operation: "create",
+		action: async () => {
+			const slugError = validatePlanSlug(request.slug);
+			if (slugError !== undefined) {
+				return usageError(`Invalid branch context slug: ${slugError}`, {
+					code: "invalid-slug",
+					argument: "slug",
+					reason: slugError,
+				});
+			}
+			const evidence = await createBranchContextFromFile(
+				ctx.context.commands,
+				{
+					slug: request.slug,
+					filePath: request.planFile,
+					...(request.branch === undefined ? {} : { branchName: request.branch }),
+					branchCreation: request.branchCreation,
+					...(request.summary === undefined ? {} : { summary: request.summary }),
+				},
+				operationOptions(ctx),
+			);
+			return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
 }
 
@@ -219,25 +223,29 @@ async function handleLoad(
 	ctx: BranchContextCliContext,
 	request: LoadRequest,
 ): Promise<ClinkrExit<LoadPlanData>> {
-	return await runBranchContextCommand("load", async () => {
-		const requestedKey = request.key;
-		const plan = await loadBranchContextPlan(
-			ctx.context.commands,
-			requestedKey === undefined ? {} : { requestedKey },
-			operationOptions(ctx),
-		);
-		const promptFile =
-			request.promptFile === undefined ? undefined : normalizePlanFilePath(request.promptFile);
-		const implementationPrompt = buildImplBranchContextPrompt(plan);
-		if (promptFile !== undefined) {
-			await writeFile(promptFile, implementationPrompt, "utf8");
-		}
-		const data = loadedPlanJson(plan, {
-			promptFile,
-			attachedPlanContent: request.includeContent === true ? plan.content : undefined,
-			implementationPrompt: request.includePrompt === true ? implementationPrompt : undefined,
-		});
-		return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
+	return await runOperationCommand({
+		operation: "load",
+		action: async () => {
+			const requestedKey = request.key;
+			const plan = await loadBranchContextPlan(
+				ctx.context.commands,
+				requestedKey === undefined ? {} : { requestedKey },
+				operationOptions(ctx),
+			);
+			const promptFile =
+				request.promptFile === undefined ? undefined : normalizePlanFilePath(request.promptFile);
+			const implementationPrompt = buildImplBranchContextPrompt(plan);
+			if (promptFile !== undefined) {
+				await writeFile(promptFile, implementationPrompt, "utf8");
+			}
+			const data = loadedPlanJson(plan, {
+				promptFile,
+				attachedPlanContent: request.includeContent === true ? plan.content : undefined,
+				implementationPrompt: request.includePrompt === true ? implementationPrompt : undefined,
+			});
+			return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
 }
 
@@ -245,13 +253,22 @@ async function handleAttach(
 	ctx: BranchContextCliContext,
 	request: AttachRequest,
 ): Promise<ClinkrExit<AttachData>> {
-	return await runBranchContextCommand("attach", async () => {
-		const evidence = await attachBranchContextEntry(
-			ctx.context.commands,
-			{ key: request.key, filePath: request.file, planSlug: request.plan, branch: request.branch },
-			operationOptions(ctx),
-		);
-		return ok(attachJson(evidence), { human: formatAttachEvidence(evidence) });
+	return await runOperationCommand({
+		operation: "attach",
+		action: async () => {
+			const evidence = await attachBranchContextEntry(
+				ctx.context.commands,
+				{
+					key: request.key,
+					filePath: request.file,
+					planSlug: request.plan,
+					branch: request.branch,
+				},
+				operationOptions(ctx),
+			);
+			return ok(attachJson(evidence), { human: formatAttachEvidence(evidence) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
 }
 
@@ -259,9 +276,16 @@ async function handleList(
 	ctx: BranchContextCliContext,
 	request: ListRequest,
 ): Promise<ClinkrExit<ListData>> {
-	return await runBranchContextCommand("list", async () => {
-		const list = await listBranchContextEntries({ branch: request.branch }, operationOptions(ctx));
-		return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
+	return await runOperationCommand({
+		operation: "list",
+		action: async () => {
+			const list = await listBranchContextEntries(
+				{ branch: request.branch },
+				operationOptions(ctx),
+			);
+			return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
 }
 
@@ -269,9 +293,13 @@ async function handleCheck(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<CheckData>> {
-	return await runBranchContextCommand("check", async () => {
-		const evidence = await checkBranchContextEntry(request, operationOptions(ctx));
-		return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
+	return await runOperationCommand({
+		operation: "check",
+		action: async () => {
+			const evidence = await checkBranchContextEntry(request, operationOptions(ctx));
+			return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
 }
 
@@ -279,21 +307,14 @@ async function handleDelete(
 	ctx: BranchContextCliContext,
 	request: KeyRequest,
 ): Promise<ClinkrExit<DeleteData>> {
-	return await runBranchContextCommand("delete", async () => {
-		const evidence = await deleteBranchContextEntry(request, operationOptions(ctx));
-		return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
+	return await runOperationCommand({
+		operation: "delete",
+		action: async () => {
+			const evidence = await deleteBranchContextEntry(request, operationOptions(ctx));
+			return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
+		},
+		failureFromError: branchContextExitFromError,
 	});
-}
-
-async function runBranchContextCommand<T>(
-	operation: BranchContextOperation,
-	action: () => Promise<ClinkrExit<T>>,
-): Promise<ClinkrExit<T>> {
-	try {
-		return await action();
-	} catch (error) {
-		return branchContextExitFromError(operation, error);
-	}
 }
 
 function branchContextExitFromError(

@@ -4,14 +4,14 @@ import { renderTextTable, type TextTableColumn } from "@sdl/core/text-table";
 import type { LoadedBundle } from "./models.ts";
 import { encodeMetrics } from "./models.ts";
 
-type ArtifactOutputBounds = {
+interface ArtifactOutputBounds {
 	readonly artifact: "plan" | "transcript" | "diff";
 	readonly appliedByteLimit: number;
 	readonly originalBytes: number;
 	readonly returnedBytes: number;
 	readonly isComplete: boolean;
 	readonly continuation: string | null;
-};
+}
 
 type RenderableBundle = LoadedBundle & {
 	readonly outputBounds?: {

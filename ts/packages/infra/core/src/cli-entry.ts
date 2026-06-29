@@ -157,6 +157,22 @@ export async function runClinkrCommand<T>(
 	}
 }
 
+export interface RunOperationCommandOptions<TOperation, TData> {
+	readonly operation: TOperation;
+	readonly action: () => Promise<ClinkrExit<TData>>;
+	readonly failureFromError: (operation: TOperation, error: unknown) => ClinkrExit<never>;
+}
+
+export async function runOperationCommand<TOperation, TData>(
+	options: RunOperationCommandOptions<TOperation, TData>,
+): Promise<ClinkrExit<TData>> {
+	try {
+		return await options.action();
+	} catch (error) {
+		return options.failureFromError(options.operation, error);
+	}
+}
+
 export function defineCli<
 	TContext,
 	TDeps extends CliEntrypointDeps = CliEntrypointDeps,

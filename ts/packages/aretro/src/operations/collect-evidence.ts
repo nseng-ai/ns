@@ -294,7 +294,12 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 	const queryResult = await context.sessionSource.query(query);
 	const publicQueryResult = publicQueryResultFromOverfetch(queryResult, request.maxSessions);
 	const sessionBounds = sessionBoundsFromOverfetch(request, queryResult, publicQueryResult);
-	const compactResult = resultFromQueryResult(request, repo, publicQueryResult, sessionBounds);
+	const compactResult = resultFromQueryResult({
+		request,
+		repo,
+		queryResult: publicQueryResult,
+		sessionBounds,
+	});
 
 	return {
 		ok: true as const,
@@ -388,30 +393,30 @@ async function resolveBranch(
 	};
 }
 
-function resultFromQueryResult(
-	request: CollectEvidenceRequest,
-	repo: RepoContextDto,
-	queryResult: SessionQueryResult,
-	sessionBounds: SessionResultBoundsDto,
-): CollectEvidenceResult {
-	const summaries = queryResult.sessions.map((session) => summarizeSession(session));
-	const warnings = queryResult.warnings.map((warning) => warningToDto(warning));
-	const evidenceItems = collectSessionEvidence(queryResult.sessions).map((item) =>
+function resultFromQueryResult(options: {
+	readonly request: CollectEvidenceRequest;
+	readonly repo: RepoContextDto;
+	readonly queryResult: SessionQueryResult;
+	readonly sessionBounds: SessionResultBoundsDto;
+}): CollectEvidenceResult {
+	const summaries = options.queryResult.sessions.map((session) => summarizeSession(session));
+	const warnings = options.queryResult.warnings.map((warning) => warningToDto(warning));
+	const evidenceItems = collectSessionEvidence(options.queryResult.sessions).map((item) =>
 		evidenceItemToDto(item),
 	);
 
 	return {
 		success: true,
 		error: null,
-		repo,
-		query: queryToDto(request, repo.repoRoot),
-		source: sourceInfoToDto(queryResult.source_info),
+		repo: options.repo,
+		query: queryToDto(options.request, options.repo.repoRoot),
+		source: sourceInfoToDto(options.queryResult.source_info),
 		aggregateMetrics: aggregateMetricsFromSummaries(summaries, warnings),
 		sessions: summaries,
 		warnings,
 		evidenceItems: evidenceItems,
 		outputBounds: {
-			sessions: sessionBounds,
+			sessions: options.sessionBounds,
 			detail: inlineDetailBounds(),
 		},
 	};
