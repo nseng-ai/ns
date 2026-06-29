@@ -56,7 +56,7 @@ extraction:
 
 1. **One parallel batch:** run `extract-graph.mjs --pretty --out <tmp>/graph.json` (caches the
    JSON *and* prints the facts); read the supplied target docs (`objective.md` / `roadmap.md` /
-   `orientation.md` + any named ADRs); read `references/example-spec.mjs` and only the
+   `orientation.md` + any named ADRs); read `scripts/example-spec.mjs` and only the
    "Spec contract" table in `references/HTML-REPORT.md`.
 2. **≤2 targeted greps** for the few things the JSON can't see.
 3. Write the spec, making the scorecard rows the target invariants.
@@ -185,7 +185,7 @@ inventory spec deterministically (this is exactly what the `topology` launcher d
 The only per-run thinking is the spec: whether any package tier needs an explicit report-only
 override, and the invariant analysis from step 3.
 
-To author the spec, work from `references/example-spec.mjs` (a complete, validated template)
+To author the spec, work from `scripts/example-spec.mjs` (a complete, validated template)
 plus the "Spec contract" table in
 [references/HTML-REPORT.md](references/HTML-REPORT.md) — the rest of that reference is the
 generator-owned D3 scaffold and design rationale, which you don't need to read to write a spec.
