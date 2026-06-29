@@ -23,13 +23,13 @@ describe("skillx parser", () => {
 			success: true,
 			repo: "owner/repo",
 			skill: "demo",
-			format: "skill_flag",
+			format: "skill-flag",
 		});
 		expect(parseSkillInput("owner/repo -s demo")).toEqual({
 			success: true,
 			repo: "owner/repo",
 			skill: "demo",
-			format: "skill_flag",
+			format: "skill-flag",
 		});
 	});
 
@@ -44,7 +44,7 @@ describe("skillx parser", () => {
 			success: true,
 			repo: "owner/repo",
 			skill: null,
-			format: "repo_only",
+			format: "repo-only",
 		});
 	});
 

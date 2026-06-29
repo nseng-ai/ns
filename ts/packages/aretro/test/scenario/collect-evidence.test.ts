@@ -35,25 +35,25 @@ describe("aretro exec collect-evidence", () => {
 			success: true,
 			error: null,
 			repo: {
-				repo_root: "/test/repo",
+				repoRoot: "/test/repo",
 				cwd: "/repo",
 				branch: "test-branch",
-				branch_source: "explicit",
+				branchSource: "explicit",
 			},
 			query: {
-				repo_root: "/test/repo",
-				session_root: null,
-				max_sessions: 20,
+				repoRoot: "/test/repo",
+				sessionRoot: null,
+				maxSessions: 20,
 			},
 			source: {
 				harness: "fake",
-				adapter_name: "fake",
-				record_format: "memory",
+				adapterName: "fake",
+				recordFormat: "memory",
 			},
-			aggregate_metrics: expect.any(Object),
+			aggregateMetrics: expect.any(Object),
 			sessions: expect.any(Array),
 			warnings: expect.any(Array),
-			evidence_items: expect.any(Array),
+			evidenceItems: expect.any(Array),
 		});
 	});
 
@@ -78,12 +78,12 @@ describe("aretro exec collect-evidence", () => {
 		expect(data.success).toBe(true);
 		expect(data.repo).toMatchObject({
 			branch: "feature/retro",
-			branch_source: "git_current_branch",
+			branchSource: "git-current-branch",
 		});
-		expect((data.aggregate_metrics as Record<string, unknown>).session_count).toBe(1);
-		const evidenceItems = data.evidence_items as Array<Record<string, unknown>>;
+		expect((data.aggregateMetrics as Record<string, unknown>).sessionCount).toBe(1);
+		const evidenceItems = data.evidenceItems as Array<Record<string, unknown>>;
 		expect(evidenceItems.length).toBeGreaterThan(0);
-		const toolUsageItem = evidenceItems.find((item) => item.kind === "tool_usage_count");
+		const toolUsageItem = evidenceItems.find((item) => item.kind === "tool-usage-count");
 		expect(toolUsageItem).toBeDefined();
 		if (toolUsageItem === undefined) throw new Error("toolUsageItem is undefined");
 		expect(toolUsageItem.subject).toBe("read");
@@ -107,16 +107,16 @@ describe("aretro exec collect-evidence", () => {
 		const run = runScenario(["exec", "collect-evidence", "--format", "json"], { context });
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run) as {
-			data?: { evidence_items?: Array<{ kind?: unknown }> };
+			data?: { evidenceItems?: Array<{ kind?: unknown }> };
 		};
-		const evidenceItems = result.data?.evidence_items ?? [];
+		const evidenceItems = result.data?.evidenceItems ?? [];
 		const kinds = new Set(evidenceItems.map((item) => String(item.kind ?? "unknown")));
-		expect(kinds).toContain("tool_usage_count");
-		expect(kinds).toContain("failed_tool_result");
-		expect(kinds).toContain("repeated_file_read");
-		expect(kinds).toContain("repeated_shell_command");
-		expect(kinds).toContain("token_usage_observed");
-		expect(kinds).toContain("large_output_observed");
+		expect(kinds).toContain("tool-usage-count");
+		expect(kinds).toContain("failed-tool-result");
+		expect(kinds).toContain("repeated-file-read");
+		expect(kinds).toContain("repeated-shell-command");
+		expect(kinds).toContain("token-usage-observed");
+		expect(kinds).toContain("large-output-observed");
 
 		// Verify privacy: no raw outputs in JSON
 		const jsonStr = JSON.stringify(result);
@@ -149,7 +149,7 @@ describe("aretro exec collect-evidence", () => {
 		expect(result.status).toBe("usageError");
 		expect(result.exitCode).toBe(2);
 		expect(result.data.success).toBe(false);
-		expect((result.data.error as Record<string, unknown>).code).toBe("not_a_git_repo");
+		expect((result.data.error as Record<string, unknown>).code).toBe("not-a-git-repo");
 		expect(result.data.sessions).toEqual([]);
 		expect(sessionSource.queries).toEqual([]);
 	});
@@ -172,8 +172,8 @@ describe("aretro exec collect-evidence", () => {
 		const result = parseJsonOutput(run) as { status: string; data: Record<string, unknown> };
 		expect(result.status).toBe("usageError");
 		expect(result.data.success).toBe(false);
-		expect((result.data.error as Record<string, unknown>).code).toBe("detached_head");
-		expect((result.data.repo as Record<string, unknown>).branch_source).toBe("detached");
+		expect((result.data.error as Record<string, unknown>).code).toBe("detached-head");
+		expect((result.data.repo as Record<string, unknown>).branchSource).toBe("detached");
 		expect(sessionSource.queries).toEqual([]);
 	});
 
@@ -195,7 +195,7 @@ describe("aretro exec collect-evidence", () => {
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.success).toBe(true);
 		expect((result.data.repo as Record<string, unknown>).branch).toBe("feature/manual");
-		expect((result.data.repo as Record<string, unknown>).branch_source).toBe("explicit");
+		expect((result.data.repo as Record<string, unknown>).branchSource).toBe("explicit");
 		expect(git.currentBranchCalls).toEqual([]);
 	});
 
@@ -207,7 +207,7 @@ describe("aretro exec collect-evidence", () => {
 		const sessionSource = new FakeSessionSource({
 			warnings: [
 				{
-					code: "session_root_missing",
+					code: "session-root-missing",
 					message: "session root is missing",
 					source_ref: { path: "/missing", uri: null, line_number: null },
 					harness: "fake",
@@ -226,13 +226,13 @@ describe("aretro exec collect-evidence", () => {
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
 		expect(result.data.success).toBe(true);
-		expect((result.data.aggregate_metrics as Record<string, unknown>).session_count).toBe(0);
-		expect((result.data.aggregate_metrics as Record<string, unknown>).warning_count).toBe(1);
+		expect((result.data.aggregateMetrics as Record<string, unknown>).sessionCount).toBe(0);
+		expect((result.data.aggregateMetrics as Record<string, unknown>).warningCount).toBe(1);
 		const warnings = (result.data.warnings as Array<Record<string, unknown>>) ?? [];
 		expect(warnings).toHaveLength(1);
 		const warning = warnings[0];
 		if (warning === undefined) throw new Error("warning is undefined");
-		expect(warning.code).toBe("session_root_missing");
+		expect(warning.code).toBe("session-root-missing");
 	});
 
 	it("rejects payload mode without session id", async () => {
@@ -253,7 +253,7 @@ describe("aretro exec collect-evidence", () => {
 		const result = parseJsonOutput(run) as { status: string; data: Record<string, unknown> };
 		expect(result.status).toBe("failure");
 		expect(result.data.success).toBe(false);
-		expect((result.data.error as Record<string, unknown>).code).toBe("payload_session_required");
+		expect((result.data.error as Record<string, unknown>).code).toBe("payload-session-required");
 		expect(git.optionalRepoRootCalls).toEqual([]);
 		expect(git.repoRootCalls).toEqual([]);
 		expect(git.currentBranchCalls).toEqual([]);
@@ -286,13 +286,13 @@ describe("aretro exec collect-evidence", () => {
 		);
 		expect(await run.exit).toBe(0);
 		const result = parseJsonOutput(run) as { data: Record<string, unknown> };
-		expect(result.data.payload_mode).toBe("payload");
-		expect(result.data.detail_locator_hints).toContain("/data/sessions");
-		const payloadReference = result.data.payload_reference as Record<string, unknown>;
+		expect(result.data.payloadMode).toBe("payload");
+		expect(result.data.detailLocatorHints).toContain("/data/sessions");
+		const payloadReference = result.data.payloadReference as Record<string, unknown>;
 		expect(payloadReference.descriptor).toBe("aretro-collect-evidence");
 		expect(payloadReference.role).toBe("raw");
-		const payloadPath = payloadReference.payload_path;
-		if (typeof payloadPath !== "string") throw new Error("payload_path should be string");
+		const payloadPath = payloadReference.payloadPath;
+		if (typeof payloadPath !== "string") throw new Error("payloadPath should be string");
 
 		const payloadText = readFileSync(payloadPath, "utf-8");
 		expect(payloadText).not.toContain("SECRET_TOOL_OUTPUT_TEXT");
@@ -304,7 +304,7 @@ describe("aretro exec collect-evidence", () => {
 			"--payload-path",
 			payloadPath,
 			"--json-pointer",
-			"/data/schema_version",
+			"/data/schemaVersion",
 			"--format",
 			"json",
 		]);

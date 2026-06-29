@@ -35,12 +35,12 @@ export const reviewListRequestSchema = z.object({
 export const reviewMetadataSchema = z.object({
 	key: nonBlankStringSchema,
 	description: nonBlankStringSchema,
-	model_profile: nonBlankStringSchema,
-	local_only: z.boolean(),
+	modelProfile: nonBlankStringSchema,
+	localOnly: z.boolean(),
 });
 
 export const reviewListResultSchema = z.object({
-	reviews_dir: nonBlankStringSchema,
+	reviewsDir: nonBlankStringSchema,
 	keys: z.array(nonBlankStringSchema),
 	count: z.int().min(0),
 	reviews: z.array(reviewMetadataSchema),
@@ -52,11 +52,11 @@ export type ReviewListResult = z.infer<typeof reviewListResultSchema>;
 export const roastSkillMetadataSchema = z.object({
 	surface: nonBlankStringSchema,
 	label: nonBlankStringSchema,
-	review_key: nonBlankStringSchema,
-	review_path: nonBlankStringSchema,
+	reviewKey: nonBlankStringSchema,
+	reviewPath: nonBlankStringSchema,
 	title: nonBlankStringSchema,
 	description: nonBlankStringSchema,
-	default_prompt: nonBlankStringSchema,
+	defaultPrompt: nonBlankStringSchema,
 });
 
 export const roastSkillListRequestSchema = z.object({});
@@ -166,12 +166,12 @@ export async function runReviewList(
 		.map((item) => ({
 			key: item.key,
 			description: item.definition.description,
-			model_profile: item.definition.modelProfile,
-			local_only: item.definition.localOnly,
+			modelProfile: item.definition.modelProfile,
+			localOnly: item.definition.localOnly,
 		}));
 	return ok(
 		reviewListResultSchema.parse({
-			reviews_dir: catalog.value.reviewsDir,
+			reviewsDir: catalog.value.reviewsDir,
 			keys: selectedKeys,
 			count: selectedKeys.length,
 			reviews,
@@ -180,12 +180,12 @@ export async function runReviewList(
 }
 
 export function renderReviewList(result: ReviewListResult): string {
-	const lines = [`Reviews directory: ${result.reviews_dir}`, `Reviews: ${result.count}`];
+	const lines = [`Reviews directory: ${result.reviewsDir}`, `Reviews: ${result.count}`];
 	const tripwires = result.reviews.filter(
-		(review) => roasterReviewDisplayRole(review.model_profile) === "tripwire",
+		(review) => roasterReviewDisplayRole(review.modelProfile) === "tripwire",
 	);
 	const deepReviews = result.reviews.filter(
-		(review) => roasterReviewDisplayRole(review.model_profile) === "deep_review",
+		(review) => roasterReviewDisplayRole(review.modelProfile) === "deep_review",
 	);
 	if (tripwires.length > 0) {
 		lines.push(`Tripwires: ${tripwires.length}`);
@@ -211,11 +211,11 @@ export async function runRoastSkillList(
 	const entries = loaded.value.map((entry) => ({
 		surface: entry.surface,
 		label: entry.label,
-		review_key: entry.reviewKey,
-		review_path: roastReviewPathForKey(entry.reviewKey),
+		reviewKey: entry.reviewKey,
+		reviewPath: roastReviewPathForKey(entry.reviewKey),
 		title: entry.title,
 		description: entry.description,
-		default_prompt: entry.defaultPrompt,
+		defaultPrompt: entry.defaultPrompt,
 	}));
 	return ok(roastSkillListResultSchema.parse({ count: entries.length, entries }));
 }
@@ -223,7 +223,7 @@ export async function runRoastSkillList(
 export function renderRoastSkillList(result: RoastSkillListResult): string {
 	const lines = [`Roast skill entries: ${result.count}`];
 	for (const entry of result.entries) {
-		lines.push(`- ${entry.surface} — ${entry.label} (review: ${entry.review_key})`);
+		lines.push(`- ${entry.surface} — ${entry.label} (review: ${entry.reviewKey})`);
 	}
 	return lines.join("\n");
 }
@@ -321,7 +321,7 @@ async function readFindingsPayload(
 		return {
 			type: "failure",
 			exit: failure(
-				"review_execution_invalid_json",
+				"review-execution-invalid-json",
 				`record-findings stdin must be JSON: ${formatErrorMessage(caught)}`,
 			),
 		};
@@ -332,7 +332,7 @@ async function readFindingsPayload(
 		return {
 			type: "failure",
 			exit: failure(
-				"review_execution_invalid_findings",
+				"review-execution-invalid-findings",
 				`record-findings stdin must match { findings: [...] }: ${z.prettifyError(payload.error)}`,
 			),
 		};
@@ -426,8 +426,8 @@ async function loadDefinitions(
 }
 
 function renderReviewListEntry(review: ReviewListResult["reviews"][number]): string {
-	const model = ` (model profile: ${review.model_profile})`;
-	const scope = review.local_only ? " [local-only]" : "";
+	const model = ` (model profile: ${review.modelProfile})`;
+	const scope = review.localOnly ? " [local-only]" : "";
 	return `- ${review.key}: ${review.description}${model}${scope}`;
 }
 

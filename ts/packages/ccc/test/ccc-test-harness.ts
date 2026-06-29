@@ -463,7 +463,7 @@ export function cmuxSummaryStep(title: string, description: string): ScriptedExe
 					success: true,
 					title,
 					description,
-					status_key: "pi-summary",
+					statusKey: "pi-summary",
 				},
 			}),
 		},
@@ -490,10 +490,10 @@ export function brmemPutJson(repoRoot: string, planFile: string): string {
 			namespace: "branch-context",
 			key: PLAN_KEY,
 			branch: PLAN_SLUG,
-			ref_name: `refs/brmem/ns/branch-context/${PLAN_SLUG}:${PLAN_KEY}`,
+			refName: `refs/brmem/ns/branch-context/${PLAN_SLUG}:${PLAN_KEY}`,
 			commit: START_POINT,
-			source_file: planFile,
-			repo_root: repoRoot,
+			sourceFile: planFile,
+			repoRoot: repoRoot,
 		},
 	});
 }

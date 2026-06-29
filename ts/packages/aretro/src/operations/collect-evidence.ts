@@ -64,7 +64,7 @@ export async function runCollectEvidence(
 		} catch (error) {
 			const payloadError = error instanceof PayloadError ? error : null;
 			const collectError: CollectEvidenceError = {
-				code: payloadError?.errorType ?? "payload_mode_failed",
+				code: payloadError?.errorType ?? "payload-mode-failed",
 				message: payloadError?.message ?? String(error),
 			};
 			return collectFailure(context, request, {
@@ -94,11 +94,11 @@ export async function runCollectEvidence(
 		} catch (error) {
 			const payloadError = error instanceof PayloadError ? error : null;
 			const collectError: CollectEvidenceError = {
-				code: payloadError?.errorType ?? "payload_write_failed",
+				code: payloadError?.errorType ?? "payload-write-failed",
 				message: payloadError?.message ?? String(error),
 			};
 			return collectFailure(context, request, {
-				repoRoot: resolved.repo.repo_root,
+				repoRoot: resolved.repo.repoRoot,
 				branch: resolved.resolvedBranch.branch,
 				branchSource: resolved.resolvedBranch.branchSource,
 				error: collectError,
@@ -108,16 +108,16 @@ export async function runCollectEvidence(
 
 		const payloadResult: CollectEvidenceResult = {
 			...resolved.compactResult,
-			payload_mode: "payload",
-			payload_reference: payloadReference,
-			detail_locator_hints: [
+			payloadMode: "payload",
+			payloadReference: payloadReference,
+			detailLocatorHints: [
 				"/data/repo",
 				"/data/query",
 				"/data/source",
-				"/data/aggregate_metrics",
+				"/data/aggregateMetrics",
 				"/data/sessions",
 				"/data/warnings",
-				"/data/evidence_items",
+				"/data/evidenceItems",
 			],
 		};
 		return ok(payloadResult);
@@ -130,10 +130,10 @@ export async function runCollectEvidence(
 
 export function renderCollectEvidence(_result: CollectEvidenceResult): string {
 	const branch = _result.repo.branch ?? "<unresolved>";
-	const sessionCount = _result.aggregate_metrics.session_count;
+	const sessionCount = _result.aggregateMetrics.sessionCount;
 	const harness = _result.source.harness;
-	const adapterName = _result.source.adapter_name;
-	const warningCount = _result.aggregate_metrics.warning_count;
+	const adapterName = _result.source.adapterName;
+	const warningCount = _result.aggregateMetrics.warningCount;
 	return (
 		`Collected ${sessionCount} session(s) from ${harness}/${adapterName} for branch ${branch}.\n` +
 		`Warnings: ${warningCount}\n` +
@@ -160,7 +160,7 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 	const repoRootResult = await context.git.optionalRepoRoot({ cwd: repoInput });
 	if (repoRootResult.type === "missing") {
 		const error: CollectEvidenceError = {
-			code: "not_a_git_repo",
+			code: "not-a-git-repo",
 			message: `Not a git repository: ${repoInput}. Pass --repo with a git repository path.`,
 		};
 		return preResolutionFailure(error);
@@ -189,10 +189,10 @@ async function resolveRepoAndQuery(context: AretroCliContext, request: CollectEv
 	}
 
 	const repo: RepoContextDto = {
-		repo_root: repoRoot,
+		repoRoot: repoRoot,
 		cwd,
 		branch: resolvedBranch.branch,
-		branch_source: resolvedBranch.branchSource,
+		branchSource: resolvedBranch.branchSource,
 	};
 
 	const query: SessionQuery = {
@@ -242,8 +242,8 @@ function collectFailure(
 
 function classifyCollectEvidenceError(code: string): "usageError" | "failure" | "negative" {
 	switch (code) {
-		case "not_a_git_repo":
-		case "detached_head":
+		case "not-a-git-repo":
+		case "detached-head":
 			return "usageError";
 		default:
 			return "failure";
@@ -269,7 +269,7 @@ async function resolveBranch(
 	if (currentBranchResult.type === "branch") {
 		return {
 			branch: currentBranchResult.branch,
-			branchSource: "git_current_branch",
+			branchSource: "git-current-branch",
 			error: null,
 		};
 	}
@@ -279,7 +279,7 @@ async function resolveBranch(
 			branch: null,
 			branchSource: "detached",
 			error: {
-				code: "detached_head",
+				code: "detached-head",
 				message: `Detached HEAD at ${repoRoot}; pass --branch to collect evidence.`,
 			},
 		};
@@ -310,12 +310,12 @@ function resultFromQueryResult(
 		success: true,
 		error: null,
 		repo,
-		query: queryToDto(request, repo.repo_root),
+		query: queryToDto(request, repo.repoRoot),
 		source: sourceInfoToDto(queryResult.source_info),
-		aggregate_metrics: aggregateMetricsFromSummaries(summaries, warnings),
+		aggregateMetrics: aggregateMetricsFromSummaries(summaries, warnings),
 		sessions: summaries,
 		warnings,
-		evidence_items: evidenceItems,
+		evidenceItems: evidenceItems,
 	};
 }
 
@@ -330,39 +330,39 @@ function emptyResult(options: {
 	warnings: SessionWarningDto[];
 }): CollectEvidenceResult {
 	const repo: RepoContextDto = {
-		repo_root: options.repoRoot,
+		repoRoot: options.repoRoot,
 		cwd: options.cwd,
 		branch: options.branch,
-		branch_source: options.branchSource,
+		branchSource: options.branchSource,
 	};
 
 	return {
 		success: false,
 		error: options.error,
 		repo,
-		query: queryToDto(options.request, repo.repo_root),
+		query: queryToDto(options.request, repo.repoRoot),
 		source: sourceInfoToDto(options.sourceInfo),
-		aggregate_metrics: aggregateMetricsFromSummaries([], options.warnings),
+		aggregateMetrics: aggregateMetricsFromSummaries([], options.warnings),
 		sessions: [],
 		warnings: options.warnings,
-		evidence_items: [],
+		evidenceItems: [],
 	};
 }
 
 export function summarizeSession(session: ParsedSession): SessionSummaryDto {
 	return {
-		session_id: session.session_id,
-		started_at_iso: session.started_at_iso,
-		ended_at_iso: session.ended_at_iso,
-		source_ref: sourceRefToDto(session.source_ref),
+		sessionId: session.session_id,
+		startedAtIso: session.started_at_iso,
+		endedAtIso: session.ended_at_iso,
+		sourceRef: sourceRefToDto(session.source_ref),
 		association: associationToDto(session.association),
-		message_counts: messageCountsToDto(session.message_counts),
-		model_event_count: session.model_events.length,
-		tool_call_count: session.tool_calls.length,
-		tool_result_count: session.tool_results.length,
-		command_execution_count: session.command_executions.length,
-		usage_event_count: session.usage_events.length,
-		warning_count: session.warnings.length,
+		messageCounts: messageCountsToDto(session.message_counts),
+		modelEventCount: session.model_events.length,
+		toolCallCount: session.tool_calls.length,
+		toolResultCount: session.tool_results.length,
+		commandExecutionCount: session.command_executions.length,
+		usageEventCount: session.usage_events.length,
+		warningCount: session.warnings.length,
 	};
 }
 
@@ -371,36 +371,36 @@ export function aggregateMetricsFromSummaries(
 	warnings: readonly SessionWarningDto[],
 ): AggregateMetricsDto {
 	return {
-		session_count: summaries.length,
-		message_counts: {
-			user: summaries.reduce((sum, s) => sum + s.message_counts.user, 0),
-			assistant: summaries.reduce((sum, s) => sum + s.message_counts.assistant, 0),
-			tool_result: summaries.reduce((sum, s) => sum + s.message_counts.tool_result, 0),
-			command_execution: summaries.reduce((sum, s) => sum + s.message_counts.command_execution, 0),
-			system: summaries.reduce((sum, s) => sum + s.message_counts.system, 0),
-			other: summaries.reduce((sum, s) => sum + s.message_counts.other, 0),
+		sessionCount: summaries.length,
+		messageCounts: {
+			user: summaries.reduce((sum, s) => sum + s.messageCounts.user, 0),
+			assistant: summaries.reduce((sum, s) => sum + s.messageCounts.assistant, 0),
+			toolResult: summaries.reduce((sum, s) => sum + s.messageCounts.toolResult, 0),
+			commandExecution: summaries.reduce((sum, s) => sum + s.messageCounts.commandExecution, 0),
+			system: summaries.reduce((sum, s) => sum + s.messageCounts.system, 0),
+			other: summaries.reduce((sum, s) => sum + s.messageCounts.other, 0),
 		},
-		tool_call_count: summaries.reduce((sum, s) => sum + s.tool_call_count, 0),
-		tool_result_count: summaries.reduce((sum, s) => sum + s.tool_result_count, 0),
-		command_execution_count: summaries.reduce((sum, s) => sum + s.command_execution_count, 0),
-		usage_event_count: summaries.reduce((sum, s) => sum + s.usage_event_count, 0),
-		warning_count: warnings.length,
+		toolCallCount: summaries.reduce((sum, s) => sum + s.toolCallCount, 0),
+		toolResultCount: summaries.reduce((sum, s) => sum + s.toolResultCount, 0),
+		commandExecutionCount: summaries.reduce((sum, s) => sum + s.commandExecutionCount, 0),
+		usageEventCount: summaries.reduce((sum, s) => sum + s.usageEventCount, 0),
+		warningCount: warnings.length,
 	};
 }
 
 function queryToDto(request: CollectEvidenceRequest, repoRoot: string | null): SessionQueryDto {
 	return {
-		repo_root: repoRoot,
-		session_root: request.sessionRoot ?? null,
-		max_sessions: request.maxSessions,
+		repoRoot: repoRoot,
+		sessionRoot: request.sessionRoot ?? null,
+		maxSessions: request.maxSessions,
 	};
 }
 
 function sourceInfoToDto(sourceInfo: SessionSourceInfo): SessionSourceInfoDto {
 	return {
 		harness: sourceInfo.harness,
-		adapter_name: sourceInfo.adapter_name,
-		record_format: sourceInfo.record_format,
+		adapterName: sourceInfo.adapter_name,
+		recordFormat: sourceInfo.record_format,
 	};
 }
 
@@ -408,7 +408,7 @@ function sourceRefToDto(sourceRef: SessionSourceRef): SessionSourceRefDto {
 	return {
 		path: sourceRef.path,
 		uri: sourceRef.uri,
-		line_number: sourceRef.line_number,
+		lineNumber: sourceRef.line_number,
 	};
 }
 
@@ -416,15 +416,15 @@ function warningToDto(warning: SessionWarning): SessionWarningDto {
 	return {
 		code: warning.code,
 		message: warning.message,
-		source_ref: warning.source_ref !== null ? sourceRefToDto(warning.source_ref) : null,
+		sourceRef: warning.source_ref !== null ? sourceRefToDto(warning.source_ref) : null,
 		harness: warning.harness,
-		adapter_name: warning.adapter_name,
+		adapterName: warning.adapter_name,
 	};
 }
 
 function associationToDto(association: SessionAssociation): SessionAssociationDto {
 	return {
-		repo_root: association.repo_root,
+		repoRoot: association.repo_root,
 		cwd: association.cwd,
 		branch: association.branch,
 		confidence: association.confidence,
@@ -436,8 +436,8 @@ function messageCountsToDto(counts: SessionMessageCounts): MessageCountsDto {
 	return {
 		user: counts.user,
 		assistant: counts.assistant,
-		tool_result: counts.tool_result,
-		command_execution: counts.command_execution,
+		toolResult: counts.tool_result,
+		commandExecution: counts.command_execution,
 		system: counts.system,
 		other: counts.other,
 	};
@@ -448,8 +448,8 @@ function evidenceItemToDto(item: {
 	subject: string;
 	summary: string;
 	count: number | null;
-	session_count: number | null;
-	source_refs: readonly SessionSourceRef[];
+	sessionCount: number | null;
+	sourceRefs: readonly SessionSourceRef[];
 	metadata: Readonly<Record<string, string | number | boolean | null>>;
 }): EvidenceItemDto {
 	return {
@@ -457,8 +457,8 @@ function evidenceItemToDto(item: {
 		subject: item.subject,
 		summary: item.summary,
 		count: item.count,
-		session_count: item.session_count,
-		source_refs: item.source_refs.map((ref) => sourceRefToDto(ref)),
+		sessionCount: item.sessionCount,
+		sourceRefs: item.sourceRefs.map((ref) => sourceRefToDto(ref)),
 		metadata: { ...item.metadata },
 	};
 }

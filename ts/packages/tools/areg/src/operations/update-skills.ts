@@ -32,12 +32,12 @@ export const updateSkillsRequestSchema = z.object({
 
 export const updateSkillsResultSchema = z.object({
 	ok: z.boolean(),
-	project_dir: z.string(),
+	projectDir: z.string(),
 	agents: z.array(z.string()),
-	dry_run: z.boolean(),
-	selected_updates: z.array(selectedUpdateSchema),
-	attempted_updates: z.array(attemptedUpdateSchema),
-	failure_count: z.number().int().nonnegative(),
+	dryRun: z.boolean(),
+	selectedUpdates: z.array(selectedUpdateSchema),
+	attemptedUpdates: z.array(attemptedUpdateSchema),
+	failureCount: z.number().int().nonnegative(),
 });
 
 export type UpdateSkillsRequest = z.infer<typeof updateSkillsRequestSchema>;
@@ -55,14 +55,14 @@ export async function runUpdateSkills(
 		env: ctx.env,
 	});
 	if (inspection.projectPathState.type !== "directory") {
-		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
+		return failure("invalid-project", `${inspection.projectDir} is not a directory`);
 	}
 
 	const lockfileResult = parseInspectedLockfile(inspection);
-	if (!lockfileResult.ok) return failure("lockfile_invalid", lockfileResult.error.message);
+	if (!lockfileResult.ok) return failure("lockfile-invalid", lockfileResult.error.message);
 
 	const selection = selectGithubUpdates(lockfileResult.value.skills, request);
-	if (!selection.ok) return failure("invalid_selection", selection.error.message);
+	if (!selection.ok) return failure("invalid-selection", selection.error.message);
 	const selectedUpdates = selection.value;
 
 	if (selectedUpdates.length === 0)
@@ -73,12 +73,12 @@ export async function runUpdateSkills(
 		sdlToml: inspection.sdlToml,
 		aregJson: inspection.aregJson,
 	});
-	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
+	if (!agentsResult.ok) return failure("agent-resolution-failed", agentsResult.error.message);
 	const agents = agentsResult.value;
 
 	if (!request.dryRun) {
 		const npx = await ctx.host.checkTool({ tool: "npx", cwd: inspection.projectDir, env: ctx.env });
-		if (npx.type === "missing") return failure("missing_tool", npx.message);
+		if (npx.type === "missing") return failure("missing-tool", npx.message);
 	}
 
 	const attemptedUpdates: AttemptedUpdate[] = [];
@@ -108,25 +108,25 @@ export async function runUpdateSkills(
 		selectedUpdates,
 		attemptedUpdates,
 	});
-	if (finalReport.failure_count > 0)
-		return failure("skill_update_failed", formatFailureMessage(finalReport));
+	if (finalReport.failureCount > 0)
+		return failure("skill-update-failed", formatFailureMessage(finalReport));
 	return ok(finalReport);
 }
 
 export function renderUpdateSkills(result: UpdateSkillsResult): string {
-	if (result.selected_updates.length === 0)
+	if (result.selectedUpdates.length === 0)
 		return "No github-sourced skills match. Nothing to update.";
-	const suffix = result.dry_run ? " [dry-run]" : "";
+	const suffix = result.dryRun ? " [dry-run]" : "";
 	const lines = [
-		`Updating ${result.selected_updates.length} skill(s) with agents ${result.agents.join(", ")}${suffix}:`,
+		`Updating ${result.selectedUpdates.length} skill(s) with agents ${result.agents.join(", ")}${suffix}:`,
 	];
-	for (const update of result.attempted_updates) {
+	for (const update of result.attemptedUpdates) {
 		lines.push(`  ${update.skill}  <-  ${update.source}`);
 		if (update.status === "failed") lines.push(`    FAILED: ${update.error ?? "unknown error"}`);
 	}
-	if (result.dry_run)
-		lines.push("", `Planned: ${result.attempted_updates.length} skill(s). No changes made.`);
-	else lines.push("", `Updated ${result.attempted_updates.length} skill(s).`);
+	if (result.dryRun)
+		lines.push("", `Planned: ${result.attemptedUpdates.length} skill(s). No changes made.`);
+	else lines.push("", `Updated ${result.attemptedUpdates.length} skill(s).`);
 	return lines.join("\n");
 }
 
@@ -175,12 +175,12 @@ function report(input: {
 	const failures = input.attemptedUpdates.filter((update) => update.status === "failed");
 	return {
 		ok: input.ok ?? failures.length === 0,
-		project_dir: input.projectDir,
+		projectDir: input.projectDir,
 		agents: [...input.agents],
-		dry_run: input.dryRun,
-		selected_updates: input.selectedUpdates.map((update) => ({ ...update })),
-		attempted_updates: input.attemptedUpdates.map((update) => ({ ...update })),
-		failure_count: failures.length,
+		dryRun: input.dryRun,
+		selectedUpdates: input.selectedUpdates.map((update) => ({ ...update })),
+		attemptedUpdates: input.attemptedUpdates.map((update) => ({ ...update })),
+		failureCount: failures.length,
 	};
 }
 
@@ -196,7 +196,7 @@ function emptyReport(projectDir: string, dryRun: boolean, isOk: boolean): Update
 }
 
 function formatFailureMessage(result: UpdateSkillsResult): string {
-	const failed = result.attempted_updates.filter((update) => update.status === "failed");
+	const failed = result.attemptedUpdates.filter((update) => update.status === "failed");
 	const lines = [
 		`${failed.length} skill(s) failed to update: ${failed.map((update) => update.skill).join(", ")}`,
 	];

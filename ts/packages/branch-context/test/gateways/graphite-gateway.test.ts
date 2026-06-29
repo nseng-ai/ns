@@ -260,7 +260,7 @@ describe("real branch-context graphite gateway", () => {
 		expect(result).toMatchObject({
 			ok: false,
 			error: {
-				code: "graphite_track_failed",
+				code: "graphite-track-failed",
 				displayCommand: `gt track ${BRANCH} --parent ${PARENT_BRANCH} --no-interactive`,
 			},
 		});
@@ -284,7 +284,7 @@ describe("real branch-context graphite gateway", () => {
 			parentBranch: PARENT_BRANCH,
 		});
 
-		expect(result).toMatchObject({ ok: false, error: { code: "graphite_track_failed" } });
+		expect(result).toMatchObject({ ok: false, error: { code: "graphite-track-failed" } });
 		if (!result.ok) {
 			expect(result.error.message).toContain("process was killed or timed out");
 		}

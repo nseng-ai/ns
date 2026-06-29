@@ -227,12 +227,12 @@ describe("areg init CLI", () => {
 			status: "ok",
 			exitCode: 0,
 			data: {
-				project_dir: "/repo",
+				projectDir: "/repo",
 				agents: ["codex", "claude-code"],
-				bootstrap_repo: BOOTSTRAP_REPO,
-				bootstrap_skills: ["skill-management", "skillx"],
-				written_files: ["sdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"],
-				skipped_files: [],
+				bootstrapRepo: BOOTSTRAP_REPO,
+				bootstrapSkills: ["skill-management", "skillx"],
+				writtenFiles: ["sdl.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"],
+				skippedFiles: [],
 			},
 		});
 	});
@@ -246,25 +246,25 @@ describe("areg init CLI", () => {
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
 			status: "failure",
-			errorType: "areg_init_mutation_failed",
+			errorType: "areg-init-mutation-failed",
 			exitCode: 2,
 			data: {
-				mutation_failed: true,
-				project_dir: "/repo",
+				mutationFailed: true,
+				projectDir: "/repo",
 				agents: ["codex", "claude-code"],
-				bootstrap_repo: BOOTSTRAP_REPO,
-				bootstrap_skills: ["skill-management", "skillx"],
+				bootstrapRepo: BOOTSTRAP_REPO,
+				bootstrapSkills: ["skill-management", "skillx"],
 				operations: [
-					{ type: "external", path: "npx skills add", status: "not_attempted" },
-					{ type: "write", path: "sdl.toml", status: "not_attempted" },
+					{ type: "external", path: "npx skills add", status: "not-attempted" },
+					{ type: "write", path: "sdl.toml", status: "not-attempted" },
 					{
 						type: "write",
 						path: "AGENTS.md",
 						status: "failed",
 						error: { code: "blocked", message: "blocked" },
 					},
-					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
-					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+					{ type: "write", path: "CLAUDE.md", status: "not-attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not-attempted" },
 				],
 			},
 		});
@@ -281,10 +281,10 @@ describe("areg init CLI", () => {
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
 			status: "failure",
-			errorType: "areg_init_mutation_failed",
+			errorType: "areg-init-mutation-failed",
 			exitCode: 2,
 			data: {
-				mutation_failed: true,
+				mutationFailed: true,
 				operations: [
 					{
 						type: "external",
@@ -292,10 +292,10 @@ describe("areg init CLI", () => {
 						status: "failed",
 						error: { code: "boom", message: "boom" },
 					},
-					{ type: "write", path: "sdl.toml", status: "not_attempted" },
-					{ type: "write", path: "AGENTS.md", status: "not_attempted" },
-					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
-					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+					{ type: "write", path: "sdl.toml", status: "not-attempted" },
+					{ type: "write", path: "AGENTS.md", status: "not-attempted" },
+					{ type: "write", path: "CLAUDE.md", status: "not-attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not-attempted" },
 				],
 			},
 		});
@@ -313,10 +313,10 @@ describe("areg init CLI", () => {
 		const output = JSON.parse(run.stdout.join(""));
 		expect(output).toMatchObject({
 			status: "failure",
-			errorType: "areg_init_mutation_failed",
+			errorType: "areg-init-mutation-failed",
 			exitCode: 2,
 			data: {
-				mutation_failed: true,
+				mutationFailed: true,
 				operations: [
 					{ type: "external", path: "npx skills add", status: "applied" },
 					{ type: "write", path: "sdl.toml", status: "applied" },
@@ -326,8 +326,8 @@ describe("areg init CLI", () => {
 						status: "failed",
 						error: { code: "write-blocked", message: "write blocked" },
 					},
-					{ type: "write", path: "CLAUDE.md", status: "not_attempted" },
-					{ type: "write", path: ".claude/settings.local.json", status: "not_attempted" },
+					{ type: "write", path: "CLAUDE.md", status: "not-attempted" },
+					{ type: "write", path: ".claude/settings.local.json", status: "not-attempted" },
 				],
 			},
 		});

@@ -193,9 +193,9 @@ export async function writeReviewRunLog(
 
 function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
 	return (
-		error.type === "review_log_write_failed" ||
-		error.type === "review_log_list_failed" ||
-		error.type === "review_log_response_invalid"
+		error.type === "review-log-write-failed" ||
+		error.type === "review-log-list-failed" ||
+		error.type === "review-log-response-invalid"
 	);
 }
 
@@ -231,7 +231,7 @@ function resolveReviewModel(
 		return {
 			type: "error",
 			error: {
-				type: "review_definition_invalid",
+				type: "review-definition-invalid",
 				message: `Unknown Roaster model profile ${JSON.stringify(profile)}. Allowed profiles: quick, deep.`,
 			},
 		};
@@ -285,7 +285,7 @@ export async function loadProjectConfigFromContext(
 	if (!repoRoot.ok) {
 		return {
 			type: "error",
-			error: { type: "repo_root_unavailable", message: repoRoot.error.message },
+			error: { type: "repo-root-unavailable", message: repoRoot.error.message },
 		};
 	}
 
@@ -303,7 +303,7 @@ export async function loadProjectConfigFromContext(
 		return {
 			type: "error",
 			error: {
-				type: "project_config_invalid",
+				type: "project-config-invalid",
 				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
 			},
 		};
@@ -313,7 +313,7 @@ export async function loadProjectConfigFromContext(
 	if (parsed.type === "error") {
 		return {
 			type: "error",
-			error: { type: "project_config_invalid", message: parsed.error.message },
+			error: { type: "project-config-invalid", message: parsed.error.message },
 		};
 	}
 	return { type: "ok", value: parsed.config };

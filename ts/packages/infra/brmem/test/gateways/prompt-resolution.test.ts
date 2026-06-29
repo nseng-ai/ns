@@ -50,7 +50,7 @@ describe("RealBrmemPromptResolver", () => {
 
 	it("maps injected GitGateway repo-root failures to not-a-git-repo", async () => {
 		const gitError: GitErrorInfo = {
-			code: "repo_root_failed",
+			code: "repo-root-failed",
 			message: "git failed",
 			displayCommand: "git rev-parse --show-toplevel",
 		};

@@ -43,7 +43,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: true,
 				target: {
-					kind: "github_pr",
+					kind: "github-pr",
 					pr_number: 12,
 					branch: null,
 					title: "Add tests",
@@ -52,7 +52,7 @@ describe("collectPrChecks", () => {
 					base_ref_name: "main",
 					head_ref_oid: "abc123",
 				},
-				counts: { passing: 1, pending: 2, failing: 3, unknown: 4, has_more: true },
+				counts: { passing: 1, pending: 2, failing: 3, unknown: 4, hasMore: true },
 				checks: [
 					{
 						bucket: "failing",
@@ -87,7 +87,7 @@ describe("collectPrChecks", () => {
 			checks: {
 				found: false,
 				target: {
-					kind: "github_pr",
+					kind: "github-pr",
 					pr_number: null,
 					branch: null,
 					title: null,
@@ -164,7 +164,7 @@ describe("collectPrChecks", () => {
 			git: new InMemoryGitGateway({
 				currentBranch: {
 					type: "failure",
-					error: { code: "current_branch_failed", message: "branch exploded" },
+					error: { code: "current-branch-failed", message: "branch exploded" },
 				},
 			}),
 			prFeedback: new InMemoryGithubPrFeedbackGateway(),
@@ -174,7 +174,7 @@ describe("collectPrChecks", () => {
 		expect(result).toEqual({
 			type: "git_failure",
 			message: "Failed to determine current branch",
-			failure: { code: "current_branch_failed", message: "branch exploded" },
+			failure: { code: "current-branch-failed", message: "branch exploded" },
 		});
 	});
 
@@ -209,7 +209,7 @@ describe("collectPrChecks", () => {
 		});
 	});
 
-	test("omits has_more when the gateway omits hasMore", async () => {
+	test("omits hasMore when the gateway omits hasMore", async () => {
 		const result = await collectPrChecks({
 			git: new InMemoryGitGateway(),
 			prFeedback: new InMemoryGithubPrFeedbackGateway({
@@ -223,7 +223,7 @@ describe("collectPrChecks", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 		expect(result.checks.counts).toEqual({ passing: 1, pending: 0, failing: 0, unknown: 0 });
-		expect(Object.hasOwn(result.checks.counts, "has_more")).toBe(false);
+		expect(Object.hasOwn(result.checks.counts, "hasMore")).toBe(false);
 	});
 });
 

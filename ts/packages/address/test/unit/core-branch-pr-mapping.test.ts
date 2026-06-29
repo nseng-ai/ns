@@ -43,7 +43,7 @@ describe("branch-to-PR mapping core", () => {
 		expect(result).toEqual({
 			type: "ok",
 			mapping: {
-				branch_prs: [
+				branchPrs: [
 					{
 						branch: "feature-b",
 						pr_number: 12,
@@ -61,8 +61,8 @@ describe("branch-to-PR mapping core", () => {
 						base_ref_name: "main",
 					},
 				],
-				missing_branches: [],
-				ambiguous_branches: [],
+				missingBranches: [],
+				ambiguousBranches: [],
 				summary: { requested: 2, matched: 2, missing: 0, ambiguous: 0 },
 			},
 		});
@@ -78,9 +78,9 @@ describe("branch-to-PR mapping core", () => {
 		expect(result).toMatchObject({
 			type: "ok",
 			mapping: {
-				branch_prs: [expect.objectContaining({ branch: "feature-a", pr_number: 11 })],
-				missing_branches: ["no-such-branch", "feature-merged"],
-				ambiguous_branches: [],
+				branchPrs: [expect.objectContaining({ branch: "feature-a", pr_number: 11 })],
+				missingBranches: ["no-such-branch", "feature-merged"],
+				ambiguousBranches: [],
 				summary: { requested: 3, matched: 1, missing: 2, ambiguous: 0 },
 			},
 		});
@@ -101,9 +101,9 @@ describe("branch-to-PR mapping core", () => {
 		expect(result).toMatchObject({
 			type: "ok",
 			mapping: {
-				branch_prs: [],
-				missing_branches: [],
-				ambiguous_branches: [
+				branchPrs: [],
+				missingBranches: [],
+				ambiguousBranches: [
 					{
 						branch: "feature-shared",
 						candidates: expect.arrayContaining([
@@ -133,9 +133,9 @@ describe("branch-to-PR mapping core", () => {
 		expect(result).toMatchObject({
 			type: "ok",
 			mapping: {
-				branch_prs: [expect.objectContaining({ branch: "feature-a" })],
-				missing_branches: ["missing"],
-				ambiguous_branches: [expect.objectContaining({ branch: "feature-shared" })],
+				branchPrs: [expect.objectContaining({ branch: "feature-a" })],
+				missingBranches: ["missing"],
+				ambiguousBranches: [expect.objectContaining({ branch: "feature-shared" })],
 				summary: { requested: 3, matched: 1, missing: 1, ambiguous: 1 },
 			},
 		});

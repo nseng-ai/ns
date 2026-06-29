@@ -7,7 +7,7 @@ import type {
 export const RESERVED_GRILL_ASK_VALUES = new Set([
 	"__freeform__",
 	"__status__",
-	"__end_grill__",
+	"__end-grill__",
 	"__cancelled__",
 ]);
 

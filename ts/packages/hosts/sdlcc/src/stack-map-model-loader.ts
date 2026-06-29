@@ -247,8 +247,8 @@ function branchArrayField(
 		const name = stringField(item, "name");
 		const parent = optionalStringField(item, "parent");
 		const children = stringArrayField(item, "children");
-		const validationResult = optionalStringField(item, "validation_result");
-		const needsRestack = booleanField(item, "needs_restack");
+		const validationResult = optionalStringField(item, "validationResult");
+		const needsRestack = booleanField(item, "needsRestack");
 		if (name === undefined || children === undefined || needsRestack === undefined)
 			return undefined;
 		branches.push({ name, parent, children, validationResult, needsRestack });
@@ -282,9 +282,9 @@ function slotArrayField(
 	const slots: StackMapGraphSlot[] = [];
 	for (const item of value) {
 		if (!isRecord(item)) return undefined;
-		const slotName = stringField(item, "slot_name");
+		const slotName = stringField(item, "slotName");
 		const branch = stringField(item, "branch");
-		const worktreePath = optionalStringField(item, "worktree_path");
+		const worktreePath = optionalStringField(item, "worktreePath");
 		if (slotName === undefined || branch === undefined) return undefined;
 		slots.push({
 			slotName,

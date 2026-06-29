@@ -59,7 +59,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
-		expect(schema.stdout.join("")).toContain("aggregate_metrics");
+		expect(schema.stdout.join("")).toContain("aggregateMetrics");
 
 		const collect = runWithRealAretroExtension({
 			args: [
@@ -82,8 +82,8 @@ describe("checked-in Aretro SDL extension loading", () => {
 			status: "ok",
 			exitCode: 0,
 			data: {
-				repo: { repo_root: cwd, branch: "demo-branch", branch_source: "explicit" },
-				aggregate_metrics: { session_count: 0 },
+				repo: { repoRoot: cwd, branch: "demo-branch", branchSource: "explicit" },
+				aggregateMetrics: { sessionCount: 0 },
 			},
 		});
 	});

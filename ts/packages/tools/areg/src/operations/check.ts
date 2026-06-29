@@ -23,31 +23,31 @@ import {
 import { inspectCheckProject, type AregCheckProjectInspection } from "./project-inspection.ts";
 
 const CHECK_ISSUE_CODES = [
-	"invalid_lock_hash",
-	"missing_skills_dir",
-	"skills_dir_is_symlink",
-	"invalid_local_lock_source",
-	"agents_not_symlink",
-	"agents_wrong_target",
-	"agents_missing",
-	"claude_not_symlink",
-	"claude_wrong_target",
-	"claude_missing",
-	"invalid_skill_md",
-	"invoke_only_missing_openai_policy",
-	"openai_policy_without_invoke_only",
-	"non_managed_openai_policy",
-	"command_converted_missing_pi_exclusion",
-	"command_converted_missing_pi_replacement",
-	"agents_not_real_dir",
-	"unexpected_skills_dir",
-	"orphan_in_skills",
-	"orphan_in_agents",
-	"dangling_lockfile",
-	"claude_md_missing_peer",
-	"agents_md_missing_peer",
-	"claude_md_missing_agents_ref",
-	"pi_settings_unusable",
+	"invalid-lock-hash",
+	"missing-skills-dir",
+	"skills-dir-is-symlink",
+	"invalid-local-lock-source",
+	"agents-not-symlink",
+	"agents-wrong-target",
+	"agents-missing",
+	"claude-not-symlink",
+	"claude-wrong-target",
+	"claude-missing",
+	"invalid-skill-md",
+	"invoke-only-missing-openai-policy",
+	"openai-policy-without-invoke-only",
+	"non-managed-openai-policy",
+	"command-converted-missing-pi-exclusion",
+	"command-converted-missing-pi-replacement",
+	"agents-not-real-dir",
+	"unexpected-skills-dir",
+	"orphan-in-skills",
+	"orphan-in-agents",
+	"dangling-lockfile",
+	"claude-md-missing-peer",
+	"agents-md-missing-peer",
+	"claude-md-missing-agents-ref",
+	"pi-settings-unusable",
 ] as const;
 
 const MAX_SKILL_DESCRIPTION_CHARS = 1024;
@@ -71,8 +71,8 @@ const checkIssueSchema = z.object({
 
 const checkReportSchema = z.object({
 	ok: z.boolean(),
-	project_dir: z.string(),
-	issue_count: z.number().int().nonnegative(),
+	projectDir: z.string(),
+	issueCount: z.number().int().nonnegative(),
 	issues: z.array(checkIssueSchema),
 });
 
@@ -96,11 +96,11 @@ export async function runCheck(
 ): Promise<ClinkrExit<CheckReport>> {
 	const inspection = await inspectCheckProject(ctx, request.path);
 	if (inspection.projectPathState.type !== "directory") {
-		return failure("invalid_project", `${inspection.projectDir} is not a directory`);
+		return failure("invalid-project", `${inspection.projectDir} is not a directory`);
 	}
 	const lockfileResult = parseInspectedLockfile(inspection);
 	if (!lockfileResult.ok) {
-		return failure("lockfile_invalid", lockfileResult.error.message);
+		return failure("lockfile-invalid", lockfileResult.error.message);
 	}
 	const hasManagedSkills = lockfileResult.value.skills.length > 0;
 	const piSettings = hasManagedSkills
@@ -108,7 +108,7 @@ export async function runCheck(
 		: { ok: true as const, value: { exclusions: [] } };
 	if (!piSettings.ok) {
 		if (!isPathStateError(piSettings.error))
-			return failure("pi_settings_invalid", piSettings.error.message);
+			return failure("pi-settings-invalid", piSettings.error.message);
 		const report = piSettingsPathFailureReport(inspection.projectDir, piSettings.error.message);
 		return negative(formatCheckReport(report), { data: report });
 	}
@@ -141,8 +141,8 @@ export function buildCheckReport(
 	issues.push(...checkPairing(inspection));
 	return {
 		ok: issues.length === 0,
-		project_dir: inspection.projectDir,
-		issue_count: issues.length,
+		projectDir: inspection.projectDir,
+		issueCount: issues.length,
 		issues,
 	};
 }
@@ -178,7 +178,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 		issues.push(
 			issue(
 				entry.name,
-				"invalid_local_lock_source",
+				"invalid-local-lock-source",
 				`Local skill lockfile source must be '${expectedSource}', found '${entry.source}'`,
 			),
 		);
@@ -187,7 +187,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 		issues.push(
 			issue(
 				entry.name,
-				"missing_skills_dir",
+				"missing-skills-dir",
 				`Local skill missing canonical source: skills/${entry.name}/ does not exist`,
 			),
 		);
@@ -195,19 +195,19 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 		issues.push(
 			issue(
 				entry.name,
-				"skills_dir_is_symlink",
+				"skills-dir-is-symlink",
 				`skills/${entry.name} is a symlink but should be a real directory (canonical source)`,
 			),
 		);
 	}
 	const expectedAgentsTarget = `../../skills/${entry.name}`;
 	if (inspected.agentsPath.type === "missing") {
-		issues.push(issue(entry.name, "agents_missing", `.agents/skills/${entry.name} does not exist`));
+		issues.push(issue(entry.name, "agents-missing", `.agents/skills/${entry.name} does not exist`));
 	} else if (inspected.agentsPath.type !== "symlink") {
 		issues.push(
 			issue(
 				entry.name,
-				"agents_not_symlink",
+				"agents-not-symlink",
 				`.agents/skills/${entry.name} is a real directory, expected symlink to ${expectedAgentsTarget}`,
 			),
 		);
@@ -215,7 +215,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 		issues.push(
 			issue(
 				entry.name,
-				"agents_wrong_target",
+				"agents-wrong-target",
 				`.agents/skills/${entry.name} symlink points to ${inspected.agentsPath.target}, expected ${expectedAgentsTarget}`,
 			),
 		);
@@ -228,13 +228,13 @@ function checkRemoteSkill(entry: LockfileSkill, inspected: AregCheckSkillInspect
 	const issues: CheckIssue[] = [];
 	if (inspected.agentsPath.type === "missing") {
 		issues.push(
-			issue(entry.name, "agents_not_real_dir", `.agents/skills/${entry.name}/ does not exist`),
+			issue(entry.name, "agents-not-real-dir", `.agents/skills/${entry.name}/ does not exist`),
 		);
 	} else if (inspected.agentsPath.type === "symlink") {
 		issues.push(
 			issue(
 				entry.name,
-				"agents_not_real_dir",
+				"agents-not-real-dir",
 				`.agents/skills/${entry.name} is a symlink but should be a real directory (vendored)`,
 			),
 		);
@@ -244,7 +244,7 @@ function checkRemoteSkill(entry: LockfileSkill, inspected: AregCheckSkillInspect
 		issues.push(
 			issue(
 				entry.name,
-				"unexpected_skills_dir",
+				"unexpected-skills-dir",
 				`GitHub-sourced skill should not have skills/${entry.name}/ entry`,
 			),
 		);
@@ -254,12 +254,12 @@ function checkRemoteSkill(entry: LockfileSkill, inspected: AregCheckSkillInspect
 function checkClaudeSymlink(name: string, inspected: AregCheckSkillInspection): CheckIssue[] {
 	const expectedTarget = `../../.agents/skills/${name}`;
 	if (inspected.claudePath.type === "missing")
-		return [issue(name, "claude_missing", `.claude/skills/${name} does not exist`)];
+		return [issue(name, "claude-missing", `.claude/skills/${name} does not exist`)];
 	if (inspected.claudePath.type !== "symlink")
 		return [
 			issue(
 				name,
-				"claude_not_symlink",
+				"claude-not-symlink",
 				`.claude/skills/${name} is a real directory, expected symlink to ${expectedTarget}`,
 			),
 		];
@@ -267,7 +267,7 @@ function checkClaudeSymlink(name: string, inspected: AregCheckSkillInspection): 
 		return [
 			issue(
 				name,
-				"claude_wrong_target",
+				"claude-wrong-target",
 				`.claude/skills/${name} symlink points to ${inspected.claudePath.target}, expected ${expectedTarget}`,
 			),
 		];
@@ -281,13 +281,13 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 			: `.agents/skills/${entry.name}/SKILL.md`;
 	const skillMd = entry.sourceType === "local" ? inspected.localSkillMd : inspected.remoteSkillMd;
 	if (skillMd.type !== "file")
-		return [issue(entry.name, "invalid_skill_md", `${relativePath} does not exist`)];
+		return [issue(entry.name, "invalid-skill-md", `${relativePath} does not exist`)];
 	const frontmatter = parseSkillFrontmatterText(skillMd.text);
 	if (!frontmatter.ok)
 		return [
 			issue(
 				entry.name,
-				"invalid_skill_md",
+				"invalid-skill-md",
 				`${relativePath} invalid frontmatter: ${frontmatter.error.message}`,
 			),
 		];
@@ -296,7 +296,7 @@ function checkSkillMd(entry: LockfileSkill, inspected: AregCheckSkillInspection)
 		return [
 			issue(
 				entry.name,
-				"invalid_skill_md",
+				"invalid-skill-md",
 				`${relativePath} invalid description: exceeds maximum length of 1024 characters (got ${description.length})`,
 			),
 		];
@@ -339,7 +339,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 		issues.push(
 			issue(
 				entry.name,
-				"invoke_only_missing_openai_policy",
+				"invoke-only-missing-openai-policy",
 				`${skillBaseRelativePath(entry)}/agents/openai.yaml missing for invoke-only skill`,
 			),
 		);
@@ -347,7 +347,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 		issues.push(
 			issue(
 				entry.name,
-				"openai_policy_without_invoke_only",
+				"openai-policy-without-invoke-only",
 				`${skillBaseRelativePath(entry)}/agents/openai.yaml exists but SKILL.md does not set disable-model-invocation: true`,
 			),
 		);
@@ -358,7 +358,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 		issues.push(
 			issue(
 				entry.name,
-				"non_managed_openai_policy",
+				"non-managed-openai-policy",
 				`${skillBaseRelativePath(entry)}/agents/openai.yaml exists with non-managed content`,
 			),
 		);
@@ -371,7 +371,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 		issues.push(
 			issue(
 				entry.name,
-				"command_converted_missing_pi_exclusion",
+				"command-converted-missing-pi-exclusion",
 				`.pi/settings.json missing -skills/${entry.name} for command-backed skill`,
 			),
 		);
@@ -384,7 +384,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 		issues.push(
 			issue(
 				entry.name,
-				"command_converted_missing_pi_replacement",
+				"command-converted-missing-pi-replacement",
 				`Pi skill is excluded but no verified replacement command exists; expected ${expected}`,
 			),
 		);
@@ -399,7 +399,7 @@ function checkLockfileHashes(lockfile: SkillsLockfile): CheckIssue[] {
 			issues.push(
 				issue(
 					entry.name,
-					"invalid_lock_hash",
+					"invalid-lock-hash",
 					`skills-lock.json entry for ${entry.name} has placeholder computedHash ${PLACEHOLDER_HASH}; regenerate or normalize the lockfile before relying on areg check.`,
 				),
 			);
@@ -407,7 +407,7 @@ function checkLockfileHashes(lockfile: SkillsLockfile): CheckIssue[] {
 			issues.push(
 				issue(
 					entry.name,
-					"invalid_lock_hash",
+					"invalid-lock-hash",
 					`skills-lock.json entry for ${entry.name} has invalid computedHash '${entry.computedHash}'; expected 64 lowercase hex characters.`,
 				),
 			);
@@ -429,7 +429,7 @@ function checkOrphansAndDangling(
 			issues.push(
 				issue(
 					name,
-					"orphan_in_skills",
+					"orphan-in-skills",
 					`Orphaned directory skills/${name}/ has no entry in skills-lock.json`,
 				),
 			);
@@ -439,7 +439,7 @@ function checkOrphansAndDangling(
 			issues.push(
 				issue(
 					name,
-					"orphan_in_agents",
+					"orphan-in-agents",
 					`Orphaned directory .agents/skills/${name}/ has no entry in skills-lock.json`,
 				),
 			);
@@ -454,7 +454,7 @@ function checkOrphansAndDangling(
 			issues.push(
 				issue(
 					name,
-					"dangling_lockfile",
+					"dangling-lockfile",
 					`Dangling lockfile entry: no directories found on disk for ${name}`,
 				),
 			);
@@ -474,7 +474,7 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 			issues.push(
 				issue(
 					agentsRel,
-					"claude_md_missing_peer",
+					"claude-md-missing-peer",
 					`AGENTS.md at ${agentsRel} has no peer CLAUDE.md in the same directory`,
 				),
 			);
@@ -482,7 +482,7 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 			issues.push(
 				issue(
 					claudeRel,
-					"agents_md_missing_peer",
+					"agents-md-missing-peer",
 					`CLAUDE.md at ${claudeRel} has no peer AGENTS.md in the same directory`,
 				),
 			);
@@ -494,7 +494,7 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 			issues.push(
 				issue(
 					claudeRel,
-					"claude_md_missing_agents_ref",
+					"claude-md-missing-agents-ref",
 					`CLAUDE.md at ${claudeRel} does not include peer AGENTS.md via @AGENTS.md syntax`,
 				),
 			);
@@ -504,8 +504,8 @@ function checkPairing(inspection: CheckProjectInspection): CheckIssue[] {
 }
 
 function piSettingsPathFailureReport(projectDir: string, message: string): CheckReport {
-	const issues = [issue(".pi/settings.json", "pi_settings_unusable", message)];
-	return { ok: false, project_dir: projectDir, issue_count: issues.length, issues };
+	const issues = [issue(".pi/settings.json", "pi-settings-unusable", message)];
+	return { ok: false, projectDir: projectDir, issueCount: issues.length, issues };
 }
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {

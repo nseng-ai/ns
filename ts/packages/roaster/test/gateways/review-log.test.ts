@@ -32,10 +32,10 @@ class EchoPutCommandExecApi implements CommandExecApi {
 					namespace: "roaster",
 					key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 					branch: "feature",
-					ref_name:
+					refName:
 						"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 					commit: "abc123",
-					source_file: sourceFile,
+					sourceFile,
 				},
 			}),
 		};
@@ -92,14 +92,14 @@ describe("RealReviewLogGateway", () => {
 								namespace: "roaster",
 								key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 								branch: "feature",
-								ref_name:
+								refName:
 									"refs/brmem/ns/roaster/feature:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 							},
 							{
 								namespace: "roaster",
 								key: "reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 								branch: "feature",
-								ref_name:
+								refName:
 									"refs/brmem/ns/roaster/feature:reviews/dignified-python-tripwire/2026-06-20T18-40-11-123Z.md",
 							},
 						],
@@ -137,7 +137,7 @@ describe("RealReviewLogGateway", () => {
 		});
 		expect(failedWrite.type).toBe("error");
 		if (failedWrite.type !== "error") throw new Error("unexpected success");
-		expect(failedWrite.error.type).toBe("review_log_write_failed");
+		expect(failedWrite.error.type).toBe("review-log-write-failed");
 
 		const envelopeFailure = new RealReviewLogGateway({
 			execApi: new ScriptedCommandExecApi([
@@ -166,6 +166,6 @@ describe("RealReviewLogGateway", () => {
 		const failedList = await invalidJson.listReviewLogs(scope);
 		expect(failedList.type).toBe("error");
 		if (failedList.type !== "error") throw new Error("unexpected success");
-		expect(failedList.error.type).toBe("review_log_response_invalid");
+		expect(failedList.error.type).toBe("review-log-response-invalid");
 	});
 });

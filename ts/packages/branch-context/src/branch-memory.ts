@@ -111,7 +111,7 @@ export async function getBranchContextPlan(
 		return {
 			ok: false,
 			error: {
-				code: "key_not_found",
+				code: "key-not-found",
 				message: `Branch-context key ${JSON.stringify(params.key)} not found on branch ${JSON.stringify(params.branch)}.`,
 			},
 		};

@@ -56,8 +56,8 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 		if (confirmed.type === "declined") {
 			return ok({
 				shell: selected.shell,
-				rc_path: rcPath,
-				is_already_installed: false,
+				rcPath: rcPath,
+				isAlreadyInstalled: false,
 				cancelled: true,
 			} satisfies SdlShellInstallResult);
 		}
@@ -70,8 +70,8 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 	});
 	return ok({
 		shell: selected.shell,
-		rc_path: installed.rcPath,
-		is_already_installed: installed.isAlreadyInstalled,
+		rcPath: installed.rcPath,
+		isAlreadyInstalled: installed.isAlreadyInstalled,
 		cancelled: false,
 	});
 }
@@ -82,10 +82,10 @@ export function renderSdlShellShow(result: SdlShellShowResult): string {
 
 export function renderSdlShellInstall(result: SdlShellInstallResult): string {
 	if (result.cancelled)
-		return `Cancelled sdl shell integration install for ${result.shell} in ${result.rc_path}`;
-	if (result.is_already_installed)
-		return `sdl shell integration already installed in ${result.rc_path}`;
-	return `Installed sdl shell integration for ${result.shell} in ${result.rc_path}`;
+		return `Cancelled sdl shell integration install for ${result.shell} in ${result.rcPath}`;
+	if (result.isAlreadyInstalled)
+		return `sdl shell integration already installed in ${result.rcPath}`;
+	return `Installed sdl shell integration for ${result.shell} in ${result.rcPath}`;
 }
 
 export function renderSdlShellWrapperScript(): string {

@@ -122,7 +122,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 }
 
 export function jsonFailure(message: string): string {
-	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "branch_context_error", message }, null, 2)}\n`;
+	return `${JSON.stringify({ status: "failure", exitCode: 2, errorType: "branch-context-error", message }, null, 2)}\n`;
 }
 
 export function jsonSuccess(data: Record<string, unknown>): string {

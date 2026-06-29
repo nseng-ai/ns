@@ -161,13 +161,13 @@ describe("handoff SDL command objects", () => {
 		);
 		expect(invalidSlug).toMatchObject({
 			type: "failure",
-			errorType: "invalid_handoff_slug",
+			errorType: "invalid-handoff-slug",
 		});
 
 		const existing = await runHandoffCommand(handoffCreateSdlCommand, { slug: "alpha" }, { api });
 		expect(existing).toMatchObject({
 			type: "failure",
-			errorType: "handoff_already_exists",
+			errorType: "handoff-already-exists",
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("old");
 	});
@@ -186,7 +186,7 @@ describe("handoff SDL command objects", () => {
 		);
 		expect(detached).toMatchObject({
 			type: "failure",
-			errorType: "detached_head",
+			errorType: "detached-head",
 		});
 
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
@@ -197,7 +197,7 @@ describe("handoff SDL command objects", () => {
 		);
 		expect(missingFile).toMatchObject({
 			type: "failure",
-			errorType: "source_file_missing",
+			errorType: "source-file-missing",
 		});
 		expect(
 			await getHandoffContent(brmem, { key: "file-alpha.md", branch: "feat/x" }),
@@ -274,7 +274,7 @@ describe("handoff SDL command objects", () => {
 		);
 		expect(missingHandoff).toMatchObject({
 			type: "failure",
-			errorType: "handoff_not_found",
+			errorType: "handoff-not-found",
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 
@@ -288,7 +288,7 @@ describe("handoff SDL command objects", () => {
 		);
 		expect(detached).toMatchObject({
 			type: "failure",
-			errorType: "detached_head",
+			errorType: "detached-head",
 		});
 	});
 

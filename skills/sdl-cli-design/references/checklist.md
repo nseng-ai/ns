@@ -16,6 +16,10 @@ a design bug, not a style nit.
       empty/no-op result returns `ok(...)` with empty data (ADR 0013).
 - [ ] `failure`/`negative` carry structured `data`; `errorType` is a stable,
       disciplined per-command string with no global enum (ADR 0010).
+- [ ] Serialized enum-like values (`errorType`, command-local
+      `code`/`type`/`status`/`kind`) are kebab-case for SDL-owned contracts — no
+      snake_case, no aliases; external wire values keep their spelling and are typed
+      as literal unions (ADR 0010).
 - [ ] Invalid invocation returns `usageError(...)` whose `data` names the
       bad/missing argument, instead of throwing.
 

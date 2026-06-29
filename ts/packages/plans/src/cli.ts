@@ -26,7 +26,7 @@ import {
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 
-const PLANS_ERROR_TYPE = "plans_error";
+const PLANS_ERROR_TYPE = "plans-error";
 
 const listRequestSchema = z.object({
 	planStoreRoot: z
@@ -253,8 +253,8 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 		lines.push(
 			[
 				`- ${plan.slug}`,
-				`  Branch key: ${plan.branch_key}`,
-				`  Modified: ${new Date(plan.modified_time_ms).toISOString()}`,
+				`  Branch key: ${plan.branchKey}`,
+				`  Modified: ${new Date(plan.modifiedTimeMs).toISOString()}`,
 				`  Path: ${plan.path}`,
 			].join("\n"),
 		);
@@ -264,18 +264,18 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 
 function renderResolvePlanData(data: ResolvePlanData): string {
 	if (data.source === "explicit") {
-		return [`Resolved explicit plan file.`, `Path: ${data.file_path}`].join("\n");
+		return [`Resolved explicit plan file.`, `Path: ${data.filePath}`].join("\n");
 	}
 	return [
 		"Resolved latest saved plan file in local plan store.",
-		`Path: ${data.file_path}`,
-		`Repo key: ${data.repo_key}`,
-		`Repo root: ${data.repo_root}`,
-		`Repo identity source: ${data.repo_identity_source}`,
-		`Source branch: ${data.source_branch}`,
-		`Branch path segment: ${data.branch_key}`,
+		`Path: ${data.filePath}`,
+		`Repo key: ${data.repoKey}`,
+		`Repo root: ${data.repoRoot}`,
+		`Repo identity source: ${data.repoIdentitySource}`,
+		`Source branch: ${data.sourceBranch}`,
+		`Branch path segment: ${data.branchKey}`,
 		`Slug: ${data.slug}`,
-		`Modified time ms: ${data.modified_time_ms}`,
+		`Modified time ms: ${data.modifiedTimeMs}`,
 	].join("\n");
 }
 
@@ -287,50 +287,50 @@ function savedPlanListJson(plans: readonly SavedPlanListItem[]): {
 
 function savedPlanListItemJson(plan: SavedPlanListItem): {
 	slug: string;
-	branch_key: string;
-	modified_time_ms: number;
+	branchKey: string;
+	modifiedTimeMs: number;
 	path: string;
-	file_name: string;
+	fileName: string;
 	repo: {
 		root: string;
 		key: string;
-		identity_source: string;
-		plan_store_path: string;
+		identitySource: string;
+		planStorePath: string;
 	};
 } {
 	return {
 		slug: plan.slug,
-		branch_key: plan.branchKey,
-		modified_time_ms: plan.modifiedTimeMs,
+		branchKey: plan.branchKey,
+		modifiedTimeMs: plan.modifiedTimeMs,
 		path: plan.filePath,
-		file_name: plan.fileName,
+		fileName: plan.fileName,
 		repo: {
 			root: plan.repoRoot,
 			key: plan.repoKey,
-			identity_source: plan.repoIdentitySource,
-			plan_store_path: plan.repoDirectoryPath,
+			identitySource: plan.repoIdentitySource,
+			planStorePath: plan.repoDirectoryPath,
 		},
 	};
 }
 
 function savedPlanFileJson(evidence: SavedPlanFileEvidence): {
 	slug: string;
-	file_path: string;
-	repo_root: string;
-	repo_key: string;
-	repo_identity_source: SavedPlanFileEvidence["repoIdentitySource"];
-	source_branch: string;
-	branch_key: string;
+	filePath: string;
+	repoRoot: string;
+	repoKey: string;
+	repoIdentitySource: SavedPlanFileEvidence["repoIdentitySource"];
+	sourceBranch: string;
+	branchKey: string;
 	summary?: string;
 } {
 	return {
 		slug: evidence.slug,
-		file_path: evidence.filePath,
-		repo_root: evidence.repoRoot,
-		repo_key: evidence.repoKey,
-		repo_identity_source: evidence.repoIdentitySource,
-		source_branch: evidence.sourceBranch,
-		branch_key: evidence.branchKey,
+		filePath: evidence.filePath,
+		repoRoot: evidence.repoRoot,
+		repoKey: evidence.repoKey,
+		repoIdentitySource: evidence.repoIdentitySource,
+		sourceBranch: evidence.sourceBranch,
+		branchKey: evidence.branchKey,
 		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};
 }
@@ -338,40 +338,40 @@ function savedPlanFileJson(evidence: SavedPlanFileEvidence): {
 function resolvePlanJson(evidence: ResolvePlanEvidence):
 	| {
 			source: "explicit";
-			file_path: string;
+			filePath: string;
 	  }
 	| {
 			source: "latest";
-			file_path: string;
+			filePath: string;
 			slug: string;
-			file_name: string;
-			modified_time_ms: number;
-			repo_root: string;
-			repo_key: string;
-			repo_identity_source: LatestSavedPlanFileEvidence["repoIdentitySource"];
-			source_branch: string;
-			branch_key: string;
-			directory_path: string;
+			fileName: string;
+			modifiedTimeMs: number;
+			repoRoot: string;
+			repoKey: string;
+			repoIdentitySource: LatestSavedPlanFileEvidence["repoIdentitySource"];
+			sourceBranch: string;
+			branchKey: string;
+			directoryPath: string;
 	  } {
 	switch (evidence.source) {
 		case "explicit":
 			return {
 				source: evidence.source,
-				file_path: evidence.filePath,
+				filePath: evidence.filePath,
 			};
 		case "latest":
 			return {
 				source: evidence.source,
-				file_path: evidence.filePath,
+				filePath: evidence.filePath,
 				slug: evidence.slug,
-				file_name: evidence.fileName,
-				modified_time_ms: evidence.modifiedTimeMs,
-				repo_root: evidence.repoRoot,
-				repo_key: evidence.repoKey,
-				repo_identity_source: evidence.repoIdentitySource,
-				source_branch: evidence.sourceBranch,
-				branch_key: evidence.branchKey,
-				directory_path: evidence.directoryPath,
+				fileName: evidence.fileName,
+				modifiedTimeMs: evidence.modifiedTimeMs,
+				repoRoot: evidence.repoRoot,
+				repoKey: evidence.repoKey,
+				repoIdentitySource: evidence.repoIdentitySource,
+				sourceBranch: evidence.sourceBranch,
+				branchKey: evidence.branchKey,
+				directoryPath: evidence.directoryPath,
 			};
 	}
 }

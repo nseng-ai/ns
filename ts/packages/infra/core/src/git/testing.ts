@@ -230,7 +230,7 @@ export class InMemoryGitGateway implements GitGateway {
 			return {
 				type: "failure",
 				error: this.currentBranchState.error ?? {
-					code: "current_branch_failed",
+					code: "current-branch-failed",
 					message: "Could not resolve current branch.",
 				},
 			};
@@ -260,7 +260,7 @@ export class InMemoryGitGateway implements GitGateway {
 		this.originUrlLog.push(callFromParams(params));
 		return optionalValueResult(
 			this.originUrlState,
-			"origin_url_failed",
+			"origin-url-failed",
 			"Could not resolve origin URL.",
 		);
 	}
@@ -287,7 +287,7 @@ export class InMemoryGitGateway implements GitGateway {
 		if (this.invalidBranchRefs.has(params.branch)) {
 			return {
 				ok: false,
-				error: { code: "branch_ref_invalid", message: `Invalid branch ref: ${params.branch}` },
+				error: { code: "branch-ref-invalid", message: `Invalid branch ref: ${params.branch}` },
 			};
 		}
 		return { ok: true };
@@ -391,7 +391,7 @@ function branchPresenceFailureResult(state: BranchPresenceFailureState): GitBran
 	return {
 		type: "error",
 		error: state.error ?? {
-			code: "branch_presence_failed",
+			code: "branch-presence-failed",
 			message: "Could not determine local branch presence.",
 		},
 	};

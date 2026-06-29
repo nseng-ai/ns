@@ -2,12 +2,12 @@ import type { SlotCliContext } from "./context.ts";
 import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
 
 export interface NavigationResultFields {
-	worktree_path: string;
-	cd_command: string;
-	clipboard_copied: boolean;
-	clipboard_skipped: boolean;
-	clipboard_failure_reason: "backend_missing" | "subprocess_error" | null;
-	clipboard_failure_detail: string | null;
+	worktreePath: string;
+	cdCommand: string;
+	clipboardCopied: boolean;
+	clipboardSkipped: boolean;
+	clipboardFailureReason: "backend-missing" | "subprocess-error" | null;
+	clipboardFailureDetail: string | null;
 }
 
 /**
@@ -40,31 +40,31 @@ async function buildNavigationResultFields(
 	const cdCommand = `cd ${worktreePath}`;
 	if (!shouldCopyClipboard) {
 		return {
-			worktree_path: worktreePath,
-			cd_command: cdCommand,
-			clipboard_copied: false,
-			clipboard_skipped: true,
-			clipboard_failure_reason: null,
-			clipboard_failure_detail: null,
+			worktreePath: worktreePath,
+			cdCommand: cdCommand,
+			clipboardCopied: false,
+			clipboardSkipped: true,
+			clipboardFailureReason: null,
+			clipboardFailureDetail: null,
 		};
 	}
 	const copyResult = await ctx.clipboard.copy(cdCommand);
 	if (copyResult.type === "copied") {
 		return {
-			worktree_path: worktreePath,
-			cd_command: cdCommand,
-			clipboard_copied: true,
-			clipboard_skipped: false,
-			clipboard_failure_reason: null,
-			clipboard_failure_detail: null,
+			worktreePath: worktreePath,
+			cdCommand: cdCommand,
+			clipboardCopied: true,
+			clipboardSkipped: false,
+			clipboardFailureReason: null,
+			clipboardFailureDetail: null,
 		};
 	}
 	return {
-		worktree_path: worktreePath,
-		cd_command: cdCommand,
-		clipboard_copied: false,
-		clipboard_skipped: false,
-		clipboard_failure_reason: copyResult.reason,
-		clipboard_failure_detail: copyResult.detail,
+		worktreePath: worktreePath,
+		cdCommand: cdCommand,
+		clipboardCopied: false,
+		clipboardSkipped: false,
+		clipboardFailureReason: copyResult.reason,
+		clipboardFailureDetail: copyResult.detail,
 	};
 }

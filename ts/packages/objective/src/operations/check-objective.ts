@@ -66,13 +66,13 @@ export const checkObjectiveBaseResultSchema = z.object({
 });
 
 const checkObjectiveMissingSlugResultSchema = checkObjectiveBaseResultSchema.extend({
-	status: z.literal("missing_slug"),
+	status: z.literal("missing-slug"),
 });
 const checkObjectiveInvalidSlugResultSchema = checkObjectiveBaseResultSchema.extend({
-	status: z.literal("invalid_slug"),
+	status: z.literal("invalid-slug"),
 });
 const checkObjectiveNotFoundResultSchema = checkObjectiveBaseResultSchema.extend({
-	status: z.literal("not_found"),
+	status: z.literal("not-found"),
 });
 
 export const checkObjectiveNonSelectedResultSchema = z.discriminatedUnion("status", [
@@ -94,7 +94,7 @@ export const checkObjectiveOkResultSchema = checkObjectiveEvaluatedBaseResultSch
 
 export const checkObjectiveFailedResultSchema = checkObjectiveEvaluatedBaseResultSchema.extend({
 	status: z.literal("failed"),
-	error: z.literal("check_failed"),
+	error: z.literal("check-failed"),
 });
 
 export const checkObjectiveResultSchema = z.discriminatedUnion("status", [
@@ -118,7 +118,7 @@ export async function runCheckObjective(
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
-	if (result.value.status === "not_found") {
+	if (result.value.status === "not-found") {
 		return negative(
 			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
 			{ data: result.value },
@@ -139,12 +139,12 @@ export function renderCheckObjective(
 ): string {
 	const renderCaps = resolveRenderCapabilities(caps);
 	if (
-		result.status === "missing_slug" ||
-		result.status === "invalid_slug" ||
-		result.status === "not_found"
+		result.status === "missing-slug" ||
+		result.status === "invalid-slug" ||
+		result.status === "not-found"
 	) {
 		const label =
-			result.status === "not_found" && result.slug !== null
+			result.status === "not-found" && result.slug !== null
 				? `No Objective record found for ${result.slug}.`
 				: "No Objective record selected.";
 		return [label, kv(renderCaps, "Root", rootPresence(result))].join("\n");
@@ -201,8 +201,8 @@ async function checkObjective(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "missing_slug",
-				error: "missing_slug",
+				status: "missing-slug",
+				error: "missing-slug",
 				rootPath: root,
 				slug: null,
 				path: null,
@@ -214,8 +214,8 @@ async function checkObjective(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "invalid_slug",
-				error: "invalid_slug",
+				status: "invalid-slug",
+				error: "invalid-slug",
 				rootPath: root,
 				slug: null,
 				path: null,
@@ -231,8 +231,8 @@ async function checkObjective(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "not_found",
-				error: "not_found",
+				status: "not-found",
+				error: "not-found",
 				rootPath: root,
 				slug,
 				path: relativePath,
@@ -288,7 +288,7 @@ async function checkObjective(
 	if (errorCount === 0) {
 		return { type: "ok", value: { ...evaluatedFacts, status: "ok", error: null } };
 	}
-	return { type: "ok", value: { ...evaluatedFacts, status: "failed", error: "check_failed" } };
+	return { type: "ok", value: { ...evaluatedFacts, status: "failed", error: "check-failed" } };
 }
 
 function rootPresence(result: CheckObjectiveResult): string {

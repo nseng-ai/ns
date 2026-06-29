@@ -10,9 +10,9 @@ import { renderSlotNavigationSuccess } from "../../navigation-presentation.ts";
 import { extractSlotNumber } from "../../naming.ts";
 
 export type GtNavigationResult = {
-	slot_name: string | null;
-	branch_name: string;
-	already_assigned: boolean;
+	slotName: string | null;
+	branchName: string;
+	alreadyAssigned: boolean;
 } & NavigationResultFields;
 
 interface WorktreeTarget {
@@ -38,16 +38,16 @@ export async function resolveOrCheckoutWorktreeForBranch(
 	if (existing !== null)
 		return { type: "ok", resolution: { target: existing, isAlreadyAssigned: true } };
 	const result = await checkoutBranch(ctx, branch, { shouldCreateBranch: false, base: null });
-	if (result.type === "failure") return failure(result.failure.error_type, result.failure.message);
+	if (result.type === "failure") return failure(result.failure.errorType, result.failure.message);
 	return {
 		type: "ok",
 		resolution: {
 			target: {
-				slotName: result.outcome.slot_name.length === 0 ? null : result.outcome.slot_name,
-				branchName: result.outcome.branch_name,
-				worktreePath: result.outcome.worktree_path,
+				slotName: result.outcome.slotName.length === 0 ? null : result.outcome.slotName,
+				branchName: result.outcome.branchName,
+				worktreePath: result.outcome.worktreePath,
 			},
-			isAlreadyAssigned: result.outcome.already_assigned,
+			isAlreadyAssigned: result.outcome.alreadyAssigned,
 		},
 	};
 }
@@ -62,9 +62,9 @@ export async function buildGtNavigationResult(
 		shouldWriteCdDirective: ctx.shouldWriteCdDirective,
 	});
 	return {
-		slot_name: resolution.target.slotName,
-		branch_name: resolution.target.branchName,
-		already_assigned: resolution.isAlreadyAssigned,
+		slotName: resolution.target.slotName,
+		branchName: resolution.target.branchName,
+		alreadyAssigned: resolution.isAlreadyAssigned,
 		...navigation,
 	};
 }
@@ -80,10 +80,10 @@ export function renderGtNavigationResult(
 }
 
 function renderGtNavigationHeadline(result: GtNavigationResult): string {
-	if (result.slot_name === null)
-		return `${result.branch_name} is checked out at ${result.worktree_path}`;
-	if (result.already_assigned) return `${result.slot_name} -> ${result.branch_name}`;
-	return `Checked out ${result.slot_name} -> ${result.branch_name}`;
+	if (result.slotName === null)
+		return `${result.branchName} is checked out at ${result.worktreePath}`;
+	if (result.alreadyAssigned) return `${result.slotName} -> ${result.branchName}`;
+	return `Checked out ${result.slotName} -> ${result.branchName}`;
 }
 
 async function findWorktreeForBranch(

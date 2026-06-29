@@ -105,9 +105,9 @@ describe("export operation", () => {
 				data: {
 					namespace: "base",
 					branch: "main",
-					output_dir: baseDir,
+					outputDir: baseDir,
 					overwrite: false,
-					dry_run: false,
+					dryRun: false,
 					exported: [{ key: "base.md" }],
 				},
 			});
@@ -124,14 +124,14 @@ describe("export operation", () => {
 						{
 							key: "a.md",
 							path: join(namedDir, "a.md"),
-							ref_name: "refs/brmem/ns/scratch/main:a.md",
-							size_bytes: 1,
+							refName: "refs/brmem/ns/scratch/main:a.md",
+							sizeBytes: 1,
 						},
 						{
 							key: "b.md",
 							path: join(namedDir, "b.md"),
-							ref_name: "refs/brmem/ns/scratch/main:b.md",
-							size_bytes: 1,
+							refName: "refs/brmem/ns/scratch/main:b.md",
+							sizeBytes: 1,
 						},
 					],
 				},
@@ -166,7 +166,7 @@ describe("export operation", () => {
 			expect(parseJsonOutput(explicit)).toMatchObject({
 				data: {
 					branch: "feat/other",
-					exported: [{ ref_name: "refs/brmem/base/feat---other:note.md" }],
+					exported: [{ refName: "refs/brmem/base/feat---other:note.md" }],
 				},
 			});
 
@@ -177,7 +177,7 @@ describe("export operation", () => {
 			expect(await detached.exit).toBe(2);
 			expect(parseJsonOutput(detached)).toMatchObject({
 				exitCode: 2,
-				errorType: "detached_head",
+				errorType: "detached-head",
 			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -190,15 +190,15 @@ describe("export operation", () => {
 		});
 		expect(await run.exit).toBe(0);
 		const parsed = parseJsonOutput(run) as {
-			data: { output_dir: string; exported: readonly { path: string }[] };
+			data: { outputDir: string; exported: readonly { path: string }[] };
 		};
 		const [exported] = parsed.data.exported;
 		expect(exported).toBeDefined();
 		try {
-			expect(basename(parsed.data.output_dir)).toMatch(/^brmem-export-[0-9a-f]{16}$/u);
+			expect(basename(parsed.data.outputDir)).toMatch(/^brmem-export-[0-9a-f]{16}$/u);
 			expect(await readFile(exported?.path ?? "", "utf8")).toBe("temp");
 		} finally {
-			await rm(parsed.data.output_dir, { recursive: true, force: true });
+			await rm(parsed.data.outputDir, { recursive: true, force: true });
 		}
 	});
 
@@ -212,7 +212,7 @@ describe("export operation", () => {
 			expect(await run.exit).toBe(0);
 			const outputDir = join(root, "relative", "export");
 			expect(parseJsonOutput(run)).toMatchObject({
-				data: { output_dir: outputDir, exported: [{ path: join(outputDir, "rel.md") }] },
+				data: { outputDir: outputDir, exported: [{ path: join(outputDir, "rel.md") }] },
 			});
 			expect(await readFile(join(outputDir, "rel.md"), "utf8")).toBe("rel");
 		} finally {
@@ -232,7 +232,7 @@ describe("export operation", () => {
 			expect(await run.exit).toBe(0);
 			expect(parseJsonOutput(run)).toMatchObject({
 				exitCode: 0,
-				data: { exported: [], output_dir: outputDir },
+				data: { exported: [], outputDir: outputDir },
 			});
 			await expect(readFile(outputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 
@@ -248,7 +248,7 @@ describe("export operation", () => {
 			expect(await named.exit).toBe(0);
 			expect(parseJsonOutput(named)).toMatchObject({
 				exitCode: 0,
-				data: { exported: [], output_dir: namedOutputDir },
+				data: { exported: [], outputDir: namedOutputDir },
 			});
 			await expect(readFile(namedOutputDir, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
@@ -271,7 +271,7 @@ describe("export operation", () => {
 				},
 			});
 			expect(await conflict.exit).toBe(2);
-			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target_exists" });
+			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target-exists" });
 			expect(await readFile(join(conflictDir, "a.md"), "utf8")).toBe("old");
 			await expect(readFile(join(conflictDir, "b.md"), "utf8")).rejects.toMatchObject({
 				code: "ENOENT",
@@ -297,7 +297,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await dirTarget.exit).toBe(2);
-			expect(parseJsonOutput(dirTarget)).toMatchObject({ errorType: "target_is_directory" });
+			expect(parseJsonOutput(dirTarget)).toMatchObject({ errorType: "target-is-directory" });
 
 			const outputFile = join(root, "not-dir");
 			await writeFile(outputFile, "file", "utf8");
@@ -305,7 +305,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await notDir.exit).toBe(2);
-			expect(parseJsonOutput(notDir)).toMatchObject({ errorType: "output_dir_not_directory" });
+			expect(parseJsonOutput(notDir)).toMatchObject({ errorType: "output-dir-not-directory" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -323,7 +323,7 @@ describe("export operation", () => {
 			);
 			expect(await safe.exit).toBe(0);
 			expect(parseJsonOutput(safe)).toMatchObject({
-				data: { dry_run: true, exported: [{ key: "dry.md" }] },
+				data: { dryRun: true, exported: [{ key: "dry.md" }] },
 			});
 			await expect(readFile(join(safeDir, "dry.md"), "utf8")).rejects.toMatchObject({
 				code: "ENOENT",
@@ -339,7 +339,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await conflict.exit).toBe(2);
-			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target_exists" });
+			expect(parseJsonOutput(conflict)).toMatchObject({ errorType: "target-exists" });
 
 			const overwrite = runScenario(
 				["export", "--output-dir", conflictDir, "--dry-run", "--overwrite"],
@@ -364,7 +364,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await brokenOutput.exit).toBe(2);
-			expect(parseJsonOutput(brokenOutput)).toMatchObject({ errorType: "unsafe_output_dir" });
+			expect(parseJsonOutput(brokenOutput)).toMatchObject({ errorType: "unsafe-output-dir" });
 
 			const targetDir = join(root, "target-link");
 			await mkdir(targetDir);
@@ -373,7 +373,7 @@ describe("export operation", () => {
 				fake: { entries: [{ namespace: "base", branch: "main", key: "x.md", content: "x" }] },
 			});
 			expect(await targetLink.exit).toBe(2);
-			expect(parseJsonOutput(targetLink)).toMatchObject({ errorType: "unsafe_target_path" });
+			expect(parseJsonOutput(targetLink)).toMatchObject({ errorType: "unsafe-target-path" });
 
 			const parentFileDir = join(root, "parent-file");
 			await mkdir(parentFileDir);
@@ -387,7 +387,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await parentFile.exit).toBe(2);
-			expect(parseJsonOutput(parentFile)).toMatchObject({ errorType: "parent_not_directory" });
+			expect(parseJsonOutput(parentFile)).toMatchObject({ errorType: "parent-not-directory" });
 
 			const parentLinkDir = join(root, "parent-link");
 			await mkdir(parentLinkDir);
@@ -402,7 +402,7 @@ describe("export operation", () => {
 				},
 			);
 			expect(await parentLink.exit).toBe(2);
-			expect(parseJsonOutput(parentLink)).toMatchObject({ errorType: "unsafe_parent_path" });
+			expect(parseJsonOutput(parentLink)).toMatchObject({ errorType: "unsafe-parent-path" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -422,7 +422,7 @@ describe("export operation", () => {
 				},
 			});
 			expect(await run.exit).toBe(2);
-			expect(parseJsonOutput(run)).toMatchObject({ errorType: "unsafe_parent_path" });
+			expect(parseJsonOutput(run)).toMatchObject({ errorType: "unsafe-parent-path" });
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
@@ -438,14 +438,14 @@ describe("export operation", () => {
 				},
 			);
 			expect(await unsafe.exit).toBe(2);
-			expect(parseJsonOutput(unsafe)).toMatchObject({ errorType: "unsafe_key" });
+			expect(parseJsonOutput(unsafe)).toMatchObject({ errorType: "unsafe-key" });
 
 			const duplicate = runScenario(
 				["export", "--output-dir", join(root, "duplicate"), "--format", "json"],
 				{ gateway: new DuplicateListGateway() },
 			);
 			expect(await duplicate.exit).toBe(2);
-			expect(parseJsonOutput(duplicate)).toMatchObject({ errorType: "duplicate_target_path" });
+			expect(parseJsonOutput(duplicate)).toMatchObject({ errorType: "duplicate-target-path" });
 
 			const missingDiagnostic = runScenario(
 				["export", "--output-dir", join(root, "missing-diagnostic"), "--format", "json"],
@@ -453,7 +453,7 @@ describe("export operation", () => {
 			);
 			expect(await missingDiagnostic.exit).toBe(2);
 			expect(parseJsonOutput(missingDiagnostic)).toMatchObject({
-				errorType: "entry_diagnostic_missing",
+				errorType: "entry-diagnostic-missing",
 			});
 
 			const missingContent = runScenario(
@@ -462,18 +462,18 @@ describe("export operation", () => {
 			);
 			expect(await missingContent.exit).toBe(2);
 			expect(parseJsonOutput(missingContent)).toMatchObject({
-				errorType: "entry_content_missing",
+				errorType: "entry-content-missing",
 			});
 
 			const listFailure = runScenario(
 				["export", "--output-dir", join(root, "list-failure"), "--format", "json"],
 				{
-					fake: { operationErrors: { list: { code: "git_failure", message: "boom" } } },
+					fake: { operationErrors: { list: { code: "git-failure", message: "boom" } } },
 				},
 			);
 			expect(await listFailure.exit).toBe(2);
 			expect(parseJsonOutput(listFailure)).toMatchObject({
-				errorType: "git_failure",
+				errorType: "git-failure",
 				message: "boom",
 			});
 		} finally {

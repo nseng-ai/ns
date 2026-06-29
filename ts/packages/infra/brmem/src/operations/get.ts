@@ -17,7 +17,7 @@ export const getResultSchema = z.object({
 	key: z.string(),
 	branch: z.string(),
 	content: z.string(),
-	ref_name: z.string(),
+	refName: z.string(),
 	target: z.string(),
 	at: z.string().nullable(),
 });
@@ -42,7 +42,7 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 					key,
 					branch,
 					content: "",
-					ref_name: locator,
+					refName: locator,
 					target,
 					at: request.at ?? null,
 				},
@@ -54,7 +54,7 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 		key,
 		branch,
 		content: result.value.content,
-		ref_name: locator,
+		refName: locator,
 		target,
 		at: request.at ?? null,
 	});

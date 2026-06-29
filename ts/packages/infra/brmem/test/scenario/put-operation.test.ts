@@ -41,8 +41,8 @@ describe("put operation", () => {
 				namespace: "branch-context",
 				key: "plan.md",
 				branch: "feat/x",
-				ref_name: "refs/brmem/ns/branch-context/feat---x:plan.md",
-				source_file: "plan.md",
+				refName: "refs/brmem/ns/branch-context/feat---x:plan.md",
+				sourceFile: "plan.md",
 			},
 		});
 		const data = JSON.parse(run.stdout.join("")).data as { commit: string };
@@ -87,8 +87,8 @@ describe("put operation", () => {
 				namespace: "base",
 				key: "stdin.md",
 				branch: "feat/x",
-				ref_name: "refs/brmem/base/feat---x:stdin.md",
-				source_file: "<stdin>",
+				refName: "refs/brmem/base/feat---x:stdin.md",
+				sourceFile: "<stdin>",
 			},
 		});
 
@@ -108,14 +108,14 @@ describe("put operation", () => {
 		expect(await missing.exit).toBe(2);
 		expect(JSON.parse(missing.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "source_file_missing",
+			errorType: "source-file-missing",
 		});
 
 		const noBasename = runScenario(["put", ".", "--format", "json"]);
 		expect(await noBasename.exit).toBe(2);
 		expect(JSON.parse(noBasename.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "source_file_missing",
+			errorType: "source-file-missing",
 		});
 
 		const unreadable = runScenario(
@@ -127,7 +127,7 @@ describe("put operation", () => {
 		expect(await unreadable.exit).toBe(2);
 		expect(JSON.parse(unreadable.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "source_file_unreadable",
+			errorType: "source-file-unreadable",
 		});
 	});
 
@@ -141,7 +141,7 @@ describe("put operation", () => {
 		expect(await invalidNamespace.exit).toBe(2);
 		expect(JSON.parse(invalidNamespace.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_namespace",
+			errorType: "invalid-namespace",
 		});
 
 		const invalidKey = runScenario(["put", "bad key", "--file", "note.md", "--format", "json"], {
@@ -150,7 +150,7 @@ describe("put operation", () => {
 		expect(await invalidKey.exit).toBe(2);
 		expect(JSON.parse(invalidKey.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_key",
+			errorType: "invalid-key",
 		});
 
 		const invalidBranch = runScenario(
@@ -162,7 +162,7 @@ describe("put operation", () => {
 		expect(await invalidBranch.exit).toBe(2);
 		expect(JSON.parse(invalidBranch.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_branch_name",
+			errorType: "invalid-branch-name",
 		});
 	});
 
@@ -186,7 +186,7 @@ describe("put operation", () => {
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "detached_head",
+			errorType: "detached-head",
 		});
 	});
 
@@ -197,7 +197,7 @@ describe("put operation", () => {
 		});
 		expect(await omitted.exit).toBe(0);
 		expect(JSON.parse(omitted.stdout.join(""))).toMatchObject({
-			data: { namespace: "base", ref_name: "refs/brmem/base/feat---x:base.md" },
+			data: { namespace: "base", refName: "refs/brmem/base/feat---x:base.md" },
 		});
 
 		const explicit = runScenario(
@@ -209,7 +209,7 @@ describe("put operation", () => {
 		);
 		expect(await explicit.exit).toBe(0);
 		expect(JSON.parse(explicit.stdout.join(""))).toMatchObject({
-			data: { namespace: "base", ref_name: "refs/brmem/base/feat---x:base.md" },
+			data: { namespace: "base", refName: "refs/brmem/base/feat---x:base.md" },
 		});
 	});
 
@@ -256,7 +256,7 @@ describe("put operation", () => {
 		expect(await oversized.exit).toBe(2);
 		expect(JSON.parse(oversized.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "entry_too_large",
+			errorType: "entry-too-large",
 		});
 		expect(JSON.parse(oversized.stdout.join("")).message).toContain("capped at 1 MiB");
 
@@ -273,7 +273,7 @@ describe("put operation", () => {
 		expect(await nul.exit).toBe(2);
 		expect(JSON.parse(nul.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "entry_appears_binary",
+			errorType: "entry-appears-binary",
 		});
 
 		const forcedNul = runScenario(["put", "nul.md", "--file", "nul.md", "--force"], {
@@ -291,7 +291,7 @@ describe("put operation", () => {
 		expect(await invalidUtf8.exit).toBe(2);
 		expect(JSON.parse(invalidUtf8.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "entry_not_utf8",
+			errorType: "entry-not-utf8",
 		});
 	});
 

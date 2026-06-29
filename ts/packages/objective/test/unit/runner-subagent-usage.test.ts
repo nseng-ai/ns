@@ -127,16 +127,16 @@ describe("runner subagent usage summaries", () => {
 			cost: { totalUsd: 0 },
 		});
 		expect(directory).toMatchObject({
-			status: "not_file",
+			status: "not-file",
 			assistantResponseCount: 0,
 			tokens: { totalTokens: 0 },
 		});
-		expect(invalidJson.status).toBe("invalid_json");
+		expect(invalidJson.status).toBe("invalid-json");
 		expect(invalidJson.errorLine).toBe(3);
 		expect(invalidJson.error).toContain("invalid JSON");
 		expect(invalidJson.assistantResponseCount).toBe(0);
 		expect(noUsage).toMatchObject({
-			status: "no_usage",
+			status: "no-usage",
 			assistantResponseCount: 0,
 			tokens: { totalTokens: 0 },
 		});
@@ -159,7 +159,7 @@ describe("runner subagent usage summaries", () => {
 
 		const result = await summarizeRunnerSubagentUsage([okFile, noUsageFile, missingFile]);
 
-		expect(result.sessions.map((session) => session.status)).toEqual(["ok", "no_usage", "missing"]);
+		expect(result.sessions.map((session) => session.status)).toEqual(["ok", "no-usage", "missing"]);
 		expect(result.aggregate.sessionCount).toBe(3);
 		expect(result.aggregate.okSessionCount).toBe(1);
 		expect(result.aggregate.usageResponseCount).toBe(1);

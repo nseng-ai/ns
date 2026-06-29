@@ -13,10 +13,10 @@ export async function resolveRepoAndCurrentBranch(
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	const currentResult = await repoCtx.git.getCurrentBranch(repoCtx.repo.root);
 	if (currentResult.type === "failure")
-		return failure("git_current_branch_failed", currentResult.failure.message);
+		return failure("git-current-branch-failed", currentResult.failure.message);
 	if (currentResult.type === "detached")
 		return failure(
-			"detached_head",
+			"detached-head",
 			`HEAD at ${repoCtx.repo.root} is detached. Check out a branch first.`,
 		);
 	return { type: "ok", repoCtx, currentBranch: currentResult.branch };

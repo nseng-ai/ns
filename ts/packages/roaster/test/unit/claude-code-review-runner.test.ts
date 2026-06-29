@@ -69,17 +69,17 @@ describe("Claude Code review output parsing", () => {
 	});
 
 	test.each([
-		{ stdout: "", failureType: "review_execution_empty_output" },
-		{ stdout: "not json", failureType: "review_execution_invalid_json" },
+		{ stdout: "", failureType: "review-execution-empty-output" },
+		{ stdout: "not json", failureType: "review-execution-invalid-json" },
 		{
 			stdout: JSON.stringify(["bad-event", resultEvent()]),
-			failureType: "review_execution_invalid_response",
+			failureType: "review-execution-invalid-response",
 		},
 		{
 			stdout: JSON.stringify([{ type: "system" }]),
-			failureType: "review_execution_invalid_response",
+			failureType: "review-execution-invalid-response",
 		},
-		{ stdout: JSON.stringify(7), failureType: "review_execution_invalid_response" },
+		{ stdout: JSON.stringify(7), failureType: "review-execution-invalid-response" },
 	])("maps malformed output to $failureType", ({ stdout, failureType }) => {
 		const parsed = parseClaudeCodeReviewOutput({ stdout, inputCoverage: null });
 
@@ -97,7 +97,7 @@ describe("Claude Code review output parsing", () => {
 
 		expect(parsed.type).toBe("error");
 		if (parsed.type === "error") {
-			expect(parsed.error.type).toBe("review_execution_invalid_response");
+			expect(parsed.error.type).toBe("review-execution-invalid-response");
 			expect(parsed.error.message).toContain("Confirm --json-schema is honored");
 			expect(parsed.error.message.length).toBeLessThan(650);
 		}
@@ -130,7 +130,7 @@ describe("Claude Code review output parsing", () => {
 
 		expect(parsed.type).toBe("error");
 		if (parsed.type === "error") {
-			expect(parsed.error.type).toBe("review_execution_invalid_findings");
+			expect(parsed.error.type).toBe("review-execution-invalid-findings");
 		}
 	});
 });

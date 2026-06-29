@@ -355,9 +355,9 @@ describe("putBrmemEntryFromFile", () => {
 		namespace: "ccc-dispatch",
 		key: "prompt.md",
 		branch: "feature/demo",
-		ref_name: "refs/brmem/ns/ccc-dispatch/feature---demo:prompt.md",
+		refName: "refs/brmem/ns/ccc-dispatch/feature---demo:prompt.md",
 		commit: "0123456789abcdef",
-		source_file: sourceFile,
+		sourceFile: sourceFile,
 	} satisfies Record<string, unknown>;
 
 	test("stores a file with the exact command protocol and validates the response", async () => {
@@ -480,9 +480,9 @@ describe("putBrmemEntryFromFile", () => {
 				message: 'branch "other" != "feature/demo"',
 			},
 			{
-				field: "source_file",
-				data: { ...validData, source_file: "/tmp/other.md" },
-				message: 'source_file "/tmp/other.md" != "/tmp/prompt.md"',
+				field: "sourceFile",
+				data: { ...validData, sourceFile: "/tmp/other.md" },
+				message: 'sourceFile "/tmp/other.md" != "/tmp/prompt.md"',
 			},
 		];
 
@@ -519,7 +519,7 @@ describe("parseBrmemListEntries", () => {
 				namespace: "roaster",
 				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 				branch: "feature/demo",
-				ref_name:
+				refName:
 					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			},
 		],
@@ -566,7 +566,7 @@ describe("listBrmemEntries", () => {
 				namespace: "roaster",
 				key: "reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 				branch: "feature/demo",
-				ref_name:
+				refName:
 					"refs/brmem/ns/roaster/feature---demo:reviews/typescript-style/2026-06-20T18-42-11-123Z.md",
 			},
 		],
@@ -705,9 +705,9 @@ describe("parseBrmemPutData", () => {
 		namespace: "branch-context",
 		key: "plan.md",
 		branch: "feature/demo",
-		ref_name: "refs/brmem/ns/branch-context/feature---demo:plan.md",
+		refName: "refs/brmem/ns/branch-context/feature---demo:plan.md",
 		commit: "0123456789abcdef",
-		source_file: "/tmp/plan.md",
+		sourceFile: "/tmp/plan.md",
 	} satisfies Record<string, unknown>;
 
 	test("parses a successful brmem put machine envelope", () => {
@@ -735,7 +735,7 @@ describe("parseBrmemPutData", () => {
 		expect(() => parseBrmemPutData(envelope({ ...validData, namespace: 123 }))).toThrow(
 			/expected string fields/,
 		);
-		expect(() => parseBrmemPutData(envelope({ ...validData, source_file: undefined }))).toThrow(
+		expect(() => parseBrmemPutData(envelope({ ...validData, sourceFile: undefined }))).toThrow(
 			/expected string fields/,
 		);
 	});
@@ -743,7 +743,7 @@ describe("parseBrmemPutData", () => {
 	test("includes a bounded stdout tail in malformed-output messages", () => {
 		const longStdout = JSON.stringify({
 			exitCode: 0,
-			data: { ...validData, source_file: 123 },
+			data: { ...validData, sourceFile: 123 },
 			padding: "x".repeat(5_000),
 		});
 

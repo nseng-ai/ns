@@ -105,23 +105,23 @@ describe("copy operation", () => {
 			exitCode: 0,
 			data: {
 				namespace: "notes",
-				from_branch: "master",
-				to_branch: "feat/x",
+				fromBranch: "master",
+				toBranch: "feat/x",
 				overwrite: false,
-				dry_run: false,
-				key_glob: null,
+				dryRun: false,
+				keyGlob: null,
 				copied: [
 					{
 						key: "foo/body.md",
-						source_ref: "refs/brmem/ns/notes/master:foo/body.md",
-						destination_ref: "refs/brmem/ns/notes/feat---x:foo/body.md",
-						source_sha: "source-head",
+						sourceRef: "refs/brmem/ns/notes/master:foo/body.md",
+						destinationRef: "refs/brmem/ns/notes/feat---x:foo/body.md",
+						sourceSha: "source-head",
 					},
 					{
 						key: "foo/sub/x.md",
-						source_ref: "refs/brmem/ns/notes/master:foo/sub/x.md",
-						destination_ref: "refs/brmem/ns/notes/feat---x:foo/sub/x.md",
-						source_sha: "source-head",
+						sourceRef: "refs/brmem/ns/notes/master:foo/sub/x.md",
+						destinationRef: "refs/brmem/ns/notes/feat---x:foo/sub/x.md",
+						sourceSha: "source-head",
 					},
 				],
 			},
@@ -129,12 +129,12 @@ describe("copy operation", () => {
 		const data = parsed.data as Record<string, unknown>;
 		expect(Object.keys(data).sort()).toEqual([
 			"copied",
-			"dry_run",
-			"from_branch",
-			"key_glob",
+			"dryRun",
+			"fromBranch",
+			"keyGlob",
 			"namespace",
 			"overwrite",
-			"to_branch",
+			"toBranch",
 		]);
 	});
 
@@ -161,7 +161,7 @@ describe("copy operation", () => {
 		);
 		expect(await alias.exit).toBe(0);
 		expect(JSON.parse(alias.stdout.join(""))).toMatchObject({
-			data: { namespace: "base", copied: [{ destination_ref: "refs/brmem/base/feat---x:a.md" }] },
+			data: { namespace: "base", copied: [{ destinationRef: "refs/brmem/base/feat---x:a.md" }] },
 		});
 
 		const conflict = runScenario([
@@ -179,22 +179,22 @@ describe("copy operation", () => {
 		expect(await conflict.exit).toBe(2);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "base_and_namespace_conflict",
+			errorType: "base-and-namespace-conflict",
 		});
 	});
 
 	it("validates scope and values with stable error types before gateway mutation", async () => {
 		for (const [args, errorType] of [
-			[["--from-branch", "master", "--to-branch", "feat/x"], "copy_scope_missing"],
+			[["--from-branch", "master", "--to-branch", "feat/x"], "copy-scope-missing"],
 			[
 				["--namespace", "bad/ns", "--from-branch", "master", "--to-branch", "feat/x"],
-				"invalid_namespace",
+				"invalid-namespace",
 			],
-			[["--base", "--from-branch", "bad---branch", "--to-branch", "feat/x"], "invalid_from_branch"],
-			[["--base", "--from-branch", "master", "--to-branch", "bad---branch"], "invalid_to_branch"],
+			[["--base", "--from-branch", "bad---branch", "--to-branch", "feat/x"], "invalid-from-branch"],
+			[["--base", "--from-branch", "master", "--to-branch", "bad---branch"], "invalid-to-branch"],
 			[
 				["--base", "--from-branch", "master", "--to-branch", "feat/x", "--key-glob", ""],
-				"invalid_key_glob",
+				"invalid-key-glob",
 			],
 		] as const) {
 			const run = runScenario(["copy", ...args, "--format", "json"]);
@@ -351,7 +351,7 @@ describe("copy operation", () => {
 					entries: [
 						{ namespace: "notes", branch: "master", key: "source.md", content: "source\n" },
 					],
-					operationErrors: { copy: { code: "copy_conflict", message: "late conflict" } },
+					operationErrors: { copy: { code: "copy-conflict", message: "late conflict" } },
 				},
 			},
 		);
@@ -443,7 +443,7 @@ describe("copy operation", () => {
 		);
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
-			data: { key_glob: "foo/*", copied: [{ key: "foo/body.md" }, { key: "foo/sub/x.md" }] },
+			data: { keyGlob: "foo/*", copied: [{ key: "foo/body.md" }, { key: "foo/sub/x.md" }] },
 		});
 		expect(
 			await runScenario(["get", "foo/body.md", "--namespace", "notes", "--branch", "feat/x"], {
@@ -524,7 +524,7 @@ describe("copy operation", () => {
 		);
 		expect(await dryRun.exit).toBe(0);
 		expect(JSON.parse(dryRun.stdout.join(""))).toMatchObject({
-			data: { dry_run: true, copied: [{ key: "source.md", source_sha: "source-head" }] },
+			data: { dryRun: true, copied: [{ key: "source.md", sourceSha: "source-head" }] },
 		});
 		const human = runScenario(
 			[
@@ -555,14 +555,14 @@ describe("copy operation", () => {
 			{
 				fake: {
 					entries: [{ namespace: "base", branch: "master", key: "source.md", content: "source\n" }],
-					operationErrors: { copy: { code: "git_update_ref_failed", message: "boom" } },
+					operationErrors: { copy: { code: "git-update-ref-failed", message: "boom" } },
 				},
 			},
 		);
 		expect(await copyFailure.exit).toBe(2);
 		expect(parseJsonOutput(copyFailure)).toMatchObject({
 			exitCode: 2,
-			errorType: "git_update_ref_failed",
+			errorType: "git-update-ref-failed",
 			message: "boom",
 		});
 
@@ -576,7 +576,7 @@ describe("copy operation", () => {
 		expect(await missingSha.exit).toBe(2);
 		expect(parseJsonOutput(missingSha)).toMatchObject({
 			exitCode: 2,
-			errorType: "source_sha_unavailable",
+			errorType: "source-sha-unavailable",
 		});
 	});
 });

@@ -1,43 +1,43 @@
-export type ReviewDefinitionFailureType = "review_definition_invalid";
+export type ReviewDefinitionFailureType = "review-definition-invalid";
 
 export type ReviewCatalogFailureType =
-	| "reviews_dir_missing"
-	| "reviews_dir_not_directory"
-	| "review_key_invalid"
-	| "review_definition_not_found"
-	| "review_definition_not_file"
-	| "review_definition_read_failed";
+	| "reviews-dir-missing"
+	| "reviews-dir-not-directory"
+	| "review-key-invalid"
+	| "review-definition-not-found"
+	| "review-definition-not-file"
+	| "review-definition-read-failed";
 
 export type LocalDiffFailureType =
-	| "base_ref_unavailable"
-	| "repo_root_unavailable"
-	| "git_invocation_failed"
-	| "git_diff_failed"
-	| "project_config_invalid";
+	| "base-ref-unavailable"
+	| "repo-root-unavailable"
+	| "git-invocation-failed"
+	| "git-diff-failed"
+	| "project-config-invalid";
 
 export type ReviewRunnerFailureType =
-	| "model_not_provided"
-	| "harness_binary_missing"
-	| "harness_invocation_failed"
-	| "harness_execution_failed"
-	| "model_not_supported_by_harness"
-	| "review_execution_empty_output"
-	| "review_execution_invalid_json"
-	| "review_execution_invalid_response"
-	| "review_execution_invalid_findings"
-	| "review_execution_blocked"
-	| "review_execution_cancelled"
-	| "review_execution_failed";
+	| "model-not-provided"
+	| "harness-binary-missing"
+	| "harness-invocation-failed"
+	| "harness-execution-failed"
+	| "model-not-supported-by-harness"
+	| "review-execution-empty-output"
+	| "review-execution-invalid-json"
+	| "review-execution-invalid-response"
+	| "review-execution-invalid-findings"
+	| "review-execution-blocked"
+	| "review-execution-cancelled"
+	| "review-execution-failed";
 
 export type GitHubGatewayFailureType =
-	| "github_cli_failed"
-	| "github_json_invalid"
-	| "github_response_invalid";
+	| "github-cli-failed"
+	| "github-json-invalid"
+	| "github-response-invalid";
 
 export type ReviewLogFailureType =
-	| "review_log_write_failed"
-	| "review_log_list_failed"
-	| "review_log_response_invalid";
+	| "review-log-write-failed"
+	| "review-log-list-failed"
+	| "review-log-response-invalid";
 
 export type RoasterFailureType =
 	| ReviewDefinitionFailureType

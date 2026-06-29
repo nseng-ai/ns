@@ -72,14 +72,14 @@ export function isHandoffKey(key: string): boolean {
 export function handoffKeyFromSlug(slug: string): BrmemResult<string> {
 	const parsed = parseFlatHandoffSlug(slug);
 	if (parsed.type === "invalid") {
-		return brmemError("invalid_handoff_slug", parsed.message);
+		return brmemError("invalid-handoff-slug", parsed.message);
 	}
 
 	const key = handoffSlugToKey(parsed.slug);
 	const validation = validateEntryKey(key);
 	if (validation.type === "invalid") {
 		return brmemError(
-			"invalid_handoff_slug",
+			"invalid-handoff-slug",
 			`Invalid key ${JSON.stringify(key)}: ${validation.reason}`,
 		);
 	}

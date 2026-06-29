@@ -28,7 +28,7 @@ export type ListResult = z.infer<typeof listResultSchema>;
 
 export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	if (request.branch !== undefined && request.all) {
-		return failure("branch_and_all_conflict", "--branch and --all are mutually exclusive.");
+		return failure("branch-and-all-conflict", "--branch and --all are mutually exclusive.");
 	}
 	let branch: string | undefined;
 	if (!request.all) {

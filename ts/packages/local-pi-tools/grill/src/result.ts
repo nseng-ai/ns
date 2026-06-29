@@ -23,11 +23,11 @@ export type GrillAskDetails =
 			answer: string;
 	  }
 	| {
-			action: "end_grill";
+			action: "end-grill";
 			question: string;
 	  }
 	| {
-			action: "status_request";
+			action: "status-request";
 			question: string;
 			answeredQuestions?: number;
 			progressSource: GrillAskProgressSource;
@@ -38,11 +38,11 @@ export type GrillAskDetails =
 			question: string;
 	  }
 	| {
-			action: "ui_unavailable";
+			action: "ui-unavailable";
 			question: string;
 	  }
 	| {
-			action: "invalid_tool_input";
+			action: "invalid-tool-input";
 			errors: string[];
 	  };
 
@@ -65,7 +65,7 @@ export function freeformAnswerResult(
 export function endGrillResult(question: string): ToolResult<GrillAskDetails> {
 	return textResult(
 		"User chose to end the grilling session. Stop asking questions and summarize resolved decisions, unresolved branches, and your final recommendation.",
-		{ action: "end_grill", question },
+		{ action: "end-grill", question },
 	);
 }
 
@@ -127,7 +127,7 @@ export function statusRequestResult(
 			"After the report, call grill_ask again with the same pending question, context, recommendation, options, allowFreeform, and allowEnd. Do not advance to a new question and do not count this status request as an answer.",
 		].join("\n"),
 		{
-			action: "status_request",
+			action: "status-request",
 			question,
 			...(progress.answeredQuestions === undefined
 				? {}
@@ -142,7 +142,7 @@ export function invalidToolInputResult(errors: string[]): ToolResult<GrillAskDet
 	return textResult(
 		`Invalid grill_ask input:\n${errors.map((error) => `- ${error}`).join("\n")}\nRepair the tool call with one non-empty question, a recommendation, and 2–5 valid explicit choices.`,
 		{
-			action: "invalid_tool_input",
+			action: "invalid-tool-input",
 			errors,
 		},
 	);
@@ -158,7 +158,7 @@ export function cancelledResult(
 function formatAnsweredCount(progress: GrillAskProgress): string {
 	if (progress.answeredQuestions === undefined) return "unavailable from session evidence.";
 	const noun = progress.answeredQuestions === 1 ? "question" : "questions";
-	if (progress.source === "session_branch") {
+	if (progress.source === "session-branch") {
 		return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch, scoped to the latest /pi:grill-me kickoff.`;
 	}
 	return `${progress.answeredQuestions} answered grill ${noun} so far from the current Pi session branch (best effort; no /pi:grill-me kickoff marker found).`;

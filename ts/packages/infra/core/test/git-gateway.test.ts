@@ -231,7 +231,7 @@ describe("real git gateway", () => {
 
 		expect(await git.currentBranch({ cwd: ROOT })).toMatchObject({
 			type: "failure",
-			error: { code: "current_branch_failed" },
+			error: { code: "current-branch-failed" },
 		});
 		commands.assertDone();
 	});

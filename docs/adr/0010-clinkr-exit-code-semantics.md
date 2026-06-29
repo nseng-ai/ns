@@ -56,6 +56,29 @@ therefore prioritize:
 - remediation-oriented details such as invalid fields, allowed values,
   retryability, or suggested next commands when those are useful to agents.
 
+### Casing convention for envelope fields and values
+
+The TS-native envelope (ADR 0011) settles the casing of these contracts:
+
+- **JSON object property names are camelCase** — `errorType`, `exitCode`,
+  `packageName`, and so on. The historical `error_type` / `exit_code` spellings in
+  the context above describe the pre-TS-native envelope and are retained only for
+  that history.
+- **Serialized enum-like values are kebab-case** when they are SDL-owned machine
+  contracts — `errorType` values, command-local `code` / `type` / `status` / `kind`
+  discriminants, and similar enumerations that cross an SDL CLI/API JSON boundary
+  (for example `registry-check-failed`, `branch-context-error`, `dry-run`,
+  `prompt-not-found`). This is a direct, breaking convention: emit kebab-case only,
+  with no dual spellings or backward-compatibility aliases.
+
+External protocol values (GitHub wire fields, Anthropic usage counters, Pi
+transcript shapes, Node error codes) and internal-only TypeScript discriminants
+that are never serialized across an SDL boundary are not governed by this rule;
+model known external strings as TypeScript literal unions and preserve their exact
+spelling. A focused TypeScript style guard
+(`SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE`) enforces the high-confidence cases:
+snake_case Clinkr `failure(...)` error types and `errorType` literal values.
+
 Expanded numeric exit-code taxonomies are not the Clinkr default. Individual
 commands may still document additional process exit codes only when they have a
 specific shell/CI contract that cannot reasonably consume the machine envelope.
@@ -74,8 +97,11 @@ status coarse; make structured machine errors rich.
 - Shell users still get conventional status behavior: `0` for success, non-zero
   for failure, and `2` for invocation/usage/configuration problems.
 - `sdl-cli-design` should teach CLI authors to design actionable envelope errors:
-  stable `error_type` / `code`, concise message, structured details, and recovery
+  stable `errorType` / `code`, concise message, structured details, and recovery
   hints where appropriate.
+- Machine-contract spelling is fixed: camelCase property names, kebab-case
+  enum-like values for SDL-owned contracts, and preserved external spellings modeled
+  as literal unions. Agents can rely on this without per-command guessing.
 - Clinkr should not grow a large global numeric enum before it has stronger
   envelope semantics. The likely first implementation work is structured failure
   `data` and an error-type discipline, not exit-code proliferation.

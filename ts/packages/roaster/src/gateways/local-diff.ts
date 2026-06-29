@@ -43,7 +43,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const repoRoot = await this.gitGateway.repoRoot({ cwd: options.cwd, signal: options.signal });
 		if (!repoRoot.ok) {
 			return error({
-				type: "repo_root_unavailable",
+				type: "repo-root-unavailable",
 				message: repoRoot.error.message,
 			});
 		}
@@ -65,14 +65,14 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			result = await this.execApi.exec("git", args, execOptions(repoRoot.value, options));
 		} catch (caught) {
 			return error({
-				type: "git_invocation_failed",
+				type: "git-invocation-failed",
 				message: `${displayCommand} failed to start in ${repoRoot.value}: ${formatErrorMessage(caught)}`,
 			});
 		}
 
 		if (result.code !== 0 || result.killed) {
 			return error({
-				type: "git_diff_failed",
+				type: "git-diff-failed",
 				message: `${displayCommand} failed in ${repoRoot.value}: ${commandFailureReason(result)}`,
 			});
 		}
@@ -98,9 +98,9 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		if (trunk.type === "found" && trunk.value.trim() !== "")
 			return { type: "ok", value: trunk.value.trim() };
 		if (trunk.type === "error")
-			return error({ type: "base_ref_unavailable", message: trunk.error.message });
+			return error({ type: "base-ref-unavailable", message: trunk.error.message });
 		return error({
-			type: "base_ref_unavailable",
+			type: "base-ref-unavailable",
 			message: "Unable to resolve a base branch. Pass --base-ref explicitly.",
 		});
 	}
@@ -118,14 +118,14 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		} catch (caught) {
 			if (isMissingFileError(caught)) return { type: "ok", value: [] };
 			return error({
-				type: "project_config_invalid",
+				type: "project-config-invalid",
 				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 
 		const config = parseRoasterProjectConfigToml(source, path);
 		if (config.type === "error")
-			return error({ type: "project_config_invalid", message: config.error.message });
+			return error({ type: "project-config-invalid", message: config.error.message });
 		return { type: "ok", value: config.config.diff.exclude };
 	}
 }

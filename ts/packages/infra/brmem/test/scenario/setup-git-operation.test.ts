@@ -114,11 +114,11 @@ describe("setup-git operation", () => {
 			exitCode: 0,
 			data: {
 				remote: "upstream",
-				dry_run: true,
-				push_refspec: brmemRefspec,
-				fetch_refspec: brmemRefspec,
-				existing_push: [],
-				existing_fetch: [],
+				dryRun: true,
+				pushRefspec: brmemRefspec,
+				fetchRefspec: brmemRefspec,
+				existingPush: [],
+				existingFetch: [],
 				additions: [
 					{ key: "remote.upstream.push", value: "HEAD", reason: "preserve-default-push" },
 					{ key: "remote.upstream.push", value: brmemRefspec, reason: "branch-memory-push" },
@@ -141,7 +141,7 @@ describe("setup-git operation", () => {
 		expect(await missing.exit).toBe(2);
 		expect(parseJsonOutput(missing)).toMatchObject({
 			exitCode: 2,
-			errorType: "remote_not_found",
+			errorType: "remote-not-found",
 		});
 
 		const invalid = runScenario(["setup-git", "--remote", "", "--format", "json"]);
@@ -149,7 +149,7 @@ describe("setup-git operation", () => {
 		expect(parseJsonOutput(invalid)).toMatchObject({
 			status: "failure",
 			exitCode: 2,
-			errorType: "invalid_remote",
+			errorType: "invalid-remote",
 		});
 	});
 });

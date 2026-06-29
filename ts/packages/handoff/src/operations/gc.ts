@@ -13,18 +13,18 @@ import { handoffSummarySchema } from "../inventory.ts";
 import { renderHandoffDestructiveResultBlock } from "./destructive-presentation.ts";
 
 const GC_ACTION_VALUE_BY_ACTION = {
-	keptActive: "keptActive",
-	wouldDelete: "wouldDelete",
+	keptActive: "kept-active",
+	wouldDelete: "would-delete",
 	deleted: "deleted",
 	error: "error",
-} as const satisfies { readonly [K in DeletedBranchGarbageCollectionAction]: K };
+} as const satisfies { readonly [K in DeletedBranchGarbageCollectionAction]: string };
 export const gcActionSchema = z.enum([
 	GC_ACTION_VALUE_BY_ACTION.keptActive,
 	GC_ACTION_VALUE_BY_ACTION.wouldDelete,
 	GC_ACTION_VALUE_BY_ACTION.deleted,
 	GC_ACTION_VALUE_BY_ACTION.error,
 ]);
-export type GcAction = DeletedBranchGarbageCollectionAction;
+export type GcAction = z.infer<typeof gcActionSchema>;
 
 export const gcRequestSchema = z.object({
 	dryRun: z.boolean().default(false).describe("Preview deletions without deleting."),
@@ -53,7 +53,7 @@ export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 	if (request.dryRun && request.force)
-		return failure("conflicting_flags", "--dry-run and --force are mutually exclusive.");
+		return failure("conflicting-flags", "--dry-run and --force are mutually exclusive.");
 	const summaries = await loadAllSummaries(ctx);
 	if (summaries.type !== "resolved") return summaries;
 
@@ -97,7 +97,7 @@ export function renderGc(
 ): string {
 	const candidates = result.entries.filter(
 		(entry) =>
-			entry.action === "wouldDelete" || entry.action === "deleted" || entry.action === "error",
+			entry.action === "would-delete" || entry.action === "deleted" || entry.action === "error",
 	);
 	return renderHandoffDestructiveResultBlock(caps, {
 		kind: gcResultKind(result),
@@ -129,7 +129,10 @@ function toGcResult(
 	options: { dryRun: boolean; cancelled: boolean },
 ): GcResult {
 	return {
-		entries: report.entries.map((entry) => ({ ...entry })),
+		entries: report.entries.map((entry) => ({
+			...entry,
+			action: GC_ACTION_VALUE_BY_ACTION[entry.action],
+		})),
 		wouldDeleteCount: report.counts.wouldDelete,
 		deletedCount: report.counts.deleted,
 		keptCount: report.counts.kept,
@@ -173,9 +176,9 @@ function summaryLine(result: GcResult): string {
 
 function formatGcAction(action: GcAction): string {
 	switch (action) {
-		case "wouldDelete":
+		case "would-delete":
 			return "would delete";
-		case "keptActive":
+		case "kept-active":
 			return "kept active";
 		case "deleted":
 			return "deleted";

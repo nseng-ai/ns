@@ -19,9 +19,9 @@ export const putResultSchema = z.object({
 	namespace: z.string(),
 	key: z.string(),
 	branch: z.string(),
-	ref_name: z.string(),
+	refName: z.string(),
 	commit: z.string(),
-	source_file: z.string(),
+	sourceFile: z.string(),
 });
 
 export type PutRequest = z.infer<typeof putRequestSchema>;
@@ -56,18 +56,18 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 		namespace,
 		key,
 		branch,
-		ref_name: mustEntryLocator(namespace, key, branch),
+		refName: mustEntryLocator(namespace, key, branch),
 		commit: result.value.commitSha,
-		source_file: prepared.value.sourceFile,
+		sourceFile: prepared.value.sourceFile,
 	});
 }
 
 export function renderPut(result: PutResult): string {
-	const source = result.source_file === STDIN_SOURCE_FILE ? "stdin" : result.source_file;
+	const source = result.sourceFile === STDIN_SOURCE_FILE ? "stdin" : result.sourceFile;
 	return [
 		`Stored Entry Key ${result.key} from ${source} in ${namespaceDisplayLabel(result.namespace)} on Branch ${result.branch}.`,
-		`Entry Locator: ${result.ref_name}`,
+		`Entry Locator: ${result.refName}`,
 		`Commit: ${result.commit}`,
-		`Inspect: git show ${result.ref_name}`,
+		`Inspect: git show ${result.refName}`,
 	].join("\n");
 }

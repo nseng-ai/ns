@@ -1,7 +1,7 @@
 import { GRILL_ASK_TOOL_NAME } from "@sdl/pi/grill/surfaces";
 import type { GrillAskRemainingEstimate, GrillAskToolContext } from "./extension.ts";
 
-export type GrillAskProgressSource = "session_branch" | "session_branch_unscoped" | "unavailable";
+export type GrillAskProgressSource = "session-branch" | "session-branch-unscoped" | "unavailable";
 
 export interface GrillAskProgress {
 	answeredQuestions?: number;
@@ -88,7 +88,7 @@ export function readGrillAskProgress(ctx: GrillAskToolContext): GrillAskProgress
 	const answeredQuestions = countAnswerResults(branch, startIndex);
 	return {
 		answeredQuestions,
-		source: kickoffIndex === undefined ? "session_branch_unscoped" : "session_branch",
+		source: kickoffIndex === undefined ? "session-branch-unscoped" : "session-branch",
 	};
 }
 

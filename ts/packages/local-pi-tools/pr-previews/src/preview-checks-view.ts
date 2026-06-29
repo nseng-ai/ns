@@ -291,7 +291,7 @@ export function buildPreviewHeaderLines(model: PrPreviewChecksViewModel): string
 	const counts = model.counts;
 	return [
 		`PR #${model.target.pr_number}: ${model.target.title ?? "(untitled)"}`,
-		`${head} → ${base} · checks ${counts.failing} failing / ${counts.pending} pending / ${counts.unknown} unknown / ${counts.passing} passing${counts.has_more === true ? " · more not shown" : ""} · snapshot ${model.fetchedAt.toISOString()}`,
+		`${head} → ${base} · checks ${counts.failing} failing / ${counts.pending} pending / ${counts.unknown} unknown / ${counts.passing} passing${counts.hasMore === true ? " · more not shown" : ""} · snapshot ${model.fetchedAt.toISOString()}`,
 	];
 }
 

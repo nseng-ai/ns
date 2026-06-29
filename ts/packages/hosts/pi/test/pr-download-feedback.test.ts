@@ -101,23 +101,23 @@ function negativeEnvelope(data: object): string {
 function counts(
 	overrides: Partial<
 		Record<
-			| "included_review_threads"
-			| "included_reviews"
-			| "included_discussion_comments"
-			| "excluded_resolved_threads"
-			| "excluded_empty_reviews"
-			| "excluded_automation_comments",
+			| "includedReviewThreads"
+			| "includedReviews"
+			| "includedDiscussionComments"
+			| "excludedResolvedThreads"
+			| "excludedEmptyReviews"
+			| "excludedAutomationComments",
 			number
 		>
 	> = {},
 ): object {
 	return {
-		included_review_threads: overrides.included_review_threads ?? 0,
-		included_reviews: overrides.included_reviews ?? 0,
-		included_discussion_comments: overrides.included_discussion_comments ?? 0,
-		excluded_resolved_threads: overrides.excluded_resolved_threads ?? 0,
-		excluded_empty_reviews: overrides.excluded_empty_reviews ?? 0,
-		excluded_automation_comments: overrides.excluded_automation_comments ?? 0,
+		includedReviewThreads: overrides.includedReviewThreads ?? 0,
+		includedReviews: overrides.includedReviews ?? 0,
+		includedDiscussionComments: overrides.includedDiscussionComments ?? 0,
+		excludedResolvedThreads: overrides.excludedResolvedThreads ?? 0,
+		excludedEmptyReviews: overrides.excludedEmptyReviews ?? 0,
+		excludedAutomationComments: overrides.excludedAutomationComments ?? 0,
 	};
 }
 
@@ -133,7 +133,7 @@ function downloadFeedbackData(
 	return {
 		found: overrides.found ?? true,
 		target: {
-			kind: "github_pr",
+			kind: "github-pr",
 			pr_number: overrides.prNumber ?? 123,
 			title: "Download PR",
 			url: "https://example.test/pull/123",
@@ -292,7 +292,7 @@ describe("/pr:download-stack-feedback", () => {
 			execResult({ stdout: envelope({ branches: ["branch-one", "branch-two"] }) }),
 			execResult({
 				stdout: envelope({
-					branch_prs: [
+					branchPrs: [
 						{
 							branch: "branch-one",
 							pr_number: 101,
@@ -317,7 +317,7 @@ describe("/pr:download-stack-feedback", () => {
 					downloadFeedbackData({
 						markdown: pr101Markdown,
 						prNumber: 101,
-						countsOverrides: counts({ included_review_threads: 1, excluded_resolved_threads: 2 }),
+						countsOverrides: counts({ includedReviewThreads: 1, excludedResolvedThreads: 2 }),
 					}),
 				),
 			}),
@@ -327,10 +327,10 @@ describe("/pr:download-stack-feedback", () => {
 						markdown: pr102Markdown,
 						prNumber: 102,
 						countsOverrides: counts({
-							included_discussion_comments: 3,
-							included_reviews: 1,
-							excluded_empty_reviews: 1,
-							excluded_automation_comments: 4,
+							includedDiscussionComments: 3,
+							includedReviews: 1,
+							excludedEmptyReviews: 1,
+							excludedAutomationComments: 4,
 						}),
 					}),
 				),

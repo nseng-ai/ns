@@ -17,7 +17,7 @@ const nullableIntSchema = z.number().int().nullable();
 const nullableStringSchema = z.string().nullable();
 
 const prFeedbackDownloadTargetSchema = z.looseObject({
-	kind: z.literal("github_pr"),
+	kind: z.literal("github-pr"),
 	pr_number: nullableIntSchema,
 	branch: nullableStringSchema,
 	title: nullableStringSchema,
@@ -27,12 +27,12 @@ const prFeedbackDownloadTargetSchema = z.looseObject({
 });
 
 export const prFeedbackDownloadCountsSchema = z.looseObject({
-	included_review_threads: z.number().int().nonnegative(),
-	included_reviews: z.number().int().nonnegative(),
-	included_discussion_comments: z.number().int().nonnegative(),
-	excluded_resolved_threads: z.number().int().nonnegative(),
-	excluded_empty_reviews: z.number().int().nonnegative(),
-	excluded_automation_comments: z.number().int().nonnegative(),
+	includedReviewThreads: z.number().int().nonnegative(),
+	includedReviews: z.number().int().nonnegative(),
+	includedDiscussionComments: z.number().int().nonnegative(),
+	excludedResolvedThreads: z.number().int().nonnegative(),
+	excludedEmptyReviews: z.number().int().nonnegative(),
+	excludedAutomationComments: z.number().int().nonnegative(),
 });
 
 export const prFeedbackDownloadDataSchema = z.looseObject({

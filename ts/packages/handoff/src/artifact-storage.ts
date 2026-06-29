@@ -138,7 +138,7 @@ export async function readHandoffArtifact(
 	const summary = await findActiveHandoffSummary(deps, target);
 	if (summary.type === "error") return summary;
 	if (summary.value === null) {
-		return brmemError("handoff_not_found", notFoundMessage(target));
+		return brmemError("handoff-not-found", notFoundMessage(target));
 	}
 
 	const entry = await deps.brmem.getEntry({
@@ -150,7 +150,7 @@ export async function readHandoffArtifact(
 		return brmemError(entry.error.code, `Failed to read handoff: ${entry.error.message}`);
 	}
 	if (entry.type === "missing") {
-		return brmemError("handoff_not_found", notFoundMessage(target));
+		return brmemError("handoff-not-found", notFoundMessage(target));
 	}
 
 	return brmemOk({
@@ -188,7 +188,7 @@ export async function prepareHandoffCreation(
 	const checked = await checkHandoffArtifact(deps, options);
 	if (checked.type === "error") return checked;
 	if (checked.value.exists) {
-		return brmemError("handoff_already_exists", alreadyExistsMessage(checked.value));
+		return brmemError("handoff-already-exists", alreadyExistsMessage(checked.value));
 	}
 	return brmemOk(targetFromCheck(checked.value));
 }
@@ -205,8 +205,8 @@ export async function createHandoffArtifact(
 		content: options.content,
 	});
 	if (created.type === "error") {
-		if (created.error.code === "key_already_exists") {
-			return brmemError("handoff_already_exists", alreadyExistsMessage(target));
+		if (created.error.code === "key-already-exists") {
+			return brmemError("handoff-already-exists", alreadyExistsMessage(target));
 		}
 		return brmemError(created.error.code, `Failed to create handoff: ${created.error.message}`);
 	}
@@ -220,7 +220,7 @@ export async function prepareHandoffDeletion(
 	const checked = await checkHandoffArtifact(deps, options);
 	if (checked.type === "error") return checked;
 	if (!checked.value.exists) {
-		return brmemError("handoff_not_found", notFoundMessage(checked.value));
+		return brmemError("handoff-not-found", notFoundMessage(checked.value));
 	}
 	return brmemOk(targetFromCheck(checked.value));
 }
@@ -236,8 +236,8 @@ export async function deleteHandoffArtifact(
 		branch: target.branch,
 	});
 	if (deleted.type === "error") {
-		if (deleted.error.code === "key_not_found") {
-			return brmemError("handoff_not_found", notFoundMessage(target));
+		if (deleted.error.code === "key-not-found") {
+			return brmemError("handoff-not-found", notFoundMessage(target));
 		}
 		return brmemError(deleted.error.code, `Failed to delete handoff: ${deleted.error.message}`);
 	}

@@ -48,13 +48,13 @@ export function reviewsResult(
 export function reviewThreadsResult(
 	threads: readonly GithubPrReviewThread[],
 ): z.output<typeof prReviewThreadsResultSchema> {
-	return { review_threads: threads.map(reviewThreadResult) };
+	return { reviewThreads: threads.map(reviewThreadResult) };
 }
 
 export function discussionCommentsResult(
 	comments: readonly GithubPrDiscussionComment[],
 ): z.output<typeof prDiscussionCommentsResultSchema> {
-	return { discussion_comments: comments.map(discussionCommentResult) };
+	return { discussionComments: comments.map(discussionCommentResult) };
 }
 
 function prSummaryResult(pr: GithubPrSummary): z.output<typeof prSummarySchema> {

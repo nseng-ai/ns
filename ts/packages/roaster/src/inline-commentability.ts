@@ -45,25 +45,25 @@ export function classifyInlineFindings(
 
 	for (const finding of findings) {
 		if (finding.path === null) {
-			fallbackOnly.push({ finding, reason: "missing_path" });
+			fallbackOnly.push({ finding, reason: "missing-path" });
 			continue;
 		}
 		if (finding.line === null) {
-			fallbackOnly.push({ finding, reason: "missing_line" });
+			fallbackOnly.push({ finding, reason: "missing-line" });
 			continue;
 		}
 		const changedFile = changedByPath.get(finding.path);
 		if (changedFile === undefined) {
-			fallbackOnly.push({ finding, reason: "file_not_changed" });
+			fallbackOnly.push({ finding, reason: "file-not-changed" });
 			continue;
 		}
 		if (changedFile.patch === null) {
-			fallbackOnly.push({ finding, reason: "patch_unavailable" });
+			fallbackOnly.push({ finding, reason: "patch-unavailable" });
 			continue;
 		}
 		const lines = linesByPath.get(finding.path);
 		if (lines === undefined || !lines.has(finding.line)) {
-			fallbackOnly.push({ finding, reason: "line_not_in_diff" });
+			fallbackOnly.push({ finding, reason: "line-not-in-diff" });
 			continue;
 		}
 		inlineable.push({ finding, target: { path: finding.path, line: finding.line } });

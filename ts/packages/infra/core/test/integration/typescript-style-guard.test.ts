@@ -11,6 +11,7 @@ import {
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_PACKAGE_TIER_LAYERING,
+	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	deferredExtensionCycleComponents,
 	extensionGraphPackageNames,
 	type ManifestDependencyField,
@@ -184,6 +185,51 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "prose mentions do not trigger syntax rules",
 			code: 'const text = "import { Foo as Bar } from pkg; interface Child extends Parent {}";',
+			expectedRules: [],
+		},
+		{
+			name: "snake_case failure error type is rejected",
+			code: 'failure("registry_check_failed", "message");',
+			expectedRules: [BAN_SNAKE_CASE_CLI_MACHINE_VALUE],
+		},
+		{
+			name: "kebab-case failure error type is allowed",
+			code: 'failure("registry-check-failed", "message");',
+			expectedRules: [],
+		},
+		{
+			name: "snake_case errorType property value is rejected",
+			code: 'const exit = new ClinkrFailure({ errorType: "branch_context_error", message });',
+			expectedRules: [BAN_SNAKE_CASE_CLI_MACHINE_VALUE],
+		},
+		{
+			name: "kebab-case errorType property value is allowed",
+			code: 'const exit = { errorType: "branch-context-error", message };',
+			expectedRules: [],
+		},
+		{
+			name: "camelCase errorType property name is not itself a machine value",
+			code: 'const exit = { errorType: "not-in-repo" };',
+			expectedRules: [],
+		},
+		{
+			name: "snake_case errorType union type declaration is not a runtime value",
+			code: 'interface Err { errorType: "invalid_json" | "invalid_request"; }',
+			expectedRules: [],
+		},
+		{
+			name: "snake_case failure error type via member call is rejected",
+			code: 'return clinkr.failure("pr_gateway_failure", "message");',
+			expectedRules: [BAN_SNAKE_CASE_CLI_MACHINE_VALUE],
+		},
+		{
+			name: "human-readable failure message is not flagged as a machine value",
+			code: 'failure("invalid-request", "Two sources were provided at once");',
+			expectedRules: [],
+		},
+		{
+			name: "internal snake_case discriminant value is outside the focused guard",
+			code: 'const result = { kind: "stash_failed", error };',
 			expectedRules: [],
 		},
 	];

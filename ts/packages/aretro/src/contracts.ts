@@ -5,7 +5,7 @@ import { payloadReferenceSchema, type PayloadReference } from "./payloads/models
 export { payloadReferenceSchema };
 export type { PayloadReference };
 
-export type BranchSource = "explicit" | "git_current_branch" | "detached" | "unresolved";
+export type BranchSource = "explicit" | "git-current-branch" | "detached" | "unresolved";
 
 export const collectEvidenceErrorSchema = z.object({
 	code: z.string(),
@@ -15,26 +15,26 @@ export const collectEvidenceErrorSchema = z.object({
 export type CollectEvidenceError = z.infer<typeof collectEvidenceErrorSchema>;
 
 export const repoContextDtoSchema = z.object({
-	repo_root: z.string().nullable(),
+	repoRoot: z.string().nullable(),
 	cwd: z.string(),
 	branch: z.string().nullable(),
-	branch_source: z.enum(["explicit", "git_current_branch", "detached", "unresolved"]),
+	branchSource: z.enum(["explicit", "git-current-branch", "detached", "unresolved"]),
 });
 
 export type RepoContextDto = z.infer<typeof repoContextDtoSchema>;
 
 export const sessionQueryDtoSchema = z.object({
-	repo_root: z.string().nullable(),
-	session_root: z.string().nullable(),
-	max_sessions: z.number().nullable(),
+	repoRoot: z.string().nullable(),
+	sessionRoot: z.string().nullable(),
+	maxSessions: z.number().nullable(),
 });
 
 export type SessionQueryDto = z.infer<typeof sessionQueryDtoSchema>;
 
 export const sessionSourceInfoDtoSchema = z.object({
 	harness: z.string(),
-	adapter_name: z.string(),
-	record_format: z.string(),
+	adapterName: z.string(),
+	recordFormat: z.string(),
 });
 
 export type SessionSourceInfoDto = z.infer<typeof sessionSourceInfoDtoSchema>;
@@ -42,7 +42,7 @@ export type SessionSourceInfoDto = z.infer<typeof sessionSourceInfoDtoSchema>;
 export const sessionSourceRefDtoSchema = z.object({
 	path: z.string().nullable(),
 	uri: z.string().nullable(),
-	line_number: z.number().nullable(),
+	lineNumber: z.number().nullable(),
 });
 
 export type SessionSourceRefDto = z.infer<typeof sessionSourceRefDtoSchema>;
@@ -50,15 +50,15 @@ export type SessionSourceRefDto = z.infer<typeof sessionSourceRefDtoSchema>;
 export const sessionWarningDtoSchema = z.object({
 	code: z.string(),
 	message: z.string(),
-	source_ref: sessionSourceRefDtoSchema.nullable(),
+	sourceRef: sessionSourceRefDtoSchema.nullable(),
 	harness: z.string().nullable(),
-	adapter_name: z.string().nullable(),
+	adapterName: z.string().nullable(),
 });
 
 export type SessionWarningDto = z.infer<typeof sessionWarningDtoSchema>;
 
 export const sessionAssociationDtoSchema = z.object({
-	repo_root: z.string().nullable(),
+	repoRoot: z.string().nullable(),
 	cwd: z.string().nullable(),
 	branch: z.string().nullable(),
 	confidence: z.string(),
@@ -70,8 +70,8 @@ export type SessionAssociationDto = z.infer<typeof sessionAssociationDtoSchema>;
 export const messageCountsDtoSchema = z.object({
 	user: z.number(),
 	assistant: z.number(),
-	tool_result: z.number(),
-	command_execution: z.number(),
+	toolResult: z.number(),
+	commandExecution: z.number(),
 	system: z.number(),
 	other: z.number(),
 });
@@ -79,30 +79,30 @@ export const messageCountsDtoSchema = z.object({
 export type MessageCountsDto = z.infer<typeof messageCountsDtoSchema>;
 
 export const sessionSummaryDtoSchema = z.object({
-	session_id: z.string().nullable(),
-	started_at_iso: z.string().nullable(),
-	ended_at_iso: z.string().nullable(),
-	source_ref: sessionSourceRefDtoSchema,
+	sessionId: z.string().nullable(),
+	startedAtIso: z.string().nullable(),
+	endedAtIso: z.string().nullable(),
+	sourceRef: sessionSourceRefDtoSchema,
 	association: sessionAssociationDtoSchema,
-	message_counts: messageCountsDtoSchema,
-	model_event_count: z.number(),
-	tool_call_count: z.number(),
-	tool_result_count: z.number(),
-	command_execution_count: z.number(),
-	usage_event_count: z.number(),
-	warning_count: z.number(),
+	messageCounts: messageCountsDtoSchema,
+	modelEventCount: z.number(),
+	toolCallCount: z.number(),
+	toolResultCount: z.number(),
+	commandExecutionCount: z.number(),
+	usageEventCount: z.number(),
+	warningCount: z.number(),
 });
 
 export type SessionSummaryDto = z.infer<typeof sessionSummaryDtoSchema>;
 
 export const aggregateMetricsDtoSchema = z.object({
-	session_count: z.number(),
-	message_counts: messageCountsDtoSchema,
-	tool_call_count: z.number(),
-	tool_result_count: z.number(),
-	command_execution_count: z.number(),
-	usage_event_count: z.number(),
-	warning_count: z.number(),
+	sessionCount: z.number(),
+	messageCounts: messageCountsDtoSchema,
+	toolCallCount: z.number(),
+	toolResultCount: z.number(),
+	commandExecutionCount: z.number(),
+	usageEventCount: z.number(),
+	warningCount: z.number(),
 });
 
 export type AggregateMetricsDto = z.infer<typeof aggregateMetricsDtoSchema>;
@@ -112,8 +112,8 @@ export const evidenceItemDtoSchema = z.object({
 	subject: z.string().nullable(),
 	summary: z.string(),
 	count: z.number().nullable(),
-	session_count: z.number().nullable(),
-	source_refs: z.array(sessionSourceRefDtoSchema),
+	sessionCount: z.number().nullable(),
+	sourceRefs: z.array(sessionSourceRefDtoSchema),
 	metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
 });
 
@@ -125,13 +125,13 @@ export const collectEvidenceResultSchema = z.object({
 	repo: repoContextDtoSchema,
 	query: sessionQueryDtoSchema,
 	source: sessionSourceInfoDtoSchema,
-	aggregate_metrics: aggregateMetricsDtoSchema,
+	aggregateMetrics: aggregateMetricsDtoSchema,
 	sessions: z.array(sessionSummaryDtoSchema),
 	warnings: z.array(sessionWarningDtoSchema),
-	evidence_items: z.array(evidenceItemDtoSchema),
-	payload_mode: z.enum(["inline", "payload"]).optional(),
-	payload_reference: payloadReferenceSchema.optional(),
-	detail_locator_hints: z.array(z.string()).optional(),
+	evidenceItems: z.array(evidenceItemDtoSchema),
+	payloadMode: z.enum(["inline", "payload"]).optional(),
+	payloadReference: payloadReferenceSchema.optional(),
+	detailLocatorHints: z.array(z.string()).optional(),
 });
 
 export type CollectEvidenceResult = z.infer<typeof collectEvidenceResultSchema>;

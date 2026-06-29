@@ -259,9 +259,9 @@ When you need user input during this grill session:
 - Provide estimatedRemaining on every grill_ask call. Use exact only when you know; otherwise use a range with a basis or unknown with a basis. Do not invent precision.
 - Always allow freeform unless there is a strong reason not to.
 - Always allow ending the grilling session.
-- If grill_ask returns action: "end_grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
-- If grill_ask returns action: "status_request", the user has not answered the current question. Produce a compact status report with answered count, estimated remaining questions, current pending question, resolved decisions, unresolved branches, and current recommendation. Then re-ask the exact same pending question with grill_ask; do not advance to a new question and do not count the status request as an answer.
-- If grill_ask is unavailable or returns action: "ui_unavailable", ask the same one question normally with numbered choices, including Other/freeform when allowed, Show current grill status, and End grilling session when allowed.
+- If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
+- If grill_ask returns action: "status-request", the user has not answered the current question. Produce a compact status report with answered count, estimated remaining questions, current pending question, resolved decisions, unresolved branches, and current recommendation. Then re-ask the exact same pending question with grill_ask; do not advance to a new question and do not count the status request as an answer.
+- If grill_ask is unavailable or returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform when allowed, Show current grill status, and End grilling session when allowed.
 </structured-grill-question-ui-contract>`;
 
 export function buildGrillUiPrompt(skillBlock: string | undefined, target: string): string {
@@ -356,9 +356,9 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 			"Include estimatedRemaining on every grill_ask call; use exact only when known, otherwise use a range with basis or unknown with basis.",
 			"Use grill_ask with freeform and end-session paths enabled unless there is a strong reason not to.",
 			"Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.",
-			'If grill_ask returns action: "end_grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.',
-			'If grill_ask returns action: "status_request", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.',
-			'If grill_ask returns action: "ui_unavailable", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.',
+			'If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.',
+			'If grill_ask returns action: "status-request", use the requested status-report format, then call grill_ask again with the same pending question; do not treat the status request as an answer.',
+			'If grill_ask returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.',
 		],
 		parameters: GRILL_ASK_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
@@ -466,7 +466,7 @@ async function executeLegacyGrillAsk(
 	if (!ctx.hasUI || ctx.ui.select === undefined) {
 		return textResult(
 			"Structured grill question UI is unavailable. Ask the same one question normally with numbered choices, including the explicit choices, Other/freeform when allowed, Show current grill status, and End grilling session when allowed.",
-			{ action: "ui_unavailable", question: input.question },
+			{ action: "ui-unavailable", question: input.question },
 		);
 	}
 
@@ -491,7 +491,7 @@ async function executeLegacyGrillAsk(
 			return executeLegacyFreeformAnswer(input, ctx);
 		case "status":
 			return statusRequestResult(input.question, progress, input.estimatedRemaining);
-		case "end_grill":
+		case "end-grill":
 			return endGrillResult(input.question);
 		default: {
 			const exhaustive: never = selectedRow;
@@ -507,7 +507,7 @@ async function executeLegacyFreeformAnswer(
 	if (ctx.ui.editor === undefined) {
 		return textResult(
 			"Structured grill freeform editor is unavailable. Ask the same one question normally with numbered choices, an Other/freeform option, Show current grill status, and End grilling session when allowed.",
-			{ action: "ui_unavailable", question: input.question },
+			{ action: "ui-unavailable", question: input.question },
 		);
 	}
 	const answer = await ctx.ui.editor("Freeform answer", "");
@@ -527,13 +527,13 @@ function grillAskOutcomeResult(
 			return selectedChoiceResult(input.question, outcome.entry);
 		case "freeform":
 			return freeformAnswerResult(input.question, outcome.answer);
-		case "status_request":
+		case "status-request":
 			return statusRequestResult(
 				input.question,
 				readGrillAskProgress(ctx),
 				input.estimatedRemaining,
 			);
-		case "end_grill":
+		case "end-grill":
 			return endGrillResult(input.question);
 		case "cancelled":
 			return cancelledResult(input.question);

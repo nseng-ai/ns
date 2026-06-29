@@ -22,9 +22,9 @@ import { gatewayFailure } from "./shared.ts";
 
 const copyPlanItemSchema = z.object({
 	key: z.string(),
-	source_ref: z.string(),
-	destination_ref: z.string(),
-	source_sha: z.string(),
+	sourceRef: z.string(),
+	destinationRef: z.string(),
+	sourceSha: z.string(),
 });
 
 export const copyRequestSchema = z.object({
@@ -42,12 +42,12 @@ export const copyRequestSchema = z.object({
 
 export const copyResultSchema = z.object({
 	namespace: z.string(),
-	from_branch: z.string(),
-	to_branch: z.string(),
+	fromBranch: z.string(),
+	toBranch: z.string(),
 	overwrite: z.boolean(),
-	dry_run: z.boolean(),
+	dryRun: z.boolean(),
 	copied: z.array(copyPlanItemSchema),
-	key_glob: z.string().nullable(),
+	keyGlob: z.string().nullable(),
 });
 
 export type CopyRequest = z.infer<typeof copyRequestSchema>;
@@ -56,11 +56,11 @@ export type CopyResult = z.infer<typeof copyResultSchema>;
 
 export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 	if (request.base && request.namespace !== undefined) {
-		return failure("base_and_namespace_conflict", "--base and --namespace are mutually exclusive.");
+		return failure("base-and-namespace-conflict", "--base and --namespace are mutually exclusive.");
 	}
 	if (!request.base && request.namespace === undefined) {
 		return failure(
-			"copy_scope_missing",
+			"copy-scope-missing",
 			"Pass --base or --namespace <name> to choose the Namespace to copy.",
 		);
 	}
@@ -68,19 +68,19 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 	const namespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
 	const validationFailure = firstFailure(
 		[
-			"invalid_namespace",
+			"invalid-namespace",
 			validationMessage("namespace", namespace, validateNamespaceName(namespace)),
 		],
 		[
-			"invalid_from_branch",
+			"invalid-from-branch",
 			validationMessage("branch name", request.fromBranch, validateBranchName(request.fromBranch)),
 		],
 		[
-			"invalid_to_branch",
+			"invalid-to-branch",
 			validationMessage("branch name", request.toBranch, validateBranchName(request.toBranch)),
 		],
 		[
-			"invalid_key_glob",
+			"invalid-key-glob",
 			request.keyGlob === undefined
 				? undefined
 				: validationMessage("Entry Key glob", request.keyGlob, validateKeyGlob(request.keyGlob)),
@@ -126,12 +126,12 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 	if (plan.type === "failure") return plan.failure;
 	const result: CopyResult = {
 		namespace,
-		from_branch: request.fromBranch,
-		to_branch: request.toBranch,
+		fromBranch: request.fromBranch,
+		toBranch: request.toBranch,
 		overwrite: request.overwrite,
-		dry_run: request.dryRun,
+		dryRun: request.dryRun,
 		copied: plan.items,
-		key_glob: request.keyGlob ?? null,
+		keyGlob: request.keyGlob ?? null,
 	};
 
 	if (request.dryRun) return ok(result);
@@ -144,7 +144,7 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		keyGlob: request.keyGlob,
 	});
 	if (copied.type === "error") {
-		if (copied.error.code === "copy_conflict") {
+		if (copied.error.code === "copy-conflict") {
 			return negative(copied.error.message, {
 				data: result,
 			});
@@ -155,18 +155,18 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 }
 
 export function renderCopy(result: CopyResult): string {
-	const verb = result.dry_run ? "Would copy" : "Copied";
+	const verb = result.dryRun ? "Would copy" : "Copied";
 	const countLabel = result.copied.length === 1 ? "Entry" : "Entries";
 	const lines = [
-		`${verb} ${result.copied.length} ${countLabel} in ${namespaceDisplayLabel(result.namespace)} from Branch ${result.from_branch} to Branch ${result.to_branch}.`,
+		`${verb} ${result.copied.length} ${countLabel} in ${namespaceDisplayLabel(result.namespace)} from Branch ${result.fromBranch} to Branch ${result.toBranch}.`,
 	];
-	if (result.key_glob !== null) lines.push(`Entry Key glob: ${result.key_glob}`);
+	if (result.keyGlob !== null) lines.push(`Entry Key glob: ${result.keyGlob}`);
 	for (const item of result.copied) {
 		lines.push(
 			`Entry Key: ${item.key}`,
-			`  Source SHA: ${item.source_sha}`,
-			`  Source Entry Locator: ${item.source_ref}`,
-			`  Destination Entry Locator: ${item.destination_ref}`,
+			`  Source SHA: ${item.sourceSha}`,
+			`  Source Entry Locator: ${item.sourceRef}`,
+			`  Destination Entry Locator: ${item.destinationRef}`,
 		);
 	}
 	return lines.join("\n");
@@ -198,16 +198,16 @@ async function buildCopyPlan(
 		}
 		items.push({
 			key: entry.key,
-			source_ref: entry.entryLocator,
-			destination_ref: mustEntryLocator(namespace, entry.key, request.toBranch),
-			source_sha: checked.value.headSha,
+			sourceRef: entry.entryLocator,
+			destinationRef: mustEntryLocator(namespace, entry.key, request.toBranch),
+			sourceSha: checked.value.headSha,
 		});
 	}
 	if (missingShaKeys.length > 0) {
 		return {
 			type: "failure",
 			failure: failure(
-				"source_sha_unavailable",
+				"source-sha-unavailable",
 				`Could not resolve source commit for Entry Keys: ${missingShaKeys.sort().join(", ")}`,
 			),
 		};
@@ -225,11 +225,11 @@ function noMatchingEntriesMessage(namespace: string, request: CopyRequest): stri
 function emptyCopyResult(namespace: string, request: CopyRequest): CopyResult {
 	return {
 		namespace,
-		from_branch: request.fromBranch,
-		to_branch: request.toBranch,
+		fromBranch: request.fromBranch,
+		toBranch: request.toBranch,
 		overwrite: request.overwrite,
-		dry_run: request.dryRun,
+		dryRun: request.dryRun,
 		copied: [],
-		key_glob: request.keyGlob ?? null,
+		keyGlob: request.keyGlob ?? null,
 	};
 }

@@ -10,9 +10,9 @@ export const SDLCC_CMUX_REPORT_SOURCE = "sdlcc";
 
 export const sdlccCmuxReportResultSchema = z.strictObject({
 	branch: z.string(),
-	worktree_path: z.string(),
-	workspace_id: z.string(),
-	surface_id: z.string(),
+	worktreePath: z.string(),
+	workspaceId: z.string(),
+	surfaceId: z.string(),
 	kind: z.literal(SDLCC_CMUX_REPORT_KIND),
 	source: z.literal(SDLCC_CMUX_REPORT_SOURCE),
 	shell: z.string(),
@@ -20,7 +20,7 @@ export const sdlccCmuxReportResultSchema = z.strictObject({
 
 export const sdlccCmuxReportFailureDataSchema = z.strictObject({
 	code: z.string(),
-	command_failure: z
+	commandFailure: z
 		.strictObject({
 			command: z.string(),
 			args: z.array(z.string()),
@@ -47,13 +47,13 @@ export interface SdlccCmuxReportMetadata {
 }
 
 export type SdlccCmuxReportFailureCode =
-	| "cmux_resume_set_failed"
-	| "detached_head"
-	| "empty_worktree_root"
-	| "git_branch_failed"
-	| "missing_surface_id"
-	| "missing_workspace_id"
-	| "not_git_worktree";
+	| "cmux-resume-set-failed"
+	| "detached-head"
+	| "empty-worktree-root"
+	| "git-branch-failed"
+	| "missing-surface-id"
+	| "missing-workspace-id"
+	| "not-git-worktree";
 
 export interface SdlccCmuxReportCommandFailure {
 	readonly command: string;
@@ -65,7 +65,7 @@ export interface SdlccCmuxReportCommandFailure {
 
 export interface SdlccCmuxReportFailureData {
 	readonly code: SdlccCmuxReportFailureCode;
-	readonly command_failure: SdlccCmuxReportCommandFailure | null;
+	readonly commandFailure: SdlccCmuxReportCommandFailure | null;
 }
 
 export type SdlccCmuxReportResult =
@@ -94,14 +94,14 @@ export async function runSdlccCmuxReport(
 	if (workspaceId === undefined)
 		return {
 			type: "failed",
-			code: "missing_workspace_id",
+			code: "missing-workspace-id",
 			message: "sdlcc cmux report must run inside a cmux surface; CMUX_WORKSPACE_ID is not set.",
 		};
 	const surfaceId = nonEmptyString(env.CMUX_SURFACE_ID);
 	if (surfaceId === undefined)
 		return {
 			type: "failed",
-			code: "missing_surface_id",
+			code: "missing-surface-id",
 			message: "sdlcc cmux report must run inside a cmux surface; CMUX_SURFACE_ID is not set.",
 		};
 
@@ -113,7 +113,7 @@ export async function runSdlccCmuxReport(
 	if (worktreeResult.code !== 0) {
 		return {
 			type: "failed",
-			code: "not_git_worktree",
+			code: "not-git-worktree",
 			message: `sdlcc cmux report must run inside a git worktree: ${commandFailureMessage("git rev-parse --show-toplevel", worktreeResult)}`,
 			commandFailure: commandFailure("git", worktreeArgs, worktreeResult),
 		};
@@ -122,7 +122,7 @@ export async function runSdlccCmuxReport(
 	if (worktreePath === undefined)
 		return {
 			type: "failed",
-			code: "empty_worktree_root",
+			code: "empty-worktree-root",
 			message:
 				"sdlcc cmux report must run inside a git worktree; git returned an empty worktree root.",
 		};
@@ -135,7 +135,7 @@ export async function runSdlccCmuxReport(
 	if (branchResult.code !== 0) {
 		return {
 			type: "failed",
-			code: "git_branch_failed",
+			code: "git-branch-failed",
 			message: `sdlcc cmux report could not resolve the current git branch: ${commandFailureMessage("git branch --show-current", branchResult)}`,
 			commandFailure: commandFailure("git", branchArgs, branchResult),
 		};
@@ -144,7 +144,7 @@ export async function runSdlccCmuxReport(
 	if (branch === undefined)
 		return {
 			type: "failed",
-			code: "detached_head",
+			code: "detached-head",
 			message: "sdlcc cmux report requires a named git branch; detached HEAD is not supported.",
 		};
 
@@ -158,7 +158,7 @@ export async function runSdlccCmuxReport(
 	if (cmuxResult.code !== 0) {
 		return {
 			type: "failed",
-			code: "cmux_resume_set_failed",
+			code: "cmux-resume-set-failed",
 			message: `cmux surface resume set failed: ${commandFailureMessage("cmux surface resume set", cmuxResult)}`,
 			commandFailure: commandFailure("cmux", cmuxArgs, cmuxResult),
 		};
@@ -196,9 +196,9 @@ export function sdlccCmuxReportData(
 ): z.infer<typeof sdlccCmuxReportResultSchema> {
 	return {
 		branch: metadata.branch,
-		worktree_path: metadata.worktreePath,
-		workspace_id: metadata.workspaceId,
-		surface_id: metadata.surfaceId,
+		worktreePath: metadata.worktreePath,
+		workspaceId: metadata.workspaceId,
+		surfaceId: metadata.surfaceId,
 		kind: SDLCC_CMUX_REPORT_KIND,
 		source: SDLCC_CMUX_REPORT_SOURCE,
 		shell: metadata.shell,
@@ -210,24 +210,24 @@ export function sdlccCmuxReportFailureData(
 ): SdlccCmuxReportFailureData {
 	return {
 		code: result.code,
-		command_failure: result.commandFailure ?? null,
+		commandFailure: result.commandFailure ?? null,
 	};
 }
 
 export function isSdlccCmuxReportUsageFailure(code: SdlccCmuxReportFailureCode): boolean {
 	return (
-		code === "missing_workspace_id" ||
-		code === "missing_surface_id" ||
-		code === "not_git_worktree" ||
-		code === "empty_worktree_root" ||
-		code === "detached_head"
+		code === "missing-workspace-id" ||
+		code === "missing-surface-id" ||
+		code === "not-git-worktree" ||
+		code === "empty-worktree-root" ||
+		code === "detached-head"
 	);
 }
 
 export function formatSdlccCmuxReportHuman(
 	data: z.infer<typeof sdlccCmuxReportResultSchema>,
 ): string {
-	return `Reported cmux surface identity: ${data.branch} @ ${data.worktree_path}`;
+	return `Reported cmux surface identity: ${data.branch} @ ${data.worktreePath}`;
 }
 
 function commandFailure(

@@ -59,7 +59,7 @@ export function encodeBranchName(branch: string): BrmemResult<string> {
 	const validation = validateBranchName(branch);
 	if (validation.type === "invalid")
 		return brmemError(
-			"invalid_branch_name",
+			"invalid-branch-name",
 			`Invalid branch name ${JSON.stringify(branch)}: ${validation.reason}`,
 		);
 	return brmemOk(branch.replaceAll("/", FLAT_SEPARATOR));
@@ -77,7 +77,7 @@ export function buildSnapshotRef(namespace: string, branch: string): BrmemResult
 	const namespaceValidation = validateNamespaceName(namespace);
 	if (namespaceValidation.type === "invalid") {
 		return brmemError(
-			"invalid_namespace",
+			"invalid-namespace",
 			`Invalid namespace ${JSON.stringify(namespace)}: ${namespaceValidation.reason}`,
 		);
 	}
@@ -91,7 +91,7 @@ export function buildEntryLocator(
 ): BrmemResult<string> {
 	const keyValidation = validateEntryKey(key);
 	if (keyValidation.type === "invalid")
-		return brmemError("invalid_key", `Invalid key ${JSON.stringify(key)}: ${keyValidation.reason}`);
+		return brmemError("invalid-key", `Invalid key ${JSON.stringify(key)}: ${keyValidation.reason}`);
 	const snapshotRef = buildSnapshotRef(namespace, branch);
 	if (snapshotRef.type === "error") return snapshotRef;
 	return brmemOk(`${snapshotRef.value}:${key}`);

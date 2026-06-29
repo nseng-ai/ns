@@ -2,31 +2,31 @@ import type { SlotRepositoryGateway } from "../gateways/repository.ts";
 import { findBySlot, type SlotInventory, type SlotRecord } from "../inventory.ts";
 
 export interface FreedSlot {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
 }
 
 export type ReleaseTargetFailureReason =
-	| "slot_not_assigned"
-	| "operation_in_progress"
-	| "dirty_worktree"
-	| "detach_failed";
+	| "slot-not-assigned"
+	| "operation-in-progress"
+	| "dirty-worktree"
+	| "detach-failed";
 
 export interface ReleaseTargetFailure {
 	reason: ReleaseTargetFailureReason;
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
 	operation: string | null;
-	detach_ref: string | null;
-	detach_error: string | null;
-	error_type: string;
+	detachRef: string | null;
+	detachError: string | null;
+	errorType: string;
 }
 
 export function freedSlotFromRecord(record: SlotRecord): FreedSlot {
 	if (record.branch === null) throw new Error(`slot ${record.slotName} is not assigned`);
-	return { slot_name: record.slotName, branch_name: record.branch, worktree_path: record.path };
+	return { slotName: record.slotName, branchName: record.branch, worktreePath: record.path };
 }
 
 export interface ReleaseAssignedSlotTargetOptions {
@@ -39,19 +39,19 @@ export interface ReleaseAssignedSlotTargetOptions {
 export async function releaseAssignedSlotTarget(
 	options: ReleaseAssignedSlotTargetOptions,
 ): Promise<FreedSlot | ReleaseTargetFailure> {
-	const record = findBySlot(options.inventory, options.target.slot_name);
-	if (record === null || record.branch === null || record.branch !== options.target.branch_name)
-		return failure("slot_not_assigned", options.target, { worktreePath: record?.path });
+	const record = findBySlot(options.inventory, options.target.slotName);
+	if (record === null || record.branch === null || record.branch !== options.target.branchName)
+		return failure("slot-not-assigned", options.target, { worktreePath: record?.path });
 	if (record.operation !== null)
-		return failure("operation_in_progress", options.target, {
+		return failure("operation-in-progress", options.target, {
 			worktreePath: record.path,
 			operation: record.operation,
 		});
 	if (await options.git.hasUncommittedChanges(record.path))
-		return failure("dirty_worktree", options.target, { worktreePath: record.path });
+		return failure("dirty-worktree", options.target, { worktreePath: record.path });
 	const detachFailure = await options.git.detachHead(record.path, options.trunkBranch);
 	if (detachFailure !== null)
-		return failure("detach_failed", options.target, {
+		return failure("detach-failed", options.target, {
 			worktreePath: record.path,
 			detachRef: options.trunkBranch,
 			detachError: detachFailure.message,
@@ -71,12 +71,12 @@ function failure(
 ): ReleaseTargetFailure {
 	return {
 		reason,
-		slot_name: target.slot_name,
-		branch_name: target.branch_name,
-		worktree_path: options.worktreePath ?? target.worktree_path,
+		slotName: target.slotName,
+		branchName: target.branchName,
+		worktreePath: options.worktreePath ?? target.worktreePath,
 		operation: options.operation ?? null,
-		detach_ref: options.detachRef ?? null,
-		detach_error: options.detachError ?? null,
-		error_type: reason === "detach_failed" ? "slot_allocation_error" : reason,
+		detachRef: options.detachRef ?? null,
+		detachError: options.detachError ?? null,
+		errorType: reason === "detach-failed" ? "slot-allocation-error" : reason,
 	};
 }

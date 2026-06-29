@@ -16,29 +16,29 @@ const nonEmptyListGit = {
 };
 
 const sampleListResult: ListResult = {
-	pool_size: 3,
-	repo_name: "repo",
+	poolSize: 3,
+	repoName: "repo",
 	rows: [
 		{
-			slot_name: "slot-01",
+			slotName: "slot-01",
 			branch: "feature/a",
 			operation: null,
 			status: "assigned",
-			worktree_path: "/slots/repos/repo/worktrees/slot-01",
+			worktreePath: "/slots/repos/repo/worktrees/slot-01",
 		},
 		{
-			slot_name: "slot-02",
+			slotName: "slot-02",
 			branch: null,
 			operation: null,
 			status: "available",
-			worktree_path: "/slots/repos/repo/worktrees/slot-02",
+			worktreePath: "/slots/repos/repo/worktrees/slot-02",
 		},
 		{
-			slot_name: "slot-03",
+			slotName: "slot-03",
 			branch: "feature/rebase",
 			operation: "rebase",
 			status: "assigned",
-			worktree_path: "/slots/repos/repo/worktrees/slot-03",
+			worktreePath: "/slots/repos/repo/worktrees/slot-03",
 		},
 	],
 };
@@ -89,13 +89,13 @@ describe("slot list command group", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 0,
 			data: {
-				pool_size: 3,
-				repo_name: "repo",
+				poolSize: 3,
+				repoName: "repo",
 				rows: [
-					{ slot_name: "slot-01", branch: "feature/a", operation: null, status: "assigned" },
-					{ slot_name: "slot-02", branch: null, operation: null, status: "available" },
+					{ slotName: "slot-01", branch: "feature/a", operation: null, status: "assigned" },
+					{ slotName: "slot-02", branch: null, operation: null, status: "available" },
 					{
-						slot_name: "slot-03",
+						slotName: "slot-03",
 						branch: "feature/rebase",
 						operation: "rebase",
 						status: "assigned",
@@ -108,6 +108,6 @@ describe("slot list command group", () => {
 	it("prints a JSON schema for machine consumers", async () => {
 		const run = runScenario(["list", "--json-schema"]);
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("pool_size");
+		expect(run.stdout.join("")).toContain("poolSize");
 	});
 });

@@ -14,10 +14,10 @@ export const gtFreeStackRequestSchema = z.object({
 });
 
 export const gtFreeStackResultSchema = z.object({
-	current_branch: z.string(),
-	trunk_branch: z.string(),
+	currentBranch: z.string(),
+	trunkBranch: z.string(),
 	freed: z.array(freedSlotSchema),
-	noop_reason: z.union([z.literal("on_trunk"), z.literal("no_slots")]).nullable(),
+	noopReason: z.union([z.literal("on-trunk"), z.literal("no-slots")]).nullable(),
 	downstack: z.boolean(),
 });
 
@@ -30,14 +30,14 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 	const { repoCtx, currentBranch } = resolved;
 	const trunkResult = await ctx.gt.trunk(repoCtx.repo.root);
 	if (trunkResult.type === "failure")
-		return failure("gt_trunk_failed", trunkResult.failure.message);
+		return failure("gt-trunk-failed", trunkResult.failure.message);
 	if (currentBranch === trunkResult.branch)
 		return ok(
 			buildResult({
 				current: currentBranch,
 				trunk: trunkResult.branch,
 				freed: [],
-				noopReason: "on_trunk",
+				noopReason: "on-trunk",
 				downstack: request.downstack,
 			}),
 		);
@@ -45,13 +45,13 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
 	});
 	if (poolSize(inventory) === 0)
-		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const stackResult = await ctx.gt.stack(repoCtx.repo.root);
 	if (stackResult.type === "failure")
-		return failure("gt_stack_failed", stackResult.failure.message);
+		return failure("gt-stack-failed", stackResult.failure.message);
 	if (stackResult.type === "untracked_branch")
 		return failure(
-			"gt_untracked_branch",
+			"gt-untracked-branch",
 			"current branch is not tracked by Graphite — run `gt track` first",
 		);
 	const branches = collectStackBranches(stackResult.stack, {
@@ -76,15 +76,15 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 				current: currentBranch,
 				trunk: trunkResult.branch,
 				freed: [],
-				noopReason: "no_slots",
+				noopReason: "no-slots",
 				downstack: request.downstack,
 			}),
 		);
 	const plan = await planFreeSlots(repoCtx, targets, { trunkBranch: trunkResult.branch });
-	if (plan.type === "failure") return failure(plan.failure.error_type, plan.failure.message);
+	if (plan.type === "failure") return failure(plan.failure.errorType, plan.failure.message);
 	const executed = await executeFreePlan(repoCtx, plan.outcome);
 	if (executed.type === "failure")
-		return failure(executed.failure.error_type, executed.failure.message);
+		return failure(executed.failure.errorType, executed.failure.message);
 	return ok(
 		buildResult({
 			current: currentBranch,
@@ -108,20 +108,20 @@ export function renderGtFreeStack(
 }
 
 function gtFreeStackHeadline(result: GtFreeStackResult): string {
-	if (result.noop_reason === "on_trunk") return "On trunk; no stack slots freed.";
-	if (result.noop_reason === "no_slots") return "No stack slots freed.";
+	if (result.noopReason === "on-trunk") return "On trunk; no stack slots freed.";
+	if (result.noopReason === "no-slots") return "No stack slots freed.";
 	return `Freed ${result.freed.length} stack slot(s).`;
 }
 
 function renderGtFreeStackDetails(result: GtFreeStackResult): string | undefined {
-	if (result.noop_reason === "on_trunk")
-		return `Current branch ${result.current_branch} is trunk ${result.trunk_branch}.`;
-	if (result.noop_reason === "no_slots")
+	if (result.noopReason === "on-trunk")
+		return `Current branch ${result.currentBranch} is trunk ${result.trunkBranch}.`;
+	if (result.noopReason === "no-slots")
 		return `No assigned ${scopeText(result.downstack)} slots were found.`;
 	return result.freed
 		.map(
 			(entry) =>
-				`Freed ${entry.slot_name} -> ${entry.branch_name}\nWorktree kept at ${entry.worktree_path}; detached HEAD at ${result.trunk_branch}`,
+				`Freed ${entry.slotName} -> ${entry.branchName}\nWorktree kept at ${entry.worktreePath}; detached HEAD at ${result.trunkBranch}`,
 		)
 		.join("\n");
 }
@@ -133,19 +133,19 @@ function scopeText(isDownstack: boolean): string {
 function buildResult(options: {
 	current: string;
 	trunk: string;
-	freed: readonly { slot_name: string; branch_name: string; worktree_path: string }[];
-	noopReason: "on_trunk" | "no_slots" | null;
+	freed: readonly { slotName: string; branchName: string; worktreePath: string }[];
+	noopReason: "on-trunk" | "no-slots" | null;
 	downstack: boolean;
 }): GtFreeStackResult {
 	return {
-		current_branch: options.current,
-		trunk_branch: options.trunk,
+		currentBranch: options.current,
+		trunkBranch: options.trunk,
 		freed: options.freed.map((entry) => ({
-			slot_name: entry.slot_name,
-			branch_name: entry.branch_name,
-			worktree_path: entry.worktree_path,
+			slotName: entry.slotName,
+			branchName: entry.branchName,
+			worktreePath: entry.worktreePath,
 		})),
-		noop_reason: options.noopReason,
+		noopReason: options.noopReason,
 		downstack: options.downstack,
 	};
 }

@@ -11,14 +11,14 @@ export const payloadExtensionSchema = z.enum(["json", "txt"]);
 export type PayloadExtension = z.infer<typeof payloadExtensionSchema>;
 
 export const payloadReferenceSchema = z.object({
-	payload_path: z.string(),
-	session_id: z.string(),
+	payloadPath: z.string(),
+	sessionId: z.string(),
 	descriptor: z.string(),
 	role: payloadRoleSchema,
-	created_at_utc: z.string(),
+	createdAtUtc: z.string(),
 	sequence: z.number(),
-	payload_bytes: z.number(),
-	content_type: z.string(),
+	payloadBytes: z.number(),
+	contentType: z.string(),
 	extension: payloadExtensionSchema,
 });
 

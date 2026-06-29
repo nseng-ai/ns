@@ -110,23 +110,23 @@ function negativeEnvelope(data: object): string {
 function counts(
 	overrides: Partial<
 		Record<
-			| "included_review_threads"
-			| "included_reviews"
-			| "included_discussion_comments"
-			| "excluded_resolved_threads"
-			| "excluded_empty_reviews"
-			| "excluded_automation_comments",
+			| "includedReviewThreads"
+			| "includedReviews"
+			| "includedDiscussionComments"
+			| "excludedResolvedThreads"
+			| "excludedEmptyReviews"
+			| "excludedAutomationComments",
 			number
 		>
 	> = {},
 ): object {
 	return {
-		included_review_threads: overrides.included_review_threads ?? 0,
-		included_reviews: overrides.included_reviews ?? 0,
-		included_discussion_comments: overrides.included_discussion_comments ?? 0,
-		excluded_resolved_threads: overrides.excluded_resolved_threads ?? 0,
-		excluded_empty_reviews: overrides.excluded_empty_reviews ?? 0,
-		excluded_automation_comments: overrides.excluded_automation_comments ?? 0,
+		includedReviewThreads: overrides.includedReviewThreads ?? 0,
+		includedReviews: overrides.includedReviews ?? 0,
+		includedDiscussionComments: overrides.includedDiscussionComments ?? 0,
+		excludedResolvedThreads: overrides.excludedResolvedThreads ?? 0,
+		excludedEmptyReviews: overrides.excludedEmptyReviews ?? 0,
+		excludedAutomationComments: overrides.excludedAutomationComments ?? 0,
 	};
 }
 
@@ -141,13 +141,13 @@ function previewDownloadData(overrides: { prNumber?: number; counts?: object } =
 			head_ref_name: "feature-preview",
 			base_ref_name: "main",
 		},
-		counts: overrides.counts ?? counts({ included_review_threads: 1 }),
+		counts: overrides.counts ?? counts({ includedReviewThreads: 1 }),
 	};
 }
 
 function previewThreadsData(threadCount = 1): object {
 	return {
-		review_threads: Array.from({ length: threadCount }, (_unused, index) => ({
+		reviewThreads: Array.from({ length: threadCount }, (_unused, index) => ({
 			id: `thread-${index + 1}`,
 			path: "src/file.ts",
 			line: 10 + index,
@@ -526,12 +526,12 @@ describe("/pr:preview-feedback", () => {
 				base_ref_name: "main",
 			},
 			counts: {
-				included_review_threads: 3,
-				included_reviews: 0,
-				included_discussion_comments: 0,
-				excluded_resolved_threads: 0,
-				excluded_empty_reviews: 0,
-				excluded_automation_comments: 0,
+				includedReviewThreads: 3,
+				includedReviews: 0,
+				includedDiscussionComments: 0,
+				excludedResolvedThreads: 0,
+				excludedEmptyReviews: 0,
+				excludedAutomationComments: 0,
 			},
 			fetchedAt: new Date("2026-06-20T00:00:00Z"),
 			threads: [],

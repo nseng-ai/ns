@@ -70,13 +70,13 @@ describe("createObjectiveClient", () => {
 		const result = await buildClient().readObjective("missing");
 		expect(result.ok).toBe(true);
 		if (!result.ok) return;
-		expect(result.result.status).toBe("not_found");
+		expect(result.result.status).toBe("not-found");
 	});
 
 	test("surfaces storage failures as ok:false instead of throwing", async () => {
 		const storage = new ObjectiveStorage(
 			new FakeObjectiveStorageGateway({
-				failures: { ".sdl/objectives": { code: "storage_error", message: "boom" } },
+				failures: { ".sdl/objectives": { code: "storage-error", message: "boom" } },
 			}),
 		);
 		const client = createObjectiveClient({
@@ -95,6 +95,6 @@ describe("createObjectiveClient", () => {
 		const result = await client.listActiveCandidates();
 		expect(result.ok).toBe(false);
 		if (result.ok) return;
-		expect(result.failure.errorType).toBe("storage_error");
+		expect(result.failure.errorType).toBe("storage-error");
 	});
 });

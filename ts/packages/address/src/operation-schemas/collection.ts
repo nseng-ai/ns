@@ -25,14 +25,14 @@ const ambiguousBranchPrsEntrySchema = z.object({
 });
 
 export const mapBranchPrsResultSchema = z.object({
-	branch_prs: z.array(mapBranchPrsEntrySchema),
-	missing_branches: z.array(z.string()),
-	ambiguous_branches: z.array(ambiguousBranchPrsEntrySchema),
+	branchPrs: z.array(mapBranchPrsEntrySchema),
+	missingBranches: z.array(z.string()),
+	ambiguousBranches: z.array(ambiguousBranchPrsEntrySchema),
 	summary: mapBranchPrsSummarySchema,
 });
 
 const prChecksTargetSchema = z.object({
-	kind: z.literal("github_pr"),
+	kind: z.literal("github-pr"),
 	pr_number: nullableIntSchema,
 	branch: nullableStringSchema,
 	title: nullableStringSchema,
@@ -70,7 +70,7 @@ const prChecksCountsSchema = z.object({
 	pending: z.int(),
 	failing: z.int(),
 	unknown: z.int(),
-	has_more: z.boolean().optional(),
+	hasMore: z.boolean().optional(),
 });
 
 export const prChecksResultSchema = z.object({
@@ -81,7 +81,7 @@ export const prChecksResultSchema = z.object({
 });
 
 const downloadFeedbackTargetSchema = z.object({
-	kind: z.literal("github_pr"),
+	kind: z.literal("github-pr"),
 	pr_number: nullableIntSchema,
 	branch: nullableStringSchema,
 	title: nullableStringSchema,
@@ -91,12 +91,12 @@ const downloadFeedbackTargetSchema = z.object({
 });
 
 const downloadFeedbackCountsSchema = z.object({
-	included_review_threads: z.int(),
-	included_reviews: z.int(),
-	included_discussion_comments: z.int(),
-	excluded_resolved_threads: z.int(),
-	excluded_empty_reviews: z.int(),
-	excluded_automation_comments: z.int(),
+	includedReviewThreads: z.int(),
+	includedReviews: z.int(),
+	includedDiscussionComments: z.int(),
+	excludedResolvedThreads: z.int(),
+	excludedEmptyReviews: z.int(),
+	excludedAutomationComments: z.int(),
 });
 
 export const downloadFeedbackResultSchema = z.object({
@@ -158,7 +158,7 @@ export const prReviewThreadSchema = z.object({
 });
 
 export const prReviewThreadsResultSchema = z.object({
-	review_threads: z.array(prReviewThreadSchema),
+	reviewThreads: z.array(prReviewThreadSchema),
 });
 
 export const prDiscussionCommentSchema = z.object({
@@ -169,7 +169,7 @@ export const prDiscussionCommentSchema = z.object({
 });
 
 export const prDiscussionCommentsResultSchema = z.object({
-	discussion_comments: z.array(prDiscussionCommentSchema),
+	discussionComments: z.array(prDiscussionCommentSchema),
 });
 
 export const replyReviewThreadResultSchema = z.object({

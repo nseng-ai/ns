@@ -69,7 +69,7 @@ describe("prompt-sized diff coverage", () => {
 		expect(result.inputCoverage.omittedFiles).toEqual([
 			expect.objectContaining({
 				path: "large.ts",
-				reason: "file_exceeds_cap",
+				reason: "file-exceeds-cap",
 				estimatedTokens: MAX_PROMPT_DIFF_FILE_TOKENS + 1,
 			}),
 		]);
@@ -93,7 +93,7 @@ describe("prompt-sized diff coverage", () => {
 
 		expect(result.inputCoverage.includedFileCount).toBe(4);
 		expect(result.inputCoverage.omittedFiles).toEqual([
-			expect.objectContaining({ path: "fourth.ts", reason: "diff_budget_exhausted" }),
+			expect.objectContaining({ path: "fourth.ts", reason: "diff-budget-exhausted" }),
 		]);
 		expect(result.diffText).toContain("first\nsecond\nthird\nfifth\n");
 		expect(result.diffText).not.toContain("fourth\n");

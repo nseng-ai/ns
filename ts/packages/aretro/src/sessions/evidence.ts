@@ -9,18 +9,18 @@ export interface SessionEvidenceItem {
 	subject: string;
 	summary: string;
 	count: number | null;
-	session_count: number | null;
-	source_refs: readonly SessionSourceRef[];
+	sessionCount: number | null;
+	sourceRefs: readonly SessionSourceRef[];
 	metadata: Readonly<Record<string, EvidenceMetadataValue>>;
 }
 
 const EVIDENCE_KIND_ORDER: readonly string[] = [
-	"tool_usage_count",
-	"failed_tool_result",
-	"repeated_file_read",
-	"repeated_shell_command",
-	"token_usage_observed",
-	"large_output_observed",
+	"tool-usage-count",
+	"failed-tool-result",
+	"repeated-file-read",
+	"repeated-shell-command",
+	"token-usage-observed",
+	"large-output-observed",
 ] as const;
 
 const READ_TOOL_NAMES = new Set(["read"]);
@@ -112,7 +112,7 @@ export function collectSessionEvidence(
 		(a, b) =>
 			kindIndex(a.kind) - kindIndex(b.kind) ||
 			(b.count ?? 0) - (a.count ?? 0) ||
-			metadataInt(b.metadata, "max_output_length") - metadataInt(a.metadata, "max_output_length") ||
+			metadataInt(b.metadata, "maxOutputLength") - metadataInt(a.metadata, "maxOutputLength") ||
 			a.subject.localeCompare(b.subject),
 	);
 }
@@ -141,12 +141,12 @@ function toolUsageItems(
 	const items: SessionEvidenceItem[] = [];
 	for (const [subject, group] of groups) {
 		items.push({
-			kind: "tool_usage_count",
+			kind: "tool-usage-count",
 			subject,
 			summary: `${subject} called ${group.count} ${plural("time", group.count)} across ${group.sessionIndices.size} ${plural("session", group.sessionIndices.size)}`,
 			count: group.count,
-			session_count: group.sessionIndices.size,
-			source_refs: group.sourceRefs,
+			sessionCount: group.sessionIndices.size,
+			sourceRefs: group.sourceRefs,
 			metadata: {},
 		});
 	}
@@ -180,14 +180,14 @@ function failedToolItems(
 	const items: SessionEvidenceItem[] = [];
 	for (const [subject, group] of groups) {
 		const metadata: Record<string, EvidenceMetadataValue> =
-			group.errorMessageCount > 0 ? { error_message_count: group.errorMessageCount } : {};
+			group.errorMessageCount > 0 ? { errorMessageCount: group.errorMessageCount } : {};
 		items.push({
-			kind: "failed_tool_result",
+			kind: "failed-tool-result",
 			subject,
 			summary: `${group.count} failed ${plural("tool result", group.count)} for ${subject} across ${group.sessionIndices.size} ${plural("session", group.sessionIndices.size)}`,
 			count: group.count,
-			session_count: group.sessionIndices.size,
-			source_refs: group.sourceRefs,
+			sessionCount: group.sessionIndices.size,
+			sourceRefs: group.sourceRefs,
 			metadata,
 		});
 	}
@@ -221,12 +221,12 @@ function repeatedFileReadItems(
 	for (const [subject, group] of groups) {
 		if (group.count < threshold) continue;
 		items.push({
-			kind: "repeated_file_read",
+			kind: "repeated-file-read",
 			subject,
 			summary: `${subject} read ${group.count} ${plural("time", group.count)} across ${group.sessionIndices.size} ${plural("session", group.sessionIndices.size)}`,
 			count: group.count,
-			session_count: group.sessionIndices.size,
-			source_refs: group.sourceRefs,
+			sessionCount: group.sessionIndices.size,
+			sourceRefs: group.sourceRefs,
 			metadata: {},
 		});
 	}
@@ -274,12 +274,12 @@ function repeatedShellCommandItems(
 		if (group.count < threshold) continue;
 		const { subject, metadata } = boundedCommandSubject(command);
 		items.push({
-			kind: "repeated_shell_command",
+			kind: "repeated-shell-command",
 			subject,
 			summary: `shell command occurred ${group.count} ${plural("time", group.count)} across ${group.sessionIndices.size} ${plural("session", group.sessionIndices.size)}`,
 			count: group.count,
-			session_count: group.sessionIndices.size,
-			source_refs: group.sourceRefs,
+			sessionCount: group.sessionIndices.size,
+			sourceRefs: group.sourceRefs,
 			metadata,
 		});
 	}
@@ -307,7 +307,7 @@ function tokenUsageItem(
 	if (usage.count === 0) return null;
 
 	const metadata: Record<string, EvidenceMetadataValue> = {
-		usage_event_count: usage.count,
+		usageEventCount: usage.count,
 		...(usage.inputTokens === null ? {} : { input_tokens: usage.inputTokens }),
 		...(usage.outputTokens === null ? {} : { output_tokens: usage.outputTokens }),
 		...(usage.cacheReadTokens === null ? {} : { cache_read_tokens: usage.cacheReadTokens }),
@@ -316,12 +316,12 @@ function tokenUsageItem(
 	};
 
 	return {
-		kind: "token_usage_observed",
+		kind: "token-usage-observed",
 		subject: "token_usage",
 		summary: `token usage observed in ${usage.count} ${plural("event", usage.count)} across ${usage.sessionIndices.size} ${plural("session", usage.sessionIndices.size)}`,
 		count: usage.count,
-		session_count: usage.sessionIndices.size,
-		source_refs: usage.sourceRefs,
+		sessionCount: usage.sessionIndices.size,
+		sourceRefs: usage.sourceRefs,
 		metadata,
 	};
 }
@@ -383,20 +383,20 @@ function largeOutputItems(
 	const items: SessionEvidenceItem[] = [];
 	for (const [subject, group] of groups) {
 		const metadata: Record<string, EvidenceMetadataValue> = {
-			truncated_count: group.truncatedCount,
-			char_threshold_hits: group.charThresholdHits,
-			line_threshold_hits: group.lineThresholdHits,
-			...(group.maxOutputLength === null ? {} : { max_output_length: group.maxOutputLength }),
-			...(group.maxLineCount === null ? {} : { max_line_count: group.maxLineCount }),
+			truncatedCount: group.truncatedCount,
+			charThresholdHits: group.charThresholdHits,
+			lineThresholdHits: group.lineThresholdHits,
+			...(group.maxOutputLength === null ? {} : { maxOutputLength: group.maxOutputLength }),
+			...(group.maxLineCount === null ? {} : { maxLineCount: group.maxLineCount }),
 		};
 
 		items.push({
-			kind: "large_output_observed",
+			kind: "large-output-observed",
 			subject,
 			summary: `${group.count} large or truncated ${plural("output", group.count)} observed for ${subject} across ${group.sessionIndices.size} ${plural("session", group.sessionIndices.size)}`,
 			count: group.count,
-			session_count: group.sessionIndices.size,
-			source_refs: group.sourceRefs,
+			sessionCount: group.sessionIndices.size,
+			sourceRefs: group.sourceRefs,
 			metadata,
 		});
 	}
@@ -544,8 +544,8 @@ function boundedCommandSubject(command: string): {
 	return {
 		subject,
 		metadata: {
-			subject_truncated: true,
-			command_sha256_prefix: digest,
+			subjectTruncated: true,
+			commandSha256Prefix: digest,
 		},
 	};
 }

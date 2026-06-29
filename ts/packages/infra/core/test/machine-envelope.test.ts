@@ -42,7 +42,7 @@ describe("parseMachineEnvelopeData", () => {
 			parseMachineEnvelopeData(
 				JSON.stringify({
 					exitCode: 2,
-					errorType: "command_failed",
+					errorType: "command-failed",
 					message: "command failed",
 					data: {},
 				}),
@@ -53,9 +53,9 @@ describe("parseMachineEnvelopeData", () => {
 		).toEqual({
 			type: "failure",
 			exitCode: 2,
-			errorType: "command_failed",
+			errorType: "command-failed",
 			cliMessage: "command failed",
-			message: "test JSON reported failure: exitCode 2: errorType command_failed: command failed.",
+			message: "test JSON reported failure: exitCode 2: errorType command-failed: command failed.",
 		});
 	});
 

@@ -54,7 +54,7 @@ describe("RealSlotRepositoryGateway", () => {
 			localBranchPresenceFailures: {
 				"feature/error": {
 					type: "failure",
-					error: { code: "branch_presence_failed", message: "presence failed" },
+					error: { code: "branch-presence-failed", message: "presence failed" },
 				},
 			},
 		});

@@ -195,7 +195,7 @@ export function validateSdlClinkrExit(result: unknown, commandName: string): Cli
 	if (isSdlClinkrExit(result)) return result;
 	return {
 		type: "failure",
-		errorType: "invalid_extension_result",
+		errorType: "invalid-extension-result",
 		message: `Command ${commandName} returned an invalid rendered result.`,
 	};
 }

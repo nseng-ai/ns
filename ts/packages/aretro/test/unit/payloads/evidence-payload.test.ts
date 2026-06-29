@@ -5,7 +5,12 @@ import {
 	buildEvidencePayloadData,
 	commandSubjectForPayload,
 } from "../../../src/payloads/evidence-payload.ts";
-import type { ParsedSession } from "../../../src/sessions/types.ts";
+import type { MessageCountsDto, SessionSourceRefDto } from "../../../src/contracts.ts";
+import type {
+	ParsedSession,
+	SessionMessageCounts,
+	SessionSourceRef,
+} from "../../../src/sessions/types.ts";
 
 describe("commandSubjectForPayload", () => {
 	it("returns full command if under threshold", () => {
@@ -24,8 +29,8 @@ describe("commandSubjectForPayload", () => {
 		expect(result.subject).toContain("…[sha256:");
 		expect(result.subject).toContain("]");
 		expect(result.metadata.truncated).toBe(true);
-		expect(result.metadata.original_length).toBe(command.length);
-		expect(typeof result.metadata.sha256_prefix).toBe("string");
+		expect(result.metadata.originalLength).toBe(command.length);
+		expect(typeof result.metadata.sha256Prefix).toBe("string");
 
 		const jsonStr = JSON.stringify({ subject: result.subject, metadata: result.metadata });
 		expect(jsonStr).not.toContain(command);
@@ -44,27 +49,27 @@ describe("buildEvidencePayloadData", () => {
 
 		const detail = payloadData.sessions[0];
 		if (!detail) throw new Error("detail is undefined");
-		expect(payloadData.schema_version).toBe(1);
-		expect(detail.session_index).toBe(0);
-		expect(detail.session_id).toBe("s1");
+		expect(payloadData.schemaVersion).toBe(1);
+		expect(detail.sessionIndex).toBe(0);
+		expect(detail.sessionId).toBe("s1");
 		if (typeof detail.summary !== "object" || detail.summary === null) {
 			throw new Error("summary should be object");
 		}
-		expect(detail.summary.session_id).toBe("s1");
-		if (!detail.model_events[0]) throw new Error("model_events[0] is undefined");
-		expect(detail.model_events[0].provider).toBe("anthropic");
-		if (!detail.tool_calls[0]) throw new Error("tool_calls[0] is undefined");
-		expect(detail.tool_calls[0].tool_name).toBe("read");
-		expect(detail.tool_calls[0].path).toBe("packages/foo.py");
-		if (!detail.tool_results[0]) throw new Error("tool_results[0] is undefined");
-		expect(detail.tool_results[0].is_error).toBe(true);
-		expect(detail.tool_results[0].is_truncated).toBe(false);
-		if (!detail.command_executions[0]) throw new Error("command_executions[0] is undefined");
-		expect(detail.command_executions[0].command_subject).toBe("just test");
-		expect(detail.command_executions[0].is_cancelled).toBe(false);
-		expect(detail.command_executions[0].is_truncated).toBe(false);
-		if (!detail.usage_events[0]) throw new Error("usage_events[0] is undefined");
-		expect(detail.usage_events[0].total_tokens).toBe(15);
+		expect(detail.summary.sessionId).toBe("s1");
+		if (!detail.modelEvents[0]) throw new Error("modelEvents[0] is undefined");
+		expect(detail.modelEvents[0].provider).toBe("anthropic");
+		if (!detail.toolCalls[0]) throw new Error("toolCalls[0] is undefined");
+		expect(detail.toolCalls[0].toolName).toBe("read");
+		expect(detail.toolCalls[0].path).toBe("packages/foo.py");
+		if (!detail.toolResults[0]) throw new Error("toolResults[0] is undefined");
+		expect(detail.toolResults[0].isError).toBe(true);
+		expect(detail.toolResults[0].isTruncated).toBe(false);
+		if (!detail.commandExecutions[0]) throw new Error("commandExecutions[0] is undefined");
+		expect(detail.commandExecutions[0].commandSubject).toBe("just test");
+		expect(detail.commandExecutions[0].isCancelled).toBe(false);
+		expect(detail.commandExecutions[0].isTruncated).toBe(false);
+		if (!detail.usageEvents[0]) throw new Error("usageEvents[0] is undefined");
+		expect(detail.usageEvents[0].total_tokens).toBe(15);
 		if (!detail.warnings[0]) throw new Error("warnings[0] is undefined");
 		expect(detail.warnings[0].code).toBe("note");
 	});
@@ -85,9 +90,9 @@ describe("buildEvidencePayloadData", () => {
 		expect(serialized).not.toContain("SECRET_RAW_ERROR_TEXT");
 		const session0 = payloadData.sessions[0];
 		if (!session0) throw new Error("session is undefined");
-		const toolResult = session0.tool_results[0];
+		const toolResult = session0.toolResults[0];
 		if (!toolResult) throw new Error("toolResult is undefined");
-		expect(toolResult.has_error_message).toBe(true);
+		expect(toolResult.hasErrorMessage).toBe(true);
 	});
 
 	it("includes supporting event pointers from source refs", () => {
@@ -99,14 +104,14 @@ describe("buildEvidencePayloadData", () => {
 			sessions: [session],
 		});
 
-		const failedToolItems = payloadData.evidence_items.filter((item) => {
+		const failedToolItems = payloadData.evidenceItems.filter((item) => {
 			const i = item.item as Record<string, unknown>;
-			return i.kind === "failed_tool_result";
+			return i.kind === "failed-tool-result";
 		});
 		expect(failedToolItems.length).toBe(1);
 		const firstItem = failedToolItems[0];
 		if (!firstItem) throw new Error("firstItem is undefined");
-		expect(firstItem.supporting_event_pointers).toEqual(["/data/sessions/0/tool_results/0"]);
+		expect(firstItem.supportingEventPointers).toEqual(["/data/sessions/0/toolResults/0"]);
 	});
 
 	it("allows empty supporting event pointers when no source ref match", () => {
@@ -122,75 +127,100 @@ describe("buildEvidencePayloadData", () => {
 		});
 
 		expect(
-			payloadData.evidence_items.every((item) => item.supporting_event_pointers.length === 0),
+			payloadData.evidenceItems.every((item) => item.supportingEventPointers.length === 0),
 		).toBe(true);
 	});
 });
+
+function messageCountsToDto(counts: SessionMessageCounts): MessageCountsDto {
+	return {
+		user: counts.user,
+		assistant: counts.assistant,
+		toolResult: counts.tool_result,
+		commandExecution: counts.command_execution,
+		system: counts.system,
+		other: counts.other,
+	};
+}
+
+function sourceRefToDto(ref: SessionSourceRef): SessionSourceRefDto {
+	return { path: ref.path, uri: ref.uri, lineNumber: ref.line_number };
+}
 
 function compactResult_(session: ParsedSession): CompactResult {
 	// Mock compact result using test data
 	return {
 		repo: {
-			repo_root: "/repo",
+			repoRoot: "/repo",
 			cwd: "/repo",
 			branch: "feature/retro",
-			branch_source: "explicit",
+			branchSource: "explicit",
 		},
 		query: {
-			repo_root: "/repo",
-			session_root: null,
-			max_sessions: 20,
+			repoRoot: "/repo",
+			sessionRoot: null,
+			maxSessions: 20,
 		},
-		source: session.source_info,
-		aggregate_metrics: {
-			session_count: 1,
-			message_counts: session.message_counts,
-			tool_call_count: session.tool_calls.length,
-			tool_result_count: session.tool_results.length,
-			command_execution_count: session.command_executions.length,
-			usage_event_count: session.usage_events.length,
-			warning_count: session.warnings.length,
+		source: {
+			harness: session.source_info.harness,
+			adapterName: session.source_info.adapter_name,
+			recordFormat: session.source_info.record_format,
+		},
+		aggregateMetrics: {
+			sessionCount: 1,
+			messageCounts: messageCountsToDto(session.message_counts),
+			toolCallCount: session.tool_calls.length,
+			toolResultCount: session.tool_results.length,
+			commandExecutionCount: session.command_executions.length,
+			usageEventCount: session.usage_events.length,
+			warningCount: session.warnings.length,
 		},
 		sessions: [
 			{
-				session_id: session.session_id,
-				started_at_iso: session.started_at_iso,
-				ended_at_iso: session.ended_at_iso,
-				source_ref: session.source_ref,
+				sessionId: session.session_id,
+				startedAtIso: session.started_at_iso,
+				endedAtIso: session.ended_at_iso,
+				sourceRef: sourceRefToDto(session.source_ref),
 				association: {
-					repo_root: session.association.repo_root,
+					repoRoot: session.association.repo_root,
 					cwd: session.association.cwd,
 					branch: session.association.branch,
 					confidence: session.association.confidence,
 					evidence: [...session.association.evidence],
 				},
-				message_counts: session.message_counts,
-				model_event_count: session.model_events.length,
-				tool_call_count: session.tool_calls.length,
-				tool_result_count: session.tool_results.length,
-				command_execution_count: session.command_executions.length,
-				usage_event_count: session.usage_events.length,
-				warning_count: session.warnings.length,
+				messageCounts: messageCountsToDto(session.message_counts),
+				modelEventCount: session.model_events.length,
+				toolCallCount: session.tool_calls.length,
+				toolResultCount: session.tool_results.length,
+				commandExecutionCount: session.command_executions.length,
+				usageEventCount: session.usage_events.length,
+				warningCount: session.warnings.length,
 			},
 		],
 		warnings: session.warnings.map((w) => ({
 			code: w.code,
 			message: w.message,
-			source_ref: w.source_ref,
+			sourceRef: w.source_ref === null ? null : sourceRefToDto(w.source_ref),
 			harness: w.harness,
-			adapter_name: w.adapter_name,
+			adapterName: w.adapter_name,
 		})),
-		evidence_items: [
+		evidenceItems: [
 			{
-				kind: "failed_tool_result",
+				kind: "failed-tool-result",
 				subject: "read",
 				summary: "read failed 1 time across 1 session",
 				count: 1,
-				session_count: 1,
-				source_refs: [
+				sessionCount: 1,
+				sourceRefs: [
 					session.tool_results[0]
-						? (session.tool_results[0].source_ref ?? { path: null, uri: null, line_number: null })
-						: { path: null, uri: null, line_number: null },
+						? sourceRefToDto(
+								session.tool_results[0].source_ref ?? {
+									path: null,
+									uri: null,
+									line_number: null,
+								},
+							)
+						: { path: null, uri: null, lineNumber: null },
 				],
 				metadata: {},
 			},
@@ -229,7 +259,7 @@ function detailSession(options: {
 			repo_root: "/repo",
 			cwd: "/repo",
 			branch: null,
-			confidence: "repo_cwd",
+			confidence: "repo-cwd",
 			evidence: ["query.repo_root"],
 		},
 		message_counts: {

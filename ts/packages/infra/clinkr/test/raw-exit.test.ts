@@ -175,7 +175,7 @@ describe("raw-exit escape hatch", () => {
 					schema: z.object({}),
 					run: async () => {
 						throw new ClinkrFailure({
-							errorType: "test_error",
+							errorType: "test-error",
 							message: "something went wrong",
 						});
 					},

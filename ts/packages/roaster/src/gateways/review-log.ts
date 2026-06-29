@@ -80,7 +80,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 					...(request.env === undefined ? {} : { env: request.env }),
 					signal: request.signal,
 				});
-				if (!result.ok) return reviewLogCommandError("review_log_write_failed", result.error);
+				if (!result.ok) return reviewLogCommandError("review-log-write-failed", result.error);
 				const data = result.value;
 				return {
 					type: "ok",
@@ -107,7 +107,7 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 			...(request.env === undefined ? {} : { env: request.env }),
 			signal: request.signal,
 		});
-		if (!result.ok) return reviewLogCommandError("review_log_list_failed", result.error);
+		if (!result.ok) return reviewLogCommandError("review-log-list-failed", result.error);
 		const prefix = request.reviewKey === undefined ? null : reviewLogKeyPrefix(request.reviewKey);
 		const entries = result.value.flatMap((entry) => {
 			if (prefix !== null && !entry.key.startsWith(prefix)) return [];
@@ -419,7 +419,7 @@ function reviewLogCommandError(
 }
 
 function invalidResponse(message: string): RoasterResult<never> {
-	return error({ type: "review_log_response_invalid", message });
+	return error({ type: "review-log-response-invalid", message });
 }
 
 function error(errorValue: ReviewLogFailure): RoasterResult<never> {

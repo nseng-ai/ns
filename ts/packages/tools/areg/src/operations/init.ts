@@ -89,13 +89,13 @@ const initOperationStatusSchema = z.object({
 });
 
 export const initResultSchema = z.object({
-	project_dir: z.string(),
+	projectDir: z.string(),
 	agents: z.array(z.string()),
-	bootstrap_repo: z.string(),
-	bootstrap_skills: z.array(z.string()),
-	written_files: z.array(z.string()),
-	skipped_files: z.array(skippedFileSchema),
-	mutation_failed: z.boolean().optional(),
+	bootstrapRepo: z.string(),
+	bootstrapSkills: z.array(z.string()),
+	writtenFiles: z.array(z.string()),
+	skippedFiles: z.array(skippedFileSchema),
+	mutationFailed: z.boolean().optional(),
 	operations: z.array(initOperationStatusSchema).optional(),
 });
 
@@ -126,16 +126,16 @@ interface InitMutationFailureOptions {
 }
 
 function initMutationFailure(options: InitMutationFailureOptions): ClinkrExit<InitResult> {
-	return failure("areg_init_mutation_failed", options.message, {
-		mutation_failed: true,
-		project_dir: options.projectDir,
+	return failure("areg-init-mutation-failed", options.message, {
+		mutationFailed: true,
+		projectDir: options.projectDir,
 		agents: [...options.agents],
-		bootstrap_repo: BOOTSTRAP_REPO,
-		bootstrap_skills: [...BOOTSTRAP_SKILLS],
-		written_files: options.operations
+		bootstrapRepo: BOOTSTRAP_REPO,
+		bootstrapSkills: [...BOOTSTRAP_SKILLS],
+		writtenFiles: options.operations
 			.filter((operation) => operation.type === "write" && operation.status === "applied")
 			.map((operation) => operation.path),
-		skipped_files: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
+		skippedFiles: options.textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
 		operations: options.operations.map((operation) => ({ ...operation })),
 	});
 }
@@ -159,29 +159,29 @@ export async function runInit(
 ): Promise<ClinkrExit<InitResult>> {
 	const noAppend = !request.append;
 	if (request.yes && noAppend) {
-		return failure("invalid_request", "--yes and --no-append cannot be used together.");
+		return failure("invalid-request", "--yes and --no-append cannot be used together.");
 	}
 
 	const tool = await ctx.host.checkTool({ tool: "npx", cwd: ctx.cwd, env: ctx.env });
-	if (tool.type === "missing") return failure("missing_tool", tool.message);
+	if (tool.type === "missing") return failure("missing-tool", tool.message);
 
 	const inspection = await inspectInitProject(ctx, request.target);
 	if (inspection.projectPathState.type === "missing")
-		return failure("invalid_project", `Target ${inspection.projectDir} does not exist.`);
+		return failure("invalid-project", `Target ${inspection.projectDir} does not exist.`);
 	if (inspection.projectPathState.type !== "directory")
-		return failure("invalid_project", `${inspection.projectDir} is not a directory.`);
+		return failure("invalid-project", `${inspection.projectDir} is not a directory.`);
 
 	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: inspection.projectDir });
-	if (repoRoot.type === "error") return failure("git_error", repoRoot.error.message);
+	if (repoRoot.type === "error") return failure("git-error", repoRoot.error.message);
 	if (repoRoot.type === "missing") {
 		return failure(
-			"invalid_project",
+			"invalid-project",
 			`Target ${inspection.projectDir} must be a Git worktree root. Run git init first.`,
 		);
 	}
 	if (repoRoot.value !== inspection.projectDir) {
 		return failure(
-			"invalid_project",
+			"invalid-project",
 			`Target ${inspection.projectDir} is inside a Git worktree but is not the root. Run areg init ${repoRoot.value} instead.`,
 		);
 	}
@@ -191,7 +191,7 @@ export async function runInit(
 		sdlToml: inspection.sdlToml,
 		aregJson: inspection.aregJson,
 	});
-	if (!agentsResult.ok) return failure("agent_resolution_failed", agentsResult.error.message);
+	if (!agentsResult.ok) return failure("agent-resolution-failed", agentsResult.error.message);
 	const agents = agentsResult.value;
 
 	const planResult = await buildInitTextPlan(ctx, inspection, {
@@ -208,7 +208,7 @@ export async function runInit(
 			});
 		}
 		if (planResult.error.code === "aborted") return failure("aborted", "Aborted!");
-		return failure("write_plan_failed", planResult.error.message);
+		return failure("write-plan-failed", planResult.error.message);
 	}
 	const textPlan = planResult.value;
 
@@ -225,7 +225,7 @@ export async function runInit(
 			projectDir: inspection.projectDir,
 			agents,
 			textPlan,
-			operations: [npxSkillsAddOperation("not_attempted"), ...preflight.operationStatuses],
+			operations: [npxSkillsAddOperation("not-attempted"), ...preflight.operationStatuses],
 		});
 	}
 
@@ -263,18 +263,18 @@ export async function runInit(
 	}
 
 	return ok({
-		project_dir: inspection.projectDir,
+		projectDir: inspection.projectDir,
 		agents: [...agents],
-		bootstrap_repo: BOOTSTRAP_REPO,
-		bootstrap_skills: [...BOOTSTRAP_SKILLS],
-		written_files: [...apply.writtenRelativePaths],
-		skipped_files: textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
+		bootstrapRepo: BOOTSTRAP_REPO,
+		bootstrapSkills: [...BOOTSTRAP_SKILLS],
+		writtenFiles: [...apply.writtenRelativePaths],
+		skippedFiles: textPlan.skippedFiles.map((skipped) => ({ ...skipped })),
 	});
 }
 
 export function renderInit(result: InitResult): string {
 	return [
-		`Initialized areg in ${result.project_dir}`,
+		`Initialized areg in ${result.projectDir}`,
 		"Bootstrap skills installed: skill-management, skillx",
 		"Review and commit generated files when ready.",
 		"Install more persistent skills with `npx skills add ...`.",

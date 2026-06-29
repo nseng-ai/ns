@@ -31,11 +31,11 @@ export const setupGitRequestSchema = z.object({
 
 export const setupGitResultSchema = z.object({
 	remote: z.string(),
-	dry_run: z.boolean(),
-	push_refspec: z.string(),
-	fetch_refspec: z.string(),
-	existing_push: z.array(z.string()),
-	existing_fetch: z.array(z.string()),
+	dryRun: z.boolean(),
+	pushRefspec: z.string(),
+	fetchRefspec: z.string(),
+	existingPush: z.array(z.string()),
+	existingFetch: z.array(z.string()),
 	additions: z.array(gitSetupAdditionSchema),
 });
 
@@ -60,14 +60,14 @@ export async function runSetupGit(ctx: BrmemCliContext, request: SetupGitRequest
 	const remote = normalizeRemoteName(request.remote);
 	if (remote === undefined)
 		return failure(
-			"invalid_remote",
+			"invalid-remote",
 			"Git remote name must not be empty or contain control characters.",
 		);
 
 	const configOpt = await ctx.gateway.getRemoteConfig(remote);
 	if (configOpt.type === "error") return gatewayFailure<SetupGitResult>(configOpt.error);
 	if (configOpt.type === "missing")
-		return failure("remote_not_found", `Git remote ${JSON.stringify(remote)} was not found.`);
+		return failure("remote-not-found", `Git remote ${JSON.stringify(remote)} was not found.`);
 
 	const pushValues = configOpt.value.push;
 	const fetchValues = configOpt.value.fetch;
@@ -125,13 +125,13 @@ export function renderSetupGit(result: SetupGitResult): string {
 		return `Git remote ${result.remote} is already configured for Branch Memory Snapshot Refs.`;
 	}
 	const lines = [
-		result.dry_run
+		result.dryRun
 			? `Would configure Git remote ${result.remote} for Branch Memory Snapshot Refs.`
 			: `Configured Git remote ${result.remote} for Branch Memory Snapshot Refs.`,
-		result.dry_run ? "Would add:" : "Added:",
+		result.dryRun ? "Would add:" : "Added:",
 		...result.additions.map((addition) => `  ${addition.key} = ${addition.value}`),
 	];
-	if (!result.dry_run) {
+	if (!result.dryRun) {
 		lines.push(
 			"",
 			`Future \`git push ${result.remote}\` will include refs/brmem/*.`,
@@ -159,11 +159,11 @@ function fetchConfigKey(remote: string): string {
 function setupGitResultFromPlan(plan: GitSetupPlan, dryRun: boolean): SetupGitResult {
 	return {
 		remote: plan.remote,
-		dry_run: dryRun,
-		push_refspec: BRMEM_REFSPEC,
-		fetch_refspec: BRMEM_REFSPEC,
-		existing_push: [...plan.existingPush],
-		existing_fetch: [...plan.existingFetch],
+		dryRun: dryRun,
+		pushRefspec: BRMEM_REFSPEC,
+		fetchRefspec: BRMEM_REFSPEC,
+		existingPush: [...plan.existingPush],
+		existingFetch: [...plan.existingFetch],
 		additions: [...plan.additions],
 	};
 }

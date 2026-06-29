@@ -42,9 +42,9 @@ export const readObjectiveBaseResultSchema = z.object({
 });
 
 export const readObjectiveNonOkResultSchema = z.discriminatedUnion("status", [
-	readObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
-	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
-	readObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("missing-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("not-found") }),
 ]);
 
 export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend({
@@ -63,13 +63,13 @@ export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend(
 
 export const readObjectiveResultSchema = z.discriminatedUnion("status", [
 	readObjectiveOkResultSchema,
-	readObjectiveBaseResultSchema.extend({ status: z.literal("missing_slug") }),
-	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid_slug") }),
-	readObjectiveBaseResultSchema.extend({ status: z.literal("not_found") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("missing-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("invalid-slug") }),
+	readObjectiveBaseResultSchema.extend({ status: z.literal("not-found") }),
 ]);
 
 export type ReadObjectiveRequest = z.infer<typeof readObjectiveRequestSchema>;
-export type ReadObjectiveStatus = "ok" | "missing_slug" | "invalid_slug" | "not_found";
+export type ReadObjectiveStatus = "ok" | "missing-slug" | "invalid-slug" | "not-found";
 export type ReadObjectiveResult = z.infer<typeof readObjectiveResultSchema>;
 
 interface ReadObjectiveMarkdownFiles {
@@ -109,7 +109,7 @@ export async function runReadObjective(
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
-	if (result.value.status === "not_found") {
+	if (result.value.status === "not-found") {
 		return negative(
 			`No Objective record found for slug ${pythonStringRepr(result.value.slug ?? "")}.`,
 			{ data: result.value },
@@ -161,8 +161,8 @@ export async function readObjectiveRecord(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "missing_slug",
-				error: "missing_slug",
+				status: "missing-slug",
+				error: "missing-slug",
 				root,
 				slug: null,
 				path: null,
@@ -175,8 +175,8 @@ export async function readObjectiveRecord(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "invalid_slug",
-				error: "invalid_slug",
+				status: "invalid-slug",
+				error: "invalid-slug",
 				root,
 				slug: null,
 				path: null,
@@ -192,8 +192,8 @@ export async function readObjectiveRecord(
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "not_found",
-				error: "not_found",
+				status: "not-found",
+				error: "not-found",
 				root,
 				slug,
 				path: relativePath,

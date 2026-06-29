@@ -35,7 +35,7 @@ describe("handoff create core", () => {
 
 		expect(result).toMatchObject({
 			type: "error",
-			error: { code: "invalid_handoff_slug" },
+			error: { code: "invalid-handoff-slug" },
 		});
 		expect(await readContent(brmem, { branch: "feat/x", key: "BadSlug.md" })).toBeUndefined();
 	});
@@ -53,7 +53,7 @@ describe("handoff create core", () => {
 		expect(result).toEqual({
 			type: "error",
 			error: {
-				code: "handoff_already_exists",
+				code: "handoff-already-exists",
 				message: "Handoff `alpha` already exists on branch `feat/x`.",
 			},
 		});
@@ -106,7 +106,7 @@ describe("handoff create core", () => {
 		expect(result).toEqual({
 			type: "error",
 			error: {
-				code: "handoff_already_exists",
+				code: "handoff-already-exists",
 				message: "Handoff `alpha` already exists on branch `feat/x`.",
 			},
 		});

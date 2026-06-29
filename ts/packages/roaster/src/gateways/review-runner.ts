@@ -103,13 +103,13 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 	): Promise<RoasterResult<ReviewExecutionResponse>> {
 		if (request.model.trim() === "") {
 			return runnerError({
-				type: "model_not_provided",
+				type: "model-not-provided",
 				message: "A Claude Code model must be provided.",
 			});
 		}
 		if (!isClaudeCodeSupportedModelPattern(request.model)) {
 			return runnerError({
-				type: "model_not_supported_by_harness",
+				type: "model-not-supported-by-harness",
 				message: `Model is not supported by the Claude Code harness: ${request.model}`,
 			});
 		}
@@ -119,13 +119,13 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			resolvedBinary = this.binaryResolver(CLAUDE_BINARY);
 		} catch (error) {
 			return runnerError({
-				type: "harness_invocation_failed",
+				type: "harness-invocation-failed",
 				message: `Failed to resolve Claude Code binary: ${formatErrorMessage(error)}`,
 			});
 		}
 		if (resolvedBinary === undefined) {
 			return runnerError({
-				type: "harness_binary_missing",
+				type: "harness-binary-missing",
 				message: "Claude Code binary 'claude' was not found on PATH.",
 			});
 		}
@@ -149,17 +149,17 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 			result = await this.execApi.exec(CLAUDE_BINARY, args, execOptions);
 		} catch (error) {
 			return runnerError({
-				type: "harness_invocation_failed",
+				type: "harness-invocation-failed",
 				message: `Failed to invoke Claude Code: ${formatErrorMessage(error)}`,
 			});
 		}
 
 		if (result.startupError !== undefined) {
-			return runnerError({ type: "harness_invocation_failed", message: result.startupError });
+			return runnerError({ type: "harness-invocation-failed", message: result.startupError });
 		}
 		if (result.code !== 0 || result.killed) {
 			return runnerError({
-				type: "harness_execution_failed",
+				type: "harness-execution-failed",
 				message: runnerExecutionMessage(result),
 			});
 		}

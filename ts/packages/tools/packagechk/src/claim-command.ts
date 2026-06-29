@@ -49,7 +49,7 @@ type ClaimRequest = z.output<typeof claimRequestSchema>;
 
 export const claimCommandResultSchema = z.discriminatedUnion("type", [
 	z.object({
-		type: z.literal("dryRun"),
+		type: z.literal("dry-run"),
 		registry: z.enum(["pypi", "npm"]),
 		packageName: z.string(),
 		lookupName: z.string().optional(),
@@ -164,7 +164,7 @@ export async function runClaimCommand(options: {
 	}
 	const toolsError = policy.ensurePublishToolsAvailable();
 	if (toolsError !== null) {
-		return failure("publish_tools_unavailable", toolsError, {
+		return failure("publish-tools-unavailable", toolsError, {
 			registry: policy.registry,
 			packageName: request.name,
 		});
@@ -196,7 +196,7 @@ export async function runClaimCommand(options: {
 		writeClaimFiles(projectDir, plan.dryRun.files);
 		const publishError = await plan.execute(projectDir, io);
 		if (publishError !== null) {
-			return failure("publish_failed", publishError, {
+			return failure("publish-failed", publishError, {
 				registry: policy.registry,
 				packageName: request.name,
 			});
@@ -366,7 +366,7 @@ function precheckExitForResult(
 		});
 	}
 	if (result.status === "error") {
-		return failure("registry_check_failed", result.message, {
+		return failure("registry-check-failed", result.message, {
 			registry,
 			packageName: result.inputName,
 			lookupName: result.lookupName,
@@ -377,7 +377,7 @@ function precheckExitForResult(
 
 function claimDryRunResult(registry: ClaimRegistry, dryRun: ClaimDryRunData): ClaimCommandResult {
 	return {
-		type: "dryRun",
+		type: "dry-run",
 		registry,
 		packageName: dryRun.packageName,
 		...(dryRun.lookupName === undefined ? {} : { lookupName: dryRun.lookupName }),

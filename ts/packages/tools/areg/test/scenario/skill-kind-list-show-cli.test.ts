@@ -9,20 +9,20 @@ const INVOKE_ONLY_SKILL = "---\nname: invoke\ndisable-model-invocation: true\n--
 const AMBIENT_ONLY_SKILL = "---\nname: ambient\nuser-invocable: false\n---\n";
 
 const sampleSkillKindListResult: SkillKindListResult = {
-	project_dir: "/repo",
+	projectDir: "/repo",
 	skills: [
 		{
 			skill: "normal",
 			kind: "normal",
-			model_invocation: "enabled",
-			native_direct: "enabled",
-			pi_extension: "n/a",
+			modelInvocation: "enabled",
+			nativeDirect: "enabled",
+			piExtension: "n/a",
 			artifacts: {
-				disable_model_invocation: false,
-				codex_sidecar: false,
-				user_invocable_key_present: false,
-				user_invocable_false: false,
-				pi_excluded: false,
+				disableModelInvocation: false,
+				codexSidecar: false,
+				userInvocableKeyPresent: false,
+				userInvocableFalse: false,
+				piExcluded: false,
 			},
 			replacement: { verified: false, label: "replacement-missing" },
 			notes: ["diagnostic note"],
@@ -121,20 +121,20 @@ describe("areg skill list/show CLI", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(JSON.parse(run.stdout.join("")).data).toEqual({
-			project_dir: "/repo",
+			projectDir: "/repo",
 			skills: [
 				{
 					skill: "demo-skill",
 					kind: "normal",
-					model_invocation: "enabled",
-					native_direct: "enabled",
-					pi_extension: "n/a",
+					modelInvocation: "enabled",
+					nativeDirect: "enabled",
+					piExtension: "n/a",
 					artifacts: {
-						disable_model_invocation: false,
-						codex_sidecar: false,
-						user_invocable_key_present: false,
-						user_invocable_false: false,
-						pi_excluded: false,
+						disableModelInvocation: false,
+						codexSidecar: false,
+						userInvocableKeyPresent: false,
+						userInvocableFalse: false,
+						piExcluded: false,
 					},
 					replacement: {
 						verified: false,
@@ -147,15 +147,15 @@ describe("areg skill list/show CLI", () => {
 				{
 					skill: "vendored-skill",
 					kind: "normal",
-					model_invocation: "enabled",
-					native_direct: "enabled",
-					pi_extension: "n/a",
+					modelInvocation: "enabled",
+					nativeDirect: "enabled",
+					piExtension: "n/a",
 					artifacts: {
-						disable_model_invocation: false,
-						codex_sidecar: false,
-						user_invocable_key_present: false,
-						user_invocable_false: false,
-						pi_excluded: false,
+						disableModelInvocation: false,
+						codexSidecar: false,
+						userInvocableKeyPresent: false,
+						userInvocableFalse: false,
+						piExcluded: false,
 					},
 					replacement: {
 						verified: false,

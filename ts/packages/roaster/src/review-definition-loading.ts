@@ -47,7 +47,7 @@ export function reviewDefinitionInvalidFailure(
 	message: string,
 ): RoasterFailure {
 	return {
-		type: "review_definition_invalid",
+		type: "review-definition-invalid",
 		message: `Review definition ${source.key} at ${source.path} is invalid: ${message}`,
 	};
 }

@@ -273,7 +273,7 @@ function renderRow(
 			: renderExceptionalRowText(row, selected, width, primitives);
 	const styled = selected
 		? focusStyle(theme, plain)
-		: style(theme, row.kind === "end_grill" ? "warning" : "text", plain);
+		: style(theme, row.kind === "end-grill" ? "warning" : "text", plain);
 	return truncate(styled, width, primitives);
 }
 
@@ -320,7 +320,7 @@ function renderExceptionalRowText(
 			glyph = "ℹ";
 			label = "Show current grill status";
 			break;
-		case "end_grill":
+		case "end-grill":
 			glyph = "⏹";
 			label = "End grilling session";
 			break;

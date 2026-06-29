@@ -29,17 +29,17 @@ export const listRequestSchema = z.object({
 });
 
 export const listResultSchema = z.object({
-	namespace_scope: z.string(),
+	namespaceScope: z.string(),
 	key: z.string().nullable(),
 	branch: z.string().nullable(),
 	base: z.boolean(),
-	all_branches: z.boolean(),
+	allBranches: z.boolean(),
 	entries: z.array(
 		z.object({
 			namespace: z.string(),
 			key: z.string(),
 			branch: z.string(),
-			ref_name: z.string(),
+			refName: z.string(),
 		}),
 	),
 });
@@ -49,11 +49,11 @@ export type ListResult = z.infer<typeof listResultSchema>;
 
 export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	if (request.base && request.namespace !== undefined) {
-		return failure("base_and_namespace_conflict", "--base and --namespace are mutually exclusive.");
+		return failure("base-and-namespace-conflict", "--base and --namespace are mutually exclusive.");
 	}
 	if (request.branch !== undefined && request.allBranches) {
 		return failure(
-			"branch_and_all_branches_conflict",
+			"branch-and-all-branches-conflict",
 			"--branch and --all-branches are mutually exclusive.",
 		);
 	}
@@ -63,19 +63,19 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		: normalizeNamespaceOption(request.namespace);
 	const validationFailure = firstFailure(
 		[
-			"invalid_namespace",
+			"invalid-namespace",
 			shouldListAllNamespaces
 				? undefined
 				: validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace)),
 		],
 		[
-			"invalid_key",
+			"invalid-key",
 			request.key === undefined
 				? undefined
 				: validationMessage("key", request.key, validateEntryKey(request.key)),
 		],
 		[
-			"invalid_branch_name",
+			"invalid-branch-name",
 			request.branch === undefined
 				? undefined
 				: validationMessage("branch name", request.branch, validateBranchName(request.branch)),
@@ -96,11 +96,11 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		: await ctx.gateway.listEntries({ namespace: scopeNamespace, key: request.key, branch });
 	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
 	return ok({
-		namespace_scope: shouldListAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
+		namespaceScope: shouldListAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
 		key: request.key ?? null,
 		branch: branch ?? null,
 		base: request.base,
-		all_branches: request.allBranches,
+		allBranches: request.allBranches,
 		entries: entriesResult.value.map(entryJson),
 	});
 }
@@ -131,12 +131,12 @@ function entryJson(entry: EntryRef): {
 	namespace: string;
 	key: string;
 	branch: string;
-	ref_name: string;
+	refName: string;
 } {
 	return {
 		namespace: entry.namespace,
 		key: entry.key,
 		branch: entry.branch,
-		ref_name: entry.entryLocator,
+		refName: entry.entryLocator,
 	};
 }

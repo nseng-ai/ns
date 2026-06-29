@@ -55,7 +55,7 @@ describe("handoff pickup core", () => {
 
 		expect(result).toMatchObject({
 			type: "error",
-			error: { code: "invalid_handoff_slug" },
+			error: { code: "invalid-handoff-slug" },
 		});
 	});
 
@@ -65,7 +65,7 @@ describe("handoff pickup core", () => {
 		expect(result).toEqual({
 			type: "error",
 			error: {
-				code: "handoff_not_found",
+				code: "handoff-not-found",
 				message: "No handoff `missing` found on branch `feat/x`.",
 			},
 		});

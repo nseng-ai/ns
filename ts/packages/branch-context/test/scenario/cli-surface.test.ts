@@ -284,7 +284,7 @@ describe("branch-context CLI surface pinning", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
-				source_file: planFile,
+				sourceFile: planFile,
 			},
 		});
 		// PINNED CLINKR SEMANTICS: commander accepts --flag=value syntax.
@@ -318,13 +318,13 @@ describe("branch-context CLI surface pinning", () => {
 			data: {
 				slug: PLAN_SLUG,
 				branch: PLAN_SLUG,
-				branch_creation: "plain-git",
-				start_point: START_POINT,
+				branchCreation: "plain-git",
+				startPoint: START_POINT,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
 				key: PLAN_KEY,
-				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
+				refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${PLAN_SLUG}:${PLAN_KEY}`,
 				commit: "commit0000000000000000000000000000000002",
-				source_file: planFile,
+				sourceFile: planFile,
 			},
 		});
 		// PINNED QUIRK (clinkr-migration): duplicate scalar flags are accepted and the last value wins.
@@ -430,13 +430,13 @@ describe("branch-context CLI surface pinning", () => {
 					data: {
 						slug: PLAN_SLUG,
 						branch,
-						branch_creation: "plain-git",
-						start_point: START_POINT,
+						branchCreation: "plain-git",
+						startPoint: START_POINT,
 						namespace: BRANCH_CONTEXT_NAMESPACE,
 						key: PLAN_KEY,
-						ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+						refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
 						commit: "commit0000000000000000000000000000000002",
-						source_file: planFile,
+						sourceFile: planFile,
 						summary: "Create it",
 					},
 				},
@@ -462,10 +462,10 @@ describe("branch-context CLI surface pinning", () => {
 			data: {
 				branch,
 				namespace: BRANCH_CONTEXT_NAMESPACE,
-				selected_key: PLAN_KEY,
-				ref_name: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
-				byte_count: content.length,
-				available_keys: [PLAN_KEY],
+				selectedKey: PLAN_KEY,
+				refName: `refs/brmem/ns/${BRANCH_CONTEXT_NAMESPACE}/${branch.replaceAll("/", "---")}:${PLAN_KEY}`,
+				byteCount: content.length,
+				availableKeys: [PLAN_KEY],
 				source: "attached",
 			},
 		});

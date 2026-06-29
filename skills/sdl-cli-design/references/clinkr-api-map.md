@@ -28,6 +28,14 @@ discriminated union on `status`:
 - `{ status: "failure", exitCode: 2, errorType, message, data? }`
 - `{ status: "usageError", exitCode: 2, errorType: "usageError", message, data? }`
 
+Property names are camelCase; serialized enum-like **values** (`errorType` and any
+command-local `code`/`type`/`status`/`kind` discriminants) are **kebab-case** for
+SDL-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
+`dry-run`. No snake_case and no aliases (ADR 0010). Known external strings
+(GitHub/Anthropic/Pi/git wire values) keep their exact spelling and are modeled as
+TypeScript literal unions. `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` guards the
+`failure(...)` error type and `errorType` literal cases.
+
 Per-command schemas: `buildSuccessMachineEnvelopeSchema(dataSchema)`,
 `buildFailureMachineEnvelopeSchema(...)`, and `buildMachineEnvelopeSchema(dataSchema)`
 narrow the envelope; `machineEnvelopeSchema` is the generic union. `--json-schema`

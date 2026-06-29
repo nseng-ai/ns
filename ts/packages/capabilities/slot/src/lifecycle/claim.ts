@@ -21,18 +21,18 @@ import {
 import { executeCurrentWorktreeRedirect } from "./current-worktree-redirect.ts";
 
 export interface SlotClaimOutcome {
-	slot_name: string;
-	branch_name: string;
-	worktree_path: string;
-	replaced_branch_name: string | null;
-	source_slot_name: string | null;
-	source_worktree_path: string | null;
-	already_current: boolean;
-	main_worktree_path: string | null;
-	main_checkout_branch: string | null;
-	main_redirect_action: "checkout_branch" | "detach_head" | null;
-	main_redirect_ref: string | null;
-	main_redirect_note: string | null;
+	slotName: string;
+	branchName: string;
+	worktreePath: string;
+	replacedBranchName: string | null;
+	sourceSlotName: string | null;
+	sourceWorktreePath: string | null;
+	alreadyCurrent: boolean;
+	mainWorktreePath: string | null;
+	mainCheckoutBranch: string | null;
+	mainRedirectAction: "checkout-branch" | "detach-head" | null;
+	mainRedirectRef: string | null;
+	mainRedirectNote: string | null;
 }
 
 export type SlotClaimResult = LifecycleResult<SlotClaimOutcome>;
@@ -53,12 +53,12 @@ export async function claimBranch(
 	if (ctx.repo.type !== "repo")
 		return {
 			type: "failure",
-			failure: { error_type: ctx.repo.errorType, message: ctx.repo.message },
+			failure: { errorType: ctx.repo.errorType, message: ctx.repo.message },
 		};
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	await ensureSlotsMetadataDir(repoCtx.repo, repoCtx.storage);
 	if (!(await repoCtx.git.branchExists(branchName)))
-		return failure("branch_missing", `Branch '${branchName}' does not exist locally.`);
+		return failure("branch-missing", `Branch '${branchName}' does not exist locally.`);
 
 	const planResult = await planClaim(repoCtx, branchName);
 	if (planResult.type === "failure") return planResult;
@@ -84,7 +84,7 @@ export async function claimBranch(
 	);
 	if (checkoutFailure !== null)
 		return failure(
-			"checkout_failed",
+			"checkout-failed",
 			`Failed to check out '${plan.slotCheckoutBranch}' into ${plan.target.slotName}: ${checkoutFailure.message}`,
 		);
 	return ok(outcomeFromPlan(repoCtx, plan));
@@ -96,12 +96,12 @@ async function planClaim(
 ): Promise<LifecycleResult<ClaimPlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	if (inventory.records.length === 0)
-		return failure("pool_empty", "No managed slots configured. Run `slot init --size N` first.");
+		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const current = currentSlotRecord(inventory.records, ctx.repo.root);
 	if (current === null) return await planClaimFromMainWorktree(ctx, inventory, branchName);
 	if (current.operation !== null)
 		return failure(
-			"operation_in_progress",
+			"operation-in-progress",
 			slotOperationMessage(current, { action: "claiming into" }),
 		);
 
@@ -131,12 +131,12 @@ async function planClaim(
 	}
 	if (match?.kind === "main")
 		return failure(
-			"branch_in_main_worktree",
+			"branch-in-main-worktree",
 			`Branch '${branchName}' is checked out in the main worktree at ${match.worktree.path}; \`slot claim\` only moves branches from other slots.`,
 		);
 
 	const occupancy = findOccupancyByBranch(inventory, branchName);
-	if (occupancy !== null) return failure("branch_in_use", branchOccupancyMessage(occupancy));
+	if (occupancy !== null) return failure("branch-in-use", branchOccupancyMessage(occupancy));
 	const currentFailure = await currentSlotDirtyFailure(ctx, current);
 	if (currentFailure !== null) return { type: "failure", failure: currentFailure };
 	return okPlan({
@@ -164,7 +164,7 @@ async function planClaimFromMainWorktree(
 	const match = findByBranch(inventory, branchName);
 	if (match?.kind === "slot") {
 		if (match.record.operation !== null)
-			return failure("branch_in_use", slotOperationMessage(match.record, { action: "claiming" }));
+			return failure("branch-in-use", slotOperationMessage(match.record, { action: "claiming" }));
 		return okPlan({
 			target: match.record,
 			slotCheckoutBranch: branchName,
@@ -177,13 +177,13 @@ async function planClaimFromMainWorktree(
 	if (match?.kind === "main") {
 		if (match.worktree.path !== ctx.repo.root)
 			return failure(
-				"branch_in_main_worktree",
+				"branch-in-main-worktree",
 				`Branch '${branchName}' is checked out in the main worktree at ${match.worktree.path}. Run \`slot claim\` from that worktree to move it into a slot.`,
 			);
 		const currentBranch = await ctx.git.getCurrentBranch(ctx.repo.root);
 		if (currentBranch.type === "failure")
 			return failure(
-				"current_branch_failed",
+				"current-branch-failed",
 				`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 			);
 		if (currentBranch.type === "detached" || currentBranch.branch !== branchName)
@@ -198,7 +198,7 @@ async function planClaimFromMainWorktree(
 			};
 		if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 			return failure(
-				"dirty_current_worktree",
+				"dirty-current-worktree",
 				`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
 			);
 		return okPlan({
@@ -208,7 +208,7 @@ async function planClaimFromMainWorktree(
 			isAlreadyCurrent: false,
 			callerRedirect:
 				branchName === trunkBranch
-					? { action: { type: "detach_head", ref: branchName }, note: null }
+					? { action: { type: "detach-head", ref: branchName }, note: null }
 					: await planCurrentWtRedirect(ctx.git, {
 							cwd: ctx.repo.root,
 							movingBranch: branchName,
@@ -218,7 +218,7 @@ async function planClaimFromMainWorktree(
 	}
 
 	const occupancy = findOccupancyByBranch(inventory, branchName);
-	if (occupancy !== null) return failure("branch_in_use", branchOccupancyMessage(occupancy));
+	if (occupancy !== null) return failure("branch-in-use", branchOccupancyMessage(occupancy));
 	const target = await lowestAvailable(inventory, ctx.git);
 	if (target === null)
 		return {
@@ -245,19 +245,19 @@ async function planTrunkClaimFromMainWorktree(
 	const currentBranch = await ctx.git.getCurrentBranch(ctx.repo.root);
 	if (currentBranch.type === "failure")
 		return failure(
-			"current_branch_failed",
+			"current-branch-failed",
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
 	if (currentBranch.branch === trunkBranch) return null;
 	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 		return failure(
-			"dirty_current_worktree",
+			"dirty-current-worktree",
 			`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
 		);
 	if (!(await ctx.git.branchExists(currentBranch.branch)))
 		return failure(
-			"branch_missing",
+			"branch-missing",
 			`Current branch '${currentBranch.branch}' does not exist locally.`,
 		);
 
@@ -272,12 +272,12 @@ async function planTrunkClaimFromMainWorktree(
 	} else {
 		if (match?.kind === "main" && match.worktree.path !== ctx.repo.root)
 			return failure(
-				"branch_in_main_worktree",
+				"branch-in-main-worktree",
 				`Branch '${trunkBranch}' is checked out in the main worktree at ${match.worktree.path}. Run \`slot claim\` from that worktree to move it into a slot.`,
 			);
 		const occupancy = findOccupancyByBranch(inventory, trunkBranch);
 		if (occupancy !== null && occupancy.path !== ctx.repo.root)
-			return failure("branch_in_use", branchOccupancyMessage(occupancy));
+			return failure("branch-in-use", branchOccupancyMessage(occupancy));
 		target = await lowestAvailable(inventory, ctx.git);
 		if (target === null)
 			return {
@@ -294,7 +294,7 @@ async function planTrunkClaimFromMainWorktree(
 		isAlreadyCurrent: false,
 		callerRedirect: null,
 		mainRedirect: {
-			action: { type: "checkout_branch", branch: trunkBranch, role: "trunk" },
+			action: { type: "checkout-branch", branch: trunkBranch, role: "trunk" },
 			note: null,
 		},
 	});
@@ -306,7 +306,7 @@ function currentSlotRecord(records: readonly SlotRecord[], root: string): SlotRe
 
 function notCurrentSlotFailure(ctx: RepoSlotContext): LifecycleResult<ClaimPlan> {
 	return failure(
-		"not_current_slot",
+		"not-current-slot",
 		`\`slot claim\` must be run from a managed slot worktree, or from the main worktree to move or claim a branch into the lowest available slot (current worktree: ${ctx.repo.root}).`,
 	);
 }
@@ -317,7 +317,7 @@ async function currentSlotDirtyFailure(
 ): Promise<SlotLifecycleFailure | null> {
 	if (!(await ctx.git.hasUncommittedChanges(current.path))) return null;
 	return {
-		error_type: "dirty_current_slot",
+		errorType: "dirty-current-slot",
 		message: `Current slot ${current.slotName} has uncommitted changes at ${current.path}. Commit or stash before claiming a branch.`,
 	};
 }
@@ -328,12 +328,12 @@ async function sourceSlotFailure(
 ): Promise<SlotLifecycleFailure | null> {
 	if (source.operation !== null)
 		return {
-			error_type: "branch_in_use",
+			errorType: "branch-in-use",
 			message: slotOperationMessage(source, { action: "claiming" }),
 		};
 	if (!(await ctx.git.hasUncommittedChanges(source.path))) return null;
 	return {
-		error_type: "dirty_source_slot",
+		errorType: "dirty-source-slot",
 		message: `Source slot ${source.slotName} has uncommitted changes at ${source.path}. Commit or stash there before claiming its branch.`,
 	};
 }
@@ -347,7 +347,7 @@ async function detachSourceSlot(
 	const detachFailure = await ctx.git.detachHead(source.path, trunkBranch);
 	if (detachFailure === null) return null;
 	return {
-		error_type: "source_detach_failed",
+		errorType: "source-detach-failed",
 		message: `Failed to detach source slot ${source.slotName} at ${source.path} from '${branchName}' to ${trunkBranch}: ${detachFailure.message}`,
 	};
 }
@@ -357,18 +357,18 @@ function outcomeFromPlan(ctx: RepoSlotContext, plan: ClaimPlan): SlotClaimOutcom
 		plan.target.branch === plan.slotCheckoutBranch ? null : plan.target.branch;
 	const mainRedirect = mainRedirectOf(plan);
 	return {
-		slot_name: plan.target.slotName,
-		branch_name: plan.slotCheckoutBranch,
-		worktree_path: plan.target.path,
-		replaced_branch_name: replacedBranchName,
-		source_slot_name: plan.source?.slotName ?? null,
-		source_worktree_path: plan.source?.path ?? null,
-		already_current: plan.isAlreadyCurrent,
-		main_worktree_path: mainRedirect === null ? null : ctx.repo.root,
-		main_checkout_branch: mainCheckoutBranchOf(mainRedirect),
-		main_redirect_action: mainRedirect?.action.type ?? null,
-		main_redirect_ref: mainRedirectRefOf(mainRedirect),
-		main_redirect_note: mainRedirect?.note ?? null,
+		slotName: plan.target.slotName,
+		branchName: plan.slotCheckoutBranch,
+		worktreePath: plan.target.path,
+		replacedBranchName: replacedBranchName,
+		sourceSlotName: plan.source?.slotName ?? null,
+		sourceWorktreePath: plan.source?.path ?? null,
+		alreadyCurrent: plan.isAlreadyCurrent,
+		mainWorktreePath: mainRedirect === null ? null : ctx.repo.root,
+		mainCheckoutBranch: mainCheckoutBranchOf(mainRedirect),
+		mainRedirectAction: mainRedirect?.action.type ?? null,
+		mainRedirectRef: mainRedirectRefOf(mainRedirect),
+		mainRedirectNote: mainRedirect?.note ?? null,
 	};
 }
 
@@ -377,13 +377,13 @@ function mainRedirectOf(plan: ClaimPlan): CurrentWorktreeRedirect | null {
 }
 
 function mainCheckoutBranchOf(redirect: CurrentWorktreeRedirect | null): string | null {
-	if (redirect?.action.type !== "checkout_branch") return null;
+	if (redirect?.action.type !== "checkout-branch") return null;
 	return redirect.action.branch;
 }
 
 function mainRedirectRefOf(redirect: CurrentWorktreeRedirect | null): string | null {
 	if (redirect === null) return null;
-	if (redirect.action.type === "checkout_branch") return redirect.action.branch;
+	if (redirect.action.type === "checkout-branch") return redirect.action.branch;
 	return redirect.action.ref;
 }
 
@@ -396,5 +396,5 @@ function okPlan(plan: ClaimPlan): LifecycleResult<ClaimPlan> {
 }
 
 function failure<T = SlotClaimOutcome>(errorType: string, message: string): LifecycleResult<T> {
-	return { type: "failure", failure: { error_type: errorType, message } };
+	return { type: "failure", failure: { errorType: errorType, message } };
 }

@@ -49,7 +49,7 @@ describe("Slot Capability API", () => {
 				localBranches: ["master", "feature/a"],
 				worktrees: [slotWorktree("slot-01")],
 			},
-			clipboardResult: { type: "failure", reason: "subprocess_error", detail: "must not copy" },
+			clipboardResult: { type: "failure", reason: "subprocess-error", detail: "must not copy" },
 		});
 
 		const slotClient = createSlotClient({ cwd: "/repo", context: run.context });
@@ -159,7 +159,7 @@ describe("Slot Capability API", () => {
 		expect(result).toEqual({
 			ok: false,
 			failure: {
-				errorType: "branch_missing",
+				errorType: "branch-missing",
 				message: "Branch 'feature/missing' does not exist. Pass -b/--new to create it from HEAD.",
 			},
 		});

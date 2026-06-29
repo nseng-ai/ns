@@ -18,7 +18,7 @@ describe("slot free CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { freed: [{ slot_name: "slot-01", branch_name: "feature/a" }], dry_run: false },
+			data: { freed: [{ slotName: "slot-01", branchName: "feature/a" }], dryRun: false },
 		});
 		expect(run.git.operations()).toEqual([
 			{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" },
@@ -43,7 +43,7 @@ describe("slot free CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid_slot_args" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid-slot-args" });
 		expect(run.stdout.join("")).toContain(
 			"slot-03 holds 'feature/rebasing' with a rebase in progress",
 		);
@@ -62,12 +62,12 @@ describe("slot free CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
 				freed: [],
-				would_free: [{ slot_name: "slot-01" }],
+				wouldFree: [{ slotName: "slot-01" }],
 				cleanup: [
-					{ action: "pr", status: "planned", pr_number: 12 },
-					{ action: "local_branch", status: "planned" },
+					{ action: "pr", status: "planned", prNumber: 12 },
+					{ action: "local-branch", status: "planned" },
 				],
-				dry_run: true,
+				dryRun: true,
 			},
 		});
 		expect(run.git.operations()).toEqual([]);
@@ -172,7 +172,7 @@ describe("slot free CLI", () => {
 			data: {
 				cleanup: [
 					{ action: "pr", status: "success" },
-					{ action: "local_branch", status: "success" },
+					{ action: "local-branch", status: "success" },
 				],
 			},
 		});

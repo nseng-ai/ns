@@ -157,7 +157,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("Ask exactly one question per grill_ask call");
 		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain('If grill_ask returns action: "status_request"');
+		expect(prompt).toContain('If grill_ask returns action: "status-request"');
 	});
 
 	test("includes fallback grill instructions when no skill block is available", () => {
@@ -171,7 +171,7 @@ describe("grill-ui prompt", () => {
 		expect(prompt).toContain("status-request handling");
 		expect(prompt).toContain("defer ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("Fallback target");
-		expect(prompt).toContain('If grill_ask returns action: "end_grill"');
+		expect(prompt).toContain('If grill_ask returns action: "end-grill"');
 		expect(prompt).toContain("Show current grill status");
 	});
 });
@@ -187,7 +187,7 @@ describe("grill-with-docs-ui prompt", () => {
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("docs-aware preflight");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain('If grill_ask returns action: "status_request"');
+		expect(prompt).toContain('If grill_ask returns action: "status-request"');
 	});
 
 	test("includes fallback docs-aware instructions when no skill block is available", () => {
@@ -412,7 +412,7 @@ describe("grill_ask validation", () => {
 
 		for (const item of cases) {
 			const result = await executeGrillAsk(item.params, nonUiContext());
-			expect(result.details, item.name).toMatchObject({ action: "invalid_tool_input" });
+			expect(result.details, item.name).toMatchObject({ action: "invalid-tool-input" });
 			expect(text(result), item.name).toContain(item.expected);
 			expect(text(result), item.name).toContain("Repair the tool call");
 		}
@@ -425,7 +425,7 @@ describe("grill_ask validation", () => {
 			{ kind: "unknown", basis: "the design tree is not mapped yet" },
 		]) {
 			const result = await executeGrillAsk({ ...baseInput(), estimatedRemaining }, nonUiContext());
-			expect(result.details).toMatchObject({ action: "ui_unavailable" });
+			expect(result.details).toMatchObject({ action: "ui-unavailable" });
 		}
 
 		const invalid = await executeGrillAsk(
@@ -433,7 +433,7 @@ describe("grill_ask validation", () => {
 			nonUiContext(),
 		);
 
-		expect(invalid.details).toMatchObject({ action: "invalid_tool_input" });
+		expect(invalid.details).toMatchObject({ action: "invalid-tool-input" });
 		expect(text(invalid)).toContain(
 			"estimatedRemaining.min must be less than or equal to estimatedRemaining.max",
 		);
@@ -441,11 +441,11 @@ describe("grill_ask validation", () => {
 });
 
 describe("grill_ask execution", () => {
-	test("non-UI path returns action ui_unavailable", async () => {
+	test("non-UI path returns action ui-unavailable", async () => {
 		const result = await executeGrillAsk(baseInput(), nonUiContext());
 
 		expect(result.details).toEqual({
-			action: "ui_unavailable",
+			action: "ui-unavailable",
 			question: "How should we ship this UI improvement?",
 		});
 		expect(text(result)).toContain("Structured grill question UI is unavailable");
@@ -573,11 +573,11 @@ describe("grill_ask execution", () => {
 					},
 				},
 			},
-			{ uiRunner: async () => ({ action: "status_request" }) },
+			{ uiRunner: async () => ({ action: "status-request" }) },
 		);
 
 		expect(result.details).toEqual({
-			action: "status_request",
+			action: "status-request",
 			question: "How should we ship this UI improvement?",
 			progressSource: "unavailable",
 			estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two UI surfaces plus tests" },
@@ -659,7 +659,7 @@ describe("grill_ask execution", () => {
 		expect(text(result)).toContain("User provided a freeform answer: Use an even smaller spike.");
 	});
 
-	test("status path returns action status_request and re-ask instruction", async () => {
+	test("status path returns action status-request and re-ask instruction", async () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
@@ -670,7 +670,7 @@ describe("grill_ask execution", () => {
 		});
 
 		expect(result.details).toEqual({
-			action: "status_request",
+			action: "status-request",
 			question: "How should we ship this UI improvement?",
 			progressSource: "unavailable",
 		});
@@ -693,19 +693,19 @@ describe("grill_ask execution", () => {
 					grillAskToolResult({ action: "answer" }),
 					userMessage("<structured-grill-question-ui-contract>\nQuestion target"),
 					grillAskToolResult({ action: "answer" }),
-					grillAskToolResult({ action: "status_request" }),
+					grillAskToolResult({ action: "status-request" }),
 					grillAskToolResult({ action: "answer" }),
 					grillAskToolResult({ action: "cancelled" }),
-					grillAskToolResult({ action: "end_grill" }),
+					grillAskToolResult({ action: "end-grill" }),
 				],
 			},
 		});
 
 		expect(result.details).toEqual({
-			action: "status_request",
+			action: "status-request",
 			question: "How should we ship this UI improvement?",
 			answeredQuestions: 2,
-			progressSource: "session_branch",
+			progressSource: "session-branch",
 		});
 		expect(text(result)).toContain("Answered count: 2 answered grill questions so far");
 		expect(text(result)).toContain("scoped to the latest /pi:grill-me kickoff");
@@ -722,22 +722,22 @@ describe("grill_ask execution", () => {
 			sessionManager: {
 				getBranch: () => [
 					grillAskToolResult({ action: "answer" }),
-					grillAskToolResult({ action: "status_request" }),
+					grillAskToolResult({ action: "status-request" }),
 					grillAskToolResult({ action: "answer" }),
 				],
 			},
 		});
 
 		expect(result.details).toEqual({
-			action: "status_request",
+			action: "status-request",
 			question: "How should we ship this UI improvement?",
 			answeredQuestions: 2,
-			progressSource: "session_branch_unscoped",
+			progressSource: "session-branch-unscoped",
 		});
 		expect(text(result)).toContain("best effort; no /pi:grill-me kickoff marker found");
 	});
 
-	test("end path returns action end_grill and stop/summarize instruction", async () => {
+	test("end path returns action end-grill and stop/summarize instruction", async () => {
 		const result = await executeGrillAsk(baseInput(), {
 			hasUI: true,
 			ui: {
@@ -748,7 +748,7 @@ describe("grill_ask execution", () => {
 		});
 
 		expect(result.details).toEqual({
-			action: "end_grill",
+			action: "end-grill",
 			question: "How should we ship this UI improvement?",
 		});
 		expect(text(result)).toContain("Stop asking questions");
@@ -793,7 +793,7 @@ describe("registerGrillUiExtension", () => {
 		expect(
 			tool.promptGuidelines?.some((guideline) => guideline.includes(GRILL_ASK_TOOL_NAME)),
 		).toBe(true);
-		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status_request"))).toBe(
+		expect(tool.promptGuidelines?.some((guideline) => guideline.includes("status-request"))).toBe(
 			true,
 		);
 		expect(

@@ -17,13 +17,13 @@ export const checkResultSchema = z.object({
 	key: z.string(),
 	branch: z.string(),
 	present: z.boolean(),
-	ref_name: z.string(),
+	refName: z.string(),
 	target: z.string(),
 	at: z.string().nullable(),
-	head_sha: z.string().nullable(),
-	head_date: z.string().nullable(),
-	blob_sha: z.string().nullable(),
-	size_bytes: z.number().int().nullable(),
+	headSha: z.string().nullable(),
+	headDate: z.string().nullable(),
+	blobSha: z.string().nullable(),
+	sizeBytes: z.number().int().nullable(),
 });
 
 export type CheckRequest = z.infer<typeof checkRequestSchema>;
@@ -45,13 +45,13 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 		key,
 		branch,
 		present: true,
-		ref_name: locator,
+		refName: locator,
 		target,
 		at: request.at ?? null,
-		head_sha: result.value.headSha,
-		head_date: result.value.headDate,
-		blob_sha: result.value.blobSha,
-		size_bytes: result.value.sizeBytes,
+		headSha: result.value.headSha,
+		headDate: result.value.headDate,
+		blobSha: result.value.blobSha,
+		sizeBytes: result.value.sizeBytes,
 	});
 }
 
@@ -61,11 +61,11 @@ export function renderCheck(result: CheckResult): string {
 		`Entry Key: ${result.key}`,
 		`Branch: ${result.branch}`,
 		`Present: ${result.present ? "yes" : "no"}`,
-		`Entry Locator: ${result.ref_name}`,
+		`Entry Locator: ${result.refName}`,
 		`Target: ${result.target}`,
-		`Head: ${result.head_sha} (${result.head_date})`,
-		`Blob: ${result.blob_sha}`,
-		`Size: ${result.size_bytes}`,
+		`Head: ${result.headSha} (${result.headDate})`,
+		`Blob: ${result.blobSha}`,
+		`Size: ${result.sizeBytes}`,
 	];
 	return lines.join("\n");
 }
@@ -83,12 +83,12 @@ function emptyResult(options: {
 		key: options.key,
 		branch: options.branch,
 		present: false,
-		ref_name: options.refName,
+		refName: options.refName,
 		target: options.target,
 		at: options.at ?? null,
-		head_sha: null,
-		head_date: null,
-		blob_sha: null,
-		size_bytes: null,
+		headSha: null,
+		headDate: null,
+		blobSha: null,
+		sizeBytes: null,
 	};
 }

@@ -29,11 +29,11 @@ export const archiveObjectiveResultSchema = z.object({
 	status: z.enum([
 		"archived",
 		"unarchived",
-		"missing_slug",
-		"invalid_slug",
-		"source_not_found",
-		"source_not_directory",
-		"destination_exists",
+		"missing-slug",
+		"invalid-slug",
+		"source-not-found",
+		"source-not-directory",
+		"destination-exists",
 	]),
 	error: z.string().nullable(),
 	slug: z.string().nullable(),
@@ -57,7 +57,7 @@ export async function runArchiveObjective(
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
 	if (slugValidationError !== null) return slugValidationError;
-	if (result.value.status === "source_not_found") {
+	if (result.value.status === "source-not-found") {
 		return negative(
 			sourceNotFoundMessage(
 				result.value.slug ?? "",
@@ -67,13 +67,13 @@ export async function runArchiveObjective(
 			{ data: result.value },
 		);
 	}
-	if (result.value.status === "source_not_directory") {
+	if (result.value.status === "source-not-directory") {
 		return negative(
 			`Objective source path for slug ${pythonStringRepr(result.value.slug ?? "")} is not a directory: ${result.value.sourcePath}.`,
 			{ data: result.value },
 		);
 	}
-	if (result.value.status === "destination_exists") {
+	if (result.value.status === "destination-exists") {
 		return negative(
 			`Destination already exists for slug ${pythonStringRepr(result.value.slug ?? "")}: ${result.value.destinationPath}. Refusing to merge or overwrite.`,
 			{ data: result.value },
@@ -96,7 +96,7 @@ export function renderArchiveObjective(
 			body: `Moved:\n  ${result.sourcePath}\n  -> ${result.destinationPath}`,
 		});
 	}
-	if (result.status === "destination_exists") {
+	if (result.status === "destination-exists") {
 		return renderResultBlock(renderCaps, {
 			kind: "refusal",
 			headline: `Refusing to ${verb} Objective ${result.slug}.`,
@@ -105,14 +105,14 @@ export function renderArchiveObjective(
 				"Move or remove the destination before retrying; SDL will not merge or overwrite Objective records.",
 		});
 	}
-	if (result.status === "source_not_directory") {
+	if (result.status === "source-not-directory") {
 		return renderResultBlock(renderCaps, {
 			kind: "failure",
 			headline: `Cannot ${verb} Objective ${result.slug}.`,
 			body: `Source path is not a directory:\n  ${result.sourcePath}`,
 		});
 	}
-	if (result.status === "source_not_found") {
+	if (result.status === "source-not-found") {
 		const sourceLabel = result.direction === "unarchive" ? "archived" : "active";
 		return renderResultBlock(renderCaps, {
 			kind: "refusal",
@@ -136,10 +136,10 @@ async function archiveObjective(
 > {
 	const direction: ObjectiveArchiveDirection = request.unarchive ? "unarchive" : "archive";
 	if (request.slug === undefined) {
-		return { type: "ok", value: emptyResult("missing_slug", "missing_slug", direction) };
+		return { type: "ok", value: emptyResult("missing-slug", "missing-slug", direction) };
 	}
 	if (!isValidObjectiveSlug(request.slug)) {
-		return { type: "ok", value: emptyResult("invalid_slug", "invalid_slug", direction) };
+		return { type: "ok", value: emptyResult("invalid-slug", "invalid-slug", direction) };
 	}
 
 	const movePaths = storage.movePaths(request.slug, direction);
@@ -153,8 +153,8 @@ async function archiveObjective(
 		return {
 			type: "ok",
 			value: archiveResult({
-				status: "source_not_found",
-				error: "source_not_found",
+				status: "source-not-found",
+				error: "source-not-found",
 				slug: request.slug,
 				direction,
 				sourcePath: movePaths.relativeSource,
@@ -169,8 +169,8 @@ async function archiveObjective(
 		return {
 			type: "ok",
 			value: archiveResult({
-				status: "source_not_directory",
-				error: "source_not_directory",
+				status: "source-not-directory",
+				error: "source-not-directory",
 				slug: request.slug,
 				direction,
 				sourcePath: movePaths.relativeSource,
@@ -185,8 +185,8 @@ async function archiveObjective(
 		return {
 			type: "ok",
 			value: archiveResult({
-				status: "destination_exists",
-				error: "destination_exists",
+				status: "destination-exists",
+				error: "destination-exists",
 				slug: request.slug,
 				direction,
 				sourcePath: movePaths.relativeSource,

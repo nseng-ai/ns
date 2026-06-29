@@ -14,7 +14,7 @@ interface MachineEnvelope {
 }
 
 interface MapBranchPrsData {
-	branch_prs: Array<{
+	branchPrs: Array<{
 		branch: string;
 		pr_number: number;
 		title: string;
@@ -22,8 +22,8 @@ interface MapBranchPrsData {
 		head_ref_name: string;
 		base_ref_name: string;
 	}>;
-	missing_branches: string[];
-	ambiguous_branches: Array<{ branch: string; candidates: Array<{ pr_number: number }> }>;
+	missingBranches: string[];
+	ambiguousBranches: Array<{ branch: string; candidates: Array<{ pr_number: number }> }>;
 	summary: { requested: number; matched: number; missing: number; ambiguous: number };
 }
 
@@ -66,7 +66,7 @@ describe("sdl address exec map-branch-prs", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(0);
-		expect(envelope.data?.branch_prs).toEqual([
+		expect(envelope.data?.branchPrs).toEqual([
 			{
 				branch: "feature-b",
 				pr_number: 12,
@@ -84,8 +84,8 @@ describe("sdl address exec map-branch-prs", () => {
 				base_ref_name: "master",
 			},
 		]);
-		expect(envelope.data?.missing_branches).toEqual([]);
-		expect(envelope.data?.ambiguous_branches).toEqual([]);
+		expect(envelope.data?.missingBranches).toEqual([]);
+		expect(envelope.data?.ambiguousBranches).toEqual([]);
 		expect(envelope.data?.summary).toEqual({ requested: 2, matched: 2, missing: 0, ambiguous: 0 });
 	});
 
@@ -98,9 +98,9 @@ describe("sdl address exec map-branch-prs", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("No open PR found for branches: no-such-branch, feature-merged");
-		expect(envelope.data?.branch_prs.map((entry) => entry.pr_number)).toEqual([11]);
-		expect(envelope.data?.missing_branches).toEqual(["no-such-branch", "feature-merged"]);
-		expect(envelope.data?.ambiguous_branches).toEqual([]);
+		expect(envelope.data?.branchPrs.map((entry) => entry.pr_number)).toEqual([11]);
+		expect(envelope.data?.missingBranches).toEqual(["no-such-branch", "feature-merged"]);
+		expect(envelope.data?.ambiguousBranches).toEqual([]);
 		expect(envelope.data?.summary).toEqual({ requested: 3, matched: 1, missing: 2, ambiguous: 0 });
 	});
 
@@ -112,7 +112,7 @@ describe("sdl address exec map-branch-prs", () => {
 			},
 		);
 		expect(await run.exit).toBe(0);
-		expect(parseEnvelope(run).data?.branch_prs.map((entry) => entry.branch)).toEqual(["feature-a"]);
+		expect(parseEnvelope(run).data?.branchPrs.map((entry) => entry.branch)).toEqual(["feature-a"]);
 	});
 
 	test("returns semantic exit 1 for ambiguous shared-head-branch mapping", async () => {
@@ -130,8 +130,8 @@ describe("sdl address exec map-branch-prs", () => {
 		const envelope = parseEnvelope(run);
 		expect(envelope.exitCode).toBe(1);
 		expect(envelope.message).toBe("Multiple open PRs found for branches: feature-shared");
-		expect(envelope.data?.branch_prs).toEqual([]);
-		expect(envelope.data?.ambiguous_branches).toEqual([
+		expect(envelope.data?.branchPrs).toEqual([]);
+		expect(envelope.data?.ambiguousBranches).toEqual([
 			{
 				branch: "feature-shared",
 				candidates: expect.arrayContaining([
@@ -150,7 +150,7 @@ describe("sdl address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.errorType).toBe("invalid_request");
+		expect(envelope.errorType).toBe("invalid-request");
 		expect(envelope.message).toBe("map-branch-prs branches contain duplicates: feature-a");
 	});
 
@@ -161,7 +161,7 @@ describe("sdl address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.errorType).toBe("invalid_request");
+		expect(envelope.errorType).toBe("invalid-request");
 		expect(envelope.message).toBe("map-branch-prs requires at least one branch.");
 	});
 
@@ -179,13 +179,13 @@ describe("sdl address exec map-branch-prs", () => {
 	test("rejects empty stdin with invalid_request", async () => {
 		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "" });
 		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).errorType).toBe("invalid_request");
+		expect(parseEnvelope(run).errorType).toBe("invalid-request");
 	});
 
 	test("rejects malformed JSON with invalid_json", async () => {
 		const run = runScenario(mapArgs(), { prFeedback: stackedPrFeedback(), stdin: "{not json" });
 		expect(await run.exit).toBe(2);
-		expect(parseEnvelope(run).errorType).toBe("invalid_json");
+		expect(parseEnvelope(run).errorType).toBe("invalid-json");
 	});
 
 	test("rejects an unexpected positional argument with a commander usage error", async () => {
@@ -220,7 +220,7 @@ describe("sdl address exec map-branch-prs", () => {
 		});
 		expect(await run.exit).toBe(2);
 		const envelope = parseEnvelope(run);
-		expect(envelope.errorType).toBe("pr_gateway_failure");
+		expect(envelope.errorType).toBe("pr-gateway-failure");
 		expect(envelope.message).toBe("Failed to list open PRs: gh: network down");
 	});
 });

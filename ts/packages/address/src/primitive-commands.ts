@@ -251,7 +251,7 @@ async function runPrChecks(
 		case "pr_feedback_failure":
 			return prFeedbackFailureExit(result.message, result.failure);
 		case "detached_head":
-			return failure("detached_head", result.message);
+			return failure("detached-head", result.message);
 	}
 }
 

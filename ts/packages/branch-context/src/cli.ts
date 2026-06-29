@@ -36,7 +36,7 @@ import {
 } from "./branch-context-creation.ts";
 import { createRealBranchContextContext, type BranchContextContext } from "./context.ts";
 
-const BRANCH_CONTEXT_ERROR_TYPE = "branch_context_error";
+const BRANCH_CONTEXT_ERROR_TYPE = "branch-context-error";
 
 const createRequestSchema = z.object({
 	slug: z.string().describe("Branch context slug."),
@@ -291,25 +291,25 @@ function formatLoadPlanHuman(
 function branchContextJson(evidence: BranchContextEvidence): {
 	slug: string;
 	branch: string;
-	branch_creation: BranchContextEvidence["branchCreation"];
-	start_point: string;
+	branchCreation: BranchContextEvidence["branchCreation"];
+	startPoint: string;
 	namespace: string;
 	key: string;
-	ref_name: string;
+	refName: string;
 	commit: string;
-	source_file: string;
+	sourceFile: string;
 	summary?: string;
 } {
 	return {
 		slug: evidence.slug,
 		branch: evidence.branch,
-		branch_creation: evidence.branchCreation,
-		start_point: evidence.startPoint,
+		branchCreation: evidence.branchCreation,
+		startPoint: evidence.startPoint,
 		namespace: evidence.namespace,
 		key: evidence.key,
-		ref_name: evidence.refName,
+		refName: evidence.refName,
 		commit: evidence.commit,
-		source_file: evidence.sourceFile,
+		sourceFile: evidence.sourceFile,
 		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};
 }
@@ -326,7 +326,7 @@ function listJson(list: BranchContextListEvidence): {
 		namespace: string;
 		key: string;
 		branch: string;
-		ref_name: string;
+		refName: string;
 	}[];
 } {
 	return {
@@ -335,7 +335,7 @@ function listJson(list: BranchContextListEvidence): {
 			namespace: entry.namespace,
 			key: entry.key,
 			branch: entry.branch,
-			ref_name: entry.refName,
+			refName: entry.refName,
 		})),
 	};
 }
@@ -344,19 +344,19 @@ function attachJson(evidence: BranchContextAttachEvidence): {
 	branch: string;
 	namespace: string;
 	key: string;
-	ref_name: string;
+	refName: string;
 	commit: string;
-	source_file: string;
-	plan_slug?: string;
+	sourceFile: string;
+	planSlug?: string;
 } {
 	return {
 		branch: evidence.branch,
 		namespace: evidence.namespace,
 		key: evidence.key,
-		ref_name: evidence.refName,
+		refName: evidence.refName,
 		commit: evidence.commit,
-		source_file: evidence.sourceFile,
-		...(evidence.planSlug === undefined ? {} : { plan_slug: evidence.planSlug }),
+		sourceFile: evidence.sourceFile,
+		...(evidence.planSlug === undefined ? {} : { planSlug: evidence.planSlug }),
 	};
 }
 
@@ -394,32 +394,32 @@ function loadedPlanJson(
 ): {
 	branch: string;
 	namespace: string;
-	selected_key: string;
-	ref_name: string;
-	byte_count: number;
-	available_keys: string[];
+	selectedKey: string;
+	refName: string;
+	byteCount: number;
+	availableKeys: string[];
 	source: LoadedAttachedPlan["source"];
-	source_file?: string;
-	implementation_prompt_file?: string;
-	attached_plan_content?: string;
-	implementation_prompt?: string;
+	sourceFile?: string;
+	implementationPromptFile?: string;
+	attachedPlanContent?: string;
+	implementationPrompt?: string;
 } {
 	return {
 		branch: plan.branch,
 		namespace: plan.namespace,
-		selected_key: plan.selectedKey,
-		ref_name: plan.refName,
-		byte_count: plan.byteCount,
-		available_keys: plan.availableKeys,
+		selectedKey: plan.selectedKey,
+		refName: plan.refName,
+		byteCount: plan.byteCount,
+		availableKeys: plan.availableKeys,
 		source: plan.source,
-		...(plan.sourceFile === undefined ? {} : { source_file: plan.sourceFile }),
-		...(options.promptFile === undefined ? {} : { implementation_prompt_file: options.promptFile }),
+		...(plan.sourceFile === undefined ? {} : { sourceFile: plan.sourceFile }),
+		...(options.promptFile === undefined ? {} : { implementationPromptFile: options.promptFile }),
 		...(options.attachedPlanContent === undefined
 			? {}
-			: { attached_plan_content: options.attachedPlanContent }),
+			: { attachedPlanContent: options.attachedPlanContent }),
 		...(options.implementationPrompt === undefined
 			? {}
-			: { implementation_prompt: options.implementationPrompt }),
+			: { implementationPrompt: options.implementationPrompt }),
 	};
 }
 

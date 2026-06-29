@@ -187,26 +187,26 @@ describe("parseReviewDefinition", () => {
 	});
 
 	test.each([
-		["Review definition is empty.", "", "empty_source"],
+		["Review definition is empty.", "", "empty-source"],
 		[
 			"frontmatter fence",
 			"# Dignified Python\n\nSome prose without frontmatter.\n",
-			"missing_open_fence",
+			"missing-open-fence",
 		],
 		[
 			"closing",
 			"---\ndescription: Review Python diffs for style violations.\n\nFlag concrete issues in the diff.\n",
-			"missing_close_fence",
+			"missing-close-fence",
 		],
 		[
 			"description",
 			"---\nmodel_profile: sonnet\n---\n\nFlag concrete issues in the diff.\n",
-			"invalid_description",
+			"invalid-description",
 		],
 		[
 			"instructions",
 			"---\ndescription: Review Python diffs for style violations.\n---\n",
-			"invalid_instructions",
+			"invalid-instructions",
 		],
 	] as const)("rejects invalid definition: %s", (message, source, code) => {
 		const error = expectError(parseReviewDefinition(source, { name: "dignified-python-tripwire" }));
@@ -223,7 +223,7 @@ describe("parseReviewDefinition", () => {
 					{ name: "dignified-python-tripwire" },
 				),
 			).code,
-		).toBe("missing_open_fence");
+		).toBe("missing-open-fence");
 		expect(
 			expectError(
 				parseReviewDefinition(
@@ -231,7 +231,7 @@ describe("parseReviewDefinition", () => {
 					{ name: "dignified-python-tripwire" },
 				),
 			).code,
-		).toBe("missing_open_fence");
+		).toBe("missing-open-fence");
 		expect(
 			expectError(
 				parseReviewDefinition(
@@ -239,7 +239,7 @@ describe("parseReviewDefinition", () => {
 					{ name: "dignified-python-tripwire" },
 				),
 			).code,
-		).toBe("missing_open_fence");
+		).toBe("missing-open-fence");
 		expect(
 			expectError(
 				parseReviewDefinition(
@@ -247,7 +247,7 @@ describe("parseReviewDefinition", () => {
 					{ name: "dignified-python-tripwire" },
 				),
 			).code,
-		).toBe("missing_close_fence");
+		).toBe("missing-close-fence");
 		expect(
 			expectError(
 				parseReviewDefinition(
@@ -255,7 +255,7 @@ describe("parseReviewDefinition", () => {
 					{ name: "dignified-python-tripwire" },
 				),
 			).code,
-		).toBe("missing_close_fence");
+		).toBe("missing-close-fence");
 	});
 
 	test("requires non-empty name", () => {
@@ -266,7 +266,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(error.code).toBe("invalid_name");
+		expect(error.code).toBe("invalid-name");
 		expect(error.message).toContain("name");
 	});
 
@@ -285,7 +285,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(error.code).toBe("unknown_frontmatter_key");
+		expect(error.code).toBe("unknown-frontmatter-key");
 		expect(error.message).toContain("`owner`");
 		expect(error.message).toContain("`severity`");
 		expect(error.message).toContain("Allowed fields:");
@@ -318,7 +318,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(error.code).toBe("invalid_model_profile");
+		expect(error.code).toBe("invalid-model-profile");
 	});
 
 	test.each(["yes", '"true"', "1", "[]"])("rejects invalid local_only %#", (localOnly) => {
@@ -334,7 +334,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(error.code).toBe("invalid_local_only");
+		expect(error.code).toBe("invalid-local-only");
 	});
 
 	test.each([
@@ -361,7 +361,7 @@ describe("parseReviewDefinition", () => {
 			),
 		);
 
-		expect(error.code).toBe("invalid_applicability");
+		expect(error.code).toBe("invalid-applicability");
 		expect(error.message).toContain(message);
 	});
 });

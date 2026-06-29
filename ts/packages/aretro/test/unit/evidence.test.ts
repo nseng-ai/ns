@@ -23,16 +23,16 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const toolUsageItems = items.filter((item) => item.kind === "tool_usage_count");
+		const toolUsageItems = items.filter((item) => item.kind === "tool-usage-count");
 		expect(toolUsageItems).toHaveLength(2);
 		const readItem = toolUsageItems.find((item) => item.subject === "read");
 		expect(readItem).toBeDefined();
 		if (readItem === undefined) throw new Error("readItem is undefined");
 		expect(readItem).toMatchObject({
-			kind: "tool_usage_count",
+			kind: "tool-usage-count",
 			subject: "read",
 			count: 2,
-			session_count: 1,
+			sessionCount: 1,
 		});
 	});
 
@@ -55,14 +55,14 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const failedItems = items.filter((item) => item.kind === "failed_tool_result");
+		const failedItems = items.filter((item) => item.kind === "failed-tool-result");
 		expect(failedItems).toHaveLength(1);
 		expect(failedItems[0]).toMatchObject({
-			kind: "failed_tool_result",
+			kind: "failed-tool-result",
 			subject: "read",
 			count: 1,
-			session_count: 1,
-			metadata: { error_message_count: 1 },
+			sessionCount: 1,
+			metadata: { errorMessageCount: 1 },
 		});
 		// Verify privacy: error message is not in the item
 		expect(JSON.stringify(failedItems[0])).not.toContain("PRIVATE_ERROR_TEXT");
@@ -91,13 +91,13 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const repeatedReads = items.filter((item) => item.kind === "repeated_file_read");
+		const repeatedReads = items.filter((item) => item.kind === "repeated-file-read");
 		expect(repeatedReads).toHaveLength(1);
 		expect(repeatedReads[0]).toMatchObject({
-			kind: "repeated_file_read",
+			kind: "repeated-file-read",
 			subject: "src/file.ts",
 			count: 2,
-			session_count: 1,
+			sessionCount: 1,
 		});
 	});
 
@@ -128,13 +128,13 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const repeatedCommands = items.filter((item) => item.kind === "repeated_shell_command");
+		const repeatedCommands = items.filter((item) => item.kind === "repeated-shell-command");
 		expect(repeatedCommands).toHaveLength(1);
 		expect(repeatedCommands[0]).toMatchObject({
-			kind: "repeated_shell_command",
+			kind: "repeated-shell-command",
 			subject: "just test",
 			count: 2,
-			session_count: 1,
+			sessionCount: 1,
 		});
 	});
 
@@ -166,11 +166,11 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const repeatedCommand = items.find((item) => item.kind === "repeated_shell_command");
+		const repeatedCommand = items.find((item) => item.kind === "repeated-shell-command");
 		if (repeatedCommand === undefined) throw new Error("repeatedCommand is undefined");
 		const expectedPrefix = createHash("sha256").update(command, "utf-8").digest("hex").slice(0, 16);
-		expect(repeatedCommand.metadata.command_sha256_prefix).toBe(expectedPrefix);
-		expect(repeatedCommand.metadata.subject_truncated).toBe(true);
+		expect(repeatedCommand.metadata.commandSha256Prefix).toBe(expectedPrefix);
+		expect(repeatedCommand.metadata.subjectTruncated).toBe(true);
 	});
 
 	it("sorts same-kind evidence by count before maximum output size", () => {
@@ -212,7 +212,7 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const largeOutputs = collectSessionEvidence(sessions).filter(
-			(item) => item.kind === "large_output_observed",
+			(item) => item.kind === "large-output-observed",
 		);
 		expect(largeOutputs.map((item) => item.subject)).toEqual([
 			"command_execution",
@@ -239,7 +239,7 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		expect(items[0]?.kind).toBe("tool_usage_count");
+		expect(items[0]?.kind).toBe("tool-usage-count");
 		expect(items[0]?.subject).toBe("read");
 	});
 
@@ -268,11 +268,11 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const tokenUsage = items.find((item) => item.kind === "token_usage_observed");
+		const tokenUsage = items.find((item) => item.kind === "token-usage-observed");
 		expect(tokenUsage).toBeDefined();
 		if (tokenUsage === undefined) throw new Error("tokenUsage is undefined");
 		expect(tokenUsage.metadata).toMatchObject({
-			usage_event_count: 2,
+			usageEventCount: 2,
 			input_tokens: 300,
 			output_tokens: 150,
 			cache_read_tokens: 10,
@@ -300,22 +300,22 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions);
-		const largeOutputs = items.filter((item) => item.kind === "large_output_observed");
+		const largeOutputs = items.filter((item) => item.kind === "large-output-observed");
 		expect(largeOutputs).toHaveLength(1);
 		const largeOutput = largeOutputs[0];
 		if (largeOutput === undefined) throw new Error("largeOutput is undefined");
 		expect(largeOutput).toMatchObject({
-			kind: "large_output_observed",
+			kind: "large-output-observed",
 			subject: "tool_result:read",
 			count: 1,
-			session_count: 1,
+			sessionCount: 1,
 		});
 		expect(largeOutput.metadata).toMatchObject({
-			truncated_count: 1,
-			char_threshold_hits: 1,
-			line_threshold_hits: 1,
-			max_output_length: 25_000,
-			max_line_count: 300,
+			truncatedCount: 1,
+			charThresholdHits: 1,
+			lineThresholdHits: 1,
+			maxOutputLength: 25_000,
+			maxLineCount: 300,
 		});
 	});
 
@@ -356,7 +356,7 @@ describe("collectSessionEvidence", () => {
 		];
 
 		const items = collectSessionEvidence(sessions, { repeatedFileReadThreshold: 3 });
-		const repeatedReads = items.filter((item) => item.kind === "repeated_file_read");
+		const repeatedReads = items.filter((item) => item.kind === "repeated-file-read");
 		// Only file2.ts should be included (3 reads >= threshold)
 		expect(repeatedReads).toHaveLength(1);
 		const repeatedRead = repeatedReads[0];

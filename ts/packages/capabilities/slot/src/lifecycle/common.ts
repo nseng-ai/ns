@@ -2,7 +2,7 @@ import type { WorktreeOccupancy } from "../gateways/repository.ts";
 import type { SlotRecord } from "../inventory.ts";
 
 export interface SlotLifecycleFailure {
-	error_type: string;
+	errorType: string;
 	message: string;
 }
 
@@ -20,13 +20,13 @@ export function poolFullFailure(
 ): SlotLifecycleFailure {
 	if (assigned.length === 0) {
 		return {
-			error_type: "pool_full",
+			errorType: "pool-full",
 			message: `Pool is full (no slots available). Run \`slot init\` or \`slot resize\` before ${options.action}.`,
 		};
 	}
 	const details = assigned.map(assignedSlotDetail).join("\n");
 	return {
-		error_type: "pool_full",
+		errorType: "pool-full",
 		message: `Pool is full. Currently assigned:\n${details}\nFree a slot before ${options.action}.`,
 	};
 }
@@ -54,7 +54,7 @@ export function branchOccupancyMessage(occupancy: WorktreeOccupancy): string {
 }
 
 export function branchInUseFailure(occupancy: WorktreeOccupancy): SlotLifecycleFailure {
-	return { error_type: "branch_in_use", message: branchOccupancyMessage(occupancy) };
+	return { errorType: "branch-in-use", message: branchOccupancyMessage(occupancy) };
 }
 
 export function slotOperationMessage(record: SlotRecord, options: { action: string }): string {

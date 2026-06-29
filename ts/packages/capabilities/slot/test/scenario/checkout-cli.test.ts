@@ -30,12 +30,12 @@ describe("slot checkout CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
-				slot_name: "slot-01",
-				branch_name: "feature/a",
-				cd_command: "cd /slots/repos/repo/worktrees/slot-01",
-				already_assigned: false,
-				created_branch: false,
-				clipboard_copied: true,
+				slotName: "slot-01",
+				branchName: "feature/a",
+				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
+				alreadyAssigned: false,
+				createdBranch: false,
+				clipboardCopied: true,
 			},
 		});
 		expect(run.git.operations()).toEqual([
@@ -119,7 +119,7 @@ describe("slot checkout CLI", () => {
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch_missing" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch-missing" });
 		expect(run.git.operations()).toEqual([]);
 	});
 
@@ -129,7 +129,7 @@ describe("slot checkout CLI", () => {
 		});
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
-			data: { created_branch: true, branch_name: "feature/new" },
+			data: { createdBranch: true, branchName: "feature/new" },
 		});
 		expect(run.git.operations()).toEqual([
 			{ type: "create-branch", branch: "feature/new", startPoint: "master", shouldForce: false },
@@ -153,7 +153,7 @@ describe("slot checkout CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch_in_use" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch-in-use" });
 	});
 
 	it("--current redirects only after allocation is executable", async () => {
@@ -174,7 +174,7 @@ describe("slot checkout CLI", () => {
 	it("rejects invalid argument combinations", async () => {
 		const run = runScenario(["checkout", "feature/a", "base", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "base_without_new" });
+		expect(parseJsonOutput(run)).toMatchObject({ errorType: "base-without-new" });
 	});
 
 	it("completes local branches for checkout branch and base positionals", async () => {

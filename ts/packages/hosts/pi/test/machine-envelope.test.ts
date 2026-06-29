@@ -42,7 +42,7 @@ describe("parseMachineEnvelopeData", () => {
 			parseMachineEnvelopeData(
 				JSON.stringify({
 					exitCode: 2,
-					errorType: "command_failed",
+					errorType: "command-failed",
 					message: "command failed",
 					data: {},
 				}),
@@ -53,15 +53,15 @@ describe("parseMachineEnvelopeData", () => {
 		).toEqual({
 			type: "failure",
 			exitCode: 2,
-			errorType: "command_failed",
+			errorType: "command-failed",
 			cliMessage: "command failed",
-			message: "test JSON reported failure: exitCode 2: errorType command_failed: command failed.",
+			message: "test JSON reported failure: exitCode 2: errorType command-failed: command failed.",
 		});
 	});
 
 	test("includes errorType and stdout tail in failure messages", () => {
 		const result = parseMachineEnvelopeData(
-			JSON.stringify({ exitCode: 4, errorType: "no_slot", message: "No slot." }),
+			JSON.stringify({ exitCode: 4, errorType: "no-slot", message: "No slot." }),
 			{
 				label: "test JSON",
 				stdoutTail: { maxChars: 100, maxLines: 1 },
@@ -70,7 +70,7 @@ describe("parseMachineEnvelopeData", () => {
 
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
-			expect(result.message).toContain("errorType no_slot");
+			expect(result.message).toContain("errorType no-slot");
 			expect(result.message).toContain("No slot.");
 			expect(result.message).toContain("stdout tail:");
 		}

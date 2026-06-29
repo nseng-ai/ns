@@ -372,7 +372,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 			}),
 			checkoutBranch: async () => ({
 				ok: false,
-				failure: { errorType: "no_available_slot", message: "No free slots." },
+				failure: { errorType: "no-available-slot", message: "No free slots." },
 			}),
 		} satisfies SlotClient;
 		const executor = createStackMapCmuxActivationExecutor({
@@ -386,7 +386,7 @@ describe("createStackMapCmuxActivationExecutor", () => {
 
 		await expect(executor.openNew("feature/current")).resolves.toEqual({
 			type: "failed",
-			message: "sdl slot checkout failed (no_available_slot): No free slots.",
+			message: "sdl slot checkout failed (no-available-slot): No free slots.",
 		});
 		expect(calls).toEqual([]);
 	});
@@ -683,29 +683,29 @@ function stackMapGraphFixture(): unknown {
 				name: "main",
 				parent: null,
 				children: ["feature/a", "feature/recent"],
-				validation_result: "TRUNK",
-				needs_restack: false,
+				validationResult: "TRUNK",
+				needsRestack: false,
 			},
 			{
 				name: "feature/a",
 				parent: "main",
 				children: ["feature/restack"],
-				validation_result: "VALID",
-				needs_restack: false,
+				validationResult: "VALID",
+				needsRestack: false,
 			},
 			{
 				name: "feature/restack",
 				parent: "feature/a",
 				children: [],
-				validation_result: "BAD_PARENT_NAME",
-				needs_restack: true,
+				validationResult: "BAD_PARENT_NAME",
+				needsRestack: true,
 			},
 			{
 				name: "feature/recent",
 				parent: "main",
 				children: [],
-				validation_result: "VALID",
-				needs_restack: false,
+				validationResult: "VALID",
+				needsRestack: false,
 			},
 		],
 		trunk: "main",
@@ -717,9 +717,9 @@ function stackMapGraphFixture(): unknown {
 		],
 		slots: [
 			{
-				slot_name: "slot-04",
+				slotName: "slot-04",
 				branch: "feature/a",
-				worktree_path: "/repo/worktrees/slot-04",
+				worktreePath: "/repo/worktrees/slot-04",
 				status: "assigned",
 			},
 		],

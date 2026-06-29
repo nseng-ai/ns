@@ -25,23 +25,23 @@ const seededEntries = [
 ];
 
 const sampleListResult: ListResult = {
-	namespace_scope: "all",
+	namespaceScope: "all",
 	key: null,
 	branch: "feat/x",
 	base: false,
-	all_branches: false,
+	allBranches: false,
 	entries: [
 		{
 			namespace: "base",
 			key: "scratch",
 			branch: "feat/x",
-			ref_name: "refs/brmem/ns/base/feat---x:scratch",
+			refName: "refs/brmem/ns/base/feat---x:scratch",
 		},
 		{
 			namespace: "notes",
 			key: "plan/body.md",
 			branch: "feat/x",
-			ref_name: "refs/brmem/ns/notes/feat---x:plan/body.md",
+			refName: "refs/brmem/ns/notes/feat---x:plan/body.md",
 		},
 	],
 };
@@ -68,7 +68,7 @@ describe("read-only brmem operations", () => {
 				key: "plan/body.md",
 				branch: "feat/x",
 				content: "named content",
-				ref_name: "refs/brmem/ns/notes/feat---x:plan/body.md",
+				refName: "refs/brmem/ns/notes/feat---x:plan/body.md",
 			},
 		});
 	});
@@ -84,9 +84,9 @@ describe("read-only brmem operations", () => {
 				namespace: "base",
 				key: "scratch",
 				present: true,
-				head_sha: "head-base",
-				blob_sha: "blob-base",
-				size_bytes: 12,
+				headSha: "head-base",
+				blobSha: "blob-base",
+				sizeBytes: 12,
 			},
 		});
 
@@ -100,9 +100,9 @@ describe("read-only brmem operations", () => {
 				namespace: "base",
 				key: "missing",
 				present: false,
-				head_sha: null,
-				blob_sha: null,
-				size_bytes: null,
+				headSha: null,
+				blobSha: null,
+				sizeBytes: null,
 			},
 		});
 	});
@@ -149,8 +149,8 @@ describe("read-only brmem operations", () => {
 				namespace: "branch-context",
 				key: "plan.md",
 				at: first.value.commitSha,
-				head_sha: first.value.commitSha,
-				size_bytes: 11,
+				headSha: first.value.commitSha,
+				sizeBytes: 11,
 			},
 		});
 	});
@@ -162,7 +162,7 @@ describe("read-only brmem operations", () => {
 		expect(await run.exit).toBe(2);
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "invalid_key",
+			errorType: "invalid-key",
 		});
 	});
 
@@ -173,7 +173,7 @@ describe("read-only brmem operations", () => {
 		expect(await defaultRun.exit).toBe(0);
 		expect(JSON.parse(defaultRun.stdout.join(""))).toMatchObject({
 			data: {
-				namespace_scope: "all",
+				namespaceScope: "all",
 				branch: "feat/x",
 				entries: [{ namespace: "base" }, { namespace: "notes" }],
 			},
@@ -187,7 +187,7 @@ describe("read-only brmem operations", () => {
 		);
 		expect(await allBranches.exit).toBe(0);
 		expect(JSON.parse(allBranches.stdout.join(""))).toMatchObject({
-			data: { namespace_scope: "notes", branch: null, all_branches: true },
+			data: { namespaceScope: "notes", branch: null, allBranches: true },
 		});
 
 		const baseHuman = runScenario(["list", "--base"], {
@@ -207,7 +207,7 @@ describe("read-only brmem operations", () => {
 		expect(await conflict.exit).toBe(2);
 		expect(JSON.parse(conflict.stdout.join(""))).toMatchObject({
 			exitCode: 2,
-			errorType: "base_and_namespace_conflict",
+			errorType: "base-and-namespace-conflict",
 		});
 	});
 

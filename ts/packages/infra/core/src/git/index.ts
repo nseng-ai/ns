@@ -166,7 +166,7 @@ export class RealGitGateway implements GitGateway {
 		if (run.value.result.code !== 0 || run.value.result.killed) {
 			return {
 				type: "failure",
-				error: failure("current_branch_failed", "git branch --show-current failed", run.value),
+				error: failure("current-branch-failed", "git branch --show-current failed", run.value),
 			};
 		}
 
@@ -229,7 +229,7 @@ export class RealGitGateway implements GitGateway {
 			return {
 				type: "error",
 				error: failure(
-					"origin_url_killed",
+					"origin-url-killed",
 					"git config --get remote.origin.url was killed",
 					run.value,
 				),
@@ -239,7 +239,7 @@ export class RealGitGateway implements GitGateway {
 		if (run.value.result.code === 1) return { type: "missing" };
 		return {
 			type: "error",
-			error: failure("origin_url_failed", "git config --get remote.origin.url failed", run.value),
+			error: failure("origin-url-failed", "git config --get remote.origin.url failed", run.value),
 		};
 	}
 
@@ -309,7 +309,7 @@ export class RealGitGateway implements GitGateway {
 		if (run.value.result.code !== 0 || run.value.result.killed) {
 			return {
 				ok: false,
-				error: failure("branch_ref_invalid", "git check-ref-format failed", run.value),
+				error: failure("branch-ref-invalid", "git check-ref-format failed", run.value),
 			};
 		}
 		return { ok: true };
@@ -323,7 +323,7 @@ export class RealGitGateway implements GitGateway {
 			return {
 				type: "error",
 				error: failure(
-					"branch_presence_killed",
+					"branch-presence-killed",
 					"git branch existence check was killed",
 					run.value,
 				),
@@ -337,7 +337,7 @@ export class RealGitGateway implements GitGateway {
 		}
 		return {
 			type: "error",
-			error: failure("branch_presence_failed", "git branch existence check failed", run.value),
+			error: failure("branch-presence-failed", "git branch existence check failed", run.value),
 		};
 	}
 
@@ -345,7 +345,7 @@ export class RealGitGateway implements GitGateway {
 		const run = await this.runGit(params, ["branch", params.branch, "HEAD"]);
 		if (!run.ok) return run;
 		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return { ok: false, error: failure("branch_create_failed", "git branch failed", run.value) };
+			return { ok: false, error: failure("branch-create-failed", "git branch failed", run.value) };
 		}
 		return { ok: true };
 	}

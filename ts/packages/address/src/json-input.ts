@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 
 export interface JsonInputError {
-	errorType: "invalid_json" | "invalid_request";
+	errorType: "invalid-json" | "invalid-request";
 	message: string;
 }
 
@@ -36,7 +36,7 @@ async function readJsonInputText(
 		return {
 			type: "error",
 			error: {
-				errorType: "invalid_request",
+				errorType: "invalid-request",
 				message: `${options.commandName} accepts only one ${options.inputDescription} source; do not pass both ${options.optionName} and ${fileOptionName(options.fileOptionName)}.`,
 			},
 		};
@@ -54,7 +54,7 @@ async function readJsonInputText(
 		return {
 			type: "error",
 			error: {
-				errorType: "invalid_request",
+				errorType: "invalid-request",
 				message: `${options.commandName} requires a non-empty ${options.inputDescription} via ${sourceDescription}`,
 			},
 		};
@@ -94,7 +94,7 @@ async function readRawPayload(
 	return {
 		type: "error",
 		error: {
-			errorType: "invalid_request",
+			errorType: "invalid-request",
 			message: `${options.commandName} requires ${options.inputDescription} via ${describeSources(options.optionName, options.fileOptionName, false)}.`,
 		},
 	};
@@ -116,7 +116,7 @@ async function readJsonInputFile(
 		return {
 			type: "error",
 			error: {
-				errorType: "invalid_request",
+				errorType: "invalid-request",
 				message: `${options.commandName} ${fileOptionName(options.fileOptionNameValue)} must point to an existing file for ${options.inputDescription}: ${options.filePath}`,
 			},
 		};
@@ -161,7 +161,7 @@ function parseJsonWithSchema<T>(options: JsonSchemaParseOptions<T>): JsonInputRe
 		return {
 			type: "error",
 			error: {
-				errorType: "invalid_json",
+				errorType: "invalid-json",
 				message: `Invalid ${options.jsonDescription}: ${jsonParseMessage(error)}`,
 			},
 		};
@@ -184,7 +184,7 @@ function parseJsonValueWithSchema<T>(options: {
 		return {
 			type: "error",
 			error: {
-				errorType: "invalid_request",
+				errorType: "invalid-request",
 				message: `Invalid ${options.schemaDescription}: ${z.prettifyError(parseResult.error)}`,
 			},
 		};

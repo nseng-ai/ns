@@ -19,10 +19,10 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	const parent = await ctx.gt.parentOf(resolved.repoCtx.repo.root);
 	if (parent.type === "untracked_branch")
 		return failure(
-			"untracked_branch",
+			"untracked-branch",
 			`Current branch '${resolved.currentBranch}' is not tracked by Graphite. ${parent.message}`,
 		);
-	if (parent.type === "failure") return failure("gt_parent_failed", parent.failure.message);
+	if (parent.type === "failure") return failure("gt-parent-failed", parent.failure.message);
 	if (parent.type === "no_parent")
 		return negative(`No downstack branch for '${resolved.currentBranch}'.`);
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, parent.branch);

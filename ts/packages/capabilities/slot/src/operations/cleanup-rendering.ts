@@ -36,18 +36,18 @@ export function cleanupResultLine(result: SlotFreeCleanupResult, caps?: Caps | u
 }
 
 function cleanupSubject(result: SlotFreeCleanupResult): string {
-	if (result.action === "pr") return result.pr_number === null ? "PR" : `PR #${result.pr_number}`;
-	return `local branch ${result.branch_name}`;
+	if (result.action === "pr") return result.prNumber === null ? "PR" : `PR #${result.prNumber}`;
+	return `local branch ${result.branchName}`;
 }
 
 function cleanupPlannedText(result: SlotFreeCleanupResult): string {
-	if (result.action === "pr") return `would close PR #${result.pr_number}`;
-	return `would force-delete local branch ${result.branch_name}`;
+	if (result.action === "pr") return `would close PR #${result.prNumber}`;
+	return `would force-delete local branch ${result.branchName}`;
 }
 
 function cleanupSuccessText(result: SlotFreeCleanupResult): string {
-	if (result.action === "pr") return `Closed PR #${result.pr_number}`;
-	return `Force-deleted local branch ${result.branch_name}`;
+	if (result.action === "pr") return `Closed PR #${result.prNumber}`;
+	return `Force-deleted local branch ${result.branchName}`;
 }
 
 function cleanupSkippedText(result: SlotFreeCleanupResult): string {
@@ -57,10 +57,10 @@ function cleanupSkippedText(result: SlotFreeCleanupResult): string {
 function cleanupFailureText(result: SlotFreeCleanupResult): string {
 	const message = result.message ?? "failed";
 	if (result.action === "pr") {
-		if (result.pr_number !== null) return `Failed to close PR #${result.pr_number}: ${message}`;
+		if (result.prNumber !== null) return `Failed to close PR #${result.prNumber}: ${message}`;
 		return `Failed to close PR: ${message}`;
 	}
-	return `Failed to force-delete local branch ${result.branch_name}: ${message}`;
+	return `Failed to force-delete local branch ${result.branchName}: ${message}`;
 }
 
 function stylePlanned(caps: Caps | undefined, text: string): string {

@@ -26,8 +26,8 @@ import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
 const exportedEntrySchema = z.object({
 	key: z.string(),
 	path: z.string(),
-	ref_name: z.string(),
-	size_bytes: z.number().int(),
+	refName: z.string(),
+	sizeBytes: z.number().int(),
 });
 
 export const exportRequestSchema = z.object({
@@ -50,9 +50,9 @@ export const exportRequestSchema = z.object({
 export const exportResultSchema = z.object({
 	namespace: z.string(),
 	branch: z.string(),
-	output_dir: z.string(),
+	outputDir: z.string(),
 	overwrite: z.boolean(),
-	dry_run: z.boolean(),
+	dryRun: z.boolean(),
 	exported: z.array(exportedEntrySchema),
 });
 
@@ -78,11 +78,11 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const namespace = normalizeNamespaceOption(request.namespace);
 	const requestFailure = firstFailure(
 		[
-			"invalid_namespace",
+			"invalid-namespace",
 			validationMessage("namespace", namespace, validateNamespaceName(namespace)),
 		],
 		[
-			"invalid_branch_name",
+			"invalid-branch-name",
 			request.branch === undefined
 				? undefined
 				: validationMessage("branch name", request.branch, validateBranchName(request.branch)),
@@ -94,15 +94,15 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	if (typeof branchResult !== "string") return branchResult;
 	const branch = branchResult;
 	const branchFailure = validationMessage("branch name", branch, validateBranchName(branch));
-	if (branchFailure !== undefined) return failure("invalid_branch_name", branchFailure);
+	if (branchFailure !== undefined) return failure("invalid-branch-name", branchFailure);
 
 	const outputDir = resolveOutputDir(request.outputDir, ctx.cwd);
 	const baseResult: ExportResult = {
 		namespace,
 		branch,
-		output_dir: outputDir,
+		outputDir: outputDir,
 		overwrite: request.overwrite,
-		dry_run: request.dryRun,
+		dryRun: request.dryRun,
 		exported: [],
 	};
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
@@ -128,16 +128,16 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 			await mkdir(resolve(targetPathValue, ".."), { recursive: true });
 			await writeFile(targetPathValue, item.content, "utf8");
 		} catch (error: unknown) {
-			return failure("write_failed", `Failed to write ${targetPathValue}: ${errorMessage(error)}`);
+			return failure("write-failed", `Failed to write ${targetPathValue}: ${errorMessage(error)}`);
 		}
 	}
 	return ok(result);
 }
 
 export function renderExport(result: ExportResult): string {
-	const verb = result.dry_run ? "Would export" : "Exported";
+	const verb = result.dryRun ? "Would export" : "Exported";
 	const lines = [
-		`${verb} ${selectionSummary(result.namespace, result.exported.length)} on Branch ${result.branch} to ${result.output_dir}.`,
+		`${verb} ${selectionSummary(result.namespace, result.exported.length)} on Branch ${result.branch} to ${result.outputDir}.`,
 	];
 	for (const item of result.exported) lines.push(`  ${item.key} -> ${item.path}`);
 	return lines.join("\n");
@@ -158,7 +158,7 @@ async function prepareExports(
 			return {
 				type: "failure",
 				exit: failure(
-					"duplicate_target_path",
+					"duplicate-target-path",
 					`Export keys ${JSON.stringify(previousKey)} and ${JSON.stringify(entry.key)} map to the same target path: ${target.path}`,
 				),
 			};
@@ -176,7 +176,7 @@ async function prepareExports(
 			return {
 				type: "failure",
 				exit: failure(
-					"entry_diagnostic_missing",
+					"entry-diagnostic-missing",
 					`Could not inspect Branch Memory Entry ${entry.entryLocator}.`,
 				),
 			};
@@ -192,7 +192,7 @@ async function prepareExports(
 			return {
 				type: "failure",
 				exit: failure(
-					"entry_content_missing",
+					"entry-content-missing",
 					`Could not read Branch Memory Entry ${entry.entryLocator}.`,
 				),
 			};
@@ -221,8 +221,8 @@ function buildPreparedExport(options: BuildPreparedExportOptions): PreparedExpor
 		exportedEntry: {
 			key: options.entry.key,
 			path: options.targetPathValue,
-			ref_name: options.entry.entryLocator,
-			size_bytes: options.diagnostic.sizeBytes,
+			refName: options.entry.entryLocator,
+			sizeBytes: options.diagnostic.sizeBytes,
 		},
 		content: options.content.content,
 	};
@@ -234,14 +234,14 @@ function targetPath(
 ): { type: "ok"; path: string } | { type: "failure"; exit: ClinkrExit<ExportResult> } {
 	const keyFailure = validationMessage("key", key, validateEntryKey(key));
 	if (keyFailure !== undefined)
-		return { type: "failure", exit: failure("invalid_key", keyFailure) };
+		return { type: "failure", exit: failure("invalid-key", keyFailure) };
 	const parts = key.split("/");
 	const unsafeSegment = parts.find((part) => part === "" || part === "." || part === "..");
 	if (unsafeSegment !== undefined) {
 		return {
 			type: "failure",
 			exit: failure(
-				"unsafe_key",
+				"unsafe-key",
 				`Unsafe export key ${JSON.stringify(key)}: path segment ${JSON.stringify(unsafeSegment)} is not allowed.`,
 			),
 		};
@@ -272,7 +272,7 @@ async function preflightOutputDir(outputDir: string): Promise<PreflightResult> {
 		return {
 			type: "failure",
 			exit: failure(
-				"write_failed",
+				"write-failed",
 				`Failed to inspect output directory ${outputDir}: ${linkState.message}`,
 			),
 		};
@@ -283,20 +283,20 @@ async function preflightOutputDir(outputDir: string): Promise<PreflightResult> {
 			return {
 				type: "failure",
 				exit: failure(
-					"write_failed",
+					"write-failed",
 					`Failed to inspect output directory ${outputDir}: ${targetState.message}`,
 				),
 			};
 		if (targetState.type === "missing")
 			return {
 				type: "failure",
-				exit: failure("unsafe_output_dir", `Output directory is a broken symlink: ${outputDir}`),
+				exit: failure("unsafe-output-dir", `Output directory is a broken symlink: ${outputDir}`),
 			};
 		if (!targetState.isDirectory)
 			return {
 				type: "failure",
 				exit: failure(
-					"output_dir_not_directory",
+					"output-dir-not-directory",
 					`Output directory exists and is not a directory: ${outputDir}`,
 				),
 			};
@@ -306,7 +306,7 @@ async function preflightOutputDir(outputDir: string): Promise<PreflightResult> {
 		return {
 			type: "failure",
 			exit: failure(
-				"output_dir_not_directory",
+				"output-dir-not-directory",
 				`Output directory exists and is not a directory: ${outputDir}`,
 			),
 		};
@@ -324,19 +324,19 @@ async function preflightParentPaths(
 		if (state.type === "error")
 			return {
 				type: "failure",
-				exit: failure("write_failed", `Failed to inspect parent path ${current}: ${state.message}`),
+				exit: failure("write-failed", `Failed to inspect parent path ${current}: ${state.message}`),
 			};
 		if (state.type === "present") {
 			if (state.isSymlink)
 				return {
 					type: "failure",
-					exit: failure("unsafe_parent_path", `Parent path is a symlink: ${current}`),
+					exit: failure("unsafe-parent-path", `Parent path is a symlink: ${current}`),
 				};
 			if (!state.isDirectory)
 				return {
 					type: "failure",
 					exit: failure(
-						"parent_not_directory",
+						"parent-not-directory",
 						`Parent path exists and is not a directory: ${current}`,
 					),
 				};
@@ -357,7 +357,7 @@ async function preflightTargetPath(
 		return {
 			type: "failure",
 			exit: failure(
-				"write_failed",
+				"write-failed",
 				`Failed to inspect target path ${targetPathValue}: ${state.message}`,
 			),
 		};
@@ -365,23 +365,23 @@ async function preflightTargetPath(
 	if (state.isSymlink)
 		return {
 			type: "failure",
-			exit: failure("unsafe_target_path", `Target path is a symlink: ${targetPathValue}`),
+			exit: failure("unsafe-target-path", `Target path is a symlink: ${targetPathValue}`),
 		};
 	if (state.isDirectory)
 		return {
 			type: "failure",
-			exit: failure("target_is_directory", `Target path is a directory: ${targetPathValue}`),
+			exit: failure("target-is-directory", `Target path is a directory: ${targetPathValue}`),
 		};
 	if (!state.isFile)
 		return {
 			type: "failure",
-			exit: failure("unsafe_target_path", `Target path is not a regular file: ${targetPathValue}`),
+			exit: failure("unsafe-target-path", `Target path is not a regular file: ${targetPathValue}`),
 		};
 	if (!overwrite)
 		return {
 			type: "failure",
 			exit: failure(
-				"target_exists",
+				"target-exists",
 				`Target already exists: ${targetPathValue}. Pass --overwrite to replace it.`,
 			),
 		};

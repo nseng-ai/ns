@@ -20,7 +20,7 @@ export interface GrillAskStatusRow {
 }
 
 export interface GrillAskEndGrillRow {
-	kind: "end_grill";
+	kind: "end-grill";
 	index: number;
 }
 
@@ -43,7 +43,7 @@ export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[]
 	}
 	rows.push({ kind: "status", index: rows.length + 1 });
 	if (input.allowEnd) {
-		rows.push({ kind: "end_grill", index: rows.length + 1 });
+		rows.push({ kind: "end-grill", index: rows.length + 1 });
 	}
 
 	return rows;
@@ -72,8 +72,8 @@ export function rowValue(row: GrillAskRow): string {
 			return "__freeform__";
 		case "status":
 			return "__status__";
-		case "end_grill":
-			return "__end_grill__";
+		case "end-grill":
+			return "__end-grill__";
 		default: {
 			const exhaustive: never = row;
 			return exhaustive;
@@ -89,7 +89,7 @@ export function rowLabel(row: GrillAskRow): string {
 			return `${row.index}. Other / freeform answer`;
 		case "status":
 			return `${row.index}. Show current grill status`;
-		case "end_grill":
+		case "end-grill":
 			return `${row.index}. End grilling session`;
 		default: {
 			const exhaustive: never = row;
@@ -133,7 +133,7 @@ export function rowSelectDisplay(row: GrillAskRow): string {
 			return `${row.index}. ✎ Other / freeform answer`;
 		case "status":
 			return `${row.index}. ℹ Show current grill status`;
-		case "end_grill":
+		case "end-grill":
 			return `${row.index}. ⏹ End grilling session`;
 		default: {
 			const exhaustive: never = row;
