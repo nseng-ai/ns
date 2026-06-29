@@ -481,6 +481,7 @@ function submitUpdateStep(branch: string): ScriptedExec {
 		"--no-edit",
 		"--no-ai",
 		"--no-interactive",
+		"--force",
 	]);
 }
 
@@ -2116,6 +2117,52 @@ describe("land-stack command scenarios", () => {
 				.filter((call) => call.command === "gt" && call.args[0] === "restack")
 				.map((call) => call.args[2]),
 		).toEqual(["feature-b", DESCENDANT]);
+		const submitCalls = pi.execCalls.filter(
+			(call) => call.command === "gt" && call.args[0] === "submit",
+		);
+		expect(submitCalls.map((call) => call.args)).toEqual([
+			[
+				"submit",
+				"--branch",
+				"feature-b",
+				"--no-stack",
+				"--update-only",
+				"--no-edit",
+				"--no-ai",
+				"--no-interactive",
+				"--force",
+			],
+			[
+				"submit",
+				"--branch",
+				DESCENDANT,
+				"--no-stack",
+				"--update-only",
+				"--no-edit",
+				"--no-ai",
+				"--no-interactive",
+				"--force",
+			],
+		]);
+		const merge101Index = pi.execCalls.findIndex(
+			(call) =>
+				call.command === "gh" &&
+				sameArgs(call.args, expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
+		);
+		const restackFeatureBIndex = pi.execCalls.findIndex(
+			(call) =>
+				call.command === "gt" &&
+				sameArgs(call.args, ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
+		);
+		const submitFeatureBIndex = pi.execCalls.findIndex((call) => call === submitCalls[0]);
+		const merge102Index = pi.execCalls.findIndex(
+			(call) =>
+				call.command === "gh" &&
+				sameArgs(call.args, expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
+		);
+		expect(merge101Index).toBeLessThan(restackFeatureBIndex);
+		expect(restackFeatureBIndex).toBeLessThan(submitFeatureBIndex);
+		expect(submitFeatureBIndex).toBeLessThan(merge102Index);
 		const descendantRestackCallIndex = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "gt" &&
@@ -3515,6 +3562,7 @@ describe("land-stack command scenarios", () => {
 					"--no-edit",
 					"--no-ai",
 					"--no-interactive",
+					"--force",
 				],
 				{
 					code: 1,

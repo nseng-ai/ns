@@ -711,6 +711,9 @@ async function submitMaintenanceBranch(options: {
 		"--no-edit",
 		"--no-ai",
 		"--no-interactive",
+		// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
+		// still be on old stack history; keep pre-merge submit/update conservative.
+		"--force",
 	];
 	const submitted = await execGraphite(pi, {
 		args: submitArgs,
