@@ -1,14 +1,11 @@
 // Capability API (`sdl-flow/api`): the curated, in-process surface for
 // Flow workflow consumers. CCC imports this seam for Flow-owned autobranch
-// behavior instead of importing `@sdl/autobranch/*` internals directly.
+// behavior instead of importing private Flow internals directly.
 //
 // Export classification:
 // - Stable Flow Capability API: checkpoint autobranch request/input/result
 //   vocabulary and the cohesive checkpoint operation that chooses dirty-worktree
 //   versus latest-commit behavior from the current worktree snapshot.
-// - Transitional implementation detail: this API delegates to the current
-//   `@sdl/autobranch` package while the package fold is completed in a later
-//   Objective slice.
 // - Not exported here: raw slug helpers, dirty/latest transaction primitives,
 //   presentation renderers, or command schemas.
 
@@ -17,8 +14,8 @@ import {
 	type AutobranchFlowResult,
 	type FileStat,
 	type ParsedAutobranchArgs,
-} from "@sdl/autobranch/dirty-worktree";
-import { createLatestCommitAutobranchFlow } from "@sdl/autobranch/latest-commit";
+} from "./autobranch/dirty-worktree.ts";
+import { createLatestCommitAutobranchFlow } from "./autobranch/latest-commit.ts";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import {
 	formatPendingWorktreeCommandDetails,

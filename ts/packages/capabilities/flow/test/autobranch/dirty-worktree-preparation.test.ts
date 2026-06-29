@@ -2,9 +2,10 @@ import { describe, expect, test } from "vitest";
 import {
 	prepareAutobranchPlan,
 	type AutobranchPreparationInput,
-} from "@sdl/autobranch/dirty-worktree";
+} from "../../src/autobranch/dirty-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/core/branch-slug";
 import { buildSlugModelArgs } from "@sdl/core/model-slug";
+import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
 	eventIndex,
 	fail,
@@ -117,6 +118,35 @@ function piPrompt(calls: ExecCall[]): string {
 	return call.args.at(-1) ?? "";
 }
 
+function buildPromptWithTruncatedEvidence(content: string, maxChars: number): string {
+	return buildBranchSlugPrompt({
+		intro: "Generate a slug.",
+		evidenceSections: [{ heading: "evidence", content, maxChars }],
+	});
+}
+
+describe("buildBranchSlugPrompt truncation", () => {
+	test("leaves short and exact-boundary evidence unchanged", () => {
+		expect(buildPromptWithTruncatedEvidence("abc", 5)).toContain("## evidence\nabc");
+		expect(buildPromptWithTruncatedEvidence("abc", 3)).toContain("## evidence\nabc");
+	});
+
+	test("uses restored Unicode truncation marker for overlong evidence", () => {
+		const prompt = buildPromptWithTruncatedEvidence("abcdef", 3);
+
+		expect(prompt).toContain("## evidence\nabc\n…[truncated]");
+		expect(prompt).not.toContain("...[truncated]");
+	});
+
+	test("normalizes fractional, zero, and negative limits", () => {
+		expect(buildPromptWithTruncatedEvidence("abcdef", 2.8)).toContain(
+			"## evidence\nab\n…[truncated]",
+		);
+		expect(buildPromptWithTruncatedEvidence("abcdef", 0)).toContain("## evidence\n…");
+		expect(buildPromptWithTruncatedEvidence("abcdef", -1)).toContain("## evidence\n…");
+	});
+});
+
 describe("prepareAutobranchPlan", () => {
 	test("explicit valid slug returns requested plan without model or untracked reads", async () => {
 		const harness = createHarness({ slug: "Test Branch" });
@@ -188,6 +218,20 @@ describe("prepareAutobranchPlan", () => {
 		expect(prompt).toContain(
 			"## untracked file contents\n## notes.txt\nnew idea from untracked file",
 		);
+	});
+
+	test("generated slug truncates long untracked snippets with restored marker", async () => {
+		const harness = createHarness({
+			untrackedFiles: { "notes.txt": "a".repeat(4_001) },
+		});
+
+		const result = await prepareAutobranchPlan(harness.input);
+
+		expect(result.ok).toBe(true);
+		const prompt = piPrompt(harness.calls);
+		expect(prompt).toContain("## untracked file contents\n## notes.txt\n");
+		expect(prompt).toContain("\n…[truncated]");
+		expect(prompt).not.toContain("\n...[truncated]");
 	});
 
 	test("model failure falls back to changed paths and returns a non-fatal warning", async () => {

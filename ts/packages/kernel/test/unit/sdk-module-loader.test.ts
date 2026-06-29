@@ -46,9 +46,4 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	const modelSlugModule =
 		await jiti.import<typeof import("@sdl/core/model-slug")>("@sdl/core/model-slug");
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
-
-	const autobranchModule = await jiti.import<typeof import("@sdl/autobranch/dirty-worktree")>(
-		"@sdl/autobranch/dirty-worktree",
-	);
-	expect(typeof autobranchModule.runDirtyAutobranchFlow).toBe("function");
 });

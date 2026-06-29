@@ -12,7 +12,7 @@ import {
 	runLatestCommitAutobranchTransaction,
 	type LatestCommitAutobranchPlan,
 	type LatestCommitTransactionInput,
-} from "@sdl/autobranch/latest-commit";
+} from "../../src/autobranch/latest-commit.ts";
 import { buildSlugModelArgs } from "@sdl/core/model-slug";
 
 interface PreparationHarnessOptions {

@@ -429,16 +429,16 @@ describe("TypeScript style guard package tier layering rules", () => {
 
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
-		"@sdl/autobranch",
 		"@sdl/branch-context",
 		"@sdl/ccc",
 		"@sdl/pi",
 		"@sdl/kernel",
+		"sdl-flow",
 	]);
-	const legacyDeferredCycleEdges: readonly SyntheticEdge[] = [
-		{ from: "@sdl/autobranch", to: "@sdl/pi" },
+	const syntheticCapabilityKernelPiCycleEdges: readonly SyntheticEdge[] = [
+		{ from: "sdl-flow", to: "@sdl/pi" },
 		{ from: "@sdl/pi", to: "@sdl/kernel" },
-		{ from: "@sdl/kernel", to: "@sdl/autobranch" },
+		{ from: "@sdl/kernel", to: "sdl-flow" },
 	];
 	const cases: readonly DependencyGraphCase[] = [
 		{
@@ -456,8 +456,8 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 			expectedTextIncludes: "dependencies.@sdl/pi",
 		},
 		{
-			name: "former autobranch pi sdl manifest cycle is rejected",
-			edges: legacyDeferredCycleEdges,
+			name: "synthetic capability pi sdk manifest cycle is rejected",
+			edges: syntheticCapabilityKernelPiCycleEdges,
 			shouldHaveCycle: true,
 			expectedTextIncludes: "dependencies.@sdl/pi",
 		},

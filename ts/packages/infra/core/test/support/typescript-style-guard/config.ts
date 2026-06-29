@@ -100,7 +100,6 @@ export const manifestDependencyFields = [
 
 export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
-	"@sdl/autobranch",
 	"@sdl/pi",
 	"@sdl/kernel",
 	"@sdl/worktree-status",

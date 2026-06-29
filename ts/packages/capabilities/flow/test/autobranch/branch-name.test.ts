@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { findAvailableBranchName } from "@sdl/autobranch/branch-name";
+import { findAvailableBranchName } from "../../src/autobranch/branch-name.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
 interface BranchAvailabilityHarnessOptions {

@@ -35,6 +35,11 @@ const PULL_TRUNK_COMMAND_PATH = join(
 	"ts/packages/capabilities/flow/src/commands/pull-trunk.ts",
 );
 const FLOW_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/package.json");
+const OLD_AUTOBRANCH_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/autobranch");
+const FLOW_AUTOBRANCH_INTERNAL_PATH = join(
+	REPO_ROOT,
+	"ts/packages/capabilities/flow/src/autobranch/dirty-worktree.ts",
+);
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
 	["ts/packages/capabilities/flow/src/shared", "branch-availability.ts"],
@@ -44,16 +49,17 @@ const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
 ] as const;
 
 describe("project extension shared flow foundations", () => {
-	test("flow autobranch commands use the package-owned autobranch helpers", async () => {
+	test("flow autobranch commands use Flow-owned private autobranch helpers", async () => {
 		const autobranchSource = await readFile(AUTOBRANCH_COMMAND_PATH, "utf8");
 		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 
-		expect(autobranchSource).toContain("@sdl/autobranch/dirty-worktree");
-		expect(branchLatestCommitSource).toContain("@sdl/autobranch/latest-commit");
-		expect(autobranchSource).not.toContain(["../shared", "branch-slugs"].join("/"));
-		expect(branchLatestCommitSource).not.toContain(
-			["../shared", ["latest", "commit", "autobranch"].join("-")].join("/"),
-		);
+		expect(autobranchSource).toContain("../autobranch/dirty-worktree.ts");
+		expect(branchLatestCommitSource).toContain("../autobranch/latest-commit.ts");
+		const oldAutobranchPackageName = ["@sdl", "autobranch"].join("/");
+		expect(autobranchSource).not.toContain(`${oldAutobranchPackageName}/dirty-worktree`);
+		expect(branchLatestCommitSource).not.toContain(`${oldAutobranchPackageName}/latest-commit`);
+		await expect(access(FLOW_AUTOBRANCH_INTERNAL_PATH, constants.F_OK)).resolves.toBeUndefined();
+		await expect(access(OLD_AUTOBRANCH_PACKAGE_PATH, constants.F_OK)).rejects.toThrow();
 		for (const [directory, fileName] of REMOVED_LOCAL_AUTOBRANCH_HELPERS) {
 			await expect(access(join(REPO_ROOT, directory, fileName), constants.F_OK)).rejects.toThrow();
 		}
