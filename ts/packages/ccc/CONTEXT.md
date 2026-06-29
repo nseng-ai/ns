@@ -1,6 +1,6 @@
 # @sdl/ccc
 
-`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities and neutral `@sdl/pi/...` helpers; the unified `@sdl/pi` package no longer imports or declares `@sdl/ccc`, so the dependency runs one way (CCC → neutral Pi helpers).
+`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities through Pi-free orchestration interfaces. Pi-specific CCC registration and presentation wiring belongs in the planned `@sdl/ccc-pi` adapter package, which imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers; the target end state is zero `@sdl/ccc` imports from `@sdl/pi/...`.
 
 ## Language
 
@@ -17,8 +17,12 @@ The package-level implementation home for workflows that must compose multiple l
 *Avoid*: primitive gateway, storage backend, UI adapter, one-off script.
 
 **CCC boundary**:
-The dependency direction rule: CCC may depend on lower-level packages, CLIs, and neutral `@sdl/pi/...` helper subpaths that expose primitive operations. Most lower capability packages, including the unified `@sdl/pi` package, must not import `@sdl/ccc`; CCC depends on them and on neutral `@sdl/pi/...` helper subpaths, not the reverse. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands, since they are not part of the `@sdl/pi` package. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
-*Avoid*: circular helper import, public API promise, compatibility alias.
+The dependency direction rule: CCC may depend on lower-level packages, CLIs, and provider **Capability APIs**, but not on the Pi host. Pi-specific CCC command registration, acknowledgement/progress presentation, prompt/session formatting, machine-envelope parsing, and slash-command formatting belongs in the **CCC Pi adapter**. Checked-in `.pi/extensions/*.ts` project-local adapters at the repo root may still register CCC-owned commands by importing the owning adapter package, since they are not part of the `@sdl/pi` package. CCC-owned Pi command surfaces use the `ccc` slash-command prefix; cmux wording is reserved for the external tool/workspace domain.
+*Avoid*: circular helper import, direct `@sdl/pi/...` imports from `@sdl/ccc`, public API promise, compatibility alias.
+
+**CCC Pi adapter**:
+The planned `@sdl/ccc-pi` `capability-pi` package that presents CCC workflows inside Pi/cmux by importing both `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while `@sdl/ccc` exposes a small Pi-free orchestration interface, preferably `@sdl/ccc/api`.
+*Avoid*: CCC domain owner, Pi host internals package, pass-through shim, place for non-Pi orchestration logic.
 
 **Lower capability**:
 A package, CLI, gateway, or runtime module that owns one narrower primitive or domain operation for CCC to compose, such as neutral `@sdl/pi/...` helper contracts, branch-context creation/loading, Branch Memory storage, Objective record access, Git/Graphite facts, command execution, Pi registration, or cmux workspace mutation.
