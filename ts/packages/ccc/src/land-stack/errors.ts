@@ -5,10 +5,10 @@ export {
 	isFailure,
 	landStackFailure,
 	success,
-} from "sdl-flow/land-stack/errors";
+} from "sdl-flow/api";
 export type {
 	LandStackFailure,
 	LandStackFailureOptions,
 	LandStackOutcome,
 	LandStackResult,
-} from "sdl-flow/land-stack/errors";
+} from "sdl-flow/api";

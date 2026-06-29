@@ -8,5 +8,5 @@ export type {
 	NotifyLevel,
 	PrintOutput,
 	ValidPullRequestView,
-} from "sdl-flow/land";
-export { parsePullRequestView, registerLandCommand, runLandCli } from "sdl-flow/land";
+} from "sdl-flow/api";
+export { parsePullRequestView, registerLandCommand, runLandCli } from "sdl-flow/api";
