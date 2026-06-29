@@ -34,6 +34,7 @@ const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GIT_SPECIFIER = "@sdl/git";
 const BRANCH_CONTEXT_PACKAGE_NAME = "@sdl/branch-context";
+const OBJECTIVE_PACKAGE_NAME = "@sdl/objective";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 
@@ -42,6 +43,8 @@ const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "branch-context");
 const BRANCH_CONTEXT_PACKAGE_JSON_PATH = join(BRANCH_CONTEXT_PACKAGE_DIR, "package.json");
+const OBJECTIVE_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "objective");
+const OBJECTIVE_PACKAGE_JSON_PATH = join(OBJECTIVE_PACKAGE_DIR, "package.json");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "roaster");
@@ -98,6 +101,24 @@ function buildBranchContextCommandAliases(): Record<string, string> {
 	});
 }
 
+function buildBranchContextExtensionAliases(): Record<string, string> {
+	return buildPackageExportAliases({
+		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
+		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
+		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
+		exportSubpaths: ["./extension"],
+	});
+}
+
+function buildObjectiveCommandAliases(): Record<string, string> {
+	return buildPackageCommandAliases({
+		packageName: OBJECTIVE_PACKAGE_NAME,
+		packageDir: OBJECTIVE_PACKAGE_DIR,
+		packageJsonPath: OBJECTIVE_PACKAGE_JSON_PATH,
+		exportPrefix: "./sdl/commands/",
+	});
+}
+
 function buildFlowCommandAliases(): Record<string, string> {
 	return buildPackageCommandAliases({
 		packageName: FLOW_PACKAGE_NAME,
@@ -122,20 +143,59 @@ function buildPackageCommandAliases(options: {
 	packageJsonPath: string;
 	exportPrefix: string;
 }): Record<string, string> {
+	return buildPackageExportAliases({
+		...options,
+		includeSubpath: (subpath) => subpath.startsWith(options.exportPrefix),
+	});
+}
+
+function buildPackageExportAliases(options: {
+	packageName: string;
+	packageDir: string;
+	packageJsonPath: string;
+	exportSubpaths?: readonly string[];
+	includeSubpath?: (subpath: string) => boolean;
+}): Record<string, string> {
 	const packageJson = readCommandPackageJson(options.packageJsonPath, options.packageName);
 	if (packageJson.name !== options.packageName) {
 		throw new Error(
 			`Expected extension package name ${options.packageName}, found ${packageJson.name}.`,
 		);
 	}
+	const exportSubpaths = new Set(options.exportSubpaths);
+	const includeSubpath = options.includeSubpath ?? ((subpath) => exportSubpaths.has(subpath));
 
 	return Object.fromEntries(
 		Object.entries(packageJson.exports)
-			.filter(([subpath]) => subpath.startsWith(options.exportPrefix))
-			.map(([subpath, target]) => [
-				`${options.packageName}/${subpath.slice("./".length)}`,
-				join(options.packageDir, stripLeadingDotSlash(target)),
-			]),
+			.filter(([subpath]) => includeSubpath(subpath))
+			.map(([subpath, target]) => {
+				const resolvedTarget = resolveCommandExportTarget({
+					packageName: options.packageName,
+					subpath,
+					target,
+				});
+				return [
+					`${options.packageName}/${subpath.slice("./".length)}`,
+					join(options.packageDir, stripLeadingDotSlash(resolvedTarget)),
+				];
+			}),
+	);
+}
+
+export function resolveCommandExportTarget(options: {
+	packageName: string;
+	subpath: string;
+	target: unknown;
+}): string {
+	if (typeof options.target === "string") return options.target;
+	if (isRecord(options.target)) {
+		const importTarget = options.target.import;
+		if (typeof importTarget === "string") return importTarget;
+		const defaultTarget = options.target.default;
+		if (typeof defaultTarget === "string") return defaultTarget;
+	}
+	throw new Error(
+		`Invalid ${options.packageName} package.json export for ${options.subpath}: expected string target or conditional object with string import/default.`,
 	);
 }
 
@@ -149,16 +209,14 @@ function readCommandPackageJson(path: string, packageName: string): CommandPacka
 
 interface CommandPackageJson {
 	name: string;
-	exports: Record<string, string>;
+	exports: Record<string, unknown>;
 }
 
 function isCommandPackageJson(value: unknown): value is CommandPackageJson {
 	if (!isRecord(value)) return false;
 	if (typeof value.name !== "string") return false;
 	if (!isRecord(value.exports)) return false;
-	return Object.entries(value.exports).every(
-		([subpath, target]) => typeof subpath === "string" && typeof target === "string",
-	);
+	return true;
 }
 
 function stripLeadingDotSlash(path: string): string {
@@ -199,6 +257,8 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		alias: {
 			...buildInternalWorkspaceAliases(),
 			...buildBranchContextCommandAliases(),
+			...buildBranchContextExtensionAliases(),
+			...buildObjectiveCommandAliases(),
 			...buildFlowCommandAliases(),
 			...buildRoasterCommandAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,

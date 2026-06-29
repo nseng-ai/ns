@@ -1,5 +1,3 @@
-import { defineExtension } from "sdl-sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { deleteResultSchema, handleDelete, keyRequestSchema } from "../../operations.ts";
 
@@ -11,8 +9,4 @@ export const branchContextDeleteSdlCommand = branchContextCommand({
 	resultSchema: deleteResultSchema,
 	positionals: { key: { position: 0 } },
 	handler: handleDelete,
-});
-
-export default defineExtension({
-	commands: [branchContextDeleteSdlCommand],
 });

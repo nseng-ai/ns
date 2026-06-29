@@ -1,5 +1,3 @@
-import { defineExtension } from "sdl-sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { branchContextResultSchema, createRequestSchema, handleCreate } from "../../operations.ts";
 
@@ -10,8 +8,4 @@ export const branchContextFromPlanSdlCommand = branchContextCommand({
 	schema: createRequestSchema,
 	resultSchema: branchContextResultSchema,
 	handler: handleCreate,
-});
-
-export default defineExtension({
-	commands: [branchContextFromPlanSdlCommand],
 });

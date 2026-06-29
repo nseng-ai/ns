@@ -1,5 +1,3 @@
-import { defineExtension } from "sdl-sdk";
-
 import { branchContextCommand } from "../command.ts";
 import { attachRequestSchema, attachResultSchema, handleAttach } from "../../operations.ts";
 
@@ -12,8 +10,4 @@ export const branchContextAttachSdlCommand = branchContextCommand({
 	resultSchema: attachResultSchema,
 	positionals: { key: { position: 0 } },
 	handler: handleAttach,
-});
-
-export default defineExtension({
-	commands: [branchContextAttachSdlCommand],
 });
