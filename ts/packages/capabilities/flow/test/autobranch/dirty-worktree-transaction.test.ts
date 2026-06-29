@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
 	runAutobranchTransaction,
 	type AutobranchTransactionInput,
-} from "@sdl/autobranch/dirty-worktree";
+} from "../../src/autobranch/dirty-worktree.ts";
 import { eventIndex, fail, ok } from "./autobranch-test-helpers.ts";
 
 interface HarnessOptions {

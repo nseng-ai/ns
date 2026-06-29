@@ -30,7 +30,6 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
   },
   "dependencies": {
-    "@sdl/autobranch": "workspace:*",
     "@sdl/cli-theme": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",

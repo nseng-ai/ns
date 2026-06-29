@@ -1,5 +1,8 @@
 import type { ExecResult } from "@sdl/core/exec";
-import type { CommandResult, PendingWorktreeSnapshot } from "@sdl/autobranch/dirty-worktree";
+import type {
+	CommandResult,
+	PendingWorktreeSnapshot,
+} from "../../src/autobranch/dirty-worktree.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot };
 

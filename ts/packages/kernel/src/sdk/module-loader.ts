@@ -39,14 +39,11 @@ const CORE_GIT_SPECIFIER = "@sdl/core/git";
 const CORE_SUBMIT_SPECIFIER = "@sdl/core/submit";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GRAPHITE_SUBMIT_SPECIFIER = "@sdl/graphite/submit";
-const AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER = "@sdl/autobranch/dirty-worktree";
-const AUTOBRANCH_LATEST_COMMIT_SPECIFIER = "@sdl/autobranch/latest-commit";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "graphite", "src");
-const AUTOBRANCH_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "autobranch", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
@@ -60,8 +57,6 @@ const CORE_GIT_MODULE_PATH = join(CORE_SRC_DIR, "git", "index.ts");
 const CORE_SUBMIT_MODULE_PATH = join(CORE_SRC_DIR, "submit", "index.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "text-normalization.ts");
 const GRAPHITE_SUBMIT_MODULE_PATH = join(GRAPHITE_SRC_DIR, "submit", "index.ts");
-const AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "dirty-worktree.ts");
-const AUTOBRANCH_LATEST_COMMIT_MODULE_PATH = join(AUTOBRANCH_SRC_DIR, "latest-commit.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/kernel/cli": "cli.ts",
@@ -189,8 +184,6 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CORE_SUBMIT_SPECIFIER]: CORE_SUBMIT_MODULE_PATH,
 			[CORE_TEXT_NORMALIZATION_SPECIFIER]: CORE_TEXT_NORMALIZATION_MODULE_PATH,
 			[GRAPHITE_SUBMIT_SPECIFIER]: GRAPHITE_SUBMIT_MODULE_PATH,
-			[AUTOBRANCH_DIRTY_WORKTREE_SPECIFIER]: AUTOBRANCH_DIRTY_WORKTREE_MODULE_PATH,
-			[AUTOBRANCH_LATEST_COMMIT_SPECIFIER]: AUTOBRANCH_LATEST_COMMIT_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {
