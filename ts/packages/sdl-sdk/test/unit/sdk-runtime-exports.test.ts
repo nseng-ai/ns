@@ -4,20 +4,14 @@ import { z as zod } from "zod";
 import * as sdk from "sdl-sdk";
 
 const EXPECTED_RUNTIME_EXPORTS = [
-	"commandSucceeded",
 	"defineExtension",
 	"failed",
-	"formatCommand",
-	"formatCommandDetails",
-	"formatCommandError",
-	"formatCommandEvidence",
 	"normalizeTextOutput",
 	"ok",
 	"stripOuterCodeFence",
 	"trimOuterBlankLines",
 	"truncateTextHead",
 	"truncateTextHeadTail",
-	"withTemporaryFile",
 	"z",
 ] as const;
 

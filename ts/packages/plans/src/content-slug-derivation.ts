@@ -1,4 +1,4 @@
-import { formatOutputSection, type CommandExecApi } from "@sdl/core/exec";
+import { type CommandExecApi, formatOutputSection } from "@sdl/exec";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/core/model-slug";
 import { validatePlanSlug } from "./plan-persistence.ts";
 

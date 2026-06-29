@@ -1,6 +1,6 @@
 import type { Caps } from "@sdl/clinkr";
 import { paint } from "@sdl/cli-theme";
-import { stripTerminalEscapes } from "@sdl/core/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";

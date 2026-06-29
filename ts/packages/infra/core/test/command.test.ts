@@ -17,11 +17,11 @@ import {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	shellQuote,
-	stripTerminalEscapes,
 	tailText,
-} from "@sdl/core/exec";
+} from "../src/command.ts";
+import { stripTerminalEscapes } from "../src/terminal-escapes.ts";
 
-describe("exec presentation helpers", () => {
+describe("command presentation helpers", () => {
 	test("adapts CommandExecApi to CommandRunner without exposing caller-owned args", async () => {
 		const calls: Array<{ readonly command: string; readonly args: readonly string[] }> = [];
 		const execApi = {

@@ -1,4 +1,4 @@
-import { tailText, type TailTextOptions } from "./exec.ts";
+import { tailText, type TailTextOptions } from "./command.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
 
 export interface MachineEnvelopeParseOptions {

@@ -1,7 +1,7 @@
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 
-import { runCommand } from "@sdl/core/exec";
+import { runCommand } from "@sdl/exec";
 
 import { PiTextGenerator } from "./sdk/pi-text-generation.ts";
 import type { SdlConfirmPrompt, SdlExtensionApi } from "sdl-sdk";

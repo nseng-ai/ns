@@ -7,20 +7,14 @@ import { createJiti } from "jiti/static";
 import { isRecord } from "@sdl/core/primitives";
 
 import {
-	commandSucceeded,
 	defineExtension,
 	failed,
-	formatCommand,
-	formatCommandDetails,
-	formatCommandError,
-	formatCommandEvidence,
 	normalizeTextOutput,
 	ok,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
-	withTemporaryFile,
 	z,
 } from "sdl-sdk";
 
@@ -32,7 +26,7 @@ const SDK_SPECIFIER = "sdl-sdk";
 const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
 const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
-const CORE_EXEC_SPECIFIER = "@sdl/core/exec";
+const EXEC_SPECIFIER = "@sdl/exec";
 const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
@@ -50,7 +44,7 @@ const ROASTER_PACKAGE_JSON_PATH = join(ROASTER_PACKAGE_DIR, "package.json");
 const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
-const CORE_EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec.ts");
+const EXEC_MODULE_PATH = join(SDL_SRC_DIR, "..", "..", "infra", "exec", "src", "index.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "text-normalization.ts");
@@ -156,20 +150,14 @@ function stripLeadingDotSlash(path: string): string {
 
 // Keep this object in sync with all runtime value exports from sdl-sdk; type-only exports are erased.
 const sdlSdkVirtualModule = {
-	commandSucceeded,
 	defineExtension,
 	failed,
-	formatCommand,
-	formatCommandDetails,
-	formatCommandError,
-	formatCommandEvidence,
 	normalizeTextOutput,
 	ok,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
 	truncateTextHead,
 	truncateTextHeadTail,
-	withTemporaryFile,
 	z,
 } satisfies Record<string, unknown>;
 
@@ -196,7 +184,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
-			[CORE_EXEC_SPECIFIER]: CORE_EXEC_MODULE_PATH,
+			[EXEC_SPECIFIER]: EXEC_MODULE_PATH,
 			[CORE_MODEL_SLUG_SPECIFIER]: CORE_MODEL_SLUG_MODULE_PATH,
 			[CORE_PRIMITIVES_SPECIFIER]: CORE_PRIMITIVES_MODULE_PATH,
 			[CORE_TEXT_NORMALIZATION_SPECIFIER]: CORE_TEXT_NORMALIZATION_MODULE_PATH,

@@ -1,13 +1,13 @@
+import { runCommand } from "@sdl/exec";
 import {
-	formatCommand,
-	outputListenerToExecCallbacks,
-	runCommand,
-	stripTerminalEscapes,
 	type CommandRunner,
 	type ExecOutputListener,
 	type ExecOutputStream,
 	type ExecResult,
-} from "@sdl/core/exec";
+	formatCommand,
+	outputListenerToExecCallbacks,
+} from "@sdl/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GitGateway } from "@sdl/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 

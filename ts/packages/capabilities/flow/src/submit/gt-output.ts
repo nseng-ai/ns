@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@sdl/core/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 export interface SubmitPrLink {
 	label: string;

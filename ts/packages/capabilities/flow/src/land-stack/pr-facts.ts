@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/core/exec";
+import { formatCommand } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";

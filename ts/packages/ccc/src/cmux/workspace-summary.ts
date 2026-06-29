@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { RealCmuxGateway, type CmuxGateway, type CmuxGatewayFailure } from "@sdl/cmux/gateway";
 
 export const DEFAULT_CMUX_WORKSPACE_SUMMARY_STATUS_KEY = "pi-summary";

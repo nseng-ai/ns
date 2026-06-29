@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 import { err, ok, commandFailure } from "@sdl/capability-kit/gateway-result";
 
 describe("gateway result", () => {

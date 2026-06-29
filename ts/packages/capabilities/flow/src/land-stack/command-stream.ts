@@ -1,5 +1,5 @@
 import { createCommandIo, type CommandIo } from "@sdl/core/command-io";
-import { formatCommand, runNormalizedExecResult, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, formatCommand, runNormalizedExecResult } from "@sdl/exec";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import {
 	customMessageText,

@@ -115,6 +115,7 @@ export const neutralPeerPackageNames = new Set([
 	"@sdl/cmux",
 	"@sdl/core",
 	"@sdl/capability-kit",
+	"@sdl/exec",
 	"@sdl/git",
 	"@sdl/graphite",
 ]);

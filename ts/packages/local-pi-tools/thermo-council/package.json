@@ -11,9 +11,10 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/local-pi-tools/thermo-council/test"
   },
   "dependencies": {
-    "@sdl/core": "workspace:*",
-    "@sdl/pi": "workspace:*",
     "@local-pi-tools/runner-subagents": "workspace:*",
+    "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*",
+    "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {},

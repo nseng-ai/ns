@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@sdl/core/exec";
+import { formatCommandDetails } from "@sdl/exec";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 

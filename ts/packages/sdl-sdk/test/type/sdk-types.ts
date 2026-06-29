@@ -1,17 +1,6 @@
-import {
-	commandSucceeded,
-	defineExtension,
-	failed,
-	formatCommand,
-	formatCommandDetails,
-	formatCommandError,
-	formatCommandEvidence,
-	ok,
-	z,
-} from "sdl-sdk";
+import { defineExtension, failed, ok, z } from "sdl-sdk";
 import type {
 	ExecResult,
-	FormatCommandEvidenceOptions,
 	PositionalSpec,
 	SdlCommandRequest,
 	SdlExtensionApi,
@@ -75,16 +64,7 @@ const textGenerator: TextGenerator = {
 };
 
 const execResult: ExecResult = { code: 0, stdout: "ok", stderr: "", killed: false };
-const commandEvidenceOptions: FormatCommandEvidenceOptions = {
-	intro: "Command finished.",
-	command: formatCommand("git", ["status", "--short"]),
-	cwd: "/repo",
-	result: execResult,
-};
-const commandOk: boolean = commandSucceeded(execResult);
-const commandDetails: string = formatCommandDetails(execResult);
-const commandError: string = formatCommandError("Command failed.", execResult);
-const commandEvidence: string = formatCommandEvidence(commandEvidenceOptions);
+const commandOk: boolean = execResult.code === 0 && !execResult.killed;
 const successfulResult: SdlResult = ok("done");
 const failedResult: SdlResult = failed("nope", 2);
 
@@ -98,9 +78,6 @@ void extension;
 void commandlessExtension;
 void textGenerator;
 void commandOk;
-void commandDetails;
-void commandError;
-void commandEvidence;
 void successfulResult;
 void failedResult;
 void acceptsExtensionApi;

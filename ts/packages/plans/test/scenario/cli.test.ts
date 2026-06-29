@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
-import { type CommandExecApi, type ExecOptions } from "@sdl/core/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";

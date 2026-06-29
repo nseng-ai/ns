@@ -14,22 +14,12 @@ export type {
 	SdlCommandSchema,
 	SdlExtension,
 } from "./command.ts";
-export {
-	commandSucceeded,
-	formatCommand,
-	formatCommandDetails,
-	formatCommandError,
-	formatCommandEvidence,
-	withTemporaryFile,
-} from "./execution.ts";
 export type {
 	ExecResult,
-	FormatCommandEvidenceOptions,
 	SdlConfirmPrompt,
 	SdlExecOptions,
 	SdlExtensionApi,
 	SdlOutputStream,
-	TemporaryFileOptions,
 } from "./execution.ts";
 export {
 	normalizeTextOutput,

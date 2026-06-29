@@ -1,4 +1,4 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { ScriptedCommandExecApi } from "@sdl/core/testing";
 import { describe, expect, it } from "vitest";
 

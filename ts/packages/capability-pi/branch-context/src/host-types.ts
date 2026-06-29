@@ -5,7 +5,7 @@ import type {
 	createBranchContextFromFile,
 	loadBranchContextPlan,
 } from "@sdl/branch-context/api";
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult } from "@sdl/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,

@@ -19,6 +19,7 @@
     "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
     "zod": "catalog:"
   },

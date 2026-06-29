@@ -1,5 +1,5 @@
 import { runWithCommandIo, type CommandIo } from "@sdl/core/command-io";
-import { formatCommand, normalizeExecResult, type ExecOutputListener } from "@sdl/core/exec";
+import { type ExecOutputListener, formatCommand, normalizeExecResult } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	executeStackLanding,

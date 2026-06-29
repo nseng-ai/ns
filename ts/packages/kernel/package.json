@@ -32,8 +32,9 @@
     "@earendil-works/pi-coding-agent": "catalog:",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
-    "sdl-sdk": "workspace:*",
+    "@sdl/exec": "workspace:*",
     "jiti": "catalog:",
+    "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   }
 }

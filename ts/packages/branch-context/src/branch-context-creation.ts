@@ -3,7 +3,7 @@ import { attachBranchContext, assertBrmemEntryAbsent, AttachBranchContextError }
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@sdl/brmem";
 import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
-import { formatCommand, type CommandExecApi } from "@sdl/core/exec";
+import { type CommandExecApi, formatCommand } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@sdl/plans";

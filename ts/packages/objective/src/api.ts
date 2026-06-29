@@ -8,7 +8,7 @@
 // skill-prompt surface currently stranded in Pi's objectives modules is
 // relocated onto this same client in a later row.
 
-import type { ExecResult } from "@sdl/core/exec";
+import type { ExecResult } from "@sdl/exec";
 import type { ObjectiveCliContext } from "./context.ts";
 import { createRealObjectiveContext } from "./context.ts";
 import {

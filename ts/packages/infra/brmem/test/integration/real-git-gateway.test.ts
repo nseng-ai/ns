@@ -4,7 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
+import type { StdinCapableCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import {
 	DroppingOptionsCommandExecApi,
@@ -152,7 +153,10 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommandExecApi({ shouldDropEnv: true }),
+				new DroppingOptionsCommandExecApi({
+					delegate: new NodeCommandExecApi(),
+					shouldDropEnv: true,
+				}),
 			);
 
 			const put = await gateway.putEntry({
@@ -203,7 +207,10 @@ describe("RealGitBrmemGateway integration", () => {
 			const beforeIndexTree = repo.runGit(["write-tree"]).trim();
 			const gateway = realGitBrmemGateway(
 				repo.path,
-				new DroppingOptionsCommandExecApi({ shouldDropStdin: true }),
+				new DroppingOptionsCommandExecApi({
+					delegate: new NodeCommandExecApi(),
+					shouldDropStdin: true,
+				}),
 			);
 
 			const put = await gateway.putEntry({

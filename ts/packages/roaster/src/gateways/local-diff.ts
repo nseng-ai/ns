@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { commandFailureReason, formatCommand, type CommandExecApi } from "@sdl/core/exec";
+import { type CommandExecApi, commandFailureReason, formatCommand } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { GitGateway } from "@sdl/git";
 import { RealGitGateway } from "@sdl/git";

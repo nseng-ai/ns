@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@sdl/core/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { createManualTimerHarness } from "@sdl/core/testing";
 import {
 	deferred,

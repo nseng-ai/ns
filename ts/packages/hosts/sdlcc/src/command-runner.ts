@@ -1,4 +1,5 @@
-import { runCommand, type CommandRunner, type ExecOptions, type ExecResult } from "@sdl/core/exec";
+import { runCommand } from "@sdl/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@sdl/exec";
 
 export type CommandOutput = ExecResult;
 export type CommandOptions = ExecOptions;

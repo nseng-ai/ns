@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "@sdl/core/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { PrewrittenPrMetadata } from "./index.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";

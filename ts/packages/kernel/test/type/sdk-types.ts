@@ -1,4 +1,4 @@
-import { commandSucceeded, defineExtension, formatCommandEvidence, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "sdl-sdk";
 import type {
 	SdlExtensionApi,
 	TextGenerationRequest,
@@ -96,13 +96,7 @@ const arbitraryOperationRequest: TextGenerationRequest = {
 };
 
 const commandResult = { code: 0, stdout: "", stderr: "", killed: false };
-const commandOk: boolean = commandSucceeded(commandResult);
-const commandEvidence: string = formatCommandEvidence({
-	intro: "Command finished.",
-	command: "git status",
-	cwd: "/repo",
-	result: commandResult,
-});
+const commandOk: boolean = commandResult.code === 0 && !commandResult.killed;
 
 void extension;
 void commandlessExtension;
@@ -110,4 +104,3 @@ void textGenerator;
 void acceptsExtensionApi;
 void arbitraryOperationRequest;
 void commandOk;
-void commandEvidence;

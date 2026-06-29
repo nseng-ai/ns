@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { createTempDirTracker } from "@sdl/core/testing";
 import { encodeBranchForPlanPath } from "@sdl/plans";

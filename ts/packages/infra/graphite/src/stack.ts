@@ -18,7 +18,8 @@ import {
 	type GraphiteWalkTermination,
 	type SqliteJsonError,
 } from "./metadata.ts";
-import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { isRecord } from "@sdl/core/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;

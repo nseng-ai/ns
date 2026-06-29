@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, formatCommand } from "@sdl/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
 import {
 	isGtDeleteMissingBranch,

@@ -1,12 +1,12 @@
 import {
 	execApiToCommandRunner,
+	type ExecResult,
 	formatOutputSection,
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
-	stripTerminalEscapes,
 	tailText,
-	type ExecResult,
-} from "@sdl/core/exec";
+} from "@sdl/exec";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,

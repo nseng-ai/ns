@@ -163,7 +163,6 @@ Provides dynamic completion candidates for the selected command without invoking
 
 ```ts
 import { defineExtension, ok, z } from "sdl-sdk";
-import { commandSucceeded } from "sdl-sdk";
 
 export default defineExtension({
   commands: [
@@ -175,7 +174,7 @@ export default defineExtension({
       positionals: { branch: { position: 0 } },
       async completionProvider(ctx) {
         const result = await ctx.exec("git", ["branch", "--format=%(refname:short)"]);
-        if (!commandSucceeded(result)) return [];
+        if (result.code !== 0 || result.killed) return [];
         return result.stdout
           .split("\n")
           .map((line) => line.trim())
@@ -254,124 +253,6 @@ interface PositionalSpec {
   run: (ctx, request) => ok(request.slug ?? "(auto)"),
 }
 ```
-
-### `commandSucceeded()`
-
-Tests whether an executed command succeeded.
-
-```ts
-function commandSucceeded(result: ExecResult): boolean;
-```
-
-**Description.** Returns `true` only when the process exited with code `0` and was not killed. Use it to branch inside `run` after a `ctx.exec(...)` call. See `ExecResult` under [Execution context](#execution-context). Prefer it over a bare `result.code === 0` check, which misses killed (e.g. timed-out) processes.
-
-**Example.**
-
-```ts
-const status = await ctx.exec("git", ["status", "--porcelain"]);
-if (!commandSucceeded(status)) {
-  return failed("Could not read git status.");
-}
-```
-
-### `formatCommand()`
-
-Formats a command plus argv for user-facing display using shell-style quoting.
-
-```ts
-function formatCommand(command: string, args: readonly string[]): string;
-```
-
-**Example.**
-
-```ts
-formatCommand("gh", ["pr", "edit", "12", "--title", "hello world"]);
-// "gh pr edit 12 --title 'hello world'"
-```
-
-### `formatCommandDetails()`
-
-Formats concise command-result details for short command failure messages.
-
-```ts
-function formatCommandDetails(result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">): string;
-```
-
-**Description.** Prefers non-empty trimmed stderr, otherwise non-empty trimmed stdout, and includes whether the process was killed or timed out.
-
-**Example.**
-
-```ts
-formatCommandDetails({ stdout: "", stderr: "fatal: nope", code: 128, killed: false });
-// "exit 128: fatal: nope"
-```
-
-### `formatCommandError()`
-
-Combines a short summary with `formatCommandDetails()`.
-
-```ts
-function formatCommandError(
-  summary: string,
-  result: Pick<ExecResult, "stdout" | "stderr" | "code" | "killed">,
-): string;
-```
-
-**Example.**
-
-```ts
-return failed(formatCommandError("Could not read git status.", status));
-```
-
-### `formatCommandEvidence()`
-
-Formats a uniform, reviewer-facing evidence block describing a command invocation and its result.
-
-```ts
-function formatCommandEvidence(options: FormatCommandEvidenceOptions): string;
-```
-
-**Description.** Produces a multi-line string with the intro, the command, the cwd, exit code, killed flag, optional guidance, and the captured stdout/stderr. Pass the returned string to `ok()` or `failed()` as the result message.
-
-**Example.**
-
-```ts
-return failed(
-  formatCommandEvidence({
-    intro: "Could not inspect the worktree status.",
-    command: "git status --porcelain",
-    cwd: ctx.cwd,
-    result: status,
-    guidance: "Fix the repository state, then retry.",
-  }),
-);
-```
-
-### `FormatCommandEvidenceOptions`
-
-*Re-exported from `@sdl/core/exec`.* Input to `formatCommandEvidence()`.
-
-```ts
-interface FormatCommandEvidenceOptions {
-  intro: string;
-  command: string;
-  cwd: string;
-  result: ExecResult;
-  guidance?: string | undefined;
-}
-```
-
-**Fields.**
-
-- `intro` — leading sentence describing what happened.
-- `command` — the human-readable command line (e.g. `git status --porcelain`).
-- `cwd` — the working directory the command ran in; typically `ctx.cwd`.
-- `result` — the `ExecResult` returned by `ctx.exec`.
-- `guidance?` — optional remediation guidance appended before the captured output.
-
-**Example.** Built and consumed in the `formatCommandEvidence()` example above.
-
----
 
 ## Text helpers
 
@@ -535,7 +416,7 @@ async run(ctx: SdlExtensionApi) {
   const root = await ctx.exec("git", ["rev-parse", "--show-toplevel"], {
     timeoutMs: 30_000,
   });
-  if (!commandSucceeded(root)) return failed("Not inside a git repository.", 2);
+  if (root.code !== 0 || root.killed) return failed("Not inside a git repository.", 2);
   return ok(root.stdout.trim());
 }
 ```
@@ -571,7 +452,7 @@ await ctx.exec("git", ["commit", "-F", "-"], {
 
 ### `ExecResult`
 
-*Re-exported from `@sdl/core/exec`.* The result of `ctx.exec` — the input that `commandSucceeded()` and `formatCommandEvidence()` consume.
+The result of `ctx.exec`.
 
 ```ts
 interface ExecResult {
@@ -594,76 +475,10 @@ interface ExecResult {
 
 ```ts
 const log = await ctx.exec("git", ["log", "-1", "--oneline"]);
-if (commandSucceeded(log)) {
+if (log.code === 0 && !log.killed) {
   ctx.stdout?.(log.stdout.trim());
 }
 ```
-
-### `withTemporaryFile()`
-
-Creates a temporary directory, writes one file inside it, runs a callback with that file path, and removes the directory afterward.
-
-```ts
-function withTemporaryFile<T>(
-  options: TemporaryFileOptions,
-  callback: (path: string) => Promise<T>,
-): Promise<T>;
-```
-
-**Example.**
-
-```ts
-await withTemporaryFile(
-  { prefix: "sdl-message-", filename: "message.md", contents: body },
-  async (path) => await ctx.exec("gh", ["pr", "edit", "--body-file", path]),
-);
-```
-
-### `TemporaryFileOptions`
-
-```ts
-interface TemporaryFileOptions {
-  readonly prefix: string;
-  readonly filename: string;
-  readonly contents: string;
-}
-```
-
-### `SdlOutputStream`
-
-```ts
-type SdlOutputStream = "stdout" | "stderr";
-```
-
-Tags which stream a chunk belongs to in the `onOutput` hook.
-
-**Example.**
-
-```ts
-run(ctx: SdlExtensionApi) {
-  ctx.onOutput?.("stderr", "working…\n");
-  return ok("done");
-}
-```
-
-### `SdlConfirmPrompt`
-
-```ts
-type SdlConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
-```
-
-The signature of the optional `ctx.confirm` hook. Returns (sync or async) whether the user approved.
-
-**Example.** Gate a destructive step; treat an absent hook as "not approved":
-
-```ts
-const approved = await ctx.confirm?.("Edit PR", "Update the PR body on GitHub?");
-if (approved !== true) {
-  return failed("Cancelled; GitHub was not modified.");
-}
-```
-
----
 
 ## Text generation
 

@@ -1,12 +1,12 @@
 import {
-	execApiToCommandRunner,
-	formatCommand,
-	formatCommandFailure,
 	type CommandExecApi,
 	type CommandRunner,
+	execApiToCommandRunner,
 	type ExecOptions,
 	type ExecResult,
-} from "@sdl/core/exec";
+	formatCommand,
+	formatCommandFailure,
+} from "@sdl/exec";
 
 export const GRAPHITE_COMMAND_NAME = "gt";
 

@@ -2,7 +2,7 @@ import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { formatShellArg } from "@sdl/core/exec";
+import { formatShellArg } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	launchFocusedCmuxTab,

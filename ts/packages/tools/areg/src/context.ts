@@ -1,5 +1,5 @@
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
-import { NodeCommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { readStdinLine } from "@sdl/core/stdin";

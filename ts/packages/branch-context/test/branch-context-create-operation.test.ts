@@ -3,7 +3,7 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { formatCommand } from "@sdl/core/exec";
+import { formatCommand } from "@sdl/exec";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextCreateOperation,
@@ -14,7 +14,7 @@ import {
 	formatBranchContextEvidence,
 	resolveBranchContextCreatePreviewContext,
 } from "../src/branch-context-creation.ts";
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/exec";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";

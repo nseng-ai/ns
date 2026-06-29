@@ -24,10 +24,22 @@
     `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`, and
     `just ts-test-integration`.
 
-- [ ] Relocate the `exec` gateway per ADR 0019; stabilize `ExecResult`/formatting at the
-      SDK/kit boundary before moving real child-process execution, repoint all `@sdl/core/exec`
-      import sites, and delete the door. Largest mechanical slice — keep repoint + delete atomic so
-      two doors never coexist.
+- [x] Relocate the `exec` gateway per ADR 0019; repoint all `@sdl/core/exec` import sites and delete
+      the door, keeping repoint + delete atomic so two doors never coexist.
+  - Evidence: the pure command layer (types + formatting/normalization helpers) moved to the new
+    neutral `@sdl/core/command` subpath; the real child-process adapter (`runCommand`,
+    `NodeCommandExecApi`, `defaultCommandResolver`) moved to a new standalone package `@sdl/exec`,
+    which re-exports `@sdl/core/command`. `@sdl/core/exec` source and export are deleted; source
+    search confirms no live `@sdl/core/exec` import sites remain. `sdl-sdk` keeps only its minimal
+    structural `ExecResult`/`ctx.exec` author surface (command-formatting and `withTemporaryFile`
+    re-exports removed). Deviation from the original wording: rather than placing
+    `ExecResult`/formatting at the SDK/kit boundary and tiering `@sdl/exec` as
+    `capability-gateway-backend`, `@sdl/exec` is `neutral-infra` — exec is the foundational execution
+    primitive the domain gateways (`@sdl/git`/`@sdl/graphite`/`@sdl/cmux`) build on, and a neutral
+    home lets every tier depend on it without duplication, debt edges, or injection gymnastics for
+    the neutral/sdk/local-pi-tool consumers that need it. See the Semantic Update for rationale.
+    Validation: `just ts-deps-check`, `just ts-format-check`, `just ts-lint`, `just ts-check`,
+    `just ts-test`, and `just ts-test-integration`.
 
 - [ ] Relocate the GitHub gateways (`github-cli`, `github-identity`, `github-pr-feedback`,
       `github-pr-status`) per ADR 0019: light seams under `@sdl/capability-kit/github` and

@@ -1,4 +1,4 @@
-import { formatCommandDetails, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, formatCommandDetails } from "@sdl/exec";
 import { truncateTextHead } from "@sdl/core/text-truncation";
 
 export type CommandResult = Pick<ExecResult, "code" | "stdout" | "stderr"> & {

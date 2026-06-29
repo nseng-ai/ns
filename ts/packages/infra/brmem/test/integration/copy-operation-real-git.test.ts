@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi, type StdinCapableCommandExecApi } from "@sdl/core/exec";
+import { NodeCommandExecApi } from "@sdl/exec";
+import type { StdinCapableCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";

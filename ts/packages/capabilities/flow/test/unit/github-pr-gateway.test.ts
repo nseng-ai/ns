@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner } from "@sdl/core/exec";
+import type { CommandRunner } from "@sdl/exec";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
 import { ScriptedCommandRunner, createManualTimerScheduler, step } from "@sdl/core/testing";
 

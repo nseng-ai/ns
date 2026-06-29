@@ -1,4 +1,4 @@
-import { formatCommand, type ExecResult } from "@sdl/core/exec";
+import { type ExecResult, formatCommand } from "@sdl/exec";
 import { GRAPHITE_COMMAND_NAME } from "@sdl/graphite/branch";
 import {
 	exec,
