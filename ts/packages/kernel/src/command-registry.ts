@@ -89,6 +89,10 @@ export function commandKey(path: SdlCommandPath): string {
 	return commandSegments(path).join("/");
 }
 
+export function commandLeafName(path: SdlCommandPath): string {
+	return path.segments?.at(-1) ?? path.name;
+}
+
 export function commandDisplayName(path: SdlCommandPath): string {
 	return commandSegments(path).join(" ");
 }
@@ -146,7 +150,8 @@ export function validateSdlExtensionContribution(
 	expectedPath: SdlCommandPath | string,
 	sourceLabel: string,
 ): { ok: true; command: SdlCommand } | { ok: false; message: string } {
-	const expectedName = expectedCommandName(expectedPath);
+	const expectedName =
+		typeof expectedPath === "string" ? expectedPath : commandLeafName(expectedPath);
 	const parsed = sdlExtensionSchema.safeParse(contribution);
 	if (!parsed.success) {
 		return {
@@ -210,11 +215,6 @@ export function validateSdlClinkrExit(result: unknown, commandName: string): Cli
 
 export function formatUnknownError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
-}
-
-function expectedCommandName(expectedPath: SdlCommandPath | string): string {
-	if (typeof expectedPath === "string") return expectedPath;
-	return expectedPath.segments?.at(-1) ?? expectedPath.name;
 }
 
 function findCommandEntry(

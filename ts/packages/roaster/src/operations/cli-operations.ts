@@ -3,7 +3,12 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
-import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
+import {
+	isReviewLogFailure,
+	type ReviewLogFailure,
+	type RoasterFailure,
+	type RoasterResult,
+} from "../failures.ts";
 import {
 	publishFindings,
 	type PublicationError,
@@ -405,14 +410,6 @@ async function readFindingsPayload(
 		};
 	}
 	return { type: "ok", value: payload.data };
-}
-
-function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
-	return (
-		error.type === "review-log-write-failed" ||
-		error.type === "review-log-list-failed" ||
-		error.type === "review-log-response-invalid"
-	);
 }
 
 export async function buildReviewLogResult(

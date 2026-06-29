@@ -6,6 +6,7 @@ import { isPathInside, isRecord } from "@sdl/core/primitives";
 import {
 	SDL_COMMAND_NAME_PATTERN,
 	SDL_COMMAND_NAME_RULE,
+	commandLeafName,
 	formatUnknownError,
 	type SdlCommandCandidate,
 } from "./command-registry.ts";
@@ -464,6 +465,11 @@ function validateManifestEntryPath(options: {
 	return { ok: true, entryPath: resolvedEntry };
 }
 
+function commandNameFromManifestPath(segments: readonly string[] | undefined): string | undefined {
+	if (segments === undefined || segments.length === 0) return undefined;
+	return commandLeafName({ name: segments.at(-1) ?? "", segments });
+}
+
 function parseManifestCommandEntry(options: {
 	entry: Record<string, unknown>;
 	packageGroup: string | undefined;
@@ -475,7 +481,7 @@ function parseManifestCommandEntry(options: {
 } {
 	const rawPath = parseManifestPath(options.entry.path);
 	const explicitName = readNonEmptyString(options.entry.name);
-	const commandName = explicitName ?? rawPath.value?.at(-1);
+	const commandName = explicitName ?? commandNameFromManifestPath(rawPath.value);
 	const rawEntryGroup = options.entry.group;
 	const entryGroup =
 		rawEntryGroup === undefined ? options.packageGroup : readNonEmptyString(rawEntryGroup);

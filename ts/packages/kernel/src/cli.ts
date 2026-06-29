@@ -21,6 +21,7 @@ import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 import {
 	commandDisplayName,
 	commandKey,
+	commandLeafName,
 	commandPathMatches,
 	commandSegments,
 	executeSdlCommand,
@@ -470,7 +471,7 @@ function isGroupedExecCommand(commandInfo: SdlCommandCliInfo): boolean {
 }
 
 function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
-	if (commandInfo.segments !== undefined) return commandInfo.segments.at(-1) ?? commandInfo.name;
+	if (commandInfo.segments !== undefined) return commandLeafName(commandInfo);
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
 	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
 }

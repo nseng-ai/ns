@@ -15,7 +15,7 @@ export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGe
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
 	result: Partial<ExecResult>;
-	repeatable?: boolean | undefined;
+	isRepeatable?: boolean | undefined;
 }
 
 export interface ExecCall {
@@ -88,7 +88,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		if (response === undefined) {
 			return execResult({ code: 99, stderr: `missing command response: ${formatExecCall(call)}` });
 		}
-		if (response.repeatable !== true) this.execResponses.splice(index, 1);
+		if (response.isRepeatable !== true) this.execResponses.splice(index, 1);
 		const result = execResult(response.result);
 		options?.onStdout?.(result.stdout);
 		options?.onStderr?.(result.stderr);

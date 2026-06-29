@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { formatErrorMessage } from "@sdl/core/primitives";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
-import type { ReviewLogFailure, RoasterFailure, RoasterResult } from "../failures.ts";
+import {
+	isReviewLogFailure,
+	type ReviewLogFailure,
+	type RoasterFailure,
+	type RoasterResult,
+} from "../failures.ts";
 import { isMissingFileError } from "../gateways/filesystem-errors.ts";
 import type { ReviewSource } from "../gateways/review-catalog.ts";
 import { renderReviewLogMarkdown, type ReviewLogWriteResult } from "../gateways/review-log.ts";
@@ -189,14 +194,6 @@ export async function writeReviewRunLog(
 		...(options.logBranch === undefined ? {} : { branch: options.logBranch }),
 		content: renderReviewLogMarkdown(options.result, { ranAt, ...metadata }),
 	});
-}
-
-function isReviewLogFailure(error: RoasterFailure): error is ReviewLogFailure {
-	return (
-		error.type === "review-log-write-failed" ||
-		error.type === "review-log-list-failed" ||
-		error.type === "review-log-response-invalid"
-	);
 }
 
 function reviewRunResult(

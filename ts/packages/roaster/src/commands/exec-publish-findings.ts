@@ -1,11 +1,10 @@
 import { defineExtension } from "sdl-sdk";
 
-import { createRoasterClient } from "../api.ts";
 import {
-	clinkrExitFromPublishFindingsResult,
 	publishFindingsRequestSchema,
 	publishFindingsResultSchema,
 	renderPublishFindingsResult,
+	runPublishFindingsCommand,
 	type PublishFindingsRequest,
 } from "../operations/cli-operations.ts";
 import { roasterSdlCommand } from "../sdl/command.ts";
@@ -22,12 +21,7 @@ export const roasterExecPublishFindingsCommand = roasterSdlCommand({
 	resultSchema: publishFindingsResultSchema,
 	renderHuman: (data, _caps) => renderPublishFindingsResult(data),
 	async handler(runtime, request) {
-		const result = await createRoasterClient({
-			cwd: runtime.runScope.cwd,
-			env: runtime.runScope.env,
-			runtime,
-		}).publishFindings(request);
-		return clinkrExitFromPublishFindingsResult(runtime, result);
+		return await runPublishFindingsCommand(runtime, request);
 	},
 });
 
