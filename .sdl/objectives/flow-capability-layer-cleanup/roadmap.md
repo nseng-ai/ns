@@ -20,8 +20,8 @@
 - [x] Move shared capability gateway result/error substrate into `@sdl/capability-kit`.
   - Evidence recorded in `updates/20260629T010702Z-capability-kit-gateway-result-substrate.md`: `@sdl/capability-kit/gateway-result` now exposes capability-facing `ErrorInfo` / `GatewayResult` / `Result` aliases and result constructors as a facade over `@sdl/core/result`, plus the generic `commandFailure` helper. Flow submit code sources the substrate from Capability Kit, and the Flow-local `submit/result.ts` and `submit/command-failure.ts` files were deleted. Validation included Capability Kit and Flow targeted tests, stale-edge searches, typecheck, default tests, integration tests, format, lint, and dependency checks.
 
-- [ ] Rebaseline package tiers, import guards, and docs/context.
-  - Update `sdl.tier`, dependency manifests, export maps, TypeScript style-guard/package-tier expectations, jiti aliases, and forward-looking context/docs so they match the new Flow/Capability Kit boundary. Current verified state has removed the old autobranch and submit package/export surfaces, their stale kernel aliases, and the Flow-local gateway result substrate; remaining rebaseline should verify the broader tier/import/docs/context story and prepare Objective closure if completion criteria are satisfied. Evidence: relevant guard checks pass and parent `sdl-extension-architecture` can be updated with the child completion evidence if needed.
+- [x] Rebaseline package tiers, import guards, and docs/context.
+  - Evidence recorded in `updates/20260629T014747Z-final-rebaseline-and-closure.md`: package tiers, dependency manifests, export maps, kernel jiti aliases, lockfile state, and TypeScript style-guard/package-tier configuration match the final Flow/Capability Kit boundary; stale live package-specifier searches are clean except explicitly historical/current Objective provenance; `CONTEXT-MAP.md`, `ts/packages/infra/graphite/CONTEXT.md`, and parent `sdl-extension-architecture` current-state tracking were rebaselined; validation passed for docs formatting, TypeScript format/lint/type/deps, and the style-guard integration test.
 
 ## Parked
 

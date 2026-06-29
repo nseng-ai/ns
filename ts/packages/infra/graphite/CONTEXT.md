@@ -1,12 +1,12 @@
 # @sdl/graphite
 
-`@sdl/graphite` is the private TypeScript workspace support package for Graphite facts, metadata, and command adapters. It owns direct `gt` binary invocation and Graphite metadata database access/parsing; workflow owners such as CCC, slot, SDL, and branch-context compose these primitives without becoming Graphite adapters themselves.
+`@sdl/graphite` is the private TypeScript workspace support package for Graphite facts, metadata, and command adapters. It owns direct `gt` binary invocation and Graphite metadata database access/parsing; workflow owners such as Flow, CCC, slot, and branch-context compose these primitives without becoming Graphite adapters themselves.
 
 ## Language
 
 **Graphite support package**:
-The workspace package `@sdl/graphite`, which owns reusable Graphite command adapters, metadata database parsing, topology facts, submit support, and testing fakes.
-*Avoid*: CCC replacement, slot CLI owner, orchestration owner.
+The workspace package `@sdl/graphite`, which owns reusable Graphite command adapters, metadata database parsing, topology facts, and testing fakes. Submit/autobranch workflow policy belongs to Flow; Graphite provides only neutral Graphite mechanics for those workflows.
+*Avoid*: CCC replacement, slot CLI owner, submit/autobranch orchestration owner.
 
 **Graphite command adapter**:
 A real gateway or helper that invokes the `gt` binary and converts command output into package-owned result shapes. Direct `gt` invocation belongs here.
@@ -28,9 +28,9 @@ Reusable facts about stack ancestry, descendants, trunk markers, and Graphite br
 A read-only status lookup derived from Graphite metadata and local refs for worktree-status presentation, including worker lifecycle and diagnostics.
 *Avoid*: Graphite mutation, PR status, full stack synchronization.
 
-**Graphite submit support**:
-Graphite-specific submit/restack/current-PR/branch-info/metadata-prewrite behavior used by SDL submit flows.
-*Avoid*: generic PR description generation, GitHub PR gateway ownership.
+**Graphite workflow mechanics**:
+Graphite-specific command and metadata mechanics such as branch-info reads, stack facts, and neutral command execution helpers that Flow submit/autobranch workflows may compose.
+*Avoid*: submit/restack orchestration policy, PR metadata prewrite policy, generic PR description generation, GitHub PR gateway ownership.
 
 **Direct `gt` invocation boundary**:
 The rule that source code outside `ts/packages/infra/graphite/src/**` should not execute the `gt` binary directly. Other packages may display `gt` commands as remediation text or invoke higher-level CLI surfaces such as `sdl slot gt exec ...` when that CLI is the explicit contract.
