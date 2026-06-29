@@ -150,11 +150,11 @@ export async function runClinkrCommand<T>(
 	errorType: string,
 	operation: () => Promise<ClinkrExit<T>>,
 ): Promise<ClinkrExit<T>> {
-	try {
-		return await operation();
-	} catch (error) {
-		return failure(errorType, formatErrorMessage(error));
-	}
+	return await runOperationCommand({
+		operation: errorType,
+		action: operation,
+		failureFromError: (operation, error) => failure(operation, formatErrorMessage(error)),
+	});
 }
 
 export interface RunOperationCommandOptions<TOperation, TData> {
