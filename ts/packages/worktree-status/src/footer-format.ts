@@ -120,35 +120,8 @@ export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOpti
 		home: options.home,
 	});
 	const segments = buildFooterIdentitySegments(identity, options.gt);
-	const rawFullIdentity = rawFooterIdentity(segments);
-	if (visibleWidth(rawFullIdentity) <= options.width)
-		return colorFooterIdentitySegments(segments, options.theme);
-	return truncateColorFooterIdentitySegments(segments, options.width, options.theme);
-}
-
-function truncateColorFooterIdentitySegments(
-	segments: readonly FooterIdentitySegment[],
-	width: number,
-	theme: StatusTheme,
-): string {
-	if (width <= 0) return "";
-
-	const ellipsis = truncateToWidth("...", width, "");
-	const ellipsisWidth = visibleWidth(ellipsis);
-	let remainingWidth = Math.max(0, width - ellipsisWidth);
-	let output = "";
-
-	for (const segment of segments) {
-		if (remainingWidth <= 0) break;
-
-		const truncatedText = truncateToWidth(segment.text, remainingWidth, "");
-		if (truncatedText.length === 0) continue;
-
-		output += theme.fg(segment.color, truncatedText);
-		remainingWidth -= visibleWidth(truncatedText);
-	}
-
-	return output + theme.fg("dim", ellipsis);
+	const coloredIdentity = colorFooterIdentitySegments(segments, options.theme);
+	return truncateToWidth(coloredIdentity, options.width, options.theme.fg("dim", "..."));
 }
 
 function buildFooterIdentitySegments(
@@ -193,10 +166,6 @@ function buildFooterIdentitySegments(
 		);
 	}
 	return segments;
-}
-
-function rawFooterIdentity(segments: readonly FooterIdentitySegment[]): string {
-	return segments.map((segment) => segment.text).join("");
 }
 
 function colorFooterIdentitySegments(
