@@ -10,7 +10,7 @@ export type IgnoredFeedbackReason = "current_user" | "status_bot";
 export interface FeedbackItemKey {
 	kind: FeedbackItemKind;
 	key: string;
-	author: string | undefined;
+	author?: string;
 	path?: string;
 	line?: number;
 	jsonPointer?: string;
@@ -89,7 +89,7 @@ export interface WatchEventEntry {
 	branch?: string;
 	prNumber?: number;
 	headRefOid?: string;
-	itemKeys?: string[];
+	itemKeys?: readonly string[];
 	createdAt: string;
 	details?: Record<string, unknown>;
 }
