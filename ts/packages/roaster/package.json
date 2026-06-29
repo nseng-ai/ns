@@ -4,6 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./commands/review-list": "./src/commands/review-list.ts",
     "./skill-reviews": "./src/skill-reviews.ts"
   },
   "files": [
@@ -17,8 +19,10 @@
     "test": "cd ../.. && vitest run --config vitest.config.ts packages/roaster/test"
   },
   "dependencies": {
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "sdl-sdk": "workspace:*",
     "@pierre/diffs": "catalog:",
     "smol-toml": "catalog:",
     "yaml": "catalog:",

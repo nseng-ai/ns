@@ -1,0 +1,12 @@
+{
+  "sdl": {
+    "group": "roaster",
+    "commands": [
+      {
+        "name": "review-list",
+        "description": "List configured Roaster review definitions.",
+        "entry": "./src/commands/review-list.ts"
+      }
+    ]
+  }
+}

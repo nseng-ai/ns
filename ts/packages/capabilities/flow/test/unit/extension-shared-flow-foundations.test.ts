@@ -35,7 +35,7 @@ const PULL_TRUNK_COMMAND_PATH = join(
 	"ts/packages/capabilities/flow/src/commands/pull-trunk.ts",
 );
 const FLOW_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/package.json");
-const OLD_AUTOBRANCH_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/autobranch");
+const OLD_AUTOBRANCH_PACKAGE_MANIFEST_PATH = join(REPO_ROOT, "ts/packages/autobranch/package.json");
 const FLOW_AUTOBRANCH_INTERNAL_PATH = join(
 	REPO_ROOT,
 	"ts/packages/capabilities/flow/src/autobranch/dirty-worktree.ts",
@@ -59,7 +59,7 @@ describe("project extension shared flow foundations", () => {
 		expect(autobranchSource).not.toContain(`${oldAutobranchPackageName}/dirty-worktree`);
 		expect(branchLatestCommitSource).not.toContain(`${oldAutobranchPackageName}/latest-commit`);
 		await expect(access(FLOW_AUTOBRANCH_INTERNAL_PATH, constants.F_OK)).resolves.toBeUndefined();
-		await expect(access(OLD_AUTOBRANCH_PACKAGE_PATH, constants.F_OK)).rejects.toThrow();
+		await expect(access(OLD_AUTOBRANCH_PACKAGE_MANIFEST_PATH, constants.F_OK)).rejects.toThrow();
 		for (const [directory, fileName] of REMOVED_LOCAL_AUTOBRANCH_HELPERS) {
 			await expect(access(join(REPO_ROOT, directory, fileName), constants.F_OK)).rejects.toThrow();
 		}
