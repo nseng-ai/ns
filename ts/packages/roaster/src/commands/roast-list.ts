@@ -1,11 +1,10 @@
-import { failure, ok } from "@sdl/clinkr";
 import { defineExtension } from "sdl-sdk";
 
-import { createRoasterClient } from "../api.ts";
 import {
 	renderRoastSkillList,
 	roastSkillListRequestSchema,
 	roastSkillListResultSchema,
+	runRoastSkillList,
 	type RoastSkillListRequest,
 } from "../operations/cli-operations.ts";
 import { roasterSdlCommand } from "../sdl/command.ts";
@@ -20,13 +19,7 @@ export const roasterRoastListCommand = roasterSdlCommand({
 	resultSchema: roastSkillListResultSchema,
 	renderHuman: (data, _caps) => renderRoastSkillList(data),
 	async handler(runtime, request) {
-		const result = await createRoasterClient({
-			cwd: runtime.runScope.cwd,
-			env: runtime.runScope.env,
-			runtime,
-		}).listRoastSkills(request);
-		if (!result.ok) return failure(result.failure.errorType, result.failure.message);
-		return ok(result.result);
+		return await runRoastSkillList(runtime, request);
 	},
 });
 
