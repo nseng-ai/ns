@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { formatManagedGeneratedRegion, GENERATED_BODY_MARKER } from "@sdl/core/submit";
+import { formatManagedGeneratedRegion, GENERATED_BODY_MARKER } from "../../src/submit/index.ts";
 
 import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";

@@ -1,5 +1,5 @@
 import { stripTerminalEscapes } from "@sdl/core/exec";
-import type { PrewrittenPrMetadata } from "@sdl/core/submit";
+import type { PrewrittenPrMetadata } from "./index.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";

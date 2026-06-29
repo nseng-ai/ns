@@ -97,7 +97,8 @@ describe("project extension shared flow foundations", () => {
 		const pushSource = await readFile(PUSH_COMMAND_PATH, "utf8");
 
 		expect(submitSource).not.toContain("private/tmp/sdl-submit-extension-build");
-		expect(submitSource).not.toContain("ts/packages/infra/core/src/submit");
+		expect(submitSource).not.toContain(["@sdl", "core", "submit"].join("/"));
+		expect(submitSource).not.toContain(["@sdl", "graphite", "submit"].join("/"));
 		expect(submitSource).toContain("../shared/submit.ts");
 		expect(regeneratePrSource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");

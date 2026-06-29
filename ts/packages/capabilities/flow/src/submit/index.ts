@@ -40,7 +40,7 @@ export {
 } from "./pr-description.ts";
 export { commandFailure, type CommandFailureOptions } from "./command-failure.ts";
 export { formatItemCount } from "./format.ts";
-export { err, ok, type ErrorInfo, type GatewayResult } from "./result.ts";
+export { err, ok, type ErrorInfo, type GatewayResult, type Result } from "./result.ts";
 export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,
@@ -50,3 +50,43 @@ export {
 	type TextGenerationUsage,
 	type TextGenerator,
 } from "./text-generation.ts";
+export {
+	RealSubmitGateway,
+	runSubmitCommand,
+	type CurrentPrVerificationFailureCause,
+	type CurrentPrVerificationResult,
+	type RunSubmitCommandOptions,
+	type SubmitCommandOutput,
+	type SubmitCommandParams,
+	type SubmitCommandResult,
+	type SubmitFailurePresentation,
+	type SubmitFailureTranscript,
+	type SubmitFailureTranscriptCommand,
+	type SubmitGateway,
+	type SubmitOutputListener,
+	type SubmitOutputStream,
+	type SubmitPreflightFailureCause,
+	type SubmitPreflightResult,
+	type SubmitPrDescriptionOptions,
+	type SubmitRestackConfirmation,
+	type SubmitRestackConfirmationPrompt,
+	type SubmitRestackResult,
+	type SubmitRunResult,
+	type SubmitSemanticFailureCause,
+} from "./submit.ts";
+export {
+	RealSubmitMetadataGateway,
+	parseCommitMessages,
+	parseGtLogStack,
+	parseParentBranch,
+	prepareSubmitPrMetadata,
+	type ParsedGtLogStack,
+	type SubmitMetadataCommandParams,
+	type SubmitMetadataGateway,
+	type SubmitPrMetadataPrewriteResult,
+	type SubmitStackBranch,
+	type SubmitStackExistingBranch,
+	type SubmitStackInspection,
+	type SubmitStackNewBranch,
+} from "./submit-pr-metadata-prewrite.ts";
+export { extractPrLinks, prNumberFromUrl, type SubmitPrLink } from "./gt-output.ts";

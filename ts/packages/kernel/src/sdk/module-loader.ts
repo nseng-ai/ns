@@ -36,14 +36,11 @@ const CORE_EXEC_SPECIFIER = "@sdl/core/exec";
 const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_GIT_SPECIFIER = "@sdl/core/git";
-const CORE_SUBMIT_SPECIFIER = "@sdl/core/submit";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
-const GRAPHITE_SUBMIT_SPECIFIER = "@sdl/graphite/submit";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
-const GRAPHITE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "graphite", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
@@ -54,9 +51,7 @@ const CORE_EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives.ts");
 const CORE_GIT_MODULE_PATH = join(CORE_SRC_DIR, "git", "index.ts");
-const CORE_SUBMIT_MODULE_PATH = join(CORE_SRC_DIR, "submit", "index.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "text-normalization.ts");
-const GRAPHITE_SUBMIT_MODULE_PATH = join(GRAPHITE_SRC_DIR, "submit", "index.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/kernel/cli": "cli.ts",
@@ -181,9 +176,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CORE_MODEL_SLUG_SPECIFIER]: CORE_MODEL_SLUG_MODULE_PATH,
 			[CORE_PRIMITIVES_SPECIFIER]: CORE_PRIMITIVES_MODULE_PATH,
 			[CORE_GIT_SPECIFIER]: CORE_GIT_MODULE_PATH,
-			[CORE_SUBMIT_SPECIFIER]: CORE_SUBMIT_MODULE_PATH,
 			[CORE_TEXT_NORMALIZATION_SPECIFIER]: CORE_TEXT_NORMALIZATION_MODULE_PATH,
-			[GRAPHITE_SUBMIT_SPECIFIER]: GRAPHITE_SUBMIT_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {

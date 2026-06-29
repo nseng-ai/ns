@@ -12,7 +12,7 @@ import {
 	type PrCommitMessage,
 	type PromptSource,
 	type StablePatchIdForPrResult,
-} from "@sdl/core/submit";
+} from "../../src/submit/index.ts";
 import { ScriptedTextGenerator } from "@sdl/core/testing";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };

@@ -1,4 +1,4 @@
-import type { GitGateway } from "../git/index.ts";
+import type { GitGateway } from "@sdl/core/git";
 
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {
