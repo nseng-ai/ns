@@ -6,7 +6,7 @@ import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	githubRepositoryIdentityFromRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@sdl/core/github-identity";
+} from "@sdl/github/identity";
 import {
 	classifyGithubStatusCheck,
 	githubWorktreePrStatusArgs,
@@ -15,7 +15,7 @@ import {
 	parseGithubWorktreePrStatusJson,
 	parseGithubWorktreePrStatusJsonResult,
 	tallyGithubStatusChecks,
-} from "@sdl/core/github-pr-status";
+} from "@sdl/github/pr-status";
 
 describe("GitHub status boundary parsing", () => {
 	test("extracts canonical GitHub PR identity", () => {

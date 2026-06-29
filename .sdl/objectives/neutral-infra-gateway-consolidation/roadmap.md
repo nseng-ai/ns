@@ -41,11 +41,19 @@
     Validation: `just ts-deps-check`, `just ts-format-check`, `just ts-lint`, `just ts-check`,
     `just ts-test`, and `just ts-test-integration`.
 
-- [ ] Relocate the GitHub gateways (`github-cli`, `github-identity`, `github-pr-feedback`,
+- [x] Relocate the GitHub gateways (`github-cli`, `github-identity`, `github-pr-feedback`,
       `github-pr-status`) per ADR 0019: light seams under `@sdl/capability-kit/github` and
       standalone-real placement for complex PR-feedback/status implementations if warranted,
       honoring ADR 0016's address-owned PR-feedback seam; repoint consumers and delete the
       `@sdl/core` doors.
+  - Evidence: `@sdl/github` now declares `sdl.tier: "capability-gateway-backend"` and owns the moved
+    GitHub CLI, identity, PR-status, GraphQL JSON, and PR-feedback real backend mechanics. Consumers
+    import `@sdl/github/*`; `@sdl/address/api` remains the PR-feedback capability seam and re-exports
+    only consumer-facing DTOs. `@sdl/core` no longer contains or exports the old `github-*` doors, and
+    source search confirms no live `@sdl/core/github-*` imports remain. No Capability Kit GitHub subpath
+    was added because this slice did not introduce a separate light seam/fake beyond Address and the
+    backend package. Validation: `just ts-deps-check`, `just ts-format-check`, `just ts-lint`,
+    `just ts-check`, `just ts-test`, and `just ts-test-integration`.
 
 - [x] Assess standalone `@sdl/graphite` and `@sdl/cmux` with ADR 0019/0020's placement gate;
       confirm they stay standalone Capability Gateway Backend packages for this slice rather than

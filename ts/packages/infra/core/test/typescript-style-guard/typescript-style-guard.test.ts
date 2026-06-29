@@ -520,6 +520,11 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
+			name: "local pi tool to backend is allowed",
+			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/git" }],
+			expectedViolation: false,
+		},
+		{
 			name: "local pi tool to standalone tool is rejected",
 			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/areg" }],
 			expectedTextIncludes: "local-pi-tool-must-not-depend-on-standalone-tool",

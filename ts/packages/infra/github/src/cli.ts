@@ -1,5 +1,10 @@
-import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "./command.ts";
-import { formatErrorMessage } from "./primitives.ts";
+import {
+	formatCommand,
+	type CommandRunner,
+	type ExecOptions,
+	type ExecResult,
+} from "@sdl/core/command";
+import { formatErrorMessage } from "@sdl/core/primitives";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 export const GITHUB_CLI_STARTUP_ERROR_CODE = 127;

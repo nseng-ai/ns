@@ -13,15 +13,15 @@ import {
 } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
-import { runGitHubCli } from "@sdl/core/github-cli";
-import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/core/github-identity";
+import { runGitHubCli } from "@sdl/github/cli";
+import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
-} from "@sdl/core/github-pr-status";
+} from "@sdl/github/pr-status";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";

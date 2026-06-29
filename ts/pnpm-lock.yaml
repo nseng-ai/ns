@@ -177,6 +177,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../infra/github
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk
@@ -258,6 +261,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../../infra/github
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
@@ -291,6 +297,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../../infra/github
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
@@ -605,6 +614,15 @@ importers:
         specifier: workspace:*
         version: link:../exec
 
+  packages/infra/github:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
   packages/infra/graphite:
     dependencies:
       '@sdl/core':
@@ -688,6 +706,9 @@ importers:
       '@sdl/exec':
         specifier: workspace:*
         version: link:../../infra/exec
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../../infra/github
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -793,6 +814,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../infra/github
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -817,6 +841,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../infra/github
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk
@@ -940,6 +967,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/github':
+        specifier: workspace:*
+        version: link:../infra/github
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite

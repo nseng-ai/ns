@@ -1,4 +1,4 @@
-import type { ErrorInfo } from "../result.ts";
+import type { ErrorInfo } from "@sdl/core/result";
 
 export interface GithubPrFeedbackOptions {
 	readonly cwd: string;

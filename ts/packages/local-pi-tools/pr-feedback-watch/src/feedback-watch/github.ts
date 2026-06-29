@@ -1,4 +1,4 @@
-import { githubPrIdentityFromUrl } from "@sdl/core/github-identity";
+import { githubPrIdentityFromUrl } from "@sdl/github/identity";
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 import { loadGhCommand } from "@sdl/pi/shared/gh-command";

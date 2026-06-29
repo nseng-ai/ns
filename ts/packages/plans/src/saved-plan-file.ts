@@ -7,7 +7,7 @@ import type { GitGateway } from "@sdl/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@sdl/core/github-identity";
+} from "@sdl/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { isRecord } from "@sdl/core/primitives";

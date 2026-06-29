@@ -13,6 +13,7 @@
   "dependencies": {
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
+    "@sdl/github": "workspace:*",
     "@sdl/pi": "workspace:*",
     "zod": "catalog:"
   },

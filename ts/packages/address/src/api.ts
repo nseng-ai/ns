@@ -1,6 +1,6 @@
 // Capability API (`@sdl/address/api`): the curated, in-process surface for
 // PR-feedback consumers. The gateway seam and feedback/check payload vocabulary are
-// stable here so consumers do not import `@sdl/core/github-pr-feedback`, Pi modules,
+// stable here so consumers do not import `@sdl/github/pr-feedback`, Pi modules,
 // command operation schemas, or PR Address internals.
 //
 // Export classification:
@@ -9,14 +9,14 @@
 //   types, and gateway options/operation names.
 // - Stable via the PR Address seam: check/status result DTOs returned by
 //   `getPrChecks`. Their neutral normalization mechanics stay in
-//   `@sdl/core/github-pr-status`; consumers should import these DTOs here when they
+//   `@sdl/github/pr-status`; consumers should import these DTOs here when they
 //   are handling PR Address check payloads.
 // - Not exported here: real GitHub adapters, GraphQL args/queries/normalizers,
 //   command schemas, Clinkr/exec wrappers, and Pi presentation/session helpers.
 //
-// ADR 0016 keeps the lower type declarations and real mechanics in `@sdl/core` so
-// dependency direction remains `@sdl/address` -> `@sdl/core`; this file owns the
-// capability-facing seam vocabulary by re-exporting only the consumer-facing types.
+// ADR 0016 keeps PR Address as the capability-facing seam. Reusable GitHub
+// backend mechanics now live in `@sdl/github`; this file owns the seam vocabulary
+// by re-exporting only the consumer-facing types.
 
 import type {
 	GithubPrDiscussionComment,
@@ -33,14 +33,14 @@ import type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
-} from "@sdl/core/github-pr-feedback";
+} from "@sdl/github/pr-feedback";
 import type {
 	GithubCheckBucket,
 	GithubCheckTally,
 	GithubStatusCheckEntry,
 	GithubStatusCheckKind,
 	GithubStatusChecks,
-} from "@sdl/core/github-pr-status";
+} from "@sdl/github/pr-status";
 import type { Result } from "@sdl/core/result";
 
 // Stable PR Address Capability API: PR feedback domain seam and payloads.

@@ -74,7 +74,12 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"sdk",
 		"neutral-infra",
 	]),
-	"local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
+	"local-pi-tool": new Set([
+		"local-pi-tool",
+		"host",
+		"capability-gateway-backend",
+		"neutral-infra",
+	]),
 };
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
@@ -117,6 +122,7 @@ export const neutralPeerPackageNames = new Set([
 	"@sdl/capability-kit",
 	"@sdl/exec",
 	"@sdl/git",
+	"@sdl/github",
 	"@sdl/graphite",
 ]);
 
