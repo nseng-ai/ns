@@ -41,7 +41,11 @@ export async function releaseAssignedSlotTarget(
 ): Promise<FreedSlot | ReleaseTargetFailure> {
 	const record = findBySlot(options.inventory, options.target.slotName);
 	if (record === null || record.branch === null || record.branch !== options.target.branchName)
-		return failure("slot-not-assigned", options.target, { worktreePath: record?.path });
+		return failure(
+			"slot-not-assigned",
+			options.target,
+			record === null ? {} : { worktreePath: record.path },
+		);
 	if (record.operation !== null)
 		return failure("operation-in-progress", options.target, {
 			worktreePath: record.path,
@@ -63,10 +67,10 @@ function failure(
 	reason: ReleaseTargetFailureReason,
 	target: FreedSlot,
 	options: {
-		worktreePath?: string | undefined;
-		operation?: string | null | undefined;
-		detachRef?: string | undefined;
-		detachError?: string | undefined;
+		worktreePath?: string;
+		operation?: string | null;
+		detachRef?: string;
+		detachError?: string;
 	},
 ): ReleaseTargetFailure {
 	return {

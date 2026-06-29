@@ -26,8 +26,8 @@ export interface ExtensionDiscoveryDiagnostic {
 	severity: "error";
 	code: string;
 	message: string;
-	path?: string | undefined;
-	commandName?: string | undefined;
+	path?: string;
+	commandName?: string;
 }
 
 export interface ExtensionDiscoveryResult {

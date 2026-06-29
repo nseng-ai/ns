@@ -676,9 +676,9 @@ export interface StatusTheme {
 }
 
 export interface FormatWorktreeStatusOptions {
-	readonly theme?: StatusTheme | undefined;
-	readonly ghRefreshAgeMs?: number | undefined;
-	readonly isDormant?: boolean | undefined;
+	readonly theme?: StatusTheme;
+	readonly ghRefreshAgeMs?: number;
+	readonly isDormant?: boolean;
 }
 
 export function formatWorktreeStatus(

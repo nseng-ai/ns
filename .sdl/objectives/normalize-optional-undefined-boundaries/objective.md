@@ -58,8 +58,12 @@ Risks:
 - Broad cleanup can create review noise; slices should stay coherent and explain why each boundary no longer admits explicit `undefined`.
 - Zod `.optional()` outputs and JSON emit behavior can reintroduce `| undefined` unless schema boundaries are handled deliberately.
 
+## Closure
+
+Closed after completing the named semantic cleanup clusters and final broad rebaseline. The remaining `?: T | undefined` candidates are predominantly option/input/override/deps/config bags, external process/GitHub/JSON/env mirrors, public/CLI compatibility surfaces, test fixture/fake gateway builders, parser intermediate states, and cautious null/omission compatibility surfaces. No checked-in allowlist, hard validation ban, or schema registry was added.
+
 ## Open Questions
 
-- Which remaining public SDK surfaces should preserve explicit `undefined` for compatibility, and which should introduce normalized internal types?
+- For remaining public SDK and CLI surfaces, explicit `undefined` is preserved as compatibility unless future local work introduces a normalized internal type.
 - For PR feedback watch, no open modeling question remains for the cleaned watch-state slice: internal status, event, fingerprint, and snapshot records now omit absent fields, while UI status-clearing and GitHub REST/options/query surfaces remain compatibility boundaries.
 - For SDLCC stack-map follow-up, no open modeling question remains for branch-node collections: empty arrays are the normalized internal representation for loaded-empty `children`, `slots`, and `cmuxTabs`.

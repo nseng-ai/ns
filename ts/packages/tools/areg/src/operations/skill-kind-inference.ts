@@ -47,10 +47,10 @@ export interface SkillKindArtifactFacts {
 
 export interface SkillKindReplacementInfo {
 	verified: boolean;
-	surface?: string | undefined;
+	surface?: string;
 	label: string;
-	evidence?: string | undefined;
-	advice?: string | undefined;
+	evidence?: string;
+	advice?: string;
 }
 
 export interface SkillKindRecord {
@@ -102,14 +102,18 @@ export function inferSkillKindRecord(options: {
 		isPiExcluded: options.isPiExcluded,
 	};
 	const kind = inferKind(artifacts, options.replacement);
+	const replacementEvidenceText = options.replacement.verified
+		? replacementEvidence(options.replacement)
+		: undefined;
+	const replacementAdviceText = options.replacement.verified
+		? undefined
+		: replacementAdvice(options.skillName, options.replacement.surface);
 	const replacement: SkillKindReplacementInfo = {
 		verified: options.replacement.verified,
-		surface: options.replacement.surface,
+		...(options.replacement.surface === undefined ? {} : { surface: options.replacement.surface }),
 		label: formatReplacementLabel(options.replacement),
-		evidence: options.replacement.verified ? replacementEvidence(options.replacement) : undefined,
-		advice: options.replacement.verified
-			? undefined
-			: replacementAdvice(options.skillName, options.replacement.surface),
+		...(replacementEvidenceText === undefined ? {} : { evidence: replacementEvidenceText }),
+		...(replacementAdviceText === undefined ? {} : { advice: replacementAdviceText }),
 	};
 	return {
 		skill: options.skillName,
