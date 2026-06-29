@@ -274,8 +274,8 @@ function createFreeAllProgressReporter(
 }
 
 function buildFreeResult(options: {
-	freed?: readonly FreedSlot[] | undefined;
-	wouldFree?: readonly FreedSlot[] | undefined;
+	freed?: readonly FreedSlot[];
+	wouldFree?: readonly FreedSlot[];
 	cleanup: readonly SlotFreeCleanupResult[];
 	skipped: readonly string[];
 	isDryRun: boolean;

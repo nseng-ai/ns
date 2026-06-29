@@ -587,6 +587,7 @@ export default function worktreeStatusExtension(
 					const cwd = session.ctx.sessionManager?.getCwd() ?? session.ctx.cwd;
 					const branch = loaders.readFooterBranch(cwd, footerData) ?? "unknown";
 					const ghRefreshAge = ghRefreshAgeMs(session);
+					const worktreeStatus = combinedSessionStatus(session);
 					return isActiveSession(session)
 						? renderStatusFooter({
 								ctx: session.ctx,
@@ -596,7 +597,7 @@ export default function worktreeStatusExtension(
 								cwd,
 								branch,
 								fallbackRepo: fallbackRepoName(cwd),
-								worktreeStatus: combinedSessionStatus(session),
+								...(worktreeStatus === undefined ? {} : { worktreeStatus }),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
 								...(ghRefreshAge === undefined ? {} : { ghRefreshAgeMs: ghRefreshAge }),
 							})

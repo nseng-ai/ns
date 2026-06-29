@@ -72,9 +72,9 @@ export interface StatusFooterRenderOptions {
 	cwd: string;
 	branch: string;
 	fallbackRepo: string;
-	worktreeStatus?: WorktreeStatus | undefined;
-	isWorktreeStatusDormant?: boolean | undefined;
-	ghRefreshAgeMs?: number | undefined;
+	worktreeStatus?: WorktreeStatus;
+	isWorktreeStatusDormant?: boolean;
+	ghRefreshAgeMs?: number;
 }
 
 interface FooterExtensionStatusLines {
@@ -85,9 +85,9 @@ export interface WorktreeFooterIdentityOptions {
 	readonly cwd: string;
 	readonly branch: string;
 	readonly fallbackRepo: string;
-	readonly home?: string | undefined;
+	readonly home?: string;
 	readonly width: number;
-	readonly gt?: GtStatus | undefined;
+	readonly gt?: GtStatus;
 	readonly theme: StatusTheme;
 }
 
@@ -95,7 +95,7 @@ interface FooterIdentityPartsOptions {
 	readonly cwd: string;
 	readonly branch: string;
 	readonly fallbackRepo: string;
-	readonly home?: string | undefined;
+	readonly home?: string;
 }
 
 interface FooterIdentityParts {
@@ -117,7 +117,7 @@ export function formatWorktreeFooterIdentity(options: WorktreeFooterIdentityOpti
 		cwd: options.cwd,
 		branch: options.branch,
 		fallbackRepo: options.fallbackRepo,
-		home: options.home,
+		...(options.home === undefined ? {} : { home: options.home }),
 	});
 	const segments = buildFooterIdentitySegments(identity, options.gt);
 	const coloredIdentity = colorFooterIdentitySegments(segments, options.theme);
@@ -245,13 +245,14 @@ export function renderStatusFooter(options: StatusFooterRenderOptions): string[]
 		isWorktreeStatusDormant,
 		ghRefreshAgeMs,
 	} = options;
+	const home = process.env.HOME || process.env.USERPROFILE;
 	const identity = formatWorktreeFooterIdentity({
 		cwd,
 		branch,
 		fallbackRepo,
-		home: process.env.HOME || process.env.USERPROFILE,
+		...(home === undefined ? {} : { home }),
 		width,
-		gt: worktreeStatus?.gt,
+		...(worktreeStatus?.gt === undefined ? {} : { gt: worktreeStatus.gt }),
 		theme,
 	});
 

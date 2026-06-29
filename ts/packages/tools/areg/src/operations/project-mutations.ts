@@ -22,7 +22,7 @@ interface BaseApplyProjectMutationPlanRequest {
 	ctx: AregCliContext;
 	projectDir: string;
 	writes: readonly ProjectTextWritePlan[];
-	execute?: boolean | undefined;
+	execute?: boolean;
 }
 
 type ApplyProjectMutationPlanRequest =
@@ -61,7 +61,7 @@ export interface ProjectMutationOperationStatusRecord {
 	path: string;
 	description: string;
 	status: ProjectMutationOperationStatus;
-	error?: AregErrorInfo | undefined;
+	error?: AregErrorInfo;
 }
 
 interface ProjectMutationOperationBase {
@@ -239,7 +239,7 @@ async function preflightOperation(
 async function applyOperation(
 	request: ApplyProjectMutationPlanRequest,
 	operation: ProjectMutationOperation,
-): Promise<{ ok: true; removed?: boolean | undefined } | { ok: false; error: AregErrorInfo }> {
+): Promise<{ ok: true; removed?: boolean } | { ok: false; error: AregErrorInfo }> {
 	switch (operation.type) {
 		case "write":
 			return await request.ctx.project.writeTextFile({
@@ -289,13 +289,13 @@ function emptyFailure(
 function operationStatus(
 	operation: ProjectMutationOperation,
 	status: ProjectMutationOperationStatus,
-	error?: AregErrorInfo | undefined,
+	error?: AregErrorInfo,
 ): ProjectMutationOperationStatusRecord {
 	return {
 		type: operation.type,
 		path: operation.relativePath,
 		description: operation.description,
 		status,
-		error,
+		...(error === undefined ? {} : { error }),
 	};
 }

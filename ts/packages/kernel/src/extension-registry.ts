@@ -53,9 +53,9 @@ export interface ExtensionErrorDiagnostic {
 	severity: "error";
 	code: string;
 	message: string;
-	path?: string | undefined;
-	sourceLevel?: ExtensionSourceLevel | undefined;
-	commandName?: string | undefined;
+	path?: string;
+	sourceLevel?: ExtensionSourceLevel;
+	commandName?: string;
 }
 
 export interface ExtensionOverrideDiagnostic {

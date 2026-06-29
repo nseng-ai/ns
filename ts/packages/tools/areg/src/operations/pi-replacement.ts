@@ -8,7 +8,7 @@ export interface PiReplacementFacts {
 
 export interface PiReplacementVerification {
 	verified: boolean;
-	surface?: string | undefined;
+	surface?: string;
 }
 
 export function derivePiReplacementCommand(

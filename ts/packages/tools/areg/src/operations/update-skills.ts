@@ -165,7 +165,7 @@ function selectGithubUpdates(
 }
 
 function report(input: {
-	ok?: boolean | undefined;
+	ok?: boolean;
 	projectDir: string;
 	agents: readonly string[];
 	dryRun: boolean;

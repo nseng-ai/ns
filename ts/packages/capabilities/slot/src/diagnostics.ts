@@ -16,15 +16,15 @@ export interface SlotCommandDiagnosticEvent {
 	readonly command: string;
 	readonly args: readonly string[];
 	readonly displayCommand: string;
-	readonly cwd?: string | undefined;
-	readonly timeoutMs?: number | undefined;
+	readonly cwd?: string;
+	readonly timeoutMs?: number;
 	readonly startedAt: string;
 	readonly durationMs: number;
 	readonly exitCode: number;
 	readonly killed: boolean;
 	readonly stdoutBytes: number;
 	readonly stderrBytes: number;
-	readonly startupError?: string | undefined;
+	readonly startupError?: string;
 }
 
 export interface SlotDiagnosticSink {

@@ -68,7 +68,7 @@ export interface SkillKindApplyPlan {
 export interface SkillKindApplyOperationResult {
 	type: ApplyOperationType;
 	path: string;
-	reason?: string | undefined;
+	reason?: string;
 	isApplied: boolean;
 }
 
@@ -360,7 +360,7 @@ export function toApplyResult(
 	return {
 		type: operation.type,
 		path: operation.relativePath,
-		reason: operation.type === "skip" ? operation.reason : undefined,
+		...(operation.type === "skip" ? { reason: operation.reason } : {}),
 		isApplied:
 			operation.type === "skip"
 				? false

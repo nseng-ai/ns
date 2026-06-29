@@ -12,15 +12,15 @@ import {
 export type SdlCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
 
 export interface SdlCommandPath {
-	group?: string | undefined;
+	group?: string;
 	name: string;
-	segments?: readonly string[] | undefined;
+	segments?: readonly string[];
 }
 
 export interface SdlCommandSourceInfo {
 	level: SdlCommandSourceLevel;
 	label: string;
-	path?: string | undefined;
+	path?: string;
 }
 
 export interface SdlCommandInfo extends SdlCommandPath {
@@ -33,7 +33,7 @@ export interface SdlCommandCliInfo extends SdlCommandInfo {
 
 export interface SdlCommandCandidate extends SdlCommandCliInfo {
 	source: SdlCommandSourceInfo;
-	entryPath?: string | undefined;
+	entryPath?: string;
 }
 
 export interface BuiltInSdlCommandCandidate extends SdlCommandCandidate {

@@ -149,7 +149,7 @@ function npxSkillsAddOperation(
 		path: "npx skills add",
 		description: `Install bootstrap skills from ${BOOTSTRAP_REPO}`,
 		status,
-		error,
+		...(error === undefined ? {} : { error }),
 	};
 }
 
