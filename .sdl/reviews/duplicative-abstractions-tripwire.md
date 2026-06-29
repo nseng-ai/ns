@@ -38,12 +38,18 @@ questions the stronger agent should inspect next.
    directly: command/extension registration, subprocess spawning, argument
    parsing, output rendering, retries/pagination, formatting, API-client
    construction, timeout handling, notification/status cleanup, or path/config
-   discovery.
+   discovery. For time-sensitive infrastructure, include raw `setTimeout`,
+   `setInterval`, retry/backoff sleeps, polling loops, timeout-driven
+   `AbortController`, status cleanup timers, and direct wall-clock reads when
+   they appear in production code.
 2. For each operation, `git grep` for two kinds of evidence:
    - the same low-level API/function names used by the diff;
    - operation-vocabulary helper names that would not appear in the hand-rolled
      code (`register*Command*`, `*Cli*Command*`, `runCli`, `format*Output`,
-     `retry`, `paginate`, `notify*`, `withTimeout`, etc.).
+     `retry`, `paginate`, `notify*`, `withTimeout`, `Clock`, `systemClock`,
+     `TimerScheduler`, `ScheduledTimer`, `systemTimerScheduler`,
+     `unrefTimerScheduler`, `createManualClock`, `createManualTimerScheduler`,
+     `@sdl/core/clock`, `@sdl/core/timers`, `@sdl/core/testing`, etc.).
      For Pi command handlers that invoke a package CLI, specifically check whether
      `registerCliCommandExtension` exists before accepting custom
      `registerCommand` with direct `exec` and stdout/stderr rendering code.
@@ -52,6 +58,12 @@ questions the stronger agent should inspect next.
    performs the same operation directly, emit a lead. You do not need to prove
    the helper fully applies; you only need enough evidence that a smarter agent
    should inspect it.
+
+   **SDL time-seam heuristic:** if a diff hand-rolls timeout, interval, sleep,
+   retry/backoff, polling, status-reset, abort-timeout, or wall-clock behavior,
+   emit an investigation lead asking whether the code should route through
+   `Clock` or `TimerScheduler` unless the changed file is itself a timer adapter
+   or a narrowly justified test/integration runtime smoke.
 4. Skim or read only the most relevant candidate helper file(s) when cheap. Do
    not spend the review budget reverse-engineering the whole abstraction. If a
    candidate looks plausible from names/call sites but has not been fully read,

@@ -1,4 +1,6 @@
 import { formatErrorMessage } from "@sdl/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/core/timers";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 import {
 	buildHandoffLaunchPrompt,
@@ -44,6 +46,7 @@ interface HandoffSelfPromptOptions {
 interface HandoffSelfWorkflowOptions {
 	timeoutMs?: number;
 	skillLoader?: HandoffCreateSkillLoader;
+	timers?: TimerScheduler;
 }
 
 interface HandoffSelfLaunchParams extends HandoffLaunchParams {
@@ -57,7 +60,7 @@ type HandoffSelfWorkflowState =
 			type: "waiting";
 			branch: string;
 			resolve(completion: HandoffSelfCompletion): void;
-			timeout: ReturnType<typeof setTimeout>;
+			timeout: ScheduledTimer;
 			workflowId: string;
 	  };
 
@@ -100,6 +103,7 @@ export function createHandoffSelfWorkflow(
 	handleCommand(args: string, ctx: CommandContext): Promise<void>;
 } {
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
+	const timers = options.timers ?? systemTimerScheduler;
 	const prepareOptions =
 		options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader };
 	let state: HandoffSelfWorkflowState = { type: "idle" };
@@ -115,7 +119,7 @@ export function createHandoffSelfWorkflow(
 		workflowId: string;
 	}): Promise<HandoffSelfCompletion> {
 		return new Promise((resolve) => {
-			const timeout = setTimeout(() => {
+			const timeout = timers.setTimeout(() => {
 				if (state.type === "waiting" && state.workflowId === options.workflowId) {
 					state = { type: "idle" };
 					resolve({ type: "timed-out" });
@@ -138,7 +142,7 @@ export function createHandoffSelfWorkflow(
 		if (state.type !== "waiting" || state.workflowId !== waiting.workflowId) {
 			return false;
 		}
-		clearTimeout(waiting.timeout);
+		waiting.timeout.cancel();
 		state = { type: "idle" };
 		waiting.resolve(completion);
 		return true;
@@ -148,7 +152,7 @@ export function createHandoffSelfWorkflow(
 		if (state.type !== "waiting" || state.workflowId !== workflowId) {
 			return;
 		}
-		clearTimeout(state.timeout);
+		state.timeout.cancel();
 		const resolve = state.resolve;
 		state = { type: "idle" };
 		resolve({ type: "timed-out" });

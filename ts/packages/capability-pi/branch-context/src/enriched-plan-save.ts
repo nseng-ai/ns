@@ -7,6 +7,8 @@ import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/core/git";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import type { ScheduledTimer } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/core/timers";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi/commands";
 import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import {
@@ -328,10 +330,10 @@ export function buildWriteSavedPlanFileTool(
 					phase: "deriving-slug",
 				});
 				const slugStartedAt = Date.now();
-				const slugProgressInterval: ReturnType<typeof setInterval> | undefined =
+				const slugProgressInterval: ScheduledTimer | undefined =
 					onUpdate === undefined && !canSetWriteSavedPlanStatus(ctx)
 						? undefined
-						: setInterval(() => {
+						: systemTimerScheduler.setInterval(() => {
 								const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
 								emitWriteSavedPlanProgress(
 									onUpdate,
@@ -352,7 +354,7 @@ export function buildWriteSavedPlanFileTool(
 					});
 				} finally {
 					if (slugProgressInterval !== undefined) {
-						clearInterval(slugProgressInterval);
+						slugProgressInterval.cancel();
 					}
 				}
 				emitWriteSavedPlanProgress(

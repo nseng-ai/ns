@@ -4,6 +4,7 @@ import process from "node:process";
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import type { ScheduledTimer } from "@sdl/core/timers";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
@@ -12,6 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../terminal/presentation.ts";
+import { unrefTimerScheduler } from "../shared/timers.ts";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "SDL_PI_CLI_TRACE";
@@ -609,7 +611,7 @@ class LiveCommandProgress {
 	private stderrPending = "";
 	private outputLines: LiveOutputLine[] = [];
 	private lastStatusValue: string | undefined;
-	private timer: ReturnType<typeof setInterval> | undefined;
+	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
 
 	constructor(ctx: CommandContext, options: LiveCommandProgressOptions) {
@@ -626,7 +628,7 @@ class LiveCommandProgress {
 		if (this.target === "none") return;
 
 		this.render();
-		this.timer = setInterval(() => {
+		this.timer = unrefTimerScheduler.setInterval(() => {
 			this.render();
 		}, LIVE_PROGRESS_INTERVAL_MS);
 	}
@@ -662,7 +664,7 @@ class LiveCommandProgress {
 		if (this.isClosed) return;
 		this.isClosed = true;
 		if (this.timer !== undefined) {
-			clearInterval(this.timer);
+			this.timer.cancel();
 			this.timer = undefined;
 		}
 		if (this.target !== "none") {

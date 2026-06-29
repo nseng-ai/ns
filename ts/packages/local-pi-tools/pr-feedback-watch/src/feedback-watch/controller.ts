@@ -1,5 +1,6 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
-import { unrefTimer } from "@sdl/pi/shared/timers";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
 
 import {
 	type ExistingFeedbackMode,
@@ -54,8 +55,9 @@ export class PrFeedbackWatchController {
 	private readonly pi: ExtensionAPI;
 	private activeSession: ActiveSession | undefined;
 	private nextSessionId = 0;
-	private timer: ReturnType<typeof setTimeout> | undefined;
-	private statusRefreshTimer: ReturnType<typeof setInterval> | undefined;
+	private readonly timers: TimerScheduler;
+	private timer: ScheduledTimer | undefined;
+	private statusRefreshTimer: ScheduledTimer | undefined;
 	private isPollInFlight = false;
 	private isPollPending = false;
 	private state: WatchStatus = initialWatchStatus();
@@ -80,6 +82,7 @@ export class PrFeedbackWatchController {
 	constructor(pi: ExtensionAPI, options: PrFeedbackWatchExtensionOptions) {
 		this.pi = pi;
 		this.runner = options.runner;
+		this.timers = options.timers ?? unrefTimerScheduler;
 	}
 
 	activate(ctx: ExtensionContext): void {
@@ -699,11 +702,10 @@ export class PrFeedbackWatchController {
 
 	private scheduleNextPoll(session: ActiveSession): void {
 		this.clearTimer();
-		this.timer = setTimeout(() => {
+		this.timer = this.timers.setTimeout(() => {
 			this.timer = undefined;
 			void this.pollOnce(session, { scheduleNext: true, existingFeedbackMode: "baseline" });
 		}, this.nextPollDelayMs());
-		unrefTimer(this.timer);
 	}
 
 	private nextPollDelayMs(): number {
@@ -713,7 +715,7 @@ export class PrFeedbackWatchController {
 	}
 
 	private clearTimer(): void {
-		if (this.timer !== undefined) clearTimeout(this.timer);
+		this.timer?.cancel();
 		this.timer = undefined;
 	}
 
@@ -723,7 +725,7 @@ export class PrFeedbackWatchController {
 			return;
 		}
 		if (this.statusRefreshTimer !== undefined) return;
-		this.statusRefreshTimer = setInterval(() => {
+		this.statusRefreshTimer = this.timers.setInterval(() => {
 			const ctx = this.activeSession?.ctx;
 			if (ctx === undefined || !shouldRefreshStatusAge(this.status())) {
 				this.clearStatusRefreshTimer();
@@ -731,11 +733,10 @@ export class PrFeedbackWatchController {
 			}
 			ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, defaultStatusLine(this.status()));
 		}, STATUS_REFRESH_INTERVAL_MS);
-		unrefTimer(this.statusRefreshTimer);
 	}
 
 	private clearStatusRefreshTimer(): void {
-		if (this.statusRefreshTimer !== undefined) clearInterval(this.statusRefreshTimer);
+		this.statusRefreshTimer?.cancel();
 		this.statusRefreshTimer = undefined;
 	}
 

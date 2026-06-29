@@ -1,5 +1,6 @@
 import type { ExecOptions, ExecResult } from "@sdl/pi/shared/exec-gateway";
 
+import type { TimerScheduler } from "@sdl/core/timers";
 import type { SendMessageOptions, SendUserMessageOptions } from "@sdl/pi/shared/message-delivery";
 import type { PrAddressRunner } from "../feedback-download.ts";
 
@@ -57,6 +58,7 @@ export type { ExecGateway } from "@sdl/pi/shared/exec-gateway";
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;
 	minimumIntervalMs?: number;
+	timers?: TimerScheduler;
 }
 
 export interface ActiveSession {

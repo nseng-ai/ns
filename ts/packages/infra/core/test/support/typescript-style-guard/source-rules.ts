@@ -5,6 +5,7 @@ import {
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
+	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 } from "./config.ts";
 import { moduleSpecifierText, parseTypeScriptSource } from "./module-specifiers.ts";
@@ -32,6 +33,18 @@ export function collectViolations(
 	const violations: SourceRuleViolation[] = [];
 
 	function visit(node: ts.Node): void {
+		if (isRawProductionTimerNode(node, path)) {
+			violations.push(
+				buildViolationWithText(
+					BAN_RAW_PRODUCTION_TIMERS,
+					path,
+					sourceFile,
+					node,
+					"Raw production timers are banned. Use Clock for wall-clock reads, TimerScheduler for timeout/interval scheduling, unrefTimerScheduler for Pi host background timers, or isolate raw timers in an explicit adapter/runtime-boundary allowlist.",
+				),
+			);
+		}
+
 		if (ts.isImportDeclaration(node) && isFirstPartyImportDeclaration(node)) {
 			const namedBindings = node.importClause?.namedBindings;
 			if (namedBindings !== undefined) {
@@ -85,6 +98,39 @@ export function collectViolations(
 
 	visit(sourceFile);
 	return violations;
+}
+
+const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
+const RAW_TIMER_ADAPTER_PATHS = new Set([
+	"ts/packages/infra/core/src/timers.ts",
+	"ts/packages/hosts/pi/src/shared/timers.ts",
+]);
+
+function isRawProductionTimerNode(node: ts.Node, path: string): boolean {
+	if (!isRawProductionTimerGuardPath(path)) return false;
+	if (ts.isImportDeclaration(node)) {
+		return moduleSpecifierText(node) === "node:timers/promises";
+	}
+	if (!ts.isCallExpression(node)) return false;
+	const expression = node.expression;
+	if (ts.isIdentifier(expression)) return RAW_TIMER_GLOBALS.has(expression.text);
+	return isGlobalThisRawTimerCall(expression);
+}
+
+function isRawProductionTimerGuardPath(path: string): boolean {
+	if (!path.startsWith("ts/packages/")) return false;
+	if (path.includes("/test/")) return false;
+	if (path.includes("/test-support/")) return false;
+	return !RAW_TIMER_ADAPTER_PATHS.has(path);
+}
+
+function isGlobalThisRawTimerCall(expression: ts.Expression): boolean {
+	return (
+		ts.isPropertyAccessExpression(expression) &&
+		ts.isIdentifier(expression.expression) &&
+		expression.expression.text === "globalThis" &&
+		RAW_TIMER_GLOBALS.has(expression.name.text)
+	);
 }
 
 function isFirstPartyImportDeclaration(node: ts.ImportDeclaration): boolean {
@@ -221,6 +267,16 @@ function buildViolation(
 	sourceFile: ts.SourceFile,
 	node: ts.Node,
 ): SourceRuleViolation {
+	return buildViolationWithText(rule, path, sourceFile, node, singleLine(node.getText(sourceFile)));
+}
+
+function buildViolationWithText(
+	rule: string,
+	path: string,
+	sourceFile: ts.SourceFile,
+	node: ts.Node,
+	text: string,
+): SourceRuleViolation {
 	const start = node.getStart(sourceFile);
 	const position = sourceFile.getLineAndCharacterOfPosition(start);
 	return {
@@ -228,7 +284,7 @@ function buildViolation(
 		path,
 		line: position.line + 1,
 		column: position.character + 1,
-		text: singleLine(node.getText(sourceFile)),
+		text,
 	};
 }
 

@@ -11,6 +11,7 @@ import {
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_PACKAGE_TIER_LAYERING,
+	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	deferredExtensionCycleComponents,
 	extensionGraphPackageNames,
@@ -230,6 +231,60 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "internal snake_case discriminant value is outside the focused guard",
 			code: 'const result = { kind: "stash_failed", error };',
+			expectedRules: [],
+		},
+		{
+			name: "production setTimeout is rejected",
+			code: "setTimeout(() => {}, 10);",
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "production setInterval is rejected",
+			code: "setInterval(() => {}, 10);",
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "production clearTimeout is rejected",
+			code: "clearTimeout(timer);",
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "production clearInterval is rejected",
+			code: "clearInterval(timer);",
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "production globalThis raw timer is rejected",
+			code: "globalThis.setTimeout(() => {}, 10);",
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "production node timers promise import is rejected",
+			code: 'import { setTimeout } from "node:timers/promises";',
+			path: "ts/packages/infra/example/src/timer.ts",
+			expectedRules: [BAN_RAW_PRODUCTION_TIMERS],
+		},
+		{
+			name: "timer adapter raw timer is allowed",
+			code: "setTimeout(() => {}, 10); clearTimeout(timer);",
+			path: "ts/packages/infra/core/src/timers.ts",
+			expectedRules: [],
+		},
+		{
+			name: "pi unref timer adapter raw interval is allowed",
+			code: "setInterval(() => {}, 10); clearInterval(timer);",
+			path: "ts/packages/hosts/pi/src/shared/timers.ts",
+			expectedRules: [],
+		},
+		{
+			name: "test raw timer is allowed",
+			code: "setTimeout(() => {}, 10);",
+			path: "ts/packages/infra/core/test/runtime.test.ts",
 			expectedRules: [],
 		},
 	];

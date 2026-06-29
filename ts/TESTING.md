@@ -69,6 +69,12 @@ Default-path tests should prefer small fake-driven seams:
 
 ## Deterministic time convention
 
+Production code that reads wall-clock time or schedules/cancels work should expose SDL time seams first:
+use `Clock` from `@sdl/core/clock` for wall-clock reads and `TimerScheduler` from `@sdl/core/timers`
+for timeouts, intervals, or awaited delays. Pi host background timers should use `unrefTimerScheduler` so timer work does
+not keep the process alive. Raw timers belong in the timer adapter modules or narrowly justified
+runtime/integration smoke.
+
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
 use helpers from `@sdl/core/testing`:
 
@@ -77,7 +83,7 @@ import { createManualClock, createManualTimerScheduler } from "@sdl/core/testing
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use
-`createManualTimerScheduler()` for one-shot timeout scheduling and cancellation behavior. Real sleeps,
+`createManualTimerScheduler()` for timeout/interval scheduling and cancellation behavior. Real sleeps,
 cold runtime timing, or process startup timing belong only in integration tests or narrow adapter smoke
 tests.
 

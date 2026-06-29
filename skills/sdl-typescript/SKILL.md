@@ -79,6 +79,10 @@ This is intentional. Do not copy rules from projects that ban this pattern unles
 sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
+## Time seams
+
+Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `systemTimerScheduler` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` from `@sdl/core/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+
 ## Hard bans enforced by TypeScript integration tests
 
 The repository TypeScript style guard integration tests run adversarial self-review cases and enforce these
@@ -91,6 +95,7 @@ uniquely greppable rules through `just ts-test-integration`:
   `rg SymbolName` remains reliable. Third-party import aliases are allowed when used consistently.
 - `SDL_TS_BAN_EMPTY_INTERFACE_EXTENDS`: empty `interface X extends Y {}` aliases are banned. Use
   `type X = Y` unless the interface adds real members.
+- `SDL_TS_BAN_RAW_PRODUCTION_TIMERS`: raw production timers are banned outside timer adapter modules and tests. Use `Clock`, `TimerScheduler`, and `unrefTimerScheduler` seams instead.
 
 Review-only hard ban: `SDL_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS` means do not work around alias bans with
 `const LocalName = ImportedName`; use the first-party source name or a third-party import alias. This is

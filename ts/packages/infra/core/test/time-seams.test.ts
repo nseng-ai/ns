@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { createManualClock, createManualTimerScheduler } from "@sdl/core/testing";
+import {
+	createManualClock,
+	createManualTimerHarness,
+	createManualTimerScheduler,
+} from "@sdl/core/testing";
 
 describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {
@@ -81,5 +85,53 @@ describe("manual timer scheduler", () => {
 		expect(manual.runNextTimer()).toBe(true);
 		expect(events).toEqual(["first", "second"]);
 		expect(manual.runNextTimer()).toBe(false);
+	});
+
+	test("runs intervals for every due occurrence during deterministic advancement", () => {
+		const manual = createManualTimerHarness();
+		const events: string[] = [];
+
+		manual.timers.setInterval(() => events.push(`tick-${manual.nowMs()}`), 5);
+		manual.advanceMs(16);
+
+		expect(events).toEqual(["tick-5", "tick-10", "tick-15"]);
+		expect(manual.pendingTimerCount()).toBe(1);
+	});
+
+	test("cancels intervals", () => {
+		const manual = createManualTimerScheduler();
+		const events: string[] = [];
+		const timer = manual.timers.setInterval(() => events.push("tick"), 5);
+
+		manual.advanceMs(5);
+		timer.cancel();
+		manual.advanceMs(20);
+
+		expect(events).toEqual(["tick"]);
+		expect(manual.pendingTimerCount()).toBe(0);
+	});
+
+	test("resolves delay using the manual setTimeout implementation", async () => {
+		const manual = createManualTimerScheduler();
+		const events: string[] = [];
+		const delayed = manual.timers.delay(10).then(() => events.push("done"));
+
+		manual.advanceMs(9);
+		expect(events).toEqual([]);
+
+		manual.advanceMs(1);
+		await delayed;
+
+		expect(events).toEqual(["done"]);
+	});
+
+	test("normalizes zero-delay intervals to avoid an infinite manual-time loop", () => {
+		const manual = createManualTimerHarness();
+		const events: number[] = [];
+
+		manual.timers.setInterval(() => events.push(manual.nowMs()), 0);
+		manual.advanceMs(3);
+
+		expect(events).toEqual([1, 2, 3]);
 	});
 });
