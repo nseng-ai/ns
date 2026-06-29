@@ -199,7 +199,7 @@ function withNumericGithubIdentity<
 	return { ...comment, numericId };
 }
 
-function numericGithubIdentity(value: string | number | null | undefined): number | null {
+export function numericGithubIdentity(value: string | number | null | undefined): number | null {
 	if (typeof value === "number") return Number.isSafeInteger(value) && value > 0 ? value : null;
 	if (typeof value !== "string") return null;
 	const trimmed = value.trim();
