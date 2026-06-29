@@ -75,7 +75,7 @@ describe("TypeScript style guard source rules", () => {
 	const cases: readonly SourceRuleCase[] = [
 		{
 			name: "first-party named import alias is rejected",
-			code: 'import { Foo as Bar } from "@sdl/core";',
+			code: 'import { Foo as Bar } from "@sdl/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -90,7 +90,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "multiline first-party type import alias is rejected",
-			code: 'import {\n  type Foo as Bar,\n} from "@sdl/core";',
+			code: 'import {\n  type Foo as Bar,\n} from "@sdl/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -165,12 +165,12 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "ordinary first-party named import is allowed",
-			code: 'import { Foo } from "@sdl/core";',
+			code: 'import { Foo } from "@sdl/core/primitives";',
 			expectedRules: [],
 		},
 		{
 			name: "export alias is outside the import-as rule",
-			code: 'export { Foo as Bar } from "@sdl/core";',
+			code: 'export { Foo as Bar } from "@sdl/core/primitives";',
 			expectedRules: [],
 		},
 		{
