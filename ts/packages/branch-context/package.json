@@ -19,8 +19,10 @@
   },
   "dependencies": {
     "@sdl/brmem": "workspace:*",
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
+    "@sdl/git": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/plans": "workspace:*",
     "zod": "catalog:"

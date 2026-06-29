@@ -70,6 +70,18 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"@sdl/kernel\0@sdl/slot",
 		"SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly.",
 	],
+	[
+		"@sdl/brmem\0@sdl/capability-kit",
+		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
+	],
+	[
+		"@sdl/git\0@sdl/capability-kit",
+		"Git gateway relocation debt: standalone real git adapter types against the capability-kit git seam.",
+	],
+	[
+		"@sdl/graphite\0@sdl/capability-kit",
+		"Git gateway relocation debt: graphite consumes the capability-kit local branch ref reader seam.",
+	],
 ]);
 
 export const capabilityPackageNames = new Set([
@@ -91,6 +103,7 @@ export const neutralPeerPackageNames = new Set([
 	"@sdl/cmux",
 	"@sdl/core",
 	"@sdl/capability-kit",
+	"@sdl/git",
 	"@sdl/graphite",
 ]);
 

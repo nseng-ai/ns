@@ -12,7 +12,7 @@ import {
 	type GraphiteMetadataDbAccess,
 	type SqliteJsonError,
 } from "./metadata.ts";
-import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/core/git";
+import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/capability-kit/git";
 import { isRecord } from "@sdl/core/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/core/timers";

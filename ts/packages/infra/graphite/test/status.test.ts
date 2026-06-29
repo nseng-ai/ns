@@ -11,7 +11,7 @@ import {
 	type GraphiteMetadataWorkerHandle,
 	type GraphiteMetadataWorkerRequest,
 } from "@sdl/graphite/status";
-import type { LocalBranchRefReadResult } from "@sdl/core/git";
+import type { LocalBranchRefReadResult } from "@sdl/capability-kit/git";
 import { resultErr, resultOk, type Result } from "@sdl/core/result";
 import type { GraphiteMetadataDbAccess, SqliteJsonError } from "@sdl/graphite/metadata";
 

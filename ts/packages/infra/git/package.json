@@ -1,6 +1,7 @@
 {
-  "name": "@sdl/brmem",
+  "name": "@sdl/git",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -8,20 +9,15 @@
   "files": [
     "src"
   ],
-  "bin": {
-    "brmem": "./src/cli.ts"
-  },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/brmem/test"
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/git/test"
   },
   "dependencies": {
     "@sdl/capability-kit": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "zod": "catalog:"
+    "@sdl/core": "workspace:*"
   },
+  "devDependencies": {},
   "sdl": {
     "tier": "neutral-infra"
   }

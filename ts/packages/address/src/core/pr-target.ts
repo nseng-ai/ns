@@ -1,4 +1,4 @@
-import type { GitGateway } from "@sdl/core/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 
 import type { GithubPrFeedbackFailure, GithubPrFeedbackGateway, GithubPrSummary } from "../api.ts";
 

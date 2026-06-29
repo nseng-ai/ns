@@ -35,8 +35,8 @@ const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
 const CORE_EXEC_SPECIFIER = "@sdl/core/exec";
 const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
-const CORE_GIT_SPECIFIER = "@sdl/core/git";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
+const GIT_SPECIFIER = "@sdl/git";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 
@@ -53,8 +53,8 @@ const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
 const CORE_EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives.ts");
-const CORE_GIT_MODULE_PATH = join(CORE_SRC_DIR, "git", "index.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "text-normalization.ts");
+const GIT_MODULE_PATH = join(SDL_SRC_DIR, "..", "..", "infra", "git", "src", "index.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/kernel/cli": "cli.ts",
@@ -199,8 +199,8 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CORE_EXEC_SPECIFIER]: CORE_EXEC_MODULE_PATH,
 			[CORE_MODEL_SLUG_SPECIFIER]: CORE_MODEL_SLUG_MODULE_PATH,
 			[CORE_PRIMITIVES_SPECIFIER]: CORE_PRIMITIVES_MODULE_PATH,
-			[CORE_GIT_SPECIFIER]: CORE_GIT_MODULE_PATH,
 			[CORE_TEXT_NORMALIZATION_SPECIFIER]: CORE_TEXT_NORMALIZATION_MODULE_PATH,
+			[GIT_SPECIFIER]: GIT_MODULE_PATH,
 		},
 		moduleCache: false,
 		virtualModules: {

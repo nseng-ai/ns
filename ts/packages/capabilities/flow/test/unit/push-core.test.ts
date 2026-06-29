@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import type { ExecResult } from "@sdl/core/exec";
 
 import { runPushCore } from "../../src/commands/push.ts";

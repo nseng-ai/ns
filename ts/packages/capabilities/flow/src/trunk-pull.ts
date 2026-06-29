@@ -1,5 +1,5 @@
 import { isSuccessfulExecResult, type ExecResult } from "@sdl/core/exec";
-import { planLocalBranchRefreshFromWorktrees } from "@sdl/core/git";
+import { planLocalBranchRefreshFromWorktrees } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 
 const GT_TIMEOUT_MS = 30_000;

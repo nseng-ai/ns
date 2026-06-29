@@ -28,8 +28,6 @@
     "./github-pr-status": "./src/github-pr-status.ts",
     "./stdin": "./src/stdin.ts",
     "./temp-files": "./src/temp-files.ts",
-    "./git": "./src/git/index.ts",
-    "./git/testing": "./src/git/testing.ts",
     "./brmem-cli": "./src/brmem-cli.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./testing": "./src/testing/index.ts",

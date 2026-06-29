@@ -6,7 +6,7 @@ import {
 	type BrmemReadGateway,
 	type BrmemResult,
 } from "@sdl/brmem";
-import type { GitGateway } from "@sdl/core/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 
 import {
 	HANDOFF_NAMESPACE,

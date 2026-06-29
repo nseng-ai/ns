@@ -1,4 +1,4 @@
-import type { GitErrorInfo } from "@sdl/core/git";
+import type { GitErrorInfo } from "@sdl/capability-kit/git";
 import type { ErrorInfo } from "@sdl/core/result";
 
 export type GatewayFailure = (ErrorInfo | GitErrorInfo) & {

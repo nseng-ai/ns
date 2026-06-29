@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,

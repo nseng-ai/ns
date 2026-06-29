@@ -17,7 +17,7 @@ import {
 import type { CommandExecApi } from "@sdl/core/exec";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { BranchContextContext } from "../src/context.ts";
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";

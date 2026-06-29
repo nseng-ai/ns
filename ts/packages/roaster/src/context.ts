@@ -1,5 +1,6 @@
 import { NodeCommandExecApi, type CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 
 import {
 	ClaudeCodeProcessReviewRunner,

@@ -5,12 +5,8 @@ import {
 	type CommandExecApi,
 	type ExecResult,
 } from "@sdl/core/exec";
-import {
-	RealGitGateway,
-	type GitGateway,
-	type GitOperationResult,
-	type GitResult,
-} from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway, GitOperationResult, GitResult } from "@sdl/capability-kit/git";
 
 import type { GitProvenance } from "./models.ts";
 import { VibechkError } from "./store.ts";

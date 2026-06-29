@@ -13,13 +13,15 @@ ADR 0019 records the package-placement gate for large real gateway implementatio
 objective's `objective.md` for the migration scope and `CONTEXT.md` for Capability Kit and SDK
 vocabulary; keep ADRs 0009 / 0012 / 0016 in mind for the layering history.
 
-What you see now: `@sdl/core` still exports `exec`, `git`, and `github-*`, and capabilities
-import them directly (~112 `exec`, ~45 `git` sites); gateway code is split across `@sdl/core`,
-`@sdl/graphite`, `@sdl/cmux`, and partially `@sdl/capability-kit`.
+What you see now: `@sdl/core` still exports `exec` and `github-*`, and capabilities still
+import those doors directly; the `git` seam/fake has moved to `@sdl/capability-kit/git`, while
+`RealGitGateway` lives in standalone `@sdl/git`; other gateway code is still split across
+`@sdl/core`, `@sdl/graphite`, `@sdl/cmux`, and partially `@sdl/capability-kit`.
 
 Avoid: adding any new real-world-I/O or external-tool surface to `@sdl/core`; importing
-`@sdl/core/exec` or `@sdl/core/git` from a new or edited capability — route I/O through a
-`@sdl/capability-kit/<domain>` gateway, or through `ctx` for an SDK-provided service; and
-relocating `@sdl/brmem`, which is the named exception handled by a separate follow-up.
+`@sdl/core/exec`, `@sdl/core/git`, or `@sdl/core/git/testing` from new or edited code — route I/O
+through a `@sdl/capability-kit/<domain>` gateway, `@sdl/git` for the real git adapter, or through
+`ctx` for an SDK-provided service; and relocating `@sdl/brmem`, which is the named exception handled
+by a separate follow-up.
 
 Active slice: see this objective's roadmap.md.

@@ -13,6 +13,7 @@
     "./command-runner": "./src/command-runner.ts",
     "./gateway-result": "./src/gateway-result.ts",
     "./git": "./src/git.ts",
+    "./git/testing": "./src/git-testing.ts",
     "./pending-worktree": "./src/pending-worktree.ts",
     "./sdl-command": "./src/sdl-command.ts",
     "./sdl-context": "./src/sdl-context.ts",

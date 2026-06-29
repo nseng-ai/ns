@@ -11,7 +11,8 @@ import {
 	type ExecOptions,
 	type PiExecResultLike,
 } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { runGitHubCli } from "@sdl/core/github-cli";
 import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/core/github-identity";
 import {

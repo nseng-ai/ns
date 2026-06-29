@@ -2,7 +2,8 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway, type GitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { isPathInside } from "@sdl/core/primitives";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 

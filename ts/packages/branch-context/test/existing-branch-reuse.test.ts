@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi } from "@sdl/core/exec";
-import { InMemoryGitGateway } from "@sdl/core/git/testing";
+import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,

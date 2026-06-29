@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/core/git";
+import { RealGitGateway } from "@sdl/git";
 import { ScriptedQueue } from "@sdl/core/testing";
 
 const ROOT = "/repo";
