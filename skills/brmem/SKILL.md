@@ -19,7 +19,8 @@ This skill is a CLI reference. Prefer higher-level skills when they match the
 whole workflow. Use the `branch-context` skill family for branch-context saved
 or attached plans; do not store those as generic `brmem` `plans/` keys. Use this
 skill directly when you need to inspect, write, copy, delete, or explain Branch
-Memory.
+Memory. Use `brmem gc` only for explicit cleanup of stale Snapshots for branches
+that no longer exist locally; inspect its dry-run output before passing `--yes`.
 
 ## Mental model
 
@@ -68,6 +69,8 @@ Python fallback.
 | List Entries on one branch or all branches    | `brmem list [--all-branches]`                                   | No      |
 | Export Entries to files                       | `brmem export [--output-dir <dir>]`                             | Files   |
 | Remove one Entry                              | `brmem delete <key>`                                            | Yes     |
+| Preview stale Snapshots for missing branches  | `brmem gc`                                                      | No      |
+| Delete stale Snapshots for missing branches   | `brmem gc --yes`                                                | Yes     |
 | Copy Base Entries between branches            | `brmem copy --base --from-branch <a> --to-branch <b>`           | Yes     |
 | Copy named Namespace Entries between branches | `brmem copy --namespace <ns> --from-branch <a> --to-branch <b>` | Yes     |
 | Resolve a repo/global prompt plugin           | `brmem exec resolve-prompt <name>`                              | No      |
@@ -104,12 +107,15 @@ Base Namespace Entries. For `copy`, choose exactly one scope: `--base` or
    binary content, and caps Entries at 1 MiB unless `--force` is supplied. Use
    `--force` only when the user explicitly accepts the storage cost/risk.
 7. **Prefer JSON for machine parsing.** Add `--format json` when you need stable
-   fields from `put`, `list`, `check`, `export`, `copy`, `delete`, or
+   fields from `put`, `list`, `check`, `export`, `copy`, `delete`, `gc`, or
    `resolve-prompt`. For `get`, the human output is intentionally just the
    stored content; use that when feeding the text directly into your workflow.
-8. **Report mutations.** After `put`, `copy`, or `delete`, tell the user the
-   branch, Namespace/base, Entry Key(s), Entry Locator(s), and commit(s)
-   printed by the CLI.
+8. **Keep cleanup explicit.** `brmem gc` is dry-run by default and considers only
+   local branches. It deletes whole stale Snapshot Refs only with `--yes`; do not
+   use it as part of a higher-level workflow unless the user asked for cleanup.
+9. **Report mutations.** After `put`, `copy`, `delete`, or `gc --yes`, tell the
+   user the branch, Namespace/base, Entry Key(s) or Snapshot Ref(s), and
+   commit(s) when the command prints them.
 
 ## Store an Entry
 
@@ -249,6 +255,35 @@ Important details:
 - Existing matching destination Entries make `copy` abort unless `--overwrite`
   is supplied. An empty destination Snapshot is not a conflict. Do not add
   `--overwrite` unless replacement is intentional.
+
+## Garbage-collect stale Snapshots
+
+Use `gc` when Branch Memory exists for branches that no longer exist as local
+`refs/heads/*` branches. It scans Snapshots, not individual Entries. Remote
+branches do not count as live for this cleanup.
+
+Preview stale Snapshots first:
+
+```text
+brmem gc
+brmem gc --namespace branch-context --format json
+brmem gc --base
+```
+
+Delete only after explicit cleanup intent:
+
+```text
+brmem gc --yes
+brmem gc --namespace branch-context --yes
+```
+
+Important details:
+
+- The default is a dry-run; no refs are deleted without `--yes`.
+- `--base` and `--namespace <ns>` restrict the scan and are mutually exclusive.
+- Deleting a Snapshot Ref removes all Entries in that Namespace for that branch.
+- Higher-level workflows should diagnose stale collisions and point here, not
+  auto-run cleanup.
 
 ## Delete an Entry
 

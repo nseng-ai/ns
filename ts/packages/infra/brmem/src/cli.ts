@@ -25,6 +25,7 @@ import {
 	runExport,
 } from "./operations/export.ts";
 import { getRequestSchema, getResultSchema, renderGet, runGet } from "./operations/get.ts";
+import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
 import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
 import { putRequestSchema, putResultSchema, renderPut, runPut } from "./operations/put.ts";
 import {
@@ -119,6 +120,15 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			resultSchema: exportResultSchema,
 			handler: runExport,
 			renderHuman: renderExport,
+		});
+		root.command({
+			name: "gc",
+			description: "Garbage-collect Branch Memory Snapshots for missing local branches.",
+			schema: gcRequestSchema,
+			options: { yes: { short: "-y" } },
+			resultSchema: gcResultSchema,
+			handler: runGc,
+			renderHuman: renderGc,
 		});
 		root.command({
 			name: "setup-git",

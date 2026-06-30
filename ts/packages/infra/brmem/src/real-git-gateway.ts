@@ -21,6 +21,7 @@ import type {
 	EntryContent,
 	EntryDiagnostic,
 	ListedEntry,
+	ListedSnapshot,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
@@ -332,6 +333,83 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			key: options.key,
 			branch: options.branch,
 		});
+	}
+
+	async listSnapshots(options: {
+		namespace?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
+		if (options.namespace !== undefined) {
+			const validation = validateNamespaceName(options.namespace);
+			if (validation.type === "invalid") {
+				return brmemError(
+					"invalid-namespace",
+					formatInvalid("namespace", options.namespace, validation.reason),
+				);
+			}
+		}
+		const result = await runGit(
+			this.commands,
+			["for-each-ref", "--format=%(refname)", ...snapshotRefPrefixes()],
+			{ cwd: this.cwd },
+		);
+		if (result.code !== 0) return brmemOk([]);
+		const snapshots: ListedSnapshot[] = [];
+		for (const line of result.stdout.split("\n")) {
+			const snapshotRef = line.trim();
+			if (snapshotRef.length === 0) continue;
+			const parsed = parseSnapshotRef(snapshotRef);
+			if (parsed === undefined) continue;
+			if (options.namespace !== undefined && parsed.namespace !== options.namespace) continue;
+			const entries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
+			snapshots.push({
+				namespace: parsed.namespace,
+				branch: parsed.branch,
+				refName: parsed.refName,
+				entryCount: entries.size,
+			});
+		}
+		return brmemOk(snapshots.sort(compareSnapshots));
+	}
+
+	async localBranchPresence(options: {
+		branch: string;
+	}): Promise<BrmemResult<"present" | "absent">> {
+		const validation = validateBranchName(options.branch);
+		if (validation.type === "invalid") {
+			return brmemError(
+				"invalid-branch-name",
+				formatInvalid("branch name", options.branch, validation.reason),
+			);
+		}
+		const result = await this.currentBranchGit.localBranchPresence({
+			cwd: this.cwd,
+			branch: options.branch,
+		});
+		if (result.type === "present") return brmemOk("present");
+		if (result.type === "absent") return brmemOk("absent");
+		return brmemError(result.error.code, result.error.message, result.error.displayCommand);
+	}
+
+	async deleteSnapshot(options: { namespace: string; branch: string }): Promise<BrmemResult<void>> {
+		const namespaceValidation = validateNamespaceName(options.namespace);
+		if (namespaceValidation.type === "invalid") {
+			return brmemError(
+				"invalid-namespace",
+				formatInvalid("namespace", options.namespace, namespaceValidation.reason),
+			);
+		}
+		const branchValidation = await this.validateGitBranch(options.branch);
+		if (branchValidation.type === "error") return branchValidation;
+		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
+		const result = await runGit(this.commands, ["update-ref", "-d", snapshotRef], {
+			cwd: this.cwd,
+		});
+		if (result.code === 0) return brmemOk(undefined);
+		return gitError(
+			"git-update-ref-delete-failed",
+			`Could not delete Snapshot Ref ${JSON.stringify(snapshotRef)}.`,
+			result,
+		);
 	}
 
 	async putEntry(options: {
@@ -681,6 +759,12 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		}
 		return brmemOk(undefined);
 	}
+}
+
+function compareSnapshots(left: ListedSnapshot, right: ListedSnapshot): number {
+	if (left.namespace !== right.namespace) return left.namespace < right.namespace ? -1 : 1;
+	if (left.branch !== right.branch) return left.branch < right.branch ? -1 : 1;
+	return 0;
 }
 
 function splitConfigValues(stdout: string): readonly string[] {
