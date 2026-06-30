@@ -49,10 +49,8 @@ import {
 	formatSubmitFailureMessage,
 	setStatus,
 } from "./presentation.ts";
-import {
-	formatRemainingSubmitRequirements,
-	type PreMergeConfirmation,
-} from "./pre-merge-submit.ts";
+import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
+import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
 
 type NextGraphiteMaintenance =
 	| { kind: "required-next-landing"; branch: string }
@@ -139,31 +137,18 @@ export async function confirmAndFreeManagedSlots(
 		`Command: ${commandDisplay}`,
 	].join("\n");
 
-	const confirmation = options.confirmation ?? "prompt";
-	if (confirmation === "prompt") {
-		if (!ctx.hasUI) {
-			return failure(
-				landStackFailure(
-					[
-						"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
-						details,
-						`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:flow:land --yes.`,
-					].join("\n"),
-					{ outcome: "refusal" },
-				),
-			);
-		}
-
-		const confirmed = await ctx.ui.confirm("Free landing slots?", details);
-		if (!confirmed) {
-			return failure(
-				landStackFailure("Cancelled before merge; no PRs were landed.", {
-					level: "info",
-					outcome: "refusal",
-				}),
-			);
-		}
-	}
+	const confirmationOutcome = await confirmPreMergeMaintenance({
+		ctx,
+		...(options.confirmation === undefined ? {} : { confirmation: options.confirmation }),
+		title: "Free landing slots?",
+		details,
+		nonInteractiveMessage: [
+			"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
+			details,
+			`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:flow:land --yes.`,
+		].join("\n"),
+	});
+	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	setStatus(ctx, "freeing landing slots...");
 	const result = await exec({

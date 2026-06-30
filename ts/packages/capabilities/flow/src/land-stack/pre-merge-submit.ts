@@ -3,6 +3,7 @@ import { collectSubmitRestackRequirements } from "sdl-land/api";
 import { execGraphite } from "./command-exec.ts";
 import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
+import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	restackForSubmitArgs,
 	restackTargetForSubmit,
@@ -19,8 +20,6 @@ import type {
 	PrSubmitRequirement,
 	RestackRequirement,
 } from "./types.ts";
-
-export type PreMergeConfirmation = "prompt" | "already-approved";
 
 interface ConfirmAndSubmitRequiredPrUpdatesOptions {
 	pi: LandStackExtensionAPI;
@@ -42,37 +41,21 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	const manualCommandText = commandLines.map((commandLine) => `\`${commandLine}\``).join(" then ");
 	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
-	const confirmation = options.confirmation ?? "prompt";
-	if (confirmation === "prompt") {
-		if (!ctx.hasUI) {
-			return failure(
-				landStackFailure(
-					[
-						`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
-						details,
-						`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
-					].join("\n"),
-					{
-						suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
-						outcome: "refusal",
-					},
-				),
-			);
-		}
-
-		const confirmed = await ctx.ui.confirm(
-			restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?",
+	const confirmationOutcome = await confirmPreMergeMaintenance({
+		ctx,
+		...(options.confirmation === undefined ? {} : { confirmation: options.confirmation }),
+		title: restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?",
+		details,
+		nonInteractiveMessage: [
+			`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 			details,
-		);
-		if (!confirmed) {
-			return failure(
-				landStackFailure("Cancelled before merge; no PRs were landed.", {
-					level: "info",
-					outcome: "refusal",
-				}),
-			);
-		}
-	}
+			`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+		].join("\n"),
+		nonInteractiveFailureOptions: {
+			suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+		},
+	});
+	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	if (restackTarget) {
 		const restackArgs = restackForSubmitArgs(restackTarget);

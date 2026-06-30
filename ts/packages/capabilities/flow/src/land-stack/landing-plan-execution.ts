@@ -7,7 +7,7 @@ import {
 	type LandingSession,
 } from "./landing-coordination.ts";
 import { runMergeLoop } from "./landing-operations.ts";
-import type { PreMergeConfirmation } from "./pre-merge-submit.ts";
+import type { PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	formatPlan,
 	formatSuccessSummary,
