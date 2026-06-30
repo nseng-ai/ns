@@ -3,7 +3,7 @@ import type { CommandRunner, ExecResult } from "@sdl/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/github/cli";
 import { systemTimerScheduler, type TimerScheduler } from "@sdl/core/timers";
 import { isRecord } from "@sdl/core/primitives";
-import { withTemporaryFile } from "@sdl/core/temp-files";
+import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
 import { commandFailure, err, ok, type GatewayResult } from "@sdl/capability-kit/gateway-result";
 
 const PR_VIEW_FIELDS = "number,url,title,body,headRefName,baseRefName";
