@@ -21,15 +21,15 @@ interface LoadRestFingerprintOptions {
 	pi: ExecGateway;
 	cwd: string;
 	identity: PrFeedbackWatchGithubPrIdentity;
-	sinceIso?: string | undefined;
-	signal?: AbortSignal | undefined;
+	sinceIso?: string;
+	signal?: AbortSignal;
 }
 
 interface LoadPrCheckSummaryOptions {
 	pi: ExecGateway;
 	cwd: string;
 	prNumber: number;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 interface GhApiJsonOptions {
@@ -37,7 +37,7 @@ interface GhApiJsonOptions {
 	cwd: string;
 	endpoint: string;
 	jq: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 interface GhJsonCommandOptions {
@@ -45,8 +45,8 @@ interface GhJsonCommandOptions {
 	cwd: string;
 	args: string[];
 	label: string;
-	signal?: AbortSignal | undefined;
-	shouldAllowNonZeroWithStdout?: boolean | undefined;
+	signal?: AbortSignal;
+	shouldAllowNonZeroWithStdout?: boolean;
 }
 
 type GhJsonCommandResult = { type: "loaded"; value: unknown } | { type: "failed"; message: string };
@@ -100,7 +100,7 @@ export async function loadPrCheckSummary(
 		cwd,
 		args: ["pr", "checks", String(prNumber), "--json", "bucket"],
 		label: "gh pr checks",
-		signal,
+		...(signal === undefined ? {} : { signal }),
 		shouldAllowNonZeroWithStdout: true,
 	});
 	return result.type === "loaded"
@@ -138,21 +138,21 @@ export async function loadRestFingerprint(
 			cwd,
 			endpoint: discussionEndpoint,
 			jq: "[.[] | {id, created_at, updated_at, author: .user.login}]",
-			signal,
+			...(signal === undefined ? {} : { signal }),
 		}),
 		ghApiJson({
 			pi,
 			cwd,
 			endpoint: reviewsEndpointValue,
 			jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]",
-			signal,
+			...(signal === undefined ? {} : { signal }),
 		}),
 		ghApiJson({
 			pi,
 			cwd,
 			endpoint: reviewCommentsEndpointValue,
 			jq: "[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
-			signal,
+			...(signal === undefined ? {} : { signal }),
 		}),
 	]);
 	const discussion = settledGhApiJsonResult(discussionResult, discussionEndpoint);
@@ -189,7 +189,7 @@ async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 		cwd,
 		args: ["api", "--method", "GET", endpoint, "--jq", jq],
 		label: `gh api for ${endpoint}`,
-		signal,
+		...(signal === undefined ? {} : { signal }),
 	});
 }
 
