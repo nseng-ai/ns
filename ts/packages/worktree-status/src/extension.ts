@@ -288,7 +288,7 @@ interface ActiveSession {
 }
 
 interface RefreshRemoteOptions extends WorktreeStatusRefreshOptions {
-	readonly identity?: WorktreeStatusIdentity | undefined;
+	readonly identity?: WorktreeStatusIdentity;
 }
 
 export default function worktreeStatusExtension(
