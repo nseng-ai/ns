@@ -7,6 +7,7 @@ import {
 	LAND_CAPABILITY_METADATA,
 	LAND_PACKAGE_NAME,
 	collectPrSubmitRequirements,
+	collectSubmitRestackRequirements,
 	isLandFailure,
 	landCompleted,
 	landFailure,
@@ -111,6 +112,63 @@ describe("sdl-land/api boundary", () => {
 			landingBranches: ["feature/a"],
 			remainingLandingBranches: ["feature/b"],
 			warnings: [],
+		});
+	});
+
+	test("exports submit-restack planning through land gateway vocabulary", async () => {
+		const stack: StackSnapshot = {
+			trunk: "main",
+			current: "feature/b",
+			actualCurrentBranch: "feature/b",
+			landingTargetBranch: "feature/b",
+			landingBranches: ["feature/a", "feature/b"],
+			remainingLandingBranches: [],
+			descendantBranches: [],
+			warnings: [],
+		};
+		const result = await collectSubmitRestackRequirements(
+			{
+				git: {
+					resolveRepoRoot: async () => landSuccess("/repo"),
+					currentBranch: async () => landSuccess("feature/b"),
+					workingTreeStatus: async () => landSuccess({ isClean: true }),
+					localBranchExists: async () => landCompleted(),
+					localBranchSha: async () => landSuccess("aaaaaaaa"),
+					listLocalBranches: async () => landSuccess([]),
+					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
+				},
+				graphite: {
+					trunk: async () => landSuccess("main"),
+					metadataDbPath: async () => landSuccess("/repo/.git/graphite.db"),
+					stackShape: async () => landSuccess(stack),
+					prepareSubmitUpdate: async () => landCompleted(),
+					prepareRestackForSubmit: async () => landCompleted(),
+				},
+				github: {
+					pullRequestFacts: async () =>
+						landSuccess({
+							number: 1,
+							title: "Feature",
+							body: null,
+							state: "OPEN",
+							isDraft: false,
+							headRefName: "feature/a",
+							baseRefName: "main",
+							headRefOid: "aaaaaaaa",
+						}),
+				},
+				worktrees: {
+					worktrees: async () => landSuccess([]),
+					classifyWorktree: async () => landSuccess({ type: "manual-worktree" }),
+				},
+			},
+			"/repo",
+			stack,
+		);
+
+		expect(result).toEqual({
+			type: "success",
+			value: [{ branch: "feature/b", parent: "feature/a" }],
 		});
 	});
 });

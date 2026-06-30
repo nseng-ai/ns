@@ -34,6 +34,7 @@ export {
 	buildStackLandingPlan,
 	calculateLandingOutcome,
 	collectPrSubmitRequirements,
+	collectSubmitRestackRequirements,
 	landingParentEdges,
 	scopeStackSnapshot,
 } from "./preflight.ts";

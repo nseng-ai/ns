@@ -13,7 +13,11 @@ import {
 	STATUS_KEY,
 } from "./constants.ts";
 import { emptyResult, type LandStackFailure } from "./errors.ts";
-import { restackForSubmitArgs, restackTargetForSubmit, submitUpdateArgs } from "./landing-plan.ts";
+import {
+	restackForSubmitArgs,
+	restackTargetForSubmit,
+	submitUpdateArgs,
+} from "./graphite-command-args.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {
 	CommandStreamMessageDetails,
