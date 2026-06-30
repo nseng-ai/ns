@@ -233,11 +233,11 @@ describe("collectPrChecks", () => {
 });
 
 function statusChecks(counts: {
-	readonly passing?: number | undefined;
-	readonly pending?: number | undefined;
-	readonly failing?: number | undefined;
-	readonly unknown?: number | undefined;
-	readonly hasMore?: boolean | undefined;
+	readonly passing?: number;
+	readonly pending?: number;
+	readonly failing?: number;
+	readonly unknown?: number;
+	readonly hasMore?: boolean;
 }): GithubStatusChecks {
 	return {
 		counts: {
