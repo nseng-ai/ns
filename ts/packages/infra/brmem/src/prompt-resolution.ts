@@ -6,7 +6,7 @@ import type { CommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 
-import { resolveSdlXdgPath } from "@sdl/core/xdg";
+import { resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 

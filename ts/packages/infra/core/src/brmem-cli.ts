@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 import {
 	MAX_ERROR_CHARS,
@@ -11,7 +12,6 @@ import {
 	type PiExecResultLike,
 } from "./command.ts";
 import { formatErrorMessage, isRecord } from "./primitives.ts";
-import { findWorkspaceRootByMarkers } from "./workspace-root.ts";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 
@@ -701,4 +701,34 @@ function isLikelyCommandNotFound(result: ExecResult): boolean {
 		output.includes("not found") ||
 		output.includes("no such file")
 	);
+}
+
+function findWorkspaceRootByMarkers(options: {
+	readonly cwd: string;
+	readonly markers: readonly string[];
+	readonly nestedDirectory?: string | undefined;
+	readonly exists?: ((path: string) => boolean) | undefined;
+}): string | null {
+	const exists = options.exists ?? existsSync;
+	let current = resolve(options.cwd);
+	while (true) {
+		if (hasAllMarkers(current, options.markers, exists)) return current;
+
+		if (options.nestedDirectory !== undefined) {
+			const nestedRoot = join(current, options.nestedDirectory);
+			if (hasAllMarkers(nestedRoot, options.markers, exists)) return nestedRoot;
+		}
+
+		const parent = dirname(current);
+		if (parent === current) return null;
+		current = parent;
+	}
+}
+
+function hasAllMarkers(
+	root: string,
+	markers: readonly string[],
+	exists: (path: string) => boolean,
+): boolean {
+	return markers.every((marker) => exists(join(root, marker)));
 }

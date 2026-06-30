@@ -10,8 +10,8 @@ import {
 } from "@sdl/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
 import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
-import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";

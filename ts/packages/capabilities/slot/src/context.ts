@@ -1,4 +1,4 @@
-import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
 
 import {
 	resolveClinkrInteraction,

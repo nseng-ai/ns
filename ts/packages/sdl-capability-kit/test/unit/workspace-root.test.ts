@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { findWorkspaceRootByMarkers } from "@sdl/core/workspace-root";
+import { findWorkspaceRootByMarkers } from "@sdl/capability-kit/workspace-root";
 
 function fakeExists(paths: readonly string[]): (path: string) => boolean {
 	const existing = new Set(paths);

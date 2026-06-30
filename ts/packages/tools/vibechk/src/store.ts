@@ -1,7 +1,11 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ensurePrivateDirectory, resolvePathOverride, resolveXdgHome } from "@sdl/core/xdg";
+import {
+	ensurePrivateDirectory,
+	resolvePathOverride,
+	resolveXdgHome,
+} from "@sdl/capability-kit/xdg";
 
 import type { LoadedBundle, RunBundle } from "./models.ts";
 import { encodeRunBundle, parseRunBundle } from "./models.ts";
