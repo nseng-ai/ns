@@ -260,7 +260,7 @@ const DEFAULT_HEAD_OID = "abc123";
 
 export interface QueuedLoaderResult<T> {
 	readonly value: T | Promise<T>;
-	onCall?: (() => void) | undefined;
+	onCall?: () => void;
 }
 
 export interface FakeWorktreeStatusLoaders extends WorktreeStatusLoaders {
@@ -270,11 +270,11 @@ export interface FakeWorktreeStatusLoaders extends WorktreeStatusLoaders {
 }
 
 export interface FakeWorktreeStatusLoaderOptions {
-	identities?: readonly QueuedLoaderResult<WorktreeStatusIdentity>[] | undefined;
-	localStatuses?: readonly QueuedLoaderResult<LocalWorktreeStatus>[] | undefined;
-	ghStatuses?: readonly QueuedLoaderResult<WorktreeGhStatus>[] | undefined;
-	identityCurrent?: readonly boolean[] | boolean | undefined;
-	footerBranch?: string | null | undefined;
+	identities?: readonly QueuedLoaderResult<WorktreeStatusIdentity>[];
+	localStatuses?: readonly QueuedLoaderResult<LocalWorktreeStatus>[];
+	ghStatuses?: readonly QueuedLoaderResult<WorktreeGhStatus>[];
+	identityCurrent?: readonly boolean[] | boolean;
+	footerBranch?: string | null;
 }
 
 export function worktreeIdentity(
@@ -309,10 +309,7 @@ export function localStatus(overrides: Partial<LocalWorktreeStatus> = {}): Local
 	return status;
 }
 
-export function queued<T>(
-	value: T | Promise<T>,
-	onCall?: (() => void) | undefined,
-): QueuedLoaderResult<T> {
+export function queued<T>(value: T | Promise<T>, onCall?: () => void): QueuedLoaderResult<T> {
 	return onCall === undefined ? { value } : { value, onCall };
 }
 
