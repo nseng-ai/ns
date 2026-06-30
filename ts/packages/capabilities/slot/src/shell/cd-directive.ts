@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export const SLOT_CD_DIRECTIVE_FILE = "SLOT_CD_DIRECTIVE_FILE";
 export const SDL_CD_DIRECTIVE_FILE = "SDL_CD_DIRECTIVE_FILE";
@@ -17,8 +18,7 @@ export interface CdDirectiveFilesystem {
 
 export interface CdDirectiveOptions {
 	isEnabled?: boolean | undefined;
-	// optional-undefined-objective: preserve (env-map) — DI seam: optional env injection in the cd-directive options bag, defaulting to process.env.
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	filesystem?: CdDirectiveFilesystem | undefined;
 }
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export const prSummarySchema = z.object({
 	number: z.number().int(),
@@ -179,10 +180,8 @@ export const ghResolveReviewThreadResponseSchema = z
 
 export function withNumericGithubIdentity<
 	T extends {
-		// optional-undefined-objective: preserve (external-mirror) — Generic constraint mirroring the Zod-parsed GitHub comment shape (databaseId is .nullable().optional() external input), so the number|null|undefined optionality reflects on-the-wire data and must be matched.
-		readonly databaseId?: number | null | undefined;
-		// optional-undefined-objective: preserve (external-mirror) — Generic constraint mirroring the Zod-parsed GitHub comment identity (id is .optional() external input that may be number or string), so the optional-undefined reflects external on-the-wire data.
-		readonly id?: number | string | undefined;
+		readonly databaseId?: ExplicitUndefined<"external-mirror", number | null>;
+		readonly id?: ExplicitUndefined<"external-mirror", number | string>;
 	},
 >(
 	comment: T,

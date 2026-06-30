@@ -7,13 +7,13 @@ import { readStdin } from "@sdl/core/stdin";
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface CliDeps {
 	context?: PrAddressContext | undefined;
 	operations?: readonly ExecOperation[] | undefined;
 	cwd?: string | undefined;
-	// optional-undefined-objective: preserve (env-map) — DI options-bag env seam consumed via `deps.env ?? env`; passing undefined to fall back to the process env is an intentional injection choice.
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	stdin?: (() => Promise<string>) | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;

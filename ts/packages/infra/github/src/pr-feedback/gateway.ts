@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
 import type { CommandRunner, ExecResult } from "@sdl/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
-import { optionalEntry, type MaybePromise } from "@sdl/core/primitives";
+import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { Result } from "@sdl/core/result";
 
 import {
@@ -78,8 +78,7 @@ type GhJsonParser<T> = (
 
 interface GraphqlPageInfo {
 	readonly hasNextPage: boolean;
-	// optional-undefined-objective: preserve (external-mirror) — Internal mirror of the GitHub GraphQL pageInfo.endCursor wire field (Zod-parsed as string|null|optional); null and absent both originate from external data, so the on-the-wire shape should be matched exactly.
-	readonly endCursor?: string | null | undefined;
+	readonly endCursor?: ExplicitUndefined<"external-mirror", string | null>;
 }
 
 interface GraphqlPageConnection<TNode> {

@@ -5,6 +5,7 @@ import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import type { SessionSource } from "./sessions/source.ts";
 import { PiJsonlSessionSource } from "./sessions/pi-jsonl-source.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface AretroCliContext {
 	cwd: string;
@@ -16,8 +17,7 @@ export interface AretroCliContext {
 export function createRealAretroContext(
 	options: {
 		cwd?: string | undefined;
-		// optional-undefined-objective: preserve (env-map) — DI factory env seam consumed via `options.env ?? process.env`; passing undefined to default to process env is intentional.
-		env?: NodeJS.ProcessEnv | undefined;
+		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		git?: GitGateway | undefined;
 		sessionSource?: SessionSource | undefined;
 	} = {},

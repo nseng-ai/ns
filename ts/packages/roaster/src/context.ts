@@ -11,6 +11,7 @@ import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "./gateways/
 import { RealLocalDiffGateway, type LocalDiffGateway } from "./gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "./gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "./gateways/review-log.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 
@@ -24,8 +25,7 @@ export interface RoasterContext {
 	readonly reviewRunner: ReviewRunnerGateway;
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal threaded into gateways whose option shapes accept present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly stdin: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
@@ -37,8 +37,7 @@ export interface CreateRealRoasterContextOptions {
 	readonly stdin: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal option forwarded into context/gateway construction accepting present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly execApi?: CommandExecApi | undefined;
 	readonly gitGateway?: GitGateway | undefined;
 	readonly reviewLog?: ReviewLogGateway | undefined;
@@ -48,21 +47,18 @@ export interface CreateRealRoasterContextOptions {
 export interface RoasterRunScope {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal threaded from run scope into gateway options that accept present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface RoasterEnvironmentOptions {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal derived option forwarded to gateways accepting present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface RoasterCatalogOptions {
 	readonly cwd: string;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal derived option forwarded to gateways accepting present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface RoasterRuntime {

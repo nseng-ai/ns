@@ -29,8 +29,9 @@ Candidate set: **498** optional-undefined properties across **132** files / **31
   `producerNote` naming the exact forward to convert to the `...(x === undefined ? {} : { x })`
   spread-omit idiom.
 - **Preserve: 71** — explicit present-`undefined` is semantically meaningful or mirrors a shape we
-  don't own. **No false-positives, nothing deferred, and (after re-adjudication) no preserve
-  resting on "DI bag precedent" — every preserve is now a concrete semantic reason.**
+  don't own. These should be encoded as typed `ExplicitUndefined<Reason, T>` contracts, not marker
+  comments. **No false-positives, nothing deferred, and (after re-adjudication) no preserve resting
+  on "DI bag precedent" — every preserve is now a concrete semantic reason.**
 
 ## DI-bag rule applied
 
@@ -44,7 +45,7 @@ concrete value) and **11 → migrate_after_normalization** (a real direct forwar
 `packagechk` → `clinkr` IO overrides, `cli-runtime` → `resolveIo`, `slot` `extension.ts` →
 `stderr: ctx.stderr`).
 
-## Preserve breakdown (the 71 that stay)
+## Typed explicit-undefined contract breakdown (the 71 that stay)
 
 | Reason                                                                      | Count |
 | --------------------------------------------------------------------------- | ----: |
@@ -55,7 +56,7 @@ concrete value) and **11 → migrate_after_normalization** (a real direct forwar
 | external / schema mirror (GitHub GraphQL, Zod-parsed wire data)             |     4 |
 | `defineExtension` overload selector (`commands?: undefined`)                |     2 |
 
-These are the exclusion-list seed: each is a concrete, defensible reason, not a heuristic.
+These are the initial `ExplicitUndefined` reason taxonomy: each is a concrete, defensible reason, not a heuristic. The 71 permanent preserve candidates should be represented in source as typed contracts.
 
 ## Per-package matrix
 
@@ -118,5 +119,5 @@ Nearly all 125 norm-blocked candidates reduce to two producer fixes:
 2. **Normalize the direct-forward producers**, then narrow their `migrate_after_normalization`
    targets — do the brmem gateway cluster and the graphite/worktree/flow `signal`/`now` forwards as
    coordinated edits.
-3. **Encode the 71 preserve as the exclusion list** — they are already bucketed by concrete reason
-   above, which is the natural exclusion-list schema.
+3. **Encode the 71 preserves as typed contracts** — they are already bucketed by concrete reason
+   above, which is the natural `ExplicitUndefined<Reason, T>` taxonomy.

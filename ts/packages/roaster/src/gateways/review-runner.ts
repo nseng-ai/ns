@@ -1,7 +1,11 @@
 import { type CommandResolver, defaultCommandResolver } from "@sdl/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { isClaudeCodeSupportedModelPattern } from "@sdl/core/model-slug";
-import { formatErrorMessage, mapFromRecordOrMap } from "@sdl/core/primitives";
+import {
+	formatErrorMessage,
+	mapFromRecordOrMap,
+	type ExplicitUndefined,
+} from "@sdl/core/primitives";
 
 import type { RoasterResult } from "../failures.ts";
 import {
@@ -18,10 +22,8 @@ export const CLAUDE_BINARY = "claude";
 
 export interface RunReviewOptions {
 	readonly cwd: string;
-	// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the Claude exec call; environment-map preserve category.
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded into ExecOptions for the Claude process; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface ReviewRunnerGateway {

@@ -10,6 +10,7 @@ import type { z } from "zod";
 
 import type { SdlExtensionApi } from "./execution.ts";
 import type { SdlResult } from "./result.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export type {
 	ClinkrCompletionCandidate,
@@ -47,8 +48,7 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 }
 
 export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
-	// optional-undefined-objective: preserve (overload-selector) — defineExtension provides a dedicated `{ commands?: undefined }` overload, so explicit `commands: undefined` is an intentionally supported authoring input that the overload set distinguishes at the type level.
-	commands?: TCommands | undefined;
+	commands?: ExplicitUndefined<"overload-selector", TCommands>;
 }
 
 type SdlCommandTuple<TSchemas extends readonly SdlCommandSchema[]> = {
@@ -56,8 +56,7 @@ type SdlCommandTuple<TSchemas extends readonly SdlCommandSchema[]> = {
 };
 
 export function defineExtension(extension: {
-	// optional-undefined-objective: preserve (overload-selector) — Intentional overload-selector signature typed `commands?: undefined` (undefined-only, not the redundant T|undefined pattern) that routes empty extensions to the readonly [] return overload.
-	commands?: undefined;
+	commands?: ExplicitUndefined<"overload-selector", never>;
 }): SdlExtension<readonly []>;
 export function defineExtension(extension: SdlExtension<readonly []>): SdlExtension<readonly []>;
 export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject>(

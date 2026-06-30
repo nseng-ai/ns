@@ -4,6 +4,7 @@ import type { GitGateway } from "@sdl/git";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface ObjectiveCliContext {
 	cwd: string;
@@ -17,8 +18,7 @@ export interface ObjectiveCliContext {
 export async function createRealObjectiveContext(
 	options: {
 		cwd?: string | undefined;
-		// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.
-		env?: NodeJS.ProcessEnv | undefined;
+		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		git?: GitGateway | undefined;
 	} = {},
 ): Promise<ObjectiveCliContext> {

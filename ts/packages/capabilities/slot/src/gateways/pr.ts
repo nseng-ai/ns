@@ -9,6 +9,7 @@ import {
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
 import { parseJsonObject } from "../json.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -76,11 +77,9 @@ export class RealSlotPrGateway implements SlotPrGateway {
 
 	constructor(options: {
 		cwd: string;
-		// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection defaulting to process.env.
-		env?: NodeJS.ProcessEnv | undefined;
+		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		execApi?: CommandExecApi | undefined;
-		// optional-undefined-objective: preserve (di-seam) — Constructor DI seam: optional sink injection, undefined falls back to createSlotDiagnosticSinkFromEnv.
-		diagnosticSink?: SlotDiagnosticSink | undefined;
+		diagnosticSink?: ExplicitUndefined<"di-seam", SlotDiagnosticSink>;
 	}) {
 		this.cwd = options.cwd;
 		this.env = options.env ?? process.env;

@@ -2,6 +2,7 @@
 
 import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/cli-runtime";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
 import {
@@ -64,8 +65,7 @@ export const VERSION = entry.version;
 export interface CliDeps {
 	context?: AretroCliContext | undefined;
 	cwd?: string | undefined;
-	// optional-undefined-objective: preserve (env-map) — DI options-bag env seam where undefined falls back to the process env, an intentional injection distinction.
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 }
