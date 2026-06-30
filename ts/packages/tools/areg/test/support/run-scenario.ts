@@ -20,18 +20,18 @@ import {
 } from "../../src/fake-gateways.ts";
 
 export interface ScenarioRunOptions {
-	context?: AregCliContext | undefined;
-	host?: FakeAregHostGatewayOptions | undefined;
-	github?: FakeAregGithubGatewayOptions | undefined;
-	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions | undefined;
-	project?: FakeAregProjectGatewayOptions | undefined;
-	git?: InMemoryGitGatewayState | undefined;
-	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
-	prompt?: FakeAregPromptGatewayOptions | undefined;
-	confirmations?: readonly ConfirmationResult[] | undefined;
-	isInteractive?: boolean | undefined;
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
+	context?: AregCliContext;
+	host?: FakeAregHostGatewayOptions;
+	github?: FakeAregGithubGatewayOptions;
+	skillxWorkspace?: FakeAregSkillxWorkspaceGatewayOptions;
+	project?: FakeAregProjectGatewayOptions;
+	git?: InMemoryGitGatewayState;
+	npxSkills?: FakeAregNpxSkillsGatewayOptions;
+	prompt?: FakeAregPromptGatewayOptions;
+	confirmations?: readonly ConfirmationResult[];
+	isInteractive?: boolean;
+	cwd?: string;
+	env?: NodeJS.ProcessEnv;
 }
 
 export interface ScenarioRun {
