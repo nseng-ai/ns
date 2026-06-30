@@ -161,7 +161,7 @@ describe("saved-plan current-branch implementation command", () => {
 			key: "sdl:plan:impl-current",
 			value: "starting implementation session…",
 		});
-		expect(context.statuses.filter((status) => status.value === undefined)).toHaveLength(1);
+		expect(context.statuses).toEqual([]);
 	});
 
 	test("prompt builder uses saved-plan vocabulary and embeds delimiters", () => {
