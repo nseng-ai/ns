@@ -73,6 +73,12 @@ export async function executeChunkedStackLanding(
 		return failure(initialPlan.failure);
 	}
 
+	const fullLandingBranches = [
+		...initialPlan.value.stack.landingBranches,
+		...initialPlan.value.stack.remainingLandingBranches,
+	];
+	const totalPrs = fullLandingBranches.length;
+	const totalChunks = Math.ceil(totalPrs / AUTO_CHUNK_LANDING_SIZE);
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
 	if (parsedArgs.isDryRun) {
 		presentDryRunLanding({ ctx, commandStream, planText: chunkPlanText });
@@ -113,7 +119,12 @@ export async function executeChunkedStackLanding(
 		finalPlan = plan.value;
 
 		commandStream.note(
-			`Preparing chunk ${chunkIndex}: ${formatPreparingLandingMilestone(plan.value)}`,
+			`${formatChunkProgressNote({
+				chunkIndex,
+				totalChunks,
+				totalPrs,
+				chunkSize: readyLandingBranchCount(plan.value),
+			})}: ${formatPreparingLandingMilestone(plan.value)}`,
 		);
 		const readyPlan = await preparePlanForMerge({
 			runtimePi,
@@ -205,6 +216,25 @@ interface AppendLandedChunkOptions {
 	index: number;
 	landingTargetBranch: string;
 	landed: readonly LandedPr[];
+}
+
+interface FormatChunkProgressNoteOptions {
+	chunkIndex: number;
+	totalChunks: number;
+	totalPrs: number;
+	chunkSize: number;
+}
+
+function formatChunkProgressNote(options: FormatChunkProgressNoteOptions): string {
+	const start = (options.chunkIndex - 1) * AUTO_CHUNK_LANDING_SIZE + 1;
+	const end = Math.min(start + options.chunkSize - 1, options.totalPrs);
+	const prLabel = start === end ? "PR" : "PRs";
+	const range = start === end ? String(start) : `${start}-${end}`;
+	return `Preparing chunk ${options.chunkIndex}/${options.totalChunks}, ${prLabel} ${range} of ${options.totalPrs}`;
+}
+
+function readyLandingBranchCount(plan: LandingPlan): number {
+	return plan.stack.landingBranches.length;
 }
 
 function appendLandedChunk(options: AppendLandedChunkOptions): LandedChunk[] {

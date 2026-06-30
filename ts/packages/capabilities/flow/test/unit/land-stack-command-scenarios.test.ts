@@ -3,6 +3,11 @@ import { formatCommand, type ExecResult } from "@sdl/exec";
 import { ScriptedQueue } from "@sdl/core/testing";
 import { stripAnsi } from "../../src/land-stack/command-exec.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
+import {
+	formatLandProgressTitle,
+	parseLandChunkProgress,
+	parseMergedPrNumber,
+} from "../../src/commands/land.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
 import type {
 	LandStackExtensionAPI,
@@ -19,6 +24,39 @@ const PR_FIELDS =
 const ROOT = "/repo";
 
 const TRUNK = "main";
+
+describe("flow land live progress parsing", () => {
+	test("formats chunk title with landed PR counter and range", () => {
+		expect(
+			formatLandProgressTitle({
+				landedPrs: 8,
+				totalPrs: 11,
+				totalChunks: 2,
+				currentChunk: 2,
+				currentChunkStart: 9,
+				currentChunkEnd: 11,
+			}),
+		).toBe("sdl flow land — 8/11 PRs landed — chunk 2/2, PRs 9-11");
+	});
+
+	test("parses chunk progress and merge-verification notes", () => {
+		expect(parseLandChunkProgress("Preparing chunk 2/2, PRs 9-11 of 11: feature-11")).toEqual({
+			currentChunk: 2,
+			currentChunkEnd: 11,
+			currentChunkStart: 9,
+			totalChunks: 2,
+			totalPrs: 11,
+		});
+		expect(parseLandChunkProgress("Preparing chunk 3/3, PR 17 of 17: feature-17")).toEqual({
+			currentChunk: 3,
+			currentChunkEnd: 17,
+			currentChunkStart: 17,
+			totalChunks: 3,
+			totalPrs: 17,
+		});
+		expect(parseMergedPrNumber("Merged and verified PR #123 branch-name.")).toBe(123);
+	});
+});
 
 const CURRENT = "feature-b";
 
@@ -1093,6 +1131,8 @@ describe("land-stack command scenarios", () => {
 			),
 		).toBe(false);
 		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("→ Preparing chunk 1/2, PRs 1-8 of 11:");
+		expect(streamText).toContain("→ Preparing chunk 2/2, PRs 9-11 of 11:");
 		expect(streamText).toContain("Landed 11 PRs across 2 chunks:");
 		expect(streamText).toContain("Chunk 1 through feature-8");
 		expect(streamText).toContain("Chunk 2 through feature-11");
@@ -1182,6 +1222,7 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("→ Preparing chunk 2/2, PRs 9-11 of 11:");
 		expect(streamText).toContain("Already landed by chunk:");
 		expect(streamText).toContain("Chunk 1 through feature-8");
 		expect(streamText).toContain("Chunk 2 through feature-11: #209 feature-9");

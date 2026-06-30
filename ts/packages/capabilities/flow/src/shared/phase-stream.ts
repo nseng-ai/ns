@@ -46,10 +46,12 @@ export {
 } from "./phase-stream-specs.ts";
 export type { PhaseSpec } from "./phase-stream-specs.ts";
 
-/** The driver surface a command drives: title once, feed events, finalize. */
+/** The driver surface a command drives: title, feed events, finalize. */
 export interface PhaseStream {
 	/** Take ownership of the live region and start the spinner pump (TTY only). */
 	begin(title: string): void;
+	/** Update the live region header after begin without changing phase state. */
+	setTitle(title: string): void;
 	/** The `onPhase` listener: advance the phase list and repaint / emit a transient. */
 	emit(event: SdlProgressPhaseEvent): void;
 	/**
@@ -87,6 +89,11 @@ export function createPhaseStream(
 		lifecycle.startLiveRegion();
 		renderer.render();
 		lifecycle.startPump();
+	}
+
+	function setTitle(title: string): void {
+		renderer.setTitle(title);
+		renderer.render();
 	}
 
 	function emit(event: SdlProgressPhaseEvent): void {
@@ -130,7 +137,7 @@ export function createPhaseStream(
 		await lifecycle.stop();
 	}
 
-	return { begin, emit, note, fail, finish, stop };
+	return { begin, setTitle, emit, note, fail, finish, stop };
 }
 
 export interface RunPhaseStreamOptions<T> {
@@ -157,6 +164,7 @@ export interface SettledPhaseStreamOutcome<T> {
 }
 
 export interface PhaseStreamController {
+	setTitle(title: string): void;
 	emit(event: SdlProgressPhaseEvent): void;
 	note(text: string): void;
 	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
@@ -203,17 +211,22 @@ export function createPhaseStreamController(
 	options: CreatePhaseStreamControllerOptions,
 ): PhaseStreamController {
 	let stream: PhaseStream | undefined;
+	let currentTitle = options.title;
 
 	function ensureStream(): PhaseStream {
 		if (stream !== undefined) return stream;
 		stream = createPhaseStream(options.caps, options.specs, options.deps);
-		stream.begin(options.title);
+		stream.begin(currentTitle);
 		return stream;
 	}
 
 	if (options.begin !== "lazy") ensureStream();
 
 	return {
+		setTitle: (title) => {
+			currentTitle = title;
+			stream?.setTitle(title);
+		},
 		emit: (event) => {
 			ensureStream().emit(event);
 		},
