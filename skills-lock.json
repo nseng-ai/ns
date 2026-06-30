@@ -275,7 +275,7 @@
       "sourceType": "local",
       "computedHash": "7b15d37ad8eb54b314d1c3716dd858c069278dcbd9aaf76c28bbf5c5888e806f"
     },
-    "popock-review": {
+    "pocock-review": {
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/in-progress/review/SKILL.md",

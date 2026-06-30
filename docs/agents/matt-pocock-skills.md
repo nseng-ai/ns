@@ -20,7 +20,7 @@ SDL first-party adaptations live under `skills/<name>/`. Their `.agents/skills/<
 - `domain-modeling`: active glossary and ADR discipline.
 - `codebase-design`: deep-module vocabulary and design guidance.
 - `improve-codebase-architecture`: architecture survey using `codebase-design`, `domain-modeling`, and `grilling`.
-- `popock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts.
+- `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts.
 - `writing-great-skills`: upstream skill-authoring reference; SDL audit behavior is folded into first-party `skill-audit`.
 
 ## SDL-owned overlays
