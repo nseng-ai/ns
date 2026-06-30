@@ -237,6 +237,8 @@ function execOptions(cwd: string, signal: AbortSignal | undefined): SlugModelExe
 	return options;
 }
 
+// This is a bounded immediate retry for killed subprocess results; no TimerScheduler is needed
+// because there is no delay or backoff between attempts.
 function shouldRetryKilledSlugModelResult(
 	result: SlugModelCommandResult,
 	signal: AbortSignal | undefined,
