@@ -130,7 +130,7 @@ export function renderGc(
 		buildSlotDestructiveResultBlock({
 			kind: gcResultKind(result),
 			headline: gcHeadline(result),
-			body,
+			...(body === undefined ? {} : { body }),
 		}),
 	);
 }
@@ -269,10 +269,7 @@ function confirmationMessage(count: number, options: { shouldDeleteBranches: boo
 	return `Free ${count} merged/closed slot(s)?`;
 }
 
-function toGcResult(
-	outcome: SlotGcOutcome,
-	options: { isCancelled?: boolean | undefined } = {},
-): GcResult {
+function toGcResult(outcome: SlotGcOutcome, options: { isCancelled?: boolean } = {}): GcResult {
 	return {
 		entries: outcome.entries.map((entry) => ({ ...entry, cleanup: [...entry.cleanup] })),
 		freedCount: options.isCancelled === true ? 0 : outcome.freedCount,

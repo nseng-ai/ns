@@ -13,8 +13,8 @@ export interface SlotDestructiveResultBlock {
 export interface BuildSlotDestructiveResultBlockInput {
 	kind: SlotDestructiveResultKind;
 	headline: string;
-	body?: string | undefined;
-	guidance?: string | undefined;
+	body?: string;
+	guidance?: string;
 }
 
 export function buildSlotDestructiveResultBlock(

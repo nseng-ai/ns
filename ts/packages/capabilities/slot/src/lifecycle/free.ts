@@ -28,8 +28,8 @@ export async function planFreeSlots(
 	ctx: RepoSlotContext,
 	slotNames: readonly string[],
 	options: {
-		preflightErrors?: readonly string[] | undefined;
-		trunkBranch?: string | undefined;
+		preflightErrors?: readonly string[];
+		trunkBranch?: string;
 	} = {},
 ): Promise<LifecycleResult<SlotFreePlan>> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
@@ -52,7 +52,7 @@ export async function planFreeSlots(
 export async function executeFreePlan(
 	ctx: RepoSlotContext,
 	plan: SlotFreePlan,
-	progress?: SlotFreeProgressReporter | undefined,
+	progress?: SlotFreeProgressReporter,
 ): Promise<LifecycleResult<SlotFreeOutcome>> {
 	if (plan.targets.length === 0) return { type: "ok", outcome: { freed: [] } };
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });

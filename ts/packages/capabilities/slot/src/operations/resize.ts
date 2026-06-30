@@ -39,7 +39,7 @@ export function renderResize(
 		buildSlotDestructiveResultBlock({
 			kind: "success",
 			headline: resizeHeadline(result),
-			body,
+			...(body === undefined ? {} : { body }),
 		}),
 	);
 }
