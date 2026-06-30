@@ -99,6 +99,9 @@ importers:
       '@sdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc
+      '@sdl/ccc-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/ccc
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/infra/core
@@ -474,6 +477,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@sdl/ccc-pi':
+        specifier: workspace:*
+        version: link:../capability-pi/ccc
 
   packages/cmux:
     dependencies:

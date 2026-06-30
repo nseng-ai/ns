@@ -11,10 +11,8 @@ function formatImplBranchContextCommand(key: string): string {
 }
 import type { StdinCapableCommandExecApi } from "@sdl/exec";
 import { withTempRepoSkill } from "@sdl/core/testing";
-import { buildSlugModelArgs } from "@sdl/core/model-slug";
-import registerCccExtension from "../../capability-pi/ccc/src/extension.ts";
-import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
-import {
+import { type CccSlotDispatchPlanOptions } from "@sdl/ccc/api";
+import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
 	registerCccSlotDispatchFromTrunkCommand,
@@ -22,8 +20,9 @@ import {
 	registerCccSlotDispatchPromptCommand,
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-} from "../../capability-pi/ccc/src/index.ts";
-import { type CccSlotDispatchPlanOptions } from "@sdl/ccc/api";
+} from "@sdl/ccc-pi";
+import { buildSlugModelArgs } from "@sdl/core/model-slug";
+import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import {
 	BRANCH,
 	FAST_MODEL,
