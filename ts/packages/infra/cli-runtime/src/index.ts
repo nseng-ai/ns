@@ -8,6 +8,8 @@ import { z } from "zod";
 
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 
+export { readStdin, readStdinLine } from "./stdin.ts";
+
 export type CliRuntime = "typescript" | "bun";
 
 export interface CliPackageMetadata {

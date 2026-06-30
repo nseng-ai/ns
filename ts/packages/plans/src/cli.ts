@@ -3,13 +3,12 @@
 import { resolve } from "node:path";
 
 import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, runOperationCommand } from "@sdl/cli-runtime";
+import { defineCli, readStdin, runOperationCommand } from "@sdl/cli-runtime";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
-import { readStdin } from "@sdl/core/stdin";
 import { z } from "zod";
 
 import {
