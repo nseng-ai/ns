@@ -39,7 +39,7 @@ interface StackMapGraphBranch {
 	readonly name: string;
 	readonly parent: string | undefined;
 	readonly children: readonly string[];
-	readonly validationResult?: string | undefined;
+	readonly validationResult?: string;
 	readonly needsRestack: boolean;
 }
 
@@ -251,7 +251,13 @@ function branchArrayField(
 		const needsRestack = booleanField(item, "needsRestack");
 		if (name === undefined || children === undefined || needsRestack === undefined)
 			return undefined;
-		branches.push({ name, parent, children, validationResult, needsRestack });
+		branches.push({
+			name,
+			parent,
+			children,
+			...optionalEntry("validationResult", validationResult),
+			needsRestack,
+		});
 	}
 	return branches;
 }
@@ -431,7 +437,6 @@ function buildGraphBranchTree(
 		name: branchName,
 		parent: undefined,
 		children: [],
-		validationResult: undefined,
 		needsRestack: false,
 	};
 	if (options.visited.has(branchName))

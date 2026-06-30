@@ -38,7 +38,7 @@ export interface StackMapCmuxActivationExecutor {
 	): Promise<{ readonly type: "focused" } | { readonly type: "failed"; readonly message: string }>;
 	openNew(
 		branch: string,
-		slot?: StackMapSlotAssignment | undefined,
+		slot?: StackMapSlotAssignment,
 	): Promise<
 		| { readonly type: "opened"; readonly message: string }
 		| { readonly type: "failed"; readonly message: string }
