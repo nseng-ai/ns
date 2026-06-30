@@ -14,6 +14,7 @@ import {
 	type RunnerSubagentJsonEventParserSnapshot,
 } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
 import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
+import { optionalEntry } from "../../ts/packages/infra/core/src/primitives.ts";
 import {
 	formatCommand,
 	formatCommandFailure,
@@ -363,7 +364,7 @@ async function runChild(options: RunChildOptions): Promise<ChildResult> {
 					exitCode: code ?? 0,
 					finalText: snapshot.finalAssistantText ?? "",
 					stderr,
-					...(snapshot.stopReason === undefined ? {} : { stopReason: snapshot.stopReason }),
+					...optionalEntry("stopReason", snapshot.stopReason),
 				});
 			});
 			child.on("error", (error) => {
@@ -375,7 +376,7 @@ async function runChild(options: RunChildOptions): Promise<ChildResult> {
 					exitCode: 1,
 					finalText: snapshot.finalAssistantText ?? "",
 					stderr,
-					...(snapshot.stopReason === undefined ? {} : { stopReason: snapshot.stopReason }),
+					...optionalEntry("stopReason", snapshot.stopReason),
 				});
 			});
 		});
@@ -424,42 +425,32 @@ stopReason: <if status != ready-for-parent-commit>
 ${REPORT_END}`;
 }
 
-function assignReportTextField(report: Report, key: string, value: string): void {
+function assignReportTextField(report: Report, key: string, value: string): Report {
 	switch (key) {
 		case "status":
-			report.status = value;
-			break;
+			return { ...report, status: value };
 		case "objective":
-			report.objective = value;
-			break;
+			return { ...report, objective: value };
 		case "branch":
-			report.branch = value;
-			break;
+			return { ...report, branch: value };
 		case "parentBranch":
-			report.parentBranch = value;
-			break;
+			return { ...report, parentBranch: value };
 		case "planPath":
-			report.planPath = value;
-			break;
+			return { ...report, planPath: value };
 		case "branchContext":
-			report.branchContext = value;
-			break;
+			return { ...report, branchContext: value };
 		case "recommendedSlice":
-			report.recommendedSlice = value;
-			break;
+			return { ...report, recommendedSlice: value };
 		case "commitMessage":
-			report.commitMessage = value;
-			break;
+			return { ...report, commitMessage: value };
 		case "prTitle":
-			report.prTitle = value;
-			break;
+			return { ...report, prTitle: value };
 		case "prBodySummary":
-			report.prBodySummary = value;
-			break;
+			return { ...report, prBodySummary: value };
 		case "stopReason":
-			report.stopReason = value;
-			break;
+			return { ...report, stopReason: value };
 	}
+	return report;
 }
 
 function parseReport(text: string): Report | undefined {
@@ -467,7 +458,7 @@ function parseReport(text: string): Report | undefined {
 	const end = text.indexOf(REPORT_END);
 	if (start < 0 || end <= start) return undefined;
 	const body = text.slice(start + REPORT_BEGIN.length, end).trim();
-	const report: Report = { changedFiles: [], validation: [], objectiveTracking: [] };
+	let report: Report = { changedFiles: [], validation: [], objectiveTracking: [] };
 	let list: "changedFiles" | "validation" | "objectiveTracking" | undefined;
 	for (const line of body.split("\n")) {
 		const trimmed = line.trim();
@@ -482,7 +473,7 @@ function parseReport(text: string): Report | undefined {
 			if (colon > 0) {
 				const key = trimmed.slice(0, colon);
 				const value = trimmed.slice(colon + 1).trim();
-				assignReportTextField(report, key, value);
+				report = assignReportTextField(report, key, value);
 			}
 		}
 	}
@@ -772,15 +763,15 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 			const child = await runChild({
 				cwd: ctx.cwd,
 				prompt: buildChildPrompt(args, iteration, startingBranch),
-				...(args.model === undefined ? {} : { model: args.model }),
+				...optionalEntry("model", args.model),
 				onProgress: (snapshot, stderrTail) => {
 					showChildProgress(ctx, {
 						iteration,
 						totalIterations: args.iterations,
 						objective: args.objective,
-						...(args.model === undefined ? {} : { requestedModel: args.model }),
+						...optionalEntry("requestedModel", args.model),
 						snapshot,
-						...(stderrTail === undefined ? {} : { stderrTail }),
+						...optionalEntry("stderrTail", stderrTail),
 					});
 				},
 			});
