@@ -28,7 +28,7 @@ export interface FakeClinkrInteraction {
 }
 
 export interface ScenarioClinkrInteraction {
-	depsInteraction?: ClinkrInteraction | undefined;
+	depsInteraction?: ClinkrInteraction;
 	contextInteraction: ClinkrInteraction;
 	assertComplete(): void;
 }
@@ -130,7 +130,7 @@ export function createCaptureIo(): CaptureIo {
 export async function runForTest<TContext>(
 	group: ClinkrGroup<TContext>,
 	argv: readonly string[],
-	options: { context: TContext; io?: ClinkrIo | undefined },
+	options: { context: TContext; io?: ClinkrIo },
 ): Promise<CapturedRun> {
 	const capture = createCaptureIo();
 	const io = options.io ?? capture.io;

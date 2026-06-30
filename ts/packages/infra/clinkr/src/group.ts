@@ -554,8 +554,12 @@ function configureCommandExecution<TContext>(
 				state.exitCode = emitExit(exit, {
 					format,
 					io,
-					renderHuman: registered.execution.renderHuman,
-					renderMarkdown: registered.execution.renderMarkdown,
+					...(registered.execution.renderHuman === undefined
+						? {}
+						: { renderHuman: registered.execution.renderHuman }),
+					...(registered.execution.renderMarkdown === undefined
+						? {}
+						: { renderMarkdown: registered.execution.renderMarkdown }),
 				});
 				return;
 			}

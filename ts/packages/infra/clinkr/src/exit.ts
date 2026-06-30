@@ -10,7 +10,7 @@ export interface ClinkrNegativeRenderOverrides {
 }
 
 export interface ClinkrNegativeOptions<T> extends ClinkrNegativeRenderOverrides {
-	readonly data?: T | undefined;
+	readonly data?: T;
 }
 
 export interface ClinkrOkExit<T> extends ClinkrOkRenderOverrides {
