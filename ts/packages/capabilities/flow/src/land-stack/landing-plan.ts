@@ -195,6 +195,12 @@ interface LoadBranchContainsParentOptions {
 async function loadBranchContainsParent(
 	options: LoadBranchContainsParentOptions,
 ): Promise<LandResult<boolean>> {
+	return toLandResult(await inspectBranchContainsParent(options), "git");
+}
+
+async function inspectBranchContainsParent(
+	options: LoadBranchContainsParentOptions,
+): Promise<LandStackResult<boolean>> {
 	const args = [
 		"rev-list",
 		"-1",
@@ -210,12 +216,17 @@ async function loadBranchContainsParent(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
-		return landBoundaryFailureResult(
-			"git",
-			`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,
+		return failure(
+			landStackFailure(
+				`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,
+				{
+					commandDisplay: formatCommand("git", args),
+					result,
+				},
+			),
 		);
 	}
-	return landSuccess(result.stdout.trim().length === 0);
+	return success(result.stdout.trim().length === 0);
 }
 
 function classifyWorktree(
@@ -469,32 +480,14 @@ export async function collectSubmitRestackRequirements(
 ): Promise<LandStackResult<RestackRequirement[]>> {
 	const requirements: RestackRequirement[] = [];
 	for (const edge of landingParentEdges(stack)) {
-		const args = [
-			"rev-list",
-			"-1",
-			localBranchRef(edge.parent),
-			"--not",
-			localBranchRef(edge.branch),
-		];
-		const result = await exec({
+		const containsParent = await inspectBranchContainsParent({
 			pi,
-			command: "git",
-			args,
-			cwd: repoRoot,
-			timeoutMs: GIT_TIMEOUT_MS,
+			repoRoot,
+			branch: edge.branch,
+			parent: edge.parent,
 		});
-		if (result.code !== 0) {
-			return failure(
-				landStackFailure(
-					`Could not inspect whether ${edge.branch} contains parent ${edge.parent}.`,
-					{
-						commandDisplay: formatCommand("git", args),
-						result,
-					},
-				),
-			);
-		}
-		if (result.stdout.trim().length > 0) {
+		if (containsParent.type === "failure") return containsParent;
+		if (!containsParent.value) {
 			requirements.push(edge);
 		}
 	}

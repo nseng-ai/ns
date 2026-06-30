@@ -84,7 +84,7 @@ export async function buildStackLandingPlan(
 				reason: "manual-worktree-conflict",
 				message: formatManualWorktreeConflict(landingManualConflicts),
 				suggestedAction:
-					"Detach those landing-branch worktrees or check out unrelated branches, then rerun /sdl:flow:land.",
+					"Detach those landing-branch worktrees or check out unrelated branches, then rerun land preflight.",
 			}),
 		);
 	}
@@ -351,10 +351,10 @@ export function validateOpenPrBasics(input: {
 			domainFailure({
 				phase: "preflight",
 				reason: "pull-request-head-mismatch",
-				message: `PR #${pr.number} head SHA does not match local branch SHA; run gt submit/update first.\nPR head: ${shortSha(pr.headRefOid)}\nLocal ${branch}: ${shortSha(localSha)}`,
+				message: `PR #${pr.number} head SHA does not match local branch SHA; submit or update the branch first.\nPR head: ${shortSha(pr.headRefOid)}\nLocal ${branch}: ${shortSha(localSha)}`,
 				failedBranch: branch,
 				failedPrNumber: pr.number,
-				suggestedAction: `Run gt submit/update for ${branch}, then rerun /sdl:flow:land.`,
+				suggestedAction: `Submit or update ${branch}, then rerun land preflight.`,
 			}),
 		);
 	}

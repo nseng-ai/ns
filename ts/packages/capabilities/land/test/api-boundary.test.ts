@@ -6,11 +6,18 @@ import {
 	LAND_CAPABILITY_ID,
 	LAND_CAPABILITY_METADATA,
 	LAND_PACKAGE_NAME,
+	collectPrSubmitRequirements,
+	isLandFailure,
 	landCompleted,
 	landFailure,
+	landOutcomeFailure,
+	landingParentEdges,
 	landSuccess,
+	scopeStackSnapshot,
+	type BranchLandingPlan,
 	type LandCapabilityMetadata,
 	type LandingBoundaryFailure,
+	type StackSnapshot,
 } from "sdl-land/api";
 
 function describeLandCapability(metadata: LandCapabilityMetadata): string {
@@ -48,6 +55,63 @@ describe("sdl-land/api boundary", () => {
 		expect(landSuccess("ok")).toEqual({ type: "success", value: "ok" });
 		expect(landFailure(failure)).toEqual({ type: "failure", failure });
 		expect(landCompleted()).toEqual({ type: "completed" });
+		expect(landOutcomeFailure(failure)).toEqual({ type: "failure", failure });
+		expect(isLandFailure(landFailure(failure))).toBe(true);
+		expect(isLandFailure(landSuccess("ok"))).toBe(false);
+		expect(isLandFailure(landCompleted())).toBe(false);
+	});
+
+	test("exports renderer-independent preflight utilities", () => {
+		const branchPlans: readonly BranchLandingPlan[] = [
+			{
+				branch: "feature/a",
+				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				pr: {
+					number: 101,
+					title: "Feature A",
+					body: null,
+					state: "OPEN",
+					isDraft: false,
+					headRefName: "feature/a",
+					baseRefName: "develop",
+					headRefOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				},
+			},
+		];
+		const stack: StackSnapshot = {
+			trunk: "main",
+			current: "feature/b",
+			actualCurrentBranch: "feature/b",
+			landingTargetBranch: "feature/b",
+			landingBranches: ["feature/a", "feature/b"],
+			remainingLandingBranches: [],
+			descendantBranches: ["feature/c"],
+			warnings: [],
+		};
+
+		expect(collectPrSubmitRequirements(branchPlans, "main")).toEqual([
+			{
+				branch: "feature/a",
+				prNumber: 101,
+				localSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				prHeadSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				baseRefName: "develop",
+				expectedBaseRefName: "main",
+				reasons: ["head bbbbbbb != local aaaaaaa", "base develop != main"],
+			},
+		]);
+		expect(landingParentEdges(stack)).toEqual([
+			{ branch: "feature/a", parent: "main" },
+			{ branch: "feature/b", parent: "feature/a" },
+		]);
+		expect(scopeStackSnapshot(stack, 1)).toEqual({
+			...stack,
+			current: "feature/b",
+			landingTargetBranch: "feature/a",
+			landingBranches: ["feature/a"],
+			remainingLandingBranches: ["feature/b"],
+			warnings: [],
+		});
 	});
 });
 
