@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import type { CommandExecApi, ExecOptions } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
@@ -130,11 +131,11 @@ async function runWithFakes(
 				options.git ??
 				new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
 			commands: unusedCommands,
-			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
+			...optionalEntry("stdin", options.stdin),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
-			...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
+			...optionalEntry("planStoreRoot", options.planStoreRoot),
 		}),
 	};
 }
@@ -187,7 +188,7 @@ function jsonFailure(message: string, errorType: string): string {
 
 function jsonNegative(message: string, data?: Record<string, unknown>): string {
 	return `${JSON.stringify(
-		{ status: "negative", exitCode: 1, message, ...(data === undefined ? {} : { data }) },
+		{ status: "negative", exitCode: 1, message, ...optionalEntry("data", data) },
 		null,
 		2,
 	)}\n`;

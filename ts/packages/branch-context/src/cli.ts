@@ -1,5 +1,6 @@
 import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/cli-runtime";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import {
 	attachRequestSchema,
@@ -27,12 +28,12 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 			deps.context === undefined
 				? createRealBranchContextCliContext({
 						cwd,
-						...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+						...optionalEntry("planStoreRoot", deps.planStoreRoot),
 					})
 				: {
 						context: deps.context,
 						cwd,
-						...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+						...optionalEntry("planStoreRoot", deps.planStoreRoot),
 					};
 		return { type: "run", context, buildState: undefined };
 	},

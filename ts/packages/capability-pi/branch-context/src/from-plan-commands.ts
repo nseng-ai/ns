@@ -36,7 +36,7 @@ import {
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
 } from "@sdl/plans/api";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,
@@ -1065,7 +1065,7 @@ async function runImplCurrentSavedPlanLaunch(
 		);
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const newSessionOptions = {
-			...(parentSession === undefined ? {} : { parentSession }),
+			...optionalEntry("parentSession", parentSession),
 			withSession: async (newCtx: ReplacedSessionContext) => {
 				isReplacementSessionActive = true;
 				await newCtx.sendUserMessage(options.prompt);
@@ -1075,10 +1075,10 @@ async function runImplCurrentSavedPlanLaunch(
 		if (result.cancelled) {
 			return {
 				type: "cancelled",
-				...(parentSession === undefined ? {} : { parentSession }),
+				...optionalEntry("parentSession", parentSession),
 			};
 		}
-		return { type: "launched", ...(parentSession === undefined ? {} : { parentSession }) };
+		return { type: "launched", ...optionalEntry("parentSession", parentSession) };
 	} catch (error) {
 		if (isReplacementSessionActive) {
 			throw error;
@@ -1086,7 +1086,7 @@ async function runImplCurrentSavedPlanLaunch(
 		return {
 			type: "failed",
 			message: error instanceof Error ? error.message : String(error),
-			...(parentSession === undefined ? {} : { parentSession }),
+			...optionalEntry("parentSession", parentSession),
 		};
 	} finally {
 		if (!isReplacementSessionActive) {
@@ -1139,8 +1139,8 @@ async function resolveSelectedSavedPlanFile(
 	const planStoreRoot = resolvePlanStoreRootOption(options);
 	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,
-		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
-		...(args.filePath === undefined ? {} : { explicitPath: args.filePath }),
+		...optionalEntry("planStoreRoot", planStoreRoot),
+		...optionalEntry("explicitPath", args.filePath),
 		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		shouldFallbackToLatest: true,
 	});

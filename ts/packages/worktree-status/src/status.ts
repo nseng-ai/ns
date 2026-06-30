@@ -22,7 +22,7 @@ import {
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
 } from "@sdl/github/pr-status";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import {
@@ -195,8 +195,8 @@ export async function loadLocalWorktreeStatus(
 		loadGtStatus({
 			pi,
 			cwd,
-			...(options.signal === undefined ? {} : { signal: options.signal }),
-			...(options.metadataLoader === undefined ? {} : { metadataLoader: options.metadataLoader }),
+			...optionalEntry("signal", options.signal),
+			...optionalEntry("metadataLoader", options.metadataLoader),
 			onDiagnostic,
 		}),
 		identityPromise,
@@ -215,7 +215,7 @@ export async function loadWorktreeGhStatus(
 	const identity = options.identity ?? (await loadWorktreeStatusIdentity(pi, cwd, options.signal));
 	return loadGhStatus(pi, cwd, {
 		identity,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 }
 
@@ -258,8 +258,8 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
 	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
 		cwd,
-		...(signal === undefined ? {} : { signal }),
-		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+		...optionalEntry("signal", signal),
+		...optionalEntry("onDiagnostic", options.onDiagnostic),
 	};
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
@@ -506,7 +506,7 @@ async function loadGhStatus(
 		return {
 			type: "head-mismatch",
 			prNumber: stalePr.number,
-			...(stalePr.url === undefined ? {} : { url: stalePr.url }),
+			...optionalEntry("url", stalePr.url),
 			threads: stalePr.threads,
 			checks: stalePr.checks,
 			prHeadOid: stalePr.headRefOid,
@@ -515,7 +515,7 @@ async function loadGhStatus(
 	return {
 		type: "available",
 		prNumber: pr.number,
-		...(pr.url === undefined ? {} : { url: pr.url }),
+		...optionalEntry("url", pr.url),
 		threads: pr.threads,
 		checks: pr.checks,
 	};

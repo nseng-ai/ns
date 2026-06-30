@@ -5,7 +5,7 @@ import type { BrmemGateway } from "@sdl/brmem";
 import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
 import { type CommandExecApi, formatCommand } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { normalizeSummary, resolvePlanSourceFile } from "@sdl/plans";
 import type { BranchContextContext } from "./context.ts";
 
@@ -81,7 +81,7 @@ export async function createBranchContextFromFile(
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: operation.filePath,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 		git,
 	});
 	return createBranchContextFromResolvedSource({
@@ -91,7 +91,7 @@ export async function createBranchContextFromFile(
 		git,
 		brmem,
 		graphite,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 }
 

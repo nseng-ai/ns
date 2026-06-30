@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { ScriptedQueue } from "@sdl/test-kit";
 
 export interface TextGenerationRequest {
@@ -60,8 +61,8 @@ function copyTextGenerationRequest(request: TextGenerationRequest): TextGenerati
 		modelRef: request.modelRef,
 		system: request.system,
 		prompt: request.prompt,
-		...(request.maxTokens === undefined ? {} : { maxTokens: request.maxTokens }),
-		...(request.reasoning === undefined ? {} : { reasoning: request.reasoning }),
-		...(request.operation === undefined ? {} : { operation: request.operation }),
+		...optionalEntry("maxTokens", request.maxTokens),
+		...optionalEntry("reasoning", request.reasoning),
+		...optionalEntry("operation", request.operation),
 	};
 }

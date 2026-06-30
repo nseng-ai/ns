@@ -9,7 +9,7 @@ import {
 	type SlotDiagnosticSink,
 } from "../diagnostics.ts";
 import { parseJsonObject } from "../json.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;
 const PR_BATCH_PAGE_SIZE = 20;
@@ -234,7 +234,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			runner: createDiagnosticCommandRunner({
 				execApi: this.execApi,
 				operation,
-				...(this.diagnosticSink === undefined ? {} : { diagnosticSink: this.diagnosticSink }),
+				...optionalEntry("diagnosticSink", this.diagnosticSink),
 			}),
 			args,
 			cwd: this.cwd,

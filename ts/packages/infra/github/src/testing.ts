@@ -1,3 +1,5 @@
+import { optionalEntry } from "@sdl/core/primitives";
+
 export interface GithubCheckRunFixture {
 	readonly workflowName: string;
 	readonly name: string;
@@ -12,9 +14,9 @@ export function githubCheckRun(fixture: GithubCheckRunFixture): unknown {
 		__typename: "CheckRun",
 		name: fixture.name,
 		status: fixture.status,
-		...(fixture.conclusion === undefined ? {} : { conclusion: fixture.conclusion }),
-		...(fixture.startedAt === undefined ? {} : { startedAt: fixture.startedAt }),
-		...(fixture.completedAt === undefined ? {} : { completedAt: fixture.completedAt }),
+		...optionalEntry("conclusion", fixture.conclusion),
+		...optionalEntry("startedAt", fixture.startedAt),
+		...optionalEntry("completedAt", fixture.completedAt),
 		checkSuite: { workflowRun: { workflow: { name: fixture.workflowName } } },
 	};
 }

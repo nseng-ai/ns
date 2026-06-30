@@ -8,6 +8,7 @@ import {
 	type RenderCapabilities,
 } from "@sdl/clinkr";
 import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/cli-theme";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";
@@ -130,7 +131,7 @@ export function renderGc(
 		buildSlotDestructiveResultBlock({
 			kind: gcResultKind(result),
 			headline: gcHeadline(result),
-			...(body === undefined ? {} : { body }),
+			...optionalEntry("body", body),
 		}),
 	);
 }
@@ -278,6 +279,6 @@ function toGcResult(outcome: SlotGcOutcome, options: { isCancelled?: boolean } =
 		errorCount: outcome.errorCount,
 		dryRun: outcome.dryRun,
 		cleanupErrorCount: outcome.cleanupErrorCount,
-		...(options.isCancelled === undefined ? {} : { cancelled: options.isCancelled }),
+		...optionalEntry("cancelled", options.isCancelled),
 	};
 }

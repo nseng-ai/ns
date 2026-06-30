@@ -2,6 +2,7 @@ import {
 	createSdlDomainCommand,
 	type SdlDomainCommandOptions,
 } from "@sdl/capability-kit/sdl-command";
+import { optionalEntry } from "@sdl/core/primitives";
 import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "sdl-sdk";
 
 import { createRealBranchContextCliContext, type BranchContextCliContext } from "../operations.ts";
@@ -24,6 +25,6 @@ function createBranchContextExtensionContext(ctx: SdlExtensionApi): BranchContex
 	return createRealBranchContextCliContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
-		...(ctx.stderr === undefined ? {} : { stderr: ctx.stderr }),
+		...optionalEntry("stderr", ctx.stderr),
 	});
 }

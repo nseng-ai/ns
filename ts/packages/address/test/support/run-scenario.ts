@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { PrAddressContext } from "../../src/context.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
@@ -34,7 +35,7 @@ export function runScenario(
 			cwd: options.cwd ?? "/repo",
 			env: options.env ?? { PATH: "/fake/bin" },
 			stdin: typeof stdin === "function" ? stdin : async () => stdin ?? "",
-			...(options.operations === undefined ? {} : { operations: options.operations }),
+			...optionalEntry("operations", options.operations),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),

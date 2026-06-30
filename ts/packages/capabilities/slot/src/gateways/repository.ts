@@ -5,7 +5,7 @@ import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
 import { parseGitWorktreePorcelain } from "@sdl/capability-kit/git";
 import { RealGitGateway, type GitGateway } from "@sdl/git";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 
 import {
 	createSlotDiagnosticSinkFromEnv,
@@ -290,7 +290,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 			args,
 			execOptions: { cwd, env: this.env, timeout: SLOT_GIT_TIMEOUT_MS },
 			operation: options.operation ?? "slot.git.command",
-			...(this.diagnosticSink === undefined ? {} : { diagnosticSink: this.diagnosticSink }),
+			...optionalEntry("diagnosticSink", this.diagnosticSink),
 		});
 		const commandResult = {
 			isOk: result.code === 0 && !result.killed,

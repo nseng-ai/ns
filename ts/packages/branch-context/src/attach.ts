@@ -1,3 +1,5 @@
+import { optionalEntry } from "@sdl/core/primitives";
+
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	UNSUPPORTED_ATTACHED_PLAN_KEY,
@@ -328,7 +330,7 @@ async function resolveAttachSource(
 		sourceFile: await resolvePlanSourceFile(pi, {
 			cwd: options.cwd,
 			rawFilePath: params.filePath,
-			...(options.signal === undefined ? {} : { signal: options.signal }),
+			...optionalEntry("signal", options.signal),
 			git: options.context.git,
 		}),
 	};
@@ -420,8 +422,8 @@ function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOpti
 	return {
 		cwd: options.cwd,
 		git: options.context.git,
-		...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("planStoreRoot", options.planStoreRoot),
+		...optionalEntry("signal", options.signal),
 	};
 }
 
@@ -431,6 +433,6 @@ function attachEvidence(
 ): BranchContextAttachEvidence {
 	return {
 		...data,
-		...(planSlug === undefined ? {} : { planSlug }),
+		...optionalEntry("planSlug", planSlug),
 	};
 }

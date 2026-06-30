@@ -30,7 +30,7 @@ import {
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
 import type { PiLaunchOptions } from "@sdl/cmux/pi-launch";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import type { CommandContext, ExtensionAPI, NotifyLevel } from "@sdl/cmux/types";
 
 const BRANCH_CREATION = "graphite";
@@ -151,7 +151,7 @@ export async function handleCccSlotDispatchPlan({
 			slug: slugEvidence.slug,
 			filePath: selectedPlan.filePath,
 			branchCreation: BRANCH_CREATION,
-			...(selectedPlan.summary === undefined ? {} : { summary: selectedPlan.summary }),
+			...optionalEntry("summary", selectedPlan.summary),
 		});
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
@@ -263,7 +263,7 @@ async function resolveCurrentCheckout(
 	try {
 		directory = await resolvePlanStoreDirectory(pi, {
 			cwd,
-			...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
+			...optionalEntry("planStoreRoot", options.planStoreRoot),
 		});
 	} catch (error) {
 		return {
@@ -329,7 +329,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 		tabTitle: operation.branch,
 		operation,
 		config,
-		...(options.options.slotClient === undefined ? {} : { slotClient: options.options.slotClient }),
+		...optionalEntry("slotClient", options.options.slotClient),
 	});
 }
 

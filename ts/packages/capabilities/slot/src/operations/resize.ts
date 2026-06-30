@@ -1,5 +1,6 @@
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import type { SlotCliContext } from "../context.ts";
 import { resizePool } from "../lifecycle/pool.ts";
@@ -39,7 +40,7 @@ export function renderResize(
 		buildSlotDestructiveResultBlock({
 			kind: "success",
 			headline: resizeHeadline(result),
-			...(body === undefined ? {} : { body }),
+			...optionalEntry("body", body),
 		}),
 	);
 }

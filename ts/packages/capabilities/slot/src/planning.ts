@@ -1,5 +1,6 @@
 import { basename } from "node:path";
 
+import { optionalEntry } from "@sdl/core/primitives";
 import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
 import {
 	buildSlotInventory,
@@ -138,7 +139,7 @@ export async function planCurrentCheckout(
 
 	const inventory = await buildSlotInventory(
 		git,
-		options.mainRepoRoot === undefined ? {} : { mainRepoRoot: options.mainRepoRoot },
+		optionalEntry("mainRepoRoot", options.mainRepoRoot),
 	);
 	const alreadyMatch = findByBranch(inventory, currentBranch.branch);
 	if (alreadyMatch?.kind === "slot") {
