@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ScriptedCommandExecApi } from "@sdl/core/testing";
+import { ScriptedCommandExecApi } from "@sdl/exec/testing";
 
 import {
 	FakeReviewRunnerGateway,

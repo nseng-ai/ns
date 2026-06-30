@@ -1,4 +1,4 @@
-import { describeNodeRuntimeCliEntrypoint } from "@sdl/core/testing";
+import { describeNodeRuntimeCliEntrypoint } from "@sdl/cli-runtime/testing";
 
 describeNodeRuntimeCliEntrypoint({
 	name: "sdl Node runtime CLI entrypoint",

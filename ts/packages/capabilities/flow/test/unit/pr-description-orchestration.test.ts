@@ -13,7 +13,7 @@ import {
 	type PromptSource,
 	type StablePatchIdForPrResult,
 } from "../../src/submit/index.ts";
-import { ScriptedTextGenerator } from "@sdl/core/testing";
+import { ScriptedTextGenerator } from "@sdl/capability-kit/text-generation/testing";
 
 const PROMPT_SOURCE: PromptSource = { type: "builtin" };
 const GENERATION = {

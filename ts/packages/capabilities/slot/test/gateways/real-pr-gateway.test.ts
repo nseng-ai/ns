@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ScriptedCommandExecApi } from "@sdl/core/testing";
+import { ScriptedCommandExecApi } from "@sdl/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotPrGateway } from "../../src/gateways/pr.ts";
 

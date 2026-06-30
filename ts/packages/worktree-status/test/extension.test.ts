@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { visibleWidth } from "@earendil-works/pi-tui";
 
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { createManualTimerHarness } from "@sdl/core/testing";
+import { createManualTimerHarness } from "@sdl/time/testing";
 import type { WorktreeGhStatus } from "@sdl/worktree-status";
 import {
 	deferred,

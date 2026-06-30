@@ -19,6 +19,7 @@
     "@sdl/git": "workspace:*",
     "@sdl/handoff": "workspace:*",
     "@sdl/pi": "workspace:*",
+    "@sdl/test-kit": "workspace:*",
     "@sdl/time": "workspace:*"
   },
   "devDependencies": {},

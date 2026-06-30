@@ -7,7 +7,7 @@ import { RealGitGateway } from "@sdl/git";
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { mustSnapshotRef } from "../../src/ref-layout.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@sdl/core/testing";
+import { createTempGitRepo } from "@sdl/git/testing";
 
 describe("copy operation real-Git integration", () => {
 	it("wires public copy through RealGitBrmemGateway and preserves dry-run refs", async () => {

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { ExecOptions, ExecResult } from "@sdl/exec";
-import { createManualClock } from "@sdl/core/testing";
+import { createManualClock } from "@sdl/time/testing";
 
 import type { ThinkingLevel } from "@sdl/pi/runtime/types";
 import {

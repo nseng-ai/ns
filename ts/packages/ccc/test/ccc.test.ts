@@ -10,7 +10,7 @@ function formatImplBranchContextCommand(key: string): string {
 	return `/sdl:branch-context:impl-attached-plan ${key}`;
 }
 import type { StdinCapableCommandExecApi } from "@sdl/exec";
-import { withTempRepoSkill } from "@sdl/core/testing";
+import { withTempRepoSkill } from "@sdl/test-kit";
 import { type CccSlotDispatchPlanOptions } from "@sdl/ccc/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
