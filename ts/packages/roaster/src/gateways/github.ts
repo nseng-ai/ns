@@ -7,7 +7,7 @@ import {
 	withNumericGithubIdentity,
 } from "@sdl/github/pr-feedback";
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
-import { withTemporaryJsonFile } from "@sdl/core/temp-files";
+import { withTemporaryJsonFile } from "@sdl/capability-kit/temp-files";
 import { z } from "zod";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../failures.ts";

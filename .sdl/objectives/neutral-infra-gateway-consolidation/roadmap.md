@@ -89,7 +89,9 @@
     invariants confirmed no `@sdl/core/cli-entry` imports and no core `./cli-entry` export.
     `stdin` moved to `@sdl/cli-runtime`; live consumers import `@sdl/cli-runtime`; `@sdl/core` no longer
     exports `./stdin`; the old core source/test files were removed; targeted and broad TS validation
-    passed.
+    passed. `temp-files` moved to `@sdl/capability-kit/temp-files`; Flow/Roaster consumers import the kit
+    subpath directly; `@sdl/core` no longer exports `./temp-files`; the old core source/test files were
+    removed; targeted and broad TS validation passed.
   - Autonomous residual order: `temp-files` → `xdg`/`workspace-root` → `shell-support` → `text-repair`
     → `model-slug` split → `clock`/`timers` concrete-adapter extraction → `brmem-cli` and
     `@sdl/core/testing` memberwise cleanup → final purity proof/capability cleanup.
