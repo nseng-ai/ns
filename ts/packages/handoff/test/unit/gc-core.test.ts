@@ -13,9 +13,9 @@ function createSummary(options: {
 	branch: string;
 	branchState: BranchState;
 	slug: string;
-	key?: string | undefined;
-	entryLocator?: string | undefined;
-	updatedAt?: string | undefined;
+	key?: string;
+	entryLocator?: string;
+	updatedAt?: string;
 }): HandoffSummary {
 	const key = options.key ?? `${options.slug}.md`;
 	return {
@@ -40,7 +40,7 @@ async function putHandoff(options: {
 	gateway: FakeBrmemGateway;
 	branch: string;
 	key: string;
-	content?: string | undefined;
+	content?: string;
 }): Promise<void> {
 	const result = await options.gateway.putEntry({
 		namespace: "handoff",
