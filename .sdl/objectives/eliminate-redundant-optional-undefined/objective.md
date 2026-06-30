@@ -57,7 +57,14 @@ Do not keep changes that:
 - Reduce grep counts by mechanical rewrite alone.
 - Mix unrelated cleanup domains into the same slice only because they share the same syntax.
 
-Useful evidence includes scoped before/after grep counts, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
+The Objective's primary measurement function has two per-slice metrics:
+
+1. **Typed optional-undefined property count**: scoped before/after count of declarations such as `foo?: T | undefined`. This should generally trend monotonically down across kept cleanup slices, except for deliberate preserves or newly justified compatibility/input surfaces.
+2. **Undefined-normalization/check count**: scoped before/after count of omission-building or explicit-undefined adapter code, such as `...(request.key === undefined ? {} : { key: request.key })` and equivalent `if (value !== undefined)` construction guards. This metric may fluctuate: it can rise when a slice first normalizes producers/builders before narrowing upstream request objects, and should later fall as omission-only contracts move up the stack. Interpret it by boundary location rather than as a monotonic target.
+
+Every submitted Objective PR should display both before/after counts in its PR description, along with the measurement scope and any important classification caveats. These counts are the Objective's visible progress scorecard, not a replacement for semantic review.
+
+Useful evidence includes the two scoped before/after metrics, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
 
 ## Runner Policy
 
@@ -65,7 +72,9 @@ This is an autonomy-designed standing Objective for `objective-next`.
 
 Direct local execution is allowed when the runner can select a coherent, review-substantive slice that satisfies the Definition of Progress and stays within repository-local edits, local validation, and Objective tracking. Future `objective-next` sessions may proactively offer or run such a slice under the normal confirmed-execution preview rules without asking the human to choose a candidate cluster first.
 
-Slice sizing should now bias coarser than the early narrow follow-up slices. Avoid both extremes: do not run broad repo-wide syntactic sweeps, but also do not spend a PR/commit on a trivial file or tiny helper cluster when nearby candidates form one semantic package/subsystem cluster. Prefer package/subsystem-level slices such as all safe internal `worktree-status` omission-only option/result/helper fields, a cohesive `pr-previews` internal command/model/view cleanup, a `pr-feedback-watch` internal model/rendering/API-helper cleanup, or a GitHub PR feedback parser/fingerprint/internal-diagnostic cleanup. As a default minimum, keep inventorying/classifying and include adjacent safe candidates until the proposed PR has at least 10 substantive edit sites / touched lines attributable to the optional-undefined cleanup. A smaller slice is acceptable only when the semantic boundary is genuinely exhausted, the change is independently review-substantive, or nearby candidates have been explicitly classified as unsafe/unrelated.
+Execution granularity and review granularity are different. Autopilot may make small, reversible, locally validated edits or checkpoints while exploring a semantic boundary. PR granularity should usually be coarser: aggregate those steps into one coherent, review-substantive unit that a reviewer can understand as a single semantic claim.
+
+Slice sizing should now bias coarser than the early narrow follow-up slices. Avoid both extremes: do not run broad repo-wide syntactic sweeps, but also do not spend a PR on a trivial file or tiny helper cluster when nearby candidates form one semantic package/subsystem cluster. Prefer package/subsystem-level PR slices such as all safe internal `worktree-status` omission-only option/result/helper fields, a cohesive `pr-previews` internal command/model/view cleanup, a `pr-feedback-watch` internal model/rendering/API-helper cleanup, or a GitHub PR feedback parser/fingerprint/internal-diagnostic cleanup. As a default minimum, keep inventorying/classifying and include adjacent safe candidates until the proposed PR has at least 10 substantive edit sites / touched lines attributable to the optional-undefined cleanup. A smaller PR is acceptable only when the semantic boundary is genuinely exhausted, the change is independently review-substantive, or nearby candidates have been explicitly classified as unsafe/unrelated. Do not batch unrelated optional-undefined edits just to make the PR bigger.
 
 Default runner loop:
 
@@ -74,10 +83,12 @@ Default runner loop:
 3. Pick a review-substantive coherent safe slice, biased toward a package/subsystem cluster of internal result/diagnostic/presentation/durable shapes and nearby producers/builders/parsers rather than the narrowest single-file edit.
 4. Normalize construction or boundary code before narrowing types.
 5. Run relevant TypeScript validation before keeping work.
-6. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, or roadmap/policy changes.
-7. Leave local edits uncommitted unless the user explicitly asks for commit/PR workflow, then continue in a later invocation.
+6. Measure the scoped before/after counts for both typed optional-undefined properties and undefined-normalization/check code.
+7. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, metric-policy changes, or roadmap/policy changes.
+8. When PR submission is authorized, encode both before/after metrics and their scope in the PR description.
+9. Leave local edits uncommitted unless the user explicitly asks for commit/PR workflow, then continue in a later invocation.
 
-Ask or stop when candidate meaning is ambiguous, public compatibility is at risk, external schemas are involved, validation fallout crosses unrelated packages, a proposed slice is too broad to review or too tiny to justify a standalone PR/commit, or the next useful step requires branch creation, committing, PR submission, merging, publishing, deployment, GitHub mutation, or another external write action not explicitly authorized. If the safe slice appears to be below the 10 substantive edit-site / touched-line default, prefer recording the classification and continuing inventory for an adjacent coherent cluster before opening a standalone PR.
+Ask or stop when candidate meaning is ambiguous, public compatibility is at risk, external schemas are involved, validation fallout crosses unrelated packages, a proposed PR slice is too broad to review or too tiny to justify as a standalone review unit, or the next useful step requires branch creation, committing, PR submission, merging, publishing, deployment, GitHub mutation, or another external write action not explicitly authorized. If the safe slice appears to be below the 10 substantive edit-site / touched-line default, prefer recording the classification and continuing inventory for an adjacent coherent cluster before opening a standalone PR.
 
 PR submission, merging, publishing, deployment, and external write actions are out of scope unless explicitly requested or separately authorized in the current workflow.
 
