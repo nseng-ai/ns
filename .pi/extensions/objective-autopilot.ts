@@ -1,8 +1,16 @@
 import { spawn } from "node:child_process";
-import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
+
+import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "../../ts/packages/infra/exec/src/index.ts";
+import { createRunnerSubagentJsonEventParser } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
+import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
+
+import {
+	sendCommandProgressOrNotify,
+	registerCommandWithImmediateAck,
+} from "../../ts/packages/hosts/pi/src/commands/ack.ts";
 
 const COMMAND_NAME = "objective:autopilot";
 const STATUS_KEY = "objective-autopilot";
@@ -11,13 +19,6 @@ const REPORT_END = "OBJECTIVE_AUTOPILOT_REPORT_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
 
 type NotifyLevel = "info" | "warning" | "error";
-
-interface ExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	isKilled: boolean;
-}
 
 interface CommandContext {
 	cwd: string;
@@ -38,7 +39,7 @@ interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<unknown>;
+	exec(command: string, args: string[], options?: { cwd?: string; timeout?: number }): Promise<PiExecResultLike>;
 	sendUserMessage?(content: string): void;
 }
 
@@ -151,19 +152,6 @@ function parseArgs(raw: string): ParsedArgs {
 		: { objective, iterations, shouldSubmit, isDryRun, model };
 }
 
-function normalizeExecResult(result: unknown): ExecResult {
-	if (!result || typeof result !== "object") {
-		return { stdout: "", stderr: "Invalid exec result", code: 1, isKilled: false };
-	}
-	const record = result as Record<string, unknown>;
-	return {
-		stdout: typeof record.stdout === "string" ? record.stdout : "",
-		stderr: typeof record.stderr === "string" ? record.stderr : "",
-		code: typeof record.code === "number" ? record.code : 1,
-		isKilled: record.killed === true,
-	};
-}
-
 function trimOutput(result: ExecResult): string {
 	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 }
@@ -171,7 +159,7 @@ function trimOutput(result: ExecResult): string {
 async function execChecked(options: ExecCheckedOptions): Promise<string> {
 	const { pi, ctx, command, args } = options;
 	const result = normalizeExecResult(await pi.exec(command, args, { cwd: ctx.cwd }));
-	if (result.code !== 0 || result.isKilled) {
+	if (result.code !== 0 || result.killed) {
 		throw new Error(`Command failed: ${command} ${args.join(" ")}\n${trimOutput(result)}`);
 	}
 	return result.stdout.trim();
@@ -211,16 +199,6 @@ async function assertInitialGuards(pi: ExtensionAPI, ctx: CommandContext, object
 	return git(pi, ctx, ["branch", "--show-current"]);
 }
 
-function getPiInvocation(args: string[]): { command: string; args: string[] } {
-	const currentScript = process.argv[1];
-	if (currentScript && !currentScript.startsWith("/$bunfs/root/") && fsSync.existsSync(currentScript)) {
-		return { command: process.execPath, args: [currentScript, ...args] };
-	}
-	const execName = path.basename(process.execPath).toLowerCase();
-	if (!/^(node|bun)(\.exe)?$/.test(execName)) return { command: process.execPath, args };
-	return { command: "pi", args };
-}
-
 async function writePromptFile(prompt: string): Promise<{ dir: string; file: string }> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "objective-autopilot-"));
 	const file = path.join(dir, "child-prompt.md");
@@ -228,43 +206,30 @@ async function writePromptFile(prompt: string): Promise<{ dir: string; file: str
 	return { dir, file };
 }
 
-function extractTextPart(part: unknown): string | undefined {
-	if (!part || typeof part !== "object") return undefined;
-	const record = part as Record<string, unknown>;
-	return record.type === "text" && typeof record.text === "string" ? record.text : undefined;
-}
-
 async function runChild(cwd: string, prompt: string, model: string | undefined): Promise<ChildResult> {
 	const tmp = await writePromptFile(prompt);
+	// Keep custom spawn semantics: objective-autopilot intentionally uses no-session plus an appended system prompt,
+	// while the full runner-subagents dispatcher owns explicit session/runtime behavior.
 	const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", tmp.file];
 	if (model) args.push("--model", model);
 	args.push("Run the objective-autopilot child task described in your appended system prompt.");
 
-	let finalText = "";
-	let stopReason: string | undefined;
 	let stderr = "";
 	try {
 		return await new Promise<ChildResult>((resolve) => {
-			const invocation = getPiInvocation(args);
+			const parser = createRunnerSubagentJsonEventParser({ title: "objective-autopilot child" });
+			const invocation = resolvePiInvocation(args);
 			const child = spawn(invocation.command, invocation.args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 			let buffer = "";
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
-				let event: Record<string, unknown>;
 				try {
-					event = JSON.parse(line) as Record<string, unknown>;
+					JSON.parse(line);
 				} catch {
-					// Ignore malformed streaming event lines; later JSON events can still carry the final answer.
+					// Preserve the previous tolerance for malformed streaming lines while reusing the shared parser for valid Pi events.
 					return;
 				}
-				if (event.type !== "message_end" || !event.message || typeof event.message !== "object") return;
-				const message = event.message as Record<string, unknown>;
-				if (typeof message.stopReason === "string") stopReason = message.stopReason;
-				if (message.role !== "assistant" || !Array.isArray(message.content)) return;
-				for (const part of message.content) {
-					const text = extractTextPart(part);
-					if (text) finalText = text;
-				}
+				parser.pushChunk(`${line}\n`);
 			};
 			child.stdout.on("data", (data) => {
 				buffer += data.toString();
@@ -277,11 +242,25 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 			});
 			child.on("close", (code) => {
 				if (buffer.trim()) processLine(buffer);
-				resolve({ exitCode: code ?? 0, finalText, stderr, stopReason });
+				parser.finish();
+				const snapshot = parser.getSnapshot();
+				resolve({
+					exitCode: code ?? 0,
+					finalText: snapshot.finalAssistantText ?? "",
+					stderr,
+					...(snapshot.stopReason === undefined ? {} : { stopReason: snapshot.stopReason }),
+				});
 			});
 			child.on("error", (error) => {
 				stderr += error.message;
-				resolve({ exitCode: 1, finalText, stderr, stopReason });
+				parser.finish();
+				const snapshot = parser.getSnapshot();
+				resolve({
+					exitCode: 1,
+					finalText: snapshot.finalAssistantText ?? "",
+					stderr,
+					...(snapshot.stopReason === undefined ? {} : { stopReason: snapshot.stopReason }),
+				});
 			});
 		});
 	} finally {
@@ -426,12 +405,18 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 		return;
 	}
 
+	sendCommandProgressOrNotify({ host: pi, ctx, message: "Checking repository for /objective:autopilot…" });
 	await ctx.waitForIdle();
 	ctx.ui.setStatus(STATUS_KEY, "checking repository…");
 	try {
 		let startingBranch = await assertInitialGuards(pi, ctx, args.objective);
 		const summaries: string[] = [];
 		for (let iteration = 1; iteration <= args.iterations; iteration++) {
+			sendCommandProgressOrNotify({
+				host: pi,
+				ctx,
+				message: `Starting objective-autopilot child iteration ${iteration}/${args.iterations}…`,
+			});
 			ctx.ui.setStatus(STATUS_KEY, `child iteration ${iteration}/${args.iterations}…`);
 			ctx.ui.setWidget?.(STATUS_KEY, [`/objective:autopilot ${iteration}/${args.iterations}`, `objective: ${args.objective}`]);
 			const child = await runChild(ctx.cwd, buildChildPrompt(args, iteration, startingBranch), args.model);
@@ -472,8 +457,12 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 }
 
 export default function objectiveAutopilotExtension(pi: ExtensionAPI): void {
-	pi.registerCommand(COMMAND_NAME, {
-		description: "Run bounded fresh-child Objective autopilot iterations with parent verification and Graphite submit.",
-		handler: async (args, ctx) => runAutopilot(pi, args, ctx),
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: COMMAND_NAME,
+		commandDefinition: {
+			description: "Run bounded fresh-child Objective autopilot iterations with parent verification and Graphite submit.",
+			handler: async (args, ctx) => runAutopilot(pi, args, ctx),
+		},
 	});
 }
