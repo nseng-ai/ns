@@ -11,7 +11,7 @@ import {
 	type ExecResult,
 	type PiExecResultLike,
 } from "@sdl/core/command";
-import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
+import { formatErrorMessage, isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 
@@ -56,8 +56,8 @@ interface RunBrmemOnCandidateOptions {
 	candidate: BrmemCommandCandidate;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
-	env?: NodeJS.ProcessEnv | undefined;
-	signal?: AbortSignal | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface RunBrmemOptions {
@@ -65,8 +65,8 @@ export interface RunBrmemOptions {
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
-	env?: NodeJS.ProcessEnv | undefined;
-	signal?: AbortSignal | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface BrmemCommandErrorInfo {
@@ -84,8 +84,8 @@ export interface RunAvailableBrmemCommandOptions {
 	cwd: string;
 	brmemArgs: readonly string[];
 	timeoutMs?: number;
-	env?: NodeJS.ProcessEnv | undefined;
-	signal?: AbortSignal | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface BrmemPutData {
@@ -118,7 +118,7 @@ export interface CheckBrmemEntryOptions extends BrmemEntryLocator {
 	gateway: BrmemExecGateway;
 	cwd: string;
 	timeoutMs?: number;
-	signal?: AbortSignal | undefined;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export type BrmemEntryPresenceResult =
@@ -131,21 +131,21 @@ export interface PutBrmemEntryFromFileOptions {
 	readonly cwd: string;
 	readonly namespace: string;
 	readonly key: string;
-	readonly branch?: string | undefined;
+	readonly branch?: string;
 	readonly sourceFile: string;
 	readonly timeoutMs?: number;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface ListBrmemEntriesOptions {
 	readonly gateway: BrmemExecGateway;
 	readonly cwd: string;
-	readonly namespace?: string | undefined;
-	readonly branch?: string | undefined;
-	readonly timeoutMs?: number | undefined;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
+	readonly namespace?: string;
+	readonly branch?: string;
+	readonly timeoutMs?: number;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 function brmemCommandCandidates(
@@ -407,8 +407,8 @@ export async function listBrmemEntries(
 		return {
 			ok: true,
 			value: parseBrmemListEntries(run.value.result.stdout, {
-				namespace: options.namespace,
-				branch: options.branch,
+				...(options.namespace === undefined ? {} : { namespace: options.namespace }),
+				...(options.branch === undefined ? {} : { branch: options.branch }),
 			}),
 		};
 	} catch (error) {
@@ -468,7 +468,7 @@ export function parseBrmemPutData(stdout: string): BrmemPutData {
 
 export function parseBrmemListEntries(
 	stdout: string,
-	expected: { readonly namespace?: string | undefined; readonly branch?: string | undefined } = {},
+	expected: { readonly namespace?: string; readonly branch?: string } = {},
 ): readonly BrmemListEntry[] {
 	const data = parseBrmemMachineEnvelopeData(stdout, "brmem list JSON");
 	const entries = data.entries;
@@ -589,8 +589,8 @@ interface ParseBrmemListEntryOptions {
 	readonly index: number;
 	readonly stdout: string;
 	readonly expected: {
-		readonly namespace?: string | undefined;
-		readonly branch?: string | undefined;
+		readonly namespace?: string;
+		readonly branch?: string;
 	};
 }
 
