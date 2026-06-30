@@ -260,8 +260,8 @@ async function loadSavedPlanFallback(
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
 		git: options.context.git,
-		planStoreRoot: options.planStoreRoot,
-		sessionEntries: options.sessionEntries,
+		...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
+		...(options.sessionEntries === undefined ? {} : { sessionEntries: options.sessionEntries }),
 		shouldAllowSessionSourceBranchMismatch: true,
 		shouldFallbackToLatest: true,
 	});

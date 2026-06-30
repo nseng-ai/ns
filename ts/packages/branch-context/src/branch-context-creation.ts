@@ -81,7 +81,7 @@ export async function createBranchContextFromFile(
 	const sourceFile = await resolvePlanSourceFile(pi, {
 		cwd: options.cwd,
 		rawFilePath: operation.filePath,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 		git,
 	});
 	return createBranchContextFromResolvedSource({
