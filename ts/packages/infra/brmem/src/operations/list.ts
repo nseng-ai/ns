@@ -1,4 +1,5 @@
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { renderTextTable } from "@sdl/core/text-table";
 import { z } from "zod";
 
@@ -91,9 +92,13 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 			branch = resolvedBranch;
 		}
 	}
+	const entryFilters = {
+		...optionalEntry("key", request.key),
+		...optionalEntry("branch", branch),
+	};
 	const entriesResult = shouldListAllNamespaces
-		? await ctx.gateway.listAllEntries({ key: request.key, branch })
-		: await ctx.gateway.listEntries({ namespace: scopeNamespace, key: request.key, branch });
+		? await ctx.gateway.listAllEntries(entryFilters)
+		: await ctx.gateway.listEntries({ namespace: scopeNamespace, ...entryFilters });
 	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
 	return ok({
 		namespaceScope: shouldListAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,

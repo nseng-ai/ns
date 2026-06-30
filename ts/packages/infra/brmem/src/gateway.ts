@@ -46,22 +46,22 @@ export interface GitRemoteConfig {
 export interface BrmemReadGateway {
 	listEntries(options: {
 		namespace: string;
-		key?: string | undefined;
-		branch?: string | undefined;
+		key?: string;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	getEntry(options: {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryContent>>;
 
 	checkEntry(options: {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
 }
 
@@ -69,8 +69,8 @@ export interface BrmemGateway extends BrmemReadGateway {
 	currentBranch(): Promise<BrmemResult<string>>;
 
 	listAllEntries(options: {
-		key?: string | undefined;
-		branch?: string | undefined;
+		key?: string;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	putEntry(options: {
@@ -98,12 +98,10 @@ export interface BrmemGateway extends BrmemReadGateway {
 		fromBranch: string;
 		toBranch: string;
 		shouldOverwrite: boolean;
-		keyGlob?: string | undefined;
+		keyGlob?: string;
 	}): Promise<BrmemResult<CopyEntriesResult>>;
 
-	listSnapshots(options: {
-		namespace?: string | undefined;
-	}): Promise<BrmemResult<readonly ListedSnapshot[]>>;
+	listSnapshots(options: { namespace?: string }): Promise<BrmemResult<readonly ListedSnapshot[]>>;
 
 	localBranchPresence(options: { branch: string }): Promise<BrmemResult<"present" | "absent">>;
 
