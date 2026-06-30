@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@sdl/ccc": "workspace:*",
-    "@sdl/cmux": "workspace:*"
+    "@sdl/cmux": "workspace:*",
+    "@sdl/pi": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {

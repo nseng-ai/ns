@@ -357,6 +357,9 @@ importers:
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
 
   packages/capability-pi/flow:
     dependencies:
@@ -456,9 +459,6 @@ importers:
       '@sdl/objective':
         specifier: workspace:*
         version: link:../objective
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../hosts/pi
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans

@@ -9,7 +9,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./legacy-pi-extension": "./src/ccc.ts",
     "./autoslot": "./src/autoslot.ts",
     "./cli": "./src/cli.ts",
     "./land": "./src/land.ts",
@@ -31,7 +30,6 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
     "@sdl/objective": "workspace:*",
-    "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
     "@sdl/slot": "workspace:*",
     "sdl-flow": "workspace:*",

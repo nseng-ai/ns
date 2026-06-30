@@ -470,11 +470,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedTextIncludes: "capability-must-not-depend-on-host",
 		},
 		{
-			name: "allowlisted capability to host debt is accepted",
-			edges: [{ from: "@sdl/ccc", to: "@sdl/pi" }],
-			expectedViolation: false,
-		},
-		{
 			name: "sdk to capability is rejected",
 			edges: [{ from: "@sdl/kernel", to: "@sdl/handoff" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",

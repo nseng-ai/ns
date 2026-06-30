@@ -1,4 +1,3 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	execApiToCommandRunner,
 	formatCommand,
@@ -11,7 +10,6 @@ import {
 	type LocalBranchRefreshPlan,
 } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import {
 	buildBrmemPayloadPiLaunchCommand,
@@ -22,7 +20,6 @@ import {
 	runText,
 	storeDispatchPromptPayload,
 	type BranchCreateResult,
-	type DispatchPromptPayloadOptions,
 } from "./dispatch-prompt.ts";
 import { getPiLaunchOptions } from "@sdl/cmux/pi-launch";
 import { openBranchInCmuxSlot } from "./slot.ts";
@@ -35,37 +32,13 @@ const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;
 const TRUNK_DISPATCH_CONTEXT_NOTE =
 	"This branch was created from refreshed Graphite trunk and is intentionally unrelated to the caller's current stack.";
 
-export function registerCccSlotDispatchFromTrunkCommand(
-	pi: ExtensionAPI,
-	options: DispatchPromptPayloadOptions = {},
-): void {
-	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Create a Graphite-tracked branch from refreshed trunk and dispatch a prompt in a new cmux workspace.",
-			argumentHint: "<prompt>",
-			handler: async (args, ctx) => {
-				await handleCccSlotDispatchFromTrunk({
-					pi,
-					payloadOptions,
-					...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
-					args,
-					ctx,
-				});
-			},
-		},
-	});
-}
-
-async function handleCccSlotDispatchFromTrunk(options: {
+export async function handleCccSlotDispatchFromTrunk(options: {
 	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
 	payloadOptions: ReturnType<typeof resolveDispatchPromptPayloadOptions>;
 	args: string;
 	ctx: CommandContext;
 	slotClient?: SlotClient;
+	notifyProgress: (message: string) => void;
 }): Promise<void> {
 	const { pi, payloadOptions, args, ctx } = options;
 	const prompt = args.trim();
@@ -74,24 +47,20 @@ async function handleCccSlotDispatchFromTrunk(options: {
 		return;
 	}
 
-	sendCommandProgressOrNotify({ host: pi, ctx, message: "Resolving Graphite trunk…" });
+	options.notifyProgress("Resolving Graphite trunk…");
 	await ctx.waitForIdle();
 	const branch = await createTrackedBranchFromTrunkForPrompt({
 		pi,
 		cwd: ctx.cwd,
 		prompt,
-		notify: (message) => sendCommandProgressOrNotify({ host: pi, ctx, message }),
+		notify: options.notifyProgress,
 	});
 	if ("error" in branch) {
 		ctx.ui.notify(branch.error, "error");
 		return;
 	}
 
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message: "Storing dispatch prompt in Branch Memory…",
-	});
+	options.notifyProgress("Storing dispatch prompt in Branch Memory…");
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,

@@ -2,18 +2,11 @@ import {
 	findLatestBranchContextEvidence,
 	type BranchContextEvidence,
 } from "@sdl/branch-context/api";
-import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
-import type {
-	AutocompleteItem,
-	AutocompleteProvider,
-	AutocompleteSuggestions,
-	CommandContext,
-	ExtensionAPI,
-} from "@sdl/cmux/types";
+import type { AutocompleteItem, CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
 interface BranchCandidate {
 	name: string;
@@ -34,56 +27,23 @@ export interface HandleCccSlotOpenBranchOptions {
 	args: string;
 	ctx: CommandContext;
 	options?: CccSlotOpenBranchOptions;
+	notifyProgress: (message: string) => void;
 }
 
 const COMMAND_NAME = "ccc:workspace:open-branch";
 const MAX_COMPLETIONS = 30;
 const BRANCH_FORMAT = "%(refname:short)\t%(refname)";
 
-export function registerCccSlotOpenBranchCommand(
-	pi: ExtensionAPI,
-	options: CccSlotOpenBranchOptions = {},
-): void {
-	let currentCwd = process.cwd();
-
-	pi.on("session_start", async (_event, ctx) => {
-		currentCwd = ctx.cwd;
-		ctx.ui.addAutocompleteProvider?.((current) =>
-			createBranchAutocompleteProvider(pi, current, ctx.cwd),
-		);
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Open a branch, or the latest branch context when omitted, in a new cmux workspace.",
-			argumentHint: "[branch]",
-			getArgumentCompletions: async (argumentPrefix) => {
-				const completions = await getBranchCompletions(pi, currentCwd, argumentPrefix);
-				return completions.length > 0 ? completions : null;
-			},
-			handler: async (args, ctx) => {
-				await handleCccSlotOpenBranch({ pi, args, ctx, options });
-			},
-		},
-	});
-}
-
 export async function handleCccSlotOpenBranch(
 	options: HandleCccSlotOpenBranchOptions,
 ): Promise<void> {
 	const { pi, args, ctx } = options;
 	const explicitBranch = args.trim();
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message:
-			explicitBranch.length > 0
-				? `Opening cmux workspace for ${explicitBranch}…`
-				: "Resolving branch context to open…",
-	});
+	options.notifyProgress(
+		explicitBranch.length > 0
+			? `Opening cmux workspace for ${explicitBranch}…`
+			: "Resolving branch context to open…",
+	);
 	await ctx.waitForIdle();
 
 	const resolved: ResolvedBranch =
@@ -106,11 +66,7 @@ export async function handleCccSlotOpenBranch(
 
 	const branch = resolved.branchName;
 	if (resolved.inferred) {
-		sendCommandProgressOrNotify({
-			host: pi,
-			ctx,
-			message: `Opening cmux workspace for ${branch}…`,
-		});
+		options.notifyProgress(`Opening cmux workspace for ${branch}…`);
 	}
 
 	const launched = await openBranchInCmuxSlot({
@@ -172,46 +128,6 @@ function formatInferredBranchConfirmation(evidence: BranchContextEvidence): stri
 		`Commit: ${evidence.commit}`,
 		`Source file: ${evidence.sourceFile}`,
 	].join("\n");
-}
-
-function createBranchAutocompleteProvider(
-	pi: Pick<ExtensionAPI, "exec">,
-	current: AutocompleteProvider,
-	cwd: string,
-): AutocompleteProvider {
-	return {
-		async getSuggestions(
-			lines,
-			cursorLine,
-			cursorCol,
-			options,
-		): Promise<AutocompleteSuggestions | null> {
-			const currentLine = lines[cursorLine] ?? "";
-			const textBeforeCursor = currentLine.slice(0, cursorCol);
-			const argumentPrefix = extractCommandArgumentPrefix(textBeforeCursor);
-			if (argumentPrefix === undefined) {
-				return current.getSuggestions(lines, cursorLine, cursorCol, options);
-			}
-
-			const completions = await getBranchCompletions(pi, cwd, argumentPrefix);
-			if (options.signal.aborted || completions.length === 0) {
-				return current.getSuggestions(lines, cursorLine, cursorCol, options);
-			}
-
-			return {
-				items: completions,
-				prefix: argumentPrefix,
-			};
-		},
-
-		applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
-			return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
-		},
-
-		shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {
-			return current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true;
-		},
-	};
 }
 
 export function extractCommandArgumentPrefix(textBeforeCursor: string): string | undefined {

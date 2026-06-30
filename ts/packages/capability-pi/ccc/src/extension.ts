@@ -1,8 +1,23 @@
-import { registerCccLegacyPiExtension } from "@sdl/ccc/legacy-pi-extension";
 import type { ExtensionAPI } from "@sdl/cmux/types";
+import { registerCccClaudePlanTabCommand } from "./claude-plan-tab.ts";
+import { registerCccSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
+import { registerCccSlotDispatchPromptCommand } from "./dispatch-prompt.ts";
+import { createCccSidebarControllerWithPiWiring, registerCccSidebarCommands } from "./sidebar.ts";
+import {
+	registerCccSlotDispatchPlanCommand,
+	registerCccSurfaceDispatchPlanCommand,
+} from "./slot-dispatch-plan.ts";
+import { registerCccSlotOpenBranchCommand } from "./slot-open-branch.ts";
 
 export default function registerCccPiExtension(pi: ExtensionAPI): void {
-	registerCccLegacyPiExtension(pi);
+	const sidebarController = createCccSidebarControllerWithPiWiring(pi);
+	registerCccSidebarCommands(pi, sidebarController);
+	registerCccSlotDispatchPlanCommand(pi);
+	registerCccSurfaceDispatchPlanCommand(pi);
+	registerCccSlotOpenBranchCommand(pi);
+	registerCccSlotDispatchPromptCommand(pi);
+	registerCccSlotDispatchFromTrunkCommand(pi);
+	registerCccClaudePlanTabCommand(pi);
 }
 
 export { registerCccPiExtension };

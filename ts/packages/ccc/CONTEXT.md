@@ -1,6 +1,6 @@
 # @sdl/ccc
 
-`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities through Pi-free orchestration interfaces. Pi-specific CCC registration and presentation wiring belongs in the planned `@sdl/ccc-pi` adapter package, which imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers; the target end state is zero `@sdl/ccc` imports from `@sdl/pi/...`.
+`@sdl/ccc` is CCC — Cmux Command and Control — the private TypeScript workspace layer for repo-opinionated orchestration across Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, and worktree flows. CCC composes lower-level capabilities through Pi-free orchestration interfaces. Pi-specific CCC registration and presentation wiring belongs in the `@sdl/ccc-pi` adapter package, which imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers; `@sdl/ccc` stays free of direct `@sdl/pi/...` imports.
 
 ## Language
 
@@ -21,7 +21,7 @@ The dependency direction rule: CCC may depend on lower-level packages, CLIs, and
 *Avoid*: circular helper import, direct `@sdl/pi/...` imports from `@sdl/ccc`, public API promise, compatibility alias.
 
 **CCC Pi adapter**:
-The planned `@sdl/ccc-pi` `capability-pi` package that presents CCC workflows inside Pi/cmux by importing both `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while `@sdl/ccc` exposes a small Pi-free orchestration interface, preferably `@sdl/ccc/api`.
+The `@sdl/ccc-pi` `capability-pi` package that presents CCC workflows inside Pi/cmux by importing both `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It owns CCC-specific Pi-facing code while `@sdl/ccc` exposes a small Pi-free orchestration interface, preferably `@sdl/ccc/api`.
 *Avoid*: CCC domain owner, Pi host internals package, pass-through shim, place for non-Pi orchestration logic.
 
 **Lower capability**:

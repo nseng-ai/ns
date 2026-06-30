@@ -1,4 +1,3 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +18,6 @@ import {
 } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
-import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
@@ -62,6 +60,7 @@ export interface HandleCccSlotDispatchPromptOptions {
 	slotClient?: SlotClient;
 	args: string;
 	ctx: CommandContext;
+	notifyProgress: (message: string) => void;
 }
 
 type StoredDispatchPromptPayload = BrmemPutData;
@@ -83,31 +82,6 @@ interface StagedPayloadFile {
 	cleanup(): Promise<void>;
 }
 
-export function registerCccSlotDispatchPromptCommand(
-	pi: ExtensionAPI,
-	options: DispatchPromptPayloadOptions = {},
-): void {
-	const payloadOptions = resolveDispatchPromptPayloadOptions(options);
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: COMMAND_NAME,
-		commandDefinition: {
-			description:
-				"Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
-			argumentHint: "<prompt>",
-			handler: async (args, ctx) => {
-				await handleCccSlotDispatchPrompt({
-					pi,
-					payloadOptions,
-					...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
-					args,
-					ctx,
-				});
-			},
-		},
-	});
-}
-
 export async function handleCccSlotDispatchPrompt(
 	options: HandleCccSlotDispatchPromptOptions,
 ): Promise<void> {
@@ -118,7 +92,7 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
-	sendCommandProgressOrNotify({ host: pi, ctx, message: "Generating branch name…" });
+	options.notifyProgress("Generating branch name…");
 	await ctx.waitForIdle();
 
 	const branch = await createTrackedBranchForPrompt(pi, ctx.cwd, prompt);
@@ -127,11 +101,7 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message: "Storing dispatch prompt in Branch Memory…",
-	});
+	options.notifyProgress("Storing dispatch prompt in Branch Memory…");
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,

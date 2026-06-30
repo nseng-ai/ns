@@ -4,7 +4,10 @@ import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,
 } from "../src/cmux/objective-sidebar.ts";
-import { createCccSidebarController, registerCccSidebarCommands } from "../src/cmux/sidebar.ts";
+import {
+	createCccSidebarControllerWithPiWiring,
+	registerCccSidebarCommands,
+} from "../../capability-pi/ccc/src/index.ts";
 import {
 	FakeCommandContext,
 	FakePi,
@@ -37,7 +40,7 @@ describe("cmux Objective sidebar", () => {
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -94,7 +97,7 @@ describe("cmux Objective sidebar", () => {
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -126,7 +129,7 @@ describe("cmux Objective sidebar", () => {
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1] });
 
@@ -184,7 +187,7 @@ describe("cmux Objective sidebar", () => {
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -233,7 +236,7 @@ describe("cmux Objective sidebar", () => {
 				cmuxSummaryStep(expectedTitle, expectedDescription),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot, selectIndices: [1, 1] });
 
@@ -267,7 +270,7 @@ describe("cmux Objective sidebar", () => {
 				objectiveStatusStep(""),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ shouldCancelSelect: true });
 
@@ -285,7 +288,7 @@ describe("cmux Objective sidebar", () => {
 	test("ccc:sidebar:objective-summary with no active Objectives stops without model or apply", async () => {
 		process.env.CMUX_WORKSPACE_ID = "workspace:caller";
 		const pi = new FakePi({ script: [objectiveListStep([])] });
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -304,7 +307,7 @@ describe("cmux Objective sidebar", () => {
 		delete process.env.CMUX_WORKSPACE_ID;
 		delete process.env.CMUX_TAB_ID;
 		const pi = new FakePi();
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -331,7 +334,7 @@ describe("cmux Objective sidebar", () => {
 				}),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -354,7 +357,7 @@ describe("cmux Objective sidebar", () => {
 				}),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -398,7 +401,7 @@ describe("cmux Objective sidebar", () => {
 				),
 			],
 		});
-		const controller = createCccSidebarController(pi);
+		const controller = createCccSidebarControllerWithPiWiring(pi);
 		registerCccSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
