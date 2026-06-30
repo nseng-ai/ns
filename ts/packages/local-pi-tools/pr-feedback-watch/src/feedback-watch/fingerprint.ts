@@ -1,5 +1,5 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
-import { finiteNumberField } from "@sdl/core/primitives";
+import { finiteNumberField, optionalEntry } from "@sdl/core/primitives";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
@@ -203,8 +203,4 @@ function idField(value: Record<string, unknown>, key: string): string | undefine
 	const field = value[key];
 	if (typeof field === "number" && Number.isFinite(field)) return String(field);
 	return typeof field === "string" ? field : undefined;
-}
-
-function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
-	return value === undefined ? {} : { [key]: value };
 }

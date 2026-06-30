@@ -1,4 +1,4 @@
-export { stringArrayField } from "@sdl/core/primitives";
+export { optionalEntry, stringArrayField } from "@sdl/core/primitives";
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -20,8 +20,4 @@ export function optionalStringField(
 export function booleanField(record: Record<string, unknown>, key: string): boolean | undefined {
 	const value = record[key];
 	return typeof value === "boolean" ? value : undefined;
-}
-
-export function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
-	return value === undefined ? {} : { [key]: value };
 }

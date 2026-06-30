@@ -15,6 +15,7 @@ import {
 	reviewThreadPageArgs,
 } from "./args.ts";
 import {
+	failureContextFields,
 	failureFromCompleted,
 	failureFromMessage,
 	failureFromStartup,
@@ -423,18 +424,12 @@ export class RealGithubPrFeedbackGateway {
 			return feedbackErr(failureFromStartup(run, options.operation));
 		if (run.result.code !== 0 || run.result.killed)
 			return feedbackErr(
-				failureFromCompleted(run, options.operation, {
-					...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
-					...(options.threadId === undefined ? {} : { threadId: options.threadId }),
-					...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
-				}),
+				failureFromCompleted(run, options.operation, failureContextFields(options)),
 			);
 		return parse(run.result.stdout, options.schema, {
 			operation: options.operation,
 			run,
-			...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
-			...(options.threadId === undefined ? {} : { threadId: options.threadId }),
-			...(options.cursorContext === undefined ? {} : { cursorContext: options.cursorContext }),
+			...failureContextFields(options),
 		});
 	}
 

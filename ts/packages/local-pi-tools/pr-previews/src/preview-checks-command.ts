@@ -357,8 +357,8 @@ function buildPreviewChecksViewModel(
 		pending: data.counts.pending,
 		failing: data.counts.failing,
 		unknown: data.counts.unknown,
+		...(data.counts.hasMore === undefined ? {} : { hasMore: data.counts.hasMore }),
 	};
-	if (data.counts.hasMore !== undefined) counts.hasMore = data.counts.hasMore;
 	return {
 		target: { ...data.target, pr_number: prNumber },
 		counts,
