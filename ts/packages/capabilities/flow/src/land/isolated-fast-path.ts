@@ -1,22 +1,23 @@
 import type { SdlCommandIo } from "sdl-sdk";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatCommand } from "@sdl/exec";
 import {
 	completed,
 	failure,
 	landStackFailure,
 	type LandStackOutcome,
 } from "../land-stack/errors.ts";
+import { exec, formatCommandDetails } from "../land-stack/command-exec.ts";
+import { GH_MERGE_TIMEOUT_MS, GH_TIMEOUT_MS, PR_FIELDS } from "../land-stack/constants.ts";
+import { squashMergeArgs } from "../land-stack/landing-operations.ts";
+import { loadPr } from "../land-stack/pr-facts.ts";
+import { presentPrintAwareBrief, setStatus } from "../land-stack/presentation.ts";
 import type {
 	LandResultKind,
 	LandingShape,
-	LandStackCommandContext,
-	NotifyLevel,
+	PrintAwareLandStackCommandContext,
 	StackSnapshot,
 } from "../land-stack/types.ts";
-
-const PR_VIEW_FIELDS = "number,headRefName,baseRefName,title,body,headRefOid";
-const PR_VIEW_TIMEOUT_MS = 30_000;
-const PR_MERGE_TIMEOUT_MS = 120_000;
 
 export interface ValidPullRequestView {
 	number: number;
@@ -35,18 +36,9 @@ interface IsolatedFastPathApi {
 	): Promise<{ stdout: string; stderr: string; code: number; killed?: boolean }>;
 }
 
-interface PrintOutput {
-	write(chunk: string): unknown;
-}
-
-interface IsolatedFastPathContext extends LandStackCommandContext {
-	mode?: "tui" | "rpc" | "json" | "print";
-	printOutput?: PrintOutput;
-}
-
 interface RunIsolatedFastPathLandingOptions {
 	pi: IsolatedFastPathApi;
-	ctx: IsolatedFastPathContext;
+	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
 	progressIo?: SdlCommandIo;
@@ -64,11 +56,21 @@ export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 export async function runIsolatedFastPathLanding(
 	options: RunIsolatedFastPathLandingOptions,
 ): Promise<LandStackOutcome> {
-	const pr = await loadPullRequest(options.pi, options.target.repoRoot);
-	if ("error" in pr) {
-		notify({ ctx: options.ctx, message: pr.error, level: "error", kind: "failure" });
-		return failure(landStackFailure(pr.error));
+	const prResult = await loadPr(
+		options.pi,
+		options.target.repoRoot,
+		options.target.stack.actualCurrentBranch,
+	);
+	if (prResult.type === "failure") {
+		notify({
+			ctx: options.ctx,
+			message: prResult.failure.message,
+			level: "error",
+			kind: "failure",
+		});
+		return prResult;
 	}
+	const pr = prResult.value;
 
 	if (pr.baseRefName !== options.target.trunk) {
 		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`;
@@ -90,29 +92,18 @@ export async function runIsolatedFastPathLanding(
 		options.progressIo === undefined ? {} : { progressIo: options.progressIo };
 	progress(
 		options.ctx,
-		"Running gh pr merge -s with PR title/body as commit message…",
+		"Running gh pr merge --squash with PR title/body as commit message…",
 		progressOptions,
 	);
 
-	const result = await options.pi.exec(
-		"gh",
-		[
-			"pr",
-			"merge",
-			String(pr.number),
-			"-s",
-			"--match-head-commit",
-			pr.headRefOid,
-			"--subject",
-			pr.title,
-			"--body",
-			pr.body,
-		],
-		{
-			cwd: options.target.repoRoot,
-			timeout: PR_MERGE_TIMEOUT_MS,
-		},
-	);
+	const mergeArgs = squashMergeArgs(pr);
+	const result = await exec({
+		pi: options.pi,
+		command: "gh",
+		args: mergeArgs,
+		cwd: options.target.repoRoot,
+		timeoutMs: GH_MERGE_TIMEOUT_MS,
+	});
 
 	const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 	if (result.code === 0) {
@@ -126,58 +117,45 @@ export async function runIsolatedFastPathLanding(
 		return completed();
 	}
 
-	const message = `gh pr merge -s with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
+	const message = `gh pr merge --squash with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
 	const fullMessage = output ? `${output}\n${message}` : message;
 	notify({ ctx: options.ctx, message: fullMessage, level: "error", kind: "failure" });
 	return failure(landStackFailure(fullMessage));
 }
 
 function progress(
-	ctx: IsolatedFastPathContext,
+	ctx: PrintAwareLandStackCommandContext,
 	message: string,
 	options: { progressIo?: SdlCommandIo } = {},
 ): void {
-	if (ctx.mode === "print") {
-		const output = message.endsWith("\n") ? message : `${message}\n`;
-		(ctx.printOutput ?? process.stdout).write(output);
-	}
 	if (options.progressIo !== undefined) {
 		options.progressIo.phase(message);
 		return;
 	}
-	ctx.ui.notify(message, "info");
+	setStatus(ctx, message);
+	presentPrintAwareBrief({ ctx, fullMessage: message, level: "info" });
 }
 
-interface NotifyOptions {
-	ctx: IsolatedFastPathContext;
+function notify(options: {
+	ctx: PrintAwareLandStackCommandContext;
 	message: string;
-	level: NotifyLevel;
+	level: "info" | "success" | "warning" | "error";
 	kind?: LandResultKind;
-}
-
-function notify(options: NotifyOptions): void {
-	const { ctx, message, level } = options;
-	if (ctx.mode === "print") {
-		const output = message.endsWith("\n") ? message : `${message}\n`;
-		(ctx.printOutput ?? process.stdout).write(output);
-	}
-	// House-style ANSI applies only when the CLI edge wired `renderResultBlock` (Pi/print contexts
-	// leave it undefined, keeping plain text colored downstream by `renderCommandStreamMessage`).
-	const rendered =
-		options.kind !== undefined && ctx.renderResultBlock !== undefined
-			? ctx.renderResultBlock(options.kind, message)
-			: message;
-	ctx.ui.notify(rendered, level);
+}): void {
+	presentPrintAwareBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
 }
 
 export async function loadPullRequest(
 	pi: IsolatedFastPathApi,
 	cwd: string,
 ): Promise<ValidPullRequestView | { error: string }> {
-	const result = await pi.exec("gh", ["pr", "view", "--json", PR_VIEW_FIELDS], {
-		cwd,
-		timeout: PR_VIEW_TIMEOUT_MS,
-	});
+	const args = ["pr", "view", "--json", PR_FIELDS];
+	const result = await exec({ pi, command: "gh", args, cwd, timeoutMs: GH_TIMEOUT_MS });
 	if (result.code !== 0) {
 		const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 		return {
@@ -193,7 +171,7 @@ export async function loadPullRequest(
 		raw = JSON.parse(result.stdout);
 	} catch (error) {
 		return {
-			error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.`,
+			error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.\n${formatCommandDetails(result, formatCommand("gh", args))}`,
 		};
 	}
 

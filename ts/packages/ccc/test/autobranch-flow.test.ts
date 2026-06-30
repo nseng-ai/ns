@@ -113,9 +113,7 @@ describe("createAutobranchCheckpointFlow", () => {
 		const result = await createAutobranchCheckpointFlow(harness.input);
 
 		expect(harness.events).not.toContain("prepare");
-		expect(expectError(result)).toContain(
-			"Detached HEAD; check out a branch before autobranching.",
-		);
+		expect(expectError(result)).toContain("Could not determine current branch.");
 	});
 
 	test("dirty worktree creates a branch for the dirty checkpoint without upstream inspection", async () => {

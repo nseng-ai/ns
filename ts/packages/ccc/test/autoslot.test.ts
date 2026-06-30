@@ -266,7 +266,7 @@ describe("autoslot flow", () => {
 		expect(exitCode).toBe(1);
 		expect(output).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
 		expect(stdout).toEqual([]);
-		expect(stderr.join("")).toContain("Could not read git status.");
+		expect(stderr.join("")).toContain("Could not inspect git status.");
 		expect(stderr.join("")).toContain("fatal: status failed");
 	});
 });

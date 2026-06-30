@@ -7,11 +7,10 @@ import {
 import { createLatestCommitAutobranchFlow } from "../autobranch/latest-commit.ts";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import {
-	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,
-	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
 } from "@sdl/capability-kit/pending-worktree";
+import { formatPendingWorktreeError } from "../shared/worktree.ts";
 
 export type FlowAutobranchRequest = ParsedAutobranchArgs;
 export type FlowAutobranchCheckpointResult = AutobranchFlowResult;
@@ -45,7 +44,7 @@ export async function createFlowAutobranchCheckpointFlow(
 		return {
 			ok: false,
 			outcome: "failure",
-			error: formatFlowAutobranchSnapshotError(loaded.error),
+			error: formatPendingWorktreeError(loaded.error),
 		};
 	}
 
@@ -73,18 +72,4 @@ export async function createFlowAutobranchCheckpointFlow(
 		...(input.stat ? { stat: input.stat } : {}),
 		...(input.now ? { now: input.now } : {}),
 	});
-}
-
-function formatFlowAutobranchSnapshotError(error: PendingWorktreeError): string {
-	const details = formatPendingWorktreeCommandDetails(error.result);
-	if (error.kind === "not_git_repo") {
-		return `Not inside a git repository.\n${details}`;
-	}
-	if (error.kind === "detached_head") {
-		return `Detached HEAD; check out a branch before autobranching.\n${details}`;
-	}
-	if (error.kind === "status_failed") {
-		return `Could not read git status.\n${details}`;
-	}
-	return `Could not read git diff.\n${details}`;
 }

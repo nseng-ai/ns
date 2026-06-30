@@ -392,7 +392,7 @@ function slotFreeArgs(conflicts: WorktreeConflict[]): string[] {
 	return args;
 }
 
-function squashMergeArgs(pr: PullRequestSnapshot): string[] {
+export function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 	return [
 		"pr",
 		"merge",

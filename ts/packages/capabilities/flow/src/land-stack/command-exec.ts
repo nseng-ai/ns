@@ -13,6 +13,7 @@ import {
 	MAX_OUTPUT_TAIL_CHARS,
 	MAX_OUTPUT_TAIL_LINES,
 } from "./constants.ts";
+import { isReadGraphiteBranchMetadataArgs } from "./graphite-metadata-command.ts";
 import type { CommandStreamFinish, LandStackExtensionAPI } from "./types.ts";
 
 export interface CheckedOutElsewhere {
@@ -84,13 +85,7 @@ export function normalizeCommandFinish(
 	}
 	// /sdl:flow:land reads Graphite topology through a controlled SDL flow exec command;
 	// avoid labeling unrelated sdl invocations just because the binary matches.
-	if (
-		command === "sdl" &&
-		result.code === 0 &&
-		args[0] === "flow" &&
-		args[1] === "exec" &&
-		args[2] === "read-graphite-branch-metadata"
-	) {
+	if (command === "sdl" && result.code === 0 && isReadGraphiteBranchMetadataArgs(args)) {
 		return { result, note: "read Graphite stack topology" };
 	}
 	return { result };

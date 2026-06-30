@@ -1,8 +1,9 @@
-import { LandStackCommandStream, commandStreamDetailsForLanded } from "./command-stream.ts";
+import { LandStackCommandStream } from "./command-stream.ts";
 import { AUTO_CHUNK_LANDING_SIZE } from "./constants.ts";
-import { completed, failure, landStackFailure, success, type LandStackOutcome } from "./errors.ts";
+import { completed, failure, success, type LandStackOutcome } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
 import {
+	confirmMainLanding,
 	formatPreparingLandingMilestone,
 	preparePlanForMerge,
 	presentLandStackFailure,
@@ -11,9 +12,8 @@ import { prepareMergeLoopState, runMergeLoop, type MergeLoopState } from "./land
 import {
 	formatChunkedPlan,
 	formatChunkedSuccessSummary,
-	formatSuccessNotification,
 	present,
-	presentBrief,
+	presentLandingSuccess,
 	setStatus,
 } from "./presentation.ts";
 import type {
@@ -85,37 +85,17 @@ export async function executeChunkedStackLanding(
 		return completed();
 	}
 
-	if (!parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation) {
-		if (!ctx.hasUI) {
-			const landFailure = landStackFailure(
-				`Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
-				{ outcome: "refusal" },
-			);
-			presentLandStackFailure({
-				ctx,
-				commandStream,
-				landed,
-				landedChunks,
-				failure: landFailure,
-			});
-			return failure(landFailure);
-		}
-		const confirmed = await ctx.ui.confirm("Land this stack in chunks?", chunkPlanText);
-		if (!confirmed) {
-			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
-				level: "info",
-				outcome: "refusal",
-			});
-			presentLandStackFailure({
-				ctx,
-				commandStream,
-				landed,
-				landedChunks,
-				failure: landFailure,
-			});
-			return failure(landFailure);
-		}
-	}
+	const confirmation = await confirmMainLanding({
+		ctx,
+		commandStream,
+		landed,
+		landedChunks,
+		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation,
+		title: "Land this stack in chunks?",
+		details: chunkPlanText,
+		nonInteractiveMessage: `Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
+	});
+	if (confirmation.type === "failure") return confirmation;
 
 	let mergeState: MergeLoopState | undefined;
 	let chunkIndex = 1;
@@ -188,11 +168,15 @@ export async function executeChunkedStackLanding(
 			unstreamedPi: pi,
 			mergeState,
 		});
-		appendLandedChunk(
-			landedChunks,
-			chunkIndex,
-			readyPlan.value.stack.landingTargetBranch,
-			landed.slice(landedStart),
+		landedChunks.splice(
+			0,
+			landedChunks.length,
+			...appendLandedChunk({
+				chunks: landedChunks,
+				index: chunkIndex,
+				landingTargetBranch: readyPlan.value.stack.landingTargetBranch,
+				landed: landed.slice(landedStart),
+			}),
 		);
 		finalCleanup = mergeState.cleanup;
 		if (mergeOutcome.type === "failure") {
@@ -218,29 +202,25 @@ export async function executeChunkedStackLanding(
 		warnings,
 		finalCleanup,
 	);
-	const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
-	const completionLevel = hasWarnings ? "warning" : "success";
-	const commandStreamDetails = commandStreamDetailsForLanded(landed);
-	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief({
-		ctx,
-		fullMessage: successSummary,
-		level: completionLevel,
-		uiMessage: formatSuccessNotification(successSummary, {
-			...(commandStreamDetails === undefined ? {} : { details: commandStreamDetails }),
-			warnings,
-		}),
-		kind: "success",
-	});
+	presentLandingSuccess({ ctx, commandStream, landed, warnings, successSummary });
 	return completed();
 }
 
-function appendLandedChunk(
-	chunks: LandedChunk[],
-	index: number,
-	landingTargetBranch: string,
-	landed: LandedPr[],
-): void {
-	if (landed.length === 0) return;
-	chunks.push({ index, landingTargetBranch, landed });
+interface AppendLandedChunkOptions {
+	chunks: readonly LandedChunk[];
+	index: number;
+	landingTargetBranch: string;
+	landed: readonly LandedPr[];
+}
+
+function appendLandedChunk(options: AppendLandedChunkOptions): LandedChunk[] {
+	if (options.landed.length === 0) return [...options.chunks];
+	return [
+		...options.chunks,
+		{
+			index: options.index,
+			landingTargetBranch: options.landingTargetBranch,
+			landed: [...options.landed],
+		},
+	];
 }

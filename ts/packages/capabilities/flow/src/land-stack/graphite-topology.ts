@@ -12,6 +12,7 @@ import {
 } from "@sdl/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
+import { buildReadGraphiteBranchMetadataArgs } from "./graphite-metadata-command.ts";
 import {
 	failure,
 	landStackFailure,
@@ -50,7 +51,7 @@ export async function loadGraphiteTopology(
 	repoRoot: string,
 	dbPath: string,
 ): Promise<LandStackResult<GraphiteTopology>> {
-	const args = ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath];
+	const args = buildReadGraphiteBranchMetadataArgs(dbPath);
 	const result = await exec({
 		pi,
 		command: "sdl",

@@ -1,6 +1,7 @@
-import { LandStackCommandStream, commandStreamDetailsForLanded } from "./command-stream.ts";
-import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
+import { LandStackCommandStream } from "./command-stream.ts";
+import { success, type LandStackResult } from "./errors.ts";
 import {
+	confirmMainLanding,
 	formatPreparingLandingMilestone,
 	preparePlanForMerge,
 	presentLandStackFailure,
@@ -8,10 +9,9 @@ import {
 import { runMergeLoop, type PreMergeConfirmation } from "./landing-operations.ts";
 import {
 	formatPlan,
-	formatSuccessNotification,
 	formatSuccessSummary,
 	present,
-	presentBrief,
+	presentLandingSuccess,
 } from "./presentation.ts";
 import type {
 	LandStackCommandContext,
@@ -67,25 +67,17 @@ export async function executeSinglePlanLanding(
 		return success(undefined);
 	}
 
-	if (!parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation) {
-		if (!ctx.hasUI) {
-			const landFailure = landStackFailure(
-				`Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,
-				{ outcome: "refusal" },
-			);
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
-			return failure(landFailure);
-		}
-		const confirmed = await ctx.ui.confirm("Land this stack path?", planText);
-		if (!confirmed) {
-			const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
-				level: "info",
-				outcome: "refusal",
-			});
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: landFailure });
-			return failure(landFailure);
-		}
-	}
+	const confirmation = await confirmMainLanding({
+		ctx,
+		commandStream,
+		landed,
+		landedChunks,
+		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation,
+		title: "Land this stack path?",
+		details: planText,
+		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,
+	});
+	if (confirmation.type === "failure") return confirmation;
 
 	commandStream.note(formatPreparingLandingMilestone(plan));
 	const readyPlan = await preparePlanForMerge({
@@ -127,19 +119,6 @@ export async function executeSinglePlanLanding(
 		warnings,
 		mergeOutcome.value,
 	);
-	const hasWarnings = warnings.some((warning) => (warning.level ?? "warning") === "warning");
-	const completionLevel = hasWarnings ? "warning" : "success";
-	const commandStreamDetails = commandStreamDetailsForLanded(landed);
-	commandStream.finishSuccess(successSummary, commandStreamDetails);
-	presentBrief({
-		ctx,
-		fullMessage: successSummary,
-		level: completionLevel,
-		uiMessage: formatSuccessNotification(successSummary, {
-			...(commandStreamDetails === undefined ? {} : { details: commandStreamDetails }),
-			warnings,
-		}),
-		kind: "success",
-	});
+	presentLandingSuccess({ ctx, commandStream, landed, warnings, successSummary });
 	return success(undefined);
 }
