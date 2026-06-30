@@ -1,5 +1,5 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../trunk-pull.ts";
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import type { Caps } from "@sdl/clinkr";
 

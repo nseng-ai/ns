@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
 import { runCli } from "../../src/cli.ts";
 import {
 	createGitWorldExec,

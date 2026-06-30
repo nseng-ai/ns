@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import { collectPrSubmitRequirements } from "sdl-land/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";

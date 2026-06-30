@@ -4,7 +4,7 @@ import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@sdl/exec";
+import { piExecApiToCommandExecApi } from "@sdl/core/command";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";

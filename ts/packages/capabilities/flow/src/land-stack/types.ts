@@ -1,4 +1,4 @@
-import type { ExecResult, PiExecResultLike } from "@sdl/exec";
+import type { ExecResult, PiExecResultLike } from "@sdl/core/command";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 

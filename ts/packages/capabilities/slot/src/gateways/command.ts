@@ -1,6 +1,6 @@
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi, ExecResult } from "@sdl/exec";
+import type { CommandExecApi, ExecResult } from "@sdl/core/command";
 
 export interface SlotCommandRunOptions {
 	cwd: string;

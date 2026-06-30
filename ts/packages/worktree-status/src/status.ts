@@ -10,7 +10,7 @@ import {
 	piExecApiToCommandExecApi,
 	type PiExecResultLike,
 	tailText,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { runGitHubCli } from "@sdl/github/cli";

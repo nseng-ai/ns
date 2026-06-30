@@ -3,7 +3,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	piExecApiToCommandExecApi,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import {
 	combinedGitCommandOutput,

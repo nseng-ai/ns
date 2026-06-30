@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { runCommand } from "@sdl/exec";
-import { type ExecResult, formatCommandResultFailure } from "@sdl/exec";
+import { type ExecResult, formatCommandResultFailure } from "@sdl/core/command";
 import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land-stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";

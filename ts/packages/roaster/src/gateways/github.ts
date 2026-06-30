@@ -1,4 +1,8 @@
-import { type CommandExecApi, commandFailureReason, execApiToCommandRunner } from "@sdl/exec";
+import {
+	type CommandExecApi,
+	commandFailureReason,
+	execApiToCommandRunner,
+} from "@sdl/core/command";
 import { runGitHubCli } from "@sdl/github/cli";
 import {
 	ghAuthorSchema,

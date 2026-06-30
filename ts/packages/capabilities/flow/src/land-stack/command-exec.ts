@@ -5,7 +5,7 @@ import {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	tailText,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
 import {

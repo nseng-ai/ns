@@ -401,9 +401,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/exec':
-        specifier: workspace:*
-        version: link:../../infra/exec
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
@@ -434,9 +431,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/exec':
-        specifier: workspace:*
-        version: link:../../infra/exec
       '@sdl/git':
         specifier: workspace:*
         version: link:../../infra/git
@@ -458,9 +452,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/exec':
-        specifier: workspace:*
-        version: link:../../infra/exec
       '@sdl/objective':
         specifier: workspace:*
         version: link:../../objective
@@ -1134,9 +1125,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/exec':
-        specifier: workspace:*
-        version: link:../infra/exec
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
