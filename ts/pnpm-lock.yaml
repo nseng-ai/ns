@@ -99,6 +99,9 @@ importers:
       '@sdl/ccc':
         specifier: workspace:*
         version: link:packages/ccc
+      '@sdl/ccc-pi':
+        specifier: workspace:*
+        version: link:packages/capability-pi/ccc
       '@sdl/core':
         specifier: workspace:*
         version: link:packages/infra/core
