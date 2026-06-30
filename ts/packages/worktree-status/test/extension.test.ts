@@ -578,13 +578,13 @@ interface StatusSink {
 }
 
 interface TestContextOptions {
-	cwd?: string | undefined;
-	sessionCwd?: string | undefined;
-	statuses?: StatusSink | undefined;
-	setFooter?: NonNullable<ExtensionContext["ui"]["setFooter"]> | undefined;
-	model?: ExtensionContext["model"] | undefined;
-	contextUsage?: ReturnType<NonNullable<ExtensionContext["getContextUsage"]>> | undefined;
-	getContextUsage?: ExtensionContext["getContextUsage"] | undefined;
+	cwd?: string;
+	sessionCwd?: string;
+	statuses?: StatusSink;
+	setFooter?: NonNullable<ExtensionContext["ui"]["setFooter"]>;
+	model?: ExtensionContext["model"];
+	contextUsage?: ReturnType<NonNullable<ExtensionContext["getContextUsage"]>>;
+	getContextUsage?: ExtensionContext["getContextUsage"];
 }
 
 function testContext(options: TestContextOptions = {}): ExtensionContext {
