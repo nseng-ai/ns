@@ -1,3 +1,7 @@
+import { isRecord } from "@sdl/core/primitives";
+import type { ErrorInfo } from "@sdl/core/result";
+import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+
 import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
 import { formatItemCount } from "./index.ts";
@@ -20,6 +24,7 @@ export interface PrDescriptionFailure {
 	link: SubmitPrLink;
 	number: number;
 	reason: string;
+	diagnostic?: ErrorInfo;
 }
 
 export async function generateSubmitPrDescriptions(input: {
@@ -55,7 +60,12 @@ export async function generateSubmitPrDescriptions(input: {
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
-			failures.push({ link, number, reason: viewed.error.message });
+			failures.push({
+				link,
+				number,
+				reason: viewed.error.message,
+				diagnostic: viewed.error,
+			});
 			continue;
 		}
 
@@ -101,7 +111,12 @@ export async function generateSubmitPrDescriptions(input: {
 				input.onProgress?.(`finished PR #${number} description`);
 				break;
 			case "failed":
-				failures.push({ link, number, reason: result.reason });
+				failures.push({
+					link,
+					number,
+					reason: result.reason,
+					...(result.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
+				});
 				break;
 		}
 	}
@@ -133,5 +148,105 @@ export function formatPrDescriptionFailureText(
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
-	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
+	const cause = formatPrDescriptionConciseCause(failure.diagnostic);
+	if (cause === undefined) return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
+	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}\n  Cause: ${cause}`;
+}
+
+export function formatPrDescriptionFailureDiagnostics(
+	failures: readonly PrDescriptionFailure[],
+): string[] {
+	return failures.flatMap((failure) => {
+		if (failure.diagnostic === undefined) return [];
+		return [formatPrDescriptionFailureDiagnostic(failure)];
+	});
+}
+
+function formatPrDescriptionFailureDiagnostic(failure: PrDescriptionFailure): string {
+	const diagnostic = failure.diagnostic;
+	if (diagnostic === undefined) {
+		throw new Error("Cannot format PR description diagnostic without a diagnostic.");
+	}
+
+	const lines = [
+		`PR #${failure.number} ${failure.link.url}:`,
+		`  code: ${diagnostic.code}`,
+		`  message: ${diagnostic.message}`,
+	];
+	if (diagnostic.displayCommand !== undefined) {
+		lines.push(`  display_command: ${diagnostic.displayCommand}`);
+	}
+	const details = recordDetails(diagnostic);
+	if (details !== undefined) {
+		for (const key of Object.keys(details).sort()) {
+			lines.push(`  ${key}: ${formatDiagnosticDetail(details[key])}`);
+		}
+	}
+	return lines.join("\n");
+}
+
+function formatPrDescriptionConciseCause(diagnostic: ErrorInfo | undefined): string | undefined {
+	const details = recordDetails(diagnostic);
+	if (details === undefined) return undefined;
+
+	const command = diagnosticCommandLabel(diagnostic, details);
+	const exitCode = detailNumber(details, "exit_code");
+	const stderr = conciseDiagnosticText(detailString(details, "stderr"));
+	if (exitCode !== undefined && stderr !== undefined) {
+		return `${command} exited ${exitCode}: ${stderr}`;
+	}
+
+	const startupError = conciseDiagnosticText(detailString(details, "startup_error"));
+	if (startupError !== undefined) return `${command} startup failed: ${startupError}`;
+
+	return undefined;
+}
+
+function diagnosticCommandLabel(
+	diagnostic: ErrorInfo | undefined,
+	details: Record<string, unknown>,
+): string {
+	if (diagnostic?.displayCommand !== undefined && diagnostic.displayCommand.trim() !== "") {
+		return diagnostic.displayCommand.trim();
+	}
+	const command = detailString(details, "command");
+	return command ?? "command";
+}
+
+function recordDetails(diagnostic: ErrorInfo | undefined): Record<string, unknown> | undefined {
+	const details = diagnostic?.details;
+	return isRecord(details) ? details : undefined;
+}
+
+function detailString(details: Record<string, unknown>, key: string): string | undefined {
+	const value = details[key];
+	if (typeof value !== "string") return undefined;
+	const trimmed = value.trim();
+	return trimmed === "" ? undefined : trimmed;
+}
+
+function detailNumber(details: Record<string, unknown>, key: string): number | undefined {
+	const value = details[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function conciseDiagnosticText(value: string | undefined): string | undefined {
+	if (value === undefined) return undefined;
+	const normalized = stripTerminalEscapes(value).replace(/\s+/gu, " ").trim();
+	if (normalized === "") return undefined;
+	const maxChars = 300;
+	if (normalized.length <= maxChars) return normalized;
+	return `${normalized.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+function formatDiagnosticDetail(value: unknown): string {
+	if (Array.isArray(value)) return value.map(formatDiagnosticDetailAtom).join(" ");
+	return formatDiagnosticDetailAtom(value);
+}
+
+function formatDiagnosticDetailAtom(value: unknown): string {
+	if (typeof value === "string") return value;
+	if (typeof value === "number" || typeof value === "boolean") return String(value);
+	if (value === null) return "null";
+	return JSON.stringify(value);
 }
