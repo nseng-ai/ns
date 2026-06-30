@@ -16,10 +16,10 @@ export interface AretroCliContext {
 
 export function createRealAretroContext(
 	options: {
-		cwd?: string | undefined;
+		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		git?: GitGateway | undefined;
-		sessionSource?: SessionSource | undefined;
+		git?: GitGateway;
+		sessionSource?: SessionSource;
 	} = {},
 ): AretroCliContext {
 	const cwd = options.cwd ?? process.cwd();
