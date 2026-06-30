@@ -1,3 +1,5 @@
-import registerCccPiExtension from "../../ts/packages/capability-pi/ccc/src/index.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+const registerCccPiExtension = await importTypeScriptWorkspaceDefault("@sdl/ccc-pi/extension");
 
 export default registerCccPiExtension;
