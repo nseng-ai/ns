@@ -162,7 +162,7 @@ export function renderFree(
 			buildSlotDestructiveResultBlock({
 				kind: "refusal",
 				headline: "Cancelled slot free.",
-				body,
+				...(body === undefined ? {} : { body }),
 			}),
 		);
 	}
@@ -173,7 +173,7 @@ export function renderFree(
 			buildSlotDestructiveResultBlock({
 				kind: "failure",
 				headline: "Slot free completed with cleanup errors.",
-				body,
+				...(body === undefined ? {} : { body }),
 			}),
 		);
 	}
@@ -182,7 +182,11 @@ export function renderFree(
 		: freeSuccessHeadline(targets.length);
 	return renderSlotDestructiveResultBlock(
 		caps,
-		buildSlotDestructiveResultBlock({ kind: "success", headline, body }),
+		buildSlotDestructiveResultBlock({
+			kind: "success",
+			headline,
+			...(body === undefined ? {} : { body }),
+		}),
 	);
 }
 

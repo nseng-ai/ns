@@ -23,15 +23,15 @@ export interface PlanReleaseCleanupOptions {
 	ctx: RepoSlotContext;
 	targets: readonly FreedSlot[];
 	cleanupActions: readonly SlotFreeCleanupAction[];
-	trunkBranch?: string | undefined;
+	trunkBranch?: string;
 }
 
 export interface ExecuteReleaseCleanupOptions {
 	ctx: RepoSlotContext;
 	targets: readonly FreedSlot[];
 	cleanupActions: readonly SlotFreeCleanupAction[];
-	trunkBranch?: string | undefined;
-	progress?: SlotReleaseCleanupProgressReporter | undefined;
+	trunkBranch?: string;
+	progress?: SlotReleaseCleanupProgressReporter;
 }
 
 export type SlotReleaseCleanupProgressEvent =
@@ -47,16 +47,16 @@ interface CleanupForTargetsOptions {
 	ctx: RepoSlotContext;
 	targets: readonly FreedSlot[];
 	cleanupActions: readonly SlotFreeCleanupAction[];
-	trunkBranch?: string | undefined;
+	trunkBranch?: string;
 	shouldExecute: boolean;
-	progress?: SlotReleaseCleanupProgressReporter | undefined;
+	progress?: SlotReleaseCleanupProgressReporter;
 }
 
 interface CleanupPrOptions {
 	ctx: RepoSlotContext;
 	target: FreedSlot;
 	shouldExecute: boolean;
-	progress?: SlotReleaseCleanupProgressReporter | undefined;
+	progress?: SlotReleaseCleanupProgressReporter;
 }
 
 interface CleanupLocalBranchOptions {
@@ -64,15 +64,15 @@ interface CleanupLocalBranchOptions {
 	target: FreedSlot;
 	trunkBranch: string;
 	shouldExecute: boolean;
-	progress?: SlotReleaseCleanupProgressReporter | undefined;
+	progress?: SlotReleaseCleanupProgressReporter;
 }
 
 interface CleanupResultOptions {
 	target: FreedSlot;
 	action: SlotFreeCleanupAction;
 	status: SlotFreeCleanupStatus;
-	prNumber?: number | undefined;
-	message?: string | undefined;
+	prNumber?: number;
+	message?: string;
 }
 
 export async function planReleaseCleanup(

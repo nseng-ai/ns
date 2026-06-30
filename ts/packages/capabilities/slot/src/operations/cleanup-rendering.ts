@@ -9,7 +9,7 @@ export function cleanupErrorCount(cleanup: readonly SlotFreeCleanupResult[]): nu
 
 export function renderCleanupLines(
 	cleanup: readonly SlotFreeCleanupResult[],
-	options: { isDryRun?: boolean | undefined; caps?: Caps | undefined } = {},
+	options: { isDryRun?: boolean; caps?: Caps } = {},
 ): readonly string[] {
 	return cleanup.map((result) =>
 		options.isDryRun === true
@@ -18,7 +18,7 @@ export function renderCleanupLines(
 	);
 }
 
-export function cleanupPreviewLine(result: SlotFreeCleanupResult, caps?: Caps | undefined): string {
+export function cleanupPreviewLine(result: SlotFreeCleanupResult, caps?: Caps): string {
 	if (result.status === "planned") return stylePlanned(caps, cleanupPlannedText(result));
 	if (result.status === "skipped")
 		return styleSkipped(
@@ -28,7 +28,7 @@ export function cleanupPreviewLine(result: SlotFreeCleanupResult, caps?: Caps | 
 	return styleFailure(caps, `${cleanupSubject(result)} error: ${result.message ?? "failed"}`);
 }
 
-export function cleanupResultLine(result: SlotFreeCleanupResult, caps?: Caps | undefined): string {
+export function cleanupResultLine(result: SlotFreeCleanupResult, caps?: Caps): string {
 	if (result.status === "success") return styleSuccess(caps, cleanupSuccessText(result));
 	if (result.status === "skipped") return styleSkipped(caps, cleanupSkippedText(result));
 	if (result.status === "planned") return cleanupPreviewLine(result, caps);

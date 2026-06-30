@@ -109,7 +109,7 @@ export function renderGtFreeStack(
 		buildSlotDestructiveResultBlock({
 			kind: "success",
 			headline: gtFreeStackHeadline(result),
-			body,
+			...(body === undefined ? {} : { body }),
 		}),
 	);
 }

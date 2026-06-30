@@ -136,7 +136,7 @@ export async function planGcCleanup(
 export async function executeGcPlan(
 	ctx: RepoSlotContext,
 	plan: SlotGcPlan,
-	options: { cleanupActions?: readonly SlotFreeCleanupAction[] | undefined } = {},
+	options: { cleanupActions?: readonly SlotFreeCleanupAction[] } = {},
 ): Promise<SlotGcOutcome> {
 	const inventory = await buildSlotInventory(ctx.git, { mainRepoRoot: ctx.repo.mainRepoRoot });
 	const trunk = await ctx.git.getTrunkBranch();
@@ -176,7 +176,7 @@ export async function executeGcPlan(
 
 export function outcomeFromGcPlan(
 	plan: SlotGcPlan,
-	options: { isDryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] | undefined },
+	options: { isDryRun: boolean; cleanup?: readonly SlotFreeCleanupResult[] },
 ): SlotGcOutcome {
 	const entries =
 		options.cleanup === undefined || options.cleanup.length === 0
@@ -188,7 +188,7 @@ export function outcomeFromGcPlan(
 function entryFromRecord(
 	record: SlotRecord,
 	action: SlotGcAction,
-	options: { pr?: PrSummary | undefined; message?: string | undefined } = {},
+	options: { pr?: PrSummary; message?: string } = {},
 ): SlotGcEntry {
 	if (record.branch === null) throw new Error(`gc record ${record.slotName} is not assigned`);
 	return {
