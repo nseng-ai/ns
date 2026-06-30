@@ -9,13 +9,13 @@ import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface CliDeps {
-	context?: PrAddressContext | undefined;
-	operations?: readonly ExecOperation[] | undefined;
-	cwd?: string | undefined;
+	context?: PrAddressContext;
+	operations?: readonly ExecOperation[];
+	cwd?: string;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	stdin?: (() => Promise<string>) | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	stdin?: () => Promise<string>;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 }
 
 const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>({
