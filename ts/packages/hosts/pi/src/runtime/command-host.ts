@@ -2,6 +2,7 @@ import type { ModelInfo } from "../runtime/types.ts";
 
 export interface PiCommandContext {
 	cwd: string;
+	// optional-undefined-objective: preserve (abort-signal) — Host-provided AbortSignal cancellation seam on the command context contract; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	model?: ModelInfo | undefined;
 	hasUI?: boolean;

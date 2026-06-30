@@ -14,5 +14,6 @@ export type RepoContextResult =
 
 export interface GatewayOptions {
 	cwd: string;
+	// optional-undefined-objective: preserve (env-map) — Gateway/subprocess options bag where an absent/undefined env means inherit the full process env, a domain distinction passed through to `gh`/git execution.
 	env?: NodeJS.ProcessEnv | undefined;
 }

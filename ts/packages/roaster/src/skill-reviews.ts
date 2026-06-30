@@ -29,6 +29,7 @@ export type RoastReviewLoadResult =
 export interface LoadRoastSkillEntriesOptions {
 	readonly cwd: string;
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to the review catalog gateway which accepts present-undefined; abort-signal preserve category.
 	readonly signal?: AbortSignal | undefined;
 }
 

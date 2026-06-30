@@ -29,6 +29,7 @@ export interface PlanStoreOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Environment/process map injection (`Record<string, string | undefined>` defaulting to process.env, consumed at line 404) that mirrors the OS env shape.
 	env?: Record<string, string | undefined> | undefined;
 	git?: GitGateway | undefined;
 	planStoreGateway?: PlanStoreGateway | undefined;

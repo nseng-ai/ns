@@ -26,11 +26,13 @@ export interface ReviewCatalog {
 export interface ReviewCatalogGateway {
 	listReviewKeys(options: {
 		readonly cwd: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option forwarded to git repoRoot which accepts present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewCatalog>>;
 	loadReviewSource(options: {
 		readonly cwd: string;
 		readonly key: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option forwarded to git repoRoot which accepts present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewSource>>;
 }
@@ -48,6 +50,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 
 	async listReviewKeys(options: {
 		readonly cwd: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed directly to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewCatalog>> {
 		const reviewsDir = await this.reviewsDir(options.cwd, options.signal);
@@ -80,6 +83,7 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 	async loadReviewSource(options: {
 		readonly cwd: string;
 		readonly key: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed through to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewSource>> {
 		const reviewsDir = await this.reviewsDir(options.cwd, options.signal);
@@ -155,6 +159,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 
 	async listReviewKeys(_options: {
 		readonly cwd: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option mirroring the gateway contract that accepts present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewCatalog>> {
 		if (this.listReviewKeysFailure !== null) return error({ ...this.listReviewKeysFailure });
@@ -166,6 +171,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 	async loadReviewSource(options: {
 		readonly cwd: string;
 		readonly key: string;
+		// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option mirroring the gateway contract that accepts present-undefined; abort-signal preserve category.
 		readonly signal?: AbortSignal | undefined;
 	}): Promise<RoasterResult<ReviewSource>> {
 		this.requestedReviewKeysInternal.push(options.key);

@@ -288,7 +288,7 @@ export async function handleList(
 		operation: "list",
 		action: async () => {
 			const list = await listBranchContextEntries(
-				{ ...(request.branch === undefined ? {} : { branch: request.branch }) },
+				request.branch === undefined ? {} : { branch: request.branch },
 				operationOptions(ctx),
 			);
 			return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });

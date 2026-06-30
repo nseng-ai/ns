@@ -5,6 +5,7 @@ export interface LoadGhCommandOptions {
 	args: string[];
 	cwd: string;
 	timeoutMs: number;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	shouldAllowNonZeroWithStdout?: boolean | undefined;
 }

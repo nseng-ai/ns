@@ -17,6 +17,7 @@ import {
 
 export interface SdlccCliDeps {
 	readonly cwd?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Injected environment map (Record<string,string|undefined>) on a DI deps bag consumed via `deps.env ?? env`, mirroring process.env injection.
 	readonly env?: Record<string, string | undefined> | undefined;
 	readonly runCommand?: CommandRunner | undefined;
 	readonly stdout?: ((text: string) => void) | undefined;

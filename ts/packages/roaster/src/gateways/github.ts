@@ -47,7 +47,9 @@ const ghDiscussionCommentSchema = z
 
 export interface GitHubGatewayOptions {
 	readonly cwd: string;
+	// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the gh CLI runner; environment-map preserve category.
 	readonly env?: NodeJS.ProcessEnv | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to runGitHubCli which accepts present-undefined; abort-signal preserve category.
 	readonly signal?: AbortSignal | undefined;
 }
 
