@@ -1,7 +1,5 @@
 import { runLandCli } from "../land.ts";
 import {
-	failed,
-	ok,
 	defineExtension,
 	z,
 	type SdlCommand,
@@ -12,13 +10,12 @@ import {
 } from "sdl-sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { runFlowCccOperation } from "../shared/ccc-cli.ts";
+import { createFlowCccCliOutputCapture, runFlowCccOperation } from "../shared/ccc-cli.ts";
 import {
-	createPhaseStream,
+	createPhaseStreamController,
 	flowStreamDeps,
 	LAND_PHASES,
 	resolveFlowStreamCaps,
-	type PhaseStream,
 } from "../shared/phase-stream.ts";
 
 const landSchema = z.object({
@@ -49,32 +46,32 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 			request.free === true ? "--free" : undefined,
 			request.force === true ? "--force" : undefined,
 		].filter((arg): arg is string => arg !== undefined);
-		let stdout = "";
-		let stderr = "";
+		const output = createFlowCccCliOutputCapture({ ctx, mode: "buffer-until-complete" });
 		const progress = createLandCliProgress(ctx, caps);
-		const exitCode = await runFlowCccOperation({
-			ctx,
-			run: async (io) =>
-				await runLandCli({
-					cwd: ctx.cwd,
-					rawArgs: rawArgs.join(" "),
-					exec: io.exec,
-					stdout: (text) => {
-						stdout += text;
-					},
-					stderr: (text) => {
-						stderr += text;
-					},
-					caps,
-					progressIo: progress.io,
-					...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
-				}),
-		});
-		await progress.finish(exitCode);
-		if (stdout !== "") ctx.stdout?.(stdout);
-		if (stderr !== "") ctx.stderr?.(stderr);
-		if (exitCode === 0) return ok(stdout === "" ? "Land completed." : "");
-		return failed(stderr === "" ? "Land failed." : "", exitCode);
+		try {
+			const exitCode = await runFlowCccOperation({
+				ctx,
+				run: async (io) =>
+					await runLandCli({
+						cwd: ctx.cwd,
+						rawArgs: rawArgs.join(" "),
+						exec: io.exec,
+						stdout: output.input.stdout,
+						stderr: output.input.stderr,
+						caps,
+						progressIo: progress.io,
+						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
+					}),
+			});
+			await progress.finish(exitCode);
+			output.flush();
+			return output.toResult(exitCode, {
+				successMessage: "Land completed.",
+				failureMessage: "Land failed.",
+			});
+		} finally {
+			await progress.stop();
+		}
 	},
 };
 
@@ -85,21 +82,21 @@ export default defineExtension({
 interface LandCliProgress {
 	io: SdlCommandIo;
 	finish(exitCode: number): Promise<void>;
+	stop(): Promise<void>;
 }
 
 function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgress {
-	let stream: PhaseStream | undefined;
+	const progress = createPhaseStreamController({
+		caps,
+		specs: LAND_PHASES,
+		deps: flowStreamDeps(ctx, caps),
+		title: "sdl flow land",
+		begin: "lazy",
+	});
 	let lastPhaseKey: string | undefined;
 
-	function ensureStream(): PhaseStream {
-		if (stream !== undefined) return stream;
-		stream = createPhaseStream(caps, LAND_PHASES, flowStreamDeps(ctx, caps));
-		stream.begin("sdl flow land");
-		return stream;
-	}
-
 	function emit(event: SdlProgressPhaseEvent): void {
-		ensureStream().emit(event);
+		progress.emit(event);
 		if (event.type === "phase-started") lastPhaseKey = event.phaseKey;
 	}
 
@@ -139,7 +136,7 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		const normalized = message.trim();
 		if (normalized === "") return;
 		if (level === "error" || normalized.startsWith("✗")) {
-			ensureStream().note(normalized);
+			progress.note(normalized);
 			return;
 		}
 		if (!normalized.startsWith("→ ")) return;
@@ -177,9 +174,8 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 			clearPhase: () => {},
 		},
 		finish: async (exitCode) => {
-			if (stream === undefined) return;
-			if (exitCode !== 0) stream.fail();
-			await stream.finish();
+			await progress.finish({ failed: exitCode !== 0 });
 		},
+		stop: progress.stop,
 	};
 }

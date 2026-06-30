@@ -5,7 +5,7 @@ import {
 	CP_PHASES,
 	flowStreamDeps,
 	resolveFlowStreamCaps,
-	runPhaseStream,
+	runSettledPhaseStream,
 } from "../shared/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
@@ -58,7 +58,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 		}
 
 		const caps = resolveFlowStreamCaps(ctx);
-		return await runPhaseStream({
+		return await runSettledPhaseStream({
 			caps,
 			specs: CP_PHASES,
 			deps: flowStreamDeps(ctx, caps),
@@ -73,9 +73,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
-				if (!command.ok) stream.fail();
-				await stream.finish();
-				return command;
+				return { result: command, failed: !command.ok };
 			},
 		});
 	},

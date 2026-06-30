@@ -8,7 +8,7 @@ import {
 	checkpointEventLabel,
 	flowStreamDeps,
 	resolveFlowStreamCaps,
-	runPhaseStream,
+	runSettledPhaseStream,
 	SUBMIT_PHASES,
 } from "../shared/phase-stream.ts";
 import {
@@ -59,7 +59,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
 		const runtime = createSdlSubmitRuntime(ctx);
 		const caps = resolveFlowStreamCaps(ctx);
-		return await runPhaseStream({
+		return await runSettledPhaseStream({
 			caps,
 			specs: SUBMIT_PHASES,
 			deps: flowStreamDeps(ctx, caps),
@@ -81,8 +81,6 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 					},
 				});
 				if (checkpoint.kind === "failed") {
-					stream.fail();
-					await stream.finish();
 					const checkpointFailure = await maybeFormatSubmitFailureWithModel(
 						{
 							stdout: "",
@@ -91,8 +89,13 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 						},
 						ctx,
 					);
-					ctx.stderr?.(checkpointFailure.stderr);
-					return failed("", checkpoint.output.exitCode);
+					return {
+						result: failed("", checkpoint.output.exitCode),
+						failed: true,
+						afterFinish: () => {
+							ctx.stderr?.(checkpointFailure.stderr);
+						},
+					};
 				}
 
 				// The raw `gt submit` transcript streams on its own channel (live + --verbose), separate from
@@ -115,17 +118,20 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 					onPhase: stream.emit,
 					...(onOutput === undefined ? {} : { onOutput }),
 				});
-				if (result.exitCode !== 0) stream.fail();
-				await stream.finish();
-
 				// Result payloads print as scrollback below the settled region: the checkpoint commit summary
 				// (if any) first, then the submit success text or interpreted failure.
-				if (checkpoint.kind === "checkpointed") {
-					writeCommandResultOutput(checkpoint.output, ctx);
-				}
 				const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
-				writeCommandResultOutput(interpretedResult, ctx);
-				return interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode);
+				return {
+					result:
+						interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode),
+					failed: interpretedResult.exitCode !== 0,
+					afterFinish: () => {
+						if (checkpoint.kind === "checkpointed") {
+							writeCommandResultOutput(checkpoint.output, ctx);
+						}
+						writeCommandResultOutput(interpretedResult, ctx);
+					},
+				};
 			},
 		});
 	},
