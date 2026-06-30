@@ -30,10 +30,11 @@
   - Delivered: added or refreshed `ts/packages/capabilities/flow/CONTEXT.md`, `ts/packages/capabilities/land/CONTEXT.md`, and `CONTEXT-MAP.md` relationships so Flow's command face, Capability API, land-domain core ownership, land-stack ownership, submit/autobranch boundaries, and CCC consumer boundary are explicit.
   - Evidence: direct `dprint check` for the touched context Markdown passed in the land-domain-core update; future-facing wording records Flow ownership and `sdl-land` extraction without making CCC the land/autobranch owner.
 
-- [ ] Final API/export cleanliness rebaseline.
+- [x] Final API/export cleanliness rebaseline.
   - Policy: direct execution after preview once structural slices have landed.
   - Target: verify `sdl-flow/api` and `sdl-flow/package.json` stayed narrow after deeper refactors; close any accidental helper leaks.
-  - Evidence: searches for removed Flow subpaths and helper exports are clean; targeted package checks and relevant repo guard checks pass; closure or final update records the evidence.
+  - Delivered: removed land-stack implementation exports from `sdl-flow/api`, including `executeStackLanding`, parser/completion/renderer helpers, land-stack context/result types, and related API types; deleted the unused `ts/packages/ccc/src/land-stack.ts` shim without adding a replacement wrapper or package export.
+  - Evidence: boundary searches are clean for removed Flow API land-stack symbols, external CCC/Pi/host consumers, private Flow land-stack imports from CCC/Pi/host packages, and `./land-stack` package exports; `sdl-flow` and `@sdl/ccc` checks/tests pass; `just ts-check`, `just ts-lint`, and `just ts-format-check` pass after formatter autofix.
 
 ## Parked
 

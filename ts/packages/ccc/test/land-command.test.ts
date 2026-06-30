@@ -402,17 +402,17 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			"--prune",
 			"--no-tags",
 			".",
-			"+refs/ccc/land-backup/*:refs/ccc/land-backup-prev/*",
+			"+refs/sdl/flow-land-backup/*:refs/sdl/flow-land-backup-prev/*",
 		]),
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]),
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
 			stdout: `${SHA_CURRENT}\n`,
 		}),
-		step("git", ["update-ref", `refs/ccc/land-backup/${CURRENT}`, SHA_CURRENT]),
+		step("git", ["update-ref", `refs/sdl/flow-land-backup/${CURRENT}`, SHA_CURRENT]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
 			stdout: `${SHA_CHILD}\n`,
 		}),
-		step("git", ["update-ref", `refs/ccc/land-backup/${CHILD_BRANCH}`, SHA_CHILD]),
+		step("git", ["update-ref", `refs/sdl/flow-land-backup/${CHILD_BRANCH}`, SHA_CHILD]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
 			stdout: `${SHA_CURRENT}\n`,
 		}),
