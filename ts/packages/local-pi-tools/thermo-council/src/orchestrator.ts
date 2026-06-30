@@ -45,14 +45,10 @@ const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
 const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
 const REVIEW_REPAIR_MAX_ATTEMPTS = 2;
 
-interface TextGenerationUsage {
-	inputTokens: number;
-	outputTokens: number;
-}
-
-type TextGenerationResult =
-	| { ok: true; text: string; usage?: TextGenerationUsage }
-	| { ok: false; error: string };
+// Repair generation runs through runner subagents, not a TextGenerator, and the repair loop only
+// consumes final text or a diagnostic. Keep this intentionally narrower than the canonical
+// TextGenerationResult so usage accounting does not leak into the local recovery contract.
+type RepairTextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
 
 type ValidateGeneratedTextResult<T> = { ok: true; value: T } | { ok: false; feedback: string };
 
@@ -63,7 +59,7 @@ type PrepareRepairedTextResult<T> =
 interface PrepareRepairedTextOptions<T> {
 	noun: string;
 	initialPrompt: string;
-	generate: (prompt: string) => Promise<TextGenerationResult>;
+	generate: (prompt: string) => Promise<RepairTextGenerationResult>;
 	validate: (text: string) => ValidateGeneratedTextResult<T>;
 	buildRepairPrompt: (input: {
 		initialPrompt: string;
@@ -530,7 +526,7 @@ async function repairReviewWithModel(input: {
 async function generateReviewRepairText(input: {
 	readonly prompt: string;
 	readonly recoveryContext: ReviewerRecoveryContext;
-}): Promise<TextGenerationResult> {
+}): Promise<RepairTextGenerationResult> {
 	const result = await dispatchRunnerSubagent(
 		input.recoveryContext.pi,
 		reviewerRunnerContext(input.recoveryContext.ctx),
