@@ -125,9 +125,9 @@ export interface PullRequestSnapshot {
 	headRefName: string;
 	baseRefName: string;
 	headRefOid: string;
-	mergeStateStatus: string | undefined;
-	url: string | undefined;
-	mergedAt: string | null | undefined;
+	mergeStateStatus?: string;
+	url?: string;
+	mergedAt?: string | null;
 }
 
 export interface BranchPlan {
@@ -142,7 +142,7 @@ export interface PrSubmitRequirement {
 	localSha: string;
 	prHeadSha: string;
 	baseRefName: string;
-	expectedBaseRefName: string | undefined;
+	expectedBaseRefName?: string;
 	reasons: string[];
 }
 

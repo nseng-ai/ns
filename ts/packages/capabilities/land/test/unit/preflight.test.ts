@@ -49,7 +49,7 @@ describe("sdl-land stack preflight planning", () => {
 			cwd: "/repo/subdir",
 			target: { type: "stack" },
 			mode: "dry-run",
-			preflight: { allowSubmitRequiredState: false },
+			preflight: { shouldAllowSubmitRequiredState: false },
 			cleanup: { shouldFreeSlot: false, shouldForceCleanup: false },
 		});
 
@@ -135,7 +135,7 @@ describe("sdl-land stack preflight planning", () => {
 		});
 
 		const plan = await buildStackLandingPlan(context, "/repo", {
-			allowSubmitRequiredState: true,
+			shouldAllowSubmitRequiredState: true,
 		});
 
 		expect(plan).toMatchObject({

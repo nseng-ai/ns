@@ -21,7 +21,7 @@ export interface LandingRequest {
 export type LandingMode = "execute" | "dry-run";
 
 export interface LandingPreflightMode {
-	readonly allowSubmitRequiredState: boolean;
+	readonly shouldAllowSubmitRequiredState: boolean;
 }
 
 export interface LandingCleanupMode {

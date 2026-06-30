@@ -79,11 +79,13 @@ function parsePullRequestSnapshot(value: unknown): PullRequestSnapshot | undefin
 		headRefName: value.headRefName,
 		baseRefName: value.baseRefName,
 		headRefOid: value.headRefOid,
-		mergeStateStatus:
-			typeof value.mergeStateStatus === "string" ? value.mergeStateStatus : undefined,
-		url: typeof value.url === "string" ? value.url : undefined,
-		mergedAt:
-			typeof value.mergedAt === "string" || value.mergedAt === null ? value.mergedAt : undefined,
+		...(typeof value.mergeStateStatus === "string"
+			? { mergeStateStatus: value.mergeStateStatus }
+			: {}),
+		...(typeof value.url === "string" ? { url: value.url } : {}),
+		...(typeof value.mergedAt === "string" || value.mergedAt === null
+			? { mergedAt: value.mergedAt }
+			: {}),
 	};
 }
 
@@ -94,7 +96,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function validateInitialPrPreflight(
 	branchPlans: BranchPlan[],
 	trunk: string,
-	options: { allowSubmitRequiredState?: boolean } = {},
+	options: { shouldAllowSubmitRequiredState?: boolean } = {},
 ): LandStackOutcome {
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
@@ -104,10 +106,10 @@ export function validateInitialPrPreflight(
 			branch,
 			localSha,
 			pr,
-			allowHeadShaMismatch: Boolean(options.allowSubmitRequiredState),
+			allowHeadShaMismatch: Boolean(options.shouldAllowSubmitRequiredState),
 		});
 		if (basics.type === "failure") return basics;
-		if (index === 0 && pr.baseRefName !== trunk && !options.allowSubmitRequiredState) {
+		if (index === 0 && pr.baseRefName !== trunk && !options.shouldAllowSubmitRequiredState) {
 			return failure(
 				landStackFailure(
 					`Bottom PR #${pr.number} targets ${pr.baseRefName}, expected ${trunk}; restack/submit it first.`,
@@ -197,7 +199,7 @@ export function collectPrSubmitRequirements(
 				localSha,
 				prHeadSha: pr.headRefOid,
 				baseRefName: pr.baseRefName,
-				expectedBaseRefName,
+				...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
 				reasons,
 			});
 		}
