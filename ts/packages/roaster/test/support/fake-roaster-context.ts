@@ -17,19 +17,19 @@ import {
 import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/review-log.ts";
 
 export interface FakeRoasterContextOptions {
-	readonly execApi?: CommandExecApi | undefined;
-	readonly gitGateway?: GitGateway | undefined;
-	readonly localDiff?: LocalDiffGateway | undefined;
-	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
-	readonly reviewLog?: ReviewLogGateway | undefined;
-	readonly github?: RoasterGitHubGateway | undefined;
-	readonly reviewRunner?: ReviewRunnerGateway | undefined;
-	readonly cwd?: string | undefined;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
-	readonly stdin?: (() => Promise<string>) | undefined;
-	readonly stdout?: ((text: string) => void) | undefined;
-	readonly stderr?: ((text: string) => void) | undefined;
+	readonly execApi?: CommandExecApi;
+	readonly gitGateway?: GitGateway;
+	readonly localDiff?: LocalDiffGateway;
+	readonly reviewCatalog?: ReviewCatalogGateway;
+	readonly reviewLog?: ReviewLogGateway;
+	readonly github?: RoasterGitHubGateway;
+	readonly reviewRunner?: ReviewRunnerGateway;
+	readonly cwd?: string;
+	readonly env?: NodeJS.ProcessEnv;
+	readonly signal?: AbortSignal;
+	readonly stdin?: () => Promise<string>;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
 }
 
 export function fakeRoasterContext(options: FakeRoasterContextOptions = {}): RoasterContext {
