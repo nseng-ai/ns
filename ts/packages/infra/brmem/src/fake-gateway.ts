@@ -24,10 +24,10 @@ export interface FakeEntrySeed {
 	branch: string;
 	key: string;
 	content: string;
-	headSha?: string | undefined;
-	headDate?: string | undefined;
-	blobSha?: string | undefined;
-	updatedAt?: string | undefined;
+	headSha?: string;
+	headDate?: string;
+	blobSha?: string;
+	updatedAt?: string;
 }
 
 export interface FakeGitRemoteConfig {
@@ -36,29 +36,23 @@ export interface FakeGitRemoteConfig {
 }
 
 export interface FakeBrmemGatewayOptions {
-	currentBranch?:
-		| string
-		| { type: "detached" }
-		| { type: "error"; code: string; message: string }
-		| undefined;
-	entries?: readonly FakeEntrySeed[] | undefined;
-	remotes?: Record<string, FakeGitRemoteConfig> | undefined;
-	operationErrors?:
-		| Partial<
-				Record<
-					| "list"
-					| "get"
-					| "check"
-					| "put"
-					| "create"
-					| "delete"
-					| "copy"
-					| "remoteConfig"
-					| "addRefspecs",
-					{ code: string; message: string }
-				>
-		  >
-		| undefined;
+	currentBranch?: string | { type: "detached" } | { type: "error"; code: string; message: string };
+	entries?: readonly FakeEntrySeed[];
+	remotes?: Record<string, FakeGitRemoteConfig>;
+	operationErrors?: Partial<
+		Record<
+			| "list"
+			| "get"
+			| "check"
+			| "put"
+			| "create"
+			| "delete"
+			| "copy"
+			| "remoteConfig"
+			| "addRefspecs",
+			{ code: string; message: string }
+		>
+	>;
 }
 
 interface StoredEntry {
@@ -114,13 +108,26 @@ export class FakeBrmemGateway implements BrmemGateway {
 	}) {
 		const error = this.operationErrors.list;
 		if (error !== undefined) return brmemError<readonly ListedEntry[]>(error.code, error.message);
-		return brmemOk(this.collectEntries({ allNamespaces: false, ...options }));
+		return brmemOk(
+			this.collectEntries({
+				allNamespaces: false,
+				namespace: options.namespace,
+				...(options.key === undefined ? {} : { key: options.key }),
+				...(options.branch === undefined ? {} : { branch: options.branch }),
+			}),
+		);
 	}
 
 	async listAllEntries(options: { key?: string | undefined; branch?: string | undefined }) {
 		const error = this.operationErrors.list;
 		if (error !== undefined) return brmemError<readonly ListedEntry[]>(error.code, error.message);
-		return brmemOk(this.collectEntries({ allNamespaces: true, ...options }));
+		return brmemOk(
+			this.collectEntries({
+				allNamespaces: true,
+				...(options.key === undefined ? {} : { key: options.key }),
+				...(options.branch === undefined ? {} : { branch: options.branch }),
+			}),
+		);
 	}
 
 	async getEntry(options: {
@@ -131,7 +138,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	}) {
 		const error = this.operationErrors.get;
 		if (error !== undefined) return brmemOptionalError<EntryContent>(error.code, error.message);
-		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
+		const stored = this.resolveSnapshot(snapshotLookup(options))?.entries.get(options.key);
 		if (stored === undefined) return brmemMissing<EntryContent>();
 		return brmemFound({ content: stored.content });
 	}
@@ -144,7 +151,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	}) {
 		const error = this.operationErrors.check;
 		if (error !== undefined) return brmemOptionalError<EntryDiagnostic>(error.code, error.message);
-		const stored = this.resolveSnapshot(options)?.entries.get(options.key);
+		const stored = this.resolveSnapshot(snapshotLookup(options))?.entries.get(options.key);
 		if (stored === undefined) return brmemMissing<EntryDiagnostic>();
 		return brmemFound({
 			headSha: stored.headSha,
@@ -286,7 +293,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private resolveSnapshot(options: {
 		namespace: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): SnapshotState | undefined {
 		if (options.at !== undefined) return this.snapshotsByCommit.get(options.at);
 		return this.snapshots.get(snapshotId(options.namespace, options.branch));
@@ -298,9 +305,9 @@ export class FakeBrmemGateway implements BrmemGateway {
 
 	private collectEntries(options: {
 		allNamespaces: boolean;
-		namespace?: string | undefined;
-		key?: string | undefined;
-		branch?: string | undefined;
+		namespace?: string;
+		key?: string;
+		branch?: string;
 	}): readonly ListedEntry[] {
 		const entries: ListedEntry[] = [];
 		for (const [id, snapshot] of this.snapshots) {
@@ -355,6 +362,18 @@ export class FakeBrmemGateway implements BrmemGateway {
 		cfg.fetch = [...cfg.fetch, ...fetch];
 		return brmemOk(undefined);
 	}
+}
+
+function snapshotLookup(options: { namespace: string; branch: string; at?: string | undefined }): {
+	namespace: string;
+	branch: string;
+	at?: string;
+} {
+	return {
+		namespace: options.namespace,
+		branch: options.branch,
+		...(options.at === undefined ? {} : { at: options.at }),
+	};
 }
 
 function snapshotId(namespace: string, branch: string): string {
