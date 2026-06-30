@@ -6,7 +6,11 @@ import * as path from "node:path";
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
-import { createRunnerSubagentJsonEventParser } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
+import {
+	createRunnerSubagentJsonEventParser,
+	runnerSubagentPrimaryActivityPreview,
+	type RunnerSubagentJsonEventParserSnapshot,
+} from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
 import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
 import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "../../ts/packages/infra/exec/src/index.ts";
 import {
@@ -19,6 +23,7 @@ const STATUS_KEY = "objective-autopilot";
 const REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_REPORT_BEGIN";
 const REPORT_END = "OBJECTIVE_AUTOPILOT_REPORT_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
+const MAX_WIDGET_LINE_CHARS = 240;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -28,7 +33,11 @@ interface CommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?(key: string, lines: string[] | undefined): void;
+		setWidget?(
+			key: string,
+			lines: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -58,6 +67,15 @@ interface ChildResult {
 	finalText: string;
 	stderr: string;
 	stopReason?: string;
+}
+
+interface ChildProgressUpdate {
+	iteration: number;
+	totalIterations: number;
+	objective: string;
+	requestedModel?: string;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
+	stderrTail?: string;
 }
 
 interface Report {
@@ -208,7 +226,12 @@ async function writePromptFile(prompt: string): Promise<{ dir: string; file: str
 	return { dir, file };
 }
 
-async function runChild(cwd: string, prompt: string, model: string | undefined): Promise<ChildResult> {
+async function runChild(
+	cwd: string,
+	prompt: string,
+	model: string | undefined,
+	onProgress?: (snapshot: RunnerSubagentJsonEventParserSnapshot, stderrTail?: string) => void,
+): Promise<ChildResult> {
 	const tmp = await writePromptFile(prompt);
 	// Keep custom spawn semantics for JSON streaming with --no-session and an appended system prompt.
 	// Shared runner-subagents pieces cover Pi resolution and event parsing; the full dispatcher owns richer session/runtime behavior.
@@ -223,6 +246,7 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 			const invocation = resolvePiInvocation(args);
 			const child = spawn(invocation.command, invocation.args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 			let buffer = "";
+			const emitProgress = (stderrTail?: string) => onProgress?.(parser.getSnapshot(), stderrTail);
 			const processLine = (line: string) => {
 				if (!line.trim()) return;
 				try {
@@ -232,6 +256,7 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 					return;
 				}
 				parser.pushChunk(`${line}\n`);
+				emitProgress();
 			};
 			child.stdout.on("data", (data) => {
 				buffer += data.toString();
@@ -241,11 +266,13 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 			});
 			child.stderr.on("data", (data) => {
 				stderr += data.toString();
+				emitProgress(tail(stderr));
 			});
 			child.on("close", (code) => {
 				if (buffer.trim()) processLine(buffer);
 				parser.finish();
 				const snapshot = parser.getSnapshot();
+				emitProgress();
 				resolve({
 					exitCode: code ?? 0,
 					finalText: snapshot.finalAssistantText ?? "",
@@ -257,6 +284,7 @@ async function runChild(cwd: string, prompt: string, model: string | undefined):
 				stderr += error.message;
 				parser.finish();
 				const snapshot = parser.getSnapshot();
+				emitProgress(tail(stderr));
 				resolve({
 					exitCode: 1,
 					finalText: snapshot.finalAssistantText ?? "",
@@ -397,6 +425,50 @@ function tail(text: string): string {
 	return text.length <= MAX_FAILURE_TAIL_CHARS ? text : text.slice(text.length - MAX_FAILURE_TAIL_CHARS);
 }
 
+function formatElapsed(elapsedMs: number): string {
+	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
+	return `${(elapsedMs / 1_000).toFixed(1)}s`;
+}
+
+function compactWidgetText(text: string): string {
+	const compacted = text.replace(/\s+/g, " ").trim();
+	if (compacted.length <= MAX_WIDGET_LINE_CHARS) return compacted;
+	return `${compacted.slice(0, MAX_WIDGET_LINE_CHARS - 1)}…`;
+}
+
+function formatChildProgressWidgetLines(update: ChildProgressUpdate): string[] {
+	const { progress, activity } = update.snapshot;
+	const lines = [
+		`/objective:autopilot ${update.iteration}/${update.totalIterations}`,
+		`objective: ${update.objective}`,
+		"child process: subagent",
+		`model: ${formatChildModel(update)}`,
+		`child: ${progress.state}; turns/tools: ${progress.turnCount}/${progress.toolCount}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
+	];
+	if (progress.currentTool !== undefined) lines.push(`current tool: ${progress.currentTool}`);
+	const preview = runnerSubagentPrimaryActivityPreview(activity);
+	if (preview !== undefined) lines.push(`activity: ${preview}`);
+	if (activity.lastToolName !== undefined) {
+		const prefix = activity.lastToolResultIsError ? "last tool error" : "last tool";
+		lines.push(`${prefix}: ${activity.lastToolName}`);
+	}
+	if (activity.lastToolResultPreview !== undefined) lines.push(`last result: ${activity.lastToolResultPreview}`);
+	if (update.stderrTail !== undefined && update.stderrTail.trim() !== "") lines.push(`stderr: ${compactWidgetText(update.stderrTail)}`);
+	return lines;
+}
+
+function formatChildModel(update: ChildProgressUpdate): string {
+	const launch = update.snapshot.progress.launch;
+	if (launch?.model !== undefined) return `${launch.model.provider}/${launch.model.id}`;
+	if (launch?.requestedModel !== undefined) return `requested ${launch.requestedModel}`;
+	if (update.requestedModel !== undefined) return `requested ${update.requestedModel}`;
+	return "pending";
+}
+
+function showChildProgress(ctx: CommandContext, update: ChildProgressUpdate): void {
+	ctx.ui.setWidget?.(STATUS_KEY, formatChildProgressWidgetLines(update), { placement: "aboveEditor" });
+}
+
 async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
 	let args: ParsedArgs;
 	try {
@@ -409,7 +481,7 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 
 	sendCommandProgressOrNotify({ host: pi, ctx, message: "Checking repository for /objective:autopilot…" });
 	await ctx.waitForIdle();
-	ctx.ui.setStatus(STATUS_KEY, "checking repository…");
+	ctx.ui.setWidget?.(STATUS_KEY, ["/objective:autopilot", "checking repository…"], { placement: "aboveEditor" });
 	try {
 		let startingBranch = await assertInitialGuards(pi, ctx, args.objective);
 		const summaries: string[] = [];
@@ -419,9 +491,27 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 				ctx,
 				message: `Starting objective-autopilot child iteration ${iteration}/${args.iterations}…`,
 			});
-			ctx.ui.setStatus(STATUS_KEY, `child iteration ${iteration}/${args.iterations}…`);
-			ctx.ui.setWidget?.(STATUS_KEY, [`/objective:autopilot ${iteration}/${args.iterations}`, `objective: ${args.objective}`]);
-			const child = await runChild(ctx.cwd, buildChildPrompt(args, iteration, startingBranch), args.model);
+			ctx.ui.setWidget?.(
+				STATUS_KEY,
+				[
+					`/objective:autopilot ${iteration}/${args.iterations}`,
+					`objective: ${args.objective}`,
+					"child process: subagent",
+					`model: ${args.model === undefined ? "pending" : `requested ${args.model}`}`,
+					"child: starting…",
+				],
+				{ placement: "aboveEditor" },
+			);
+			const child = await runChild(ctx.cwd, buildChildPrompt(args, iteration, startingBranch), args.model, (snapshot, stderrTail) => {
+				showChildProgress(ctx, {
+					iteration,
+					totalIterations: args.iterations,
+					objective: args.objective,
+					...(args.model === undefined ? {} : { requestedModel: args.model }),
+					snapshot,
+					...(stderrTail === undefined ? {} : { stderrTail }),
+				});
+			});
 			if (child.exitCode !== 0) throw new Error(`Child Pi exited ${child.exitCode}.\n${tail(firstNonEmptyText(child.stderr, child.finalText) ?? "")}`);
 			const report = parseReport(child.finalText);
 			if (!report) throw new Error(`Child did not produce a parseable report. Tail:\n${tail(firstNonEmptyText(child.finalText, child.stderr) ?? "")}`);
