@@ -14,7 +14,7 @@ import {
 	resolvePathOverride,
 	resolveSdlXdgPath,
 	resolveXdgHome,
-} from "../src/xdg.ts";
+} from "@sdl/capability-kit/xdg";
 
 const tempDirs: string[] = [];
 
@@ -160,7 +160,7 @@ describe("XDG path helpers", () => {
 });
 
 async function makeTempDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "sdl-core-xdg-"));
+	const dir = await mkdtemp(join(tmpdir(), "sdl-capability-kit-xdg-"));
 	tempDirs.push(dir);
 	return dir;
 }

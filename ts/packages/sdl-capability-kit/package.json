@@ -19,7 +19,9 @@
     "./sdl-context": "./src/sdl-context.ts",
     "./temp-files": "./src/temp-files.ts",
     "./text-generation": "./src/text-generation.ts",
-    "./text-repair": "./src/text-repair.ts"
+    "./text-repair": "./src/text-repair.ts",
+    "./workspace-root": "./src/workspace-root.ts",
+    "./xdg": "./src/xdg.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

@@ -23,9 +23,7 @@
     "./text-table": "./src/text-table.ts",
     "./text-truncation": "./src/text-truncation.ts",
     "./time-format": "./src/time-format.ts",
-    "./timers": "./src/timers.ts",
-    "./workspace-root": "./src/workspace-root.ts",
-    "./xdg": "./src/xdg.ts"
+    "./timers": "./src/timers.ts"
   },
   "files": [
     "src"
