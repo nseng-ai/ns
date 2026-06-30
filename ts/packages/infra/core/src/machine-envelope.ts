@@ -34,7 +34,7 @@ export type MachineEnvelopeDataWithFailureDataResult =
 	| { type: "invalid"; message: string };
 
 export interface ParseMachineEnvelopeDataWithFailureDataOptions extends MachineEnvelopeParseOptions {
-	shouldAllowFailureData?: boolean | undefined;
+	shouldAllowFailureData?: boolean;
 }
 
 export function parseMachineEnvelopeData(

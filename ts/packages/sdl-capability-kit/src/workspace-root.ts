@@ -4,8 +4,8 @@ import { dirname, join, resolve } from "node:path";
 export interface WorkspaceRootMarkerOptions {
 	readonly cwd: string;
 	readonly markers: readonly string[];
-	readonly nestedDirectory?: string | undefined;
-	readonly exists?: ((path: string) => boolean) | undefined;
+	readonly nestedDirectory?: string;
+	readonly exists?: (path: string) => boolean;
 }
 
 export function findWorkspaceRootByMarkers(options: WorkspaceRootMarkerOptions): string | null {

@@ -12,8 +12,8 @@ export interface XdgPathError {
 export interface XdgPathOptions {
 	kind: XdgDirectoryKind;
 	env: Record<string, string | undefined>;
-	segments?: readonly string[] | undefined;
-	overrideEnv?: string | undefined;
+	segments?: readonly string[];
+	overrideEnv?: string;
 }
 
 const XDG_ENV_BY_KIND = {
