@@ -60,6 +60,7 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopSdlCommandIo;
 	readonly progress = noopSdlProgress;
+	readonly renderCapabilities = { canEmitAnsi: false };
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

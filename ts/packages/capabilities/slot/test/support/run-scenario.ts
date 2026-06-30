@@ -1,6 +1,6 @@
 import {
-	CLINKR_CAPS_EXTENSION_KEY,
 	isClinkrHumanOutputInvocation,
+	renderCapabilitiesForTerminal,
 	resolveClinkrInteraction,
 	type Caps,
 	type ConfirmationResult,
@@ -140,8 +140,10 @@ function buildScenarioFixture(
 			...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
 		});
 	const repo = options.repo ?? repoContext();
-	const extensions =
-		options.caps === undefined ? undefined : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps };
+	const renderCapabilities =
+		options.caps === undefined
+			? { canEmitAnsi: options.canEmitAnsi ?? false }
+			: renderCapabilitiesForTerminal(options.caps);
 	// Slot package scenarios exercise the mounted command face directly. Entrypoint
 	// metadata (`--version`/`--runtime`) is covered by the owning `sdl` CLI tests.
 	const context: SlotCliContext = {
@@ -153,7 +155,7 @@ function buildScenarioFixture(
 		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command,
 		cwd,
-		...(extensions === undefined ? {} : { extensions }),
+		renderCapabilities,
 		interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },

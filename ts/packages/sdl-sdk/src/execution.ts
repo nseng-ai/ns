@@ -1,3 +1,4 @@
+import type { RenderCapabilities } from "./command.ts";
 import type { SdlCommandIo, SdlProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
@@ -32,6 +33,8 @@ export interface SdlExtensionApi {
 	commandIo: SdlCommandIo;
 	/** Structured phase progress sink provided by the host/kernel. */
 	progress: SdlProgress;
+	/** Host terminal rendering capabilities for human output and previews. */
+	renderCapabilities: RenderCapabilities;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
 	stdout?: ((text: string) => void) | undefined;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */
