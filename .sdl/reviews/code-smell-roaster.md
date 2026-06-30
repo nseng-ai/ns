@@ -3,7 +3,7 @@ description: |
   Code-smell-only roaster review: inspect the supplied diff for Fowler-style
   code smells, with blunt but evidence-based feedback and small refactor fixes.
 model_profile: deep
-local_only: true
+local_only: false
 applies_to:
   include:
     - "**/*.ts"
