@@ -1,4 +1,5 @@
 import { ok } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -30,7 +31,11 @@ export type CheckRequest = z.infer<typeof checkRequestSchema>;
 export type CheckResult = z.infer<typeof checkResultSchema>;
 
 export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
-	const resolved = await resolveEntryRequest(ctx, request);
+	const resolved = await resolveEntryRequest(ctx, {
+		key: request.key,
+		branch: request.branch,
+		...optionalEntry("namespace", request.namespace),
+	});
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
 	const locator = mustEntryLocator(namespace, key, branch);
