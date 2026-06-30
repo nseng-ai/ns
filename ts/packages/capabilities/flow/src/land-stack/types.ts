@@ -67,6 +67,8 @@ export interface LandStackCommandContext {
 	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
 	 */
 	renderResultBlock?: (kind: LandResultKind, message: string) => string;
+	/** CLI-only confirmation preview highlighter; never used for non-interactive refusal text. */
+	renderConfirmationDetails?: (message: string) => string;
 }
 
 export interface PrintAwareLandStackCommandContext extends LandStackCommandContext {

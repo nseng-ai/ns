@@ -138,26 +138,34 @@ export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string 
 	const lines = [
 		`Land ${fullLandingBranches.length} PRs in ${chunks.length} chunks.`,
 		"",
-		"Path:",
-		`${plan.stack.trunk} -> ${fullLandingBranches.join(" -> ")}`,
+		"Summary:",
+		`  Current branch  ${plan.stack.actualCurrentBranch}`,
+		`  Trunk branch    ${plan.stack.trunk}`,
+		`  Total PRs       ${fullLandingBranches.length}`,
+		`  Chunk size      ${chunkSize}`,
+		`  Chunks          ${chunks.length}`,
 		"",
-		`Current branch: ${plan.stack.actualCurrentBranch}`,
-		`Trunk branch: ${plan.stack.trunk}`,
-		`Total PRs: ${fullLandingBranches.length}`,
-		`Chunk size: ${chunkSize}`,
-		`Chunks: ${chunks.length}`,
-		"",
-		"Chunks:",
+		"Stack path:",
+		`  0. ${plan.stack.trunk}`,
 	];
+	fullLandingBranches.forEach((branch, index) => {
+		lines.push(`  ${index + 1}. ${branch}`);
+	});
+	lines.push("", "Chunks:");
 	chunks.forEach((chunk, index) => {
 		const start = index * chunkSize + 1;
 		const end = start + chunk.length - 1;
-		lines.push(`  ${index + 1}. PRs ${start}-${end}: ${chunk.join(" -> ")}`);
+		lines.push(`  Chunk ${index + 1}/${chunks.length} — PRs ${start}-${end}`);
+		chunk.forEach((branch, offset) => {
+			lines.push(`    ${start + offset}. ${branch}`);
+		});
 	});
 	lines.push(
 		"",
-		"This single confirmation covers the full chunked landing operation, including required managed-slot cleanup and Graphite restack/submit/update if encountered.",
-		"The command will squash-merge PRs in order, refresh/delete local Graphite branches where safe, and stop on first failure.",
+		"Operation:",
+		"  - One confirmation covers the full chunked landing operation.",
+		"  - Includes required managed-slot cleanup and Graphite restack/submit/update if encountered.",
+		"  - Squash-merges PRs in order, refreshes/deletes safe local Graphite branches, and stops on first failure.",
 	);
 	return lines.join("\n");
 }

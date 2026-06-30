@@ -6,7 +6,13 @@
 // and domain-specific land facts stay in CCC.
 
 import type { Caps } from "@sdl/clinkr";
-import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/cli-theme";
+import {
+	bold,
+	paint,
+	type Intent,
+	renderResultBlock,
+	renderResultBlockFromMessage,
+} from "@sdl/cli-theme";
 import type { LandResultKind } from "./types.ts";
 
 /**
@@ -59,4 +65,31 @@ export function renderLandResultBlockFromMessage(
 	input: LandResultMessageBlock,
 ): string {
 	return renderResultBlockFromMessage(caps, input);
+}
+
+export function renderLandConfirmationDetails(caps: Caps, message: string): string {
+	return message
+		.split("\n")
+		.map((line) => renderLandConfirmationLine(caps, line))
+		.join("\n");
+}
+
+function renderLandConfirmationLine(caps: Caps, line: string): string {
+	const style = landConfirmationLineStyle(line);
+	if (style === "headline") return bold(paint(caps, "accent", line));
+	if (style === undefined) return line;
+	return paint(caps, style, line);
+}
+
+/**
+ * CLI confirmation previews are finite, pre-confirmation text, so they use the CLI caps-aware palette
+ * directly. The Pi command stream has its own RenderTheme-based classifier in `command-stream.ts`
+ * because it renders live custom messages inside Pi instead of a Clinkr CLI confirmation prompt.
+ */
+function landConfirmationLineStyle(line: string): Intent | "headline" | undefined {
+	if (line.startsWith("Land ")) return "headline";
+	if (line.endsWith(":")) return "accent";
+	if (/^\s{2}Chunk \d+\/\d+/.test(line)) return "warn";
+	if (/^\s{2}\d+\./.test(line) || /^\s{4}\d+\./.test(line)) return "muted";
+	return undefined;
 }
