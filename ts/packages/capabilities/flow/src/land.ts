@@ -29,7 +29,10 @@ import {
 	presentBrief,
 	usage,
 } from "./land-stack/presentation.ts";
-import { renderLandResultBlockFromMessage } from "./land-stack/land-presentation.ts";
+import {
+	renderLandConfirmationDetails,
+	renderLandResultBlockFromMessage,
+} from "./land-stack/land-presentation.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./land/isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./land/post-landing-slot-cleanup.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
@@ -277,10 +280,16 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						},
 					},
 					waitForIdle: async () => {},
-					// CLI-only house-style result-block renderer (house-style §4). Wired only here, so the
-					// shared orchestration's `presentBrief`/`notify` stay plain in the Pi command-stream
-					// path — ANSI never leaks into `renderCommandStreamMessage`.
-					...(caps === undefined ? {} : { renderResultBlock: createCliResultBlockRenderer(caps) }),
+					// CLI-only house-style renderers. Wired only here, so the shared orchestration's
+					// `presentBrief`/`notify` stay plain in the Pi command-stream path — ANSI never leaks into
+					// `renderCommandStreamMessage` or non-interactive refusal text.
+					...(caps === undefined
+						? {}
+						: {
+								renderResultBlock: createCliResultBlockRenderer(caps),
+								renderConfirmationDetails: (message: string) =>
+									renderLandConfirmationDetails(caps, message),
+							}),
 				},
 				{ progressIo, ...(liveProgress === undefined ? {} : { liveProgress }) },
 			),

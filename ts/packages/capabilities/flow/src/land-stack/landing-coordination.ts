@@ -144,7 +144,8 @@ export async function confirmMainLanding(
 		});
 		return failure(landFailure);
 	}
-	const confirmed = await options.ctx.ui.confirm(options.title, options.details);
+	const details = options.ctx.renderConfirmationDetails?.(options.details) ?? options.details;
+	const confirmed = await options.ctx.ui.confirm(options.title, details);
 	if (confirmed) return completed();
 	const landFailure = landStackFailure(
 		options.cancellationMessage ?? "Cancelled before merge; no PRs were landed.",

@@ -1063,14 +1063,15 @@ describe("land-stack command scenarios", () => {
 		expect(confirmations).toEqual([]);
 		const message = notifications[0]?.message ?? "";
 		expect(message).toContain("Land 11 PRs in 2 chunks.");
-		expect(message).toContain("Total PRs: 11");
-		expect(message).toContain("Chunk size: 8");
-		expect(message).toContain("Chunks: 2");
-		expect(message).toContain(
-			"1. PRs 1-8: feature-1 -> feature-2 -> feature-3 -> feature-4 -> feature-5 -> feature-6 -> feature-7 -> feature-8",
-		);
-		expect(message).toContain("2. PRs 9-11: feature-9 -> feature-10 -> feature-11");
-		expect(message).toContain("This single confirmation covers the full chunked landing operation");
+		expect(message).toContain("Total PRs       11");
+		expect(message).toContain("Chunk size      8");
+		expect(message).toContain("Chunks          2");
+		expect(message).toContain("Stack path:\n  0. main\n  1. feature-1");
+		expect(message).toContain("Chunk 1/2 — PRs 1-8");
+		expect(message).toContain("    8. feature-8");
+		expect(message).toContain("Chunk 2/2 — PRs 9-11");
+		expect(message).toContain("    11. feature-11");
+		expect(message).toContain("One confirmation covers the full chunked landing operation");
 		expect(message).not.toContain("First chunk preflight");
 		expect(message).not.toContain("prompts remain explicit");
 		expect(
@@ -1170,9 +1171,9 @@ describe("land-stack command scenarios", () => {
 			"Land this stack in chunks?",
 		]);
 		expect(confirmations[0]?.message).toContain("Land 11 PRs in 2 chunks.");
-		expect(confirmations[0]?.message).toContain("Chunks: 2");
-		expect(confirmations[0]?.message).toContain("1. PRs 1-8");
-		expect(confirmations[0]?.message).toContain("2. PRs 9-11");
+		expect(confirmations[0]?.message).toContain("Chunks          2");
+		expect(confirmations[0]?.message).toContain("Chunk 1/2 — PRs 1-8");
+		expect(confirmations[0]?.message).toContain("Chunk 2/2 — PRs 9-11");
 		expect(confirmations[0]?.message).not.toContain("First chunk preflight");
 		expect(confirmations[0]?.message).not.toContain("prompts remain explicit");
 		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");

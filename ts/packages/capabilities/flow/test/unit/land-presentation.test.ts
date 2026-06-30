@@ -3,7 +3,10 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { renderLandResultBlock } from "../../src/land-stack/land-presentation.ts";
+import {
+	renderLandConfirmationDetails,
+	renderLandResultBlock,
+} from "../../src/land-stack/land-presentation.ts";
 
 const DIM = "\x1b[2m";
 
@@ -37,5 +40,26 @@ describe("renderLandResultBlock", () => {
 		});
 
 		expect(stripAnsi(block).split("\n")).toEqual(["✗ Cancelled before merge; no PRs were landed."]);
+	});
+});
+
+describe("renderLandConfirmationDetails", () => {
+	test("colorizes parseable chunked confirmation sections without changing the text", () => {
+		const message = [
+			"Land 11 PRs in 2 chunks.",
+			"",
+			"Summary:",
+			"  Chunks          2",
+			"",
+			"Chunks:",
+			"  Chunk 1/2 — PRs 1-8",
+			"    1. feature-1",
+		].join("\n");
+
+		const rendered = renderLandConfirmationDetails(caps(), message);
+
+		expect(stripAnsi(rendered)).toBe(message);
+		expect(rendered).toContain("\x1b[38;2;34;211;238mLand 11 PRs in 2 chunks.");
+		expect(rendered).toContain("\x1b[38;2;210;153;34m  Chunk 1/2 — PRs 1-8");
 	});
 });
