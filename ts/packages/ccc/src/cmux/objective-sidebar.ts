@@ -1,6 +1,6 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
-import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@sdl/exec";
+import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@sdl/core/command";
 import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "@sdl/cmux/types";

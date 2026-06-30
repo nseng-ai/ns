@@ -1,5 +1,9 @@
 import { NodeCommandExecApi } from "@sdl/exec";
-import { type CommandExecApi, type ExecOptions, outputListenerToExecCallbacks } from "@sdl/exec";
+import {
+	type CommandExecApi,
+	type ExecOptions,
+	outputListenerToExecCallbacks,
+} from "@sdl/core/command";
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "sdl-sdk";
 

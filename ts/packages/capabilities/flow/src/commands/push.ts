@@ -1,4 +1,4 @@
-import { commandSucceeded, type ExecResult } from "@sdl/exec";
+import { commandSucceeded, type ExecResult } from "@sdl/core/command";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import type { SdlExtensionApi } from "sdl-sdk";
 import type { GitErrorInfo, GitGateway } from "@sdl/git";

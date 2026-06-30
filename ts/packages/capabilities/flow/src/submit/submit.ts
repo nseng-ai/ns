@@ -6,7 +6,7 @@ import {
 	type ExecResult,
 	formatCommand,
 	outputListenerToExecCallbacks,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GitGateway } from "@sdl/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";

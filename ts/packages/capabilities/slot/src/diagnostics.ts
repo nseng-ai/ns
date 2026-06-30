@@ -7,7 +7,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	formatCommand,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "SDL_SLOT_DIAGNOSTIC_LOG";
 

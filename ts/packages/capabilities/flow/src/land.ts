@@ -1,6 +1,6 @@
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo } from "sdl-sdk";
-import { type ExecOutputListener, normalizeExecResult } from "@sdl/exec";
+import { type ExecOutputListener, normalizeExecResult } from "@sdl/core/command";
 import {
 	executeStackLanding,
 	landArgumentCompletions,

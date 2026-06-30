@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import { GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "../land-stack/constants.ts";
 import { exec, execGraphite } from "../land-stack/command-exec.ts";
 import {

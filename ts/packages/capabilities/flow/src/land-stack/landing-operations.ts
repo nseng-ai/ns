@@ -1,4 +1,4 @@
-import { type ExecResult, formatCommand } from "@sdl/exec";
+import { type ExecResult, formatCommand } from "@sdl/core/command";
 import { GRAPHITE_COMMAND_NAME } from "@sdl/graphite/branch";
 import { collectSubmitRestackRequirements } from "sdl-land/api";
 import {

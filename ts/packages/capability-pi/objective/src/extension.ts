@@ -13,7 +13,7 @@ import {
 	objectiveSelectionContextFromCommandContext,
 } from "./selection.ts";
 
-import type { ExecResult } from "@sdl/exec";
+import type { ExecResult } from "@sdl/core/command";
 import {
 	completeObjectiveListArgs,
 	createObjectiveClient,
@@ -44,7 +44,7 @@ import type {
 } from "@sdl/pi/runtime/types";
 
 export type { CommandContext, NotifyLevel, SessionStartContext } from "@sdl/pi/runtime/types";
-export type { ExecResult } from "@sdl/exec";
+export type { ExecResult } from "@sdl/core/command";
 export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,

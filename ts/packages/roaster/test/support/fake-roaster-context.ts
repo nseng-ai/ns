@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/command";
 import type { GitGateway } from "@sdl/git";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/exec/testing";

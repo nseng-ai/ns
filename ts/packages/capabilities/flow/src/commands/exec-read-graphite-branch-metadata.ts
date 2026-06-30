@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,

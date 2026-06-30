@@ -6,7 +6,7 @@ import {
 	type WorktreeCommandResult,
 } from "@sdl/capability-kit/pending-worktree";
 import { createSdlCliExecAdapter, execSdlCommand } from "@sdl/capability-kit/git";
-import { formatCommandDetails, formatCommandError, type ExecResult } from "@sdl/exec";
+import { formatCommandDetails, formatCommandError, type ExecResult } from "@sdl/core/command";
 import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
 import type { SdlExtensionApi } from "sdl-sdk";
 

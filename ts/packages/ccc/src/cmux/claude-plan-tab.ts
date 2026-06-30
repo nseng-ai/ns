@@ -1,4 +1,4 @@
-import { formatShellArg } from "@sdl/exec";
+import { formatShellArg } from "@sdl/core/command";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	launchFocusedCmuxTab,

@@ -1,4 +1,4 @@
-import { formatOutputSection } from "@sdl/exec";
+import { formatOutputSection } from "@sdl/core/command";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
 import { parseFlatHandoffSlug } from "@sdl/handoff/api";
 import type { ExtensionAPI } from "./runtime-types.ts";

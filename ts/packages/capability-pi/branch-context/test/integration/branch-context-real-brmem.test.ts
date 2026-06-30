@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { NodeCommandExecApi } from "@sdl/exec";
-import type { ExecOptions, ExecResult } from "@sdl/exec";
+import type { ExecOptions, ExecResult } from "@sdl/core/command";
 import { copyExecOptionsWithout } from "@sdl/exec/testing";
 import { createTempGitRepo } from "@sdl/git/testing";
 import { createTempDirTracker } from "@sdl/test-kit";

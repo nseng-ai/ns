@@ -5,7 +5,7 @@ import { z } from "zod";
 import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { defineCli } from "@sdl/cli-runtime";
 import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/command";
 
 import {
 	commitAutobranchCheckpointMessage,

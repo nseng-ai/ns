@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
     "@sdl/objective": "workspace:*",
     "@sdl/pi": "workspace:*",
     "@sdl/test-kit": "workspace:*",

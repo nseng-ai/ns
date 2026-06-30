@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "sdl-land/api";
 import type {
 	LandContext,

@@ -9,7 +9,7 @@ import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 function formatImplBranchContextCommand(key: string): string {
 	return `/sdl:branch-context:impl-attached-plan ${key}`;
 }
-import type { StdinCapableCommandExecApi } from "@sdl/exec";
+import type { StdinCapableCommandExecApi } from "@sdl/core/command";
 import { withTempRepoSkill } from "@sdl/test-kit";
 import { type CccSlotDispatchPlanOptions } from "@sdl/ccc/api";
 import registerCccExtension, {

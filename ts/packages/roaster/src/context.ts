@@ -1,5 +1,5 @@
 import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/command";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 

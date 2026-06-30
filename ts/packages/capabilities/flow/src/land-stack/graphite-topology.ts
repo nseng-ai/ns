@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
 	detectGraphiteForkViolations,

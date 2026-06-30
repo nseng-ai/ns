@@ -141,11 +141,22 @@
     `@sdl/core/text-repair`, `@sdl/core/brmem-cli`, and `@sdl/core/testing`; `just ts-deps-check`
     passed.
 
-- [ ] Reorganize capability packages as the final cleanup slice after the gateway/service homes are
+- [x] Reorganize capability packages as the final cleanup slice after the gateway/service homes are
       settled: align capability package/import layout around the final `@sdl/capability-kit` seams,
       SDK-provided services, and capability APIs; remove legacy organization imposed by the old
       `@sdl/core` doors without redesigning capability behavior. Reference:
       `references/package-layout-and-core-inventory.md`.
+  - Evidence: current-source inventory found no live imports of deleted raw-I/O `@sdl/core/*` doors
+    and no private cross-package `src`/`test`/`dist` imports in the target capability and
+    capability-adjacent areas. The cleanup repointed pure command contracts/types and command-formatting
+    helpers from the standalone real exec backend package (`@sdl/exec`) to the pure utility home
+    (`@sdl/core/command`) across Flow, Slot, CCC, Roaster, Worktree Status, and Pi capability packages,
+    while leaving actual real execution construction/invocation on `@sdl/exec`. Package manifests were
+    tightened where `@sdl/exec` became unused. Remaining direct backend imports are classified as
+    context/CLI wiring, ADR-selected standalone backend surfaces, concrete host adapter defaults, or
+    test fakes. Validation: `just ts-deps-check`, `just ts-format-check`, `just ts-lint`,
+    `just ts-check`, `just ts-test`, `just ts-test-integration`,
+    `just ts-test-typescript-style-guard`, and `just dprint-check`.
 
 ## Parked
 

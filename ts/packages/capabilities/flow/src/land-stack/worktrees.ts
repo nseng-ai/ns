@@ -1,7 +1,7 @@
 import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/command";
 import { parseGitWorktreePorcelain } from "@sdl/capability-kit/git";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";

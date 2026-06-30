@@ -3,7 +3,7 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@sdl/exec";
+} from "@sdl/core/command";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
