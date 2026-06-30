@@ -1,0 +1,330 @@
+export type LandingTarget = StackLandingTarget | IsolatedPullRequestLandingTarget;
+
+export interface StackLandingTarget {
+	readonly type: "stack";
+	readonly landingBranchLimit?: number;
+}
+
+export interface IsolatedPullRequestLandingTarget {
+	readonly type: "isolated-pull-request";
+	readonly branchOrNumber: string;
+}
+
+export interface LandingRequest {
+	readonly cwd: string;
+	readonly target: LandingTarget;
+	readonly mode: LandingMode;
+	readonly preflight: LandingPreflightMode;
+	readonly cleanup: LandingCleanupMode;
+}
+
+export type LandingMode = "execute" | "dry-run";
+
+export interface LandingPreflightMode {
+	readonly allowSubmitRequiredState: boolean;
+}
+
+export interface LandingCleanupMode {
+	readonly shouldFreeSlot: boolean;
+	readonly shouldForceCleanup: boolean;
+}
+
+export interface LandContext {
+	readonly git: LandGitGateway;
+	readonly graphite: LandGraphiteGateway;
+	readonly github: LandGithubPrFactsGateway;
+	readonly worktrees: LandWorktreeSlotFactsGateway;
+}
+
+export type LandResult<T> =
+	| { readonly type: "success"; readonly value: T }
+	| { readonly type: "failure"; readonly failure: LandingFailure };
+
+export type LandOutcome =
+	| { readonly type: "completed" }
+	| { readonly type: "failure"; readonly failure: LandingFailure };
+
+export type LandingPhase =
+	| "request-validation"
+	| "repo-discovery"
+	| "stack-shape"
+	| "preflight"
+	| "submit-preparation"
+	| "dry-run"
+	| "merge"
+	| "descendant-maintenance"
+	| "cleanup";
+
+export type LandingFailure =
+	| LandingBoundaryFailure
+	| LandingDomainFailure
+	| LandingNotImplementedFailure;
+
+export interface LandingBoundaryFailure {
+	readonly type: "boundary";
+	readonly phase: LandingPhase;
+	readonly source: "git" | "graphite" | "github" | "worktree" | "slot";
+	readonly code: string;
+	readonly message: string;
+	readonly displayCommand?: string;
+	readonly details?: Readonly<Record<string, unknown>>;
+}
+
+export interface LandingDomainFailure {
+	readonly type: "domain";
+	readonly phase: LandingPhase;
+	readonly reason: LandingDomainFailureReason;
+	readonly message: string;
+	readonly failedBranch?: string;
+	readonly failedPrNumber?: number;
+	readonly suggestedAction?: string;
+}
+
+export type LandingDomainFailureReason =
+	| "nothing-to-land"
+	| "dirty-worktree"
+	| "operation-in-progress"
+	| "local-branch-missing"
+	| "forked-stack"
+	| "pull-request-not-open"
+	| "pull-request-draft"
+	| "pull-request-head-mismatch"
+	| "pull-request-base-mismatch"
+	| "manual-worktree-conflict"
+	| "descendant-maintenance-blocked";
+
+export interface LandingNotImplementedFailure {
+	readonly type: "not-implemented";
+	readonly phase: LandingPhase;
+	readonly message: string;
+}
+
+export interface LandingOutcome {
+	readonly repoRoot: string;
+	readonly target: LandingTarget;
+	readonly mode: LandingMode;
+	readonly phases: readonly LandingPhaseOutcome[];
+	readonly plan?: LandingPlan;
+	readonly landedChunks: readonly LandedChunk[];
+	readonly cleanup: LandingCleanupOutcome;
+}
+
+export type LandingPhaseOutcome =
+	| { readonly type: "completed"; readonly phase: LandingPhase }
+	| { readonly type: "skipped"; readonly phase: LandingPhase; readonly reason: string }
+	| { readonly type: "failed"; readonly phase: LandingPhase; readonly failure: LandingFailure };
+
+export interface LandingCleanupOutcome {
+	readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
+	readonly freedSlots: readonly ManagedSlotWorktree[];
+}
+
+export interface StackSnapshot {
+	readonly trunk: string;
+	readonly current: string;
+	readonly actualCurrentBranch: string;
+	readonly landingTargetBranch: string;
+	readonly landingBranches: readonly string[];
+	readonly remainingLandingBranches: readonly string[];
+	readonly descendantBranches: readonly string[];
+	readonly warnings: readonly LandingWarning[];
+}
+
+export interface LandingShape {
+	readonly repoRoot: string;
+	readonly current: string;
+	readonly trunk: string;
+	readonly metadataDbPath: string;
+	readonly stack: StackSnapshot;
+}
+
+export interface LandingPlan {
+	readonly repoRoot: string;
+	readonly metadataDbPath: string;
+	readonly stack: StackSnapshot;
+	readonly branchPlans: readonly BranchLandingPlan[];
+	readonly preflight: LandingPreflightReport;
+	readonly prSubmitRequirements: readonly PrSubmitRequirement[];
+	readonly submitRestackRequirements: readonly RestackRequirement[];
+	readonly managedSlotConflicts: readonly ManagedSlotWorktree[];
+	readonly descendantMaintenance: DescendantMaintenancePlan;
+}
+
+export interface BranchLandingPlan {
+	readonly branch: string;
+	readonly localSha: string;
+	readonly pr: PullRequestFacts;
+}
+
+export interface LandingPreflightReport {
+	readonly status: "ready" | "submit-required" | "blocked";
+	readonly checkedBranches: readonly string[];
+	readonly warnings: readonly LandingWarning[];
+	readonly failures: readonly LandingDomainFailure[];
+}
+
+export interface PullRequestFacts {
+	readonly number: number;
+	readonly title: string;
+	readonly body: string | null;
+	readonly state: string;
+	readonly isDraft: boolean;
+	readonly headRefName: string;
+	readonly baseRefName: string;
+	readonly headRefOid: string;
+	readonly mergeStateStatus?: string;
+	readonly url?: string;
+	readonly mergedAt?: string | null;
+}
+
+export interface PrSubmitRequirement {
+	readonly branch: string;
+	readonly prNumber: number;
+	readonly localSha: string;
+	readonly prHeadSha: string;
+	readonly baseRefName: string;
+	readonly expectedBaseRefName?: string;
+	readonly reasons: readonly string[];
+}
+
+export interface RestackRequirement {
+	readonly branch: string;
+	readonly parent: string;
+}
+
+export type WorktreeConflict =
+	| CurrentWorktreeConflict
+	| ManagedSlotWorktree
+	| ManualWorktreeConflict;
+
+export interface CurrentWorktreeConflict {
+	readonly type: "current";
+	readonly branch: string;
+	readonly path: string;
+}
+
+export interface ManagedSlotWorktree {
+	readonly type: "managed-slot";
+	readonly branch: string;
+	readonly path: string;
+	readonly slotName?: string;
+}
+
+export interface ManualWorktreeConflict {
+	readonly type: "manual-worktree";
+	readonly branch: string;
+	readonly path: string;
+}
+
+export type DescendantMaintenancePlan =
+	| { readonly type: "none"; readonly branches: readonly [] }
+	| { readonly type: "auto"; readonly branches: readonly string[]; readonly targetBranch: string }
+	| {
+			readonly type: "skipped";
+			readonly branches: readonly string[];
+			readonly targetBranch?: string;
+			readonly conflicts: readonly WorktreeConflict[];
+			readonly reason: string;
+	  };
+
+export interface LandedChunk {
+	readonly index: number;
+	readonly landingTargetBranch: string;
+	readonly landed: readonly LandedPullRequest[];
+}
+
+export interface LandedPullRequest {
+	readonly branch: string;
+	readonly number: number;
+	readonly title: string;
+	readonly url?: string;
+}
+
+export interface RetainedLocalBranchCleanup {
+	readonly branch: string;
+	readonly path: string;
+}
+
+export interface LandingWarning {
+	readonly level: "warning" | "info";
+	readonly message: string;
+	readonly suggestedAction?: string;
+}
+
+export interface LandGitGateway {
+	resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>>;
+	currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+	workingTreeStatus(request: { readonly repoRoot: string }): Promise<LandResult<WorkingTreeStatus>>;
+	localBranchExists(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandOutcome>;
+	localBranchSha(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandResult<string>>;
+	listLocalBranches(request: {
+		readonly repoRoot: string;
+	}): Promise<LandResult<readonly LocalBranchTip[]>>;
+	branchContainsParent(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly parent: string;
+	}): Promise<LandResult<boolean>>;
+}
+
+export interface WorkingTreeStatus {
+	readonly isClean: boolean;
+	readonly inProgressOperation?: "merge" | "cherry-pick" | "revert" | "rebase";
+}
+
+export interface LocalBranchTip {
+	readonly name: string;
+	readonly sha: string;
+}
+
+export interface LandGraphiteGateway {
+	trunk(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+	metadataDbPath(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
+	stackShape(request: {
+		readonly repoRoot: string;
+		readonly metadataDbPath: string;
+		readonly current: string;
+		readonly trunk: string;
+		readonly liveLocalBranches: readonly string[];
+	}): Promise<LandResult<StackSnapshot>>;
+	prepareSubmitUpdate(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandOutcome>;
+	prepareRestackForSubmit(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandOutcome>;
+}
+
+export interface LandGithubPrFactsGateway {
+	pullRequestFacts(request: {
+		readonly repoRoot: string;
+		readonly branchOrNumber: string;
+	}): Promise<LandResult<PullRequestFacts>>;
+}
+
+export interface LandWorktreeSlotFactsGateway {
+	worktrees(request: { readonly repoRoot: string }): Promise<LandResult<readonly WorktreeEntry[]>>;
+	classifyWorktree(request: {
+		readonly repoRoot: string;
+		readonly path: string;
+		readonly branch?: string;
+	}): Promise<LandResult<WorktreeClassification>>;
+}
+
+export interface WorktreeEntry {
+	readonly path: string;
+	readonly branch?: string;
+}
+
+export type WorktreeClassification =
+	| { readonly type: "current" }
+	| { readonly type: "managed-slot"; readonly slotName: string }
+	| { readonly type: "manual-worktree" };
