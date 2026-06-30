@@ -33,7 +33,11 @@ interface CommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?(key: string, lines: string[] | undefined): void;
+		setWidget?(
+			key: string,
+			lines: string[] | undefined,
+			options?: { placement?: "aboveEditor" | "belowEditor" },
+		): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -69,6 +73,7 @@ interface ChildProgressUpdate {
 	iteration: number;
 	totalIterations: number;
 	objective: string;
+	requestedModel?: string;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	stderrTail?: string;
 }
@@ -431,17 +436,13 @@ function compactWidgetText(text: string): string {
 	return `${compacted.slice(0, MAX_WIDGET_LINE_CHARS - 1)}…`;
 }
 
-function formatChildProgressStatus(update: ChildProgressUpdate): string {
-	const { progress } = update.snapshot;
-	const tool = progress.currentTool === undefined ? "" : `, tool ${progress.currentTool}`;
-	return `child iteration ${update.iteration}/${update.totalIterations}: turn ${progress.turnCount}, tools ${progress.toolCount}${tool}…`;
-}
-
 function formatChildProgressWidgetLines(update: ChildProgressUpdate): string[] {
 	const { progress, activity } = update.snapshot;
 	const lines = [
 		`/objective:autopilot ${update.iteration}/${update.totalIterations}`,
 		`objective: ${update.objective}`,
+		"child process: subagent",
+		`model: ${formatChildModel(update)}`,
 		`child: ${progress.state}; turns/tools: ${progress.turnCount}/${progress.toolCount}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
 	];
 	if (progress.currentTool !== undefined) lines.push(`current tool: ${progress.currentTool}`);
@@ -456,9 +457,16 @@ function formatChildProgressWidgetLines(update: ChildProgressUpdate): string[] {
 	return lines;
 }
 
+function formatChildModel(update: ChildProgressUpdate): string {
+	const launch = update.snapshot.progress.launch;
+	if (launch?.model !== undefined) return `${launch.model.provider}/${launch.model.id}`;
+	if (launch?.requestedModel !== undefined) return `requested ${launch.requestedModel}`;
+	if (update.requestedModel !== undefined) return `requested ${update.requestedModel}`;
+	return "pending";
+}
+
 function showChildProgress(ctx: CommandContext, update: ChildProgressUpdate): void {
-	ctx.ui.setStatus(STATUS_KEY, formatChildProgressStatus(update));
-	ctx.ui.setWidget?.(STATUS_KEY, formatChildProgressWidgetLines(update));
+	ctx.ui.setWidget?.(STATUS_KEY, formatChildProgressWidgetLines(update), { placement: "aboveEditor" });
 }
 
 async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
@@ -473,7 +481,7 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 
 	sendCommandProgressOrNotify({ host: pi, ctx, message: "Checking repository for /objective:autopilot…" });
 	await ctx.waitForIdle();
-	ctx.ui.setStatus(STATUS_KEY, "checking repository…");
+	ctx.ui.setWidget?.(STATUS_KEY, ["/objective:autopilot", "checking repository…"], { placement: "aboveEditor" });
 	try {
 		let startingBranch = await assertInitialGuards(pi, ctx, args.objective);
 		const summaries: string[] = [];
@@ -483,13 +491,23 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 				ctx,
 				message: `Starting objective-autopilot child iteration ${iteration}/${args.iterations}…`,
 			});
-			ctx.ui.setStatus(STATUS_KEY, `child iteration ${iteration}/${args.iterations}…`);
-			ctx.ui.setWidget?.(STATUS_KEY, [`/objective:autopilot ${iteration}/${args.iterations}`, `objective: ${args.objective}`, "child: starting…"]);
+			ctx.ui.setWidget?.(
+				STATUS_KEY,
+				[
+					`/objective:autopilot ${iteration}/${args.iterations}`,
+					`objective: ${args.objective}`,
+					"child process: subagent",
+					`model: ${args.model === undefined ? "pending" : `requested ${args.model}`}`,
+					"child: starting…",
+				],
+				{ placement: "aboveEditor" },
+			);
 			const child = await runChild(ctx.cwd, buildChildPrompt(args, iteration, startingBranch), args.model, (snapshot, stderrTail) => {
 				showChildProgress(ctx, {
 					iteration,
 					totalIterations: args.iterations,
 					objective: args.objective,
+					...(args.model === undefined ? {} : { requestedModel: args.model }),
 					snapshot,
 					...(stderrTail === undefined ? {} : { stderrTail }),
 				});
