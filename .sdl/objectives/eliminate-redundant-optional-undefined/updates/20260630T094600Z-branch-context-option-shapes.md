@@ -27,16 +27,16 @@ Preserved/deferred:
 
 Metric scorecard:
 
-| Scope | Metric | Before | After |
-| --- | --- | ---: | ---: |
-| `ts` | Raw optional-undefined properties | 381 | 355 |
-| `ts` | Typed explicit-undefined contracts | 83 | 83 |
-| `ts` | Legacy preserve markers | 0 | 0 |
-| `ts` | Undefined-normalization/check lines | 2329 | 2332 |
-| `ts/packages/branch-context` | Raw optional-undefined properties | 27 | 1 |
-| `ts/packages/branch-context` | Typed explicit-undefined contracts | 0 | 0 |
-| `ts/packages/branch-context` | Legacy preserve markers | 0 | 0 |
-| `ts/packages/branch-context` | Undefined-normalization/check lines | 63 | 66 |
+| Scope                        | Metric                              | Before | After |
+| ---------------------------- | ----------------------------------- | -----: | ----: |
+| `ts`                         | Raw optional-undefined properties   |    381 |   355 |
+| `ts`                         | Typed explicit-undefined contracts  |     83 |    83 |
+| `ts`                         | Legacy preserve markers             |      0 |     0 |
+| `ts`                         | Undefined-normalization/check lines |   2329 |  2332 |
+| `ts/packages/branch-context` | Raw optional-undefined properties   |     27 |     1 |
+| `ts/packages/branch-context` | Typed explicit-undefined contracts  |      0 |     0 |
+| `ts/packages/branch-context` | Legacy preserve markers             |      0 |     0 |
+| `ts/packages/branch-context` | Undefined-normalization/check lines |     63 |    66 |
 
 The undefined-check count rose by three due to new conditional omission builders that prevent present-key `undefined` after narrowing.
 
