@@ -46,13 +46,38 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 	let nextId = 0;
 	const scheduledTimers: ManualScheduledTimerState[] = [];
 
-	function runTimer(timer: ManualScheduledTimerState): void {
-		timer.hasFired = true;
-		currentMs = timer.dueMs;
-		timer.callback();
-		if (timer.kind === "interval" && !timer.isCancelled) {
-			timer.hasFired = false;
-			timer.dueMs = validateFiniteMs(currentMs + timer.intervalMs, "dueMs");
+	function timerById(id: number): ManualScheduledTimerState | undefined {
+		return scheduledTimers.find((timer) => timer.id === id);
+	}
+
+	function replaceTimer(timer: ManualScheduledTimerState): void {
+		const index = scheduledTimers.findIndex((scheduledTimer) => scheduledTimer.id === timer.id);
+		if (index === -1) return;
+		scheduledTimers[index] = timer;
+	}
+
+	function cancelTimer(id: number): void {
+		const timer = timerById(id);
+		if (timer === undefined) return;
+		replaceTimer({ ...timer, isCancelled: true });
+	}
+
+	function runTimer(timerId: number): void {
+		const timer = timerById(timerId);
+		if (timer === undefined || !isPendingTimer(timer)) return;
+
+		const firedTimer = { ...timer, hasFired: true };
+		replaceTimer(firedTimer);
+		currentMs = firedTimer.dueMs;
+		firedTimer.callback();
+
+		const latestTimer = timerById(timerId);
+		if (latestTimer?.kind === "interval" && !latestTimer.isCancelled) {
+			replaceTimer({
+				...latestTimer,
+				dueMs: validateFiniteMs(currentMs + latestTimer.intervalMs, "dueMs"),
+				hasFired: false,
+			});
 		}
 	}
 
@@ -79,6 +104,7 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 			return id;
 		},
 		pushTimer: (timer) => scheduledTimers.push(timer),
+		cancelTimer,
 	});
 
 	return {
@@ -93,7 +119,7 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 			const targetMs = validateFiniteMs(currentMs + validateDeltaMs(deltaMs), "targetMs");
 			let nextTimer = nextPendingTimer();
 			while (nextTimer !== undefined && nextTimer.dueMs <= targetMs) {
-				runTimer(nextTimer);
+				runTimer(nextTimer.id);
 				nextTimer = nextPendingTimer();
 			}
 			currentMs = targetMs;
@@ -101,7 +127,7 @@ export function createManualTimerHarness(startMs = 0): ManualTimerHarness {
 		runNextTimer() {
 			const timer = nextPendingTimer();
 			if (timer === undefined) return false;
-			runTimer(timer);
+			runTimer(timer.id);
 			return true;
 		},
 		pendingTimerCount() {
@@ -130,9 +156,7 @@ class ManualTimerSchedulerImpl extends TimerScheduler {
 		};
 		this.options.pushTimer(timer);
 		return {
-			cancel() {
-				timer.isCancelled = true;
-			},
+			cancel: () => this.options.cancelTimer(timer.id),
 		};
 	}
 
@@ -149,9 +173,7 @@ class ManualTimerSchedulerImpl extends TimerScheduler {
 		};
 		this.options.pushTimer(timer);
 		return {
-			cancel() {
-				timer.isCancelled = true;
-			},
+			cancel: () => this.options.cancelTimer(timer.id),
 		};
 	}
 }
@@ -160,6 +182,7 @@ interface ManualTimerSchedulerImplOptions {
 	nowMs(): number;
 	allocateId(): number;
 	pushTimer(timer: ManualScheduledTimerState): void;
+	cancelTimer(id: number): void;
 }
 
 type ManualScheduledTimerState = ManualTimeoutState | ManualIntervalState;
@@ -167,9 +190,9 @@ type ManualScheduledTimerState = ManualTimeoutState | ManualIntervalState;
 interface ManualTimerStateBase {
 	readonly id: number;
 	readonly callback: () => void;
-	dueMs: number;
-	isCancelled: boolean;
-	hasFired: boolean;
+	readonly dueMs: number;
+	readonly isCancelled: boolean;
+	readonly hasFired: boolean;
 }
 
 interface ManualTimeoutState extends ManualTimerStateBase {

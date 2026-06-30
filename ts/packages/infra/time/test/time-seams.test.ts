@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import type { ScheduledTimer } from "@sdl/core/timers";
 import {
 	createManualClock,
 	createManualTimerHarness,
@@ -105,6 +106,21 @@ describe("manual timer scheduler", () => {
 
 		manual.advanceMs(5);
 		timer.cancel();
+		manual.advanceMs(20);
+
+		expect(events).toEqual(["tick"]);
+		expect(manual.pendingTimerCount()).toBe(0);
+	});
+
+	test("does not reschedule intervals cancelled during their callback", () => {
+		const manual = createManualTimerScheduler();
+		const events: string[] = [];
+		let timer: ScheduledTimer | undefined;
+		timer = manual.timers.setInterval(() => {
+			events.push("tick");
+			timer?.cancel();
+		}, 5);
+
 		manual.advanceMs(20);
 
 		expect(events).toEqual(["tick"]);
