@@ -1,4 +1,7 @@
-import { IMPL_BRANCH_CONTEXT_COMMAND_NAME } from "@sdl/pi/commands";
+import {
+	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
+} from "@sdl/pi/commands";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
@@ -67,6 +70,19 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
+		surface: IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
+		workflow: "Launch a fresh current-branch implementation session from a saved plan",
+		parity: "WAIVED",
+		fallback:
+			"Manually open /new on the current branch and paste/use the saved plan content, or pass an explicit saved plan path to the Pi command when available.",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@sdl/branch-context-pi",
+		sourceModule: "branch-context-extension",
+		notes:
+			"Saved-plan selection has capability coverage, but the fresh Pi implementation-session launch is Pi-specific orchestration.",
+	},
+	{
+		kind: "command",
 		surface: IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 		workflow: "Implement from the attached branch-context plan",
 		parity: "FULL",
@@ -95,16 +111,25 @@ export {
 	CREATE_BRANCH_CONTEXT_USAGE,
 	GT_UPSTACK_IMPL_COMMAND_NAME,
 	GT_UPSTACK_IMPL_USAGE,
+	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
+	IMPL_CURRENT_SAVED_PLAN_USAGE,
+	buildImplCurrentSavedPlanPrompt,
 	deriveCreateBranchContextPreview,
+	deriveImplCurrentSavedPlanPreview,
 	formatCreateBranchContextPreview,
+	formatImplCurrentSavedPlanEvidence,
 	handleCreateBranchContextCommand,
 	handleImplBranchContextCommand,
 	handleGtUpstackImplCommand,
+	handleImplCurrentSavedPlanCommand,
 	parseCreateBranchContextArgs,
+	parseImplCurrentSavedPlanArgs,
 	resolveCreateBranchContextPlanFile,
 	resolveCreateBranchContextPreview,
 	type CreateBranchContextArgs,
 	type CreateBranchContextPreview,
+	type ImplCurrentSavedPlanArgs,
+	type ImplCurrentSavedPlanPreview,
 } from "./from-plan-commands.ts";
 export type {
 	BranchContextExtensionOptions,

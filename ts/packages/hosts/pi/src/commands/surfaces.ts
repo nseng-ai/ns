@@ -9,6 +9,7 @@ export function formatImplBranchContextCommand(key: string): string {
 
 export const WRITE_PLAN_COMMAND_NAME = "sdl:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "sdl:plan:grill-and-save";
+export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "sdl:plan:impl-current";
 
 export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"branch-context",

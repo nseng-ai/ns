@@ -24,11 +24,13 @@ describe("enriched-plan-commands", () => {
 			"sdl:branch-context:impl-attached-plan",
 			"sdl:branch-context:upstack-impl-from-plan",
 			"sdl:plan:grill-and-save",
+			"sdl:plan:impl-current",
 			"sdl:plan:save",
 		]);
 		expect([...pi.commands.keys()].filter((name) => name.startsWith("sdl:plan:"))).toEqual([
 			"sdl:plan:save",
 			"sdl:plan:grill-and-save",
+			"sdl:plan:impl-current",
 		]);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
