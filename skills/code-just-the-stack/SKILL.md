@@ -7,7 +7,7 @@ allowed-tools:
   - "Bash(git branch*)"
   - "Bash(gt *)"
   - "Bash(just *)"
-  - "Bash(sdl cp*)"
+  - "Bash(sdl flow cp*)"
   - "Bash(slot *)"
   - Read
   - Edit
@@ -27,7 +27,7 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
 - Use `graphite` for the Graphite navigation mental model.
 - For `just` failures, follow the `code-just-fix` posture: fix the root cause honestly, use formatter/autofix recipes for mechanical lint/format failures, and never skip, weaken, or suppress tests/diagnostics.
 - For conflict-heavy or ambiguous restacks, use `code-gt-restack-resolve` or `code-resolve-merge-conflicts`; do not invent conflict policy here.
-- For separate fix commits, use `sdl cp`; do not hand-roll checkpoint commits or amend/squash unless the user explicitly asks for a different commit mode.
+- For separate fix commits, use `sdl flow cp`; do not hand-roll checkpoint commits or amend/squash unless the user explicitly asks for a different commit mode.
 
 ## Workflow
 
@@ -45,7 +45,7 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
    - Run `just`.
    - If `just` passes, record that branch as passed.
    - If `just` fails, inspect the failure, edit the root cause, and rerun `just`. Stop if the same gate fails twice after reasonable local fixes, or if the fix requires a product/design choice.
-   - When a branch required edits and now passes, run `sdl cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `sdl cp` refuses because the worktree is clean, record that no commit was needed; for any other refusal, stop and report stdout/stderr.
+   - When a branch required edits and now passes, run `sdl flow cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `sdl flow cp` refuses because the worktree is clean, record that no commit was needed; for any other refusal, stop and report stdout/stderr.
 
 4. **Restack after every fix commit**
    - After a fix commit, run `gt restack --no-interactive`. If this installed Graphite rejects `--no-interactive` for `gt restack`, retry once as `gt restack`; stop if Graphite opens or requires an interactive prompt.
@@ -67,7 +67,7 @@ Invocation authorizes validating, fixing, restacking, and `gt submit --no-intera
 Report a branch-by-branch table or bullets with:
 
 - status for each branch: `passed`, `fixed`, `committed`, `restacked`, or `blocked`;
-- any `sdl cp` commit summaries;
+- any `sdl flow cp` commit summaries;
 - the `gt submit --no-interactive` result and any PR updates Graphite reports;
 - the current branch at the end;
 - unresolved blockers or user decisions needed.
