@@ -114,7 +114,7 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 				const evidence = await deriveHandoffContentSlug(pi, {
 					content: content.content,
 					cwd: ctx.cwd,
-					signal,
+					...(signal === undefined ? {} : { signal }),
 				});
 				const key = handoffSlugToKey(evidence.slug);
 				return {

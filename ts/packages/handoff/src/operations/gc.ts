@@ -109,7 +109,7 @@ export function renderGc(
 async function loadAllSummaries(ctx: HandoffCliContext) {
 	const summaries = await listHandoffSummaries(
 		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
-		{ branch: undefined, shouldIncludeDeleted: true },
+		{ shouldIncludeDeleted: true },
 	);
 	if (summaries.type === "error") return failure(summaries.error.code, summaries.error.message);
 	return { type: "resolved" as const, value: summaries.value };

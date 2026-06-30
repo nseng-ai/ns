@@ -21,7 +21,7 @@ export type HandoffContentSlugEvidence = SlugModelEvidence;
 
 export async function deriveHandoffContentSlug(
 	host: Pick<ExtensionAPI, "exec">,
-	input: { content: string; cwd: string; signal?: AbortSignal | undefined },
+	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
 	const prompt = buildHandoffContentSlugPrompt(input.content);
 	const result = await deriveSlugWithModel({

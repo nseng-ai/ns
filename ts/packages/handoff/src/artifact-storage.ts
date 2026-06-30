@@ -50,7 +50,7 @@ export interface HandoffStorageDeps {
 }
 
 export interface ListHandoffSummariesOptions {
-	branch?: string | undefined;
+	branch?: string;
 	shouldIncludeDeleted: boolean;
 }
 
