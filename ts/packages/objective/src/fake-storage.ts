@@ -11,19 +11,19 @@ import type {
 
 export interface FakeObjectiveRecordOptions {
 	slug: string;
-	objectiveMd?: string | null | undefined;
-	roadmapMd?: string | null | undefined;
-	orientationMd?: string | null | undefined;
-	updates?: Readonly<Record<string, string>> | undefined;
-	isClosed?: boolean | undefined;
+	objectiveMd?: string | null;
+	roadmapMd?: string | null;
+	orientationMd?: string | null;
+	updates?: Readonly<Record<string, string>>;
+	isClosed?: boolean;
 }
 
 export interface FakeObjectiveStorageGatewayOptions {
-	files?: Readonly<Record<string, string>> | undefined;
-	directories?: readonly string[] | undefined;
-	records?: readonly FakeObjectiveRecordOptions[] | undefined;
-	failures?: Readonly<Record<string, ObjectiveStorageError>> | undefined;
-	unreadableFiles?: Readonly<Record<string, string>> | undefined;
+	files?: Readonly<Record<string, string>>;
+	directories?: readonly string[];
+	records?: readonly FakeObjectiveRecordOptions[];
+	failures?: Readonly<Record<string, ObjectiveStorageError>>;
+	unreadableFiles?: Readonly<Record<string, string>>;
 }
 
 export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
