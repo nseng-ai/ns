@@ -368,13 +368,14 @@ export function buildWriteSavedPlanFileTool(
 					phase: "writing-file",
 					slug: slugEvidence.slug,
 				});
+				const planStoreRoot = resolvePlanStoreRootOption(options);
 				const evidence = await operations.writeSavedPlanFile(
 					pi,
 					buildSavedPlanFileParams(toolParams, slugEvidence.slug),
 					{
 						cwd: ctx.cwd,
-						signal,
-						planStoreRoot: resolvePlanStoreRootOption(options),
+						...(signal === undefined ? {} : { signal }),
+						...(planStoreRoot === undefined ? {} : { planStoreRoot }),
 					},
 				);
 				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };

@@ -1136,10 +1136,11 @@ async function resolveSelectedSavedPlanFile(
 	options: BranchContextExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
 	const operations = resolveBranchContextOperations(options);
+	const planStoreRoot = resolvePlanStoreRootOption(options);
 	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,
-		planStoreRoot: resolvePlanStoreRootOption(options),
-		explicitPath: args.filePath,
+		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
+		...(args.filePath === undefined ? {} : { explicitPath: args.filePath }),
 		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		shouldFallbackToLatest: true,
 	});

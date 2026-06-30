@@ -261,7 +261,10 @@ async function resolveCurrentCheckout(
 ): Promise<CurrentCheckout | { error: string }> {
 	let directory: PlanStoreDirectoryEvidence;
 	try {
-		directory = await resolvePlanStoreDirectory(pi, { cwd, planStoreRoot: options.planStoreRoot });
+		directory = await resolvePlanStoreDirectory(pi, {
+			cwd,
+			...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
+		});
 	} catch (error) {
 		return {
 			error: `Could not resolve current repository and source branch.\n${formatErrorMessage(error)}`,

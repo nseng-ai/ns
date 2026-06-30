@@ -51,15 +51,15 @@ export type SelectedSavedPlanFile =
 	  };
 
 export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
-	explicitPath?: string | undefined;
-	sessionEntries?: readonly unknown[] | undefined;
-	shouldFallbackToLatest?: boolean | undefined;
-	shouldAllowSessionSourceBranchMismatch?: boolean | undefined;
+	explicitPath?: string;
+	sessionEntries?: readonly unknown[];
+	shouldFallbackToLatest?: boolean;
+	shouldAllowSessionSourceBranchMismatch?: boolean;
 }
 
 export interface ValidateSessionSavedPlanCandidateOptions {
-	shouldAllowSourceBranchMismatch?: boolean | undefined;
-	planStoreGateway?: PlanStoreGateway | undefined;
+	shouldAllowSourceBranchMismatch?: boolean;
+	planStoreGateway?: PlanStoreGateway;
 }
 
 const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);

@@ -328,7 +328,7 @@ async function resolveAttachSource(
 		sourceFile: await resolvePlanSourceFile(pi, {
 			cwd: options.cwd,
 			rawFilePath: params.filePath,
-			signal: options.signal,
+			...(options.signal === undefined ? {} : { signal: options.signal }),
 			git: options.context.git,
 		}),
 	};
