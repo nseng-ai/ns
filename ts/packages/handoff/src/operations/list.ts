@@ -1,4 +1,5 @@
 import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { cell, paint, renderBufferedReport, renderTable } from "@sdl/cli-theme";
 import { z } from "zod";
 
@@ -42,7 +43,7 @@ export async function runList(ctx: HandoffCliContext, request: ListRequest) {
 	const handoffs = await listHandoffSummaries(
 		{ brmem: ctx.brmem, git: ctx.git, cwd: ctx.cwd },
 		{
-			...(branch === undefined ? {} : { branch }),
+			...optionalEntry("branch", branch),
 			shouldIncludeDeleted: request.includeDeleted,
 		},
 	);

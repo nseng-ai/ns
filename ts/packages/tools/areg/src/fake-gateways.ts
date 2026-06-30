@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
 
 import type {
@@ -493,7 +494,7 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 		this.log.push({
 			type: "list-skill-directory-names",
 			repo: options.repo,
-			...(options.ref === undefined ? {} : { ref: options.ref }),
+			...optionalEntry("ref", options.ref),
 		});
 		const state = this.repos.get(options.repo);
 		if (state === undefined || state === "missing")
@@ -622,7 +623,7 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 		this.log.push({
 			type: "install-into-workspace",
 			sourceRepo: request.sourceRepo,
-			...(request.skillName === undefined ? {} : { skillName: request.skillName }),
+			...optionalEntry("skillName", request.skillName),
 			cwd: request.cwd,
 		});
 		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
@@ -779,7 +780,7 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 		relativeDir: directory.relativeDir,
 		hasAgents: directory.hasAgents,
 		hasClaude: directory.hasClaude,
-		...(directory.claudeText === undefined ? {} : { claudeText: directory.claudeText }),
+		...optionalEntry("claudeText", directory.claudeText),
 	};
 }
 

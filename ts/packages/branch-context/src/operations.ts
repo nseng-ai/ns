@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import { runOperationCommand } from "@sdl/cli-runtime";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
 
@@ -247,7 +247,7 @@ export async function handleLoad(
 				await writeFile(promptFile, implementationPrompt, "utf8");
 			}
 			const data = loadedPlanJson(plan, {
-				...(promptFile === undefined ? {} : { promptFile }),
+				...optionalEntry("promptFile", promptFile),
 				...(request.includeContent === true ? { attachedPlanContent: plan.content } : {}),
 				...(request.includePrompt === true ? { implementationPrompt } : {}),
 			});
@@ -267,10 +267,10 @@ export async function handleAttach(
 			const evidence = await attachBranchContextEntry(
 				ctx.context.commands,
 				{
-					...(request.key === undefined ? {} : { key: request.key }),
-					...(request.file === undefined ? {} : { filePath: request.file }),
-					...(request.plan === undefined ? {} : { planSlug: request.plan }),
-					...(request.branch === undefined ? {} : { branch: request.branch }),
+					...optionalEntry("key", request.key),
+					...optionalEntry("filePath", request.file),
+					...optionalEntry("planSlug", request.plan),
+					...optionalEntry("branch", request.branch),
 				},
 				operationOptions(ctx),
 			);
@@ -307,7 +307,7 @@ export async function handleCheck(
 			const evidence = await checkBranchContextEntry(
 				{
 					key: request.key,
-					...(request.branch === undefined ? {} : { branch: request.branch }),
+					...optionalEntry("branch", request.branch),
 				},
 				operationOptions(ctx),
 			);
@@ -327,7 +327,7 @@ export async function handleDelete(
 			const evidence = await deleteBranchContextEntry(
 				{
 					key: request.key,
-					...(request.branch === undefined ? {} : { branch: request.branch }),
+					...optionalEntry("branch", request.branch),
 				},
 				operationOptions(ctx),
 			);
