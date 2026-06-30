@@ -15,7 +15,6 @@
     "./result": "./src/result.ts",
     "./runner-usage": "./src/runner-usage.ts",
     "./shell-support": "./src/shell-support.ts",
-    "./stdin": "./src/stdin.ts",
     "./temp-files": "./src/temp-files.ts",
     "./terminal-escapes": "./src/terminal-escapes.ts",
     "./terminal-presentation": "./src/terminal-presentation.ts",

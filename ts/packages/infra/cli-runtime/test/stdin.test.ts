@@ -3,7 +3,7 @@ import { setTimeout } from "node:timers/promises";
 
 import { describe, expect, test } from "vitest";
 
-import { readStdinLine } from "@sdl/core/stdin";
+import { readStdinLine } from "@sdl/cli-runtime";
 
 describe("readStdinLine", () => {
 	test("resolves after one newline without waiting for EOF", async () => {
