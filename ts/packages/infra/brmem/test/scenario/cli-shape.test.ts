@@ -26,6 +26,7 @@ describe("brmem CLI shape", () => {
 			"check",
 			"copy",
 			"export",
+			"gc",
 			"setup-git",
 		]) {
 			expect(help).toContain(command);

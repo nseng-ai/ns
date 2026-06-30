@@ -11,6 +11,7 @@ It implements the current operation set:
 - `check`
 - `copy`
 - `export`
+- `gc`
 - `setup-git`
 - hidden skill-facing `exec resolve-prompt`
 
@@ -44,6 +45,30 @@ Expected runtime diagnostics include:
 runtime: typescript
 entry_point: @sdl/brmem bin brmem -> ts/packages/infra/brmem/src/cli.ts
 ```
+
+## Garbage-collect stale Branch Memory Snapshot Refs
+
+`brmem gc` finds Branch Memory Snapshots whose associated branch no longer
+exists as a local branch. It is a dry-run by default and deletes whole stale
+Snapshot Refs only when passed `--yes`.
+
+```text
+brmem gc
+brmem gc --namespace branch-context
+brmem gc --base
+brmem gc --yes
+```
+
+Semantics:
+
+- Stale means the Snapshot Ref's branch has no matching local
+  `refs/heads/<branch>`.
+- Remote branches do not count as live for GC.
+- Omit `--namespace` and `--base` to scan all Namespaces.
+- Pass `--namespace <name>` to restrict to one named Namespace, or `--base` to
+  restrict to the Base Namespace; those filters are mutually exclusive.
+- `--yes` deletes the stale Snapshot Ref, removing all Entries in that Namespace
+  for that branch.
 
 ## Git setup for Branch Memory Snapshot Refs
 

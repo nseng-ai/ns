@@ -11,6 +11,7 @@ import {
 	type FakeEntrySeed,
 	type GitRemoteConfig,
 	type ListedEntry,
+	type ListedSnapshot,
 	type PutEntryResult,
 } from "@sdl/brmem";
 
@@ -208,6 +209,22 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		keyGlob?: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		return await this.fake.copyEntries(options);
+	}
+
+	async listSnapshots(options: {
+		namespace?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
+		return await this.fake.listSnapshots(options);
+	}
+
+	async localBranchPresence(options: {
+		branch: string;
+	}): Promise<BrmemResult<"present" | "absent">> {
+		return await this.fake.localBranchPresence(options);
+	}
+
+	async deleteSnapshot(options: { namespace: string; branch: string }): Promise<BrmemResult<void>> {
+		return await this.fake.deleteSnapshot(options);
 	}
 
 	async getRemoteConfig(remote: string): Promise<BrmemOptionalResult<GitRemoteConfig>> {

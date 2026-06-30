@@ -31,6 +31,13 @@ export interface CopyEntriesResult {
 	entries: readonly EntryRef[];
 }
 
+export interface ListedSnapshot {
+	namespace: string;
+	branch: string;
+	refName: string;
+	entryCount: number;
+}
+
 export interface GitRemoteConfig {
 	push: readonly string[];
 	fetch: readonly string[];
@@ -93,6 +100,14 @@ export interface BrmemGateway extends BrmemReadGateway {
 		shouldOverwrite: boolean;
 		keyGlob?: string | undefined;
 	}): Promise<BrmemResult<CopyEntriesResult>>;
+
+	listSnapshots(options: {
+		namespace?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedSnapshot[]>>;
+
+	localBranchPresence(options: { branch: string }): Promise<BrmemResult<"present" | "absent">>;
+
+	deleteSnapshot(options: { namespace: string; branch: string }): Promise<BrmemResult<void>>;
 
 	getRemoteConfig(remote: string): Promise<BrmemOptionalResult<GitRemoteConfig>>;
 

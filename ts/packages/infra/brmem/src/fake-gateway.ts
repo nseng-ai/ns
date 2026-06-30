@@ -15,10 +15,11 @@ import type {
 	EntryContent,
 	EntryDiagnostic,
 	ListedEntry,
+	ListedSnapshot,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
-import { compareEntries, mustEntryRef } from "./ref-layout.ts";
+import { compareEntries, mustEntryRef, mustSnapshotRef } from "./ref-layout.ts";
 import { normalizeBrmemTimestamp } from "./timestamps.ts";
 
 export interface FakeEntrySeed {
@@ -41,6 +42,7 @@ export interface FakeBrmemGatewayOptions {
 	currentBranch?: string | { type: "detached" } | { type: "error"; code: string; message: string };
 	entries?: readonly FakeEntrySeed[];
 	remotes?: Record<string, FakeGitRemoteConfig>;
+	localBranches?: readonly string[];
 	operationErrors?: Partial<
 		Record<
 			| "list"
@@ -50,6 +52,9 @@ export interface FakeBrmemGatewayOptions {
 			| "create"
 			| "delete"
 			| "copy"
+			| "listSnapshots"
+			| "deleteSnapshot"
+			| "localBranchPresence"
 			| "remoteConfig"
 			| "addRefspecs",
 			{ code: string; message: string }
@@ -77,6 +82,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 	private readonly operationErrors: NonNullable<FakeBrmemGatewayOptions["operationErrors"]>;
 	private readonly snapshots: Map<string, SnapshotState>;
 	private readonly snapshotsByCommit: Map<string, SnapshotState>;
+	private readonly localBranches: Set<string>;
 	private readonly remotes: Map<string, import("./gateway.ts").GitRemoteConfig>;
 	private sequence: number;
 	private timestampSequence: number;
@@ -86,6 +92,9 @@ export class FakeBrmemGateway implements BrmemGateway {
 		this.operationErrors = { ...options.operationErrors };
 		this.snapshots = new Map();
 		this.snapshotsByCommit = new Map();
+		this.localBranches = new Set(
+			options.localBranches ?? deriveLocalBranches(options.currentBranch, options.entries ?? []),
+		);
 		this.remotes = new Map(
 			Object.entries(
 				options.remotes ?? { origin: { push: [], fetch: ["+refs/heads/*:refs/remotes/origin/*"] } },
@@ -341,6 +350,41 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return value;
 	}
 
+	async listSnapshots(options: {
+		namespace?: string | undefined;
+	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
+		const error = this.operationErrors.listSnapshots;
+		if (error !== undefined)
+			return brmemError<readonly ListedSnapshot[]>(error.code, error.message);
+		const snapshots: ListedSnapshot[] = [];
+		for (const [id, snapshot] of this.snapshots) {
+			const parsed = parseSnapshotId(id);
+			if (options.namespace !== undefined && parsed.namespace !== options.namespace) continue;
+			snapshots.push({
+				namespace: parsed.namespace,
+				branch: parsed.branch,
+				refName: mustSnapshotRef(parsed.namespace, parsed.branch),
+				entryCount: snapshot.entries.size,
+			});
+		}
+		return brmemOk(snapshots.sort(compareSnapshots));
+	}
+
+	async localBranchPresence(options: {
+		branch: string;
+	}): Promise<BrmemResult<"present" | "absent">> {
+		const error = this.operationErrors.localBranchPresence;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		return brmemOk(this.localBranches.has(options.branch) ? "present" : "absent");
+	}
+
+	async deleteSnapshot(options: { namespace: string; branch: string }): Promise<BrmemResult<void>> {
+		const error = this.operationErrors.deleteSnapshot;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		this.snapshots.delete(snapshotId(options.namespace, options.branch));
+		return brmemOk(undefined);
+	}
+
 	async getRemoteConfig(
 		remote: string,
 	): Promise<import("./contracts.ts").BrmemOptionalResult<import("./gateway.ts").GitRemoteConfig>> {
@@ -376,6 +420,21 @@ function snapshotLookup(options: { namespace: string; branch: string; at?: strin
 		branch: options.branch,
 		...(options.at === undefined ? {} : { at: options.at }),
 	};
+}
+
+function deriveLocalBranches(
+	currentBranch: FakeBrmemGatewayOptions["currentBranch"],
+	entries: readonly FakeEntrySeed[],
+): readonly string[] {
+	const branches = new Set(entries.map((entry) => entry.branch));
+	if (typeof currentBranch === "string") branches.add(currentBranch);
+	return [...branches];
+}
+
+function compareSnapshots(left: ListedSnapshot, right: ListedSnapshot): number {
+	if (left.namespace !== right.namespace) return left.namespace < right.namespace ? -1 : 1;
+	if (left.branch !== right.branch) return left.branch < right.branch ? -1 : 1;
+	return 0;
 }
 
 function snapshotId(namespace: string, branch: string): string {
