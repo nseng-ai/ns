@@ -125,10 +125,21 @@
     exec-derived helper home, while the broad `@sdl/core/testing` aggregate still needs memberwise
     cleanup according to the final production homes its helpers support.
 
-- [ ] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
+- [x] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
       performs real-world I/O and no capability imports `@sdl/core/exec` or `@sdl/core/git`,
       and the runtime dependency graph stays acyclic. This is the Objective's gateway-purity proof,
       not a routine validation pass.
+  - Evidence: `@sdl/core` now exports only pure/abstract utility subpaths; focused source searches found
+    no direct filesystem, subprocess, environment, network, concrete host-time, runtime-boot, or old
+    raw-I/O gateway implementation in `ts/packages/infra/core/src` or the core package manifest. The
+    only focused real-I/O grep hit was a comment mentioning child-process command branding semantics in
+    `command.ts`; a broader `node:` scan found only pure `node:crypto` hashing and `node:path` string
+    path transforms. Precise source searches found no live imports of deleted old doors such as
+    `@sdl/core/exec`, `@sdl/core/git`, `@sdl/core/github-*`, `@sdl/core/command-io`,
+    `@sdl/core/progress-phase`, `@sdl/core/cli-entry`, `@sdl/core/stdin`, `@sdl/core/temp-files`,
+    `@sdl/core/xdg`, `@sdl/core/workspace-root`, `@sdl/core/shell-support`,
+    `@sdl/core/text-repair`, `@sdl/core/brmem-cli`, and `@sdl/core/testing`; `just ts-deps-check`
+    passed.
 
 - [ ] Reorganize capability packages as the final cleanup slice after the gateway/service homes are
       settled: align capability package/import layout around the final `@sdl/capability-kit` seams,
