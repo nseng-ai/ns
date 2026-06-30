@@ -4,6 +4,7 @@ import { githubWorktreePrStatusQuery } from "@sdl/github/pr-status";
 import { githubCheckRun } from "@sdl/github/testing";
 import { ScriptedQueue } from "@sdl/test-kit";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { optionalEntry } from "@sdl/core/primitives";
 import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
 import {
 	formatGhStatus,
@@ -176,8 +177,8 @@ function withDefaultLocalOptions(
 	options: LoadLocalWorktreeStatusOptions = {},
 ): LoadLocalWorktreeStatusOptions {
 	return {
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
+		...optionalEntry("signal", options.signal),
+		...optionalEntry("onDiagnostic", options.onDiagnostic),
 		identity: options.identity ?? identityFor(cwd),
 		metadataLoader: options.metadataLoader ?? defaultMetadataLoader,
 	};
@@ -219,7 +220,7 @@ async function loadComposedWorktreeStatus(
 	const local = await loadLocalWorktreeStatusWithDefaultMetadata(pi, cwd, options);
 	const gh = await loadWorktreeGhStatus(pi, cwd, {
 		identity: local.identity,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 	return combineWorktreeStatus(local, gh);
 }
@@ -329,9 +330,9 @@ function worktreePrCheckRun(options: {
 		workflowName: options.workflowName ?? "fixture",
 		name: options.name,
 		status: options.status ?? "COMPLETED",
-		...(options.conclusion === undefined ? {} : { conclusion: options.conclusion }),
-		...(options.startedAt === undefined ? {} : { startedAt: options.startedAt }),
-		...(options.completedAt === undefined ? {} : { completedAt: options.completedAt }),
+		...optionalEntry("conclusion", options.conclusion),
+		...optionalEntry("startedAt", options.startedAt),
+		...optionalEntry("completedAt", options.completedAt),
 	});
 }
 

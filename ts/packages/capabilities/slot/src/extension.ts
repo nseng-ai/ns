@@ -4,6 +4,7 @@ import {
 	requireInteractiveOrUsageError,
 	type ClinkrDynamicCompletionRequest,
 } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import {
 	createSdlDomainCommand,
 	type SdlDomainCommandOptions,
@@ -123,7 +124,7 @@ async function createSlotExtensionContext(ctx: SdlExtensionApi): Promise<SlotCli
 	return await createRealSlotContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
-		...(ctx.stderr === undefined ? {} : { stderr: ctx.stderr }),
+		...optionalEntry("stderr", ctx.stderr),
 		renderCapabilities: ctx.renderCapabilities,
 		...(ctx.extensions === undefined ? {} : { extensions: ctx.extensions }),
 		shouldWriteCdDirective: true,

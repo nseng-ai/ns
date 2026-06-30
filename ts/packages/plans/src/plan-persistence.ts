@@ -4,7 +4,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import type { CommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
-import { isPathInside } from "@sdl/core/primitives";
+import { isPathInside, optionalEntry } from "@sdl/core/primitives";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 
 export { isPathInside } from "@sdl/core/primitives";
@@ -110,7 +110,7 @@ export async function resolvePlanSourceFile(
 	const repoRoot = await resolveGitRepoRoot(pi, {
 		cwd: options.cwd,
 		git,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await planStoreGateway.realpathOrResolve(repoRoot);

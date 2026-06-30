@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { optionalEntry } from "@sdl/core/primitives";
+
 export interface TempGitRepo {
 	readonly path: string;
 	runGit(args: readonly string[], options?: TempGitRepoRunOptions): string;
@@ -29,7 +31,7 @@ export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo
 			cwd: path,
 			input: runOptions.input,
 			encoding: "utf8",
-			...(runOptions.env === undefined ? {} : { env: runOptions.env }),
+			...optionalEntry("env", runOptions.env),
 		});
 		if (result.status !== 0) {
 			throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);

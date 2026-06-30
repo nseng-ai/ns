@@ -1,4 +1,5 @@
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/command";
+import { optionalEntry } from "@sdl/core/primitives";
 import { ScriptedQueue } from "@sdl/test-kit";
 
 export interface DropExecOptionsFields {
@@ -49,12 +50,16 @@ export class ScriptedCommandRunner {
 		return this.callsInternal.map((call) => ({
 			command: call.command,
 			args: [...call.args],
-			...(call.cwd === undefined ? {} : { cwd: call.cwd }),
+			...optionalEntry("cwd", call.cwd),
 		}));
 	}
 
 	readonly runner: CommandRunner = async (command, args, options = {}) => {
-		this.callsInternal.push({ command, args: [...args], cwd: options.cwd });
+		this.callsInternal.push({
+			command,
+			args: [...args],
+			...optionalEntry("cwd", options.cwd),
+		});
 		const missingStepMessage = `unexpected command: ${command} ${args.join(" ")}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -100,7 +105,7 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 		this.callsInternal.push({
 			command,
 			args: [...args],
-			...(options === undefined ? {} : { options: { ...options } }),
+			...optionalEntry("options", options === undefined ? undefined : { ...options }),
 		});
 		return this.results.shift() ?? { stdout: "", stderr: "", code: 0, killed: false };
 	}
@@ -109,7 +114,7 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 		return this.callsInternal.map((call) => ({
 			command: call.command,
 			args: [...call.args],
-			...(call.options === undefined ? {} : { options: { ...call.options } }),
+			...optionalEntry("options", call.options === undefined ? undefined : { ...call.options }),
 		}));
 	}
 }
@@ -124,7 +129,7 @@ export class DroppingOptionsCommandExecApi implements CommandExecApi {
 	constructor(options: DroppingOptionsCommandExecApiOptions) {
 		this.delegate = options.delegate;
 		this.dropFields = {
-			...(options.shouldDropEnv === undefined ? {} : { shouldDropEnv: options.shouldDropEnv }),
+			...optionalEntry("shouldDropEnv", options.shouldDropEnv),
 			...(options.shouldDropStdin === undefined
 				? {}
 				: { shouldDropStdin: options.shouldDropStdin }),
@@ -146,18 +151,18 @@ export function copyExecOptionsWithout(
 ): ExecOptions | undefined {
 	if (options === undefined) return undefined;
 	return {
-		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-		...(dropFields.shouldDropEnv === true || options.env === undefined ? {} : { env: options.env }),
-		...(options.timeout === undefined ? {} : { timeout: options.timeout }),
+		...optionalEntry("cwd", options.cwd),
+		...optionalEntry("env", dropFields.shouldDropEnv === true ? undefined : options.env),
+		...optionalEntry("timeout", options.timeout),
 		...(options.timeoutKillGraceMs === undefined
 			? {}
 			: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 		...(dropFields.shouldDropStdin === true || options.stdin === undefined
 			? {}
 			: { stdin: options.stdin }),
-		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
-		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
+		...optionalEntry("onStdout", options.onStdout),
+		...optionalEntry("onStderr", options.onStderr),
 	};
 }
 
@@ -187,7 +192,7 @@ function result(fields: ResultFields): ExecResult {
 		stdout: fields.stdout ?? "",
 		stderr: fields.startupError ?? fields.stderr ?? "",
 		killed: fields.isKilled === true,
-		...(fields.startupError === undefined ? {} : { startupError: fields.startupError }),
+		...optionalEntry("startupError", fields.startupError),
 	};
 }
 

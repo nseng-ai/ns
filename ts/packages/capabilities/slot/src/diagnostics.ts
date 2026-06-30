@@ -1,4 +1,5 @@
 import { appendFile } from "node:fs/promises";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import {
 	type CommandExecApi,
@@ -76,7 +77,7 @@ export function createDiagnosticCommandRunner(
 			args,
 			execOptions: execOptions ?? {},
 			operation: options.operation,
-			...(options.diagnosticSink === undefined ? {} : { diagnosticSink: options.diagnosticSink }),
+			...optionalEntry("diagnosticSink", options.diagnosticSink),
 		});
 }
 
@@ -97,7 +98,7 @@ export async function runDiagnosticCommand(
 		command: options.command,
 		args: [...options.args],
 		displayCommand: formatCommand(options.command, options.args),
-		...(options.execOptions.cwd === undefined ? {} : { cwd: options.execOptions.cwd }),
+		...optionalEntry("cwd", options.execOptions.cwd),
 		...(options.execOptions.timeout === undefined
 			? {}
 			: { timeoutMs: options.execOptions.timeout }),
@@ -107,7 +108,7 @@ export async function runDiagnosticCommand(
 		killed: result.killed,
 		stdoutBytes: Buffer.byteLength(result.stdout, "utf8"),
 		stderrBytes: Buffer.byteLength(result.stderr, "utf8"),
-		...(result.startupError === undefined ? {} : { startupError: result.startupError }),
+		...optionalEntry("startupError", result.startupError),
 	});
 	return result;
 }

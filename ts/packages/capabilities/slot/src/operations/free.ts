@@ -6,6 +6,7 @@ import {
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../collections.ts";
@@ -162,7 +163,7 @@ export function renderFree(
 			buildSlotDestructiveResultBlock({
 				kind: "refusal",
 				headline: "Cancelled slot free.",
-				...(body === undefined ? {} : { body }),
+				...optionalEntry("body", body),
 			}),
 		);
 	}
@@ -173,7 +174,7 @@ export function renderFree(
 			buildSlotDestructiveResultBlock({
 				kind: "failure",
 				headline: "Slot free completed with cleanup errors.",
-				...(body === undefined ? {} : { body }),
+				...optionalEntry("body", body),
 			}),
 		);
 	}
@@ -185,7 +186,7 @@ export function renderFree(
 		buildSlotDestructiveResultBlock({
 			kind: "success",
 			headline,
-			...(body === undefined ? {} : { body }),
+			...optionalEntry("body", body),
 		}),
 	);
 }

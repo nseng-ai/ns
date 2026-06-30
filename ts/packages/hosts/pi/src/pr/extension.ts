@@ -175,7 +175,7 @@ async function runPrDownloadFeedbackCommand(
 		const downloaded = await downloadPrFeedback({
 			pi,
 			cwd: ctx.cwd,
-			...(prNumber === undefined ? {} : { prNumber }),
+			...optionalEntry("prNumber", prNumber),
 			timeoutMs: COMMAND_TIMEOUT_MS,
 			shouldAllowFailureData: true,
 		});

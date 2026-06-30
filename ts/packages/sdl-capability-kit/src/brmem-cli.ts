@@ -11,7 +11,12 @@ import {
 	type ExecResult,
 	type PiExecResultLike,
 } from "@sdl/core/command";
-import { formatErrorMessage, isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
+import {
+	formatErrorMessage,
+	isRecord,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@sdl/core/primitives";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 
@@ -228,7 +233,7 @@ export async function runBrmem(options: RunBrmemOptions): Promise<RunBrmemResult
 			candidate,
 			brmemArgs,
 			timeoutMs,
-			...(env === undefined ? {} : { env }),
+			...optionalEntry("env", env),
 			signal,
 		});
 		if (run.type === "completed") return run;
@@ -246,7 +251,7 @@ export async function runAvailableBrmemCommand(
 		cwd: options.cwd,
 		brmemArgs: options.brmemArgs,
 		timeoutMs: options.timeoutMs ?? DEFAULT_BRMEM_TIMEOUT_MS,
-		...(options.env === undefined ? {} : { env: options.env }),
+		...optionalEntry("env", options.env),
 		signal: options.signal,
 	});
 	if (run.type === "unavailable") {
@@ -274,7 +279,7 @@ export async function checkBrmemEntry(
 			"--format",
 			"json",
 		],
-		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+		...optionalEntry("timeoutMs", options.timeoutMs),
 		signal: options.signal,
 	});
 	if (!run.ok) return { type: "error", error: run.error };
@@ -327,8 +332,8 @@ export async function putBrmemEntryFromFile(
 			"--format",
 			"json",
 		],
-		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-		...(options.env === undefined ? {} : { env: options.env }),
+		...optionalEntry("timeoutMs", options.timeoutMs),
+		...optionalEntry("env", options.env),
 		signal: options.signal,
 	});
 	if (!run.ok) return run;
@@ -391,8 +396,8 @@ export async function listBrmemEntries(
 			"--format",
 			"json",
 		],
-		...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-		...(options.env === undefined ? {} : { env: options.env }),
+		...optionalEntry("timeoutMs", options.timeoutMs),
+		...optionalEntry("env", options.env),
 		signal: options.signal,
 	});
 	if (!run.ok) return run;
@@ -407,8 +412,8 @@ export async function listBrmemEntries(
 		return {
 			ok: true,
 			value: parseBrmemListEntries(run.value.result.stdout, {
-				...(options.namespace === undefined ? {} : { namespace: options.namespace }),
-				...(options.branch === undefined ? {} : { branch: options.branch }),
+				...optionalEntry("namespace", options.namespace),
+				...optionalEntry("branch", options.branch),
 			}),
 		};
 	} catch (error) {
@@ -678,8 +683,8 @@ function execOptions(
 	return {
 		cwd,
 		timeout,
-		...(env === undefined ? {} : { env }),
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("env", env),
+		...optionalEntry("signal", signal),
 	};
 }
 

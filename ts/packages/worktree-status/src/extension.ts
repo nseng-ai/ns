@@ -1,7 +1,7 @@
 import { basename, resolve } from "node:path";
 
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { isRecord } from "@sdl/core/primitives";
+import { isRecord, optionalEntry } from "@sdl/core/primitives";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventBus,
@@ -461,7 +461,7 @@ export default function worktreeStatusExtension(
 
 		const previousIdentity = session.localStatus?.identity;
 		let status = await loaders.loadLocalStatus(pi, session.cwd, {
-			...(identity === undefined ? {} : { identity }),
+			...optionalEntry("identity", identity),
 			signal: session.abortController.signal,
 		});
 		if (!isActiveSession(session)) return;
@@ -604,9 +604,9 @@ export default function worktreeStatusExtension(
 								cwd,
 								branch,
 								fallbackRepo: fallbackRepoName(cwd),
-								...(worktreeStatus === undefined ? {} : { worktreeStatus }),
+								...optionalEntry("worktreeStatus", worktreeStatus),
 								...(session.isDormant ? { isWorktreeStatusDormant: true } : {}),
-								...(ghRefreshAge === undefined ? {} : { ghRefreshAgeMs: ghRefreshAge }),
+								...optionalEntry("ghRefreshAgeMs", ghRefreshAge),
 							})
 						: [];
 				},

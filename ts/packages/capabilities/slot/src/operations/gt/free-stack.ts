@@ -1,5 +1,6 @@
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import type { SlotCliContext } from "../../context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../inventory.ts";
@@ -109,7 +110,7 @@ export function renderGtFreeStack(
 		buildSlotDestructiveResultBlock({
 			kind: "success",
 			headline: gtFreeStackHeadline(result),
-			...(body === undefined ? {} : { body }),
+			...optionalEntry("body", body),
 		}),
 	);
 }
