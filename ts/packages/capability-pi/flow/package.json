@@ -18,6 +18,7 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
     "@sdl/pi": "workspace:*",
+    "sdl-flow": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {},
