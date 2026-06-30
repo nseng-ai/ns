@@ -151,18 +151,15 @@ export interface RunSettledPhaseStreamOptions<T> {
 
 export interface SettledPhaseStreamOutcome<T> {
 	result: T;
-	isFailed?: boolean | undefined;
-	finalLines?: readonly string[] | undefined;
-	afterFinish?: (() => Promise<void> | void) | undefined;
+	isFailed?: boolean;
+	finalLines?: readonly string[];
+	afterFinish?: () => Promise<void> | void;
 }
 
 export interface PhaseStreamController {
 	emit(event: SdlProgressPhaseEvent): void;
 	note(text: string): void;
-	finish(options?: {
-		isFailed?: boolean | undefined;
-		finalLines?: readonly string[] | undefined;
-	}): Promise<void>;
+	finish(options?: { isFailed?: boolean; finalLines?: readonly string[] }): Promise<void>;
 	stop(): Promise<void>;
 }
 
@@ -171,7 +168,7 @@ export interface CreatePhaseStreamControllerOptions {
 	specs: readonly PhaseSpec[];
 	deps: StreamSinkDeps;
 	title: string;
-	begin?: "immediate" | "lazy" | undefined;
+	begin?: "immediate" | "lazy";
 }
 
 export async function runPhaseStream<T>(options: RunPhaseStreamOptions<T>): Promise<T> {
