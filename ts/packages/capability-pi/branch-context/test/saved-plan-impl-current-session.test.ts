@@ -145,6 +145,25 @@ describe("saved-plan current-branch implementation command", () => {
 		expect(warning).toContain("manually open /new on the current branch");
 	});
 
+	test("no-UI cancellation does not write launch runtime status", async () => {
+		const filePath = await makeNamedPlanFile("no-ui-cancelled-plan.md", DEFAULT_PLAN_CONTENT);
+		const events: string[] = [];
+		const pi = new FakePi([], events);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
+		const command = pi.commands.get("sdl:plan:impl-current");
+		const context = createContext(events, { hasUI: false, shouldCancelNewSession: true });
+
+		await command?.handler(filePath, context.ctx);
+
+		expect(context.wasSessionReplaced()).toBe(false);
+		expect(context.statuses).not.toContainEqual({
+			key: "sdl:plan:impl-current",
+			value: "starting implementation session…",
+		});
+		expect(context.statuses.filter((status) => status.value === undefined)).toHaveLength(1);
+	});
+
 	test("prompt builder uses saved-plan vocabulary and embeds delimiters", () => {
 		const prompt = buildImplCurrentSavedPlanPrompt({
 			mode: "explicit",
