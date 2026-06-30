@@ -191,7 +191,7 @@ function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan)
 export function usage(): string {
 	return [
 		"Usage:",
-		`/${COMMAND_NAME} [--yes] [--dry-run] [--free] [--force] [--help]`,
+		`/${COMMAND_NAME} [--yes] [--dry-run] [--free] [--force] [--verbose] [--help]`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
@@ -204,6 +204,7 @@ export function usage(): string {
 		"  --dry-run       Show the full or chunked plan and exit before mutating refs or PRs.",
 		"  --free          After successful landing, free the current managed slot and delete the landed local branch.",
 		"  --force, -f     Skip the post-landing --free confirmation.",
+		"  --verbose       Stream raw GitHub/Graphite subprocess output while landing.",
 		"  --help, -h      Show this help.",
 	].join("\n");
 }

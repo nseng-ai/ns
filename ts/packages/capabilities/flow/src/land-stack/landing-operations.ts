@@ -525,6 +525,11 @@ export async function runMergeLoop(
 			title: currentPr.title,
 			...(prUrl ? { url: prUrl } : {}),
 		});
+		options.commandStream?.emitLiveProgress({
+			type: "pr-landed",
+			prNumber: currentPr.number,
+			branch,
+		});
 		options.commandStream?.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		const maintenance = await performGraphiteMaintenance({

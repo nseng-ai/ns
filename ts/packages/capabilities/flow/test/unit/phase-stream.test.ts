@@ -232,6 +232,19 @@ describe("non-tty settle path", () => {
 		expect(settled).toContain("pending"); // gamma never reached, not settled to done
 		expect(settled).not.toContain("gamma done");
 	});
+
+	test("non-tty settled frame uses the latest title", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.setTitle("updated title");
+		await stream.finish();
+
+		expect(writes[0]).toContain("updated title");
+	});
 });
 
 describe("inferred completion", () => {
@@ -297,6 +310,26 @@ describe("runPhaseStream lifecycle", () => {
 		expect(writes[0]).toContain("alpha done");
 	});
 
+	test("lazy controller accepts title updates before first event without early output", async () => {
+		const c = caps({ isTty: false, colorDepth: "none" });
+		const { deps, writes, outputs } = harness();
+		const controller = createPhaseStreamController({
+			caps: c,
+			specs: SPECS,
+			deps,
+			title: "title",
+			begin: "lazy",
+		});
+
+		controller.setTitle("updated title");
+		expect(writes).toEqual([]);
+		expect(outputs).toEqual([]);
+		controller.emit({ type: "phase-started", phaseKey: "a" });
+		await controller.finish();
+
+		expect(writes[0]).toContain("updated title");
+	});
+
 	test("restores the cursor and stops the pump when core work throws", async () => {
 		const c = caps();
 		const { deps, writes } = harness();
@@ -322,6 +355,19 @@ describe("runPhaseStream lifecycle", () => {
 });
 
 describe("tty live region", () => {
+	test("dynamic title update repaints the live header", async () => {
+		const c = caps();
+		const { deps, redraws } = harness();
+		const stream = createPhaseStream(c, SPECS, deps);
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.setTitle("updated title");
+
+		expect(redraws[redraws.length - 1]).toContain("updated title");
+		await stream.finish();
+	});
+
 	test("pump advances the spinner, events repaint at once, and the cursor is hidden then restored", async () => {
 		const c = caps();
 		const { deps, clock, writes, redraws, dones } = harness();

@@ -93,6 +93,7 @@ export interface ParsedArgs {
 	shouldFreeSlot: boolean;
 	shouldForceCleanup: boolean;
 	shouldShowHelp: boolean;
+	shouldStreamVerboseOutput: boolean;
 }
 
 export interface StackSnapshot {

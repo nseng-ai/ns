@@ -470,6 +470,7 @@ describe("code land command registration", () => {
 			{ value: "--dry-run", label: "--dry-run" },
 			{ value: "--free", label: "--free" },
 			{ value: "--force", label: "--force" },
+			{ value: "--verbose", label: "--verbose" },
 			{ value: "--help", label: "--help" },
 		]);
 	});

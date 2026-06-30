@@ -5,6 +5,7 @@ import {
 	createLandUiCommandIo,
 	renderCommandStreamMessage,
 	withCommandStreaming,
+	type LandLiveProgressSink,
 } from "./land-stack/command-stream.ts";
 import {
 	AUTO_CHUNK_LANDING_THRESHOLD,
@@ -43,6 +44,7 @@ export interface ExecuteStackLandingOptions {
 	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;
+	liveProgress?: LandLiveProgressSink;
 }
 
 export function registerLandStackRenderer(
@@ -54,7 +56,7 @@ export function registerLandStackRenderer(
 export function landArgumentCompletions(
 	prefix: string,
 ): Array<{ value: string; label: string }> | null {
-	const options = ["--yes", "--dry-run", "--free", "--force", "--help"];
+	const options = ["--yes", "--dry-run", "--free", "--force", "--verbose", "--help"];
 	const token = prefix.trim().split(/\s+/).pop() ?? "";
 	const filtered = options.filter((option) => option.startsWith(token));
 	return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
@@ -72,6 +74,7 @@ export async function executeStackLanding(
 	const io = options.io ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
+		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
@@ -146,6 +149,7 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 		shouldFreeSlot: false,
 		shouldForceCleanup: false,
 		shouldShowHelp: false,
+		shouldStreamVerboseOutput: false,
 	};
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
@@ -160,6 +164,8 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 			parsed.shouldForceCleanup = true;
 		} else if (part === "--help" || part === "-h") {
 			parsed.shouldShowHelp = true;
+		} else if (part === "--verbose") {
+			parsed.shouldStreamVerboseOutput = true;
 		} else {
 			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
 		}

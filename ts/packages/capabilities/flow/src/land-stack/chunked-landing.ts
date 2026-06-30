@@ -73,6 +73,12 @@ export async function executeChunkedStackLanding(
 		return failure(initialPlan.failure);
 	}
 
+	const fullLandingBranches = [
+		...initialPlan.value.stack.landingBranches,
+		...initialPlan.value.stack.remainingLandingBranches,
+	];
+	const totalPrs = fullLandingBranches.length;
+	const totalChunks = Math.ceil(totalPrs / AUTO_CHUNK_LANDING_SIZE);
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
 	if (parsedArgs.isDryRun) {
 		presentDryRunLanding({ ctx, commandStream, planText: chunkPlanText });
@@ -112,8 +118,26 @@ export async function executeChunkedStackLanding(
 		}
 		finalPlan = plan.value;
 
+		const chunkProgress = chunkProgressRange({
+			chunkIndex,
+			totalPrs,
+			chunkSize: readyLandingBranchCount(plan.value),
+		});
+		commandStream.emitLiveProgress({
+			type: "chunk-started",
+			chunkIndex,
+			totalChunks,
+			currentChunkStart: chunkProgress.start,
+			currentChunkEnd: chunkProgress.end,
+			totalPrs,
+		});
 		commandStream.note(
-			`Preparing chunk ${chunkIndex}: ${formatPreparingLandingMilestone(plan.value)}`,
+			`${formatChunkProgressNote({
+				chunkIndex,
+				totalChunks,
+				totalPrs,
+				chunkProgress,
+			})}: ${formatPreparingLandingMilestone(plan.value)}`,
 		);
 		const readyPlan = await preparePlanForMerge({
 			runtimePi,
@@ -205,6 +229,38 @@ interface AppendLandedChunkOptions {
 	index: number;
 	landingTargetBranch: string;
 	landed: readonly LandedPr[];
+}
+
+interface FormatChunkProgressNoteOptions {
+	chunkIndex: number;
+	totalChunks: number;
+	totalPrs: number;
+	chunkProgress: ChunkProgressRange;
+}
+
+interface ChunkProgressRange {
+	start: number;
+	end: number;
+}
+
+function formatChunkProgressNote(options: FormatChunkProgressNoteOptions): string {
+	const { start, end } = options.chunkProgress;
+	const prLabel = start === end ? "PR" : "PRs";
+	const range = start === end ? String(start) : `${start}-${end}`;
+	return `Preparing chunk ${options.chunkIndex}/${options.totalChunks}, ${prLabel} ${range} of ${options.totalPrs}`;
+}
+
+function chunkProgressRange(options: {
+	chunkIndex: number;
+	totalPrs: number;
+	chunkSize: number;
+}): ChunkProgressRange {
+	const start = (options.chunkIndex - 1) * AUTO_CHUNK_LANDING_SIZE + 1;
+	return { start, end: Math.min(start + options.chunkSize - 1, options.totalPrs) };
+}
+
+function readyLandingBranchCount(plan: LandingPlan): number {
+	return plan.stack.landingBranches.length;
 }
 
 function appendLandedChunk(options: AppendLandedChunkOptions): LandedChunk[] {
