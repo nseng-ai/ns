@@ -246,7 +246,7 @@ function usage(): string {
 		"Usage: /objective:autopilot <objective-slug-or-path> [--iterations N] [--submit] [--dry-run] [--model provider/model]",
 		"",
 		"Runs up to N fresh-child Objective iterations. The parent verifies live repo state and owns commit/submit.",
-		"Default iterations: 1. Submission requires --submit. --dry-run never commits or submits.",
+		"Default iterations: 1. Submission requires --submit. Submit uses sdl flow submit --no-restack; --dry-run never commits or submits.",
 	].join("\n");
 }
 
@@ -491,6 +491,7 @@ Rules:
 - Validate according to repo/churn policy, and run relevant checks for changed files.
 - Update Objective tracking with a meaningful Semantic Update when material progress is kept.
 - Leave changes uncommitted. Do not commit, submit PRs, push, merge, publish, deploy, or mutate external systems.
+- Do not restack Graphite branches; if a branch appears to need restacking, report it and stop.
 - List changed files as a best-effort summary only; the parent independently inspects git status and owns staging/commit.
 - Keep your final response concise and include exactly one report block in this format:
 
@@ -652,7 +653,8 @@ ${context.report === undefined ? "unknown" : formatRecoveryContextReport(context
 Your job is narrow local recovery, not implementation:
 - Inspect repository state and perform only minimal local recovery needed to return control to the parent verifier.
 - Do not implement Objective feature work or edit feature code.
-- Do not commit, submit, push, merge, publish, deploy, resolve GitHub threads, or mutate external systems.
+- Do not commit, submit, push, merge, publish, deploy, resolve GitHub threads, restack Graphite branches, or mutate external systems.
+- Do not run \`gt restack\` or any command whose purpose is to rebase/reorder the Graphite stack; restack-required submit failures must return control to the human.
 - Do not stage files unless a minimal recovery command unavoidably stages them; if staging happens, report it.
 - Prefer deterministic local commands and explain what evidence justified each action.
 - For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` when live evidence supports that parent.
@@ -937,7 +939,7 @@ async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promi
 	}
 	if (!shouldSubmit) return { commitOutput, recoveryNotes };
 	try {
-		const submitOutput = await execChecked({ pi, ctx, command: "gt", args: ["submit", "--no-interactive"] });
+		const submitOutput = await execChecked({ pi, ctx, command: "sdl", args: ["flow", "submit", "--no-restack"] });
 		return { commitOutput, submitOutput, recoveryNotes };
 	} catch (error) {
 		throw new AutopilotPhaseError("submit", error instanceof Error ? error.message : String(error), {
@@ -1201,7 +1203,7 @@ export default function objectiveAutopilotExtension(pi: ExtensionAPI): void {
 		host: pi,
 		commandName: COMMAND_NAME,
 		commandDefinition: {
-			description: "Run bounded fresh-child Objective autopilot iterations with parent verification and Graphite submit.",
+			description: "Run bounded fresh-child Objective autopilot iterations with parent verification and no-restack submit.",
 			handler: async (args, ctx) => runAutopilot(pi, args, ctx),
 		},
 	});
