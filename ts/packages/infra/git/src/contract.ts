@@ -1,9 +1,8 @@
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 export interface GitCwdParams {
 	cwd: string;
-	// optional-undefined-objective: preserve (env-map) — Injected NodeJS.ProcessEnv environment map passed through to child-process exec; environment/process-map mirror kept loose.
-	env?: NodeJS.ProcessEnv | undefined;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation handle forwarded to exec; abort/signal payload where present-undefined is the canonical loose boundary per rubric.
-	signal?: AbortSignal | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface GitErrorInfo {

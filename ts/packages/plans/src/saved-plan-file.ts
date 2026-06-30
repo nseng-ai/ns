@@ -10,7 +10,7 @@ import {
 } from "@sdl/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import { isRecord } from "@sdl/core/primitives";
+import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 const MAX_SEGMENT_LENGTH = 120;
@@ -29,8 +29,7 @@ export interface PlanStoreOptions {
 	cwd: string;
 	signal?: AbortSignal | undefined;
 	planStoreRoot?: string | undefined;
-	// optional-undefined-objective: preserve (env-map) — Environment/process map injection (`Record<string, string | undefined>` defaulting to process.env, consumed at line 404) that mirrors the OS env shape.
-	env?: Record<string, string | undefined> | undefined;
+	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: GitGateway | undefined;
 	planStoreGateway?: PlanStoreGateway | undefined;
 }

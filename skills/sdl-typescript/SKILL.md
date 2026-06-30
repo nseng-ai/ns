@@ -93,20 +93,28 @@ Use these type shapes deliberately:
 
 - `foo?: T` means omission is the state; if the key is present, the value is a real `T`.
 - `foo: T | undefined` means the key is part of the shape, but the value may be unavailable.
-- `foo?: T | undefined` means callers may omit the key or explicitly provide/forward `undefined`; reserve
-  it for options, input, override, and compatibility bags where callers may intentionally forward explicit
-  `undefined`, or where present-but-undefined is a meaningful wire/API state.
+- Raw `foo?: T | undefined` is suspicious unless explicit present-key `undefined` is a meaningful contract.
+- Permanent explicit-undefined support should be expressed as `foo?: ExplicitUndefined<Reason, T>` from
+  `@sdl/core/primitives`.
+
+`ExplicitUndefined<Reason, T>` is for permanent API/input/compatibility/external contracts, such as env
+maps, abort-signal seams, external schema mirrors, null-tolerant inputs, key-event payloads,
+overload selectors, or deliberate DI seams. It is not a convenience escape hatch for object
+construction sites.
 
 Review guidance:
 
 - For domain, context, result, command metadata, registry/catalog entry, and durable record objects,
-  prefer `foo?: T` plus omission on construction; question `?: T | undefined` unless explicit
+  prefer `foo?: T` plus omission on construction; question raw `?: T | undefined` unless explicit
   `undefined` is a meaningful present-key state.
 - If construction code can omit the field with object spread, do that rather than widening the field type.
 - Treat `?: T | undefined` as an API contract, not a convenience escape hatch.
 - If every consumer expects the property to exist and checks the value, prefer `foo: T | undefined`.
 - Do not turn this into a blanket ban: option/input/override/compatibility bags can legitimately accept
-  explicit `undefined`.
+  explicit `undefined`, but do not widen `foo?: T` to raw `foo?: T | undefined`; if explicit `undefined`
+  is truly permanent, use `ExplicitUndefined<Reason, T>`.
+- Construction code should still omit optional keys via conditional spread unless present-key
+  `undefined` is part of the contract.
 
 ## Time seams
 

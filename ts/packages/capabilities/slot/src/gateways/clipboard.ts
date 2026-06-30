@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-import { errorCodeFromUnknown } from "@sdl/core/primitives";
+import { errorCodeFromUnknown, type ExplicitUndefined } from "@sdl/core/primitives";
 
 export type ClipboardCopyResult =
 	| { type: "copied" }
@@ -29,8 +29,7 @@ export class RealClipboardGateway implements ClipboardGateway {
 
 	constructor(
 		options: {
-			// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection that defaults to process.env when undefined.
-			env?: NodeJS.ProcessEnv | undefined;
+			env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 			runner?: ClipboardProcessRunner | undefined;
 		} = {},
 	) {

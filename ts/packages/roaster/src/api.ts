@@ -33,6 +33,7 @@ import {
 	type RoastSkillListRequest,
 	type RoastSkillListResult,
 } from "./operations/cli-operations.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import {
 	runRoasterReview,
 	type RunRoasterReviewOutcome,
@@ -81,10 +82,11 @@ export type RoasterApiResult<T> =
 
 export interface RoasterClientOptions {
 	readonly cwd: string;
-	// optional-undefined-objective: preserve (env-map) — Process-env map union (NodeJS.ProcessEnv | Record<string,string|undefined>) on the top-level client options bag, normalized via normalizedEnv; environment-map preserve category.
-	readonly env?: NodeJS.ProcessEnv | Record<string, string | undefined> | undefined;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal field on the top-level DI options bag forwarded into runtime/gateway construction that accepts present-undefined.
-	readonly signal?: AbortSignal | undefined;
+	readonly env?: ExplicitUndefined<
+		"env-map",
+		NodeJS.ProcessEnv | Record<string, string | undefined>
+	>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly stdin?: (() => Promise<string>) | undefined;
 	readonly stdout?: ((text: string) => void) | undefined;
 	readonly stderr?: ((text: string) => void) | undefined;

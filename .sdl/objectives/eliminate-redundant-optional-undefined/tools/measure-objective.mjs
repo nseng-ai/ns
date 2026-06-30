@@ -24,17 +24,20 @@ Scopes default to: ${DEFAULT_SCOPES.join(" ")}
 Options:
   --format markdown|json   Output format (default: markdown)
   --json                   Alias for --format json
-  --include-marked         Count marked-preserve properties (lines tagged
-                           optional-undefined-objective: preserve) in the
-                           headline optional-undefined total (default: excluded)
+  --include-marked         Deprecated compatibility flag; legacy marker comments
+                           are now reported as stale artifacts, not exclusions.
   --self-test              Run built-in fixture tests
   -h, --help               Show this help
 
 Metrics:
-  1. typed optional-undefined property count: AST PropertySignature and
+  1. raw optional-undefined property count: AST PropertySignature and
      PropertyDeclaration nodes with a ? token and explicit undefined union,
      e.g. foo?: string | undefined
-  2. undefined-normalization/check count: AST binary expressions that compare
+  2. typed explicit-undefined contract count: optional properties typed with
+     ExplicitUndefined<Reason, T>.
+  3. legacy preserve marker count: stale optional-undefined-objective preserve
+     comments that should be migrated to typed contracts.
+  4. undefined-normalization/check count: AST binary expressions that compare
      a value with undefined using === or !==.
 
 Known caveat: this is Objective-owned temporary tooling. It intentionally reports
@@ -145,17 +148,18 @@ function parseSourceFile(fileName, text) {
 
 function countOptionalUndefinedProperties(sourceFile) {
   // This Objective metric intentionally uses local AST predicates for now: it counts
-  // property signatures and property declarations, then separates preserve-marked lines.
+  // property signatures and property declarations, then separates typed explicit-undefined
+  // contracts from raw optional-undefined debt.
   // The existing TypeScript style-guard audit is advisory test support; reuse it only
-  // after aligning those semantics with this scorecard's net/gross reporting needs.
+  // after aligning those semantics with this scorecard's reporting needs.
   const matches = [];
-  const markedMatches = [];
+  const typedExplicitUndefinedMatches = [];
 
   function visit(node) {
-    if (isOptionalPropertyNode(node) && includesUndefinedType(node.type)) {
-      if (isMarkedPreserve(sourceFile, node)) {
-        markedMatches.push(lineNumber(sourceFile, node));
-      } else {
+    if (isOptionalPropertyNode(node)) {
+      if (isExplicitUndefinedType(node.type)) {
+        typedExplicitUndefinedMatches.push(lineNumber(sourceFile, node));
+      } else if (includesUndefinedType(node.type)) {
         matches.push(lineNumber(sourceFile, node));
       }
     }
@@ -163,18 +167,17 @@ function countOptionalUndefinedProperties(sourceFile) {
   }
 
   visit(sourceFile);
-  return { matches, markedMatches };
+  return { matches, typedExplicitUndefinedMatches };
 }
 
-function isMarkedPreserve(sourceFile, node) {
-  const ranges = ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart());
-  if (ranges === undefined) {
-    return false;
+function countLegacyPreserveMarkers(sourceFile) {
+  const matches = [];
+  const markerPattern = /optional-undefined-objective:\s*preserve/g;
+  let match;
+  while ((match = markerPattern.exec(sourceFile.text)) !== null) {
+    matches.push(sourceFile.getLineAndCharacterOfPosition(match.index).line + 1);
   }
-  return ranges.some((range) => {
-    const text = sourceFile.text.slice(range.pos, range.end);
-    return text.includes("optional-undefined-objective") && text.includes("preserve");
-  });
+  return matches;
 }
 
 function isOptionalPropertyNode(node) {
@@ -193,6 +196,22 @@ function includesUndefinedType(typeNode) {
   }
   if (ts.isParenthesizedTypeNode(typeNode)) {
     return includesUndefinedType(typeNode.type);
+  }
+  return false;
+}
+
+function isExplicitUndefinedType(typeNode) {
+  if (typeNode === undefined) {
+    return false;
+  }
+  if (ts.isTypeReferenceNode(typeNode) && ts.isIdentifier(typeNode.typeName)) {
+    return typeNode.typeName.text === "ExplicitUndefined";
+  }
+  if (ts.isUnionTypeNode(typeNode)) {
+    return typeNode.types.some((child) => isExplicitUndefinedType(child));
+  }
+  if (ts.isParenthesizedTypeNode(typeNode)) {
+    return isExplicitUndefinedType(typeNode.type);
   }
   return false;
 }
@@ -231,45 +250,50 @@ async function measure(scopes, includeMarked = false) {
   const filesByScope = await Promise.all(scopes.map((scope) => listFiles(scope)));
   const files = [...new Set(filesByScope.flat())].sort();
   const perFile = [];
-  let netOptional = 0;
-  let markedPreserve = 0;
+  let optionalUndefinedProperties = 0;
+  let typedExplicitUndefined = 0;
+  let legacyPreserveMarkers = 0;
   let undefinedChecks = 0;
 
   for (const file of files) {
     const text = await readFile(file, "utf8");
     const sourceFile = parseSourceFile(file, text);
-    const { matches: optionalLines, markedMatches: markedLines } = countOptionalUndefinedProperties(sourceFile);
+    const { matches: optionalLines, typedExplicitUndefinedMatches: typedLines } = countOptionalUndefinedProperties(sourceFile);
+    const legacyMarkerLines = countLegacyPreserveMarkers(sourceFile);
     const checkLines = countUndefinedChecks(sourceFile);
-    if (optionalLines.length > 0 || markedLines.length > 0 || checkLines.length > 0) {
+    if (optionalLines.length > 0 || typedLines.length > 0 || legacyMarkerLines.length > 0 || checkLines.length > 0) {
       perFile.push({
         path: path.relative(process.cwd(), file),
         optionalUndefinedProperties: optionalLines.length,
         optionalUndefinedPropertyLines: optionalLines,
-        markedPreserve: markedLines.length,
-        markedPreserveLines: markedLines,
+        typedExplicitUndefined: typedLines.length,
+        typedExplicitUndefinedLines: typedLines,
+        legacyPreserveMarkers: legacyMarkerLines.length,
+        legacyPreserveMarkerLines: legacyMarkerLines,
         undefinedChecks: checkLines.length,
         undefinedCheckLines: checkLines,
       });
     }
-    netOptional += optionalLines.length;
-    markedPreserve += markedLines.length;
+    optionalUndefinedProperties += optionalLines.length;
+    typedExplicitUndefined += typedLines.length;
+    legacyPreserveMarkers += legacyMarkerLines.length;
     undefinedChecks += checkLines.length;
   }
-
-  const optionalUndefinedProperties = includeMarked ? netOptional + markedPreserve : netOptional;
 
   return {
     objective: "eliminate-redundant-optional-undefined",
     scopes,
     includeMarked,
     filesScanned: files.length,
-    metrics: { optionalUndefinedProperties, markedPreserve, undefinedChecks },
+    metrics: { optionalUndefinedProperties, typedExplicitUndefined, legacyPreserveMarkers, undefinedChecks },
     perFile,
     caveats: [
       "Counts are raw Objective scorecard inputs, not semantic classification.",
-      "Optional-undefined detection uses TypeScript AST property signatures/declarations with explicit undefined unions.",
+      "Raw optional-undefined detection uses TypeScript AST property signatures/declarations with explicit undefined unions.",
+      "Typed explicit-undefined contracts use ExplicitUndefined<Reason, T> and are excluded from the net redundant optional-undefined count.",
+      "Legacy optional-undefined-objective preserve comments are reported as migration leftovers and should be replaced by typed contracts.",
       "Undefined-check detection uses TypeScript AST === undefined / !== undefined binary expressions, including temporary normalization code.",
-      "Marked preserves (lines tagged optional-undefined-objective: preserve) are excluded from the net optional-undefined count unless --include-marked is passed.",
+      ...(includeMarked ? ["--include-marked is deprecated and no longer changes the headline optional-undefined count."] : []),
     ],
   };
 }
@@ -283,16 +307,17 @@ function renderMarkdown(result) {
     "",
     "| Metric | Count |",
     "| --- | ---: |",
-    `| Typed optional-undefined properties${result.includeMarked ? " (gross)" : " (net)"} | ${result.metrics.optionalUndefinedProperties} |`,
-    `| Marked preserves (excluded) | ${result.metrics.markedPreserve} |`,
+    `| Raw optional-undefined properties (net debt) | ${result.metrics.optionalUndefinedProperties} |`,
+    `| Typed explicit-undefined contracts | ${result.metrics.typedExplicitUndefined} |`,
+    `| Legacy preserve markers (stale) | ${result.metrics.legacyPreserveMarkers} |`,
     `| Undefined-normalization/check lines | ${result.metrics.undefinedChecks} |`,
     "",
   ];
 
   if (result.perFile.length > 0) {
-    lines.push("## Files with matches", "", "| File | Optional props | Marked preserves | Undefined checks |", "| --- | ---: | ---: | ---: |");
+    lines.push("## Files with matches", "", "| File | Raw optional props | Typed contracts | Legacy markers | Undefined checks |", "| --- | ---: | ---: | ---: | ---: |");
     for (const file of result.perFile) {
-      lines.push(`| ${file.path} | ${file.optionalUndefinedProperties} | ${file.markedPreserve} | ${file.undefinedChecks} |`);
+      lines.push(`| ${file.path} | ${file.optionalUndefinedProperties} | ${file.typedExplicitUndefined} | ${file.legacyPreserveMarkers} | ${file.undefinedChecks} |`);
     }
     lines.push("");
   }
@@ -321,27 +346,32 @@ if (other !== undefined) {
 /* blockIgnored?: string | undefined; */
 `;
   const sourceFile = parseSourceFile("self-test.ts", fixture);
-  const { matches, markedMatches } = countOptionalUndefinedProperties(sourceFile);
+  const { matches, typedExplicitUndefinedMatches } = countOptionalUndefinedProperties(sourceFile);
   const optional = matches.length;
-  const marked = markedMatches.length;
+  const typed = typedExplicitUndefinedMatches.length;
+  const legacy = countLegacyPreserveMarkers(sourceFile).length;
   const checks = countUndefinedChecks(sourceFile).length;
-  if (optional !== 3 || marked !== 0 || checks !== 2) {
-    throw new Error(`self-test failed: expected optional=3 marked=0 checks=2, got optional=${optional} marked=${marked} checks=${checks}`);
+  if (optional !== 3 || typed !== 0 || legacy !== 0 || checks !== 2) {
+    throw new Error(
+      `self-test failed: expected optional=3 typed=0 legacy=0 checks=2, got optional=${optional} typed=${typed} legacy=${legacy} checks=${checks}`,
+    );
   }
 
-  const markedFixture = `
-interface Marked {
-  // optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to a gateway accepting present-undefined.
-  readonly signal?: AbortSignal | undefined;
-  // ordinary comment, not a marker
-  remove?: string | undefined;
+  const typedFixture = `
+interface Typed {
+  readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+  commands?: ExplicitUndefined<"overload-selector", never>;
+  legacy?: string | undefined;
+  // optional-undefined-objective: ${"preserve"} (abort-signal) — Legacy marker should be stale, not an exclusion.
+  stillRaw?: AbortSignal | undefined;
 }
 `;
-  const markedSource = parseSourceFile("self-test-marked.ts", markedFixture);
-  const markedResult = countOptionalUndefinedProperties(markedSource);
-  if (markedResult.matches.length !== 1 || markedResult.markedMatches.length !== 1) {
+  const typedSource = parseSourceFile("self-test-typed.ts", typedFixture);
+  const typedResult = countOptionalUndefinedProperties(typedSource);
+  const typedLegacy = countLegacyPreserveMarkers(typedSource).length;
+  if (typedResult.matches.length !== 2 || typedResult.typedExplicitUndefinedMatches.length !== 2 || typedLegacy !== 1) {
     throw new Error(
-      `self-test failed: expected net=1 marked=1, got net=${markedResult.matches.length} marked=${markedResult.markedMatches.length}`,
+      `self-test failed: expected raw=2 typed=2 legacy=1, got raw=${typedResult.matches.length} typed=${typedResult.typedExplicitUndefinedMatches.length} legacy=${typedLegacy}`,
     );
   }
 }

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { type CommandExecApi, commandFailureReason, formatCommand } from "@sdl/exec";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { GitGateway } from "@sdl/git";
 import { RealGitGateway } from "@sdl/git";
 
@@ -16,11 +16,9 @@ const GIT_TIMEOUT_MS = 10_000;
 
 export interface LoadDiffOptions {
 	readonly cwd: string;
-	// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the git exec call; environment-map preserve category.
-	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	readonly baseRef?: string | null | undefined;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed directly (non-spread) to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly excludeGlobs?: readonly string[] | undefined;
 }
 

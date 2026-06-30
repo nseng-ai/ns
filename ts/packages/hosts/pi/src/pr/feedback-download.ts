@@ -1,4 +1,4 @@
-import { formatZodError } from "@sdl/core/primitives";
+import { formatZodError, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { ExecResult } from "../shared/exec-gateway.ts";
 import type { ExecGateway } from "../shared/exec-gateway.ts";
 import { z } from "zod";
@@ -58,8 +58,7 @@ export interface DownloadPrFeedbackOptions {
 	cwd: string;
 	prNumber?: number | undefined;
 	timeoutMs: number;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.
-	signal?: AbortSignal | undefined;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	runner?: PrAddressRunner | undefined;
 	shouldAllowFailureData?: boolean | undefined;
 }

@@ -20,7 +20,7 @@ import {
 } from "./metadata.ts";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
-import { isRecord } from "@sdl/core/primitives";
+import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
 
@@ -109,8 +109,7 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 
 	constructor(options: {
 		git: GraphiteStackGitGateway;
-		// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.
-		env?: NodeJS.ProcessEnv | undefined;
+		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		execApi?: CommandExecApi | undefined;
 		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;
 	}) {

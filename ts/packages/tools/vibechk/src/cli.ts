@@ -29,11 +29,11 @@ import { RealVibechkWorkdirGateway } from "./repository.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface CliDeps {
 	cwd?: string | undefined;
-	// optional-undefined-objective: preserve (env-map) — Injected NodeJS.ProcessEnv environment map on a DI deps bag; environment/process-map mirror kept loose.
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;
 	runnerRegistry?: RunnerRegistry | undefined;

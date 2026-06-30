@@ -1,9 +1,9 @@
 import type { ModelInfo } from "../runtime/types.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface PiCommandContext {
 	cwd: string;
-	// optional-undefined-objective: preserve (abort-signal) — Host-provided AbortSignal cancellation seam on the command context contract; abort is an explicit preserve category.
-	signal?: AbortSignal | undefined;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	model?: ModelInfo | undefined;
 	hasUI?: boolean;
 	ui: {

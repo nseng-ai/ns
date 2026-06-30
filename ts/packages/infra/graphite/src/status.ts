@@ -13,7 +13,7 @@ import {
 	type SqliteJsonError,
 } from "./metadata.ts";
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/git";
-import { isRecord } from "@sdl/core/primitives";
+import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/core/timers";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
@@ -72,8 +72,7 @@ export type GraphiteMetadataWorkerDiagnostic =
 	| { type: "worker-timeout"; timeoutMs: number };
 
 export interface LoadGraphiteMetadataStatusInWorkerOptions {
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal consumed directly (`options.signal?.aborted`, addEventListener); abort is an explicit preserve category.
-	signal?: AbortSignal | undefined;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	timeoutMs?: number | undefined;
 	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
 	timers?: TimerScheduler | undefined;

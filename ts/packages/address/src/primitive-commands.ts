@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import type { Result } from "@sdl/core/result";
 
@@ -237,8 +237,7 @@ async function runPrDiscussionComments(
 async function runPrChecks(
 	ctx: PrAddressExecContext,
 	request: {
-		// optional-undefined-objective: preserve (external-mirror) — Inline type mirrors the Zod-parsed request `z.object({ prNumber: z.int().optional() })`, so it reflects external/schema-parsed input shape.
-		prNumber?: number | undefined;
+		prNumber?: ExplicitUndefined<"external-mirror", number>;
 	},
 ): Promise<ClinkrExit<PrChecksResult>> {
 	const result = await collectPrChecks({

@@ -1,12 +1,12 @@
 import type { ExecGateway } from "./exec-gateway.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface LoadGhCommandOptions {
 	pi: ExecGateway;
 	args: string[];
 	cwd: string;
 	timeoutMs: number;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.
-	signal?: AbortSignal | undefined;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	shouldAllowNonZeroWithStdout?: boolean | undefined;
 }
 

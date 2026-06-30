@@ -1,3 +1,4 @@
+import type { ExplicitUndefined } from "./primitives.ts";
 export interface ErrorInfo<Details extends object = Record<string, unknown>> {
 	code: string;
 	message: string;
@@ -6,12 +7,9 @@ export interface ErrorInfo<Details extends object = Record<string, unknown>> {
 }
 
 export interface ErrorDetailTextOptions {
-	// optional-undefined-objective: preserve (null-tolerant-input) — This is a deliberately tolerant input union (string | null | undefined) that accepts loosely-typed/nullable command output; dropping `| undefined` while keeping `| null` is incoherent and callers forward possibly-undefined values.
-	readonly stderr?: string | null | undefined;
-	// optional-undefined-objective: preserve (null-tolerant-input) — Same tolerant `string | null | undefined` input union as stderr, intentionally accepting null and undefined interchangeably for loosely-typed command output.
-	readonly stdout?: string | null | undefined;
-	// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input field; callers (exec-operation.ts) forward a possibly-undefined `input.message`, and the null branch must remain, so the undefined is not pure redundancy.
-	readonly message?: string | null | undefined;
+	readonly stderr?: ExplicitUndefined<"null-tolerant-input", string | null>;
+	readonly stdout?: ExplicitUndefined<"null-tolerant-input", string | null>;
+	readonly message?: ExplicitUndefined<"null-tolerant-input", string | null>;
 	readonly fallback: string;
 }
 

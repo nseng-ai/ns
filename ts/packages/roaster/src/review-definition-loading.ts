@@ -2,13 +2,13 @@ import type { RoasterFailure, RoasterResult } from "./failures.ts";
 import type { ReviewCatalogGateway, ReviewSource } from "./gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
 import { parseReviewDefinition } from "./review-definition.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface LoadParsedReviewDefinitionOptions {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly cwd: string;
 	readonly key: string;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to reviewCatalog.loadReviewSource which accepts present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface ParsedReviewDefinition {

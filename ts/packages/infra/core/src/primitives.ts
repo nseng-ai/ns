@@ -3,6 +3,22 @@ import { isAbsolute, relative, resolve } from "node:path";
 
 export type MaybePromise<T> = T | Promise<T>;
 
+declare const explicitUndefinedReason: unique symbol;
+
+export type ExplicitUndefinedReason =
+	| "abort-signal"
+	| "di-seam"
+	| "env-map"
+	| "external-mirror"
+	| "key-event"
+	| "null-tolerant-input"
+	| "overload-selector";
+
+export type ExplicitUndefined<Reason extends ExplicitUndefinedReason, T> =
+	| T
+	| undefined
+	| (never & { readonly [explicitUndefinedReason]: Reason });
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

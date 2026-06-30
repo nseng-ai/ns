@@ -10,6 +10,7 @@ import {
 } from "@sdl/clinkr";
 import { paint } from "@sdl/cli-theme";
 import { readStdinLine } from "@sdl/core/stdin";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
@@ -44,8 +45,7 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 
 export async function createRealSlotContext(options: {
 	cwd: string;
-	// optional-undefined-objective: preserve (env-map) — Factory DI seam: optional env injection where omission/undefined intentionally falls back to process.env.
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	caps?: Caps | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 	formatPrompt?: ConfirmationPromptFormatter | undefined;

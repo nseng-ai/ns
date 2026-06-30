@@ -1,14 +1,11 @@
 import type { CommandRunner } from "../command-runner.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface TabKeyInput {
-	// optional-undefined-objective: preserve (key-event) — Terminal key-event payload shape (looser mirror of @opentui/core KeyEvent) consumed via `key.name ??`; Objective precedent preserves tab key descriptors as input surfaces.
-	readonly name?: string | undefined;
-	// optional-undefined-objective: preserve (key-event) — Terminal key-event payload field consumed via `=== undefined` checks; key-descriptor input surface preserved per precedent.
-	readonly sequence?: string | undefined;
-	// optional-undefined-objective: preserve (key-event) — Terminal key-event modifier payload field mirroring @opentui/core KeyEvent; key-descriptor input surface preserved per precedent.
-	readonly ctrl?: boolean | undefined;
-	// optional-undefined-objective: preserve (key-event) — Terminal key-event modifier payload field mirroring @opentui/core KeyEvent; key-descriptor input surface preserved per precedent.
-	readonly meta?: boolean | undefined;
+	readonly name?: ExplicitUndefined<"key-event", string>;
+	readonly sequence?: ExplicitUndefined<"key-event", string>;
+	readonly ctrl?: ExplicitUndefined<"key-event", boolean>;
+	readonly meta?: ExplicitUndefined<"key-event", boolean>;
 }
 
 export interface TabModuleDeps {

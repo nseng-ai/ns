@@ -149,15 +149,18 @@ to each rule's exceptions.
 17. **Optional-property `undefined` drift under `exactOptionalPropertyTypes`.**
     Flag object literals that explicitly set an optional property to
     `undefined`, or replace a conditional-spread omission pattern with
-    `prop: maybeUndefined`. Severity: `warning`. For domain records, command
-    metadata, registry/catalog entries, results, context objects, and durable
-    records, frame the issue as omission-vs-explicit-undefined drift, not as a
-    need to widen the declared type. Do not recommend widening `prop?: T` to
-    `prop?: T | undefined` unless the diff makes present-key `undefined`
-    semantically meaningful, such as in an option/input/override/compatibility
-    bag. Do not flag the intentional sdl pattern
+    `prop: maybeUndefined`. Also flag raw optional-property `?: T | undefined`
+    drift unless the diff makes a permanent explicit-undefined contract clear.
+    Severity: `warning`. For domain records, command metadata, registry/catalog
+    entries, results, context objects, and durable records, frame the issue as
+    omission-vs-explicit-undefined drift, not as a need to widen the declared
+    type. Do not recommend widening `prop?: T` to raw `prop?: T | undefined`;
+    if explicit `undefined` is truly permanent, use
+    `ExplicitUndefined<Reason, T>`. Do not flag the intentional sdl pattern
     `...(value === undefined ? {} : { prop: value })`; under this compiler
-    setting, omitting a key is different from setting it to `undefined`.
+    setting, omitting a key is different from setting it to `undefined`. Do not
+    flag `ExplicitUndefined<Reason, T>` solely because it includes `undefined`;
+    check whether the reason/category is specific and appropriate.
 18. **Unchecked indexed-access bypass.** Flag non-null assertions or broad casts
     that bypass `noUncheckedIndexedAccess` on array/record lookups, such as
     `items[index]!`, `handlers[key]!`, or `(record[key] as Handler)` without a

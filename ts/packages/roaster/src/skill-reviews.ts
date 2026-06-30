@@ -7,6 +7,7 @@ import {
 import type { ReviewDefinition } from "./models.ts";
 import { roasterReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface RoastSkillEntry {
 	readonly surface: string;
@@ -29,8 +30,7 @@ export type RoastReviewLoadResult =
 export interface LoadRoastSkillEntriesOptions {
 	readonly cwd: string;
 	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
-	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to the review catalog gateway which accepts present-undefined; abort-signal preserve category.
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface LoadRoastReviewDefinitionOptions extends LoadRoastSkillEntriesOptions {

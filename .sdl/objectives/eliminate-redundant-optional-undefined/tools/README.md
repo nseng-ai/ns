@@ -17,25 +17,37 @@ node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-object
 
 ## Metrics
 
-The tool reports the two Objective metrics:
+The tool reports these Objective metrics:
 
-1. **Typed optional-undefined property count**: TypeScript AST property signatures/declarations with a `?` token whose type includes an explicit `undefined` union, such as `foo?: string | undefined`. This is the **net** count — properties carrying a preserve marker (see below) are excluded.
-2. **Undefined-normalization/check count**: TypeScript AST binary expressions comparing a value with `undefined` using `===` or `!==`, including conditional omission builders and temporary normalization code.
+1. **Raw optional-undefined property count**: TypeScript AST property signatures/declarations with a `?` token whose type includes an explicit `undefined` union, such as `foo?: string | undefined`. This is net remaining debt; typed explicit-undefined contracts are excluded.
+2. **Typed explicit-undefined contract count**: optional properties typed with `ExplicitUndefined<Reason, T>`.
+3. **Legacy preserve marker count**: retired marker comments still present in TypeScript sources. These are stale migration artifacts, not exclusions.
+4. **Undefined-normalization/check count**: TypeScript AST binary expressions comparing a value with `undefined` using `===` or `!==`, including conditional omission builders and temporary normalization code.
 
-The tool also reports **marked preserves**: the count of optional-undefined properties that have been explicitly marked as intentional and excluded from the net count.
+## Explicit undefined contracts
 
-## Preserve markers
-
-Properties that are intentionally kept as `?: T | undefined` (environment maps, abort signals, null-tolerant inputs, external/wire mirrors, overload selectors, etc.) carry a single-line comment on the line **immediately above** the property declaration:
+Permanent support for explicit present-key `undefined` is encoded in the type system with `ExplicitUndefined<Reason, T>` from `@sdl/core/primitives`:
 
 ```ts
-// optional-undefined-objective: preserve (<bucket>) — <one-line reason>
-readonly signal?: AbortSignal | undefined;
+import type { ExplicitUndefined } from "@sdl/core/primitives";
+
+readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+readonly env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
+readonly stderr?: ExplicitUndefined<"null-tolerant-input", string | null>;
+commands?: ExplicitUndefined<"overload-selector", never>;
 ```
 
-The tool recognizes any leading comment containing both `optional-undefined-objective` and `preserve`, excludes that property from the net optional-undefined count, and tallies it under `markedPreserve`. This keeps future autonomous Objective runs from re-litigating already-adjudicated preserves. For inline object-type members (e.g. `request: { prNumber?: number | undefined }`), the type must be expanded to multiple lines so the marker is the property's leading comment rather than the parameter's.
+Allowed reasons are:
 
-Pass `--include-marked` to report the **gross** count (net + marked preserves) instead of the net count; `markedPreserve` is reported in both modes.
+- `"abort-signal"` — cancellation signal seams where present `undefined` is a loose pass-through boundary.
+- `"di-seam"` — dependency-injection seams where explicit `undefined` intentionally selects the default collaborator.
+- `"env-map"` — `process.env`/environment maps whose values naturally include `undefined`.
+- `"external-mirror"` — schema or wire-data mirrors whose optionality comes from data outside SDL.
+- `"key-event"` — terminal key-event payload fields mirroring upstream event shapes.
+- `"null-tolerant-input"` — tolerant input fields that accept `null` and `undefined` interchangeably.
+- `"overload-selector"` — overload/input selectors where explicit `undefined` is part of the authoring contract.
+
+The old marker-comment convention is retired. Do not add new marker comments; migrate any remaining legacy marker to a typed `ExplicitUndefined<Reason, T>` contract. If a specific field needs extra rationale, add an ordinary domain comment without the retired marker string.
 
 ## Intended workflow
 

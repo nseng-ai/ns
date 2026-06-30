@@ -1,3 +1,4 @@
+import type { ExplicitUndefined } from "./primitives.ts";
 export interface CustomMessageTextPart {
 	type: string;
 	text?: string;
@@ -74,8 +75,7 @@ export function prLinksFromDetails(details: unknown): Map<number, string> {
 export function prLinksDetailsFor(
 	entries: Iterable<{
 		number: number;
-		// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input over PR-entry data; the consumer explicitly distinguishes neither (treats null and undefined alike) and the null branch must remain, so it is an intentional loosely-typed input shape.
-		url?: string | null | undefined;
+		url?: ExplicitUndefined<"null-tolerant-input", string | null>;
 	}>,
 ): PrLinksDetails | undefined {
 	const prLinks: PrLink[] = [];
