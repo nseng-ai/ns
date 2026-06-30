@@ -79,20 +79,34 @@ This is intentional. Do not copy rules from projects that ban this pattern unles
 sdl's `exactOptionalPropertyTypes` contract. Under this setting, `{ env: undefined }` is not equivalent
 to omitting `env`.
 
+Preferred review fix: when a finding is caused by `prop: maybeUndefined`, rewrite construction to omit
+the key instead of widening the field type just to make the object literal type-check or silence review:
+
+```ts
+const item = {
+  name,
+  ...(description === undefined ? {} : { description }),
+};
+```
+
 Use these type shapes deliberately:
 
 - `foo?: T` means omission is the state; if the key is present, the value is a real `T`.
 - `foo: T | undefined` means the key is part of the shape, but the value may be unavailable.
 - `foo?: T | undefined` means callers may omit the key or explicitly provide/forward `undefined`; reserve
-  it for options, input, override, and compatibility bags where that distinction is meaningful.
+  it for options, input, override, and compatibility bags where callers may intentionally forward explicit
+  `undefined`, or where present-but-undefined is a meaningful wire/API state.
 
 Review guidance:
 
-- For domain, context, result, and durable record objects, question `?: T | undefined` unless explicit
+- For domain, context, result, command metadata, registry/catalog entry, and durable record objects,
+  prefer `foo?: T` plus omission on construction; question `?: T | undefined` unless explicit
   `undefined` is a meaningful present-key state.
-- If construction code conditionally omits the field with object spread, prefer `foo?: T`.
+- If construction code can omit the field with object spread, do that rather than widening the field type.
+- Treat `?: T | undefined` as an API contract, not a convenience escape hatch.
 - If every consumer expects the property to exist and checks the value, prefer `foo: T | undefined`.
-- Do not turn this into a blanket ban: option/input bags can legitimately accept explicit `undefined`.
+- Do not turn this into a blanket ban: option/input/override/compatibility bags can legitimately accept
+  explicit `undefined`.
 
 ## Time seams
 
