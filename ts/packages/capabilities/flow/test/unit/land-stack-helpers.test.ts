@@ -245,8 +245,8 @@ function prSnapshot(overrides: {
 	branch: string;
 	base: string;
 	sha: string;
-	title?: string | undefined;
-	body?: string | null | undefined;
+	title?: string;
+	body?: string | null;
 	state?: string;
 	isDraft?: boolean;
 	mergedAt?: string | null;

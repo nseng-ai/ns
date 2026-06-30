@@ -14,16 +14,12 @@ const SHARED_CCC_CLI_HELPER_PATH = join(
 );
 
 interface FlowCccCliExecOptions {
-	cwd?: string | undefined;
-	timeout?: number | undefined;
+	cwd?: string;
+	timeout?: number;
 }
 
 interface FlowCccCliRunnerInput {
-	exec(
-		command: string,
-		args: string[],
-		options?: FlowCccCliExecOptions | undefined,
-	): Promise<ExecResult>;
+	exec(command: string, args: string[], options?: FlowCccCliExecOptions): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
 }
@@ -32,10 +28,10 @@ interface RunFlowCccCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
-	shouldForwardLiveOutput?: boolean | undefined;
-	trustedExec?: CommandExecApi | undefined;
-	outputMode?: "forward-live" | "buffer-until-complete" | undefined;
-	afterExitCode?: ((exitCode: number) => Promise<void> | void) | undefined;
+	shouldForwardLiveOutput?: boolean;
+	trustedExec?: CommandExecApi;
+	outputMode?: "forward-live" | "buffer-until-complete";
+	afterExitCode?: (exitCode: number) => Promise<void> | void;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -53,7 +49,7 @@ interface FlowCccCliOutputCapture {
 interface FlowCccCliModule {
 	createFlowCccCliOutputCapture(options: {
 		ctx: SdlExtensionApi;
-		mode?: "forward-live" | "buffer-until-complete" | undefined;
+		mode?: "forward-live" | "buffer-until-complete";
 	}): FlowCccCliOutputCapture;
 	runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult>;
 }
@@ -61,7 +57,7 @@ interface FlowCccCliModule {
 interface ExecCall {
 	command: string;
 	args: string[];
-	options?: ExecOptions | SdlExecOptions | undefined;
+	options?: ExecOptions | SdlExecOptions;
 }
 
 describe("project extension shared CCC CLI helper", () => {
