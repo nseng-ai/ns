@@ -353,7 +353,7 @@ export interface EnvelopeWithSchemaOptions<T> {
 	label: string;
 	result: ExecResult;
 	schema: z.ZodType<T>;
-	allowFailureData?: boolean | undefined;
+	allowFailureData?: boolean;
 }
 
 function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): CommandResult<T> {

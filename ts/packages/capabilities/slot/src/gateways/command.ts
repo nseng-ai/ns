@@ -1,9 +1,10 @@
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi, ExecResult } from "@sdl/exec";
 
 export interface SlotCommandRunOptions {
 	cwd: string;
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 }
 
 /**
@@ -23,7 +24,7 @@ export interface SlotCommandGateway {
 export class RealSlotCommandGateway implements SlotCommandGateway {
 	private readonly execApi: CommandExecApi;
 
-	constructor(options: { execApi?: CommandExecApi | undefined } = {}) {
+	constructor(options: { execApi?: CommandExecApi } = {}) {
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
 	}
 
