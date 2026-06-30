@@ -34,11 +34,8 @@ export {
 	buildStackLandingPlan,
 	calculateLandingOutcome,
 	collectPrSubmitRequirements,
-	formatManualWorktreeConflict,
 	landingParentEdges,
 	scopeStackSnapshot,
-	validateInitialPrPreflight,
-	validateOpenPrBasics,
 } from "./preflight.ts";
 
 export {
