@@ -7,7 +7,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import type { ScheduledTimer } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi/commands";
@@ -351,7 +351,7 @@ export function buildWriteSavedPlanFileTool(
 					slugEvidence = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
-						...(signal === undefined ? {} : { signal }),
+						...optionalEntry("signal", signal),
 					});
 				} finally {
 					if (slugProgressInterval !== undefined) {
@@ -374,8 +374,8 @@ export function buildWriteSavedPlanFileTool(
 					buildSavedPlanFileParams(toolParams, slugEvidence.slug),
 					{
 						cwd: ctx.cwd,
-						...(signal === undefined ? {} : { signal }),
-						...(planStoreRoot === undefined ? {} : { planStoreRoot }),
+						...optionalEntry("signal", signal),
+						...optionalEntry("planStoreRoot", planStoreRoot),
 					},
 				);
 				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };

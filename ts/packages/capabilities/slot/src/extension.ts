@@ -126,7 +126,7 @@ async function createSlotExtensionContext(ctx: SdlExtensionApi): Promise<SlotCli
 		env: ctx.env,
 		...optionalEntry("stderr", ctx.stderr),
 		renderCapabilities: ctx.renderCapabilities,
-		...(ctx.extensions === undefined ? {} : { extensions: ctx.extensions }),
+		...optionalEntry("extensions", ctx.extensions),
 		shouldWriteCdDirective: true,
 	});
 }

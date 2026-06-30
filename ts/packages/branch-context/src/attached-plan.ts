@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 
 import {
 	getBranchContextPlan,
@@ -260,8 +260,8 @@ async function loadSavedPlanFallback(
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
 		git: options.context.git,
-		...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
-		...(options.sessionEntries === undefined ? {} : { sessionEntries: options.sessionEntries }),
+		...optionalEntry("planStoreRoot", options.planStoreRoot),
+		...optionalEntry("sessionEntries", options.sessionEntries),
 		shouldAllowSessionSourceBranchMismatch: true,
 		shouldFallbackToLatest: true,
 	});
