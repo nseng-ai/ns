@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
@@ -7,6 +9,7 @@ import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+	IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
 } from "@sdl/pi/commands";
 import {
@@ -44,13 +47,16 @@ import type {
 	CommandContext,
 	ExtensionAPI,
 	NotifyLevel,
+	ReplacedSessionContext,
 } from "./host-types.ts";
 
 export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME;
 export const GT_UPSTACK_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
+export { IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME };
 const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
 const GT_UPSTACK_IMPL_STATUS_KEY = GT_UPSTACK_IMPL_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
+const IMPL_CURRENT_SAVED_PLAN_STATUS_KEY = IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME;
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
@@ -86,6 +92,18 @@ An explicit file path may be absolute or current-user home-relative with ~ or ~/
 
 This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
 
+export const IMPL_CURRENT_SAVED_PLAN_USAGE = `Usage: /${IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+
+Launch a fresh Pi implementation session on the current branch from a saved plan. This command does not create, check out, or attach a branch context.
+
+Options:
+  --dry-run          Show the selected plan and launch flow without mutating or starting a session.
+  --help, -h         Show this help.
+
+With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
+Branch creation flags such as --branch, --graphite, and --plain-git are intentionally unsupported.`;
+
 export interface CreateBranchContextArgs {
 	help: boolean;
 	dryRun: boolean;
@@ -94,6 +112,38 @@ export interface CreateBranchContextArgs {
 	branchCreation?: BranchCreationMethod;
 	filePath?: string;
 }
+
+export interface ImplCurrentSavedPlanArgs {
+	help: boolean;
+	dryRun: boolean;
+	filePath?: string;
+}
+
+interface ImplCurrentSavedPlanPreviewBase {
+	savedPlanFileStem: string;
+	filePath: string;
+	fileName: string;
+	planContent: string;
+}
+
+interface ExplicitImplCurrentSavedPlanPreview extends ImplCurrentSavedPlanPreviewBase {
+	mode: "explicit";
+}
+
+interface StoredImplCurrentSavedPlanPreview extends ImplCurrentSavedPlanPreviewBase {
+	mode: "latest" | "session";
+	repoRoot: string;
+	repoKey: string;
+	repoIdentitySource: RepoIdentitySource;
+	sourceBranch: string;
+	branchKey: string;
+	modifiedTimeMs?: number;
+	summary?: string;
+}
+
+export type ImplCurrentSavedPlanPreview =
+	| ExplicitImplCurrentSavedPlanPreview
+	| StoredImplCurrentSavedPlanPreview;
 
 interface CreateBranchContextPreviewBase {
 	slug: string;
@@ -150,10 +200,7 @@ function resolveBranchContextContext(
 
 export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchContextArgs {
 	const parsed: CreateBranchContextArgs = { help: false, dryRun: false, yes: false };
-	const tokens = rawArgs
-		.trim()
-		.split(/\s+/)
-		.filter((token) => token.length > 0);
+	const tokens = tokenizeCommandArgs(rawArgs);
 	const positional: string[] = [];
 
 	for (let index = 0; index < tokens.length; index += 1) {
@@ -215,6 +262,54 @@ export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchConte
 	}
 
 	return parsed;
+}
+
+export function parseImplCurrentSavedPlanArgs(rawArgs: string): ImplCurrentSavedPlanArgs {
+	const parsed: ImplCurrentSavedPlanArgs = { help: false, dryRun: false };
+	const positional: string[] = [];
+
+	for (const token of tokenizeCommandArgs(rawArgs)) {
+		if (token === "--help" || token === "-h") {
+			parsed.help = true;
+			continue;
+		}
+		if (token === "--dry-run") {
+			parsed.dryRun = true;
+			continue;
+		}
+		if (token === "--branch" || token.startsWith("--branch=")) {
+			throw new CreateBranchContextUsageError(
+				"--branch is not supported; this command implements on the current branch.",
+			);
+		}
+		if (token === "--graphite" || token === "--plain-git") {
+			throw new CreateBranchContextUsageError(
+				`${token} is not supported; this command does not create branches.`,
+			);
+		}
+		if (token.startsWith("-")) {
+			throw new CreateBranchContextUsageError(`Unknown flag: ${token}`);
+		}
+
+		positional.push(token);
+	}
+
+	if (positional.length > 1) {
+		throw new CreateBranchContextUsageError("Expected at most one plan file path.");
+	}
+	const filePath = positional[0];
+	if (filePath !== undefined) {
+		parsed.filePath = filePath;
+	}
+
+	return parsed;
+}
+
+function tokenizeCommandArgs(rawArgs: string): string[] {
+	return rawArgs
+		.trim()
+		.split(/\s+/)
+		.filter((token) => token.length > 0);
 }
 
 function setBranchCreation(
@@ -327,6 +422,91 @@ export function formatCreateBranchContextPreview(preview: CreateBranchContextPre
 	return lines.join("\n");
 }
 
+export async function deriveImplCurrentSavedPlanPreview(
+	selected: SelectedSavedPlanFile,
+): Promise<ImplCurrentSavedPlanPreview> {
+	const selectedFile = selectedSavedPlanFileInfo(selected);
+	const planContent = await readFile(selectedFile.filePath, "utf8");
+	const base = {
+		savedPlanFileStem: selected.savedPlanFileStem,
+		filePath: selectedFile.filePath,
+		fileName: selectedFile.fileName,
+		planContent,
+	};
+
+	if (selected.type === "explicit") {
+		return { ...base, mode: "explicit" };
+	}
+
+	return {
+		...base,
+		mode: selected.type,
+		repoRoot: selected.plan.repoRoot,
+		repoKey: selected.plan.repoKey,
+		repoIdentitySource: selected.plan.repoIdentitySource,
+		sourceBranch: selected.plan.sourceBranch,
+		branchKey: selected.plan.branchKey,
+		modifiedTimeMs: selected.plan.modifiedTimeMs,
+		...(selected.type === "session" && selected.plan.summary !== undefined
+			? { summary: selected.plan.summary }
+			: {}),
+	};
+}
+
+export function formatImplCurrentSavedPlanEvidence(preview: ImplCurrentSavedPlanPreview): string {
+	const lines = [
+		preview.mode === "explicit"
+			? "Explicit saved plan file:"
+			: preview.mode === "session"
+				? "Saved plan from current session:"
+				: "Latest saved plan from local plan store:",
+	];
+	lines.push(`Path: ${preview.filePath}`);
+	lines.push(`File name: ${preview.fileName}`);
+	lines.push(`Saved-plan file stem: ${preview.savedPlanFileStem}`);
+	lines.push(`Selection mode: ${preview.mode}`);
+	lines.push("Current branch: inherited from the active Pi session; no checkout is performed.");
+	if (preview.mode !== "explicit") {
+		lines.push(`Repo key: ${preview.repoKey}`);
+		lines.push(`Repo root: ${preview.repoRoot}`);
+		lines.push(`Repo identity source: ${preview.repoIdentitySource}`);
+		lines.push(`Source branch: ${preview.sourceBranch}`);
+		lines.push(`Branch path segment: ${preview.branchKey}`);
+		if (preview.modifiedTimeMs !== undefined) {
+			lines.push(`Modified: ${new Date(preview.modifiedTimeMs).toISOString()}`);
+		}
+		if (preview.summary !== undefined) {
+			lines.push(`Summary: ${preview.summary}`);
+		}
+	}
+	return lines.join("\n");
+}
+
+export function buildImplCurrentSavedPlanPrompt(preview: ImplCurrentSavedPlanPreview): string {
+	return `# Saved Plan implementation
+
+A saved plan has been selected for implementation on the current branch. No Branch Context was created, no branch checkout was requested, and no Attached Plan was written.
+
+${formatImplCurrentSavedPlanEvidence(preview)}
+
+## Implementation rules
+
+- Create an implementation checklist before editing.
+- Treat the embedded Saved Plan as authoritative unless current repo state proves it stale.
+- If the plan is ambiguous or internally inconsistent, quote the ambiguity and ask for clarification instead of guessing.
+- Follow normal project rules: read before editing, use precise edits, run relevant validation, and do not commit, push, submit, or publish unless the user explicitly asks.
+- Do not call brmem put, brmem copy, brmem delete, or any mutating Branch Memory command merely because this command lives near Branch Context code. If the plan asks for Branch Memory mutation, stop and ask the user.
+- If the Saved Plan includes current-state excerpts, scope boundaries, verification gates, or STOP conditions, compare excerpts against live repo state before editing. An excerpt mismatch is a STOP.
+- If those contract sections are absent, explicitly recognize the plan as old-format/pre-contract and do not invent gates or half-apply excerpt checks.
+- Stop and report instead of guessing on universal STOP triggers: excerpt mismatch; ambiguity or internal inconsistency; a verification gate fails twice after reasonable local attempts; implementation requires touching an out-of-scope file/area; or the plan asks for mutating Branch Memory.
+- Before finishing, compare changed files to the plan's scope. Note autofixer-only formatting outside scope separately; intentional executor edits outside scope require user approval.
+- Report implemented changes, files changed/tree state, validation results, plan deviations, unresolved follow-up, and for any STOP: observed vs expected plus the exact gate/assumption that failed.
+
+----- BEGIN SAVED PLAN -----
+${preview.planContent}
+----- END SAVED PLAN -----`;
+}
+
 export async function handleImplBranchContextCommand(
 	pi: ExtensionAPI,
 	args: string,
@@ -363,6 +543,113 @@ export async function handleImplBranchContextCommand(
 	} finally {
 		ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
+}
+
+export async function handleImplCurrentSavedPlanCommand(
+	pi: ExtensionAPI,
+	rawArgs: string,
+	ctx: CommandContext,
+	options: BranchContextExtensionOptions,
+): Promise<void> {
+	let args: ImplCurrentSavedPlanArgs;
+	try {
+		args = parseImplCurrentSavedPlanArgs(rawArgs);
+	} catch (error) {
+		if (error instanceof CreateBranchContextUsageError) {
+			presentBranchContextMessage(
+				pi,
+				ctx,
+				`Usage error: ${error.message}\n\n${IMPL_CURRENT_SAVED_PLAN_USAGE}`,
+				{ status: "usage" },
+				"error",
+			);
+			return;
+		}
+		throw error;
+	}
+
+	if (args.help) {
+		await ctx.waitForIdle();
+		presentBranchContextMessage(
+			pi,
+			ctx,
+			IMPL_CURRENT_SAVED_PLAN_USAGE,
+			{ status: "usage" },
+			"info",
+		);
+		return;
+	}
+
+	sendCommandProgressOrNotify({
+		host: pi,
+		ctx,
+		message: "Finding saved plan for current-branch implementation…",
+	});
+	await ctx.waitForIdle();
+
+	let selected: SelectedSavedPlanFile;
+	ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "finding saved plan…");
+	try {
+		selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
+	} catch (error) {
+		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file.", error);
+		return;
+	}
+
+	let preview: ImplCurrentSavedPlanPreview;
+	ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "reading saved plan…");
+	try {
+		preview = await deriveImplCurrentSavedPlanPreview(selected);
+	} catch (error) {
+		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		presentBranchContextFailure(pi, ctx, "Failed to read saved plan file.", error);
+		return;
+	} finally {
+		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+	}
+
+	const evidence = formatImplCurrentSavedPlanEvidence(preview);
+	const prompt = buildImplCurrentSavedPlanPrompt(preview);
+	if (args.dryRun) {
+		presentBranchContextMessage(
+			pi,
+			ctx,
+			`Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${evidence}\n\nNew-session implementation flow:\n/new\n/${IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME} ${preview.filePath}`,
+			{ status: "dry-run", targetBranch: "current branch", key: preview.savedPlanFileStem },
+			"info",
+		);
+		return;
+	}
+
+	presentBranchContextMessage(
+		pi,
+		ctx,
+		`Starting current-branch saved-plan implementation session.\n\n${evidence}`,
+		{ status: "loaded-plan" },
+		"info",
+	);
+	const launchResult = await runImplCurrentSavedPlanLaunch({ ctx, prompt });
+	if (launchResult.type === "launched") {
+		return;
+	}
+	if (launchResult.type === "cancelled") {
+		presentBranchContextMessage(
+			pi,
+			ctx,
+			formatImplCurrentSavedPlanCancelledMessage(preview.filePath),
+			{ status: "cancelled" },
+			"warning",
+		);
+		return;
+	}
+
+	presentBranchContextFailure(
+		pi,
+		ctx,
+		"Selected the saved plan, but failed to start the implementation session.",
+		launchResult.message,
+	);
 }
 
 export async function handleCreateBranchContextCommand(
@@ -713,6 +1000,16 @@ function formatExistingReuseFailureMessage(originalError: unknown, reuseError: u
 
 type GtUpstackImplMode = "created" | "reused";
 
+type ImplCurrentSavedPlanLaunchResult =
+	| { type: "launched"; parentSession?: string }
+	| { type: "cancelled"; parentSession?: string }
+	| { type: "failed"; message: string; parentSession?: string };
+
+interface ImplCurrentSavedPlanLaunchOptions {
+	ctx: CommandContext;
+	prompt: string;
+}
+
 interface GtUpstackImplLaunchTailOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
@@ -754,8 +1051,54 @@ async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOption
 	);
 }
 
+async function runImplCurrentSavedPlanLaunch(
+	options: ImplCurrentSavedPlanLaunchOptions,
+): Promise<ImplCurrentSavedPlanLaunchResult> {
+	let isReplacementSessionActive = false;
+	let parentSession: string | undefined;
+	try {
+		options.ctx.ui.setStatus(
+			IMPL_CURRENT_SAVED_PLAN_STATUS_KEY,
+			"starting implementation session…",
+		);
+		parentSession = options.ctx.sessionManager?.getSessionFile?.();
+		const newSessionOptions = {
+			...(parentSession === undefined ? {} : { parentSession }),
+			withSession: async (newCtx: ReplacedSessionContext) => {
+				isReplacementSessionActive = true;
+				await newCtx.sendUserMessage(options.prompt);
+			},
+		};
+		const result = await options.ctx.newSession(newSessionOptions);
+		if (result.cancelled) {
+			return {
+				type: "cancelled",
+				...(parentSession === undefined ? {} : { parentSession }),
+			};
+		}
+		return { type: "launched", ...(parentSession === undefined ? {} : { parentSession }) };
+	} catch (error) {
+		if (isReplacementSessionActive) {
+			throw error;
+		}
+		return {
+			type: "failed",
+			message: error instanceof Error ? error.message : String(error),
+			...(parentSession === undefined ? {} : { parentSession }),
+		};
+	} finally {
+		if (!isReplacementSessionActive) {
+			options.ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		}
+	}
+}
+
 function formatGtUpstackImplDryRunMessage(body: string, branch: string, key: string): string {
 	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextGtUpstackImplFollowUpFlow(branch, key)}`;
+}
+
+function formatImplCurrentSavedPlanCancelledMessage(filePath: string): string {
+	return `Selected the saved plan, but starting the implementation session was cancelled. Run /${IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME} ${filePath} again, or manually open /new on the current branch and paste/use the saved plan content.`;
 }
 
 function formatGtUpstackImplLaunchFailureTitle(
@@ -786,7 +1129,7 @@ function formatGtUpstackImplCancelledMessage(
 
 async function resolveSelectedSavedPlanFile(
 	pi: ExtensionAPI,
-	args: CreateBranchContextArgs,
+	args: { filePath?: string },
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
@@ -890,6 +1233,16 @@ export function registerBranchContextCommands(
 			description:
 				"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
 			handler: async (args, ctx) => handleGtUpstackImplCommand(pi, args, ctx, options),
+		},
+	});
+
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME,
+		commandDefinition: {
+			description:
+				"Implement a selected saved plan in a fresh Pi session on the current branch without creating branch context.",
+			handler: async (args, ctx) => handleImplCurrentSavedPlanCommand(pi, args, ctx, options),
 		},
 	});
 
