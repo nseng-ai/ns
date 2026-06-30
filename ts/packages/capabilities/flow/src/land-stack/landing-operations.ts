@@ -1,5 +1,6 @@
 import { type ExecResult, formatCommand } from "@sdl/exec";
 import { GRAPHITE_COMMAND_NAME } from "@sdl/graphite/branch";
+import { collectSubmitRestackRequirements } from "sdl-land/api";
 import {
 	exec,
 	execGraphite,
@@ -22,11 +23,12 @@ import {
 } from "./errors.ts";
 import { loadGraphiteTopology } from "./graphite-topology.ts";
 import {
-	collectSubmitRestackRequirements,
 	restackForSubmitArgs,
 	restackTargetForSubmit,
 	submitUpdateArgs,
-} from "./landing-plan.ts";
+} from "./graphite-command-args.ts";
+import { createLandContext } from "./land-context-adapter.ts";
+import { toLandStackFailure } from "./plan-mapping.ts";
 import {
 	formatPrSubmitRequirement,
 	loadPr,
@@ -175,8 +177,17 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		}
 
 		setStatus(ctx, "verifying restack...");
-		const remainingRestack = await collectSubmitRestackRequirements(pi, plan.repoRoot, plan.stack);
-		if (remainingRestack.type === "failure") return remainingRestack;
+		const remainingRestack = await collectSubmitRestackRequirements(
+			createLandContext(pi),
+			plan.repoRoot,
+			{
+				...plan.stack,
+				warnings: plan.stack.warnings.map((message) => ({ level: "warning", message })),
+			},
+		);
+		if (remainingRestack.type === "failure") {
+			return failure(toLandStackFailure(remainingRestack.failure));
+		}
 		if (remainingRestack.value.length > 0) {
 			return failure(
 				landStackFailure(formatRemainingSubmitRestackRequirements(remainingRestack.value), {
@@ -247,7 +258,9 @@ function formatRemainingSubmitRequirements(requirements: PrSubmitRequirement[]):
 	].join("\n");
 }
 
-function formatRemainingSubmitRestackRequirements(requirements: RestackRequirement[]): string {
+function formatRemainingSubmitRestackRequirements(
+	requirements: readonly RestackRequirement[],
+): string {
 	return [
 		"gt restack completed, but these branches are still not restacked onto their parents:",
 		...requirements.map((requirement) => `- ${requirement.branch} on ${requirement.parent}`),

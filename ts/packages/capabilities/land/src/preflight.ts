@@ -474,7 +474,7 @@ export function buildDescendantMaintenancePlan(
 	return { type: "auto", branches: descendantBranches, targetBranch };
 }
 
-async function collectSubmitRestackRequirements(
+export async function collectSubmitRestackRequirements(
 	context: LandContext,
 	repoRoot: string,
 	stack: StackSnapshot,
