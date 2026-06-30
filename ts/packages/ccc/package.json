@@ -36,7 +36,9 @@
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@sdl/ccc-pi": "workspace:*"
+  },
   "sdl": {
     "tier": "capability"
   }

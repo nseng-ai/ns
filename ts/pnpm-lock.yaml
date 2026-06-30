@@ -474,6 +474,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@sdl/ccc-pi':
+        specifier: workspace:*
+        version: link:../capability-pi/ccc
 
   packages/cmux:
     dependencies:

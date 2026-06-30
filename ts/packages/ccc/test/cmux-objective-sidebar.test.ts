@@ -1,13 +1,10 @@
 import { afterEach, describe, expect, test } from "vitest";
 
+import { createCccSidebarControllerWithPiWiring, registerCccSidebarCommands } from "@sdl/ccc-pi";
 import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,
 } from "../src/cmux/objective-sidebar.ts";
-import {
-	createCccSidebarControllerWithPiWiring,
-	registerCccSidebarCommands,
-} from "../../capability-pi/ccc/src/index.ts";
 import {
 	FakeCommandContext,
 	FakePi,
