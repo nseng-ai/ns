@@ -184,3 +184,44 @@ Risks:
   `/git/testing`) only for kit-owned real implementations, and use separate standalone-real package
   names for complex implementations, to make a future ban-guard trivial even though enforcement is
   deferred?
+
+## Closure
+
+Outcome: completed. The Objective's non-parked scope has landed on the current branch and is being
+carried by the final delivery PR.
+
+Key evidence:
+
+- ADR 0018 records the four-bucket classification rule and the `@sdl/core` subpath disposition table;
+  ADR 0019/0020/0021 refine gateway placement, capability-gateway backend placement, and SDK-provided
+  service shape.
+- `@sdl/core` is now pure/abstract for the current repository state. The gateway-purity proof found no
+  direct filesystem, subprocess, environment, network, concrete host-time, runtime-boot, or old raw-I/O
+  gateway implementation in `ts/packages/infra/core/src` or the core package manifest.
+- Deleted raw-I/O doors such as `@sdl/core/exec`, `@sdl/core/git`, `@sdl/core/github-*`,
+  `@sdl/core/command-io`, `@sdl/core/progress-phase`, `@sdl/core/cli-entry`, `@sdl/core/stdin`,
+  `@sdl/core/temp-files`, `@sdl/core/xdg`, `@sdl/core/workspace-root`, `@sdl/core/shell-support`,
+  `@sdl/core/text-repair`, `@sdl/core/brmem-cli`, and `@sdl/core/testing` are absent from live imports
+  and package exports.
+- The final capability package/import-layout cleanup is complete: pure command contracts and formatting
+  helpers are imported from `@sdl/core/command`, real execution remains on `@sdl/exec`, and capability
+  packages no longer carry layout shaped by the deleted raw-I/O core doors.
+- Validation recorded in the final Semantic Update passed: `just ts-deps-check`, `just ts-format-check`,
+  `just ts-lint`, `just ts-check`, `just ts-test`, `just ts-test-integration`,
+  `just ts-test-typescript-style-guard`, and `just dprint-check`.
+
+PR evidence:
+
+- PR #2563 (current PR): final capability layout reorganization and Objective closure — completes the
+  last non-parked roadmap row and records the closure event for the branch that ships the final work.
+
+Remaining caveats and follow-ups:
+
+- `@sdl/brmem` SDK-provided relocation remains deliberately parked for a separate follow-up Objective;
+  this Objective only moved the exec-derived brmem CLI helper surface and did not re-tier the brmem
+  domain package.
+- The `SDL_TS_BAN_*` direct-real-adapter import guard remains parked until leak risk warrants turning
+  review-only enforcement into a structural guarantee.
+- The durable rule worth carrying forward is the four-bucket placement discipline: keep `@sdl/core` pure,
+  put external-tool gateway seams in Capability Kit or ADR-selected backend packages, reach intrinsic
+  host services through SDK `ctx`, and keep runtime harness code out of `@sdl/core`.
