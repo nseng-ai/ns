@@ -1,9 +1,9 @@
 import path from "node:path";
 
 import {
+	confirmInteractiveOrUsageError,
 	failure,
 	ok,
-	requireInteractiveOrUsageError,
 	usageError,
 	type ClinkrExit,
 } from "@sdl/clinkr";
@@ -517,22 +517,24 @@ async function confirmManagedBlockChange(
 	| { type: "declined" }
 	| { type: "error"; error: { code: string; message: string } }
 > {
-	const gate = requireInteractiveOrUsageError(ctx.interaction, {
-		message: "Changing areg-managed instruction blocks requires --yes when non-interactive.",
-		missingFlag: "--yes",
-		howToSupply:
-			"Pass --yes (or -y) to approve managed instruction block changes without prompting.",
+	const confirmed = await confirmInteractiveOrUsageError(ctx.interaction, {
+		nonInteractive: {
+			message: "Changing areg-managed instruction blocks requires --yes when non-interactive.",
+			missingFlag: "--yes",
+			howToSupply:
+				"Pass --yes (or -y) to approve managed instruction block changes without prompting.",
+		},
+		confirmation: { message, defaultAnswer: "no" },
 	});
-	if (gate) {
+	if (confirmed.type === "usageError") {
 		return {
 			type: "error",
 			error: {
 				code: "confirmation_required",
-				message: gate.message,
+				message: confirmed.message,
 			},
 		};
 	}
-	const confirmed = await ctx.interaction.confirm({ message, defaultAnswer: "no" });
 	if (confirmed.type === "aborted") {
 		return { type: "error", error: { code: "aborted", message: "Aborted!" } };
 	}

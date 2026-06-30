@@ -1,4 +1,5 @@
 export {
+	confirmInteractiveOrUsageError,
 	createClinkrInteraction,
 	requireInteractiveOrUsageError,
 	resolveClinkrInteraction,
@@ -9,7 +10,9 @@ export type {
 	ConfirmationPromptFormatter,
 	ConfirmationRequest,
 	ConfirmationResult,
+	ConfirmInteractiveOrUsageErrorOptions,
 	CreateClinkrInteractionOptions,
+	InteractiveConfirmationResult,
 	ResolveClinkrInteractionOptions,
 } from "./confirmation.ts";
 export {

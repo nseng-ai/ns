@@ -49,6 +49,14 @@ function defaultIsInteractive(injectedStdin: (() => Promise<string | null>) | un
 	return injectedStdin !== undefined || process.stdin.isTTY === true;
 }
 
+export interface ConfirmInteractiveOrUsageErrorOptions {
+	nonInteractive: { message: string; missingFlag: string; howToSupply: string };
+	confirmation: ConfirmationRequest;
+	beforePrompt?: () => void;
+}
+
+export type InteractiveConfirmationResult = ConfirmationResult | ClinkrUsageErrorExit;
+
 export function requireInteractiveOrUsageError(
 	interaction: ClinkrInteraction,
 	opts: { message: string; missingFlag: string; howToSupply: string },
@@ -56,6 +64,16 @@ export function requireInteractiveOrUsageError(
 	return interaction.isInteractive()
 		? undefined
 		: usageError(opts.message, { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply });
+}
+
+export async function confirmInteractiveOrUsageError(
+	interaction: ClinkrInteraction,
+	options: ConfirmInteractiveOrUsageErrorOptions,
+): Promise<InteractiveConfirmationResult> {
+	const gate = requireInteractiveOrUsageError(interaction, options.nonInteractive);
+	if (gate !== undefined) return gate;
+	options.beforePrompt?.();
+	return interaction.confirm(options.confirmation);
 }
 
 export function resolveClinkrInteraction(
