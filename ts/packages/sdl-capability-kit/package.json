@@ -17,6 +17,7 @@
     "./pending-worktree": "./src/pending-worktree.ts",
     "./sdl-command": "./src/sdl-command.ts",
     "./sdl-context": "./src/sdl-context.ts",
+    "./shell-support": "./src/shell-support.ts",
     "./temp-files": "./src/temp-files.ts",
     "./text-generation": "./src/text-generation.ts",
     "./text-repair": "./src/text-repair.ts",

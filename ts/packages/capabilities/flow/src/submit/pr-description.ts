@@ -11,7 +11,7 @@ import {
 import { formatErrorMessage, sha256Digest } from "@sdl/core/primitives";
 import { normalizeTextOutput, trimOuterBlankLines } from "@sdl/core/text-normalization";
 import { truncateTextHeadTail } from "@sdl/core/text-truncation";
-import { prepareRepairedText } from "@sdl/core/text-repair";
+import { prepareRepairedText } from "@sdl/capability-kit/text-repair";
 import { formatElapsedMs } from "@sdl/core/time-format";
 
 import type { PrCommitMessage } from "./github-pr-gateway.ts";

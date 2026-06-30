@@ -10,7 +10,7 @@ import {
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
-} from "@sdl/core/shell-support";
+} from "@sdl/capability-kit/shell-support";
 
 import type { SdlCliContext } from "../cli.ts";
 
