@@ -34,12 +34,12 @@ type AutobranchSeamOverrides = Partial<
 >;
 
 export interface CccCliDeps {
-	commands?: CommandExecApi | undefined;
+	commands?: CommandExecApi;
 	cwd?: string;
-	env?: Record<string, string | undefined> | undefined;
+	env?: Record<string, string | undefined>;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
-	autobranch?: AutobranchSeamOverrides | undefined;
+	autobranch?: AutobranchSeamOverrides;
 }
 
 export interface CccCliContext {
@@ -48,7 +48,7 @@ export interface CccCliContext {
 	env: Record<string, string | undefined>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	autobranch?: AutobranchSeamOverrides | undefined;
+	autobranch?: AutobranchSeamOverrides;
 }
 
 const autobranchRequestSchema = z.object({

@@ -68,10 +68,8 @@ export interface BranchContextExtensionOptions {
 	branchContextDefaultCreation?: BranchCreationMethod;
 	branchContextPrefix?: string;
 	planStoreRoot?: string;
-	branchContextOperations?: BranchContextOperations | undefined;
-	createBranchContextContext?:
-		| ((pi: ExtensionAPI, cwd: string) => BranchContextContext)
-		| undefined;
+	branchContextOperations?: BranchContextOperations;
+	createBranchContextContext?: (pi: ExtensionAPI, cwd: string) => BranchContextContext;
 }
 
 export interface ToolContext {

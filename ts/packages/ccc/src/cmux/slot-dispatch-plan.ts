@@ -98,9 +98,7 @@ interface FormatSurfaceSuccessOptions {
 
 export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
-	createBranchContextContext?:
-		| ((pi: ExtensionAPI, cwd: string) => BranchContextContext)
-		| undefined;
+	createBranchContextContext?: (pi: ExtensionAPI, cwd: string) => BranchContextContext;
 	slotClient?: SlotClient;
 }
 
