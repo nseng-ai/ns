@@ -703,6 +703,10 @@ function isLikelyCommandNotFound(result: ExecResult): boolean {
 	);
 }
 
+// brmem-cli is a deferred core residual, so core cannot import the Capability Kit
+// workspace-root helper without reversing the intended cleanup direction. Keep this
+// private copy until the brmem-cli cleanup slice can move the caller behind the
+// lower-tier seam instead of adding a new core -> Capability Kit dependency.
 function findWorkspaceRootByMarkers(options: {
 	readonly cwd: string;
 	readonly markers: readonly string[];

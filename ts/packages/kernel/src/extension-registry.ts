@@ -537,6 +537,9 @@ function catalogEnv(options: LoadSdlCommandCatalogOptions): Record<string, strin
 	};
 }
 
+// Kernel cannot depend on Capability Kit without reversing SDK tier direction. Keep this
+// bootstrap-only XDG_DATA_HOME resolver local until the extension registry has a lower-tier
+// seam; importing the Result-based Capability Kit XDG helper here would widen the wrong tier.
 function resolveSdlDataPath(options: {
 	env: Record<string, string | undefined>;
 	segments: readonly string[];
