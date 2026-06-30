@@ -10,7 +10,7 @@ export interface TemporaryFileOptions {
 
 export interface TemporaryJsonFileOptions {
 	readonly prefix: string;
-	readonly filename?: string | undefined;
+	readonly filename?: string;
 	readonly value: unknown;
 }
 
