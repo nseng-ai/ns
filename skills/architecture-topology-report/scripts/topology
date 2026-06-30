@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Standing-application launcher for the architecture topology report.
+#
+# Extracts the workspace dependency graph and renders the interactive HTML report
+# in one shot, with NO agent in the loop. The report uses a deterministic raw
+# topology-inventory spec synthesized straight from the graph (synthesize-spec.mjs),
+# so this is instant to launch: no skill load, no spec authoring.
+#
+#   ./topology                 # extract, render, and open the report
+#   ./topology --no-open       # render only; prints the HTML path
+#   ./topology --root path ... # any extract-graph flag passes through
+#                              # (--root --kit --api-needle --src-dir --repo)
+#
+# For a TARGET-SCORECARD report (graded against a named architecture), author a
+# --spec instead and call build-report.mjs directly — see SKILL.md.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+open_flag="--open"
+pass=()
+for arg in "$@"; do
+  if [[ "$arg" == "--no-open" ]]; then
+    open_flag=""
+  else
+    pass+=("$arg")
+  fi
+done
+
+exec node "$HERE/build-report.mjs" ${open_flag:+$open_flag} "${pass[@]}"

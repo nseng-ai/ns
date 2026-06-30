@@ -17,7 +17,7 @@
 // Usage:
 //   node build-report.mjs --spec <spec.mjs|spec.json> [--graph <graph.json>] [--open]
 //                         [--tiers-template]   # print declared tier map and exit
-//   plus any extract-graph flags (--root, --kit, --transitional, --api-needle, --src-dir)
+//   plus any extract-graph flags (--root, --kit, --api-needle, --src-dir)
 //
 // Spec shape: see the `## Spec` block in references/HTML-REPORT.md (and the
 // validated example the skill can emit). Minimal contract below.
@@ -25,34 +25,12 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { FALLBACK_TIER, label, TIERS } from "./tiers.mjs";
+import { synthesizeSpec } from "./synthesize-spec.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-
-// ── Tier registry: single source of truth for colours, shared by the graph and
-//    the north-star legend. Keys are canonical manifest `sdl.tier` values — keep
-//    in sync with the workspace source of truth:
-//    ts/packages/infra/core/test/support/typescript-style-guard/config.ts
-//    (`packageTierValues`). Capability Pi package color stays close to host
-//    presentation while remaining visually distinct from the host itself. The two
-//    off-axis tool tiers share a neutral family (cool slate vs. warm stone) to
-//    read as related but distinct.
-const TIERS = {
-  capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
-  "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
-  "capability-gateway-backend": { fill: "#99f6e4", stroke: "#0d9488", name: "capability gateway backend" },
-  sdk: { fill: "#c7d2fe", stroke: "#6366f1", name: "SDK" },
-  transitional: { fill: "#fef3c7", stroke: "#d97706", name: "transitional" },
-  "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
-  host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
-  "capability-pi": { fill: "#bae6fd", stroke: "#0284c7", name: "capability Pi" },
-  "standalone-tool": { fill: "#f1f5f9", stroke: "#94a3b8", name: "standalone tool" },
-  "local-pi-tool": { fill: "#e7e5e4", stroke: "#a8a29e", name: "local pi tool" },
-};
-// Defensive fallback for any tier not in the registry above (should not happen
-// once workspace tier enforcement is in effect); renders in the off-axis bucket.
-const FALLBACK_TIER = "standalone-tool";
 
 const STATUS_KIND = {
   holds: "bg-emerald-100 text-emerald-700",
@@ -75,8 +53,6 @@ const esc = (s) =>
   String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 // `html`: pass-through tag so editorial strings may contain inline markup verbatim.
 const html = (strings, ...vals) => strings.reduce((a, s, i) => a + (vals[i - 1] ?? "") + s);
-const label = (id) =>
-  id.replace(/^@sdl\//, "").replace(/^@local-pi-tools\//, "lpt:").replace(/^sdl-/, "");
 
 // ── 1. obtain the structural graph ─────────────────────────────────────────
 function getAnalysis(args) {
@@ -84,7 +60,7 @@ function getAnalysis(args) {
   if (gi !== -1) return JSON.parse(readFileSync(resolve(args[gi + 1]), "utf8"));
   // otherwise run the sibling extractor, passing through its flags
   const pass = [];
-  for (const f of ["--root", "--kit", "--transitional", "--api-needle", "--src-dir"]) {
+  for (const f of ["--root", "--kit", "--api-needle", "--src-dir"]) {
     const i = args.indexOf(f);
     if (i !== -1) pass.push(f, args[i + 1]);
   }
@@ -188,11 +164,10 @@ function GRAPH_RENDERER() {
     tierCount.set(n.tier, (tierCount.get(n.tier) || 0) + 1);
   });
   const meanDepth = (t) => tierDepthSum.get(t) / tierCount.get(t);
-  // Canonical architectural stacking (consumers → foundation). The holding pen sits
-  // just under the SDK, above neutral infra, matching the north-star tier policy — not
-  // at the very bottom where its shallow mean DAG depth (it only depends on core) would
-  // otherwise drop it. Tiers absent from this list fall back to mean-depth ordering.
-  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "capability-gateway-backend", "sdk", "transitional", "neutral-infra"];
+  // Canonical architectural stacking (consumers → foundation): consumers and tools at
+  // the top, the SDK and gateway backends in the middle, neutral infra at the bottom.
+  // Tiers absent from this list fall back to mean-depth ordering.
+  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "capability-gateway-backend", "sdk", "neutral-infra"];
   const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
   const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
   const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
@@ -212,7 +187,7 @@ function GRAPH_RENDERER() {
     .attr("marker-end", (d) => d.cycle ? "url(#arrow-cy)" : "url(#arrow)");
   const nodeG = rootG.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor", "pointer").call(drag());
   nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => TIERS[d.tier].fill).attr("stroke", (d) => TIERS[d.tier].stroke)
-    .attr("stroke-width", 1.4).attr("stroke-dasharray", (d) => d.tier === "transitional" ? "4 3" : null);
+    .attr("stroke-width", 1.4);
   nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
     .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
     .attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 3);
@@ -296,7 +271,7 @@ function GRAPH_RENDERER() {
 // ── 5. section renderers (editorial markup; content comes from the spec) ─────
 function legendSwatch(t) {
   const v = TIERS[t];
-  const dash = t === "transitional" ? "border:1px dashed " + v.stroke : "border:1px solid " + v.stroke;
+  const dash = "border:1px solid " + v.stroke;
   return `<span class="inline-flex items-center gap-1.5"><span class="inline-block w-3 h-3 rounded-sm" style="background:${v.fill};${dash}"></span>${esc(v.name)}</span>`;
 }
 
@@ -534,15 +509,23 @@ async function main() {
     return;
   }
 
+  // The spec is the only IRREDUCIBLE editorial input. When the caller supplies one
+  // (target-scorecard mode), load it. When they don't, synthesize a complete raw
+  // topology-inventory spec deterministically from the graph — no agent in the loop,
+  // so `build-report.mjs --open` renders a full report on its own.
   const si = args.indexOf("--spec");
+  let spec;
   if (si === -1) {
-    console.error("error: --spec <spec.mjs|spec.json> is required (or pass --tiers-template).");
-    process.exit(2);
+    const ri = args.indexOf("--repo");
+    spec = synthesizeSpec(analysis, {
+      repo: ri !== -1 ? args[ri + 1] : basename(process.cwd()),
+    });
+  } else {
+    const specPath = resolve(args[si + 1]);
+    spec = specPath.endsWith(".json")
+      ? JSON.parse(readFileSync(specPath, "utf8"))
+      : (await import(pathToFileURL(specPath).href)).default;
   }
-  const specPath = resolve(args[si + 1]);
-  const spec = specPath.endsWith(".json")
-    ? JSON.parse(readFileSync(specPath, "utf8"))
-    : (await import(pathToFileURL(specPath).href)).default;
 
   const { graph, warnings } = assembleGraph(analysis, spec.tiers || {});
   if (warnings.length) {
