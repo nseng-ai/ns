@@ -182,6 +182,204 @@ describe("pr-address primitive exec commands", () => {
 		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_thread1" }]);
 	});
 
+	test("bulk-closes review threads from --thread-ids-json and records fake side effects", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway();
+
+		const run = runScenario(
+			[
+				"exec",
+				"close-review-threads",
+				"--thread-ids-json",
+				JSON.stringify({ threadIds: [" RT_one ", "RT_two"] }),
+				"--body",
+				"Fixed.",
+				"--format",
+				"json",
+			],
+			{ prFeedback },
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(dataFromJson(run.stdout)).toMatchObject({
+			requested: 2,
+			replied: 2,
+			resolved: 2,
+			failed: 0,
+			summary: { succeeded: 2, failed: 0 },
+			entries: [
+				{
+					thread_id: "RT_one",
+					reply: { comment: { body: "Fixed." } },
+					resolution: { thread_id: "RT_one", is_resolved: true },
+					error: null,
+				},
+				{
+					thread_id: "RT_two",
+					reply: { comment: { body: "Fixed." } },
+					resolution: { thread_id: "RT_two", is_resolved: true },
+					error: null,
+				},
+			],
+		});
+		expect(prFeedback.replies).toEqual([
+			{ threadId: "RT_one", body: "Fixed." },
+			{ threadId: "RT_two", body: "Fixed." },
+		]);
+		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }, { threadId: "RT_two" }]);
+	});
+
+	test("bulk-closes review threads from stdin without replying", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway();
+
+		const run = runScenario(["exec", "close-review-threads", "--format", "json"], {
+			prFeedback,
+			stdin: JSON.stringify({ threadIds: ["RT_one"] }),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(dataFromJson(run.stdout)).toMatchObject({
+			requested: 1,
+			replied: 0,
+			resolved: 1,
+			failed: 0,
+			entries: [{ thread_id: "RT_one", reply: null, error: null }],
+		});
+		expect(prFeedback.replies).toEqual([]);
+		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }]);
+	});
+
+	test("bulk close rejects duplicate thread IDs before side effects", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway();
+
+		const run = runScenario(["exec", "close-review-threads", "--format", "json"], {
+			prFeedback,
+			stdin: JSON.stringify({ threadIds: ["RT_one", " RT_one "] }),
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			errorType: "invalid-request",
+			message: "close-review-threads thread IDs contain duplicates: RT_one",
+		});
+		expect(prFeedback.replies).toEqual([]);
+		expect(prFeedback.resolutions).toEqual([]);
+	});
+
+	test("bulk close rejects whitespace body before side effects", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway();
+
+		const run = runScenario(
+			[
+				"exec",
+				"close-review-threads",
+				"--thread-ids-json",
+				JSON.stringify({ threadIds: ["RT_one"] }),
+				"--body",
+				"   ",
+				"--format",
+				"json",
+			],
+			{ prFeedback },
+		);
+
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			errorType: "invalid-request",
+			message: "close-review-threads requires --body to be non-empty when supplied.",
+		});
+		expect(prFeedback.replies).toEqual([]);
+		expect(prFeedback.resolutions).toEqual([]);
+	});
+
+	test("bulk close returns semantic exit 1 with structured resolve-failure data", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
+			resolveFailureThreadIds: new Set(["RT_fail"]),
+		});
+
+		const run = runScenario(
+			["exec", "close-review-threads", "--body", "Fixed.", "--format", "json"],
+			{
+				prFeedback,
+				stdin: JSON.stringify({ threadIds: ["RT_fail", "RT_ok"] }),
+			},
+		);
+
+		expect(await run.exit).toBe(1);
+		const envelope = JSON.parse(run.stdout.join(""));
+		expect(envelope).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+			message: "Failed to close 1 of 2 review threads",
+			data: {
+				requested: 2,
+				replied: 2,
+				resolved: 1,
+				failed: 1,
+				summary: { succeeded: 1, failed: 1 },
+				entries: [
+					{
+						thread_id: "RT_fail",
+						reply: { comment: { body: "Fixed." } },
+						resolution: null,
+						error: {
+							stage: "resolve",
+							message: "Failed to resolve review thread RT_fail",
+							code: "resolve-failed",
+						},
+					},
+					{ thread_id: "RT_ok", error: null },
+				],
+			},
+		});
+		expect(prFeedback.replies).toEqual([
+			{ threadId: "RT_fail", body: "Fixed." },
+			{ threadId: "RT_ok", body: "Fixed." },
+		]);
+		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
+	});
+
+	test("bulk close returns semantic exit 1 with structured reply-failure data", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
+			replyFailureThreadIds: new Set(["RT_fail"]),
+		});
+
+		const run = runScenario(
+			["exec", "close-review-threads", "--body", "Fixed.", "--format", "json"],
+			{
+				prFeedback,
+				stdin: JSON.stringify({ threadIds: ["RT_fail", "RT_ok"] }),
+			},
+		);
+
+		expect(await run.exit).toBe(1);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+			message: "Failed to close 1 of 2 review threads",
+			data: {
+				requested: 2,
+				replied: 1,
+				resolved: 1,
+				failed: 1,
+				entries: [
+					{
+						thread_id: "RT_fail",
+						reply: null,
+						resolution: null,
+						error: {
+							stage: "reply",
+							message: "Failed to reply to review thread RT_fail",
+							code: "reply-failed",
+						},
+					},
+					{ thread_id: "RT_ok", error: null },
+				],
+			},
+		});
+		expect(prFeedback.replies).toEqual([{ threadId: "RT_ok", body: "Fixed." }]);
+		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
+	});
+
 	test("maps primitive gateway failures to pr_gateway_failure", async () => {
 		const lookupFailure = new InMemoryGithubPrFeedbackGateway({
 			lookupFailurePrNumbers: new Set([500]),

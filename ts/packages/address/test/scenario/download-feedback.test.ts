@@ -144,12 +144,8 @@ describe("sdl address exec download-feedback", () => {
 		);
 		expect(markdown).toContain("If the human asks you to address the feedback");
 		expect(markdown).toContain("inspect the current repository state before acting");
-		expect(markdown).toContain(
-			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
-		);
-		expect(markdown).toContain(
-			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
-		);
+		expect(markdown).toContain("sdl address exec close-review-threads --thread-ids-json");
+		expect(markdown).toContain("include `--body <BODY>` when a reply is useful");
 		expect(markdown).toContain("do not use raw `gh api graphql` for those mutations");
 		expect(markdown.trim()).toMatch(/those mutations\.$/u);
 		expect(markdown).toContain("Downloaded feedback for PR #42: Add primitive");

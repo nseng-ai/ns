@@ -399,13 +399,9 @@ describe("/pr:download-stack-feedback", () => {
 			"Plan against the current remaining state, not stale original comments",
 		);
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
-		expect(prompt).toContain("resolve all automation review threads stack-wide");
-		expect(prompt).toContain(
-			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
-		);
-		expect(prompt).toContain(
-			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
-		);
+		expect(prompt).toContain("close all confirmed automation review threads stack-wide");
+		expect(prompt).toContain("sdl address exec close-review-threads --thread-ids-json");
+		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
 		expect(prompt).toContain(
 			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt",
 		);

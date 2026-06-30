@@ -181,3 +181,25 @@ export const resolveReviewThreadResultSchema = z.object({
 	thread_id: z.string(),
 	is_resolved: z.boolean(),
 });
+
+const closeReviewThreadsEntryErrorSchema = z.object({
+	stage: z.union([z.literal("reply"), z.literal("resolve")]),
+	message: z.string(),
+	code: z.string(),
+});
+
+const closeReviewThreadsEntrySchema = z.object({
+	thread_id: z.string(),
+	reply: replyReviewThreadResultSchema.nullable(),
+	resolution: resolveReviewThreadResultSchema.nullable(),
+	error: closeReviewThreadsEntryErrorSchema.nullable(),
+});
+
+export const closeReviewThreadsResultSchema = z.object({
+	requested: z.int(),
+	replied: z.int(),
+	resolved: z.int(),
+	failed: z.int(),
+	entries: z.array(closeReviewThreadsEntrySchema),
+	summary: z.object({ succeeded: z.int(), failed: z.int() }),
+});
