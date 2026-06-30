@@ -283,6 +283,83 @@ describe("branch-context create execution", () => {
 		]);
 	});
 
+	test("existing target branches fail before checking Branch Memory", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+			existingBranches: [TARGET_BRANCH],
+		});
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "plain-git",
+		});
+
+		await expect(
+			createBranchContextFromResolvedSource({
+				cwd: ROOT,
+				operation,
+				sourceFile,
+				git,
+				brmem,
+				graphite,
+			}),
+		).rejects.toThrow("Target branch already exists; refusing to overwrite.");
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("stale Branch Memory attachments fail before branch creation", async () => {
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: { type: "missing" },
+			headCommit: START_POINT,
+		});
+		const brmem = new InMemoryBranchMemoryGateway({
+			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
+		});
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const sourceFile = await makePlanFile();
+		const operation = buildBranchContextCreateOperation({
+			slug: PLAN_SLUG,
+			filePath: PLAN_FILE,
+			branchName: TARGET_BRANCH,
+			branchCreation: "plain-git",
+		});
+
+		await expect(
+			createBranchContextFromResolvedSource({
+				cwd: ROOT,
+				operation,
+				sourceFile,
+				git,
+				brmem,
+				graphite,
+			}),
+		).rejects.toThrow(
+			[
+				"Stale Branch Memory attachment exists for target branch; refusing to create branch context.",
+				"Local branch is absent, but Branch Memory already contains the attached plan key.",
+				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
+				`Branch: ${TARGET_BRANCH}`,
+				`Key: ${PLAN_KEY}`,
+				"Cleanup: run `brmem gc` to preview stale Branch Memory Snapshots, then `brmem gc --yes` to delete them.",
+			].join("\n"),
+		);
+		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(brmem.attachmentPresenceCalls).toEqual([{ branch: TARGET_BRANCH, key: PLAN_KEY }]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
 	test("local branch presence failures fail before creating a branch or attaching the plan", async () => {
 		const git = new InMemoryGitGateway({
 			optionalRepoRoot: { type: "missing" },
