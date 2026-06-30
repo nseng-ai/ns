@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { systemClock } from "@sdl/core/clock";
-import { systemTimerScheduler } from "@sdl/core/timers";
+import type { Clock } from "@sdl/core/clock";
+import { TimerScheduler, type ScheduledTimer } from "@sdl/core/timers";
 import {
 	DroppingOptionsCommandExecApi,
 	brmemCheckJson,
@@ -41,10 +41,22 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exitCode: 0, data: { present: true } }));
 });
 
-test("exports clock and timer seams through package subpaths", () => {
-	expect(typeof systemClock.nowMs()).toBe("number");
-	const timer = systemTimerScheduler.setTimeout(() => {}, 1_000);
-	timer.cancel();
+test("exports clock and timer contracts through package subpaths", () => {
+	const clock: Clock = { nowMs: () => 123 };
+	class TestTimerScheduler extends TimerScheduler {
+		setTimeout(callback: () => void, _delayMs: number): ScheduledTimer {
+			callback();
+			return { cancel: () => {} };
+		}
+
+		setInterval(callback: () => void, _delayMs: number): ScheduledTimer {
+			callback();
+			return { cancel: () => {} };
+		}
+	}
+
+	expect(clock.nowMs()).toBe(123);
+	expect(new TestTimerScheduler().setTimeout(() => {}, 1_000)).toHaveProperty("cancel");
 });
 
 test("deferred helper exposes an externally-resolvable promise", async () => {

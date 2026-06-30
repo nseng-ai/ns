@@ -1,4 +1,5 @@
-import { systemClock, type Clock } from "@sdl/core/clock";
+import type { Clock } from "@sdl/core/clock";
+import { systemClock } from "@sdl/time";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { isRecord } from "@sdl/core/primitives";
 import { isThinkingLevel } from "@sdl/pi/runtime/types";

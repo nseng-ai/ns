@@ -31,7 +31,6 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
   },
   "dependencies": {
-    "@sdl/clinkr": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {},

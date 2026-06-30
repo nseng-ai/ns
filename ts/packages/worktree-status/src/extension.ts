@@ -9,7 +9,8 @@ import {
 import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
 import type { CustomMessageContent } from "@sdl/pi/terminal/presentation";
 
-import { systemClock, type Clock } from "@sdl/core/clock";
+import type { Clock } from "@sdl/core/clock";
+import { systemClock } from "@sdl/time";
 import type { TimerScheduler } from "@sdl/core/timers";
 import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 
