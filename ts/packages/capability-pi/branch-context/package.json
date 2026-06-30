@@ -20,7 +20,8 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
-    "@sdl/time": "workspace:*"
+    "@sdl/time": "workspace:*",
+    "@sdl/brmem": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {

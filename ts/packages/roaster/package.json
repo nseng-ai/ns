@@ -32,7 +32,8 @@
     "sdl-sdk": "workspace:*",
     "smol-toml": "catalog:",
     "yaml": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@sdl/brmem": "workspace:*"
   },
   "sdl": {
     "tier": "capability"

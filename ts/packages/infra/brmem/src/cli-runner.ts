@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
 
+import { findWorkspaceRootByMarkers } from "@sdl/capability-kit/workspace-root";
 import {
 	MAX_ERROR_CHARS,
 	formatCommand,
@@ -10,8 +10,8 @@ import {
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "./command.ts";
-import { formatErrorMessage, isRecord } from "./primitives.ts";
+} from "@sdl/core/command";
+import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 
@@ -701,38 +701,4 @@ function isLikelyCommandNotFound(result: ExecResult): boolean {
 		output.includes("not found") ||
 		output.includes("no such file")
 	);
-}
-
-// brmem-cli is a deferred core residual, so core cannot import the Capability Kit
-// workspace-root helper without reversing the intended cleanup direction. Keep this
-// private copy until the brmem-cli cleanup slice can move the caller behind the
-// lower-tier seam instead of adding a new core -> Capability Kit dependency.
-function findWorkspaceRootByMarkers(options: {
-	readonly cwd: string;
-	readonly markers: readonly string[];
-	readonly nestedDirectory?: string | undefined;
-	readonly exists?: ((path: string) => boolean) | undefined;
-}): string | null {
-	const exists = options.exists ?? existsSync;
-	let current = resolve(options.cwd);
-	while (true) {
-		if (hasAllMarkers(current, options.markers, exists)) return current;
-
-		if (options.nestedDirectory !== undefined) {
-			const nestedRoot = join(current, options.nestedDirectory);
-			if (hasAllMarkers(nestedRoot, options.markers, exists)) return nestedRoot;
-		}
-
-		const parent = dirname(current);
-		if (parent === current) return null;
-		current = parent;
-	}
-}
-
-function hasAllMarkers(
-	root: string,
-	markers: readonly string[],
-	exists: (path: string) => boolean,
-): boolean {
-	return markers.every((marker) => exists(join(root, marker)));
 }

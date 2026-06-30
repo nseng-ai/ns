@@ -4,7 +4,6 @@ import type { Clock } from "@sdl/core/clock";
 import { TimerScheduler, type ScheduledTimer } from "@sdl/core/timers";
 import {
 	DroppingOptionsCommandExecApi,
-	brmemCheckJson,
 	copyExecOptionsWithout,
 	createDeferred,
 	createManualClock,
@@ -38,7 +37,6 @@ test("exports testing helpers through the package testing subpath", () => {
 	expect(typeof ScriptedQueue).toBe("function");
 	expect(typeof ScriptedTextGenerator).toBe("function");
 	expect(typeof step).toBe("function");
-	expect(brmemCheckJson(true)).toBe(JSON.stringify({ exitCode: 0, data: { present: true } }));
 });
 
 test("exports clock and timer contracts through package subpaths", () => {
