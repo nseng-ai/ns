@@ -1,5 +1,6 @@
 {
   "sdl": {
+    "description": "Run configured code review roasters and publish findings.",
     "group": "roaster",
     "commands": [
       {

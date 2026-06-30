@@ -29,7 +29,7 @@ describe("Roaster SDL command face", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("roaster");
-		expect(help).toContain("SDL roaster commands.");
+		expect(help).toContain("Run configured Roaster reviews.");
 		expect(help).not.toContain("--applicable");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
@@ -307,6 +307,7 @@ function roasterCandidate(spec: FakeRoasterCommandSpec): ExtensionCommandCandida
 		name: spec.name,
 		description: spec.description,
 		fullDescription: spec.description,
+		groupDescription: "Run configured Roaster reviews.",
 		source: { level: "project", label: "fake checked-in Roaster extension" },
 		entryPath: spec.entryPath,
 		kind: "package",

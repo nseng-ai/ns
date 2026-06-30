@@ -28,6 +28,7 @@
     "zod": "catalog:"
   },
   "sdl": {
+    "description": "Manage the SDL worktree slot pool.",
     "tier": "capability",
     "commands": [
       {

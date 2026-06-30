@@ -160,6 +160,9 @@ export async function loadSdlCommandCatalog(
 		commandInfos: finalCandidates.map((candidate) => ({
 			...(candidate.group === undefined ? {} : { group: candidate.group }),
 			...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
+			...(candidate.groupDescription === undefined
+				? {}
+				: { groupDescription: candidate.groupDescription }),
 			name: candidate.name,
 			description: candidate.description,
 			fullDescription: candidate.fullDescription,
@@ -394,6 +397,9 @@ function externalCandidateForLevel(
 	return {
 		...(command.group === undefined ? {} : { group: command.group }),
 		...(command.segments === undefined ? {} : { segments: command.segments }),
+		...(command.groupDescription === undefined
+			? {}
+			: { groupDescription: command.groupDescription }),
 		name: command.name,
 		description: command.description,
 		fullDescription: command.fullDescription,
@@ -551,6 +557,9 @@ function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliI
 	return {
 		...(candidate.group === undefined ? {} : { group: candidate.group }),
 		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
+		...(candidate.groupDescription === undefined
+			? {}
+			: { groupDescription: candidate.groupDescription }),
 		name: candidate.name,
 		description: candidate.description,
 		fullDescription: candidate.fullDescription,

@@ -1,5 +1,6 @@
 {
   "sdl": {
+    "description": "Checkpoint, branch, submit, and land Graphite-backed work.",
     "group": "flow",
     "commands": [
       {

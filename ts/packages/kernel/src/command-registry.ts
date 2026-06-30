@@ -15,6 +15,7 @@ export interface SdlCommandPath {
 	group?: string;
 	name: string;
 	segments?: readonly string[];
+	groupDescription?: string;
 }
 
 export interface SdlCommandSourceInfo {
@@ -29,6 +30,7 @@ export interface SdlCommandInfo extends SdlCommandPath {
 
 export interface SdlCommandCliInfo extends SdlCommandInfo {
 	fullDescription: string;
+	groupDescription?: string;
 }
 
 export interface SdlCommandCandidate extends SdlCommandCliInfo {
@@ -114,12 +116,15 @@ export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] 
 }
 
 export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return listBuiltInSdlCommandCandidates().map(({ group, name, description, fullDescription }) => ({
-		...(group === undefined ? {} : { group }),
-		name,
-		description,
-		fullDescription,
-	}));
+	return listBuiltInSdlCommandCandidates().map(
+		({ group, name, description, fullDescription, groupDescription }) => ({
+			...(group === undefined ? {} : { group }),
+			...(groupDescription === undefined ? {} : { groupDescription }),
+			name,
+			description,
+			fullDescription,
+		}),
+	);
 }
 
 export function commandInfoForLoadedCommand(
@@ -139,6 +144,7 @@ export function commandInfoForLoadedCommand(
 	return {
 		...(path.group === undefined ? {} : { group: path.group }),
 		...(path.segments === undefined ? {} : { segments }),
+		...(path.groupDescription === undefined ? {} : { groupDescription: path.groupDescription }),
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
