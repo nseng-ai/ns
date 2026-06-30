@@ -73,7 +73,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 					onPhase: stream.emit,
 				});
 				const command = toCommandResult(result);
-				return { result: command, failed: !command.ok };
+				return { result: command, isFailed: !command.ok };
 			},
 		});
 	},

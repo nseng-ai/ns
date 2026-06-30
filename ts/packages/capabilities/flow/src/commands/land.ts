@@ -1,4 +1,5 @@
 import { runLandCli } from "../land.ts";
+import { createCommandIo } from "@sdl/kernel/command-io";
 import {
 	defineExtension,
 	z,
@@ -10,7 +11,7 @@ import {
 } from "sdl-sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { createFlowCccCliOutputCapture, runFlowCccOperation } from "../shared/ccc-cli.ts";
+import { runFlowCccCli } from "../shared/ccc-cli.ts";
 import {
 	createPhaseStreamController,
 	flowStreamDeps,
@@ -46,28 +47,25 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 			request.free === true ? "--free" : undefined,
 			request.force === true ? "--force" : undefined,
 		].filter((arg): arg is string => arg !== undefined);
-		const output = createFlowCccCliOutputCapture({ ctx, mode: "buffer-until-complete" });
 		const progress = createLandCliProgress(ctx, caps);
 		try {
-			const exitCode = await runFlowCccOperation({
+			return await runFlowCccCli({
 				ctx,
+				successMessage: "Land completed.",
+				failureMessage: "Land failed.",
+				outputMode: "buffer-until-complete",
+				afterExitCode: progress.finish,
 				run: async (io) =>
 					await runLandCli({
 						cwd: ctx.cwd,
 						rawArgs: rawArgs.join(" "),
 						exec: io.exec,
-						stdout: output.input.stdout,
-						stderr: output.input.stderr,
+						stdout: io.stdout,
+						stderr: io.stderr,
 						caps,
 						progressIo: progress.io,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 					}),
-			});
-			await progress.finish(exitCode);
-			output.flush();
-			return output.toResult(exitCode, {
-				successMessage: "Land completed.",
-				failureMessage: "Land failed.",
 			});
 		} finally {
 			await progress.stop();
@@ -86,6 +84,9 @@ interface LandCliProgress {
 }
 
 function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgress {
+	// Land receives phase signals by parsing CCC-land CLI text, so the stream starts lazily only
+	// after the first phase-worthy message. The shared controller owns lifecycle mechanics; this
+	// adapter owns only land-specific text-to-phase routing.
 	const progress = createPhaseStreamController({
 		caps,
 		specs: LAND_PHASES,
@@ -163,18 +164,17 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 	}
 
 	return {
-		io: {
-			phase: routePhase,
-			notify: (message, level = "info") => {
+		io: createCommandIo({
+			phaseTransient: routePhase,
+			notifyUi: (message, level = "info") => {
 				routeMessage(message, level);
 			},
-			message: (message, options = {}) => {
-				routeMessage(message, options.level ?? "info");
+			richMessage: (message, options) => {
+				routeMessage(message, options.level);
 			},
-			clearPhase: () => {},
-		},
+		}),
 		finish: async (exitCode) => {
-			await progress.finish({ failed: exitCode !== 0 });
+			await progress.finish({ isFailed: exitCode !== 0 });
 		},
 		stop: progress.stop,
 	};

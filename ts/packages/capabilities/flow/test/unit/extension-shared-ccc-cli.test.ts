@@ -34,6 +34,8 @@ interface RunFlowCccCliOptions {
 	failureMessage: string;
 	shouldForwardLiveOutput?: boolean | undefined;
 	trustedExec?: CommandExecApi | undefined;
+	outputMode?: "forward-live" | "buffer-until-complete" | undefined;
+	afterExitCode?: ((exitCode: number) => Promise<void> | void) | undefined;
 	run(input: FlowCccCliRunnerInput): Promise<number>;
 }
 
@@ -159,6 +161,32 @@ describe("project extension shared CCC CLI helper", () => {
 			{ stream: "stdout", text: "live out\n" },
 			{ stream: "stderr", text: "live err\n" },
 		]);
+	});
+
+	test("buffers runFlowCccCli output until after the exit-code hook", async () => {
+		const sharedModule = await loadFlowCccCliModule();
+		const { api, stdout, stderr } = createFakeApi([]);
+		const events: string[] = [];
+
+		const result = await sharedModule.runFlowCccCli({
+			ctx: api,
+			successMessage: "completed",
+			failureMessage: "failed",
+			outputMode: "buffer-until-complete",
+			afterExitCode: (exitCode) => {
+				events.push(`after:${exitCode}:stdout=${stdout.length}:stderr=${stderr.length}`);
+			},
+			run: async (io) => {
+				io.stdout("done\n");
+				io.stderr("warn\n");
+				return 0;
+			},
+		});
+
+		expect(result).toEqual({ ok: true, message: "" });
+		expect(events).toEqual(["after:0:stdout=0:stderr=0"]);
+		expect(stdout).toEqual(["done\n"]);
+		expect(stderr).toEqual(["warn\n"]);
 	});
 
 	test("buffers emitted output until the caller flushes after progress settles", async () => {

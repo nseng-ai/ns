@@ -265,7 +265,7 @@ describe("runPhaseStream lifecycle", () => {
 			body: async (stream) => {
 				stream.emit({ type: "phase-started", phaseKey: "a" });
 				stream.emit({ type: "phase-started", phaseKey: "b" });
-				return { result: "failed-result", failed: true };
+				return { result: "failed-result", isFailed: true };
 			},
 		});
 
