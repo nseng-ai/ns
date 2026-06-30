@@ -128,19 +128,19 @@ export class RealReviewLogGateway implements ReviewLogGateway {
 }
 
 export interface FakeReviewLogGatewayOptions {
-	readonly branch?: string | undefined;
-	readonly entries?: readonly FakeReviewLogEntrySeed[] | undefined;
-	readonly writeFailure?: ReviewLogFailure | undefined;
-	readonly listFailure?: ReviewLogFailure | undefined;
+	readonly branch?: string;
+	readonly entries?: readonly FakeReviewLogEntrySeed[];
+	readonly writeFailure?: ReviewLogFailure;
+	readonly listFailure?: ReviewLogFailure;
 }
 
 export interface FakeReviewLogEntrySeed {
 	readonly key: string;
-	readonly branch?: string | undefined;
-	readonly entryLocator?: string | undefined;
-	readonly reviewKey?: string | null | undefined;
-	readonly ranAt?: string | null | undefined;
-	readonly content?: string | undefined;
+	readonly branch?: string;
+	readonly entryLocator?: string;
+	readonly reviewKey?: string | null;
+	readonly ranAt?: string | null;
+	readonly content?: string;
 }
 
 export interface WrittenReviewLogEntry extends ReviewLogWriteResult {
