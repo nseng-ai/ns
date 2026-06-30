@@ -7,7 +7,7 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
-} from "@sdl/brmem/cli-runner";
+} from "@sdl/capability-kit/brmem-cli";
 import {
 	execApiToCommandRunner,
 	formatCommand,

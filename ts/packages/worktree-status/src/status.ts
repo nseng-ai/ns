@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { runAvailableBrmemCommand } from "@sdl/brmem/cli-runner";
+import { runAvailableBrmemCommand } from "@sdl/capability-kit/brmem-cli";
 import {
 	execApiToCommandRunner,
 	type ExecOptions,

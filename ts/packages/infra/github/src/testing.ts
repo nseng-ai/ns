@@ -2,9 +2,9 @@ export interface GithubCheckRunFixture {
 	readonly workflowName: string;
 	readonly name: string;
 	readonly status: string;
-	readonly conclusion?: string | undefined;
-	readonly startedAt?: string | undefined;
-	readonly completedAt?: string | undefined;
+	readonly conclusion?: string;
+	readonly startedAt?: string;
+	readonly completedAt?: string;
 }
 
 export function githubCheckRun(fixture: GithubCheckRunFixture): unknown {

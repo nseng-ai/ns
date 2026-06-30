@@ -103,10 +103,15 @@
     construction remains in core. `clock`/`timers` concrete adapters moved to new neutral-infra package
     `@sdl/time`; core time subpaths now contain only `Clock`, `ScheduledTimer`, `TimerScheduler`, and
     abstract-scheduler `delay()`; concrete adapter consumers import `systemClock` and
-    `systemTimerScheduler` from `@sdl/time`; targeted and broad TS validation passed.
+    `systemTimerScheduler` from `@sdl/time`; targeted and broad TS validation passed. A review-remediation
+    slice corrected the brmem CLI helper placement from `@sdl/brmem/cli-runner` to
+    `@sdl/capability-kit/brmem-cli` with no shim, while leaving `@sdl/brmem` itself parked; it also
+    extracted pure XDG path construction to `@sdl/core/xdg-path` so kernel and Capability Kit share path
+    behavior without a kernel→kit dependency, with filesystem directory creation remaining in
+    Capability Kit.
   - Autonomous residual order: `temp-files` → `xdg`/`workspace-root` → `shell-support` → `text-repair`
-    → `model-slug` split → `clock`/`timers` concrete-adapter extraction → `brmem-cli` and
-    `@sdl/core/testing` memberwise cleanup → final purity proof/capability cleanup.
+    → `model-slug` split → `clock`/`timers` concrete-adapter extraction → `brmem-cli` corrective move
+    → `@sdl/core/testing` memberwise cleanup → final purity proof/capability cleanup.
   - Policy: use atomic repoint + delete with no compatibility shim for private first-party
     `@sdl/core/*` doors unless live dependency evidence proves a staged migration is necessary.
     Gateway helpers default to `@sdl/capability-kit`; choose a narrower standalone neutral/gateway home
@@ -116,9 +121,9 @@
     when validation permits.
   - `clock`/`timers` policy: keep pure structural time interfaces in `@sdl/core`; move concrete system
     adapters out of core rather than forcing neutral-infra packages through SDK/kernel APIs.
-  - `brmem-cli`/testing policy: do not relocate `@sdl/brmem`; defer `brmem-cli` and the broad
-    `@sdl/core/testing` aggregate until final residual cleanup, splitting testing helpers according to
-    the final production homes they support.
+  - `brmem-cli`/testing policy: do not relocate `@sdl/brmem`; `@sdl/capability-kit/brmem-cli` is the
+    exec-derived helper home, while the broad `@sdl/core/testing` aggregate still needs memberwise
+    cleanup according to the final production homes its helpers support.
 
 - [ ] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
       performs real-world I/O and no capability imports `@sdl/core/exec` or `@sdl/core/git`,
