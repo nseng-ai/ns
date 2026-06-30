@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "files": [
     "src"
@@ -15,7 +16,8 @@
   },
   "dependencies": {
     "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*"
+    "@sdl/exec": "workspace:*",
+    "@sdl/test-kit": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {

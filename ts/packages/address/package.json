@@ -21,6 +21,7 @@
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
     "@sdl/github": "workspace:*",
+    "@sdl/test-kit": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },

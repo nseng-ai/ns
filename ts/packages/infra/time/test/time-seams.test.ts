@@ -4,7 +4,7 @@ import {
 	createManualClock,
 	createManualTimerHarness,
 	createManualTimerScheduler,
-} from "@sdl/core/testing";
+} from "@sdl/time/testing";
 
 describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {

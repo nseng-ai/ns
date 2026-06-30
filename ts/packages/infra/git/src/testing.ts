@@ -1,0 +1,54 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+export interface TempGitRepo {
+	readonly path: string;
+	runGit(args: readonly string[], options?: TempGitRepoRunOptions): string;
+	cleanup(): void;
+}
+
+export interface TempGitRepoOptions {
+	readonly prefix?: string;
+	readonly userEmail?: string;
+	readonly userName?: string;
+	readonly readmeText?: string;
+	readonly initialCommitMessage?: string;
+}
+
+export interface TempGitRepoRunOptions {
+	readonly input?: string | undefined;
+	readonly env?: NodeJS.ProcessEnv | undefined;
+}
+
+export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo {
+	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "sdl-git-test-"));
+	const runGit = (args: readonly string[], runOptions: TempGitRepoRunOptions = {}): string => {
+		const result = spawnSync("git", [...args], {
+			cwd: path,
+			input: runOptions.input,
+			encoding: "utf8",
+			...(runOptions.env === undefined ? {} : { env: runOptions.env }),
+		});
+		if (result.status !== 0) {
+			throw new Error(`git ${args.join(" ")} failed: ${result.stderr || result.stdout}`);
+		}
+		return result.stdout;
+	};
+
+	runGit(["init", "-b", "main"]);
+	runGit(["config", "user.email", options.userEmail ?? "sdl-test@example.com"]);
+	runGit(["config", "user.name", options.userName ?? "SDL Test"]);
+	writeFileSync(join(path, "README.md"), options.readmeText ?? "test repo\n", "utf8");
+	runGit(["add", "README.md"]);
+	runGit(["commit", "-m", options.initialCommitMessage ?? "initial"]);
+
+	return {
+		path,
+		runGit,
+		cleanup() {
+			rmSync(path, { recursive: true, force: true });
+		},
+	};
+}

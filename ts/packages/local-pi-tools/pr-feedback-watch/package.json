@@ -15,6 +15,7 @@
     "@sdl/exec": "workspace:*",
     "@sdl/github": "workspace:*",
     "@sdl/pi": "workspace:*",
+    "@sdl/test-kit": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {},

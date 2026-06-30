@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import type { CommandExecApi } from "@sdl/exec";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { createTempDirTracker } from "@sdl/core/testing";
+import { createTempDirTracker } from "@sdl/test-kit";
 import { encodeBranchForPlanPath } from "@sdl/plans";
 
 import { attachBranchContextEntry } from "../src/attach.ts";

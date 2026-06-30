@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createTempDirTracker } from "@sdl/core/testing";
+import { createTempDirTracker } from "@sdl/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
 
 const tempDirs = createTempDirTracker();

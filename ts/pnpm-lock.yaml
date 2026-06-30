@@ -129,6 +129,9 @@ importers:
       '@sdl/slot':
         specifier: workspace:*
         version: link:packages/capabilities/slot
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:packages/infra/test-kit
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.2
@@ -186,6 +189,9 @@ importers:
       '@sdl/github':
         specifier: workspace:*
         version: link:../infra/github
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../infra/test-kit
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk
@@ -249,6 +255,9 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../plans
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../infra/test-kit
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk
@@ -288,6 +297,9 @@ importers:
       '@sdl/slot':
         specifier: workspace:*
         version: link:../slot
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../../infra/time
@@ -368,6 +380,9 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:../../plans
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../../infra/time
@@ -431,6 +446,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../../infra/time
@@ -449,6 +467,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -497,6 +518,9 @@ importers:
       '@sdl/slot':
         specifier: workspace:*
         version: link:../capabilities/slot
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../infra/test-kit
       sdl-flow:
         specifier: workspace:*
         version: link:../capabilities/flow
@@ -637,6 +661,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../git
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -688,6 +715,9 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../time
@@ -700,6 +730,9 @@ importers:
       '@sdl/exec':
         specifier: workspace:*
         version: link:../exec
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../test-kit
 
   packages/infra/github:
     dependencies:
@@ -727,6 +760,8 @@ importers:
       '@sdl/time':
         specifier: workspace:*
         version: link:../time
+
+  packages/infra/test-kit: {}
 
   packages/infra/time:
     dependencies:
@@ -814,6 +849,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -835,6 +873,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -982,6 +1023,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../infra/test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../infra/time
@@ -1027,6 +1071,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../../infra/test-kit
       smol-toml:
         specifier: 'catalog:'
         version: 1.6.1
@@ -1105,6 +1152,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../hosts/pi
+      '@sdl/test-kit':
+        specifier: workspace:*
+        version: link:../infra/test-kit
       '@sdl/time':
         specifier: workspace:*
         version: link:../infra/time

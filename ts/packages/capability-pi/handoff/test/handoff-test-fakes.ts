@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { encodeBranchName } from "@sdl/brmem";
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
