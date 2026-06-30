@@ -354,7 +354,7 @@ function commandForManifestEntry(options: {
 			diagnostic(
 				"extension_manifest_command_name_invalid",
 				`Extension manifest command name must match ${SDL_COMMAND_NAME_RULE}: ${parsedEntry.entry.name}.`,
-				{ path: options.packageJsonPath, commandName },
+				diagnosticLocation(options.packageJsonPath, commandName),
 			),
 		);
 	}
@@ -418,10 +418,7 @@ function validateManifestEntryPath(options: {
 				diagnostic(
 					"extension_manifest_entry_not_relative",
 					`Extension manifest command entry must be a relative POSIX-style path inside the package: ${options.rawEntryPath}.`,
-					{
-						path: options.packageJsonPath,
-						commandName: options.commandName,
-					},
+					diagnosticLocation(options.packageJsonPath, options.commandName),
 				),
 			],
 		};
@@ -435,10 +432,7 @@ function validateManifestEntryPath(options: {
 				diagnostic(
 					"extension_manifest_entry_escapes",
 					`Extension manifest command entry must not escape its package directory: ${options.rawEntryPath}.`,
-					{
-						path: options.packageJsonPath,
-						commandName: options.commandName,
-					},
+					diagnosticLocation(options.packageJsonPath, options.commandName),
 				),
 			],
 		};
@@ -450,10 +444,7 @@ function validateManifestEntryPath(options: {
 				diagnostic(
 					"extension_manifest_entry_unsupported",
 					`Extension manifest command entry must be a .ts or .js file, excluding .d.ts: ${options.rawEntryPath}.`,
-					{
-						path: options.packageJsonPath,
-						commandName: options.commandName,
-					},
+					diagnosticLocation(options.packageJsonPath, options.commandName),
 				),
 			],
 		};
@@ -469,10 +460,7 @@ function validateManifestEntryPath(options: {
 				diagnostic(
 					"extension_manifest_entry_missing",
 					`Extension manifest command entry does not exist: ${options.rawEntryPath}.`,
-					{
-						path: options.packageJsonPath,
-						commandName: options.commandName,
-					},
+					diagnosticLocation(options.packageJsonPath, options.commandName),
 				),
 			],
 		};
@@ -484,10 +472,7 @@ function validateManifestEntryPath(options: {
 				diagnostic(
 					"extension_manifest_entry_not_file",
 					`Extension manifest command entry must be a file: ${options.rawEntryPath}.`,
-					{
-						path: options.packageJsonPath,
-						commandName: options.commandName,
-					},
+					diagnosticLocation(options.packageJsonPath, options.commandName),
 				),
 			],
 		};
@@ -613,10 +598,7 @@ function pushManifestStringDiagnostic(options: {
 		diagnostic(
 			options.code,
 			`Extension manifest command ${options.field} must be a non-empty string: ${options.packageJsonPath}.`,
-			{
-				path: options.packageJsonPath,
-				commandName: options.commandName,
-			},
+			diagnosticLocation(options.packageJsonPath, options.commandName),
 		),
 	);
 }
@@ -632,7 +614,7 @@ function groupDiagnostic(options: {
 	return diagnostic(
 		"extension_manifest_command_group_invalid",
 		`Extension manifest command group must match ${SDL_COMMAND_NAME_RULE}.`,
-		{ path: options.packageJsonPath, commandName: options.commandName },
+		diagnosticLocation(options.packageJsonPath, options.commandName),
 	);
 }
 
@@ -705,10 +687,20 @@ function commandSortKey(command: DiscoveredExtensionCommand): string {
 	return command.displayPath;
 }
 
+function diagnosticLocation(
+	path: string,
+	commandName: string | undefined,
+): { path: string; commandName?: string } {
+	return {
+		path,
+		...(commandName === undefined ? {} : { commandName }),
+	};
+}
+
 function diagnostic(
 	code: string,
 	message: string,
-	options: { path?: string | undefined; commandName?: string | undefined } = {},
+	options: { path?: string; commandName?: string } = {},
 ): ExtensionDiscoveryDiagnostic {
 	return {
 		severity: "error",

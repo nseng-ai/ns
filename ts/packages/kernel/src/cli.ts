@@ -70,30 +70,28 @@ import {
 export type { SdlCommandInfo } from "./command-registry.ts";
 
 interface SdlCliExtensionRegistryDeps {
-	loadCommandCatalog?:
-		| ((options: { cwd: string; homeDir?: string | undefined }) => Promise<SdlCommandCatalog>)
-		| undefined;
-	loadSelectedCommand?:
-		| ((candidate: ExtensionCommandCandidate) => Promise<SelectedSdlCommandLoadResult>)
-		| undefined;
+	loadCommandCatalog?: (options: { cwd: string; homeDir?: string }) => Promise<SdlCommandCatalog>;
+	loadSelectedCommand?: (
+		candidate: ExtensionCommandCandidate,
+	) => Promise<SelectedSdlCommandLoadResult>;
 }
 
 export interface SdlCliDeps {
-	context?: SdlExtensionApi | undefined;
+	context?: SdlExtensionApi;
 	cwd?: string;
-	homeDir?: string | undefined;
+	homeDir?: string;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
-	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
-	confirm?: SdlConfirmPrompt | undefined;
+	onOutput?: (stream: SdlOutputStream, text: string) => void;
+	confirm?: SdlConfirmPrompt;
 	env?: Record<string, string | undefined> | undefined;
-	extensionRegistry?: SdlCliExtensionRegistryDeps | undefined;
+	extensionRegistry?: SdlCliExtensionRegistryDeps;
 }
 
 export interface BuildSdlCliOptions {
-	commandInfos?: readonly SdlCommandCliInfo[] | undefined;
-	selectedCommand?: SdlCommand | undefined;
-	selectedCommandPath?: SdlCommandPath | undefined;
+	commandInfos?: readonly SdlCommandCliInfo[];
+	selectedCommand?: SdlCommand;
+	selectedCommandPath?: SdlCommandPath;
 }
 
 export interface SdlCliContext extends SlotCliContext {
@@ -103,8 +101,8 @@ export interface SdlCliContext extends SlotCliContext {
 
 interface SdlCliBuildState {
 	commandInfos: readonly SdlCommandCliInfo[];
-	selectedCommand?: SdlCommand | undefined;
-	selectedCommandPath?: SdlCommandPath | undefined;
+	selectedCommand?: SdlCommand;
+	selectedCommandPath?: SdlCommandPath;
 }
 
 const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
@@ -117,25 +115,28 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		const resolvedStderr = deps.stderr ?? injectedContext?.stderr ?? stderr;
 		const resolvedCwd = deps.cwd ?? injectedContext?.cwd ?? cwd;
 		const resolvedEnv = deps.env ?? injectedContext?.env ?? env;
+		const homeDir = deps.homeDir ?? resolvedEnv.HOME;
 		const commandCatalog = await (
 			deps.extensionRegistry?.loadCommandCatalog ?? loadSdlCommandCatalog
 		)({
 			cwd: resolvedCwd,
-			homeDir: deps.homeDir ?? resolvedEnv.HOME,
+			...(homeDir === undefined ? {} : { homeDir }),
 		});
 		if (isCompletionResolverInvocation(args)) {
 			return await handleCompletionResolverInvocation({
 				args,
 				commandCatalog,
-				loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
 				cwd: resolvedCwd,
 				env: resolvedEnv,
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
-				injectedContext,
-				onOutput: deps.onOutput,
-				confirm: deps.confirm,
-				caps: io.caps,
+				...(deps.extensionRegistry?.loadSelectedCommand === undefined
+					? {}
+					: { loadSelectedCommand: deps.extensionRegistry.loadSelectedCommand }),
+				...(injectedContext === undefined ? {} : { injectedContext }),
+				...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
+				...(deps.confirm === undefined ? {} : { confirm: deps.confirm }),
+				...(io.caps === undefined ? {} : { caps: io.caps }),
 			});
 		}
 		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
@@ -198,15 +199,19 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			env: resolvedEnv,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			injectedContext,
-			onOutput: deps.onOutput,
-			confirm: deps.confirm,
-			caps: io.caps,
+			...(injectedContext === undefined ? {} : { injectedContext }),
+			...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
+			...(deps.confirm === undefined ? {} : { confirm: deps.confirm }),
+			...(io.caps === undefined ? {} : { caps: io.caps }),
 		});
 		return {
 			type: "run",
 			context: contextWithIO,
-			buildState: { commandInfos, selectedCommand, selectedCommandPath: selectedPath },
+			buildState: {
+				commandInfos,
+				...(selectedCommand === undefined ? {} : { selectedCommand }),
+				...(selectedPath === undefined ? {} : { selectedCommandPath: selectedPath }),
+			},
 		};
 	},
 	configureCli: ({ root, buildState }) => {
@@ -277,8 +282,10 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliContext> {
 	return entry.buildCli({
 		commandInfos: options.commandInfos ?? listStaticSdlCommandInfos(),
-		selectedCommand: options.selectedCommand,
-		selectedCommandPath: options.selectedCommandPath,
+		...(options.selectedCommand === undefined ? {} : { selectedCommand: options.selectedCommand }),
+		...(options.selectedCommandPath === undefined
+			? {}
+			: { selectedCommandPath: options.selectedCommandPath }),
 	});
 }
 
@@ -297,17 +304,17 @@ export async function runCli(args: readonly string[], deps: SdlCliDeps = {}): Pr
 async function handleCompletionResolverInvocation(options: {
 	args: readonly string[];
 	commandCatalog: SdlCommandCatalog;
-	loadSelectedCommand?:
-		| ((candidate: ExtensionCommandCandidate) => Promise<SelectedSdlCommandLoadResult>)
-		| undefined;
+	loadSelectedCommand?: (
+		candidate: ExtensionCommandCandidate,
+	) => Promise<SelectedSdlCommandLoadResult>;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: SdlExtensionApi | undefined;
-	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
-	confirm?: SdlConfirmPrompt | undefined;
-	caps?: Caps | undefined;
+	injectedContext?: SdlExtensionApi;
+	onOutput?: (stream: SdlOutputStream, text: string) => void;
+	confirm?: SdlConfirmPrompt;
+	caps?: Caps;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
 	const selectedCommandKey = requestedCompletedCommandKey(
@@ -340,10 +347,10 @@ async function handleCompletionResolverInvocation(options: {
 		env: options.env,
 		stdout: options.stdout,
 		stderr: options.stderr,
-		injectedContext: options.injectedContext,
-		onOutput: options.onOutput,
-		confirm: options.confirm,
-		caps: options.caps,
+		...(options.injectedContext === undefined ? {} : { injectedContext: options.injectedContext }),
+		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
+		...(options.confirm === undefined ? {} : { confirm: options.confirm }),
+		...(options.caps === undefined ? {} : { caps: options.caps }),
 	});
 	const candidates = await buildCli({
 		commandInfos,
@@ -368,10 +375,10 @@ async function buildSdlCliContext(options: {
 	env: NodeJS.ProcessEnv;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-	injectedContext?: SdlExtensionApi | undefined;
-	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
-	confirm?: SdlConfirmPrompt | undefined;
-	caps?: Caps | undefined;
+	injectedContext?: SdlExtensionApi;
+	onOutput?: (stream: SdlOutputStream, text: string) => void;
+	confirm?: SdlConfirmPrompt;
+	caps?: Caps;
 }): Promise<SdlCliContext> {
 	const baseContext =
 		options.injectedContext ?? createRealSdlCommandContext({ cwd: options.cwd, env: options.env });

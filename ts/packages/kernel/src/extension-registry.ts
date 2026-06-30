@@ -77,7 +77,7 @@ export interface DiagnosticClassification {
 
 interface LoadSdlCommandCatalogOptions {
 	cwd: string;
-	homeDir?: string | undefined;
+	homeDir?: string;
 	env?: Record<string, string | undefined> | undefined;
 }
 
@@ -295,7 +295,7 @@ export function formatExtensionWarningDiagnostics(
 
 function formatExtensionDiagnosticMessages(
 	diagnostics: readonly ExtensionErrorDiagnostic[],
-	options: { prefix?: string | undefined } = {},
+	options: { prefix?: string } = {},
 ): string {
 	const prefix = options.prefix ?? "";
 	return diagnostics.map((diagnostic) => `${prefix}${diagnostic.message}`).join("\n");

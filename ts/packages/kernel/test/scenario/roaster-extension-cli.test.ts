@@ -155,7 +155,7 @@ interface FakeRoasterCommandSpec {
 	readonly name: string;
 	readonly description: string;
 	readonly entryPath: string;
-	readonly segments?: readonly string[] | undefined;
+	readonly segments?: readonly string[];
 	readonly command: SdlCommand;
 }
 
@@ -319,7 +319,7 @@ function fakeRoasterCommand(options: {
 	name: string;
 	summary: string;
 	description: string;
-	schema?: z.ZodObject | undefined;
+	schema?: z.ZodObject;
 }): SdlCommand {
 	return {
 		name: options.name,

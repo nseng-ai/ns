@@ -12,9 +12,9 @@ export interface SdlExtensionCommandIoOptions {
 }
 
 export interface CliCommandIoInput {
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	onOutput?: (stream: SdlOutputStream, text: string) => void;
 }
 
 export interface CliCommandIoOptions {
@@ -139,5 +139,12 @@ export function commandIoFromSdlExtensionApi(
 	options: SdlExtensionCommandIoOptions = {},
 ): SdlCommandIo {
 	if (options.shouldSuppress === undefined) return ctx.commandIo;
-	return createCliCommandIo(ctx, { shouldSuppress: options.shouldSuppress });
+	return createCliCommandIo(
+		{
+			...(ctx.stdout === undefined ? {} : { stdout: ctx.stdout }),
+			...(ctx.stderr === undefined ? {} : { stderr: ctx.stderr }),
+			...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
+		},
+		{ shouldSuppress: options.shouldSuppress },
+	);
 }
