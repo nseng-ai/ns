@@ -21,6 +21,9 @@ Scopes default to: ${DEFAULT_SCOPES.join(" ")}
 Options:
   --format markdown|json   Output format (default: markdown)
   --json                   Alias for --format json
+  --include-marked         Count marked-preserve properties (lines tagged
+                           optional-undefined-objective: preserve) in the
+                           headline optional-undefined total (default: excluded)
   --self-test              Run built-in fixture tests
   -h, --help               Show this help
 
@@ -41,14 +44,19 @@ function parseArgs(argv) {
   const scopes = [];
   let format = "markdown";
   let selfTest = false;
+  let includeMarked = false;
 
   while (args.length > 0) {
     const arg = args.shift();
     if (arg === "-h" || arg === "--help") {
-      return { help: true, scopes, format, selfTest };
+      return { help: true, scopes, format, selfTest, includeMarked };
     }
     if (arg === "--self-test") {
       selfTest = true;
+      continue;
+    }
+    if (arg === "--include-marked") {
+      includeMarked = true;
       continue;
     }
     if (arg === "--json") {
@@ -79,7 +87,7 @@ function parseArgs(argv) {
     }
   }
 
-  return { help: false, scopes: scopes.length > 0 ? scopes : DEFAULT_SCOPES, format, selfTest };
+  return { help: false, scopes: scopes.length > 0 ? scopes : DEFAULT_SCOPES, format, selfTest, includeMarked };
 }
 
 async function listFiles(scope) {
@@ -134,16 +142,32 @@ function parseSourceFile(fileName, text) {
 
 function countOptionalUndefinedProperties(sourceFile) {
   const matches = [];
+  const markedMatches = [];
 
   function visit(node) {
     if (isOptionalPropertyNode(node) && includesUndefinedType(node.type)) {
-      matches.push(lineNumber(sourceFile, node));
+      if (isMarkedPreserve(sourceFile, node)) {
+        markedMatches.push(lineNumber(sourceFile, node));
+      } else {
+        matches.push(lineNumber(sourceFile, node));
+      }
     }
     ts.forEachChild(node, visit);
   }
 
   visit(sourceFile);
-  return matches;
+  return { matches, markedMatches };
+}
+
+function isMarkedPreserve(sourceFile, node) {
+  const ranges = ts.getLeadingCommentRanges(sourceFile.text, node.getFullStart());
+  if (ranges === undefined) {
+    return false;
+  }
+  return ranges.some((range) => {
+    const text = sourceFile.text.slice(range.pos, range.end);
+    return text.includes("optional-undefined-objective") && text.includes("preserve");
+  });
 }
 
 function isOptionalPropertyNode(node) {
@@ -196,41 +220,49 @@ function lineNumber(sourceFile, node) {
   return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
-async function measure(scopes) {
+async function measure(scopes, includeMarked = false) {
   const filesByScope = await Promise.all(scopes.map((scope) => listFiles(scope)));
   const files = [...new Set(filesByScope.flat())].sort();
   const perFile = [];
-  let optionalUndefinedProperties = 0;
+  let netOptional = 0;
+  let markedPreserve = 0;
   let undefinedChecks = 0;
 
   for (const file of files) {
     const text = await readFile(file, "utf8");
     const sourceFile = parseSourceFile(file, text);
-    const optionalLines = countOptionalUndefinedProperties(sourceFile);
+    const { matches: optionalLines, markedMatches: markedLines } = countOptionalUndefinedProperties(sourceFile);
     const checkLines = countUndefinedChecks(sourceFile);
-    if (optionalLines.length > 0 || checkLines.length > 0) {
+    if (optionalLines.length > 0 || markedLines.length > 0 || checkLines.length > 0) {
       perFile.push({
         path: path.relative(process.cwd(), file),
         optionalUndefinedProperties: optionalLines.length,
         optionalUndefinedPropertyLines: optionalLines,
+        markedPreserve: markedLines.length,
+        markedPreserveLines: markedLines,
         undefinedChecks: checkLines.length,
         undefinedCheckLines: checkLines,
       });
     }
-    optionalUndefinedProperties += optionalLines.length;
+    netOptional += optionalLines.length;
+    markedPreserve += markedLines.length;
     undefinedChecks += checkLines.length;
   }
+
+  const optionalUndefinedProperties = includeMarked ? netOptional + markedPreserve : netOptional;
 
   return {
     objective: "eliminate-redundant-optional-undefined",
     scopes,
+    includeMarked,
     filesScanned: files.length,
-    metrics: { optionalUndefinedProperties, undefinedChecks },
+    metrics: { optionalUndefinedProperties, markedPreserve, undefinedChecks },
     perFile,
     caveats: [
       "Counts are raw Objective scorecard inputs, not semantic classification.",
       "Optional-undefined detection uses TypeScript AST property signatures/declarations with explicit undefined unions.",
       "Undefined-check detection uses TypeScript AST === undefined / !== undefined binary expressions, including temporary normalization code.",
+      "Marked preserves (lines tagged optional-undefined-objective: preserve) are excluded from the net optional-undefined count unless --include-marked is passed.",
     ],
   };
 }
@@ -244,15 +276,16 @@ function renderMarkdown(result) {
     "",
     "| Metric | Count |",
     "| --- | ---: |",
-    `| Typed optional-undefined properties | ${result.metrics.optionalUndefinedProperties} |`,
+    `| Typed optional-undefined properties${result.includeMarked ? " (gross)" : " (net)"} | ${result.metrics.optionalUndefinedProperties} |`,
+    `| Marked preserves (excluded) | ${result.metrics.markedPreserve} |`,
     `| Undefined-normalization/check lines | ${result.metrics.undefinedChecks} |`,
     "",
   ];
 
   if (result.perFile.length > 0) {
-    lines.push("## Files with matches", "", "| File | Optional props | Undefined checks |", "| --- | ---: | ---: |");
+    lines.push("## Files with matches", "", "| File | Optional props | Marked preserves | Undefined checks |", "| --- | ---: | ---: | ---: |");
     for (const file of result.perFile) {
-      lines.push(`| ${file.path} | ${file.optionalUndefinedProperties} | ${file.undefinedChecks} |`);
+      lines.push(`| ${file.path} | ${file.optionalUndefinedProperties} | ${file.markedPreserve} | ${file.undefinedChecks} |`);
     }
     lines.push("");
   }
@@ -281,10 +314,28 @@ if (other !== undefined) {
 /* blockIgnored?: string | undefined; */
 `;
   const sourceFile = parseSourceFile("self-test.ts", fixture);
-  const optional = countOptionalUndefinedProperties(sourceFile).length;
+  const { matches, markedMatches } = countOptionalUndefinedProperties(sourceFile);
+  const optional = matches.length;
+  const marked = markedMatches.length;
   const checks = countUndefinedChecks(sourceFile).length;
-  if (optional !== 3 || checks !== 2) {
-    throw new Error(`self-test failed: expected optional=3 checks=2, got optional=${optional} checks=${checks}`);
+  if (optional !== 3 || marked !== 0 || checks !== 2) {
+    throw new Error(`self-test failed: expected optional=3 marked=0 checks=2, got optional=${optional} marked=${marked} checks=${checks}`);
+  }
+
+  const markedFixture = `
+interface Marked {
+  // optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to a gateway accepting present-undefined.
+  readonly signal?: AbortSignal | undefined;
+  // ordinary comment, not a marker
+  remove?: string | undefined;
+}
+`;
+  const markedSource = parseSourceFile("self-test-marked.ts", markedFixture);
+  const markedResult = countOptionalUndefinedProperties(markedSource);
+  if (markedResult.matches.length !== 1 || markedResult.markedMatches.length !== 1) {
+    throw new Error(
+      `self-test failed: expected net=1 marked=1, got net=${markedResult.matches.length} marked=${markedResult.markedMatches.length}`,
+    );
   }
 }
 
@@ -300,7 +351,7 @@ async function main() {
     return;
   }
 
-  const result = await measure(args.scopes);
+  const result = await measure(args.scopes, args.includeMarked);
   if (args.format === "json") {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return;

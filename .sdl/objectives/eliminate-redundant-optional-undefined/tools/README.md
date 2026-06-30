@@ -19,8 +19,23 @@ node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-object
 
 The tool reports the two Objective metrics:
 
-1. **Typed optional-undefined property count**: TypeScript AST property signatures/declarations with a `?` token whose type includes an explicit `undefined` union, such as `foo?: string | undefined`.
+1. **Typed optional-undefined property count**: TypeScript AST property signatures/declarations with a `?` token whose type includes an explicit `undefined` union, such as `foo?: string | undefined`. This is the **net** count — properties carrying a preserve marker (see below) are excluded.
 2. **Undefined-normalization/check count**: TypeScript AST binary expressions comparing a value with `undefined` using `===` or `!==`, including conditional omission builders and temporary normalization code.
+
+The tool also reports **marked preserves**: the count of optional-undefined properties that have been explicitly marked as intentional and excluded from the net count.
+
+## Preserve markers
+
+Properties that are intentionally kept as `?: T | undefined` (environment maps, abort signals, null-tolerant inputs, external/wire mirrors, overload selectors, etc.) carry a single-line comment on the line **immediately above** the property declaration:
+
+```ts
+// optional-undefined-objective: preserve (<bucket>) — <one-line reason>
+readonly signal?: AbortSignal | undefined;
+```
+
+The tool recognizes any leading comment containing both `optional-undefined-objective` and `preserve`, excludes that property from the net optional-undefined count, and tallies it under `markedPreserve`. This keeps future autonomous Objective runs from re-litigating already-adjudicated preserves. For inline object-type members (e.g. `request: { prNumber?: number | undefined }`), the type must be expanded to multiple lines so the marker is the property's leading comment rather than the parameter's.
+
+Pass `--include-marked` to report the **gross** count (net + marked preserves) instead of the net count; `markedPreserve` is reported in both modes.
 
 ## Intended workflow
 

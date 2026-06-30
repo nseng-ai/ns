@@ -72,8 +72,11 @@ export function prLinksFromDetails(details: unknown): Map<number, string> {
 }
 
 export function prLinksDetailsFor(
-	// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input over PR-entry data; the consumer explicitly distinguishes neither (treats null and undefined alike) and the null branch must remain, so it is an intentional loosely-typed input shape.
-	entries: Iterable<{ number: number; url?: string | null | undefined }>,
+	entries: Iterable<{
+		number: number;
+		// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input over PR-entry data; the consumer explicitly distinguishes neither (treats null and undefined alike) and the null branch must remain, so it is an intentional loosely-typed input shape.
+		url?: string | null | undefined;
+	}>,
 ): PrLinksDetails | undefined {
 	const prLinks: PrLink[] = [];
 	for (const entry of entries) {
