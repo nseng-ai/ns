@@ -275,6 +275,12 @@
       "sourceType": "local",
       "computedHash": "7b15d37ad8eb54b314d1c3716dd858c069278dcbd9aaf76c28bbf5c5888e806f"
     },
+    "pocock-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/in-progress/review/SKILL.md",
+      "computedHash": "a6c596036b399698ec5526aed60bddc134923832582e21ab140bb27f2fc4fff9"
+    },
     "pr-address": {
       "source": "skills/pr-address",
       "sourceType": "local",
@@ -299,12 +305,6 @@
       "source": "skills/refactor-swarm",
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
-    },
-    "review": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/in-progress/review/SKILL.md",
-      "computedHash": "a6c596036b399698ec5526aed60bddc134923832582e21ab140bb27f2fc4fff9"
     },
     "roast-dry-but-not-too-dry": {
       "source": "skills/roast-dry-but-not-too-dry",
