@@ -197,7 +197,7 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		}
 		if (!normalized.startsWith("→ ")) return;
 		const text = normalized.slice(2);
-		if (text.startsWith("Preparing to land") || text.startsWith("Preparing chunk")) {
+		if (text.startsWith("Preparing to land")) {
 			startPhase("preflight", text);
 			return;
 		}

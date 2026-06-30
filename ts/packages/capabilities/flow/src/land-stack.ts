@@ -20,7 +20,7 @@ import { buildLandingPlan } from "./land-stack/landing-plan.ts";
 import { presentLandStackFailure, type LandingSession } from "./land-stack/landing-coordination.ts";
 import type { PreMergeConfirmation } from "./land-stack/landing-operations.ts";
 import { present, setStatus, usage } from "./land-stack/presentation.ts";
-import { executeSinglePlanLanding } from "./land-stack/single-plan-landing.ts";
+import { executeLandingPlan } from "./land-stack/landing-plan-execution.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
 import type {
 	LandStackCommandContext,
@@ -94,7 +94,7 @@ export async function executeStackLanding(
 			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
-		return await executeSinglePlanLanding({
+		return await executeLandingPlan({
 			pi,
 			runtimePi,
 			parsedArgs,

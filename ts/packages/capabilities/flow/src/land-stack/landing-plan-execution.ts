@@ -15,7 +15,7 @@ import {
 } from "./presentation.ts";
 import type { LandStackExtensionAPI, LandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
 
-interface ExecuteSinglePlanLandingOptions {
+interface ExecuteLandingPlanOptions {
 	pi: LandStackExtensionAPI;
 	runtimePi: LandStackExtensionAPI;
 	parsedArgs: ParsedArgs;
@@ -28,10 +28,10 @@ interface ExecuteSinglePlanLandingOptions {
 	warnings: LandingWarning[];
 }
 
-export async function executeSinglePlanLanding(
-	singleOptions: ExecuteSinglePlanLandingOptions,
+export async function executeLandingPlan(
+	executionOptions: ExecuteLandingPlanOptions,
 ): Promise<LandStackResult<void>> {
-	const { pi, runtimePi, parsedArgs, options, session, plan, warnings } = singleOptions;
+	const { pi, runtimePi, parsedArgs, options, session, plan, warnings } = executionOptions;
 	const { ctx, commandStream, landed } = session;
 	const planText = formatPlan(plan);
 

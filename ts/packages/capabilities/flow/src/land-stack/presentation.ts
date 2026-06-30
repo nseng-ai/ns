@@ -35,11 +35,6 @@ export function formatPlan(plan: LandingPlan): string {
 	const lines: string[] = [];
 
 	lines.push(`Land Graphite stack path: ${[stack.trunk, ...stack.landingBranches].join(" -> ")}`);
-	if (stack.remainingLandingBranches.length > 0) {
-		lines.push(
-			`Full remaining path after this bounded landing scope: ${[stack.trunk, ...stack.landingBranches, ...stack.remainingLandingBranches].join(" -> ")}`,
-		);
-	}
 	lines.push("");
 	lines.push(`Current branch: ${stack.actualCurrentBranch}`);
 	lines.push(`Landing target branch: ${stack.landingTargetBranch}`);
@@ -58,13 +53,6 @@ export function formatPlan(plan: LandingPlan): string {
 			`  ${index + 1}. #${planEntry.pr.number} ${planEntry.branch} ${shortSha(planEntry.localSha)} ${planEntry.pr.title}${labels}`,
 		);
 	});
-
-	if (stack.remainingLandingBranches.length > 0) {
-		lines.push("", "Will leave for future automatic chunk(s):");
-		for (const branch of stack.remainingLandingBranches) {
-			lines.push(`  - ${branch}`);
-		}
-	}
 
 	lines.push("");
 	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));

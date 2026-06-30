@@ -540,7 +540,6 @@ export async function runMergeLoop(
 			...(prUrl ? { url: prUrl } : {}),
 		});
 		options.commandStream?.emitLiveProgress({
-			type: "pr-landed",
 			prNumber: currentPr.number,
 			branch,
 		});

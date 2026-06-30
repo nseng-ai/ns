@@ -511,13 +511,11 @@ function numberedPreflight(options: {
 	start?: number;
 	end: number;
 	current: number;
-	planEnd?: number;
 	prShaOverrides?: Record<number, string>;
 }): ScriptedExec[] {
 	const start = options.start ?? 1;
-	const planEnd = options.planEnd ?? options.end;
 	const currentBranch = numberedBranch(options.current);
-	const planBranches = Array.from({ length: planEnd - start + 1 }, (_, offset) =>
+	const planBranches = Array.from({ length: options.end - start + 1 }, (_, offset) =>
 		numberedBranch(start + offset),
 	);
 	return [
@@ -1105,7 +1103,6 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("→ Preparing to land 11 PRs through feature-11...");
 		expect(streamText).not.toContain("Preparing chunk");
 		expect(liveProgressEvents).toContainEqual({
-			type: "pr-landed",
 			prNumber: 201,
 			branch: "feature-1",
 		});

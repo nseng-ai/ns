@@ -21,10 +21,7 @@ import type {
 	RenderTheme,
 } from "./types.ts";
 
-export type LandLiveProgressEvent = LandPrLandedProgressEvent;
-
-export interface LandPrLandedProgressEvent {
-	type: "pr-landed";
+export interface LandLiveProgressEvent {
 	prNumber: number;
 	branch: string;
 }
