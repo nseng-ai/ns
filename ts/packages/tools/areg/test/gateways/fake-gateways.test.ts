@@ -166,6 +166,50 @@ describe("areg gateway fakes", () => {
 		});
 	});
 
+	test("project fake classifies skill-kind spec inspection failures", async () => {
+		const project: AregProjectGateway = new FakeAregProjectGateway({
+			localSkills: [
+				{ name: "dir-symlink", skillDir: { type: "symlink", target: "../outside" } },
+				{ name: "dir-other", skillDir: { type: "other" } },
+				{ name: "md-symlink", skillMd: { type: "symlink", target: "../SKILL.md" } },
+				{ name: "md-missing", skillMd: { type: "missing" } },
+			],
+		});
+
+		expect(
+			await project.resolveSkillKindSpec({
+				projectDir: "/repo",
+				spec: "dir-symlink",
+				cwd: "/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "error", error: { code: "skill-kind-symlink-skill-dir" } });
+		expect(
+			await project.resolveSkillKindSpec({
+				projectDir: "/repo",
+				spec: "dir-other",
+				cwd: "/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "error", error: { code: "skill-kind-missing-skill" } });
+		expect(
+			await project.resolveSkillKindSpec({
+				projectDir: "/repo",
+				spec: "md-symlink",
+				cwd: "/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "error", error: { code: "skill-kind-symlink-skill-md" } });
+		expect(
+			await project.resolveSkillKindSpec({
+				projectDir: "/repo",
+				spec: "md-missing",
+				cwd: "/repo",
+				env: {},
+			}),
+		).toMatchObject({ type: "error", error: { code: "skill-kind-missing-skill-md" } });
+	});
+
 	test("project fake supports independent preflight failures with fallback and logs preflights", async () => {
 		const project: AregProjectGateway = new FakeAregProjectGateway({
 			preflightFailures: {

@@ -24,18 +24,18 @@ import type {
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
+import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
 import {
 	inspectPath,
 	inspectTextFile,
 	isNodeErrorCode,
-	resolveAllowedInitTarget,
-	resolveAllowedSkillKindTarget,
+	resolveAllowedWriteTarget,
 	resolveExistingDirectory,
-	validateInitWriteTarget,
 	validateSkillKindDeleteTarget,
 	validateSkillKindRemoveDirTarget,
-	validateSkillKindWriteTarget,
+	validateWriteTarget,
 } from "./project-fs.ts";
+import { classifyResolvedSkillKindInspection } from "./skill-kind-classification.ts";
 
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
@@ -120,36 +120,11 @@ export class RealAregProjectGateway implements AregProjectGateway {
 		const resolved = await resolveSkillKindSpec(request);
 		if (resolved.type === "error") return resolved;
 		const inspected = await inspectSkillKindSkill(request.projectDir, resolved.skillName);
-		if (inspected.skillDir.type === "symlink")
-			return {
-				type: "error",
-				error: errorInfo(
-					"skill-kind-symlink-skill-dir",
-					`${inspected.baseRelativePath} is a symlink; refusing to manage invocation metadata`,
-				),
-			};
-		if (inspected.skillDir.type !== "directory")
-			return {
-				type: "error",
-				error: errorInfo("skill-kind-missing-skill", `Managed skill not found: ${request.spec}`),
-			};
-		if (inspected.skillMd.type === "symlink")
-			return {
-				type: "error",
-				error: errorInfo(
-					"skill-kind-symlink-skill-md",
-					`${inspected.baseRelativePath}/SKILL.md is a symlink; refusing to manage invocation metadata`,
-				),
-			};
-		if (inspected.skillMd.type !== "file")
-			return {
-				type: "error",
-				error: errorInfo(
-					"skill-kind-missing-skill-md",
-					`${inspected.baseRelativePath}/SKILL.md does not exist`,
-				),
-			};
-		return { type: "ok", skillName: resolved.skillName };
+		return classifyResolvedSkillKindInspection({
+			spec: request.spec,
+			skillName: resolved.skillName,
+			inspection: inspected,
+		});
 	}
 
 	async preflightWriteTextFile(
@@ -176,42 +151,36 @@ export class RealAregProjectGateway implements AregProjectGateway {
 	async writeTextFile(request: AregProjectTextWriteRequest): Promise<AregProjectMutationResult> {
 		const target = await resolveWriteTextFileTarget(request);
 		if (target.type === "error") return { ok: false, error: target.error };
+		const policyDescriptor = getAregProjectMutationPolicyDescriptor(request.policy);
 		if (request.createParent) {
 			try {
 				await mkdir(path.dirname(target.value), { recursive: true });
 			} catch (error) {
-				const code =
-					request.policy === "init"
-						? "init-parent-create-failed"
-						: "skill-kind-parent-create-failed";
 				return {
 					ok: false,
 					error: errorInfo(
-						code,
+						policyDescriptor.parentCreateFailedCode,
 						`Failed to create ${path.dirname(target.value)}: ${formatErrorMessage(error)}`,
 					),
 				};
 			}
-			const revalidation =
-				request.policy === "init"
-					? await validateInitWriteTarget(target.value, target.projectRoot, request)
-					: await validateSkillKindWriteTarget({
-							target: target.value,
-							projectRoot: target.projectRoot,
-							shouldCreateParent: request.createParent,
-							description: request.description,
-						});
+			const revalidation = await validateWriteTarget({
+				policy: request.policy,
+				target: target.value,
+				projectRoot: target.projectRoot,
+				shouldCreateParent: request.createParent,
+				description: request.description,
+			});
 			if (!revalidation.ok) return revalidation;
 		}
 		try {
 			await writeFile(target.value, request.content, "utf8");
 			return { ok: true };
 		} catch (error) {
-			const code = request.policy === "init" ? "init-write-failed" : "skill-kind-write-failed";
 			return {
 				ok: false,
 				error: errorInfo(
-					code,
+					policyDescriptor.writeFailedCode,
 					`Failed to write ${request.description} at ${target.value}: ${formatErrorMessage(error)}`,
 				),
 			};
@@ -264,20 +233,20 @@ async function resolveWriteTextFileTarget(
 > {
 	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
-	const target =
-		request.policy === "init"
-			? resolveAllowedInitTarget(projectRoot.value, request)
-			: resolveAllowedSkillKindTarget(projectRoot.value, request.relativePath, request.description);
+	const target = resolveAllowedWriteTarget({
+		policy: request.policy,
+		projectRoot: projectRoot.value,
+		relativePath: request.relativePath,
+		description: request.description,
+	});
 	if (target.type === "error") return { type: "error", error: target.error };
-	const validation =
-		request.policy === "init"
-			? await validateInitWriteTarget(target.value, projectRoot.value, request)
-			: await validateSkillKindWriteTarget({
-					target: target.value,
-					projectRoot: projectRoot.value,
-					shouldCreateParent: request.createParent,
-					description: request.description,
-				});
+	const validation = await validateWriteTarget({
+		policy: request.policy,
+		target: target.value,
+		projectRoot: projectRoot.value,
+		shouldCreateParent: request.createParent,
+		description: request.description,
+	});
 	if (!validation.ok) return { type: "error", error: validation.error };
 	return { type: "ok", value: target.value, projectRoot: projectRoot.value };
 }
@@ -287,11 +256,12 @@ async function resolveDeleteFileTarget(
 ): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
 	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
-	const target = resolveAllowedSkillKindTarget(
-		projectRoot.value,
-		request.relativePath,
-		request.description,
-	);
+	const target = resolveAllowedWriteTarget({
+		policy: request.policy,
+		projectRoot: projectRoot.value,
+		relativePath: request.relativePath,
+		description: request.description,
+	});
 	if (target.type === "error") return { type: "error", error: target.error };
 	const validation = await validateSkillKindDeleteTarget(
 		target.value,
@@ -309,11 +279,12 @@ async function resolveRemoveEmptyDirTarget(
 > {
 	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
-	const target = resolveAllowedSkillKindTarget(
-		projectRoot.value,
-		request.relativePath,
-		request.description,
-	);
+	const target = resolveAllowedWriteTarget({
+		policy: request.policy,
+		projectRoot: projectRoot.value,
+		relativePath: request.relativePath,
+		description: request.description,
+	});
 	if (target.type === "error") return { type: "error", error: target.error };
 	const validation = await validateSkillKindRemoveDirTarget(
 		target.value,
