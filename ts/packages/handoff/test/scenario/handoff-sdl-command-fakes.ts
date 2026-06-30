@@ -15,13 +15,13 @@ import type {
 import { HANDOFF_NAMESPACE } from "../../src/identity.ts";
 
 export interface FakeHandoffSdlApiOptions {
-	cwd?: string | undefined;
-	env?: Record<string, string | undefined> | undefined;
-	brmem?: FakeBrmemGateway | undefined;
-	git?: InMemoryGitGateway | undefined;
-	sourceReader?: BrmemSourceReader | undefined;
-	interaction?: ClinkrInteraction | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	cwd?: string;
+	env?: Record<string, string | undefined>;
+	brmem?: FakeBrmemGateway;
+	git?: InMemoryGitGateway;
+	sourceReader?: BrmemSourceReader;
+	interaction?: ClinkrInteraction;
+	stderr?: (text: string) => void;
 }
 
 export class FakeHandoffSdlApi implements SdlExtensionApi {
@@ -80,7 +80,7 @@ export function createFakeHandoffSdlApi(options: FakeHandoffSdlApiOptions = {}):
 export async function runHandoffCommand<S extends SdlCommandSchema, T>(
 	command: SdlCommand<S, T>,
 	request: unknown,
-	options: { api?: SdlExtensionApi | undefined } = {},
+	options: { api?: SdlExtensionApi } = {},
 ): Promise<ClinkrExit<T>> {
 	if (command.schema === undefined) {
 		throw new Error(`Command ${command.name} does not declare a request schema.`);
@@ -128,8 +128,8 @@ export async function getHandoffContent(
 
 export function fakeHandoffInteraction(
 	options: {
-		isInteractive?: boolean | undefined;
-		confirmations?: ReadonlyArray<"confirmed" | "declined" | "aborted"> | undefined;
+		isInteractive?: boolean;
+		confirmations?: ReadonlyArray<"confirmed" | "declined" | "aborted">;
 	} = {},
 ): ClinkrInteraction {
 	const confirmations = [...(options.confirmations ?? [])];
@@ -146,9 +146,7 @@ export class FakeHandoffSourceReader implements BrmemSourceReader {
 	private readonly stdin: string;
 	private readonly files: Readonly<Record<string, string>>;
 
-	constructor(
-		options: { stdin?: string | undefined; files?: Readonly<Record<string, string>> } = {},
-	) {
+	constructor(options: { stdin?: string; files?: Readonly<Record<string, string>> } = {}) {
 		this.stdin = options.stdin ?? "";
 		this.files = { ...(options.files ?? {}) };
 	}
