@@ -292,6 +292,8 @@ importers:
         specifier: workspace:*
         version: link:../../sdl-sdk
 
+  packages/capabilities/land: {}
+
   packages/capabilities/slot:
     dependencies:
       '@sdl/capability-kit':
