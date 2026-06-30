@@ -24,8 +24,8 @@ export interface VibechkWorkdirGateway {
 
 export interface RealVibechkWorkdirGatewayOptions {
 	workdir: string;
-	execApi?: CommandExecApi | undefined;
-	coreGit?: GitGateway | undefined;
+	execApi?: CommandExecApi;
+	coreGit?: GitGateway;
 }
 
 export class RealVibechkWorkdirGateway implements VibechkWorkdirGateway {

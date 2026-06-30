@@ -91,7 +91,7 @@ describe("ClaudeRunner", () => {
 	});
 });
 
-function request(options: { model?: string | null | undefined } = {}): RunnerRequest {
+function request(options: { model?: string | null } = {}): RunnerRequest {
 	return {
 		planText: "Do the work.",
 		workdir: "/repo",
