@@ -21,6 +21,25 @@ import type {
 	RenderTheme,
 } from "./types.ts";
 
+export type LandLiveProgressEvent = LandChunkStartedProgressEvent | LandPrLandedProgressEvent;
+
+export interface LandChunkStartedProgressEvent {
+	type: "chunk-started";
+	chunkIndex: number;
+	totalChunks: number;
+	currentChunkStart: number;
+	currentChunkEnd: number;
+	totalPrs: number;
+}
+
+export interface LandPrLandedProgressEvent {
+	type: "pr-landed";
+	prNumber: number;
+	branch: string;
+}
+
+export type LandLiveProgressSink = (event: LandLiveProgressEvent) => void;
+
 interface LandStackCommandStreamOptions {
 	/** Emit transient "running command" status. Off for non-interactive CLI. */
 	shouldShowRunningCommandStatus?: boolean;
@@ -28,6 +47,8 @@ interface LandStackCommandStreamOptions {
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
 	/** Injectable clock for stable command-duration tests. */
 	nowMs?: () => number;
+	/** Flow-owned structured live-progress side channel. */
+	liveProgress?: LandLiveProgressSink;
 }
 
 /**
@@ -64,6 +85,7 @@ export class LandStackCommandStream {
 	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
 	private readonly nowMs: () => number;
+	private readonly liveProgress: LandLiveProgressSink | undefined;
 	private readonly commandStarts = new Map<string, number>();
 
 	constructor(io: SdlCommandIo, options: LandStackCommandStreamOptions = {}) {
@@ -71,6 +93,11 @@ export class LandStackCommandStream {
 		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
 		this.nowMs = options.nowMs ?? Date.now;
+		this.liveProgress = options.liveProgress;
+	}
+
+	emitLiveProgress(event: LandLiveProgressEvent): void {
+		this.liveProgress?.(event);
 	}
 
 	start(commandDisplay: string): void {

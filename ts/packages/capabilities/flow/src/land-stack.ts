@@ -5,6 +5,7 @@ import {
 	createLandUiCommandIo,
 	renderCommandStreamMessage,
 	withCommandStreaming,
+	type LandLiveProgressSink,
 } from "./land-stack/command-stream.ts";
 import {
 	AUTO_CHUNK_LANDING_THRESHOLD,
@@ -43,6 +44,7 @@ export interface ExecuteStackLandingOptions {
 	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;
+	liveProgress?: LandLiveProgressSink;
 }
 
 export function registerLandStackRenderer(
@@ -72,6 +74,7 @@ export async function executeStackLanding(
 	const io = options.io ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
+		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {

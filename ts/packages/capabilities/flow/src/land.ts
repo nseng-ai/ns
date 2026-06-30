@@ -12,6 +12,7 @@ import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
 	withCommandStreaming,
+	type LandLiveProgressSink,
 } from "./land-stack/command-stream.ts";
 import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import {
@@ -93,6 +94,7 @@ export type LandCliConfirmPrompt = (title: string, message: string) => Promise<b
 
 interface RunLandCommandOptions {
 	progressIo?: SdlCommandIo;
+	liveProgress?: LandLiveProgressSink;
 }
 
 async function runLandCommand(
@@ -172,6 +174,7 @@ async function runLandCommand(
 		const outcome = await executeStackLanding(pi, ctx, args.value, {
 			initialShape: shape.value,
 			...(progressIo === undefined ? {} : { io: progressIo }),
+			...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 		});
 		if (outcome.type === "failure") return outcome;
 		return await runPostLandingSlotCleanup({
@@ -193,6 +196,7 @@ async function runLandCommand(
 		...(args.value.shouldSkipConfirmation ? {} : { preMergeConfirmation: "already-approved" }),
 		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),
+		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	if (outcome.type === "failure") return outcome;
 	return await runPostLandingSlotCleanup({
@@ -225,6 +229,8 @@ export interface LandCliInput {
 	confirm?: LandCliConfirmPrompt;
 	/** Optional progress sink; when omitted, the legacy CLI command stream is used. */
 	progressIo?: SdlCommandIo;
+	/** Optional Flow-owned structured live-progress sink for dynamic land titles. */
+	liveProgress?: LandLiveProgressSink;
 	/**
 	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
 	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
@@ -250,6 +256,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const confirm = input.confirm;
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createFlowCliCommandIo(input);
+	const liveProgress = input.liveProgress;
 	const outcome = await runWithSdlCommandIo(
 		progressIo,
 		async () =>
@@ -275,7 +282,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 					// path — ANSI never leaks into `renderCommandStreamMessage`.
 					...(caps === undefined ? {} : { renderResultBlock: createCliResultBlockRenderer(caps) }),
 				},
-				{ progressIo },
+				{ progressIo, ...(liveProgress === undefined ? {} : { liveProgress }) },
 			),
 	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;

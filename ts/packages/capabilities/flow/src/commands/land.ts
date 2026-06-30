@@ -1,4 +1,5 @@
 import { runLandCli } from "../land.ts";
+import type { LandLiveProgressEvent, LandLiveProgressSink } from "../land-stack/command-stream.ts";
 import { createCommandIo } from "@sdl/kernel/command-io";
 import {
 	defineExtension,
@@ -64,6 +65,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 						stderr: io.stderr,
 						caps,
 						progressIo: progress.io,
+						liveProgress: progress.liveProgress,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 					}),
 			});
@@ -79,6 +81,7 @@ export default defineExtension({
 
 interface LandCliProgress {
 	io: SdlCommandIo;
+	liveProgress: LandLiveProgressSink;
 	finish(exitCode: number): Promise<void>;
 	stop(): Promise<void>;
 }
@@ -90,14 +93,6 @@ export interface LandLiveProgressState {
 	currentChunk?: number;
 	currentChunkStart?: number;
 	currentChunkEnd?: number;
-}
-
-interface LandChunkProgress {
-	totalPrs: number;
-	totalChunks: number;
-	currentChunk: number;
-	currentChunkStart: number;
-	currentChunkEnd: number;
 }
 
 const BASE_LAND_TITLE = "sdl flow land";
@@ -120,37 +115,10 @@ export function formatLandProgressTitle(state: LandLiveProgressState): string {
 	return parts.join(" — ");
 }
 
-export function parseLandChunkProgress(text: string): LandChunkProgress | undefined {
-	const match = /^Preparing chunk (\d+)\/(\d+), PRs? (\d+)(?:-(\d+))? of (\d+):/.exec(text);
-	if (match === null) return undefined;
-	const currentChunk = Number(match[1]);
-	const totalChunks = Number(match[2]);
-	const currentChunkStart = Number(match[3]);
-	const currentChunkEnd = match[4] === undefined ? currentChunkStart : Number(match[4]);
-	const totalPrs = Number(match[5]);
-	if (
-		!Number.isSafeInteger(currentChunk) ||
-		!Number.isSafeInteger(totalChunks) ||
-		!Number.isSafeInteger(currentChunkStart) ||
-		!Number.isSafeInteger(currentChunkEnd) ||
-		!Number.isSafeInteger(totalPrs)
-	) {
-		return undefined;
-	}
-	return { totalPrs, totalChunks, currentChunk, currentChunkStart, currentChunkEnd };
-}
-
-export function parseMergedPrNumber(text: string): number | undefined {
-	const match = /^Merged and verified PR #(\d+)\b/.exec(text);
-	if (match === null) return undefined;
-	const number = Number(match[1]);
-	return Number.isSafeInteger(number) ? number : undefined;
-}
-
 function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgress {
-	// Land receives phase signals by parsing CCC-land CLI text, so the stream starts lazily only
-	// after the first phase-worthy message. The shared controller owns lifecycle mechanics; this
-	// adapter owns only land-specific text-to-phase routing.
+	// Land receives generic phase signals from command-stream text, so the stream starts lazily only
+	// after the first phase-worthy message. Structured Flow live-progress events drive the title.
+	// The shared controller owns lifecycle mechanics; this adapter owns only land-specific routing.
 	const progress = createPhaseStreamController({
 		caps,
 		specs: LAND_PHASES,
@@ -166,23 +134,23 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		progress.setTitle(formatLandProgressTitle(liveState));
 	}
 
-	function recordChunkProgress(text: string): void {
-		const parsed = parseLandChunkProgress(text);
-		if (parsed === undefined) return;
-		liveState.totalPrs = parsed.totalPrs;
-		liveState.totalChunks = parsed.totalChunks;
-		liveState.currentChunk = parsed.currentChunk;
-		liveState.currentChunkStart = parsed.currentChunkStart;
-		liveState.currentChunkEnd = parsed.currentChunkEnd;
-		updateTitle();
-	}
-
-	function recordMergedPr(text: string): void {
-		const prNumber = parseMergedPrNumber(text);
-		if (prNumber === undefined || landedPrNumbers.has(prNumber)) return;
-		landedPrNumbers.add(prNumber);
-		liveState.landedPrs += 1;
-		updateTitle();
+	function recordLiveProgress(event: LandLiveProgressEvent): void {
+		switch (event.type) {
+			case "chunk-started":
+				liveState.totalPrs = event.totalPrs;
+				liveState.totalChunks = event.totalChunks;
+				liveState.currentChunk = event.chunkIndex;
+				liveState.currentChunkStart = event.currentChunkStart;
+				liveState.currentChunkEnd = event.currentChunkEnd;
+				updateTitle();
+				return;
+			case "pr-landed":
+				if (landedPrNumbers.has(event.prNumber)) return;
+				landedPrNumbers.add(event.prNumber);
+				liveState.landedPrs += 1;
+				updateTitle();
+				return;
+		}
 	}
 
 	function emit(event: SdlProgressPhaseEvent): void {
@@ -232,7 +200,6 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		if (!normalized.startsWith("→ ")) return;
 		const text = normalized.slice(2);
 		if (text.startsWith("Preparing to land") || text.startsWith("Preparing chunk")) {
-			recordChunkProgress(text);
 			startPhase("preflight", text);
 			return;
 		}
@@ -241,7 +208,6 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 			return;
 		}
 		if (text.startsWith("Merged and verified PR")) {
-			recordMergedPr(text);
 			startPhase("merge", text);
 			return;
 		}
@@ -264,6 +230,7 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 				routeMessage(message, options.level);
 			},
 		}),
+		liveProgress: recordLiveProgress,
 		finish: async (exitCode) => {
 			await progress.finish({ isFailed: exitCode !== 0 });
 		},

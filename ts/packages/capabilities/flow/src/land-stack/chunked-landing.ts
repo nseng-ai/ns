@@ -118,12 +118,25 @@ export async function executeChunkedStackLanding(
 		}
 		finalPlan = plan.value;
 
+		const chunkProgress = chunkProgressRange({
+			chunkIndex,
+			totalPrs,
+			chunkSize: readyLandingBranchCount(plan.value),
+		});
+		commandStream.emitLiveProgress({
+			type: "chunk-started",
+			chunkIndex,
+			totalChunks,
+			currentChunkStart: chunkProgress.start,
+			currentChunkEnd: chunkProgress.end,
+			totalPrs,
+		});
 		commandStream.note(
 			`${formatChunkProgressNote({
 				chunkIndex,
 				totalChunks,
 				totalPrs,
-				chunkSize: readyLandingBranchCount(plan.value),
+				chunkProgress,
 			})}: ${formatPreparingLandingMilestone(plan.value)}`,
 		);
 		const readyPlan = await preparePlanForMerge({
@@ -222,15 +235,28 @@ interface FormatChunkProgressNoteOptions {
 	chunkIndex: number;
 	totalChunks: number;
 	totalPrs: number;
-	chunkSize: number;
+	chunkProgress: ChunkProgressRange;
+}
+
+interface ChunkProgressRange {
+	start: number;
+	end: number;
 }
 
 function formatChunkProgressNote(options: FormatChunkProgressNoteOptions): string {
-	const start = (options.chunkIndex - 1) * AUTO_CHUNK_LANDING_SIZE + 1;
-	const end = Math.min(start + options.chunkSize - 1, options.totalPrs);
+	const { start, end } = options.chunkProgress;
 	const prLabel = start === end ? "PR" : "PRs";
 	const range = start === end ? String(start) : `${start}-${end}`;
 	return `Preparing chunk ${options.chunkIndex}/${options.totalChunks}, ${prLabel} ${range} of ${options.totalPrs}`;
+}
+
+function chunkProgressRange(options: {
+	chunkIndex: number;
+	totalPrs: number;
+	chunkSize: number;
+}): ChunkProgressRange {
+	const start = (options.chunkIndex - 1) * AUTO_CHUNK_LANDING_SIZE + 1;
+	return { start, end: Math.min(start + options.chunkSize - 1, options.totalPrs) };
 }
 
 function readyLandingBranchCount(plan: LandingPlan): number {
