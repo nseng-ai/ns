@@ -73,8 +73,13 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	expect(typeof textGenerationModule.selectCheckpointModelRef).toBe("function");
 	expect(typeof textGenerationModule.selectChangesModelRef).toBe("function");
 
-	const modelSlugModule =
+	const coreModelSlugModule =
 		await jiti.import<typeof import("@sdl/core/model-slug")>("@sdl/core/model-slug");
+	expect(typeof coreModelSlugModule.parseModelRef).toBe("function");
+
+	const modelSlugModule = await jiti.import<{ deriveSlugWithModel: unknown }>(
+		"@sdl/capability-kit/model-slug",
+	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
 	const branchContextExtensionModule = await jiti.import<

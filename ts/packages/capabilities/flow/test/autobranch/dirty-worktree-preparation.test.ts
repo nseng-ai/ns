@@ -4,7 +4,7 @@ import {
 	type AutobranchPreparationInput,
 } from "../../src/autobranch/dirty-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@sdl/core/branch-slug";
-import { buildSlugModelArgs } from "@sdl/core/model-slug";
+import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
 	eventIndex,

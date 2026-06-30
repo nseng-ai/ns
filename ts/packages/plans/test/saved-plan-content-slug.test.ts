@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
+import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
 import type { ExecResult } from "@sdl/exec";
 import type { CommandExecApi, ExecOptions } from "@sdl/exec";

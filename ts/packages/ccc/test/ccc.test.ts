@@ -21,7 +21,7 @@ import registerCccExtension, {
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
 } from "@sdl/ccc-pi";
-import { buildSlugModelArgs } from "@sdl/core/model-slug";
+import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import {
 	BRANCH,
