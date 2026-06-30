@@ -461,7 +461,7 @@ export default function worktreeStatusExtension(
 
 		const previousIdentity = session.localStatus?.identity;
 		let status = await loaders.loadLocalStatus(pi, session.cwd, {
-			identity,
+			...(identity === undefined ? {} : { identity }),
 			signal: session.abortController.signal,
 		});
 		if (!isActiveSession(session)) return;
