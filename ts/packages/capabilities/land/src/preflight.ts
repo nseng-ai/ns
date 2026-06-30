@@ -21,7 +21,7 @@ import type {
 } from "./types.ts";
 
 export interface BuildStackLandingPlanOptions {
-	readonly allowSubmitRequiredState?: boolean;
+	readonly shouldAllowSubmitRequiredState?: boolean;
 	readonly preloadedShape?: LandingShape;
 	readonly landingBranchLimit?: number;
 }
@@ -62,17 +62,17 @@ export async function buildStackLandingPlan(
 	if (branchPlans.type === "failure") return branchPlans;
 
 	const initialPreflight = validateInitialPrPreflight(branchPlans.value, stack.trunk, {
-		allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState),
+		shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
 	});
 	if (initialPreflight.type === "failure") return initialPreflight;
 	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans.value, stack.trunk);
 
-	const landingConflicts = await detectWorktreeConflicts(
+	const landingConflicts = await detectWorktreeConflicts({
 		context,
-		shape.value.repoRoot,
-		stack.actualCurrentBranch,
-		stack.landingBranches,
-	);
+		repoRoot: shape.value.repoRoot,
+		currentBranch: stack.actualCurrentBranch,
+		relevantBranches: stack.landingBranches,
+	});
 	if (landingConflicts.type === "failure") return landingConflicts;
 	const landingManualConflicts = landingConflicts.value.filter(
 		(conflict) => conflict.type === "manual-worktree",
@@ -94,12 +94,12 @@ export async function buildStackLandingPlan(
 	const descendantConflicts =
 		descendantBranches.length === 0
 			? success([])
-			: await detectWorktreeConflicts(
+			: await detectWorktreeConflicts({
 					context,
-					shape.value.repoRoot,
-					stack.actualCurrentBranch,
-					descendantBranches,
-				);
+					repoRoot: shape.value.repoRoot,
+					currentBranch: stack.actualCurrentBranch,
+					relevantBranches: descendantBranches,
+				});
 	if (descendantConflicts.type === "failure") return descendantConflicts;
 
 	const submitRestackRequirements =
@@ -146,7 +146,7 @@ export async function calculateLandingOutcome(
 	}
 
 	const plan = await buildStackLandingPlan(context, request.cwd, {
-		allowSubmitRequiredState: request.preflight.allowSubmitRequiredState,
+		shouldAllowSubmitRequiredState: request.preflight.shouldAllowSubmitRequiredState,
 		...(request.target.landingBranchLimit === undefined
 			? {}
 			: { landingBranchLimit: request.target.landingBranchLimit }),
@@ -275,7 +275,7 @@ async function loadBranchPlans(
 function validateInitialPrPreflight(
 	branchPlans: readonly BranchLandingPlan[],
 	trunk: string,
-	options: { readonly allowSubmitRequiredState?: boolean } = {},
+	options: { readonly shouldAllowSubmitRequiredState?: boolean } = {},
 ): LandOutcome {
 	for (let index = 0; index < branchPlans.length; index += 1) {
 		const branchPlan = branchPlans[index];
@@ -284,10 +284,14 @@ function validateInitialPrPreflight(
 			branch: branchPlan.branch,
 			localSha: branchPlan.localSha,
 			pr: branchPlan.pr,
-			allowHeadShaMismatch: Boolean(options.allowSubmitRequiredState),
+			allowHeadShaMismatch: Boolean(options.shouldAllowSubmitRequiredState),
 		});
 		if (basics.type === "failure") return basics;
-		if (index === 0 && branchPlan.pr.baseRefName !== trunk && !options.allowSubmitRequiredState) {
+		if (
+			index === 0 &&
+			branchPlan.pr.baseRefName !== trunk &&
+			!options.shouldAllowSubmitRequiredState
+		) {
 			return failure(
 				domainFailure({
 					phase: "preflight",
@@ -390,31 +394,40 @@ export function collectPrSubmitRequirements(
 	return requirements;
 }
 
+interface DetectWorktreeConflictsOptions {
+	readonly context: LandContext;
+	readonly repoRoot: string;
+	readonly currentBranch: string;
+	readonly relevantBranches: readonly string[];
+}
+
 async function detectWorktreeConflicts(
-	context: LandContext,
-	repoRoot: string,
-	currentBranch: string,
-	relevantBranches: readonly string[],
+	options: DetectWorktreeConflictsOptions,
 ): Promise<LandResult<readonly WorktreeConflict[]>> {
-	const worktrees = await context.worktrees.worktrees({ repoRoot });
+	const worktrees = await options.context.worktrees.worktrees({ repoRoot: options.repoRoot });
 	if (worktrees.type === "failure") return worktrees;
-	const relevant = new Set(relevantBranches);
+	const relevant = new Set(options.relevantBranches);
 	const conflicts: WorktreeConflict[] = [];
 	for (const worktree of worktrees.value) {
 		if (worktree.branch === undefined || !relevant.has(worktree.branch)) continue;
-		const conflict = await classifyConflict(context, repoRoot, currentBranch, worktree);
+		const conflict = await classifyConflict({ ...options, worktree });
 		if (conflict.type === "failure") return conflict;
 		conflicts.push(conflict.value);
 	}
 	return success(conflicts);
 }
 
+interface ClassifyConflictOptions {
+	readonly context: LandContext;
+	readonly repoRoot: string;
+	readonly currentBranch: string;
+	readonly worktree: WorktreeEntry;
+}
+
 async function classifyConflict(
-	context: LandContext,
-	repoRoot: string,
-	currentBranch: string,
-	worktree: WorktreeEntry,
+	options: ClassifyConflictOptions,
 ): Promise<LandResult<WorktreeConflict>> {
+	const { context, repoRoot, currentBranch, worktree } = options;
 	if (worktree.branch === currentBranch && worktree.path === repoRoot) {
 		return success({ type: "current", branch: worktree.branch, path: worktree.path });
 	}

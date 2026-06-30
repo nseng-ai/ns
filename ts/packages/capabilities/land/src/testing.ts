@@ -15,7 +15,10 @@ import type {
 	WorktreeEntry,
 } from "./types.ts";
 
-type FailureState = { readonly type: "failure"; readonly failure?: LandingBoundaryFailure };
+interface FailureState {
+	readonly type: "failure";
+	readonly failure?: LandingBoundaryFailure;
+}
 type ValueState<T> = T | FailureState;
 type OperationState = { readonly type: "success" } | FailureState;
 
@@ -25,7 +28,7 @@ export interface InMemoryLandGitGatewayState {
 	readonly workingTreeStatus?: ValueState<WorkingTreeStatus>;
 	readonly localBranches?: readonly LocalBranchTip[];
 	readonly branchContainsParents?: Readonly<Record<string, boolean>>;
-	readonly defaultBranchContainsParent?: boolean;
+	readonly shouldDefaultBranchContainParent?: boolean;
 	readonly listLocalBranchesFailure?: LandingBoundaryFailure;
 	readonly localBranchExistsFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly localBranchShaFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
@@ -53,7 +56,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly workingTreeStatusState: ValueState<WorkingTreeStatus>;
 	private readonly branches: ReadonlyMap<string, string>;
 	private readonly branchContainsParents: ReadonlyMap<string, boolean>;
-	private readonly defaultBranchContainsParent: boolean;
+	private readonly shouldDefaultBranchContainParent: boolean;
 	private readonly listLocalBranchesFailure: LandingBoundaryFailure | undefined;
 	private readonly localBranchExistsFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly localBranchShaFailures: ReadonlyMap<string, LandingBoundaryFailure>;
@@ -71,7 +74,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		this.workingTreeStatusState = state.workingTreeStatus ?? { isClean: true };
 		this.branches = new Map((state.localBranches ?? []).map((branch) => [branch.name, branch.sha]));
 		this.branchContainsParents = new Map(Object.entries(state.branchContainsParents ?? {}));
-		this.defaultBranchContainsParent = state.defaultBranchContainsParent ?? true;
+		this.shouldDefaultBranchContainParent = state.shouldDefaultBranchContainParent ?? true;
 		this.listLocalBranchesFailure = copyOptionalBoundaryFailure(state.listLocalBranchesFailure);
 		this.localBranchExistsFailures = new Map(
 			Object.entries(state.localBranchExistsFailures ?? {}).map(([branch, failure]) => [
@@ -117,38 +120,38 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
 		this.resolveRepoRootLog.push({ cwd: request.cwd });
-		return valueResult(
-			this.repoRootState,
-			"git",
-			"repo-discovery",
-			"repo_root_failed",
-			"Could not resolve git repository root.",
-		);
+		return valueResult({
+			state: this.repoRootState,
+			source: "git",
+			phase: "repo-discovery",
+			code: "repo_root_failed",
+			message: "Could not resolve git repository root.",
+		});
 	}
 
 	async currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
 		this.currentBranchLog.push({ repoRoot: request.repoRoot });
-		return valueResult(
-			this.currentBranchState,
-			"git",
-			"repo-discovery",
-			"current_branch_failed",
-			"Could not resolve current branch.",
-		);
+		return valueResult({
+			state: this.currentBranchState,
+			source: "git",
+			phase: "repo-discovery",
+			code: "current_branch_failed",
+			message: "Could not resolve current branch.",
+		});
 	}
 
 	async workingTreeStatus(request: {
 		readonly repoRoot: string;
 	}): Promise<LandResult<WorkingTreeStatus>> {
 		this.workingTreeStatusLog.push({ repoRoot: request.repoRoot });
-		return valueResult(
-			this.workingTreeStatusState,
-			"git",
-			"preflight",
-			"working_tree_status_failed",
-			"Could not read working tree status.",
-			copyWorkingTreeStatus,
-		);
+		return valueResult({
+			state: this.workingTreeStatusState,
+			source: "git",
+			phase: "preflight",
+			code: "working_tree_status_failed",
+			message: "Could not read working tree status.",
+			copyValue: copyWorkingTreeStatus,
+		});
 	}
 
 	async localBranchExists(request: {
@@ -184,12 +187,12 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 		if (sha === undefined) {
 			return {
 				type: "failure",
-				failure: boundaryFailure(
-					"git",
-					"preflight",
-					"local_branch_sha_missing",
-					`Could not resolve sha for '${request.branch}'.`,
-				),
+				failure: boundaryFailure({
+					source: "git",
+					phase: "preflight",
+					code: "local_branch_sha_missing",
+					message: `Could not resolve sha for '${request.branch}'.`,
+				}),
 			};
 		}
 		return { type: "success", value: sha };
@@ -222,7 +225,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 			type: "success",
 			value:
 				this.branchContainsParents.get(branchPairKey(request.branch, request.parent)) ??
-				this.defaultBranchContainsParent,
+				this.shouldDefaultBranchContainParent,
 		};
 	}
 }
@@ -294,24 +297,24 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 
 	async trunk(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
 		this.trunkLog.push({ repoRoot: request.repoRoot });
-		return valueResult(
-			this.trunkState,
-			"graphite",
-			"repo-discovery",
-			"trunk_failed",
-			"Could not resolve Graphite trunk.",
-		);
+		return valueResult({
+			state: this.trunkState,
+			source: "graphite",
+			phase: "repo-discovery",
+			code: "trunk_failed",
+			message: "Could not resolve Graphite trunk.",
+		});
 	}
 
 	async metadataDbPath(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
 		this.metadataDbPathLog.push({ repoRoot: request.repoRoot });
-		return valueResult(
-			this.metadataDbPathState,
-			"graphite",
-			"repo-discovery",
-			"metadata_db_failed",
-			"Could not resolve Graphite metadata DB path.",
-		);
+		return valueResult({
+			state: this.metadataDbPathState,
+			source: "graphite",
+			phase: "repo-discovery",
+			code: "metadata_db_failed",
+			message: "Could not resolve Graphite metadata DB path.",
+		});
 	}
 
 	async stackShape(request: {
@@ -328,14 +331,14 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 			trunk: request.trunk,
 			liveLocalBranches: [...request.liveLocalBranches],
 		});
-		return valueResult(
-			this.stackShapeState,
-			"graphite",
-			"stack-shape",
-			"stack_shape_failed",
-			"Could not inspect stack shape.",
-			copyStackSnapshot,
-		);
+		return valueResult({
+			state: this.stackShapeState,
+			source: "graphite",
+			phase: "stack-shape",
+			code: "stack_shape_failed",
+			message: "Could not inspect stack shape.",
+			copyValue: copyStackSnapshot,
+		});
 	}
 
 	async prepareSubmitUpdate(request: {
@@ -402,12 +405,12 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 		if (pr === undefined) {
 			return {
 				type: "failure",
-				failure: boundaryFailure(
-					"github",
-					"preflight",
-					"pull_request_missing",
-					`No pull request found for '${request.branchOrNumber}'.`,
-				),
+				failure: boundaryFailure({
+					source: "github",
+					phase: "preflight",
+					code: "pull_request_missing",
+					message: `No pull request found for '${request.branchOrNumber}'.`,
+				}),
 			};
 		}
 		return { type: "success", value: copyPullRequestFacts(pr) };
@@ -553,22 +556,24 @@ export function stackSnapshot(overrides: Partial<StackSnapshot> = {}): StackSnap
 	};
 }
 
-function valueResult<T>(
-	state: ValueState<T>,
-	source: LandingBoundaryFailure["source"],
-	phase: LandingBoundaryFailure["phase"],
-	code: string,
-	message: string,
-	copyValue: (value: T) => T = (value) => value,
-): LandResult<T> {
-	if (isFailureState(state)) {
+interface ValueResultOptions<T> {
+	readonly state: ValueState<T>;
+	readonly source: LandingBoundaryFailure["source"];
+	readonly phase: LandingBoundaryFailure["phase"];
+	readonly code: string;
+	readonly message: string;
+	readonly copyValue?: (value: T) => T;
+}
+
+function valueResult<T>(options: ValueResultOptions<T>): LandResult<T> {
+	const copyValue = options.copyValue ?? ((value: T) => value);
+	if (isFailureState(options.state)) {
 		return {
 			type: "failure",
-			failure:
-				copyOptionalBoundaryFailure(state.failure) ?? boundaryFailure(source, phase, code, message),
+			failure: copyOptionalBoundaryFailure(options.state.failure) ?? boundaryFailure(options),
 		};
 	}
-	return { type: "success", value: copyValue(state) };
+	return { type: "success", value: copyValue(options.state) };
 }
 
 function operationOutcome(state: OperationState | undefined): LandOutcome {
@@ -577,12 +582,12 @@ function operationOutcome(state: OperationState | undefined): LandOutcome {
 		type: "failure",
 		failure:
 			copyOptionalBoundaryFailure(state.failure) ??
-			boundaryFailure(
-				"graphite",
-				"submit-preparation",
-				"operation_failed",
-				"Graphite preparation failed.",
-			),
+			boundaryFailure({
+				source: "graphite",
+				phase: "submit-preparation",
+				code: "operation_failed",
+				message: "Graphite preparation failed.",
+			}),
 	};
 }
 
@@ -612,13 +617,21 @@ function branchPairKey(branch: string, parent: string): string {
 	return `${branch}|${parent}`;
 }
 
-function boundaryFailure(
-	source: LandingBoundaryFailure["source"],
-	phase: LandingBoundaryFailure["phase"],
-	code: string,
-	message: string,
-): LandingBoundaryFailure {
-	return { type: "boundary", source, phase, code, message };
+interface BoundaryFailureOptions {
+	readonly source: LandingBoundaryFailure["source"];
+	readonly phase: LandingBoundaryFailure["phase"];
+	readonly code: string;
+	readonly message: string;
+}
+
+function boundaryFailure(options: BoundaryFailureOptions): LandingBoundaryFailure {
+	return {
+		type: "boundary",
+		source: options.source,
+		phase: options.phase,
+		code: options.code,
+		message: options.message,
+	};
 }
 
 function copyOptionalBoundaryFailure(

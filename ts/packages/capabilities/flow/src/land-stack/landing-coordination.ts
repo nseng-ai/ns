@@ -107,7 +107,7 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	commandStream.note("Rechecking landing preflight...");
 	setStatus(ctx, "rechecking preflight...");
 	const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
-		allowSubmitRequiredState: true,
+		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
 	});
 	if (rechecked.type === "failure") return rechecked;

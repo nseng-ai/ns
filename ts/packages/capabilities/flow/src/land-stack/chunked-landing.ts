@@ -58,7 +58,7 @@ export async function executeChunkedStackLanding(
 		warnings,
 	} = chunkedOptions;
 	const initialPlan = await buildLandingPlan(runtimePi, ctx.cwd, {
-		allowSubmitRequiredState: true,
+		shouldAllowSubmitRequiredState: true,
 		preloadedShape: initialShape,
 		landingBranchLimit: AUTO_CHUNK_LANDING_SIZE,
 	});
@@ -108,7 +108,7 @@ export async function executeChunkedStackLanding(
 		const plan = pendingPlan
 			? success(pendingPlan)
 			: await buildLandingPlan(runtimePi, ctx.cwd, {
-					allowSubmitRequiredState: true,
+					shouldAllowSubmitRequiredState: true,
 					landingBranchLimit: AUTO_CHUNK_LANDING_SIZE,
 				});
 		pendingPlan = undefined;

@@ -47,7 +47,7 @@ export async function buildLandingPlan(
 	pi: LandStackExtensionAPI,
 	cwd: string,
 	options: {
-		allowSubmitRequiredState?: boolean;
+		shouldAllowSubmitRequiredState?: boolean;
 		preloadedShape?: LandingShape;
 		landingBranchLimit?: number;
 	} = {},
@@ -58,7 +58,7 @@ export async function buildLandingPlan(
 	if (shape.type === "failure") return shape;
 
 	const landPlan = await buildStackLandingPlan(createLandContext(pi), cwd, {
-		allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState),
+		shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
 		preloadedShape: {
 			repoRoot: shape.value.repoRoot,
 			current: shape.value.current,
@@ -91,7 +91,7 @@ function createLandContext(pi: LandStackExtensionAPI): LandContext {
 				toLandResult(await loadLocalSha(pi, repoRoot, branch), "git"),
 			listLocalBranches: async ({ repoRoot }) => loadLocalBranches(pi, repoRoot),
 			branchContainsParent: async ({ repoRoot, branch, parent }) =>
-				loadBranchContainsParent(pi, repoRoot, branch, parent),
+				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) => toLandResult(await loadTrunk(pi, repoRoot), "graphite"),
@@ -191,18 +191,22 @@ async function loadLocalBranches(
 	};
 }
 
+interface LoadBranchContainsParentOptions {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly branch: string;
+	readonly parent: string;
+}
+
 async function loadBranchContainsParent(
-	pi: LandStackExtensionAPI,
-	repoRoot: string,
-	branch: string,
-	parent: string,
+	options: LoadBranchContainsParentOptions,
 ): Promise<LandResult<boolean>> {
-	const result = await collectSubmitRestackRequirements(pi, repoRoot, {
-		trunk: parent,
-		current: branch,
-		actualCurrentBranch: branch,
-		landingTargetBranch: branch,
-		landingBranches: [branch],
+	const result = await collectSubmitRestackRequirements(options.pi, options.repoRoot, {
+		trunk: options.parent,
+		current: options.branch,
+		actualCurrentBranch: options.branch,
+		landingTargetBranch: options.branch,
+		landingBranches: [options.branch],
 		remainingLandingBranches: [],
 		descendantBranches: [],
 		warnings: [],
@@ -356,9 +360,11 @@ function toFlowLandingPlan(plan: LandPlanForFlow): LandingPlan {
 				headRefName: branchPlan.pr.headRefName,
 				baseRefName: branchPlan.pr.baseRefName,
 				headRefOid: branchPlan.pr.headRefOid,
-				mergeStateStatus: branchPlan.pr.mergeStateStatus,
-				url: branchPlan.pr.url,
-				mergedAt: branchPlan.pr.mergedAt,
+				...(branchPlan.pr.mergeStateStatus === undefined
+					? {}
+					: { mergeStateStatus: branchPlan.pr.mergeStateStatus }),
+				...(branchPlan.pr.url === undefined ? {} : { url: branchPlan.pr.url }),
+				...(branchPlan.pr.mergedAt === undefined ? {} : { mergedAt: branchPlan.pr.mergedAt }),
 			},
 		})),
 		prSubmitRequirements: plan.prSubmitRequirements.map((requirement) => ({
@@ -367,7 +373,9 @@ function toFlowLandingPlan(plan: LandPlanForFlow): LandingPlan {
 			localSha: requirement.localSha,
 			prHeadSha: requirement.prHeadSha,
 			baseRefName: requirement.baseRefName,
-			expectedBaseRefName: requirement.expectedBaseRefName,
+			...(requirement.expectedBaseRefName === undefined
+				? {}
+				: { expectedBaseRefName: requirement.expectedBaseRefName }),
 			reasons: [...requirement.reasons],
 		})),
 		submitRestackRequirements: plan.submitRestackRequirements.map((requirement) => ({

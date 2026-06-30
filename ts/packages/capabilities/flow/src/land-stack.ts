@@ -108,7 +108,7 @@ export async function executeStackLanding(
 		}
 
 		const plan = await buildLandingPlan(runtimePi, ctx.cwd, {
-			allowSubmitRequiredState: true,
+			shouldAllowSubmitRequiredState: true,
 			preloadedShape: shape.value,
 		});
 		if (plan.type === "failure") {
