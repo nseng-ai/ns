@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
-import { err, ok, type Result } from "./result.ts";
+import { err, ok, type Result } from "@sdl/core/result";
 
 export type XdgDirectoryKind = "config" | "data" | "state" | "cache";
 

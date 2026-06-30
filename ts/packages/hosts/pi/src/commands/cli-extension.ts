@@ -6,7 +6,7 @@ import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ScheduledTimer } from "@sdl/core/timers";
 import { formatElapsedMs } from "@sdl/core/time-format";
-import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/core/xdg";
+import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/capability-kit/xdg";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
 import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
 import {

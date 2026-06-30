@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { splitMarkdownFrontmatter, stripLineEnding } from "@sdl/core/markdown-frontmatter";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { findWorkspaceRootByMarkers } from "@sdl/core/workspace-root";
+import { findWorkspaceRootByMarkers } from "@sdl/capability-kit/workspace-root";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "sdl.pi-agent.v1";
 
