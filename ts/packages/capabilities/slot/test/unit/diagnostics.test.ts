@@ -21,6 +21,7 @@ describe("slot diagnostics", () => {
 		try {
 			const logPath = join(tempDir, "diagnostics.jsonl");
 			const sink = createSlotDiagnosticSinkFromEnv({ [SLOT_DIAGNOSTIC_LOG_ENV]: logPath });
+			if (sink === undefined) throw new Error("expected configured diagnostic sink");
 			const execApi = new ScriptedCommandExecApi([
 				{
 					stdout: "hello\n",

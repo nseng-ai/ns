@@ -30,7 +30,7 @@ export class RealClipboardGateway implements ClipboardGateway {
 	constructor(
 		options: {
 			env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-			runner?: ClipboardProcessRunner | undefined;
+			runner?: ClipboardProcessRunner;
 		} = {},
 	) {
 		this.runner = options.runner ?? new RealClipboardProcessRunner(options.env ?? process.env);

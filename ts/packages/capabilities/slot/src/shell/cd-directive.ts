@@ -17,9 +17,9 @@ export interface CdDirectiveFilesystem {
 }
 
 export interface CdDirectiveOptions {
-	isEnabled?: boolean | undefined;
+	isEnabled?: boolean;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	filesystem?: CdDirectiveFilesystem | undefined;
+	filesystem?: CdDirectiveFilesystem;
 }
 
 export class RealCdDirectiveFilesystem implements CdDirectiveFilesystem {

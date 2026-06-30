@@ -37,13 +37,13 @@ export interface RunDiagnosticCommandOptions {
 	readonly args: readonly string[];
 	readonly execOptions: ExecOptions;
 	readonly operation: string;
-	readonly diagnosticSink?: SlotDiagnosticSink | undefined;
+	readonly diagnosticSink?: SlotDiagnosticSink;
 }
 
 export interface DiagnosticCommandRunnerOptions {
 	readonly execApi: CommandExecApi;
 	readonly operation: string;
-	readonly diagnosticSink?: SlotDiagnosticSink | undefined;
+	readonly diagnosticSink?: SlotDiagnosticSink;
 }
 
 class JsonlSlotDiagnosticSink implements SlotDiagnosticSink {
@@ -76,7 +76,7 @@ export function createDiagnosticCommandRunner(
 			args,
 			execOptions: execOptions ?? {},
 			operation: options.operation,
-			diagnosticSink: options.diagnosticSink,
+			...(options.diagnosticSink === undefined ? {} : { diagnosticSink: options.diagnosticSink }),
 		});
 }
 
