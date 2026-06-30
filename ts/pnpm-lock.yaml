@@ -302,6 +302,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
+      '@sdl/cli-runtime':
+        specifier: workspace:*
+        version: link:../../infra/cli-runtime
       '@sdl/cli-theme':
         specifier: workspace:*
         version: link:../../infra/cli-theme
@@ -504,6 +507,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../sdl-capability-kit
+      '@sdl/cli-runtime':
+        specifier: workspace:*
+        version: link:../infra/cli-runtime
       '@sdl/cli-theme':
         specifier: workspace:*
         version: link:../infra/cli-theme

@@ -13,8 +13,7 @@ import {
 } from "@sdl/clinkr";
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli } from "@sdl/cli-runtime";
-import { readStdin } from "@sdl/core/stdin";
+import { defineCli, readStdin } from "@sdl/cli-runtime";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {

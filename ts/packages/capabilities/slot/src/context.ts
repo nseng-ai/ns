@@ -9,7 +9,7 @@ import {
 	type ConfirmationPromptFormatter,
 } from "@sdl/clinkr";
 import { paint } from "@sdl/cli-theme";
-import { readStdinLine } from "@sdl/core/stdin";
+import { readStdinLine } from "@sdl/cli-runtime";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
