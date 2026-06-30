@@ -1,6 +1,8 @@
 import { calculateLandingOutcome } from "./preflight.ts";
 import type { LandContext, LandingOutcome, LandingRequest, LandResult } from "./types.ts";
 
+// Public API identifiers intentionally mirror package metadata; tests guard the invariant
+// instead of reading package metadata at runtime.
 export const LAND_CAPABILITY_ID = "land";
 export const LAND_PACKAGE_NAME = "sdl-land";
 
@@ -28,12 +30,24 @@ export async function executeLanding(
 }
 
 export {
+	buildDescendantMaintenancePlan,
 	buildStackLandingPlan,
 	calculateLandingOutcome,
 	collectPrSubmitRequirements,
+	formatManualWorktreeConflict,
 	landingParentEdges,
 	scopeStackSnapshot,
+	validateInitialPrPreflight,
+	validateOpenPrBasics,
 } from "./preflight.ts";
+
+export {
+	isLandFailure,
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
+	landSuccess,
+} from "./results.ts";
 
 export type {
 	BranchLandingPlan,
