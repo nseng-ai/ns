@@ -40,6 +40,9 @@ jobs:
       - name: Install TS workspace dependencies
         run: pnpm --config.strict-dep-builds=false --dir ts install --frozen-lockfile
 
+      - name: Add TS workspace binaries to PATH
+        run: echo "$GITHUB_WORKSPACE/ts/node_modules/.bin" >> "$GITHUB_PATH"
+
       - id: list
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -53,7 +56,7 @@ jobs:
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
-          output=$(pnpm --dir ts exec sdl roaster review list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
+          output=$(sdl roaster review list --ci --applicable --base-ref "$BASE_REF" --format json) || status=$?
           if [ "$status" -ne 0 ]; then
             printf '%s\n' "$output"
             exit "$status"
@@ -117,7 +120,7 @@ jobs:
           git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
           status=0
-          output=$(pnpm --dir ts exec sdl roaster review run "$REVIEW_KEY" \
+          output=$(sdl roaster review run "$REVIEW_KEY" \
             --base-ref "$BASE_REF" \
             --log-branch "$GITHUB_HEAD_REF" \
             --format json) || status=$?
@@ -126,7 +129,7 @@ jobs:
           printf '%s\n' "$output"
           echo "--- end roaster envelope ---"
 
-          printf '%s' "$output" | pnpm --dir ts exec sdl roaster exec publish-findings \
+          printf '%s' "$output" | sdl roaster exec publish-findings \
             --pr-number "$PR_NUMBER" \
             --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --review-name "$REVIEW_KEY" \
