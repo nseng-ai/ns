@@ -21,11 +21,11 @@ interface TestContext {
 }
 
 interface TestDeps {
-	readonly cwd?: string | undefined;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly stdout?: ((text: string) => void) | undefined;
-	readonly stderr?: ((text: string) => void) | undefined;
-	readonly label?: string | undefined;
+	readonly cwd?: string;
+	readonly env?: NodeJS.ProcessEnv;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
+	readonly label?: string;
 }
 
 const tempRoots: string[] = [];

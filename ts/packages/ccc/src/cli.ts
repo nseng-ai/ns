@@ -35,10 +35,10 @@ type AutobranchSeamOverrides = Partial<
 
 export interface CccCliDeps {
 	commands?: CommandExecApi | undefined;
-	cwd?: string | undefined;
+	cwd?: string;
 	env?: Record<string, string | undefined> | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 	autobranch?: AutobranchSeamOverrides | undefined;
 }
 

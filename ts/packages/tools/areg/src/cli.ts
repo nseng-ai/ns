@@ -23,10 +23,10 @@ import {
 export interface CliDeps {
 	context?: AregCliContext | undefined;
 	interaction?: AregCliContext["interaction"] | undefined;
-	cwd?: string | undefined;
+	cwd?: string;
 	env?: NodeJS.ProcessEnv | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 }
 
 const entry = defineCli<AregCliContext, CliDeps, undefined>({

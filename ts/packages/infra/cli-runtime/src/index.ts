@@ -21,10 +21,10 @@ export interface CliPackageMetadata {
 }
 
 export interface CliEntrypointDeps {
-	readonly cwd?: string | undefined;
+	readonly cwd?: string;
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly stdout?: ((text: string) => void) | undefined;
-	readonly stderr?: ((text: string) => void) | undefined;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
 }
 
 export type CliPrepareRunResult<TContext, TBuildState> =
@@ -33,7 +33,7 @@ export type CliPrepareRunResult<TContext, TBuildState> =
 			readonly type: "run";
 			readonly context: TContext;
 			readonly buildState: TBuildState;
-			readonly args?: readonly string[] | undefined;
+			readonly args?: readonly string[];
 	  };
 
 export type CliRunDeps<TDeps extends CliEntrypointDeps> = Partial<TDeps> & CliEntrypointDeps;
@@ -121,7 +121,7 @@ export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildSta
 	readonly run: (args: readonly string[], deps?: CliRunDeps<TDeps>) => Promise<number>;
 	readonly runIfMain: (input: {
 		readonly isImportMetaMain: boolean;
-		readonly argv?: readonly string[] | undefined;
+		readonly argv?: readonly string[];
 	}) => Promise<void>;
 }
 
@@ -245,7 +245,7 @@ export function defineCli<
 	};
 	const runIfMain = async (input: {
 		readonly isImportMetaMain: boolean;
-		readonly argv?: readonly string[] | undefined;
+		readonly argv?: readonly string[];
 	}): Promise<void> => {
 		const argv = input.argv ?? process.argv;
 		if (!input.isImportMetaMain && !isDirectCliInvocation(options.metaUrl, argv[1])) return;
