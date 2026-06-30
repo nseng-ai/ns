@@ -833,16 +833,27 @@ function emitCliCommandOutput(
 		target,
 	});
 	if (canSendRenderedMessage) {
-		sendMessage({
-			customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-			content: displayText,
-			display: true,
-			details,
+		const sendResult = withSafePiUi(() => {
+			sendMessage({
+				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+				content: displayText,
+				display: true,
+				details,
+			});
 		});
+		if (sendResult.type === "stale-context") {
+			traceCliCommand("emit_output_stale_context", {
+				commandName: details.commandName,
+				piCommandName: details.piCommandName,
+				target,
+			});
+		}
 		return;
 	}
 	if (ctx.hasUI) {
-		ctx.ui.notify(displayText, details.level);
+		withSafePiUi(() => {
+			ctx.ui.notify(displayText, details.level);
+		});
 		return;
 	}
 
