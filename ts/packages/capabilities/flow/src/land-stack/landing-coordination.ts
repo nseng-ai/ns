@@ -72,26 +72,49 @@ async function preparePlanForMergeCore(
 	}
 
 	if (plan.prSubmitRequirements.length > 0) {
-		const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
-			pi: runtimePi,
+		return await submitRequiredUpdatesAndRecheckPlan({
+			runtimePi,
 			ctx,
 			plan,
-			confirmation: preMergeConfirmation,
+			commandStream,
+			preMergeConfirmation,
 		});
-		if (submitOutcome.type === "failure") return submitOutcome;
-		commandStream.note("Rechecking landing preflight...");
-		setStatus(ctx, "rechecking preflight...");
-		const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
-			allowSubmitRequiredState: true,
-			landingBranchLimit: plan.stack.landingBranches.length,
-		});
-		if (rechecked.type === "failure") return rechecked;
-		const residualFailure = residualPreMergeFailure(rechecked.value);
-		if (residualFailure) return failure(residualFailure);
-		return rechecked;
 	}
 
 	return success(plan);
+}
+
+interface SubmitRequiredUpdatesAndRecheckPlanOptions {
+	runtimePi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	commandStream: LandStackCommandStream;
+	preMergeConfirmation: PreMergeConfirmation;
+}
+
+async function submitRequiredUpdatesAndRecheckPlan(
+	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
+): Promise<LandStackResult<LandingPlan>> {
+	const { runtimePi, ctx, plan, commandStream, preMergeConfirmation } = options;
+	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
+		pi: runtimePi,
+		ctx,
+		plan,
+		confirmation: preMergeConfirmation,
+	});
+	if (submitOutcome.type === "failure") return submitOutcome;
+
+	commandStream.note("Rechecking landing preflight...");
+	setStatus(ctx, "rechecking preflight...");
+	const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
+		allowSubmitRequiredState: true,
+		landingBranchLimit: plan.stack.landingBranches.length,
+	});
+	if (rechecked.type === "failure") return rechecked;
+
+	const residualFailure = residualPreMergeFailure(rechecked.value);
+	if (residualFailure) return failure(residualFailure);
+	return rechecked;
 }
 
 interface ConfirmMainLandingOptions {

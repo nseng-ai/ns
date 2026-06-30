@@ -24,8 +24,8 @@ import {
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
+	notifyPrintAware,
 	presentBrief,
-	presentPrintAwareBrief,
 	usage,
 } from "./land-stack/presentation.ts";
 import { renderLandResultBlockFromMessage } from "./land-stack/land-presentation.ts";
@@ -39,17 +39,12 @@ import type {
 	LandingShape,
 	LandResultKind,
 	MessageRenderer,
-	NotifyLevel,
 	PrintAwareLandStackCommandContext,
 } from "./land-stack/types.ts";
 
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./land-stack/types.ts";
 export type { ValidPullRequestView } from "./land/isolated-fast-path.ts";
-export {
-	isIsolatedFastPath,
-	loadPullRequest,
-	parsePullRequestView,
-} from "./land/isolated-fast-path.ts";
+export { isIsolatedFastPath, parsePullRequestView } from "./land/isolated-fast-path.ts";
 
 export interface ExecResult {
 	stdout: string;
@@ -119,7 +114,7 @@ async function runLandCommand(
 		return failure(args.failure);
 	}
 	if (args.value.shouldShowHelp) {
-		notify({ ctx, message: usage(), level: "info" });
+		notifyPrintAware({ ctx, message: usage(), level: "info" });
 		return completed();
 	}
 
@@ -194,7 +189,7 @@ async function runLandCommand(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	const outcome = await executeStackLanding(pi, ctx, args.value, {
-		skipMainConfirmation: true,
+		shouldSkipMainConfirmation: true,
 		...(args.value.shouldSkipConfirmation ? {} : { preMergeConfirmation: "already-approved" }),
 		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),
@@ -347,12 +342,4 @@ function formatUpfrontStackConfirmation(shape: LandingShape): string {
 		);
 	}
 	return lines.join("\n");
-}
-
-function notify(options: { ctx: LandCommandContext; message: string; level: NotifyLevel }): void {
-	presentPrintAwareBrief({
-		ctx: options.ctx,
-		fullMessage: options.message,
-		level: options.level,
-	});
 }

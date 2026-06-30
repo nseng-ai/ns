@@ -40,7 +40,7 @@ export type { LandStackExtensionAPI } from "./land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	io?: SdlCommandIo;
-	skipMainConfirmation?: boolean;
+	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;
 }

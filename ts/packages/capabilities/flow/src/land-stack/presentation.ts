@@ -482,6 +482,23 @@ export function present(options: PresentOptions): void {
 	});
 }
 
+interface PresentDryRunLandingOptions {
+	ctx: LandStackCommandContext;
+	commandStream: LandStackCommandStream;
+	planText: string;
+}
+
+export function presentDryRunLanding(options: PresentDryRunLandingOptions): void {
+	const message = "Dry run only; no PRs or local refs were changed.";
+	options.commandStream.finishSuccess(message);
+	present({
+		ctx: options.ctx,
+		message: `${message}\n\n${options.planText}`,
+		level: "info",
+		kind: "success",
+	});
+}
+
 interface PresentBriefOptions {
 	ctx: LandStackCommandContext;
 	fullMessage: string;
@@ -522,6 +539,22 @@ export function presentPrintAwareBrief(options: PresentPrintAwareBriefOptions): 
 		fullMessage: options.fullMessage,
 		level: options.level,
 		uiMessage: options.uiMessage ?? options.fullMessage,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
+}
+
+interface NotifyPrintAwareOptions {
+	ctx: PrintAwareLandStackCommandContext;
+	message: string;
+	level: NotifyLevel;
+	kind?: LandResultKind;
+}
+
+export function notifyPrintAware(options: NotifyPrintAwareOptions): void {
+	presentPrintAwareBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
 		...(options.kind === undefined ? {} : { kind: options.kind }),
 	});
 }

@@ -10,7 +10,7 @@ import { runMergeLoop, type PreMergeConfirmation } from "./landing-operations.ts
 import {
 	formatPlan,
 	formatSuccessSummary,
-	present,
+	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
 import type {
@@ -29,7 +29,7 @@ interface ExecuteSinglePlanLandingOptions {
 	ctx: LandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	options: {
-		skipMainConfirmation?: boolean;
+		shouldSkipMainConfirmation?: boolean;
 		preMergeConfirmation?: PreMergeConfirmation;
 	};
 	commandStream: LandStackCommandStream;
@@ -57,13 +57,7 @@ export async function executeSinglePlanLanding(
 	const planText = formatPlan(plan);
 
 	if (parsedArgs.isDryRun) {
-		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present({
-			ctx,
-			message: `Dry run only; no PRs or local refs were changed.\n\n${planText}`,
-			level: "info",
-			kind: "success",
-		});
+		presentDryRunLanding({ ctx, commandStream, planText });
 		return success(undefined);
 	}
 
@@ -72,7 +66,7 @@ export async function executeSinglePlanLanding(
 		commandStream,
 		landed,
 		landedChunks,
-		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation,
+		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.shouldSkipMainConfirmation,
 		title: "Land this stack path?",
 		details: planText,
 		nonInteractiveMessage: `Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${planText}`,

@@ -12,7 +12,7 @@ import { prepareMergeLoopState, runMergeLoop, type MergeLoopState } from "./land
 import {
 	formatChunkedPlan,
 	formatChunkedSuccessSummary,
-	present,
+	presentDryRunLanding,
 	presentLandingSuccess,
 	setStatus,
 } from "./presentation.ts";
@@ -33,7 +33,7 @@ interface ExecuteChunkedStackLandingOptions {
 	ctx: LandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	options: {
-		skipMainConfirmation?: boolean;
+		shouldSkipMainConfirmation?: boolean;
 	};
 	commandStream: LandStackCommandStream;
 	initialShape: LandingShape;
@@ -75,13 +75,7 @@ export async function executeChunkedStackLanding(
 
 	const chunkPlanText = formatChunkedPlan(initialPlan.value, AUTO_CHUNK_LANDING_SIZE);
 	if (parsedArgs.isDryRun) {
-		commandStream.finishSuccess("Dry run only; no PRs or local refs were changed.");
-		present({
-			ctx,
-			message: `Dry run only; no PRs or local refs were changed.\n\n${chunkPlanText}`,
-			level: "info",
-			kind: "success",
-		});
+		presentDryRunLanding({ ctx, commandStream, planText: chunkPlanText });
 		return completed();
 	}
 
@@ -90,7 +84,7 @@ export async function executeChunkedStackLanding(
 		commandStream,
 		landed,
 		landedChunks,
-		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.skipMainConfirmation,
+		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.shouldSkipMainConfirmation,
 		title: "Land this stack in chunks?",
 		details: chunkPlanText,
 		nonInteractiveMessage: `Refusing to land a chunked stack without confirmation in non-interactive mode. Re-run with --yes.\n\n${chunkPlanText}`,
