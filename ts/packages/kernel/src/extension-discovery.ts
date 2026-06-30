@@ -45,7 +45,7 @@ interface ParsedManifestCommandEntryFields {
 	group: string | undefined;
 	name: string | undefined;
 	segments: readonly string[] | undefined;
-	groupDescription: string | undefined;
+	groupDescription?: string;
 	description: string | undefined;
 	entry: string | undefined;
 	fullDescription: string | undefined;
@@ -536,14 +536,15 @@ function parseManifestCommandEntry(options: {
 		rawPath.value === undefined
 			? undefined
 			: [...(entryGroup === undefined ? [] : [entryGroup]), ...rawPath.value];
+	const packageGroupDescription = options.packageGroupDescription;
+	const shouldApplyPackageGroupDescription =
+		packageGroupDescription !== undefined &&
+		(entryGroup !== undefined || (segments?.length ?? 0) > 1);
 	const fields: ParsedManifestCommandEntryFields = {
 		group: entryGroup,
 		name: commandName,
 		segments,
-		groupDescription:
-			entryGroup !== undefined || (segments?.length ?? 0) > 1
-				? options.packageGroupDescription
-				: undefined,
+		...(shouldApplyPackageGroupDescription ? { groupDescription: packageGroupDescription } : {}),
 		description: undefined,
 		entry: undefined,
 		fullDescription: undefined,
