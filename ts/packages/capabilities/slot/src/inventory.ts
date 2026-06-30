@@ -70,7 +70,7 @@ export async function lowestAvailable(
 
 export async function buildSlotInventory(
 	git: SlotRepositoryGateway,
-	options: { mainRepoRoot?: string | undefined } = {},
+	options: { mainRepoRoot?: string } = {},
 ): Promise<SlotInventory> {
 	const branchOccupancies = await git.listBranchOccupancies();
 	const occupancyByPath = new Map(

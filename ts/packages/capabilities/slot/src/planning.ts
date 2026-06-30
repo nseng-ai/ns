@@ -126,7 +126,7 @@ export function inventoryWithoutCallerBranchOccupancy(
 
 export async function planCurrentCheckout(
 	git: SlotRepositoryGateway,
-	options: { cwd: string; mainRepoRoot?: string | undefined },
+	options: { cwd: string; mainRepoRoot?: string },
 ): Promise<CurrentCheckoutPlan> {
 	const currentBranch = await git.getCurrentBranch(options.cwd);
 	if (currentBranch.type === "failure")
@@ -136,7 +136,10 @@ export async function planCurrentCheckout(
 		};
 	if (currentBranch.type === "detached") return { type: "detached_head", cwd: options.cwd };
 
-	const inventory = await buildSlotInventory(git, { mainRepoRoot: options.mainRepoRoot });
+	const inventory = await buildSlotInventory(
+		git,
+		options.mainRepoRoot === undefined ? {} : { mainRepoRoot: options.mainRepoRoot },
+	);
 	const alreadyMatch = findByBranch(inventory, currentBranch.branch);
 	if (alreadyMatch?.kind === "slot") {
 		const plan: CheckoutPlan = { type: "reuse_assignment", record: alreadyMatch.record };

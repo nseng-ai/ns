@@ -290,7 +290,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 			args,
 			execOptions: { cwd, env: this.env, timeout: SLOT_GIT_TIMEOUT_MS },
 			operation: options.operation ?? "slot.git.command",
-			diagnosticSink: this.diagnosticSink,
+			...(this.diagnosticSink === undefined ? {} : { diagnosticSink: this.diagnosticSink }),
 		});
 		const commandResult = {
 			isOk: result.code === 0 && !result.killed,

@@ -234,7 +234,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 			runner: createDiagnosticCommandRunner({
 				execApi: this.execApi,
 				operation,
-				diagnosticSink: this.diagnosticSink,
+				...(this.diagnosticSink === undefined ? {} : { diagnosticSink: this.diagnosticSink }),
 			}),
 			args,
 			cwd: this.cwd,
