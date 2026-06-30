@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { setRuntimeStatus } from "@sdl/pi/runtime/status";
 import {
 	formatBranchContextGtUpstackImplFollowUpFlow,
 	runBranchContextGtUpstackImplLaunch,
@@ -1057,7 +1058,8 @@ async function runImplCurrentSavedPlanLaunch(
 	let isReplacementSessionActive = false;
 	let parentSession: string | undefined;
 	try {
-		options.ctx.ui.setStatus(
+		setRuntimeStatus(
+			options.ctx,
 			IMPL_CURRENT_SAVED_PLAN_STATUS_KEY,
 			"starting implementation session…",
 		);
@@ -1088,7 +1090,7 @@ async function runImplCurrentSavedPlanLaunch(
 		};
 	} finally {
 		if (!isReplacementSessionActive) {
-			options.ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+			setRuntimeStatus(options.ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
 		}
 	}
 }
