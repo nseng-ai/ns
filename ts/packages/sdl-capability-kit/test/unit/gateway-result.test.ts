@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/exec";
-import { err, ok, commandFailure } from "@sdl/capability-kit/gateway-result";
+import {
+	err,
+	ok,
+	commandFailure,
+	formatCommandFailureConciseCause,
+	formatErrorInfoDiagnosticLines,
+} from "@sdl/capability-kit/gateway-result";
 
 describe("gateway result", () => {
 	test("returns undefined for successful commands", () => {
@@ -88,6 +94,56 @@ describe("gateway result", () => {
 				message: "Could not read git status.",
 			})?.details?.stderr,
 		).toBe(`…${stderr.slice(-1_200)}`);
+	});
+
+	test("formats concise command failure causes from structured details", () => {
+		const failure = commandFailure({
+			command: "gh",
+			args: ["pr", "view", "123"],
+			result: makeExecResult({
+				code: 1,
+				stderr: "GraphQL:\u001B[31m Could not resolve to a PullRequest\u001B[0m\nsecond line\n",
+			}),
+			code: "github_pr_view_failed",
+			message: "Could not read GitHub PR details.",
+		});
+
+		expect(formatCommandFailureConciseCause(failure)).toBe(
+			"gh exited 1: GraphQL: Could not resolve to a PullRequest second line",
+		);
+	});
+
+	test("formats startup failures as concise command failure causes", () => {
+		const failure = commandFailure({
+			command: "gh",
+			args: ["pr", "view", "123"],
+			result: makeExecResult({ code: 127, startupError: "spawn gh ENOENT" }),
+			code: "github_pr_view_failed",
+			message: "Could not read GitHub PR details.",
+		});
+
+		expect(formatCommandFailureConciseCause(failure)).toBe("gh startup failed: spawn gh ENOENT");
+	});
+
+	test("formats ErrorInfo diagnostic lines with sorted structured details", () => {
+		const failure = commandFailure({
+			command: "gh",
+			args: ["pr", "view", "123"],
+			result: makeExecResult({ code: 1, stderr: "not found\n" }),
+			code: "github_pr_view_failed",
+			message: "Could not read GitHub PR details.",
+		});
+
+		expect(
+			formatErrorInfoDiagnosticLines(failure ?? { code: "missing", message: "missing" }),
+		).toEqual([
+			"code: github_pr_view_failed",
+			"message: Could not read GitHub PR details.",
+			"args: pr view 123",
+			"command: gh",
+			"exit_code: 1",
+			"stderr: not found",
+		]);
 	});
 
 	test("facade result constructors preserve core result shape", () => {
