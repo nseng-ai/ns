@@ -42,10 +42,11 @@ export interface PrPreviewChecksViewOptions {
 	theme: Theme;
 	model: PrPreviewChecksViewModel;
 	onClose: () => void;
-	onLoadLogs?:
-		| ((check: PrPreviewCheck, options: PrPreviewCheckLogLoadOptions) => Promise<readonly string[]>)
-		| undefined;
-	logLoadTimeoutMs?: number | undefined;
+	onLoadLogs?: (
+		check: PrPreviewCheck,
+		options: PrPreviewCheckLogLoadOptions,
+	) => Promise<readonly string[]>;
+	logLoadTimeoutMs?: number;
 }
 
 export { sliceWrappedDetailLinesForViewport };
