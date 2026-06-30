@@ -3,12 +3,12 @@ import type { PrAddressContext } from "../../src/context.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";
 
 export interface ScenarioRunOptions {
-	git?: PrAddressContext["git"] | undefined;
-	prFeedback?: PrAddressContext["prFeedback"] | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	cwd?: string | undefined;
-	stdin?: string | (() => Promise<string>) | undefined;
-	operations?: CliDeps["operations"] | undefined;
+	git?: PrAddressContext["git"];
+	prFeedback?: PrAddressContext["prFeedback"];
+	env?: NodeJS.ProcessEnv;
+	cwd?: string;
+	stdin?: string | (() => Promise<string>);
+	operations?: CliDeps["operations"];
 }
 
 export interface ScenarioRun {

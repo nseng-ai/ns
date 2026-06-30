@@ -47,31 +47,28 @@ function fakePrFeedbackFailure(
 }
 
 export interface InMemoryPrFeedbackState {
-	prs?: readonly GithubPrSummary[] | undefined;
-	prsByBranch?: ReadonlyMap<string, GithubPrSummary> | Record<string, GithubPrSummary> | undefined;
+	prs?: readonly GithubPrSummary[];
+	prsByBranch?: ReadonlyMap<string, GithubPrSummary> | Record<string, GithubPrSummary>;
 	reviews?:
 		| ReadonlyMap<number, readonly GithubPrReview[]>
-		| Record<number, readonly GithubPrReview[]>
-		| undefined;
+		| Record<number, readonly GithubPrReview[]>;
 	reviewThreads?:
 		| ReadonlyMap<number, readonly GithubPrReviewThread[]>
-		| Record<number, readonly GithubPrReviewThread[]>
-		| undefined;
+		| Record<number, readonly GithubPrReviewThread[]>;
 	discussionComments?:
 		| ReadonlyMap<number, readonly GithubPrDiscussionComment[]>
-		| Record<number, readonly GithubPrDiscussionComment[]>
-		| undefined;
-	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks> | undefined;
-	checksFailurePrNumbers?: ReadonlySet<number> | undefined;
-	listOpenPrsFailure?: GithubPrFeedbackFailure | undefined;
-	lookupFailureBranches?: ReadonlySet<string> | undefined;
-	lookupFailurePrNumbers?: ReadonlySet<number> | undefined;
-	missingPrNumbers?: ReadonlySet<number> | undefined;
-	reviewFailurePrNumbers?: ReadonlySet<number> | undefined;
-	reviewThreadsFailurePrNumbers?: ReadonlySet<number> | undefined;
-	discussionCommentsFailurePrNumbers?: ReadonlySet<number> | undefined;
-	replyFailureThreadIds?: ReadonlySet<string> | undefined;
-	resolveFailureThreadIds?: ReadonlySet<string> | undefined;
+		| Record<number, readonly GithubPrDiscussionComment[]>;
+	checks?: ReadonlyMap<number, GithubStatusChecks> | Record<number, GithubStatusChecks>;
+	checksFailurePrNumbers?: ReadonlySet<number>;
+	listOpenPrsFailure?: GithubPrFeedbackFailure;
+	lookupFailureBranches?: ReadonlySet<string>;
+	lookupFailurePrNumbers?: ReadonlySet<number>;
+	missingPrNumbers?: ReadonlySet<number>;
+	reviewFailurePrNumbers?: ReadonlySet<number>;
+	reviewThreadsFailurePrNumbers?: ReadonlySet<number>;
+	discussionCommentsFailurePrNumbers?: ReadonlySet<number>;
+	replyFailureThreadIds?: ReadonlySet<string>;
+	resolveFailureThreadIds?: ReadonlySet<string>;
 }
 
 export interface ReviewThreadReplyLogEntry {
