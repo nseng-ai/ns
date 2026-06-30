@@ -64,9 +64,9 @@ interface RunGhParsedOptions<T> {
 	readonly args: readonly string[];
 	readonly params: GithubPrFeedbackOptions;
 	readonly schema: z.ZodType<T>;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }
 
 type GhJsonParser<T> = (
@@ -372,7 +372,7 @@ export class RealGithubPrFeedbackGateway {
 					operation: options.operation,
 					message: options.missingCursorMessage,
 					prNumber: options.params.prNumber,
-					threadId,
+					...(threadId === undefined ? {} : { threadId }),
 					cursorContext: options.cursorContext,
 				});
 				if (!cursorResult.ok) return feedbackErr(cursorResult.error);
@@ -384,7 +384,7 @@ export class RealGithubPrFeedbackGateway {
 				params: options.params,
 				schema: options.schema,
 				prNumber: options.params.prNumber,
-				threadId,
+				...(threadId === undefined ? {} : { threadId }),
 				cursorContext: options.cursorContext,
 			});
 			if (!result.ok) return result;

@@ -76,9 +76,9 @@ function withoutKey(record: Record<string, unknown>, key: string): Record<string
 }
 
 interface InvalidResponseDetails {
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }
 
 async function expectInvalidResponse(
