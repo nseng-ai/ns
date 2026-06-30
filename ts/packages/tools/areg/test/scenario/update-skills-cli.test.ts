@@ -18,10 +18,10 @@ import { runScenario } from "../support/run-scenario.ts";
 const HASH = "a".repeat(64);
 
 interface UpdateHarnessOptions {
-	project?: FakeAregProjectGatewayOptions | undefined;
-	npxFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
-	npxFailure?: AregErrorInfo | undefined;
-	npxMissing?: boolean | undefined;
+	project?: FakeAregProjectGatewayOptions;
+	npxFailures?: Readonly<Record<string, AregErrorInfo>>;
+	npxFailure?: AregErrorInfo;
+	npxMissing?: boolean;
 }
 
 interface UpdateRun {
@@ -38,8 +38,8 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" },
 	});
 	const npxSkills = new FakeAregNpxSkillsGateway({
-		failure: options.npxFailure,
-		failures: options.npxFailures,
+		...(options.npxFailure === undefined ? {} : { failure: options.npxFailure }),
+		...(options.npxFailures === undefined ? {} : { failures: options.npxFailures }),
 	});
 	const defaultUpdateProject = {
 		lockfile: lockfile({ beta: github("other/repo"), alpha: github("owner/repo") }),
