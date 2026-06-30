@@ -7,7 +7,7 @@ export interface LoadGhCommandOptions {
 	cwd: string;
 	timeoutMs: number;
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	shouldAllowNonZeroWithStdout?: boolean | undefined;
+	shouldAllowNonZeroWithStdout?: boolean;
 }
 
 export type LoadGhCommandResult =

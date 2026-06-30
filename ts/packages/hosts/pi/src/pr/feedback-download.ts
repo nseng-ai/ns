@@ -56,11 +56,11 @@ export type DownloadPrFeedbackResult =
 export interface DownloadPrFeedbackOptions {
 	pi: ExecGateway;
 	cwd: string;
-	prNumber?: number | undefined;
+	prNumber?: number;
 	timeoutMs: number;
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	runner?: PrAddressRunner | undefined;
-	shouldAllowFailureData?: boolean | undefined;
+	runner?: PrAddressRunner;
+	shouldAllowFailureData?: boolean;
 }
 
 export function parseDownloadFeedbackData(value: unknown): PrFeedbackDownloadParseResult {
