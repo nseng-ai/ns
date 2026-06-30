@@ -115,6 +115,30 @@ interface CommitAndMaybeSubmitOptions {
 	report: Report;
 	changedFiles: string[];
 	shouldSubmit: boolean;
+	recoveryNotes: string[];
+}
+
+interface RepoChangeFacts {
+	rawStatus: string;
+	changedFiles: string[];
+	hasChanges: boolean;
+}
+
+interface StageChangedFilesResult {
+	stagedFiles: string[];
+	recoveryNotes: string[];
+}
+
+interface CommandFailureDetails {
+	command: string;
+	output: string;
+}
+
+interface PhaseErrorDetails {
+	changedFiles?: string[];
+	stagedFiles?: string[];
+	recoveryNotes?: string[];
+	command?: string;
 }
 
 interface SendSummaryOptions {
@@ -125,6 +149,17 @@ interface SendSummaryOptions {
 }
 
 class UsageError extends Error {}
+
+class AutopilotPhaseError extends Error {
+	readonly phase: string;
+	readonly details: PhaseErrorDetails | undefined;
+
+	constructor(phase: string, message: string, details?: PhaseErrorDetails) {
+		super(message);
+		this.phase = phase;
+		this.details = details;
+	}
+}
 
 function usage(): string {
 	return [
@@ -176,17 +211,75 @@ function trimOutput(result: ExecResult): string {
 	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 }
 
-async function execChecked(options: ExecCheckedOptions): Promise<string> {
+function commandText(command: string, args: readonly string[]): string {
+	return [command, ...args].join(" ");
+}
+
+function commandFailure(command: string, args: readonly string[], result: ExecResult): CommandFailureDetails {
+	return {
+		command: commandText(command, args),
+		output: trimOutput(result),
+	};
+}
+
+async function execCheckedRaw(options: ExecCheckedOptions): Promise<string> {
 	const { pi, ctx, command, args } = options;
 	const result = normalizeExecResult(await pi.exec(command, args, { cwd: ctx.cwd }));
 	if (result.code !== 0 || result.killed) {
-		throw new Error(`Command failed: ${command} ${args.join(" ")}\n${trimOutput(result)}`);
+		const failure = commandFailure(command, args, result);
+		throw new Error(`Command failed: ${failure.command}\n${failure.output}`);
 	}
-	return result.stdout.trim();
+	return result.stdout;
+}
+
+async function execChecked(options: ExecCheckedOptions): Promise<string> {
+	return (await execCheckedRaw(options)).trim();
+}
+
+async function execResult(options: ExecCheckedOptions): Promise<ExecResult> {
+	const { pi, ctx, command, args } = options;
+	return normalizeExecResult(await pi.exec(command, args, { cwd: ctx.cwd }));
 }
 
 async function git(pi: ExtensionAPI, ctx: CommandContext, args: string[]): Promise<string> {
 	return execChecked({ pi, ctx, command: "git", args });
+}
+
+async function gitRaw(pi: ExtensionAPI, ctx: CommandContext, args: string[]): Promise<string> {
+	return execCheckedRaw({ pi, ctx, command: "git", args });
+}
+
+function parseGitStatusPaths(rawStatus: string): string[] {
+	const paths: string[] = [];
+	const seen = new Set<string>();
+	for (const line of rawStatus.split(/\r?\n/)) {
+		if (line === "") continue;
+		if (line.length < 4 || line[2] !== " ") {
+			throw new Error(`Malformed git porcelain status line: ${JSON.stringify(line)}`);
+		}
+		const status = line.slice(0, 2);
+		const payload = line.slice(3);
+		if (payload === "") throw new Error(`Malformed git porcelain status line: ${JSON.stringify(line)}`);
+		const isRenameOrCopy = status.includes("R") || status.includes("C");
+		const pathspec = isRenameOrCopy && payload.includes(" -> ")
+			? payload.slice(payload.lastIndexOf(" -> ") + " -> ".length)
+			: payload;
+		if (!seen.has(pathspec)) {
+			seen.add(pathspec);
+			paths.push(pathspec);
+		}
+	}
+	return paths;
+}
+
+async function collectRepoChangeFacts(pi: ExtensionAPI, ctx: CommandContext): Promise<RepoChangeFacts> {
+	const rawStatus = await gitRaw(pi, ctx, ["status", "--porcelain=v1"]);
+	const changedFiles = parseGitStatusPaths(rawStatus);
+	return { rawStatus, changedFiles, hasChanges: changedFiles.length > 0 };
+}
+
+function sameStringList(left: readonly string[], right: readonly string[]): boolean {
+	return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function objectiveDirectory(objective: string): string {
@@ -196,8 +289,8 @@ function objectiveDirectory(objective: string): string {
 
 async function assertInitialGuards(pi: ExtensionAPI, ctx: CommandContext, objective: string): Promise<string> {
 	await git(pi, ctx, ["rev-parse", "--show-toplevel"]);
-	const dirty = await git(pi, ctx, ["status", "--short"]);
-	if (dirty) throw new Error(`Worktree is dirty before autopilot starts:\n${dirty}`);
+	const dirty = await gitRaw(pi, ctx, ["status", "--porcelain=v1"]);
+	if (parseGitStatusPaths(dirty).length > 0) throw new Error(`Worktree is dirty before autopilot starts:\n${dirty}`);
 
 	const objectivePath = path.resolve(ctx.cwd, objectiveDirectory(objective));
 	const relativeObjectivePath = path.relative(ctx.cwd, objectivePath);
@@ -314,6 +407,7 @@ Rules:
 - Validate according to repo/churn policy, and run relevant checks for changed files.
 - Update Objective tracking with a meaningful Semantic Update when material progress is kept.
 - Leave changes uncommitted. Do not commit, submit PRs, push, merge, publish, deploy, or mutate external systems.
+- List changed files as a best-effort summary only; the parent independently inspects git status and owns staging/commit.
 - Keep your final response concise and include exactly one report block in this format:
 
 ${REPORT_BEGIN}
@@ -366,25 +460,44 @@ function parseReport(text: string): Report | undefined {
 	return report;
 }
 
-async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<string[]> {
+async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<RepoChangeFacts> {
 	const { pi, ctx, report, startingBranch } = options;
-	if (report.status !== "ready-for-parent-commit") throw new Error(`Child stopped: ${report.stopReason ?? report.status ?? "unknown"}`);
-	const status = await git(pi, ctx, ["status", "--short"]);
-	if (!status) throw new Error("Child reported ready, but git status is clean.");
+	if (report.status !== "ready-for-parent-commit") {
+		throw new AutopilotPhaseError("verification", `Child stopped: ${report.stopReason ?? report.status ?? "unknown"}`);
+	}
+	const facts = await collectRepoChangeFacts(pi, ctx);
+	if (!facts.hasChanges) throw new AutopilotPhaseError("verification", "Child reported ready, but git status is clean.");
 	const currentBranch = await git(pi, ctx, ["branch", "--show-current"]);
-	if (currentBranch === "main" || currentBranch === "master") throw new Error(`Refusing to commit on ${currentBranch}.`);
+	if (currentBranch === "main" || currentBranch === "master") {
+		throw new AutopilotPhaseError("verification", `Refusing to commit on ${currentBranch}.`, {
+			changedFiles: facts.changedFiles,
+		});
+	}
 	if (report.branch && report.branch !== "unknown" && report.branch !== currentBranch) {
-		throw new Error(`Report branch ${report.branch} does not match current branch ${currentBranch}.`);
+		throw new AutopilotPhaseError("verification", `Report branch ${report.branch} does not match current branch ${currentBranch}.`, {
+			changedFiles: facts.changedFiles,
+		});
 	}
-	if (currentBranch === startingBranch) throw new Error("Implementation did not move to a branch distinct from the starting branch.");
-	await execChecked({ pi, ctx, command: "gt", args: ["branch", "info"] });
-	await execChecked({ pi, ctx, command: "git", args: ["diff", "--check"] });
-	const changedFiles = status.split("\n").map((line) => line.slice(3).trim()).filter(Boolean);
-	const nonObjectiveChanges = changedFiles.some((file) => !file.startsWith(".sdl/objectives/"));
+	if (currentBranch === startingBranch) {
+		throw new AutopilotPhaseError("verification", "Implementation did not move to a branch distinct from the starting branch.", {
+			changedFiles: facts.changedFiles,
+		});
+	}
+	try {
+		await execChecked({ pi, ctx, command: "gt", args: ["branch", "info"] });
+		await execChecked({ pi, ctx, command: "git", args: ["diff", "--check"] });
+	} catch (error) {
+		throw new AutopilotPhaseError("verification", error instanceof Error ? error.message : String(error), {
+			changedFiles: facts.changedFiles,
+		});
+	}
+	const nonObjectiveChanges = facts.changedFiles.some((file) => !file.startsWith(".sdl/objectives/"));
 	if (nonObjectiveChanges && report.objectiveTracking.length === 0) {
-		throw new Error("Material changes were made, but the report contains no Objective tracking evidence.");
+		throw new AutopilotPhaseError("verification", "Material changes were made, but the report contains no Objective tracking evidence.", {
+			changedFiles: facts.changedFiles,
+		});
 	}
-	return changedFiles;
+	return facts;
 }
 
 function usableReportText(value: string | undefined): string | undefined {
@@ -400,19 +513,96 @@ function submitSummary(submitOutput: string | undefined): string {
 	return firstNonEmptyText(submitOutput?.split("\n").find((line) => line.includes("http")), "submitted") ?? "submitted";
 }
 
-async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promise<{ commitOutput: string; submitOutput?: string }> {
+async function runJustFormatterRecoveryIfNeeded(
+	pi: ExtensionAPI,
+	ctx: CommandContext,
+	changedFiles: readonly string[],
+): Promise<string[]> {
+	if (!changedFiles.some((file) => file.endsWith(".ts") || file.endsWith(".tsx"))) return [];
+	const checkArgs = ["ts-format-check"];
+	const check = await execResult({ pi, ctx, command: "just", args: checkArgs });
+	if (check.code === 0 && !check.killed) return [];
+
+	const fixArgs = ["ts-format-fix"];
+	const fix = await execResult({ pi, ctx, command: "just", args: fixArgs });
+	if (fix.code !== 0 || fix.killed) {
+		const failure = commandFailure("just", fixArgs, fix);
+		throw new AutopilotPhaseError("formatter recovery", `Formatter autofix failed.\n${failure.output}`, {
+			changedFiles: [...changedFiles],
+			command: failure.command,
+		});
+	}
+	const rerun = await execResult({ pi, ctx, command: "just", args: checkArgs });
+	if (rerun.code !== 0 || rerun.killed) {
+		const failure = commandFailure("just", checkArgs, rerun);
+		throw new AutopilotPhaseError("formatter recovery", `Formatter check still fails after autofix.\n${failure.output}`, {
+			changedFiles: [...changedFiles],
+			command: failure.command,
+			recoveryNotes: ["ran just ts-format-fix after just ts-format-check failed"],
+		});
+	}
+	return ["ran just ts-format-fix after just ts-format-check failed"];
+}
+
+async function stageChangedFiles(pi: ExtensionAPI, ctx: CommandContext, changedFiles: readonly string[]): Promise<StageChangedFilesResult> {
+	if (changedFiles.length === 0) throw new AutopilotPhaseError("staging", "No changed files to stage.");
+	const first = await execResult({ pi, ctx, command: "git", args: ["add", "--", ...changedFiles] });
+	if (first.code === 0 && !first.killed) return { stagedFiles: [...changedFiles], recoveryNotes: [] };
+
+	const freshFacts = await collectRepoChangeFacts(pi, ctx);
+	if (freshFacts.changedFiles.length === 0 || sameStringList(changedFiles, freshFacts.changedFiles)) {
+		const failure = commandFailure("git", ["add", "--", ...changedFiles], first);
+		throw new AutopilotPhaseError("staging", `Unable to stage changed files.\n${failure.output}`, {
+			changedFiles: [...changedFiles],
+			command: failure.command,
+		});
+	}
+
+	const retry = await execResult({ pi, ctx, command: "git", args: ["add", "--", ...freshFacts.changedFiles] });
+	if (retry.code === 0 && !retry.killed) {
+		return {
+			stagedFiles: [...freshFacts.changedFiles],
+			recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
+		};
+	}
+	const failure = commandFailure("git", ["add", "--", ...freshFacts.changedFiles], retry);
+	throw new AutopilotPhaseError("staging", `Unable to stage changed files after refreshing git status.\n${failure.output}`, {
+		changedFiles: freshFacts.changedFiles,
+		command: failure.command,
+		recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
+	});
+}
+
+async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promise<{ commitOutput: string; submitOutput?: string; recoveryNotes: string[] }> {
 	const { pi, ctx, report, changedFiles, shouldSubmit } = options;
-	await execChecked({ pi, ctx, command: "git", args: ["add", "--", ...changedFiles] });
+	const stage = await stageChangedFiles(pi, ctx, changedFiles);
+	const recoveryNotes = [...options.recoveryNotes, ...stage.recoveryNotes];
 	const message = usableReportText(report.commitMessage) ?? usableReportText(report.recommendedSlice) ?? "Objective autopilot update";
 	let commitOutput: string;
 	try {
 		commitOutput = await execChecked({ pi, ctx, command: "gt", args: ["modify", "-m", message] });
 	} catch {
-		commitOutput = await execChecked({ pi, ctx, command: "git", args: ["commit", "-m", message] });
+		try {
+			commitOutput = await execChecked({ pi, ctx, command: "git", args: ["commit", "-m", message] });
+		} catch (error) {
+			throw new AutopilotPhaseError("commit", error instanceof Error ? error.message : String(error), {
+				changedFiles: [...changedFiles],
+				stagedFiles: stage.stagedFiles,
+				recoveryNotes,
+			});
+		}
 	}
-	if (!shouldSubmit) return { commitOutput };
-	const submitOutput = await execChecked({ pi, ctx, command: "gt", args: ["submit", "--no-interactive"] });
-	return { commitOutput, submitOutput };
+	if (!shouldSubmit) return { commitOutput, recoveryNotes };
+	try {
+		const submitOutput = await execChecked({ pi, ctx, command: "gt", args: ["submit", "--no-interactive"] });
+		return { commitOutput, submitOutput, recoveryNotes };
+	} catch (error) {
+		throw new AutopilotPhaseError("submit", error instanceof Error ? error.message : String(error), {
+			changedFiles: [...changedFiles],
+			stagedFiles: stage.stagedFiles,
+			recoveryNotes,
+		});
+	}
 }
 
 function sendSummary(options: SendSummaryOptions): void {
@@ -469,6 +659,65 @@ function showChildProgress(ctx: CommandContext, update: ChildProgressUpdate): vo
 	ctx.ui.setWidget?.(STATUS_KEY, formatChildProgressWidgetLines(update), { placement: "aboveEditor" });
 }
 
+function formatList(title: string, values: readonly string[]): string[] {
+	if (values.length === 0) return [`- ${title}: none`];
+	return [`- ${title}:`, ...values.map((value) => `  - ${value}`)];
+}
+
+async function currentBranchForFailure(pi: ExtensionAPI, ctx: CommandContext): Promise<string | undefined> {
+	try {
+		return await git(pi, ctx, ["branch", "--show-current"]);
+	} catch {
+		return undefined;
+	}
+}
+
+async function stagedFilesForFailure(pi: ExtensionAPI, ctx: CommandContext): Promise<string[]> {
+	try {
+		const raw = await gitRaw(pi, ctx, ["diff", "--cached", "--name-only"]);
+		return raw.split(/\r?\n/).filter((line) => line !== "");
+	} catch {
+		return [];
+	}
+}
+
+async function changedFilesForFailure(pi: ExtensionAPI, ctx: CommandContext): Promise<string[]> {
+	try {
+		return (await collectRepoChangeFacts(pi, ctx)).changedFiles;
+	} catch {
+		return [];
+	}
+}
+
+async function formatAutopilotFailure(pi: ExtensionAPI, ctx: CommandContext, error: unknown): Promise<string> {
+	const message = error instanceof Error ? error.message : String(error);
+	const phase = error instanceof AutopilotPhaseError ? error.phase : "unknown";
+	const details = error instanceof AutopilotPhaseError ? error.details : undefined;
+	const branch = await currentBranchForFailure(pi, ctx);
+	const changedFiles = details?.changedFiles ?? (await changedFilesForFailure(pi, ctx));
+	const stagedFiles = details?.stagedFiles ?? (await stagedFilesForFailure(pi, ctx));
+	const recoveryNotes = details?.recoveryNotes ?? [];
+	const lines = [
+		`/objective:autopilot stopped.`,
+		"",
+		`phase: ${phase}`,
+		...(branch === undefined ? [] : [`branch: ${branch}`]),
+		...(details?.command === undefined ? [] : [`command: ${details.command}`]),
+		"",
+		message,
+		"",
+		...formatList("changed files", changedFiles),
+		...formatList("staged files", stagedFiles),
+		...formatList("recovery", recoveryNotes),
+	];
+	if (changedFiles.length > 0 || stagedFiles.length > 0) {
+		lines.push("- rerun safety: not safe until uncommitted changes are committed, stashed, reset, or manually recovered.");
+	} else {
+		lines.push("- rerun safety: safe if the starting guards still pass.");
+	}
+	return lines.join("\n");
+}
+
 async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandContext): Promise<void> {
 	let args: ParsedArgs;
 	try {
@@ -512,36 +761,59 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 					...(stderrTail === undefined ? {} : { stderrTail }),
 				});
 			});
-			if (child.exitCode !== 0) throw new Error(`Child Pi exited ${child.exitCode}.\n${tail(firstNonEmptyText(child.stderr, child.finalText) ?? "")}`);
+			if (child.exitCode !== 0) {
+				throw new AutopilotPhaseError(
+					"child",
+					`Child Pi exited ${child.exitCode}.\n${tail(firstNonEmptyText(child.stderr, child.finalText) ?? "")}`,
+				);
+			}
 			const report = parseReport(child.finalText);
-			if (!report) throw new Error(`Child did not produce a parseable report. Tail:\n${tail(firstNonEmptyText(child.finalText, child.stderr) ?? "")}`);
+			if (!report) {
+				throw new AutopilotPhaseError(
+					"child report parsing",
+					`Child did not produce a parseable report. Tail:\n${tail(firstNonEmptyText(child.finalText, child.stderr) ?? "")}`,
+				);
+			}
 			if (report.status === "stop") {
 				summaries.push(`iteration ${iteration}: stopped (${usableReportText(report.stopReason) ?? "child requested stop"}).`);
 				break;
 			}
-			const changedFiles = await verifyAfterChild({ pi, ctx, report, startingBranch });
+			const facts = await verifyAfterChild({ pi, ctx, report, startingBranch });
+			let changedFiles = facts.changedFiles;
 			if (args.isDryRun) {
 				summaries.push(`iteration ${iteration}: verified dry-run on ${report.branch}; ${changedFiles.length} changed file(s).`);
 				break;
 			}
-			const commit = await commitAndMaybeSubmit({ pi, ctx, report, changedFiles, shouldSubmit: args.shouldSubmit });
+			let recoveryNotes = await runJustFormatterRecoveryIfNeeded(pi, ctx, changedFiles);
+			if (recoveryNotes.length > 0) {
+				changedFiles = (await collectRepoChangeFacts(pi, ctx)).changedFiles;
+			}
+			const commit = await commitAndMaybeSubmit({
+				pi,
+				ctx,
+				report,
+				changedFiles,
+				shouldSubmit: args.shouldSubmit,
+				recoveryNotes,
+			});
+			recoveryNotes = commit.recoveryNotes;
 			summaries.push([
 				`iteration ${iteration}: ${usableReportText(report.recommendedSlice) ?? "completed slice"}`,
 				`- branch: ${report.branch}`,
 				`- changed files: ${changedFiles.length}`,
+				...recoveryNotes.map((note) => `- recovery: ${note}`),
 				`- commit: ${firstNonEmptyText(commit.commitOutput.split("\n")[0], "created") ?? "created"}`,
 				args.shouldSubmit
 					? `- submit: ${submitSummary(commit.submitOutput)}`
 					: "- submit: skipped (no --submit)",
 			].join("\n"));
-			const postStatus = await git(pi, ctx, ["status", "--short"]);
-			if (postStatus) throw new Error(`Worktree is dirty after commit/submit:\n${postStatus}`);
+			const postStatus = await gitRaw(pi, ctx, ["status", "--porcelain=v1"]);
+			if (parseGitStatusPaths(postStatus).length > 0) throw new Error(`Worktree is dirty after commit/submit:\n${postStatus}`);
 			startingBranch = await git(pi, ctx, ["branch", "--show-current"]);
 		}
 		sendSummary({ pi, ctx, text: [`/objective:autopilot complete`, ...summaries].join("\n\n") });
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		sendSummary({ pi, ctx, text: `/objective:autopilot stopped.\n\n${message}`, level: "error" });
+		sendSummary({ pi, ctx, text: await formatAutopilotFailure(pi, ctx, error), level: "error" });
 	} finally {
 		ctx.ui.setStatus(STATUS_KEY, undefined);
 		ctx.ui.setWidget?.(STATUS_KEY, undefined);
