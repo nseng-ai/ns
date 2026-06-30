@@ -74,7 +74,7 @@ export type SdlccCmuxReportResult =
 			readonly type: "failed";
 			readonly code: SdlccCmuxReportFailureCode;
 			readonly message: string;
-			readonly commandFailure?: SdlccCmuxReportCommandFailure | undefined;
+			readonly commandFailure?: SdlccCmuxReportCommandFailure;
 	  };
 
 export interface RunSdlccCmuxReportOptions {
