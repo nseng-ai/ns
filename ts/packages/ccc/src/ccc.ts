@@ -9,7 +9,7 @@ import {
 import { registerCccSlotOpenBranchCommand } from "./cmux/slot-open-branch.ts";
 import type { ExtensionAPI } from "@sdl/cmux/types";
 
-export default function registerCccExtension(pi: ExtensionAPI): void {
+export default function registerCccLegacyPiExtension(pi: ExtensionAPI): void {
 	const sidebarController = createCccSidebarController(pi);
 	registerCccSidebarCommands(pi, sidebarController);
 	registerCccSlotDispatchPlanCommand(pi);
@@ -19,3 +19,5 @@ export default function registerCccExtension(pi: ExtensionAPI): void {
 	registerCccSlotDispatchFromTrunkCommand(pi);
 	registerCccClaudePlanTabCommand(pi);
 }
+
+export { registerCccLegacyPiExtension };
