@@ -288,6 +288,9 @@ importers:
       '@sdl/slot':
         specifier: workspace:*
         version: link:../slot
+      sdl-land:
+        specifier: workspace:*
+        version: link:../land
       sdl-sdk:
         specifier: workspace:*
         version: link:../../sdl-sdk
