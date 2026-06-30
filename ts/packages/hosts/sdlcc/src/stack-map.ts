@@ -3,7 +3,7 @@ export type StackMapSlotStatus = "assigned" | "available" | "unknown";
 export interface StackMapSlotAssignment {
 	readonly slotName: string;
 	readonly branch: string;
-	readonly worktreePath?: string | undefined;
+	readonly worktreePath?: string;
 	readonly status: StackMapSlotStatus;
 }
 
@@ -13,18 +13,18 @@ export interface StackMapParsedCmuxTab {
 	readonly windowRef: string;
 	readonly workspaceRef: string;
 	readonly workspaceTitle: string;
-	readonly workspaceDescription?: string | undefined;
+	readonly workspaceDescription?: string;
 	readonly paneRef: string;
 	readonly surfaceRef: string;
 	readonly tabRef: string;
 	readonly tabTitle: string;
 	readonly surfaceType: StackMapCmuxSurfaceType;
-	readonly tty?: string | undefined;
+	readonly tty?: string;
 	readonly isActive: boolean;
 	readonly isHere: boolean;
 	readonly isSelected: boolean;
-	readonly explicitBranch?: string | undefined;
-	readonly explicitWorktreePath?: string | undefined;
+	readonly explicitBranch?: string;
+	readonly explicitWorktreePath?: string;
 }
 
 export type StackMapCmuxTabMatch =
@@ -38,7 +38,7 @@ export interface StackMapCmuxTabTarget extends StackMapParsedCmuxTab {
 
 export interface StackMapBranchNode {
 	readonly name: string;
-	readonly graphiteNote?: string | undefined;
+	readonly graphiteNote?: string;
 	readonly slots: readonly StackMapSlotAssignment[];
 	readonly cmuxTabs: readonly StackMapCmuxTabTarget[];
 	readonly children: readonly StackMapBranchNode[];
@@ -58,7 +58,7 @@ export type StackMapCmuxChoice =
 	| {
 			readonly type: "open-new";
 			readonly branch: string;
-			readonly slot?: StackMapSlotAssignment | undefined;
+			readonly slot?: StackMapSlotAssignment;
 	  };
 
 export type StackMapMode =
@@ -77,7 +77,7 @@ export interface StackMapState {
 	readonly query: string;
 	readonly mode: StackMapMode;
 	readonly areDiagnosticsShown: boolean;
-	readonly statusMessage?: string | undefined;
+	readonly statusMessage?: string;
 }
 
 export type StackMapAction =
@@ -102,7 +102,7 @@ export type StackMapCmuxActivationPlan =
 	| {
 			readonly type: "open-new";
 			readonly branch: string;
-			readonly slot?: StackMapSlotAssignment | undefined;
+			readonly slot?: StackMapSlotAssignment;
 	  }
 	| { readonly type: "focus-tab"; readonly branch: string; readonly target: StackMapCmuxTabTarget }
 	| {
@@ -110,9 +110,9 @@ export type StackMapCmuxActivationPlan =
 			readonly branch: string;
 			readonly targets: readonly StackMapCmuxTabTarget[];
 			readonly includeOpenNew: true;
-			readonly slot?: StackMapSlotAssignment | undefined;
+			readonly slot?: StackMapSlotAssignment;
 	  }
-	| { readonly type: "unavailable"; readonly branch?: string | undefined; readonly reason: string };
+	| { readonly type: "unavailable"; readonly branch?: string; readonly reason: string };
 
 export interface StackMapVisibleRow {
 	readonly branch: StackMapBranchNode;

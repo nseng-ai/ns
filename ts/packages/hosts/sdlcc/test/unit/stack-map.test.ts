@@ -63,10 +63,10 @@ const MODEL: StackMapModel = {
 
 function branchNode(options: {
 	readonly name: string;
-	readonly graphiteNote?: string | undefined;
-	readonly slots?: StackMapBranchNode["slots"] | undefined;
-	readonly cmuxTabs?: StackMapBranchNode["cmuxTabs"] | undefined;
-	readonly children?: readonly StackMapBranchNode[] | undefined;
+	readonly graphiteNote?: string;
+	readonly slots?: StackMapBranchNode["slots"];
+	readonly cmuxTabs?: StackMapBranchNode["cmuxTabs"];
+	readonly children?: readonly StackMapBranchNode[];
 }): StackMapBranchNode {
 	return {
 		name: options.name,

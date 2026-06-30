@@ -76,8 +76,8 @@ export async function loadStackMapModel(
 export function buildStackMapModelFromGraph(
 	graph: StackMapGraphData,
 	options: {
-		readonly cmuxTabs?: readonly StackMapParsedCmuxTab[] | undefined;
-		readonly diagnostics?: readonly string[] | undefined;
+		readonly cmuxTabs?: readonly StackMapParsedCmuxTab[];
+		readonly diagnostics?: readonly string[];
 	} = {},
 ): StackMapModel {
 	const slotsByBranch = slotsByBranchName(graph.slots);
@@ -447,7 +447,10 @@ function buildGraphBranchTree(
 	);
 	return {
 		name: branchName,
-		graphiteNote: graphiteNoteForBranch({ branch, current: options.current, trunk: options.trunk }),
+		...optionalEntry(
+			"graphiteNote",
+			graphiteNoteForBranch({ branch, current: options.current, trunk: options.trunk }),
+		),
 		slots: slotsForBranch(branchName, options.slotsByBranch),
 		cmuxTabs: [],
 		children,
@@ -461,7 +464,10 @@ function leafBranchNode(
 ): StackMapBranchNode {
 	return {
 		name: branch.name,
-		graphiteNote: graphiteNoteForBranch({ branch, current: stack.current, trunk: stack.trunk }),
+		...optionalEntry(
+			"graphiteNote",
+			graphiteNoteForBranch({ branch, current: stack.current, trunk: stack.trunk }),
+		),
 		slots: slotsForBranch(branch.name, slotsByBranch),
 		cmuxTabs: [],
 		children: [],
