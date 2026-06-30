@@ -257,7 +257,7 @@ async function runPrDownloadStackFeedbackCommand(
 }
 
 type ParsedDownloadFeedbackArgs =
-	| { type: "valid"; args: string[]; prNumber?: number | undefined }
+	| { type: "valid"; args: string[]; prNumber?: number }
 	| { type: "invalid"; message: string };
 
 export type CommandResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };

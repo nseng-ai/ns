@@ -4,7 +4,7 @@ import type { ExplicitUndefined } from "@sdl/core/primitives";
 export interface PiCommandContext {
 	cwd: string;
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	model?: ModelInfo | undefined;
+	model?: ModelInfo;
 	hasUI?: boolean;
 	ui: {
 		notify(message: string, level?: "info" | "warning" | "error"): void;
