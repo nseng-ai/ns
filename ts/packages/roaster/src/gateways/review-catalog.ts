@@ -36,7 +36,7 @@ export interface ReviewCatalogGateway {
 }
 
 export interface RealReviewCatalogGatewayOptions {
-	readonly gitGateway?: GitGateway | undefined;
+	readonly gitGateway?: GitGateway;
 }
 
 export class RealReviewCatalogGateway implements ReviewCatalogGateway {
@@ -124,17 +124,13 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 }
 
 export interface FakeReviewCatalogGatewayOptions {
-	readonly reviewSourcesByKey?:
-		| Readonly<Record<string, string>>
-		| ReadonlyMap<string, string>
-		| undefined;
+	readonly reviewSourcesByKey?: Readonly<Record<string, string>> | ReadonlyMap<string, string>;
 	readonly reviewSourceFailuresByKey?:
 		| Readonly<Record<string, ReviewCatalogFailure>>
-		| ReadonlyMap<string, ReviewCatalogFailure>
-		| undefined;
-	readonly reviewKeys?: readonly string[] | undefined;
-	readonly listReviewKeysFailure?: ReviewCatalogFailure | undefined;
-	readonly reviewsDir?: string | undefined;
+		| ReadonlyMap<string, ReviewCatalogFailure>;
+	readonly reviewKeys?: readonly string[];
+	readonly listReviewKeysFailure?: ReviewCatalogFailure;
+	readonly reviewsDir?: string;
 }
 
 export class FakeReviewCatalogGateway implements ReviewCatalogGateway {

@@ -31,7 +31,7 @@ function sampleSource(
 		readonly description?: string;
 		readonly modelProfile?: string;
 		readonly appliesTo?: string;
-		readonly localOnly?: boolean | undefined;
+		readonly localOnly?: boolean;
 	} = {},
 ): string {
 	return [
@@ -77,7 +77,7 @@ function runtimeWithFakes(
 		readonly reviewLog?: FakeReviewLogGateway;
 		readonly reviewCatalog?: FakeReviewCatalogGateway;
 		readonly github?: RoasterGitHubGateway;
-		readonly stdin?: string | undefined;
+		readonly stdin?: string;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
 ): RoasterRuntime {
@@ -96,7 +96,7 @@ function runtimeWithFakes(
 				options.reviewCatalog ??
 				new FakeReviewCatalogGateway({
 					reviewSourcesByKey: options.sources ?? { [REVIEW_KEY]: sampleSource() },
-					reviewKeys: options.keys,
+					...(options.keys === undefined ? {} : { reviewKeys: options.keys }),
 					reviewsDir: "/repo/.sdl/reviews",
 				}),
 			localDiff: new FakeLocalDiffGateway({

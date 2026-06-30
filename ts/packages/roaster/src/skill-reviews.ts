@@ -29,7 +29,7 @@ export type RoastReviewLoadResult =
 
 export interface LoadRoastSkillEntriesOptions {
 	readonly cwd: string;
-	readonly reviewCatalog?: ReviewCatalogGateway | undefined;
+	readonly reviewCatalog?: ReviewCatalogGateway;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 

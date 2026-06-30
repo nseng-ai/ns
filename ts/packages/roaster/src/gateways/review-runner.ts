@@ -36,15 +36,14 @@ export interface ReviewRunnerGateway {
 
 export interface ClaudeCodeProcessReviewRunnerOptions {
 	readonly execApi: CommandExecApi;
-	readonly binaryResolver?: CommandResolver | undefined;
+	readonly binaryResolver?: CommandResolver;
 }
 
 export interface FakeReviewRunnerGatewayOptions {
 	readonly resultsByReviewName?:
 		| ReadonlyMap<string, RoasterResult<ReviewExecutionResponse>>
-		| Record<string, RoasterResult<ReviewExecutionResponse>>
-		| undefined;
-	readonly defaultResult?: RoasterResult<ReviewExecutionResponse> | undefined;
+		| Record<string, RoasterResult<ReviewExecutionResponse>>;
+	readonly defaultResult?: RoasterResult<ReviewExecutionResponse>;
 }
 
 export class FakeReviewRunnerGateway implements ReviewRunnerGateway {

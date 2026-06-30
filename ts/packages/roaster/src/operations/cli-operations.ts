@@ -282,7 +282,16 @@ export async function runReviewByKey(
 	ctx: RoasterRuntime,
 	request: ReviewRunRequest,
 ): Promise<ClinkrExit<ReviewRunResult>> {
-	return clinkrExitFromReviewRunOutcome(ctx, await runRoasterReview(ctx, request));
+	return clinkrExitFromReviewRunOutcome(
+		ctx,
+		await runRoasterReview(ctx, {
+			key: request.key,
+			...(request.model === undefined ? {} : { model: request.model }),
+			...(request.modelProfile === undefined ? {} : { modelProfile: request.modelProfile }),
+			...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
+			...(request.logBranch === undefined ? {} : { logBranch: request.logBranch }),
+		}),
+	);
 }
 
 export function clinkrExitFromReviewRunOutcome(

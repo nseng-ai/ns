@@ -19,11 +19,11 @@ export interface ReviewLogWriteRequest extends RoasterEnvironmentOptions {
 	readonly reviewKey: string;
 	readonly content: string;
 	readonly ranAt: string;
-	readonly branch?: string | undefined;
+	readonly branch?: string;
 }
 
 export interface ReviewLogListRequest extends RoasterEnvironmentOptions {
-	readonly reviewKey?: string | undefined;
+	readonly reviewKey?: string;
 }
 
 export interface ReviewLogWriteResult {

@@ -328,12 +328,16 @@ class CapturingInputExecApi implements CommandExecApi {
 	private readonly callsInternal: Array<{
 		readonly command: string;
 		readonly args: readonly string[];
-		readonly options?: ExecOptions | undefined;
+		readonly options?: ExecOptions;
 	}> = [];
 	private capturedInputInternal: unknown;
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
-		this.callsInternal.push({ command, args: [...args], options });
+		this.callsInternal.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options }),
+		});
 		const inputPath = args[5];
 		if (typeof inputPath === "string")
 			this.capturedInputInternal = JSON.parse(await readFile(inputPath, "utf8"));
@@ -343,7 +347,7 @@ class CapturingInputExecApi implements CommandExecApi {
 	calls(): ReadonlyArray<{
 		readonly command: string;
 		readonly args: readonly string[];
-		readonly options?: ExecOptions | undefined;
+		readonly options?: ExecOptions;
 	}> {
 		return this.callsInternal.map((call) => ({ ...call, args: [...call.args] }));
 	}

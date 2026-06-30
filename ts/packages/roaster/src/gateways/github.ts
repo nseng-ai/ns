@@ -288,11 +288,12 @@ export interface CreatedReviewLogEntry {
 }
 
 export interface FakeRoasterGitHubGatewayOptions {
-	readonly changedFilesByPr?: ReadonlyMap<number, readonly PRChangedFile[]> | undefined;
-	readonly reviewCommentsByPr?: ReadonlyMap<number, readonly PRReviewComment[]> | undefined;
-	readonly discussionCommentsByPr?:
-		| ReadonlyMap<number, readonly (PRDiscussionComment & { readonly author: string })[]>
-		| undefined;
+	readonly changedFilesByPr?: ReadonlyMap<number, readonly PRChangedFile[]>;
+	readonly reviewCommentsByPr?: ReadonlyMap<number, readonly PRReviewComment[]>;
+	readonly discussionCommentsByPr?: ReadonlyMap<
+		number,
+		readonly (PRDiscussionComment & { readonly author: string })[]
+	>;
 }
 
 export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
