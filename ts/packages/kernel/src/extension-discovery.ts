@@ -53,20 +53,28 @@ interface ParsedManifestCommandEntryFields {
 }
 
 const manifestNonEmptyStringSchema = z.string().trim().min(1);
-const manifestCommandEntrySchema = z
-	.object({
-		name: z.unknown().optional(),
-		description: z.unknown().optional(),
-		entry: z.unknown().optional(),
-		fullDescription: z.unknown().optional(),
-	})
-	.passthrough();
 
 type ManifestCommandStringField = "name" | "description" | "entry" | "fullDescription";
 
 type ManifestCommandEntryShape = {
 	[key in ManifestCommandStringField]?: string;
 };
+
+type RequiredManifestCommandStringField = "description" | "entry";
+
+const requiredManifestCommandStringFields = [
+	{
+		field: "description",
+		code: "extension_manifest_command_description_missing",
+	},
+	{
+		field: "entry",
+		code: "extension_manifest_command_entry_missing",
+	},
+] as const satisfies readonly {
+	field: RequiredManifestCommandStringField;
+	code: string;
+}[];
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -549,25 +557,16 @@ function parseManifestCommandEntry(options: {
 		});
 	}
 
-	if (schemaEntry.values.description !== undefined) {
-		fields.description = schemaEntry.values.description;
-	} else {
+	for (const { field, code } of requiredManifestCommandStringFields) {
+		const value = schemaEntry.values[field];
+		if (value !== undefined) {
+			fields[field] = value;
+			continue;
+		}
 		pushManifestStringDiagnostic({
 			diagnostics,
-			code: "extension_manifest_command_description_missing",
-			field: "description",
-			packageJsonPath: options.packageJsonPath,
-			commandName,
-		});
-	}
-
-	if (schemaEntry.values.entry !== undefined) {
-		fields.entry = schemaEntry.values.entry;
-	} else {
-		pushManifestStringDiagnostic({
-			diagnostics,
-			code: "extension_manifest_command_entry_missing",
-			field: "entry",
+			code,
+			field,
 			packageJsonPath: options.packageJsonPath,
 			commandName,
 		});
@@ -594,7 +593,6 @@ function parseManifestCommandEntryShape(entry: Record<string, unknown>): {
 	values: ManifestCommandEntryShape;
 	invalidFields: ReadonlySet<ManifestCommandStringField>;
 } {
-	manifestCommandEntrySchema.parse(entry);
 	const invalidFields = new Set<ManifestCommandStringField>();
 	const values: ManifestCommandEntryShape = {};
 	for (const field of ["name", "description", "entry", "fullDescription"] as const) {
