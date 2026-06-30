@@ -328,8 +328,8 @@ function targetFromPr(pr: GithubPrSummary, branch: string | null): DownloadFeedb
 }
 
 function emptyTarget(options: {
-	readonly prNumber?: number | undefined;
-	readonly branch?: string | undefined;
+	readonly prNumber?: number;
+	readonly branch?: string;
 }): DownloadFeedbackTargetPayload {
 	return {
 		kind: "github-pr",

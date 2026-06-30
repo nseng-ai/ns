@@ -36,9 +36,9 @@ export function gatewayFailureExit(prefix: string, gatewayFailure: GatewayFailur
 }
 
 export interface FailureDetailInput {
-	readonly stderr?: string | null | undefined;
-	readonly stdout?: string | null | undefined;
-	readonly message?: string | null | undefined;
+	readonly stderr?: string | null;
+	readonly stdout?: string | null;
+	readonly message?: string | null;
 	readonly code: string;
 }
 
@@ -53,9 +53,9 @@ export function failureDetail(input: FailureDetailInput): string {
 
 export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFailure): string {
 	return `${prefix}: ${failureDetail({
-		stderr: gatewayFailure.stderr,
-		stdout: gatewayFailure.stdout,
-		message: gatewayFailure.message,
+		...(gatewayFailure.stderr === undefined ? {} : { stderr: gatewayFailure.stderr }),
+		...(gatewayFailure.stdout === undefined ? {} : { stdout: gatewayFailure.stdout }),
+		...(gatewayFailure.message === undefined ? {} : { message: gatewayFailure.message }),
 		code:
 			typeof gatewayFailure.returncode === "number"
 				? `exit code ${gatewayFailure.returncode}`
