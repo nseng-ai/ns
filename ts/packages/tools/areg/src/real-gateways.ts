@@ -667,7 +667,7 @@ async function inspectPairingDirectories(projectDir: string): Promise<AregCheckP
 				relativeDir,
 				hasAgents,
 				hasClaude,
-				claudeText: claude.type === "file" ? claude.text : undefined,
+				...(claude.type === "file" ? { claudeText: claude.text } : {}),
 			});
 		}
 		const subdirs = sortStrings(

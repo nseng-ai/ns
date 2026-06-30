@@ -13,7 +13,7 @@ export interface LockfileSkillData {
 	source: string;
 	sourceType: SourceType;
 	computedHash: string;
-	skillPath?: string | undefined;
+	skillPath?: string;
 }
 
 export interface LockfileSkill extends LockfileSkillData {
@@ -30,12 +30,21 @@ export interface SkillsLockfile {
 	skills: readonly LockfileSkill[];
 }
 
-const lockfileSkillSchema: z.ZodType<LockfileSkillData> = z.object({
-	source: z.string(),
-	sourceType: z.enum(SOURCE_TYPES),
-	computedHash: z.string(),
-	skillPath: z.string().optional(),
-});
+const lockfileSkillSchema: z.ZodType<LockfileSkillData> = z
+	.object({
+		source: z.string(),
+		sourceType: z.enum(SOURCE_TYPES),
+		computedHash: z.string(),
+		skillPath: z.string().optional(),
+	})
+	.transform(
+		(skill): LockfileSkillData => ({
+			source: skill.source,
+			sourceType: skill.sourceType,
+			computedHash: skill.computedHash,
+			...(skill.skillPath === undefined ? {} : { skillPath: skill.skillPath }),
+		}),
+	);
 
 const skillsLockfileSchema: z.ZodType<SkillsLockfileData> = z.object({
 	version: z.literal(1),
@@ -62,7 +71,7 @@ export function parseLockfileData(data: unknown): Result<SkillsLockfile> {
 			source: skill.source,
 			sourceType: skill.sourceType,
 			computedHash: skill.computedHash,
-			skillPath: skill.skillPath,
+			...(skill.skillPath === undefined ? {} : { skillPath: skill.skillPath }),
 		});
 	}
 	return { ok: true, value: { version: 1, skills } };

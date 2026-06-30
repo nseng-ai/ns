@@ -30,7 +30,7 @@ export type AregGithubSkillListResult =
 export interface AregGithubGateway {
 	listSkillDirectoryNames(options: {
 		repo: string;
-		ref?: string | undefined;
+		ref?: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregGithubSkillListResult>;
 }
@@ -68,7 +68,7 @@ export interface AregSkillxWorkspaceInstall {
 
 export interface AregSkillxInstallRequest {
 	sourceRepo: string;
-	skillName?: string | undefined;
+	skillName?: string;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
 }
@@ -115,7 +115,7 @@ export interface AregCheckPairingDirectory {
 	relativeDir: string;
 	hasAgents: boolean;
 	hasClaude: boolean;
-	claudeText?: string | undefined;
+	claudeText?: string;
 }
 
 export type AregSkillKindSourceType = "local" | "vendored";

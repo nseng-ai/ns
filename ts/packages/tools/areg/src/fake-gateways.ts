@@ -487,7 +487,7 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 
 	async listSkillDirectoryNames(options: {
 		repo: string;
-		ref?: string | undefined;
+		ref?: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregGithubSkillListResult> {
 		this.log.push({
@@ -622,7 +622,7 @@ export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGatewa
 		this.log.push({
 			type: "install-into-workspace",
 			sourceRepo: request.sourceRepo,
-			skillName: request.skillName,
+			...(request.skillName === undefined ? {} : { skillName: request.skillName }),
 			cwd: request.cwd,
 		});
 		if (this.failure !== undefined) return { type: "error", error: copyErrorInfo(this.failure) };
@@ -779,7 +779,7 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 		relativeDir: directory.relativeDir,
 		hasAgents: directory.hasAgents,
 		hasClaude: directory.hasClaude,
-		claudeText: directory.claudeText,
+		...(directory.claudeText === undefined ? {} : { claudeText: directory.claudeText }),
 	};
 }
 
