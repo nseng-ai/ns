@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
 import type { CommandRunner, ExecResult } from "@sdl/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
-import type { MaybePromise } from "@sdl/core/primitives";
+import { optionalEntry, type MaybePromise } from "@sdl/core/primitives";
 import type { Result } from "@sdl/core/result";
 
 import {
@@ -373,7 +373,7 @@ export class RealGithubPrFeedbackGateway {
 					operation: options.operation,
 					message: options.missingCursorMessage,
 					prNumber: options.params.prNumber,
-					...(threadId === undefined ? {} : { threadId }),
+					...optionalEntry("threadId", threadId),
 					cursorContext: options.cursorContext,
 				});
 				if (!cursorResult.ok) return feedbackErr(cursorResult.error);
@@ -385,7 +385,7 @@ export class RealGithubPrFeedbackGateway {
 				params: options.params,
 				schema: options.schema,
 				prNumber: options.params.prNumber,
-				...(threadId === undefined ? {} : { threadId }),
+				...optionalEntry("threadId", threadId),
 				cursorContext: options.cursorContext,
 			});
 			if (!result.ok) return result;

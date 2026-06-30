@@ -3,14 +3,13 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "../../ts/packages/infra/exec/src/index.ts";
-import { createRunnerSubagentJsonEventParser } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
-import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
-
+import { createRunnerSubagentJsonEventParser } from "@local-pi-tools/runner-subagents";
+import { resolvePiInvocation } from "@local-pi-tools/runner-subagents/process";
+import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "@sdl/exec";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
-} from "../../ts/packages/hosts/pi/src/commands/ack.ts";
+} from "@sdl/pi/commands/ack";
 
 const COMMAND_NAME = "objective:autopilot";
 const STATUS_KEY = "objective-autopilot";
@@ -208,8 +207,8 @@ async function writePromptFile(prompt: string): Promise<{ dir: string; file: str
 
 async function runChild(cwd: string, prompt: string, model: string | undefined): Promise<ChildResult> {
 	const tmp = await writePromptFile(prompt);
-	// Keep custom spawn semantics: objective-autopilot intentionally uses no-session plus an appended system prompt,
-	// while the full runner-subagents dispatcher owns explicit session/runtime behavior.
+	// Keep custom spawn semantics for JSON streaming with --no-session and an appended system prompt.
+	// Shared runner-subagents pieces cover Pi resolution and event parsing; the full dispatcher owns richer session/runtime behavior.
 	const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", tmp.file];
 	if (model) args.push("--model", model);
 	args.push("Run the objective-autopilot child task described in your appended system prompt.");
