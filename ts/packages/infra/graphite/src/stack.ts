@@ -110,8 +110,8 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 	constructor(options: {
 		git: GraphiteStackGitGateway;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		execApi?: CommandExecApi | undefined;
-		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;
+		execApi?: CommandExecApi;
+		metadataDbAccess?: GraphiteMetadataDbAccess;
 	}) {
 		this.env = options.env ?? process.env;
 		this.execApi = options.execApi ?? new NodeCommandExecApi();
