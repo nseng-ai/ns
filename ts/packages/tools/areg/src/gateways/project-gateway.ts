@@ -557,6 +557,8 @@ async function inspectPairingDirectories(projectDir: string): Promise<AregCheckP
 		try {
 			entries = await readdir(directory, { withFileTypes: true });
 		} catch {
+			// Pairing directory inspection is best-effort; unreadable or disappearing directories
+			// should not fail the whole project inspection.
 			return;
 		}
 		const names = new Set(entries.map((entry) => entry.name));

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	confirmInteractiveOrUsageError,
 	createClinkrInteraction,
 	requireInteractiveOrUsageError,
 	resolveClinkrInteraction,
@@ -212,5 +213,55 @@ describe("requireInteractiveOrUsageError", () => {
 			message: opts.message,
 			data: { missingFlag: opts.missingFlag, howToSupply: opts.howToSupply },
 		});
+	});
+});
+
+describe("confirmInteractiveOrUsageError", () => {
+	const nonInteractive = {
+		message: "Requires --yes when non-interactive.",
+		missingFlag: "--yes",
+		howToSupply: "Pass --yes to confirm.",
+	};
+
+	test("gates non-interactive confirmation before prompting", async () => {
+		const stderr: string[] = [];
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: (text) => stderr.push(text),
+			isInteractive: () => false,
+		});
+		await expect(
+			confirmInteractiveOrUsageError(interaction, {
+				nonInteractive,
+				confirmation: { message: "Continue?", defaultAnswer: "no" },
+				beforePrompt: () => stderr.push("before\n"),
+			}),
+		).resolves.toEqual({
+			type: "usageError",
+			errorType: "usageError",
+			message: nonInteractive.message,
+			data: {
+				missingFlag: nonInteractive.missingFlag,
+				howToSupply: nonInteractive.howToSupply,
+			},
+		});
+		expect(stderr).toEqual([]);
+	});
+
+	test("runs optional pre-prompt output before interactive confirmation", async () => {
+		const stderr: string[] = [];
+		const interaction = createClinkrInteraction({
+			stdin: async () => "y",
+			stderr: (text) => stderr.push(text),
+			isInteractive: () => true,
+		});
+		await expect(
+			confirmInteractiveOrUsageError(interaction, {
+				nonInteractive,
+				confirmation: { message: "Continue?", defaultAnswer: "no" },
+				beforePrompt: () => stderr.push("before\n"),
+			}),
+		).resolves.toEqual({ type: "confirmed" });
+		expect(stderr).toEqual(["before\n", "Continue? [y/N]: "]);
 	});
 });

@@ -85,7 +85,7 @@ class FakePi implements CliCommandExtensionAPI {
 		options: {
 			registerMessageRenderer?: boolean;
 			sendMessage?: boolean;
-			staleSendMessage?: boolean;
+			shouldMakeSendMessageStale?: boolean;
 		} = {},
 	) {
 		if (options.registerMessageRenderer ?? true) {
@@ -96,7 +96,7 @@ class FakePi implements CliCommandExtensionAPI {
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
-				if (options.staleSendMessage === true) {
+				if (options.shouldMakeSendMessageStale === true) {
 					throw new Error(
 						"This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession().",
 					);
@@ -1223,7 +1223,7 @@ describe("cli command extension helper", () => {
 	});
 
 	test("suppresses final output when the Pi message host becomes stale", async () => {
-		const pi = new FakePi({ staleSendMessage: true });
+		const pi = new FakePi({ shouldMakeSendMessageStale: true });
 		registerFakeCli(pi);
 		const { ctx, notifications } = createContext();
 

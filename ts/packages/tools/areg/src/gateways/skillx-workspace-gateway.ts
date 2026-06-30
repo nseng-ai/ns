@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, readdir, readlink, realpath, rm } from "node:fs/promises";
+import { lstat, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -9,7 +9,6 @@ import type {
 	AregErrorInfo,
 	AregNpxSkillsGateway,
 	AregOperationResult,
-	AregPathState,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
@@ -17,6 +16,7 @@ import type {
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
+import { inspectPath, isNodeErrorCode, isPathAtOrBelow } from "./fs-utils.ts";
 
 export class RealAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGateway {
 	private readonly npxSkills: AregNpxSkillsGateway;
@@ -211,40 +211,10 @@ async function cleanupSkillxWorkspace(workspaceRoot: string): Promise<AregOperat
 	}
 }
 
-async function inspectPath(candidate: string): Promise<AregPathState> {
-	try {
-		const info = await lstat(candidate);
-		if (info.isSymbolicLink()) return { type: "symlink", target: await readlink(candidate) };
-		if (info.isDirectory()) return { type: "directory" };
-		if (info.isFile()) return { type: "file" };
-		return { type: "other" };
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
-		return { type: "other" };
-	}
-}
-
 async function removeWorkspaceQuietly(workspaceRoot: string): Promise<void> {
 	try {
 		await rm(workspaceRoot, { recursive: true, force: true });
 	} catch {
 		// Best-effort cleanup of a directory this gateway just created; the command result carries the original failure.
 	}
-}
-
-function isPathAtOrBelow(candidate: string, root: string): boolean {
-	const relative = path.relative(root, candidate);
-	return (
-		relative === "" ||
-		(relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative))
-	);
-}
-
-function isNodeErrorCode(error: unknown, code: string): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === code
-	);
 }

@@ -1,7 +1,7 @@
 import {
+	confirmInteractiveOrUsageError,
 	failure,
 	negative,
-	requireInteractiveOrUsageError,
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
@@ -109,31 +109,23 @@ export async function requirePublishConfirmation(options: {
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
 }): Promise<ClinkrExit<ClaimCommandResult> | null> {
-	const gate = requireInteractiveOrUsageError(options.interaction, {
-		message: "Publishing a real package requires --yes (or -y) when non-interactive.",
-		missingFlag: "yes",
-		howToSupply: "Pass --yes or -y to confirm publishing.",
+	const answer = await confirmInteractiveOrUsageError(options.interaction, {
+		nonInteractive: {
+			message: "Publishing a real package requires --yes (or -y) when non-interactive.",
+			missingFlag: "yes",
+			howToSupply: "Pass --yes or -y to confirm publishing.",
+		},
+		confirmation: { message: "Continue?", defaultAnswer: "no" },
+		beforePrompt: () => {
+			options.io.stderr(`Warning: this will publish a real package to ${options.registryLabel}.\n`);
+			options.io.stderr(`Package: ${options.packageName} (${options.version})\n`);
+		},
 	});
-	if (gate !== undefined) return gate;
-	if (await confirmRealPublish(options)) return null;
+	if (answer.type === "usageError") return answer;
+	if (answer.type === "confirmed") return null;
+	options.io.stderr("Aborted by user.\n");
 	return negative("Publishing aborted by user.", {
 		data: { type: "aborted", registry: options.registry, packageName: options.packageName },
 		human: "Aborted by user.",
 	});
-}
-
-async function confirmRealPublish(options: {
-	registryLabel: ClaimRegistryLabel;
-	packageName: string;
-	version: string;
-	io: PackagechkIo;
-	interaction: ClinkrInteraction;
-}): Promise<boolean> {
-	const { registryLabel, packageName, version, io, interaction } = options;
-	io.stderr(`Warning: this will publish a real package to ${registryLabel}.\n`);
-	io.stderr(`Package: ${packageName} (${version})\n`);
-	const answer = await interaction.confirm({ message: "Continue?", defaultAnswer: "no" });
-	if (answer.type === "confirmed") return true;
-	io.stderr("Aborted by user.\n");
-	return false;
 }
