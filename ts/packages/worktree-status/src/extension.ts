@@ -267,10 +267,10 @@ export interface WorktreeStatusLoaders {
 }
 
 export interface WorktreeStatusExtensionDependencies {
-	timers?: TimerScheduler | undefined;
-	clock?: Clock | undefined;
-	refreshIntervalMs?: number | undefined;
-	loaders?: Partial<WorktreeStatusLoaders> | undefined;
+	timers?: TimerScheduler;
+	clock?: Clock;
+	refreshIntervalMs?: number;
+	loaders?: Partial<WorktreeStatusLoaders>;
 }
 
 interface ActiveSession {
