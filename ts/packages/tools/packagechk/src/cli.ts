@@ -16,11 +16,10 @@ import { readStdinLine } from "@sdl/core/stdin";
 import { z } from "zod";
 
 import {
-	buildNpmClaimPolicy,
-	buildPypiClaimPolicy,
 	claimCommandResultSchema,
 	claimRequestSchema,
-	runClaimCommand,
+	runNpmClaimCommand,
+	runPypiClaimCommand,
 } from "./claim-command.ts";
 import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
@@ -79,9 +78,10 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			options: { yes: { short: "-y" } },
 			resultSchema: claimCommandResultSchema,
 			handler: async (ctx, request) =>
-				runClaimCommand({
+				runPypiClaimCommand({
 					request,
-					policy: buildPypiClaimPolicy(ctx),
+					registryGateway: ctx.registryGateway,
+					pypiPublishGateway: ctx.pypiPublishGateway,
 					io: ctx.io,
 					interaction: ctx.interaction,
 				}),
@@ -96,9 +96,10 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			options: { yes: { short: "-y" } },
 			resultSchema: claimCommandResultSchema,
 			handler: async (ctx, request) =>
-				runClaimCommand({
+				runNpmClaimCommand({
 					request,
-					policy: buildNpmClaimPolicy(ctx),
+					registryGateway: ctx.registryGateway,
+					npmPublishGateway: ctx.npmPublishGateway,
 					io: ctx.io,
 					interaction: ctx.interaction,
 				}),

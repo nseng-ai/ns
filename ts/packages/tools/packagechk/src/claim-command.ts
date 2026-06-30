@@ -101,51 +101,46 @@ interface ClaimViewData {
 	url: string;
 }
 
-interface ClaimPlan {
+interface PypiClaimProject {
 	lookupName: string;
 	dryRun: ClaimDryRunData;
 	view: ClaimViewData;
-	execute(projectDir: string, io: PackagechkIo): Promise<string | null>;
 }
 
-interface ClaimPolicy {
-	registry: ClaimRegistry;
-	label: ClaimRegistryLabel;
-	tempDirPrefix: string;
-	validate(name: string): string | null;
-	precheck(name: string): Promise<RegistryCheckResult>;
-	ensurePublishToolsAvailable(): string | null;
-	prepare(input: { name: string; description: string; claimVersion: string }): ClaimPlan;
+interface NpmClaimProject {
+	dryRun: ClaimDryRunData;
+	view: ClaimViewData;
 }
 
-export async function runClaimCommand(options: {
+export async function runPypiClaimCommand(options: {
 	request: ClaimRequest;
-	policy: ClaimPolicy;
+	registryGateway: PackageRegistryGateway;
+	pypiPublishGateway: PypiPublishGateway;
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
 }): Promise<ClinkrExit<ClaimCommandResult>> {
-	const { request, policy, io, interaction } = options;
+	const { request, registryGateway, pypiPublishGateway, io, interaction } = options;
 	const isDryRun = request.dryRun === true;
 	const shouldSkipCheck = request.skipCheck === true;
-	const validationError = policy.validate(request.name);
+	const validationError = pypiValidationError(request.name);
 	if (validationError !== null) {
-		const message = formatRegistryStatusLine(policy.registry, "invalid", validationError);
+		const message = formatRegistryStatusLine("pypi", "invalid", validationError);
 		return usageError(message, {
-			registry: policy.registry,
+			registry: "pypi",
 			packageName: request.name,
 			reason: validationError,
 		});
 	}
 	const checkResult =
-		!isDryRun && !shouldSkipCheck ? await policy.precheck(request.name) : undefined;
+		!isDryRun && !shouldSkipCheck ? await registryGateway.check("pypi", request.name) : undefined;
 	if (checkResult !== undefined) {
-		const precheckExit = precheckExitForResult(policy.registry, checkResult);
+		const precheckExit = precheckExitForResult("pypi", checkResult);
 		if (precheckExit !== null) return precheckExit;
 		if (checkResult.lookupName !== request.name) {
-			io.stderr(`${policy.label} lookup name: ${checkResult.lookupName}\n`);
+			io.stderr(`PyPI lookup name: ${checkResult.lookupName}\n`);
 		}
 	}
-	const plan = policy.prepare({
+	const project = preparePypiClaimProject({
 		name: request.name,
 		description: request.description,
 		claimVersion: request.version,
@@ -153,105 +148,160 @@ export async function runClaimCommand(options: {
 	if (isDryRun) {
 		const availabilityLine = shouldSkipCheck
 			? "Availability check: skipped (--skip-check)"
-			: `Availability check: would check ${plan.dryRun.registryLabel} before publishing`;
-		renderClaimDryRun({ io, ...plan.dryRun, availabilityLine });
-		return ok(claimDryRunResult(policy.registry, plan.dryRun), {
-			human: `[DRY RUN] Would claim ${plan.dryRun.registryLabel} package name '${plan.dryRun.packageName}'.`,
+			: "Availability check: would check PyPI before publishing";
+		renderClaimDryRun({ io, ...project.dryRun, availabilityLine });
+		return ok(claimDryRunResult("pypi", project.dryRun), {
+			human: `[DRY RUN] Would claim PyPI package name '${project.dryRun.packageName}'.`,
 		});
 	}
-	if (checkResult === undefined && plan.lookupName !== request.name) {
-		io.stderr(`${policy.label} lookup name: ${plan.lookupName}\n`);
+	if (checkResult === undefined && project.lookupName !== request.name) {
+		io.stderr(`PyPI lookup name: ${project.lookupName}\n`);
 	}
-	const toolsError = policy.ensurePublishToolsAvailable();
+	const toolsError = pypiPublishGateway.ensurePublishToolsAvailable();
 	if (toolsError !== null) {
 		return failure("publish-tools-unavailable", toolsError, {
-			registry: policy.registry,
+			registry: "pypi",
 			packageName: request.name,
 		});
 	}
 	if (request.yes !== true) {
-		if (!interaction.isInteractive()) {
-			return usageError("Publishing a real package requires --yes (or -y) when non-interactive.", {
-				missingFlag: "yes",
-				howToSupply: "Pass --yes or -y to confirm publishing.",
-			});
-		}
-		if (
-			!(await confirmRealPublish({
-				registryLabel: policy.label,
-				packageName: request.name,
-				version: request.version,
-				io,
-				interaction,
-			}))
-		) {
-			return negative("Publishing aborted by user.", {
-				data: { type: "aborted", registry: policy.registry, packageName: request.name },
-				human: "Aborted by user.",
-			});
-		}
+		const confirmationExit = await requirePublishConfirmation({
+			registry: "pypi",
+			registryLabel: "PyPI",
+			packageName: request.name,
+			version: request.version,
+			io,
+			interaction,
+		});
+		if (confirmationExit !== null) return confirmationExit;
 	}
-	const projectDir = mkdtempSync(join(tmpdir(), policy.tempDirPrefix));
+	const projectDir = mkdtempSync(join(tmpdir(), "packagechk-claim-pypi-"));
 	try {
-		writeClaimFiles(projectDir, plan.dryRun.files);
-		const publishError = await plan.execute(projectDir, io);
+		writeClaimFiles(projectDir, project.dryRun.files);
+		const publishError = await executePypiClaimProject({
+			projectDir,
+			gateway: pypiPublishGateway,
+			io,
+		});
 		if (publishError !== null) {
 			return failure("publish-failed", publishError, {
-				registry: policy.registry,
+				registry: "pypi",
 				packageName: request.name,
 			});
 		}
 	} finally {
 		rmSync(projectDir, { recursive: true, force: true });
 	}
-	io.stderr(`✓ Claimed ${policy.label} package name '${request.name}'.\n`);
-	io.stderr(`View ${plan.view.noun}: ${plan.view.url}\n`);
+	io.stderr(`✓ Claimed PyPI package name '${request.name}'.\n`);
+	io.stderr(`View ${project.view.noun}: ${project.view.url}\n`);
 	return ok(
 		{
 			type: "claimed",
-			registry: policy.registry,
+			registry: "pypi",
 			packageName: request.name,
 			version: request.version,
-			url: plan.view.url,
+			url: project.view.url,
 		},
-		{ human: `Claimed ${policy.label} package name '${request.name}'.` },
+		{ human: `Claimed PyPI package name '${request.name}'.` },
 	);
 }
 
-export function buildPypiClaimPolicy(ctx: {
-	registryGateway: PackageRegistryGateway;
-	pypiPublishGateway: PypiPublishGateway;
-}): ClaimPolicy {
-	return {
-		registry: "pypi",
-		label: "PyPI",
-		tempDirPrefix: "packagechk-claim-pypi-",
-		validate: pypiValidationError,
-		precheck: (name) => ctx.registryGateway.check("pypi", name),
-		ensurePublishToolsAvailable: () => ctx.pypiPublishGateway.ensurePublishToolsAvailable(),
-		prepare: (input) => preparePypiClaimPlan(input, ctx.pypiPublishGateway),
-	};
-}
-
-export function buildNpmClaimPolicy(ctx: {
+export async function runNpmClaimCommand(options: {
+	request: ClaimRequest;
 	registryGateway: PackageRegistryGateway;
 	npmPublishGateway: NpmPublishGateway;
-}): ClaimPolicy {
-	return {
-		registry: "npm",
-		label: "npm",
-		tempDirPrefix: "packagechk-claim-npm-",
-		validate: npmValidationError,
-		precheck: (name) => ctx.registryGateway.check("npm", name),
-		ensurePublishToolsAvailable: () => ctx.npmPublishGateway.ensurePublishToolsAvailable(),
-		prepare: (input) => prepareNpmClaimPlan(input, ctx.npmPublishGateway),
-	};
+	io: PackagechkIo;
+	interaction: ClinkrInteraction;
+}): Promise<ClinkrExit<ClaimCommandResult>> {
+	const { request, registryGateway, npmPublishGateway, io, interaction } = options;
+	const isDryRun = request.dryRun === true;
+	const shouldSkipCheck = request.skipCheck === true;
+	const validationError = npmValidationError(request.name);
+	if (validationError !== null) {
+		const message = formatRegistryStatusLine("npm", "invalid", validationError);
+		return usageError(message, {
+			registry: "npm",
+			packageName: request.name,
+			reason: validationError,
+		});
+	}
+	const checkResult =
+		!isDryRun && !shouldSkipCheck ? await registryGateway.check("npm", request.name) : undefined;
+	if (checkResult !== undefined) {
+		const precheckExit = precheckExitForResult("npm", checkResult);
+		if (precheckExit !== null) return precheckExit;
+		if (checkResult.lookupName !== request.name) {
+			io.stderr(`npm lookup name: ${checkResult.lookupName}\n`);
+		}
+	}
+	const project = prepareNpmClaimProject({
+		name: request.name,
+		description: request.description,
+		claimVersion: request.version,
+	});
+	if (isDryRun) {
+		const availabilityLine = shouldSkipCheck
+			? "Availability check: skipped (--skip-check)"
+			: "Availability check: would check npm before publishing";
+		renderClaimDryRun({ io, ...project.dryRun, availabilityLine });
+		return ok(claimDryRunResult("npm", project.dryRun), {
+			human: `[DRY RUN] Would claim npm package name '${project.dryRun.packageName}'.`,
+		});
+	}
+	const toolsError = npmPublishGateway.ensurePublishToolsAvailable();
+	if (toolsError !== null) {
+		return failure("publish-tools-unavailable", toolsError, {
+			registry: "npm",
+			packageName: request.name,
+		});
+	}
+	if (request.yes !== true) {
+		const confirmationExit = await requirePublishConfirmation({
+			registry: "npm",
+			registryLabel: "npm",
+			packageName: request.name,
+			version: request.version,
+			io,
+			interaction,
+		});
+		if (confirmationExit !== null) return confirmationExit;
+	}
+	const projectDir = mkdtempSync(join(tmpdir(), "packagechk-claim-npm-"));
+	try {
+		writeClaimFiles(projectDir, project.dryRun.files);
+		const publishError = await executeNpmClaimProject({
+			projectDir,
+			gateway: npmPublishGateway,
+			io,
+		});
+		if (publishError !== null) {
+			return failure("publish-failed", publishError, {
+				registry: "npm",
+				packageName: request.name,
+			});
+		}
+	} finally {
+		rmSync(projectDir, { recursive: true, force: true });
+	}
+	io.stderr(`✓ Claimed npm package name '${request.name}'.\n`);
+	io.stderr(`View ${project.view.noun}: ${project.view.url}\n`);
+	return ok(
+		{
+			type: "claimed",
+			registry: "npm",
+			packageName: request.name,
+			version: request.version,
+			url: project.view.url,
+		},
+		{ human: `Claimed npm package name '${request.name}'.` },
+	);
 }
 
-function preparePypiClaimPlan(
-	input: { name: string; description: string; claimVersion: string },
-	gateway: PypiPublishGateway,
-): ClaimPlan {
+function preparePypiClaimProject(input: {
+	name: string;
+	description: string;
+	claimVersion: string;
+}): PypiClaimProject {
 	const lookupName = normalizePypiName(input.name);
 	const spec: ClaimProjectSpec = {
 		packageName: input.name,
@@ -275,14 +325,14 @@ function preparePypiClaimPlan(
 			urlLine: `PyPI URL: ${projectUrl}`,
 		},
 		view: { noun: "project", url: projectUrl },
-		execute: (projectDir, io) => executePypiClaimPlan({ projectDir, gateway, io }),
 	};
 }
 
-function prepareNpmClaimPlan(
-	input: { name: string; description: string; claimVersion: string },
-	gateway: NpmPublishGateway,
-): ClaimPlan {
+function prepareNpmClaimProject(input: {
+	name: string;
+	description: string;
+	claimVersion: string;
+}): NpmClaimProject {
 	const spec: NpmClaimProjectSpec = {
 		packageName: input.name,
 		description: input.description,
@@ -292,7 +342,6 @@ function prepareNpmClaimPlan(
 	const files = buildNpmClaimProjectFiles(spec);
 	const packageUrl = npmPackagePageUrl(input.name);
 	return {
-		lookupName: input.name,
 		dryRun: {
 			registryLabel: "npm",
 			packageName: spec.packageName,
@@ -304,11 +353,10 @@ function prepareNpmClaimPlan(
 			urlLine: `npm URL: ${packageUrl}`,
 		},
 		view: { noun: "package", url: packageUrl },
-		execute: (projectDir, io) => executeNpmClaimPlan({ projectDir, gateway, io }),
 	};
 }
 
-async function executePypiClaimPlan(options: {
+async function executePypiClaimProject(options: {
 	projectDir: string;
 	gateway: PypiPublishGateway;
 	io: PackagechkIo;
@@ -326,7 +374,7 @@ async function executePypiClaimPlan(options: {
 	return null;
 }
 
-async function executeNpmClaimPlan(options: {
+async function executeNpmClaimProject(options: {
 	projectDir: string;
 	gateway: NpmPublishGateway;
 	io: PackagechkIo;
@@ -416,6 +464,27 @@ function renderClaimDryRun(
 		options.io.stderr(`Would run: ${command}\n`);
 	}
 	options.io.stderr(`${options.urlLine}\n`);
+}
+
+async function requirePublishConfirmation(options: {
+	registry: ClaimRegistry;
+	registryLabel: ClaimRegistryLabel;
+	packageName: string;
+	version: string;
+	io: PackagechkIo;
+	interaction: ClinkrInteraction;
+}): Promise<ClinkrExit<ClaimCommandResult> | null> {
+	if (!options.interaction.isInteractive()) {
+		return usageError("Publishing a real package requires --yes (or -y) when non-interactive.", {
+			missingFlag: "yes",
+			howToSupply: "Pass --yes or -y to confirm publishing.",
+		});
+	}
+	if (await confirmRealPublish(options)) return null;
+	return negative("Publishing aborted by user.", {
+		data: { type: "aborted", registry: options.registry, packageName: options.packageName },
+		human: "Aborted by user.",
+	});
 }
 
 async function confirmRealPublish(options: {
