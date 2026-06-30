@@ -1,3 +1,4 @@
+import { calculateLandingOutcome } from "./preflight.ts";
 import type { LandContext, LandingOutcome, LandingRequest, LandResult } from "./types.ts";
 
 export const LAND_CAPABILITY_ID = "land";
@@ -16,24 +17,23 @@ export const LAND_CAPABILITY_METADATA: LandCapabilityMetadata = {
 };
 
 /**
- * Stack-first land-domain entry point. The domain implementation is intentionally deferred until the
- * Flow land behavior moves into this package; callers can wire against the stable request/result
- * vocabulary without importing Flow internals.
+ * Stack-first land-domain entry point. This package owns renderer-independent preflight and dry-run
+ * planning; Flow still owns mutation-heavy merge execution while migration continues.
  */
 export async function executeLanding(
 	context: LandContext,
 	request: LandingRequest,
 ): Promise<LandResult<LandingOutcome>> {
-	void context;
-	return {
-		type: "failure",
-		failure: {
-			type: "not-implemented",
-			phase: request.mode === "dry-run" ? "dry-run" : "preflight",
-			message: "sdl-land executeLanding is not implemented until Flow land behavior moves here.",
-		},
-	};
+	return await calculateLandingOutcome(context, request);
 }
+
+export {
+	buildStackLandingPlan,
+	calculateLandingOutcome,
+	collectPrSubmitRequirements,
+	landingParentEdges,
+	scopeStackSnapshot,
+} from "./preflight.ts";
 
 export type {
 	BranchLandingPlan,
