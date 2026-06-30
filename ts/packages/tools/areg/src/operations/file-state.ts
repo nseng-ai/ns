@@ -17,7 +17,7 @@ export function validateOptionalDirectoryState(options: {
 	pathLabel: string;
 	state: AregPathState;
 	action: string;
-	symlinkSubject?: string | undefined;
+	symlinkSubject?: string;
 }): Result<undefined> {
 	if (options.state.type === "missing" || options.state.type === "directory")
 		return { ok: true, value: undefined };
@@ -25,7 +25,7 @@ export function validateOptionalDirectoryState(options: {
 		pathLabel: options.pathLabel,
 		state: options.state,
 		action: options.action,
-		symlinkSubject: options.symlinkSubject,
+		...(options.symlinkSubject === undefined ? {} : { symlinkSubject: options.symlinkSubject }),
 	});
 }
 
@@ -33,8 +33,8 @@ export function rejectTextState<T>(options: {
 	pathLabel: string;
 	state: NonUsableTextFileState;
 	action: string;
-	description?: string | undefined;
-	unreadableMode?: "failed-read" | "not-file" | undefined;
+	description?: string;
+	unreadableMode?: "failed-read" | "not-file";
 }): Result<T> {
 	if (options.state.type === "symlink") {
 		const subject =
@@ -62,7 +62,7 @@ function rejectDirectoryState<T>(options: {
 	pathLabel: string;
 	state: NonUsableDirectoryState;
 	action: string;
-	symlinkSubject?: string | undefined;
+	symlinkSubject?: string;
 }): Result<T> {
 	if (options.state.type === "symlink")
 		return resultErr({

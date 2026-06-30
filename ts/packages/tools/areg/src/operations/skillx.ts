@@ -209,7 +209,7 @@ export async function runSkillxFetch(
 	if (tool.type === "missing") return failure("missing-tool", tool.message);
 	const install = await ctx.skillxWorkspace.installIntoWorkspace({
 		sourceRepo: request.repo,
-		skillName: request.skill,
+		...(request.skill === undefined ? {} : { skillName: request.skill }),
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});
