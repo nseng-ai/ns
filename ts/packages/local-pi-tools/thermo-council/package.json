@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@local-pi-tools/runner-subagents": "workspace:*",
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/pi": "workspace:*",

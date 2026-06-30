@@ -1,5 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,7 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./extension-discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
+import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg-path";
 import type { SdlCommand } from "sdl-sdk";
 
 export type ExtensionSourceLevel = SdlCommandSourceLevel;
@@ -93,7 +94,9 @@ export async function loadSdlCommandCatalog(
 	const diagnostics: ExtensionDiagnostic[] = [];
 	const builtInCandidates = listBuiltInSdlCommandCandidates();
 	const env = catalogEnv(options);
-	const globalRoots = [resolveSdlDataPath({ env, segments: ["extensions"] })];
+	const globalRoots = [
+		requireXdgPath(resolveSdlXdgPath({ kind: "data", env, segments: ["extensions"] })),
+	];
 	const orderedSources: Array<{
 		level: ExtensionSourceLevel;
 		label: string;
@@ -535,30 +538,6 @@ function catalogEnv(options: LoadSdlCommandCatalogOptions): Record<string, strin
 		...(options.env ?? {}),
 		...(options.homeDir === undefined ? {} : { HOME: options.homeDir }),
 	};
-}
-
-// Kernel cannot depend on Capability Kit without reversing SDK tier direction. Keep this
-// bootstrap-only XDG_DATA_HOME resolver local until the extension registry has a lower-tier
-// seam; importing the Result-based Capability Kit XDG helper here would widen the wrong tier.
-function resolveSdlDataPath(options: {
-	env: Record<string, string | undefined>;
-	segments: readonly string[];
-}): string {
-	const xdgDataHome = options.env.XDG_DATA_HOME;
-	if (xdgDataHome !== undefined && xdgDataHome.length > 0 && isAbsolute(xdgDataHome)) {
-		return join(xdgDataHome, "sdl", ...options.segments);
-	}
-
-	const home = options.env.HOME;
-	if (home === undefined || home.length === 0) {
-		throw new Error("HOME environment variable is not set; cannot resolve default XDG_DATA_HOME.");
-	}
-	if (!isAbsolute(home)) {
-		throw new Error(
-			`HOME environment variable must be absolute to resolve default XDG_DATA_HOME: ${home}`,
-		);
-	}
-	return join(home, ".local", "share", "sdl", ...options.segments);
 }
 
 function uniquePaths(paths: readonly string[]): readonly string[] {

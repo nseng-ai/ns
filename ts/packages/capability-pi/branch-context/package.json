@@ -13,7 +13,6 @@
   "dependencies": {
     "@earendil-works/pi-tui": "catalog:",
     "@sdl/branch-context": "workspace:*",
-    "@sdl/brmem": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",

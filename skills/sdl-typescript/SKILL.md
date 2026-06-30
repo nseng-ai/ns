@@ -128,7 +128,7 @@ example, prefer `ctx.renderCapabilities: RenderCapabilities` over
 
 ## Time seams
 
-Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `systemTimerScheduler` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` from `@sdl/core/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
+Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `ScheduledTimer` from `@sdl/core/timers` for scheduling contracts, concrete `systemClock` / `systemTimerScheduler` from `@sdl/time`, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` plus related harnesses from `@sdl/time/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.
 
 ## Hard bans enforced by TypeScript style guard tests
 
