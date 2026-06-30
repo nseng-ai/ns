@@ -904,7 +904,7 @@ describe("code land command", () => {
 			},
 			{
 				message:
-					"merge stdout\nmerge stderr\ngh pr merge --squash with PR title/body failed for PR #42 with exit code 1.",
+					"gh pr merge --squash with PR title/body failed for PR #42.\n$ gh pr merge 42 --squash --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --subject 'Ship feature' --body 'Feature body'\nexit 1\n----- stdout tail -----\nmerge stdout\n----- stderr tail -----\nmerge stderr",
 				level: "error",
 			},
 		]);

@@ -45,11 +45,7 @@ import type {
 
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./land-stack/types.ts";
 export type { ValidPullRequestView } from "./land/isolated-fast-path.ts";
-export {
-	isIsolatedFastPath,
-	loadPullRequest,
-	parsePullRequestView,
-} from "./land/isolated-fast-path.ts";
+export { isIsolatedFastPath, parsePullRequestView } from "./land/isolated-fast-path.ts";
 
 export interface ExecResult {
 	stdout: string;
@@ -194,7 +190,7 @@ async function runLandCommand(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	const outcome = await executeStackLanding(pi, ctx, args.value, {
-		skipMainConfirmation: true,
+		shouldSkipMainConfirmation: true,
 		...(args.value.shouldSkipConfirmation ? {} : { preMergeConfirmation: "already-approved" }),
 		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),

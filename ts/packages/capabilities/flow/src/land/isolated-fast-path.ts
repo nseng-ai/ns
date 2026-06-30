@@ -1,5 +1,4 @@
 import type { SdlCommandIo } from "sdl-sdk";
-import { formatErrorMessage } from "@sdl/core/primitives";
 import { formatCommand } from "@sdl/exec";
 import {
 	completed,
@@ -8,7 +7,7 @@ import {
 	type LandStackOutcome,
 } from "../land-stack/errors.ts";
 import { exec, formatCommandDetails } from "../land-stack/command-exec.ts";
-import { GH_MERGE_TIMEOUT_MS, GH_TIMEOUT_MS, PR_FIELDS } from "../land-stack/constants.ts";
+import { GH_MERGE_TIMEOUT_MS } from "../land-stack/constants.ts";
 import { squashMergeArgs } from "../land-stack/landing-operations.ts";
 import { loadPr } from "../land-stack/pr-facts.ts";
 import { presentPrintAwareBrief, setStatus } from "../land-stack/presentation.ts";
@@ -105,9 +104,9 @@ export async function runIsolatedFastPathLanding(
 		timeoutMs: GH_MERGE_TIMEOUT_MS,
 	});
 
-	const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 	if (result.code === 0) {
 		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
+		const output = successfulCommandOutput(result);
 		notify({
 			ctx: options.ctx,
 			message: output ? `${output}\n${message}` : message,
@@ -117,8 +116,9 @@ export async function runIsolatedFastPathLanding(
 		return completed();
 	}
 
-	const message = `gh pr merge --squash with PR title/body failed for PR #${pr.number} with exit code ${result.code}.`;
-	const fullMessage = output ? `${output}\n${message}` : message;
+	const commandDisplay = formatCommand("gh", mergeArgs);
+	const message = `gh pr merge --squash with PR title/body failed for PR #${pr.number}.`;
+	const fullMessage = `${message}\n${formatCommandDetails(result, commandDisplay)}`;
 	notify({ ctx: options.ctx, message: fullMessage, level: "error", kind: "failure" });
 	return failure(landStackFailure(fullMessage));
 }
@@ -150,32 +150,8 @@ function notify(options: {
 	});
 }
 
-export async function loadPullRequest(
-	pi: IsolatedFastPathApi,
-	cwd: string,
-): Promise<ValidPullRequestView | { error: string }> {
-	const args = ["pr", "view", "--json", PR_FIELDS];
-	const result = await exec({ pi, command: "gh", args, cwd, timeoutMs: GH_TIMEOUT_MS });
-	if (result.code !== 0) {
-		const output = [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-		return {
-			error:
-				output.length > 0
-					? output
-					: `gh pr view failed with exit code ${result.code}. Merge not attempted.`,
-		};
-	}
-
-	let raw: unknown;
-	try {
-		raw = JSON.parse(result.stdout);
-	} catch (error) {
-		return {
-			error: `Failed to parse gh pr view output: ${formatErrorMessage(error)}. Merge not attempted.\n${formatCommandDetails(result, formatCommand("gh", args))}`,
-		};
-	}
-
-	return parsePullRequestView(raw);
+function successfulCommandOutput(result: { stdout: string; stderr: string }): string {
+	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
 }
 
 export function parsePullRequestView(value: unknown): ValidPullRequestView | { error: string } {

@@ -482,6 +482,23 @@ export function present(options: PresentOptions): void {
 	});
 }
 
+interface PresentDryRunLandingOptions {
+	ctx: LandStackCommandContext;
+	commandStream: LandStackCommandStream;
+	planText: string;
+}
+
+export function presentDryRunLanding(options: PresentDryRunLandingOptions): void {
+	const message = "Dry run only; no PRs or local refs were changed.";
+	options.commandStream.finishSuccess(message);
+	present({
+		ctx: options.ctx,
+		message: `${message}\n\n${options.planText}`,
+		level: "info",
+		kind: "success",
+	});
+}
+
 interface PresentBriefOptions {
 	ctx: LandStackCommandContext;
 	fullMessage: string;
