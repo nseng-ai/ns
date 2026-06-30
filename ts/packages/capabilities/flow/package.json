@@ -35,6 +35,7 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",
+    "sdl-land": "workspace:*",
     "sdl-sdk": "workspace:*"
   },
   "devDependencies": {},

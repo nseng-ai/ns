@@ -1,25 +1,47 @@
 import { formatCommand } from "@sdl/exec";
+import { buildStackLandingPlan } from "sdl-land/api";
+import type {
+	LandContext,
+	LandingFailure,
+	LandOutcome,
+	LandResult,
+	WorkingTreeStatus,
+	WorktreeClassification,
+} from "sdl-land/api";
 import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
-import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
-import { collectPrSubmitRequirements, loadPr, validateInitialPrPreflight } from "./pr-facts.ts";
+import { resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
-	assertCleanRepo,
+	failure,
+	landStackFailure,
+	success,
+	type LandStackFailure,
+	type LandStackResult,
+} from "./errors.ts";
+import { loadPr } from "./pr-facts.ts";
+import {
 	assertLocalBranchExists,
+	detectInProgressOperation,
+	loadCurrentBranch,
 	loadLandingShape,
 	loadLocalSha,
+	loadLiveLocalBranches,
+	loadRepoRoot,
+	loadTrunk,
 } from "./stack-facts.ts";
 import type {
-	BranchPlan,
-	DescendantMaintenancePlan,
 	LandStackExtensionAPI,
 	LandingPlan,
 	LandingShape,
 	RestackRequirement,
 	StackSnapshot,
-	WorktreeConflict,
 } from "./types.ts";
-import { detectWorktreeConflicts, formatManualWorktreeConflict } from "./worktrees.ts";
+import {
+	isManagedSlotPath,
+	loadWorktrees,
+	normalizeExistingPath,
+	slotNameFromPath,
+} from "./worktrees.ts";
 
 export async function buildLandingPlan(
 	pi: LandStackExtensionAPI,
@@ -35,90 +57,374 @@ export async function buildLandingPlan(
 		: await loadLandingShape(pi, cwd);
 	if (shape.type === "failure") return shape;
 
-	const scopedStack = scopeStackSnapshot(shape.value.stack, options.landingBranchLimit);
-	const { repoRoot } = shape.value;
-	const stack = scopedStack;
-	if (stack.actualCurrentBranch === stack.trunk || stack.landingBranches.length === 0) {
-		return failure(
-			landStackFailure(
-				`Current branch is ${stack.actualCurrentBranch}, which is trunk or has no PR path to land. Nothing to do.`,
-				{ level: "info" },
-			),
-		);
-	}
-
-	const cleanRepo = await assertCleanRepo(pi, repoRoot);
-	if (cleanRepo.type === "failure") return cleanRepo;
-
-	const landingBranches = stack.landingBranches;
-	const descendantBranches =
-		stack.remainingLandingBranches.length > 0 ? [] : stack.descendantBranches;
-	for (const branch of landingBranches) {
-		const branchExists = await assertLocalBranchExists(pi, repoRoot, branch);
-		if (branchExists.type === "failure") return branchExists;
-	}
-
-	const branchPlans: BranchPlan[] = [];
-	for (const branch of stack.landingBranches) {
-		const localSha = await loadLocalSha(pi, repoRoot, branch);
-		if (localSha.type === "failure") return localSha;
-		const pr = await loadPr(pi, repoRoot, branch);
-		if (pr.type === "failure") return pr;
-		branchPlans.push({ branch, localSha: localSha.value, pr: pr.value });
-	}
-	const preflight = validateInitialPrPreflight(branchPlans, stack.trunk, {
+	const landPlan = await buildStackLandingPlan(createLandContext(pi), cwd, {
 		allowSubmitRequiredState: Boolean(options.allowSubmitRequiredState),
+		preloadedShape: {
+			repoRoot: shape.value.repoRoot,
+			current: shape.value.current,
+			trunk: shape.value.trunk,
+			metadataDbPath: shape.value.metadataDbPath,
+			stack: {
+				...shape.value.stack,
+				warnings: shape.value.stack.warnings.map((message) => ({ level: "warning", message })),
+			},
+		},
+		...(options.landingBranchLimit === undefined
+			? {}
+			: { landingBranchLimit: options.landingBranchLimit }),
 	});
-	if (preflight.type === "failure") return preflight;
-	const prSubmitRequirements = collectPrSubmitRequirements(branchPlans, stack.trunk);
+	if (landPlan.type === "failure") return failure(toLandStackFailure(landPlan.failure));
 
-	const landingConflicts = await detectWorktreeConflicts(
+	return success(toFlowLandingPlan(landPlan.value));
+}
+
+function createLandContext(pi: LandStackExtensionAPI): LandContext {
+	return {
+		git: {
+			resolveRepoRoot: async ({ cwd }) => toLandResult(await loadRepoRoot(pi, cwd), "git"),
+			currentBranch: async ({ repoRoot }) =>
+				toLandResult(await loadCurrentBranch(pi, repoRoot), "git"),
+			workingTreeStatus: async ({ repoRoot }) => loadWorkingTreeStatus(pi, repoRoot),
+			localBranchExists: async ({ repoRoot, branch }) =>
+				loadLocalBranchExists(pi, repoRoot, branch),
+			localBranchSha: async ({ repoRoot, branch }) =>
+				toLandResult(await loadLocalSha(pi, repoRoot, branch), "git"),
+			listLocalBranches: async ({ repoRoot }) => loadLocalBranches(pi, repoRoot),
+			branchContainsParent: async ({ repoRoot, branch, parent }) =>
+				loadBranchContainsParent(pi, repoRoot, branch, parent),
+		},
+		graphite: {
+			trunk: async ({ repoRoot }) => toLandResult(await loadTrunk(pi, repoRoot), "graphite"),
+			metadataDbPath: async ({ repoRoot }) =>
+				toLandResult(await resolveMetadataDbPath(pi, repoRoot), "graphite"),
+			stackShape: async (request) => {
+				const shape = await loadLandingShape(pi, request.repoRoot);
+				if (shape.type === "failure") return toLandResult(shape, "graphite");
+				return {
+					type: "success",
+					value: {
+						...shape.value.stack,
+						warnings: shape.value.stack.warnings.map((message) => ({ level: "warning", message })),
+					},
+				};
+			},
+			prepareSubmitUpdate: async () => ({ type: "completed" }),
+			prepareRestackForSubmit: async () => ({ type: "completed" }),
+		},
+		github: {
+			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
+				const pr = await loadPr(pi, repoRoot, branchOrNumber);
+				if (pr.type === "failure") return toLandResult(pr, "github");
+				return {
+					type: "success",
+					value: {
+						number: pr.value.number,
+						title: pr.value.title,
+						body: pr.value.body,
+						state: pr.value.state,
+						isDraft: pr.value.isDraft,
+						headRefName: pr.value.headRefName,
+						baseRefName: pr.value.baseRefName,
+						headRefOid: pr.value.headRefOid,
+						...(pr.value.mergeStateStatus === undefined
+							? {}
+							: { mergeStateStatus: pr.value.mergeStateStatus }),
+						...(pr.value.url === undefined ? {} : { url: pr.value.url }),
+						...(pr.value.mergedAt === undefined ? {} : { mergedAt: pr.value.mergedAt }),
+					},
+				};
+			},
+		},
+		worktrees: {
+			worktrees: async ({ repoRoot }) =>
+				toLandResult(await loadWorktrees(pi, repoRoot), "worktree"),
+			classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
+		},
+	};
+}
+
+async function loadWorkingTreeStatus(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandResult<WorkingTreeStatus>> {
+	const status = await exec({
 		pi,
-		repoRoot,
-		stack.actualCurrentBranch,
-		landingBranches,
-	);
-	if (landingConflicts.type === "failure") return landingConflicts;
-	const landingManualConflicts = landingConflicts.value.filter(
-		(conflict) => conflict.kind === "manual-worktree",
-	);
-	if (landingManualConflicts.length > 0) {
-		return failure(
-			landStackFailure(formatManualWorktreeConflict(landingManualConflicts), {
-				suggestedAction:
-					"Detach those landing-branch worktrees or check out unrelated branches, then rerun /sdl:flow:land.",
-			}),
-		);
+		command: "git",
+		args: ["status", "--porcelain=v1"],
+		cwd: repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
+	if (status.code !== 0) {
+		return landFailure("git", `Could not inspect working tree status.`);
+	}
+	if (status.stdout.trim().length > 0) {
+		return { type: "success", value: { isClean: false } };
 	}
 
-	const descendantConflicts =
-		descendantBranches.length > 0
-			? await detectWorktreeConflicts(pi, repoRoot, stack.actualCurrentBranch, descendantBranches)
-			: success([]);
-	if (descendantConflicts.type === "failure") return descendantConflicts;
-	const descendantMaintenance = buildDescendantMaintenancePlan(
-		descendantBranches,
-		descendantConflicts.value,
-	);
+	const operation = await detectInProgressOperation(pi, repoRoot);
+	if (operation === undefined) return { type: "success", value: { isClean: true } };
+	return {
+		type: "success",
+		value: { isClean: true, inProgressOperation: toLandOperation(operation) },
+	};
+}
 
-	const submitRestackRequirements =
-		prSubmitRequirements.length > 0
-			? await collectSubmitRestackRequirements(pi, repoRoot, stack)
-			: success([]);
-	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
+async function loadLocalBranchExists(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	branch: string,
+): Promise<LandOutcome> {
+	const result = await assertLocalBranchExists(pi, repoRoot, branch);
+	if (result.type === "success") return { type: "completed" };
+	return { type: "failure", failure: toLandFailure(result.failure, "git") };
+}
 
-	return success({
-		repoRoot,
-		metadataDbPath: shape.value.metadataDbPath,
-		stack,
-		branchPlans,
-		prSubmitRequirements,
-		submitRestackRequirements: submitRestackRequirements.value,
-		managedSlotConflicts: landingConflicts.value.filter(
-			(conflict) => conflict.kind === "managed-slot",
-		),
-		descendantMaintenance,
+async function loadLocalBranches(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
+	const branches = await loadLiveLocalBranches(pi, repoRoot);
+	if (branches.type === "failure") return toLandResult(branches, "git");
+	return {
+		type: "success",
+		value: [...branches.value].map((name) => ({ name, sha: "" })),
+	};
+}
+
+async function loadBranchContainsParent(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+	branch: string,
+	parent: string,
+): Promise<LandResult<boolean>> {
+	const result = await collectSubmitRestackRequirements(pi, repoRoot, {
+		trunk: parent,
+		current: branch,
+		actualCurrentBranch: branch,
+		landingTargetBranch: branch,
+		landingBranches: [branch],
+		remainingLandingBranches: [],
+		descendantBranches: [],
+		warnings: [],
 	});
+	if (result.type === "failure") return toLandResult(result, "git");
+	return { type: "success", value: result.value.length === 0 };
+}
+
+function classifyWorktree(
+	repoRoot: string,
+	path: string,
+): Promise<LandResult<WorktreeClassification>> {
+	const normalizedPath = normalizeExistingPath(path);
+	const normalizedRepoRoot = normalizeExistingPath(repoRoot);
+	if (normalizedPath === normalizedRepoRoot) {
+		return Promise.resolve({ type: "success", value: { type: "current" } });
+	}
+	if (isManagedSlotPath(path)) {
+		return Promise.resolve({
+			type: "success",
+			value: { type: "managed-slot", slotName: slotNameFromPath(path) ?? "slot" },
+		});
+	}
+	return Promise.resolve({ type: "success", value: { type: "manual-worktree" } });
+}
+
+function toLandOperation(operation: string): "cherry-pick" | "merge" | "rebase" | "revert" {
+	if (operation.includes("cherry-pick")) return "cherry-pick";
+	if (operation.includes("revert")) return "revert";
+	if (operation.includes("rebase")) return "rebase";
+	return "merge";
+}
+
+function toLandResult<T>(result: LandStackResult<T>, source: LandingFailureSource): LandResult<T> {
+	if (result.type === "success") return result;
+	return { type: "failure", failure: toLandFailure(result.failure, source) };
+}
+
+function landFailure(source: LandingFailureSource, message: string): LandResult<never> {
+	return {
+		type: "failure",
+		failure: {
+			type: "boundary",
+			phase: "preflight",
+			source,
+			code: "flow-adapter-failure",
+			message,
+		},
+	};
+}
+
+function toLandFailure(
+	flowFailure: LandStackFailure,
+	source: LandingFailureSource,
+): LandingFailure {
+	return {
+		type: "boundary",
+		phase: "preflight",
+		source,
+		code: "flow-adapter-failure",
+		message: flowFailure.message,
+	};
+}
+
+type LandingFailureSource = "git" | "graphite" | "github" | "worktree" | "slot";
+
+interface LandPlanForFlow {
+	readonly repoRoot: string;
+	readonly metadataDbPath: string;
+	readonly stack: {
+		readonly trunk: string;
+		readonly current: string;
+		readonly actualCurrentBranch: string;
+		readonly landingTargetBranch: string;
+		readonly landingBranches: readonly string[];
+		readonly remainingLandingBranches: readonly string[];
+		readonly descendantBranches: readonly string[];
+		readonly warnings: readonly { readonly message: string }[];
+	};
+	readonly branchPlans: readonly {
+		readonly branch: string;
+		readonly localSha: string;
+		readonly pr: {
+			readonly number: number;
+			readonly title: string;
+			readonly body: string | null;
+			readonly state: string;
+			readonly isDraft: boolean;
+			readonly headRefName: string;
+			readonly baseRefName: string;
+			readonly headRefOid: string;
+			readonly mergeStateStatus?: string;
+			readonly url?: string;
+			readonly mergedAt?: string | null;
+		};
+	}[];
+	readonly prSubmitRequirements: readonly {
+		readonly branch: string;
+		readonly prNumber: number;
+		readonly localSha: string;
+		readonly prHeadSha: string;
+		readonly baseRefName: string;
+		readonly expectedBaseRefName?: string;
+		readonly reasons: readonly string[];
+	}[];
+	readonly submitRestackRequirements: readonly RestackRequirement[];
+	readonly managedSlotConflicts: readonly {
+		readonly type: "current" | "managed-slot" | "manual-worktree";
+		readonly branch: string;
+		readonly path: string;
+	}[];
+	readonly descendantMaintenance:
+		| { readonly type: "none"; readonly branches: readonly [] }
+		| { readonly type: "auto"; readonly branches: readonly string[]; readonly targetBranch: string }
+		| {
+				readonly type: "skipped";
+				readonly branches: readonly string[];
+				readonly targetBranch?: string;
+				readonly conflicts: readonly {
+					readonly type: "current" | "managed-slot" | "manual-worktree";
+					readonly branch: string;
+					readonly path: string;
+				}[];
+				readonly reason: string;
+		  };
+}
+
+function toFlowLandingPlan(plan: LandPlanForFlow): LandingPlan {
+	return {
+		repoRoot: plan.repoRoot,
+		metadataDbPath: plan.metadataDbPath,
+		stack: {
+			trunk: plan.stack.trunk,
+			current: plan.stack.current,
+			actualCurrentBranch: plan.stack.actualCurrentBranch,
+			landingTargetBranch: plan.stack.landingTargetBranch,
+			landingBranches: [...plan.stack.landingBranches],
+			remainingLandingBranches: [...plan.stack.remainingLandingBranches],
+			descendantBranches: [...plan.stack.descendantBranches],
+			warnings: plan.stack.warnings.map((warning) => warning.message),
+		},
+		branchPlans: plan.branchPlans.map((branchPlan) => ({
+			branch: branchPlan.branch,
+			localSha: branchPlan.localSha,
+			pr: {
+				number: branchPlan.pr.number,
+				title: branchPlan.pr.title,
+				body: branchPlan.pr.body,
+				state: branchPlan.pr.state,
+				isDraft: branchPlan.pr.isDraft,
+				headRefName: branchPlan.pr.headRefName,
+				baseRefName: branchPlan.pr.baseRefName,
+				headRefOid: branchPlan.pr.headRefOid,
+				mergeStateStatus: branchPlan.pr.mergeStateStatus,
+				url: branchPlan.pr.url,
+				mergedAt: branchPlan.pr.mergedAt,
+			},
+		})),
+		prSubmitRequirements: plan.prSubmitRequirements.map((requirement) => ({
+			branch: requirement.branch,
+			prNumber: requirement.prNumber,
+			localSha: requirement.localSha,
+			prHeadSha: requirement.prHeadSha,
+			baseRefName: requirement.baseRefName,
+			expectedBaseRefName: requirement.expectedBaseRefName,
+			reasons: [...requirement.reasons],
+		})),
+		submitRestackRequirements: plan.submitRestackRequirements.map((requirement) => ({
+			branch: requirement.branch,
+			parent: requirement.parent,
+		})),
+		managedSlotConflicts: plan.managedSlotConflicts.map(toFlowConflict),
+		descendantMaintenance: toFlowDescendantMaintenance(plan.descendantMaintenance),
+	};
+}
+
+function toFlowConflict(conflict: {
+	readonly type: "current" | "managed-slot" | "manual-worktree";
+	readonly branch: string;
+	readonly path: string;
+}): { branch: string; path: string; kind: "current" | "managed-slot" | "manual-worktree" } {
+	return { branch: conflict.branch, path: conflict.path, kind: conflict.type };
+}
+
+function toFlowDescendantMaintenance(
+	plan: LandPlanForFlow["descendantMaintenance"],
+): LandingPlan["descendantMaintenance"] {
+	if (plan.type === "none") return { kind: "none", branches: [] };
+	if (plan.type === "auto") {
+		return { kind: "auto", branches: [...plan.branches], targetBranch: plan.targetBranch };
+	}
+	return {
+		kind: "skipped",
+		branches: [...plan.branches],
+		targetBranch: plan.targetBranch,
+		conflicts: plan.conflicts.map(toFlowConflict),
+		reason: plan.reason,
+	};
+}
+
+function toLandStackFailure(failureValue: LandingFailure): LandStackFailure {
+	if (failureValue.type === "domain") {
+		if (failureValue.reason === "nothing-to-land") {
+			return landStackFailure(failureValue.message, { level: "info" });
+		}
+		if (failureValue.reason === "dirty-worktree") {
+			return landStackFailure("Working tree is dirty; refusing to start stack landing.");
+		}
+		if (failureValue.reason === "operation-in-progress") {
+			return landStackFailure(
+				`${operationLabel(failureValue.message)} is in progress; refusing to start stack landing.`,
+			);
+		}
+	}
+	return landStackFailure(failureValue.message);
+}
+
+function operationLabel(message: string): string {
+	if (message.includes("cherry-pick")) return "A cherry-pick";
+	if (message.includes("revert")) return "A revert";
+	if (message.includes("rebase")) return "A rebase";
+	return "A merge";
 }
 
 export function scopeStackSnapshot(
@@ -144,29 +450,6 @@ export function scopeStackSnapshot(
 		landingBranches: boundedLandingBranches,
 		remainingLandingBranches,
 	};
-}
-
-function buildDescendantMaintenancePlan(
-	descendantBranches: string[],
-	conflicts: WorktreeConflict[],
-): DescendantMaintenancePlan {
-	if (descendantBranches.length === 0) {
-		return { kind: "none", branches: [] };
-	}
-
-	const targetBranch = descendantBranches[0] ?? "";
-	const blockingConflicts = conflicts.filter((conflict) => conflict.kind !== "current");
-	if (blockingConflicts.length > 0) {
-		return {
-			kind: "skipped",
-			branches: descendantBranches,
-			targetBranch,
-			conflicts: blockingConflicts,
-			reason: "descendant branches are checked out elsewhere",
-		};
-	}
-
-	return { kind: "auto", branches: descendantBranches, targetBranch };
 }
 
 export async function collectSubmitRestackRequirements(
