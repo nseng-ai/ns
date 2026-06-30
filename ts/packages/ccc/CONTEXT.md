@@ -33,20 +33,20 @@ The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/cc
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC owns repo-opinionated implementation behind it, such as `/objective:stack-impl` or `/sdl:flow:land`. Autobranch is now public SDL lifecycle surface `sdl flow autobranch` / `/sdl:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility.
-*Avoid*: compatibility alias, evidence that the lower adapter owns the workflow policy, old `/code:*` lifecycle alias.
+A public Pi command whose user-facing namespace remains outside `ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/objective:stack-impl` or `/sdl:flow:land`. Autobranch is now public SDL lifecycle surface `sdl flow autobranch` / `/sdl:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
+*Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
 The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: active Objective selection handoff, skill expansion or fallback prompt construction, and dispatching one explicit Objective selector into the portable stack-implementation skill. Objective record storage, list/current/update/next/close/archive semantics remain lower capabilities.
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
-The hidden CCC `ccc exec autobranch` implementation retained for internal compatibility, composing pending-worktree inspection, branch slug/name preparation, Graphite branch creation, stash/restore or latest-commit recovery mechanics, and checkpoint commit primitives into one repo source-control command flow. The public SDL lifecycle boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
+The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public SDL lifecycle boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
 *Avoid*: public Pi registration adapter, current `/sdl:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
-**Land orchestration**:
-The CCC-owned implementation behind public unified `/sdl:flow:land`, coordinating strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
-*Avoid*: Pi registration adapter, separate stack landing command, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
+**Flow land consumption**:
+The CCC composition path behind public unified `/sdl:flow:land`, consuming Flow-owned land behavior through `sdl-flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+*Avoid*: Pi registration adapter, separate stack landing command, Flow land internals owner, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Portable command progress**:
 Human-facing intermediate progress for CCC workflows that can run through both SDL CLI and Pi command mirrors. The canonical seam is SDK `SdlCommandIo`, threaded through lower orchestration and adapted at the edge to CLI `onOutput`/stderr, durable notifications, or Pi-rendered messages without duplication.
