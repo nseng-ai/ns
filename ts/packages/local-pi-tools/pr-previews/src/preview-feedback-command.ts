@@ -110,7 +110,7 @@ interface ExecPrAddressWithSchemaOptions<T> {
 	args: string[];
 	label: string;
 	schema: z.ZodType<T>;
-	allowFailureData?: boolean | undefined;
+	allowFailureData?: boolean;
 }
 
 export function createPrPreviewFeedbackCommand(
@@ -245,7 +245,9 @@ async function execPrAddressWithSchema<T>(
 		label: options.label,
 		result,
 		schema: options.schema,
-		allowFailureData: options.allowFailureData,
+		...(options.allowFailureData === undefined
+			? {}
+			: { allowFailureData: options.allowFailureData }),
 	});
 }
 

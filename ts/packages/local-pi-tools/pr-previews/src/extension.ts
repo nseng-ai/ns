@@ -82,7 +82,7 @@ export interface ExtensionAPI {
 }
 
 type ParsedDownloadFeedbackArgs =
-	| { type: "valid"; args: string[]; prNumber?: number | undefined }
+	| { type: "valid"; args: string[]; prNumber?: number }
 	| { type: "invalid"; message: string };
 
 export type CommandResult<T> = { type: "ok"; value: T } | { type: "error"; message: string };
@@ -91,7 +91,7 @@ export interface EnvelopeWithSchemaOptions<T> {
 	label: string;
 	result: ExecResult;
 	schema: z.ZodType<T>;
-	allowFailureData?: boolean | undefined;
+	allowFailureData?: boolean;
 }
 
 export function registerPrPreviewsExtension(pi: ExtensionAPI): void {
@@ -142,7 +142,9 @@ function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): Comm
 	const parsed = parseMachineEnvelopeDataWithFailureData(options.result.stdout, {
 		label: options.label,
 		stdoutTail: { maxLines: 20, maxChars: 2000 },
-		shouldAllowFailureData: options.allowFailureData,
+		...(options.allowFailureData === undefined
+			? {}
+			: { shouldAllowFailureData: options.allowFailureData }),
 	});
 	if (parsed.type === "invalid") {
 		return { type: "error", message: envelopeDetail(parsed, options.result) };

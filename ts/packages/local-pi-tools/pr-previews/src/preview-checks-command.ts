@@ -193,7 +193,7 @@ async function loadCheckLogs(options: {
 	runtime: PrPreviewChecksCommandRuntime;
 	ctx: ExtensionContext;
 	check: PrPreviewCheck;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }): Promise<string[]> {
 	if (isIncompleteCheck(options.check)) {
 		return [
@@ -212,7 +212,7 @@ async function loadCheckLogs(options: {
 		ctx: options.ctx,
 		args,
 		failureLabel: `Failed to load logs with gh ${args.join(" ")}`,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 	throwIfSignalAborted(options.signal);
 	if (logResult.type === "failed") return logResult.lines;
@@ -221,7 +221,7 @@ async function loadCheckLogs(options: {
 		ctx: options.ctx,
 		check: options.check,
 		output: logResult.output,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 }
 
@@ -232,14 +232,14 @@ async function loadGhTextCommand(options: {
 	ctx: ExtensionContext;
 	args: string[];
 	failureLabel: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }): Promise<GhTextCommandResult> {
 	const result = await loadGhCommand({
 		pi: options.runtime.pi,
 		args: options.args,
 		cwd: options.ctx.cwd,
 		timeoutMs: options.runtime.commandTimeoutMs,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 	throwIfSignalAborted(options.signal);
 	if (result.type === "failed") {
@@ -255,7 +255,7 @@ async function summarizeCheckLogs(options: {
 	ctx: ExtensionContext;
 	check: PrPreviewCheck;
 	output: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }): Promise<string[]> {
 	if (options.ctx.modelRegistry === undefined) {
 		return [
