@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sdl/brmem": "workspace:*",
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/cmux": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",

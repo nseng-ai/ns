@@ -1,5 +1,5 @@
 import { type CommandExecApi, formatOutputSection } from "@sdl/exec";
-import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/core/model-slug";
+import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
 import { validatePlanSlug } from "./plan-persistence.ts";
 
 const MAX_ERROR_CHARS = 4_000;

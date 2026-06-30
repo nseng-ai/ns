@@ -1,4 +1,5 @@
-import { buildSlugModelArgs, DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
+import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
+import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

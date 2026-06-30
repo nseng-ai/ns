@@ -4,7 +4,7 @@ import {
 	formatSlugModelFailure,
 	SLUG_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
-} from "@sdl/core/model-slug";
+} from "@sdl/capability-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@sdl/core/branch-slug";
 import { truncateText } from "./shared.ts";
 
