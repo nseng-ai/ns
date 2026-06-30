@@ -780,7 +780,7 @@ export class PrFeedbackWatchController {
 		if (ctx !== undefined) notify(ctx, `PR feedback watch error: ${message}`, "error");
 	}
 
-	private renderStatus(value?: string | undefined): void {
+	private renderStatus(value?: string): void {
 		const ctx = this.activeSession?.ctx;
 		if (ctx === undefined) return;
 		ctx.ui?.setStatus?.(PR_FEEDBACK_WATCH_COMMAND_NAME, value ?? defaultStatusLine(this.status()));

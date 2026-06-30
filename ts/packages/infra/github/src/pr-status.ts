@@ -186,14 +186,14 @@ export function classifyGithubStatusCheck(value: unknown): GithubCheckBucket {
 
 export function tallyGithubStatusChecks(
 	items: readonly unknown[],
-	options: { hasMore?: boolean | undefined } = {},
+	options: { hasMore?: boolean } = {},
 ): GithubCheckTally {
 	return normalizeGithubStatusChecks(items, options).counts;
 }
 
 export function normalizeGithubStatusChecks(
 	items: readonly unknown[],
-	options: { hasMore?: boolean | undefined } = {},
+	options: { hasMore?: boolean } = {},
 ): GithubStatusChecks {
 	const checks = latestGithubStatusChecks(items).map(normalizeGithubStatusCheck);
 	const counts: GithubCheckTally = {
