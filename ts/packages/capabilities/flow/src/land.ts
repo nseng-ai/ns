@@ -24,8 +24,8 @@ import {
 	formatFailure,
 	formatFailureNotification,
 	landFailureKind,
+	notifyPrintAware,
 	presentBrief,
-	presentPrintAwareBrief,
 	usage,
 } from "./land-stack/presentation.ts";
 import { renderLandResultBlockFromMessage } from "./land-stack/land-presentation.ts";
@@ -39,7 +39,6 @@ import type {
 	LandingShape,
 	LandResultKind,
 	MessageRenderer,
-	NotifyLevel,
 	PrintAwareLandStackCommandContext,
 } from "./land-stack/types.ts";
 
@@ -115,7 +114,7 @@ async function runLandCommand(
 		return failure(args.failure);
 	}
 	if (args.value.shouldShowHelp) {
-		notify({ ctx, message: usage(), level: "info" });
+		notifyPrintAware({ ctx, message: usage(), level: "info" });
 		return completed();
 	}
 
@@ -343,12 +342,4 @@ function formatUpfrontStackConfirmation(shape: LandingShape): string {
 		);
 	}
 	return lines.join("\n");
-}
-
-function notify(options: { ctx: LandCommandContext; message: string; level: NotifyLevel }): void {
-	presentPrintAwareBrief({
-		ctx: options.ctx,
-		fullMessage: options.message,
-		level: options.level,
-	});
 }

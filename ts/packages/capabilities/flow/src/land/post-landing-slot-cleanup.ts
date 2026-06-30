@@ -10,8 +10,8 @@ import {
 import {
 	formatFailureNotification,
 	landFailureKind,
+	notifyPrintAware,
 	presentBrief,
-	presentPrintAwareBrief,
 	setStatus,
 } from "../land-stack/presentation.ts";
 import type {
@@ -40,7 +40,7 @@ export async function runPostLandingSlotCleanup({
 	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
 	if (slotName === undefined) {
 		const message = `Post-landing --free requested, but current worktree ${shape.repoRoot} is not a managed slot; kept local branch ${shape.stack.actualCurrentBranch}.`;
-		notify({ ctx, message, level: "info", kind: "refusal" });
+		notifyPrintAware({ ctx, message, level: "info", kind: "refusal" });
 		return completed();
 	}
 
@@ -160,7 +160,7 @@ export async function runPostLandingSlotCleanup({
 		setStatus(ctx, undefined);
 	}
 
-	notify({
+	notifyPrintAware({
 		ctx,
 		message: `Post-landing cleanup complete: freed ${slotName} and deleted local branch ${shape.stack.actualCurrentBranch}.`,
 		level: "success",
@@ -191,18 +191,4 @@ function formatPostLandingCleanupDetails(options: {
 
 function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
 	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatCommand("gt", ["delete", branch, "-f", "-q"])} when safe.`;
-}
-
-function notify(options: {
-	ctx: PrintAwareLandStackCommandContext;
-	message: string;
-	level: "info" | "success" | "warning" | "error";
-	kind?: "success" | "refusal" | "failure";
-}): void {
-	presentPrintAwareBrief({
-		ctx: options.ctx,
-		fullMessage: options.message,
-		level: options.level,
-		...(options.kind === undefined ? {} : { kind: options.kind }),
-	});
 }

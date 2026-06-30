@@ -10,9 +10,8 @@ import { exec, formatCommandDetails } from "../land-stack/command-exec.ts";
 import { GH_MERGE_TIMEOUT_MS } from "../land-stack/constants.ts";
 import { squashMergeArgs } from "../land-stack/landing-operations.ts";
 import { loadPr } from "../land-stack/pr-facts.ts";
-import { presentPrintAwareBrief, setStatus } from "../land-stack/presentation.ts";
+import { notifyPrintAware, setStatus } from "../land-stack/presentation.ts";
 import type {
-	LandResultKind,
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	StackSnapshot,
@@ -61,7 +60,7 @@ export async function runIsolatedFastPathLanding(
 		options.target.stack.actualCurrentBranch,
 	);
 	if (prResult.type === "failure") {
-		notify({
+		notifyPrintAware({
 			ctx: options.ctx,
 			message: prResult.failure.message,
 			level: "error",
@@ -73,12 +72,12 @@ export async function runIsolatedFastPathLanding(
 
 	if (pr.baseRefName !== options.target.trunk) {
 		const message = `Refusing to land PR #${pr.number}: base branch is '${pr.baseRefName}', not Graphite trunk '${options.target.trunk}'. Merge not attempted.`;
-		notify({ ctx: options.ctx, message, level: "error", kind: "refusal" });
+		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "refusal" });
 		return failure(landStackFailure(message, { outcome: "refusal" }));
 	}
 
 	if (options.isDryRun) {
-		notify({
+		notifyPrintAware({
 			ctx: options.ctx,
 			message: `Dry run only; would merge PR #${pr.number} into ${options.target.trunk}.`,
 			level: "info",
@@ -107,7 +106,7 @@ export async function runIsolatedFastPathLanding(
 	if (result.code === 0) {
 		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
 		const output = successfulCommandOutput(result);
-		notify({
+		notifyPrintAware({
 			ctx: options.ctx,
 			message: output ? `${output}\n${message}` : message,
 			level: "info",
@@ -119,7 +118,7 @@ export async function runIsolatedFastPathLanding(
 	const commandDisplay = formatCommand("gh", mergeArgs);
 	const message = `gh pr merge --squash with PR title/body failed for PR #${pr.number}.`;
 	const fullMessage = `${message}\n${formatCommandDetails(result, commandDisplay)}`;
-	notify({ ctx: options.ctx, message: fullMessage, level: "error", kind: "failure" });
+	notifyPrintAware({ ctx: options.ctx, message: fullMessage, level: "error", kind: "failure" });
 	return failure(landStackFailure(fullMessage));
 }
 
@@ -133,21 +132,7 @@ function progress(
 		return;
 	}
 	setStatus(ctx, message);
-	presentPrintAwareBrief({ ctx, fullMessage: message, level: "info" });
-}
-
-function notify(options: {
-	ctx: PrintAwareLandStackCommandContext;
-	message: string;
-	level: "info" | "success" | "warning" | "error";
-	kind?: LandResultKind;
-}): void {
-	presentPrintAwareBrief({
-		ctx: options.ctx,
-		fullMessage: options.message,
-		level: options.level,
-		...(options.kind === undefined ? {} : { kind: options.kind }),
-	});
+	notifyPrintAware({ ctx, message, level: "info" });
 }
 
 function successfulCommandOutput(result: { stdout: string; stderr: string }): string {

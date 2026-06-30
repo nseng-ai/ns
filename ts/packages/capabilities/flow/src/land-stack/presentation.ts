@@ -543,6 +543,22 @@ export function presentPrintAwareBrief(options: PresentPrintAwareBriefOptions): 
 	});
 }
 
+interface NotifyPrintAwareOptions {
+	ctx: PrintAwareLandStackCommandContext;
+	message: string;
+	level: NotifyLevel;
+	kind?: LandResultKind;
+}
+
+export function notifyPrintAware(options: NotifyPrintAwareOptions): void {
+	presentPrintAwareBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
+}
+
 interface PresentLandingSuccessOptions {
 	ctx: LandStackCommandContext;
 	commandStream: LandStackCommandStream;
