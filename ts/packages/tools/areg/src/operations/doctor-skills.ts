@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { renderTextTable } from "@sdl/core/text-table";
 import { z } from "zod";
 
@@ -14,6 +15,7 @@ import type {
 import { uniqueSortedStrings } from "../sort.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import { verifyPiReplacement } from "./pi-replacement.ts";
+import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
 
 const findingSeverities = ["error", "warning", "info"] as const;
@@ -27,10 +29,10 @@ export interface DoctorSkillFinding {
 	severity: DoctorSkillFindingSeverity;
 	message: string;
 	remediation: string;
-	skill?: string | undefined;
-	path?: string | undefined;
-	surface?: string | undefined;
-	evidence?: Record<string, string | boolean | number | string[]> | undefined;
+	skill?: string;
+	path?: string;
+	surface?: string;
+	evidence?: Record<string, string | boolean | number | string[]>;
 }
 
 export interface DoctorSkillsResult {
@@ -54,18 +56,31 @@ export interface DoctorSkillsInspection {
 	skillKindSkills: readonly AregSkillKindSkillInspection[];
 }
 
-const doctorSkillFindingSchema = z.object({
-	code: z.string(),
-	severity: z.enum(findingSeverities),
-	message: z.string(),
-	remediation: z.string(),
-	skill: z.string().optional(),
-	path: z.string().optional(),
-	surface: z.string().optional(),
-	evidence: z
-		.record(z.string(), z.union([z.string(), z.boolean(), z.number(), z.array(z.string())]))
-		.optional(),
-});
+const doctorSkillFindingSchema: z.ZodType<DoctorSkillFinding> = z
+	.object({
+		code: z.string(),
+		severity: z.enum(findingSeverities),
+		message: z.string(),
+		remediation: z.string(),
+		skill: z.string().optional(),
+		path: z.string().optional(),
+		surface: z.string().optional(),
+		evidence: z
+			.record(z.string(), z.union([z.string(), z.boolean(), z.number(), z.array(z.string())]))
+			.optional(),
+	})
+	.transform(
+		(finding): DoctorSkillFinding => ({
+			code: finding.code,
+			severity: finding.severity,
+			message: finding.message,
+			remediation: finding.remediation,
+			...optionalEntry("skill", finding.skill),
+			...optionalEntry("path", finding.path),
+			...optionalEntry("surface", finding.surface),
+			...optionalEntry("evidence", finding.evidence),
+		}),
+	);
 
 export const doctorSkillsRequestSchema = z.object({
 	path: z
@@ -217,14 +232,8 @@ async function inspectDoctorSkillsProject(
 		...skillInventory.claudeSkillNames,
 		...skillInventory.skillKindNames,
 	]);
-	const checkSkills: AregCheckSkillInspection[] = [];
-	const skillKindSkills: AregSkillKindSkillInspection[] = [];
-	for (const skillName of skillNames) {
-		checkSkills.push(await ctx.project.inspectCheckSkill({ projectDir, skillName, env: ctx.env }));
-		skillKindSkills.push(
-			await ctx.project.inspectSkillKindSkill({ projectDir, skillName, env: ctx.env }),
-		);
-	}
+	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
+	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillNames);
 	return {
 		type: "ok",
 		value: {
@@ -347,7 +356,7 @@ function replacementFindings(
 				code: "pi-replacement-missing-surface",
 				severity: "error",
 				skill: record.skill,
-				surface: record.replacement.surface,
+				...optionalEntry("surface", record.replacement.surface),
 				message: `${record.skill} is excluded from Pi skills but has no verified replacement command.`,
 				remediation: `Run areg skill apply command-backed ${record.skill} after adding the replacement command, or remove the Pi exclusion if the skill should stay model-facing.`,
 			});
@@ -355,7 +364,7 @@ function replacementFindings(
 				code: "excluded-skill-without-replacement",
 				severity: "error",
 				skill: record.skill,
-				surface: record.replacement.surface,
+				...optionalEntry("surface", record.replacement.surface),
 				message: `${record.skill} is excluded in .pi/settings.json without a verified replacement surface.`,
 				remediation:
 					"Add the replacement Pi command surface and keep the exclusion, or remove the exclusion.",
@@ -366,7 +375,7 @@ function replacementFindings(
 				code: "command-backed-skill-not-excluded",
 				severity: "warning",
 				skill: record.skill,
-				surface: record.replacement.surface,
+				...optionalEntry("surface", record.replacement.surface),
 				message: `${record.skill} has a verified replacement command but is not excluded from Pi skill discovery.`,
 				remediation: `Run areg skill apply command-backed ${record.skill} if this skill is command-backed, or remove the stale replacement surface expectation.`,
 			});
@@ -379,7 +388,7 @@ function replacementFindings(
 			code: "excluded-skill-without-replacement",
 			severity: "error",
 			skill,
-			surface: replacement.surface,
+			...optionalEntry("surface", replacement.surface),
 			message: `${skill} is excluded in .pi/settings.json but was not found in areg's skill inventory.`,
 			remediation: "Remove the stale exclusion or restore the skill and its replacement command.",
 		});
