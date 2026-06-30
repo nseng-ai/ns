@@ -79,7 +79,8 @@ export type GithubPrFeedbackOperation =
 	| "getPrDiscussionComments"
 	| "getPrChecks"
 	| "replyToReviewThread"
-	| "resolveReviewThread";
+	| "resolveReviewThread"
+	| "resolveReviewThreads";
 
 export interface GithubPrFeedbackFailureDetails {
 	readonly operation: GithubPrFeedbackOperation;

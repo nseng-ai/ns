@@ -3,6 +3,7 @@ import {
 	prChecksQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
+	resolveReviewThreadsMutation,
 	reviewThreadCommentsQuery,
 	reviewThreadsQuery,
 } from "./queries.ts";
@@ -89,5 +90,16 @@ export function resolveReviewThreadArgs(threadId: string): string[] {
 	return graphqlArgs(
 		[{ flag: "-f", name: "threadId", value: threadId }],
 		resolveReviewThreadMutation,
+	);
+}
+
+export function resolveReviewThreadsArgs(threadIds: readonly string[]): string[] {
+	return graphqlArgs(
+		threadIds.map((threadId, index) => ({
+			flag: "-f" as const,
+			name: `threadId${index}`,
+			value: threadId,
+		})),
+		resolveReviewThreadsMutation(threadIds.length),
 	);
 }

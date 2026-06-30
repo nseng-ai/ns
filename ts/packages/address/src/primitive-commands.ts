@@ -30,7 +30,7 @@ import {
 	replyReviewThread,
 	resolveReviewThread,
 } from "./core/review-thread-mutations.ts";
-import { duplicateValues } from "./duplicate-values.ts";
+import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
 import { loadJsonInput } from "./json-input.ts";
 import {
 	discussionCommentsResult,
@@ -352,12 +352,13 @@ function closeReviewThreadsValidationMessage(
 	threadIds: readonly string[],
 	body: string | undefined,
 ): string | null {
-	if (threadIds.length === 0) return "close-review-threads requires at least one thread ID.";
-	if (!threadIds.every((threadId) => threadId !== ""))
-		return "close-review-threads requires every thread ID to be non-empty.";
-	const duplicates = duplicateValues(threadIds);
-	if (duplicates.length > 0)
-		return `close-review-threads thread IDs contain duplicates: ${duplicates.join(", ")}`;
+	const threadIdsMessage = nonEmptyStringCollectionValidationMessage(threadIds, {
+		commandName: "close-review-threads",
+		emptyItemLabel: "thread ID",
+		itemLabel: "thread ID",
+		duplicateCollectionLabel: "thread IDs",
+	});
+	if (threadIdsMessage !== null) return threadIdsMessage;
 	if (body !== undefined && body.trim() === "")
 		return "close-review-threads requires --body to be non-empty when supplied.";
 	return null;

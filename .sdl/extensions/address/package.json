@@ -57,6 +57,11 @@
 				"name": "exec-resolve-review-thread",
 				"description": "Run Address resolve-review-thread operation.",
 				"entry": "./src/commands/exec.ts"
+			},
+			{
+				"name": "exec-close-review-threads",
+				"description": "Run Address close-review-threads operation.",
+				"entry": "./src/commands/exec.ts"
 			}
 		]
 	}

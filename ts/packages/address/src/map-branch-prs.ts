@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { mapBranchesToOpenPrs } from "./core/branch-pr-mapping.ts";
-import { duplicateValues } from "./duplicate-values.ts";
+import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
 import {
 	defineExecOperation,
 	gatewayOptions,
@@ -72,13 +72,12 @@ export function branchesValidationMessage(
 	branches: readonly string[],
 	commandName: string,
 ): string | null {
-	if (branches.length === 0) return `${commandName} requires at least one branch.`;
-	if (!branches.every((branch) => branch.trim() !== ""))
-		return `${commandName} requires every branch to be non-empty.`;
-	const duplicates = duplicateValues(branches);
-	if (duplicates.length > 0)
-		return `${commandName} branches contain duplicates: ${duplicates.join(", ")}`;
-	return null;
+	return nonEmptyStringCollectionValidationMessage(branches, {
+		commandName,
+		emptyItemLabel: "branch",
+		itemLabel: "branch",
+		duplicateCollectionLabel: "branches",
+	});
 }
 
 function mappingFailureMessage(result: MapBranchPrsResult): string {

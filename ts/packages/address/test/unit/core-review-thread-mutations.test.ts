@@ -129,7 +129,8 @@ describe("review thread mutations", () => {
 			{ threadId: "RT_one", body: "Fixed." },
 			{ threadId: "RT_two", body: "Fixed." },
 		]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }, { threadId: "RT_two" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_one", "RT_two"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("closeReviewThreads can resolve without replying", async () => {
@@ -149,7 +150,8 @@ describe("review thread mutations", () => {
 			entries: [{ thread_id: "RT_one", reply: null, error: null }],
 		});
 		expect(prFeedback.replies).toEqual([]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_one"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("closeReviewThreads skips resolve after a reply failure and continues", async () => {
@@ -185,7 +187,8 @@ describe("review thread mutations", () => {
 			],
 		});
 		expect(prFeedback.replies).toEqual([{ threadId: "RT_ok", body: "Fixed." }]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_ok"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("closeReviewThreads preserves a reply when resolve fails and continues", async () => {
@@ -223,6 +226,35 @@ describe("review thread mutations", () => {
 			{ threadId: "RT_fail", body: "Fixed." },
 			{ threadId: "RT_ok", body: "Fixed." },
 		]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_fail", "RT_ok"] }]);
 		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
+	});
+
+	test("closeReviewThreads falls back to single resolves when a bulk resolve chunk fails", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
+			bulkResolveFailure: {
+				code: "github_pr_feedback_gh_failed",
+				message: "bulk resolve failed",
+				details: { operation: "resolveReviewThread" },
+			},
+		});
+
+		const result = await closeReviewThreads({
+			prFeedback,
+			gatewayOptions: GATEWAY_OPTIONS,
+			threadIds: ["RT_one", "RT_two"],
+		});
+
+		expect(result).toMatchObject({
+			requested: 2,
+			resolved: 2,
+			failed: 0,
+			entries: [
+				{ thread_id: "RT_one", resolution: { thread_id: "RT_one", is_resolved: true } },
+				{ thread_id: "RT_two", resolution: { thread_id: "RT_two", is_resolved: true } },
+			],
+		});
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_one", "RT_two"] }]);
+		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }, { threadId: "RT_two" }]);
 	});
 });

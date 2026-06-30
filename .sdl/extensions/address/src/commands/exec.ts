@@ -15,5 +15,6 @@ export default defineExtension({
 		prAddressSdlCommand("pr-checks"),
 		prAddressSdlCommand("reply-review-thread"),
 		prAddressSdlCommand("resolve-review-thread"),
+		prAddressSdlCommand("close-review-threads"),
 	],
 });
