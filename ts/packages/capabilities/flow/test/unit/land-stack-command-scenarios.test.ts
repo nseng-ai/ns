@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/test-kit";
 import { stripAnsi } from "../../src/land-stack/command-exec.ts";
+import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land-stack/constants.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land-stack/command-stream.ts";
@@ -207,7 +208,7 @@ const BACKUP_ROTATION_ARGS = [
 	"--prune",
 	"--no-tags",
 	".",
-	"+refs/sdl/flow-land-backup/*:refs/sdl/flow-land-backup-prev/*",
+	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 ];
 
 const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
@@ -401,7 +402,7 @@ function backupRefSteps(
 	const { shas = BRANCH_SHAS, staleCurrentRefs = [] } = options;
 	return [
 		BACKUP_ROTATION_STEP,
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"], {
+		step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 			stdout: staleCurrentRefs.join("\n"),
 		}),
 		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
@@ -411,7 +412,7 @@ function backupRefSteps(
 				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
 					stdout: `${sha}\n`,
 				}),
-				step("git", ["update-ref", `refs/sdl/flow-land-backup/${branch}`, sha]),
+				step("git", ["update-ref", `${BACKUP_REF_NAMESPACE}/${branch}`, sha]),
 			];
 		}),
 	];
@@ -1281,9 +1282,9 @@ describe("land-stack command scenarios", () => {
 				.filter((call) => call.command === "git" && call.args[0] === "update-ref")
 				.map((call) => call.args[1]),
 		).toEqual([
-			"refs/sdl/flow-land-backup/feature-a",
-			"refs/sdl/flow-land-backup/feature-b",
-			`refs/sdl/flow-land-backup/${DESCENDANT}`,
+			`${BACKUP_REF_NAMESPACE}/feature-a`,
+			`${BACKUP_REF_NAMESPACE}/feature-b`,
+			`${BACKUP_REF_NAMESPACE}/${DESCENDANT}`,
 		]);
 		expect(
 			pi.execCalls
@@ -1371,7 +1372,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("rotates backup refs before pruning current stale refs and writing new snapshots", async () => {
-		const staleCurrentRef = "refs/sdl/flow-land-backup/old-branch";
+		const staleCurrentRef = `${BACKUP_REF_NAMESPACE}/old-branch`;
 		const script = [
 			...singleBranchPreflight(""),
 			...backupRefSteps(["feature-a"], { staleCurrentRefs: [staleCurrentRef] }),
@@ -1386,7 +1387,7 @@ describe("land-stack command scenarios", () => {
 		const staleListIndex = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "git" &&
-				sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"]),
+				sameArgs(call.args, ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE]),
 		);
 		const staleDeleteIndex = pi.execCalls.findIndex(
 			(call) =>
@@ -1426,7 +1427,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflight(""),
 			BACKUP_ROTATION_STEP,
-			step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"], {
+			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 				code: 1,
 				stderr: "cannot list refs",
 			}),

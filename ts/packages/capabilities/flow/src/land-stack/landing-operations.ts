@@ -25,6 +25,7 @@ import type {
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
+	MergeLoopState,
 	PullRequestSnapshot,
 	RemainingCleanup,
 	WorktreeConflict,
@@ -36,22 +37,11 @@ import {
 	slotNameFromPath,
 } from "./worktrees.ts";
 import { setStatus } from "./presentation.ts";
-import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
+import {
+	confirmPreMergeMaintenance,
+	type PreMergeMaintenanceOptions,
+} from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
-
-export interface MergeLoopState {
-	expectedShas: Map<string, string>;
-	deletedBranches: Set<string>;
-	warnings: LandingWarning[];
-	cleanup: RemainingCleanup;
-}
-
-interface PreMergeMaintenanceOptions {
-	pi: LandStackExtensionAPI;
-	ctx: LandStackCommandContext;
-	plan: LandingPlan;
-	confirmation?: PreMergeConfirmation;
-}
 
 function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
 	return [

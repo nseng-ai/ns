@@ -5,9 +5,16 @@ import {
 	type LandStackFailureOptions,
 	type LandStackOutcome,
 } from "./errors.ts";
-import type { LandStackCommandContext } from "./types.ts";
+import type { LandStackCommandContext, LandStackExtensionAPI, LandingPlan } from "./types.ts";
 
 export type PreMergeConfirmation = "prompt" | "already-approved";
+
+export interface PreMergeMaintenanceOptions {
+	pi: LandStackExtensionAPI;
+	ctx: LandStackCommandContext;
+	plan: LandingPlan;
+	confirmation?: PreMergeConfirmation;
+}
 
 interface ConfirmPreMergeMaintenanceOptions {
 	ctx: LandStackCommandContext;
@@ -16,7 +23,6 @@ interface ConfirmPreMergeMaintenanceOptions {
 	details: string;
 	nonInteractiveMessage: string;
 	nonInteractiveFailureOptions?: LandStackFailureOptions;
-	cancellationMessage?: string;
 }
 
 export async function confirmPreMergeMaintenance(
@@ -38,7 +44,7 @@ export async function confirmPreMergeMaintenance(
 	if (confirmed) return completed();
 
 	return failure(
-		landStackFailure(options.cancellationMessage ?? "Cancelled before merge; no PRs were landed.", {
+		landStackFailure("Cancelled before merge; no PRs were landed.", {
 			level: "info",
 			outcome: "refusal",
 		}),
