@@ -5,6 +5,10 @@ import {
 	piExecApiToCommandExecApi,
 } from "@sdl/exec";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
+import {
+	combinedGitCommandOutput,
+	isGitRebaseInProgressOutput,
+} from "sdl-flow/shared/git-operation-output";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 
 import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
@@ -179,12 +183,7 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 }
 
 function isRebaseInProgress(result: ExecResult): boolean {
-	const output = `${result.stdout}\n${result.stderr}`;
-	return (
-		output.includes("rebase in progress") ||
-		output.includes("You are currently rebasing") ||
-		output.includes("interactive rebase in progress")
-	);
+	return isGitRebaseInProgressOutput(combinedGitCommandOutput(result));
 }
 
 function formatCleanRestackMessage(result: ExecResult): string {

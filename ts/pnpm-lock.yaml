@@ -386,6 +386,9 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
+      sdl-flow:
+        specifier: workspace:*
+        version: link:../../capabilities/flow
       zod:
         specifier: 'catalog:'
         version: 4.4.3
