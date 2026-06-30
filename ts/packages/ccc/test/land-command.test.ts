@@ -17,16 +17,12 @@ import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-help
 const ROOT = "/repo";
 const CURRENT = "feature-branch";
 const TRUNK = "main";
-const PR_VIEW_ARGS = [
-	"pr",
-	"view",
-	"--json",
-	"number,headRefName,baseRefName,title,body,headRefOid",
-];
+const PR_VIEW_FIELDS =
+	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", PR_VIEW_FIELDS];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
-const STACK_PR_VIEW_FIELDS =
-	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
+const STACK_PR_VIEW_FIELDS = PR_VIEW_FIELDS;
 const GIT_TIMEOUT_MS = 30_000;
 const CORE_GIT_TIMEOUT_MS = 10_000;
 const GT_TIMEOUT_MS = 120_000;
@@ -288,6 +284,8 @@ function prView(
 		baseRefName: overrides.baseRefName ?? TRUNK,
 		title: overrides.title ?? "Ship feature",
 		body: overrides.body === undefined ? "Feature body" : overrides.body,
+		state: "OPEN",
+		isDraft: false,
 		headRefOid: overrides.headRefOid ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	});
 }
@@ -299,7 +297,7 @@ function expectedMergeArgs(
 		"pr",
 		"merge",
 		String(options.number ?? 42),
-		"-s",
+		"--squash",
 		"--match-head-commit",
 		options.sha ?? SHA_CURRENT,
 		"--subject",
@@ -700,7 +698,10 @@ describe("code land command", () => {
 			},
 		]);
 		expect(notifications).toEqual([
-			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
+			{
+				message: "Running gh pr merge --squash with PR title/body as commit message…",
+				level: "info",
+			},
 			{
 				message: "Merged pull request #42\nMerged PR #42; squash commit used PR title/body.",
 				level: "info",
@@ -780,11 +781,14 @@ describe("code land command", () => {
 		);
 
 		expect(printed).toEqual([
-			"Running gh pr merge -s with PR title/body as commit message…\n",
+			"Running gh pr merge --squash with PR title/body as commit message…\n",
 			"Merged pull request #42\nMerged PR #42; squash commit used PR title/body.\n",
 		]);
 		expect(notifications).toEqual([
-			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
+			{
+				message: "Running gh pr merge --squash with PR title/body as commit message…",
+				level: "info",
+			},
 			{
 				message: "Merged pull request #42\nMerged PR #42; squash commit used PR title/body.",
 				level: "info",
@@ -843,7 +847,13 @@ describe("code land command", () => {
 			...expectedShapeCalls(),
 			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
 		]);
-		expect(notifications).toEqual([{ message: "no pull requests found", level: "error" }]);
+		expect(notifications).toEqual([
+			{
+				message:
+					"Could not load GitHub PR for feature-branch.\n$ gh pr view feature-branch --json number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt\nexit 1\n----- stdout tail -----\n(empty)\n----- stderr tail -----\nno pull requests found",
+				level: "error",
+			},
+		]);
 		pi.assertDone();
 	});
 
@@ -855,7 +865,9 @@ describe("code land command", () => {
 			{ command: "gh", args: PR_VIEW_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
 		]);
 		expect(notifications[0]?.message).toContain("Failed to parse gh pr view output");
-		expect(notifications[0]?.message).toContain("Merge not attempted.");
+		expect(notifications[0]?.message).toContain(
+			"Failed to parse gh pr view output for feature-branch",
+		);
 		expect(notifications[0]?.level).toBe("error");
 		pi.assertDone();
 	});
@@ -871,8 +883,7 @@ describe("code land command", () => {
 		]);
 		expect(notifications).toEqual([
 			{
-				message:
-					"gh pr view did not return required field(s): headRefName, baseRefName, headRefOid. Merge not attempted.",
+				message: "gh pr view for feature-branch did not return required PR fields.",
 				level: "error",
 			},
 		]);
@@ -887,10 +898,13 @@ describe("code land command", () => {
 
 		expect(pi.execCalls).toHaveLength(8);
 		expect(notifications).toEqual([
-			{ message: "Running gh pr merge -s with PR title/body as commit message…", level: "info" },
+			{
+				message: "Running gh pr merge --squash with PR title/body as commit message…",
+				level: "info",
+			},
 			{
 				message:
-					"merge stdout\nmerge stderr\ngh pr merge -s with PR title/body failed for PR #42 with exit code 1.",
+					"merge stdout\nmerge stderr\ngh pr merge --squash with PR title/body failed for PR #42 with exit code 1.",
 				level: "error",
 			},
 		]);

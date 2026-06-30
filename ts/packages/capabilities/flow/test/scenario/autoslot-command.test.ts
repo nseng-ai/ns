@@ -22,7 +22,7 @@ describe("flow autoslot command outcomes", () => {
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
 		expect(stderr).toContain("Autoslot could not create a Graphite branch.");
-		expect(stderr).toContain("Could not read git status.");
+		expect(stderr).toContain("Could not inspect git status.");
 		// The failed git probe transcript is preserved in the failure body.
 		expect(stderr).toContain("fatal: status failed");
 		expect(stderr).toContain("Cwd: /work");

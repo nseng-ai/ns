@@ -322,9 +322,7 @@ describe("ccc CLI", () => {
 		const detached = runWithFakes(["exec", "autobranch"], { isDetachedHead: true });
 		expect(await detached.exit).toBe(2);
 		expect(output(detached).stdout).toBe("");
-		expect(output(detached).stderr).toContain(
-			"Detached HEAD; check out a branch before autobranching.",
-		);
+		expect(output(detached).stderr).toContain("Could not determine current branch.");
 
 		const graphite = runWithFakes(["exec", "autobranch", "--slug", "failed branch"], {
 			shouldGtCreateFail: true,

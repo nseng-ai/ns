@@ -4,6 +4,7 @@ import {
 	prLinksFromDetails,
 	truncateDisplayLine,
 } from "@sdl/core/terminal-presentation";
+import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import {
 	AUTO_CHUNK_LANDING_SIZE,
@@ -24,6 +25,7 @@ import type {
 	LandingWarning,
 	LandResultKind,
 	NotifyLevel,
+	PrintAwareLandStackCommandContext,
 	RemainingCleanup,
 } from "./types.ts";
 import { formatConflict, formatSlotConflict } from "./worktrees.ts";
@@ -498,6 +500,58 @@ export function presentBrief(options: PresentBriefOptions): void {
 			? ctx.renderResultBlock(options.kind, shown)
 			: shown;
 	ctx.ui.notify(rendered, level);
+}
+
+interface PresentPrintAwareBriefOptions {
+	ctx: PrintAwareLandStackCommandContext;
+	fullMessage: string;
+	level: NotifyLevel;
+	uiMessage?: string;
+	kind?: LandResultKind;
+}
+
+export function presentPrintAwareBrief(options: PresentPrintAwareBriefOptions): void {
+	if (options.ctx.mode === "print") {
+		const output = options.fullMessage.endsWith("\n")
+			? options.fullMessage
+			: `${options.fullMessage}\n`;
+		(options.ctx.printOutput ?? process.stdout).write(output);
+	}
+	presentBrief({
+		ctx: options.ctx,
+		fullMessage: options.fullMessage,
+		level: options.level,
+		uiMessage: options.uiMessage ?? options.fullMessage,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
+}
+
+interface PresentLandingSuccessOptions {
+	ctx: LandStackCommandContext;
+	commandStream: LandStackCommandStream;
+	landed: readonly LandedPr[];
+	warnings: readonly LandingWarning[];
+	successSummary: string;
+}
+
+export function presentLandingSuccess(options: PresentLandingSuccessOptions): void {
+	const commandStreamDetails = commandStreamDetailsForLanded([...options.landed]);
+	const completionLevel = options.warnings.some(
+		(warning) => (warning.level ?? "warning") === "warning",
+	)
+		? "warning"
+		: "success";
+	options.commandStream.finishSuccess(options.successSummary, commandStreamDetails);
+	presentBrief({
+		ctx: options.ctx,
+		fullMessage: options.successSummary,
+		level: completionLevel,
+		uiMessage: formatSuccessNotification(options.successSummary, {
+			...(commandStreamDetails === undefined ? {} : { details: commandStreamDetails }),
+			warnings: options.warnings,
+		}),
+		kind: "success",
+	});
 }
 
 export function setStatus(ctx: LandStackCommandContext, message: string | undefined): void {

@@ -39,6 +39,12 @@ export type MessageRenderer = (
 	theme: RenderTheme,
 ) => RenderComponent;
 
+export type ExtensionMode = "tui" | "rpc" | "json" | "print";
+
+export interface PrintOutput {
+	write(chunk: string): unknown;
+}
+
 export interface LandStackCommandContext {
 	cwd: string;
 	hasUI: boolean;
@@ -61,6 +67,11 @@ export interface LandStackCommandContext {
 	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
 	 */
 	renderResultBlock?: (kind: LandResultKind, message: string) => string;
+}
+
+export interface PrintAwareLandStackCommandContext extends LandStackCommandContext {
+	mode?: ExtensionMode;
+	printOutput?: PrintOutput;
 }
 
 export interface LandStackExtensionAPI {

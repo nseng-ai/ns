@@ -25,6 +25,7 @@ import {
 	formatFailureNotification,
 	landFailureKind,
 	presentBrief,
+	presentPrintAwareBrief,
 	usage,
 } from "./land-stack/presentation.ts";
 import { renderLandResultBlockFromMessage } from "./land-stack/land-presentation.ts";
@@ -35,14 +36,14 @@ import type { Caps } from "@sdl/clinkr";
 import type {
 	AutocompleteItem,
 	CustomMessage,
-	LandStackCommandContext,
 	LandingShape,
 	LandResultKind,
 	MessageRenderer,
 	NotifyLevel,
+	PrintAwareLandStackCommandContext,
 } from "./land-stack/types.ts";
 
-export type { NotifyLevel } from "./land-stack/types.ts";
+export type { ExtensionMode, NotifyLevel, PrintOutput } from "./land-stack/types.ts";
 export type { ValidPullRequestView } from "./land/isolated-fast-path.ts";
 export {
 	isIsolatedFastPath,
@@ -57,16 +58,7 @@ export interface ExecResult {
 	killed?: boolean;
 }
 
-export type ExtensionMode = "tui" | "rpc" | "json" | "print";
-
-export interface PrintOutput {
-	write(chunk: string): unknown;
-}
-
-export interface LandCommandContext extends LandStackCommandContext {
-	mode?: ExtensionMode;
-	printOutput?: PrintOutput;
-}
+export type LandCommandContext = PrintAwareLandStackCommandContext;
 
 export interface LandExtensionAPI {
 	registerCommand(
@@ -358,10 +350,9 @@ function formatUpfrontStackConfirmation(shape: LandingShape): string {
 }
 
 function notify(options: { ctx: LandCommandContext; message: string; level: NotifyLevel }): void {
-	const { ctx, message, level } = options;
-	if (ctx.mode === "print") {
-		const output = message.endsWith("\n") ? message : `${message}\n`;
-		(ctx.printOutput ?? process.stdout).write(output);
-	}
-	ctx.ui.notify(message, level);
+	presentPrintAwareBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+	});
 }

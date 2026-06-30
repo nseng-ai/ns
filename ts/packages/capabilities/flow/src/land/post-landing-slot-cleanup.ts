@@ -11,26 +11,20 @@ import {
 	formatFailureNotification,
 	landFailureKind,
 	presentBrief,
+	presentPrintAwareBrief,
 	setStatus,
 } from "../land-stack/presentation.ts";
 import type {
-	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandingShape,
-	LandResultKind,
-	NotifyLevel,
+	PrintAwareLandStackCommandContext,
 	ParsedArgs,
 } from "../land-stack/types.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../land-stack/worktrees.ts";
 
-interface PostLandingCleanupContext extends LandStackCommandContext {
-	mode?: "tui" | "rpc" | "json" | "print";
-	printOutput?: { write(chunk: string): unknown };
-}
-
 interface RunPostLandingSlotCleanupOptions {
 	pi: LandStackExtensionAPI;
-	ctx: PostLandingCleanupContext;
+	ctx: PrintAwareLandStackCommandContext;
 	args: ParsedArgs;
 	shape: LandingShape;
 }
@@ -199,24 +193,16 @@ function postLandingCleanupSuggestedAction(slotName: string, branch: string): st
 	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatCommand("gt", ["delete", branch, "-f", "-q"])} when safe.`;
 }
 
-interface NotifyOptions {
-	ctx: PostLandingCleanupContext;
+function notify(options: {
+	ctx: PrintAwareLandStackCommandContext;
 	message: string;
-	level: NotifyLevel;
-	kind?: LandResultKind;
-}
-
-function notify(options: NotifyOptions): void {
-	const { ctx, message, level } = options;
-	if (ctx.mode === "print") {
-		const output = message.endsWith("\n") ? message : `${message}\n`;
-		(ctx.printOutput ?? process.stdout).write(output);
-	}
-	// House-style ANSI applies only when the CLI edge wired `renderResultBlock` (Pi/print contexts
-	// leave it undefined, keeping plain text colored downstream by `renderCommandStreamMessage`).
-	const rendered =
-		options.kind !== undefined && ctx.renderResultBlock !== undefined
-			? ctx.renderResultBlock(options.kind, message)
-			: message;
-	ctx.ui.notify(rendered, level);
+	level: "info" | "success" | "warning" | "error";
+	kind?: "success" | "refusal" | "failure";
+}): void {
+	presentPrintAwareBrief({
+		ctx: options.ctx,
+		fullMessage: options.message,
+		level: options.level,
+		...(options.kind === undefined ? {} : { kind: options.kind }),
+	});
 }

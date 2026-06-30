@@ -3,8 +3,10 @@ import { GRAPHITE_BRANCH_METADATA_QUERY } from "@sdl/graphite/metadata";
 export const TOPOLOGY_QUERY = GRAPHITE_BRANCH_METADATA_QUERY;
 export const TOPOLOGY_COMMAND = "sdl";
 
+import { buildReadGraphiteBranchMetadataArgs } from "../../src/land-stack/graphite-metadata-command.ts";
+
 export function topologyArgs(dbPath: string): string[] {
-	return ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath];
+	return buildReadGraphiteBranchMetadataArgs(dbPath);
 }
 
 export function metadataDbJson(
