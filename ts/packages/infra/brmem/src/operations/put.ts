@@ -33,7 +33,7 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 		cwd: ctx.cwd,
 		key: request.key,
 		stdin: request.stdin,
-		file: request.file,
+		...optionalEntry("file", request.file),
 		force: request.force,
 		sourceReader: ctx.sourceReader,
 	});

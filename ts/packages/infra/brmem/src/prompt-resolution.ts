@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises";
 import process from "node:process";
 
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
@@ -22,9 +23,9 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 
 	constructor(
 		options: {
-			commands?: CommandExecApi | undefined;
-			env?: NodeJS.ProcessEnv | undefined;
-			git?: GitGateway | undefined;
+			commands?: CommandExecApi;
+			env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+			git?: GitGateway;
 		} = {},
 	) {
 		const commands = options.commands ?? new NodeCommandExecApi();

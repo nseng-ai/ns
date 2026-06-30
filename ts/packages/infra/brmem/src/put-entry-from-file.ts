@@ -1,6 +1,8 @@
 import { posix } from "node:path";
 import { TextDecoder } from "node:util";
 
+import { optionalEntry } from "@sdl/core/primitives";
+
 import { checkEntryNotBinary, checkEntrySize } from "./content-limits.ts";
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
 import type { BrmemGateway } from "./gateway.ts";
@@ -12,9 +14,9 @@ export const STDIN_SOURCE_FILE = "<stdin>";
 export interface PrepareEntryContentSourceOptions {
 	cwd: string;
 	key: string;
-	stdin?: boolean | undefined;
-	file?: string | undefined;
-	force?: boolean | undefined;
+	stdin?: boolean;
+	file?: string;
+	force?: boolean;
 	sourceReader: BrmemSourceReader;
 }
 
@@ -30,8 +32,8 @@ export interface PutEntryFromFileOptions {
 	key: string;
 	branch: string;
 	sourceFile: string;
-	sourceReader?: BrmemSourceReader | undefined;
-	force?: boolean | undefined;
+	sourceReader?: BrmemSourceReader;
+	force?: boolean;
 }
 
 export interface PutEntryFromFileResult {
@@ -83,7 +85,7 @@ export async function putEntryFromFile(
 		cwd: options.cwd,
 		key: options.key,
 		file: options.sourceFile,
-		force: options.force,
+		...optionalEntry("force", options.force),
 		sourceReader: options.sourceReader ?? new NodeBrmemSourceReader(),
 	});
 	if (prepared.type === "error") return prepared;
