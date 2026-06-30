@@ -50,9 +50,9 @@ async function makePlanStore(): Promise<string> {
 async function writeSavedPlan(
 	planStoreRoot: string,
 	params: {
-		slug?: string | undefined;
-		branch?: string | undefined;
-		content?: string | undefined;
+		slug?: string;
+		branch?: string;
+		content?: string;
 	} = {},
 ): Promise<string> {
 	const slug = params.slug ?? PLAN_SLUG;
