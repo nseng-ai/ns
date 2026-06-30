@@ -27,10 +27,10 @@ export interface BranchContextPrimitiveOptions {
 }
 
 export interface AttachBranchContextParams {
-	key?: string | undefined;
-	filePath?: string | undefined;
-	planSlug?: string | undefined;
-	branch?: string | undefined;
+	key?: string;
+	filePath?: string;
+	planSlug?: string;
+	branch?: string;
 }
 
 export type BranchContextAttachEvidence = BranchContextAttachData & { planSlug?: string };
@@ -96,7 +96,7 @@ export async function attachBranchContextEntry(
 }
 
 export async function listBranchContextEntries(
-	params: { branch?: string | undefined },
+	params: { branch?: string },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextListEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
@@ -106,7 +106,7 @@ export async function listBranchContextEntries(
 }
 
 export async function checkBranchContextEntry(
-	params: { key: string; branch?: string | undefined },
+	params: { key: string; branch?: string },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextCheckEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
@@ -125,7 +125,7 @@ export async function checkBranchContextEntry(
 }
 
 export async function deleteBranchContextEntry(
-	params: { key: string; branch?: string | undefined },
+	params: { key: string; branch?: string },
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextDeleteEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
