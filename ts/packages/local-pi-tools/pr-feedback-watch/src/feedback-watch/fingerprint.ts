@@ -28,9 +28,9 @@ export function feedbackItemKeysFromFingerprint(
 	return items.map((item) => ({
 		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
 		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
-		...(item.author === undefined ? {} : { author: item.author }),
-		...(item.path === undefined ? {} : { path: item.path }),
-		...(item.line === undefined ? {} : { line: item.line }),
+		...optionalEntry("author", item.author),
+		...optionalEntry("path", item.path),
+		...optionalEntry("line", item.line),
 	}));
 }
 
@@ -46,8 +46,8 @@ export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFinge
 		items.push({
 			kind: "discussion_comment",
 			id,
-			...(updatedAt === undefined ? {} : { updatedAt }),
-			...(author === undefined ? {} : { author }),
+			...optionalEntry("updatedAt", updatedAt),
+			...optionalEntry("author", author),
 		});
 	}
 	return items;
@@ -67,10 +67,10 @@ export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[
 		items.push({
 			kind: "review",
 			id,
-			...(updatedAt === undefined ? {} : { updatedAt }),
-			...(author === undefined ? {} : { author }),
-			...(state === undefined ? {} : { state }),
-			...(commitId === undefined ? {} : { commitId }),
+			...optionalEntry("updatedAt", updatedAt),
+			...optionalEntry("author", author),
+			...optionalEntry("state", state),
+			...optionalEntry("commitId", commitId),
 		});
 	}
 	return items;
@@ -92,12 +92,12 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		items.push({
 			kind: "review_comment",
 			id,
-			...(updatedAt === undefined ? {} : { updatedAt }),
-			...(author === undefined ? {} : { author }),
-			...(path === undefined ? {} : { path }),
-			...(line === undefined ? {} : { line }),
-			...(reviewId === undefined ? {} : { reviewId }),
-			...(inReplyToId === undefined ? {} : { inReplyToId }),
+			...optionalEntry("updatedAt", updatedAt),
+			...optionalEntry("author", author),
+			...optionalEntry("path", path),
+			...optionalEntry("line", line),
+			...optionalEntry("reviewId", reviewId),
+			...optionalEntry("inReplyToId", inReplyToId),
 		});
 	}
 	return items;
@@ -112,7 +112,7 @@ export function buildFeedbackFingerprint(
 	return {
 		key: fingerprintKeyFromOwnedItems(copied),
 		items: copied,
-		...(latestTimestamp === undefined ? {} : { latestTimestamp }),
+		...optionalEntry("latestTimestamp", latestTimestamp),
 		fetchedAt,
 	};
 }
@@ -203,4 +203,8 @@ function idField(value: Record<string, unknown>, key: string): string | undefine
 	const field = value[key];
 	if (typeof field === "number" && Number.isFinite(field)) return String(field);
 	return typeof field === "string" ? field : undefined;
+}
+
+function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
+	return value === undefined ? {} : { [key]: value };
 }

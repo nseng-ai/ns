@@ -26,6 +26,7 @@ import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
 import {
 	REGISTRIES,
+	registryCheckMetadataFields,
 	reportExitCode,
 	type PackageCheckReport,
 	type Registry,
@@ -132,17 +133,18 @@ const registryCheckResultSchema: z.ZodType<RegistryCheckResult> =
 type RegistryCheckResultBoundary = z.output<typeof rawRegistryCheckResultSchema>;
 
 function normalizeRegistryCheckResult(result: RegistryCheckResultBoundary): RegistryCheckResult {
-	const normalized: RegistryCheckResult = {
+	return {
 		registry: result.registry,
 		inputName: result.inputName,
 		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
+		...registryCheckMetadataFields({
+			...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
+			...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
+			...(result.description === undefined ? {} : { description: result.description }),
+		}),
 	};
-	if (result.packageUrl !== undefined) normalized.packageUrl = result.packageUrl;
-	if (result.latestVersion !== undefined) normalized.latestVersion = result.latestVersion;
-	if (result.description !== undefined) normalized.description = result.description;
-	return normalized;
 }
 
 const packageCheckReportSchema: z.ZodType<PackageCheckReport> = z.object({

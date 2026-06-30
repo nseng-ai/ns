@@ -6,6 +6,7 @@ import {
 	availableResult,
 	errorResult,
 	invalidResult,
+	registryCheckMetadataFields,
 	takenResult,
 	type Registry,
 	type RegistryCheckResult,
@@ -242,40 +243,46 @@ async function fetchRegistryResponse(
 
 function pypiMetadata(lookupName: string, jsonBody: Record<string, unknown> | null): Metadata {
 	const info = isRecord(jsonBody?.["info"]) ? jsonBody["info"] : null;
+	const latestVersion = stringField(info, "version");
+	const description = stringField(info, "summary");
 	return buildMetadata({
 		packageUrl: pypiProjectUrl(lookupName),
-		latestVersion: stringField(info, "version"),
-		description: stringField(info, "summary"),
+		...(latestVersion === undefined ? {} : { latestVersion }),
+		...(description === undefined ? {} : { description }),
 	});
 }
 
 function npmMetadata(packageName: string, jsonBody: Record<string, unknown> | null): Metadata {
 	const distTags = isRecord(jsonBody?.["dist-tags"]) ? jsonBody["dist-tags"] : null;
+	const latestVersion = stringField(distTags, "latest");
+	const description = stringField(jsonBody, "description");
 	return buildMetadata({
 		packageUrl: npmPackagePageUrl(packageName),
-		latestVersion: stringField(distTags, "latest"),
-		description: stringField(jsonBody, "description"),
+		...(latestVersion === undefined ? {} : { latestVersion }),
+		...(description === undefined ? {} : { description }),
 	});
 }
 
 function brewMetadata(formulaName: string, jsonBody: Record<string, unknown> | null): Metadata {
 	const versions = isRecord(jsonBody?.versions) ? jsonBody.versions : null;
+	const latestVersion = stringField(versions, "stable");
+	const description = stringField(jsonBody, "desc");
 	return buildMetadata({
 		packageUrl: brewFormulaPageUrl(formulaName),
-		latestVersion: stringField(versions, "stable"),
-		description: stringField(jsonBody, "desc"),
+		...(latestVersion === undefined ? {} : { latestVersion }),
+		...(description === undefined ? {} : { description }),
 	});
 }
 
 function buildMetadata(options: {
 	packageUrl: string;
-	latestVersion: string | undefined;
-	description: string | undefined;
+	latestVersion?: string;
+	description?: string;
 }): Metadata {
-	const metadata: Metadata = { packageUrl: options.packageUrl };
-	if (options.latestVersion !== undefined) metadata.latestVersion = options.latestVersion;
-	if (options.description !== undefined) metadata.description = options.description;
-	return metadata;
+	return {
+		packageUrl: options.packageUrl,
+		...registryCheckMetadataFields(options),
+	};
 }
 
 function stringField(fields: Record<string, unknown> | null, key: string): string | undefined {
