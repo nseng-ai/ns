@@ -25,18 +25,20 @@ import {
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
-	LandedChunk,
 	LandedPr,
 	LandingPlan,
 } from "./types.ts";
 
+export interface LandingSession {
+	ctx: LandStackCommandContext;
+	commandStream: LandStackCommandStream;
+	landed: LandedPr[];
+}
+
 interface PreparePlanForMergeOptions {
 	runtimePi: LandStackExtensionAPI;
-	ctx: LandStackCommandContext;
+	session: LandingSession;
 	plan: LandingPlan;
-	landed: readonly LandedPr[];
-	landedChunks: readonly LandedChunk[];
-	commandStream: LandStackCommandStream;
 	preMergeConfirmation?: PreMergeConfirmation;
 }
 
@@ -46,10 +48,7 @@ export async function preparePlanForMerge(
 	const result = await preparePlanForMergeCore(options);
 	if (result.type === "failure") {
 		presentLandStackFailure({
-			ctx: options.ctx,
-			commandStream: options.commandStream,
-			landed: options.landed,
-			landedChunks: options.landedChunks,
+			session: options.session,
 			failure: result.failure,
 		});
 	}
@@ -59,7 +58,8 @@ export async function preparePlanForMerge(
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtimePi, ctx, plan, commandStream } = options;
+	const { runtimePi, plan } = options;
+	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
 		const slotOutcome = await confirmAndFreeManagedSlots({
@@ -118,10 +118,7 @@ async function submitRequiredUpdatesAndRecheckPlan(
 }
 
 interface ConfirmMainLandingOptions {
-	ctx: LandStackCommandContext;
-	commandStream: LandStackCommandStream;
-	landed: readonly LandedPr[];
-	landedChunks: readonly LandedChunk[];
+	session: LandingSession;
 	shouldPrompt: boolean;
 	title: string;
 	details: string;
@@ -132,20 +129,18 @@ interface ConfirmMainLandingOptions {
 export async function confirmMainLanding(
 	options: ConfirmMainLandingOptions,
 ): Promise<LandStackOutcome> {
+	const { ctx } = options.session;
 	if (!options.shouldPrompt) return completed();
-	if (!options.ctx.hasUI) {
+	if (!ctx.hasUI) {
 		const landFailure = landStackFailure(options.nonInteractiveMessage, { outcome: "refusal" });
 		presentLandStackFailure({
-			ctx: options.ctx,
-			commandStream: options.commandStream,
-			landed: options.landed,
-			landedChunks: options.landedChunks,
+			session: options.session,
 			failure: landFailure,
 		});
 		return failure(landFailure);
 	}
-	const details = options.ctx.renderConfirmationDetails?.(options.details) ?? options.details;
-	const confirmed = await options.ctx.ui.confirm(options.title, details);
+	const details = ctx.renderConfirmationDetails?.(options.details) ?? options.details;
+	const confirmed = await ctx.ui.confirm(options.title, details);
 	if (confirmed) return completed();
 	const landFailure = landStackFailure(
 		options.cancellationMessage ?? "Cancelled before merge; no PRs were landed.",
@@ -155,10 +150,7 @@ export async function confirmMainLanding(
 		},
 	);
 	presentLandStackFailure({
-		ctx: options.ctx,
-		commandStream: options.commandStream,
-		landed: options.landed,
-		landedChunks: options.landedChunks,
+		session: options.session,
 		failure: landFailure,
 	});
 	return failure(landFailure);
@@ -169,16 +161,14 @@ export function formatPreparingLandingMilestone(plan: LandingPlan): string {
 }
 
 interface PresentLandStackFailureOptions {
-	ctx: LandStackCommandContext;
-	commandStream: LandStackCommandStream;
-	landed: readonly LandedPr[];
-	landedChunks: readonly LandedChunk[];
+	session: LandingSession;
 	failure: LandStackFailure;
 }
 
 export function presentLandStackFailure(options: PresentLandStackFailureOptions): void {
-	const { ctx, commandStream, landed, landedChunks, failure } = options;
-	const formatted = formatFailure(failure, landed, landedChunks);
+	const { ctx, commandStream, landed } = options.session;
+	const { failure } = options;
+	const formatted = formatFailure(failure, landed);
 	commandStream.finishFailure(formatted);
 	presentBrief({
 		ctx,

@@ -7,11 +7,7 @@ import {
 	withCommandStreaming,
 	type LandLiveProgressSink,
 } from "./land-stack/command-stream.ts";
-import {
-	AUTO_CHUNK_LANDING_THRESHOLD,
-	COMMAND_NAME,
-	COMMAND_STREAM_MESSAGE_TYPE,
-} from "./land-stack/constants.ts";
+import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
 import {
 	completed,
 	failure,
@@ -20,17 +16,15 @@ import {
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./land-stack/errors.ts";
-import { executeChunkedStackLanding } from "./land-stack/chunked-landing.ts";
 import { buildLandingPlan } from "./land-stack/landing-plan.ts";
-import { presentLandStackFailure } from "./land-stack/landing-coordination.ts";
+import { presentLandStackFailure, type LandingSession } from "./land-stack/landing-coordination.ts";
 import type { PreMergeConfirmation } from "./land-stack/landing-operations.ts";
 import { present, setStatus, usage } from "./land-stack/presentation.ts";
-import { executeSinglePlanLanding } from "./land-stack/single-plan-landing.ts";
+import { executeLandingPlan } from "./land-stack/landing-plan-execution.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
-	LandedChunk,
 	LandedPr,
 	LandingShape,
 	LandingWarning,
@@ -69,13 +63,13 @@ export async function executeStackLanding(
 	options: ExecuteStackLandingOptions = {},
 ): Promise<LandStackOutcome> {
 	const landed: LandedPr[] = [];
-	const landedChunks: LandedChunk[] = [];
 	const warnings: LandingWarning[] = [];
 	const io = options.io ?? createLandUiCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {
 		shouldShowRunningCommandStatus: ctx.hasUI,
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
+	const session: LandingSession = { ctx, commandStream, landed };
 	const runtimePi = withCommandStreaming(pi, commandStream);
 	try {
 		if (parsedArgs.shouldShowHelp) {
@@ -88,23 +82,8 @@ export async function executeStackLanding(
 			? success(options.initialShape)
 			: await loadLandingShape(runtimePi, ctx.cwd);
 		if (shape.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: shape.failure });
+			presentLandStackFailure({ session, failure: shape.failure });
 			return failure(shape.failure);
-		}
-
-		if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-			return await executeChunkedStackLanding({
-				pi,
-				runtimePi,
-				ctx,
-				parsedArgs,
-				options,
-				commandStream,
-				initialShape: shape.value,
-				landed,
-				landedChunks,
-				warnings,
-			});
 		}
 
 		const plan = await buildLandingPlan(runtimePi, ctx.cwd, {
@@ -112,28 +91,22 @@ export async function executeStackLanding(
 			preloadedShape: shape.value,
 		});
 		if (plan.type === "failure") {
-			presentLandStackFailure({ ctx, commandStream, landed, landedChunks, failure: plan.failure });
+			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
-		return await executeSinglePlanLanding({
+		return await executeLandingPlan({
 			pi,
 			runtimePi,
-			ctx,
 			parsedArgs,
 			options,
-			commandStream,
+			session,
 			plan: plan.value,
-			landed,
-			landedChunks,
 			warnings,
 		});
 	} catch (error) {
 		const landFailure = landStackFailure(`land failed unexpectedly: ${formatErrorMessage(error)}`);
 		presentLandStackFailure({
-			ctx,
-			commandStream,
-			landed,
-			landedChunks,
+			session,
 			failure: landFailure,
 		});
 		return failure(landFailure);

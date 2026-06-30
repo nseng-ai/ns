@@ -23,17 +23,11 @@ const ROOT = "/repo";
 const TRUNK = "main";
 
 describe("flow land live progress", () => {
-	test("formats chunk title with landed PR counter and range", () => {
-		expect(
-			formatLandProgressTitle({
-				landedPrs: 8,
-				totalPrs: 11,
-				totalChunks: 2,
-				currentChunk: 2,
-				currentChunkStart: 9,
-				currentChunkEnd: 11,
-			}),
-		).toBe("sdl flow land — 8/11 PRs landed — chunk 2/2, PRs 9-11");
+	test("formats landed PR counter without chunk state", () => {
+		expect(formatLandProgressTitle({ landedPrs: 8, totalPrs: 11 })).toBe(
+			"sdl flow land — 8/11 PRs landed",
+		);
+		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("sdl flow land — 2 PRs landed");
 	});
 });
 
@@ -517,13 +511,11 @@ function numberedPreflight(options: {
 	start?: number;
 	end: number;
 	current: number;
-	planEnd?: number;
 	prShaOverrides?: Record<number, string>;
 }): ScriptedExec[] {
 	const start = options.start ?? 1;
-	const planEnd = options.planEnd ?? options.end;
 	const currentBranch = numberedBranch(options.current);
-	const planBranches = Array.from({ length: planEnd - start + 1 }, (_, offset) =>
+	const planBranches = Array.from({ length: options.end - start + 1 }, (_, offset) =>
 		numberedBranch(start + offset),
 	);
 	return [
@@ -571,17 +563,13 @@ function backupRefStepsForNumberedBranches(start: number, end: number): Scripted
 	);
 }
 
-function elevenPrChunkLandingScript(): ScriptedExec[] {
+function elevenPrLandingScript(): ScriptedExec[] {
 	return [
-		...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+		...numberedPreflight({ end: 11, current: 11 }),
 		...backupRefStepsForNumberedBranches(1, 11),
-		...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) =>
-			mergeNumberedBranch(index, { next: index + 1 }),
+		...Array.from({ length: 11 }, (_, offset) => offset + 1).flatMap((index) =>
+			mergeNumberedBranch(index, index === 11 ? { finalCheckedOut: true } : { next: index + 1 }),
 		),
-		...numberedPreflight({ start: 9, end: 11, current: 11 }),
-		mergeNumberedBranch(9, { next: 10 }),
-		mergeNumberedBranch(10, { next: 11 }),
-		mergeNumberedBranch(11, { finalCheckedOut: true }),
 	].flat();
 }
 
@@ -1040,40 +1028,39 @@ describe("land-stack command scenarios", () => {
 		);
 	});
 
-	test("auto-chunk does not trigger at exactly ten PRs", async () => {
-		const { pi, confirmations } = await runLandStack(
-			"",
-			numberedPreflight({ end: 10, current: 10 }),
-			{ confirms: [false] },
-		);
+	test("large stacks use the same single stack-path confirmation at ten and eleven PRs", async () => {
+		for (const size of [10, 11]) {
+			const { pi, confirmations } = await runLandStack(
+				"",
+				numberedPreflight({ end: size, current: size }),
+				{ confirms: [false] },
+			);
 
-		pi.assertDone();
-		expect(confirmations).toHaveLength(1);
-		expect(confirmations[0]?.title).toBe("Land this stack path?");
-		expect(confirmations[0]?.message).not.toContain("automatically in chunks");
+			pi.assertDone();
+			expect(confirmations).toHaveLength(1);
+			expect(confirmations[0]?.title).toBe("Land this stack path?");
+			expect(confirmations[0]?.message).toContain(`Land Graphite stack path: main -> feature-1`);
+			expect(confirmations[0]?.message).toContain(`Landing target branch: feature-${size}`);
+			expect(confirmations[0]?.message).not.toContain("chunks");
+		}
 	});
 
-	test("auto-chunk dry-run triggers at eleven PRs and shows 8 plus 3 chunks without mutation", async () => {
+	test("large-stack dry-run shows one full stack path plan without mutation", async () => {
 		const { pi, notifications, confirmations } = await runLandStack(
 			"--dry-run",
-			numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+			numberedPreflight({ end: 11, current: 11 }),
 		);
 
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		const message = notifications[0]?.message ?? "";
-		expect(message).toContain("Land 11 PRs in 2 chunks.");
-		expect(message).toContain("Total PRs       11");
-		expect(message).toContain("Chunk size      8");
-		expect(message).toContain("Chunks          2");
-		expect(message).toContain("Stack path:\n  0. main\n  1. feature-1");
-		expect(message).toContain("Chunk 1/2 — PRs 1-8");
-		expect(message).toContain("    8. feature-8");
-		expect(message).toContain("Chunk 2/2 — PRs 9-11");
-		expect(message).toContain("    11. feature-11");
-		expect(message).toContain("One confirmation covers the full chunked landing operation");
-		expect(message).not.toContain("First chunk preflight");
-		expect(message).not.toContain("prompts remain explicit");
+		expect(message).toContain("Land Graphite stack path: main -> feature-1");
+		expect(message).toContain("Landing target branch: feature-11");
+		expect(message).toContain("Will merge, in order:");
+		expect(message).toContain("  11. #211 feature-11");
+		expect(message).not.toContain("Chunks:");
+		expect(message).not.toContain("Chunk size");
+		expect(message).not.toContain("Land 11 PRs in 2 chunks");
 		expect(
 			pi.execCalls.some(
 				(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
@@ -1091,11 +1078,11 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 
-	test("auto-chunk with --yes lands eleven PRs as 8 plus 3 without per-chunk confirmation or backup rotation", async () => {
+	test("large-stack --yes lands eleven PRs through one merge loop without chunk progress", async () => {
 		const liveProgressEvents: LandLiveProgressEvent[] = [];
 		const { pi, notifications, confirmations, messages } = await runLandStack(
 			"--yes",
-			elevenPrChunkLandingScript(),
+			elevenPrLandingScript(),
 			{ executeOptions: { liveProgress: (event) => liveProgressEvents.push(event) } },
 		);
 
@@ -1113,125 +1100,46 @@ describe("land-stack command scenarios", () => {
 			),
 		).toBe(false);
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("→ Preparing chunk 1/2, PRs 1-8 of 11:");
-		expect(streamText).toContain("→ Preparing chunk 2/2, PRs 9-11 of 11:");
+		expect(streamText).toContain("→ Preparing to land 11 PRs through feature-11...");
+		expect(streamText).not.toContain("Preparing chunk");
 		expect(liveProgressEvents).toContainEqual({
-			type: "chunk-started",
-			chunkIndex: 1,
-			totalChunks: 2,
-			currentChunkStart: 1,
-			currentChunkEnd: 8,
-			totalPrs: 11,
-		});
-		expect(liveProgressEvents).toContainEqual({
-			type: "pr-landed",
 			prNumber: 201,
 			branch: "feature-1",
 		});
-		expect(liveProgressEvents).toContainEqual({
-			type: "chunk-started",
-			chunkIndex: 2,
-			totalChunks: 2,
-			currentChunkStart: 9,
-			currentChunkEnd: 11,
-			totalPrs: 11,
-		});
-		expect(
-			liveProgressEvents.findIndex(
-				(event) => event.type === "chunk-started" && event.chunkIndex === 1,
-			),
-		).toBeLessThan(
-			liveProgressEvents.findIndex((event) => event.type === "pr-landed" && event.prNumber === 201),
-		);
-		expect(
-			liveProgressEvents.findIndex((event) => event.type === "pr-landed" && event.prNumber === 208),
-		).toBeLessThan(
-			liveProgressEvents.findIndex(
-				(event) => event.type === "chunk-started" && event.chunkIndex === 2,
-			),
-		);
-		expect(streamText).toContain("Landed 11 PRs across 2 chunks:");
-		expect(streamText).toContain("Chunk 1 through feature-8");
-		expect(streamText).toContain("Chunk 2 through feature-11");
+		expect(liveProgressEvents).toHaveLength(11);
+		expect(streamText).toContain("Landed 11 PRs: #201 feature-1");
+		expect(streamText).not.toContain("across 2 chunks");
 		expect(streamText).toContain(
 			"Local branch feature-11 was kept (still checked out at /repo); delete it manually or run gt sync.",
 		);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
-	test("interactive auto-chunk asks one global confirmation before landing chunks", async () => {
+	test("interactive large-stack landing asks one stack-path confirmation", async () => {
 		const { pi, notifications, confirmations, messages } = await runLandStack(
 			"",
-			elevenPrChunkLandingScript(),
+			elevenPrLandingScript(),
 			{ confirms: [true] },
 		);
 
 		pi.assertDone();
 		expect(confirmations.map((confirmation) => confirmation.title)).toEqual([
-			"Land this stack in chunks?",
+			"Land this stack path?",
 		]);
-		expect(confirmations[0]?.message).toContain("Land 11 PRs in 2 chunks.");
-		expect(confirmations[0]?.message).toContain("Chunks          2");
-		expect(confirmations[0]?.message).toContain("Chunk 1/2 — PRs 1-8");
-		expect(confirmations[0]?.message).toContain("Chunk 2/2 — PRs 9-11");
-		expect(confirmations[0]?.message).not.toContain("First chunk preflight");
-		expect(confirmations[0]?.message).not.toContain("prompts remain explicit");
-		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");
+		expect(confirmations[0]?.message).toContain("Land Graphite stack path: main -> feature-1");
+		expect(confirmations[0]?.message).toContain("Landing target branch: feature-11");
+		expect(confirmations[0]?.message).not.toContain("Chunks");
+		expect(commandMessagesText(messages)).toContain("Landed 11 PRs: #201 feature-1");
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
-	test("interactive auto-chunk runs later-chunk submit/update without a second confirmation", async () => {
-		const stalePrSha = "0".repeat(40);
-		const submitArgs = [
-			"submit",
-			"--branch",
-			"feature-11",
-			"--no-stack",
-			"--update-only",
-			"--no-edit",
-			"--no-ai",
-			"--no-interactive",
-		];
+	test("large-stack failure hard-stops and reports normal partial progress", async () => {
 		const script = [
-			...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
+			...numberedPreflight({ end: 11, current: 11 }),
 			...backupRefStepsForNumberedBranches(1, 11),
-			...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) =>
+			...Array.from({ length: 9 }, (_, offset) => offset + 1).flatMap((index) =>
 				mergeNumberedBranch(index, { next: index + 1 }),
 			),
-			...numberedPreflight({ start: 9, end: 11, current: 11, prShaOverrides: { 9: stalePrSha } }),
-			submitRestackRecheckStep({ branch: "feature-9", parent: TRUNK }),
-			submitRestackRecheckStep({ branch: "feature-10", parent: "feature-9" }),
-			submitRestackRecheckStep({ branch: "feature-11", parent: "feature-10" }),
-			step("gt", submitArgs),
-			...numberedPreflight({ start: 9, end: 11, current: 11 }),
-			mergeNumberedBranch(9, { next: 10 }),
-			mergeNumberedBranch(10, { next: 11 }),
-			mergeNumberedBranch(11, { finalCheckedOut: true }),
-		].flat();
-		const { pi, notifications, confirmations, messages } = await runLandStack("", script, {
-			confirms: [true],
-		});
-
-		pi.assertDone();
-		expect(confirmations.map((confirmation) => confirmation.title)).toEqual([
-			"Land this stack in chunks?",
-		]);
-		expect(
-			pi.execCalls.some((call) => call.command === "gt" && sameArgs(call.args, submitArgs)),
-		).toBe(true);
-		expect(commandMessagesText(messages)).toContain("Landed 11 PRs across 2 chunks:");
-		expect(notifications.at(-1)?.level).toBe("success");
-	});
-
-	test("auto-chunk failure in later chunk hard-stops and reports landed chunks", async () => {
-		const script = [
-			...numberedPreflight({ end: 11, current: 11, planEnd: 8 }),
-			...backupRefStepsForNumberedBranches(1, 11),
-			...Array.from({ length: 8 }, (_, offset) => offset + 1).flatMap((index) =>
-				mergeNumberedBranch(index, { next: index + 1 }),
-			),
-			...numberedPreflight({ start: 9, end: 11, current: 11 }),
-			mergeNumberedBranch(9, { next: 10 }),
 			mergeNumberedBranch(10, { mergeCode: 1 }),
 		].flat();
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1239,11 +1147,11 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("→ Preparing chunk 2/2, PRs 9-11 of 11:");
-		expect(streamText).toContain("Already landed by chunk:");
-		expect(streamText).toContain("Chunk 1 through feature-8");
-		expect(streamText).toContain("Chunk 2 through feature-11: #209 feature-9");
-		expect(streamText).toContain("Fix the reported issue, then rerun /sdl:flow:land");
+		expect(streamText).toContain("→ Preparing to land 11 PRs through feature-11...");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("  - #201 feature-1");
+		expect(streamText).toContain("  - #209 feature-9");
+		expect(streamText).not.toContain("by chunk:");
 		expect(streamText).toContain("Failed at: #210 feature-10");
 		expect(
 			pi.execCalls.some(

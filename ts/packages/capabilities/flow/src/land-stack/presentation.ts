@@ -6,12 +6,7 @@ import {
 } from "@sdl/core/terminal-presentation";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
-import {
-	AUTO_CHUNK_LANDING_SIZE,
-	AUTO_CHUNK_LANDING_THRESHOLD,
-	COMMAND_NAME,
-	STATUS_KEY,
-} from "./constants.ts";
+import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, type LandStackFailure } from "./errors.ts";
 import {
 	restackForSubmitArgs,
@@ -23,7 +18,6 @@ import type {
 	CommandStreamMessageDetails,
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
-	LandedChunk,
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
@@ -41,11 +35,6 @@ export function formatPlan(plan: LandingPlan): string {
 	const lines: string[] = [];
 
 	lines.push(`Land Graphite stack path: ${[stack.trunk, ...stack.landingBranches].join(" -> ")}`);
-	if (stack.remainingLandingBranches.length > 0) {
-		lines.push(
-			`Full remaining path after this bounded landing scope: ${[stack.trunk, ...stack.landingBranches, ...stack.remainingLandingBranches].join(" -> ")}`,
-		);
-	}
 	lines.push("");
 	lines.push(`Current branch: ${stack.actualCurrentBranch}`);
 	lines.push(`Landing target branch: ${stack.landingTargetBranch}`);
@@ -64,13 +53,6 @@ export function formatPlan(plan: LandingPlan): string {
 			`  ${index + 1}. #${planEntry.pr.number} ${planEntry.branch} ${shortSha(planEntry.localSha)} ${planEntry.pr.title}${labels}`,
 		);
 	});
-
-	if (stack.remainingLandingBranches.length > 0) {
-		lines.push("", "Will leave for future automatic chunk(s):");
-		for (const branch of stack.remainingLandingBranches) {
-			lines.push(`  - ${branch}`);
-		}
-	}
 
 	lines.push("");
 	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
@@ -133,55 +115,6 @@ export function formatPlan(plan: LandingPlan): string {
 	return lines.join("\n");
 }
 
-export function formatChunkedPlan(plan: LandingPlan, chunkSize: number): string {
-	const fullLandingBranches = [
-		...plan.stack.landingBranches,
-		...plan.stack.remainingLandingBranches,
-	];
-	const chunks = chunkBranches(fullLandingBranches, chunkSize);
-	const lines = [
-		`Land ${fullLandingBranches.length} PRs in ${chunks.length} chunks.`,
-		"",
-		"Summary:",
-		`  Current branch  ${plan.stack.actualCurrentBranch}`,
-		`  Trunk branch    ${plan.stack.trunk}`,
-		`  Total PRs       ${fullLandingBranches.length}`,
-		`  Chunk size      ${chunkSize}`,
-		`  Chunks          ${chunks.length}`,
-		"",
-		"Stack path:",
-		`  0. ${plan.stack.trunk}`,
-	];
-	fullLandingBranches.forEach((branch, index) => {
-		lines.push(`  ${index + 1}. ${branch}`);
-	});
-	lines.push("", "Chunks:");
-	chunks.forEach((chunk, index) => {
-		const start = index * chunkSize + 1;
-		const end = start + chunk.length - 1;
-		lines.push(`  Chunk ${index + 1}/${chunks.length} — PRs ${start}-${end}`);
-		chunk.forEach((branch, offset) => {
-			lines.push(`    ${start + offset}. ${branch}`);
-		});
-	});
-	lines.push(
-		"",
-		"Operation:",
-		"  - One confirmation covers the full chunked landing operation.",
-		"  - Includes required managed-slot cleanup and Graphite restack/submit/update if encountered.",
-		"  - Squash-merges PRs in order, refreshes/deletes safe local Graphite branches, and stops on first failure.",
-	);
-	return lines.join("\n");
-}
-
-function chunkBranches(branches: readonly string[], chunkSize: number): string[][] {
-	const chunks: string[][] = [];
-	for (let index = 0; index < branches.length; index += chunkSize) {
-		chunks.push(branches.slice(index, index + chunkSize));
-	}
-	return chunks;
-}
-
 function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
 	if (maintenance.kind === "none") {
 		return ["No descendant PRs above the current branch will be merged."];
@@ -207,13 +140,12 @@ export function usage(): string {
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove an isolated single-PR stack. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
-		`Stacks with more than ${AUTO_CHUNK_LANDING_THRESHOLD} PRs are landed automatically in chunks of ${AUTO_CHUNK_LANDING_SIZE} without switching this worktree to each chunk tip.`,
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts; descendant worktree conflicts skip optional post-landing restack/update.",
 		"Landing-branch managed slot cleanup is confirmed before any PR submit/update; final local branch cleanup retains a branch that is still checked out in this worktree unless --free is requested from a managed slot.",
 		"",
 		"Options:",
-		"  --yes, -y       Skip stack/global landing confirmation. In single-plan mode, landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation; in chunked mode, --yes approves the full chunked operation.",
-		"  --dry-run       Show the full or chunked plan and exit before mutating refs or PRs.",
+		"  --yes, -y       Skip stack/global landing confirmation. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+		"  --dry-run       Show the full stack path plan and exit before mutating refs or PRs.",
 		"  --free          After successful landing, free the current managed slot and delete the landed local branch.",
 		"  --force, -f     Skip the post-landing --free confirmation.",
 		"  --verbose       Stream raw GitHub/Graphite subprocess output while landing.",
@@ -292,30 +224,6 @@ function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
 	});
 }
 
-export function formatChunkedSuccessSummary(
-	chunks: readonly LandedChunk[],
-	descendantMaintenance: DescendantMaintenancePlan,
-	warnings: LandingWarning[],
-	cleanup: RemainingCleanup,
-): string {
-	const landed = chunks.flatMap((chunk) => chunk.landed);
-	const baseSummary = formatSuccessSummary(landed, descendantMaintenance, warnings, cleanup);
-	const lines = [
-		`Landed ${landed.length} PR${landed.length === 1 ? "" : "s"} across ${chunks.length} chunks:`,
-	];
-	for (const chunk of chunks) {
-		lines.push(
-			`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
-		);
-	}
-	lines.push("", ...baseSummary.split("\n").slice(1));
-	return lines.join("\n");
-}
-
-function formatLandedEntries(landed: readonly LandedPr[]): string {
-	return landed.map((entry) => `#${entry.number} ${entry.branch}`).join(", ");
-}
-
 export function formatLandingWarning(warning: LandingWarning): string[] {
 	const lines = [`- ${warning.message}`];
 	if (warning.commandDisplay || warning.result) {
@@ -358,14 +266,9 @@ export function formatSubmitFailureMessage(
 	return `Submit/update failed after merging #${previousPrNumber}; descendant branch ${branch} was left for manual PR update.`;
 }
 
-export function formatFailure(
-	failure: LandStackFailure,
-	landed: readonly LandedPr[],
-	landedChunks: readonly LandedChunk[] = [],
-): string {
+export function formatFailure(failure: LandStackFailure, landed: readonly LandedPr[]): string {
 	const simple =
 		landed.length === 0 &&
-		landedChunks.length === 0 &&
 		!failure.commandDisplay &&
 		!failure.failedBranch &&
 		!failure.failedPr &&
@@ -375,18 +278,7 @@ export function formatFailure(
 	}
 
 	const lines = ["land stopped."];
-	if (landedChunks.length > 0) {
-		lines.push("", "Already landed by chunk:");
-		for (const chunk of landedChunks) {
-			lines.push(
-				`  - Chunk ${chunk.index} through ${chunk.landingTargetBranch}: ${formatLandedEntries(chunk.landed)}`,
-			);
-		}
-		lines.push(
-			"",
-			"Fix the reported issue, then rerun /sdl:flow:land from the desired branch. Already-landed PRs will not be retried automatically.",
-		);
-	} else if (landed.length > 0) {
+	if (landed.length > 0) {
 		lines.push("", "Already landed:");
 		for (const entry of landed) {
 			lines.push(`  - #${entry.number} ${entry.branch}`);
