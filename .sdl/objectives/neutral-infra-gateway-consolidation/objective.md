@@ -72,6 +72,32 @@ is deliberately out of scope here and tracked as a separate follow-up Objective.
   `@sdl/capability-kit` seams and SDK-provided services so capabilities no longer carry legacy
   organization imposed by the old `@sdl/core` doors.
 
+## Definition of Progress
+
+Future `objective-next` executions may autonomously advance one coherent semantic slice when the slice is bounded by this Objective, the roadmap guidance, and the policies below. Each slice should remove one old `@sdl/core/*` residual door or complete one documented decision/proof, not mix unrelated residual families for convenience.
+
+For relocated first-party doors, the default compatibility policy is **atomic repoint + delete**: move the implementation/tests to the chosen home, repoint all live in-repo imports, remove the old `@sdl/core` export/source/test in the same slice, and do not leave a compatibility shim. A temporary shim or staged migration requires fresh evidence that the in-repo dependency graph or validation cannot support the atomic move.
+
+Straightforward ADR-classified gateway helpers (`temp-files`, `xdg`, `workspace-root`, `shell-support`, and `text-repair`) should use `@sdl/capability-kit` as the default target home. A slice may choose a narrower standalone neutral/gateway package only when live dependency checks show a tier violation, dependency cycle, or other concrete package-boundary failure; record that adaptation in the Semantic Update.
+
+`model-slug` should be handled as one atomic split: separate the pure model-reference parsing surface from the process/env-backed slug derivation runner, repoint consumers to the appropriate homes, and delete the old mixed `@sdl/core/model-slug` door in the same slice if validation permits.
+
+`clock` and `timers` should keep their pure interface types (`Clock`, `TimerScheduler`, and related structural types) available from `@sdl/core`; autonomous work should move only concrete system adapters (`systemClock`, `systemTimerScheduler`, raw `Date.now` / timer bindings) out of core. Do not force neutral-infra packages through `sdl-sdk` or kernel APIs to use low-level time abstractions.
+
+`brmem-cli` and the broad `@sdl/core/testing` aggregate are final residual cleanup, not early migration drivers. Do not relocate or re-tier `@sdl/brmem` in this Objective. Split `@sdl/core/testing` member-by-member only after the corresponding production surfaces have moved, matching each helper to the final home of the thing it supports.
+
+## Runner Policy
+
+When asked to execute this Objective or continue from `objective-next`, future agents may implement the next roadmap slice without another design prompt if all of the following are true:
+
+- the work is one coherent residual-cleanup, purity-proof, or capability-layout slice named or implied by the roadmap;
+- source-search and package-manifest evidence keep the slice inside the Objective's scope and do not require relocating `@sdl/brmem`;
+- the chosen target home follows the Definition of Progress above, or any deviation is explicitly evidence-backed and recorded;
+- validation can include source-search invariants, targeted package checks/tests for touched packages, and the broad TS lane when feasible;
+- the slice writes exactly one new Semantic Update under this Objective with summary, objective impact, follow-ups, and validation/source-search evidence.
+
+Routine validation failures may be fixed locally when they are direct consequences of the slice. If validation fails twice after reasonable local fixes, or the slice would need to cross a Non-Goal or parked follow-up, stop and report the blocker instead of widening scope. Git commits, pushes, Graphite submits, and other external writes still require the invoking workflow or user to explicitly permit them.
+
 ## Non-Goals
 
 - Do not relocate or re-tier `@sdl/brmem` — it is the named exception; its SDK-provided

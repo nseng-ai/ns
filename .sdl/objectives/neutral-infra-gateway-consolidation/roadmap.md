@@ -86,8 +86,25 @@
   - Evidence: `cli-entry` moved to new neutral-infra package `@sdl/cli-runtime`; live consumers import
     `@sdl/cli-runtime`; `@sdl/core` no longer exports `./cli-entry`, and the old core source/test files
     were removed. Focused validation passed for `@sdl/cli-runtime` and `@sdl/core`; source-search
-    invariants confirmed no `@sdl/core/cli-entry` imports and no core `./cli-entry` export. Residual
-    subpaths remain open for later slices.
+    invariants confirmed no `@sdl/core/cli-entry` imports and no core `./cli-entry` export.
+    `stdin` moved to `@sdl/cli-runtime`; live consumers import `@sdl/cli-runtime`; `@sdl/core` no longer
+    exports `./stdin`; the old core source/test files were removed; targeted and broad TS validation
+    passed.
+  - Autonomous residual order: `temp-files` → `xdg`/`workspace-root` → `shell-support` → `text-repair`
+    → `model-slug` split → `clock`/`timers` concrete-adapter extraction → `brmem-cli` and
+    `@sdl/core/testing` memberwise cleanup → final purity proof/capability cleanup.
+  - Policy: use atomic repoint + delete with no compatibility shim for private first-party
+    `@sdl/core/*` doors unless live dependency evidence proves a staged migration is necessary.
+    Gateway helpers default to `@sdl/capability-kit`; choose a narrower standalone neutral/gateway home
+    only for concrete tier/cycle evidence and record the adaptation in the Semantic Update.
+  - `model-slug` policy: perform one atomic split of pure model-reference parsing from process/env-backed
+    slug derivation, repointing consumers to their appropriate homes and deleting the old mixed core door
+    when validation permits.
+  - `clock`/`timers` policy: keep pure structural time interfaces in `@sdl/core`; move concrete system
+    adapters out of core rather than forcing neutral-infra packages through SDK/kernel APIs.
+  - `brmem-cli`/testing policy: do not relocate `@sdl/brmem`; defer `brmem-cli` and the broad
+    `@sdl/core/testing` aggregate until final residual cleanup, splitting testing helpers according to
+    the final production homes they support.
 
 - [ ] Establish and prove the purity invariant: source-search confirms no `@sdl/core` subpath
       performs real-world I/O and no capability imports `@sdl/core/exec` or `@sdl/core/git`,
