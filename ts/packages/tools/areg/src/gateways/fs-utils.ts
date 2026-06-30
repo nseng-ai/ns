@@ -1,5 +1,6 @@
 import { lstat, readlink } from "node:fs/promises";
-import path from "node:path";
+
+import { errorCodeFromUnknown, isPathInside } from "@sdl/core/primitives";
 
 import type { AregPathState } from "../gateways.ts";
 
@@ -17,18 +18,9 @@ export async function inspectPath(candidate: string): Promise<AregPathState> {
 }
 
 export function isPathAtOrBelow(candidate: string, root: string): boolean {
-	const relative = path.relative(root, candidate);
-	return (
-		relative === "" ||
-		(relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative))
-	);
+	return isPathInside(root, candidate);
 }
 
 export function isNodeErrorCode(error: unknown, code: string): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === code
-	);
+	return errorCodeFromUnknown(error) === code;
 }
