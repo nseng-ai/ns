@@ -93,6 +93,14 @@ Full reasoning: `references/type-system.md`.
 - **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
   should be parsed by a Zod schema. Derive static types from schemas with `z.infer`; do not hand-write
   duplicate mirror types for values that already have a schema.
+- **Encode contracts; do not rely on ambient bags.** Prefer typed fields, parameters, gateway methods,
+  discriminated unions, or curated APIs over implicit contracts carried through `Record<string, unknown>`,
+  magic string keys, convention-only object shapes, hidden globals, or casts. Dynamic records are
+  acceptable at explicit external, plugin, or config boundaries, but first-party code that depends on a
+  specific key must decode that value into a typed interface/schema/accessor before using it. Do not
+  pass a shared first-party capability through `features["some.magic.key"]`; promote it to an explicit
+  typed contract such as `features: FeatureCapabilities`, `featureCapabilities`, or
+  `getFeatureCapabilities()`.
 - **Model state machines as explicit unions.** Prefer one field like
   `mode: { type: "search"; query: string } | { type: "replace"; pattern: string } | null` over several
   booleans that can drift into impossible combinations.
