@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import type { Result } from "@sdl/core/result";
@@ -14,6 +14,7 @@ import {
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
 import {
+	closeReviewThreadsResultSchema,
 	openPrsResultSchema,
 	prDiscussionCommentsResultSchema,
 	prChecksResultSchema,
@@ -24,7 +25,13 @@ import {
 	resolveReviewThreadResultSchema,
 } from "./operation-schemas/collection.ts";
 import { collectPrChecks } from "./core/pr-checks.ts";
-import { replyReviewThread, resolveReviewThread } from "./core/review-thread-mutations.ts";
+import {
+	closeReviewThreads,
+	replyReviewThread,
+	resolveReviewThread,
+} from "./core/review-thread-mutations.ts";
+import { duplicateValues } from "./duplicate-values.ts";
+import { loadJsonInput } from "./json-input.ts";
 import {
 	discussionCommentsResult,
 	lookupResult,
@@ -45,12 +52,18 @@ const replyReviewThreadSchema = z.object({
 	body: z.string(),
 });
 const resolveReviewThreadSchema = z.object({ threadId: z.string() });
+const closeReviewThreadsInputSchema = z.looseObject({ threadIds: z.array(z.string()) });
+const closeReviewThreadsParseSchema = z.object({
+	threadIdsJson: z.string().optional(),
+	body: z.string().optional(),
+});
 
 type PrNumberRequest = z.output<typeof prNumberSchema>;
 type BranchPrRequest = z.output<typeof branchPrSchema>;
 type ReviewThreadsRequest = z.output<typeof reviewThreadsSchema>;
 type ReplyReviewThreadRequest = z.output<typeof replyReviewThreadSchema>;
 type ResolveReviewThreadRequest = z.output<typeof resolveReviewThreadSchema>;
+type CloseReviewThreadsRequest = z.output<typeof closeReviewThreadsParseSchema>;
 type PrLookupResult = z.output<typeof prLookupResultSchema>;
 type OpenPrsResult = z.output<typeof openPrsResultSchema>;
 type PrReviewsResult = z.output<typeof prReviewsResultSchema>;
@@ -59,6 +72,7 @@ type PrDiscussionCommentsResult = z.output<typeof prDiscussionCommentsResultSche
 type PrChecksResult = z.output<typeof prChecksResultSchema>;
 type ReplyReviewThreadResult = z.output<typeof replyReviewThreadResultSchema>;
 type ResolveReviewThreadResult = z.output<typeof resolveReviewThreadResultSchema>;
+type CloseReviewThreadsResult = z.output<typeof closeReviewThreadsResultSchema>;
 
 export const primitiveOperations: readonly ExecOperation[] = [
 	defineExecOperation({
@@ -149,6 +163,16 @@ export const primitiveOperations: readonly ExecOperation[] = [
 			description: "Resolve one GitHub PR review thread.",
 			schema: resolveReviewThreadSchema,
 			handler: runResolveReviewThread,
+		},
+	}),
+	defineExecOperation({
+		isRepoContextRequired: true,
+		resultSchema: closeReviewThreadsResultSchema,
+		spec: {
+			name: "close-review-threads",
+			description: "Reply to and/or resolve GitHub PR review threads in bulk.",
+			schema: closeReviewThreadsParseSchema,
+			handler: runCloseReviewThreads,
 		},
 	}),
 ];
@@ -291,6 +315,52 @@ async function runResolveReviewThread(
 		case "pr_feedback_failure":
 			return prFeedbackFailureExit(result.message, result.failure);
 	}
+}
+
+async function runCloseReviewThreads(
+	ctx: PrAddressExecContext,
+	request: CloseReviewThreadsRequest,
+): Promise<ClinkrExit<CloseReviewThreadsResult>> {
+	const payloadResult = await loadJsonInput({
+		optionValue: request.threadIdsJson,
+		commandName: "close-review-threads",
+		inputDescription: "review-thread IDs JSON payload",
+		optionName: "--thread-ids-json",
+		schema: closeReviewThreadsInputSchema,
+		stdin: ctx.stdin,
+	});
+	if (payloadResult.type === "error")
+		return failure(payloadResult.error.errorType, payloadResult.error.message);
+
+	const threadIds = payloadResult.value.threadIds.map((threadId) => threadId.trim());
+	const validationMessage = closeReviewThreadsValidationMessage(threadIds, request.body);
+	if (validationMessage !== null) return failure("invalid-request", validationMessage);
+
+	const result = await closeReviewThreads({
+		prFeedback: ctx.context.prFeedback,
+		gatewayOptions: gatewayOptions(ctx),
+		threadIds,
+		...(request.body === undefined ? {} : { body: request.body }),
+	});
+	if (result.failed === 0) return ok(result);
+	return negative(`Failed to close ${result.failed} of ${result.requested} review threads`, {
+		data: result,
+	});
+}
+
+function closeReviewThreadsValidationMessage(
+	threadIds: readonly string[],
+	body: string | undefined,
+): string | null {
+	if (threadIds.length === 0) return "close-review-threads requires at least one thread ID.";
+	if (!threadIds.every((threadId) => threadId !== ""))
+		return "close-review-threads requires every thread ID to be non-empty.";
+	const duplicates = duplicateValues(threadIds);
+	if (duplicates.length > 0)
+		return `close-review-threads thread IDs contain duplicates: ${duplicates.join(", ")}`;
+	if (body !== undefined && body.trim() === "")
+		return "close-review-threads requires --body to be non-empty when supplied.";
+	return null;
 }
 
 async function prFeedbackResultExit<TValue, TPayload>(options: {

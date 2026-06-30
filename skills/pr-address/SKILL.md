@@ -42,8 +42,11 @@ Mutation primitives:
 
 - `reply-review-thread --thread-id <id> --body <body>`
 - `resolve-review-thread --thread-id <id>`
+- `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]`
 
-After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
+After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
+
+For one-off mutations, use `sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
 
 ## Retired workflow
 

@@ -1,6 +1,7 @@
 /** Test-only literal set of managed exec operation names. */
 export const EXEC_OPERATION_NAMES: ReadonlySet<string> = new Set([
 	"branch-pr",
+	"close-review-threads",
 	"download-feedback",
 	"map-branch-prs",
 	"open-prs",

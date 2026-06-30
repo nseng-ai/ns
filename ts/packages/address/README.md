@@ -11,7 +11,7 @@ The retained foundation is:
 - `sdl address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
 - `sdl address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
-- Mutation primitives: `reply-review-thread` and `resolve-review-thread`.
+- Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.
 
 The `download-feedback` result includes Markdown intended for session/editor prefill. It is triage-only and must not mutate GitHub. After human direction, current-state inspection, implementation or verification, and appropriate validation, review-thread mutations should use the primitive commands instead of raw `gh api graphql`.
 
@@ -43,6 +43,8 @@ sdl address exec pr-review-threads --pr-number <pr-number> --include-resolved --
 sdl address exec pr-checks [--pr-number <pr-number>] --format json
 sdl address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
 sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID>"]}' | sdl address exec close-review-threads --format json
 ```
 
 ## Validation

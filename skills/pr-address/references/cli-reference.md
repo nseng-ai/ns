@@ -17,7 +17,7 @@ Use `--json-schema` before relying on a helper shape.
 - Feedback download: `download-feedback`.
 - Stack download plumbing: `map-branch-prs`, used to map structured branch lists to PRs before per-PR downloads.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`.
-- Mutation primitives: `reply-review-thread`, `resolve-review-thread`.
+- Mutation primitives: `reply-review-thread`, `resolve-review-thread`, `close-review-threads`.
 
 ## Examples
 
@@ -33,15 +33,11 @@ sdl address exec pr-review-threads --pr-number <pr-number> --include-resolved --
 sdl address exec pr-discussion-comments --pr-number <pr-number> --format json
 sdl address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
 sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | sdl address exec close-review-threads --format json
 ```
 
-For multiple thread IDs, loop over the primitive instead of using raw GraphQL:
-
-```bash
-for thread_id in <THREAD_ID_1> <THREAD_ID_2> <THREAD_ID_3>; do
-  sdl address exec resolve-review-thread --thread-id "$thread_id" --format json
-done
-```
+For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
 
 ## Safety policy
 

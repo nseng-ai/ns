@@ -49,11 +49,9 @@ describe("collectDownloadFeedback", () => {
 		expect(result.feedback.markdown).toContain("# PR feedback triage request");
 		expect(result.feedback.markdown).toContain("## Instructions before responding");
 		expect(result.feedback.markdown).toContain(
-			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
+			"sdl address exec close-review-threads --thread-ids-json",
 		);
-		expect(result.feedback.markdown).toContain(
-			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
-		);
+		expect(result.feedback.markdown).toContain("include `--body <BODY>` when a reply is useful");
 		expect(result.feedback.markdown).toContain(
 			"do not use raw `gh api graphql` for those mutations",
 		);

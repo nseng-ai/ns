@@ -52,15 +52,11 @@ Replies and resolutions are GitHub mutations. Use them only after the human has 
 ```bash
 sdl address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
 sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | sdl address exec close-review-threads --format json
 ```
 
-For multiple thread IDs, loop over the primitive instead of using raw GraphQL:
-
-```bash
-for thread_id in <THREAD_ID_1> <THREAD_ID_2> <THREAD_ID_3>; do
-  sdl address exec resolve-review-thread --thread-id "$thread_id" --format json
-done
-```
+For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.
 
 Do not use raw `gh api graphql` for review-thread resolve/reply mutations when these primitives cover the operation.
 

@@ -420,17 +420,13 @@ describe("pr feedback watch download helpers", () => {
 		expect(prompt).toContain("Inspect the current repository state before acting");
 		expect(prompt).toContain("Automatically address straightforward feedback");
 		expect(prompt).toContain("localized, mechanically verifiable, low-risk");
-		expect(prompt).toContain("you must resolve every addressed review thread");
+		expect(prompt).toContain("you must close every addressed review thread");
 		expect(prompt).toContain("cannot be resolved or replied to after validation");
 		expect(prompt).toContain("Do not push, submit, create branches");
 		expect(prompt).toContain("present remaining feedback for human curation");
-		expect(prompt).toContain(
-			"sdl address exec resolve-review-thread --thread-id <THREAD_ID> --format json",
-		);
-		expect(prompt).toContain(
-			"sdl address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json",
-		);
-		expect(prompt).toContain("rather than raw `gh api graphql`");
+		expect(prompt).toContain("sdl address exec close-review-threads --thread-ids-json");
+		expect(prompt).toContain("omit `--body` for resolve-only closure");
+		expect(prompt).toContain("do not use raw `gh api graphql`");
 		expect(prompt).not.toContain("Do not edit files yet");
 		expect(prompt).not.toContain("wait for human confirmation");
 	});
