@@ -17,7 +17,8 @@
     "@sdl/git": "workspace:*",
     "@sdl/github": "workspace:*",
     "@sdl/graphite": "workspace:*",
-    "@sdl/pi": "workspace:*"
+    "@sdl/pi": "workspace:*",
+    "@sdl/time": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {

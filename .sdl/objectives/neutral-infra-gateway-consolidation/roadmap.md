@@ -100,7 +100,10 @@
     `@sdl/core/model-slug` model-reference parsing/default helpers and new
     `@sdl/capability-kit/model-slug` process/env-backed `pi` slug derivation runner; runner
     consumers import the kit subpath, and source-search invariants confirm no runner/process command
-    construction remains in core.
+    construction remains in core. `clock`/`timers` concrete adapters moved to new neutral-infra package
+    `@sdl/time`; core time subpaths now contain only `Clock`, `ScheduledTimer`, `TimerScheduler`, and
+    abstract-scheduler `delay()`; concrete adapter consumers import `systemClock` and
+    `systemTimerScheduler` from `@sdl/time`; targeted and broad TS validation passed.
   - Autonomous residual order: `temp-files` → `xdg`/`workspace-root` → `shell-support` → `text-repair`
     → `model-slug` split → `clock`/`timers` concrete-adapter extraction → `brmem-cli` and
     `@sdl/core/testing` memberwise cleanup → final purity proof/capability cleanup.

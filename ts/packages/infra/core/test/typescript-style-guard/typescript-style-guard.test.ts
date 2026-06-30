@@ -276,7 +276,7 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "timer adapter raw timer is allowed",
 			code: "setTimeout(() => {}, 10); clearTimeout(timer);",
-			path: "ts/packages/infra/core/src/timers.ts",
+			path: "ts/packages/infra/time/src/index.ts",
 			expectedRules: [],
 		},
 		{

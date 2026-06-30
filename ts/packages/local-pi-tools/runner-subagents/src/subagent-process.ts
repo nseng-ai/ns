@@ -5,9 +5,11 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import { systemClock, type Clock } from "@sdl/core/clock";
+import type { Clock } from "@sdl/core/clock";
+import { systemClock } from "@sdl/time";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/time";
 import {
 	inferModelProviderFamily,
 	MODEL_PROVIDER_FAMILY_INFO,

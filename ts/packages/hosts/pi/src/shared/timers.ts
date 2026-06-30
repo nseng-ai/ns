@@ -11,7 +11,7 @@ export function unrefTimer(
 /**
  * A {@link TimerScheduler} whose timers are unref'd, so long-lived background
  * timers never keep the Pi host process alive at shutdown. This is the
- * difference from `@sdl/core`'s `systemTimerScheduler`, whose consumers are
+ * difference from `@sdl/time`'s `systemTimerScheduler`, whose consumers are
  * short-lived awaited timeouts that intentionally do not unref.
  */
 class UnrefTimerScheduler extends TimerScheduler {
