@@ -1,4 +1,5 @@
 import { failure, ok } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -43,7 +44,7 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 	const resolved = await resolveEntryRequest(ctx, {
 		key: request.key,
 		branch: request.branch,
-		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
+		...optionalEntry("namespace", request.namespace),
 	});
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
