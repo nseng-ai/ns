@@ -29,7 +29,7 @@ export type GetResult = z.infer<typeof getResultSchema>;
 export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 	const resolved = await resolveEntryRequest(ctx, {
 		key: request.key,
-		branch: request.branch,
+		...optionalEntry("branch", request.branch),
 		...optionalEntry("namespace", request.namespace),
 	});
 	if (resolved.type !== "resolved") return resolved;

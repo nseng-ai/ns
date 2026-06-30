@@ -586,7 +586,7 @@ class MissingCheckGateway extends FakeBrmemGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}) {
 		return brmemMissing<EntryDiagnostic>();
 	}

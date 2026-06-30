@@ -43,7 +43,7 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 
 	const resolved = await resolveEntryRequest(ctx, {
 		key: request.key,
-		branch: request.branch,
+		...optionalEntry("branch", request.branch),
 		...optionalEntry("namespace", request.namespace),
 	});
 	if (resolved.type !== "resolved") return resolved;
