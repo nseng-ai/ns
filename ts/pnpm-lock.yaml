@@ -344,6 +344,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../../branch-context
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
@@ -458,6 +461,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../branch-context
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../infra/brmem
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../sdl-capability-kit
@@ -931,6 +937,9 @@ importers:
       '@pierre/diffs':
         specifier: 'catalog:'
         version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../infra/brmem
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../sdl-capability-kit
@@ -1078,6 +1087,9 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.79.1
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../infra/brmem
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core

@@ -38,7 +38,7 @@ import {
 
 import { ScriptedQueue } from "@sdl/core/testing";
 
-export { brmemCheckJson } from "@sdl/core/testing";
+export { brmemCheckJson } from "@sdl/brmem/cli-runner/testing";
 
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";
