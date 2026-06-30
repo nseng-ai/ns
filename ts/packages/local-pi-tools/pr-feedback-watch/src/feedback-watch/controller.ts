@@ -1,4 +1,5 @@
 import { downloadPrFeedback, type PrAddressRunner } from "../feedback-download.ts";
+import { optionalEntry } from "@sdl/core/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
 
@@ -340,7 +341,7 @@ export class PrFeedbackWatchController {
 			pi: this.pi,
 			cwd: session.cwd,
 			identity,
-			...(sinceIso === undefined ? {} : { sinceIso }),
+			...optionalEntry("sinceIso", sinceIso),
 			signal: session.abortController.signal,
 		});
 		if (result.type === "failed") {
@@ -367,7 +368,7 @@ export class PrFeedbackWatchController {
 			pi: this.pi,
 			cwd: session.cwd,
 			identity,
-			...(this.restSinceIso === undefined ? {} : { sinceIso: this.restSinceIso }),
+			...optionalEntry("sinceIso", this.restSinceIso),
 			signal: session.abortController.signal,
 		});
 		if (result.type === "failed") {

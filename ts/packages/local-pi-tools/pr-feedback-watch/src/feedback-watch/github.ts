@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { githubPrIdentityFromUrl } from "@sdl/github/identity";
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
@@ -100,7 +101,7 @@ export async function loadPrCheckSummary(
 		cwd,
 		args: ["pr", "checks", String(prNumber), "--json", "bucket"],
 		label: "gh pr checks",
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
 		shouldAllowNonZeroWithStdout: true,
 	});
 	return result.type === "loaded"
@@ -138,21 +139,21 @@ export async function loadRestFingerprint(
 			cwd,
 			endpoint: discussionEndpoint,
 			jq: "[.[] | {id, created_at, updated_at, author: .user.login}]",
-			...(signal === undefined ? {} : { signal }),
+			...optionalEntry("signal", signal),
 		}),
 		ghApiJson({
 			pi,
 			cwd,
 			endpoint: reviewsEndpointValue,
 			jq: "[.[] | {id, node_id, state, submitted_at, commit_id, author: .user.login}]",
-			...(signal === undefined ? {} : { signal }),
+			...optionalEntry("signal", signal),
 		}),
 		ghApiJson({
 			pi,
 			cwd,
 			endpoint: reviewCommentsEndpointValue,
 			jq: "[.[] | {id, pull_request_review_id, created_at, updated_at, path, line, in_reply_to_id, author: .user.login}]",
-			...(signal === undefined ? {} : { signal }),
+			...optionalEntry("signal", signal),
 		}),
 	]);
 	const discussion = settledGhApiJsonResult(discussionResult, discussionEndpoint);
@@ -189,7 +190,7 @@ async function ghApiJson(options: GhApiJsonOptions): Promise<GhApiJsonResult> {
 		cwd,
 		args: ["api", "--method", "GET", endpoint, "--jq", jq],
 		label: `gh api for ${endpoint}`,
-		...(signal === undefined ? {} : { signal }),
+		...optionalEntry("signal", signal),
 	});
 }
 

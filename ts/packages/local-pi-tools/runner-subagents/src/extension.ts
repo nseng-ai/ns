@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatZodError } from "@sdl/core/primitives";
+import { formatZodError, optionalEntry } from "@sdl/core/primitives";
 
 import { loadPiAgentDefinition, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
 import type { ToolDefinition } from "@sdl/pi/runtime/tool-types";
@@ -122,8 +122,8 @@ export default function dispatchRunnerSubagentExtension(
 				title: input.title,
 				prompt: input.prompt,
 				widgetKey: WIDGET_KEY,
-				...(input.model === undefined ? {} : { model: input.model }),
-				...(signal === undefined ? {} : { signal }),
+				...optionalEntry("model", input.model),
+				...optionalEntry("signal", signal),
 				onStart: (start) => {
 					onUpdate?.({
 						content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
@@ -151,7 +151,7 @@ export default function dispatchRunnerSubagentExtension(
 			return {
 				content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
 				details: dispatchRunnerSubagentDetails(result, {
-					...(input.model === undefined ? {} : { requestedModel: input.model }),
+					...optionalEntry("requestedModel", input.model),
 					curatedContext: curatedContext.audit,
 				}),
 			};
@@ -206,8 +206,8 @@ export function dispatchRunnerSubagentDetails(
 	const details: DispatchRunnerSubagentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
-		...(options.requestedModel === undefined ? {} : { requestedModel: options.requestedModel }),
-		...(options.curatedContext === undefined ? {} : { curatedContext: options.curatedContext }),
+		...optionalEntry("requestedModel", options.requestedModel),
+		...optionalEntry("curatedContext", options.curatedContext),
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,
