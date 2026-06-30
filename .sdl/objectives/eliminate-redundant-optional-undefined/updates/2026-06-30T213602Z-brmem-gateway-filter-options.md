@@ -15,12 +15,12 @@ Construction sites that previously forwarded present-key `undefined` now omit op
 
 Scorecard:
 
-| Scope | Metric | Before | After |
-| --- | --- | ---: | ---: |
-| `ts` | Raw optional-undefined properties (net debt) | 145 | 115 |
-| `ts` | Undefined-normalization/check lines | 2357 | 2365 |
-| `ts/packages/infra/brmem/src ts/packages/infra/brmem/test` | Raw optional-undefined properties (net debt) | 42 | 12 |
-| `ts/packages/infra/brmem/src ts/packages/infra/brmem/test` | Undefined-normalization/check lines | 98 | 106 |
+| Scope                                                      | Metric                                       | Before | After |
+| ---------------------------------------------------------- | -------------------------------------------- | -----: | ----: |
+| `ts`                                                       | Raw optional-undefined properties (net debt) |    145 |   115 |
+| `ts`                                                       | Undefined-normalization/check lines          |   2357 |  2365 |
+| `ts/packages/infra/brmem/src ts/packages/infra/brmem/test` | Raw optional-undefined properties (net debt) |     42 |    12 |
+| `ts/packages/infra/brmem/src ts/packages/infra/brmem/test` | Undefined-normalization/check lines          |     98 |   106 |
 
 ## Objective Impact
 
