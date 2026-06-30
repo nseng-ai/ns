@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { registerCommandWithImmediateAck } from "../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { formatZodError } from "@sdl/core/primitives";
+import { formatZodError, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "../commands/cli-extension.ts";
@@ -360,7 +360,7 @@ function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): Comm
 	const parsed = parseMachineEnvelopeDataWithFailureData(options.result.stdout, {
 		label: options.label,
 		stdoutTail: { maxLines: 20, maxChars: 2000 },
-		shouldAllowFailureData: options.allowFailureData,
+		...optionalEntry("shouldAllowFailureData", options.allowFailureData),
 	});
 	if (parsed.type === "invalid") {
 		return { type: "error", message: envelopeDetail(parsed, options.result) };

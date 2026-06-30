@@ -145,7 +145,7 @@ export interface FormatCommandEvidenceOptions {
 	command: string;
 	cwd: string;
 	result: ExecResult;
-	guidance?: string | undefined;
+	guidance?: string;
 }
 
 export function formatCommandEvidence(options: FormatCommandEvidenceOptions): string {
