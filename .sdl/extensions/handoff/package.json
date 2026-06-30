@@ -1,5 +1,6 @@
 {
 	"sdl": {
+		"description": "Create, list, pick up, and clean up branch handoffs.",
 		"group": "handoff",
 		"commands": [
 			{

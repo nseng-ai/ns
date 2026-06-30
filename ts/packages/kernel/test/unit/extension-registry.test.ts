@@ -292,6 +292,7 @@ describe("extension registry", () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "handoff", {
 			sdl: {
+				description: "Coordinate handoff artifacts.",
 				group: "handoff",
 				commands: [
 					{
@@ -317,6 +318,7 @@ describe("extension registry", () => {
 		expect(catalog.commandInfos).toEqual([
 			{
 				group: "handoff",
+				groupDescription: "Coordinate handoff artifacts.",
 				name: "list",
 				description: "List stored handoffs.",
 				fullDescription: "List stored handoffs with descriptions.",

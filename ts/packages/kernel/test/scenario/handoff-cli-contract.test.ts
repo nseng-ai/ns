@@ -36,7 +36,7 @@ describe("handoff CLI grouped command contract", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("handoff");
-		expect(help).toContain("SDL handoff commands.");
+		expect(help).toContain("Coordinate branch-scoped handoff artifacts.");
 		expect(run.stderr.join("")).toBe("");
 		expect(readLoadLog(project.loadLogPath)).toEqual([]);
 	});
@@ -104,6 +104,7 @@ async function createHandoffProject(): Promise<{ cwd: string; loadLogPath: strin
 	mkdirSync(join(extensionDir, "src"), { recursive: true });
 	const manifest = {
 		sdl: {
+			description: "Coordinate branch-scoped handoff artifacts.",
 			group: "handoff",
 			commands: HANDOFF_COMMANDS.map((command) => ({
 				name: command.name,

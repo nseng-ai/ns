@@ -15,7 +15,13 @@ export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
 export interface DiscoveredExtensionCommand extends Pick<
 	SdlCommandCandidate,
-	"group" | "name" | "segments" | "description" | "fullDescription" | "entryPath"
+	| "group"
+	| "name"
+	| "segments"
+	| "groupDescription"
+	| "description"
+	| "fullDescription"
+	| "entryPath"
 > {
 	entryPath: string;
 	displayPath: string;
@@ -39,6 +45,7 @@ interface ParsedManifestCommandEntryFields {
 	group: string | undefined;
 	name: string | undefined;
 	segments: readonly string[] | undefined;
+	groupDescription: string | undefined;
 	description: string | undefined;
 	entry: string | undefined;
 	fullDescription: string | undefined;
@@ -258,6 +265,8 @@ function discoverPackageCommands(
 		};
 	}
 	const packageGroup = readNonEmptyString(parsed.sdl.group);
+	const packageGroupDescription =
+		readNonEmptyString(parsed.sdl.description) ?? readNonEmptyString(parsed.description);
 	const packageGroupDiagnostic = groupDiagnostic({
 		group: parsed.sdl.group,
 		packageJsonPath,
@@ -289,6 +298,7 @@ function discoverPackageCommands(
 			packageDir,
 			packageJsonPath,
 			packageGroup,
+			packageGroupDescription,
 			entry,
 		});
 		if (command.ok) {
@@ -326,6 +336,7 @@ function commandForManifestEntry(options: {
 	packageDir: string;
 	packageJsonPath: string;
 	packageGroup: string | undefined;
+	packageGroupDescription: string | undefined;
 	entry: unknown;
 }):
 	| { ok: true; command: DiscoveredExtensionCommand }
@@ -345,6 +356,7 @@ function commandForManifestEntry(options: {
 	const parsedEntry = parseManifestCommandEntry({
 		entry: options.entry,
 		packageGroup: options.packageGroup,
+		packageGroupDescription: options.packageGroupDescription,
 		packageJsonPath: options.packageJsonPath,
 	});
 	const diagnostics: ExtensionDiscoveryDiagnostic[] = [...parsedEntry.diagnostics];
@@ -395,6 +407,9 @@ function commandForManifestEntry(options: {
 			kind: "package",
 			...(parsedEntry.entry.group === undefined ? {} : { group: parsedEntry.entry.group }),
 			...(parsedEntry.entry.segments === undefined ? {} : { segments: parsedEntry.entry.segments }),
+			...(parsedEntry.entry.groupDescription === undefined
+				? {}
+				: { groupDescription: parsedEntry.entry.groupDescription }),
 			name: parsedEntry.entry.name,
 			description: parsedEntry.entry.description,
 			fullDescription: parsedEntry.entry.fullDescription,
@@ -504,6 +519,7 @@ function commandNameFromManifestPath(segments: readonly string[] | undefined): s
 function parseManifestCommandEntry(options: {
 	entry: Record<string, unknown>;
 	packageGroup: string | undefined;
+	packageGroupDescription: string | undefined;
 	packageJsonPath: string;
 }): {
 	entry: ParsedManifestCommandEntryFields;
@@ -524,6 +540,10 @@ function parseManifestCommandEntry(options: {
 		group: entryGroup,
 		name: commandName,
 		segments,
+		groupDescription:
+			entryGroup !== undefined || (segments?.length ?? 0) > 1
+				? options.packageGroupDescription
+				: undefined,
 		description: undefined,
 		entry: undefined,
 		fullDescription: undefined,

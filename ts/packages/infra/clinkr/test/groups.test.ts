@@ -207,6 +207,19 @@ describe("nested groups", () => {
 			expect(run.stderr).toBe("");
 		}
 	});
+
+	test("subgroups can render under a custom parent help section", async () => {
+		const root = new ClinkrGroup<ProbeContext>({ name: "root" });
+		root.group(new ClinkrGroup<ProbeContext>({ name: "built-in", helpGroup: "Built-ins:" }));
+		root.group(new ClinkrGroup<ProbeContext>({ name: "extension", helpGroup: "Extensions:" }));
+
+		const run = await runForTest(root, ["--help"], { context: { calls: [] } });
+
+		expect(run.exitCode).toBe(0);
+		expect(run.stdout).toContain("Built-ins:\n  built-in");
+		expect(run.stdout).toContain("Extensions:\n  extension");
+		expect(run.stderr).toBe("");
+	});
 });
 
 describe("hidden subgroups", () => {

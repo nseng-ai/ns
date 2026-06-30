@@ -98,6 +98,8 @@ export interface DefaultCommandSpec<TContext, S extends z.ZodObject, T> extends 
 export interface ClinkrGroupOptions {
 	name: string;
 	description?: string;
+	/** Parent help section heading for this group. */
+	helpGroup?: string;
 	/** Suppresses this group from its parent's help; it stays invocable. */
 	isHidden?: boolean;
 	/** Root-only package version exposed as `-V, --version`. */
@@ -165,6 +167,7 @@ interface BuildCommandOptions<TContext> {
 export class ClinkrGroup<TContext> {
 	readonly name: string;
 	readonly description: string | undefined;
+	readonly helpGroup: string | undefined;
 	readonly isHidden: boolean;
 	private readonly version: string | undefined;
 	private readonly runtimeInfo: (() => string) | undefined;
@@ -175,6 +178,7 @@ export class ClinkrGroup<TContext> {
 	constructor(options: ClinkrGroupOptions) {
 		this.name = options.name;
 		this.description = options.description;
+		this.helpGroup = options.helpGroup;
 		this.isHidden = options.isHidden ?? false;
 		this.version = options.version;
 		this.runtimeInfo = options.runtimeInfo;
@@ -303,6 +307,7 @@ export class ClinkrGroup<TContext> {
 		const { context, io, state, isRoot } = options;
 		const command = createContainedCommand(this.name, io);
 		if (this.description !== undefined) command.description(this.description);
+		if (this.helpGroup !== undefined) command.helpGroup(this.helpGroup);
 		if (isRoot && this.version !== undefined) {
 			command.version(this.version, "-V, --version", "Show the package version.");
 		}

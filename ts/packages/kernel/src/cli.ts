@@ -205,8 +205,6 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		};
 	},
 	configureCli: ({ root, buildState }) => {
-		root.group(buildSdlShellGroup());
-		root.group(buildSdlCompletionGroup());
 		const groups = new Map<string, ClinkrGroup<SdlCliContext>>();
 		for (const commandInfo of buildState.commandInfos) {
 			const parent = groupForCommand(root, groups, commandInfo);
@@ -266,6 +264,8 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				}),
 			);
 		}
+		root.group(buildSdlShellGroup());
+		root.group(buildSdlCompletionGroup());
 	},
 });
 
@@ -483,6 +483,8 @@ function requestedCommandKey(
 }
 
 const SDL_EXEC_GROUP_NAME = "exec";
+const SDL_BUILT_IN_HELP_GROUP = "Built-in Commands:";
+const SDL_EXTENSION_HELP_GROUP = "Extensions:";
 // Dynamic SDL extensions are one group deep today. A grouped command named
 // `exec-<name>` is mounted as hidden `sdl <group> exec <name>` so agent-only
 // operations keep the same nested exec contract as first-party Clinkr groups.
@@ -506,6 +508,7 @@ function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
 	const completion = new ClinkrGroup<SdlCliContext>({
 		name: "completion",
 		description: "Print shell completion setup scripts.",
+		helpGroup: SDL_BUILT_IN_HELP_GROUP,
 	});
 	for (const shell of ["bash", "zsh", "fish"] as const) {
 		completion.command({
@@ -570,6 +573,7 @@ function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 	const shell = new ClinkrGroup<SdlCliContext>({
 		name: "shell",
 		description: "Show or install parent-shell integration.",
+		helpGroup: SDL_BUILT_IN_HELP_GROUP,
 	});
 	shell.command({
 		name: "show",
@@ -620,6 +624,7 @@ function groupForCommand(
 		const group = new ClinkrGroup<SdlCliContext>({
 			name: segment,
 			description: groupDescription(parentSegments.slice(0, index + 1), commandInfo),
+			...(index === 0 ? { helpGroup: SDL_EXTENSION_HELP_GROUP } : {}),
 			...(segment === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)
 				? { isHidden: true }
 				: {}),
@@ -634,6 +639,9 @@ function groupForCommand(
 function groupDescription(segments: readonly string[], commandInfo: SdlCommandCliInfo): string {
 	if (segments.at(-1) === SDL_EXEC_GROUP_NAME && isGroupedExecCommand(commandInfo)) {
 		return `Skill-invoked SDL ${segments[0] ?? "extension"} operations.`;
+	}
+	if (segments.length === 1 && commandInfo.groupDescription !== undefined) {
+		return commandInfo.groupDescription;
 	}
 	return `SDL ${segments.join(" ")} commands.`;
 }
