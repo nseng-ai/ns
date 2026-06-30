@@ -12,24 +12,23 @@
   - Target: make `src/land.ts` own CLI/Pi command shell adaptation and result presentation, while land-stack domain logic moves toward a standalone `ts/packages/capabilities/land` domain-core package rather than remaining only in smaller Flow-internal modules.
   - Evidence: `sdl-flow/api` remains stable; Flow/CCC land tests pass; module sizes and imports show clearer ownership boundaries.
   - Progress: chunked stack landing coordination now delegates to `src/land-stack/chunked-landing.ts`; single-plan stack landing now delegates to `src/land-stack/single-plan-landing.ts`; shared pre-merge/failure presentation lives in `src/land-stack/landing-coordination.ts`; submit/restack pre-merge maintenance lives in `src/land-stack/pre-merge-submit.ts`; shared pre-merge confirmation gating lives in `src/land-stack/pre-merge-confirmation.ts`; post-merge Graphite maintenance lives in `src/land-stack/graphite-maintenance.ts`; post-landing `--free` slot cleanup now delegates to `src/land/post-landing-slot-cleanup.ts`; isolated single-PR fast-path landing and PR parsing/loading now delegate to `src/land/isolated-fast-path.ts`. `src/land.ts` still owns command registration, CLI adapter/result-block wiring, top-level landing dispatch, upfront stack confirmation, and post-landing cleanup sequencing.
-  - Design direction: the next extraction should create `ts/packages/capabilities/land` as a land-domain core package. Flow stays responsible for command registration, CLI/Pi presentation, and `sdl-flow/api` compatibility while adapting to the new package internally.
+  - Design direction: `ts/packages/capabilities/land` is established as the land-domain core package for stack preflight/dry-run planning. Flow stays responsible for command registration, CLI/Pi presentation, mutation-heavy landing orchestration, and `sdl-flow/api` compatibility while adapting to `sdl-land` internally.
 
-- [ ] Introduce a fake-driven land-stack domain seam.
+- [x] Introduce a fake-driven land-stack domain seam.
   - Policy: preview and then execute one bounded seam; ask first if the proposed seam changes public behavior, command names, or `sdl-flow/api` shape.
-  - Target: replace brittle argv-scripted coverage for at least one important land-stack path with injected gateways/collaborators and in-memory fakes. Shape the seam from current tests rather than inventing a broad abstraction up front.
-  - Design direction: first package seam should expose an `executeLanding(...)`-style operation, `LandingRequest`, structured `LandingOutcome`, failure/result types, and land-specific Git/Graphite/GitHub PR/worktree-slot gateway contracts/fakes. Do not export CLI parsing, completions, or presentation helpers from `sdl-land`.
-  - First slice: migrate stack pre-merge planning/preflight behind the new seam — clean repo, topology/PR basics, worktree conflicts, submit/restack requirements, and dry-run plan/outcome calculation. Model isolated single-PR landing in the vocabulary, but leave its implementation in Flow until the stack seam is proven.
-  - Evidence: new fake-driven tests cover meaningful preflight/plan behavior; command-shell adapters remain the only layer that knows raw `exec`/`SdlExtensionApi` details for that path; CCC still consumes land through `sdl-flow/api` during the first extraction.
+  - Delivered: added private capability package `sdl-land` with `./api` and `./testing` subpaths, stack-first land request/outcome/failure/result/preflight types, focused Git/Graphite/GitHub PR/worktree gateway vocabulary, and in-memory fakes.
+  - Delivered: Flow stack preflight/dry-run planning now calls `sdl-land` internally through a Flow adapter while preserving `sdl-flow/api`, Flow presentation, CCC imports, public command names, isolated fast-path behavior, and durable `refs/ccc/...` compatibility.
+  - Evidence: `sdl-land` fake-driven tests cover stack preflight planning; Flow/Land/CCC checks from the land-domain-core and adapter-helper updates passed; boundary searches showed CCC still consumes land through `sdl-flow/api`, no direct CCC `sdl-land` import was introduced, and `sdl-land` exports only `./api` plus `./testing`.
 
 - [ ] Resolve CCC-era naming residue in Flow.
   - Policy: direct execution for clearly internal test/temp/helper names; steer first before changing persisted refs, user-visible strings, or recovery instructions.
   - Target: inventory `ccc` names under Flow; rename safe internal residue; document or deliberately preserve durable compatibility names such as backup-ref namespaces when needed.
   - Evidence: inventory search recorded; safe renames landed; any preserved `ccc` names have explicit rationale in code comments, context, or an Objective update.
 
-- [ ] Add Flow package context and refresh map/root wording.
+- [x] Add Flow package context and refresh map/root wording.
   - Policy: direct execution after preview for context/docs; keep glossary style and do not rewrite historical Objective updates.
-  - Target: create or refresh `ts/packages/capabilities/flow/CONTEXT.md` and update `CONTEXT-MAP.md` so Flow's command face, Capability API, domain-core ownership, land-stack ownership, submit/autobranch boundaries, and CCC consumer boundary are explicit.
-  - Evidence: context docs pass formatting; future-facing wording no longer says CCC owns Flow land/autobranch internals.
+  - Delivered: added or refreshed `ts/packages/capabilities/flow/CONTEXT.md`, `ts/packages/capabilities/land/CONTEXT.md`, and `CONTEXT-MAP.md` relationships so Flow's command face, Capability API, land-domain core ownership, land-stack ownership, submit/autobranch boundaries, and CCC consumer boundary are explicit.
+  - Evidence: direct `dprint check` for the touched context Markdown passed in the land-domain-core update; future-facing wording records Flow ownership and `sdl-land` extraction without making CCC the land/autobranch owner.
 
 - [ ] Final API/export cleanliness rebaseline.
   - Policy: direct execution after preview once structural slices have landed.
