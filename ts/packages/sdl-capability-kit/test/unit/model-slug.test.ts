@@ -1,13 +1,12 @@
 import { describe, expect, test } from "vitest";
 
+import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import {
 	buildSlugModelArgs,
-	DEFAULT_FAST_MODEL,
 	deriveSlugWithModel,
-	SLUG_MODEL_ENV,
 	type SlugModelCommandResult,
 	type SlugModelExecOptions,
-} from "../src/model-slug.ts";
+} from "@sdl/capability-kit/model-slug";
 
 interface ExecCall {
 	command: string;

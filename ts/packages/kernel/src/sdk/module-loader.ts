@@ -29,6 +29,7 @@ const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
 const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
 const EXEC_SPECIFIER = "@sdl/exec";
+const CAPABILITY_KIT_MODEL_SLUG_SPECIFIER = "@sdl/capability-kit/model-slug";
 const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
@@ -53,6 +54,7 @@ const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
 const EXEC_MODULE_PATH = join(SDL_SRC_DIR, "..", "..", "infra", "exec", "src", "index.ts");
+const CAPABILITY_KIT_MODEL_SLUG_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "model-slug.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "text-normalization.ts");
@@ -265,6 +267,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
 			[EXEC_SPECIFIER]: EXEC_MODULE_PATH,
+			[CAPABILITY_KIT_MODEL_SLUG_SPECIFIER]: CAPABILITY_KIT_MODEL_SLUG_MODULE_PATH,
 			[CORE_MODEL_SLUG_SPECIFIER]: CORE_MODEL_SLUG_MODULE_PATH,
 			[CORE_PRIMITIVES_SPECIFIER]: CORE_PRIMITIVES_MODULE_PATH,
 			[CORE_TEXT_NORMALIZATION_SPECIFIER]: CORE_TEXT_NORMALIZATION_MODULE_PATH,

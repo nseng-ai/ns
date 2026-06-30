@@ -341,6 +341,9 @@ importers:
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:../../branch-context
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
@@ -398,6 +401,9 @@ importers:
       '@sdl/brmem':
         specifier: workspace:*
         version: link:../../infra/brmem
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
