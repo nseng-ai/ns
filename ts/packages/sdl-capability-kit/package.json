@@ -8,6 +8,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./brmem-cli": "./src/brmem-cli.ts",
+    "./brmem-cli/testing": "./src/brmem-cli-testing.ts",
     "./checkpoint-flow": "./src/checkpoint-flow.ts",
     "./checkpoint-message": "./src/checkpoint-message.ts",
     "./command-runner": "./src/command-runner.ts",

@@ -3,9 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./cli-runner": "./src/cli-runner.ts",
-    "./cli-runner/testing": "./src/cli-runner-testing.ts"
+    ".": "./src/index.ts"
   },
   "files": [
     "src"

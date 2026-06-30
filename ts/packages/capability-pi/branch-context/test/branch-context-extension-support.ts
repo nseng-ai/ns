@@ -35,7 +35,7 @@ import {
 	type ToolDefinition,
 } from "../src/extension.ts";
 
-export { brmemCheckJson as brmemCheckEnvelope } from "@sdl/brmem/cli-runner/testing";
+export { brmemCheckJson as brmemCheckEnvelope } from "@sdl/capability-kit/brmem-cli/testing";
 
 export const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(TEST_DIR, "../../../../..");

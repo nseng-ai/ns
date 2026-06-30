@@ -2,7 +2,7 @@ import {
 	listBrmemEntries,
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
-} from "@sdl/brmem/cli-runner";
+} from "@sdl/capability-kit/brmem-cli";
 import type { CommandExecApi } from "@sdl/exec";
 import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
 

@@ -95,6 +95,10 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"@sdl/brmem\0@sdl/git",
 		"Git gateway backend relocation debt: brmem consumes @sdl/git until the separate brmem follow-up retier lands.",
 	],
+	[
+		"@local-pi-tools/thermo-council\0@sdl/capability-kit",
+		"Text-repair helper reuse debt: thermo-council reuses the canonical Capability Kit text-repair loop until local-pi-tool tier policy is reconciled with shared helper placement.",
+	],
 ]);
 
 export const capabilityPackageNames = new Set([

@@ -20,7 +20,6 @@
   },
   "dependencies": {
     "@sdl/branch-context": "workspace:*",
-    "@sdl/brmem": "workspace:*",
     "@sdl/capability-kit": "workspace:*",
     "@sdl/cli-runtime": "workspace:*",
     "@sdl/cli-theme": "workspace:*",

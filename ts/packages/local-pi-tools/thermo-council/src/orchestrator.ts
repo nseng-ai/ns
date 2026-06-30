@@ -3,6 +3,11 @@ import { readFile } from "node:fs/promises";
 import type { z } from "zod";
 
 import { formatZodError } from "@sdl/core/primitives";
+import {
+	prepareRepairedText,
+	type TextGenerationResult,
+	type ValidateGeneratedTextResult,
+} from "@sdl/capability-kit/text-repair";
 
 import {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
@@ -43,30 +48,6 @@ import type { EnvReader, ThermoCouncilCommandContext, ThermoCouncilExtensionAPI 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 const DEFAULT_THERMO_COUNCIL_MAX_CONCURRENCY = 3;
 const THERMO_COUNCIL_MAX_CONCURRENCY_ENV = "THERMO_COUNCIL_MAX_CONCURRENCY";
-const REVIEW_REPAIR_MAX_ATTEMPTS = 2;
-
-// Repair generation runs through runner subagents, not a TextGenerator, and the repair loop only
-// consumes final text or a diagnostic. Keep this intentionally narrower than the canonical
-// TextGenerationResult so usage accounting does not leak into the local recovery contract.
-type RepairTextGenerationResult = { ok: true; text: string } | { ok: false; error: string };
-
-type ValidateGeneratedTextResult<T> = { ok: true; value: T } | { ok: false; feedback: string };
-
-type PrepareRepairedTextResult<T> =
-	| { ok: true; value: T; source: "model" | "repaired_model"; feedback?: string }
-	| { ok: false; error: string };
-
-interface PrepareRepairedTextOptions<T> {
-	noun: string;
-	initialPrompt: string;
-	generate: (prompt: string) => Promise<RepairTextGenerationResult>;
-	validate: (text: string) => ValidateGeneratedTextResult<T>;
-	buildRepairPrompt: (input: {
-		initialPrompt: string;
-		previousDraft: string;
-		feedback: string;
-	}) => string;
-}
 
 interface LaunchThermoCouncilReviewerOptions {
 	readonly pi: ThermoCouncilExtensionAPI;
@@ -526,7 +507,7 @@ async function repairReviewWithModel(input: {
 async function generateReviewRepairText(input: {
 	readonly prompt: string;
 	readonly recoveryContext: ReviewerRecoveryContext;
-}): Promise<RepairTextGenerationResult> {
+}): Promise<TextGenerationResult> {
 	const result = await dispatchRunnerSubagent(
 		input.recoveryContext.pi,
 		reviewerRunnerContext(input.recoveryContext.ctx),
@@ -554,44 +535,6 @@ function validateReviewRepairText(text: string): ValidateGeneratedTextResult<Rev
 	});
 	if (!parsed.ok) return { ok: false, feedback: parsed.error };
 	return { ok: true, value: { review: normalizeReview(parsed.value) } };
-}
-
-async function prepareRepairedText<T>(
-	options: PrepareRepairedTextOptions<T>,
-): Promise<PrepareRepairedTextResult<T>> {
-	let prompt = options.initialPrompt;
-	let firstFeedback: string | undefined;
-	let latestFeedback = "";
-
-	for (let attempt = 1; attempt <= REVIEW_REPAIR_MAX_ATTEMPTS; attempt += 1) {
-		const generated = await options.generate(prompt);
-		if (!generated.ok) return { ok: false, error: generated.error };
-
-		const validation = options.validate(generated.text);
-		if (validation.ok) {
-			return {
-				ok: true,
-				value: validation.value,
-				source: attempt === 1 ? "model" : "repaired_model",
-				...(firstFeedback === undefined ? {} : { feedback: firstFeedback }),
-			};
-		}
-
-		latestFeedback = validation.feedback;
-		firstFeedback ??= validation.feedback;
-		if (attempt < REVIEW_REPAIR_MAX_ATTEMPTS) {
-			prompt = options.buildRepairPrompt({
-				initialPrompt: options.initialPrompt,
-				previousDraft: generated.text,
-				feedback: validation.feedback,
-			});
-		}
-	}
-
-	return {
-		ok: false,
-		error: `Model produced an invalid ${options.noun} after ${REVIEW_REPAIR_MAX_ATTEMPTS} attempts.\n${latestFeedback}`,
-	};
 }
 
 function buildReviewRepairPrompt(input: {

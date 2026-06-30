@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 
-import { findWorkspaceRootByMarkers } from "@sdl/capability-kit/workspace-root";
+import { findWorkspaceRootByMarkers } from "./workspace-root.ts";
 import {
 	MAX_ERROR_CHARS,
 	formatCommand,

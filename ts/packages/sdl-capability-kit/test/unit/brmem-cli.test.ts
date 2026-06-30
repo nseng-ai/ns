@@ -12,7 +12,7 @@ import {
 	runAvailableBrmemCommand,
 	runBrmem,
 	type BrmemExecGateway,
-} from "@sdl/brmem/cli-runner";
+} from "@sdl/capability-kit/brmem-cli";
 import type { PiExecResultLike } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/test-kit";
 
