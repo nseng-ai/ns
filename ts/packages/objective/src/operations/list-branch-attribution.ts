@@ -13,7 +13,7 @@ export interface BuildObjectiveBranchAttributionParams {
 	repoRoot: string;
 	trunkBranch: string;
 	slugs: ReadonlySet<string>;
-	maxBranchWalks?: number | undefined;
+	maxBranchWalks?: number;
 }
 
 export async function buildObjectiveBranchAttribution(

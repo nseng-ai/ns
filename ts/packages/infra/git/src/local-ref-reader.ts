@@ -27,7 +27,7 @@ export interface LocalBranchRefReaderFs {
 }
 
 export interface ReadLocalBranchRefsOptions {
-	fs?: LocalBranchRefReaderFs | undefined;
+	fs?: LocalBranchRefReaderFs;
 }
 
 const nodeBranchRefReaderFs: LocalBranchRefReaderFs = {
