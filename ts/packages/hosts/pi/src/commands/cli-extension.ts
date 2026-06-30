@@ -133,7 +133,7 @@ export interface CommandContext {
 }
 
 export interface CliCommandExtensionAPI {
-	readonly events?: PiExtensionCommandEventEmitter | undefined;
+	readonly events?: PiExtensionCommandEventEmitter;
 	registerCommand(
 		name: string,
 		options: {

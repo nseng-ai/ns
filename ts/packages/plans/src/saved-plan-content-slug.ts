@@ -21,7 +21,7 @@ const SAVED_PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 
 export async function deriveSavedPlanContentSlug(
 	pi: CommandExecApi,
-	input: { content: string; cwd: string; signal?: AbortSignal | undefined },
+	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<SavedPlanContentSlugEvidence> {
 	return deriveContentSlug(pi, input, SAVED_PLAN_CONTENT_SLUG_VARIANT);
 }

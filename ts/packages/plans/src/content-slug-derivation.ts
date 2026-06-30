@@ -18,7 +18,7 @@ export interface ContentSlugDerivationVariant {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 export type ContentSlugEvidence = SlugModelEvidence;

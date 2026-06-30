@@ -43,7 +43,7 @@ class FakePi implements ExtensionAPI {
 	}
 
 	async emitSessionStart(
-		options: { sessionFile?: string | undefined; entries?: readonly unknown[] | undefined } = {},
+		options: { sessionFile?: string; entries?: readonly unknown[] } = {},
 	): Promise<void> {
 		if (this.sessionStartHandler === undefined)
 			throw new Error("session_start handler not registered");
