@@ -16,6 +16,7 @@ export interface AretroCliContext {
 export function createRealAretroContext(
 	options: {
 		cwd?: string | undefined;
+		// optional-undefined-objective: preserve (env-map) — DI factory env seam consumed via `options.env ?? process.env`; passing undefined to default to process env is intentional.
 		env?: NodeJS.ProcessEnv | undefined;
 		git?: GitGateway | undefined;
 		sessionSource?: SessionSource | undefined;

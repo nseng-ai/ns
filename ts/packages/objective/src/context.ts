@@ -17,6 +17,7 @@ export interface ObjectiveCliContext {
 export async function createRealObjectiveContext(
 	options: {
 		cwd?: string | undefined;
+		// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.
 		env?: NodeJS.ProcessEnv | undefined;
 		git?: GitGateway | undefined;
 	} = {},

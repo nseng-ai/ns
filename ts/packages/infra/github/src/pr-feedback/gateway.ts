@@ -78,6 +78,7 @@ type GhJsonParser<T> = (
 
 interface GraphqlPageInfo {
 	readonly hasNextPage: boolean;
+	// optional-undefined-objective: preserve (external-mirror) — Internal mirror of the GitHub GraphQL pageInfo.endCursor wire field (Zod-parsed as string|null|optional); null and absent both originate from external data, so the on-the-wire shape should be matched exactly.
 	readonly endCursor?: string | null | undefined;
 }
 

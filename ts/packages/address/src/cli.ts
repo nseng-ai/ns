@@ -12,6 +12,7 @@ export interface CliDeps {
 	context?: PrAddressContext | undefined;
 	operations?: readonly ExecOperation[] | undefined;
 	cwd?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — DI options-bag env seam consumed via `deps.env ?? env`; passing undefined to fall back to the process env is an intentional injection choice.
 	env?: NodeJS.ProcessEnv | undefined;
 	stdin?: (() => Promise<string>) | undefined;
 	stdout?: ((text: string) => void) | undefined;

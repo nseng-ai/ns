@@ -39,7 +39,9 @@ export interface RunCmuxCommandOptions {
 	args: readonly string[];
 	cwd: string;
 	timeoutMs: number;
+	// optional-undefined-objective: preserve (env-map) — Subprocess options bag forwarded via the spread idiom into ExecOptions; an absent/undefined env means inherit the parent env, a domain distinction passed to the exec layer.
 	env?: NodeJS.ProcessEnv | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal seam forwarded to exec; abort signals are an explicit preserve case where a present signal versus absence carries cancellation semantics.
 	signal?: AbortSignal | undefined;
 }
 

@@ -16,8 +16,10 @@ const GIT_TIMEOUT_MS = 10_000;
 
 export interface LoadDiffOptions {
 	readonly cwd: string;
+	// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the git exec call; environment-map preserve category.
 	readonly env?: NodeJS.ProcessEnv | undefined;
 	readonly baseRef?: string | null | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed directly (non-spread) to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.
 	readonly signal?: AbortSignal | undefined;
 	readonly excludeGlobs?: readonly string[] | undefined;
 }

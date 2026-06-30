@@ -29,6 +29,7 @@ export class RealClipboardGateway implements ClipboardGateway {
 
 	constructor(
 		options: {
+			// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection that defaults to process.env when undefined.
 			env?: NodeJS.ProcessEnv | undefined;
 			runner?: ClipboardProcessRunner | undefined;
 		} = {},

@@ -16,12 +16,14 @@ export interface GraphiteTrackBranchParams {
 	cwd: string;
 	branch: string;
 	parentBranch: string;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam forwarded through layers; abort is an explicit preserve category and present-undefined is the idiomatic 'no signal' pass-through.
 	signal?: AbortSignal | undefined;
 }
 
 export interface GraphiteCheckBranchTrackedParams {
 	cwd: string;
 	branch: string;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam forwarded by direct assignment into runGraphiteCommand; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 }
 
@@ -49,7 +51,9 @@ export interface GraphiteCommandRunParams {
 	cwd: string;
 	args: readonly string[];
 	timeoutMs?: number | undefined;
+	// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv environment-injection seam; environment/process maps are an explicit preserve category.
 	env?: NodeJS.ProcessEnv | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam direct-forwarded into execOptions; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	onStdout?: ((text: string) => void) | undefined;
 	onStderr?: ((text: string) => void) | undefined;
@@ -159,7 +163,9 @@ function failure(code: string, title: string, run: CommandRun): GraphiteErrorInf
 function execOptions(options: {
 	cwd: string;
 	timeout: number;
+	// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv environment-injection seam; environment/process maps are an explicit preserve category.
 	env?: NodeJS.ProcessEnv | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam built into ExecOptions; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	onStdout?: ((text: string) => void) | undefined;
 	onStderr?: ((text: string) => void) | undefined;

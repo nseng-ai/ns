@@ -32,6 +32,7 @@ import { executeRun } from "./workflow.ts";
 
 export interface CliDeps {
 	cwd?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Injected NodeJS.ProcessEnv environment map on a DI deps bag; environment/process-map mirror kept loose.
 	env?: NodeJS.ProcessEnv | undefined;
 	stdout?: ((text: string) => void) | undefined;
 	stderr?: ((text: string) => void) | undefined;

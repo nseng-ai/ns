@@ -47,6 +47,7 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 }
 
 export interface SdlExtension<TCommands extends readonly SdlCommand[] = readonly SdlCommand[]> {
+	// optional-undefined-objective: preserve (overload-selector) — defineExtension provides a dedicated `{ commands?: undefined }` overload, so explicit `commands: undefined` is an intentionally supported authoring input that the overload set distinguishes at the type level.
 	commands?: TCommands | undefined;
 }
 
@@ -54,6 +55,7 @@ type SdlCommandTuple<TSchemas extends readonly SdlCommandSchema[]> = {
 	readonly [Index in keyof TSchemas]: SdlCommand<TSchemas[Index]>;
 };
 
+// optional-undefined-objective: preserve (overload-selector) — Intentional overload-selector signature typed `commands?: undefined` (undefined-only, not the redundant T|undefined pattern) that routes empty extensions to the readonly [] return overload.
 export function defineExtension(extension: { commands?: undefined }): SdlExtension<readonly []>;
 export function defineExtension(extension: SdlExtension<readonly []>): SdlExtension<readonly []>;
 export function defineExtension<S1 extends SdlCommandSchema = z.ZodObject>(

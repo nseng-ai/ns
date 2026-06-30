@@ -236,6 +236,7 @@ async function runPrDiscussionComments(
 
 async function runPrChecks(
 	ctx: PrAddressExecContext,
+	// optional-undefined-objective: preserve (external-mirror) — Inline type mirrors the Zod-parsed request `z.object({ prNumber: z.int().optional() })`, so it reflects external/schema-parsed input shape.
 	request: { prNumber?: number | undefined },
 ): Promise<ClinkrExit<PrChecksResult>> {
 	const result = await collectPrChecks({

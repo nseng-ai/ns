@@ -7,6 +7,7 @@ export interface LoadParsedReviewDefinitionOptions {
 	readonly reviewCatalog: ReviewCatalogGateway;
 	readonly cwd: string;
 	readonly key: string;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to reviewCatalog.loadReviewSource which accepts present-undefined; abort-signal preserve category.
 	readonly signal?: AbortSignal | undefined;
 }
 

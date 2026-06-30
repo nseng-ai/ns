@@ -72,6 +72,7 @@ export type GraphiteMetadataWorkerDiagnostic =
 	| { type: "worker-timeout"; timeoutMs: number };
 
 export interface LoadGraphiteMetadataStatusInWorkerOptions {
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal consumed directly (`options.signal?.aborted`, addEventListener); abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	timeoutMs?: number | undefined;
 	workerFactory?: GraphiteMetadataWorkerFactory | undefined;

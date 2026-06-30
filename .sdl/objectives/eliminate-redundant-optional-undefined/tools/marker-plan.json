@@ -1,0 +1,588 @@
+{
+  "generatedFrom": "classification.json",
+  "totalPreserves": 71,
+  "bucketCounts": {
+    "env-map": 28,
+    "abort-signal": 27,
+    "di-seam": 2,
+    "null-tolerant-input": 4,
+    "key-event": 4,
+    "overload-selector": 2,
+    "external-mirror": 4
+  },
+  "files": {
+    "ts/packages/roaster/src/api.ts": [
+      {
+        "line": 85,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal field on the top-level DI options bag forwarded into runtime/gateway construction that accepts present-undefined.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 84,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Process-env map union (NodeJS.ProcessEnv | Record<string,string|undefined>) on the top-level client options bag, normalized via normalizedEnv; environment-map preserve category.",
+        "propLineText": "readonly env?: NodeJS.ProcessEnv | Record<string, string | undefined> | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/context.ts": [
+      {
+        "line": 60,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal derived option forwarded to gateways accepting present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 55,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal derived option forwarded to gateways accepting present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 49,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal threaded from run scope into gateway options that accept present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 39,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal option forwarded into context/gateway construction accepting present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 27,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal threaded into gateways whose option shapes accept present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/gateways/github.ts": [
+      {
+        "line": 51,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to runGitHubCli which accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 50,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the gh CLI runner; environment-map preserve category.",
+        "propLineText": "readonly env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/gateways/local-diff.ts": [
+      {
+        "line": 21,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed directly (non-spread) to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 19,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the git exec call; environment-map preserve category.",
+        "propLineText": "readonly env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/gateways/review-catalog.ts": [
+      {
+        "line": 169,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option mirroring the gateway contract that accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 158,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option mirroring the gateway contract that accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 83,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed through to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 51,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal passed directly to GitGateway.repoRoot which must accept present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 34,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option forwarded to git repoRoot which accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 29,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal interface option forwarded to git repoRoot which accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/gateways/review-runner.ts": [
+      {
+        "line": 22,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded into ExecOptions for the Claude process; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 21,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the Claude exec call; environment-map preserve category.",
+        "propLineText": "readonly env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/review-definition-loading.ts": [
+      {
+        "line": 10,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to reviewCatalog.loadReviewSource which accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/roaster/src/skill-reviews.ts": [
+      {
+        "line": 32,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded to the review catalog gateway which accepts present-undefined; abort-signal preserve category.",
+        "propLineText": "readonly signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/capabilities/slot/src/context.ts": [
+      {
+        "line": 47,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Factory DI seam: optional env injection where omission/undefined intentionally falls back to process.env.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/capabilities/slot/src/gateways/clipboard.ts": [
+      {
+        "line": 32,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t\t// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection that defaults to process.env when undefined.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/capabilities/slot/src/gateways/pr.ts": [
+      {
+        "line": 81,
+        "property": "diagnosticSink",
+        "bucket": "di-seam",
+        "comment": "\t\t// optional-undefined-objective: preserve (di-seam) — Constructor DI seam: optional sink injection, undefined falls back to createSlotDiagnosticSinkFromEnv.",
+        "propLineText": "diagnosticSink?: SlotDiagnosticSink | undefined;"
+      },
+      {
+        "line": 79,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection defaulting to process.env.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/capabilities/slot/src/gateways/repository.ts": [
+      {
+        "line": 98,
+        "property": "diagnosticSink",
+        "bucket": "di-seam",
+        "comment": "\t\t// optional-undefined-objective: preserve (di-seam) — Constructor DI seam: optional sink injection, undefined falls back to createSlotDiagnosticSinkFromEnv.",
+        "propLineText": "diagnosticSink?: SlotDiagnosticSink | undefined;"
+      },
+      {
+        "line": 95,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection defaulting to process.env.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/capabilities/slot/src/shell/cd-directive.ts": [
+      {
+        "line": 20,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — DI seam: optional env injection in the cd-directive options bag, defaulting to process.env.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/infra/core/src/result.ts": [
+      {
+        "line": 11,
+        "property": "message",
+        "bucket": "null-tolerant-input",
+        "comment": "\t// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input field; callers (exec-operation.ts) forward a possibly-undefined `input.message`, and the null branch must remain, so the undefined is not pure redundancy.",
+        "propLineText": "readonly message?: string | null | undefined;"
+      },
+      {
+        "line": 10,
+        "property": "stdout",
+        "bucket": "null-tolerant-input",
+        "comment": "\t// optional-undefined-objective: preserve (null-tolerant-input) — Same tolerant `string | null | undefined` input union as stderr, intentionally accepting null and undefined interchangeably for loosely-typed command output.",
+        "propLineText": "readonly stdout?: string | null | undefined;"
+      },
+      {
+        "line": 9,
+        "property": "stderr",
+        "bucket": "null-tolerant-input",
+        "comment": "\t// optional-undefined-objective: preserve (null-tolerant-input) — This is a deliberately tolerant input union (string | null | undefined) that accepts loosely-typed/nullable command output; dropping `| undefined` while keeping `| null` is incoherent and callers forward possibly-undefined values.",
+        "propLineText": "readonly stderr?: string | null | undefined;"
+      }
+    ],
+    "ts/packages/infra/core/src/terminal-presentation.ts": [
+      {
+        "line": 75,
+        "property": "url",
+        "bucket": "null-tolerant-input",
+        "comment": "\t// optional-undefined-objective: preserve (null-tolerant-input) — Tolerant `string | null | undefined` input over PR-entry data; the consumer explicitly distinguishes neither (treats null and undefined alike) and the null branch must remain, so it is an intentional loosely-typed input shape.",
+        "propLineText": "entries: Iterable<{ number: number; url?: string | null | undefined }>,"
+      }
+    ],
+    "ts/packages/plans/src/saved-plan-file.ts": [
+      {
+        "line": 32,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment/process map injection (`Record<string, string | undefined>` defaulting to process.env, consumed at line 404) that mirrors the OS env shape.",
+        "propLineText": "env?: Record<string, string | undefined> | undefined;"
+      }
+    ],
+    "ts/packages/infra/cli-runtime/src/index.ts": [
+      {
+        "line": 23,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment/process map injection (`NodeJS.ProcessEnv` defaulting to process.env at line 210) that mirrors the OS env shape.",
+        "propLineText": "readonly env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/hosts/sdlcc/src/cli.ts": [
+      {
+        "line": 20,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Injected environment map (Record<string,string|undefined>) on a DI deps bag consumed via `deps.env ?? env`, mirroring process.env injection.",
+        "propLineText": "readonly env?: Record<string, string | undefined> | undefined;"
+      }
+    ],
+    "ts/packages/hosts/sdlcc/src/cmux-report.ts": [
+      {
+        "line": 82,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Injected environment mirror (CmuxReportEnvironment) on an options bag consumed via `options.env ?? process.env`.",
+        "propLineText": "readonly env?: CmuxReportEnvironment | undefined;"
+      },
+      {
+        "line": 38,
+        "property": "CMUX_SURFACE_ID",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; tests pass `CMUX_SURFACE_ID: undefined` to model an unset variable, so present-undefined is meaningful.",
+        "propLineText": "readonly CMUX_SURFACE_ID?: string | undefined;"
+      },
+      {
+        "line": 37,
+        "property": "CMUX_WORKSPACE_ID",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; tests set this key to explicit undefined to model an unset variable.",
+        "propLineText": "readonly CMUX_WORKSPACE_ID?: string | undefined;"
+      },
+      {
+        "line": 36,
+        "property": "SHELL",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; present-undefined is intrinsic to environment maps.",
+        "propLineText": "readonly SHELL?: string | undefined;"
+      },
+      {
+        "line": 35,
+        "property": "PWD",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env where a present key with undefined value is the natural shape of an env map.",
+        "propLineText": "readonly PWD?: string | undefined;"
+      }
+    ],
+    "ts/packages/hosts/sdlcc/src/tabs/tab-module.ts": [
+      {
+        "line": 7,
+        "property": "meta",
+        "bucket": "key-event",
+        "comment": "\t// optional-undefined-objective: preserve (key-event) — Terminal key-event modifier payload field mirroring @opentui/core KeyEvent; key-descriptor input surface preserved per precedent.",
+        "propLineText": "readonly meta?: boolean | undefined;"
+      },
+      {
+        "line": 6,
+        "property": "ctrl",
+        "bucket": "key-event",
+        "comment": "\t// optional-undefined-objective: preserve (key-event) — Terminal key-event modifier payload field mirroring @opentui/core KeyEvent; key-descriptor input surface preserved per precedent.",
+        "propLineText": "readonly ctrl?: boolean | undefined;"
+      },
+      {
+        "line": 5,
+        "property": "sequence",
+        "bucket": "key-event",
+        "comment": "\t// optional-undefined-objective: preserve (key-event) — Terminal key-event payload field consumed via `=== undefined` checks; key-descriptor input surface preserved per precedent.",
+        "propLineText": "readonly sequence?: string | undefined;"
+      },
+      {
+        "line": 4,
+        "property": "name",
+        "bucket": "key-event",
+        "comment": "\t// optional-undefined-objective: preserve (key-event) — Terminal key-event payload shape (looser mirror of @opentui/core KeyEvent) consumed via `key.name ??`; Objective precedent preserves tab key descriptors as input surfaces.",
+        "propLineText": "readonly name?: string | undefined;"
+      }
+    ],
+    "ts/packages/tools/vibechk/src/cli.ts": [
+      {
+        "line": 35,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Injected NodeJS.ProcessEnv environment map on a DI deps bag; environment/process-map mirror kept loose.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/infra/git/src/contract.ts": [
+      {
+        "line": 4,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation handle forwarded to exec; abort/signal payload where present-undefined is the canonical loose boundary per rubric.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 3,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Injected NodeJS.ProcessEnv environment map passed through to child-process exec; environment/process-map mirror kept loose.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/infra/graphite/src/branch.ts": [
+      {
+        "line": 163,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam built into ExecOptions; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 162,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv environment-injection seam; environment/process maps are an explicit preserve category.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      },
+      {
+        "line": 53,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam direct-forwarded into execOptions; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 52,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv environment-injection seam; environment/process maps are an explicit preserve category.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      },
+      {
+        "line": 25,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam forwarded by direct assignment into runGraphiteCommand; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 19,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam forwarded through layers; abort is an explicit preserve category and present-undefined is the idiomatic 'no signal' pass-through.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/infra/graphite/src/stack.ts": [
+      {
+        "line": 112,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/infra/graphite/src/status.ts": [
+      {
+        "line": 75,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal consumed directly (`options.signal?.aborted`, addEventListener); abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/hosts/pi/src/pr/feedback-download.ts": [
+      {
+        "line": 61,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/hosts/pi/src/runtime/command-host.ts": [
+      {
+        "line": 5,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — Host-provided AbortSignal cancellation seam on the command context contract; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/hosts/pi/src/shared/gh-command.ts": [
+      {
+        "line": 8,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      }
+    ],
+    "ts/packages/objective/src/context.ts": [
+      {
+        "line": 20,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/sdl-sdk/src/command.ts": [
+      {
+        "line": 57,
+        "property": "commands",
+        "bucket": "overload-selector",
+        "comment": "// optional-undefined-objective: preserve (overload-selector) — Intentional overload-selector signature typed `commands?: undefined` (undefined-only, not the redundant T|undefined pattern) that routes empty extensions to the readonly [] return overload.",
+        "propLineText": "export function defineExtension(extension: { commands?: undefined }): SdlExtension<readonly []>;"
+      },
+      {
+        "line": 50,
+        "property": "commands",
+        "bucket": "overload-selector",
+        "comment": "\t// optional-undefined-objective: preserve (overload-selector) — defineExtension provides a dedicated `{ commands?: undefined }` overload, so explicit `commands: undefined` is an intentionally supported authoring input that the overload set distinguishes at the type level.",
+        "propLineText": "commands?: TCommands | undefined;"
+      }
+    ],
+    "ts/packages/infra/github/src/pr-feedback/gateway.ts": [
+      {
+        "line": 81,
+        "property": "endCursor",
+        "bucket": "external-mirror",
+        "comment": "\t// optional-undefined-objective: preserve (external-mirror) — Internal mirror of the GitHub GraphQL pageInfo.endCursor wire field (Zod-parsed as string|null|optional); null and absent both originate from external data, so the on-the-wire shape should be matched exactly.",
+        "propLineText": "readonly endCursor?: string | null | undefined;"
+      }
+    ],
+    "ts/packages/infra/github/src/pr-feedback/schemas.ts": [
+      {
+        "line": 183,
+        "property": "id",
+        "bucket": "external-mirror",
+        "comment": "\t\t// optional-undefined-objective: preserve (external-mirror) — Generic constraint mirroring the Zod-parsed GitHub comment identity (id is .optional() external input that may be number or string), so the optional-undefined reflects external on-the-wire data.",
+        "propLineText": "readonly id?: number | string | undefined;"
+      },
+      {
+        "line": 182,
+        "property": "databaseId",
+        "bucket": "external-mirror",
+        "comment": "\t\t// optional-undefined-objective: preserve (external-mirror) — Generic constraint mirroring the Zod-parsed GitHub comment shape (databaseId is .nullable().optional() external input), so the number|null|undefined optionality reflects on-the-wire data and must be matched.",
+        "propLineText": "readonly databaseId?: number | null | undefined;"
+      }
+    ],
+    "ts/packages/address/src/cli.ts": [
+      {
+        "line": 15,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — DI options-bag env seam consumed via `deps.env ?? env`; passing undefined to fall back to the process env is an intentional injection choice.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/address/src/core/gateways.ts": [
+      {
+        "line": 17,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Gateway/subprocess options bag where an absent/undefined env means inherit the full process env, a domain distinction passed through to `gh`/git execution.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/address/src/primitive-commands.ts": [
+      {
+        "line": 239,
+        "property": "prNumber",
+        "bucket": "external-mirror",
+        "comment": "\t// optional-undefined-objective: preserve (external-mirror) — Inline type mirrors the Zod-parsed request `z.object({ prNumber: z.int().optional() })`, so it reflects external/schema-parsed input shape.",
+        "propLineText": "request: { prNumber?: number | undefined },"
+      }
+    ],
+    "ts/packages/aretro/src/cli.ts": [
+      {
+        "line": 67,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — DI options-bag env seam where undefined falls back to the process env, an intentional injection distinction.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/aretro/src/context.ts": [
+      {
+        "line": 19,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t\t// optional-undefined-objective: preserve (env-map) — DI factory env seam consumed via `options.env ?? process.env`; passing undefined to default to process env is intentional.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ],
+    "ts/packages/cmux/src/command.ts": [
+      {
+        "line": 43,
+        "property": "signal",
+        "bucket": "abort-signal",
+        "comment": "\t// optional-undefined-objective: preserve (abort-signal) — AbortSignal seam forwarded to exec; abort signals are an explicit preserve case where a present signal versus absence carries cancellation semantics.",
+        "propLineText": "signal?: AbortSignal | undefined;"
+      },
+      {
+        "line": 42,
+        "property": "env",
+        "bucket": "env-map",
+        "comment": "\t// optional-undefined-objective: preserve (env-map) — Subprocess options bag forwarded via the spread idiom into ExecOptions; an absent/undefined env means inherit the parent env, a domain distinction passed to the exec layer.",
+        "propLineText": "env?: NodeJS.ProcessEnv | undefined;"
+      }
+    ]
+  }
+}

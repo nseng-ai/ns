@@ -17,6 +17,7 @@ export interface CdDirectiveFilesystem {
 
 export interface CdDirectiveOptions {
 	isEnabled?: boolean | undefined;
+	// optional-undefined-objective: preserve (env-map) — DI seam: optional env injection in the cd-directive options bag, defaulting to process.env.
 	env?: NodeJS.ProcessEnv | undefined;
 	filesystem?: CdDirectiveFilesystem | undefined;
 }

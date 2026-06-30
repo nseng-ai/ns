@@ -109,6 +109,7 @@ export class RealGraphiteStackGateway implements GraphiteStackGateway {
 
 	constructor(options: {
 		git: GraphiteStackGitGateway;
+		// optional-undefined-objective: preserve (env-map) — NodeJS.ProcessEnv injection seam resolved via `options.env ?? process.env`; environment/process maps are an explicit preserve category.
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
 		metadataDbAccess?: GraphiteMetadataDbAccess | undefined;

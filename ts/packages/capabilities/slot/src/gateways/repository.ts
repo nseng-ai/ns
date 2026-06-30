@@ -92,9 +92,11 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 
 	constructor(options: {
 		cwd: string;
+		// optional-undefined-objective: preserve (env-map) — Constructor DI seam: optional env injection defaulting to process.env.
 		env?: NodeJS.ProcessEnv | undefined;
 		execApi?: CommandExecApi | undefined;
 		coreGit?: GitGateway | undefined;
+		// optional-undefined-objective: preserve (di-seam) — Constructor DI seam: optional sink injection, undefined falls back to createSlotDiagnosticSinkFromEnv.
 		diagnosticSink?: SlotDiagnosticSink | undefined;
 	}) {
 		this.cwd = options.cwd;

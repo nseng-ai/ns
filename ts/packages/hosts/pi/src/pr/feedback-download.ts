@@ -58,6 +58,7 @@ export interface DownloadPrFeedbackOptions {
 	cwd: string;
 	prNumber?: number | undefined;
 	timeoutMs: number;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal cancellation seam consumed via the spread idiom; abort is an explicit preserve category.
 	signal?: AbortSignal | undefined;
 	runner?: PrAddressRunner | undefined;
 	shouldAllowFailureData?: boolean | undefined;

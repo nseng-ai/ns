@@ -44,6 +44,7 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 
 export async function createRealSlotContext(options: {
 	cwd: string;
+	// optional-undefined-objective: preserve (env-map) — Factory DI seam: optional env injection where omission/undefined intentionally falls back to process.env.
 	env?: NodeJS.ProcessEnv | undefined;
 	caps?: Caps | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;

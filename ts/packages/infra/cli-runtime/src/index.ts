@@ -20,6 +20,7 @@ export interface CliPackageMetadata {
 
 export interface CliEntrypointDeps {
 	readonly cwd?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Environment/process map injection (`NodeJS.ProcessEnv` defaulting to process.env at line 210) that mirrors the OS env shape.
 	readonly env?: NodeJS.ProcessEnv | undefined;
 	readonly stdout?: ((text: string) => void) | undefined;
 	readonly stderr?: ((text: string) => void) | undefined;

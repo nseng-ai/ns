@@ -32,9 +32,13 @@ export const sdlccCmuxReportFailureDataSchema = z.strictObject({
 });
 
 export interface CmuxReportEnvironment {
+	// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env where a present key with undefined value is the natural shape of an env map.
 	readonly PWD?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; present-undefined is intrinsic to environment maps.
 	readonly SHELL?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; tests set this key to explicit undefined to model an unset variable.
 	readonly CMUX_WORKSPACE_ID?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Environment-variable mirror over process.env; tests pass `CMUX_SURFACE_ID: undefined` to model an unset variable, so present-undefined is meaningful.
 	readonly CMUX_SURFACE_ID?: string | undefined;
 }
 
@@ -79,6 +83,7 @@ export type SdlccCmuxReportResult =
 
 export interface RunSdlccCmuxReportOptions {
 	readonly cwd?: string | undefined;
+	// optional-undefined-objective: preserve (env-map) — Injected environment mirror (CmuxReportEnvironment) on an options bag consumed via `options.env ?? process.env`.
 	readonly env?: CmuxReportEnvironment | undefined;
 	readonly runCommand?: CommandRunner | undefined;
 }

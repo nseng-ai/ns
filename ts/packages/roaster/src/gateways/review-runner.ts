@@ -18,7 +18,9 @@ export const CLAUDE_BINARY = "claude";
 
 export interface RunReviewOptions {
 	readonly cwd: string;
+	// optional-undefined-objective: preserve (env-map) — Process-env map (NodeJS.ProcessEnv) forwarded to the Claude exec call; environment-map preserve category.
 	readonly env?: NodeJS.ProcessEnv | undefined;
+	// optional-undefined-objective: preserve (abort-signal) — AbortSignal forwarded into ExecOptions for the Claude process; abort-signal preserve category.
 	readonly signal?: AbortSignal | undefined;
 }
 
