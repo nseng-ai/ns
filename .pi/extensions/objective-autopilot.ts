@@ -31,6 +31,8 @@ const COMMAND_NAME = "objective:autopilot";
 const STATUS_KEY = "objective-autopilot";
 const REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_REPORT_BEGIN";
 const REPORT_END = "OBJECTIVE_AUTOPILOT_REPORT_END";
+const RECOVERY_REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_RECOVERY_BEGIN";
+const RECOVERY_REPORT_END = "OBJECTIVE_AUTOPILOT_RECOVERY_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
 
 type NotifyLevel = "info" | "warning" | "error";
@@ -77,10 +79,31 @@ interface ChildResult {
 	stopReason?: string;
 }
 
+interface RunPiJsonPromptOptions {
+	cwd: string;
+	prompt: string;
+	tmpPrefix: string;
+	tmpFileName: string;
+	title: string;
+	finalInstruction: string;
+	model?: string;
+	onProgress?: (snapshot: RunnerSubagentJsonEventParserSnapshot, stderrTail?: string) => void;
+}
+
 interface ChildProgressUpdate {
 	iteration: number;
 	totalIterations: number;
 	objective: string;
+	requestedModel?: string;
+	snapshot: RunnerSubagentJsonEventParserSnapshot;
+	stderrTail?: string;
+}
+
+interface RecoveryProgressUpdate {
+	iteration: number;
+	totalIterations: number;
+	objective: string;
+	phase: string;
 	requestedModel?: string;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	stderrTail?: string;
@@ -103,6 +126,31 @@ interface Report {
 	objectiveTracking: string[];
 }
 
+interface RecoverySupervisorReport {
+	status?: "recovered" | "not-recovered" | "needs-human" | "failed";
+	summary?: string;
+	currentBranch?: string;
+	stopReason?: string;
+	recoveryActions: string[];
+	changedFiles: string[];
+	stagedFiles: string[];
+	validation: string[];
+}
+
+interface AutopilotRecoveryContext {
+	objective: string;
+	iteration: number;
+	totalIterations: number;
+	startingBranch: string;
+	phase: string;
+	failureMessage: string;
+	changedFiles: string[];
+	stagedFiles: string[];
+	command?: string;
+	currentBranch?: string;
+	report?: Report;
+}
+
 interface ExecCheckedOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
@@ -122,6 +170,28 @@ interface VerifyAfterChildOptions {
 	ctx: CommandContext;
 	report: Report;
 	startingBranch: string;
+}
+
+interface VerifyAfterChildWithRecoveryOptions extends VerifyAfterChildOptions {
+	args: ParsedArgs;
+	iteration: number;
+}
+
+interface BuildRecoveryContextOptions {
+	pi: ExtensionAPI;
+	ctx: CommandContext;
+	args: ParsedArgs;
+	iteration: number;
+	startingBranch: string;
+	error: AutopilotPhaseError;
+	report: Report;
+}
+
+interface RunRecoverySupervisorOptions {
+	cwd: string;
+	prompt: string;
+	model?: string;
+	onProgress?: (snapshot: RunnerSubagentJsonEventParserSnapshot, stderrTail?: string) => void;
 }
 
 interface CommitAndMaybeSubmitOptions {
@@ -310,26 +380,26 @@ async function assertInitialGuards(pi: ExtensionAPI, ctx: CommandContext, object
 	return git(pi, ctx, ["branch", "--show-current"]);
 }
 
-async function writePromptFile(prompt: string): Promise<{ dir: string; file: string }> {
-	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "objective-autopilot-"));
-	const file = path.join(dir, "child-prompt.md");
+async function writePromptFile(prompt: string, tmpPrefix: string, tmpFileName: string): Promise<{ dir: string; file: string }> {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), tmpPrefix));
+	const file = path.join(dir, tmpFileName);
 	await fs.writeFile(file, prompt, { encoding: "utf8", mode: 0o600 });
 	return { dir, file };
 }
 
-async function runChild(options: RunChildOptions): Promise<ChildResult> {
-	const { cwd, prompt, model, onProgress } = options;
-	const tmp = await writePromptFile(prompt);
+async function runPiJsonPrompt(options: RunPiJsonPromptOptions): Promise<ChildResult> {
+	const { cwd, prompt, tmpPrefix, tmpFileName, title, finalInstruction, model, onProgress } = options;
+	const tmp = await writePromptFile(prompt, tmpPrefix, tmpFileName);
 	// Keep custom spawn semantics for JSON streaming with --no-session and an appended system prompt.
 	// Shared runner-subagents pieces cover Pi resolution and event parsing; the full dispatcher owns richer session/runtime behavior.
 	const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", tmp.file];
 	if (model) args.push("--model", model);
-	args.push("Run the objective-autopilot child task described in your appended system prompt.");
+	args.push(finalInstruction);
 
 	let stderr = "";
 	try {
 		return await new Promise<ChildResult>((resolve) => {
-			const parser = createRunnerSubagentJsonEventParser({ title: "objective-autopilot child" });
+			const parser = createRunnerSubagentJsonEventParser({ title });
 			const invocation = resolvePiInvocation(args);
 			const child = spawn(invocation.command, invocation.args, { cwd, shell: false, stdio: ["ignore", "pipe", "pipe"] });
 			let buffer = "";
@@ -383,6 +453,26 @@ async function runChild(options: RunChildOptions): Promise<ChildResult> {
 	} finally {
 		await fs.rm(tmp.dir, { recursive: true, force: true });
 	}
+}
+
+async function runChild(options: RunChildOptions): Promise<ChildResult> {
+	return runPiJsonPrompt({
+		...options,
+		tmpPrefix: "objective-autopilot-",
+		tmpFileName: "child-prompt.md",
+		title: "objective-autopilot child",
+		finalInstruction: "Run the objective-autopilot child task described in your appended system prompt.",
+	});
+}
+
+async function runRecoverySupervisor(options: RunRecoverySupervisorOptions): Promise<ChildResult> {
+	return runPiJsonPrompt({
+		...options,
+		tmpPrefix: "objective-autopilot-recovery-",
+		tmpFileName: "recovery-supervisor-prompt.md",
+		title: "objective-autopilot recovery supervisor",
+		finalInstruction: "Run the objective-autopilot recovery supervisor task described in your appended system prompt.",
+	});
 }
 
 function buildChildPrompt(args: ParsedArgs, iteration: number, parentBranch: string): string {
@@ -480,6 +570,111 @@ function parseReport(text: string): Report | undefined {
 	return report;
 }
 
+function isRecoverySupervisorStatus(value: string): value is NonNullable<RecoverySupervisorReport["status"]> {
+	return value === "recovered" || value === "not-recovered" || value === "needs-human" || value === "failed";
+}
+
+function assignRecoveryReportTextField(
+	report: RecoverySupervisorReport,
+	key: string,
+	value: string,
+): RecoverySupervisorReport {
+	switch (key) {
+		case "status":
+			return isRecoverySupervisorStatus(value) ? { ...report, status: value } : report;
+		case "summary":
+			return { ...report, summary: value };
+		case "currentBranch":
+			return { ...report, currentBranch: value };
+		case "stopReason":
+			return { ...report, stopReason: value };
+	}
+	return report;
+}
+
+function parseRecoverySupervisorReport(text: string): RecoverySupervisorReport | undefined {
+	const start = text.indexOf(RECOVERY_REPORT_BEGIN);
+	const end = text.indexOf(RECOVERY_REPORT_END);
+	if (start < 0 || end <= start) return undefined;
+	const body = text.slice(start + RECOVERY_REPORT_BEGIN.length, end).trim();
+	let report: RecoverySupervisorReport = { recoveryActions: [], changedFiles: [], stagedFiles: [], validation: [] };
+	let list: "recoveryActions" | "changedFiles" | "stagedFiles" | "validation" | undefined;
+	for (const line of body.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		if (trimmed === "recoveryActions:") list = "recoveryActions";
+		else if (trimmed === "changedFiles:") list = "changedFiles";
+		else if (trimmed === "stagedFiles:") list = "stagedFiles";
+		else if (trimmed === "validation:") list = "validation";
+		else if (trimmed.startsWith("- ") && list) report[list].push(trimmed.slice(2));
+		else {
+			list = undefined;
+			const colon = trimmed.indexOf(":");
+			if (colon > 0) {
+				const key = trimmed.slice(0, colon);
+				const value = trimmed.slice(colon + 1).trim();
+				report = assignRecoveryReportTextField(report, key, value);
+			}
+		}
+	}
+	return report;
+}
+
+function formatRecoveryContextReport(report: Report): string {
+	return [
+		`status: ${report.status ?? "unknown"}`,
+		`branch: ${report.branch ?? "unknown"}`,
+		`parentBranch: ${report.parentBranch ?? "unknown"}`,
+		`recommendedSlice: ${report.recommendedSlice ?? "unknown"}`,
+		...formatList("reported changed files", report.changedFiles),
+		...formatList("reported validation", report.validation),
+		...formatList("reported objective tracking", report.objectiveTracking),
+	].join("\n");
+}
+
+function buildRecoverySupervisorPrompt(context: AutopilotRecoveryContext): string {
+	return `You are a focused recovery supervisor for /objective:autopilot iteration ${context.iteration}/${context.totalIterations}.
+
+Objective: ${context.objective}
+Starting branch before the child iteration: ${context.startingBranch}
+Failure phase: ${context.phase}
+Failure message:
+${context.failureMessage}
+${context.command === undefined ? "" : `Failed command: ${context.command}\n`}${context.currentBranch === undefined ? "" : `Current branch: ${context.currentBranch}\n`}
+Live changed files before recovery:
+${context.changedFiles.length === 0 ? "- none" : context.changedFiles.map((file) => `- ${file}`).join("\n")}
+Live staged files before recovery:
+${context.stagedFiles.length === 0 ? "- none" : context.stagedFiles.map((file) => `- ${file}`).join("\n")}
+
+Child report summary:
+${context.report === undefined ? "unknown" : formatRecoveryContextReport(context.report)}
+
+Your job is narrow local recovery, not implementation:
+- Inspect repository state and perform only minimal local recovery needed to return control to the parent verifier.
+- Do not implement Objective feature work or edit feature code.
+- Do not commit, submit, push, merge, publish, deploy, resolve GitHub threads, or mutate external systems.
+- Do not stage files unless a minimal recovery command unavoidably stages them; if staging happens, report it.
+- Prefer deterministic local commands and explain what evidence justified each action.
+- For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` when live evidence supports that parent.
+- The TypeScript parent will not trust your report alone; it will re-check live branch state, HEAD, staged files, Graphite branch info, git diff --check, changed files, and Objective tracking.
+
+Finish with exactly one structured report block:
+${RECOVERY_REPORT_BEGIN}
+status: recovered | not-recovered | needs-human | failed
+summary: <one line>
+currentBranch: <branch or unknown>
+recoveryActions:
+- <action performed, or none>
+changedFiles:
+- <path, or none>
+stagedFiles:
+- <path, or none>
+validation:
+- <command/result>
+stopReason: <if not recovered>
+${RECOVERY_REPORT_END}`;
+}
+
 async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<RepoChangeFacts> {
 	const { pi, ctx, report, startingBranch } = options;
 	if (report.status !== "ready-for-parent-commit") {
@@ -505,10 +700,18 @@ async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<RepoC
 	}
 	try {
 		await execChecked({ pi, ctx, command: "gt", args: ["branch", "info"] });
+	} catch (error) {
+		throw new AutopilotPhaseError("verification", error instanceof Error ? error.message : String(error), {
+			changedFiles: facts.changedFiles,
+			command: formatCommand("gt", ["branch", "info"]),
+		});
+	}
+	try {
 		await execChecked({ pi, ctx, command: "git", args: ["diff", "--check"] });
 	} catch (error) {
 		throw new AutopilotPhaseError("verification", error instanceof Error ? error.message : String(error), {
 			changedFiles: facts.changedFiles,
+			command: formatCommand("git", ["diff", "--check"]),
 		});
 	}
 	const nonObjectiveChanges = facts.changedFiles.some((file) => !file.startsWith(".sdl/objectives/"));
@@ -518,6 +721,126 @@ async function verifyAfterChild(options: VerifyAfterChildOptions): Promise<RepoC
 		});
 	}
 	return facts;
+}
+
+async function buildRecoveryContext(options: BuildRecoveryContextOptions): Promise<AutopilotRecoveryContext> {
+	const { pi, ctx, args, iteration, startingBranch, error, report } = options;
+	const currentBranch = await currentBranchForFailure(pi, ctx);
+	return {
+		objective: args.objective,
+		iteration,
+		totalIterations: args.iterations,
+		startingBranch,
+		phase: error.phase,
+		failureMessage: error.message,
+		changedFiles: error.details?.changedFiles ?? (await changedFilesForFailure(pi, ctx)),
+		stagedFiles: error.details?.stagedFiles ?? (await stagedFilesForFailure(pi, ctx)),
+		...optionalEntry("command", error.details?.command),
+		...optionalEntry("currentBranch", currentBranch),
+		report,
+	};
+}
+
+function recoveryReportNotes(report: RecoverySupervisorReport): string[] {
+	return [
+		`supervisor status: ${report.status ?? "missing"}`,
+		...(report.summary === undefined ? [] : [`supervisor summary: ${report.summary}`]),
+		...report.recoveryActions.map((action) => `supervisor action: ${action}`),
+		...report.validation.map((entry) => `supervisor validation: ${entry}`),
+		...(report.stopReason === undefined ? [] : [`supervisor stop reason: ${report.stopReason}`]),
+	];
+}
+
+async function verifyAfterChildWithRecovery(options: VerifyAfterChildWithRecoveryOptions): Promise<{ facts: RepoChangeFacts; recoveryNotes: string[] }> {
+	const { pi, ctx, args, report, startingBranch, iteration } = options;
+	try {
+		return { facts: await verifyAfterChild({ pi, ctx, report, startingBranch }), recoveryNotes: [] };
+	} catch (error) {
+		if (!(error instanceof AutopilotPhaseError) || error.phase !== "verification") throw error;
+		const headBefore = await git(pi, ctx, ["rev-parse", "HEAD"]);
+		const recoveryContext = await buildRecoveryContext({ pi, ctx, args, iteration, startingBranch, error, report });
+		sendCommandProgressOrNotify({
+			host: pi,
+			ctx,
+			message: `Starting objective-autopilot recovery supervisor for iteration ${iteration}/${args.iterations}…`,
+		});
+		const supervisor = await runRecoverySupervisor({
+			cwd: ctx.cwd,
+			prompt: buildRecoverySupervisorPrompt(recoveryContext),
+			...optionalEntry("model", args.model),
+			onProgress: (snapshot, stderrTail) => {
+				showRecoveryProgress(ctx, {
+					iteration,
+					totalIterations: args.iterations,
+					objective: args.objective,
+					phase: error.phase,
+					...optionalEntry("requestedModel", args.model),
+					snapshot,
+					...optionalEntry("stderrTail", stderrTail),
+				});
+			},
+		});
+		if (supervisor.exitCode !== 0) {
+			throw new AutopilotPhaseError(
+				"verification",
+				`Recovery supervisor exited ${supervisor.exitCode}.\n${tail(firstNonEmptyText(supervisor.stderr, supervisor.finalText) ?? "")}`,
+				{ changedFiles: recoveryContext.changedFiles, stagedFiles: recoveryContext.stagedFiles },
+			);
+		}
+		const recoveryReport = parseRecoverySupervisorReport(supervisor.finalText);
+		if (recoveryReport === undefined) {
+			throw new AutopilotPhaseError(
+				"verification",
+				`Recovery supervisor did not produce a parseable report. Tail:\n${tail(firstNonEmptyText(supervisor.finalText, supervisor.stderr) ?? "")}`,
+				{ changedFiles: recoveryContext.changedFiles, stagedFiles: recoveryContext.stagedFiles },
+			);
+		}
+		const recoveryNotes = recoveryReportNotes(recoveryReport);
+		if (recoveryReport.status !== "recovered") {
+			throw new AutopilotPhaseError("verification", `Recovery supervisor did not recover: ${recoveryReport.stopReason ?? recoveryReport.status ?? "unknown"}`, {
+				changedFiles: await changedFilesForFailure(pi, ctx),
+				stagedFiles: await stagedFilesForFailure(pi, ctx),
+				recoveryNotes,
+			});
+		}
+		const headAfter = await git(pi, ctx, ["rev-parse", "HEAD"]);
+		if (headAfter !== headBefore) {
+			throw new AutopilotPhaseError("verification", "Recovery supervisor changed HEAD; stopping for manual review.", {
+				changedFiles: await changedFilesForFailure(pi, ctx),
+				stagedFiles: await stagedFilesForFailure(pi, ctx),
+				recoveryNotes,
+			});
+		}
+		const stagedFiles = await stagedFilesForFailure(pi, ctx);
+		if (stagedFiles.length > 0) {
+			throw new AutopilotPhaseError("verification", "Recovery supervisor left staged files; stopping for manual review.", {
+				changedFiles: await changedFilesForFailure(pi, ctx),
+				stagedFiles,
+				recoveryNotes,
+			});
+		}
+		const currentBranch = await git(pi, ctx, ["branch", "--show-current"]);
+		if (currentBranch === "main" || currentBranch === "master") {
+			throw new AutopilotPhaseError("verification", `Recovery supervisor switched to ${currentBranch}; stopping for manual review.`, {
+				changedFiles: await changedFilesForFailure(pi, ctx),
+				recoveryNotes,
+			});
+		}
+		try {
+			const freshFacts = await verifyAfterChild({ pi, ctx, report, startingBranch });
+			return { facts: freshFacts, recoveryNotes };
+		} catch (reverifyError) {
+			if (reverifyError instanceof AutopilotPhaseError) {
+				throw new AutopilotPhaseError(reverifyError.phase, reverifyError.message, {
+					changedFiles: reverifyError.details?.changedFiles ?? (await changedFilesForFailure(pi, ctx)),
+					stagedFiles: reverifyError.details?.stagedFiles ?? (await stagedFilesForFailure(pi, ctx)),
+					...optionalEntry("command", reverifyError.details?.command),
+					recoveryNotes,
+				});
+			}
+			throw reverifyError;
+		}
+	}
 }
 
 function usableReportText(value: string | undefined): string | undefined {
@@ -668,6 +991,39 @@ function showChildProgress(ctx: CommandContext, update: ChildProgressUpdate): vo
 	ctx.ui.setWidget?.(STATUS_KEY, formatChildProgressWidgetLines(update), { placement: "aboveEditor" });
 }
 
+function formatRecoveryProgressWidgetLines(update: RecoveryProgressUpdate): string[] {
+	const { progress, activity } = update.snapshot;
+	const lines = [
+		`/objective:autopilot ${update.iteration}/${update.totalIterations}`,
+		`objective: ${update.objective}`,
+		`recovery supervisor: ${update.phase}`,
+		`model: ${formatRecoveryModel(update)}`,
+		`supervisor: ${progress.state}; turns/tools: ${progress.turnCount}/${progress.toolCount}; elapsed: ${formatElapsed(progress.elapsedMs)}`,
+	];
+	if (progress.currentTool !== undefined) lines.push(`current tool: ${progress.currentTool}`);
+	const preview = runnerSubagentPrimaryActivityPreview(activity);
+	if (preview !== undefined) lines.push(`activity: ${preview}`);
+	if (activity.lastToolName !== undefined) {
+		const prefix = activity.lastToolResultIsError ? "last tool error" : "last tool";
+		lines.push(`${prefix}: ${activity.lastToolName}`);
+	}
+	if (activity.lastToolResultPreview !== undefined) lines.push(`last result: ${activity.lastToolResultPreview}`);
+	if (update.stderrTail !== undefined && update.stderrTail.trim() !== "") lines.push(`stderr: ${compactPreviewText(update.stderrTail)}`);
+	return lines;
+}
+
+function formatRecoveryModel(update: RecoveryProgressUpdate): string {
+	const launch = update.snapshot.progress.launch;
+	if (launch?.model !== undefined) return `${launch.model.provider}/${launch.model.id}`;
+	if (launch?.requestedModel !== undefined) return `requested ${launch.requestedModel}`;
+	if (update.requestedModel !== undefined) return `requested ${update.requestedModel}`;
+	return "pending";
+}
+
+function showRecoveryProgress(ctx: CommandContext, update: RecoveryProgressUpdate): void {
+	ctx.ui.setWidget?.(STATUS_KEY, formatRecoveryProgressWidgetLines(update), { placement: "aboveEditor" });
+}
+
 function formatList(title: string, values: readonly string[]): string[] {
 	if (values.length === 0) return [`- ${title}: none`];
 	return [`- ${title}:`, ...values.map((value) => `  - ${value}`)];
@@ -792,13 +1148,19 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 				summaries.push(`iteration ${iteration}: stopped (${usableReportText(report.stopReason) ?? "child requested stop"}).`);
 				break;
 			}
-			const facts = await verifyAfterChild({ pi, ctx, report, startingBranch });
-			let changedFiles = facts.changedFiles;
+			const verification = await verifyAfterChildWithRecovery({ pi, ctx, args, report, startingBranch, iteration });
+			let changedFiles = verification.facts.changedFiles;
 			if (args.isDryRun) {
-				summaries.push(`iteration ${iteration}: verified dry-run on ${report.branch}; ${changedFiles.length} changed file(s).`);
+				summaries.push([
+					`iteration ${iteration}: verified dry-run on ${report.branch}; ${changedFiles.length} changed file(s).`,
+					...verification.recoveryNotes.map((note) => `- recovery: ${note}`),
+				].join("\n"));
 				break;
 			}
-			let recoveryNotes = await runJustFormatterRecoveryIfNeeded(pi, ctx, changedFiles);
+			let recoveryNotes = [
+				...verification.recoveryNotes,
+				...(await runJustFormatterRecoveryIfNeeded(pi, ctx, changedFiles)),
+			];
 			if (recoveryNotes.length > 0) {
 				changedFiles = (await collectRepoChangeFacts(pi, ctx)).changedFiles;
 			}
