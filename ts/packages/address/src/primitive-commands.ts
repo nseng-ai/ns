@@ -241,7 +241,7 @@ async function runPrChecks(
 		git: ctx.context.git,
 		prFeedback: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
-		prNumber: request.prNumber,
+		...(request.prNumber === undefined ? {} : { prNumber: request.prNumber }),
 	});
 	switch (result.type) {
 		case "ok":

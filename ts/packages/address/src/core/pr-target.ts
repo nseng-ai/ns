@@ -15,7 +15,7 @@ export interface ResolvePrTargetOptions {
 	git: GitGateway;
 	prFeedback: GithubPrFeedbackGateway;
 	gatewayOptions: GatewayOptions;
-	prNumber?: number | undefined;
+	prNumber?: number;
 	detachedHeadMessage: string;
 }
 
