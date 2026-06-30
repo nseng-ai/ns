@@ -22,8 +22,8 @@ import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@s
 export interface BranchContextPrimitiveOptions {
 	cwd: string;
 	context: BranchContextContext;
-	signal?: AbortSignal | undefined;
-	planStoreRoot?: string | undefined;
+	signal?: AbortSignal;
+	planStoreRoot?: string;
 }
 
 export interface AttachBranchContextParams {

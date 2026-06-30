@@ -13,8 +13,8 @@ export type PlanContentSlugEvidence = ContentSlugEvidence;
 export interface DerivePlanContentSlugInput {
 	filePath: string;
 	cwd: string;
-	signal?: AbortSignal | undefined;
-	readTextFile?: ((path: string) => Promise<string>) | undefined;
+	signal?: AbortSignal;
+	readTextFile?: (path: string) => Promise<string>;
 }
 
 const PLAN_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {

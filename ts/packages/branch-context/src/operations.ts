@@ -165,9 +165,9 @@ export const deleteResultSchema = z.object({
 
 export function createRealBranchContextCliContext(options: {
 	cwd: string;
-	env?: NodeJS.ProcessEnv | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	planStoreRoot?: string | undefined;
+	env?: NodeJS.ProcessEnv;
+	stderr?: (text: string) => void;
+	planStoreRoot?: string;
 }): BranchContextCliContext {
 	return {
 		context: createRealBranchContextContext({
@@ -181,11 +181,11 @@ export function createRealBranchContextCliContext(options: {
 }
 
 export interface CliDeps {
-	context?: BranchContextContext | undefined;
-	cwd?: string | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	planStoreRoot?: string | undefined;
+	context?: BranchContextContext;
+	cwd?: string;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	planStoreRoot?: string;
 }
 
 export interface BranchContextCliContext {
