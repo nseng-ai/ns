@@ -8,6 +8,9 @@ const require = createRequire(import.meta.url);
 const ts = require(path.resolve("ts/node_modules/typescript"));
 
 const DEFAULT_SCOPES = ["ts"];
+// Keep this Objective-owned script self-contained while it remains under .sdl.
+// Shared test-support discovery helpers are TypeScript modules with nearby guard-specific
+// conventions; consolidate there only if this scorecard graduates to shared infrastructure.
 const TS_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts"]);
 const SKIP_DIRS = new Set([".git", "node_modules", "dist", "build", "coverage", ".turbo"]);
 
@@ -141,6 +144,10 @@ function parseSourceFile(fileName, text) {
 }
 
 function countOptionalUndefinedProperties(sourceFile) {
+  // This Objective metric intentionally uses local AST predicates for now: it counts
+  // property signatures and property declarations, then separates preserve-marked lines.
+  // The existing TypeScript style-guard audit is advisory test support; reuse it only
+  // after aligning those semantics with this scorecard's net/gross reporting needs.
   const matches = [];
   const markedMatches = [];
 
