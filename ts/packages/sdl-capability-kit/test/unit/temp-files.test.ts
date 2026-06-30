@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { withTemporaryFile, withTemporaryJsonFile } from "@sdl/core/temp-files";
+import { withTemporaryFile, withTemporaryJsonFile } from "@sdl/capability-kit/temp-files";
 
 describe("temporary file helpers", () => {
 	test("writes a temporary text file and cleans up after success", async () => {
