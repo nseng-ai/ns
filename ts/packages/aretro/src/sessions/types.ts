@@ -46,8 +46,8 @@ export interface SessionToolCall {
 	tool_name: string;
 	argument_keys: readonly string[];
 	source_ref: SessionSourceRef | null;
-	command?: string | undefined;
-	path?: string | undefined;
+	command?: string;
+	path?: string;
 }
 
 export interface SessionToolResult {
