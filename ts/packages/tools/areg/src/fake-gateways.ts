@@ -55,48 +55,48 @@ export type FakeAregProjectOperation =
 
 export interface FakeAregCheckSkillOptions {
 	name: string;
-	skillsPath?: AregPathState | undefined;
-	agentsPath?: AregPathState | undefined;
-	claudePath?: AregPathState | undefined;
-	localSkillMd?: AregTextFileState | string | undefined;
-	remoteSkillMd?: AregTextFileState | string | undefined;
-	openaiPolicy?: AregTextFileState | string | undefined;
+	skillsPath?: AregPathState;
+	agentsPath?: AregPathState;
+	claudePath?: AregPathState;
+	localSkillMd?: AregTextFileState | string;
+	remoteSkillMd?: AregTextFileState | string;
+	openaiPolicy?: AregTextFileState | string;
 }
 
 export interface FakeAregSkillKindSkillOptions {
 	name: string;
-	sourceType?: "local" | "vendored" | undefined;
-	baseRelativePath?: string | undefined;
-	skillDir?: AregPathState | undefined;
-	skillMd?: AregTextFileState | string | undefined;
-	openaiPolicy?: AregTextFileState | string | undefined;
+	sourceType?: "local" | "vendored";
+	baseRelativePath?: string;
+	skillDir?: AregPathState;
+	skillMd?: AregTextFileState | string;
+	openaiPolicy?: AregTextFileState | string;
 }
 
 export interface FakeAregProjectGatewayOptions {
-	projectDir?: string | undefined;
-	projectPathState?: AregPathState | undefined;
-	targetPathState?: AregPathState | undefined;
-	lockfile?: AregTextFileState | object | string | undefined;
-	sdlToml?: AregTextFileState | string | undefined;
-	aregJson?: AregTextFileState | object | string | undefined;
-	agentsMd?: AregTextFileState | string | undefined;
-	claudeMd?: AregTextFileState | string | undefined;
-	claudeDir?: AregPathState | undefined;
-	claudeSettings?: AregTextFileState | string | undefined;
-	piDir?: AregPathState | undefined;
-	piSettings?: AregTextFileState | object | string | undefined;
-	replacementSurfaces?: readonly string[] | undefined;
-	skillsDirectoryNames?: readonly string[] | undefined;
-	agentsSkillNames?: readonly string[] | undefined;
-	claudeSkillNames?: readonly string[] | undefined;
-	excludedSkillNames?: readonly string[] | undefined;
-	checkSkills?: readonly FakeAregCheckSkillOptions[] | undefined;
-	localSkills?: readonly FakeAregSkillKindSkillOptions[] | undefined;
-	pairingDirectories?: readonly AregCheckPairingDirectory[] | undefined;
-	resolveFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
-	preflightFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
-	mutationFailures?: Readonly<Record<string, AregErrorInfo>> | undefined;
-	applyFailure?: AregErrorInfo | undefined;
+	projectDir?: string;
+	projectPathState?: AregPathState;
+	targetPathState?: AregPathState;
+	lockfile?: AregTextFileState | object | string;
+	sdlToml?: AregTextFileState | string;
+	aregJson?: AregTextFileState | object | string;
+	agentsMd?: AregTextFileState | string;
+	claudeMd?: AregTextFileState | string;
+	claudeDir?: AregPathState;
+	claudeSettings?: AregTextFileState | string;
+	piDir?: AregPathState;
+	piSettings?: AregTextFileState | object | string;
+	replacementSurfaces?: readonly string[];
+	skillsDirectoryNames?: readonly string[];
+	agentsSkillNames?: readonly string[];
+	claudeSkillNames?: readonly string[];
+	excludedSkillNames?: readonly string[];
+	checkSkills?: readonly FakeAregCheckSkillOptions[];
+	localSkills?: readonly FakeAregSkillKindSkillOptions[];
+	pairingDirectories?: readonly AregCheckPairingDirectory[];
+	resolveFailures?: Readonly<Record<string, AregErrorInfo>>;
+	preflightFailures?: Readonly<Record<string, AregErrorInfo>>;
+	mutationFailures?: Readonly<Record<string, AregErrorInfo>>;
+	applyFailure?: AregErrorInfo;
 }
 
 export class FakeAregProjectGateway implements AregProjectGateway {
@@ -428,7 +428,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 export type FakeAregHostOperation = { type: "check-tool"; tool: AregHostToolName; cwd: string };
 
 export interface FakeAregHostGatewayOptions {
-	tools?: Partial<Record<AregHostToolName, string | null>> | undefined;
+	tools?: Partial<Record<AregHostToolName, string | null>>;
 }
 
 export class FakeAregHostGateway implements AregHostGateway {
@@ -465,11 +465,11 @@ export class FakeAregHostGateway implements AregHostGateway {
 export type FakeAregGithubOperation = {
 	type: "list-skill-directory-names";
 	repo: string;
-	ref?: string | undefined;
+	ref?: string;
 };
 
 export interface FakeAregGithubGatewayOptions {
-	repos?: Record<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo> | undefined;
+	repos?: Record<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo>;
 }
 
 export class FakeAregGithubGateway implements AregGithubGateway {
@@ -490,7 +490,11 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 		ref?: string | undefined;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregGithubSkillListResult> {
-		this.log.push({ type: "list-skill-directory-names", repo: options.repo, ref: options.ref });
+		this.log.push({
+			type: "list-skill-directory-names",
+			repo: options.repo,
+			...(options.ref === undefined ? {} : { ref: options.ref }),
+		});
 		const state = this.repos.get(options.repo);
 		if (state === undefined || state === "missing")
 			return { type: "missing", message: `Skill source not found: ${options.repo}` };
@@ -511,8 +515,8 @@ export type FakeAregNpxSkillsOperation = { type: "add-skills" } & Omit<
 >;
 
 export interface FakeAregNpxSkillsGatewayOptions {
-	failure?: AregErrorInfo | undefined;
-	failures?: Readonly<Record<string, AregErrorInfo>> | undefined;
+	failure?: AregErrorInfo;
+	failures?: Readonly<Record<string, AregErrorInfo>>;
 }
 
 export class FakeAregNpxSkillsGateway implements AregNpxSkillsGateway {
@@ -558,8 +562,8 @@ export type FakeAregPromptOperation = {
 };
 
 export interface FakeAregPromptGatewayOptions {
-	responses?: readonly boolean[] | undefined;
-	shouldConfirmByDefault?: boolean | undefined;
+	responses?: readonly boolean[];
+	shouldConfirmByDefault?: boolean;
 }
 
 export class FakeAregPromptGateway implements AregPromptGateway {
@@ -593,10 +597,10 @@ export type FakeAregSkillxOperation =
 	| ({ type: "cleanup-workspace" } & AregSkillxWorkspaceCleanupRequest);
 
 export interface FakeAregSkillxWorkspaceGatewayOptions {
-	workspaceRoot?: string | undefined;
-	installedSkills?: readonly AregSkillxInstalledSkill[] | undefined;
-	failure?: AregErrorInfo | undefined;
-	cleanupFailure?: AregErrorInfo | undefined;
+	workspaceRoot?: string;
+	installedSkills?: readonly AregSkillxInstalledSkill[];
+	failure?: AregErrorInfo;
+	cleanupFailure?: AregErrorInfo;
 }
 
 export class FakeAregSkillxWorkspaceGateway implements AregSkillxWorkspaceGateway {
