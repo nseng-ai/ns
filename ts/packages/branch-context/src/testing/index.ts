@@ -212,7 +212,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 	}
 
 	async listSnapshots(options: {
-		namespace?: string | undefined;
+		namespace?: string;
 	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
 		return await this.fake.listSnapshots(options);
 	}

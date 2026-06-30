@@ -528,7 +528,7 @@ export async function handleImplBranchContextCommand(
 		const plan = await operations.loadBranchContextPlan(pi, params, {
 			cwd: ctx.cwd,
 			context: resolveBranchContextContext(pi, ctx.cwd, options),
-			planStoreRoot: resolvePlanStoreRootOption(options),
+			...optionalEntry("planStoreRoot", resolvePlanStoreRootOption(options)),
 			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
 		presentBranchContextMessage(

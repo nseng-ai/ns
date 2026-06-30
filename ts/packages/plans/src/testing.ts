@@ -15,7 +15,7 @@ interface InMemoryNode {
 }
 
 export interface WriteInMemoryPlanStoreFileOptions {
-	mtimeMs?: number | undefined;
+	mtimeMs?: number;
 }
 
 export class InMemoryPlanStoreGateway implements PlanStoreGateway {
@@ -76,7 +76,7 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 		return normalize(path);
 	}
 
-	mkdir(path: string, options: { mtimeMs?: number | undefined } = {}): void {
+	mkdir(path: string, options: { mtimeMs?: number } = {}): void {
 		const normalizedPath = normalize(path);
 		this.ensureParentDirectories(normalizedPath);
 		this.nodes.set(normalizedPath, {

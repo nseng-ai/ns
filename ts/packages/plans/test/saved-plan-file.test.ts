@@ -77,7 +77,7 @@ describe("writeSavedPlanFile", () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
-		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: undefined });
+		const git = new FakeGitGateway({ currentBranch: sourceBranch, hasOrigin: false });
 
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
@@ -199,7 +199,7 @@ describe("writeSavedPlanFile", () => {
 	test("rejects detached HEAD with a clear named-branch message", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
-		const git = new FakeGitGateway({ currentBranch: undefined });
+		const git = new FakeGitGateway({ isDetached: true });
 
 		await expect(
 			writeSavedPlanFile(
@@ -217,8 +217,10 @@ const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed:
 
 interface FakeGitOptions {
 	repoRoot?: string;
-	currentBranch?: string | undefined;
-	originUrl?: string | undefined;
+	currentBranch?: string;
+	originUrl?: string;
+	isDetached?: boolean;
+	hasOrigin?: boolean;
 }
 
 class FakeGitGateway implements GitGateway {
@@ -229,12 +231,12 @@ class FakeGitGateway implements GitGateway {
 
 	constructor(options: FakeGitOptions = {}) {
 		this.repoRootValue = options.repoRoot ?? ROOT;
-		this.currentBranchValue = Object.hasOwn(options, "currentBranch")
-			? options.currentBranch
-			: "main";
-		this.originUrlValue = Object.hasOwn(options, "originUrl")
-			? options.originUrl
-			: "git@github.com:owner/repo.git";
+		this.currentBranchValue =
+			options.isDetached === true ? undefined : (options.currentBranch ?? "main");
+		this.originUrlValue =
+			options.hasOrigin === false
+				? undefined
+				: (options.originUrl ?? "git@github.com:owner/repo.git");
 	}
 
 	async repoRoot(_params: GitCwdParams): Promise<GitResult<string>> {

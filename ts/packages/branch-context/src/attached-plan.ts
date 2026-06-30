@@ -46,7 +46,7 @@ export interface LoadAttachedPlanOptions {
 	cwd: string;
 	context: BranchContextContext;
 	signal?: AbortSignal;
-	planStoreRoot?: string | undefined;
+	planStoreRoot?: string;
 	sessionEntries?: readonly unknown[];
 	readTextFile?: (path: string) => Promise<string>;
 }
