@@ -45,10 +45,10 @@ export interface LoadAttachedPlanParams {
 export interface LoadAttachedPlanOptions {
 	cwd: string;
 	context: BranchContextContext;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 	planStoreRoot?: string | undefined;
-	sessionEntries?: readonly unknown[] | undefined;
-	readTextFile?: ((path: string) => Promise<string>) | undefined;
+	sessionEntries?: readonly unknown[];
+	readTextFile?: (path: string) => Promise<string>;
 }
 
 export class NoAttachedBranchContextEntriesError extends Error {

@@ -111,7 +111,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 
 	async listEntries(options: {
 		namespace: string;
-		key?: string | undefined;
+		key?: string;
 		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		this.listEntriesCalls.push(options.branch === undefined ? {} : { branch: options.branch });
@@ -119,7 +119,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 	}
 
 	async listAllEntries(options: {
-		key?: string | undefined;
+		key?: string;
 		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		return await this.fake.listAllEntries(options);
@@ -129,7 +129,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryContent>> {
 		this.getEntryCalls.push({ branch: options.branch, key: options.key });
 		return await this.fake.getEntry(options);
@@ -139,7 +139,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>> {
 		this.checkEntryCalls.push({ branch: options.branch, key: options.key });
 		return await this.fake.checkEntry(options);
@@ -205,7 +205,7 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		fromBranch: string;
 		toBranch: string;
 		shouldOverwrite: boolean;
-		keyGlob?: string | undefined;
+		keyGlob?: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		return await this.fake.copyEntries(options);
 	}

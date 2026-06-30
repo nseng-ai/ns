@@ -31,7 +31,7 @@ export interface ResolveExistingBranchContextReuseParams {
 export interface ResolveExistingBranchContextReuseOptions {
 	cwd: string;
 	context: BranchContextContext;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 type ReuseVerificationFailure =

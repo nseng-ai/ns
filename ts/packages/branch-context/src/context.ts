@@ -14,7 +14,7 @@ export interface BranchContextContext {
 
 export function createBranchContextContext(
 	commands: StdinCapableCommandExecApi,
-	options: { cwd?: string | undefined } = {},
+	options: { cwd?: string } = {},
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();
 	const git = new RealGitGateway(commands);
@@ -28,7 +28,7 @@ export function createBranchContextContext(
 }
 
 export function createRealBranchContextContext(
-	options: { cwd?: string | undefined } = {},
+	options: { cwd?: string } = {},
 ): BranchContextContext {
 	return createBranchContextContext(new NodeCommandExecApi(), options);
 }

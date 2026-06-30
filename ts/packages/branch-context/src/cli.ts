@@ -25,7 +25,10 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 	prepareRun: ({ deps, cwd }) => {
 		const context =
 			deps.context === undefined
-				? createRealBranchContextCliContext({ cwd, planStoreRoot: deps.planStoreRoot })
+				? createRealBranchContextCliContext({
+						cwd,
+						...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+					})
 				: {
 						context: deps.context,
 						cwd,

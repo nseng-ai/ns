@@ -24,6 +24,6 @@ function createBranchContextExtensionContext(ctx: SdlExtensionApi): BranchContex
 	return createRealBranchContextCliContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
-		stderr: ctx.stderr,
+		...(ctx.stderr === undefined ? {} : { stderr: ctx.stderr }),
 	});
 }

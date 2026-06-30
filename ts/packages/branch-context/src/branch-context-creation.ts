@@ -28,7 +28,7 @@ export interface CreateBranchContextFromFileParams {
 export interface CreateBranchContextFromFileOptions {
 	cwd: string;
 	context: BranchContextContext;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 export interface BranchContextEvidence {
@@ -67,7 +67,7 @@ export interface CreateBranchContextFromResolvedSourceOptions {
 	git: GitGateway;
 	brmem: BrmemGateway;
 	graphite: GraphiteBranchGateway;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 export async function createBranchContextFromFile(
@@ -91,7 +91,7 @@ export async function createBranchContextFromFile(
 		git,
 		brmem,
 		graphite,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 }
 
@@ -175,7 +175,7 @@ export function buildBranchContextCreateOperation(
 
 export async function resolveBranchContextCreatePreviewContext(
 	_pi: CommandExecApi,
-	options: { cwd: string; context: BranchContextContext; signal?: AbortSignal | undefined },
+	options: { cwd: string; context: BranchContextContext; signal?: AbortSignal },
 ): Promise<BranchContextCreatePreviewContext> {
 	return { startPoint: await resolveStartPoint(options.context.git, options.cwd, options.signal) };
 }
