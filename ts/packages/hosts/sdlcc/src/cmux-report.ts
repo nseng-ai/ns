@@ -79,9 +79,9 @@ export type SdlccCmuxReportResult =
 	  };
 
 export interface RunSdlccCmuxReportOptions {
-	readonly cwd?: string | undefined;
+	readonly cwd?: string;
 	readonly env?: ExplicitUndefined<"env-map", CmuxReportEnvironment>;
-	readonly runCommand?: CommandRunner | undefined;
+	readonly runCommand?: CommandRunner;
 }
 
 export async function runSdlccCmuxReport(

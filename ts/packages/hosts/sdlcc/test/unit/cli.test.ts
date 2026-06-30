@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runSdlccCli, type SdlccCliDeps } from "../../src/cli.ts";
-import type { CommandOptions, CommandOutput } from "../../src/command-runner.ts";
+import type { CommandOptions, CommandOutput, CommandRunner } from "../../src/command-runner.ts";
 
 interface CliRun {
 	readonly stdout: string[];
@@ -36,7 +36,7 @@ function runWithFakes(args: readonly string[], deps: SdlccCliDeps = {}): CliRun 
 	};
 }
 
-function successRunner(calls: CommandCall[] = []): SdlccCliDeps["runCommand"] {
+function successRunner(calls: CommandCall[] = []): CommandRunner {
 	return async (command, args, options) => {
 		calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse")

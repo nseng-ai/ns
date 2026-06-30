@@ -46,9 +46,9 @@ export interface StackMapCmuxActivationExecutor {
 }
 
 export interface CreateStackMapCmuxActivationExecutorOptions {
-	readonly cwd?: string | undefined;
-	readonly runCommand?: CommandRunner | undefined;
-	readonly slotClient?: SlotClient | undefined;
+	readonly cwd?: string;
+	readonly runCommand?: CommandRunner;
+	readonly slotClient?: SlotClient;
 }
 
 type StackMapSlotCheckoutTarget = Pick<
