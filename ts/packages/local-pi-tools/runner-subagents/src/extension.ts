@@ -151,7 +151,7 @@ export default function dispatchRunnerSubagentExtension(
 			return {
 				content: [{ type: "text", text: formatDispatchRunnerSubagentResult(result) }],
 				details: dispatchRunnerSubagentDetails(result, {
-					requestedModel: input.model,
+					...(input.model === undefined ? {} : { requestedModel: input.model }),
 					curatedContext: curatedContext.audit,
 				}),
 			};
@@ -197,8 +197,8 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 export function dispatchRunnerSubagentDetails(
 	result: RunnerSubagentResult,
 	options: {
-		requestedModel?: string | undefined;
-		curatedContext?: CuratedRunnerSubagentContextAudit | undefined;
+		requestedModel?: string;
+		curatedContext?: CuratedRunnerSubagentContextAudit;
 	} = {},
 ): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
