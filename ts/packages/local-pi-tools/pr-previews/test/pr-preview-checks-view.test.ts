@@ -1,6 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
-import { createDeferred } from "@sdl/core/testing";
+import { createDeferred } from "@sdl/test-kit";
 import { describe, expect, test } from "vitest";
 
 import {

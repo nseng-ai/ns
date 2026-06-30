@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 import {
 	parseDownloadFeedbackData,
 	type ExecResult,

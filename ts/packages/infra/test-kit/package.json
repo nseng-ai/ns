@@ -1,0 +1,21 @@
+{
+  "name": "@sdl/test-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "check": "tsgo -p tsconfig.json",
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/test-kit/test"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "sdl": {
+    "tier": "neutral-infra"
+  }
+}

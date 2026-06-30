@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { createTempGitRepo } from "@sdl/core/testing";
+import { createTempGitRepo } from "@sdl/git/testing";
 
 test("temp git repo helper initializes a committed main branch", () => {
 	const repo = createTempGitRepo({ prefix: "sdl-core-testing-git-" });

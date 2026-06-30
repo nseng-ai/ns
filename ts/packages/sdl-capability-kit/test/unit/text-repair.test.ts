@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { createDeferred, createManualClock, createManualTimerScheduler } from "@sdl/core/testing";
+import { createDeferred } from "@sdl/test-kit";
+import { createManualClock, createManualTimerScheduler } from "@sdl/time/testing";
 import { prepareRepairedText, type TextGenerationResult } from "@sdl/capability-kit/text-repair";
 
 describe("prepareRepairedText", () => {

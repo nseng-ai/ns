@@ -10,7 +10,7 @@ import { RealGitGateway } from "@sdl/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@sdl/core/testing";
+import { createTempGitRepo } from "@sdl/git/testing";
 
 describe("export operation real-Git integration", () => {
 	it("wires public export through RealGitBrmemGateway", async () => {

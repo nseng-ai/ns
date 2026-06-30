@@ -14,7 +14,7 @@ import {
 	type BrmemExecGateway,
 } from "@sdl/brmem/cli-runner";
 import type { PiExecResultLike } from "@sdl/core/command";
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 
 const ROOT = "/repo";
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { githubCheckRun } from "@sdl/core/testing";
+import { githubCheckRun } from "@sdl/github/testing";
 import {
 	githubPrIdentityFromUrl,
 	githubRepositoryIdentityFromNormalizedRemoteUrl,

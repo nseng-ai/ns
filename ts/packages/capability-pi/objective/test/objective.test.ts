@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,

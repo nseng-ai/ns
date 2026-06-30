@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 
 const ROOT = "/repo";
 const START_POINT = "0123456789abcdef0123456789abcdef01234567";

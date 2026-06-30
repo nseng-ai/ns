@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/exec";
-import { ScriptedQueue } from "@sdl/core/testing";
+import { ScriptedQueue } from "@sdl/test-kit";
 import { RealGraphiteBranchGateway } from "@sdl/graphite/branch";
 import type { CommandExecApi, ExecOptions } from "@sdl/exec";
 import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";

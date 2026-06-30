@@ -7,11 +7,9 @@ import { describe, expect, it } from "vitest";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { StdinCapableCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
-import {
-	DroppingOptionsCommandExecApi,
-	createTempGitRepo,
-	type TempGitRepo,
-} from "@sdl/core/testing";
+import { DroppingOptionsCommandExecApi } from "@sdl/exec/testing";
+import { createTempGitRepo } from "@sdl/git/testing";
+import type { TempGitRepo } from "@sdl/git/testing";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,

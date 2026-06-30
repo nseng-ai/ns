@@ -21,6 +21,7 @@
     "./shell-support": "./src/shell-support.ts",
     "./temp-files": "./src/temp-files.ts",
     "./text-generation": "./src/text-generation.ts",
+    "./text-generation/testing": "./src/text-generation-testing.ts",
     "./text-repair": "./src/text-repair.ts",
     "./workspace-root": "./src/workspace-root.ts",
     "./xdg": "./src/xdg.ts"
@@ -34,6 +35,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
+    "@sdl/test-kit": "workspace:*",
     "@sdl/time": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
