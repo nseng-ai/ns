@@ -19,7 +19,7 @@ export function feedbackItemKeyFromDownload(data: PrFeedbackDownloadData): Feedb
 		data.counts.includedReviews +
 		data.counts.includedDiscussionComments;
 	if (total === 0) return [];
-	return [{ kind: "download", key: `download-feedback:${prNumber}:${total}`, author: undefined }];
+	return [{ kind: "download", key: `download-feedback:${prNumber}:${total}` }];
 }
 
 export function feedbackItemKeysFromFingerprint(
@@ -28,7 +28,7 @@ export function feedbackItemKeysFromFingerprint(
 	return items.map((item) => ({
 		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
 		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
-		author: item.author,
+		...(item.author === undefined ? {} : { author: item.author }),
 		...(item.path === undefined ? {} : { path: item.path }),
 		...(item.line === undefined ? {} : { line: item.line }),
 	}));

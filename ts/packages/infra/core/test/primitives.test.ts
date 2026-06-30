@@ -36,7 +36,6 @@ describe("finiteNumberField", () => {
 	});
 
 	test("rejects absent, non-numeric, and non-finite fields", () => {
-		expect(finiteNumberField(undefined, "count")).toBeUndefined();
 		expect(finiteNumberField({}, "count")).toBeUndefined();
 		expect(finiteNumberField({ count: "3" }, "count")).toBeUndefined();
 		expect(finiteNumberField({ count: Number.NaN }, "count")).toBeUndefined();
@@ -51,7 +50,6 @@ describe("stringArrayField", () => {
 	});
 
 	test("rejects absent, non-array, and non-string-array fields", () => {
-		expect(stringArrayField(undefined, "items")).toBeUndefined();
 		expect(stringArrayField({}, "items")).toBeUndefined();
 		expect(stringArrayField({ items: "a" }, "items")).toBeUndefined();
 		expect(stringArrayField({ items: ["a", 2] }, "items")).toBeUndefined();

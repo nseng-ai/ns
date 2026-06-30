@@ -17,28 +17,24 @@ export type TextResult =
 			message: string;
 	  };
 
-export function stringField(
-	record: Record<string, unknown> | undefined,
-	key: string,
-): string | undefined {
-	const value = record?.[key];
+export function stringField(record: Record<string, unknown>, key: string): string | undefined {
+	const value = record[key];
 	return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 export function finiteNumberField(
-	record: Record<string, unknown> | undefined,
+	record: Record<string, unknown>,
 	key: string,
 ): number | undefined {
-	const value = record?.[key];
+	const value = record[key];
 	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 export function stringArrayField(
-	record: Record<string, unknown> | undefined,
+	record: Record<string, unknown>,
 	key: string,
-): string[] | undefined {
-	const value = record?.[key];
-	if (value === undefined) return undefined;
+): readonly string[] | undefined {
+	const value = record[key];
 	if (!Array.isArray(value)) return undefined;
 	return value.every((item): item is string => typeof item === "string") ? value : undefined;
 }
