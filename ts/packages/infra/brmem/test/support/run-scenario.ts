@@ -3,6 +3,7 @@ import { TextDecoder, TextEncoder } from "node:util";
 
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
@@ -13,21 +14,21 @@ import type { BrmemPromptResolver } from "../../src/prompt-resolution.ts";
 import type { BrmemSourceReader, SourceBytesResult } from "../../src/source-reader.ts";
 
 export interface ScenarioRunOptions {
-	gateway?: BrmemGateway | undefined;
-	fake?: FakeBrmemGatewayOptions | undefined;
-	promptResolver?: BrmemPromptResolver | undefined;
-	repoRoot?: string | undefined;
-	homeRoot?: string | undefined;
-	isInGitRepo?: boolean | undefined;
-	promptFiles?: readonly string[] | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	cwd?: string | undefined;
-	stdin?: string | Uint8Array | (() => Promise<string | Uint8Array>) | undefined;
-	files?: Record<string, string | Uint8Array> | undefined;
-	unreadableFiles?: Record<string, string> | undefined;
-	sourceReader?: BrmemSourceReader | undefined;
-	confirmations?: readonly ConfirmationResult[] | undefined;
-	isInteractive?: boolean | undefined;
+	gateway?: BrmemGateway;
+	fake?: FakeBrmemGatewayOptions;
+	promptResolver?: BrmemPromptResolver;
+	repoRoot?: string;
+	homeRoot?: string;
+	isInGitRepo?: boolean;
+	promptFiles?: readonly string[];
+	env?: NodeJS.ProcessEnv;
+	cwd?: string;
+	stdin?: string | Uint8Array | (() => Promise<string | Uint8Array>);
+	files?: Record<string, string | Uint8Array>;
+	unreadableFiles?: Record<string, string>;
+	sourceReader?: BrmemSourceReader;
+	confirmations?: readonly ConfirmationResult[];
+	isInteractive?: boolean;
 }
 
 export interface ScenarioRun {
@@ -54,10 +55,10 @@ export function runScenario(
 			options.promptResolver ??
 			new ScenarioPromptResolver({
 				cwd,
-				repoRoot: options.repoRoot,
-				homeRoot: options.homeRoot,
-				isInGitRepo: options.isInGitRepo,
-				promptFiles: options.promptFiles,
+				...optionalEntry("repoRoot", options.repoRoot),
+				...optionalEntry("homeRoot", options.homeRoot),
+				...optionalEntry("isInGitRepo", options.isInGitRepo),
+				...optionalEntry("promptFiles", options.promptFiles),
 			}),
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
@@ -67,8 +68,8 @@ export function runScenario(
 			new ScenarioSourceReader({
 				cwd,
 				stdin,
-				files: options.files,
-				unreadableFiles: options.unreadableFiles,
+				...optionalEntry("files", options.files),
+				...optionalEntry("unreadableFiles", options.unreadableFiles),
 			}),
 		interaction: fakeInteraction.interaction,
 	};
@@ -103,10 +104,10 @@ class ScenarioPromptResolver implements BrmemPromptResolver {
 
 	constructor(options: {
 		cwd: string;
-		repoRoot?: string | undefined;
-		homeRoot?: string | undefined;
-		isInGitRepo?: boolean | undefined;
-		promptFiles?: readonly string[] | undefined;
+		repoRoot?: string;
+		homeRoot?: string;
+		isInGitRepo?: boolean;
+		promptFiles?: readonly string[];
 	}) {
 		this.repoRootValue = options.repoRoot ?? "/repo";
 		this.homeRootValue = options.homeRoot ?? "/home/tester";
@@ -145,8 +146,8 @@ class ScenarioSourceReader implements BrmemSourceReader {
 	constructor(options: {
 		cwd: string;
 		stdin: ScenarioRunOptions["stdin"];
-		files: Record<string, string | Uint8Array> | undefined;
-		unreadableFiles: Record<string, string> | undefined;
+		files?: Record<string, string | Uint8Array>;
+		unreadableFiles?: Record<string, string>;
 	}) {
 		this.cwd = options.cwd;
 		this.stdin = options.stdin;
