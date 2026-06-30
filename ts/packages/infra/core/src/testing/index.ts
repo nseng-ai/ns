@@ -357,10 +357,6 @@ export function startupErrorStep(
 	return { command, args: [...args], exitCode: 127, startupError };
 }
 
-export function brmemCheckJson(present: boolean): string {
-	return JSON.stringify({ exitCode: 0, data: { present } });
-}
-
 export function createDeferred<T>(): Deferred<T> {
 	let resolve: ((value: T) => void) | undefined;
 	const promise = new Promise<T>((innerResolve) => {

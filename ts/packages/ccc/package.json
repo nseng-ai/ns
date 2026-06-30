@@ -34,7 +34,8 @@
     "@sdl/slot": "workspace:*",
     "sdl-flow": "workspace:*",
     "sdl-sdk": "workspace:*",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@sdl/brmem": "workspace:*"
   },
   "devDependencies": {
     "@sdl/ccc-pi": "workspace:*"
