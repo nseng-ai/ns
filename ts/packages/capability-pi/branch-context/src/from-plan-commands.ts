@@ -521,7 +521,7 @@ export async function handleImplBranchContextCommand(
 		message: "Loading attached branch-context plan…",
 	});
 	await ctx.waitForIdle();
-	ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, "loading attached branch-context plan…");
+	setRuntimeStatus(ctx, IMPL_BRANCH_CONTEXT_STATUS_KEY, "loading attached branch-context plan…");
 	try {
 		const operations = resolveBranchContextOperations(options);
 		const params = trimmedArgs.length > 0 ? { requestedKey: trimmedArgs } : {};
@@ -542,7 +542,7 @@ export async function handleImplBranchContextCommand(
 	} catch (error) {
 		presentBranchContextFailure(pi, ctx, "Failed to load branch-context plan.", error);
 	} finally {
-		ctx.ui.setStatus(IMPL_BRANCH_CONTEXT_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, IMPL_BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
 }
 
@@ -589,25 +589,25 @@ export async function handleImplCurrentSavedPlanCommand(
 	await ctx.waitForIdle();
 
 	let selected: SelectedSavedPlanFile;
-	ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "finding saved plan…");
+	setRuntimeStatus(ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "finding saved plan…");
 	try {
 		selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
 	} catch (error) {
-		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
 		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file.", error);
 		return;
 	}
 
 	let preview: ImplCurrentSavedPlanPreview;
-	ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "reading saved plan…");
+	setRuntimeStatus(ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, "reading saved plan…");
 	try {
 		preview = await deriveImplCurrentSavedPlanPreview(selected);
 	} catch (error) {
-		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
 		presentBranchContextFailure(pi, ctx, "Failed to read saved plan file.", error);
 		return;
 	} finally {
-		ctx.ui.setStatus(IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, IMPL_CURRENT_SAVED_PLAN_STATUS_KEY, undefined);
 	}
 
 	const evidence = formatImplCurrentSavedPlanEvidence(preview);
@@ -690,7 +690,7 @@ export async function handleCreateBranchContextCommand(
 	await ctx.waitForIdle();
 
 	let selected: SelectedSavedPlanFile;
-	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "finding saved plan…");
+	setRuntimeStatus(ctx, BRANCH_CONTEXT_STATUS_KEY, "finding saved plan…");
 	try {
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, options);
 	} catch (error) {
@@ -704,7 +704,7 @@ export async function handleCreateBranchContextCommand(
 	}
 
 	let preview: CreateBranchContextPreview;
-	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "deriving branch slug from plan content…");
+	setRuntimeStatus(ctx, BRANCH_CONTEXT_STATUS_KEY, "deriving branch slug from plan content…");
 	try {
 		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, options);
 	} catch (error) {
@@ -716,7 +716,7 @@ export async function handleCreateBranchContextCommand(
 		);
 		return;
 	} finally {
-		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
@@ -731,7 +731,7 @@ export async function handleCreateBranchContextCommand(
 		return;
 	}
 
-	ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, "creating branch and attaching plan…");
+	setRuntimeStatus(ctx, BRANCH_CONTEXT_STATUS_KEY, "creating branch and attaching plan…");
 	try {
 		const evidence = await createBranchContextFromPreview({
 			pi,
@@ -755,7 +755,7 @@ export async function handleCreateBranchContextCommand(
 			error,
 		);
 	} finally {
-		ctx.ui.setStatus(BRANCH_CONTEXT_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, BRANCH_CONTEXT_STATUS_KEY, undefined);
 	}
 }
 
@@ -800,11 +800,11 @@ export async function handleGtUpstackImplCommand(
 		branchContextDefaultCreation: "graphite",
 	};
 	let selected: SelectedSavedPlanFile;
-	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "finding saved plan…");
+	setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, "finding saved plan…");
 	try {
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
 	} catch (error) {
-		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		if (!(error instanceof NoSavedPlanAvailableError)) {
 			presentBranchContextFailure(
 				pi,
@@ -825,11 +825,11 @@ export async function handleGtUpstackImplCommand(
 	}
 
 	let preview: CreateBranchContextPreview;
-	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "deriving branch slug from plan content…");
+	setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, "deriving branch slug from plan content…");
 	try {
 		preview = await deriveCreateBranchContextPreview(pi, args, ctx, selected, previewOptions);
 	} catch (error) {
-		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		presentBranchContextFailure(
 			pi,
 			ctx,
@@ -838,7 +838,7 @@ export async function handleGtUpstackImplCommand(
 		);
 		return;
 	} finally {
-		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
@@ -856,7 +856,7 @@ export async function handleGtUpstackImplCommand(
 		return;
 	}
 
-	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "creating branch and attaching plan…");
+	setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, "creating branch and attaching plan…");
 	let evidence: BranchContextEvidence;
 	try {
 		evidence = await createBranchContextFromPreview({
@@ -867,7 +867,7 @@ export async function handleGtUpstackImplCommand(
 			extensionOptions: options,
 		});
 	} catch (error) {
-		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 		presentBranchContextFailure(
 			pi,
 			ctx,
@@ -908,7 +908,7 @@ async function handleGtUpstackImplExistingReuse(
 ): Promise<void> {
 	const { pi, args, ctx, originalError, extensionOptions } = options;
 	let reuse: ExistingBranchContextReuse;
-	ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, "finding existing branch context…");
+	setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, "finding existing branch context…");
 	try {
 		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
 		reuse = await resolveExistingBranchContextReuse(
@@ -928,7 +928,7 @@ async function handleGtUpstackImplExistingReuse(
 		);
 		return;
 	} finally {
-		ctx.ui.setStatus(GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
