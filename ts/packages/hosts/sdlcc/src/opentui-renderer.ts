@@ -9,7 +9,7 @@ import {
 import { buildHelloWorldModel, type SdlccHelloWorldModel } from "./hello-world.ts";
 
 export interface StartHelloWorldTuiOptions {
-	readonly model?: SdlccHelloWorldModel | undefined;
+	readonly model?: SdlccHelloWorldModel;
 }
 
 export async function startHelloWorldTui(options: StartHelloWorldTuiOptions = {}): Promise<void> {

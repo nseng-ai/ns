@@ -18,8 +18,8 @@ export type { CommandOptions, CommandOutput, CommandRunner } from "./command-run
 const COMMAND_TIMEOUT_MS = 10_000;
 
 export interface LoadStackMapModelOptions {
-	readonly cwd?: string | undefined;
-	readonly runCommand?: CommandRunner | undefined;
+	readonly cwd?: string;
+	readonly runCommand?: CommandRunner;
 }
 
 interface StackMapGraphData {

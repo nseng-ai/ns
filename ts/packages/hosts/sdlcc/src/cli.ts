@@ -17,12 +17,12 @@ import {
 } from "./cmux-report.ts";
 
 export interface SdlccCliDeps {
-	readonly cwd?: string | undefined;
+	readonly cwd?: string;
 	readonly env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
-	readonly runCommand?: CommandRunner | undefined;
-	readonly stdout?: ((text: string) => void) | undefined;
-	readonly stderr?: ((text: string) => void) | undefined;
-	readonly startTui?: (() => Promise<void> | void) | undefined;
+	readonly runCommand?: CommandRunner;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
+	readonly startTui?: () => Promise<void> | void;
 }
 
 interface SdlccCliContext {

@@ -24,11 +24,13 @@ interface FakeModuleOptions {
 	readonly loadModel?: (deps: TabModuleDeps) => Promise<FakeModel>;
 	readonly interpretKey?: (
 		state: FakeState,
-		key: { readonly name?: string | undefined },
+		key: { readonly name?: string },
 	) => TabIntent<FakeAction, FakeEffect>;
-	readonly runEffect?:
-		| ((model: FakeModel, state: FakeState, effect: FakeEffect) => Promise<FakeState>)
-		| undefined;
+	readonly runEffect?: (
+		model: FakeModel,
+		state: FakeState,
+		effect: FakeEffect,
+	) => Promise<FakeState>;
 	readonly omitRunEffect?: boolean;
 }
 
