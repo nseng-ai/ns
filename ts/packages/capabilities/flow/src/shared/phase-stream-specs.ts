@@ -30,6 +30,30 @@ export const CHECKPOINT_PHASES: readonly PhaseSpec[] = [
 /** Ordered phase list for `flow cp`. Keys match what the checkpoint workflow emits. */
 export const CP_PHASES = CHECKPOINT_PHASES;
 
+/** Ordered phase list for `flow land`. Keys match the CLI presentation adapter. */
+export const LAND_PHASES: readonly PhaseSpec[] = [
+	{
+		key: "preflight",
+		item: { name: "Preflight", detail: "landing plan ready", label: "checking stack and PRs…" },
+	},
+	{
+		key: "merge",
+		item: { name: "Merge", detail: "PRs merged", label: "merging PRs with GitHub…" },
+	},
+	{
+		key: "refresh",
+		item: {
+			name: "Refresh",
+			detail: "stack refreshed",
+			label: "restacking and updating remaining PRs…",
+		},
+	},
+	{
+		key: "cleanup",
+		item: { name: "Cleanup", detail: "local refs cleaned", label: "cleaning landed branches…" },
+	},
+];
+
 /** Ordered phase list for `flow submit`. Keys match what the submit driver and graphite emit. */
 export const SUBMIT_PHASES: readonly PhaseSpec[] = [
 	{

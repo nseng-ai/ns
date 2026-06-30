@@ -223,6 +223,8 @@ export interface LandCliInput {
 	stderr(text: string): void;
 	onOutput?: ExecOutputListener;
 	confirm?: LandCliConfirmPrompt;
+	/** Optional progress sink; when omitted, the legacy CLI command stream is used. */
+	progressIo?: SdlCommandIo;
 	/**
 	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
 	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
@@ -247,7 +249,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 
 	const confirm = input.confirm;
 	const caps = input.caps;
-	const progressIo = createFlowCliCommandIo(input);
+	const progressIo = input.progressIo ?? createFlowCliCommandIo(input);
 	const outcome = await runWithSdlCommandIo(
 		progressIo,
 		async () =>
@@ -334,12 +336,22 @@ function formatUpfrontStackConfirmation(shape: LandingShape): string {
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
 	const lines = [
-		`Land ${stack.landingBranches.length} PRs from ${bottomBranch} through ${stack.actualCurrentBranch} into ${stack.trunk}?`,
+		"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.",
+		"",
+		"Step     What happens",
+		"Preflight Check PR state, branch refs, worktree safety, and landing order.",
+		"Merge    Merge each PR using its current PR title/body as the squash commit message.",
+		"Refresh  Fetch/restack/update the remaining upstack PRs after each merge.",
+		"Cleanup  Delete landed local Graphite branches when they are no longer checked out.",
+		"",
+		`Stack: ${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"} from ${bottomBranch} through ${stack.actualCurrentBranch}`,
+		`Target: ${stack.trunk}`,
 	];
 	if (stack.descendantBranches.length > 0) {
 		lines.push(
-			`Descendants above ${stack.actualCurrentBranch} will not be merged; this command will try to maintain them after landing.`,
+			`Descendants: ${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
 		);
 	}
+	lines.push("", "Proceed with landing?");
 	return lines.join("\n");
 }
