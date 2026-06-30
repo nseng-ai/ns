@@ -4,7 +4,7 @@ export interface ClinkrIo {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	/** Full terminal capabilities for the resolved stdout sink. */
-	caps?: Caps | undefined;
+	caps?: Caps;
 	/** Whether human renderers may emit ANSI styling. Resolved from the stdout sink caps. */
 	canEmitAnsi?: boolean;
 }
@@ -45,7 +45,7 @@ export function resolveIo(overrides: ClinkrIoOverrides = {}): ClinkrIo {
 	return {
 		stdout: overrides.stdout ?? base.stdout,
 		stderr: overrides.stderr ?? base.stderr,
-		caps,
+		...(caps === undefined ? {} : { caps }),
 		canEmitAnsi,
 	};
 }

@@ -17,7 +17,7 @@ export interface RenderCapabilities {
 	/** Whether the renderer may emit ANSI styling. */
 	canEmitAnsi: boolean;
 	/** Full terminal capabilities for the resolved output sink. */
-	caps?: Caps | undefined;
+	caps?: Caps;
 }
 
 export function renderCapabilitiesForTerminal(caps: Caps | undefined): RenderCapabilities {
@@ -34,8 +34,8 @@ export function resolveRenderCapabilities(renderCapabilities: RenderCapabilities
 export interface EmitExitOptions<T> {
 	format: ClinkrFormat;
 	io: ClinkrIo;
-	renderHuman?: ((data: T, caps: RenderCapabilities) => string) | undefined;
-	renderMarkdown?: ((data: T, caps: RenderCapabilities) => string) | undefined;
+	renderHuman?: (data: T, caps: RenderCapabilities) => string;
+	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 }
 
 /**
@@ -80,7 +80,7 @@ function renderNegativeExit<T>(exit: ClinkrNegativeExit<T>, options: EmitExitOpt
 function renderCapabilities<T>(options: EmitExitOptions<T>): RenderCapabilities {
 	return {
 		canEmitAnsi: options.io.canEmitAnsi === true,
-		caps: options.io.caps,
+		...(options.io.caps === undefined ? {} : { caps: options.io.caps }),
 	};
 }
 

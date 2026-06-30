@@ -21,7 +21,7 @@ export interface OptionPlan {
 }
 
 export interface OptionSpec {
-	short?: string | undefined;
+	short?: string;
 }
 
 export interface PositionalPlan {
