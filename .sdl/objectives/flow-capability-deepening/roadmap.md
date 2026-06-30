@@ -9,14 +9,17 @@
 
 - [ ] Decompose Flow land command shells from land-stack domain orchestration.
   - Policy: direct execution after preview for internal module splits that preserve public command/API behavior.
-  - Target: make `src/land.ts` own CLI/Pi command shell adaptation and result presentation, while `src/land-stack.ts` delegates meaningful phases to smaller Flow-owned modules instead of carrying the whole workflow narrative.
+  - Target: make `src/land.ts` own CLI/Pi command shell adaptation and result presentation, while land-stack domain logic moves toward a standalone `ts/packages/capabilities/land` domain-core package rather than remaining only in smaller Flow-internal modules.
   - Evidence: `sdl-flow/api` remains stable; Flow/CCC land tests pass; module sizes and imports show clearer ownership boundaries.
   - Progress: chunked stack landing coordination now delegates to `src/land-stack/chunked-landing.ts`; single-plan stack landing now delegates to `src/land-stack/single-plan-landing.ts`; shared pre-merge/failure presentation lives in `src/land-stack/landing-coordination.ts`; post-landing `--free` slot cleanup now delegates to `src/land/post-landing-slot-cleanup.ts`; isolated single-PR fast-path landing and PR parsing/loading now delegate to `src/land/isolated-fast-path.ts`. `src/land.ts` still owns command registration, CLI adapter/result-block wiring, top-level landing dispatch, upfront stack confirmation, and post-landing cleanup sequencing.
+  - Design direction: the next extraction should create `ts/packages/capabilities/land` as a land-domain core package. Flow stays responsible for command registration, CLI/Pi presentation, and `sdl-flow/api` compatibility while adapting to the new package internally.
 
 - [ ] Introduce a fake-driven land-stack domain seam.
   - Policy: preview and then execute one bounded seam; ask first if the proposed seam changes public behavior, command names, or `sdl-flow/api` shape.
   - Target: replace brittle argv-scripted coverage for at least one important land-stack path with injected gateways/collaborators and in-memory fakes. Shape the seam from current tests rather than inventing a broad abstraction up front.
-  - Evidence: new fake-driven tests cover a meaningful preflight/plan/merge/cleanup behavior; command-shell adapter remains the only layer that knows raw `exec`/`SdlExtensionApi` details for that path.
+  - Design direction: first package seam should expose an `executeLanding(...)`-style operation, `LandingRequest`, structured `LandingOutcome`, failure/result types, and land-specific Git/Graphite/GitHub PR/worktree-slot gateway contracts/fakes. Do not export CLI parsing, completions, or presentation helpers from `sdl-land`.
+  - First slice: migrate stack pre-merge planning/preflight behind the new seam — clean repo, topology/PR basics, worktree conflicts, submit/restack requirements, and dry-run plan/outcome calculation. Model isolated single-PR landing in the vocabulary, but leave its implementation in Flow until the stack seam is proven.
+  - Evidence: new fake-driven tests cover meaningful preflight/plan behavior; command-shell adapters remain the only layer that knows raw `exec`/`SdlExtensionApi` details for that path; CCC still consumes land through `sdl-flow/api` during the first extraction.
 
 - [ ] Resolve CCC-era naming residue in Flow.
   - Policy: direct execution for clearly internal test/temp/helper names; steer first before changing persisted refs, user-visible strings, or recovery instructions.

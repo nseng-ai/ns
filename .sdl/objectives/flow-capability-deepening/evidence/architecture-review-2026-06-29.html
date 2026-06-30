@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — sdl-flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { htmlLabels: true, curve: "basis" } });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 5 4; }
+      .leak { stroke: #dc2626; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .card-anchor { scroll-margin-top: 2rem; }
+      .grid-bg {
+        background-image: radial-gradient(circle at 1px 1px, #e7e5e4 1px, transparent 0);
+        background-size: 22px 22px;
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
+
+      <!-- ───────────────────────── HEADER ───────────────────────── -->
+      <header class="space-y-5">
+        <div class="flex items-baseline justify-between flex-wrap gap-3">
+          <h1 class="text-4xl font-serif tracking-tight">Architecture review — <span class="mono text-indigo-700">sdl-flow</span></h1>
+          <span class="text-sm text-slate-500">2026-06-29 · v2 · land-extraction prioritized</span>
+        </div>
+        <p class="text-slate-600 max-w-3xl">Nine deepening opportunities in <span class="mono text-sm">ts/packages/capabilities/flow</span>, drawn from a four-way deep read of the landing, submit, shared, and autobranch/command subsystems. Each turns a <strong>shallow</strong> module — interface nearly as wide as its implementation — into a <strong>deep</strong> one, or relocates a <strong>leak</strong> back behind its seam. <strong>The priority is to extract <span class="mono text-sm">land</span> as a self-contained deep module</strong> behind a one-function seam; five of the nine candidates are the constituent moves that get there.</p>
+
+        <!-- legend -->
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs uppercase tracking-wider text-slate-500 border-t border-b border-slate-200 py-3">
+          <span class="flex items-center gap-2"><span class="inline-block w-5 h-4 border-2 border-slate-700 bg-white"></span> module</span>
+          <span class="flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="#475569" stroke-width="2" class="seam"/></svg> seam</span>
+          <span class="flex items-center gap-2"><svg width="34" height="10"><line x1="0" y1="5" x2="34" y2="5" stroke="#dc2626" stroke-width="2"/></svg> leak</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-5 h-4 deep rounded-sm"></span> deep module</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>strong</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500"></span>worth exploring</span>
+          <span class="flex items-center gap-2"><span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-400"></span>speculative</span>
+        </div>
+
+        <!-- contents -->
+        <nav class="text-sm space-y-1.5 text-slate-700">
+          <a class="block font-semibold text-indigo-700 hover:text-indigo-900" href="#priority">★ Priority · Extract the land module out of flow</a>
+          <div class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 pt-1">
+            <a class="hover:text-indigo-700" href="#c1">1 · Return structured outcomes, not prose <span class="text-emerald-600">●</span> <span class="text-indigo-500 text-xs">land</span></a>
+            <a class="hover:text-indigo-700" href="#c2">2 · Split the landing-operations god-file <span class="text-emerald-600">●</span> <span class="text-indigo-500 text-xs">land</span></a>
+            <a class="hover:text-indigo-700" href="#c3">3 · One PR-description regeneration module <span class="text-emerald-600">●</span></a>
+            <a class="hover:text-indigo-700" href="#c4">4 · Lift submit-failure interpretation into the core <span class="text-amber-500">●</span></a>
+            <a class="hover:text-indigo-700" href="#c5">5 · A typed Graphite seam over the argv strings <span class="text-amber-500">●</span> <span class="text-indigo-500 text-xs">land</span></a>
+            <a class="hover:text-indigo-700" href="#c6">6 · One land path: dissolve the fast-path fork <span class="text-amber-500">●</span> <span class="text-indigo-500 text-xs">land</span></a>
+            <a class="hover:text-indigo-700" href="#c7">7 · Reconcile autobranch's two decompositions <span class="text-amber-500">●</span></a>
+            <a class="hover:text-indigo-700" href="#c8">8 · Name &amp; assemble the flow-CLI runner <span class="text-amber-500">●</span></a>
+            <a class="hover:text-indigo-700" href="#c9">9 · Narrow the api seam, retire the shim belt <span class="text-slate-400">●</span> <span class="text-indigo-500 text-xs">land</span></a>
+          </div>
+        </nav>
+      </header>
+
+      <!-- ═══════════════════════ PRIORITY ═══════════════════════ -->
+      <section id="priority" class="card-anchor">
+        <div class="rounded-2xl border-2 border-indigo-300 bg-gradient-to-b from-indigo-50/70 to-white p-7 space-y-6 shadow-sm">
+          <div class="flex items-center gap-3 flex-wrap">
+            <span class="text-xs font-semibold uppercase tracking-widest bg-indigo-600 text-white px-3 py-1 rounded-full">★ Priority</span>
+            <h2 class="text-3xl font-serif tracking-tight">Extract <span class="mono text-indigo-700">land</span> as a deep module out of flow</h2>
+            <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">umbrella · sequences 2 · 5 · 6 · 1 · 9</span>
+          </div>
+          <p class="mono text-sm text-slate-500">land.ts · land-stack.ts · land/ · land-stack/ (19 files) · commands/land.ts · reaches into shared/{phase-stream,ccc-cli,presentation,checkpoint} · api.ts:16–41 (13 land symbols leak)</p>
+
+          <!-- before / after -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+              <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — land is ~60% of flow, with no single seam</p>
+              <pre class="mermaid">
+flowchart TB
+  subgraph FLOW["sdl-flow package"]
+    direction TB
+    L1["land.ts<br/>shell + dispatch (twice)"]
+    L2["land-stack.ts<br/>re-dispatch"]
+    L3["land/ · land-stack/<br/>19 files, 1,225-line god-file"]
+    CMD["commands/land.ts<br/>parses stdout → phases"]
+    SH["shared/<br/>ccc-cli · phase-stream · presentation"]
+    L1 --- L2 --- L3
+    L1 -. "stdout text" .- CMD
+    L3 -. "setStatus strings" .- CMD
+    L3 -. "reaches in" .- SH
+  end
+  API["api.ts"] -. "leaks 13 land symbols:<br/>parseArgs · ParsedArgs · ValidPullRequestView…" .-> FLOW
+  CCC["@sdl/ccc consumer"] --> API
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class API,CMD leak
+  classDef god fill:#f1f5f9,stroke:#94a3b8;
+  class L1,L2,L3,SH god
+              </pre>
+              <p class="text-xs text-slate-500 mt-2">No boundary owns "land a stack." Dispatch, status strings, presentation, and 13 leaked api symbols spread land across the package; CCC and the command face both reach past any interface.</p>
+            </div>
+            <div class="rounded-lg border border-slate-300 bg-white p-4">
+              <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — one deep module behind a one-function seam</p>
+              <div class="space-y-3">
+                <div class="deep text-slate-100 rounded-lg p-4 mono text-[11px] space-y-1.5">
+                  <p class="uppercase tracking-wider text-[10px] text-slate-400">src/land/ — the land module</p>
+                  <div class="border-2 border-emerald-400/70 rounded px-2 py-1.5 bg-slate-800/60 text-emerald-200">interface: executeStackLanding(opts)<br/>registerLandCommand · LandOutcome · ~3 types</div>
+                  <div class="opacity-70 pl-2 leading-relaxed">preflight · plan · merge-loop · graphite-maintenance<br/>slot-cleanup · presentation · typed graphite seam<br/><span class="text-slate-500">— all private behind the interface —</span></div>
+                </div>
+                <div class="flex items-center gap-3 mono text-[11px]">
+                  <div class="border border-emerald-400 rounded px-3 py-1.5 bg-emerald-50">commands/land.ts</div>
+                  <svg width="40" height="12"><line x1="0" y1="6" x2="40" y2="6" stroke="#475569" stroke-width="2" class="seam"/></svg>
+                  <div class="border border-emerald-400 rounded px-3 py-1.5 bg-emerald-50">@sdl/ccc</div>
+                  <span class="text-slate-500">→ one seam</span>
+                </div>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Everything land lives under <span class="mono">src/land/</span> behind <span class="mono">executeStackLanding</span> + <span class="mono">registerLandCommand</span>. The rest of flow and CCC depend only on that interface — making land's eventual lift into its own capability package a later, mechanical step.</p>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+            <p><span class="font-semibold text-rose-700">Problem.</span> Land is the largest, deepest concern in flow yet has no module boundary: dispatch is decided twice, status is a stringly back-channel into the command face, presentation and a 1,225-line god-file are tangled with the rest of <span class="mono">shared/</span>, and <span class="mono">api.ts</span> leaks 13 land symbols so CCC couples to internals.</p>
+            <p><span class="font-semibold text-emerald-700">Solution.</span> Consolidate all land code under <span class="mono">src/land/</span> behind a narrow interface (<span class="mono">executeStackLanding</span> + <span class="mono">registerLandCommand</span> + a small typed <span class="mono">LandOutcome</span>), with every other module and CCC depending only on that seam.</p>
+          </div>
+
+          <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-indigo-500">
+            <li>depth: huge land behavior behind one function</li>
+            <li>leverage: CCC + command face learn one interface</li>
+            <li>locality: land bugs concentrate under <span class="mono">src/land/</span></li>
+            <li>the interface becomes the land test surface</li>
+            <li>sets up a clean lift to a <span class="mono">land</span> capability package</li>
+            <li>directly executes the objective's land-decomposition rows</li>
+          </ul>
+
+          <!-- constituent sequence -->
+          <div class="rounded-lg bg-white border border-indigo-200 p-4">
+            <p class="text-xs uppercase tracking-wider text-indigo-700 font-semibold mb-3">Constituent moves — sequence the five land candidates</p>
+            <ol class="space-y-2 text-sm">
+              <li class="flex gap-3"><span class="mono text-indigo-600 font-semibold shrink-0">2 →</span><span><a href="#c2" class="underline decoration-slate-300 hover:text-indigo-700">Split the god-file</a> so the merge/maintenance/prep phases become nameable internals of the module.</span></li>
+              <li class="flex gap-3"><span class="mono text-indigo-600 font-semibold shrink-0">5 →</span><span><a href="#c5" class="underline decoration-slate-300 hover:text-indigo-700">Typed Graphite seam</a> replaces argv-scripted tests so the module is tested through intent, not command strings.</span></li>
+              <li class="flex gap-3"><span class="mono text-indigo-600 font-semibold shrink-0">6 →</span><span><a href="#c6" class="underline decoration-slate-300 hover:text-indigo-700">One land path</a> collapses the fast-path fork so the module has one entry with one safety guarantee.</span></li>
+              <li class="flex gap-3"><span class="mono text-indigo-600 font-semibold shrink-0">1 →</span><span><a href="#c1" class="underline decoration-slate-300 hover:text-indigo-700">Structured outcomes</a> turn the <span class="mono">setStatus</span> back-channel into a typed <span class="mono">LandOutcome</span>/<span class="mono">LandPhase</span> at the seam.</span></li>
+              <li class="flex gap-3"><span class="mono text-indigo-600 font-semibold shrink-0">9 →</span><span><a href="#c9" class="underline decoration-slate-300 hover:text-indigo-700">Narrow the api seam</a> down to <span class="mono">executeStackLanding</span>/<span class="mono">registerLandCommand</span>, stopping the 13-symbol land leak to CCC.</span></li>
+            </ol>
+          </div>
+
+          <div class="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">
+            <span class="font-semibold">Stay inside the objective's guardrails.</span> Land is <em>Flow domain</em> — keep it Flow-owned; do not push it down into <span class="mono">@sdl/core</span>/<span class="mono">kernel</span>/<span class="mono">pi</span>, and keep CCC a consumer, not the owner. Treating <span class="mono">src/land/</span> as a bounded module behind <span class="mono">executeStackLanding</span> is the in-objective step; promoting it to a standalone <span class="mono">land</span> capability package is a <em>separate, later</em> decision (the objective's open question on a deeper <span class="mono">LandingWorkflow</span>). Preserve durable <span class="mono">refs/ccc/land-backup/*</span> namespaces.
+          </div>
+        </div>
+      </section>
+
+      <section id="candidates" class="space-y-14">
+        <h2 class="text-xs uppercase tracking-widest text-slate-500">The nine candidates</h2>
+
+      <!-- ═══════════════════════ CANDIDATE 1 ═══════════════════════ -->
+      <article id="c1" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">1 · Return structured outcomes, not prose</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Strong</span>
+          <span class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">in-process</span>
+          <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">★ land extraction</span>
+        </div>
+        <p class="mono text-sm text-slate-500">
+          api/autobranch.ts · autoslot.ts:110–158 · shared/checkpoint.ts · land-stack/landing-operations.ts (setStatus) · commands/land.ts:112–164 · latest-commit.ts:91 · dirty-worktree.ts:322
+        </p>
+
+        <!-- before / after -->
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — prose is the interface</p>
+            <pre class="mermaid">
+flowchart TB
+  AB["createFlowAutobranchCheckpointFlow<br/>returns { summary: string }"]
+  AB -. "\"New branch: …\"<br/>\"Working directory is clean.\"" .-> AS["autoslot.ts<br/>parseCreatedBranchName(summary)<br/>summary.includes('clean')"]
+  OPS["landing-operations.ts<br/>setStatus('submitting X…')"]
+  OPS -. "stringly back-channel" .-> RP["commands/land.ts<br/>routePhase: startsWith('submitting')"]
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class AS,RP leak
+  classDef src fill:#f1f5f9,stroke:#94a3b8;
+  class AB,OPS src
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">Machine facts are flattened into human prose at the seam, then scraped back out by two unrelated consumers. The wording in <span class="mono">latest-commit.ts</span> and <span class="mono">dirty-worktree.ts</span> is load-bearing.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — outcome value object behind the seam</p>
+            <pre class="mermaid">
+flowchart TB
+  AB["createFlowAutobranchCheckpointFlow<br/>returns AutobranchOutcome<br/>{ branchName, clean, warnings }"]
+  AB --> AS["autoslot.ts<br/>outcome.branchName · outcome.clean"]
+  OPS["land core emits LandPhase<br/>{ kind: 'submitting', branch }"]
+  OPS --> RP["commands/land.ts<br/>renders phase by kind"]
+  AB --> FMT["presentation.ts<br/>formats outcome → prose<br/>(at the edge only)"]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class AB,OPS deep
+  classDef ok fill:#ecfdf5,stroke:#10b981;
+  class AS,RP,FMT ok
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">The core returns typed outcomes; prose is derived once, at the presentation edge. Consumers read fields, not sentences.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> Flow cores return human strings, so <span class="mono">autoslot</span> regex-scrapes a branch name and a clean-flag out of two modules' summary wording, and the land CLI re-parses <span class="mono">setStatus</span> strings to drive its progress phases.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Make each core return a typed outcome (and a typed <span class="mono">LandPhase</span> signal); render prose once in <span class="mono">presentation.ts</span> at the command edge.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-emerald-500">
+          <li>locality: outcome wording lives in one place</li>
+          <li>leverage: one outcome type, N consumers</li>
+          <li>deletes <span class="mono">parseCreatedBranchName</span> + string scraping</li>
+          <li>typed phase signal replaces <span class="mono">startsWith()</span> routing</li>
+          <li>interface becomes the test surface</li>
+          <li>serves the <span class="mono">flow-capability-deepening</span> objective</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 2 ═══════════════════════ -->
+      <article id="c2" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">2 · Split the landing-operations god-file</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Strong</span>
+          <span class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">internal seams</span>
+          <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">★ land extraction</span>
+        </div>
+        <p class="mono text-sm text-slate-500">land-stack/landing-operations.ts — 1,225 lines · performGraphiteMaintenance:741–1013 (273 lines)</p>
+
+        <!-- mass / cross-section before-after -->
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — one file, no internal interface</p>
+            <div class="relative border-2 border-rose-300 rounded bg-rose-50/40 p-3 space-y-1.5 mono text-[11px]">
+              <p class="text-center text-xs uppercase tracking-wider text-rose-700 font-semibold mb-2">landing-operations.ts · 1,225 lines</p>
+              <div class="bg-white border border-slate-300 px-2 py-1 rounded">confirmAndSubmitRequiredPrUpdates · slotFree · residualPreMergeFailure</div>
+              <div class="bg-white border border-slate-300 px-2 py-1 rounded">prepareMergeLoopState · runMergeLoop</div>
+              <div class="bg-white border border-slate-400 px-2 py-3 rounded ring-2 ring-rose-300">performGraphiteMaintenance (273 lines)<br/>guard-SHA · gt get · child re-check · gt delete · gt restack · gt submit</div>
+              <div class="bg-white border border-slate-300 px-2 py-1 rounded">deleteFinalLocalGraphiteBranch · localBranchDeletionFromResult</div>
+              <div class="bg-white border border-slate-300 px-2 py-1 rounded">formatSubmitUpdateDetails · ~12 inline argv builders</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Three concerns fused; <span class="mono">NextGraphiteMaintenance</span>'s 4 kinds are switched inline rather than dispatched to handlers.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — three deep modules + a dispatch</p>
+            <div class="space-y-3 mono text-[11px]">
+              <div class="deep text-slate-100 rounded px-3 py-2"><span class="uppercase tracking-wider text-[10px] text-slate-400">pre-merge-prep</span><br/>confirmAndSubmit · freeManagedSlots · residual checks</div>
+              <div class="deep text-slate-100 rounded px-3 py-2"><span class="uppercase tracking-wider text-[10px] text-slate-400">merge-loop</span><br/>squash-merge each PR + verify MERGED</div>
+              <div class="deep text-slate-100 rounded px-3 py-2"><span class="uppercase tracking-wider text-[10px] text-slate-400">graphite-maintenance</span><br/>handler per NextGraphiteMaintenance kind</div>
+              <div class="border-2 border-emerald-400 rounded px-3 py-2 bg-emerald-50">runMergeLoop — small interface over the three</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Each phase tested through its own small interface; the union becomes the seam between handlers.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> One 1,225-line file fuses pre-merge prep, the merge loop, and post-merge Graphite maintenance; the 273-line <span class="mono">performGraphiteMaintenance</span> interleaves control flow, argv construction, exec, parsing, and warning prose.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Carve three modules along the existing phase boundaries and give each <span class="mono">NextGraphiteMaintenance</span> kind its own handler behind a small interface.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-emerald-500">
+          <li>locality: maintenance bugs concentrate in one module</li>
+          <li>each phase gets its own test surface</li>
+          <li>union becomes a real seam, not an inline switch</li>
+          <li>argv builders collect into one land vocabulary</li>
+          <li>interface stays the unchanged <span class="mono">runMergeLoop</span></li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 3 ═══════════════════════ -->
+      <article id="c3" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">3 · One PR-description regeneration module</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">Strong</span>
+          <span class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">ports &amp; adapters</span>
+        </div>
+        <p class="mono text-sm text-slate-500">submit/pr-description-orchestration.ts:47–149 · shared/pr-description.ts:69–130 · submit/submit-pr-descriptions.ts:25–113 · submit/submit-pr-metadata-prewrite.ts:422</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — three pipelines, copy-shaped</p>
+            <pre class="mermaid">
+flowchart TB
+  subgraph A["pipeline A · prewrite"]
+    a1["resolve #1"] --> a2["preparePrDescription<br/>kind: local"]
+  end
+  subgraph B["pipeline B · github reconcile"]
+    b1["resolve #2 / #2b"] --> b2["preparePrDescription<br/>kind: github"] --> b3["editPr"]
+  end
+  subgraph C["pipeline C · regenerate-pr"]
+    c1["resolve #3"] --> c2["preparePrDescription<br/>kind: github"] --> c3["editPr"]
+  end
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class b2,c2 leak
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">B and C build the identical github context → generate → replace-region sequence; neither is expressible via the other. Prompt+model resolved up to 3× per run.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — one deep generator, thin writers</p>
+            <pre class="mermaid">
+flowchart TB
+  CORE["regenerateManagedRegion(pr)<br/>resolve · fingerprint · commits · generate · replace<br/>(generate, don't write)"]
+  CORE --> W1["orchestrate · editPr"]
+  CORE --> W2["regenerate-pr · confirm · editPr"]
+  CORE --> W3["prewrite · gt modify"]
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class CORE deep
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">One module owns "regenerate the managed region for a known PR"; the three writers differ only in confirm/skip and write target.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> "Generate and attach a PR description" is smeared across five files and three near-duplicate pipelines; <span class="mono">generation</span> is passed as an optional param both caller and callee re-resolve, and the only fake is exercised at 1 of 4 call sites.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Extract one deep <span class="mono">regenerateManagedRegion(pr)</span> that generates but does not write; express orchestrate, regenerate-pr, and prewrite as thin writers over it.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-emerald-500">
+          <li>locality: regeneration logic in one module</li>
+          <li>prompt/model resolved once, not 3×</li>
+          <li>one fake exercises every writer</li>
+          <li>collapses friction in 3 of the submit findings</li>
+          <li>"generate" stops fusing with "write to GitHub"</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 4 ═══════════════════════ -->
+      <article id="c4" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">4 · Lift submit-failure interpretation into the core</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Worth exploring</span>
+          <span class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">mock (LLM)</span>
+        </div>
+        <p class="mono text-sm text-slate-500">commands/submit.ts:165–290, 322–366 (≈200 lines of policy in a command face) · cf. commands/push.ts:43 (the good baseline)</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — deep policy in a command costume</p>
+            <div class="space-y-2 mono text-[11px]">
+              <div class="border-2 border-rose-300 rounded bg-rose-50/40 px-3 py-2">
+                <p class="uppercase tracking-wider text-[10px] text-rose-700 mb-1">commands/submit.ts · 366 lines</p>
+                <div class="bg-white border border-slate-300 rounded px-2 py-1 mb-1">maybeFormatSubmitFailureWithModel</div>
+                <div class="bg-white border border-slate-300 rounded px-2 py-1 mb-1">buildSubmitFailureInterpretationPrompt<br/>("Empty-branch rule", "Merged-PR trunk rule")</div>
+                <div class="bg-white border border-slate-300 rounded px-2 py-1 mb-1">writeSubmitFailureRawLog · chmod 0o700 · mkdtemp</div>
+                <div class="bg-white border border-slate-300 rounded px-2 py-1">renderRawFailureTranscript</div>
+              </div>
+              <div class="border border-slate-300 rounded px-3 py-2 bg-slate-50">src/submit/ core → returns rawFailureTranscript</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">No unit test — every assertion lives in the 45 KB scenario test. Business rules sit above the seam.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — interpretation is a module</p>
+            <div class="space-y-2 mono text-[11px]">
+              <div class="deep text-slate-100 rounded px-3 py-2">
+                <p class="uppercase tracking-wider text-[10px] text-slate-400 mb-1">submit/failure-interpretation.ts</p>
+                interpretSubmitFailure(transcript, gen)<br/>rules · raw-log policy · rendering
+              </div>
+              <div class="border-2 border-emerald-400 rounded bg-emerald-50 px-3 py-2">commands/submit.ts — present only<br/>(like commands/push.ts → runPushCore)</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Core gains a fake-driven unit test; the command becomes a thin face, matching push/pull-trunk/cp.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> <span class="mono">commands/submit.ts</span> carries ~200 lines of submit-domain policy — the LLM failure-interpreter with its business rules, XDG raw-log writing, transcript rendering — none of it unit-tested, all reached only through the giant scenario test.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Move interpretation into a <span class="mono">src/submit/</span> module with the <span class="mono">TextGenerator</span> as its seam; leave the command a thin presentation face like <span class="mono">push</span>.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-emerald-500">
+          <li>locality: failure rules live with submit</li>
+          <li>fake <span class="mono">TextGenerator</span> = a real unit test</li>
+          <li>command face matches the thin-command baseline</li>
+          <li>deletes the source-text guard test</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 5 ═══════════════════════ -->
+      <article id="c5" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">5 · A typed Graphite seam over the argv strings</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Worth exploring</span>
+          <span class="text-xs uppercase tracking-wider bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">ports &amp; adapters</span>
+          <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">★ land extraction</span>
+        </div>
+        <p class="mono text-sm text-slate-500">land-stack/* · autobranch/latest-commit-transaction.ts · command-exec.ts:71–92 · test/unit/land-stack-command-scenarios.test.ts (2,802 lines of argv assertions)</p>
+
+        <!-- cross-section: thin layers vs typed methods -->
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — the seam is an argv string</p>
+            <div class="mono text-[11px] space-y-1">
+              <div class="border-l-4 border-rose-400 bg-rose-50/50 pl-2 py-1">exec("gt", ["submit","--no-interactive","--no-edit", …7 flags])</div>
+              <div class="border-l-4 border-rose-400 bg-rose-50/50 pl-2 py-1">exec("gt", ["delete", branch, "--force"])</div>
+              <div class="border-l-4 border-rose-400 bg-rose-50/50 pl-2 py-1">exec("git", ["reset","--hard", parentSha])</div>
+              <div class="border-l-4 border-rose-400 bg-rose-50/50 pl-2 py-1">exec("git", ["fetch", …, "+refs/ccc/land-backup/*:…"])</div>
+              <div class="mt-2 border-2 border-rose-300 rounded px-2 py-1.5 bg-white text-slate-600">test asserts <em>exact</em> argv + order<br/>normalizeCommandFinish knows "gt delete" semantics</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">No <span class="mono">Graphite</span>/<span class="mono">Gh</span> gateway with named operations; reorder a preflight read and dozens of tests break though behavior is unchanged. Five exec-API variants are threaded by hand.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — typed operations behind one seam</p>
+            <div class="mono text-[11px] space-y-1">
+              <div class="deep text-slate-100 rounded px-2 py-1.5">graphite.submit(plan)</div>
+              <div class="deep text-slate-100 rounded px-2 py-1.5">graphite.deleteBranch(branch) → Deleted | AlreadyAbsent</div>
+              <div class="deep text-slate-100 rounded px-2 py-1.5">git.resetHard(sha) · backup.rotate()</div>
+              <div class="mt-2 border-2 border-emerald-400 rounded px-2 py-1.5 bg-emerald-50 text-slate-700">in-memory fake = two adapters → a real seam<br/>tests assert intent, not argv</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2"><span class="mono">gt delete</span> idempotency lives in the operation, not the generic runner.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> Git/Graphite/gh are scripted as raw <span class="mono">exec("git",[…strings])</span> everywhere; the test surface asserts exact argv order, and <span class="mono">normalizeCommandFinish</span> special-cases <span class="mono">gt delete</span> / topology-read inside the generic exec helper.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Introduce a typed Graphite (and gh) gateway with named operations and an in-memory fake; let argv construction and command idempotency live behind it.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-amber-500">
+          <li>two adapters (real gt + fake) justify the seam</li>
+          <li>tests assert intent, survive flag/order churn</li>
+          <li>collapses 5 exec-API variants to one</li>
+          <li>idempotency moves out of the generic runner</li>
+        </ul>
+        <div class="rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">
+          <span class="font-semibold">Aligns with — and should be scoped against — the <span class="mono">neutral-infra-gateway-consolidation</span> objective (ADR 0018/0019).</span> That work routes external-tool I/O through <span class="mono">@sdl/capability-kit/&lt;domain&gt;</span> gateways and <span class="mono">@sdl/graphite</span>. Build the Graphite operations as a Flow-owned consumer of that seam, not a private re-implementation — and respect the <span class="mono">graphite-dependency-boundary</span> (runtime code prefers <span class="mono">GitGateway</span>).
+        </div>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 6 ═══════════════════════ -->
+      <article id="c6" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">6 · One land path: dissolve the fast-path fork</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Worth exploring</span>
+          <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">★ land extraction</span>
+        </div>
+        <p class="mono text-sm text-slate-500">land/isolated-fast-path.ts:45–123 · land.ts:171 vs land-stack.ts:92 · land-stack/landing-operations.ts runMergeLoop:490–520</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — two single-PR implementations</p>
+            <pre class="mermaid">
+flowchart TB
+  CMD["land my stack"] --> D1{"isIsolatedFastPath?"}
+  D1 -->|yes| FP["runIsolatedFastPathLanding<br/>squash-merge · NO verify · NO backup refs"]
+  D1 -->|no| D2{"len > threshold?<br/>(decided twice)"}
+  D2 -->|yes| CH["chunked"]
+  D2 -->|no| SP["single-plan → runMergeLoop<br/>backup · verify MERGED · gt delete"]
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class FP leak
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">The fast path skips merge verification and backup refs — a <em>safety</em> divergence the maintainer must know exists. The chunk-vs-single threshold is also decided in two files.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — one path, fast path as internal skip</p>
+            <pre class="mermaid">
+flowchart TB
+  CMD["land my stack"] --> LAND["land(plan)<br/>backup · merge · VERIFY MERGED · delete"]
+  LAND -. "internal: skip descendant<br/>maintenance when none exist" .-> LAND
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class LAND deep
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">One module guarantees verification; "no descendants" becomes an internal optimization, not a parallel implementation with weaker guarantees.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> A one-PR stack with no descendants takes a mini-merge that skips verification, backup refs, and conflict detection, while the same stack <em>with</em> a descendant takes the full path — two implementations of "land one PR" with different safety guarantees, plus a chunk threshold decided twice.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Fold the fast path into the single-plan path as an internal "no descendant maintenance" branch behind the verification guarantee; decide chunk-vs-single once.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-amber-500">
+          <li>locality: one place guarantees "merged"</li>
+          <li>safety stops varying by stack shape</li>
+          <li>dispatch decision made once</li>
+          <li>drops the <span class="mono">IsolatedFastPathApi</span> variant</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 7 ═══════════════════════ -->
+      <article id="c7" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">7 · Reconcile autobranch's two decompositions</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Worth exploring</span>
+        </div>
+        <p class="mono text-sm text-slate-500">autobranch/latest-commit{,-preparation,-transaction,-formatting}.ts · dirty-worktree.ts:387 · api/autobranch.ts:35 vs commands/autobranch.ts:126</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — same shape, opposite splits</p>
+            <div class="mono text-[11px] space-y-2">
+              <div class="border border-slate-300 rounded p-2">
+                <p class="uppercase tracking-wider text-[10px] text-slate-500 mb-1">clean path — 4 files</p>
+                latest-commit · preparation · transaction · formatting<br/>
+                <span class="text-rose-600">failure taxonomy split across 3 · upstream check twice</span>
+              </div>
+              <div class="border border-slate-300 rounded p-2">
+                <p class="uppercase tracking-wider text-[10px] text-slate-500 mb-1">dirty path — 1 file</p>
+                dirty-worktree.ts fuses prep + orchestrator + format<br/>
+                <span class="text-rose-600">…yet owns the types the clean path imports</span>
+              </div>
+              <div class="border-2 border-rose-300 rounded p-2 bg-rose-50/40">
+                two routers, opposite clean-case:<br/>api → run · command → refuse
+              </div>
+            </div>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — one decomposition, one router</p>
+            <div class="mono text-[11px] space-y-2">
+              <div class="deep text-slate-100 rounded p-2">shared.ts owns the outcome union + types</div>
+              <div class="deep text-slate-100 rounded p-2">clean &amp; dirty cores: matching prep/transaction/format split</div>
+              <div class="border-2 border-emerald-400 rounded p-2 bg-emerald-50">one worktree-router; clean-case policy passed in, not forked</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">The shared header moves out of <span class="mono">dirty-worktree.ts</span>; routing decides once with policy as a parameter.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> The clean path splits the autobranch shape into four files (failure taxonomy spread across three, upstream check duplicated) while the dirty path fuses the same shape into one — and the clean path imports its core types from the module named <span class="mono">dirty</span>-worktree. Two routers branch on <span class="mono">clean</span> with opposite results.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Pick one decomposition for both paths, move shared types to <span class="mono">shared.ts</span>, and collapse the two clean-vs-dirty routers into one that takes the clean-case policy as a parameter.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-amber-500">
+          <li>locality: one place to add a guardrail</li>
+          <li>clean path stops depending on "dirty"</li>
+          <li>one router, policy as a parameter</li>
+          <li>composition becomes the test surface</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 8 ═══════════════════════ -->
+      <article id="c8" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">8 · Name &amp; assemble the flow-CLI runner</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">Worth exploring</span>
+        </div>
+        <p class="mono text-sm text-slate-500">shared/ccc-cli.ts (12 <span class="mono">FlowCcc*</span> identifiers, 0 CCC deps) · shared/phase-stream*.ts (7 files, 1 facade) · land.ts:50–72 (hand-wires both)</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — residue + hand-wiring</p>
+            <pre class="mermaid">
+flowchart TB
+  CCC["ccc-cli.ts<br/>runFlowCccCli (no CCC dep)"]
+  PS["phase-stream.ts facade<br/>over state · specs · renderer · lifecycle · tail"]
+  LAND["land.ts:50–72<br/>hand-wires runFlowCccCli + controller<br/>by parsing CLI text"]
+  CCC --> LAND
+  PS --> LAND
+  classDef leak stroke:#dc2626,stroke-width:2px,fill:#fef2f2;
+  class CCC leak
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">"Ccc" names a dependency that doesn't exist; "run a flow CLI with phase output" exists only as per-command hand-wiring.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — one honestly-named module</p>
+            <pre class="mermaid">
+flowchart TB
+  RUN["runFlowCliCommand<br/>exec dispatch + phase output"]
+  ENG["phase-stream-engine (interior merged,<br/>facade unchanged)"]
+  RUN --> ENG
+  LAND2["land · autoslot · pull-trunk<br/>call runFlowCliCommand"]
+  RUN --> LAND2
+  classDef deep fill:#0f172a,color:#e2e8f0,stroke:#0f172a;
+  class RUN,ENG deep
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">Rename drops the residue; the phase-stream interior merges behind its unchanged facade.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> <span class="mono">ccc-cli.ts</span> is real, tested flow logic wearing dead "Ccc" names, and the deep "run a flow CLI command with live phase output" module only exists as hand-wiring in <span class="mono">land.ts</span>; meanwhile the phase-stream interior is 5 single-consumer files behind one facade.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Rename to <span class="mono">flow-cli-command.ts</span> / <span class="mono">runFlowCliCommand</span>, assemble the runner+phase-output pairing as one module, and merge the phase-stream interior behind its unchanged facade.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-amber-500">
+          <li>clears CCC-era naming residue (per orientation)</li>
+          <li>leverage: one runner, every flow command</li>
+          <li>phase-stream interior: navigate one file</li>
+          <li>facade &amp; its test surface stay unchanged</li>
+        </ul>
+      </article>
+
+      <hr class="border-slate-200" />
+
+      <!-- ═══════════════════════ CANDIDATE 9 ═══════════════════════ -->
+      <article id="c9" class="card-anchor space-y-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-2xl font-serif">9 · Narrow the api seam, retire the shim belt</h2>
+          <span class="text-xs font-semibold uppercase tracking-wider bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full">Speculative</span>
+          <span class="text-xs uppercase tracking-wider bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full">★ land extraction</span>
+        </div>
+        <p class="mono text-sm text-slate-500">api.ts:16–41 (land half) · shared/{git,text-generation,checkpoint-message,text-helpers,submit,pr-description}.ts · source-text guard tests</p>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-slate-200 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-rose-600 mb-3 font-semibold">Before — wide face + frozen shims</p>
+            <div class="relative h-44 border border-slate-300 rounded bg-white overflow-hidden">
+              <div class="absolute inset-x-3 top-3 h-7 border-2 border-rose-400 rounded bg-rose-50 flex items-center justify-center text-[10px] mono uppercase tracking-wider text-rose-700">api.ts land half — 9 types + parseArgs + parsePullRequestView</div>
+              <div class="absolute inset-x-3 top-12 bottom-3 border border-slate-300 rounded bg-slate-50 p-2 grid grid-cols-2 gap-1 mono text-[10px] text-slate-500">
+                <div class="bg-white border px-1 py-0.5 rounded">git.ts (rename-only)</div>
+                <div class="bg-white border px-1 py-0.5 rounded">text-generation.ts (barrel)</div>
+                <div class="bg-white border px-1 py-0.5 rounded">checkpoint-message.ts</div>
+                <div class="bg-white border px-1 py-0.5 rounded">text-helpers.ts</div>
+                <div class="bg-white border px-1 py-0.5 rounded">submit.ts (re-export)</div>
+                <div class="bg-white border px-1 py-0.5 rounded">pr-description.ts (barrel+logic)</div>
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">The land half leaks <span class="mono">ParsedArgs</span>/<span class="mono">ValidPullRequestView</span>; guard tests assert shim <em>source text</em> ("not.toContain") — pinning the shims in place.</p>
+          </div>
+          <div class="rounded-lg border border-slate-300 bg-white p-4">
+            <p class="text-xs uppercase tracking-wider text-emerald-700 mb-3 font-semibold">After — small face, direct imports</p>
+            <div class="relative h-44 border border-slate-300 rounded bg-white overflow-hidden flex flex-col items-center justify-center gap-2">
+              <div class="deep text-slate-100 rounded px-4 py-2 mono text-[11px]">api.ts — land: execute + register only</div>
+              <div class="text-slate-400 text-[10px] mono">consumers import @sdl/capability-kit/* directly</div>
+              <div class="border-2 border-emerald-400 rounded px-4 py-1.5 bg-emerald-50 mono text-[10px]">shim belt deleted</div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Parsers/types stop crossing the seam; the migration shims and their source-text tests retire.</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <p><span class="font-semibold text-rose-700">Problem.</span> The <span class="mono">api.ts</span> land half exports internal types and parsers against an orientation that says keep it narrow, and <span class="mono">shared/</span> holds a belt of "temporary migration" re-export shims frozen by tests that assert their source text.</p>
+          <p><span class="font-semibold text-emerald-700">Solution.</span> Trim the land exports to the execute/register surface and let consumers import upstream symbols directly, retiring the shims and their guard tests.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm text-slate-700 list-disc pl-5 marker:text-slate-400">
+          <li>narrows the seam per orientation</li>
+          <li>deletes rename-only pass-throughs</li>
+          <li>drops source-text guard tests</li>
+          <li>needs a consumer-import sweep first (hence speculative)</li>
+        </ul>
+      </article>
+
+      </section>
+
+      <!-- ═══════════════════════ TOP RECOMMENDATION ═══════════════════════ -->
+      <section id="top-recommendation" class="space-y-4">
+        <h2 class="text-xs uppercase tracking-widest text-slate-500">Top recommendation</h2>
+        <div class="rounded-xl deep text-slate-100 p-8 grid-bg">
+          <div class="bg-slate-900/70 rounded-lg p-6 space-y-3">
+            <div class="flex items-center gap-3 flex-wrap">
+              <span class="text-xs font-semibold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 px-2.5 py-1 rounded-full">★ Priority</span>
+              <a href="#priority" class="text-2xl font-serif hover:underline">Extract <span class="mono text-indigo-300">land</span> as a deep module out of flow</a>
+            </div>
+            <p class="text-slate-300 text-sm max-w-3xl">Land is the largest, deepest, least-bounded concern in the package — and the one most worth a real seam. The path is a sequence, not a leap: <a href="#c2" class="underline decoration-slate-500">2 split the god-file</a> → <a href="#c5" class="underline decoration-slate-500">5 typed Graphite seam</a> → <a href="#c6" class="underline decoration-slate-500">6 one land path</a> → <a href="#c1" class="underline decoration-slate-500">1 structured outcomes</a> → <a href="#c9" class="underline decoration-slate-500">9 narrow the api seam</a>. Each step is independently shippable and behavior-preserving; together they consolidate land under <span class="mono text-slate-200">src/land/</span> behind <span class="mono text-slate-200">executeStackLanding</span> + <span class="mono text-slate-200">registerLandCommand</span>. Start with <a href="#c2" class="underline decoration-slate-500">2</a> (already a roadmap row) and <a href="#c5" class="underline decoration-slate-500">5</a> (the fake-driven seam the objective wants), since they unblock the rest. Candidates&nbsp;3,&nbsp;4,&nbsp;7,&nbsp;8 deepen submit/autobranch/shared in parallel and don't block the land work.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="text-xs text-slate-400 pt-6 border-t border-slate-200">
+        Vocabulary: module · interface · implementation · depth · seam · adapter · leverage · locality. Generated for the sdl-flow architecture review · recorded as evidence under <span class="mono">.sdl/objectives/flow-capability-deepening/</span>.
+      </footer>
+
+    </main>
+  </body>
+</html>
