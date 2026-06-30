@@ -91,8 +91,8 @@ class FakeGraphiteMetadataDbAccess implements GraphiteMetadataDbAccess {
 
 	constructor(
 		options: {
-			exists?: boolean | undefined;
-			responses?: readonly SqliteJsonOutcome[] | undefined;
+			exists?: boolean;
+			responses?: readonly SqliteJsonOutcome[];
 		} = {},
 	) {
 		this.shouldExist = options.exists ?? true;
@@ -139,9 +139,9 @@ function sqliteInvalidJson(): SqliteJsonError {
 
 function branchRow(input: {
 	branchName: string;
-	parentBranchName?: string | undefined;
-	children?: readonly unknown[] | undefined;
-	validationResult?: string | undefined;
+	parentBranchName?: string;
+	children?: readonly unknown[];
+	validationResult?: string;
 	rawChildren?: unknown;
 }): Record<string, unknown> {
 	return {
@@ -155,9 +155,9 @@ function branchRow(input: {
 function loadWithFake(
 	dbAccess: GraphiteMetadataDbAccess,
 	options: {
-		currentBranch?: string | undefined;
-		liveBranches?: Iterable<string> | undefined;
-		branchLookup?: LocalBranchRefReadResult | undefined;
+		currentBranch?: string;
+		liveBranches?: Iterable<string>;
+		branchLookup?: LocalBranchRefReadResult;
 	} = {},
 ) {
 	const currentBranch = options.currentBranch ?? "feature/current";

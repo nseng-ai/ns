@@ -17,11 +17,11 @@ export type FakeGraphiteStackOperation =
 	| { type: "stack-graph"; cwd: string };
 
 export interface FakeGraphiteStackGatewayOptions {
-	parent?: ParentOfResult | undefined;
-	children?: ChildrenOfResult | undefined;
-	trunk?: TrunkResult | undefined;
-	stack?: StackResult | undefined;
-	stackGraph?: StackGraphResult | undefined;
+	parent?: ParentOfResult;
+	children?: ChildrenOfResult;
+	trunk?: TrunkResult;
+	stack?: StackResult;
+	stackGraph?: StackGraphResult;
 }
 
 export class FakeGraphiteStackGateway implements GraphiteStackGateway {
