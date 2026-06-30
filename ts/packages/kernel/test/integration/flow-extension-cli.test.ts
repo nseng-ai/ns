@@ -235,11 +235,18 @@ function runWithRealFlowExtension(options: {
 	cwd: string;
 	state?: Parameters<typeof runCliWithFakes>[0]["state"];
 }) {
-	return runCliWithFakes(options, {
-		execResponses: () => [],
-		textGenerationResults: () => [],
-		missingTextGenerationResult: () => ({ ok: true, text: "Generated PR\n\nGenerated body" }),
-	});
+	return runCliWithFakes(
+		{
+			args: options.args,
+			cwd: options.cwd,
+			...(options.state === undefined ? {} : { state: options.state }),
+		},
+		{
+			execResponses: () => [],
+			textGenerationResults: () => [],
+			missingTextGenerationResult: () => ({ ok: true, text: "Generated PR\n\nGenerated body" }),
+		},
+	);
 }
 
 function dirtyCpExecResponses(): ScriptedExecResponse[] {

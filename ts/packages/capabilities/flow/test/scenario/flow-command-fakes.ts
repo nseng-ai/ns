@@ -22,11 +22,11 @@ import {
 
 interface RunFlowCommandWithFakesOptions {
 	request?: unknown;
-	state?: TestState | undefined;
-	cwd?: string | undefined;
-	env?: Record<string, string | undefined> | undefined;
-	homeDir?: string | undefined;
-	defaults?: RunWithFakesDefaults | undefined;
+	state?: TestState;
+	cwd?: string;
+	env?: Record<string, string | undefined>;
+	homeDir?: string;
+	defaults?: RunWithFakesDefaults;
 }
 
 interface FlowCommandFixture {
@@ -114,10 +114,10 @@ export function runFlowExecReadGraphiteBranchMetadataCommandWithFakes(
 }
 
 interface BranchLatestCommitExecOptions {
-	targetBranchName?: string | undefined;
-	targetAvailability?: readonly ScriptedExecResponse[] | undefined;
-	backupCreateResult?: ScriptedExecResponse["result"] | undefined;
-	backupDeleteResult?: ScriptedExecResponse["result"] | undefined;
+	targetBranchName?: string;
+	targetAvailability?: readonly ScriptedExecResponse[];
+	backupCreateResult?: ScriptedExecResponse["result"];
+	backupDeleteResult?: ScriptedExecResponse["result"];
 }
 
 function availableBranchResponses(branchName: string): ScriptedExecResponse[] {
@@ -429,7 +429,9 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		env: { HOME: homeDir, ...(fixture.options.env ?? {}) },
 		execResponses: fixture.defaults.execResponses,
 		textGenerationResults: fixture.defaults.textGenerationResults,
-		missingTextGenerationResult: fixture.defaults.missingTextGenerationResult,
+		...(fixture.defaults.missingTextGenerationResult === undefined
+			? {}
+			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),
 	});
 	context.stdout = (text) => {
 		stdout.push(text);

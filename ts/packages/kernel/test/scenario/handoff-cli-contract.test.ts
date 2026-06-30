@@ -177,7 +177,7 @@ function runHandoffCli(options: RunWithFakesOptions) {
 	return runCliWithFakes(
 		{
 			args: options.args,
-			cwd: options.cwd,
+			...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 			...(options.env === undefined ? {} : { env: options.env }),
 			state: options.state ?? { exec: [] },
 		},

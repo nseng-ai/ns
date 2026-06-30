@@ -16,7 +16,7 @@ export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGe
 export interface ScriptedExecResponse {
 	match: string | RegExp | ((call: ExecCall) => boolean);
 	result: Partial<ExecResult>;
-	isRepeatable?: boolean | undefined;
+	isRepeatable?: boolean;
 }
 
 export interface ExecCall {
@@ -28,29 +28,29 @@ export interface ExecCall {
 export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
-	confirm?: SdlConfirmPrompt | undefined;
-	stdin?: string | undefined;
-	extensions?: Readonly<Record<string, unknown>> | undefined;
+	confirm?: SdlConfirmPrompt;
+	stdin?: string;
+	extensions?: Readonly<Record<string, unknown>>;
 }
 
 export interface RunWithFakesOptions {
 	args: readonly string[];
-	state?: TestState | undefined;
-	cwd?: string | undefined;
-	env?: Record<string, string | undefined> | undefined;
-	homeDir?: string | undefined;
-	extensionRegistry?: SdlCliDeps["extensionRegistry"] | undefined;
+	state?: TestState;
+	cwd?: string;
+	env?: Record<string, string | undefined>;
+	homeDir?: string;
+	extensionRegistry?: SdlCliDeps["extensionRegistry"];
 }
 
 export interface RunWithFakesDefaults {
 	execResponses: () => readonly ScriptedExecResponse[];
 	textGenerationResults: () => readonly ScriptedTextGenerationResult[];
-	missingTextGenerationResult?: (() => TextGenerationResult) | undefined;
+	missingTextGenerationResult?: () => TextGenerationResult;
 }
 
 interface ScriptedSdlTestContextOptions extends RunWithFakesDefaults {
-	cwd?: string | undefined;
-	env?: Record<string, string | undefined> | undefined;
+	cwd?: string;
+	env?: Record<string, string | undefined>;
 }
 
 export class ScriptedSdlTestContext implements SdlExtensionApi {
@@ -60,12 +60,12 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopSdlCommandIo;
 	readonly progress = noopSdlProgress;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
-	confirm?: SdlConfirmPrompt | undefined;
-	stdin?: (() => Promise<string>) | undefined;
-	extensions?: Readonly<Record<string, unknown>> | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
+	confirm?: SdlConfirmPrompt;
+	stdin?: () => Promise<string>;
+	extensions?: Readonly<Record<string, unknown>>;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
@@ -76,9 +76,9 @@ export class ScriptedSdlTestContext implements SdlExtensionApi {
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
-		this.confirm = state.confirm;
+		if (state.confirm !== undefined) this.confirm = state.confirm;
 		this.stdin = async () => state.stdin ?? "";
-		this.extensions = state.extensions;
+		if (state.extensions !== undefined) this.extensions = state.extensions;
 	}
 
 	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
@@ -118,11 +118,13 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 	const cwd = options.cwd ?? "/work";
 	const homeDir = options.homeDir ?? join(cwd, ".home");
 	const context = new ScriptedSdlTestContext(options.state, {
-		cwd: options.cwd,
+		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 		env: { HOME: homeDir, ...(options.env ?? {}) },
 		execResponses: defaults.execResponses,
 		textGenerationResults: defaults.textGenerationResults,
-		missingTextGenerationResult: defaults.missingTextGenerationResult,
+		...(defaults.missingTextGenerationResult === undefined
+			? {}
+			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
 	});
 	return {
 		context,
