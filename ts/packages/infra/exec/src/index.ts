@@ -5,7 +5,8 @@ import process from "node:process";
 
 import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/command";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { systemTimerScheduler, type ScheduledTimer, type TimerScheduler } from "@sdl/core/timers";
+import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import { systemTimerScheduler } from "@sdl/time";
 
 export {
 	commandFailureReason,

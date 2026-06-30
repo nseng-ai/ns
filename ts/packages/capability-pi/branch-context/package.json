@@ -12,14 +12,15 @@
   },
   "dependencies": {
     "@earendil-works/pi-tui": "catalog:",
-    "@sdl/capability-kit": "workspace:*",
     "@sdl/branch-context": "workspace:*",
+    "@sdl/capability-kit": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
     "@sdl/graphite": "workspace:*",
     "@sdl/pi": "workspace:*",
-    "@sdl/plans": "workspace:*"
+    "@sdl/plans": "workspace:*",
+    "@sdl/time": "workspace:*"
   },
   "devDependencies": {},
   "sdl": {
