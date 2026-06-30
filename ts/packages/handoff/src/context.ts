@@ -22,7 +22,7 @@ export interface HandoffCliContext {
 }
 
 export function createRealHandoffContext(
-	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+	options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): HandoffCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
