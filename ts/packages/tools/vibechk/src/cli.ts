@@ -32,15 +32,15 @@ import { executeRun } from "./workflow.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export interface CliDeps {
-	cwd?: string | undefined;
+	cwd?: string;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	runnerRegistry?: RunnerRegistry | undefined;
-	repositoryGatewayFactory?: ((workdir: string) => VibechkWorkdirGateway) | undefined;
-	clock?: (() => Date) | undefined;
-	idGenerator?: (() => string) | undefined;
-	defaultRunnerName?: string | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	runnerRegistry?: RunnerRegistry;
+	repositoryGatewayFactory?: (workdir: string) => VibechkWorkdirGateway;
+	clock?: () => Date;
+	idGenerator?: () => string;
+	defaultRunnerName?: string;
 }
 
 interface VibechkCliContext {

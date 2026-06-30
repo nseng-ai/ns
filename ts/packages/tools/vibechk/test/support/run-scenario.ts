@@ -7,8 +7,8 @@ export interface ScenarioRun {
 }
 
 export interface RunOptions {
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
+	cwd?: string;
+	env?: NodeJS.ProcessEnv;
 }
 
 export function runScenario(args: readonly string[], options: RunOptions = {}): ScenarioRun {
