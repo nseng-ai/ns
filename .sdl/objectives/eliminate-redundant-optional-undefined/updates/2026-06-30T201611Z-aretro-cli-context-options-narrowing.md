@@ -12,12 +12,12 @@ Semantic claim: these first-party internal/test dependency and helper option sha
 
 Scorecard measured with `node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs`:
 
-| Scope | Raw optional-undefined properties | Typed explicit-undefined contracts | Legacy preserve markers | Undefined-normalization/check lines |
-| --- | ---: | ---: | ---: | ---: |
-| `ts` before | 289 | 86 | 0 | 2308 |
-| `ts` after | 279 | 86 | 0 | 2308 |
-| `ts/packages/aretro` before | 10 | 2 | 0 | 33 |
-| `ts/packages/aretro` after | 0 | 2 | 0 | 33 |
+| Scope                       | Raw optional-undefined properties | Typed explicit-undefined contracts | Legacy preserve markers | Undefined-normalization/check lines |
+| --------------------------- | --------------------------------: | ---------------------------------: | ----------------------: | ----------------------------------: |
+| `ts` before                 |                               289 |                                 86 |                       0 |                                2308 |
+| `ts` after                  |                               279 |                                 86 |                       0 |                                2308 |
+| `ts/packages/aretro` before |                                10 |                                  2 |                       0 |                                  33 |
+| `ts/packages/aretro` after  |                                 0 |                                  2 |                       0 |                                  33 |
 
 While running the full TypeScript check, the upstack branch exposed one non-aretro omission-building fallout from the prior brmem helper-contract narrowing: `ts/packages/handoff/src/operations/create.ts` passed `file: request.file` into an omission-only `prepareEntryContentFromSource` option. I corrected that producer with a small `sourceOptions` union so the `file` key is omitted for stdin input. This did not change the Objective raw-property scorecard or undefined-check count.
 

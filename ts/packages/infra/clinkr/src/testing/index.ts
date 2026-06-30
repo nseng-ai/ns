@@ -37,8 +37,8 @@ export type ScenarioStdin = string | (() => Promise<string | null>) | undefined;
 
 export function createFakeClinkrInteraction(
 	options: {
-		confirmations?: readonly ConfirmationResult[] | undefined;
-		isInteractive?: boolean | undefined;
+		confirmations?: readonly ConfirmationResult[];
+		isInteractive?: boolean;
 	} = {},
 ): FakeClinkrInteraction {
 	const confirmations = [...(options.confirmations ?? [])];
@@ -76,9 +76,9 @@ export function createOneShotStdinAdapter(stdin: ScenarioStdin): () => Promise<s
 
 export function createScenarioClinkrInteraction(options: {
 	hasStdin: boolean;
-	interaction?: ClinkrInteraction | undefined;
-	confirmations?: readonly ConfirmationResult[] | undefined;
-	isInteractive?: boolean | undefined;
+	interaction?: ClinkrInteraction;
+	confirmations?: readonly ConfirmationResult[];
+	isInteractive?: boolean;
 }): ScenarioClinkrInteraction {
 	if (options.interaction !== undefined) {
 		return {
@@ -91,7 +91,7 @@ export function createScenarioClinkrInteraction(options: {
 		options.isInteractive ?? (options.hasStdin || options.confirmations !== undefined);
 	if (!options.hasStdin) {
 		const fake = createFakeClinkrInteraction({
-			confirmations: options.confirmations,
+			...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
 			isInteractive,
 		});
 		return {

@@ -46,8 +46,8 @@ export function runScenario(
 	const stdin = options.stdin;
 	const cwd = options.cwd ?? "/repo";
 	const fakeInteraction = createFakeClinkrInteraction({
-		confirmations: options.confirmations,
-		isInteractive: options.isInteractive,
+		...optionalEntry("confirmations", options.confirmations),
+		...optionalEntry("isInteractive", options.isInteractive),
 	});
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
