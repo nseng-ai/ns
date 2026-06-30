@@ -3,7 +3,7 @@ import { formatCommand } from "@sdl/core/command";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { runFlowCccOperation } from "../shared/ccc-cli.ts";
+import { runFlowCliOperation } from "../shared/flow-cli-runner.ts";
 import { renderGitResultBlock } from "../shared/git-result-block.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
@@ -16,7 +16,7 @@ export const flowPullTrunkCommand: SdlCommand<typeof pullTrunkSchema> = {
 	schema: pullTrunkSchema,
 	run: async (ctx) => {
 		const caps = resolveFlowStreamCaps(ctx);
-		const result = await runFlowCccOperation({
+		const result = await runFlowCliOperation({
 			ctx,
 			run: async (io) => await runTrunkPullDetailed({ exec: io.exec }, ctx.cwd),
 		});

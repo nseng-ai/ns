@@ -7,28 +7,28 @@ import {
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
 import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "sdl-sdk";
 
-export interface FlowCccCliExecOptions {
+export interface FlowCliExecOptions {
 	cwd?: string;
 	timeout?: number;
 }
 
-export interface FlowCccOperationInput {
-	exec(command: string, args: string[], options?: FlowCccCliExecOptions): Promise<ExecResult>;
+export interface FlowCliOperationInput {
+	exec(command: string, args: string[], options?: FlowCliExecOptions): Promise<ExecResult>;
 }
 
-export interface FlowCccCliRunnerInput extends FlowCccOperationInput {
+export interface FlowCliRunnerInput extends FlowCliOperationInput {
 	stdout(text: string): void;
 	stderr(text: string): void;
 }
 
-export interface RunFlowCccOperationOptions<T> {
+export interface RunFlowCliOperationOptions<T> {
 	ctx: SdlExtensionApi;
 	shouldForwardLiveOutput?: boolean;
 	trustedExec?: CommandExecApi;
-	run(input: FlowCccOperationInput): Promise<T>;
+	run(input: FlowCliOperationInput): Promise<T>;
 }
 
-export interface RunFlowCccCliOptions {
+export interface RunFlowCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
@@ -36,11 +36,11 @@ export interface RunFlowCccCliOptions {
 	trustedExec?: CommandExecApi;
 	outputMode?: "forward-live" | "buffer-until-complete";
 	afterExitCode?: (exitCode: number) => Promise<void> | void;
-	run(input: FlowCccCliRunnerInput): Promise<number>;
+	run(input: FlowCliRunnerInput): Promise<number>;
 }
 
-export interface FlowCccCliOutputCapture {
-	readonly input: Pick<FlowCccCliRunnerInput, "stdout" | "stderr">;
+export interface FlowCliOutputCapture {
+	readonly input: Pick<FlowCliRunnerInput, "stdout" | "stderr">;
 	readonly stdout: string;
 	readonly stderr: string;
 	flush(): void;
@@ -50,16 +50,16 @@ export interface FlowCccCliOutputCapture {
 	): SdlResult;
 }
 
-export interface CreateFlowCccCliOutputCaptureOptions {
+export interface CreateFlowCliOutputCaptureOptions {
 	ctx: SdlExtensionApi;
 	mode?: "forward-live" | "buffer-until-complete";
 }
 
-export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions<T>): Promise<T> {
-	const trustedExec = options.trustedExec ?? createTrustedFlowCccExec();
+export async function runFlowCliOperation<T>(options: RunFlowCliOperationOptions<T>): Promise<T> {
+	const trustedExec = options.trustedExec ?? createTrustedFlowCliExec();
 	return await options.run({
 		exec: async (command, args, execOptions) =>
-			await execFlowCccCommand({
+			await execFlowCliCommand({
 				ctx: options.ctx,
 				trustedExec,
 				command,
@@ -70,9 +70,9 @@ export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions
 	});
 }
 
-export function createFlowCccCliOutputCapture(
-	options: CreateFlowCccCliOutputCaptureOptions,
-): FlowCccCliOutputCapture {
+export function createFlowCliOutputCapture(
+	options: CreateFlowCliOutputCaptureOptions,
+): FlowCliOutputCapture {
 	let stdout = "";
 	let stderr = "";
 	const shouldForwardLive = options.mode !== "buffer-until-complete";
@@ -104,12 +104,12 @@ export function createFlowCccCliOutputCapture(
 	};
 }
 
-export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult> {
-	const output = createFlowCccCliOutputCapture({
+export async function runFlowCli(options: RunFlowCliOptions): Promise<SdlResult> {
+	const output = createFlowCliOutputCapture({
 		ctx: options.ctx,
 		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),
 	});
-	const exitCode = await runFlowCccOperation({
+	const exitCode = await runFlowCliOperation({
 		ctx: options.ctx,
 		...(options.trustedExec === undefined ? {} : { trustedExec: options.trustedExec }),
 		...(options.shouldForwardLiveOutput === undefined
@@ -125,64 +125,64 @@ export async function runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlR
 	});
 }
 
-interface ExecFlowCccCommandOptions {
+interface ExecFlowCliCommandOptions {
 	ctx: SdlExtensionApi;
 	trustedExec: CommandExecApi;
 	command: string;
 	args: string[];
-	options: FlowCccCliExecOptions | undefined;
+	options: FlowCliExecOptions | undefined;
 	liveOutput: { shouldForwardLiveOutput: boolean };
 }
 
-async function execFlowCccCommand(options: ExecFlowCccCommandOptions): Promise<ExecResult> {
+async function execFlowCliCommand(options: ExecFlowCliCommandOptions): Promise<ExecResult> {
 	const cwd = options.options?.cwd ?? options.ctx.cwd;
 	if (cwd === options.ctx.cwd) {
-		return await createScopedFlowCccExec(options.ctx).exec(
+		return await createScopedFlowCliExec(options.ctx).exec(
 			options.command,
 			[...options.args],
-			buildScopedFlowCccExecOptions(options, cwd),
+			buildScopedFlowCliExecOptions(options, cwd),
 		);
 	}
 	return await options.trustedExec.exec(
 		options.command,
 		[...options.args],
-		buildTrustedFlowCccExecOptions(options, cwd),
+		buildTrustedFlowCliExecOptions(options, cwd),
 	);
 }
 
-function createScopedFlowCccExec(ctx: SdlExtensionApi): CommandExecApi {
+function createScopedFlowCliExec(ctx: SdlExtensionApi): CommandExecApi {
 	return new SdlCommandExecApi(ctx);
 }
 
-function createTrustedFlowCccExec(): CommandExecApi {
+function createTrustedFlowCliExec(): CommandExecApi {
 	return new NodeCommandExecApi();
 }
 
-function buildScopedFlowCccExecOptions(
-	options: ExecFlowCccCommandOptions,
+function buildScopedFlowCliExecOptions(
+	options: ExecFlowCliCommandOptions,
 	cwd: string,
 ): ExecOptions {
 	return {
 		cwd,
 		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...buildFlowCccOutputCallbacks(options),
+		...buildFlowCliOutputCallbacks(options),
 	};
 }
 
-function buildTrustedFlowCccExecOptions(
-	options: ExecFlowCccCommandOptions,
+function buildTrustedFlowCliExecOptions(
+	options: ExecFlowCliCommandOptions,
 	cwd: string,
 ): ExecOptions {
 	return {
 		cwd,
 		env: options.ctx.env,
 		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...buildFlowCccOutputCallbacks(options),
+		...buildFlowCliOutputCallbacks(options),
 	};
 }
 
-function buildFlowCccOutputCallbacks(
-	options: ExecFlowCccCommandOptions,
+function buildFlowCliOutputCallbacks(
+	options: ExecFlowCliCommandOptions,
 ): Pick<ExecOptions, "onStdout" | "onStderr"> {
 	if (!options.liveOutput.shouldForwardLiveOutput) return {};
 	return outputListenerToExecCallbacks(options.ctx.onOutput);

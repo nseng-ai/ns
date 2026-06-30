@@ -44,8 +44,8 @@ interface LandStackCommandStreamOptions {
  * running-command status maps to the Pi status footer; durable command-stream
  * entries become `COMMAND_STREAM_MESSAGE_TYPE` custom scrollback messages (with
  * optional PR-link details) rendered by `registerLandStackRenderer`. CLI surfaces
- * build a text-only SdlCommandIo instead (see `createCccCliCommandIo`), so the same
- * `LandStackCommandStream` emission path serves both without per-call branching.
+ * build a text-only SdlCommandIo in the Flow command runner, so the same `LandStackCommandStream`
+ * emission path serves both without per-call branching.
  */
 export function createLandUiCommandIo(
 	pi: Pick<LandStackExtensionAPI, "sendMessage">,

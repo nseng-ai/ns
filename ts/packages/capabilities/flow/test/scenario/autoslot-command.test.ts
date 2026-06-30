@@ -8,10 +8,10 @@ import {
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls } from "./sdl-cli-fakes.ts";
 
-// `sdl flow autoslot` routes through CCC (`runFlowCccCli` → `runAutoslotCli`), which renders durable
-// outcomes in the house style next to where their facts are computed. The happy slot-move path uses a
-// real `SlotClient` and is covered by the CCC unit suite; these scenarios pin the wrapper's caps
-// resolution + stdout/stderr routing on the outcomes that settle before slot checkout.
+// `sdl flow autoslot` routes through the Flow CLI runner (`runFlowCli` → `runAutoslotCli`), which
+// renders durable outcomes in the house style next to where their facts are computed. The happy
+// slot-move path uses a real `SlotClient`; these scenarios pin the wrapper's caps resolution +
+// stdout/stderr routing on the outcomes that settle before slot checkout.
 describe("flow autoslot command outcomes", () => {
 	test("snapshot probe failure exits 1 on stderr with a house-style failure block", async () => {
 		const run = runFlowAutoslotCommandWithFakes({
@@ -55,7 +55,7 @@ describe("flow autoslot command outcomes", () => {
 		});
 
 		await run.exit;
-		// CCC `SdlCommandIo` phases are transient stderr-side progress (`onOutput`), keeping stdout clean.
+		// Flow CLI `SdlCommandIo` phases are transient stderr-side progress (`onOutput`), keeping stdout clean.
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
 		expect(run.liveOutput.some((entry) => entry.stream === "stdout")).toBe(false);
 	});

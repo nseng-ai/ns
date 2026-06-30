@@ -350,11 +350,11 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 	];
 }
 
-// `sdl flow autoslot` wraps the CCC autobranch + slot-checkout orchestration through `runFlowCccCli`.
+// `sdl flow autoslot` wraps Flow autobranch + slot-checkout orchestration through `runFlowCli`.
 // The happy path moves a managed slot via a real `SlotClient` (filesystem/git side effects), which is
-// out of the default fake lane — domain happy-path coverage lives in `packages/ccc/test/autoslot.test.ts`.
-// These flow scenarios exercise the wrapper end-to-end on the outcomes that settle BEFORE slot
-// checkout: caps resolution, CCC house-style rendering, and stdout/stderr routing via `runFlowCccCli`.
+// out of the default fake lane. These flow scenarios exercise the wrapper end-to-end on the outcomes
+// that settle BEFORE slot checkout: caps resolution, house-style rendering, and stdout/stderr routing
+// via `runFlowCli`.
 export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
 	return runFlowCommandWithFakes({
 		command: flowAutoslotCommand,

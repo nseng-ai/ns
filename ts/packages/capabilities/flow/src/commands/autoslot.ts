@@ -1,7 +1,7 @@
 import { runAutoslotCli } from "../autoslot.ts";
 import { defineExtension, z, type SdlCommand } from "sdl-sdk";
 
-import { runFlowCccCli } from "../shared/ccc-cli.ts";
+import { runFlowCli } from "../shared/flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
 const autoslotSchema = z.object({
@@ -18,10 +18,10 @@ export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
 	run: async (ctx, request) => {
-		// Resolve caps at the host-extension seam (house-style §1) and thread them into CCC so the
-		// autoslot durable outcomes render in the house style next to where their facts are computed.
+		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
+		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
 		const caps = resolveFlowStreamCaps(ctx);
-		return await runFlowCccCli({
+		return await runFlowCli({
 			ctx,
 			successMessage: "Autoslot completed.",
 			failureMessage: "Autoslot failed.",
