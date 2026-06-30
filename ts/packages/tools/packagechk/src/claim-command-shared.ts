@@ -1,6 +1,7 @@
 import {
 	failure,
 	negative,
+	requireInteractiveOrUsageError,
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
@@ -108,12 +109,12 @@ export async function requirePublishConfirmation(options: {
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
 }): Promise<ClinkrExit<ClaimCommandResult> | null> {
-	if (!options.interaction.isInteractive()) {
-		return usageError("Publishing a real package requires --yes (or -y) when non-interactive.", {
-			missingFlag: "yes",
-			howToSupply: "Pass --yes or -y to confirm publishing.",
-		});
-	}
+	const gate = requireInteractiveOrUsageError(options.interaction, {
+		message: "Publishing a real package requires --yes (or -y) when non-interactive.",
+		missingFlag: "yes",
+		howToSupply: "Pass --yes or -y to confirm publishing.",
+	});
+	if (gate !== undefined) return gate;
 	if (await confirmRealPublish(options)) return null;
 	return negative("Publishing aborted by user.", {
 		data: { type: "aborted", registry: options.registry, packageName: options.packageName },
