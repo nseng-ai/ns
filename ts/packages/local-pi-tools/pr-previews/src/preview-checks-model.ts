@@ -52,30 +52,38 @@ export interface PrPreviewChecksDetailRow {
 
 export type PrPreviewStatusColor = "error" | "warning" | "muted" | "dim";
 
-export function bucketThemeColor(bucket: PrPreviewCheckBucket): PrPreviewStatusColor {
-	switch (bucket) {
-		case "failing":
-			return "error";
-		case "pending":
-			return "warning";
-		case "unknown":
-			return "muted";
-		case "passing":
-			return "dim";
-	}
+export interface PrPreviewBucketPresentation {
+	icon: string;
+	color: PrPreviewStatusColor;
+	bold: boolean;
 }
 
-export type MarkdownLiteSegment =
+export const BUCKET_PRESENTATION = {
+	failing: { icon: "✗", color: "error", bold: true },
+	pending: { icon: "⏳", color: "warning", bold: false },
+	unknown: { icon: "?", color: "muted", bold: false },
+	passing: { icon: "✓", color: "dim", bold: false },
+} satisfies Record<PrPreviewCheckBucket, PrPreviewBucketPresentation>;
+
+export function bucketPresentation(bucket: PrPreviewCheckBucket): PrPreviewBucketPresentation {
+	return BUCKET_PRESENTATION[bucket];
+}
+
+export function bucketThemeColor(bucket: PrPreviewCheckBucket): PrPreviewStatusColor {
+	return bucketPresentation(bucket).color;
+}
+
+export type CheckLogSummaryMarkdownSegment =
 	| { kind: "bold"; text: string }
 	| { kind: "code"; text: string }
 	| { kind: "plain"; text: string };
 
-const MARKDOWN_LITE_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+const CHECK_LOG_SUMMARY_MARKDOWN_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
 
-export function parseMarkdownLiteLine(line: string): MarkdownLiteSegment[] {
-	const segments: MarkdownLiteSegment[] = [];
+export function parseCheckLogSummaryMarkdownLine(line: string): CheckLogSummaryMarkdownSegment[] {
+	const segments: CheckLogSummaryMarkdownSegment[] = [];
 	let lastIndex = 0;
-	for (const match of line.matchAll(MARKDOWN_LITE_PATTERN)) {
+	for (const match of line.matchAll(CHECK_LOG_SUMMARY_MARKDOWN_PATTERN)) {
 		const matchIndex = match.index;
 		if (matchIndex > lastIndex)
 			segments.push({ kind: "plain", text: line.slice(lastIndex, matchIndex) });
@@ -150,14 +158,5 @@ function fieldRows(
 }
 
 function bucketIcon(bucket: PrPreviewCheckBucket): string {
-	switch (bucket) {
-		case "failing":
-			return "✗";
-		case "pending":
-			return "⏳";
-		case "unknown":
-			return "?";
-		case "passing":
-			return "✓";
-	}
+	return bucketPresentation(bucket).icon;
 }

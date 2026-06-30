@@ -3,13 +3,15 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import {
+	bucketPresentation,
 	bucketThemeColor,
 	buildCheckDetailRows,
 	buildCheckRowLabel,
-	parseMarkdownLiteLine,
+	parseCheckLogSummaryMarkdownLine,
 	type PrPreviewChecksDetailRow,
 	type PrPreviewCheck,
 	type PrPreviewChecksViewModel,
+	type PrPreviewStatusColor,
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@sdl/pi/terminal/layout";
 import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "./preview-view-utilities.ts";
@@ -23,13 +25,10 @@ const MIN_RENDER_WIDTH = 40;
 const DEFAULT_LOG_LOAD_TIMEOUT_MS = 90_000;
 
 type PreviewThemeColor =
+	| PrPreviewStatusColor
 	| "text"
-	| "muted"
 	| "accent"
-	| "warning"
-	| "dim"
 	| "border"
-	| "error"
 	| "mdHeading"
 	| "mdCode";
 type CheckLogCacheEntry =
@@ -202,7 +201,7 @@ export class PrPreviewChecksView implements Component {
 			];
 		}
 		if (cached?.type === "loaded") {
-			return cached.lines.map((line) => this.renderMarkdownLiteLine(line));
+			return cached.lines.map((line) => this.renderCheckLogSummaryMarkdownLine(line));
 		}
 		if (cached?.type === "failed") {
 			return cached.lines.map((line) => this.color("error", line));
@@ -210,8 +209,8 @@ export class PrPreviewChecksView implements Component {
 		return buildCheckDetailRows(check).map((row) => this.renderDetailLine(row));
 	}
 
-	private renderMarkdownLiteLine(line: string): string {
-		return parseMarkdownLiteLine(line)
+	private renderCheckLogSummaryMarkdownLine(line: string): string {
+		return parseCheckLogSummaryMarkdownLine(line)
 			.map((segment) => {
 				switch (segment.kind) {
 					case "bold":
@@ -251,8 +250,9 @@ export class PrPreviewChecksView implements Component {
 		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
 		const row = fitToWidth(`${prefix}${buildCheckRowLabel(check)}`, width);
 		if (actualIndex !== this.selectedIndex) {
-			const colored = this.color(bucketThemeColor(check.bucket), row);
-			return check.bucket === "failing" ? this.theme.bold(colored) : colored;
+			const presentation = bucketPresentation(check.bucket);
+			const colored = this.color(presentation.color, row);
+			return presentation.bold ? this.theme.bold(colored) : colored;
 		}
 		return this.theme.bg("selectedBg", this.color("accent", row));
 	}

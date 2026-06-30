@@ -1,4 +1,4 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
+import { Theme, type ThemeColor } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { createDeferred } from "@sdl/test-kit";
 import { describe, expect, test } from "vitest";
@@ -179,7 +179,7 @@ describe("PR checks preview vertical layout", () => {
 		expect(text).toContain("[dim]");
 	});
 
-	test("renders markdown-lite bold headings and code spans in loaded log summaries", async () => {
+	test("renders check log summary markdown bold headings and code spans", async () => {
 		const check = previewCheck("typescript");
 		const view = new PrPreviewChecksView({
 			tui: fakeTui(),
@@ -241,31 +241,95 @@ function fakeTui(): TUI {
 }
 
 function identityTheme(): Theme {
-	return {
-		fg(_color: string, text: string): string {
-			return text;
-		},
-		bg(_color: string, text: string): string {
-			return text;
-		},
-		bold(text: string): string {
-			return text;
-		},
-	} as Theme;
+	return new TestTheme("identity");
 }
 
 function taggingTheme(): Theme {
+	return new TestTheme("tagging");
+}
+
+class TestTheme extends Theme {
+	private readonly renderMode: "identity" | "tagging";
+
+	constructor(renderMode: "identity" | "tagging") {
+		super(testFgColors(), testBgColors(), "truecolor");
+		this.renderMode = renderMode;
+	}
+
+	override fg(color: ThemeColor, text: string): string {
+		return this.renderMode === "tagging" ? `[${color}]${text}[/]` : text;
+	}
+
+	override bg(_color: TestThemeBg, text: string): string {
+		return text;
+	}
+
+	override bold(text: string): string {
+		return this.renderMode === "tagging" ? `<b>${text}</b>` : text;
+	}
+}
+
+function testFgColors(): Record<ThemeColor, string | number> {
 	return {
-		fg(color: string, text: string): string {
-			return `[${color}]${text}[/]`;
-		},
-		bg(_color: string, text: string): string {
-			return text;
-		},
-		bold(text: string): string {
-			return `<b>${text}</b>`;
-		},
-	} as Theme;
+		accent: "#ffffff",
+		border: "#ffffff",
+		borderAccent: "#ffffff",
+		borderMuted: "#ffffff",
+		success: "#ffffff",
+		error: "#ffffff",
+		warning: "#ffffff",
+		muted: "#ffffff",
+		dim: "#ffffff",
+		text: "#ffffff",
+		thinkingText: "#ffffff",
+		userMessageText: "#ffffff",
+		customMessageText: "#ffffff",
+		customMessageLabel: "#ffffff",
+		toolTitle: "#ffffff",
+		toolOutput: "#ffffff",
+		mdHeading: "#ffffff",
+		mdLink: "#ffffff",
+		mdLinkUrl: "#ffffff",
+		mdCode: "#ffffff",
+		mdCodeBlock: "#ffffff",
+		mdCodeBlockBorder: "#ffffff",
+		mdQuote: "#ffffff",
+		mdQuoteBorder: "#ffffff",
+		mdHr: "#ffffff",
+		mdListBullet: "#ffffff",
+		toolDiffAdded: "#ffffff",
+		toolDiffRemoved: "#ffffff",
+		toolDiffContext: "#ffffff",
+		syntaxComment: "#ffffff",
+		syntaxKeyword: "#ffffff",
+		syntaxFunction: "#ffffff",
+		syntaxVariable: "#ffffff",
+		syntaxString: "#ffffff",
+		syntaxNumber: "#ffffff",
+		syntaxType: "#ffffff",
+		syntaxOperator: "#ffffff",
+		syntaxPunctuation: "#ffffff",
+		thinkingOff: "#ffffff",
+		thinkingMinimal: "#ffffff",
+		thinkingLow: "#ffffff",
+		thinkingMedium: "#ffffff",
+		thinkingHigh: "#ffffff",
+		thinkingXhigh: "#ffffff",
+		bashMode: "#ffffff",
+	};
+}
+
+type TestThemeBg = Parameters<Theme["bg"]>[0];
+
+function testBgColors(): Record<TestThemeBg, string | number> {
+	return {
+		selectedBg: "#000000",
+		userMessageBg: "#000000",
+		customMessageBg: "#000000",
+		toolPendingBg: "#000000",
+		toolSuccessBg: "#000000",
+		toolErrorBg: "#000000",
+	};
 }
 
 async function flushPromises(): Promise<void> {
