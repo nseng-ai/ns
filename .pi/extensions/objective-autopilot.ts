@@ -6,13 +6,21 @@ import * as path from "node:path";
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
+import { compactPreviewText } from "../../ts/packages/local-pi-tools/runner-subagents/src/activity.ts";
 import {
 	createRunnerSubagentJsonEventParser,
+	formatElapsed,
 	runnerSubagentPrimaryActivityPreview,
 	type RunnerSubagentJsonEventParserSnapshot,
 } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
 import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
-import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "../../ts/packages/infra/exec/src/index.ts";
+import {
+	formatCommand,
+	formatCommandFailure,
+	normalizeExecResult,
+	type ExecResult,
+	type PiExecResultLike,
+} from "../../ts/packages/infra/exec/src/index.ts";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
@@ -23,7 +31,6 @@ const STATUS_KEY = "objective-autopilot";
 const REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_REPORT_BEGIN";
 const REPORT_END = "OBJECTIVE_AUTOPILOT_REPORT_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
-const MAX_WIDGET_LINE_CHARS = 240;
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -102,6 +109,13 @@ interface ExecCheckedOptions {
 	args: string[];
 }
 
+interface RunChildOptions {
+	cwd: string;
+	prompt: string;
+	model?: string;
+	onProgress?: (snapshot: RunnerSubagentJsonEventParserSnapshot, stderrTail?: string) => void;
+}
+
 interface VerifyAfterChildOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
@@ -127,11 +141,6 @@ interface RepoChangeFacts {
 interface StageChangedFilesResult {
 	stagedFiles: string[];
 	recoveryNotes: string[];
-}
-
-interface CommandFailureDetails {
-	command: string;
-	output: string;
 }
 
 interface PhaseErrorDetails {
@@ -207,27 +216,15 @@ function parseArgs(raw: string): ParsedArgs {
 		: { objective, iterations, shouldSubmit, isDryRun, model };
 }
 
-function trimOutput(result: ExecResult): string {
-	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
-}
-
-function commandText(command: string, args: readonly string[]): string {
-	return [command, ...args].join(" ");
-}
-
-function commandFailure(command: string, args: readonly string[], result: ExecResult): CommandFailureDetails {
-	return {
-		command: commandText(command, args),
-		output: trimOutput(result),
-	};
+function commandFailureMessage(command: string, args: readonly string[], result: ExecResult): string {
+	return formatCommandFailure("Command failed", formatCommand(command, args), result);
 }
 
 async function execCheckedRaw(options: ExecCheckedOptions): Promise<string> {
 	const { pi, ctx, command, args } = options;
 	const result = normalizeExecResult(await pi.exec(command, args, { cwd: ctx.cwd }));
 	if (result.code !== 0 || result.killed) {
-		const failure = commandFailure(command, args, result);
-		throw new Error(`Command failed: ${failure.command}\n${failure.output}`);
+		throw new Error(commandFailureMessage(command, args, result));
 	}
 	return result.stdout;
 }
@@ -319,12 +316,8 @@ async function writePromptFile(prompt: string): Promise<{ dir: string; file: str
 	return { dir, file };
 }
 
-async function runChild(
-	cwd: string,
-	prompt: string,
-	model: string | undefined,
-	onProgress?: (snapshot: RunnerSubagentJsonEventParserSnapshot, stderrTail?: string) => void,
-): Promise<ChildResult> {
+async function runChild(options: RunChildOptions): Promise<ChildResult> {
+	const { cwd, prompt, model, onProgress } = options;
 	const tmp = await writePromptFile(prompt);
 	// Keep custom spawn semantics for JSON streaming with --no-session and an appended system prompt.
 	// Shared runner-subagents pieces cover Pi resolution and event parsing; the full dispatcher owns richer session/runtime behavior.
@@ -431,6 +424,44 @@ stopReason: <if status != ready-for-parent-commit>
 ${REPORT_END}`;
 }
 
+function assignReportTextField(report: Report, key: string, value: string): void {
+	switch (key) {
+		case "status":
+			report.status = value;
+			break;
+		case "objective":
+			report.objective = value;
+			break;
+		case "branch":
+			report.branch = value;
+			break;
+		case "parentBranch":
+			report.parentBranch = value;
+			break;
+		case "planPath":
+			report.planPath = value;
+			break;
+		case "branchContext":
+			report.branchContext = value;
+			break;
+		case "recommendedSlice":
+			report.recommendedSlice = value;
+			break;
+		case "commitMessage":
+			report.commitMessage = value;
+			break;
+		case "prTitle":
+			report.prTitle = value;
+			break;
+		case "prBodySummary":
+			report.prBodySummary = value;
+			break;
+		case "stopReason":
+			report.stopReason = value;
+			break;
+	}
+}
+
 function parseReport(text: string): Report | undefined {
 	const start = text.indexOf(REPORT_BEGIN);
 	const end = text.indexOf(REPORT_END);
@@ -449,11 +480,9 @@ function parseReport(text: string): Report | undefined {
 			list = undefined;
 			const colon = trimmed.indexOf(":");
 			if (colon > 0) {
-				const key = trimmed.slice(0, colon) as keyof Report;
+				const key = trimmed.slice(0, colon);
 				const value = trimmed.slice(colon + 1).trim();
-				if (key !== "changedFiles" && key !== "validation" && key !== "objectiveTracking") {
-					(report as Record<string, unknown>)[key] = value;
-				}
+				assignReportTextField(report, key, value);
 			}
 		}
 	}
@@ -526,18 +555,18 @@ async function runJustFormatterRecoveryIfNeeded(
 	const fixArgs = ["ts-format-fix"];
 	const fix = await execResult({ pi, ctx, command: "just", args: fixArgs });
 	if (fix.code !== 0 || fix.killed) {
-		const failure = commandFailure("just", fixArgs, fix);
-		throw new AutopilotPhaseError("formatter recovery", `Formatter autofix failed.\n${failure.output}`, {
+		const command = formatCommand("just", fixArgs);
+		throw new AutopilotPhaseError("formatter recovery", `Formatter autofix failed.\n${commandFailureMessage("just", fixArgs, fix)}`, {
 			changedFiles: [...changedFiles],
-			command: failure.command,
+			command,
 		});
 	}
 	const rerun = await execResult({ pi, ctx, command: "just", args: checkArgs });
 	if (rerun.code !== 0 || rerun.killed) {
-		const failure = commandFailure("just", checkArgs, rerun);
-		throw new AutopilotPhaseError("formatter recovery", `Formatter check still fails after autofix.\n${failure.output}`, {
+		const command = formatCommand("just", checkArgs);
+		throw new AutopilotPhaseError("formatter recovery", `Formatter check still fails after autofix.\n${commandFailureMessage("just", checkArgs, rerun)}`, {
 			changedFiles: [...changedFiles],
-			command: failure.command,
+			command,
 			recoveryNotes: ["ran just ts-format-fix after just ts-format-check failed"],
 		});
 	}
@@ -551,10 +580,10 @@ async function stageChangedFiles(pi: ExtensionAPI, ctx: CommandContext, changedF
 
 	const freshFacts = await collectRepoChangeFacts(pi, ctx);
 	if (freshFacts.changedFiles.length === 0 || sameStringList(changedFiles, freshFacts.changedFiles)) {
-		const failure = commandFailure("git", ["add", "--", ...changedFiles], first);
-		throw new AutopilotPhaseError("staging", `Unable to stage changed files.\n${failure.output}`, {
+		const commandArgs = ["add", "--", ...changedFiles];
+		throw new AutopilotPhaseError("staging", `Unable to stage changed files.\n${commandFailureMessage("git", commandArgs, first)}`, {
 			changedFiles: [...changedFiles],
-			command: failure.command,
+			command: formatCommand("git", commandArgs),
 		});
 	}
 
@@ -565,10 +594,10 @@ async function stageChangedFiles(pi: ExtensionAPI, ctx: CommandContext, changedF
 			recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
 		};
 	}
-	const failure = commandFailure("git", ["add", "--", ...freshFacts.changedFiles], retry);
-	throw new AutopilotPhaseError("staging", `Unable to stage changed files after refreshing git status.\n${failure.output}`, {
+	const commandArgs = ["add", "--", ...freshFacts.changedFiles];
+	throw new AutopilotPhaseError("staging", `Unable to stage changed files after refreshing git status.\n${commandFailureMessage("git", commandArgs, retry)}`, {
 		changedFiles: freshFacts.changedFiles,
-		command: failure.command,
+		command: formatCommand("git", commandArgs),
 		recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
 	});
 }
@@ -615,17 +644,6 @@ function tail(text: string): string {
 	return text.length <= MAX_FAILURE_TAIL_CHARS ? text : text.slice(text.length - MAX_FAILURE_TAIL_CHARS);
 }
 
-function formatElapsed(elapsedMs: number): string {
-	if (elapsedMs < 1_000) return `${elapsedMs}ms`;
-	return `${(elapsedMs / 1_000).toFixed(1)}s`;
-}
-
-function compactWidgetText(text: string): string {
-	const compacted = text.replace(/\s+/g, " ").trim();
-	if (compacted.length <= MAX_WIDGET_LINE_CHARS) return compacted;
-	return `${compacted.slice(0, MAX_WIDGET_LINE_CHARS - 1)}…`;
-}
-
 function formatChildProgressWidgetLines(update: ChildProgressUpdate): string[] {
 	const { progress, activity } = update.snapshot;
 	const lines = [
@@ -643,7 +661,7 @@ function formatChildProgressWidgetLines(update: ChildProgressUpdate): string[] {
 		lines.push(`${prefix}: ${activity.lastToolName}`);
 	}
 	if (activity.lastToolResultPreview !== undefined) lines.push(`last result: ${activity.lastToolResultPreview}`);
-	if (update.stderrTail !== undefined && update.stderrTail.trim() !== "") lines.push(`stderr: ${compactWidgetText(update.stderrTail)}`);
+	if (update.stderrTail !== undefined && update.stderrTail.trim() !== "") lines.push(`stderr: ${compactPreviewText(update.stderrTail)}`);
 	return lines;
 }
 
@@ -751,15 +769,20 @@ async function runAutopilot(pi: ExtensionAPI, rawArgs: string, ctx: CommandConte
 				],
 				{ placement: "aboveEditor" },
 			);
-			const child = await runChild(ctx.cwd, buildChildPrompt(args, iteration, startingBranch), args.model, (snapshot, stderrTail) => {
-				showChildProgress(ctx, {
-					iteration,
-					totalIterations: args.iterations,
-					objective: args.objective,
-					...(args.model === undefined ? {} : { requestedModel: args.model }),
-					snapshot,
-					...(stderrTail === undefined ? {} : { stderrTail }),
-				});
+			const child = await runChild({
+				cwd: ctx.cwd,
+				prompt: buildChildPrompt(args, iteration, startingBranch),
+				...(args.model === undefined ? {} : { model: args.model }),
+				onProgress: (snapshot, stderrTail) => {
+					showChildProgress(ctx, {
+						iteration,
+						totalIterations: args.iterations,
+						objective: args.objective,
+						...(args.model === undefined ? {} : { requestedModel: args.model }),
+						snapshot,
+						...(stderrTail === undefined ? {} : { stderrTail }),
+					});
+				},
 			});
 			if (child.exitCode !== 0) {
 				throw new AutopilotPhaseError(

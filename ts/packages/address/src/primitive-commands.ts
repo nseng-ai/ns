@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { failure, ok, type ClinkrExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import type { Result } from "@sdl/core/result";
 
@@ -241,7 +242,7 @@ async function runPrChecks(
 		git: ctx.context.git,
 		prFeedback: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
-		...(request.prNumber === undefined ? {} : { prNumber: request.prNumber }),
+		...optionalEntry("prNumber", request.prNumber),
 	});
 	switch (result.type) {
 		case "ok":

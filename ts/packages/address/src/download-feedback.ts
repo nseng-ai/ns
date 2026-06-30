@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { collectDownloadFeedback, type DownloadFeedbackPayload } from "./core/download-feedback.ts";
 import {
 	defineExecOperation,
@@ -40,7 +41,7 @@ async function runDownloadFeedbackOperation(
 		git: ctx.context.git,
 		prFeedback: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
-		...(request.prNumber === undefined ? {} : { prNumber: request.prNumber }),
+		...optionalEntry("prNumber", request.prNumber),
 		includeResolved: request.includeResolved,
 		includeAutomation: request.includeAutomation,
 		includeEmptyReviews: request.includeEmptyReviews,
