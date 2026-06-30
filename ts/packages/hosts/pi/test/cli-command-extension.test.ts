@@ -81,7 +81,13 @@ class FakePi implements CliCommandExtensionAPI {
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 
-	constructor(options: { registerMessageRenderer?: boolean; sendMessage?: boolean } = {}) {
+	constructor(
+		options: {
+			registerMessageRenderer?: boolean;
+			sendMessage?: boolean;
+			staleSendMessage?: boolean;
+		} = {},
+	) {
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
 				if (customType === "sdl-command-ack") return;
@@ -90,6 +96,11 @@ class FakePi implements CliCommandExtensionAPI {
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
+				if (options.staleSendMessage === true) {
+					throw new Error(
+						"This extension ctx is stale after session replacement or reload. Do not use a captured pi or command ctx after ctx.newSession().",
+					);
+				}
 				if (message.customType === "sdl-command-ack") {
 					this.ackMessages.push(message);
 					return;
@@ -1209,6 +1220,17 @@ describe("cli command extension helper", () => {
 			pi,
 			"fake-cli preview-status completed successfully with no output.",
 		);
+	});
+
+	test("suppresses final output when the Pi message host becomes stale", async () => {
+		const pi = new FakePi({ staleSendMessage: true });
+		registerFakeCli(pi);
+		const { ctx, notifications } = createContext();
+
+		await expect(commandFor(pi, "dev:preview-status").handler("", ctx)).resolves.toBeUndefined();
+
+		expect(pi.sentMessages).toEqual([]);
+		expect(notifications).toEqual([]);
 	});
 
 	test("streams live CLI output separately from final captured output", async () => {
