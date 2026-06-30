@@ -38,6 +38,7 @@ import {
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
+import { detectGitConflictOutput } from "../shared/git-operation-output.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "sdl-sdk";
 
@@ -858,14 +859,7 @@ function detectMergedPrNotInTrunk(output: string): boolean {
 }
 
 function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {
-	const strippedOutput = stripTerminalEscapes(output);
-	return (
-		conflictedFiles.length > 0 ||
-		/CONFLICT \(/i.test(strippedOutput) ||
-		/merge conflict/i.test(strippedOutput) ||
-		/fix conflicts/i.test(strippedOutput) ||
-		/resolve conflicts/i.test(strippedOutput)
-	);
+	return detectGitConflictOutput(output, conflictedFiles);
 }
 
 function parseConflictedFiles(output: string): string[] {

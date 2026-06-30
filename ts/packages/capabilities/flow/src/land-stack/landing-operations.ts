@@ -12,6 +12,7 @@ import {
 } from "./command-exec.ts";
 import { GH_MERGE_TIMEOUT_MS, GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
 import { LAND_BACKUP_RECOVERY_HINT, writeLandBackupRefs } from "./backup-refs.ts";
+import { isLikelyInProgressGitOperationFailure } from "../shared/git-operation-output.ts";
 import {
 	completed,
 	failure,
@@ -936,27 +937,17 @@ async function performGraphiteMaintenance(
 			state.cleanup.retainedLocalBranches.push({ branch: deletion.branch, path: deletion.path });
 			break;
 		case "failed":
-			return failOrWarn(severity, state.warnings, {
-				failure: landStackFailure(
-					`PR #${prNumber} merged, but deleting the local Graphite branch ${branch} failed.`,
-					{
-						commandDisplay: formatCommand("gt", deleteArgs),
-						result: deletion.result,
-						failedBranch: branch,
-						failedPr: prNumber,
-						suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
-					},
-				),
-				warning: {
-					message:
-						maintenance.kind === "optional-descendant"
-							? `All target PRs were merged, but deleting the local Graphite branch ${branch} failed; descendant restack/update was skipped.`
-							: `All target PRs were merged, but deleting the local Graphite branch ${branch} failed.`,
+			return failOrWarn(
+				severity,
+				state.warnings,
+				localBranchDeletionFailurePair({
+					branch,
+					prNumber,
 					commandDisplay: formatCommand("gt", deleteArgs),
 					result: deletion.result,
-					suggestedAction: `Delete or repair local Graphite branch ${branch} manually, then inspect the stack.`,
-				},
-			});
+					isOptionalDescendant: maintenance.kind === "optional-descendant",
+				}),
+			);
 		default:
 			assertNever(deletion);
 	}
@@ -1200,6 +1191,65 @@ type LocalBranchDeletion =
 function localBranchDeletionFromResult(result: ExecResult): LocalBranchDeletion {
 	if (result.code === 0) return { kind: "deleted" };
 	return { kind: "failed", result };
+}
+
+interface LocalBranchDeletionFailurePairOptions {
+	branch: string;
+	prNumber: number;
+	commandDisplay: string;
+	result: ExecResult;
+	isOptionalDescendant: boolean;
+}
+
+function localBranchDeletionFailurePair(options: LocalBranchDeletionFailurePairOptions): {
+	failure: LandStackFailure;
+	warning: LandingWarning;
+} {
+	const details = localBranchDeletionFailureDetails(options);
+	return {
+		failure: landStackFailure(details.failureMessage, {
+			commandDisplay: options.commandDisplay,
+			result: options.result,
+			failedBranch: options.branch,
+			failedPr: options.prNumber,
+			suggestedAction: details.failureSuggestedAction,
+		}),
+		warning: {
+			message: details.warningMessage,
+			commandDisplay: options.commandDisplay,
+			result: options.result,
+			suggestedAction: details.warningSuggestedAction,
+		},
+	};
+}
+
+function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePairOptions): {
+	failureMessage: string;
+	failureSuggestedAction: string;
+	warningMessage: string;
+	warningSuggestedAction: string;
+} {
+	if (!isLikelyInProgressGitOperationFailure(options.result)) {
+		return {
+			failureMessage: `PR #${options.prNumber} merged, but deleting the local Graphite branch ${options.branch} failed.`,
+			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
+			warningMessage: options.isOptionalDescendant
+				? `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed; descendant restack/update was skipped.`
+				: `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed.`,
+			warningSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack.`,
+		};
+	}
+
+	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /sdl:flow:land until it is resolved or aborted.`;
+	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /sdl:flow:land.`;
+	return {
+		failureMessage: `PR #${options.prNumber} merged, but ${baseMessage}`,
+		failureSuggestedAction: action,
+		warningMessage: options.isOptionalDescendant
+			? `All target PRs were merged, but ${baseMessage} Descendant restack/update was skipped.`
+			: `All target PRs were merged, but ${baseMessage}`,
+		warningSuggestedAction: action,
+	};
 }
 
 function assertNever(value: never): never {

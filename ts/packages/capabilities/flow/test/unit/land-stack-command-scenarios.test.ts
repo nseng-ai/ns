@@ -1932,6 +1932,38 @@ describe("land-stack command scenarios", () => {
 		).toBe(false);
 	});
 
+	test("explains cleanup rebase conflicts after PRs have merged", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			...mergeFeatureAThroughDelete().slice(0, -1),
+			step("gt", ["delete", "feature-a", "-f", "-q"], {
+				code: 1,
+				stderr: [
+					"CONFLICT (content): Merge conflict in skills/sdl-typescript/SKILL.md",
+					"error: could not apply 01034275d... Migrate optional-undefined preserves to typed explicit contracts",
+					"hint: Resolve all conflicts manually, mark them as resolved with git add/rm, then run git rebase --continue.",
+				].join("\n"),
+			}),
+		];
+		const { pi, messages, notifications } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("error");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain("land stopped.");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain(
+			"Graphite cleanup for local branch feature-a stopped during branch deletion with an in-progress Git operation or conflicts.",
+		);
+		expect(streamText).toContain("The repository may now be mid-rebase");
+		expect(streamText).toContain(
+			"Run git status. Resolve the conflicts and continue the Git operation",
+		);
+		expect(streamText).toContain("git rebase --abort");
+	});
+
 	test("streams command execution as normal scrollback messages", async () => {
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
