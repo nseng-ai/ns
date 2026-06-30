@@ -5,7 +5,7 @@ import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
 	type FlowAutobranchRequest,
-} from "./api.ts";
+} from "./api/autobranch.ts";
 import { createFlowCliCommandIo } from "./cli-command-io.ts";
 import {
 	commitAutobranchCheckpointMessage,

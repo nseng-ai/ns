@@ -11,8 +11,5 @@ export {
 	loadStackSnapshot,
 	loadTrunk,
 	resolveGitPath,
-} from "sdl-flow/land-stack/stack-facts";
-export type {
-	DetectInProgressOperationOptions,
-	LoadStackSnapshotOptions,
-} from "sdl-flow/land-stack/stack-facts";
+} from "sdl-flow/api";
+export type { DetectInProgressOperationOptions, LoadStackSnapshotOptions } from "sdl-flow/api";

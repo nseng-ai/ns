@@ -5,4 +5,4 @@ export {
 	validateInitialPrPreflight,
 	validateOpenPrBasics,
 	validateStrictMergeGate,
-} from "sdl-flow/land-stack/pr-facts";
+} from "sdl-flow/api";

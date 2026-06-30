@@ -5,10 +5,10 @@ export {
 	prepareMergeLoopState,
 	residualPreMergeFailure,
 	runMergeLoop,
-} from "sdl-flow/land-stack/landing-operations";
+} from "sdl-flow/api";
 export type {
 	MergeLoopState,
 	PreMergeConfirmation,
 	PrepareMergeLoopStateOptions,
 	RunMergeLoopOptions,
-} from "sdl-flow/land-stack/landing-operations";
+} from "sdl-flow/api";

@@ -28,4 +28,4 @@ export type {
 	StackSnapshot,
 	WorktreeConflict,
 	WorktreeEntry,
-} from "sdl-flow/land-stack/types";
+} from "sdl-flow/api";
