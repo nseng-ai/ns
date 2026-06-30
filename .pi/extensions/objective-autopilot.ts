@@ -3,13 +3,16 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 
-import { createRunnerSubagentJsonEventParser } from "@local-pi-tools/runner-subagents";
-import { resolvePiInvocation } from "@local-pi-tools/runner-subagents/process";
-import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "@sdl/exec";
+// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
+// package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
+// rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
+import { createRunnerSubagentJsonEventParser } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
+import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
+import { normalizeExecResult, type ExecResult, type PiExecResultLike } from "../../ts/packages/infra/exec/src/index.ts";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
-} from "@sdl/pi/commands/ack";
+} from "../../ts/packages/hosts/pi/src/commands/ack.ts";
 
 const COMMAND_NAME = "objective:autopilot";
 const STATUS_KEY = "objective-autopilot";
