@@ -184,19 +184,19 @@ async function writeJsonlAt(path: string, ...records: readonly unknown[]): Promi
 }
 
 interface AssistantRecordOptions {
-	readonly provider?: string | undefined;
-	readonly api?: string | undefined;
-	readonly model?: string | undefined;
-	readonly inputTokens?: number | undefined;
-	readonly outputTokens?: number | undefined;
-	readonly cacheReadTokens?: number | undefined;
-	readonly cacheWriteTokens?: number | undefined;
-	readonly totalTokens?: number | undefined;
-	readonly costInput?: number | undefined;
-	readonly costOutput?: number | undefined;
-	readonly costCacheRead?: number | undefined;
-	readonly costCacheWrite?: number | undefined;
-	readonly costTotal?: number | undefined;
+	readonly provider?: string;
+	readonly api?: string;
+	readonly model?: string;
+	readonly inputTokens?: number;
+	readonly outputTokens?: number;
+	readonly cacheReadTokens?: number;
+	readonly cacheWriteTokens?: number;
+	readonly totalTokens?: number;
+	readonly costInput?: number;
+	readonly costOutput?: number;
+	readonly costCacheRead?: number;
+	readonly costCacheWrite?: number;
+	readonly costTotal?: number;
 }
 
 function assistantRecord(options: AssistantRecordOptions = {}): Record<string, unknown> {
