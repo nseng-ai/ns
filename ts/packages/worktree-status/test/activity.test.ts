@@ -146,8 +146,8 @@ describe("worktree status activity lifecycle", () => {
 function testContext(
 	statuses: Map<string, string | undefined>,
 	options: {
-		isIdle?: boolean | undefined;
-		onTerminalInput?: ExtensionContext["ui"]["onTerminalInput"] | undefined;
+		isIdle?: boolean;
+		onTerminalInput?: ExtensionContext["ui"]["onTerminalInput"];
 	} = {},
 ): ExtensionContext {
 	return {

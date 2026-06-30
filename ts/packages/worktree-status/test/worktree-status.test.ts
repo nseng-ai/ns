@@ -243,7 +243,7 @@ interface WorktreePrNodeFixture {
 
 function ghWorktreePrStep(options: {
 	nodes: WorktreePrNodeFixture[];
-	result?: Partial<ExecResult> | undefined;
+	result?: Partial<ExecResult>;
 }): ScriptedExec {
 	return step(
 		"gh",
@@ -318,11 +318,11 @@ function defaultCheckNodes(options: WorktreePrNodeFixture): unknown[] {
 
 function worktreePrCheckRun(options: {
 	name: string;
-	workflowName?: string | undefined;
-	status?: string | undefined;
-	conclusion?: string | undefined;
-	startedAt?: string | undefined;
-	completedAt?: string | undefined;
+	workflowName?: string;
+	status?: string;
+	conclusion?: string;
+	startedAt?: string;
+	completedAt?: string;
 }): unknown {
 	return githubCheckRun({
 		workflowName: options.workflowName ?? "fixture",
