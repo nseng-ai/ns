@@ -18,10 +18,10 @@ Preserved category: `SdlccCliDeps.env?: ExplicitUndefined<"env-map", Record<stri
 
 Scorecard using `rg -n "\\?:[^;=\\n]*\\| undefined" ... --glob '*.ts'` for typed optional-undefined properties and `rg -n "=== undefined|!== undefined|\\?\\? undefined|: undefined|undefined \\?" ... --glob '*.ts'` for undefined-normalization/check lines:
 
-| Scope | Typed before | Typed after | Normalization/check before | Normalization/check after |
-| --- | ---: | ---: | ---: | ---: |
-| `ts/packages` | 306 | 295 | 2540 | 2540 |
-| `ts/packages/hosts/sdlcc` | 12 | 1 | 74 | 74 |
+| Scope                     | Typed before | Typed after | Normalization/check before | Normalization/check after |
+| ------------------------- | -----------: | ----------: | -------------------------: | ------------------------: |
+| `ts/packages`             |          306 |         295 |                       2540 |                      2540 |
+| `ts/packages/hosts/sdlcc` |           12 |           1 |                         74 |                        74 |
 
 ## Objective Impact
 
