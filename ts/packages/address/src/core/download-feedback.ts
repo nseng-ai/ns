@@ -55,7 +55,7 @@ export interface CollectDownloadFeedbackOptions {
 	git: GitGateway;
 	prFeedback: GithubPrFeedbackGateway;
 	gatewayOptions: GatewayOptions;
-	prNumber?: number | undefined;
+	prNumber?: number;
 	includeResolved: boolean;
 	includeAutomation: boolean;
 	includeEmptyReviews: boolean;

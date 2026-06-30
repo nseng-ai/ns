@@ -62,7 +62,7 @@ export interface CollectPrChecksOptions {
 	git: GitGateway;
 	prFeedback: GithubPrFeedbackGateway;
 	gatewayOptions: GatewayOptions;
-	prNumber?: number | undefined;
+	prNumber?: number;
 }
 
 export async function collectPrChecks(options: CollectPrChecksOptions): Promise<PrChecksResult> {

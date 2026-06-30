@@ -40,7 +40,7 @@ async function runDownloadFeedbackOperation(
 		git: ctx.context.git,
 		prFeedback: ctx.context.prFeedback,
 		gatewayOptions: gatewayOptions(ctx),
-		prNumber: request.prNumber,
+		...(request.prNumber === undefined ? {} : { prNumber: request.prNumber }),
 		includeResolved: request.includeResolved,
 		includeAutomation: request.includeAutomation,
 		includeEmptyReviews: request.includeEmptyReviews,
