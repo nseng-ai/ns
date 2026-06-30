@@ -18,7 +18,7 @@ import {
 } from "./land-stack/errors.ts";
 import { buildLandingPlan } from "./land-stack/landing-plan.ts";
 import { presentLandStackFailure, type LandingSession } from "./land-stack/landing-coordination.ts";
-import type { PreMergeConfirmation } from "./land-stack/landing-operations.ts";
+import type { PreMergeConfirmation } from "./land-stack/pre-merge-submit.ts";
 import { present, setStatus, usage } from "./land-stack/presentation.ts";
 import { executeLandingPlan } from "./land-stack/landing-plan-execution.ts";
 import { loadLandingShape } from "./land-stack/stack-facts.ts";

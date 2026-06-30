@@ -9,12 +9,11 @@ import {
 	type LandStackResult,
 } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
+import { confirmAndFreeManagedSlots, residualPreMergeFailure } from "./landing-operations.ts";
 import {
-	confirmAndFreeManagedSlots,
 	confirmAndSubmitRequiredPrUpdates,
-	residualPreMergeFailure,
 	type PreMergeConfirmation,
-} from "./landing-operations.ts";
+} from "./pre-merge-submit.ts";
 import {
 	formatFailure,
 	formatFailureNotification,
