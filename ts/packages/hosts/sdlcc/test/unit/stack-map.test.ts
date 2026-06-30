@@ -98,10 +98,6 @@ describe("buildStackMapModelFromGraph", () => {
 			],
 			trunk: "main",
 			current: "feature/current",
-			edges: [
-				{ parent: "main", child: "feature/current" },
-				{ parent: "main", child: "feature/slot" },
-			],
 			slots: [
 				{
 					branch: "feature/slot",
@@ -167,6 +163,28 @@ describe("loadStackMapModel", () => {
 			worktreePath: "/repo/worktrees/slot-04",
 		});
 	});
+
+	test("returns unavailable stack map when graph data fails boundary validation", async () => {
+		const model = await loadStackMapModel({
+			cwd: "/repo",
+			runCommand: async (command: string): Promise<CommandOutput> => {
+				if (command === "sdl")
+					return successJson({
+						status: "ok",
+						exitCode: 0,
+						data: { trunk: "main", current: "main", edges: [], slots: [], warnings: [] },
+					});
+				if (command === "cmux") return successJson({ windows: [] });
+				return { code: 2, stdout: "", stderr: `unexpected command ${command}`, killed: false };
+			},
+		});
+
+		expect(model.currentBranch).toBe("stack-unavailable");
+		expect(model.diagnostics).toContain("Could not load real Graphite stack data.");
+		expect(model.diagnostics).toContain(
+			"sdl slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.",
+		);
+	});
 });
 
 describe("parseCmuxTreeTabs", () => {
@@ -189,6 +207,82 @@ describe("parseCmuxTreeTabs", () => {
 			tty: "ttys000",
 			explicitWorktreePath: "/repo/worktrees/slot-04",
 		});
+	});
+
+	test("rejects top-level cmux trees without windows", () => {
+		const result = parseCmuxTreeTabs(JSON.stringify({ workspaces: [] }));
+
+		expect(result).toEqual({ type: "failure", message: "cmux tree was missing windows." });
+	});
+
+	test("skips malformed nested cmux entries while preserving valid siblings", () => {
+		const result = parseCmuxTreeTabs(
+			JSON.stringify({
+				windows: [
+					{ ref: "window:bad", workspaces: "not an array" },
+					{
+						ref: "window:1",
+						workspaces: [
+							{ ref: "workspace:bad", title: "bad", panes: "not an array" },
+							{
+								ref: "workspace:45",
+								title: "feature/a",
+								panes: [
+									{ ref: "pane:bad", surfaces: "not an array" },
+									{
+										ref: "pane:45",
+										surfaces: [
+											{ ref: "surface:bad" },
+											{ ref: "surface:117", title: "π - slot-04", type: "terminal" },
+										],
+									},
+								],
+							},
+						],
+					},
+				],
+			}),
+		);
+
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.tabs).toHaveLength(1);
+		expect(result.tabs[0]?.surfaceRef).toBe("surface:117");
+	});
+
+	test("normalizes unknown surface types and falls back to surface ref for tab ref", () => {
+		const result = parseCmuxTreeTabs(
+			JSON.stringify({
+				windows: [
+					{
+						ref: "window:1",
+						workspaces: [
+							{
+								ref: "workspace:45",
+								title: "feature/a",
+								branch_name: "feature/a",
+								panes: [
+									{
+										ref: "pane:45",
+										surfaces: [{ ref: "surface:117", title: "π - slot-04", type: "unknown-kind" }],
+									},
+								],
+							},
+						],
+					},
+				],
+			}),
+		);
+
+		expect(result.type).toBe("success");
+		if (result.type !== "success") return;
+		expect(result.tabs[0]).toMatchObject({
+			surfaceRef: "surface:117",
+			tabRef: "surface:117",
+			surfaceType: "unknown",
+			explicitBranch: "feature/a",
+		});
+		expect(result.tabs[0]).not.toHaveProperty("tty");
 	});
 });
 
