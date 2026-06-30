@@ -340,7 +340,7 @@ export class PrFeedbackWatchController {
 			pi: this.pi,
 			cwd: session.cwd,
 			identity,
-			sinceIso,
+			...(sinceIso === undefined ? {} : { sinceIso }),
 			signal: session.abortController.signal,
 		});
 		if (result.type === "failed") {
@@ -367,7 +367,7 @@ export class PrFeedbackWatchController {
 			pi: this.pi,
 			cwd: session.cwd,
 			identity,
-			sinceIso: this.restSinceIso,
+			...(this.restSinceIso === undefined ? {} : { sinceIso: this.restSinceIso }),
 			signal: session.abortController.signal,
 		});
 		if (result.type === "failed") {
