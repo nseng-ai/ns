@@ -79,4 +79,6 @@ Choose the branch creation method before invoking `branch-context exec from-plan
 
 The portable CLI default is still `plain-git` when `--branch-creation` is omitted. In this repo, direct skill/CLI execution should include `--branch-creation graphite`; omitting `--branch-creation` is correct only for portable/default contexts without a repo policy.
 
+Graphite branch creation means creating the local branch with Git, then registering it with Graphite using `gt track <target> --parent <current-branch> --no-interactive`. It does not mean `gt create`.
+
 Passing `--branch <target-branch>` changes the target branch name only. For from-plan workflows, the Branch Memory key remains derived from the branch-context slug as `<branch-context-slug>.md`.

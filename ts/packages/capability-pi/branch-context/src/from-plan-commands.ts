@@ -66,8 +66,8 @@ Create a branch context from a saved plan. The branch slug is derived from the p
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Create the target branch with Graphite.
-  --plain-git        Create the target branch with plain Git.
+  --graphite         Create the target branch with plain Git, then register it with gt track.
+  --plain-git        Create the target branch with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 
@@ -77,13 +77,13 @@ The saved-plan filename is only a locator. If the model cannot derive and valida
 
 export const GT_UPSTACK_IMPL_USAGE = `Usage: /${GT_UPSTACK_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch with Graphite, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
+Stack a branch context on the current branch by creating the local Git branch, registering it with gt track, attaching the saved plan, checking out that branch with exact git checkout <branch>, starting a fresh Pi session, and running /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Default: stack the target branch on the current branch with Graphite.
-  --plain-git        Escape hatch: create with plain Git instead; no Graphite tracking, so the branch will not be part of a stack.
+  --graphite         Default: create the target branch with plain Git, then register it with gt track.
+  --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
 

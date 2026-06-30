@@ -52,6 +52,12 @@ Avoid adding lifecycle states up front. The Objective system remains `active / c
 
 Do not call every execution-friendly Objective autonomous. Human-assisted execution after preview is weaker than autonomous pursuit and can be enabled by narrower policy.
 
+### Autoobjective branch policy
+
+Autoobjective runners that create implementation branches should use the branch-context Graphite creation primitive: create the local branch with plain Git, then immediately register it with `gt track <target> --parent <parent> --no-interactive`.
+
+Autoobjective branch setup should not use `gt create`. No-submit autoobjective runs should avoid `gt modify`, `gt restack`, and submit/update Graphite mutations; those belong to explicit submit or reconciliation flows.
+
 ---
 
 ## 2. Prior-art loop shape
