@@ -96,7 +96,7 @@ export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
 	 * cwd's git remotes. The operation fails fast with `repo-context-required`
 	 * when run outside a git work tree.
 	 */
-	isRepoContextRequired?: boolean | undefined;
+	isRepoContextRequired?: boolean;
 }
 
 export function defineExecOperation<S extends z.ZodObject, T>(

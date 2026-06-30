@@ -34,7 +34,7 @@ export function runScenario(
 			cwd: options.cwd ?? "/repo",
 			env: options.env ?? { PATH: "/fake/bin" },
 			stdin: typeof stdin === "function" ? stdin : async () => stdin ?? "",
-			operations: options.operations,
+			...(options.operations === undefined ? {} : { operations: options.operations }),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 		}),

@@ -13,12 +13,12 @@ export type JsonInputResult<T> =
 
 export interface ReadJsonInputTextOptions {
 	optionValue: string | undefined;
-	filePath?: string | undefined;
+	filePath?: string;
 	commandName: string;
 	inputDescription: string;
 	optionName: string;
-	fileOptionName?: string | undefined;
-	canReadStdin?: boolean | undefined;
+	fileOptionName?: string;
+	canReadStdin?: boolean;
 	stdin: () => Promise<string>;
 }
 
