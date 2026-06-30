@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrExit, ClinkrGroup } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -209,7 +210,7 @@ export async function runSkillxFetch(
 	if (tool.type === "missing") return failure("missing-tool", tool.message);
 	const install = await ctx.skillxWorkspace.installIntoWorkspace({
 		sourceRepo: request.repo,
-		...(request.skill === undefined ? {} : { skillName: request.skill }),
+		...optionalEntry("skillName", request.skill),
 		cwd: ctx.cwd,
 		env: ctx.env,
 	});

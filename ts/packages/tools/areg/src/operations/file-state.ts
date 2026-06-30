@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, type Result } from "@sdl/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
@@ -25,7 +26,7 @@ export function validateOptionalDirectoryState(options: {
 		pathLabel: options.pathLabel,
 		state: options.state,
 		action: options.action,
-		...(options.symlinkSubject === undefined ? {} : { symlinkSubject: options.symlinkSubject }),
+		...optionalEntry("symlinkSubject", options.symlinkSubject),
 	});
 }
 

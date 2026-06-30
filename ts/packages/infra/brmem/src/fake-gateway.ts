@@ -1,3 +1,5 @@
+import { optionalEntry } from "@sdl/core/primitives";
+
 import {
 	brmemError,
 	brmemFound,
@@ -112,8 +114,8 @@ export class FakeBrmemGateway implements BrmemGateway {
 			this.collectEntries({
 				allNamespaces: false,
 				namespace: options.namespace,
-				...(options.key === undefined ? {} : { key: options.key }),
-				...(options.branch === undefined ? {} : { branch: options.branch }),
+				...optionalEntry("key", options.key),
+				...optionalEntry("branch", options.branch),
 			}),
 		);
 	}
@@ -124,8 +126,8 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemOk(
 			this.collectEntries({
 				allNamespaces: true,
-				...(options.key === undefined ? {} : { key: options.key }),
-				...(options.branch === undefined ? {} : { branch: options.branch }),
+				...optionalEntry("key", options.key),
+				...optionalEntry("branch", options.branch),
 			}),
 		);
 	}

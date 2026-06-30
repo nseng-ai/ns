@@ -1,4 +1,4 @@
-import { formatErrorMessage, formatZodIssue } from "@sdl/core/primitives";
+import { formatErrorMessage, formatZodIssue, optionalEntry } from "@sdl/core/primitives";
 import { resultErr, type Result } from "@sdl/core/result";
 import { z } from "zod";
 
@@ -42,7 +42,7 @@ const lockfileSkillSchema: z.ZodType<LockfileSkillData> = z
 			source: skill.source,
 			sourceType: skill.sourceType,
 			computedHash: skill.computedHash,
-			...(skill.skillPath === undefined ? {} : { skillPath: skill.skillPath }),
+			...optionalEntry("skillPath", skill.skillPath),
 		}),
 	);
 
@@ -71,7 +71,7 @@ export function parseLockfileData(data: unknown): Result<SkillsLockfile> {
 			source: skill.source,
 			sourceType: skill.sourceType,
 			computedHash: skill.computedHash,
-			...(skill.skillPath === undefined ? {} : { skillPath: skill.skillPath }),
+			...optionalEntry("skillPath", skill.skillPath),
 		});
 	}
 	return { ok: true, value: { version: 1, skills } };

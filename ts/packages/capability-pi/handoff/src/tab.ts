@@ -3,7 +3,7 @@ import {
 	launchHandoffTab,
 	type HandoffTabLaunchResult,
 } from "./tab-launch.ts";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { handoffSlugToKey } from "@sdl/handoff/api";
 import { identifyCmuxCaller } from "@sdl/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
@@ -114,7 +114,7 @@ export function buildDeriveHandoffSlugTool(pi: ExtensionAPI): ToolDefinition {
 				const evidence = await deriveHandoffContentSlug(pi, {
 					content: content.content,
 					cwd: ctx.cwd,
-					...(signal === undefined ? {} : { signal }),
+					...optionalEntry("signal", signal),
 				});
 				const key = handoffSlugToKey(evidence.slug);
 				return {
