@@ -1,11 +1,11 @@
 import type { ReviewFinding } from "../../src/models.ts";
 
 export interface FindingsEnvelopeOptions {
-	readonly reviewName?: string | undefined;
-	readonly reviewPath?: string | undefined;
-	readonly modelProfile?: string | undefined;
-	readonly model?: string | undefined;
-	readonly baseRef?: string | undefined;
+	readonly reviewName?: string;
+	readonly reviewPath?: string;
+	readonly modelProfile?: string;
+	readonly model?: string;
+	readonly baseRef?: string;
 }
 
 export function buildFindingsEnvelope(
