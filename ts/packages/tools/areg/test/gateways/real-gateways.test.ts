@@ -684,7 +684,64 @@ describe("real areg gateways", () => {
 				policy: "init",
 				env: {},
 			});
-			expect(refused).toMatchObject({ ok: false, error: { code: "init-write-target-refused" } });
+			expect(refused).toMatchObject({
+				ok: false,
+				error: {
+					code: "init-write-target-refused",
+					message: "Refusing to write unsupported init target: ../escape",
+				},
+			});
+			expect(
+				await gateway.writeTextFile({
+					projectDir: project,
+					relativePath: "docs/README.md",
+					content: "bad",
+					description: "bad",
+					createParent: false,
+					policy: "init",
+					env: {},
+				}),
+			).toMatchObject({
+				ok: false,
+				error: {
+					code: "init-write-target-refused",
+					message: "Refusing to write unsupported init target: docs/README.md",
+				},
+			});
+			expect(
+				await gateway.writeTextFile({
+					projectDir: project,
+					relativePath: "../escape",
+					content: "bad",
+					description: "SKILL.md",
+					createParent: false,
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({
+				ok: false,
+				error: {
+					code: "skill-kind-target-refused",
+					message: "Refusing to manage unsafe SKILL.md target: ../escape",
+				},
+			});
+			expect(
+				await gateway.writeTextFile({
+					projectDir: project,
+					relativePath: "skills/demo/README.md",
+					content: "bad",
+					description: "SKILL.md",
+					createParent: false,
+					policy: "skill-kind",
+					env: {},
+				}),
+			).toMatchObject({
+				ok: false,
+				error: {
+					code: "skill-kind-target-refused",
+					message: "Refusing to manage unsupported SKILL.md target: skills/demo/README.md",
+				},
+			});
 
 			await symlink(outside, path.join(project, ".claude"), "dir");
 			const symlinkedParent = await gateway.writeTextFile({

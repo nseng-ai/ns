@@ -36,6 +36,7 @@ import type {
 	AregTextFileState,
 	AregToolCheckResult,
 } from "./gateways.ts";
+import { classifyResolvedSkillKindInspection } from "./gateways/skill-kind-classification.ts";
 
 export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
@@ -261,48 +262,14 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		const failure = this.resolveFailures.get(request.spec);
 		if (failure !== undefined) return { type: "error", error: copyErrorInfo(failure) };
 		const skillName = fakeResolveSkillName(request.spec);
-		const skill = this.localSkills.find((candidate) => candidate.name === skillName);
-		if (skill === undefined)
-			return {
-				type: "error",
-				error: {
-					code: "skill-kind-missing-skill",
-					message: `Managed skill not found: ${request.spec}`,
-				},
-			};
-		if (skill.skillDir.type === "symlink")
-			return {
-				type: "error",
-				error: {
-					code: "skill-kind-symlink-skill-dir",
-					message: `${skill.baseRelativePath} is a symlink; refusing to manage invocation metadata`,
-				},
-			};
-		if (skill.skillDir.type !== "directory")
-			return {
-				type: "error",
-				error: {
-					code: "skill-kind-missing-skill",
-					message: `Managed skill not found: ${request.spec}`,
-				},
-			};
-		if (skill.skillMd.type === "symlink")
-			return {
-				type: "error",
-				error: {
-					code: "skill-kind-symlink-skill-md",
-					message: `${skill.baseRelativePath}/SKILL.md is a symlink; refusing to manage invocation metadata`,
-				},
-			};
-		if (skill.skillMd.type !== "file")
-			return {
-				type: "error",
-				error: {
-					code: "skill-kind-missing-skill-md",
-					message: `${skill.baseRelativePath}/SKILL.md does not exist`,
-				},
-			};
-		return { type: "ok", skillName };
+		const skill =
+			this.localSkills.find((candidate) => candidate.name === skillName) ??
+			missingSkillKindSkill(skillName);
+		return classifyResolvedSkillKindInspection({
+			spec: request.spec,
+			skillName,
+			inspection: skill,
+		});
 	}
 
 	async preflightWriteTextFile(
