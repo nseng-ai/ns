@@ -68,7 +68,7 @@ type SentMessage = Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>
 interface ExecCall {
 	command: string;
 	args: string[];
-	options: { cwd?: string; timeout?: number } | undefined;
+	options?: { cwd?: string; timeout?: number };
 }
 
 interface ScriptedExec {
@@ -95,7 +95,7 @@ interface StatusUpdate {
 interface WidgetUpdate {
 	key: string;
 	value: string[] | undefined;
-	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
+	options?: { placement?: "aboveEditor" | "belowEditor" };
 }
 
 class FakePi implements LandStackExtensionAPI {
@@ -116,7 +116,7 @@ class FakePi implements LandStackExtensionAPI {
 		message: Parameters<NonNullable<LandStackExtensionAPI["sendMessage"]>>[0],
 		options?: SentMessage["options"],
 	): void {
-		this.messages.push({ ...message, options });
+		this.messages.push({ ...message, ...(options === undefined ? {} : { options }) });
 	}
 
 	async exec(
@@ -124,7 +124,11 @@ class FakePi implements LandStackExtensionAPI {
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
 	): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args], options });
+		this.execCalls.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options }),
+		});
 		const missingStepMessage = `unexpected exec: ${formatCommand(command, args)}`;
 		const expected = this.script.shiftOrRecordError(missingStepMessage);
 		if (expected === undefined) {
@@ -185,8 +189,8 @@ const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
 function expectedSquashMergeArgs(options: {
 	number: number;
 	sha: string;
-	title?: string | undefined;
-	body?: string | null | undefined;
+	title?: string;
+	body?: string | null;
 }): string[] {
 	const title = options.title ?? `PR ${options.number}`;
 	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
@@ -238,7 +242,7 @@ function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: bool
 				value: string[] | undefined,
 				options?: { placement?: "aboveEditor" | "belowEditor" },
 			): void {
-				widgets.push({ key, value, options });
+				widgets.push({ key, value, ...(options === undefined ? {} : { options }) });
 			},
 		},
 		async waitForIdle(): Promise<void> {
@@ -287,8 +291,8 @@ function prSnapshot(overrides: {
 	branch: string;
 	base: string;
 	sha: string;
-	title?: string | undefined;
-	body?: string | null | undefined;
+	title?: string;
+	body?: string | null;
 	state?: string;
 	isDraft?: boolean;
 	mergedAt?: string | null;
@@ -333,10 +337,10 @@ function metadataBranchNames(dbRows: string): string[] {
 
 function repoIntro(
 	options: {
-		current?: string | undefined;
-		trunk?: string | undefined;
-		dbRows?: string | undefined;
-		liveBranches?: string[] | undefined;
+		current?: string;
+		trunk?: string;
+		dbRows?: string;
+		liveBranches?: string[];
 	} = {},
 ): ScriptedExec[] {
 	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
@@ -393,8 +397,8 @@ function postRestackSubmitCheckSteps(options: {
 	sha: string;
 	prNumber: number;
 	base: string;
-	state?: string | undefined;
-	isDraft?: boolean | undefined;
+	state?: string;
+	isDraft?: boolean;
 }): ScriptedExec[] {
 	return [
 		guardShaStep(options.branch, options.sha),
@@ -447,7 +451,7 @@ function localBranchChecks(branches: string[]): ScriptedExec[] {
 	return branches.map((branch) => step("git", ["show-ref", "--verify", `refs/heads/${branch}`]));
 }
 
-function initialBranchPlans(options: { featureBBase?: string | undefined } = {}): ScriptedExec[] {
+function initialBranchPlans(options: { featureBBase?: string } = {}): ScriptedExec[] {
 	return [
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 			stdout: `${SHA_A}\n`,
@@ -473,19 +477,21 @@ function initialBranchPlans(options: { featureBBase?: string | undefined } = {})
 
 function featureStackPreflight(
 	options: {
-		dbRows?: string | undefined;
-		worktrees?: string | undefined;
-		featureBBase?: string | undefined;
+		dbRows?: string;
+		worktrees?: string;
+		featureBBase?: string;
 	} = {},
 ): ScriptedExec[] {
 	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
 	const hasDescendants = dbRows.includes(DESCENDANT);
 	const worktrees = options.worktrees ?? worktreeOutput([{ path: ROOT, branch: CURRENT }]);
 	return [
-		...repoIntro({ dbRows: options.dbRows }),
+		...repoIntro({ dbRows }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a", "feature-b"]),
-		...initialBranchPlans({ featureBBase: options.featureBBase }),
+		...initialBranchPlans(
+			options.featureBBase === undefined ? {} : { featureBBase: options.featureBBase },
+		),
 		step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees }),
 		...(hasDescendants
 			? [step("git", ["worktree", "list", "--porcelain"], { stdout: worktrees })]
@@ -516,8 +522,8 @@ function mergeFeatureA(
 					branch: "feature-a",
 					base: TRUNK,
 					sha: SHA_A,
-					title: options.title,
-					body: options.body,
+					...(options.title === undefined ? {} : { title: options.title }),
+					...(options.body === undefined ? {} : { body: options.body }),
 				}),
 			),
 		}),
@@ -526,8 +532,8 @@ function mergeFeatureA(
 			expectedSquashMergeArgs({
 				number: 101,
 				sha: SHA_A,
-				title: options.title,
-				body: options.body,
+				...(options.title === undefined ? {} : { title: options.title }),
+				...(options.body === undefined ? {} : { body: options.body }),
 			}),
 			{
 				code: options.mergeCode ?? 0,
@@ -595,8 +601,8 @@ function mergeFeatureA(
 function singleBranchPreflightWithRefs(options: {
 	localSha: string;
 	prSha: string;
-	worktrees?: string | undefined;
-	dbRows?: string | undefined;
+	worktrees?: string;
+	dbRows?: string;
 }): ScriptedExec[] {
 	return [
 		...repoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
@@ -630,8 +636,8 @@ function mergeFeatureAThroughDelete(
 					branch: "feature-a",
 					base: TRUNK,
 					sha: SHA_A,
-					title: options.title,
-					body: options.body,
+					...(options.title === undefined ? {} : { title: options.title }),
+					...(options.body === undefined ? {} : { body: options.body }),
 				}),
 			),
 		}),
@@ -640,8 +646,8 @@ function mergeFeatureAThroughDelete(
 			expectedSquashMergeArgs({
 				number: 101,
 				sha: SHA_A,
-				title: options.title,
-				body: options.body,
+				...(options.title === undefined ? {} : { title: options.title }),
+				...(options.body === undefined ? {} : { body: options.body }),
 			}),
 		),
 		step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
