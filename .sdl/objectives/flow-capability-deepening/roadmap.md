@@ -2,10 +2,10 @@
 
 ## Work
 
-- [ ] Split relocated land-stack tests into Flow-owned focused files.
+- [x] Split relocated land-stack tests into Flow-owned focused files.
   - Policy: direct execution after preview for code/test moves. Preserve coverage and keep imports relative to Flow internals only from Flow tests.
-  - Target: break `ts/packages/capabilities/flow/test/unit/land-stack.test.ts` into focused files such as command execution, command stream, Graphite topology, PR facts, presentation, stack facts, worktrees, landing plan/operations, and high-level orchestration. Keep the real Graphite integration test in the integration lane.
-  - Evidence: focused Flow test files pass; CCC tests no longer import private land-stack helpers; search evidence for `../src/land-stack` under CCC tests remains clean.
+  - Delivered: deleted the catch-all `ts/packages/capabilities/flow/test/unit/land-stack.test.ts` and moved coverage into `land-stack-helpers.test.ts`, `land-stack-pr-facts.test.ts`, `land-stack-command-scenarios.test.ts`, `land-stack-topology-guards.test.ts`, and `land-stack-snapshot.test.ts`. The command-scenario cluster intentionally remains large enough to preserve behavior mechanically; use it to shape the later fake-driven seam.
+  - Evidence: Flow package tests and check pass; `just ts-format-check`, `just ts-lint`, and `just ts-check` pass; searches show CCC continues to consume Flow through `sdl-flow/api` and does not import private Flow land-stack internals.
 
 - [ ] Decompose Flow land command shells from land-stack domain orchestration.
   - Policy: direct execution after preview for internal module splits that preserve public command/API behavior.
