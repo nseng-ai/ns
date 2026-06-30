@@ -18,7 +18,7 @@ In scope:
 - For each cleanup slice, classify candidates before editing and remove explicit `undefined` only when present-key `undefined` has no domain, compatibility, input, or external-conformance meaning.
 - Normalize producers/builders/parsers before narrowing internal result, diagnostic, presentation, or durable-record shapes.
 - Preserve `null` where it carries external or domain meaning while dropping only redundant explicit `undefined` when justified.
-- Record before/after scoped counts, fields changed, semantic claims, preserved/deferred categories, validation evidence, and reusable classification findings when progress is kept.
+- Record before/after repo-wide counts and scoped counts, fields changed, semantic claims, preserved/deferred categories, validation evidence, and reusable classification findings when progress is kept.
 - Continue to treat the already-submitted packagechk / GitHub PR feedback / pr-feedback-watch / preview-checks / worktree-status stack as current evidence and seed inventory, while allowing later autonomous slices elsewhere in the TypeScript workspace when they satisfy this Objective's policy.
 
 ## Non-Goals
@@ -62,9 +62,9 @@ The Objective's primary measurement function has two per-slice metrics:
 1. **Typed optional-undefined property count**: scoped before/after count of declarations such as `foo?: T | undefined`. This should generally trend monotonically down across kept cleanup slices, except for deliberate preserves or newly justified compatibility/input surfaces.
 2. **Undefined-normalization/check count**: scoped before/after count of omission-building or explicit-undefined adapter code, such as `...(request.key === undefined ? {} : { key: request.key })` and equivalent `if (value !== undefined)` construction guards. This metric may fluctuate: it can rise when a slice first normalizes producers/builders before narrowing upstream request objects, and should later fall as omission-only contracts move up the stack. Interpret it by boundary location rather than as a monotonic target.
 
-Every submitted Objective PR should display both before/after counts in its PR description, along with the measurement scope and any important classification caveats. These counts are the Objective's visible progress scorecard, not a replacement for semantic review.
+Every kept Objective update and submitted Objective PR should display both before/after repo-wide counts and before/after scoped counts in its update/PR description, along with the measurement scopes and any important classification caveats. Repo-wide counts are mandatory even for narrow slices so the standing Objective always reports visible total remaining debt; scoped counts explain the local slice. These counts are the Objective's visible progress scorecard, not a replacement for semantic review.
 
-Useful evidence includes the two scoped before/after metrics, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
+Useful evidence includes the two repo-wide and scoped before/after metrics, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
 
 ## Runner Policy
 
@@ -83,9 +83,9 @@ Default runner loop:
 3. Pick a review-substantive coherent safe slice, biased toward a package/subsystem cluster of internal result/diagnostic/presentation/durable shapes and nearby producers/builders/parsers rather than the narrowest single-file edit.
 4. Normalize construction or boundary code before narrowing types.
 5. Run relevant TypeScript validation before keeping work.
-6. Measure the scoped before/after counts for both typed optional-undefined properties and undefined-normalization/check code.
-7. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, metric-policy changes, or roadmap/policy changes.
-8. When PR submission is authorized, encode both before/after metrics and their scope in the PR description.
+6. Measure both repo-wide (`ts`) and scoped before/after counts for both typed optional-undefined properties and undefined-normalization/check code.
+7. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, metric-policy changes, or roadmap/policy changes; kept cleanup updates must include the repo-wide before/after scorecard as well as the scoped scorecard.
+8. When PR submission is authorized, encode both repo-wide and scoped before/after metrics and their scopes in the PR description.
 9. Leave local edits uncommitted unless the user explicitly asks for commit/PR workflow, then continue in a later invocation.
 
 Ask or stop when candidate meaning is ambiguous, public compatibility is at risk, external schemas are involved, validation fallout crosses unrelated packages, a proposed PR slice is too broad to review or too tiny to justify as a standalone review unit, or the next useful step requires branch creation, committing, PR submission, merging, publishing, deployment, GitHub mutation, or another external write action not explicitly authorized. If the safe slice appears to be below the 10 substantive edit-site / touched-line default, prefer recording the classification and continuing inventory for an adjacent coherent cluster before opening a standalone PR.

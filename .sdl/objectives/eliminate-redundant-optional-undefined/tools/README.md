@@ -53,10 +53,10 @@ The old marker-comment convention is retired. Do not add new marker comments; mi
 
 For a cleanup slice:
 
-1. Run the tool on the intended scope before editing and save the Markdown table/counts.
+1. Run the tool repo-wide (`ts`) and on the intended local scope before editing, then save the Markdown table/counts.
 2. Make the semantic cleanup.
-3. Run the same command again after editing.
-4. Put both before/after counts and the exact scope in the PR description.
+3. Run both repo-wide and scoped commands again after editing.
+4. Put both repo-wide and scoped before/after counts, with exact scopes, in the Objective update and PR description. Repo-wide counts are mandatory for every kept cleanup update, even when the diff is intentionally narrow.
 5. Add caveats for preserved/deferred candidates or temporary normalization checks that make the second metric rise.
 
 ## Caveats
