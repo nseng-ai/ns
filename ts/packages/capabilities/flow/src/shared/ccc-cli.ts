@@ -48,7 +48,7 @@ export interface FlowCccCliOutputCapture {
 
 export interface CreateFlowCccCliOutputCaptureOptions {
 	ctx: SdlExtensionApi;
-	mode?: "forward-live" | "buffer-until-complete" | undefined;
+	mode?: "forward-live" | "buffer-until-complete";
 }
 
 export async function runFlowCccOperation<T>(options: RunFlowCccOperationOptions<T>): Promise<T> {
