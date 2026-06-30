@@ -27,19 +27,19 @@ export interface RegistryCheckMetadataFields {
 }
 
 export interface RegistryCheckMetadataInput {
-	packageUrl?: string | undefined;
-	latestVersion?: string | undefined;
-	description?: string | undefined;
+	packageUrl?: string;
+	latestVersion?: string;
+	description?: string;
 }
 
 export function registryCheckMetadataFields(
 	fields: RegistryCheckMetadataInput,
 ): RegistryCheckMetadataFields {
-	return {
-		...(fields.packageUrl === undefined ? {} : { packageUrl: fields.packageUrl }),
-		...(fields.latestVersion === undefined ? {} : { latestVersion: fields.latestVersion }),
-		...(fields.description === undefined ? {} : { description: fields.description }),
-	};
+	const metadata: RegistryCheckMetadataFields = {};
+	if (fields.packageUrl !== undefined) metadata.packageUrl = fields.packageUrl;
+	if (fields.latestVersion !== undefined) metadata.latestVersion = fields.latestVersion;
+	if (fields.description !== undefined) metadata.description = fields.description;
+	return metadata;
 }
 
 export function availableResult(

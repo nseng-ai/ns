@@ -328,12 +328,7 @@ export default function worktreeStatusExtension(
 	function activateSession(ctx: ExtensionContext): ActiveSession {
 		closeActiveSession();
 
-		let session: ActiveSession;
-		const activityUnsubscribe = ctx.ui.onTerminalInput?.(() => {
-			recordSessionActivity(session);
-			return undefined;
-		});
-		session = {
+		const session: ActiveSession = {
 			id: ++nextSessionId,
 			ctx,
 			cwd: ctx.cwd,
@@ -341,7 +336,6 @@ export default function worktreeStatusExtension(
 			abortController: new AbortController(),
 			isClosed: false,
 			isDormant: false,
-			...(activityUnsubscribe === undefined ? {} : { activityUnsubscribe }),
 		};
 		activeSession = session;
 		lastLinesKey = undefined;
@@ -349,6 +343,8 @@ export default function worktreeStatusExtension(
 		session.refreshTimer = controllers.refreshTimer;
 		session.activityController = controllers.activityController;
 		freshnessRenderTimer = controllers.freshnessRenderTimer;
+		const activityUnsubscribe = installActivityTracking(session);
+		if (activityUnsubscribe !== undefined) session.activityUnsubscribe = activityUnsubscribe;
 		return session;
 	}
 
@@ -570,6 +566,13 @@ export default function worktreeStatusExtension(
 			// Session replacement can make ctx stale between the active check and render.
 			return false;
 		}
+	}
+
+	function installActivityTracking(session: ActiveSession): (() => void) | undefined {
+		return session.ctx.ui.onTerminalInput?.(() => {
+			recordSessionActivity(session);
+			return undefined;
+		});
 	}
 
 	function installStatusFooter(session: ActiveSession): void {

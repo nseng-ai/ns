@@ -13,7 +13,7 @@ export interface GithubPrSummary {
 	readonly headRefName: string;
 	readonly baseRefName: string;
 	readonly state: string;
-	readonly headRefOid?: string | null | undefined;
+	readonly headRefOid?: string | null;
 }
 
 export interface GithubPrReview {
@@ -32,7 +32,7 @@ export interface GithubPrReviewComment {
 	readonly line: number | null;
 	readonly startLine: number | null;
 	readonly createdAt: string;
-	readonly url?: string | undefined;
+	readonly url?: string;
 }
 
 export interface GithubPrReviewThread {
@@ -83,17 +83,17 @@ export type GithubPrFeedbackOperation =
 
 export interface GithubPrFeedbackFailureDetails {
 	readonly operation: GithubPrFeedbackOperation;
-	readonly command?: readonly string[] | undefined;
-	readonly displayCommand?: string | undefined;
-	readonly stdout?: string | undefined;
-	readonly stderr?: string | undefined;
-	readonly exitCode?: number | undefined;
-	readonly killed?: boolean | undefined;
+	readonly command?: readonly string[];
+	readonly displayCommand?: string;
+	readonly stdout?: string;
+	readonly stderr?: string;
+	readonly exitCode?: number;
+	readonly killed?: boolean;
 	readonly graphqlErrors?: unknown;
-	readonly zodError?: string | undefined;
-	readonly prNumber?: number | undefined;
-	readonly threadId?: string | undefined;
-	readonly cursorContext?: string | undefined;
+	readonly zodError?: string;
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
 }
 
 export interface GithubPrFeedbackFailure extends ErrorInfo<GithubPrFeedbackFailureDetails> {

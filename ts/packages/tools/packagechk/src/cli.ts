@@ -26,7 +26,6 @@ import { checkPackageName, registrySelection } from "./check.ts";
 import type { PackagechkIo } from "./io.ts";
 import {
 	REGISTRIES,
-	registryCheckMetadataFields,
 	reportExitCode,
 	type PackageCheckReport,
 	type Registry,
@@ -116,39 +115,34 @@ const checkRequestSchema = z.object({
 	showJson: z.boolean().optional().describe("Deprecated; use --format json."),
 });
 
-const registryCheckResultSchema: z.ZodType<RegistryCheckResult> = z
-	.object({
-		registry: registrySchema,
-		inputName: z.string(),
-		lookupName: z.string(),
-		status: z.enum(["available", "taken", "invalid", "error"]),
-		message: z.string(),
-		packageUrl: z.string().optional(),
-		latestVersion: z.string().optional(),
-		description: z.string().optional(),
-	})
-	.transform(normalizeRegistryCheckResult);
+const rawRegistryCheckResultSchema = z.object({
+	registry: registrySchema,
+	inputName: z.string(),
+	lookupName: z.string(),
+	status: z.enum(["available", "taken", "invalid", "error"]),
+	message: z.string(),
+	packageUrl: z.string().optional(),
+	latestVersion: z.string().optional(),
+	description: z.string().optional(),
+});
 
-interface RegistryCheckResultBoundary {
-	registry: Registry;
-	inputName: string;
-	lookupName: string;
-	status: RegistryCheckResult["status"];
-	message: string;
-	packageUrl?: string | undefined;
-	latestVersion?: string | undefined;
-	description?: string | undefined;
-}
+const registryCheckResultSchema: z.ZodType<RegistryCheckResult> =
+	rawRegistryCheckResultSchema.transform(normalizeRegistryCheckResult);
+
+type RegistryCheckResultBoundary = z.output<typeof rawRegistryCheckResultSchema>;
 
 function normalizeRegistryCheckResult(result: RegistryCheckResultBoundary): RegistryCheckResult {
-	return {
+	const normalized: RegistryCheckResult = {
 		registry: result.registry,
 		inputName: result.inputName,
 		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
-		...registryCheckMetadataFields(result),
 	};
+	if (result.packageUrl !== undefined) normalized.packageUrl = result.packageUrl;
+	if (result.latestVersion !== undefined) normalized.latestVersion = result.latestVersion;
+	if (result.description !== undefined) normalized.description = result.description;
+	return normalized;
 }
 
 const packageCheckReportSchema: z.ZodType<PackageCheckReport> = z.object({

@@ -17,6 +17,17 @@ import type {
 } from "./schemas.ts";
 
 export function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): GithubPrSummary {
+	if (summary.headRefOid !== undefined) {
+		return {
+			number: summary.number,
+			title: summary.title,
+			url: summary.url,
+			headRefName: summary.headRefName,
+			baseRefName: summary.baseRefName,
+			state: summary.state,
+			headRefOid: summary.headRefOid,
+		};
+	}
 	return {
 		number: summary.number,
 		title: summary.title,
@@ -24,7 +35,6 @@ export function normalizePrSummary(summary: z.infer<typeof prSummarySchema>): Gi
 		headRefName: summary.headRefName,
 		baseRefName: summary.baseRefName,
 		state: summary.state,
-		headRefOid: summary.headRefOid,
 	};
 }
 
@@ -55,6 +65,18 @@ export function normalizeReviewThread(
 export function normalizeReviewComment(
 	comment: z.infer<typeof ghReviewCommentSchema>,
 ): GithubPrReviewComment {
+	if (comment.url !== undefined) {
+		return {
+			id: comment.numericId,
+			body: comment.body,
+			author: normalizeAuthor(comment.author),
+			path: comment.path,
+			line: comment.line,
+			startLine: comment.startLine ?? null,
+			createdAt: comment.createdAt,
+			url: comment.url,
+		};
+	}
 	return {
 		id: comment.numericId,
 		body: comment.body,
@@ -63,7 +85,6 @@ export function normalizeReviewComment(
 		line: comment.line,
 		startLine: comment.startLine ?? null,
 		createdAt: comment.createdAt,
-		...(comment.url === undefined ? {} : { url: comment.url }),
 	};
 }
 

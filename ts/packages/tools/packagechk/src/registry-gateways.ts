@@ -6,7 +6,6 @@ import {
 	availableResult,
 	errorResult,
 	invalidResult,
-	registryCheckMetadataFields,
 	takenResult,
 	type Registry,
 	type RegistryCheckResult,
@@ -273,13 +272,10 @@ function buildMetadata(options: {
 	latestVersion: string | undefined;
 	description: string | undefined;
 }): Metadata {
-	return {
-		packageUrl: options.packageUrl,
-		...registryCheckMetadataFields({
-			latestVersion: options.latestVersion,
-			description: options.description,
-		}),
-	};
+	const metadata: Metadata = { packageUrl: options.packageUrl };
+	if (options.latestVersion !== undefined) metadata.latestVersion = options.latestVersion;
+	if (options.description !== undefined) metadata.description = options.description;
+	return metadata;
 }
 
 function stringField(fields: Record<string, unknown> | null, key: string): string | undefined {

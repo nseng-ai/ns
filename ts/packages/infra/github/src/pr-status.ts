@@ -50,7 +50,7 @@ export interface GithubWorktreePrStatusArgs {
 
 export interface GithubWorktreePrStatus {
 	number: number;
-	url?: string | undefined;
+	url?: string;
 	headRefName: string;
 	headRefOid: string;
 	threads: GithubReviewThreadCounts;
@@ -510,9 +510,8 @@ function githubWorktreePrStatusesFromResponse(
 ): GithubWorktreePrStatus[] {
 	return response.data.repository.pullRequests.nodes.map((node) => {
 		const contexts = node.statusCheckRollup?.contexts;
-		return {
+		const status: GithubWorktreePrStatus = {
 			number: node.number,
-			url: node.url,
 			headRefName: node.headRefName,
 			headRefOid: node.headRefOid,
 			threads: reviewThreadCountsFromConnection(node.reviewThreads),
@@ -520,6 +519,8 @@ function githubWorktreePrStatusesFromResponse(
 				hasMore: contexts?.pageInfo.hasNextPage ?? false,
 			}),
 		};
+		if (node.url !== undefined) status.url = node.url;
+		return status;
 	});
 }
 
