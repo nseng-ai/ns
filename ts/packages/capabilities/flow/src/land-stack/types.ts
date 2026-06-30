@@ -193,12 +193,6 @@ export interface LandedPr {
 	url?: string;
 }
 
-export interface LandedChunk {
-	index: number;
-	landingTargetBranch: string;
-	landed: LandedPr[];
-}
-
 export interface CommandStreamPrLink {
 	number: number;
 	url: string;

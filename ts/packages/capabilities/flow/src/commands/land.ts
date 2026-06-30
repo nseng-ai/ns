@@ -99,30 +99,18 @@ interface LandCliProgress {
 export interface LandLiveProgressState {
 	totalPrs?: number;
 	landedPrs: number;
-	totalChunks?: number;
-	currentChunk?: number;
-	currentChunkStart?: number;
-	currentChunkEnd?: number;
 }
 
 const BASE_LAND_TITLE = "sdl flow land";
 
 export function formatLandProgressTitle(state: LandLiveProgressState): string {
-	if (state.totalPrs === undefined) return BASE_LAND_TITLE;
-	const parts = [`${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} PRs landed`];
-	if (state.currentChunk !== undefined && state.totalChunks !== undefined) {
-		let chunkPart = `chunk ${state.currentChunk}/${state.totalChunks}`;
-		if (state.currentChunkStart !== undefined && state.currentChunkEnd !== undefined) {
-			const prLabel = state.currentChunkStart === state.currentChunkEnd ? "PR" : "PRs";
-			const range =
-				state.currentChunkStart === state.currentChunkEnd
-					? String(state.currentChunkStart)
-					: `${state.currentChunkStart}-${state.currentChunkEnd}`;
-			chunkPart = `${chunkPart}, ${prLabel} ${range}`;
-		}
-		parts.push(chunkPart);
+	if (state.totalPrs !== undefined) {
+		return `${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} PRs landed`;
 	}
-	return parts.join(" — ");
+	if (state.landedPrs > 0) {
+		return `${BASE_LAND_TITLE} — ${state.landedPrs} PR${state.landedPrs === 1 ? "" : "s"} landed`;
+	}
+	return BASE_LAND_TITLE;
 }
 
 function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgress {
@@ -147,22 +135,10 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 	}
 
 	function recordLiveProgress(event: LandLiveProgressEvent): void {
-		switch (event.type) {
-			case "chunk-started":
-				liveState.totalPrs = event.totalPrs;
-				liveState.totalChunks = event.totalChunks;
-				liveState.currentChunk = event.chunkIndex;
-				liveState.currentChunkStart = event.currentChunkStart;
-				liveState.currentChunkEnd = event.currentChunkEnd;
-				updateTitle();
-				return;
-			case "pr-landed":
-				if (landedPrNumbers.has(event.prNumber)) return;
-				landedPrNumbers.add(event.prNumber);
-				liveState.landedPrs += 1;
-				updateTitle();
-				return;
-		}
+		if (landedPrNumbers.has(event.prNumber)) return;
+		landedPrNumbers.add(event.prNumber);
+		liveState.landedPrs += 1;
+		updateTitle();
 	}
 
 	function emit(event: SdlProgressPhaseEvent): void {

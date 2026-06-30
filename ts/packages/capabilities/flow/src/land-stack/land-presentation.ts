@@ -20,7 +20,7 @@ import type { LandResultKind } from "./types.ts";
  * `LandStackFailure` notify level (which owns stdout/stderr routing and exit-code flipping): a
  * declined guardrail renders `refusal` (warn) even when it is notified at `error` level to flip the
  * exit code (house-style §7.3). The inventoried land states map onto these three kinds:
- *   - success: fast-path merge, single-plan / chunked stack success summary, post-landing cleanup done.
+ *   - success: fast-path merge, stack success summary, post-landing cleanup done.
  *   - refusal: non-interactive confirmation refusal, cancelled-before-merge, base-branch mismatch,
  *     "nothing to do", post-landing cleanup declined / not-a-managed-slot.
  *   - failure: preflight load failure, merge-loop failure (incl. partial success), slot/submit
@@ -89,7 +89,6 @@ function renderLandConfirmationLine(caps: Caps, line: string): string {
 function landConfirmationLineStyle(line: string): Intent | "headline" | undefined {
 	if (line.startsWith("Land ")) return "headline";
 	if (line.endsWith(":")) return "accent";
-	if (/^\s{2}Chunk \d+\/\d+/.test(line)) return "warn";
 	if (/^\s{2}\d+\./.test(line) || /^\s{4}\d+\./.test(line)) return "muted";
 	return undefined;
 }

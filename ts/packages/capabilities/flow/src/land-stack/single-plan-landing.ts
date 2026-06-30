@@ -1,10 +1,10 @@
-import { LandStackCommandStream } from "./command-stream.ts";
 import { success, type LandStackResult } from "./errors.ts";
 import {
 	confirmMainLanding,
 	formatPreparingLandingMilestone,
 	preparePlanForMerge,
 	presentLandStackFailure,
+	type LandingSession,
 } from "./landing-coordination.ts";
 import { runMergeLoop, type PreMergeConfirmation } from "./landing-operations.ts";
 import {
@@ -13,47 +13,26 @@ import {
 	presentDryRunLanding,
 	presentLandingSuccess,
 } from "./presentation.ts";
-import type {
-	LandStackCommandContext,
-	LandStackExtensionAPI,
-	LandedChunk,
-	LandedPr,
-	LandingPlan,
-	LandingWarning,
-	ParsedArgs,
-} from "./types.ts";
+import type { LandStackExtensionAPI, LandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteSinglePlanLandingOptions {
 	pi: LandStackExtensionAPI;
 	runtimePi: LandStackExtensionAPI;
-	ctx: LandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	options: {
 		shouldSkipMainConfirmation?: boolean;
 		preMergeConfirmation?: PreMergeConfirmation;
 	};
-	commandStream: LandStackCommandStream;
+	session: LandingSession;
 	plan: LandingPlan;
-	landed: LandedPr[];
-	landedChunks: LandedChunk[];
 	warnings: LandingWarning[];
 }
 
 export async function executeSinglePlanLanding(
 	singleOptions: ExecuteSinglePlanLandingOptions,
 ): Promise<LandStackResult<void>> {
-	const {
-		pi,
-		runtimePi,
-		ctx,
-		parsedArgs,
-		options,
-		commandStream,
-		plan,
-		landed,
-		landedChunks,
-		warnings,
-	} = singleOptions;
+	const { pi, runtimePi, parsedArgs, options, session, plan, warnings } = singleOptions;
+	const { ctx, commandStream, landed } = session;
 	const planText = formatPlan(plan);
 
 	if (parsedArgs.isDryRun) {
@@ -62,10 +41,7 @@ export async function executeSinglePlanLanding(
 	}
 
 	const confirmation = await confirmMainLanding({
-		ctx,
-		commandStream,
-		landed,
-		landedChunks,
+		session,
 		shouldPrompt: !parsedArgs.shouldSkipConfirmation && !options.shouldSkipMainConfirmation,
 		title: "Land this stack path?",
 		details: planText,
@@ -76,11 +52,8 @@ export async function executeSinglePlanLanding(
 	commandStream.note(formatPreparingLandingMilestone(plan));
 	const readyPlan = await preparePlanForMerge({
 		runtimePi,
-		ctx,
+		session,
 		plan,
-		landed,
-		landedChunks,
-		commandStream,
 		...(options.preMergeConfirmation === undefined
 			? {}
 			: { preMergeConfirmation: options.preMergeConfirmation }),
@@ -98,10 +71,7 @@ export async function executeSinglePlanLanding(
 	});
 	if (mergeOutcome.type === "failure") {
 		presentLandStackFailure({
-			ctx,
-			commandStream,
-			landed,
-			landedChunks,
+			session,
 			failure: mergeOutcome.failure,
 		});
 		return mergeOutcome;

@@ -21,16 +21,7 @@ import type {
 	RenderTheme,
 } from "./types.ts";
 
-export type LandLiveProgressEvent = LandChunkStartedProgressEvent | LandPrLandedProgressEvent;
-
-export interface LandChunkStartedProgressEvent {
-	type: "chunk-started";
-	chunkIndex: number;
-	totalChunks: number;
-	currentChunkStart: number;
-	currentChunkEnd: number;
-	totalPrs: number;
-}
+export type LandLiveProgressEvent = LandPrLandedProgressEvent;
 
 export interface LandPrLandedProgressEvent {
 	type: "pr-landed";

@@ -14,7 +14,6 @@ import {
 	withCommandStreaming,
 	type LandLiveProgressSink,
 } from "./land-stack/command-stream.ts";
-import { AUTO_CHUNK_LANDING_THRESHOLD } from "./land-stack/constants.ts";
 import {
 	completed,
 	failure,
@@ -167,21 +166,6 @@ async function runLandCommand(
 		if (outcome.type === "failure") return outcome;
 		return await runPostLandingSlotCleanup({
 			pi: runtimeLandPi,
-			ctx,
-			args: args.value,
-			shape: shape.value,
-		});
-	}
-
-	if (shape.value.stack.landingBranches.length > AUTO_CHUNK_LANDING_THRESHOLD) {
-		const outcome = await executeStackLanding(pi, ctx, args.value, {
-			initialShape: shape.value,
-			...(progressIo === undefined ? {} : { io: progressIo }),
-			...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
-		});
-		if (outcome.type === "failure") return outcome;
-		return await runPostLandingSlotCleanup({
-			pi: runtimePi,
 			ctx,
 			args: args.value,
 			shape: shape.value,
