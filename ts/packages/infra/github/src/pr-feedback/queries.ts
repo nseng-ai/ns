@@ -76,3 +76,22 @@ mutation($threadId: ID!) {
     thread { id isResolved }
   }
 }`;
+
+export function resolveReviewThreadsMutation(count: number): string {
+	if (!Number.isSafeInteger(count) || count <= 0) {
+		throw new Error(`Resolve review thread batch size must be positive; got ${count}`);
+	}
+	const variables = Array.from({ length: count }, (_, index) => `$threadId${index}: ID!`).join(
+		", ",
+	);
+	const fields = Array.from(
+		{ length: count },
+		(_, index) => `  resolve${index}: resolveReviewThread(input: { threadId: $threadId${index} }) {
+    thread { id isResolved }
+  }`,
+	).join("\n");
+	return `
+mutation(${variables}) {
+${fields}
+}`;
+}

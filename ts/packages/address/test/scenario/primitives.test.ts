@@ -225,7 +225,8 @@ describe("pr-address primitive exec commands", () => {
 			{ threadId: "RT_one", body: "Fixed." },
 			{ threadId: "RT_two", body: "Fixed." },
 		]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }, { threadId: "RT_two" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_one", "RT_two"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("bulk-closes review threads from stdin without replying", async () => {
@@ -245,7 +246,8 @@ describe("pr-address primitive exec commands", () => {
 			entries: [{ thread_id: "RT_one", reply: null, error: null }],
 		});
 		expect(prFeedback.replies).toEqual([]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_one" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_one"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("bulk close rejects duplicate thread IDs before side effects", async () => {
@@ -335,6 +337,7 @@ describe("pr-address primitive exec commands", () => {
 			{ threadId: "RT_fail", body: "Fixed." },
 			{ threadId: "RT_ok", body: "Fixed." },
 		]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_fail", "RT_ok"] }]);
 		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
 	});
 
@@ -377,7 +380,8 @@ describe("pr-address primitive exec commands", () => {
 			},
 		});
 		expect(prFeedback.replies).toEqual([{ threadId: "RT_ok", body: "Fixed." }]);
-		expect(prFeedback.resolutions).toEqual([{ threadId: "RT_ok" }]);
+		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_ok"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
 	});
 
 	test("maps primitive gateway failures to pr_gateway_failure", async () => {

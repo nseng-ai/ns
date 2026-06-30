@@ -11,6 +11,7 @@ import {
 	prChecksArgs,
 	replyToReviewThreadArgs,
 	resolveReviewThreadArgs,
+	resolveReviewThreadsArgs,
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
 } from "./args.ts";
@@ -40,7 +41,9 @@ import {
 	ghPrChecksResponseSchema,
 	ghReplyReviewThreadResponseSchema,
 	ghResolveReviewThreadResponseSchema,
+	ghResolveReviewThreadsResponseSchema,
 	ghReviewThreadCommentsResponseSchema,
+	type GhResolveReviewThreadsResponse,
 	ghReviewThreadsResponseSchema,
 	ghReviewsResponseSchema,
 	prSummaryListSchema,
@@ -277,6 +280,53 @@ export class RealGithubPrFeedbackGateway {
 			);
 		}
 		return feedbackOk({ threadId: thread.id, isResolved: thread.isResolved });
+	}
+
+	async resolveReviewThreads(
+		params: GithubPrFeedbackOptions & { readonly threadIds: readonly string[] },
+	): Promise<Result<readonly GithubReviewThreadState[], GithubPrFeedbackFailure>> {
+		if (params.threadIds.length === 0) return feedbackOk([]);
+		const result = await this.runGhGraphqlJson({
+			operation: "resolveReviewThreads",
+			args: resolveReviewThreadsArgs(params.threadIds),
+			params,
+			schema: ghResolveReviewThreadsResponseSchema,
+		});
+		if (!result.ok) return result;
+		return this.normalizeResolveReviewThreadsResponse(result.value, params.threadIds);
+	}
+
+	private normalizeResolveReviewThreadsResponse(
+		response: GhResolveReviewThreadsResponse,
+		threadIds: readonly string[],
+	): Result<readonly GithubReviewThreadState[], GithubPrFeedbackFailure> {
+		const states: GithubReviewThreadState[] = [];
+		for (const [index, threadId] of threadIds.entries()) {
+			const alias = `resolve${index}`;
+			const thread = response.data[alias]?.thread;
+			if (thread === undefined || thread === null) {
+				return feedbackErr(
+					failureFromMessage({
+						code: "github_pr_feedback_response_invalid",
+						operation: "resolveReviewThreads",
+						message: `GitHub resolve mutation response did not include ${alias}.thread.`,
+						threadId,
+					}),
+				);
+			}
+			if (thread.id !== threadId) {
+				return feedbackErr(
+					failureFromMessage({
+						code: "github_pr_feedback_response_invalid",
+						operation: "resolveReviewThreads",
+						message: `GitHub resolve mutation response ${alias}.thread.id did not match the requested thread ID.`,
+						threadId,
+					}),
+				);
+			}
+			states.push({ threadId: thread.id, isResolved: thread.isResolved });
+		}
+		return feedbackOk(states);
 	}
 
 	private async getPrBySelector(

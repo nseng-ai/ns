@@ -69,6 +69,7 @@ export interface InMemoryPrFeedbackState {
 	discussionCommentsFailurePrNumbers?: ReadonlySet<number>;
 	replyFailureThreadIds?: ReadonlySet<string>;
 	resolveFailureThreadIds?: ReadonlySet<string>;
+	bulkResolveFailure?: GithubPrFeedbackFailure;
 }
 
 export interface ReviewThreadReplyLogEntry {
@@ -78,6 +79,10 @@ export interface ReviewThreadReplyLogEntry {
 
 export interface ResolveReviewThreadLogEntry {
 	threadId: string;
+}
+
+export interface ResolveReviewThreadsLogEntry {
+	threadIds: readonly string[];
 }
 
 export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway {
@@ -97,8 +102,10 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly discussionCommentsFailurePrNumbers: ReadonlySet<number>;
 	private readonly replyFailureThreadIds: ReadonlySet<string>;
 	private readonly resolveFailureThreadIds: ReadonlySet<string>;
+	private readonly bulkResolveFailure: GithubPrFeedbackFailure | undefined;
 	private readonly repliesInternal: ReviewThreadReplyLogEntry[] = [];
 	private readonly resolutionsInternal: ResolveReviewThreadLogEntry[] = [];
+	private readonly bulkResolutionsInternal: ResolveReviewThreadsLogEntry[] = [];
 
 	constructor(state: InMemoryPrFeedbackState = {}) {
 		const byBranch = new Map(stringMap(state.prsByBranch));
@@ -125,6 +132,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.discussionCommentsFailurePrNumbers = state.discussionCommentsFailurePrNumbers ?? new Set();
 		this.replyFailureThreadIds = state.replyFailureThreadIds ?? new Set();
 		this.resolveFailureThreadIds = state.resolveFailureThreadIds ?? new Set();
+		this.bulkResolveFailure = state.bulkResolveFailure;
 	}
 
 	get replies(): readonly ReviewThreadReplyLogEntry[] {
@@ -133,6 +141,10 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 
 	get resolutions(): readonly ResolveReviewThreadLogEntry[] {
 		return this.resolutionsInternal.map((entry) => ({ ...entry }));
+	}
+
+	get bulkResolutions(): readonly ResolveReviewThreadsLogEntry[] {
+		return this.bulkResolutionsInternal.map((entry) => ({ threadIds: [...entry.threadIds] }));
 	}
 
 	async getPr(
@@ -253,6 +265,26 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 			return { ok: false, error: fakePrFeedbackFailure("resolve failed", "resolveReviewThread") };
 		this.resolutionsInternal.push({ threadId: params.threadId });
 		return { ok: true, value: { threadId: params.threadId, isResolved: true } };
+	}
+
+	async resolveReviewThreads(
+		params: GithubPrFeedbackOptions & { readonly threadIds: readonly string[] },
+	): Promise<Result<readonly GithubReviewThreadState[], GithubPrFeedbackFailure>> {
+		this.bulkResolutionsInternal.push({ threadIds: [...params.threadIds] });
+		if (this.bulkResolveFailure !== undefined) {
+			return { ok: false, error: clone(this.bulkResolveFailure) };
+		}
+		const states: GithubReviewThreadState[] = [];
+		for (const threadId of params.threadIds) {
+			if (this.resolveFailureThreadIds.has(threadId)) {
+				return {
+					ok: false,
+					error: fakePrFeedbackFailure("resolve failed", "resolveReviewThreads"),
+				};
+			}
+			states.push({ threadId, isResolved: true });
+		}
+		return { ok: true, value: states };
 	}
 }
 

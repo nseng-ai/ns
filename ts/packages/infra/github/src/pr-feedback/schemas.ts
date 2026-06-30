@@ -178,6 +178,22 @@ export const ghResolveReviewThreadResponseSchema = z
 	})
 	.loose();
 
+const ghResolveReviewThreadAliasSchema = z
+	.object({
+		thread: z
+			.object({ id: z.string().min(1), isResolved: z.boolean() })
+			.loose()
+			.nullable(),
+	})
+	.loose()
+	.nullable();
+
+export const ghResolveReviewThreadsResponseSchema = z
+	.object({ data: z.record(z.string(), ghResolveReviewThreadAliasSchema) })
+	.loose();
+
+export type GhResolveReviewThreadsResponse = z.infer<typeof ghResolveReviewThreadsResponseSchema>;
+
 export function withNumericGithubIdentity<
 	T extends {
 		readonly databaseId?: ExplicitUndefined<"external-mirror", number | null>;

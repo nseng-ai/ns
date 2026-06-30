@@ -6,6 +6,7 @@ import { ScriptedCommandRunner, step } from "@sdl/exec/testing";
 
 import {
 	discussionCommentPageArgs,
+	resolveReviewThreadsArgs,
 	reviewThreadCommentPageArgs,
 	reviewThreadPageArgs,
 } from "../src/pr-feedback/args.ts";
@@ -13,6 +14,7 @@ import {
 	discussionCommentsQuery,
 	replyToReviewThreadMutation,
 	resolveReviewThreadMutation,
+	resolveReviewThreadsMutation,
 	reviewThreadCommentsQuery,
 	reviewThreadsQuery,
 } from "../src/pr-feedback/queries.ts";
@@ -969,6 +971,24 @@ describe("RealGithubPrFeedbackGateway", () => {
 		runner.assertDone();
 	});
 
+	test("builds batched resolve review thread GraphQL args", () => {
+		const query = resolveReviewThreadsMutation(2);
+
+		expect(resolveReviewThreadsArgs(["RT_one", "RT_two"])).toEqual([
+			"api",
+			"graphql",
+			"-f",
+			"threadId0=RT_one",
+			"-f",
+			"threadId1=RT_two",
+			"-f",
+			`query=${query}`,
+		]);
+		expect(query).toContain("mutation($threadId0: ID!, $threadId1: ID!)");
+		expect(query).toContain("resolve0: resolveReviewThread(input: { threadId: $threadId0 })");
+		expect(query).toContain("resolve1: resolveReviewThread(input: { threadId: $threadId1 })");
+	});
+
 	test("replies to and resolves review threads as separate mutations", async () => {
 		const replyArgs = [
 			"api",
@@ -1012,6 +1032,82 @@ describe("RealGithubPrFeedbackGateway", () => {
 		expect(await gateway.resolveReviewThread({ cwd: "/repo", threadId: "RT_thread1" })).toEqual({
 			ok: true,
 			value: { threadId: "RT_thread1", isResolved: true },
+		});
+		runner.assertDone();
+	});
+
+	test("resolves review threads in a single aliased GraphQL mutation", async () => {
+		const args = resolveReviewThreadsArgs(["RT_one", "RT_two"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: JSON.stringify({
+					data: {
+						resolve0: { thread: { id: "RT_one", isResolved: true } },
+						resolve1: { thread: { id: "RT_two", isResolved: true } },
+					},
+				}),
+			}),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.resolveReviewThreads({ cwd: "/repo", threadIds: ["RT_one", "RT_two"] }),
+		).toEqual({
+			ok: true,
+			value: [
+				{ threadId: "RT_one", isResolved: true },
+				{ threadId: "RT_two", isResolved: true },
+			],
+		});
+		runner.assertDone();
+	});
+
+	test("rejects malformed batched resolve responses", async () => {
+		const args = resolveReviewThreadsArgs(["RT_one", "RT_two"]);
+		const runner = new ScriptedCommandRunner([
+			step("gh", args, {
+				stdout: JSON.stringify({
+					data: { resolve0: { thread: { id: "RT_one", isResolved: true } } },
+				}),
+			}),
+			step("gh", args, {
+				stdout: JSON.stringify({
+					data: {
+						resolve0: { thread: { id: "RT_one", isResolved: true } },
+						resolve1: { thread: { id: "RT_other", isResolved: true } },
+					},
+				}),
+			}),
+			step("gh", args, { exitCode: 1, stderr: "cannot resolve" }),
+		]);
+		const gateway = new RealGithubPrFeedbackGateway(runner.runner);
+
+		expect(
+			await gateway.resolveReviewThreads({ cwd: "/repo", threadIds: ["RT_one", "RT_two"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				details: { operation: "resolveReviewThreads", threadId: "RT_two" },
+			},
+		});
+		expect(
+			await gateway.resolveReviewThreads({ cwd: "/repo", threadIds: ["RT_one", "RT_two"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_response_invalid",
+				details: { operation: "resolveReviewThreads", threadId: "RT_two" },
+			},
+		});
+		expect(
+			await gateway.resolveReviewThreads({ cwd: "/repo", threadIds: ["RT_one", "RT_two"] }),
+		).toMatchObject({
+			ok: false,
+			error: {
+				code: "github_pr_feedback_gh_failed",
+				details: { operation: "resolveReviewThreads", stderr: "cannot resolve" },
+			},
 		});
 		runner.assertDone();
 	});

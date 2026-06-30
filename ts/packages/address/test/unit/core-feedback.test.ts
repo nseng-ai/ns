@@ -48,7 +48,7 @@ class ControlledFeedbackGateway implements GithubPrFeedbackGateway {
 		this.reviews.resolve(result);
 	}
 
-	resolveReviewThreads(result: ReviewThreadsResult): void {
+	completeReviewThreads(result: ReviewThreadsResult): void {
 		this.reviewThreads.resolve(result);
 	}
 
@@ -144,7 +144,7 @@ describe("pr-address core feedback helpers", () => {
 		expect(gateway.started).toEqual(["reviews", "reviewThreads", "discussionComments"]);
 
 		gateway.resolveReviews({ ok: true, value: [review({ id: "review-1" })] });
-		gateway.resolveReviewThreads({
+		gateway.completeReviewThreads({
 			ok: true,
 			value: [reviewThread({ id: "thread-1", isResolved: false })],
 		});
