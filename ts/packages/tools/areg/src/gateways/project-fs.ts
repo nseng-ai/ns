@@ -1,16 +1,14 @@
-import { lstat, readFile, readlink, realpath } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { formatErrorMessage } from "@sdl/core/primitives";
 
-import type {
-	AregErrorInfo,
-	AregPathState,
-	AregProjectMutationPolicy,
-	AregTextFileState,
-} from "../gateways.ts";
+import type { AregErrorInfo, AregProjectMutationPolicy, AregTextFileState } from "../gateways.ts";
 import { errorInfo } from "./errors.ts";
+import { inspectPath, isPathAtOrBelow } from "./fs-utils.ts";
 import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
+
+export { inspectPath, isNodeErrorCode } from "./fs-utils.ts";
 
 interface ResolveAllowedWriteTargetOptions {
 	policy: AregProjectMutationPolicy;
@@ -28,19 +26,6 @@ interface ValidateTextWriteTargetOptions {
 }
 
 type WriteTargetValidationResult = { ok: true } | { ok: false; error: AregErrorInfo };
-
-export async function inspectPath(candidate: string): Promise<AregPathState> {
-	try {
-		const info = await lstat(candidate);
-		if (info.isSymbolicLink()) return { type: "symlink", target: await readlink(candidate) };
-		if (info.isDirectory()) return { type: "directory" };
-		if (info.isFile()) return { type: "file" };
-		return { type: "other" };
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return { type: "missing" };
-		return { type: "other" };
-	}
-}
 
 export async function inspectTextFile(candidate: string): Promise<AregTextFileState> {
 	const pathState = await inspectPath(candidate);
@@ -303,21 +288,4 @@ async function requirePathAtOrBelow(
 			),
 		};
 	}
-}
-
-function isPathAtOrBelow(candidate: string, root: string): boolean {
-	const relative = path.relative(root, candidate);
-	return (
-		relative === "" ||
-		(relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative))
-	);
-}
-
-export function isNodeErrorCode(error: unknown, code: string): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: unknown }).code === code
-	);
 }

@@ -1,3 +1,4 @@
+import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
@@ -48,14 +49,6 @@ const optionalBooleanSchema = z.preprocess(
 	(value) => (typeof value === "boolean" ? value : undefined),
 	z.boolean().optional(),
 );
-
-const machineEnvelopeSchema = z
-	.object({
-		exitCode: z.unknown(),
-		data: z.unknown().optional(),
-		message: optionalNonEmptyStringSchema,
-	})
-	.passthrough();
 
 const stackMapGraphBranchSchema = z.object({
 	name: z.string(),
@@ -241,7 +234,7 @@ async function loadStackMapGraph(
 		["slot", "gt", "exec", "stack-map-branches", "--format", "json"],
 		{ cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
-	const parsed = parseMachineEnvelopeData(
+	const parsed = parseStackMapMachineEnvelopeData(
 		result.stdout,
 		"sdl slot gt exec stack-map-branches JSON",
 	);
@@ -277,29 +270,13 @@ async function loadCmuxTabs(
 	return parsed;
 }
 
-function parseMachineEnvelopeData(
+function parseStackMapMachineEnvelopeData(
 	stdout: string,
 	label: string,
-): { type: "success"; data: unknown } | { type: "failure"; message: string } {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(stdout);
-	} catch (error) {
-		return {
-			type: "failure",
-			message: `${label} was not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
-		};
-	}
-	const envelope = machineEnvelopeSchema.safeParse(parsed);
-	if (!envelope.success) return { type: "failure", message: `${label} was not a JSON object.` };
-	if (envelope.data.exitCode !== 0)
-		return {
-			type: "failure",
-			message: `${label} reported failure exitCode ${String(envelope.data.exitCode)}: ${envelope.data.message ?? "no message"}`,
-		};
-	if (!Object.hasOwn(envelope.data, "data"))
-		return { type: "failure", message: `${label} did not include data.` };
-	return { type: "success", data: envelope.data.data };
+): { type: "success"; data: Record<string, unknown> } | { type: "failure"; message: string } {
+	const parsed = parseMachineEnvelopeData(stdout, { label });
+	if (parsed.type === "valid") return { type: "success", data: parsed.data };
+	return { type: "failure", message: parsed.message };
 }
 
 function parseStackMapGraphData(
