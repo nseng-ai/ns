@@ -176,8 +176,8 @@ function withDefaultLocalOptions(
 	options: LoadLocalWorktreeStatusOptions = {},
 ): LoadLocalWorktreeStatusOptions {
 	return {
-		signal: options.signal,
-		onDiagnostic: options.onDiagnostic,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
 		identity: options.identity ?? identityFor(cwd),
 		metadataLoader: options.metadataLoader ?? defaultMetadataLoader,
 	};
@@ -219,7 +219,7 @@ async function loadComposedWorktreeStatus(
 	const local = await loadLocalWorktreeStatusWithDefaultMetadata(pi, cwd, options);
 	const gh = await loadWorktreeGhStatus(pi, cwd, {
 		identity: local.identity,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 	});
 	return combineWorktreeStatus(local, gh);
 }

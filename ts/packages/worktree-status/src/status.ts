@@ -90,8 +90,8 @@ export interface GtStatus {
 
 export interface GraphiteMetadataLoaderOptions {
 	cwd: string;
-	signal?: AbortSignal | undefined;
-	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+	signal?: AbortSignal;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 export type GraphiteMetadataLoader = (
@@ -101,21 +101,21 @@ export type GraphiteMetadataLoader = (
 export interface LoadGtStatusOptions {
 	pi: ExecGateway;
 	cwd: string;
-	signal?: AbortSignal | undefined;
-	metadataLoader?: GraphiteMetadataLoader | undefined;
-	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+	signal?: AbortSignal;
+	metadataLoader?: GraphiteMetadataLoader;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 export interface LoadLocalWorktreeStatusOptions {
-	signal?: AbortSignal | undefined;
-	identity?: WorktreeStatusIdentity | undefined;
-	metadataLoader?: GraphiteMetadataLoader | undefined;
-	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+	signal?: AbortSignal;
+	identity?: WorktreeStatusIdentity;
+	metadataLoader?: GraphiteMetadataLoader;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 export interface LoadWorktreeGhStatusOptions {
-	signal?: AbortSignal | undefined;
-	identity?: WorktreeStatusIdentity | undefined;
+	signal?: AbortSignal;
+	identity?: WorktreeStatusIdentity;
 }
 
 export interface WorktreeStatusIdentity {
@@ -161,7 +161,7 @@ export interface WorktreeStatus extends LocalWorktreeStatus {
 
 interface LoadGhStatusInternalOptions {
 	readonly identity: WorktreeStatusIdentity;
-	readonly signal?: AbortSignal | undefined;
+	readonly signal?: AbortSignal;
 }
 
 interface CustomMessage {
@@ -195,8 +195,8 @@ export async function loadLocalWorktreeStatus(
 		loadGtStatus({
 			pi,
 			cwd,
-			signal: options.signal,
-			metadataLoader: options.metadataLoader,
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+			...(options.metadataLoader === undefined ? {} : { metadataLoader: options.metadataLoader }),
 			onDiagnostic,
 		}),
 		identityPromise,
@@ -213,7 +213,10 @@ export async function loadWorktreeGhStatus(
 	options: LoadWorktreeGhStatusOptions = {},
 ): Promise<WorktreeGhStatus> {
 	const identity = options.identity ?? (await loadWorktreeStatusIdentity(pi, cwd, options.signal));
-	return loadGhStatus(pi, cwd, { identity, signal: options.signal });
+	return loadGhStatus(pi, cwd, {
+		identity,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
 }
 
 export function combineWorktreeStatus(
@@ -255,8 +258,8 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
 	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
 		cwd,
-		signal,
-		onDiagnostic: options.onDiagnostic,
+		...(signal === undefined ? {} : { signal }),
+		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
 	};
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);
