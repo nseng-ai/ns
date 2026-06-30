@@ -171,6 +171,12 @@ export interface AregPiArtifactsInspection {
 	replacement: AregReplacementInspection;
 }
 
+export interface AregPiSkillInventoryInspection {
+	skillNames: readonly string[];
+	isApproximation: boolean;
+	source: string;
+}
+
 export interface AregSkillNameInventory {
 	skillsDirectoryNames: readonly string[];
 	agentsSkillNames: readonly string[];
@@ -235,6 +241,7 @@ export interface AregProjectGateway {
 	inspectProjectBase(request: AregProjectInspectionRequest): Promise<AregProjectBaseInspection>;
 	inspectInstructionFiles(request: AregProjectDirRequest): Promise<AregInstructionFilesInspection>;
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
+	inspectPiSkillInventory(request: AregProjectDirRequest): Promise<AregPiSkillInventoryInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
 	inspectSkillKindSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;

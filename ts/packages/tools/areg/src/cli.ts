@@ -5,6 +5,12 @@ import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
+	doctorSkillsRequestSchema,
+	doctorSkillsResultSchema,
+	renderDoctorSkills,
+	runDoctorSkills,
+} from "./operations/doctor-skills.ts";
+import {
 	checkRequestSchema,
 	checkResultSchema,
 	renderCheck,
@@ -66,6 +72,19 @@ const entry = defineCli<AregCliContext, CliDeps, undefined>({
 			handler: runUpdateSkills,
 			renderHuman: renderUpdateSkills,
 		});
+		const doctorGroup = new ClinkrGroup<AregCliContext>({
+			name: "doctor",
+			description: "Diagnose areg project drift.",
+		});
+		doctorGroup.command({
+			name: "skills",
+			description: "Diagnose skill registry, Pi inventory, and replacement-command drift.",
+			schema: doctorSkillsRequestSchema,
+			resultSchema: doctorSkillsResultSchema,
+			handler: runDoctorSkills,
+			renderHuman: renderDoctorSkills,
+		});
+		root.group(doctorGroup);
 		root.group(buildSkillGroup());
 		const execGroup = new ClinkrGroup<AregCliContext>({
 			name: "exec",

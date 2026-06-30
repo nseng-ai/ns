@@ -14,6 +14,7 @@ import type {
 	AregNpxSkillsGateway,
 	AregOperationResult,
 	AregPathState,
+	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregProjectDirRequest,
 	AregProjectFileDeleteRequest,
@@ -42,6 +43,7 @@ export type FakeAregProjectOperation =
 	| { type: "inspect-project-base"; cwd: string; projectPath: string }
 	| { type: "inspect-instruction-files"; projectDir: string }
 	| { type: "inspect-pi-artifacts"; projectDir: string }
+	| { type: "inspect-pi-skill-inventory"; projectDir: string }
 	| { type: "inspect-skill-name-inventory"; projectDir: string }
 	| { type: "inspect-check-skill"; projectDir: string; skillName: string }
 	| { type: "inspect-skill-kind-skill"; projectDir: string; skillName: string }
@@ -88,6 +90,7 @@ export interface FakeAregProjectGatewayOptions {
 	piDir?: AregPathState;
 	piSettings?: AregTextFileState | object | string;
 	replacementSurfaces?: readonly string[];
+	piSkillInventory?: Partial<AregPiSkillInventoryInspection>;
 	skillsDirectoryNames?: readonly string[];
 	agentsSkillNames?: readonly string[];
 	claudeSkillNames?: readonly string[];
@@ -108,6 +111,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly claudeDir: AregPathState;
 	private readonly piDir: AregPathState;
 	private readonly replacementSurfaces: readonly string[];
+	private readonly piSkillInventory: AregPiSkillInventoryInspection | undefined;
 	private readonly skillsDirectoryNames: readonly string[];
 	private readonly agentsSkillNames: readonly string[];
 	private readonly claudeSkillNames: readonly string[];
@@ -140,6 +144,10 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		this.claudeDir = copyPathState(options.claudeDir ?? { type: "missing" });
 		this.piDir = copyPathState(options.piDir ?? { type: "missing" });
 		this.replacementSurfaces = [...(options.replacementSurfaces ?? [])];
+		this.piSkillInventory =
+			options.piSkillInventory === undefined
+				? undefined
+				: copyPiSkillInventory(options.piSkillInventory);
 		this.skillsDirectoryNames = [...(options.skillsDirectoryNames ?? [])];
 		this.agentsSkillNames = [...(options.agentsSkillNames ?? [])];
 		this.claudeSkillNames = [...(options.claudeSkillNames ?? [])];
@@ -201,6 +209,20 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			piDir: copyPathState(this.piDir),
 			piSettings: this.fileState(".pi/settings.json"),
 			replacement: { verifiedSurfaces: [...this.replacementSurfaces] },
+		};
+	}
+
+	async inspectPiSkillInventory(
+		request: AregProjectDirRequest,
+	): Promise<AregPiSkillInventoryInspection> {
+		this.log.push({ type: "inspect-pi-skill-inventory", projectDir: request.projectDir });
+		if (this.piSkillInventory !== undefined) return copyPiSkillInventory(this.piSkillInventory);
+		return {
+			skillNames: this.localSkills
+				.filter((skill) => skill.skillDir.type === "directory" && skill.skillMd.type === "file")
+				.map((skill) => skill.name),
+			isApproximation: true,
+			source: "fake-repo-fallback-resolvable-skill-roots",
 		};
 	}
 
@@ -736,6 +758,16 @@ function normalizeTextFileState(value: AregTextFileState | object | string): Are
 
 function copyTextFileState(state: AregTextFileState): AregTextFileState {
 	return { ...state };
+}
+
+function copyPiSkillInventory(
+	inventory: Partial<AregPiSkillInventoryInspection>,
+): AregPiSkillInventoryInspection {
+	return {
+		skillNames: [...(inventory.skillNames ?? [])],
+		isApproximation: inventory.isApproximation ?? true,
+		source: inventory.source ?? "fake-pi-skill-inventory",
+	};
 }
 
 function copyPathState(state: AregPathState): AregPathState {

@@ -11,6 +11,7 @@ import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
 	AregErrorInfo,
+	AregPiSkillInventoryInspection,
 	AregProjectFileDeleteRequest,
 	AregProjectGateway,
 	AregProjectMutationResult,
@@ -78,6 +79,17 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			piDir: await inspectPath(path.join(request.projectDir, ".pi")),
 			piSettings: await inspectTextFile(path.join(request.projectDir, ".pi", "settings.json")),
 			replacement: await inspectReplacementSurfaces(request.projectDir),
+		};
+	}
+
+	async inspectPiSkillInventory(request: {
+		projectDir: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregPiSkillInventoryInspection> {
+		return {
+			skillNames: await listPiRepoFallbackSkillNames(request.projectDir),
+			isApproximation: true,
+			source: "repo-fallback-resolvable-skill-roots",
 		};
 	}
 
@@ -322,6 +334,15 @@ async function inspectCheckSkill(
 	};
 }
 
+async function listPiRepoFallbackSkillNames(projectDir: string): Promise<string[]> {
+	return sortStrings([
+		...new Set([
+			...(await listSkillsWithSkillMd(path.join(projectDir, "skills"))),
+			...(await listSkillsWithSkillMd(path.join(projectDir, ".agents", "skills"))),
+		]),
+	]);
+}
+
 async function listSkillKindNames(projectDir: string): Promise<string[]> {
 	return sortStrings([
 		...new Set([
@@ -342,6 +363,24 @@ async function listFirstPartySkillKindNames(projectDir: string): Promise<string[
 			if (entry.name === ".DS_Store") continue;
 			const skillMd = await inspectPath(path.join(skillsRoot, entry.name, "SKILL.md"));
 			if (entry.isDirectory() || entry.isSymbolicLink() || skillMd.type !== "missing")
+				names.push(entry.name);
+		}
+		return names;
+	} catch (error) {
+		if (isNodeErrorCode(error, "ENOENT")) return [];
+		return [];
+	}
+}
+
+async function listSkillsWithSkillMd(root: string): Promise<string[]> {
+	try {
+		const rootInfo = await lstat(root);
+		if (!rootInfo.isDirectory()) return [];
+		const entries = await readdir(root, { withFileTypes: true });
+		const names: string[] = [];
+		for (const entry of entries) {
+			if (entry.name === ".DS_Store") continue;
+			if ((await inspectTextFile(path.join(root, entry.name, "SKILL.md"))).type === "file")
 				names.push(entry.name);
 		}
 		return names;
