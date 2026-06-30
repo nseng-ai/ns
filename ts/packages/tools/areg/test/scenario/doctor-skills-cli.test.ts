@@ -105,20 +105,14 @@ describe("areg doctor skills CLI", () => {
 
 		expect(await run.exit).toBe(1);
 		const findings = JSON.parse(run.stdout.join("")).data.findings;
-		expect(findings).toContainEqual(
+		expect(findings).toEqual([
 			expect.objectContaining({
-				code: "pi-replacement-missing-surface",
+				code: "excluded-skill-without-replacement",
 				severity: "error",
 				skill: "objective-create",
 				surface: "objective:create",
 			}),
-		);
-		expect(findings).toContainEqual(
-			expect.objectContaining({
-				code: "excluded-skill-without-replacement",
-				skill: "objective-create",
-			}),
-		);
+		]);
 	});
 
 	test("machine-readable result shape includes stable summary and finding fields", async () => {

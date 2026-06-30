@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -354,25 +355,40 @@ async function listSkillKindNames(projectDir: string): Promise<string[]> {
 
 async function listFirstPartySkillKindNames(projectDir: string): Promise<string[]> {
 	const skillsRoot = path.join(projectDir, "skills");
-	try {
-		const rootInfo = await lstat(skillsRoot);
-		if (!rootInfo.isDirectory()) return [];
-		const entries = await readdir(skillsRoot, { withFileTypes: true });
-		const names: string[] = [];
-		for (const entry of entries) {
-			if (entry.name === ".DS_Store") continue;
+	return await scanSkillDirectoryNames(skillsRoot, {
+		keepEntry: async (entry) => {
 			const skillMd = await inspectPath(path.join(skillsRoot, entry.name, "SKILL.md"));
-			if (entry.isDirectory() || entry.isSymbolicLink() || skillMd.type !== "missing")
-				names.push(entry.name);
-		}
-		return names;
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return [];
-		return [];
-	}
+			return entry.isDirectory() || entry.isSymbolicLink() || skillMd.type !== "missing";
+		},
+	});
 }
 
 async function listSkillsWithSkillMd(root: string): Promise<string[]> {
+	return await scanSkillDirectoryNames(root, {
+		isBestEffortFallback: true,
+		keepEntry: async (entry) =>
+			(await inspectTextFile(path.join(root, entry.name, "SKILL.md"))).type === "file",
+	});
+}
+
+async function listVendoredSkillKindNames(projectDir: string): Promise<string[]> {
+	const agentsRoot = path.join(projectDir, ".agents", "skills");
+	return await scanSkillDirectoryNames(agentsRoot, {
+		keepEntry: async (entry) => {
+			if (entry.isSymbolicLink()) return false;
+			const skillMd = await inspectPath(path.join(agentsRoot, entry.name, "SKILL.md"));
+			return entry.isDirectory() || skillMd.type !== "missing";
+		},
+	});
+}
+
+async function scanSkillDirectoryNames(
+	root: string,
+	options: {
+		keepEntry: (entry: Dirent) => Promise<boolean>;
+		isBestEffortFallback?: boolean;
+	},
+): Promise<string[]> {
 	try {
 		const rootInfo = await lstat(root);
 		if (!rootInfo.isDirectory()) return [];
@@ -380,33 +396,16 @@ async function listSkillsWithSkillMd(root: string): Promise<string[]> {
 		const names: string[] = [];
 		for (const entry of entries) {
 			if (entry.name === ".DS_Store") continue;
-			if ((await inspectTextFile(path.join(root, entry.name, "SKILL.md"))).type === "file")
-				names.push(entry.name);
+			if (await options.keepEntry(entry)) names.push(entry.name);
 		}
 		return names;
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
-		// Pi fallback inventory is best-effort: unreadable skill roots should behave like
-		// absent roots so doctor diagnostics can continue from the remaining registry sources.
-		return [];
-	}
-}
-
-async function listVendoredSkillKindNames(projectDir: string): Promise<string[]> {
-	const agentsRoot = path.join(projectDir, ".agents", "skills");
-	try {
-		const rootInfo = await lstat(agentsRoot);
-		if (!rootInfo.isDirectory()) return [];
-		const entries = await readdir(agentsRoot, { withFileTypes: true });
-		const names: string[] = [];
-		for (const entry of entries) {
-			if (entry.name === ".DS_Store" || entry.isSymbolicLink()) continue;
-			const skillMd = await inspectPath(path.join(agentsRoot, entry.name, "SKILL.md"));
-			if (entry.isDirectory() || skillMd.type !== "missing") names.push(entry.name);
+		if (options.isBestEffortFallback) {
+			// Pi fallback inventory is best-effort: unreadable skill roots should behave like
+			// absent roots so doctor diagnostics can continue from the remaining registry sources.
+			return [];
 		}
-		return names;
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return [];
 		return [];
 	}
 }

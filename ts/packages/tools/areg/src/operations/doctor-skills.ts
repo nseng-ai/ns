@@ -6,15 +6,17 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckSkillInspection,
+	AregPathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
+	AregTextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { verifyPiReplacement } from "./pi-replacement.ts";
+import { derivePiReplacementCommand } from "./pi-replacement.ts";
 import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
 
@@ -50,8 +52,8 @@ export interface DoctorSkillsInspection {
 	skillInventory: AregSkillNameInventory;
 	piSkillInventory: AregPiSkillInventoryInspection;
 	replacement: AregReplacementInspection;
-	piDir: Parameters<typeof parsePiSettings>[0];
-	piSettings: Parameters<typeof parsePiSettings>[1];
+	piDir: AregPathState;
+	piSettings: AregTextFileState;
 	checkSkills: readonly AregCheckSkillInspection[];
 	skillKindSkills: readonly AregSkillKindSkillInspection[];
 }
@@ -352,48 +354,52 @@ function replacementFindings(
 	);
 	for (const record of records) {
 		if (record.artifacts.isPiExcluded && !record.replacement.verified) {
-			findings.push({
-				code: "pi-replacement-missing-surface",
-				severity: "error",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} is excluded from Pi skills but has no verified replacement command.`,
-				remediation: `Run areg skill apply command-backed ${record.skill} after adding the replacement command, or remove the Pi exclusion if the skill should stay model-facing.`,
-			});
-			findings.push({
-				code: "excluded-skill-without-replacement",
-				severity: "error",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} is excluded in .pi/settings.json without a verified replacement surface.`,
-				remediation:
-					"Add the replacement Pi command surface and keep the exclusion, or remove the exclusion.",
-			});
+			findings.push(
+				replacementFinding(record.skill, record.replacement.surface, {
+					code: "excluded-skill-without-replacement",
+					severity: "error",
+					message: `${record.skill} is excluded in .pi/settings.json without a verified replacement surface.`,
+					remediation:
+						"Add the replacement Pi command surface and keep the exclusion, or remove the exclusion.",
+				}),
+			);
 		}
 		if (record.replacement.verified && !record.artifacts.isPiExcluded) {
-			findings.push({
-				code: "command-backed-skill-not-excluded",
-				severity: "warning",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} has a verified replacement command but is not excluded from Pi skill discovery.`,
-				remediation: `Run areg skill apply command-backed ${record.skill} if this skill is command-backed, or remove the stale replacement surface expectation.`,
-			});
+			findings.push(
+				replacementFinding(record.skill, record.replacement.surface, {
+					code: "command-backed-skill-not-excluded",
+					severity: "warning",
+					message: `${record.skill} has a verified replacement command but is not excluded from Pi skill discovery.`,
+					remediation: `Run areg skill apply command-backed ${record.skill} if this skill is command-backed, or remove the stale replacement surface expectation.`,
+				}),
+			);
 		}
 	}
 	for (const skill of [...excludedSkills].sort()) {
 		if (records.some((record) => record.skill === skill)) continue;
-		const replacement = verifyPiReplacement(skill, { verifiedSurfaces: [] });
-		findings.push({
-			code: "excluded-skill-without-replacement",
-			severity: "error",
-			skill,
-			...optionalEntry("surface", replacement.surface),
-			message: `${skill} is excluded in .pi/settings.json but was not found in areg's skill inventory.`,
-			remediation: "Remove the stale exclusion or restore the skill and its replacement command.",
-		});
+		const surface = derivePiReplacementCommand(skill);
+		findings.push(
+			replacementFinding(skill, surface, {
+				code: "excluded-skill-without-replacement",
+				severity: "error",
+				message: `${skill} is excluded in .pi/settings.json but was not found in areg's skill inventory.`,
+				remediation: "Remove the stale exclusion or restore the skill and its replacement command.",
+			}),
+		);
 	}
 	return findings;
+}
+
+function replacementFinding(
+	skill: string,
+	surface: string | undefined,
+	finding: Pick<DoctorSkillFinding, "code" | "severity" | "message" | "remediation">,
+): DoctorSkillFinding {
+	return {
+		...finding,
+		skill,
+		...optionalEntry("surface", surface),
+	};
 }
 
 function rootsForSkill(inventory: AregSkillNameInventory, skillName: string): string[] {
