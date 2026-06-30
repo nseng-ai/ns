@@ -687,9 +687,9 @@ describe("slot gt exec stack-map-branches CLI", () => {
 });
 
 interface QuiescenceScenarioOptions {
-	readonly stack?: ReturnType<typeof fakeStackInfo> | undefined;
-	readonly git?: ScenarioRunOptions["git"] | undefined;
-	readonly gt?: ScenarioRunOptions["gt"] | undefined;
+	readonly stack?: ReturnType<typeof fakeStackInfo>;
+	readonly git?: ScenarioRunOptions["git"];
+	readonly gt?: ScenarioRunOptions["gt"];
 }
 
 function runQuiescenceScenario(args: readonly string[], options: QuiescenceScenarioOptions = {}) {
@@ -735,12 +735,12 @@ function jsonBlockerTypes(output: unknown): readonly string[] {
 }
 
 interface StackMapScenarioOptions {
-	readonly rows?: readonly GraphiteBranchTopology[] | undefined;
-	readonly diagnostics?: GraphiteTopologyParseDiagnostics | undefined;
-	readonly stack?: ReturnType<typeof fakeStackInfo> | undefined;
-	readonly git?: ScenarioRunOptions["git"] | undefined;
-	readonly gt?: ScenarioRunOptions["gt"] | undefined;
-	readonly repo?: ScenarioRunOptions["repo"] | undefined;
+	readonly rows?: readonly GraphiteBranchTopology[];
+	readonly diagnostics?: GraphiteTopologyParseDiagnostics;
+	readonly stack?: ReturnType<typeof fakeStackInfo>;
+	readonly git?: ScenarioRunOptions["git"];
+	readonly gt?: ScenarioRunOptions["gt"];
+	readonly repo?: ScenarioRunOptions["repo"];
 }
 
 function runStackMapScenario(args: readonly string[], options: StackMapScenarioOptions = {}) {
@@ -764,7 +764,7 @@ function runStackMapScenario(args: readonly string[], options: StackMapScenarioO
 					diagnostics: options.diagnostics,
 				};
 	return runScenario(args, {
-		repo: options.repo,
+		...(options.repo === undefined ? {} : { repo: options.repo }),
 		git,
 		gt: {
 			stack: {

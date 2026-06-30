@@ -27,18 +27,18 @@ import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";
 
 export interface ScenarioRunOptions {
-	git?: FakeSlotRepositoryGatewayOptions | undefined;
-	gt?: FakeGraphiteStackGatewayOptions | undefined;
-	pr?: FakeSlotPrGatewayOptions | undefined;
-	cwd?: string | undefined;
-	stdin?: string | (() => Promise<string | null>) | undefined;
-	confirmations?: readonly ConfirmationResult[] | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	repo?: RepoContext | { type: "no_repo"; errorType: "not-in-repo"; message: string } | undefined;
-	clipboardResult?: ClipboardCopyResult | undefined;
-	command?: FakeSlotCommandGatewayOptions | undefined;
-	canEmitAnsi?: boolean | undefined;
-	caps?: Caps | undefined;
+	git?: FakeSlotRepositoryGatewayOptions;
+	gt?: FakeGraphiteStackGatewayOptions;
+	pr?: FakeSlotPrGatewayOptions;
+	cwd?: string;
+	stdin?: string | (() => Promise<string | null>);
+	confirmations?: readonly ConfirmationResult[];
+	env?: NodeJS.ProcessEnv;
+	repo?: RepoContext | { type: "no_repo"; errorType: "not-in-repo"; message: string };
+	clipboardResult?: ClipboardCopyResult;
+	command?: FakeSlotCommandGatewayOptions;
+	canEmitAnsi?: boolean;
+	caps?: Caps;
 }
 
 export interface ScenarioRun {
