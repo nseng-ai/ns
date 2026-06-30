@@ -1,5 +1,5 @@
-import { checkBranchContextEntryPresence, type BranchContextAttachData } from "./branch-memory.ts";
-import { attachBranchContext, AttachBranchContextError } from "./attach.ts";
+import type { BranchContextAttachData } from "./branch-memory.ts";
+import { assertBrmemEntryAbsent, attachBranchContext, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
 import type { BrmemGateway } from "@sdl/brmem";
 import type { GraphiteBranchGateway } from "@sdl/graphite/branch";
@@ -100,11 +100,9 @@ export async function createBranchContextFromResolvedSource(
 ): Promise<BranchContextEvidence> {
 	const startPoint = await resolveStartPoint(options.git, options.cwd, options.signal);
 	await assertLocalBranchAbsent(options.git, options.cwd, options.operation.branch, options.signal);
-	await assertCreateTargetBranchMemoryAbsent(
-		options.brmem,
-		options.operation.branch,
-		options.operation.key,
-	);
+	await assertBrmemEntryAbsent(options.brmem, options.operation.branch, options.operation.key, {
+		formatPresentMessage: formatStaleTargetBranchMemoryMessage,
+	});
 	await createBranchContext(options.git, options.graphite, {
 		cwd: options.cwd,
 		method: options.operation.branchCreation,
@@ -313,28 +311,18 @@ async function assertLocalBranchAbsent(
 	throw new Error(check.error.message);
 }
 
-async function assertCreateTargetBranchMemoryAbsent(
-	brmem: BrmemGateway,
-	targetBranch: string,
-	key: string,
-): Promise<void> {
-	const check = await checkBranchContextEntryPresence(brmem, { branch: targetBranch, key });
-	if (check.type === "absent") {
-		return;
-	}
-	if (check.type === "present") {
-		throw new Error(
-			[
-				"Stale Branch Memory attachment exists for target branch; refusing to create branch context.",
-				"Local branch is absent, but Branch Memory already contains the attached plan key.",
-				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
-				`Branch: ${targetBranch}`,
-				`Key: ${key}`,
-				"Cleanup: run `brmem gc` to preview stale Branch Memory Snapshots, then `brmem gc --yes` to delete them.",
-			].join("\n"),
-		);
-	}
-	throw new Error(check.error.message);
+function formatStaleTargetBranchMemoryMessage(context: {
+	targetBranch: string;
+	key: string;
+}): string {
+	return [
+		"Stale Branch Memory attachment exists for target branch; refusing to create branch context.",
+		"Local branch is absent, but Branch Memory already contains the attached plan key.",
+		`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
+		`Branch: ${context.targetBranch}`,
+		`Key: ${context.key}`,
+		"Cleanup: run `brmem gc` to preview stale Branch Memory Snapshots, then `brmem gc --yes` to delete them.",
+	].join("\n");
 }
 
 interface CreateBranchContextOptions {

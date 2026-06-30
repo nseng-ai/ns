@@ -26,7 +26,11 @@ export type DeleteRequest = z.infer<typeof deleteRequestSchema>;
 export type DeleteResult = z.infer<typeof deleteResultSchema>;
 
 export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
-	const resolved = await resolveEntryRequest(ctx, request);
+	const resolved = await resolveEntryRequest(ctx, {
+		key: request.key,
+		branch: request.branch,
+		...(request.namespace === undefined ? {} : { namespace: request.namespace }),
+	});
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
 	const locator = mustEntryLocator(namespace, key, branch);

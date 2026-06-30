@@ -236,7 +236,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 
 	protected async collectEntries(options: {
 		allNamespaces: boolean;
-		namespace?: string | undefined;
+		namespace?: string;
 		key?: string | undefined;
 		branch?: string | undefined;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {

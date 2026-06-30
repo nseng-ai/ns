@@ -64,6 +64,10 @@ export interface AttachBranchContextOptions {
 	sourceFile: string;
 }
 
+interface BrmemEntryAbsentOptions {
+	formatPresentMessage?: (context: { targetBranch: string; key: string }) => string;
+}
+
 interface BranchContextPrimitiveResolution {
 	git: GitGateway;
 	brmem: BrmemGateway;
@@ -144,6 +148,7 @@ export async function assertBrmemEntryAbsent(
 	brmem: BrmemGateway,
 	targetBranch: string,
 	key: string,
+	options: BrmemEntryAbsentOptions = {},
 ): Promise<void> {
 	const check = await checkBranchContextEntryPresence(brmem, { branch: targetBranch, key });
 	if (check.type === "absent") {
@@ -151,15 +156,20 @@ export async function assertBrmemEntryAbsent(
 	}
 	if (check.type === "present") {
 		throw new Error(
-			[
-				"Attached plan already exists on target branch; refusing to overwrite.",
-				`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
-				`Branch: ${targetBranch}`,
-				`Key: ${key}`,
-			].join("\n"),
+			options.formatPresentMessage?.({ targetBranch, key }) ??
+				formatDefaultBrmemEntryPresentMessage(targetBranch, key),
 		);
 	}
 	throw new Error(check.error.message);
+}
+
+function formatDefaultBrmemEntryPresentMessage(targetBranch: string, key: string): string {
+	return [
+		"Attached plan already exists on target branch; refusing to overwrite.",
+		`Namespace: ${BRANCH_CONTEXT_NAMESPACE}`,
+		`Branch: ${targetBranch}`,
+		`Key: ${key}`,
+	].join("\n");
 }
 
 export async function attachBranchContext(
