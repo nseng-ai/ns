@@ -155,6 +155,47 @@ describe("PR checks preview vertical layout", () => {
 		expect(label).toContain("very long integration test name that should not be pre-truncated");
 		expect(label).not.toContain("…");
 	});
+
+	test("colors failing check rows distinctly from passing ones", () => {
+		const failing = previewCheck("typescript");
+		const passing: PrPreviewCheck = {
+			...failing,
+			name: "docs-build",
+			bucket: "passing",
+			conclusion: "SUCCESS",
+		};
+		const otherPassing: PrPreviewCheck = { ...passing, name: "areg-check" };
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: taggingTheme(),
+			model: previewModel([failing, passing, otherPassing]),
+			onClose: () => {},
+		});
+		view.handleInput("j");
+		view.handleInput("j");
+
+		const text = renderText(view);
+		expect(text).toContain("<b>[error]");
+		expect(text).toContain("[dim]");
+	});
+
+	test("renders markdown-lite bold headings and code spans in loaded log summaries", async () => {
+		const check = previewCheck("typescript");
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: taggingTheme(),
+			model: previewModel([check]),
+			onClose: () => {},
+			onLoadLogs: () => Promise.resolve(["**Failure:** `oxfmt --check` failed"]),
+		});
+
+		view.handleInput("l");
+		await flushPromises();
+
+		const details = selectedDetailsText(view);
+		expect(details).toContain("<b>[mdHeading]Failure:[/]</b>");
+		expect(details).toContain("[mdCode]oxfmt --check[/]");
+	});
 });
 
 function previewCheck(name: string): PrPreviewCheck {
@@ -206,6 +247,23 @@ function identityTheme(): Theme {
 		},
 		bg(_color: string, text: string): string {
 			return text;
+		},
+		bold(text: string): string {
+			return text;
+		},
+	} as Theme;
+}
+
+function taggingTheme(): Theme {
+	return {
+		fg(color: string, text: string): string {
+			return `[${color}]${text}[/]`;
+		},
+		bg(_color: string, text: string): string {
+			return text;
+		},
+		bold(text: string): string {
+			return `<b>${text}</b>`;
 		},
 	} as Theme;
 }

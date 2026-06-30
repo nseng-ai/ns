@@ -47,6 +47,46 @@ export interface PrPreviewChecksViewModel {
 export interface PrPreviewChecksDetailRow {
 	role: "finding" | "review" | "body" | "evidence" | "source" | "comment" | "spacer";
 	text: string;
+	bucket?: PrPreviewCheckBucket;
+}
+
+export type PrPreviewStatusColor = "error" | "warning" | "muted" | "dim";
+
+export function bucketThemeColor(bucket: PrPreviewCheckBucket): PrPreviewStatusColor {
+	switch (bucket) {
+		case "failing":
+			return "error";
+		case "pending":
+			return "warning";
+		case "unknown":
+			return "muted";
+		case "passing":
+			return "dim";
+	}
+}
+
+export type MarkdownLiteSegment =
+	| { kind: "bold"; text: string }
+	| { kind: "code"; text: string }
+	| { kind: "plain"; text: string };
+
+const MARKDOWN_LITE_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+
+export function parseMarkdownLiteLine(line: string): MarkdownLiteSegment[] {
+	const segments: MarkdownLiteSegment[] = [];
+	let lastIndex = 0;
+	for (const match of line.matchAll(MARKDOWN_LITE_PATTERN)) {
+		const matchIndex = match.index;
+		if (matchIndex > lastIndex)
+			segments.push({ kind: "plain", text: line.slice(lastIndex, matchIndex) });
+		const [, bold, code] = match;
+		segments.push(
+			bold !== undefined ? { kind: "bold", text: bold } : { kind: "code", text: code ?? "" },
+		);
+		lastIndex = matchIndex + match[0].length;
+	}
+	if (lastIndex < line.length) segments.push({ kind: "plain", text: line.slice(lastIndex) });
+	return segments;
 }
 
 export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewCheck[] {
@@ -84,7 +124,7 @@ export function buildCheckDetailRows(
 	if (check === undefined) return [{ role: "body", text: "No check selected." }];
 	return [
 		{ role: "finding", text: check.name },
-		{ role: "review", text: `Bucket: ${check.bucket} · Kind: ${check.kind}` },
+		{ role: "review", text: `Bucket: ${check.bucket} · Kind: ${check.kind}`, bucket: check.bucket },
 		{ role: "spacer", text: "" },
 		...fieldRows([
 			["Workflow", check.workflow_name],

@@ -3,8 +3,10 @@ import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import {
+	bucketThemeColor,
 	buildCheckDetailRows,
 	buildCheckRowLabel,
+	parseMarkdownLiteLine,
 	type PrPreviewChecksDetailRow,
 	type PrPreviewCheck,
 	type PrPreviewChecksViewModel,
@@ -20,7 +22,16 @@ const FALLBACK_TERMINAL_ROWS = 24;
 const MIN_RENDER_WIDTH = 40;
 const DEFAULT_LOG_LOAD_TIMEOUT_MS = 90_000;
 
-type PreviewThemeColor = "text" | "muted" | "accent" | "warning" | "dim" | "border";
+type PreviewThemeColor =
+	| "text"
+	| "muted"
+	| "accent"
+	| "warning"
+	| "dim"
+	| "border"
+	| "error"
+	| "mdHeading"
+	| "mdCode";
 type CheckLogCacheEntry =
 	| { type: "loading" }
 	| { type: "loaded"; lines: readonly string[] }
@@ -190,10 +201,28 @@ export class PrPreviewChecksView implements Component {
 				),
 			];
 		}
-		if (cached?.type === "loaded" || cached?.type === "failed") {
-			return cached.lines.map((line) => this.color("text", line));
+		if (cached?.type === "loaded") {
+			return cached.lines.map((line) => this.renderMarkdownLiteLine(line));
+		}
+		if (cached?.type === "failed") {
+			return cached.lines.map((line) => this.color("error", line));
 		}
 		return buildCheckDetailRows(check).map((row) => this.renderDetailLine(row));
+	}
+
+	private renderMarkdownLiteLine(line: string): string {
+		return parseMarkdownLiteLine(line)
+			.map((segment) => {
+				switch (segment.kind) {
+					case "bold":
+						return this.theme.bold(this.color("mdHeading", segment.text));
+					case "code":
+						return this.color("mdCode", segment.text);
+					case "plain":
+						return this.color("text", segment.text);
+				}
+			})
+			.join("");
 	}
 
 	private renderDetailLine(row: PrPreviewChecksDetailRow): string {
@@ -201,7 +230,10 @@ export class PrPreviewChecksView implements Component {
 			case "finding":
 				return this.color("accent", `▣ ${row.text}`);
 			case "review":
-				return this.color("muted", `  ${row.text}`);
+				return this.color(
+					row.bucket === undefined ? "muted" : bucketThemeColor(row.bucket),
+					`  ${row.text}`,
+				);
 			case "body":
 				return this.color("text", `  │ ${row.text}`);
 			case "evidence":
@@ -218,7 +250,10 @@ export class PrPreviewChecksView implements Component {
 	private renderCheckRow(check: PrPreviewCheck, actualIndex: number, width: number): string {
 		const prefix = actualIndex === this.selectedIndex ? "> " : "  ";
 		const row = fitToWidth(`${prefix}${buildCheckRowLabel(check)}`, width);
-		if (actualIndex !== this.selectedIndex) return this.color("text", row);
+		if (actualIndex !== this.selectedIndex) {
+			const colored = this.color(bucketThemeColor(check.bucket), row);
+			return check.bucket === "failing" ? this.theme.bold(colored) : colored;
+		}
 		return this.theme.bg("selectedBg", this.color("accent", row));
 	}
 
