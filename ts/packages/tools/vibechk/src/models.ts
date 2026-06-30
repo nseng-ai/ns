@@ -134,7 +134,7 @@ export function parseRunBundle(data: unknown): RunBundle {
 			repoRoot: parsed.git.repo_root,
 			startingBranch: parsed.git.starting_branch,
 			startingCommit: parsed.git.starting_commit,
-			remotes: parsed.git.remotes as Record<string, string>,
+			remotes: parsed.git.remotes,
 		},
 		metrics: {
 			wallTimeSeconds: parsed.metrics.wall_time_seconds,
