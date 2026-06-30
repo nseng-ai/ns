@@ -1,3 +1,4 @@
+import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
 	BranchLandingPlan,
 	DescendantMaintenancePlan,
@@ -5,7 +6,6 @@ import type {
 	LandOutcome,
 	LandResult,
 	LandingDomainFailure,
-	LandingFailure,
 	LandingOutcome,
 	LandingPhaseOutcome,
 	LandingPlan,
@@ -32,13 +32,13 @@ export async function buildStackLandingPlan(
 	options: BuildStackLandingPlanOptions = {},
 ): Promise<LandResult<LandingPlan>> {
 	const shape = options.preloadedShape
-		? success(options.preloadedShape)
+		? landSuccess(options.preloadedShape)
 		: await loadLandingShape(context, cwd);
 	if (shape.type === "failure") return shape;
 
 	const stack = scopeStackSnapshot(shape.value.stack, options.landingBranchLimit);
 	if (stack.actualCurrentBranch === stack.trunk || stack.landingBranches.length === 0) {
-		return failure(
+		return landFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "nothing-to-land",
@@ -78,7 +78,7 @@ export async function buildStackLandingPlan(
 		(conflict) => conflict.type === "manual-worktree",
 	);
 	if (landingManualConflicts.length > 0) {
-		return failure(
+		return landFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "manual-worktree-conflict",
@@ -93,7 +93,7 @@ export async function buildStackLandingPlan(
 		stack.remainingLandingBranches.length > 0 ? [] : stack.descendantBranches;
 	const descendantConflicts =
 		descendantBranches.length === 0
-			? success([])
+			? landSuccess([])
 			: await detectWorktreeConflicts({
 					context,
 					repoRoot: shape.value.repoRoot,
@@ -104,7 +104,7 @@ export async function buildStackLandingPlan(
 
 	const submitRestackRequirements =
 		prSubmitRequirements.length === 0
-			? success([])
+			? landSuccess([])
 			: await collectSubmitRestackRequirements(context, shape.value.repoRoot, stack);
 	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
 
@@ -113,7 +113,7 @@ export async function buildStackLandingPlan(
 		descendantBranches,
 		descendantConflicts.value,
 	);
-	return success({
+	return landSuccess({
 		repoRoot: shape.value.repoRoot,
 		metadataDbPath: shape.value.metadataDbPath,
 		stack,
@@ -138,7 +138,7 @@ export async function calculateLandingOutcome(
 	request: LandingRequest,
 ): Promise<LandResult<LandingOutcome>> {
 	if (request.target.type !== "stack") {
-		return failure({
+		return landFailure({
 			type: "not-implemented",
 			phase: "preflight",
 			message: "sdl-land preflight planning currently supports stack landing targets only.",
@@ -152,7 +152,7 @@ export async function calculateLandingOutcome(
 			: { landingBranchLimit: request.target.landingBranchLimit }),
 	});
 	if (plan.type === "failure") {
-		return failure(plan.failure);
+		return landFailure(plan.failure);
 	}
 
 	const phases: LandingPhaseOutcome[] = [
@@ -166,7 +166,7 @@ export async function calculateLandingOutcome(
 		phases.push({ type: "skipped", phase: "merge", reason: "merge execution remains in Flow" });
 	}
 
-	return success({
+	return landSuccess({
 		repoRoot: plan.value.repoRoot,
 		target: request.target,
 		mode: request.mode,
@@ -223,7 +223,7 @@ async function loadLandingShape(
 		liveLocalBranches: branches.value.map((branch) => branch.name),
 	});
 	if (stack.type === "failure") return stack;
-	return success({
+	return landSuccess({
 		repoRoot: repoRoot.value,
 		current: current.value,
 		trunk: trunk.value,
@@ -236,7 +236,7 @@ async function assertCleanRepo(context: LandContext, repoRoot: string): Promise<
 	const status = await context.git.workingTreeStatus({ repoRoot });
 	if (status.type === "failure") return status;
 	if (status.value.inProgressOperation !== undefined) {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "operation-in-progress",
@@ -245,7 +245,7 @@ async function assertCleanRepo(context: LandContext, repoRoot: string): Promise<
 		);
 	}
 	if (!status.value.isClean) {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "dirty-worktree",
@@ -253,7 +253,7 @@ async function assertCleanRepo(context: LandContext, repoRoot: string): Promise<
 			}),
 		);
 	}
-	return { type: "completed" };
+	return landCompleted();
 }
 
 async function loadBranchPlans(
@@ -269,10 +269,10 @@ async function loadBranchPlans(
 		if (pr.type === "failure") return pr;
 		branchPlans.push({ branch, localSha: localSha.value, pr: pr.value });
 	}
-	return success(branchPlans);
+	return landSuccess(branchPlans);
 }
 
-function validateInitialPrPreflight(
+export function validateInitialPrPreflight(
 	branchPlans: readonly BranchLandingPlan[],
 	trunk: string,
 	options: { readonly shouldAllowSubmitRequiredState?: boolean } = {},
@@ -292,7 +292,7 @@ function validateInitialPrPreflight(
 			branchPlan.pr.baseRefName !== trunk &&
 			!options.shouldAllowSubmitRequiredState
 		) {
-			return failure(
+			return landOutcomeFailure(
 				domainFailure({
 					phase: "preflight",
 					reason: "pull-request-base-mismatch",
@@ -303,10 +303,10 @@ function validateInitialPrPreflight(
 			);
 		}
 	}
-	return { type: "completed" };
+	return landCompleted();
 }
 
-function validateOpenPrBasics(input: {
+export function validateOpenPrBasics(input: {
 	readonly branch: string;
 	readonly localSha: string;
 	readonly pr: PullRequestFacts;
@@ -314,7 +314,7 @@ function validateOpenPrBasics(input: {
 }): LandOutcome {
 	const { branch, localSha, pr } = input;
 	if (pr.state !== "OPEN") {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "pull-request-not-open",
@@ -325,7 +325,7 @@ function validateOpenPrBasics(input: {
 		);
 	}
 	if (pr.isDraft) {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "pull-request-draft",
@@ -336,7 +336,7 @@ function validateOpenPrBasics(input: {
 		);
 	}
 	if (pr.headRefName !== branch) {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "pull-request-head-mismatch",
@@ -347,7 +347,7 @@ function validateOpenPrBasics(input: {
 		);
 	}
 	if (pr.headRefOid !== localSha && !input.allowHeadShaMismatch) {
-		return failure(
+		return landOutcomeFailure(
 			domainFailure({
 				phase: "preflight",
 				reason: "pull-request-head-mismatch",
@@ -358,7 +358,7 @@ function validateOpenPrBasics(input: {
 			}),
 		);
 	}
-	return { type: "completed" };
+	return landCompleted();
 }
 
 export function collectPrSubmitRequirements(
@@ -414,7 +414,7 @@ async function detectWorktreeConflicts(
 		if (conflict.type === "failure") return conflict;
 		conflicts.push(conflict.value);
 	}
-	return success(conflicts);
+	return landSuccess(conflicts);
 }
 
 interface ClassifyConflictOptions {
@@ -429,7 +429,7 @@ async function classifyConflict(
 ): Promise<LandResult<WorktreeConflict>> {
 	const { context, repoRoot, currentBranch, worktree } = options;
 	if (worktree.branch === currentBranch && worktree.path === repoRoot) {
-		return success({ type: "current", branch: worktree.branch, path: worktree.path });
+		return landSuccess({ type: "current", branch: worktree.branch, path: worktree.path });
 	}
 	const classification = await context.worktrees.classifyWorktree({
 		repoRoot,
@@ -438,7 +438,7 @@ async function classifyConflict(
 	});
 	if (classification.type === "failure") return classification;
 	if (classification.value.type === "managed-slot") {
-		return success({
+		return landSuccess({
 			type: "managed-slot",
 			branch: worktree.branch ?? "",
 			path: worktree.path,
@@ -446,12 +446,16 @@ async function classifyConflict(
 		});
 	}
 	if (classification.value.type === "current") {
-		return success({ type: "current", branch: worktree.branch ?? "", path: worktree.path });
+		return landSuccess({ type: "current", branch: worktree.branch ?? "", path: worktree.path });
 	}
-	return success({ type: "manual-worktree", branch: worktree.branch ?? "", path: worktree.path });
+	return landSuccess({
+		type: "manual-worktree",
+		branch: worktree.branch ?? "",
+		path: worktree.path,
+	});
 }
 
-function buildDescendantMaintenancePlan(
+export function buildDescendantMaintenancePlan(
 	descendantBranches: readonly string[],
 	conflicts: readonly WorktreeConflict[],
 ): DescendantMaintenancePlan {
@@ -485,7 +489,7 @@ async function collectSubmitRestackRequirements(
 		if (containsParent.type === "failure") return containsParent;
 		if (!containsParent.value) requirements.push(edge);
 	}
-	return success(requirements);
+	return landSuccess(requirements);
 }
 
 export function landingParentEdges(stack: StackSnapshot): readonly RestackRequirement[] {
@@ -495,7 +499,7 @@ export function landingParentEdges(stack: StackSnapshot): readonly RestackRequir
 	}));
 }
 
-function formatManualWorktreeConflict(conflicts: readonly WorktreeConflict[]): string {
+export function formatManualWorktreeConflict(conflicts: readonly WorktreeConflict[]): string {
 	if (conflicts.length === 1) {
 		const conflict = conflicts[0];
 		return `Branch ${conflict?.branch ?? "unknown"} is checked out in non-slot worktree ${conflict?.path ?? "unknown"}; detach it manually and rerun.`;
@@ -516,17 +520,6 @@ function copyWarning(warning: LandingWarning): LandingWarning {
 		message: warning.message,
 		...(warning.suggestedAction === undefined ? {} : { suggestedAction: warning.suggestedAction }),
 	};
-}
-
-function success<T>(value: T): LandResult<T> {
-	return { type: "success", value };
-}
-
-function failure(failureValue: LandingFailure): {
-	readonly type: "failure";
-	readonly failure: LandingFailure;
-} {
-	return { type: "failure", failure: failureValue };
 }
 
 function domainFailure(input: Omit<LandingDomainFailure, "type">): LandingDomainFailure {

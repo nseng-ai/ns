@@ -1,4 +1,5 @@
 import { formatCommand } from "@sdl/exec";
+import { collectPrSubmitRequirements } from "sdl-land/api";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
@@ -175,37 +176,7 @@ export function validateOpenPrBasics(input: {
 	return completed();
 }
 
-export function collectPrSubmitRequirements(
-	branchPlans: BranchPlan[],
-	trunk: string,
-): PrSubmitRequirement[] {
-	const requirements: PrSubmitRequirement[] = [];
-	for (let index = 0; index < branchPlans.length; index += 1) {
-		const branchPlan = branchPlans[index];
-		if (!branchPlan) continue;
-		const { branch, localSha, pr } = branchPlan;
-		const expectedBaseRefName = index === 0 ? trunk : undefined;
-		const reasons: string[] = [];
-		if (pr.headRefOid !== localSha) {
-			reasons.push(`head ${shortSha(pr.headRefOid)} != local ${shortSha(localSha)}`);
-		}
-		if (expectedBaseRefName && pr.baseRefName !== expectedBaseRefName) {
-			reasons.push(`base ${pr.baseRefName} != ${expectedBaseRefName}`);
-		}
-		if (reasons.length > 0) {
-			requirements.push({
-				branch,
-				prNumber: pr.number,
-				localSha,
-				prHeadSha: pr.headRefOid,
-				baseRefName: pr.baseRefName,
-				...(expectedBaseRefName === undefined ? {} : { expectedBaseRefName }),
-				reasons,
-			});
-		}
-	}
-	return requirements;
-}
+export { collectPrSubmitRequirements };
 
 export function formatPrSubmitRequirement(requirement: PrSubmitRequirement): string {
 	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;

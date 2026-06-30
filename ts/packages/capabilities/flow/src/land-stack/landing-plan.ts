@@ -1,5 +1,11 @@
 import { formatCommand } from "@sdl/exec";
-import { buildStackLandingPlan } from "sdl-land/api";
+import {
+	buildStackLandingPlan,
+	landCompleted,
+	landFailure,
+	landOutcomeFailure,
+	landSuccess,
+} from "sdl-land/api";
 import type {
 	LandContext,
 	LandingFailure,
@@ -100,39 +106,33 @@ function createLandContext(pi: LandStackExtensionAPI): LandContext {
 			stackShape: async (request) => {
 				const shape = await loadLandingShape(pi, request.repoRoot);
 				if (shape.type === "failure") return toLandResult(shape, "graphite");
-				return {
-					type: "success",
-					value: {
-						...shape.value.stack,
-						warnings: shape.value.stack.warnings.map((message) => ({ level: "warning", message })),
-					},
-				};
+				return landSuccess({
+					...shape.value.stack,
+					warnings: shape.value.stack.warnings.map((message) => ({ level: "warning", message })),
+				});
 			},
-			prepareSubmitUpdate: async () => ({ type: "completed" }),
-			prepareRestackForSubmit: async () => ({ type: "completed" }),
+			prepareSubmitUpdate: async () => landCompleted(),
+			prepareRestackForSubmit: async () => landCompleted(),
 		},
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
 				const pr = await loadPr(pi, repoRoot, branchOrNumber);
 				if (pr.type === "failure") return toLandResult(pr, "github");
-				return {
-					type: "success",
-					value: {
-						number: pr.value.number,
-						title: pr.value.title,
-						body: pr.value.body,
-						state: pr.value.state,
-						isDraft: pr.value.isDraft,
-						headRefName: pr.value.headRefName,
-						baseRefName: pr.value.baseRefName,
-						headRefOid: pr.value.headRefOid,
-						...(pr.value.mergeStateStatus === undefined
-							? {}
-							: { mergeStateStatus: pr.value.mergeStateStatus }),
-						...(pr.value.url === undefined ? {} : { url: pr.value.url }),
-						...(pr.value.mergedAt === undefined ? {} : { mergedAt: pr.value.mergedAt }),
-					},
-				};
+				return landSuccess({
+					number: pr.value.number,
+					title: pr.value.title,
+					body: pr.value.body,
+					state: pr.value.state,
+					isDraft: pr.value.isDraft,
+					headRefName: pr.value.headRefName,
+					baseRefName: pr.value.baseRefName,
+					headRefOid: pr.value.headRefOid,
+					...(pr.value.mergeStateStatus === undefined
+						? {}
+						: { mergeStateStatus: pr.value.mergeStateStatus }),
+					...(pr.value.url === undefined ? {} : { url: pr.value.url }),
+					...(pr.value.mergedAt === undefined ? {} : { mergedAt: pr.value.mergedAt }),
+				});
 			},
 		},
 		worktrees: {
@@ -155,18 +155,15 @@ async function loadWorkingTreeStatus(
 		timeoutMs: GIT_TIMEOUT_MS,
 	});
 	if (status.code !== 0) {
-		return landFailure("git", `Could not inspect working tree status.`);
+		return landBoundaryFailureResult("git", `Could not inspect working tree status.`);
 	}
 	if (status.stdout.trim().length > 0) {
-		return { type: "success", value: { isClean: false } };
+		return landSuccess({ isClean: false });
 	}
 
 	const operation = await detectInProgressOperation(pi, repoRoot);
-	if (operation === undefined) return { type: "success", value: { isClean: true } };
-	return {
-		type: "success",
-		value: { isClean: true, inProgressOperation: toLandOperation(operation) },
-	};
+	if (operation === undefined) return landSuccess({ isClean: true });
+	return landSuccess({ isClean: true, inProgressOperation: toLandOperation(operation) });
 }
 
 async function loadLocalBranchExists(
@@ -175,8 +172,8 @@ async function loadLocalBranchExists(
 	branch: string,
 ): Promise<LandOutcome> {
 	const result = await assertLocalBranchExists(pi, repoRoot, branch);
-	if (result.type === "success") return { type: "completed" };
-	return { type: "failure", failure: toLandFailure(result.failure, "git") };
+	if (result.type === "success") return landCompleted();
+	return landOutcomeFailure(toLandFailure(result.failure, "git"));
 }
 
 async function loadLocalBranches(
@@ -185,10 +182,7 @@ async function loadLocalBranches(
 ): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
 	const branches = await loadLiveLocalBranches(pi, repoRoot);
 	if (branches.type === "failure") return toLandResult(branches, "git");
-	return {
-		type: "success",
-		value: [...branches.value].map((name) => ({ name, sha: "" })),
-	};
+	return landSuccess([...branches.value].map((name) => ({ name, sha: "" })));
 }
 
 interface LoadBranchContainsParentOptions {
@@ -201,18 +195,27 @@ interface LoadBranchContainsParentOptions {
 async function loadBranchContainsParent(
 	options: LoadBranchContainsParentOptions,
 ): Promise<LandResult<boolean>> {
-	const result = await collectSubmitRestackRequirements(options.pi, options.repoRoot, {
-		trunk: options.parent,
-		current: options.branch,
-		actualCurrentBranch: options.branch,
-		landingTargetBranch: options.branch,
-		landingBranches: [options.branch],
-		remainingLandingBranches: [],
-		descendantBranches: [],
-		warnings: [],
+	const args = [
+		"rev-list",
+		"-1",
+		localBranchRef(options.parent),
+		"--not",
+		localBranchRef(options.branch),
+	];
+	const result = await exec({
+		pi: options.pi,
+		command: "git",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
 	});
-	if (result.type === "failure") return toLandResult(result, "git");
-	return { type: "success", value: result.value.length === 0 };
+	if (result.code !== 0) {
+		return landBoundaryFailureResult(
+			"git",
+			`Could not inspect whether ${options.branch} contains parent ${options.parent}.`,
+		);
+	}
+	return landSuccess(result.stdout.trim().length === 0);
 }
 
 function classifyWorktree(
@@ -222,15 +225,14 @@ function classifyWorktree(
 	const normalizedPath = normalizeExistingPath(path);
 	const normalizedRepoRoot = normalizeExistingPath(repoRoot);
 	if (normalizedPath === normalizedRepoRoot) {
-		return Promise.resolve({ type: "success", value: { type: "current" } });
+		return Promise.resolve(landSuccess({ type: "current" }));
 	}
 	if (isManagedSlotPath(path)) {
-		return Promise.resolve({
-			type: "success",
-			value: { type: "managed-slot", slotName: slotNameFromPath(path) ?? "slot" },
-		});
+		return Promise.resolve(
+			landSuccess({ type: "managed-slot", slotName: slotNameFromPath(path) ?? "slot" }),
+		);
 	}
-	return Promise.resolve({ type: "success", value: { type: "manual-worktree" } });
+	return Promise.resolve(landSuccess({ type: "manual-worktree" }));
 }
 
 function toLandOperation(operation: string): "cherry-pick" | "merge" | "rebase" | "revert" {
@@ -242,20 +244,20 @@ function toLandOperation(operation: string): "cherry-pick" | "merge" | "rebase" 
 
 function toLandResult<T>(result: LandStackResult<T>, source: LandingFailureSource): LandResult<T> {
 	if (result.type === "success") return result;
-	return { type: "failure", failure: toLandFailure(result.failure, source) };
+	return landFailure(toLandFailure(result.failure, source));
 }
 
-function landFailure(source: LandingFailureSource, message: string): LandResult<never> {
-	return {
-		type: "failure",
-		failure: {
-			type: "boundary",
-			phase: "preflight",
-			source,
-			code: "flow-adapter-failure",
-			message,
-		},
-	};
+function landBoundaryFailureResult(
+	source: LandingFailureSource,
+	message: string,
+): LandResult<never> {
+	return landFailure({
+		type: "boundary",
+		phase: "preflight",
+		source,
+		code: "flow-adapter-failure",
+		message,
+	});
 }
 
 function toLandFailure(
