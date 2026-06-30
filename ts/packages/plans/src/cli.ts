@@ -71,14 +71,14 @@ interface NoSavedPlanData {
 type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
 
 export interface CliDeps {
-	commands?: CommandExecApi | undefined;
-	git?: GitGateway | undefined;
-	cwd?: string | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	stdin?: (() => Promise<string>) | undefined;
-	planStoreRoot?: string | undefined;
-	planStoreGateway?: PlanStoreGateway | undefined;
+	commands?: CommandExecApi;
+	git?: GitGateway;
+	cwd?: string;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	stdin?: () => Promise<string>;
+	planStoreRoot?: string;
+	planStoreGateway?: PlanStoreGateway;
 }
 
 export interface PlansCliContext {

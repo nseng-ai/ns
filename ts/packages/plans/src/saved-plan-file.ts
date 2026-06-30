@@ -27,11 +27,11 @@ export interface SavedPlanFileParams {
 
 export interface PlanStoreOptions {
 	cwd: string;
-	signal?: AbortSignal | undefined;
-	planStoreRoot?: string | undefined;
+	signal?: AbortSignal;
+	planStoreRoot?: string;
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
-	git?: GitGateway | undefined;
-	planStoreGateway?: PlanStoreGateway | undefined;
+	git?: GitGateway;
+	planStoreGateway?: PlanStoreGateway;
 }
 
 export interface PlanStoreRepoEvidence {

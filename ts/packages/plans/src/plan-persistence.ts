@@ -74,15 +74,15 @@ export function normalizePlanFilePath(rawPath: string): string {
 export interface ResolvePlanSourceFileOptions {
 	cwd: string;
 	rawFilePath: string;
-	signal?: AbortSignal | undefined;
-	git?: GitGateway | undefined;
-	planStoreGateway?: PlanStoreGateway | undefined;
+	signal?: AbortSignal;
+	git?: GitGateway;
+	planStoreGateway?: PlanStoreGateway;
 }
 
 export interface ResolveGitRepoRootOptions {
 	cwd: string;
-	signal?: AbortSignal | undefined;
-	git?: GitGateway | undefined;
+	signal?: AbortSignal;
+	git?: GitGateway;
 }
 
 export async function resolvePlanSourceFile(
@@ -107,7 +107,11 @@ export async function resolvePlanSourceFile(
 	}
 
 	const realFilePath = await planStoreGateway.realpathOrResolve(normalizedPath);
-	const repoRoot = await resolveGitRepoRoot(pi, { cwd: options.cwd, signal: options.signal, git });
+	const repoRoot = await resolveGitRepoRoot(pi, {
+		cwd: options.cwd,
+		git,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
 	if (repoRoot !== undefined) {
 		const realRepoRoot = await planStoreGateway.realpathOrResolve(repoRoot);
 		if (isPathInside(realRepoRoot, realFilePath)) {

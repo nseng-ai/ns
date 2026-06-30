@@ -130,7 +130,7 @@ async function runWithFakes(
 				options.git ??
 				new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
 			commands: unusedCommands,
-			stdin: options.stdin,
+			...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
