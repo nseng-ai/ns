@@ -35,7 +35,7 @@ export interface AregCliContext {
 }
 
 export function createRealAregContext(
-	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+	options: { cwd?: string; env?: NodeJS.ProcessEnv } = {},
 ): AregCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;

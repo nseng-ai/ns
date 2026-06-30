@@ -47,7 +47,7 @@ const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
 export class RealAregProjectGateway implements AregProjectGateway {
 	private readonly git: GitGateway;
 
-	constructor(options: { git?: GitGateway | undefined } = {}) {
+	constructor(options: { git?: GitGateway } = {}) {
 		this.git = options.git ?? new RealGitGateway(new NodeCommandExecApi());
 	}
 
