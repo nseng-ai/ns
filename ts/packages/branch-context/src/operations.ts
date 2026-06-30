@@ -247,9 +247,9 @@ export async function handleLoad(
 				await writeFile(promptFile, implementationPrompt, "utf8");
 			}
 			const data = loadedPlanJson(plan, {
-				promptFile,
-				attachedPlanContent: request.includeContent === true ? plan.content : undefined,
-				implementationPrompt: request.includePrompt === true ? implementationPrompt : undefined,
+				...(promptFile === undefined ? {} : { promptFile }),
+				...(request.includeContent === true ? { attachedPlanContent: plan.content } : {}),
+				...(request.includePrompt === true ? { implementationPrompt } : {}),
 			});
 			return ok(data, { human: formatLoadPlanHuman(plan, promptFile, implementationPrompt) });
 		},
@@ -267,10 +267,10 @@ export async function handleAttach(
 			const evidence = await attachBranchContextEntry(
 				ctx.context.commands,
 				{
-					key: request.key,
-					filePath: request.file,
-					planSlug: request.plan,
-					branch: request.branch,
+					...(request.key === undefined ? {} : { key: request.key }),
+					...(request.file === undefined ? {} : { filePath: request.file }),
+					...(request.plan === undefined ? {} : { planSlug: request.plan }),
+					...(request.branch === undefined ? {} : { branch: request.branch }),
 				},
 				operationOptions(ctx),
 			);
@@ -288,7 +288,7 @@ export async function handleList(
 		operation: "list",
 		action: async () => {
 			const list = await listBranchContextEntries(
-				{ branch: request.branch },
+				{ ...(request.branch === undefined ? {} : { branch: request.branch }) },
 				operationOptions(ctx),
 			);
 			return ok(listJson(list), { human: formatListEvidence(list.branch, list.entries) });
@@ -304,7 +304,13 @@ export async function handleCheck(
 	return await runOperationCommand({
 		operation: "check",
 		action: async () => {
-			const evidence = await checkBranchContextEntry(request, operationOptions(ctx));
+			const evidence = await checkBranchContextEntry(
+				{
+					key: request.key,
+					...(request.branch === undefined ? {} : { branch: request.branch }),
+				},
+				operationOptions(ctx),
+			);
 			return ok(checkJson(evidence), { human: formatCheckEvidence(evidence) });
 		},
 		failureFromError: branchContextExitFromError,
@@ -318,7 +324,13 @@ export async function handleDelete(
 	return await runOperationCommand({
 		operation: "delete",
 		action: async () => {
-			const evidence = await deleteBranchContextEntry(request, operationOptions(ctx));
+			const evidence = await deleteBranchContextEntry(
+				{
+					key: request.key,
+					...(request.branch === undefined ? {} : { branch: request.branch }),
+				},
+				operationOptions(ctx),
+			);
 			return ok(deleteJson(evidence), { human: formatDeleteEvidence(evidence) });
 		},
 		failureFromError: branchContextExitFromError,
@@ -455,9 +467,9 @@ function branchContextJson(evidence: BranchContextEvidence): {
 }
 
 interface LoadedPlanJsonOptions {
-	promptFile?: string | undefined;
-	attachedPlanContent?: string | undefined;
-	implementationPrompt?: string | undefined;
+	promptFile?: string;
+	attachedPlanContent?: string;
+	implementationPrompt?: string;
 }
 
 function listJson(list: BranchContextListEvidence): {
