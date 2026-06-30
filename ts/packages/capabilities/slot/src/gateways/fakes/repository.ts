@@ -20,21 +20,21 @@ export type FakeSlotGitOperation =
 	| { type: "detach-head"; path: string; ref: string };
 
 export interface FakeSlotRepositoryGatewayOptions {
-	existingPaths?: readonly string[] | undefined;
-	gitCommonDir?: string | null | undefined;
-	repositoryRoot?: string | undefined;
-	worktrees?: readonly WorktreeInfo[] | undefined;
-	branchOccupancies?: readonly WorktreeOccupancy[] | undefined;
-	dirtyPaths?: readonly string[] | undefined;
-	trunkBranch?: string | undefined;
-	localBranches?: readonly string[] | undefined;
-	localBranchTips?: readonly LocalBranchTip[] | undefined;
-	previousBranches?: Readonly<Record<string, string | null>> | undefined;
-	currentBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
-	checkoutFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
-	detachFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
-	createBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
-	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>> | undefined;
+	existingPaths?: readonly string[];
+	gitCommonDir?: string | null;
+	repositoryRoot?: string;
+	worktrees?: readonly WorktreeInfo[];
+	branchOccupancies?: readonly WorktreeOccupancy[];
+	dirtyPaths?: readonly string[];
+	trunkBranch?: string;
+	localBranches?: readonly string[];
+	localBranchTips?: readonly LocalBranchTip[];
+	previousBranches?: Readonly<Record<string, string | null>>;
+	currentBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
+	checkoutFailures?: Readonly<Record<string, GitCommandFailure>>;
+	detachFailures?: Readonly<Record<string, GitCommandFailure>>;
+	createBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
+	deleteBranchFailures?: Readonly<Record<string, GitCommandFailure>>;
 }
 
 export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {

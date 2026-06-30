@@ -17,9 +17,9 @@ export interface FakeSlotExecResult {
 
 export interface FakeSlotCommandGatewayOptions {
 	/** Scripted results keyed by worktree path (`cwd`). */
-	resultsByCwd?: Readonly<Record<string, FakeSlotExecResult>> | undefined;
+	resultsByCwd?: Readonly<Record<string, FakeSlotExecResult>>;
 	/** Default result for any cwd without a scripted entry. */
-	defaultResult?: FakeSlotExecResult | undefined;
+	defaultResult?: FakeSlotExecResult;
 }
 
 export class FakeSlotCommandGateway implements SlotCommandGateway {

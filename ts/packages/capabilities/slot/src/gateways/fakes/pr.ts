@@ -15,16 +15,16 @@ export type FakeSlotPrOperation =
 
 export interface FakePrSummaryOptions {
 	number: number;
-	state?: PrState | undefined;
-	url?: string | undefined;
-	headRefName?: string | undefined;
+	state?: PrState;
+	url?: string;
+	headRefName?: string;
 }
 
 export interface FakeSlotPrGatewayOptions {
-	prsByBranch?: Readonly<Record<string, FakePrSummaryOptions>> | undefined;
-	lookupFailures?: Readonly<Record<string, string>> | undefined;
-	batchLookupFailure?: string | undefined;
-	closeFailures?: Readonly<Record<number, string>> | undefined;
+	prsByBranch?: Readonly<Record<string, FakePrSummaryOptions>>;
+	lookupFailures?: Readonly<Record<string, string>>;
+	batchLookupFailure?: string;
+	closeFailures?: Readonly<Record<number, string>>;
 }
 
 export class FakeSlotPrGateway implements SlotPrGateway {
