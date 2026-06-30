@@ -56,7 +56,7 @@ export function registerLandStackRenderer(
 export function landArgumentCompletions(
 	prefix: string,
 ): Array<{ value: string; label: string }> | null {
-	const options = ["--yes", "--dry-run", "--free", "--force", "--help"];
+	const options = ["--yes", "--dry-run", "--free", "--force", "--verbose", "--help"];
 	const token = prefix.trim().split(/\s+/).pop() ?? "";
 	const filtered = options.filter((option) => option.startsWith(token));
 	return filtered.length > 0 ? filtered.map((option) => ({ value: option, label: option })) : null;
@@ -149,6 +149,7 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 		shouldFreeSlot: false,
 		shouldForceCleanup: false,
 		shouldShowHelp: false,
+		shouldStreamVerboseOutput: false,
 	};
 	const parts = argsText.trim().split(/\s+/).filter(Boolean);
 
@@ -163,6 +164,8 @@ export function parseArgs(argsText: string): LandStackResult<ParsedArgs> {
 			parsed.shouldForceCleanup = true;
 		} else if (part === "--help" || part === "-h") {
 			parsed.shouldShowHelp = true;
+		} else if (part === "--verbose") {
+			parsed.shouldStreamVerboseOutput = true;
 		} else {
 			return failure(landStackFailure(`Unknown /${COMMAND_NAME} argument: ${part}\n\n${usage()}`));
 		}

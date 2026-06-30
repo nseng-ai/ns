@@ -298,12 +298,13 @@ function topologyOf(
 
 describe("land-stack pure helpers", () => {
 	test("parses supported command arguments", () => {
-		expect(expectSuccess(parseArgs("--yes --dry-run --free --force --help"))).toEqual({
+		expect(expectSuccess(parseArgs("--yes --dry-run --free --force --verbose --help"))).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: true,
 			shouldFreeSlot: true,
 			shouldForceCleanup: true,
 			shouldShowHelp: true,
+			shouldStreamVerboseOutput: true,
 		});
 		expect(expectSuccess(parseArgs("-y --free -f -h"))).toEqual({
 			shouldSkipConfirmation: true,
@@ -311,6 +312,7 @@ describe("land-stack pure helpers", () => {
 			shouldFreeSlot: true,
 			shouldForceCleanup: true,
 			shouldShowHelp: true,
+			shouldStreamVerboseOutput: false,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
 			"Unknown /sdl:flow:land argument: --wat",

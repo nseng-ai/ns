@@ -30,6 +30,10 @@ const landSchema = z.object({
 			"After successful landing, free the current managed slot and delete the landed local branch.",
 		),
 	force: z.boolean().optional().describe("Skip the post-landing --free confirmation."),
+	verbose: z
+		.boolean()
+		.optional()
+		.describe("Stream raw GitHub/Graphite subprocess output while landing."),
 });
 
 export const flowLandCommand: SdlCommand<typeof landSchema> = {
@@ -47,6 +51,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 			request.dryRun === true ? "--dry-run" : undefined,
 			request.free === true ? "--free" : undefined,
 			request.force === true ? "--force" : undefined,
+			request.verbose === true ? "--verbose" : undefined,
 		].filter((arg): arg is string => arg !== undefined);
 		const progress = createLandCliProgress(ctx, caps);
 		try {
@@ -55,7 +60,11 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 				successMessage: "Land completed.",
 				failureMessage: "Land failed.",
 				outputMode: "buffer-until-complete",
-				afterExitCode: progress.finish,
+				shouldForwardLiveOutput: request.verbose === true,
+				afterExitCode: async (exitCode) => {
+					await progress.finish(exitCode);
+					progress.flushFailureDetails(exitCode);
+				},
 				run: async (io) =>
 					await runLandCli({
 						cwd: ctx.cwd,
@@ -83,6 +92,7 @@ interface LandCliProgress {
 	io: SdlCommandIo;
 	liveProgress: LandLiveProgressSink;
 	finish(exitCode: number): Promise<void>;
+	flushFailureDetails(exitCode: number): void;
 	stop(): Promise<void>;
 }
 
@@ -129,6 +139,8 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 	let lastPhaseKey: string | undefined;
 	const liveState: LandLiveProgressState = { landedPrs: 0 };
 	const landedPrNumbers = new Set<number>();
+	const failureDetails: string[] = [];
+	const seenFailureDetails = new Set<string>();
 
 	function updateTitle(): void {
 		progress.setTitle(formatLandProgressTitle(liveState));
@@ -166,6 +178,13 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		emit({ type: "phase-started", phaseKey, ...(label === undefined ? {} : { label }) });
 	}
 
+	function recordFailureDetail(message: string): void {
+		const normalized = message.trim();
+		if (normalized === "" || seenFailureDetails.has(normalized)) return;
+		seenFailureDetails.add(normalized);
+		failureDetails.push(normalized);
+	}
+
 	function routePhase(message: string): void {
 		const normalized = message.trim();
 		if (normalized === "" || normalized.startsWith("land: running ")) return;
@@ -194,6 +213,9 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		const normalized = message.trim();
 		if (normalized === "") return;
 		if (level === "error" || normalized.startsWith("✗")) {
+			if (level === "error" || !normalized.startsWith("✗ $")) {
+				recordFailureDetail(normalized);
+			}
 			progress.note(normalized);
 			return;
 		}
@@ -233,6 +255,10 @@ function createLandCliProgress(ctx: SdlExtensionApi, caps: Caps): LandCliProgres
 		liveProgress: recordLiveProgress,
 		finish: async (exitCode) => {
 			await progress.finish({ isFailed: exitCode !== 0 });
+		},
+		flushFailureDetails: (exitCode) => {
+			if (exitCode === 0 || failureDetails.length === 0) return;
+			ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
 		},
 		stop: progress.stop,
 	};
