@@ -414,6 +414,7 @@ async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<numb
 			clock: ctx.clock,
 			idGenerator: ctx.idGenerator,
 			stdout: ctx.stdout,
+			stderr: ctx.stderr,
 		},
 	});
 

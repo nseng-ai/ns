@@ -28,6 +28,7 @@ export interface RunDeps {
 	clock: () => Date;
 	idGenerator: () => string;
 	stdout: (text: string) => void;
+	stderr: (text: string) => void;
 }
 
 export interface RunExecutionOptions {
@@ -141,7 +142,7 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 			throw error;
 		}
 
-		await writeBestEffortDiffArtifact(runDir, diffPatch);
+		await writeBestEffortDiffArtifact(runDir, diffPatch, deps.stderr);
 	}
 
 	const finishedAt = deps.clock();
@@ -188,12 +189,21 @@ async function writeDiffArtifact(runDir: string, diffPatch: string): Promise<voi
 	await writeFile(join(runDir, DIFF_FILE_NAME), diffPatch, "utf-8");
 }
 
-async function writeBestEffortDiffArtifact(runDir: string, diffPatch: string): Promise<void> {
+async function writeBestEffortDiffArtifact(
+	runDir: string,
+	diffPatch: string,
+	stderr: (text: string) => void,
+): Promise<void> {
 	try {
 		await writeDiffArtifact(runDir, diffPatch);
-	} catch {
-		// Preserve the post-run error while keeping best-effort diff capture non-fatal.
+	} catch (error: unknown) {
+		stderr(`Warning: could not write best-effort diff artifact: ${formatUnknownError(error)}\n`);
 	}
+}
+
+function formatUnknownError(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	return String(error);
 }
 
 async function resolvePlanPath(planPath: string): Promise<string> {

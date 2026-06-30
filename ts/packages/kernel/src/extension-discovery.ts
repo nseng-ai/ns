@@ -2,7 +2,6 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
 import { isPathInside, isRecord } from "@sdl/core/primitives";
-import { z } from "zod";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -51,8 +50,6 @@ interface ParsedManifestCommandEntryFields {
 	entry: string | undefined;
 	fullDescription: string | undefined;
 }
-
-const manifestNonEmptyStringSchema = z.string().trim().min(1);
 
 type ManifestCommandStringField = "name" | "description" | "entry" | "fullDescription";
 
@@ -598,8 +595,8 @@ function parseManifestCommandEntryShape(entry: Record<string, unknown>): {
 	for (const field of ["name", "description", "entry", "fullDescription"] as const) {
 		const rawValue = entry[field];
 		if (rawValue === undefined) continue;
-		const result = manifestNonEmptyStringSchema.safeParse(rawValue);
-		if (result.success) values[field] = result.data;
+		const value = readNonEmptyString(rawValue);
+		if (value !== undefined) values[field] = value;
 		else invalidFields.add(field);
 	}
 	return { values, invalidFields };
