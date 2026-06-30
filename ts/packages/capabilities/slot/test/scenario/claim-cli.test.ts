@@ -132,6 +132,36 @@ describe("slot claim CLI", () => {
 		]);
 	});
 
+	it("from main claiming current trunk already assigned to a slot refreshes that slot", async () => {
+		const run = runScenario(["claim", "master", "--format", "json"], {
+			git: {
+				localBranches: ["master"],
+				worktrees: [
+					{ path: "/repo", branch: "master" },
+					slotWorktree("slot-01"),
+					slotWorktree("slot-02", "master"),
+				],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				slotName: "slot-02",
+				branchName: "master",
+				alreadyCurrent: false,
+				mainWorktreePath: "/repo",
+				mainCheckoutBranch: null,
+				mainRedirectAction: "detach-head",
+				mainRedirectRef: "master",
+				mainRedirectNote: null,
+			},
+		});
+		expect(run.git.operations()).toEqual([
+			{ type: "detach-head", path: "/repo", ref: "master" },
+			{ type: "checkout-branch", path: slot2Path, branch: "master" },
+		]);
+	});
+
 	it("from main claiming current trunk detaches instead of checking out a previous branch", async () => {
 		const run = runScenario(["claim", "master", "--format", "json"], {
 			git: {

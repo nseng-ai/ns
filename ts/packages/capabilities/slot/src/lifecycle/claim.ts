@@ -249,7 +249,42 @@ async function planTrunkClaimFromMainWorktree(
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
-	if (currentBranch.branch === trunkBranch) return null;
+	if (currentBranch.branch === trunkBranch) {
+		if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
+			return failure(
+				"dirty-current-worktree",
+				`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
+			);
+		const match = findByBranch(inventory, trunkBranch);
+		if (match?.kind === "slot") {
+			const sourceFailure = await sourceSlotFailure(ctx, match.record);
+			if (sourceFailure !== null) return { type: "failure", failure: sourceFailure };
+			return okPlan({
+				target: match.record,
+				slotCheckoutBranch: trunkBranch,
+				source: null,
+				isAlreadyCurrent: false,
+				callerRedirect: null,
+				mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
+			});
+		}
+		const target = await lowestAvailable(inventory, ctx.git);
+		if (target === null)
+			return {
+				type: "failure",
+				failure: poolFullFailure(assignedSlotRecords(inventory.records), {
+					action: "claiming a branch",
+				}),
+			};
+		return okPlan({
+			target,
+			slotCheckoutBranch: trunkBranch,
+			source: null,
+			isAlreadyCurrent: false,
+			callerRedirect: null,
+			mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
+		});
+	}
 	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 		return failure(
 			"dirty-current-worktree",
