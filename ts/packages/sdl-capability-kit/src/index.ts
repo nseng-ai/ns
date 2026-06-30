@@ -15,6 +15,8 @@ export {
 export {
 	commandFailure,
 	err,
+	formatCommandFailureConciseCause,
+	formatErrorInfoDiagnosticLines,
 	ok,
 	resultErr,
 	resultOk,

@@ -332,6 +332,9 @@ function renderRawFailureTranscript(result: SubmitCommandResult): string {
 	if (transcript.summary !== undefined && transcript.summary.trim() !== "") {
 		lines.push("", "summary:", transcript.summary.trimEnd());
 	}
+	if (transcript.details !== undefined && transcript.details.length > 0) {
+		lines.push("", "details:", transcript.details.map((detail) => detail.trimEnd()).join("\n"));
+	}
 	for (const [index, command] of transcript.commands.entries()) {
 		lines.push(
 			"",

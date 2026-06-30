@@ -1,4 +1,5 @@
 import type { GitGateway } from "@sdl/git";
+import type { ErrorInfo } from "@sdl/core/result";
 
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";
 import {
@@ -42,7 +43,13 @@ export type PrDescriptionOrchestrationResult =
 	| { type: "matched_prewritten"; pr: GithubPrDetails }
 	| { type: "updated"; pr: GithubPrDetails; title: string }
 	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
-	| { type: "failed"; pr?: GithubPrDetails; reason: string; exitCode?: number };
+	| {
+			type: "failed";
+			pr?: GithubPrDetails;
+			reason: string;
+			exitCode?: number;
+			diagnostic?: ErrorInfo;
+	  };
 
 export async function orchestratePrDescription(
 	options: PrDescriptionOrchestrationOptions,
@@ -74,7 +81,9 @@ export async function orchestratePrDescription(
 		...(pr.baseRefName === undefined ? {} : { baseRefName: pr.baseRefName }),
 		...(pr.headRefName === undefined ? {} : { headRefName: pr.headRefName }),
 	});
-	if (!patchId.ok) return { type: "failed", pr, reason: patchId.error.message };
+	if (!patchId.ok) {
+		return { type: "failed", pr, reason: patchId.error.message, diagnostic: patchId.error };
+	}
 
 	const metadata: PrDescriptionFingerprintMetadata = {
 		version: "2",
@@ -105,7 +114,9 @@ export async function orchestratePrDescription(
 		cwd: options.cwd,
 		number: pr.number,
 	});
-	if (!commits.ok) return { type: "failed", pr, reason: commits.error.message };
+	if (!commits.ok) {
+		return { type: "failed", pr, reason: commits.error.message, diagnostic: commits.error };
+	}
 
 	const prepared = await preparePrDescription({
 		textGenerator: options.textGenerator,
@@ -137,6 +148,7 @@ export async function orchestratePrDescription(
 			type: "failed",
 			pr,
 			reason: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}`,
+			diagnostic: edited.error,
 		};
 	}
 
@@ -173,6 +185,7 @@ async function reconcilePrewrittenPr(params: {
 		type: "failed",
 		pr: params.pr,
 		reason: `Generated initial metadata, but failed to update PR #${params.pr.number} after Graphite created mismatched metadata.\n${edited.error.message}`,
+		diagnostic: edited.error,
 	};
 }
 

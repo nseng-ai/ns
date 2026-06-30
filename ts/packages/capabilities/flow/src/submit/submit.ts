@@ -35,6 +35,7 @@ import {
 	type SubmitMetadataGateway,
 } from "./submit-pr-metadata-prewrite.ts";
 import {
+	formatPrDescriptionFailureDiagnostics,
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
@@ -129,6 +130,7 @@ export interface SubmitFailureTranscriptCommand {
 export interface SubmitFailureTranscript {
 	phase: string;
 	summary?: string;
+	details?: readonly string[];
 	commands: readonly SubmitFailureTranscriptCommand[];
 }
 
@@ -559,9 +561,14 @@ export async function runSubmitCommand(
 	});
 	if (!descriptionResult.ok) {
 		const stderr = formatPrDescriptionFailureText(prLinks, descriptionResult.failures);
+		const details = formatPrDescriptionFailureDiagnostics(descriptionResult.failures);
 		return failure(1, stderr, {
 			failurePresentation: "deterministic",
-			rawFailureTranscript: textFailureTranscript("PR description", stderr),
+			rawFailureTranscript: textFailureTranscript(
+				"PR description",
+				stderr,
+				details.length === 0 ? {} : { details },
+			),
 		});
 	}
 
@@ -773,8 +780,17 @@ function commandFailureTranscript(
 	};
 }
 
-function textFailureTranscript(phase: string, summary: string): SubmitFailureTranscript {
-	return { phase, summary, commands: [] };
+function textFailureTranscript(
+	phase: string,
+	summary: string,
+	options?: { details?: readonly string[] },
+): SubmitFailureTranscript {
+	return {
+		phase,
+		summary,
+		...(options?.details === undefined ? {} : { details: options.details }),
+		commands: [],
+	};
 }
 
 function postSubmitFailureTranscript(

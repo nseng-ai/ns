@@ -1,3 +1,9 @@
+import type { ErrorInfo } from "@sdl/core/result";
+import {
+	formatCommandFailureConciseCause,
+	formatErrorInfoDiagnosticLines,
+} from "@sdl/capability-kit/gateway-result";
+
 import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
 import { formatItemCount } from "./index.ts";
@@ -20,6 +26,7 @@ export interface PrDescriptionFailure {
 	link: SubmitPrLink;
 	number: number;
 	reason: string;
+	diagnostic?: ErrorInfo;
 }
 
 export async function generateSubmitPrDescriptions(input: {
@@ -55,7 +62,12 @@ export async function generateSubmitPrDescriptions(input: {
 		input.onProgress?.(`loading PR #${number} metadata (${index + 1}/${input.prLinks.length})`);
 		const viewed = await input.prDescription.githubPr.viewPr({ cwd: input.cwd, number });
 		if (!viewed.ok) {
-			failures.push({ link, number, reason: viewed.error.message });
+			failures.push({
+				link,
+				number,
+				reason: viewed.error.message,
+				diagnostic: viewed.error,
+			});
 			continue;
 		}
 
@@ -101,7 +113,12 @@ export async function generateSubmitPrDescriptions(input: {
 				input.onProgress?.(`finished PR #${number} description`);
 				break;
 			case "failed":
-				failures.push({ link, number, reason: result.reason });
+				failures.push({
+					link,
+					number,
+					reason: result.reason,
+					...(result.diagnostic === undefined ? {} : { diagnostic: result.diagnostic }),
+				});
 				break;
 		}
 	}
@@ -133,5 +150,29 @@ export function formatPrDescriptionFailureText(
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {
-	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
+	const cause = formatCommandFailureConciseCause(failure.diagnostic);
+	if (cause === undefined) return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}`;
+	return `${formatPrLinkTextRow(failure.link)}: ${failure.reason}\n  Cause: ${cause}`;
+}
+
+export function formatPrDescriptionFailureDiagnostics(
+	failures: readonly PrDescriptionFailure[],
+): string[] {
+	return failures.flatMap((failure) => {
+		if (failure.diagnostic === undefined) return [];
+		return [formatPrDescriptionFailureDiagnostic(failure)];
+	});
+}
+
+function formatPrDescriptionFailureDiagnostic(failure: PrDescriptionFailure): string {
+	const diagnostic = failure.diagnostic;
+	if (diagnostic === undefined) {
+		throw new Error("Cannot format PR description diagnostic without a diagnostic.");
+	}
+
+	const lines = [
+		`PR #${failure.number} ${failure.link.url}:`,
+		...formatErrorInfoDiagnosticLines(diagnostic).map((line) => `  ${line}`),
+	];
+	return lines.join("\n");
 }

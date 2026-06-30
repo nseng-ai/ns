@@ -1115,6 +1115,61 @@ describe("project-local submit extension", () => {
 		);
 	});
 
+	test("description metadata read failure preserves structured diagnostics", async () => {
+		vi.useFakeTimers();
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const ghStderr = "GraphQL: Could not resolve to a PullRequest with the number of 123\n";
+		const viewCommand = "gh pr view 123 --json number,url,title,body,headRefName,baseRefName";
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: successfulSubmitResponses().flatMap((response) =>
+					response.match === viewCommand
+						? [
+								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
+								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
+								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
+								{ match: viewCommand, result: { code: 1, stderr: ghStderr } },
+							]
+						: [response],
+				),
+				textGeneration: [{ ok: false, error: "summary unavailable" }],
+			},
+		});
+
+		await vi.runAllTimersAsync();
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("PRs were submitted; description generation failed.");
+		expect(error).toContain(`#123 ${PR_URL}`);
+		expect(error).toContain("Could not read GitHub PR details.");
+		expect(error).toContain(
+			"Cause: gh exited 1: GraphQL: Could not resolve to a PullRequest with the number of 123",
+		);
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("----- stdout -----");
+		expect(error).not.toContain("----- stderr -----");
+
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("command: gh");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"args: pr view 123 --json number,url,title,body,headRefName,baseRefName",
+		);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(ghStderr.trim());
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		const rawLog = await readFile(rawPath ?? "", "utf8");
+		expect(rawLog).toContain("phase: PR description");
+		expect(rawLog).toContain("details:");
+		expect(rawLog).toContain("command: gh");
+		expect(rawLog).toContain(
+			"args: pr view 123 --json number,url,title,body,headRefName,baseRefName",
+		);
+		expect(rawLog).toContain("exit_code: 1");
+		expect(rawLog).toContain(ghStderr.trim());
+	});
+
 	test("description edit failure keeps submitted PR links visible", async () => {
 		const run = runWithFakes({
 			state: {
