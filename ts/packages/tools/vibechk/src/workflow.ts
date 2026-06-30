@@ -28,6 +28,7 @@ export interface RunDeps {
 	clock: () => Date;
 	idGenerator: () => string;
 	stdout: (text: string) => void;
+	stderr: (text: string) => void;
 }
 
 export interface RunExecutionOptions {
@@ -122,7 +123,7 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 
 	try {
 		diffPatch = await repository.diffPatch();
-		await writeFile(join(runDir, DIFF_FILE_NAME), diffPatch, "utf-8");
+		await writeDiffArtifact(runDir, diffPatch);
 
 		if (await repository.hasChanges()) {
 			resultBranch = `vibechk/${runId}`;
@@ -141,11 +142,7 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 			throw error;
 		}
 
-		try {
-			await writeFile(join(runDir, DIFF_FILE_NAME), diffPatch, "utf-8");
-		} catch {
-			// Ignore write failure for diff in error path
-		}
+		await writeBestEffortDiffArtifact(runDir, diffPatch, deps.stderr);
 	}
 
 	const finishedAt = deps.clock();
@@ -186,6 +183,27 @@ export async function executeRun(options: RunExecutionOptions): Promise<RunExecu
 		runId,
 		exitCode,
 	};
+}
+
+async function writeDiffArtifact(runDir: string, diffPatch: string): Promise<void> {
+	await writeFile(join(runDir, DIFF_FILE_NAME), diffPatch, "utf-8");
+}
+
+async function writeBestEffortDiffArtifact(
+	runDir: string,
+	diffPatch: string,
+	stderr: (text: string) => void,
+): Promise<void> {
+	try {
+		await writeDiffArtifact(runDir, diffPatch);
+	} catch (error: unknown) {
+		stderr(`Warning: could not write best-effort diff artifact: ${formatUnknownError(error)}\n`);
+	}
+}
+
+function formatUnknownError(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	return String(error);
 }
 
 async function resolvePlanPath(planPath: string): Promise<string> {

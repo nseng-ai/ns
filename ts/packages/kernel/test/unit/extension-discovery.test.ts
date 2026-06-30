@@ -175,11 +175,17 @@ describe("extension discovery", () => {
 							description: "List Roaster reviews.",
 							entry: "./src/review-list.ts",
 						},
+						{
+							path: ["review", "show"],
+							description: "Show a Roaster review.",
+							entry: "./src/review-show.ts",
+						},
 					],
 				},
 			}),
 		);
 		writeFile(join(root, "roaster", "src", "review-list.ts"));
+		writeFile(join(root, "roaster", "src", "review-show.ts"));
 
 		const result = discoverExtensionsInRoot(root);
 
@@ -189,6 +195,11 @@ describe("extension discovery", () => {
 				group: "roaster",
 				name: "review-list",
 				segments: ["roaster", "review", "list"],
+			}),
+			expect.objectContaining({
+				group: "roaster",
+				name: "show",
+				segments: ["roaster", "review", "show"],
 			}),
 		]);
 	});
@@ -256,6 +267,36 @@ describe("extension discovery", () => {
 		});
 	});
 
+	test("invalid fullDescription keeps its distinct manifest diagnostic", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "bad", "package.json"),
+			JSON.stringify({
+				sdl: {
+					commands: [
+						{
+							name: "hello",
+							description: "Hello.",
+							fullDescription: "",
+							entry: "./src/hello.ts",
+						},
+					],
+				},
+			}),
+		);
+		writeFile(join(root, "bad", "src", "hello.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.commands).toEqual([]);
+		expect(result.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "extension_manifest_command_full_description_invalid",
+				commandName: "hello",
+			}),
+		]);
+	});
+
 	test("direct entries with invalid inferred command names are malformed", async () => {
 		const root = await createTempDir();
 		writeFile(join(root, "Bad.ts"));
@@ -267,6 +308,23 @@ describe("extension discovery", () => {
 		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
 			"extension_command_name_invalid",
 			"extension_command_name_invalid",
+		]);
+	});
+
+	test("directory index discovery prefers index.ts over index.js", async () => {
+		const root = await createTempDir();
+		writeFile(join(root, "both", "index.ts"));
+		writeFile(join(root, "both", "index.js"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.commands).toEqual([
+			expect.objectContaining({
+				kind: "dir-index",
+				name: "both",
+				entryPath: join(root, "both", "index.ts"),
+			}),
 		]);
 	});
 

@@ -51,39 +51,27 @@ interface ParsedManifestCommandEntryFields {
 	fullDescription: string | undefined;
 }
 
-interface ManifestCommandFieldSpec {
-	key: keyof Omit<ParsedManifestCommandEntryFields, "group" | "segments">;
-	diagnosticField: string;
-	code: ExtensionDiscoveryDiagnostic["code"];
-	required: boolean;
-}
+type ManifestCommandStringField = "name" | "description" | "entry" | "fullDescription";
 
-const MANIFEST_COMMAND_FIELDS = [
+type ManifestCommandEntryShape = {
+	[key in ManifestCommandStringField]?: string;
+};
+
+type RequiredManifestCommandStringField = "description" | "entry";
+
+const requiredManifestCommandStringFields = [
 	{
-		key: "name",
-		diagnosticField: "name",
-		code: "extension_manifest_command_name_missing",
-		required: true,
-	},
-	{
-		key: "description",
-		diagnosticField: "description",
+		field: "description",
 		code: "extension_manifest_command_description_missing",
-		required: true,
 	},
 	{
-		key: "entry",
-		diagnosticField: "entry",
+		field: "entry",
 		code: "extension_manifest_command_entry_missing",
-		required: true,
 	},
-	{
-		key: "fullDescription",
-		diagnosticField: "fullDescription",
-		code: "extension_manifest_command_full_description_invalid",
-		required: false,
-	},
-] as const satisfies readonly ManifestCommandFieldSpec[];
+] as const satisfies readonly {
+	field: RequiredManifestCommandStringField;
+	code: string;
+}[];
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -159,24 +147,12 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 			continue;
 		}
 
-		const indexTs = join(entryPath, "index.ts");
-		const indexJs = join(entryPath, "index.js");
-		if (existsSync(indexTs)) {
+		const indexPath = firstExistingDirectoryIndex(entryPath);
+		if (indexPath !== undefined) {
 			const command = commandForDirectEntry({
 				kind: "dir-index",
 				name: entry.name,
-				entryPath: indexTs,
-				rootDir,
-			});
-			if (command.ok) commands.push(command.command);
-			else diagnostics.push(command.diagnostic);
-			continue;
-		}
-		if (existsSync(indexJs)) {
-			const command = commandForDirectEntry({
-				kind: "dir-index",
-				name: entry.name,
-				entryPath: indexJs,
+				entryPath: indexPath,
 				rootDir,
 			});
 			if (command.ok) commands.push(command.command);
@@ -308,6 +284,14 @@ function discoverPackageCommands(
 		}
 	}
 	return { commands, diagnostics };
+}
+
+function firstExistingDirectoryIndex(entryPath: string): string | undefined {
+	for (const indexFileName of ["index.ts", "index.js"] as const) {
+		const indexPath = join(entryPath, indexFileName);
+		if (existsSync(indexPath)) return indexPath;
+	}
+	return undefined;
 }
 
 function commandForDirectEntry(options: {
@@ -526,8 +510,9 @@ function parseManifestCommandEntry(options: {
 	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
 	commandName: string | undefined;
 } {
+	const schemaEntry = parseManifestCommandEntryShape(options.entry);
 	const rawPath = parseManifestPath(options.entry.path);
-	const explicitName = readNonEmptyString(options.entry.name);
+	const explicitName = schemaEntry.values.name;
 	const commandName = explicitName ?? commandNameFromManifestPath(rawPath.value);
 	const rawEntryGroup = options.entry.group;
 	const entryGroup =
@@ -557,35 +542,83 @@ function parseManifestCommandEntry(options: {
 	});
 	if (entryGroupDiagnostic !== undefined) diagnostics.push(entryGroupDiagnostic);
 
-	for (const field of MANIFEST_COMMAND_FIELDS) {
-		if (field.key === "name" && rawPath.value !== undefined && options.entry.name === undefined) {
-			continue;
-		}
-		const rawValue = options.entry[field.key];
-		if (!field.required && rawValue === undefined) continue;
-
-		const parsedValue = readNonEmptyString(rawValue);
-		if (parsedValue !== undefined) {
-			fields[field.key] = parsedValue;
-			continue;
-		}
-		diagnostics.push(
-			diagnostic(
-				field.code,
-				`Extension manifest command ${field.diagnosticField} must be a non-empty string: ${options.packageJsonPath}.`,
-				{
-					path: options.packageJsonPath,
-					commandName,
-				},
-			),
-		);
+	if (schemaEntry.values.name !== undefined) {
+		fields.name = schemaEntry.values.name;
+	} else if (rawPath.value === undefined || options.entry.name !== undefined) {
+		pushManifestStringDiagnostic({
+			diagnostics,
+			code: "extension_manifest_command_name_missing",
+			field: "name",
+			packageJsonPath: options.packageJsonPath,
+			commandName,
+		});
 	}
 
-	if (options.entry.fullDescription === undefined) {
+	for (const { field, code } of requiredManifestCommandStringFields) {
+		const value = schemaEntry.values[field];
+		if (value !== undefined) {
+			fields[field] = value;
+			continue;
+		}
+		pushManifestStringDiagnostic({
+			diagnostics,
+			code,
+			field,
+			packageJsonPath: options.packageJsonPath,
+			commandName,
+		});
+	}
+
+	if (schemaEntry.values.fullDescription !== undefined) {
+		fields.fullDescription = schemaEntry.values.fullDescription;
+	} else if (options.entry.fullDescription === undefined) {
 		fields.fullDescription = fields.description;
+	} else if (schemaEntry.invalidFields.has("fullDescription")) {
+		pushManifestStringDiagnostic({
+			diagnostics,
+			code: "extension_manifest_command_full_description_invalid",
+			field: "fullDescription",
+			packageJsonPath: options.packageJsonPath,
+			commandName,
+		});
 	}
 
 	return { entry: fields, diagnostics, commandName };
+}
+
+function parseManifestCommandEntryShape(entry: Record<string, unknown>): {
+	values: ManifestCommandEntryShape;
+	invalidFields: ReadonlySet<ManifestCommandStringField>;
+} {
+	const invalidFields = new Set<ManifestCommandStringField>();
+	const values: ManifestCommandEntryShape = {};
+	for (const field of ["name", "description", "entry", "fullDescription"] as const) {
+		const rawValue = entry[field];
+		if (rawValue === undefined) continue;
+		const value = readNonEmptyString(rawValue);
+		if (value !== undefined) values[field] = value;
+		else invalidFields.add(field);
+	}
+	return { values, invalidFields };
+}
+
+function pushManifestStringDiagnostic(options: {
+	diagnostics: ExtensionDiscoveryDiagnostic[];
+	code: string;
+	field: string;
+	packageJsonPath: string;
+	commandName: string | undefined;
+}): void {
+	options.diagnostics.push(
+		diagnostic(
+			options.code,
+			`Extension manifest command ${options.field} must be a non-empty string: ${options.packageJsonPath}.`,
+			{
+				path: options.packageJsonPath,
+				commandName: options.commandName,
+			},
+		),
+	);
 }
 
 function groupDiagnostic(options: {
