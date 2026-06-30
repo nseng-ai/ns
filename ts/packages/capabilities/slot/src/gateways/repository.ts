@@ -94,8 +94,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	constructor(options: {
 		cwd: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		execApi?: CommandExecApi | undefined;
-		coreGit?: GitGateway | undefined;
+		execApi?: CommandExecApi;
+		coreGit?: GitGateway;
 		diagnosticSink?: ExplicitUndefined<"di-seam", SlotDiagnosticSink>;
 	}) {
 		this.cwd = options.cwd;
@@ -282,7 +282,7 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 	private async git(
 		args: readonly string[],
 		cwd: string,
-		options: { allowFailure?: boolean | undefined; operation?: string | undefined } = {},
+		options: { allowFailure?: boolean; operation?: string } = {},
 	): Promise<CommandResult> {
 		const result = await runDiagnosticCommand({
 			execApi: this.execApi,

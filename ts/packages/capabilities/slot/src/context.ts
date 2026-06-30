@@ -48,10 +48,10 @@ export async function createRealSlotContext(options: {
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	extensions?: Readonly<Record<string, unknown>> | undefined;
-	formatPrompt?: ConfirmationPromptFormatter | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	shouldWriteCdDirective?: boolean | undefined;
+	extensions?: Readonly<Record<string, unknown>>;
+	formatPrompt?: ConfirmationPromptFormatter;
+	stderr?: (text: string) => void;
+	shouldWriteCdDirective?: boolean;
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
 	const slotsRoot = resolveSlotsRoot(env);

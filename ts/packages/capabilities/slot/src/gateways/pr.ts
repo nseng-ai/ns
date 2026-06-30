@@ -78,7 +78,7 @@ export class RealSlotPrGateway implements SlotPrGateway {
 	constructor(options: {
 		cwd: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		execApi?: CommandExecApi | undefined;
+		execApi?: CommandExecApi;
 		diagnosticSink?: ExplicitUndefined<"di-seam", SlotDiagnosticSink>;
 	}) {
 		this.cwd = options.cwd;
