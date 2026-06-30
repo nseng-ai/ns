@@ -12,16 +12,9 @@
 // This is the one `flow → clinkr` edge. The event type lives in `sdl-sdk`, so clinkr stays free
 // of any `@sdl/*` dependency and is never imported by graphite.
 //
-// Flow resolves streaming `Caps` from its command host context when present; direct command execution
-// falls back to the real process terminal.
+// Flow resolves streaming `Caps` from its command host context's explicit render capabilities.
 
-import {
-	CLINKR_CAPS_EXTENSION_KEY,
-	readCapsFromHostExtension,
-	resolveProcessCaps,
-	resolveSettledNonInteractiveCaps,
-	type Caps,
-} from "@sdl/clinkr";
+import { resolveRenderCapabilities, type Caps } from "@sdl/clinkr";
 import {
 	createStdoutStreamWriter,
 	createStreamSink,
@@ -244,14 +237,9 @@ export function createPhaseStreamController(
 	};
 }
 
-/** Resolve flow streaming caps from the command host context, falling back only for direct CLI runs. */
+/** Resolve flow streaming caps from the command host context's explicit render capabilities. */
 export function resolveFlowStreamCaps(ctx: SdlExtensionApi): Caps {
-	const hostCaps = readCapsFromHostExtension(ctx.extensions?.[CLINKR_CAPS_EXTENSION_KEY]);
-	if (hostCaps !== undefined) return hostCaps;
-	if (ctx.onOutput !== undefined || ctx.stdout !== undefined || ctx.stderr !== undefined) {
-		return resolveSettledNonInteractiveCaps(ctx.env);
-	}
-	return resolveProcessCaps();
+	return resolveRenderCapabilities(ctx.renderCapabilities);
 }
 
 /**

@@ -3,10 +3,10 @@
 import { z } from "zod";
 
 import {
-	CLINKR_CAPS_EXTENSION_KEY,
 	ClinkrGroup,
 	isClinkrHumanOutputInvocation,
 	ok,
+	renderCapabilitiesForTerminal,
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
@@ -45,7 +45,13 @@ import {
 	type SelectedSdlCommandLoadResult,
 	type SdlCommandCatalog,
 } from "./extension-registry.ts";
-import type { SdlCommand, SdlConfirmPrompt, SdlExtensionApi, SdlOutputStream } from "sdl-sdk";
+import type {
+	RenderCapabilities,
+	SdlCommand,
+	SdlConfirmPrompt,
+	SdlExtensionApi,
+	SdlOutputStream,
+} from "sdl-sdk";
 import {
 	buildSdlCompletionScript,
 	renderSdlCompletionScriptResult,
@@ -373,10 +379,8 @@ async function buildSdlCliContext(options: {
 	const onOutput = options.onOutput ?? baseContext.onOutput;
 	const confirm = options.confirm ?? baseContext.confirm;
 	const stdin = baseContext.stdin ?? readStdin;
-	const contextExtensions = {
-		...(baseContext.extensions ?? {}),
-		...(options.caps === undefined ? {} : { [CLINKR_CAPS_EXTENSION_KEY]: options.caps }),
-	};
+	const renderCapabilities: RenderCapabilities = renderCapabilitiesForTerminal(options.caps);
+	const contextExtensions = baseContext.extensions;
 	const commandIo = createCliCommandIo({
 		stdout: options.stdout,
 		stderr: options.stderr,
@@ -388,21 +392,22 @@ async function buildSdlCliContext(options: {
 		textGenerator: baseContext.textGenerator,
 		commandIo,
 		progress: noopSdlProgress,
+		renderCapabilities,
 		exec: baseContext.exec.bind(baseContext),
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,
 		...(onOutput === undefined ? {} : { onOutput }),
 		...(confirm === undefined ? {} : { confirm }),
-		extensions: contextExtensions,
+		...(contextExtensions === undefined ? {} : { extensions: contextExtensions }),
 	};
 	const slotContext = await createRealSlotContext({
 		cwd: options.cwd,
 		env: options.env,
 		stderr: options.stderr,
-		extensions: contextExtensions,
+		...(contextExtensions === undefined ? {} : { extensions: contextExtensions }),
+		renderCapabilities,
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
-		...(options.caps === undefined ? {} : { caps: options.caps }),
 	});
 	return {
 		...slotContext,

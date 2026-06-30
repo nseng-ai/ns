@@ -1,6 +1,7 @@
 import process from "node:process";
 import { createInterface } from "node:readline/promises";
 
+import { renderCapabilitiesForTerminal, resolveProcessCaps } from "@sdl/clinkr";
 import { runCommand } from "@sdl/exec";
 
 import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
@@ -33,6 +34,7 @@ export function createRealSdlCommandContext(
 		textGenerator,
 		commandIo,
 		progress: noopSdlProgress,
+		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
 		stdout,
 		stderr,
 		exec: async (command, args, execOptions = {}) => {

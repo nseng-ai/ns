@@ -141,6 +141,7 @@ describe("extension registry", () => {
 				env: {},
 				commandIo: noopSdlCommandIo,
 				progress: noopSdlProgress,
+				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -186,6 +187,7 @@ describe("extension registry", () => {
 				env: {},
 				commandIo: noopSdlCommandIo,
 				progress: noopSdlProgress,
+				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},
@@ -440,6 +442,7 @@ export default defineExtension({
 				env: {},
 				commandIo: noopSdlCommandIo,
 				progress: noopSdlProgress,
+				renderCapabilities: { canEmitAnsi: false },
 				async exec() {
 					return { code: 0, stdout: "", stderr: "", killed: false };
 				},

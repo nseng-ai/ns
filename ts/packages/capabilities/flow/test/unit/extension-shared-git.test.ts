@@ -108,6 +108,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			env: {},
 			commandIo: noopSdlCommandIo,
 			progress: noopSdlProgress,
+			renderCapabilities: { canEmitAnsi: false },
 			textGenerator: {
 				async generateText() {
 					return { ok: false, error: "unexpected model call" };

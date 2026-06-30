@@ -116,6 +116,16 @@ Review guidance:
 - Construction code should still omit optional keys via conditional spread unless present-key
   `undefined` is part of the contract.
 
+## Encoded contracts over ambient bags
+
+Follow the portable `typescript-style` rule: first-party dependencies must be encoded as typed
+fields, parameters, gateway methods, or curated APIs instead of implicit string-keyed bags.
+In SDL, `SdlExtensionApi.extensions` remains available only for genuinely project-local or
+extension-owned dynamic data. Do not use it to transport first-party SDK/capability values between
+packages; promote those values to typed SDK fields, Capability API parameters, or gateway seams. For
+example, prefer `ctx.renderCapabilities: RenderCapabilities` over
+`ctx.extensions?.["sdl.clinkr.caps"]`.
+
 ## Time seams
 
 Production SDL TypeScript should not hand-roll raw timers. Use `Clock` from `@sdl/core/clock` for wall-clock reads, `TimerScheduler` / `systemTimerScheduler` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays, `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers, and `createManualClock()` / `createManualTimerScheduler()` from `@sdl/core/testing` in default tests. The TypeScript style guard rejects raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, and `node:timers/promises` imports outside timer adapters/tests.

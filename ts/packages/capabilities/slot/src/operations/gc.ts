@@ -2,7 +2,6 @@ import {
 	failure,
 	negative,
 	ok,
-	renderCapabilitiesForTerminal,
 	requireInteractiveOrUsageError,
 	resolveRenderCapabilities,
 	type Caps,
@@ -11,7 +10,7 @@ import {
 import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/cli-theme";
 import { z } from "zod";
 
-import { readSlotCapsFromContext, type RepoSlotContext, type SlotCliContext } from "../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../context.ts";
 import {
 	outcomeFromGcPlan,
 	planGc,
@@ -90,7 +89,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 		});
 		if (gate) return gate;
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
-		const renderCapabilities = renderCapabilitiesForTerminal(readSlotCapsFromContext(repoCtx));
+		const renderCapabilities = repoCtx.renderCapabilities;
 		const preview = renderGc(
 			toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })),
 			renderCapabilities,

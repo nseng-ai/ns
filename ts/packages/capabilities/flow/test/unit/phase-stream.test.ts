@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { CLINKR_CAPS_EXTENSION_KEY, DEFAULT_COLUMNS } from "@sdl/clinkr";
+import { DEFAULT_COLUMNS } from "@sdl/clinkr";
 import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
@@ -48,6 +48,7 @@ function ctx(overrides: Partial<SdlExtensionApi> = {}): SdlExtensionApi {
 		env: {},
 		commandIo: noopSdlCommandIo,
 		progress: noopSdlProgress,
+		renderCapabilities: { canEmitAnsi: false },
 		exec: async () => ({ code: 0, stdout: "", stderr: "", killed: false }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,
@@ -141,7 +142,7 @@ describe("resolveFlowStreamCaps", () => {
 			isTty: false,
 			colorDepth: "none",
 			columns: DEFAULT_COLUMNS,
-			canRenderUnicode: false,
+			canRenderUnicode: expect.any(Boolean),
 		});
 	});
 
@@ -155,32 +156,21 @@ describe("resolveFlowStreamCaps", () => {
 		expect(resolved.columns).toBe(DEFAULT_COLUMNS);
 	});
 
-	test("host-provided caps win for override sinks", () => {
+	test("explicit render capabilities caps win for override sinks", () => {
 		const injected = caps({ isTty: false, colorDepth: "none", canRenderUnicode: false });
 		expect(
-			resolveFlowStreamCaps(ctx({ extensions: { [CLINKR_CAPS_EXTENSION_KEY]: injected } })),
+			resolveFlowStreamCaps(ctx({ renderCapabilities: { canEmitAnsi: false, caps: injected } })),
 		).toEqual(injected);
 	});
 
-	test("direct command execution falls back to process caps", () => {
-		vi.stubEnv("TERM", "xterm-256color");
-		vi.stubEnv("COLORTERM", "");
-		const originalIsTty = process.stdout.isTTY;
-		const originalColumns = process.stdout.columns;
-		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
-		Object.defineProperty(process.stdout, "columns", { value: 111, configurable: true });
-		try {
-			const resolved = resolveFlowStreamCaps(ctx());
-			expect(resolved.isTty).toBe(true);
-			expect(resolved.columns).toBe(111);
-			expect(resolved.colorDepth).toBe("ansi256");
-		} finally {
-			Object.defineProperty(process.stdout, "isTTY", { value: originalIsTty, configurable: true });
-			Object.defineProperty(process.stdout, "columns", {
-				value: originalColumns,
-				configurable: true,
-			});
-		}
+	test("missing explicit caps resolves to settled non-interactive caps", () => {
+		const resolved = resolveFlowStreamCaps(ctx());
+		expect(resolved).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			canRenderUnicode: expect.any(Boolean),
+		});
 	});
 });
 

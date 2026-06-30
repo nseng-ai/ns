@@ -16,6 +16,7 @@ function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 		env: {},
 		commandIo,
 		progress: noopSdlProgress,
+		renderCapabilities: { canEmitAnsi: false },
 		exec: async () => ({ code: 0, killed: false, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

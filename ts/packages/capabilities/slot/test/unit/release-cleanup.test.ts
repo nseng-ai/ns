@@ -70,6 +70,7 @@ function context(options: {
 		clipboard: new FakeClipboardGateway(),
 		command: new FakeSlotCommandGateway(),
 		cwd: "/repo",
+		renderCapabilities: { canEmitAnsi: false },
 		interaction: createFakeClinkrInteraction().interaction,
 		stderr: () => {},
 		env: { PATH: "/fake/bin" },

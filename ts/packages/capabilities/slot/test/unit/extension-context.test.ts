@@ -1,4 +1,4 @@
-import { CLINKR_CAPS_EXTENSION_KEY, ok, type Caps } from "@sdl/clinkr";
+import { ok, type Caps, type RenderCapabilities } from "@sdl/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "sdl-sdk";
@@ -32,8 +32,8 @@ describe("slot SDL extension context", () => {
 		createRealSlotContext.mockClear();
 	});
 
-	it("forwards host extensions so interactive previews can reuse terminal colors", async () => {
-		const extensions = { [CLINKR_CAPS_EXTENSION_KEY]: colorCaps };
+	it("passes host render capabilities explicitly so interactive previews can reuse terminal colors", async () => {
+		const renderCapabilities: RenderCapabilities = { canEmitAnsi: true, caps: colorCaps };
 		const command = slotExtension.commands?.find(
 			(candidate): candidate is SdlCommand<SdlCommandSchema, unknown> => candidate.name === "list",
 		);
@@ -41,19 +41,19 @@ describe("slot SDL extension context", () => {
 		if (command === undefined) throw new Error("missing list command");
 		if (command.schema === undefined) throw new Error("missing list command schema");
 
-		await command.run(extensionApi({ extensions }), command.schema.parse({}));
+		await command.run(extensionApi({ renderCapabilities }), command.schema.parse({}));
 
 		expect(createRealSlotContext).toHaveBeenCalledWith(
 			expect.objectContaining({
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
-				extensions,
+				renderCapabilities,
 			}),
 		);
 	});
 });
 
-function extensionApi(options: { extensions: Readonly<Record<string, unknown>> }): SdlExtensionApi {
+function extensionApi(options: { renderCapabilities: RenderCapabilities }): SdlExtensionApi {
 	return {
 		cwd: "/repo",
 		env: { PATH: "/fake/bin" },
@@ -61,8 +61,8 @@ function extensionApi(options: { extensions: Readonly<Record<string, unknown>> }
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		commandIo: noopSdlCommandIo,
 		progress: noopSdlProgress,
+		renderCapabilities: options.renderCapabilities,
 		stdout: () => {},
 		stderr: () => {},
-		extensions: options.extensions,
 	};
 }

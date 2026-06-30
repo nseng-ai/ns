@@ -1,12 +1,12 @@
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg";
 
 import {
-	CLINKR_CAPS_EXTENSION_KEY,
-	readCapsFromHostExtension,
 	resolveClinkrInteraction,
+	resolveRenderCapabilities,
 	type Caps,
 	type ClinkrInteraction,
 	type ConfirmationPromptFormatter,
+	type RenderCapabilities,
 } from "@sdl/clinkr";
 import { paint } from "@sdl/cli-theme";
 import { readStdinLine } from "@sdl/core/stdin";
@@ -33,6 +33,7 @@ export interface SlotCliContext {
 	clipboard: ClipboardGateway;
 	command: SlotCommandGateway;
 	cwd: string;
+	renderCapabilities: RenderCapabilities;
 	extensions?: Readonly<Record<string, unknown>>;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
@@ -45,8 +46,8 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 
 export async function createRealSlotContext(options: {
 	cwd: string;
+	renderCapabilities: RenderCapabilities;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	caps?: Caps | undefined;
 	extensions?: Readonly<Record<string, unknown>> | undefined;
 	formatPrompt?: ConfirmationPromptFormatter | undefined;
 	stderr?: ((text: string) => void) | undefined;
@@ -57,8 +58,7 @@ export async function createRealSlotContext(options: {
 	const git = new RealSlotRepositoryGateway({ cwd: options.cwd, env });
 	const repo = await discoverRepoOrSentinel({ cwd: options.cwd, slotsRoot, git });
 	const stderr = options.stderr ?? ((text: string) => process.stderr.write(text));
-	const extensions = slotContextExtensions(options);
-	const caps = readSlotCapsFromExtensions(extensions);
+	const caps = resolveRenderCapabilities(options.renderCapabilities);
 	return {
 		repo,
 		git,
@@ -68,7 +68,8 @@ export async function createRealSlotContext(options: {
 		clipboard: new RealClipboardGateway({ env }),
 		command: new RealSlotCommandGateway(),
 		cwd: options.cwd,
-		...(extensions === undefined ? {} : { extensions }),
+		renderCapabilities: options.renderCapabilities,
+		...(options.extensions === undefined ? {} : { extensions: options.extensions }),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr,
@@ -85,27 +86,6 @@ export async function createRealSlotContext(options: {
 
 export function resolveSlotsRoot(env: Record<string, string | undefined>): string {
 	return requireXdgPath(resolveSdlXdgPath({ kind: "state", env, segments: ["slots"] }));
-}
-
-export function readSlotCapsFromContext(ctx: Pick<SlotCliContext, "extensions">): Caps | undefined {
-	return readSlotCapsFromExtensions(ctx.extensions);
-}
-
-function slotContextExtensions(options: {
-	caps?: Caps | undefined;
-	extensions?: Readonly<Record<string, unknown>> | undefined;
-}): Readonly<Record<string, unknown>> | undefined {
-	if (options.caps === undefined) return options.extensions;
-	return {
-		...(options.extensions ?? {}),
-		[CLINKR_CAPS_EXTENSION_KEY]: options.caps,
-	};
-}
-
-function readSlotCapsFromExtensions(
-	extensions: Readonly<Record<string, unknown>> | undefined,
-): Caps | undefined {
-	return readCapsFromHostExtension(extensions?.[CLINKR_CAPS_EXTENSION_KEY]);
 }
 
 function formatSlotConfirmationPrompt(caps: Caps | undefined): ConfirmationPromptFormatter {
