@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { VERSION } from "../../src/cli.ts";
+import { CLI_REL_PATH } from "../support/cli-rel-path.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 describe("areg CLI shape", () => {
@@ -13,7 +14,7 @@ describe("areg CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/areg bin areg -> ts/packages/tools/areg/src/cli.ts\n",
+			`runtime: typescript\nentry_point: @sdl/areg bin areg -> ${CLI_REL_PATH}\n`,
 		);
 		expect(runtime.stderr.join("")).toBe("");
 	});
