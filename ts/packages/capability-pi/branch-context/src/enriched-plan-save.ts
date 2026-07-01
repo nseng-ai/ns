@@ -7,7 +7,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { piExecApiToCommandExecApi } from "@sdl/core/command";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import type { ScheduledTimer } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi/commands";
@@ -374,8 +374,7 @@ export function buildWriteSavedPlanFileTool(
 					buildSavedPlanFileParams(toolParams, slugEvidence.slug),
 					{
 						cwd: ctx.cwd,
-						...optionalEntry("signal", signal),
-						...optionalEntry("planStoreRoot", planStoreRoot),
+						...optionalEntries({ signal, planStoreRoot }),
 					},
 				);
 				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };

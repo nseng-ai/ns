@@ -511,9 +511,11 @@ export async function publishFindingsFromRequest(
 	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,
-		...optionalEntry("runUrl", request.runUrl),
-		...optionalEntry("fallbackReviewName", request.reviewName),
-		...optionalEntry("fallbackBaseRef", request.baseRef),
+		...optionalEntries({
+			runUrl: request.runUrl,
+			fallbackReviewName: request.reviewName,
+			fallbackBaseRef: request.baseRef,
+		}),
 	});
 }
 

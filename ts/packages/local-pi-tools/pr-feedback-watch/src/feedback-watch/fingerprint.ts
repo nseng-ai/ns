@@ -1,5 +1,5 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
-import { finiteNumberField, optionalEntry } from "@sdl/core/primitives";
+import { finiteNumberField, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
@@ -28,9 +28,7 @@ export function feedbackItemKeysFromFingerprint(
 	return items.map((item) => ({
 		kind: item.kind === "review_comment" ? "thread_comment" : item.kind,
 		key: `${item.kind}:${item.id}:${item.updatedAt ?? ""}`,
-		...optionalEntry("author", item.author),
-		...optionalEntry("path", item.path),
-		...optionalEntry("line", item.line),
+		...optionalEntries({ author: item.author, path: item.path, line: item.line }),
 	}));
 }
 
@@ -46,8 +44,7 @@ export function parseDiscussionCommentFingerprint(value: unknown): FeedbackFinge
 		items.push({
 			kind: "discussion_comment",
 			id,
-			...optionalEntry("updatedAt", updatedAt),
-			...optionalEntry("author", author),
+			...optionalEntries({ updatedAt, author }),
 		});
 	}
 	return items;
@@ -67,10 +64,7 @@ export function parseReviewFingerprint(value: unknown): FeedbackFingerprintItem[
 		items.push({
 			kind: "review",
 			id,
-			...optionalEntry("updatedAt", updatedAt),
-			...optionalEntry("author", author),
-			...optionalEntry("state", state),
-			...optionalEntry("commitId", commitId),
+			...optionalEntries({ updatedAt, author, state, commitId }),
 		});
 	}
 	return items;
@@ -92,12 +86,7 @@ export function parseReviewCommentFingerprint(value: unknown): FeedbackFingerpri
 		items.push({
 			kind: "review_comment",
 			id,
-			...optionalEntry("updatedAt", updatedAt),
-			...optionalEntry("author", author),
-			...optionalEntry("path", path),
-			...optionalEntry("line", line),
-			...optionalEntry("reviewId", reviewId),
-			...optionalEntry("inReplyToId", inReplyToId),
+			...optionalEntries({ updatedAt, author, path, line, reviewId, inReplyToId }),
 		});
 	}
 	return items;

@@ -14,6 +14,7 @@ import {
 import {
 	formatErrorMessage,
 	isRecord,
+	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
 } from "@sdl/core/primitives";
@@ -263,6 +264,25 @@ export async function runAvailableBrmemCommand(
 	return { ok: true, value: run };
 }
 
+async function runBrmemCommand(
+	options: {
+		gateway: BrmemExecGateway;
+		cwd: string;
+		timeoutMs?: number;
+		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+		signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+	},
+	brmemArgs: readonly string[],
+): Promise<BrmemCommandResult<CompletedBrmemRun>> {
+	return await runAvailableBrmemCommand({
+		gateway: options.gateway,
+		cwd: options.cwd,
+		brmemArgs,
+		...optionalEntries({ timeoutMs: options.timeoutMs, env: options.env }),
+		signal: options.signal,
+	});
+}
+
 export async function checkBrmemEntry(
 	options: CheckBrmemEntryOptions,
 ): Promise<BrmemEntryPresenceResult> {
@@ -318,24 +338,17 @@ export async function checkBrmemEntry(
 export async function putBrmemEntryFromFile(
 	options: PutBrmemEntryFromFileOptions,
 ): Promise<BrmemCommandResult<BrmemPutData>> {
-	const run = await runAvailableBrmemCommand({
-		gateway: options.gateway,
-		cwd: options.cwd,
-		brmemArgs: [
-			"put",
-			options.key,
-			"--namespace",
-			options.namespace,
-			...(options.branch === undefined ? [] : ["--branch", options.branch]),
-			"--file",
-			options.sourceFile,
-			"--format",
-			"json",
-		],
-		...optionalEntry("timeoutMs", options.timeoutMs),
-		...optionalEntry("env", options.env),
-		signal: options.signal,
-	});
+	const run = await runBrmemCommand(options, [
+		"put",
+		options.key,
+		"--namespace",
+		options.namespace,
+		...(options.branch === undefined ? [] : ["--branch", options.branch]),
+		"--file",
+		options.sourceFile,
+		"--format",
+		"json",
+	]);
 	if (!run.ok) return run;
 	if (run.value.result.code !== 0 || run.value.result.killed) {
 		return {
@@ -386,20 +399,13 @@ export async function putBrmemEntryFromFile(
 export async function listBrmemEntries(
 	options: ListBrmemEntriesOptions,
 ): Promise<BrmemCommandResult<readonly BrmemListEntry[]>> {
-	const run = await runAvailableBrmemCommand({
-		gateway: options.gateway,
-		cwd: options.cwd,
-		brmemArgs: [
-			"list",
-			...(options.namespace === undefined ? [] : ["--namespace", options.namespace]),
-			...(options.branch === undefined ? [] : ["--branch", options.branch]),
-			"--format",
-			"json",
-		],
-		...optionalEntry("timeoutMs", options.timeoutMs),
-		...optionalEntry("env", options.env),
-		signal: options.signal,
-	});
+	const run = await runBrmemCommand(options, [
+		"list",
+		...(options.namespace === undefined ? [] : ["--namespace", options.namespace]),
+		...(options.branch === undefined ? [] : ["--branch", options.branch]),
+		"--format",
+		"json",
+	]);
 	if (!run.ok) return run;
 	if (run.value.result.code !== 0 || run.value.result.killed) {
 		return {
@@ -412,8 +418,7 @@ export async function listBrmemEntries(
 		return {
 			ok: true,
 			value: parseBrmemListEntries(run.value.result.stdout, {
-				...optionalEntry("namespace", options.namespace),
-				...optionalEntry("branch", options.branch),
+				...optionalEntries({ namespace: options.namespace, branch: options.branch }),
 			}),
 		};
 	} catch (error) {
@@ -683,8 +688,7 @@ function execOptions(
 	return {
 		cwd,
 		timeout,
-		...optionalEntry("env", env),
-		...optionalEntry("signal", signal),
+		...optionalEntries({ env, signal }),
 	};
 }
 

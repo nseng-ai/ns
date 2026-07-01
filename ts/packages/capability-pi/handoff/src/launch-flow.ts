@@ -1,4 +1,4 @@
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries } from "@sdl/core/primitives";
 import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/handoff/api";
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
@@ -219,8 +219,7 @@ export async function runHandoffCreateCommand(
 ): Promise<void> {
 	await ctx.waitForIdle();
 	const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, {
-		...optionalEntry("preflight", spec.preflight),
-		...optionalEntry("skillLoader", spec.skillLoader),
+		...optionalEntries({ preflight: spec.preflight, skillLoader: spec.skillLoader }),
 	});
 	if (prepared === undefined) {
 		return;
@@ -320,10 +319,12 @@ export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLa
 				params: parsed.params,
 				statusKey: spec.statusKey,
 				verifyStatus: spec.verifyStatus(parsed.params),
-				...optionalEntry("verifyUpdate", spec.verifyUpdate),
 				missingMessage: spec.missingMessage,
-				...optionalEntry("failureDetails", spec.verifyFailureDetails),
-				...optionalEntry("onUpdate", onUpdate),
+				...optionalEntries({
+					verifyUpdate: spec.verifyUpdate,
+					failureDetails: spec.verifyFailureDetails,
+					onUpdate,
+				}),
 			});
 			if (verified.type === "failed") {
 				return verified.result;

@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import { runOperationCommand, type CliEntrypointDeps } from "@sdl/cli-runtime";
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
 
@@ -264,10 +264,12 @@ export async function handleAttach(
 			const evidence = await attachBranchContextEntry(
 				ctx.context.commands,
 				{
-					...optionalEntry("key", request.key),
-					...optionalEntry("filePath", request.file),
-					...optionalEntry("planSlug", request.plan),
-					...optionalEntry("branch", request.branch),
+					...optionalEntries({
+						key: request.key,
+						filePath: request.file,
+						planSlug: request.plan,
+						branch: request.branch,
+					}),
 				},
 				operationOptions(ctx),
 			);

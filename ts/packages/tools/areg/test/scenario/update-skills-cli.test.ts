@@ -1,5 +1,5 @@
 import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries } from "@sdl/core/primitives";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -39,8 +39,7 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" },
 	});
 	const npxSkills = new FakeAregNpxSkillsGateway({
-		...optionalEntry("failure", options.npxFailure),
-		...optionalEntry("failures", options.npxFailures),
+		...optionalEntries({ failure: options.npxFailure, failures: options.npxFailures }),
 	});
 	const defaultUpdateProject = {
 		lockfile: lockfile({ beta: github("other/repo"), alpha: github("owner/repo") }),

@@ -1,6 +1,5 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
-import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { optionalEntries } from "@sdl/core/primitives";
+import type { FakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -16,7 +15,7 @@ import {
 	type FakeAregPromptGatewayOptions,
 	FakeAregSkillxWorkspaceGateway,
 } from "../../src/fake-gateways.ts";
-import { runScenario } from "../support/run-scenario.ts";
+import { createScenarioFakeClinkrInteraction, runScenario } from "../support/run-scenario.ts";
 
 const BOOTSTRAP_REPO = "dagster-io/asdl-tools";
 
@@ -41,12 +40,7 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 	const projectGateway = new FakeAregProjectGateway(options.project);
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const prompt = new FakeAregPromptGateway(options.prompt);
-	const interaction = createFakeClinkrInteraction({
-		...optionalEntries({
-			confirmations: options.confirmations,
-			isInteractive: options.isInteractive,
-		}),
-	});
+	const interaction = createScenarioFakeClinkrInteraction(options);
 	return {
 		projectGateway,
 		npxSkills,

@@ -3,7 +3,7 @@ import { TextDecoder, TextEncoder } from "node:util";
 
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries } from "@sdl/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
@@ -46,8 +46,10 @@ export function runScenario(
 	const stdin = options.stdin;
 	const cwd = options.cwd ?? "/repo";
 	const fakeInteraction = createFakeClinkrInteraction({
-		...optionalEntry("confirmations", options.confirmations),
-		...optionalEntry("isInteractive", options.isInteractive),
+		...optionalEntries({
+			confirmations: options.confirmations,
+			isInteractive: options.isInteractive,
+		}),
 	});
 	const context: BrmemCliContext = {
 		gateway: options.gateway ?? new FakeBrmemGateway(options.fake),
@@ -55,10 +57,12 @@ export function runScenario(
 			options.promptResolver ??
 			new ScenarioPromptResolver({
 				cwd,
-				...optionalEntry("repoRoot", options.repoRoot),
-				...optionalEntry("homeRoot", options.homeRoot),
-				...optionalEntry("isInGitRepo", options.isInGitRepo),
-				...optionalEntry("promptFiles", options.promptFiles),
+				...optionalEntries({
+					repoRoot: options.repoRoot,
+					homeRoot: options.homeRoot,
+					isInGitRepo: options.isInGitRepo,
+					promptFiles: options.promptFiles,
+				}),
 			}),
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
@@ -68,8 +72,7 @@ export function runScenario(
 			new ScenarioSourceReader({
 				cwd,
 				stdin,
-				...optionalEntry("files", options.files),
-				...optionalEntry("unreadableFiles", options.unreadableFiles),
+				...optionalEntries({ files: options.files, unreadableFiles: options.unreadableFiles }),
 			}),
 		interaction: fakeInteraction.interaction,
 	};

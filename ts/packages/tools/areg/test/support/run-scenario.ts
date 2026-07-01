@@ -1,5 +1,5 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
-import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
+import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@sdl/clinkr/testing";
 import { optionalEntries } from "@sdl/core/primitives";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 
@@ -41,6 +41,20 @@ export interface ScenarioRun {
 	stderr: string[];
 }
 
+export function createScenarioFakeClinkrInteraction(
+	options: {
+		confirmations?: readonly ConfirmationResult[];
+		isInteractive?: boolean;
+	} = {},
+): FakeClinkrInteraction {
+	return createFakeClinkrInteraction({
+		...optionalEntries({
+			confirmations: options.confirmations,
+			isInteractive: options.isInteractive,
+		}),
+	});
+}
+
 export function runScenario(
 	args: readonly string[],
 	options: ScenarioRunOptions = {},
@@ -50,12 +64,7 @@ export function runScenario(
 	const cwd = options.cwd ?? "/repo";
 	const env = options.env ?? { PATH: "/fake/bin" };
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
-	const fakeInteraction = createFakeClinkrInteraction({
-		...optionalEntries({
-			confirmations: options.confirmations,
-			isInteractive: options.isInteractive,
-		}),
-	});
+	const fakeInteraction = createScenarioFakeClinkrInteraction(options);
 	const context =
 		options.context ??
 		({

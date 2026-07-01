@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@sdl/clinkr";
 import { z } from "zod";
 
-import { formatErrorMessage, optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, type ExplicitUndefined } from "@sdl/core/primitives";
 
 export { readStdin, readStdinLine } from "./stdin.ts";
 
@@ -207,8 +207,7 @@ export function defineCli<
 	};
 	const run = async (args: readonly string[], deps: CliRunDeps<TDeps> = {}): Promise<number> => {
 		const io = resolveIo({
-			...optionalEntry("stdout", deps.stdout),
-			...optionalEntry("stderr", deps.stderr),
+			...optionalEntries({ stdout: deps.stdout, stderr: deps.stderr }),
 		});
 		const stdout = io.stdout;
 		const stderr = io.stderr;
