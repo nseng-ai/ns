@@ -7,15 +7,19 @@ export type HandoffExistsResult =
 	| { type: "missing" }
 	| { type: "failed"; message: string };
 
+export interface CheckHandoffExistsOptions {
+	pi: ExtensionAPI;
+	cwd: string;
+	branch: string;
+	key: string;
+}
+
 export async function checkHandoffExists(
-	pi: ExtensionAPI,
-	cwd: string,
-	branch: string,
-	key: string,
+	options: CheckHandoffExistsOptions,
 ): Promise<HandoffExistsResult> {
-	const result = await checkHandoffArtifact(createPiHandoffStorageDeps(pi, cwd), {
-		branch,
-		slug: handoffKeyToSlug(key),
+	const result = await checkHandoffArtifact(createPiHandoffStorageDeps(options.pi, options.cwd), {
+		branch: options.branch,
+		slug: handoffKeyToSlug(options.key),
 	});
 	if (result.type === "error") {
 		return { type: "failed", message: result.error.message };

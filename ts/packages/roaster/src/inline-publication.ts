@@ -9,6 +9,7 @@ import {
 } from "./findings-comment.ts";
 import type { RoasterGitHubGateway } from "./gateways/github.ts";
 import { classifyInlineFindings } from "./inline-commentability.ts";
+import type { RoasterResult } from "./failures.ts";
 import { type PRInlineCommentInput, type PostInlineFindingsResult } from "./models.ts";
 
 export interface PostInlineFindingsOptions {
@@ -80,16 +81,12 @@ export async function postInlineFindings(
 	};
 }
 
-type GithubReadResult<T> =
-	| { readonly type: "ok"; readonly value: T }
-	| { readonly type: "error"; readonly error: { readonly message: string } };
-
 type GithubReadOrEmptyResult<T> =
 	| { readonly type: "ok"; readonly value: T }
 	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
 
 async function callGithubOrEmptyResult<T>(
-	call: () => Promise<GithubReadResult<T>>,
+	call: () => Promise<RoasterResult<T>>,
 ): Promise<GithubReadOrEmptyResult<T>> {
 	try {
 		const result = await call();

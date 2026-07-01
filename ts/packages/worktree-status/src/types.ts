@@ -1,4 +1,6 @@
-import type { CustomMessageContent } from "@sdl/pi/terminal/presentation";
+import type { MessageRenderer } from "@sdl/pi/runtime/extension-types";
+
+export type { CustomMessage, RenderComponent, RenderTheme } from "@sdl/pi/runtime/extension-types";
 
 export type {
 	ExecResult,
@@ -17,23 +19,4 @@ export type {
 	WorktreeStatusIdentity,
 } from "./status.ts";
 
-export interface CustomMessage {
-	customType: string;
-	content: CustomMessageContent;
-	details?: unknown;
-}
-
-export interface RenderTheme {
-	fg(color: string, text: string): string;
-}
-
-export interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-export type WorktreeStatusMessageRenderer = (
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-) => RenderComponent;
+export type WorktreeStatusMessageRenderer = MessageRenderer;

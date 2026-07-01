@@ -1,9 +1,8 @@
-import { type ExecResult, formatCommandDetails } from "@sdl/core/command";
-import { truncateTextHead } from "@sdl/core/text-truncation";
+import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
+import { formatCommandDetails } from "@sdl/core/command";
 
-export type CommandResult = Pick<ExecResult, "code" | "stdout" | "stderr"> & {
-	killed?: boolean;
-};
+export type { CommandResult };
+import { truncateTextHead } from "@sdl/core/text-truncation";
 
 export type AutobranchExec = (
 	command: string,

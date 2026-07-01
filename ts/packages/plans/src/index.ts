@@ -28,6 +28,7 @@ export {
 } from "./plan-persistence.ts";
 export {
 	NoSavedPlanAvailableError,
+	buildPlanStoreOptions,
 	buildPlanFileName,
 	buildPlanStoreBranchDirectoryPath,
 	buildRepoPlanStoreKey,

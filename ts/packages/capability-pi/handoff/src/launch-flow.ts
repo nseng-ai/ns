@@ -2,6 +2,7 @@ import { formatErrorMessage, optionalEntries } from "@sdl/core/primitives";
 import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/handoff/api";
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
+import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
@@ -9,7 +10,6 @@ import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
 import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
 import { checkHandoffExists } from "./handoff-existence.ts";
-import { fencedBlock } from "./markdown-formatting.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@sdl/pi/skills/expansion";
 import type {
@@ -149,7 +149,7 @@ This is a /${copy.commandName} request. ${copy.intentSentence}
 
 Continuation focus:
 
-${fencedBlock("text", request.focus)}
+${buildFencedTextBlock(request.focus)}
 
 ${targetSections.join("\n\n")}
 
@@ -159,7 +159,7 @@ ${requirements.map((requirement, index) => `${index + 1}. ${requirement}`).join(
 
 ${copy.previewHeading}
 
-${fencedBlock("text", copy.previewBody(request.branch))}`;
+${buildFencedTextBlock(copy.previewBody(request.branch))}`;
 }
 
 export async function prepareHandoffCreateLaunch(
@@ -243,7 +243,12 @@ export async function verifyHandoffLaunchTarget<P extends HandoffLaunchParams>(
 	}
 	setStatus(ctx, options.statusKey, options.verifyStatus);
 	try {
-		const exists = await checkHandoffExists(pi, ctx.cwd, options.params.branch, options.params.key);
+		const exists = await checkHandoffExists({
+			pi,
+			cwd: ctx.cwd,
+			branch: options.params.branch,
+			key: options.params.key,
+		});
 		if (exists.type === "missing") {
 			const message = options.missingMessage(options.params);
 			return {

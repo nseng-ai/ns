@@ -6,7 +6,7 @@ import {
 	type ObjectiveListRecord,
 } from "@sdl/objective/api";
 
-import { formatCommandFailure } from "./command-runner.ts";
+import { formatInlineCommandFailure } from "./command-runner.ts";
 import { keyNameFromInput } from "./tabs/key-input.ts";
 import { wrapIndex } from "./tabs/list-navigation.ts";
 import type { TabIntent, TabKeyInput, TabModule, TabModuleDeps } from "./tabs/tab-module.ts";
@@ -46,7 +46,7 @@ async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
 		timeout: COMMAND_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
-		throw new Error(formatCommandFailure("sdl objective list", result));
+		throw new Error(formatInlineCommandFailure("sdl objective list", result));
 	}
 	const parsed = parseObjectiveListStdout(result.stdout);
 	if (parsed.type === "invalid") throw new Error(parsed.message);

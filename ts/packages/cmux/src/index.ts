@@ -41,12 +41,7 @@ export type {
 	LaunchFocusedCmuxTabOptions,
 } from "./focused-terminal-tab.ts";
 export { identifyCmuxCaller, launchFocusedCmuxTab } from "./focused-terminal-tab.ts";
-export type {
-	PiLaunchModelInfo,
-	PiLaunchOptions,
-	PiLaunchThinkingHost,
-	PiLaunchThinkingLevel,
-} from "./pi-launch.ts";
+export type { PiLaunchOptions, PiLaunchThinkingHost } from "./pi-launch.ts";
 export { buildPiLaunchCommand, getPiLaunchOptions } from "./pi-launch.ts";
 export type {
 	AgentEndContext,

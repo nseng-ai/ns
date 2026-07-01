@@ -5,7 +5,7 @@ import {
 	type BrmemSourceReader,
 } from "@sdl/brmem";
 import { createSdlClinkrInteraction, SdlStdinCapableCommandExecApi } from "@sdl/capability-kit";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries } from "@sdl/core/primitives";
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
 import type { GitGateway } from "@sdl/git";
@@ -51,12 +51,12 @@ function readHandoffOverrides(ctx: SdlExtensionApi): HandoffSdlExtensionOverride
 	const raw = ctx.extensions?.handoff;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
 	const overrides = raw as Partial<HandoffSdlExtensionOverrides>;
-	return {
-		...optionalEntry("brmem", overrides.brmem),
-		...optionalEntry("git", overrides.git),
-		...optionalEntry("sourceReader", overrides.sourceReader),
-		...optionalEntry("interaction", overrides.interaction),
-	};
+	return optionalEntries({
+		brmem: overrides.brmem,
+		git: overrides.git,
+		sourceReader: overrides.sourceReader,
+		interaction: overrides.interaction,
+	});
 }
 
 function formatConfirmationMessage(request: ConfirmationRequest): string {

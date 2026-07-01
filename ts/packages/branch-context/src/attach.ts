@@ -1,4 +1,4 @@
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -21,7 +21,12 @@ import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@sdl/brmem";
 import type { CommandExecApi } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
-import { listSavedPlans, resolvePlanSourceFile, type PlanStoreOptions } from "@sdl/plans";
+import {
+	buildPlanStoreOptions,
+	listSavedPlans,
+	resolvePlanSourceFile,
+	type PlanStoreOptions,
+} from "@sdl/plans";
 
 export interface BranchContextPrimitiveOptions {
 	cwd: string;
@@ -431,11 +436,12 @@ function assertAttachChangedNamespaceByOneKey(
 }
 
 function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOptions {
-	return {
+	return buildPlanStoreOptions({
 		cwd: options.cwd,
 		git: options.context.git,
-		...optionalEntries({ planStoreRoot: options.planStoreRoot, signal: options.signal }),
-	};
+		planStoreRoot: options.planStoreRoot,
+		signal: options.signal,
+	});
 }
 
 function attachEvidence(

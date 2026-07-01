@@ -46,38 +46,38 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   },
   {
     kind: "interactive-confirm",
-    canonical: "confirmation/prompt gateway owned by the command layer",
-    import: "@sdl/* command prompt helpers",
+    canonical: "confirmInteractiveOrUsageError",
+    import: "@sdl/clinkr",
     precision: "high",
   },
   {
     kind: "exact-optional-spread",
-    canonical: "conditional object spread for exactOptionalPropertyTypes",
-    import: "local construction idiom",
+    canonical: "optionalEntry / optionalEntries",
+    import: "@sdl/core/primitives",
     precision: "medium",
   },
   {
     kind: "xdg-path",
-    canonical: "SDL XDG path helpers",
-    import: "@sdl/core/path or capability-owned XDG helpers",
+    canonical: "requireSdlStatePath / resolveSdlXdgPath / resolveXdgHome",
+    import: "@sdl/core/xdg-path; @sdl/capability-kit/xdg",
     precision: "medium",
   },
   {
     kind: "hand-rolled-table",
-    canonical: "table/rendering helpers",
-    import: "@sdl/cli-theme or package renderer helpers",
+    canonical: "renderTextTable / displayWidth",
+    import: "@sdl/core/text-table or package renderer helpers",
     precision: "low",
   },
   {
     kind: "raw-git",
     canonical: "GitGateway",
-    import: "@sdl/git / capability gateway",
+    import: "@sdl/git or capability-owned GitGateway",
     precision: "low",
   },
   {
     kind: "machine-envelope-literal",
-    canonical: "Clinkr/result envelope builders",
-    import: "@sdl/clinkr or package command result helpers",
+    canonical: "toMachineEnvelope / usageErrorMachineEnvelope / envelopeJsonText; parseMachineEnvelopeData",
+    import: "@sdl/clinkr for builders; @sdl/core/machine-envelope for parser",
     precision: "medium",
   },
   {
@@ -89,25 +89,25 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "escape-regex",
     canonical: "stripTerminalEscapes",
-    import: "@sdl/core/command or @sdl/core/terminal-escapes",
+    import: "@sdl/core/terminal-escapes or @sdl/core/command re-export",
     precision: "medium",
   },
   {
     kind: "osc8-hyperlink",
-    canonical: "OSC-8 hyperlink formatter/parser",
-    import: "@sdl/cli-theme or terminal helpers",
+    canonical: "safeTerminalHyperlink / terminalHyperlink / sanitizeTerminalHyperlinkUrl",
+    import: "@sdl/core/terminal-presentation",
     precision: "high",
   },
   {
     kind: "manual-truncation",
-    canonical: "tailText / bounded text helpers",
-    import: "@sdl/core/command or package formatter helper",
+    canonical: "truncateTextHeadTail / truncateTextHead / tailText",
+    import: "@sdl/core/text-truncation; @sdl/core/command",
     precision: "low",
   },
   {
     kind: "frontmatter-split",
-    canonical: "frontmatter/review definition parser",
-    import: "existing review/frontmatter parser",
+    canonical: "splitMarkdownFrontmatter",
+    import: "@sdl/core/markdown-frontmatter",
     precision: "low",
   },
 ] as const;
@@ -336,12 +336,19 @@ function visitForCandidates(
   function visit(node: ts.Node): void {
     const matchedTell = match(node);
     if (matchedTell !== undefined) {
-      candidates.push(buildCandidate(context, metadata, node, matchedTell));
+      candidates.push(buildCandidate({ context, metadata, node, matchedTell }));
     }
     forEachChild(node, visit);
   }
   visit(context.sourceFile);
   return candidates;
+}
+
+interface CandidateLocation {
+  readonly file: string;
+  readonly line: number;
+  readonly column: number;
+  readonly snippet: string;
 }
 
 interface DetectSourceRegexOptions {
@@ -359,39 +366,50 @@ function detectSourceRegex(options: DetectSourceRegexOptions): ReinventionCandid
     const index = match.index;
     if (index === undefined) continue;
     const position = context.sourceFile.getLineAndCharacterOfPosition(index);
-    candidates.push({
-      kind: metadata.kind,
-      manifestRef: manifestRefForKind(metadata.kind),
-      canonical: metadata.canonical,
-      import: metadata.import,
-      file: context.file,
-      line: position.line + 1,
-      column: position.character + 1,
-      snippet: lineAt(source, position.line),
-      matchedTell,
-      isAddedLine: false,
-      precision: metadata.precision,
-    });
+    candidates.push(
+      buildCandidateRecord(metadata, matchedTell, {
+        file: context.file,
+        line: position.line + 1,
+        column: position.character + 1,
+        snippet: lineAt(source, position.line),
+      }),
+    );
   }
   return candidates;
 }
 
-function buildCandidate(
-  context: DetectorContext,
-  metadata: DetectorMetadata,
-  node: ts.Node,
-  matchedTell: string,
-): ReinventionCandidate {
+interface BuildCandidateOptions {
+  readonly context: DetectorContext;
+  readonly metadata: DetectorMetadata;
+  readonly node: ts.Node;
+  readonly matchedTell: string;
+}
+
+function buildCandidate(options: BuildCandidateOptions): ReinventionCandidate {
+  const { context, metadata, node, matchedTell } = options;
   const location = sourceLocationFields(context.file, context.sourceFile, node);
+  return buildCandidateRecord(metadata, matchedTell, {
+    file: location.path,
+    line: location.line,
+    column: location.column,
+    snippet: location.text,
+  });
+}
+
+function buildCandidateRecord(
+  metadata: DetectorMetadata,
+  matchedTell: string,
+  location: CandidateLocation,
+): ReinventionCandidate {
   return {
     kind: metadata.kind,
     manifestRef: manifestRefForKind(metadata.kind),
     canonical: metadata.canonical,
     import: metadata.import,
-    file: location.path,
+    file: location.file,
     line: location.line,
     column: location.column,
-    snippet: location.text,
+    snippet: location.snippet,
     matchedTell,
     isAddedLine: false,
     precision: metadata.precision,

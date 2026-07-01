@@ -22,7 +22,7 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
-import { resolveObjectiveRecordTarget } from "./objective-target.ts";
+import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 
 const requiredObjectiveHeadings = [
 	"## Thesis",
@@ -200,10 +200,7 @@ async function checkObjective(
 			value: emptyResult({
 				status: target.status,
 				error: target.status,
-				rootPath: target.rootPath,
-				slug: target.slug,
-				path: target.path,
-				hasRoot: target.rootExists,
+				...targetToEmptyResultFields(target),
 			}),
 		};
 	}
@@ -241,7 +238,7 @@ async function checkObjective(
 	const warningCount = countIssues(checks, "warning");
 	const evaluatedFacts = {
 		rootPath: target.rootPath,
-		hasRoot: target.rootExists,
+		hasRoot: target.hasRoot,
 		slug: target.slug,
 		path: relativePath,
 		hasRecord: true as const,

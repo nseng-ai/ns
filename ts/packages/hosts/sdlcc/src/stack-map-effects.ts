@@ -8,10 +8,14 @@ import {
 	type SlotClient,
 } from "@sdl/slot/api";
 
-import { formatCommandFailure, runRealCommand, type CommandRunner } from "./command-runner.ts";
+import {
+	formatInlineCommandFailure,
+	runRealCommand,
+	type CommandRunner,
+} from "./command-runner.ts";
 import {
 	choicesForCmuxActivationPlan,
-	openNewCmuxTarget,
+	buildOpenNewCmuxEntry,
 	planStackMapCmuxActivation,
 	reduceStackMapState,
 	type StackMapCmuxActivationPlan,
@@ -101,7 +105,10 @@ export function createStackMapCmuxActivationExecutor(
 				timeout: COMMAND_TIMEOUT_MS,
 			});
 			if (result.code === 0) return { type: "focused" };
-			return { type: "failed", message: formatCommandFailure("cmux rpc surface.focus", result) };
+			return {
+				type: "failed",
+				message: formatInlineCommandFailure("cmux rpc surface.focus", result),
+			};
 		},
 		async openNew(branch, slot) {
 			const checkout =
@@ -126,7 +133,7 @@ export function createStackMapCmuxActivationExecutor(
 					type: "opened",
 					message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.`,
 				};
-			return { type: "failed", message: formatCommandFailure("cmux new-workspace", result) };
+			return { type: "failed", message: formatInlineCommandFailure("cmux new-workspace", result) };
 		},
 	};
 }
@@ -170,7 +177,7 @@ async function executeChoice(
 	const plan: StackMapCmuxActivationPlan =
 		choice.type === "tab"
 			? { type: "focus-tab", branch: state.selectedBranch, target: choice.target }
-			: openNewCmuxTarget(choice.branch, choice.slot);
+			: buildOpenNewCmuxEntry(choice.branch, choice.slot);
 	return executeActivationPlan(model, state, executor, plan);
 }
 

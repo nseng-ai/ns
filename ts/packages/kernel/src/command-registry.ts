@@ -149,15 +149,12 @@ export function commandInfoForLoadedCommand(
 			fullDescription: definition.description,
 		};
 	}
-	const segments = commandSegments(path);
-	return {
-		...(path.group === undefined ? {} : { group: path.group }),
-		...(path.segments === undefined ? {} : { segments }),
-		...(path.groupDescription === undefined ? {} : { groupDescription: path.groupDescription }),
+	return toCommandCliInfo({
+		...path,
 		name: command.name,
 		description: command.summary,
 		fullDescription: command.description,
-	};
+	});
 }
 
 export function validateSdlExtensionContribution(

@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { githubPrFeedbackFailureSchema } from "@sdl/github/pr-feedback";
 
-import { prTargetPayloadSchema } from "../core/pr-target-payload.ts";
-
-const nullableIntSchema = z.int().nullable();
-const nullableStringSchema = z.string().nullable();
+import {
+	nullableIntSchema,
+	nullableStringSchema,
+	prTargetPayloadSchema,
+} from "../core/pr-target-payload.ts";
 
 const mapBranchPrsEntrySchema = z.object({
 	branch: z.string(),

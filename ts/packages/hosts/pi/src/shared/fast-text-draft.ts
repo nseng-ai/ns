@@ -19,7 +19,6 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 const DEFAULT_MAX_TOKENS = 512;
 
 export type DraftHarness = "codex-pi" | "claude-cli";
-export type { NotifyLevel };
 
 type WidgetPlacement = "aboveEditor" | "belowEditor";
 

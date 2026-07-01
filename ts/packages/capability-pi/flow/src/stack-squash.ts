@@ -5,12 +5,8 @@ import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
 import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
 
-import {
-	type FlowCommandContext,
-	type FlowGraphiteCommandHost,
-	type FlowRegisteredCommand,
-	runFlowGraphiteCommand,
-} from "./command-support.ts";
+import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
+import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
 
 export const STACK_SQUASH_COMMAND_NAME = "gt:squash-stack";
 
@@ -32,8 +28,6 @@ export const stackSquashParity = definePiSurfaceParity([
 const GIT_STATUS_TIMEOUT_MS = 60_000;
 const SLOT_STACK_BRANCHES_TIMEOUT_MS = 60_000;
 const GT_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
-
-type CommandContext = FlowCommandContext;
 
 export interface StackSquashExtensionAPI extends FlowGraphiteCommandHost {
 	registerCommand(name: string, options: FlowRegisteredCommand): void;
@@ -77,7 +71,7 @@ export default function stackSquashExtension(pi: StackSquashExtensionAPI): void 
 
 export async function runStackSquash(
 	pi: StackSquashExtensionAPI,
-	ctx: CommandContext,
+	ctx: FlowCommandContext,
 ): Promise<void> {
 	const status = await pi.exec("git", ["status", "--porcelain=v1"], {
 		cwd: ctx.cwd,
@@ -172,7 +166,7 @@ export async function runStackSquash(
 
 async function loadDownstackBranches(
 	pi: StackSquashExtensionAPI,
-	ctx: CommandContext,
+	ctx: FlowCommandContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "failure"; message: string }> {
 	const result = await pi.exec(
 		"sdl",
@@ -227,7 +221,7 @@ function parseJson(
 
 async function runGt(
 	pi: StackSquashExtensionAPI,
-	ctx: CommandContext,
+	ctx: FlowCommandContext,
 	args: readonly string[],
 ): Promise<ExecResult> {
 	return await runFlowGraphiteCommand(pi, {

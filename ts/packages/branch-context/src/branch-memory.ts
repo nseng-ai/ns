@@ -4,6 +4,7 @@ import {
 	type BrmemErrorInfo,
 	type BrmemGateway,
 } from "@sdl/brmem";
+import type { Result } from "@sdl/core/result";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 
@@ -28,9 +29,7 @@ export interface BrmemGetContent {
 	refName: string;
 }
 
-export type BranchContextBrmemResult<T> =
-	| { ok: true; value: T }
-	| { ok: false; error: BrmemErrorInfo };
+export type BranchContextBrmemResult<T> = Result<T, BrmemErrorInfo>;
 
 export type BrmemAttachmentPresenceResult =
 	| { type: "present" }

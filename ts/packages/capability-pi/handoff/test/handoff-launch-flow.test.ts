@@ -5,7 +5,7 @@ import {
 	runHandoffCreateCommand,
 	type HandoffLaunchPromptCopy,
 } from "../src/launch-flow.ts";
-import { createHandoffStartMessage, type HandoffStartMessages } from "../src/shared.ts";
+import { type HandoffStartMessages, createHandoffStartMessage } from "../src/ui-status.ts";
 import {
 	BRANCH,
 	FakePi,

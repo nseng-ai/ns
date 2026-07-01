@@ -10,6 +10,7 @@ import {
 	type LocalBranchRefreshPlan,
 } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import {
 	buildLaunchPrompt,
@@ -62,7 +63,7 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 		content: buildLaunchPrompt(prompt, TRUNK_DISPATCH_CONTEXT_NOTE),
 		description: `dispatch-from-trunk from ${branch.parentBranch}`,
 		payloadOptions,
-		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		...optionalEntry("slotClient", options.slotClient),
 		notifyProgress: options.notifyProgress,
 	});
 }

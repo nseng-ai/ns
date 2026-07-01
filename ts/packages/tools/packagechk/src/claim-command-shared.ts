@@ -32,28 +32,32 @@ export interface PreparedClaimProject {
 	view: ClaimViewData;
 }
 
+export interface ClaimRegistryAdapter {
+	registry: ClaimRegistry;
+	registryLabel: ClaimRegistryLabel;
+	validationError(name: string): string | null;
+	prepareProject(input: {
+		name: string;
+		description: string;
+		claimVersion: string;
+	}): PreparedClaimProject;
+	ensurePublishToolsAvailable(): string | null;
+	executeProject(projectDir: string): Promise<string | null>;
+	tempDirPrefix: string;
+}
+
 export async function runClaimCommand(options: {
 	request: ClaimRequest;
 	registryGateway: PackageRegistryGateway;
 	io: PackagechkIo;
 	interaction: ClinkrInteraction;
-	registry: ClaimRegistry;
-	registryLabel: ClaimRegistryLabel;
-	validationError: (name: string) => string | null;
-	prepareProject: (input: {
-		name: string;
-		description: string;
-		claimVersion: string;
-	}) => PreparedClaimProject;
-	ensurePublishToolsAvailable: () => string | null;
-	executeProject: (projectDir: string) => Promise<string | null>;
-	tempDirPrefix: string;
-	printPreparedLookupNameWhenUnchecked?: boolean;
+	adapter: ClaimRegistryAdapter;
 }): Promise<ClinkrExit<ClaimCommandResult>> {
-	const { request, registryGateway, io, interaction, registry, registryLabel } = options;
+	const { request, registryGateway, io, interaction, adapter } = options;
+	const { registry, registryLabel } = adapter;
 	const isDryRun = request.dryRun === true;
 	const shouldSkipCheck = request.skipCheck === true;
-	const validationError = options.validationError(request.name);
+	const validationError = adapter.validationError(request.name);
 	if (validationError !== null) {
 		const message = formatRegistryStatusLine(registry, "invalid", validationError);
 		return usageError(message, {
@@ -67,11 +71,14 @@ export async function runClaimCommand(options: {
 	if (checkResult !== undefined) {
 		const precheckExit = precheckExitForResult(registry, checkResult);
 		if (precheckExit !== null) return precheckExit;
-		if (checkResult.lookupName !== request.name) {
-			io.stderr(`${registryLabel} lookup name: ${checkResult.lookupName}\n`);
-		}
+		writeLookupNameWhenDifferent({
+			io,
+			registryLabel,
+			packageName: request.name,
+			lookupName: checkResult.lookupName,
+		});
 	}
-	const project = options.prepareProject({
+	const project = adapter.prepareProject({
 		name: request.name,
 		description: request.description,
 		claimVersion: request.version,
@@ -85,15 +92,15 @@ export async function runClaimCommand(options: {
 			human: `[DRY RUN] Would claim ${registryLabel} package name '${project.dryRun.packageName}'.`,
 		});
 	}
-	if (
-		checkResult === undefined &&
-		options.printPreparedLookupNameWhenUnchecked === true &&
-		project.lookupName !== undefined &&
-		project.lookupName !== request.name
-	) {
-		io.stderr(`${registryLabel} lookup name: ${project.lookupName}\n`);
+	if (checkResult === undefined) {
+		writeLookupNameWhenDifferent({
+			io,
+			registryLabel,
+			packageName: request.name,
+			lookupName: project.lookupName,
+		});
 	}
-	const toolsError = options.ensurePublishToolsAvailable();
+	const toolsError = adapter.ensurePublishToolsAvailable();
 	if (toolsError !== null) {
 		return failure("publish-tools-unavailable", toolsError, {
 			registry,
@@ -111,10 +118,10 @@ export async function runClaimCommand(options: {
 		});
 		if (confirmationExit !== null) return confirmationExit;
 	}
-	const projectDir = mkdtempSync(join(tmpdir(), options.tempDirPrefix));
+	const projectDir = mkdtempSync(join(tmpdir(), adapter.tempDirPrefix));
 	try {
 		writeClaimFiles(projectDir, project.dryRun.files);
-		const publishError = await options.executeProject(projectDir);
+		const publishError = await adapter.executeProject(projectDir);
 		if (publishError !== null) {
 			return failure("publish-failed", publishError, {
 				registry,
@@ -136,6 +143,17 @@ export async function runClaimCommand(options: {
 		},
 		{ human: `Claimed ${registryLabel} package name '${request.name}'.` },
 	);
+}
+
+function writeLookupNameWhenDifferent(options: {
+	io: PackagechkIo;
+	registryLabel: ClaimRegistryLabel;
+	packageName: string;
+	lookupName: string | undefined;
+}): void {
+	if (options.lookupName !== undefined && options.lookupName !== options.packageName) {
+		options.io.stderr(`${options.registryLabel} lookup name: ${options.lookupName}\n`);
+	}
 }
 
 export function precheckExitForResult(

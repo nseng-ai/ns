@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-import { formatCommandFailure, runRealCommand, type CommandRunner } from "./command-runner.ts";
+import {
+	formatInlineCommandFailure,
+	runRealCommand,
+	type CommandRunner,
+} from "./command-runner.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -115,7 +119,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "not-git-worktree",
-			message: `sdlcc cmux report must run inside a git worktree: ${formatCommandFailure("git rev-parse --show-toplevel", worktreeResult, { verb: "exited" })}`,
+			message: `sdlcc cmux report must run inside a git worktree: ${formatInlineCommandFailure("git rev-parse --show-toplevel", worktreeResult)}`,
 			commandFailure: commandFailure("git", worktreeArgs, worktreeResult),
 		};
 	}
@@ -137,7 +141,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "git-branch-failed",
-			message: `sdlcc cmux report could not resolve the current git branch: ${formatCommandFailure("git branch --show-current", branchResult, { verb: "exited" })}`,
+			message: `sdlcc cmux report could not resolve the current git branch: ${formatInlineCommandFailure("git branch --show-current", branchResult)}`,
 			commandFailure: commandFailure("git", branchArgs, branchResult),
 		};
 	}
@@ -160,7 +164,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "cmux-resume-set-failed",
-			message: `cmux surface resume set failed: ${formatCommandFailure("cmux surface resume set", cmuxResult, { verb: "exited" })}`,
+			message: `cmux surface resume set failed: ${formatInlineCommandFailure("cmux surface resume set", cmuxResult)}`,
 			commandFailure: commandFailure("cmux", cmuxArgs, cmuxResult),
 		};
 	}

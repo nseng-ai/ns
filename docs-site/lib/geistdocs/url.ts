@@ -1,4 +1,4 @@
-import { siteUrl } from "@/geistdocs";
+import { siteUrl } from "./site-identity";
 
 export function getSiteOrigin(): string {
   const urlInput = URL.canParse(siteUrl) ? siteUrl : withInferredProtocol(siteUrl);

@@ -11,7 +11,12 @@ import {
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
-import { isRecord, optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
+import {
+	isRecord,
+	optionalEntries,
+	optionalEntry,
+	type ExplicitUndefined,
+} from "@sdl/core/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -32,6 +37,28 @@ export interface PlanStoreOptions {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: GitGateway;
 	planStoreGateway?: PlanStoreGateway;
+}
+
+interface BuildPlanStoreOptionsInput {
+	cwd: string;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+	planStoreRoot?: ExplicitUndefined<"di-seam", string>;
+	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
+	git?: ExplicitUndefined<"di-seam", GitGateway>;
+	planStoreGateway?: ExplicitUndefined<"di-seam", PlanStoreGateway>;
+}
+
+export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): PlanStoreOptions {
+	return {
+		cwd: options.cwd,
+		...optionalEntries({
+			signal: options.signal,
+			planStoreRoot: options.planStoreRoot,
+			env: options.env,
+			git: options.git,
+			planStoreGateway: options.planStoreGateway,
+		}),
+	};
 }
 
 export interface PlanStoreRepoEvidence {

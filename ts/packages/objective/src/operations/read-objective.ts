@@ -14,7 +14,7 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
-import { resolveObjectiveRecordTarget } from "./objective-target.ts";
+import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 
 export const readObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to read."),
@@ -160,10 +160,7 @@ export async function readObjectiveRecord(
 			value: emptyResult({
 				status: target.status,
 				error: target.status,
-				root: target.rootPath,
-				slug: target.slug,
-				path: target.path,
-				hasRoot: target.rootExists,
+				...targetToEmptyResultFields(target),
 			}),
 		};
 	}
@@ -177,7 +174,7 @@ export async function readObjectiveRecord(
 		status: "ok" as const,
 		error: null,
 		rootPath: target.rootPath,
-		rootExists: target.rootExists,
+		rootExists: target.hasRoot,
 		slug: target.slug,
 		path: relativePath,
 		exists: true,
@@ -207,7 +204,7 @@ export async function readObjectiveRecord(
 function emptyResult(options: {
 	status: Exclude<ReadObjectiveStatus, "ok">;
 	error: string;
-	root: string;
+	rootPath: string;
 	slug: string | null;
 	path: string | null;
 	hasRoot: boolean;
@@ -215,7 +212,7 @@ function emptyResult(options: {
 	return {
 		status: options.status,
 		error: options.error,
-		rootPath: options.root,
+		rootPath: options.rootPath,
 		rootExists: options.hasRoot,
 		slug: options.slug,
 		path: options.path,

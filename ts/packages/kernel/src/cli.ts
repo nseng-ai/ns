@@ -345,12 +345,6 @@ async function handleCompletionResolverInvocation(options: {
 	return { type: "handled", exitCode: 0 };
 }
 
-interface SelectedSdlCommandResolution {
-	commandInfos: readonly SdlCommandCliInfo[];
-	selectedCommand?: SdlCommand;
-	selectedCommandPath?: SdlCommandPath;
-}
-
 async function resolveSelectedSdlCommand(options: {
 	candidate: ExtensionCommandCandidate | undefined;
 	commandInfos: readonly SdlCommandCliInfo[];
@@ -360,7 +354,7 @@ async function resolveSelectedSdlCommand(options: {
 	stderr: (text: string) => void;
 	failureExitCode: number;
 }): Promise<
-	| { ok: true; resolution: SelectedSdlCommandResolution }
+	| { ok: true; resolution: SdlCliBuildState }
 	| { ok: false; handled: { type: "handled"; exitCode: number } }
 > {
 	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedSdlCommand;

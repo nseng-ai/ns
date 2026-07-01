@@ -15,7 +15,6 @@ export const SESSION_ASSOCIATION_CONFIDENCES = [
 	"query-repo-root",
 	"cwd",
 	"repo-cwd",
-	"repo_cwd",
 	"cwd-mismatch",
 ] as const;
 

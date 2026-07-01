@@ -349,6 +349,7 @@ describe("worktree status message rendering", () => {
 			{
 				customType: "worktree-status",
 				content: "[gh] #489 · comments 0/0 · checks 12✓ · landable",
+				display: true,
 				details: {
 					prLinks: [
 						{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/sdl-tools/489" },
@@ -369,6 +370,7 @@ describe("worktree status message rendering", () => {
 			{
 				customType: "worktree-status",
 				content: "[gh] #489 · comments 0/0 · checks 12✓ · landable",
+				display: true,
 				details: { prLinks: [{ number: 489, url: "javascript:alert(1)" }] },
 			},
 			{ expanded: false },

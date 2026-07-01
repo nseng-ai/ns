@@ -11,7 +11,11 @@ import {
 	type StackMapSlotAssignment,
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
-import { formatCommandFailure, runRealCommand, type CommandRunner } from "./command-runner.ts";
+import {
+	formatInlineCommandFailure,
+	runRealCommand,
+	type CommandRunner,
+} from "./command-runner.ts";
 
 export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";
 
@@ -215,7 +219,8 @@ export function parseCmuxTreeTabs(
 	| { type: "failure"; message: string } {
 	let parsed: unknown;
 	try {
-		parsed = JSON.parse(stdout.trim() || "{}");
+		const trimmedStdout = stdout.trim();
+		parsed = JSON.parse(trimmedStdout === "" ? "{}" : trimmedStdout);
 	} catch (error) {
 		return {
 			type: "failure",
@@ -262,7 +267,7 @@ async function loadCmuxTabs(
 	if (result.code !== 0)
 		return {
 			type: "failure",
-			message: `Could not load cmux tab inventory: ${formatCommandFailure("cmux tree", result, { verb: "exited" })}`,
+			message: `Could not load cmux tab inventory: ${formatInlineCommandFailure("cmux tree", result)}`,
 		};
 	const parsed = parseCmuxTreeTabs(result.stdout);
 	if (parsed.type === "failure")

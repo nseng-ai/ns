@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
-import { commandSucceeded, type CommandExecApi } from "@sdl/core/command";
+import { commandSucceeded, formatCommandFailure, type CommandExecApi } from "@sdl/core/command";
 import { NodeCommandExecApi } from "@sdl/exec";
 
 export interface ScannerIo {
@@ -35,7 +35,8 @@ export class RealScannerIo implements ScannerIo {
       ["diff", "--name-only", "--diff-filter=ACMR", `${diffBase}...HEAD`],
       { cwd: this.cwd },
     );
-    if (!commandSucceeded(result)) return commandError("git diff --name-only failed", result);
+    if (!commandSucceeded(result))
+      return commandError("git diff --name-only failed", "git diff --name-only --diff-filter=ACMR", result);
     return ok(result.stdout.split(/\r?\n/u).filter((line) => line.trim() !== ""));
   }
 
@@ -45,7 +46,12 @@ export class RealScannerIo implements ScannerIo {
       ["diff", "--unified=0", `${diffBase}...HEAD`, "--", file],
       { cwd: this.cwd },
     );
-    if (!commandSucceeded(result)) return commandError(`git diff for ${file} failed`, result);
+    if (!commandSucceeded(result))
+      return commandError(
+        `git diff for ${file} failed`,
+        `git diff --unified=0 ${diffBase}...HEAD -- ${file}`,
+        result,
+      );
     return ok(parseAddedLines(result.stdout));
   }
 
@@ -65,7 +71,11 @@ export class RealScannerIo implements ScannerIo {
       cwd: this.cwd,
     });
     if (!commandSucceeded(result))
-      return commandError("git rev-parse --show-toplevel failed", result);
+      return commandError(
+        "git rev-parse --show-toplevel failed",
+        "git rev-parse --show-toplevel",
+        result,
+      );
     this.repoRootCache = result.stdout.trim();
     return ok(this.repoRootCache);
   }
@@ -96,7 +106,8 @@ function ok<T>(value: T): IoResult<T> {
 }
 
 function commandError(
-  message: string,
+  title: string,
+  displayCommand: string,
   result: {
     readonly stderr: string;
     readonly stdout: string;
@@ -104,9 +115,8 @@ function commandError(
     readonly killed: boolean;
   },
 ): IoResult<never> {
-  const details = result.stderr.trim() === "" ? result.stdout.trim() : result.stderr.trim();
   return {
     ok: false,
-    message: details === "" ? `${message}: exit ${result.code}` : `${message}: ${details}`,
+    message: formatCommandFailure(title, displayCommand, result),
   };
 }

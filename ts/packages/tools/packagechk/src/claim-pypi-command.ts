@@ -33,19 +33,20 @@ export async function runPypiClaimCommand(options: {
 		registryGateway,
 		io,
 		interaction,
-		registry: "pypi",
-		registryLabel: "PyPI",
-		validationError: pypiValidationError,
-		prepareProject: preparePypiClaimProject,
-		ensurePublishToolsAvailable: () => pypiPublishGateway.ensurePublishToolsAvailable(),
-		executeProject: async (projectDir) =>
-			await executePypiClaimProject({
-				projectDir,
-				gateway: pypiPublishGateway,
-				io,
-			}),
-		tempDirPrefix: "packagechk-claim-pypi-",
-		printPreparedLookupNameWhenUnchecked: true,
+		adapter: {
+			registry: "pypi",
+			registryLabel: "PyPI",
+			validationError: pypiValidationError,
+			prepareProject: preparePypiClaimProject,
+			ensurePublishToolsAvailable: () => pypiPublishGateway.ensurePublishToolsAvailable(),
+			executeProject: async (projectDir) =>
+				await executePypiClaimProject({
+					projectDir,
+					gateway: pypiPublishGateway,
+					io,
+				}),
+			tempDirPrefix: "packagechk-claim-pypi-",
+		},
 	});
 }
 

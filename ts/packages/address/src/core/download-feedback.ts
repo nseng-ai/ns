@@ -2,7 +2,6 @@ import type { GitGateway } from "@sdl/git";
 
 import type {
 	GithubPrDiscussionComment,
-	GithubPrFeedbackFailure,
 	GithubPrFeedbackGateway,
 	GithubPrReview,
 	GithubPrReviewThread,
@@ -15,9 +14,13 @@ import {
 	type FeedbackSnapshot,
 } from "./feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "./feedback-summary.ts";
-import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
-import { resolvePrTarget, type PrTargetResolution } from "./pr-target.ts";
-import { buildPrTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
+import type { GatewayOptions } from "./gateways.ts";
+import {
+	resolvePrTarget,
+	type PrTargetFailureResult,
+	type PrTargetResolution,
+} from "./pr-target.ts";
+import { buildDownloadFeedbackTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
 
 type DownloadFeedbackTargetPayload = PrTargetPayload;
 
@@ -40,9 +43,7 @@ export interface DownloadFeedbackPayload {
 export type DownloadFeedbackResult =
 	| { type: "ok"; feedback: DownloadFeedbackPayload }
 	| { type: "miss"; message: string; feedback: DownloadFeedbackPayload }
-	| { type: "git_failure"; message: string; failure: GatewayFailure }
-	| { type: "pr_feedback_failure"; message: string; failure: GithubPrFeedbackFailure }
-	| { type: "detached_head"; message: string };
+	| PrTargetFailureResult;
 
 export interface CollectDownloadFeedbackOptions {
 	git: GitGateway;
@@ -309,14 +310,14 @@ function hasNoIncludedFeedback(counts: DownloadFeedbackCountsPayload): boolean {
 }
 
 function targetFromPr(pr: GithubPrSummary, branch: string | null): DownloadFeedbackTargetPayload {
-	return buildPrTargetPayload({ pr, branch, fallbackBranchToHead: true });
+	return buildDownloadFeedbackTargetPayload({ pr, branch });
 }
 
 function emptyTarget(options: {
 	readonly prNumber?: number;
 	readonly branch?: string;
 }): DownloadFeedbackTargetPayload {
-	return buildPrTargetPayload({
+	return buildDownloadFeedbackTargetPayload({
 		pr: null,
 		branch: options.branch ?? null,
 		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),

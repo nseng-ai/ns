@@ -1,7 +1,7 @@
 import { validateBranchName, type BrmemErrorInfo } from "@sdl/brmem";
 import {
 	failure,
-	requireInteractiveOrUsageError,
+	confirmInteractiveOrUsageError,
 	type ClinkrExit,
 	type ClinkrFailureExit,
 } from "@sdl/clinkr";
@@ -57,18 +57,19 @@ export async function confirmDestructiveAction(
 		beforePrompt?: () => void;
 	},
 ): Promise<DestructiveConfirmationResult> {
-	const gate = requireInteractiveOrUsageError(ctx.interaction, {
-		message: options.gateMessage,
-		missingFlag: options.missingFlag,
-		howToSupply: options.howToSupply,
+	const confirmation = await confirmInteractiveOrUsageError(ctx.interaction, {
+		nonInteractive: {
+			message: options.gateMessage,
+			missingFlag: options.missingFlag,
+			howToSupply: options.howToSupply,
+		},
+		confirmation: {
+			message: options.confirmMessage,
+			defaultAnswer: "no",
+		},
+		...(options.beforePrompt === undefined ? {} : { beforePrompt: options.beforePrompt }),
 	});
-	if (gate !== undefined) return { type: "gateFailure", exit: gate };
-
-	options.beforePrompt?.();
-	return ctx.interaction.confirm({
-		message: options.confirmMessage,
-		defaultAnswer: "no",
-	});
+	return "errorType" in confirmation ? { type: "gateFailure", exit: confirmation } : confirmation;
 }
 
 export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFailureExit {

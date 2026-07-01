@@ -1,7 +1,7 @@
 import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
+import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
 import { realHandoffCreateSkillLoader } from "./create-skill.ts";
-import { fencedBlock } from "./markdown-formatting.ts";
 import { createHandoffStartMessage, type HandoffStartMessages } from "./ui-status.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
@@ -18,17 +18,17 @@ Create a directed handoff artifact for this session.
 
 Continuation focus:
 
-${fencedBlock("text", focusText)}
+${buildFencedTextBlock(focusText)}
 
 Treat this as an explicit request to run the handoff create workflow. The handoff must be directed toward the supplied continuation focus. Compose the final Markdown handoff artifact first, then derive a semantic slug from that final content unless the user explicitly supplied one. Avoid overwriting an existing artifact unless replacement was explicitly requested, and keep normal copy focused on creating/picking up a handoff.
 
 Before writing, confirm the branch unless the user explicitly named one and derive the slug from the final artifact content. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin with the Handoff command:
 
-${fencedBlock(
-	"bash",
+${buildFencedTextBlock(
 	`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF`,
+	"bash",
 )}
 
 The command refuses existing artifacts by default; if it reports a collision, stop and ask before replacing anything. Report the created handoff first. Include Branch Memory details only as technical storage evidence.`;

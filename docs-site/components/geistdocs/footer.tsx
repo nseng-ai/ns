@@ -3,7 +3,7 @@ import { LanguageSelector, ThemeToggle } from "@vercel/geistdocs/controls";
 import type { GeistdocsConfig } from "@vercel/geistdocs/config";
 import { RssIcon } from "lucide-react";
 import Link from "next/link";
-import { translations } from "@/geistdocs";
+import { translations } from "@/lib/geistdocs/site-identity";
 
 const hasMultipleLanguages = Object.keys(translations).length > 1;
 

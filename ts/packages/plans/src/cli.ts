@@ -23,6 +23,7 @@ import {
 } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
+	buildPlanStoreOptions,
 	findLatestSavedPlanFile,
 	formatSavedPlanFileEvidence,
 	NoSavedPlanAvailableError,
@@ -249,12 +250,12 @@ function planStoreOptions(
 	ctx: PlansCliContext,
 	planStoreRoot: string | undefined = ctx.planStoreRoot,
 ): PlanStoreOptions {
-	return {
+	return buildPlanStoreOptions({
 		cwd: ctx.cwd,
 		git: ctx.git,
 		planStoreGateway: ctx.planStoreGateway,
-		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
-	};
+		planStoreRoot,
+	});
 }
 
 function plansErrorType(operation: PlansOperation): string {

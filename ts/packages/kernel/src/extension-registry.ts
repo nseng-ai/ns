@@ -209,11 +209,11 @@ export async function loadListingCommandInfos(catalog: SdlCommandCatalog): Promi
 	const loadedInfos = await Promise.all(
 		[...catalog.candidates.values()].map(async (candidate) => {
 			if (isBuiltInCandidate(candidate) || candidate.kind === "package") {
-				return { commandInfo: staticCommandInfo(candidate), diagnostic: undefined };
+				return { commandInfo: toCommandCliInfo(candidate), diagnostic: undefined };
 			}
 			const loaded = await loadSelectedSdlCommand(candidate);
 			if (!loaded.ok) {
-				return { commandInfo: staticCommandInfo(candidate), diagnostic: loaded.diagnostic };
+				return { commandInfo: toCommandCliInfo(candidate), diagnostic: loaded.diagnostic };
 			}
 			return {
 				commandInfo: commandInfoForLoadedCommand(loaded.command, loaded.source.level, loaded.path),
@@ -536,10 +536,6 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 		throw new Error(`Missing SDL extension source-level order for ${level}.`);
 	}
 	return rank;
-}
-
-function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
-	return toCommandCliInfo(candidate);
 }
 
 function isBuiltInCandidate(
