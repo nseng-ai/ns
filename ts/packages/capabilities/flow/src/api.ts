@@ -28,14 +28,3 @@ export { parsePullRequestView, registerLandCommand, runLandCli } from "./land.ts
 
 export type { TrunkPullOutcome, TrunkPullResult } from "./trunk-pull.ts";
 export { runTrunkPullDetailed } from "./trunk-pull.ts";
-
-export type { ExecuteStackLandingOptions, LandStackExtensionAPI } from "./land-stack.ts";
-export {
-	executeStackLanding,
-	landArgumentCompletions,
-	parseArgs,
-	registerLandStackRenderer,
-} from "./land-stack.ts";
-
-export type { LandStackCommandContext, ParsedArgs } from "./land-stack/types.ts";
-export type { LandStackOutcome, LandStackResult } from "./land-stack/errors.ts";
