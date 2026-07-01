@@ -7,6 +7,8 @@
     "./api": "./src/api.ts",
     "./sdl/commands/archive": "./src/sdl/commands/archive.ts",
     "./sdl/commands/check": "./src/sdl/commands/check.ts",
+    "./sdl/commands/exec-autopilot-land-slice": "./src/sdl/commands/exec-autopilot-land-slice.ts",
+    "./sdl/commands/exec-autopilot-preflight": "./src/sdl/commands/exec-autopilot-preflight.ts",
     "./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
     "./sdl/commands/exec-load-orientations": "./src/sdl/commands/exec-load-orientations.ts",
     "./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
@@ -29,6 +31,7 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
+    "@sdl/graphite": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },

@@ -936,6 +936,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
+      '@sdl/graphite':
+        specifier: workspace:*
+        version: link:../infra/graphite
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk

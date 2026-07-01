@@ -2,6 +2,7 @@ import { NodeCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 
+import { RealAutopilotGateway, type AutopilotGateway } from "./operations/autopilot/gateway.ts";
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
@@ -13,6 +14,7 @@ export interface ObjectiveCliContext {
 	trunkBranch: string;
 	storage: ObjectiveStorage;
 	git: GitGateway;
+	autopilot: AutopilotGateway;
 }
 
 export async function createRealObjectiveContext(
@@ -20,6 +22,7 @@ export async function createRealObjectiveContext(
 		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 		git?: GitGateway;
+		autopilot?: AutopilotGateway;
 	} = {},
 ): Promise<ObjectiveCliContext> {
 	const cwd = options.cwd ?? process.cwd();
@@ -37,5 +40,6 @@ export async function createRealObjectiveContext(
 		trunkBranch,
 		storage: new ObjectiveStorage(new RealObjectiveStorageGateway(repoRoot)),
 		git,
+		autopilot: options.autopilot ?? new RealAutopilotGateway(),
 	};
 }

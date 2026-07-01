@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/api.ts";
 import type { ObjectiveCliContext } from "../../src/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/fake-storage.ts";
+import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
 
 const OBJECTIVE_MD = "# Title\n\n## Thesis\n\nDo the thing.\n";
@@ -27,6 +28,7 @@ function buildContext(): ObjectiveCliContext {
 		git: new InMemoryGitGateway({
 			localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
 		}),
+		autopilot: new FakeAutopilotGateway(),
 	};
 }
 
@@ -90,6 +92,7 @@ describe("createObjectiveClient", () => {
 				git: new InMemoryGitGateway({
 					localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
 				}),
+				autopilot: new FakeAutopilotGateway(),
 			},
 		});
 		const result = await client.listActiveCandidates();

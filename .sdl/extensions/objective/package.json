@@ -19,6 +19,16 @@
 				"entry": "./src/commands/archive.ts"
 			},
 			{
+				"name": "exec-autopilot-preflight",
+				"description": "Check live repo/Objective state before an autopilot run.",
+				"entry": "./src/commands/exec-autopilot-preflight.ts"
+			},
+			{
+				"name": "exec-autopilot-land-slice",
+				"description": "Verify live repo state, then commit a finished slice via Graphite (gt) and optionally submit.",
+				"entry": "./src/commands/exec-autopilot-land-slice.ts"
+			},
+			{
 				"name": "exec-list-candidates",
 				"description": "List active Objective slug candidates for shell and agent autocomplete.",
 				"entry": "./src/commands/exec-list-candidates.ts"

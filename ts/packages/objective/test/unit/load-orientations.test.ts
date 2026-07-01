@@ -6,6 +6,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/fake-storage.ts";
+import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
 import {
 	renderLoadOrientationsMarkdown,
 	runLoadOrientations,
@@ -114,5 +115,6 @@ function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeO
 		trunkBranch: "master",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(),
+		autopilot: new FakeAutopilotGateway(),
 	};
 }

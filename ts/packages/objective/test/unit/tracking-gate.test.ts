@@ -6,6 +6,7 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/fake-storage.ts";
+import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
 import { renderTrackingGate, runTrackingGate } from "../../src/operations/tracking-gate.ts";
 import { ObjectiveStorage } from "../../src/storage.ts";
 
@@ -114,5 +115,6 @@ function contextWithFakeStorage(
 		trunkBranch: typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main",
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
 		git: new InMemoryGitGateway(gitState),
+		autopilot: new FakeAutopilotGateway(),
 	};
 }
