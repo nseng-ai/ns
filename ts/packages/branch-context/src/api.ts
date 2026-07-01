@@ -7,6 +7,7 @@ export {
 	formatBranchContextEvidence,
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
+	formatBranchContextGraphiteCreationMethod,
 	resolveBranchContextCreatePreviewContext,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,

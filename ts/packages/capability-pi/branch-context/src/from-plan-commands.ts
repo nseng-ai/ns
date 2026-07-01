@@ -22,6 +22,7 @@ import {
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
+	formatBranchContextGraphiteCreationMethod,
 	formatExistingBranchContextReuse,
 	formatLoadedAttachedPlanEvidence,
 	resolveExistingBranchContextReuse,
@@ -58,6 +59,7 @@ const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
 const GT_UPSTACK_IMPL_STATUS_KEY = GT_UPSTACK_IMPL_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_CURRENT_SAVED_PLAN_STATUS_KEY = IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME;
+const GRAPHITE_BRANCH_CREATION_HELP = formatBranchContextGraphiteCreationMethod("<current-branch>");
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
@@ -66,10 +68,12 @@ Create a branch context from a saved plan. The branch slug is derived from the p
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Create the target branch with plain Git, then register it with gt track.
-  --plain-git        Create the target branch with plain Git only; no Graphite tracking.
+  --graphite         Create with the branch-context Graphite method.
+  --plain-git        Create with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
+
+${GRAPHITE_BRANCH_CREATION_HELP}
 
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
@@ -77,15 +81,17 @@ The saved-plan filename is only a locator. If the model cannot derive and valida
 
 export const GT_UPSTACK_IMPL_USAGE = `Usage: /${GT_UPSTACK_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch by creating the local Git branch, registering it with gt track, attaching the saved plan, checking out that branch with exact git checkout <branch>, starting a fresh Pi session, and running /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
+Stack a branch context on the current branch with the branch-context Graphite method, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Default: create the target branch with plain Git, then register it with gt track.
+  --graphite         Default: create with the branch-context Graphite method.
   --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name.
   --help, -h         Show this help.
+
+${GRAPHITE_BRANCH_CREATION_HELP}
 
 The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.

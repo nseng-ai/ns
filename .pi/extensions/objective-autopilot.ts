@@ -15,6 +15,7 @@ import {
 } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
 import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
 import { optionalEntry } from "../../ts/packages/infra/core/src/primitives.ts";
+import { formatBranchContextGraphiteCreationMethod } from "../../ts/packages/branch-context/src/api.ts";
 import {
 	formatCommand,
 	formatCommandFailure,
@@ -34,6 +35,8 @@ const REPORT_END = "OBJECTIVE_AUTOPILOT_REPORT_END";
 const RECOVERY_REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_RECOVERY_BEGIN";
 const RECOVERY_REPORT_END = "OBJECTIVE_AUTOPILOT_RECOVERY_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
+const AUTOPILOT_GRAPHITE_STACK_MUTATION_PROHIBITION =
+	"Do not run `gt create`, `gt restack`, or any command whose purpose is to rebase/reorder the Graphite stack";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -488,13 +491,13 @@ Rules:
 - If objective-next stops, asks for a human, finds no substantive work, or says ready-to-close, stop and report status: stop.
 - Before implementation, create and save an implementation plan as usual.
 - Create the implementation branch with the repo's branch-context Graphite creation path: use \`sdl branch-context exec from-plan --branch-creation graphite ...\` or \`/sdl:branch-context:from-plan --graphite ...\`.
-- For this autoobjective path, branch-context Graphite creation means local Git branch creation followed immediately by \`gt track <target> --parent ${parentBranch} --no-interactive\`; do not use \`gt create\`.
+- ${formatBranchContextGraphiteCreationMethod(parentBranch)}
 - Attach branch context only through the branch-context workflow after Graphite tracking succeeds. If branch-context Graphite creation or \`gt track\` fails, stop and report the failed command plus recovery guidance; do not continue on an untracked implementation branch.
 - Implement the attached plan on the implementation branch.
 - Validate according to repo/churn policy, and run relevant checks for changed files.
 - Update Objective tracking with a meaningful Semantic Update when material progress is kept.
 - Leave changes uncommitted. Do not commit, submit PRs, push, merge, publish, deploy, or mutate external systems.
-- Do not run \`gt create\`, \`gt restack\`, or any command whose purpose is to rebase/reorder the Graphite stack during this autoobjective iteration; if a branch appears to need restacking, report it and stop.
+- ${AUTOPILOT_GRAPHITE_STACK_MUTATION_PROHIBITION} during this autoobjective iteration; if a branch appears to need restacking, report it and stop.
 - List changed files as a best-effort summary only; the parent independently inspects git status and owns staging/commit.
 - Keep your final response concise and include exactly one report block in this format:
 
@@ -657,7 +660,7 @@ Your job is narrow local recovery, not implementation:
 - Inspect repository state and perform only minimal local recovery needed to return control to the parent verifier.
 - Do not implement Objective feature work or edit feature code.
 - Do not commit, submit, push, merge, publish, deploy, resolve GitHub threads, restack Graphite branches, or mutate external systems.
-- Do not run \`gt create\`, \`gt restack\`, or any command whose purpose is to rebase/reorder the Graphite stack; restack-required submit failures must return control to the human.
+- ${AUTOPILOT_GRAPHITE_STACK_MUTATION_PROHIBITION}; restack-required submit failures must return control to the human.
 - Do not stage files unless a minimal recovery command unavoidably stages them; if staging happens, report it.
 - Prefer deterministic local commands and explain what evidence justified each action.
 - For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` only when live evidence supports that parent.

@@ -54,9 +54,9 @@ Do not call every execution-friendly Objective autonomous. Human-assisted execut
 
 ### Autoobjective branch policy
 
-Autoobjective runners that create implementation branches should use the branch-context Graphite creation primitive: create the local branch with plain Git, then immediately register it with `gt track <target> --parent <parent> --no-interactive`.
+Autoobjective runners that create implementation branches should follow the branch-context branch creation policy (`skills/branch-context/references/lifecycle.md`): use branch-context Graphite creation rather than `gt create`.
 
-Autoobjective branch setup should not use `gt create`. No-submit autoobjective runs should avoid `gt modify`, `gt restack`, and submit/update Graphite mutations; those belong to explicit submit or reconciliation flows.
+No-submit autoobjective runs should avoid `gt modify`, `gt restack`, and submit/update Graphite mutations; those belong to explicit submit or reconciliation flows.
 
 ---
 
