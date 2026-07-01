@@ -126,6 +126,11 @@ export type SegmentationParseResult =
 	| { ok: true; value: LmSegmentation }
 	| { ok: false; error: string };
 
+interface SnappedTurnValue<TValue> {
+	turn: number;
+	value: TValue;
+}
+
 export function parseSegmentationResponseText(text: string): SegmentationParseResult {
 	const envelope = parseLmJson(text, segmentationEnvelopeSchema, {
 		invalidShapeError: "response JSON has no episodes array",
@@ -196,26 +201,22 @@ export function repairEpisodes(
 	const firstTurn = turns[0];
 	if (firstTurn === undefined) return [];
 
-	const startsByTurn = new Map<number, LmEpisodeStart>();
-	for (const start of starts) {
-		const turn = snapStartTurn(start.startTurn, turns);
-		if (!startsByTurn.has(turn)) startsByTurn.set(turn, { ...start, startTurn: turn });
-	}
-	if (!startsByTurn.has(firstTurn.index)) {
-		startsByTurn.set(firstTurn.index, {
-			startTurn: firstTurn.index,
-			label: "uncategorized",
-			kind: "uncategorized",
-			outcome: "unknown",
-		});
-	}
-
-	const sortedStarts = [...startsByTurn.entries()]
-		.sort(([left], [right]) => left - right)
-		.slice(0, MAX_EPISODES)
-		.map(([turnIndex, start]) => ({
-			start,
-			position: turns.findIndex((turn) => turn.index === turnIndex),
+	const fallbackStart: LmEpisodeStart = {
+		startTurn: firstTurn.index,
+		label: "uncategorized",
+		kind: "uncategorized",
+		outcome: "unknown",
+	};
+	const sortedStarts = dedupeAndCapBySnappedTurn(
+		[...starts, fallbackStart],
+		turns,
+		MAX_EPISODES,
+		(start) => start.startTurn,
+		(start, turn): LmEpisodeStart => ({ ...start, startTurn: turn }),
+	)
+		.map(({ turn, value }) => ({
+			start: value,
+			position: turns.findIndex((candidate) => candidate.index === turn),
 		}))
 		// Guard only: snapStartTurn returns indices present in turns.
 		.filter((entry) => entry.position !== -1);
@@ -283,16 +284,31 @@ export function repairDelegations(
 	turns: readonly LiveTurn[],
 ): DelegationClaim[] {
 	if (turns.length === 0) return [];
-	const claimsByTurn = new Map<number, DelegationClaim>();
-	for (const claim of claims) {
-		const turn = snapStartTurn(claim.turn, turns);
-		if (!claimsByTurn.has(turn)) {
-			claimsByTurn.set(turn, { turn, label: claim.label, confidence: claim.confidence });
-		}
+	return dedupeAndCapBySnappedTurn(
+		claims,
+		turns,
+		MAX_DELEGATIONS,
+		(claim) => claim.turn,
+		(claim, turn): DelegationClaim => ({ turn, label: claim.label, confidence: claim.confidence }),
+	).map((entry) => entry.value);
+}
+
+function dedupeAndCapBySnappedTurn<TInput, TValue>(
+	items: readonly TInput[],
+	turns: readonly LiveTurn[],
+	max: number,
+	turnOf: (item: TInput) => number,
+	project: (item: TInput, turn: number) => TValue,
+): SnappedTurnValue<TValue>[] {
+	const valuesByTurn = new Map<number, TValue>();
+	for (const item of items) {
+		const turn = snapStartTurn(turnOf(item), turns);
+		if (!valuesByTurn.has(turn)) valuesByTurn.set(turn, project(item, turn));
 	}
-	return [...claimsByTurn.values()]
-		.sort((left, right) => left.turn - right.turn)
-		.slice(0, MAX_DELEGATIONS);
+	return [...valuesByTurn.entries()]
+		.sort(([left], [right]) => left - right)
+		.slice(0, max)
+		.map(([turn, value]) => ({ turn, value }));
 }
 
 /**
