@@ -5,7 +5,10 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { discoverExtensionsInRoot } from "../../src/extension-discovery.ts";
+import {
+	discoverExtensionsInRoot,
+	discoverSdlPackageCommands,
+} from "../../src/extension-discovery.ts";
 
 const tempDirs: string[] = [];
 
@@ -264,6 +267,16 @@ describe("extension discovery", () => {
 			"extension_manifest_commands_not_array",
 			"extension_manifest_missing_sdl",
 		]);
+	});
+
+	test("bulk SDL package discovery suppresses manifest structure diagnostics", async () => {
+		const root = await createTempDir();
+		const packageDir = join(root, "ordinary-package");
+		writeFile(join(packageDir, "package.json"), JSON.stringify({ sdl: "commands" }));
+
+		const result = discoverSdlPackageCommands(root, packageDir);
+
+		expect(result).toEqual({ commands: [], diagnostics: [] });
 	});
 
 	test("unknown package manifest fields do not break command discovery", async () => {
