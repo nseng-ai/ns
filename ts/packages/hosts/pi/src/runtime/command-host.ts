@@ -1,5 +1,6 @@
 import type { ModelInfo } from "../runtime/types.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
+import type { NotifyLevel } from "./tool-types.ts";
 
 export interface PiCommandContext {
 	cwd: string;
@@ -7,7 +8,7 @@ export interface PiCommandContext {
 	model?: ModelInfo;
 	hasUI?: boolean;
 	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
+		notify(message: string, level?: NotifyLevel): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,

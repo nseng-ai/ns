@@ -1,4 +1,6 @@
-export type SessionUserMessageDelivery = "steer" | "followUp" | "nextTurn";
+import type { AgentMessageDelivery } from "../shared/message-delivery.ts";
+
+export type SessionUserMessageDelivery = AgentMessageDelivery;
 
 export interface SessionUserMessageOptions {
 	deliverAs?: SessionUserMessageDelivery;

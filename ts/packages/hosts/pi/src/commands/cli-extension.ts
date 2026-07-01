@@ -1,41 +1,25 @@
-import { appendFileSync } from "node:fs";
 import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { ScheduledTimer } from "@sdl/core/timers";
-import { formatElapsedMs } from "@sdl/core/time-format";
-import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@sdl/capability-kit/xdg";
+import type { NotifyLevel } from "../runtime/tool-types.ts";
+import { LiveCommandProgress } from "./cli-command-live-progress.ts";
+import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
-import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
+import { withSafePiUi } from "../shared/safe-ui.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../terminal/presentation.ts";
-import { unrefTimerScheduler } from "../shared/timers.ts";
 import type { SdlConfirmOptions } from "sdl-sdk";
 
-const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
-const TRACE_ENV = "SDL_PI_CLI_TRACE";
-const TRACE_OUTPUT_ENV = "SDL_PI_CLI_TRACE_OUTPUT";
-const TRACE_PATH_ENV = "SDL_PI_CLI_TRACE_PATH";
-const DEFAULT_TRACE_FILENAME = "sdl-pi-cli-command-extension.jsonl";
-const TRACE_OUTPUT_PREVIEW_CHARS = 500;
-const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
-const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
-const LIVE_PROGRESS_INTERVAL_MS = 1_000;
-const LIVE_PROGRESS_MAX_LINES = 8;
-const LIVE_PROGRESS_WIDGET_OUTPUT_LINES = 1;
-const LIVE_PROGRESS_MAX_LINE_CHARS = 100;
+export { cliCommandTracePath } from "./cli-command-trace.ts";
 
 export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
 
-type NotifyLevel = "info" | "warning" | "error";
-type TraceFields = Record<string, unknown>;
 type OutputStreamName = "stdout" | "stderr";
-type LiveProgressTarget = "none" | "status" | "widget";
 type CommandWidgetPlacement = "aboveEditor" | "belowEditor";
 
 interface CustomMessage {
@@ -169,7 +153,7 @@ export interface CliCommandOutputDetails {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
-	level: "info" | "warning" | "error";
+	level: NotifyLevel;
 }
 
 export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
@@ -594,223 +578,6 @@ function isCliUsageError(details: CliCommandOutputDetails): boolean {
 	);
 }
 
-interface LiveCommandProgressOptions {
-	cliName: string;
-	commandName: string;
-	piCommandName: string;
-	argv: readonly string[];
-}
-
-interface LiveOutputLine {
-	stream: OutputStreamName;
-	text: string;
-}
-
-class LiveCommandProgress {
-	private readonly ctx: CommandContext;
-	private readonly options: LiveCommandProgressOptions;
-	private readonly startedAt = Date.now();
-	private readonly target: LiveProgressTarget;
-	private phase = "starting";
-	private stdoutChars = 0;
-	private stderrChars = 0;
-	private stdoutPending = "";
-	private stderrPending = "";
-	private outputLines: LiveOutputLine[] = [];
-	private lastStatusValue: string | undefined;
-	private timer: ScheduledTimer | undefined;
-	private isClosed = false;
-
-	constructor(ctx: CommandContext, options: LiveCommandProgressOptions) {
-		this.ctx = ctx;
-		this.options = options;
-		this.target = liveProgressTarget(ctx);
-		traceCliCommand("live_progress_start", {
-			commandName: options.commandName,
-			piCommandName: options.piCommandName,
-			sendMessageCalled: false,
-			target: this.target,
-		});
-
-		if (this.target === "none") return;
-
-		this.render();
-		this.timer = unrefTimerScheduler.setInterval(() => {
-			this.render();
-		}, LIVE_PROGRESS_INTERVAL_MS);
-	}
-
-	setPhase(phase: string): void {
-		this.phase = phase;
-		this.render();
-	}
-
-	appendOutput(stream: OutputStreamName, text: string): void {
-		if (text === "") return;
-
-		if (stream === "stdout") {
-			this.stdoutChars += text.length;
-		} else {
-			this.stderrChars += text.length;
-		}
-		this.recordOutput(stream, text);
-		traceCliCommand("live_progress_output", {
-			chunkChars: text.length,
-			commandName: this.options.commandName,
-			piCommandName: this.options.piCommandName,
-			sendMessageCalled: false,
-			stderrChars: this.stderrChars,
-			stdoutChars: this.stdoutChars,
-			stream,
-			target: this.target,
-		});
-		this.render();
-	}
-
-	close(): void {
-		if (this.isClosed) return;
-		this.isClosed = true;
-		this.clearTimer();
-		if (this.target !== "none") {
-			this.runLiveUiUpdate(() => {
-				this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, undefined);
-				this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, undefined);
-			});
-		}
-		traceCliCommand("live_progress_stop", {
-			commandName: this.options.commandName,
-			elapsedMs: Date.now() - this.startedAt,
-			piCommandName: this.options.piCommandName,
-			sendMessageCalled: false,
-			stderrChars: this.stderrChars,
-			stdoutChars: this.stdoutChars,
-			target: this.target,
-		});
-	}
-
-	private render(): void {
-		if (this.target === "none" || this.isClosed) return;
-
-		const elapsed = formatElapsedMs(Date.now() - this.startedAt);
-		this.runLiveUiUpdate(() => {
-			this.renderStatus(elapsed);
-			this.ctx.ui.setWidget?.(LIVE_PROGRESS_WIDGET_ID, this.widgetLines(elapsed), {
-				placement: "aboveEditor",
-			});
-		});
-	}
-
-	private renderStatus(elapsed: string): void {
-		if (this.target !== "status") return;
-
-		const value = this.statusValue(elapsed);
-		if (value === this.lastStatusValue) return;
-
-		this.lastStatusValue = value;
-		this.ctx.ui.setStatus?.(LIVE_PROGRESS_STATUS_ID, value);
-	}
-
-	private runLiveUiUpdate(action: () => void): void {
-		const result = withSafePiUi(action);
-		if (result.type === "ok") return;
-
-		this.isClosed = true;
-		this.clearTimer();
-		traceCliCommand("live_progress_stale_context", {
-			commandName: this.options.commandName,
-			piCommandName: this.options.piCommandName,
-			target: this.target,
-		});
-	}
-
-	private clearTimer(): void {
-		if (this.timer === undefined) return;
-		this.timer.cancel();
-		this.timer = undefined;
-	}
-
-	private statusValue(elapsed: string): string {
-		return `/${this.options.piCommandName} ${this.phase} (${elapsed})`;
-	}
-
-	private widgetLines(elapsed: string): string[] {
-		const lines = [
-			`/${this.options.piCommandName} ${this.phase} (${elapsed} elapsed)`,
-			`$ ${formatCommandForDisplay(this.options.cliName, this.options.argv)} · stdout ${this.stdoutChars}, stderr ${this.stderrChars}`,
-		];
-		const recentLines = this.recentOutputLines();
-		if (recentLines.length === 0) {
-			lines.push("No CLI output yet.");
-			return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
-		}
-
-		const shownLines = recentLines.slice(-LIVE_PROGRESS_WIDGET_OUTPUT_LINES);
-		const hiddenLineCount = recentLines.length - shownLines.length;
-		if (hiddenLineCount > 0) {
-			lines.push(
-				`… ${hiddenLineCount} earlier recent CLI line${hiddenLineCount === 1 ? "" : "s"} hidden`,
-			);
-		}
-		for (const line of shownLines) {
-			lines.push(formatLiveOutputLine(line));
-		}
-		return lines.map((line) => truncateDisplayLine(line, LIVE_PROGRESS_MAX_LINE_CHARS));
-	}
-
-	private recordOutput(stream: OutputStreamName, text: string): void {
-		const pending = stream === "stdout" ? this.stdoutPending : this.stderrPending;
-		const parts = `${pending}${text.replace(/\r/g, "\n")}`.split("\n");
-		const nextPending = parts.pop() ?? "";
-		for (const line of parts) {
-			this.outputLines.push({ stream, text: line });
-		}
-		if (stream === "stdout") {
-			this.stdoutPending = nextPending;
-		} else {
-			this.stderrPending = nextPending;
-		}
-		this.outputLines = this.outputLines.slice(-LIVE_PROGRESS_MAX_LINES);
-	}
-
-	private recentOutputLines(): LiveOutputLine[] {
-		const lines = [...this.outputLines];
-		if (this.stdoutPending !== "") {
-			lines.push({ stream: "stdout", text: this.stdoutPending });
-		}
-		if (this.stderrPending !== "") {
-			lines.push({ stream: "stderr", text: this.stderrPending });
-		}
-		return lines.slice(-LIVE_PROGRESS_MAX_LINES);
-	}
-}
-
-function liveProgressTarget(ctx: CommandContext): LiveProgressTarget {
-	if (!ctx.hasUI) return "none";
-
-	const result = withSafePiUiValue(() => {
-		const hasStatus = ctx.ui.setStatus !== undefined;
-		const hasWidget = ctx.ui.setWidget !== undefined;
-		if (hasWidget) return "widget";
-		if (hasStatus) return "status";
-		return "none";
-	});
-	if (result.type === "stale-context") return "none";
-	return result.value;
-}
-
-function formatCommandForDisplay(cliName: string, argv: readonly string[]): string {
-	return [cliName, ...argv].map(formatDisplayArg).join(" ");
-}
-
-function formatDisplayArg(arg: string): string {
-	if (/^[A-Za-z0-9_./:=@+-]+$/.test(arg)) return arg;
-	return JSON.stringify(arg);
-}
-
-function formatLiveOutputLine(line: LiveOutputLine): string {
-	return truncateDisplayLine(`${line.stream}: ${line.text}`, LIVE_PROGRESS_MAX_LINE_CHARS);
-}
-
 function emitCliCommandOutput(
 	pi: CliCommandExtensionAPI,
 	ctx: CommandContext,
@@ -904,56 +671,6 @@ function formatFailedOutput(options: FailedOutputOptions): string {
 	return sections.join("\n\n");
 }
 
-export function cliCommandTracePath(env: Record<string, string | undefined> = process.env): string {
-	return requireSdlStatePath({
-		env,
-		overrideEnvName: TRACE_PATH_ENV,
-		segments: ["pi-cli-command-extension", DEFAULT_TRACE_FILENAME],
-	});
-}
-
-function traceCliCommand(event: string, fields: TraceFields = {}): void {
-	if (!isTraceEnabled(process.env)) return;
-
-	const record = {
-		timestamp: new Date().toISOString(),
-		pid: process.pid,
-		version: CLI_COMMAND_BRIDGE_VERSION,
-		event,
-		...fields,
-	};
-
-	try {
-		const path = cliCommandTracePath(process.env);
-		ensurePrivateParentDirectorySync(path);
-		appendFileSync(path, `${JSON.stringify(record)}\n`, "utf8");
-	} catch {
-		// Trace logging is diagnostic only and must never affect command execution.
-	}
-}
-
-function isTraceEnabled(env: Record<string, string | undefined>): boolean {
-	const value = env[TRACE_ENV]?.toLowerCase();
-	return value !== "0" && value !== "false" && value !== "off";
-}
-
-function outputTraceFields(stdout: string, stderr: string): TraceFields {
-	const fields: TraceFields = {
-		stderrChars: stderr.length,
-		stdoutChars: stdout.length,
-	};
-	if (process.env[TRACE_OUTPUT_ENV] === "1") {
-		fields.stdoutPreview = tracePreview(stdout);
-		fields.stderrPreview = tracePreview(stderr);
-	}
-	return fields;
-}
-
-function tracePreview(text: string): string {
-	if (text.length <= TRACE_OUTPUT_PREVIEW_CHARS) return text;
-	return `${text.slice(0, TRACE_OUTPUT_PREVIEW_CHARS)}…`;
-}
-
 function hasSendMessage(pi: CliCommandExtensionAPI): boolean {
 	return typeof pi.sendMessage === "function";
 }
@@ -962,7 +679,7 @@ function hasMessageRenderer(pi: CliCommandExtensionAPI): boolean {
 	return typeof pi.registerMessageRenderer === "function";
 }
 
-function cliCommandMessageLevel(details: unknown): "info" | "warning" | "error" {
+function cliCommandMessageLevel(details: unknown): NotifyLevel {
 	if (isRecord(details) && details.level === "error") return "error";
 	if (isRecord(details) && details.level === "warning") return "warning";
 	return "info";
@@ -971,7 +688,7 @@ function cliCommandMessageLevel(details: unknown): "info" | "warning" | "error" 
 interface StyleCliCommandOutputLineOptions {
 	line: string;
 	index: number;
-	level: "info" | "warning" | "error";
+	level: NotifyLevel;
 	theme: RenderTheme;
 }
 

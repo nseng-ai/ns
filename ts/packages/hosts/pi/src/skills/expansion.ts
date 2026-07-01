@@ -3,6 +3,7 @@ import { dirname, join, parse, resolve } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
 import { isPathInside } from "@sdl/core/primitives";
+import type { NotifyLevel } from "../runtime/tool-types.ts";
 
 export interface SkillCommandInfo {
 	name: string;
@@ -58,7 +59,7 @@ export interface RepoSkillPromptTurnHost {
 export interface SkillPromptTurnContext {
 	hasUI?: boolean;
 	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
+		notify(message: string, level?: NotifyLevel): void;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -211,26 +212,24 @@ export async function expandSkillBlockFromPath(
 }
 
 export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOptions): Promise<void> {
-	const { host, ctx, skillName, fallbackMessage, buildPrompt } = options;
+	const { host, ctx, skillName } = options;
 	await ctx.waitForIdle();
 
 	const skill = await expandSkillBlock(host, skillName);
-	if (ctx.hasUI === true) {
-		const message =
-			skill === undefined
-				? fallbackMessage
-				: skillPromptTurnSuccessMessage(options.successMessage, skill);
-		const level = skill === undefined ? "warning" : "info";
-		ctx.ui.notify(message, level);
-	}
-
-	await host.sendUserMessage(buildPrompt(skill?.block));
+	await deliverSkillPromptTurn({
+		host,
+		ctx,
+		skill,
+		fallbackMessage: options.fallbackMessage,
+		successMessage: options.successMessage,
+		buildPrompt: options.buildPrompt,
+	});
 }
 
 export async function invokeRepoSkillPromptTurn(
 	options: InvokeRepoSkillPromptTurnOptions,
 ): Promise<void> {
-	const { host, ctx, skillName, fallbackMessage, buildPrompt } = options;
+	const { host, ctx, skillName } = options;
 	await ctx.waitForIdle();
 
 	let skill: ExpandedSkillBlock | undefined;
@@ -254,16 +253,36 @@ export async function invokeRepoSkillPromptTurn(
 		}
 	}
 
-	if (ctx.hasUI === true) {
+	await deliverSkillPromptTurn({
+		host,
+		ctx,
+		skill,
+		fallbackMessage: options.fallbackMessage,
+		successMessage: options.successMessage,
+		buildPrompt: options.buildPrompt,
+	});
+}
+
+interface DeliverSkillPromptTurnOptions {
+	host: { sendUserMessage(content: string): Promise<void> | void };
+	ctx: SkillPromptTurnContext;
+	skill: ExpandedSkillBlock | undefined;
+	fallbackMessage: string;
+	successMessage: string | ((skill: ExpandedSkillBlock) => string);
+	buildPrompt(skillBlock: string | undefined): string;
+}
+
+async function deliverSkillPromptTurn(options: DeliverSkillPromptTurnOptions): Promise<void> {
+	if (options.ctx.hasUI === true) {
 		const message =
-			skill === undefined
-				? fallbackMessage
-				: skillPromptTurnSuccessMessage(options.successMessage, skill);
-		const level = skill === undefined ? "warning" : "info";
-		ctx.ui.notify(message, level);
+			options.skill === undefined
+				? options.fallbackMessage
+				: skillPromptTurnSuccessMessage(options.successMessage, options.skill);
+		const level = options.skill === undefined ? "warning" : "info";
+		options.ctx.ui.notify(message, level);
 	}
 
-	await host.sendUserMessage(buildPrompt(skill?.block));
+	await options.host.sendUserMessage(options.buildPrompt(options.skill?.block));
 }
 
 export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOptions): string {
