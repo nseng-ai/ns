@@ -51,6 +51,14 @@ as cold Node CLI/import smoke tests, real Git repositories, sqlite-backed fixtur
 discovery/import, or other subprocess or filesystem-heavy behavior that should remain available but not
 slow the default path.
 
+Computationally expensive smoke tests belong in the integration lane when they primarily prove
+compatibility, bootability, real module importability, real adapter wiring, or runtime behavior rather
+than localized business logic. Examples include cold Node/runtime CLI smokes, direct Jiti or workspace
+package import-compatibility smokes, real SDL extension loader discovery/import, and real
+Git/sqlite/subprocess/backend smokes. Keep the default lane for pure resolver or alias-selection logic,
+fake-driven behavior, cheap metadata parsing/discovery that does not import modules, and localized
+command behavior through package-owned fakes.
+
 Real CLI extension discovery/import is an integration boundary. Tests that create a temporary project with
 `.sdl/extensions`, invoke `runCli()`, and rely on the SDL loader to scan manifests and dynamically import
 extension modules through `jiti` belong in `test/integration/` unless the test is explicitly about cheap
