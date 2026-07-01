@@ -20,7 +20,7 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 
 	async pathKind(relativePath: string): Promise<ObjectiveStorageResult<ObjectivePathKind>> {
 		try {
-			return { ok: true, value: kindFromStats(await lstat(this.absolutePath(relativePath))) };
+			return { ok: true, value: kindFromTypeChecks(await lstat(this.absolutePath(relativePath))) };
 		} catch (error) {
 			if (isMissingError(error)) return { ok: true, value: "missing" };
 			return storageError(
@@ -39,7 +39,7 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 				ok: true,
 				value: entries.map((entry) => ({
 					name: entry.name,
-					kind: kindFromDirent(entry),
+					kind: kindFromTypeChecks(entry),
 				})),
 			};
 		} catch (error) {
@@ -87,15 +87,12 @@ export class RealObjectiveStorageGateway implements ObjectiveStorageGateway {
 	}
 }
 
-function kindFromStats(stats: { isFile(): boolean; isDirectory(): boolean }): ObjectivePathKind {
-	if (stats.isFile()) return "file";
-	if (stats.isDirectory()) return "directory";
-	return "other";
-}
-
-function kindFromDirent(entry: { isFile(): boolean; isDirectory(): boolean }): ObjectivePathKind {
-	if (entry.isFile()) return "file";
-	if (entry.isDirectory()) return "directory";
+function kindFromTypeChecks(value: {
+	isFile(): boolean;
+	isDirectory(): boolean;
+}): ObjectivePathKind {
+	if (value.isFile()) return "file";
+	if (value.isDirectory()) return "directory";
 	return "other";
 }
 

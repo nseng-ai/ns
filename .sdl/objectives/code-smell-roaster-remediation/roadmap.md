@@ -10,7 +10,14 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **capability-pi** — 13 findings (1 high / 6 medium / 6 low) across branch-context, ccc, flow, handoff, objective. See `references/capability-pi.md`.
 - [ ] **tools** — 12 findings (3 high / 7 medium / 2 low) across areg, packagechk, vibechk. See `references/tools.md`. Check for overlap with `ts-cli-core-structural-cleanup`'s areg god-file decomposition row.
 - [ ] **hosts** — 8 findings (2 high / 4 medium / 2 low) across hosts/pi, hosts/sdlcc. See `references/hosts.md`. Includes one large Divergent Change finding in `pi/src/commands/cli-extension.ts`.
-- [ ] **objective** (package) — 6 findings (0 high / 4 medium / 2 low). See `references/objective-package.md`.
+- [x] **objective** (package) — 6 findings (0 high / 4 medium / 2 low). See `references/objective-package.md`.
+  - fixed: Duplicated Objective target resolution; `resolveObjectiveRecordTarget` now owns root, slug, validity, and record-existence resolution shared by read-objective and check-objective while preserving their result field names.
+  - fixed: Duplicated Objective list empty/names render helpers; `emptyMessage` and `renderSlugs` are exported from the shared list renderer and reused by the pretty renderer.
+  - fixed: Duplicated tracking-gate result construction; `buildTrackingGateResult` now owns the nested result, counts, defaults, and summary derivation for both found and missing Objective paths.
+  - fixed: Repeated archive/unarchive path forks; `objectiveArchivePathRules` keeps source/destination record/root path functions together by direction.
+  - fixed: Divergent Change in `api.ts`; client facade code now lives in `objective-api-client.ts`, picker/selection orchestration lives in `objective-selection-flow.ts`, and `api.ts` remains the curated export surface.
+  - fixed: Duplicated real-storage path-kind classifiers; `kindFromTypeChecks` classifies both `lstat` and `Dirent` values.
+  - validation: `pnpm --dir ts --filter @sdl/objective run check`, `pnpm --dir ts --filter @sdl/objective run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [x] **roaster** — 6 findings (0 high / 4 medium / 2 low). See `references/roaster.md`.
   - fixed: Duplicated reviews-directory validation; `requireReviewsDirectory` now owns the missing/not-directory checks shared by list and load path resolution while preserving existing failure types/messages.
   - fixed: Duplicated omitted-input-file rendering; `formatOmittedReviewInputFile` owns the shared omitted file detail string used by capped prompt headers and findings comment input-coverage output.

@@ -5,10 +5,7 @@ import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
-	activeRecordRelativePath,
-	activeRootRelativePath,
 	emptyObjectiveFiles,
-	isValidObjectiveSlug,
 	objectiveFilesSchema,
 	objectiveUpdateFileSchema,
 	renderFilePresence,
@@ -17,6 +14,7 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
+import { resolveObjectiveRecordTarget } from "./objective-target.ts";
 
 export const readObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to read."),
@@ -153,55 +151,24 @@ export async function readObjectiveRecord(
 	| { type: "ok"; value: ReadObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	const root = activeRootRelativePath();
-	const rootPresence = await storage.activeRootExists();
-	if (!rootPresence.ok) return { type: "storage-error", error: rootPresence.error };
-
-	if (slug === undefined) {
+	const targetResult = await resolveObjectiveRecordTarget(storage, slug);
+	if (targetResult.type === "storage-error") return targetResult;
+	const target = targetResult.value;
+	if (target.status !== "found") {
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "missing-slug",
-				error: "missing-slug",
-				root,
-				slug: null,
-				path: null,
-				hasRoot: rootPresence.value,
+				status: target.status,
+				error: target.status,
+				root: target.rootPath,
+				slug: target.slug,
+				path: target.path,
+				hasRoot: target.rootExists,
 			}),
 		};
 	}
 
-	if (!isValidObjectiveSlug(slug)) {
-		return {
-			type: "ok",
-			value: emptyResult({
-				status: "invalid-slug",
-				error: "invalid-slug",
-				root,
-				slug: null,
-				path: null,
-				hasRoot: rootPresence.value,
-			}),
-		};
-	}
-
-	const relativePath = activeRecordRelativePath(slug);
-	const exists = await storage.activeRecordExists(slug);
-	if (!exists.ok) return { type: "storage-error", error: exists.error };
-	if (!exists.value) {
-		return {
-			type: "ok",
-			value: emptyResult({
-				status: "not-found",
-				error: "not-found",
-				root,
-				slug,
-				path: relativePath,
-				hasRoot: rootPresence.value,
-			}),
-		};
-	}
-
+	const relativePath = target.path;
 	const files = await storage.filePresence(relativePath);
 	if (!files.ok) return { type: "storage-error", error: files.error };
 	const updates = await storage.listUpdateFiles(relativePath);
@@ -209,9 +176,9 @@ export async function readObjectiveRecord(
 	const facts = {
 		status: "ok" as const,
 		error: null,
-		rootPath: root,
-		rootExists: rootPresence.value,
-		slug,
+		rootPath: target.rootPath,
+		rootExists: target.rootExists,
+		slug: target.slug,
 		path: relativePath,
 		exists: true,
 		closed: files.value.closedMd,

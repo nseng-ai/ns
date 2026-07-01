@@ -263,7 +263,7 @@ function shouldIncludeBranchAttribution(request: ListObjectivesRequest): boolean
 	return !request.names && !request.minimal;
 }
 
-function renderSlugs(records: readonly ObjectiveListRecord[]): string {
+export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
 	return records.map((record) => record.slug).join("\n");
 }
 
@@ -272,7 +272,7 @@ function statusLabel(status: ObjectiveRecordStatus): string {
 	return "○ open";
 }
 
-function emptyMessage(statusFilter: ObjectiveStatusFilter): string {
+export function emptyMessage(statusFilter: ObjectiveStatusFilter): string {
 	if (statusFilter === "active" || statusFilter === "open")
 		return "No open Objective records found.";
 	if (statusFilter === "closed") return "No closed Objective records found.";

@@ -128,39 +128,29 @@ export async function runTrackingGate(
 	const repositoryDirtyProbe = gitBooleanProbe(repositoryDirty);
 	const objectiveDirtyProbe = gitBooleanProbe(objectiveDirty);
 
-	return ok({
-		slug: request.slug,
-		objectivePath,
-		rootPath: activeRootRelativePath(),
-		objective: { exists: true, closed: recordResult.value.closed },
-		git: {
-			repoRoot: ctx.repoRoot,
-			currentBranch,
-			trunkBranch: ctx.trunkBranch,
-			revisionRange,
-		},
-		uncommitted: {
-			repository: repositoryDirtyProbe,
-			objective: objectiveDirtyProbe,
-		},
-		branchDiff: {
-			status: "ok",
-			changedPaths: [...changedPathsResult.value],
-			changedPathCount: changedPathsResult.value.length,
-			objectiveChangedPaths,
-			objectiveChangedPathCount: objectiveChangedPaths.length,
-			materialNonObjectivePaths,
-			materialNonObjectivePathCount: materialNonObjectivePaths.length,
-		},
-		summary: {
-			objectiveFilesChanged: objectiveChangedPaths.length > 0,
-			materialNonObjectivePathsChanged: materialNonObjectivePaths.length > 0,
-			uncommittedChangesPresent:
-				repositoryDirtyProbe.status === "ok" ? repositoryDirtyProbe.hasChanges : null,
-			uncommittedObjectiveChangesPresent:
-				objectiveDirtyProbe.status === "ok" ? objectiveDirtyProbe.hasChanges : null,
-		},
-	});
+	return ok(
+		buildTrackingGateResult({
+			slug: request.slug,
+			objectivePath,
+			rootPath: activeRootRelativePath(),
+			objective: { exists: true, closed: recordResult.value.closed },
+			git: {
+				repoRoot: ctx.repoRoot,
+				currentBranch,
+				trunkBranch: ctx.trunkBranch,
+				revisionRange,
+			},
+			uncommitted: {
+				repository: repositoryDirtyProbe,
+				objective: objectiveDirtyProbe,
+			},
+			branchDiff: {
+				changedPaths: [...changedPathsResult.value],
+				objectiveChangedPaths,
+				materialNonObjectivePaths,
+			},
+		}),
+	);
 }
 
 export function renderTrackingGate(result: TrackingGateResult): string {
@@ -186,11 +176,56 @@ export function renderTrackingGate(result: TrackingGateResult): string {
 	return removeOneTrailingNewline(parts.join("\n"));
 }
 
-function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGateResult {
-	const objectivePath = activeRecordRelativePath(slug);
+interface TrackingGateResultParts {
+	slug: string;
+	objectivePath: string;
+	rootPath: string;
+	objective: TrackingGateResult["objective"];
+	git: TrackingGateResult["git"];
+	uncommitted?: TrackingGateResult["uncommitted"];
+	branchDiff?: {
+		changedPaths: readonly string[];
+		objectiveChangedPaths: readonly string[];
+		materialNonObjectivePaths: readonly string[];
+	};
+}
+
+function buildTrackingGateResult(options: TrackingGateResultParts): TrackingGateResult {
+	const uncommitted = options.uncommitted ?? notRunUncommittedProbes("Objective missing.");
+	const changedPaths = options.branchDiff?.changedPaths ?? [];
+	const objectiveChangedPaths = options.branchDiff?.objectiveChangedPaths ?? [];
+	const materialNonObjectivePaths = options.branchDiff?.materialNonObjectivePaths ?? [];
 	return {
+		slug: options.slug,
+		objectivePath: options.objectivePath,
+		rootPath: options.rootPath,
+		objective: options.objective,
+		git: options.git,
+		uncommitted,
+		branchDiff: {
+			status: "ok",
+			changedPaths: [...changedPaths],
+			changedPathCount: changedPaths.length,
+			objectiveChangedPaths: [...objectiveChangedPaths],
+			objectiveChangedPathCount: objectiveChangedPaths.length,
+			materialNonObjectivePaths: [...materialNonObjectivePaths],
+			materialNonObjectivePathCount: materialNonObjectivePaths.length,
+		},
+		summary: {
+			objectiveFilesChanged: objectiveChangedPaths.length > 0,
+			materialNonObjectivePathsChanged: materialNonObjectivePaths.length > 0,
+			uncommittedChangesPresent:
+				uncommitted.repository.status === "ok" ? uncommitted.repository.hasChanges : null,
+			uncommittedObjectiveChangesPresent:
+				uncommitted.objective.status === "ok" ? uncommitted.objective.hasChanges : null,
+		},
+	};
+}
+
+function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGateResult {
+	return buildTrackingGateResult({
 		slug,
-		objectivePath,
+		objectivePath: activeRecordRelativePath(slug),
 		rootPath: activeRootRelativePath(),
 		objective: { exists: false, closed: false },
 		git: {
@@ -199,25 +234,14 @@ function buildMissingResult(ctx: ObjectiveCliContext, slug: string): TrackingGat
 			trunkBranch: ctx.trunkBranch,
 			revisionRange: `${ctx.trunkBranch}...HEAD`,
 		},
-		uncommitted: {
-			repository: { status: "error", error: { code: "not_run", message: "Objective missing." } },
-			objective: { status: "error", error: { code: "not_run", message: "Objective missing." } },
-		},
-		branchDiff: {
-			status: "ok",
-			changedPaths: [],
-			changedPathCount: 0,
-			objectiveChangedPaths: [],
-			objectiveChangedPathCount: 0,
-			materialNonObjectivePaths: [],
-			materialNonObjectivePathCount: 0,
-		},
-		summary: {
-			objectiveFilesChanged: false,
-			materialNonObjectivePathsChanged: false,
-			uncommittedChangesPresent: null,
-			uncommittedObjectiveChangesPresent: null,
-		},
+	});
+}
+
+function notRunUncommittedProbes(message: string): TrackingGateResult["uncommitted"] {
+	const error = { code: "not_run", message };
+	return {
+		repository: { status: "error", error },
+		objective: { status: "error", error },
 	};
 }
 
