@@ -97,10 +97,10 @@ export async function downloadPrFeedback(
 	if (result.killed) {
 		return { type: "error", message: "download-feedback timed out." };
 	}
-	if (result.code !== 0 && options.shouldAllowFailureData !== true) {
-		return downloadFeedbackFailed(result);
-	}
-	if (result.code !== 0 && result.stdout.trim() === "") {
+	if (
+		result.code !== 0 &&
+		(options.shouldAllowFailureData !== true || result.stdout.trim() === "")
+	) {
 		return downloadFeedbackFailed(result);
 	}
 

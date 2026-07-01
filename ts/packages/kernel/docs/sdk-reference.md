@@ -91,7 +91,7 @@ export default defineExtension({});
 
 ### `repoLocalSdlCommandDescriptor()`
 
-Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module.
+Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.sdl/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
 
 ```ts
 function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
@@ -106,21 +106,28 @@ Repo-local first-party extensions in this repository use this command-leaf patte
 
 Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
-`packageExportPrefix` is joined with the derived manifest command name. For flat commands the name is `command.name`; for nested manifest paths it is `manifestPath.join("-")`, so a command exposed at `path: ["review", "list"]` derives `review-list` for the compatibility name, shim, and package export.
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@sdl/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
 ```ts
 import { repoLocalSdlCommandDescriptor } from "sdl-sdk";
 
 const descriptor = repoLocalSdlCommandDescriptor({
+  command: attachCommand,
+  manifestPath: ["exec", "attach"],
+  packageExportPrefix: "@sdl/branch-context/sdl/commands",
+});
+// manifestEntry: "./src/commands/attach.ts"
+// packageExport: "@sdl/branch-context/sdl/commands/attach"
+
+const routeEncodedDescriptor = repoLocalSdlCommandDescriptor({
   command: reviewListCommand,
+  manifestName: "review-list",
   manifestPath: ["review", "list"],
   packageExportPrefix: "@sdl/roaster/commands",
 });
 // manifestEntry: "./src/commands/review-list.ts"
 // packageExport: "@sdl/roaster/commands/review-list"
 ```
-
-When the user-facing manifest path intentionally differs from the package export name, hand-author the descriptor fields while preserving the same command-leaf pattern. For example, a route exposed as `path: ["exec", "from-plan"]` may keep `manifestEntry: "./src/commands/from-plan.ts"` and `packageExport: "@sdl/branch-context/sdl/commands/from-plan"` if `from-plan` is the package command name.
 
 ### `defineRepoLocalSdlExtensionDescriptor()`
 

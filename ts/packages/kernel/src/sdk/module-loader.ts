@@ -159,7 +159,7 @@ interface PackageCommandAliasSource {
 	exportPrefix: string;
 }
 
-function buildPackageCommandAliasSources(): Record<string, string> {
+function buildAllPackageCommandAliases(): Record<string, string> {
 	return Object.assign({}, ...PACKAGE_COMMAND_ALIAS_SOURCES.map(buildPackageCommandAliases));
 }
 
@@ -250,6 +250,7 @@ function stripLeadingDotSlash(path: string): string {
 }
 
 // Keep this object in sync with all runtime value exports from sdl-sdk; type-only exports are erased.
+// Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const sdlSdkVirtualModule = {
 	defineExtension,
 	defineRepoLocalSdlExtensionDescriptor,
@@ -284,7 +285,7 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalWorkspaceAliases(),
-			...buildPackageCommandAliasSources(),
+			...buildAllPackageCommandAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,

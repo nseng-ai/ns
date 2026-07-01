@@ -44,7 +44,7 @@ describe("sdl-sdk runtime exports", () => {
 		expect(sdk.defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
 	});
 
-	test("repoLocalSdlCommandDescriptor derives manifest and package paths", () => {
+	test("repoLocalSdlCommandDescriptor keeps command name as the default leaf slug", () => {
 		const command = {
 			name: "list",
 			summary: "List things.",
@@ -55,6 +55,29 @@ describe("sdl-sdk runtime exports", () => {
 		expect(
 			sdk.repoLocalSdlCommandDescriptor({
 				command,
+				manifestPath: ["review", "list"],
+				packageExportPrefix: "@sdl/example/commands",
+			}),
+		).toEqual({
+			command,
+			manifestPath: ["review", "list"],
+			manifestEntry: "./src/commands/list.ts",
+			packageExport: "@sdl/example/commands/list",
+		});
+	});
+
+	test("repoLocalSdlCommandDescriptor accepts an explicit manifest name for route-encoded leaves", () => {
+		const command = {
+			name: "list",
+			summary: "List things.",
+			description: "List things.",
+			run: () => sdk.ok("done"),
+		} satisfies sdk.SdlCommand;
+
+		expect(
+			sdk.repoLocalSdlCommandDescriptor({
+				command,
+				manifestName: "review-list",
 				manifestPath: ["review", "list"],
 				packageExportPrefix: "@sdl/example/commands",
 			}),

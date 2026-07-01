@@ -14,21 +14,25 @@ export const roasterRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescripto
 	commands: [
 		repoLocalSdlCommandDescriptor({
 			command: roasterReviewListCommand,
+			manifestName: "review-list",
 			manifestPath: ["review", "list"],
 			packageExportPrefix: "@sdl/roaster/commands",
 		}),
 		repoLocalSdlCommandDescriptor({
 			command: roasterReviewLsCommand,
+			manifestName: "review-ls",
 			manifestPath: ["review", "ls"],
 			packageExportPrefix: "@sdl/roaster/commands",
 		}),
 		repoLocalSdlCommandDescriptor({
 			command: roasterReviewLogCommand,
+			manifestName: "review-log",
 			manifestPath: ["review", "log"],
 			packageExportPrefix: "@sdl/roaster/commands",
 		}),
 		repoLocalSdlCommandDescriptor({
 			command: roasterReviewRunCommand,
+			manifestName: "review-run",
 			manifestPath: ["review", "run"],
 			packageExportPrefix: "@sdl/roaster/commands",
 		}),
@@ -42,6 +46,7 @@ export const roasterRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescripto
 		}),
 		repoLocalSdlCommandDescriptor({
 			command: roasterRoastListCommand,
+			manifestName: "roast-list",
 			manifestPath: ["roast", "list"],
 			packageExportPrefix: "@sdl/roaster/commands",
 		}),
