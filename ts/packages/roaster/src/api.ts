@@ -87,11 +87,11 @@ export interface RoasterClientOptions {
 		NodeJS.ProcessEnv | Record<string, string | undefined>
 	>;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	readonly stdin?: (() => Promise<string>) | undefined;
-	readonly stdout?: ((text: string) => void) | undefined;
-	readonly stderr?: ((text: string) => void) | undefined;
+	readonly stdin?: () => Promise<string>;
+	readonly stdout?: (text: string) => void;
+	readonly stderr?: (text: string) => void;
 	/** Inject a prebuilt gateway-injected runtime instead of constructing real adapters. */
-	readonly runtime?: RoasterRuntime | undefined;
+	readonly runtime?: RoasterRuntime;
 }
 
 export interface RoasterClient {

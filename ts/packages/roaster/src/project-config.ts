@@ -32,7 +32,7 @@ export type ProjectConfigErrorCode =
 
 export interface GitDiffArgsOptions {
 	readonly baseRef: string;
-	readonly excludeGlobs?: readonly string[] | undefined;
+	readonly excludeGlobs?: readonly string[];
 }
 
 export const DEFAULT_ROASTER_MODEL_PROFILES: RoasterModelProfilesProjectConfig = {
