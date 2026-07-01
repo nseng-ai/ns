@@ -8,7 +8,11 @@ import {
 } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
 import { confirmAndFreeManagedSlots, residualPreMergeFailure } from "./landing-operations.ts";
-import { confirmLandStackAction, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
+import {
+	confirmLandStackAction,
+	optionalField,
+	type PreMergeConfirmation,
+} from "./pre-merge-confirmation.ts";
 import { confirmAndSubmitRequiredPrUpdates } from "./pre-merge-submit.ts";
 import {
 	formatFailure,
@@ -118,6 +122,7 @@ interface ConfirmMainLandingOptions {
 	title: string;
 	details: string;
 	nonInteractiveMessage: string;
+	cancellationMessage?: string;
 }
 
 export async function confirmMainLanding(
@@ -130,7 +135,7 @@ export async function confirmMainLanding(
 		title: options.title,
 		details: options.details,
 		nonInteractiveMessage: options.nonInteractiveMessage,
-		renderDetails: (details) => ctx.renderConfirmationDetails?.(details) ?? details,
+		...optionalField("cancellationMessage", options.cancellationMessage),
 		onFailure: (landFailure) => {
 			presentLandStackFailure({
 				session: options.session,

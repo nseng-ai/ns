@@ -15,6 +15,7 @@ import {
 	type CustomMessageContent,
 } from "../terminal/presentation.ts";
 import { unrefTimerScheduler } from "../shared/timers.ts";
+import type { SdlConfirmOptions } from "sdl-sdk";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "SDL_PI_CLI_TRACE";
@@ -82,7 +83,7 @@ export interface CliCommandInfo {
 export type CliCommandConfirmPrompt = (
 	title: string,
 	message: string,
-	options?: { defaultAnswer?: "yes" | "no" },
+	options?: SdlConfirmOptions,
 ) => Promise<boolean> | boolean;
 
 export interface CliCommandRunDeps {
@@ -124,7 +125,7 @@ export interface CommandContext {
 		confirm?(
 			title: string,
 			message: string,
-			options?: { defaultAnswer?: "yes" | "no" },
+			options?: SdlConfirmOptions,
 		): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;

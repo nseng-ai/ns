@@ -53,7 +53,9 @@ export async function confirmLandStackAction(
 
 	const details = options.renderDetails?.(options.details) ?? options.details;
 	const confirmOptions =
-		options.defaultAnswer === undefined ? undefined : { defaultAnswer: options.defaultAnswer };
+		options.defaultAnswer === undefined
+			? undefined
+			: optionalField("defaultAnswer", options.defaultAnswer);
 	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
 	if (confirmed) return completed();
 

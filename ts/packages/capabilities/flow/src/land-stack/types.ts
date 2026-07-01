@@ -1,4 +1,5 @@
 import type { ExecResult, PiExecResultLike } from "@sdl/core/command";
+import type { SdlConfirmOptions } from "sdl-sdk";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -8,6 +9,18 @@ export type NotifyLevel = "info" | "success" | "warning" | "error";
  * even when it is notified at `error` level to flip the exit code.
  */
 export type LandResultKind = "success" | "refusal" | "failure";
+
+export interface LandConfirmationPlanRow {
+	label: string;
+	value: string;
+}
+
+export interface LandConfirmationPreview {
+	headline: string;
+	impactLines: readonly string[];
+	planRows: readonly LandConfirmationPlanRow[];
+	guidance: string;
+}
 
 export interface AutocompleteItem {
 	value: string;
@@ -50,11 +63,7 @@ export interface LandStackCommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
-		confirm(
-			title: string,
-			message: string,
-			options?: { defaultAnswer?: "yes" | "no" },
-		): Promise<boolean>;
+		confirm(title: string, message: string, options?: SdlConfirmOptions): Promise<boolean>;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,
@@ -71,8 +80,8 @@ export interface LandStackCommandContext {
 	 * the CLI context, house-style ANSI never leaks into the shared Pi surface.
 	 */
 	renderResultBlock?: (kind: LandResultKind, message: string) => string;
-	/** CLI-only confirmation preview highlighter; never used for non-interactive refusal text. */
-	renderConfirmationDetails?: (message: string) => string;
+	/** CLI-only structured stack-confirmation preview highlighter; never used for non-interactive refusal text. */
+	renderConfirmationDetails?: (details: LandConfirmationPreview) => string;
 }
 
 export interface PrintAwareLandStackCommandContext extends LandStackCommandContext {

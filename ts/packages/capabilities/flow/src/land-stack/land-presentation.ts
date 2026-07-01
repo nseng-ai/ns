@@ -6,14 +6,8 @@
 // stay in Flow/Land-owned code.
 
 import type { Caps } from "@sdl/clinkr";
-import {
-	bold,
-	paint,
-	type Intent,
-	renderResultBlock,
-	renderResultBlockFromMessage,
-} from "@sdl/cli-theme";
-import type { LandResultKind } from "./types.ts";
+import { bold, paint, renderResultBlock, renderResultBlockFromMessage } from "@sdl/cli-theme";
+import type { LandConfirmationPreview, LandResultKind } from "./types.ts";
 
 /**
  * The visual intent of a land outcome (canonical type in `types.ts`). Distinct from the
@@ -67,40 +61,72 @@ export function renderLandResultBlockFromMessage(
 	return renderResultBlockFromMessage(caps, input);
 }
 
-export function renderLandConfirmationDetails(caps: Caps, message: string): string {
-	return message
-		.split("\n")
-		.map((line) => renderLandConfirmationLine(caps, line))
-		.join("\n");
+export function renderPlainLandConfirmationDetails(input: LandConfirmationPreview): string {
+	return buildConfirmationLines(input, plainConfirmationStyle()).join("\n");
 }
 
-function renderLandConfirmationLine(caps: Caps, line: string): string {
-	const fieldMatch = /^(  [A-Za-z]+)(\s+)(.+)$/.exec(line);
-	if (fieldMatch !== null) {
-		const key = fieldMatch[1];
-		const gap = fieldMatch[2];
-		const value = fieldMatch[3];
-		if (key !== undefined && gap !== undefined && value !== undefined) {
-			return `${paint(caps, "muted", key)}${gap}${value}`;
-		}
-	}
-	if (line.startsWith("  • ")) return `${paint(caps, "accent", "  •")} ${line.slice(4)}`;
-
-	const style = landConfirmationLineStyle(line);
-	if (style === "headline") return bold(paint(caps, "accent", line));
-	if (style === undefined) return line;
-	return paint(caps, style, line);
+export function renderLandConfirmationDetails(caps: Caps, input: LandConfirmationPreview): string {
+	return buildConfirmationLines(input, styledConfirmationStyle(caps)).join("\n");
 }
 
-/**
- * CLI confirmation previews are finite, pre-confirmation text, so they use the CLI caps-aware palette
- * directly. The Pi command stream has its own RenderTheme-based classifier in `command-stream.ts`
- * because it renders live custom messages inside Pi instead of a Clinkr CLI confirmation prompt.
- */
-function landConfirmationLineStyle(line: string): Intent | "headline" | undefined {
-	if (line.startsWith("Land ") || line.startsWith("Review ")) return "headline";
-	if (line === "Impact" || line === "Plan" || line.endsWith(":")) return "accent";
-	if (line.startsWith("Press Enter")) return "success";
-	if (/^\s{2}\d+\./.test(line) || /^\s{4}\d+\./.test(line)) return "muted";
-	return undefined;
+interface ConfirmationLineStyle {
+	headline(text: string): string;
+	section(text: string): string;
+	bulletPrefix(text: string): string;
+	planLabel(text: string): string;
+	guidance(text: string): string;
+}
+
+function plainConfirmationStyle(): ConfirmationLineStyle {
+	return {
+		headline: identity,
+		section: identity,
+		bulletPrefix: identity,
+		planLabel: identity,
+		guidance: identity,
+	};
+}
+
+function styledConfirmationStyle(caps: Caps): ConfirmationLineStyle {
+	return {
+		headline: (text) => bold(paint(caps, "accent", text)),
+		section: (text) => paint(caps, "accent", text),
+		bulletPrefix: (text) => paint(caps, "accent", text),
+		planLabel: (text) => paint(caps, "muted", text),
+		guidance: (text) => paint(caps, "success", text),
+	};
+}
+
+function identity(text: string): string {
+	return text;
+}
+
+function buildConfirmationLines(
+	input: LandConfirmationPreview,
+	style: ConfirmationLineStyle,
+): string[] {
+	const labelWidth = confirmationPlanLabelWidth(input);
+	return [
+		style.headline(input.headline),
+		"",
+		style.section("Impact"),
+		...input.impactLines.map((line) => `${style.bulletPrefix("  •")} ${line}`),
+		"",
+		style.section("Plan"),
+		...input.planRows.map((row) => renderConfirmationPlanRow(row, labelWidth, style)),
+		"",
+		style.guidance(input.guidance),
+	];
+}
+
+function confirmationPlanLabelWidth(input: LandConfirmationPreview): number {
+	return input.planRows.reduce((width, row) => Math.max(width, row.label.length), 0);
+}
+
+function renderConfirmationPlanRow(
+	row: LandConfirmationPreview["planRows"][number],
+	labelWidth: number,
+	style: ConfirmationLineStyle,
+): string {
+	return `${style.planLabel(`  ${row.label.padEnd(labelWidth)}`)}  ${row.value}`;
 }
