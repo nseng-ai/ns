@@ -13,10 +13,14 @@ describe("runGitHubCli", () => {
 		const calls: Array<{
 			readonly command: string;
 			readonly args: readonly string[];
-			readonly options?: ExecOptions | undefined;
+			readonly options?: ExecOptions;
 		}> = [];
 		const runner: CommandRunner = async (command, args, options) => {
-			calls.push({ command, args: [...args], options });
+			calls.push({
+				command,
+				args: [...args],
+				...(options === undefined ? {} : { options }),
+			});
 			return { stdout: "ok", stderr: "", code: 0, killed: false };
 		};
 
@@ -40,10 +44,14 @@ describe("runGitHubCli", () => {
 		const calls: Array<{
 			readonly command: string;
 			readonly args: readonly string[];
-			readonly options?: ExecOptions | undefined;
+			readonly options?: ExecOptions;
 		}> = [];
 		const runner: CommandRunner = async (command, args, options) => {
-			calls.push({ command, args: [...args], options });
+			calls.push({
+				command,
+				args: [...args],
+				...(options === undefined ? {} : { options }),
+			});
 			return { stdout: "{}", stderr: "", code: 0, killed: false };
 		};
 		const env = { GH_TOKEN: "token" } satisfies NodeJS.ProcessEnv;
@@ -87,11 +95,15 @@ describe("runGitHubCli", () => {
 		const calls: Array<{
 			readonly command: string;
 			readonly args: readonly string[];
-			readonly options?: ExecOptions | undefined;
+			readonly options?: ExecOptions;
 		}> = [];
 		const completedResult: ExecResult = { stdout: "ok", stderr: "", code: 0, killed: false };
 		const runner: CommandRunner = async (command, args, options) => {
-			calls.push({ command, args: [...args], options });
+			calls.push({
+				command,
+				args: [...args],
+				...(options === undefined ? {} : { options }),
+			});
 			return completedResult;
 		};
 
