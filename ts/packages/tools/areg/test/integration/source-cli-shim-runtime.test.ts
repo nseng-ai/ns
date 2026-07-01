@@ -15,6 +15,27 @@ const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
 
+interface RenderShimOptions {
+	readonly outputPath: string;
+	readonly canonicalCheckout: string;
+	readonly installHint: string;
+}
+
+function renderShim(options: RenderShimOptions) {
+	return spawnSync(process.execPath, [renderScriptPath], {
+		env: {
+			...process.env,
+			SDL_TEMPLATE: templatePath,
+			SDL_OUTPUT: options.outputPath,
+			SDL_TOOL: "areg",
+			SDL_CANONICAL_CHECKOUT: options.canonicalCheckout,
+			SDL_CLI_REL_PATH: "ts/packages/tools/areg/src/cli.ts",
+			SDL_INSTALL_HINT: options.installHint,
+		},
+		encoding: "utf8",
+	});
+}
+
 afterEach(async () => {
 	await tempDirs.cleanup();
 });
@@ -27,18 +48,7 @@ describe("areg source CLI shim runtime", () => {
 		const canonicalCheckout = join(tempRoot, "checkout with spaces & pipes | back\\slash ' quote");
 		const installHint = "just install-areg or just install-tools";
 
-		const render = spawnSync(process.execPath, [renderScriptPath], {
-			env: {
-				...process.env,
-				SDL_TEMPLATE: templatePath,
-				SDL_OUTPUT: outputPath,
-				SDL_TOOL: "areg",
-				SDL_CANONICAL_CHECKOUT: canonicalCheckout,
-				SDL_CLI_REL_PATH: "ts/packages/tools/areg/src/cli.ts",
-				SDL_INSTALL_HINT: installHint,
-			},
-			encoding: "utf8",
-		});
+		const render = renderShim({ outputPath, canonicalCheckout, installHint });
 
 		expect(render.status).toBe(0);
 		expect(render.stderr).toBe("");
@@ -89,17 +99,10 @@ describe("areg source CLI shim runtime", () => {
 		const gitInit = spawnSync("git", ["init"], { cwd: checkoutRoot, encoding: "utf8" });
 		expect(gitInit.status).toBe(0);
 
-		const render = spawnSync(process.execPath, [renderScriptPath], {
-			env: {
-				...process.env,
-				SDL_TEMPLATE: templatePath,
-				SDL_OUTPUT: outputPath,
-				SDL_TOOL: "areg",
-				SDL_CANONICAL_CHECKOUT: missingCanonicalCheckout,
-				SDL_CLI_REL_PATH: "ts/packages/tools/areg/src/cli.ts",
-				SDL_INSTALL_HINT: installHint,
-			},
-			encoding: "utf8",
+		const render = renderShim({
+			outputPath,
+			canonicalCheckout: missingCanonicalCheckout,
+			installHint,
 		});
 
 		expect(render.status).toBe(0);
