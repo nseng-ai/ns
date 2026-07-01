@@ -16,7 +16,12 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
 - [ ] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
 - [ ] **ccc** — 4 findings (1 high / 3 medium / 0 low). See `references/ccc.md`.
-- [ ] **handoff** — 4 findings (0 high / 2 medium / 2 low). See `references/handoff.md`.
+- [x] **handoff** — 4 findings (0 high / 2 medium / 2 low). See `references/handoff.md`.
+  - fixed: Middle Man in destructive presentation; handoff delete/gc rendering now imports `renderDestructiveResultBlock` directly from `@sdl/cli-theme`, and the package-local wrapper/type aliases were removed.
+  - fixed: Repeated Switches in handoff gc action handling; `gc-actions.ts` now owns domain action, wire value, label, candidate status, and count bucket together, deriving counting, schema, filtering, conversion, and labels from one table.
+  - fixed: Duplicated destructive confirmation flow; `confirmDestructiveAction` centralizes the non-interactive gate, prompt, abort, and decline/confirm result shape used by delete and gc while preserving `--yes`, `--force`, and dry-run behavior.
+  - fixed: Duplicated optional override spreading in SDL context; `readHandoffOverrides` now uses `optionalEntry` for all override fields.
+  - validation: `pnpm --dir ts --filter @sdl/handoff run check`, `pnpm --dir ts --filter @sdl/handoff run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [x] **branch-context** — 3 findings (1 high / 2 medium / 0 low). See `references/branch-context.md`.
   - fixed: Repeated Switches in branch-context CLI error exits; `classifyBranchContextError` now owns each known error's code and data payload together, so the failure mapper no longer maintains parallel class cascades.
   - fixed: Duplicated Brmem result unwrap handling; `throwBranchContextBrmemError` and `unwrapBranchContextBrmemResult` centralize branch-context Brmem error throwing for attach/list/delete/load paths without changing existing messages.

@@ -1,10 +1,10 @@
-import { failure, ok, requireInteractiveOrUsageError, type RenderCapabilities } from "@sdl/clinkr";
+import { renderDestructiveResultBlock } from "@sdl/cli-theme";
+import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { deleteHandoffArtifact, prepareHandoffDeletion } from "../artifact-storage.ts";
-import { renderHandoffDestructiveResultBlock } from "./destructive-presentation.ts";
-import { resolveBranch } from "./shared.ts";
+import { confirmDestructiveAction, resolveBranch } from "./shared.ts";
 
 export const deleteRequestSchema = z.object({
 	slug: z.string().describe("Handoff slug."),
@@ -38,16 +38,13 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
 	if (!request.yes) {
-		const gate = requireInteractiveOrUsageError(ctx.interaction, {
-			message: "Deleting a handoff requires --yes when non-interactive.",
+		const confirmed = await confirmDestructiveAction(ctx, {
+			gateMessage: "Deleting a handoff requires --yes when non-interactive.",
 			missingFlag: "--yes",
 			howToSupply: "Pass --yes (or -y) to confirm deletion without prompting.",
+			confirmMessage: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`?`,
 		});
-		if (gate) return gate;
-		const confirmed = await ctx.interaction.confirm({
-			message: `Delete handoff \`${target.value.slug}\` on branch \`${target.value.branch}\`?`,
-			defaultAnswer: "no",
-		});
+		if (confirmed.type === "gateFailure") return confirmed.exit;
 		if (confirmed.type === "declined") return ok(cancelledResult(target.value));
 		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
 	}
@@ -73,13 +70,13 @@ export function renderDelete(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	if (result.cancelled) {
-		return renderHandoffDestructiveResultBlock(caps, {
+		return renderDestructiveResultBlock(caps, {
 			kind: "refusal",
 			headline: "Cancelled handoff delete.",
 			body: `No handoff was deleted. Target: ${result.slug} on branch ${result.branch}.`,
 		});
 	}
-	return renderHandoffDestructiveResultBlock(caps, {
+	return renderDestructiveResultBlock(caps, {
 		kind: "success",
 		headline: `Deleted handoff ${result.slug}.`,
 		body: [

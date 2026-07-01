@@ -1,30 +1,26 @@
-import { failure, ok, requireInteractiveOrUsageError, type RenderCapabilities } from "@sdl/clinkr";
+import { renderDestructiveResultBlock } from "@sdl/cli-theme";
+import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
 import type { HandoffCliContext } from "../context.ts";
 import { listHandoffSummaries } from "../artifact-storage.ts";
 import {
+	deletedBranchGarbageCollectionMetadataForAction,
+	deletedBranchGarbageCollectionMetadataForWireAction,
+	deletedBranchGarbageCollectionWireValues,
+	type DeletedBranchGarbageCollectionWireAction,
+} from "../gc-actions.ts";
+import {
 	executeDeletedBranchGarbageCollection,
 	planDeletedBranchGarbageCollection,
-	type DeletedBranchGarbageCollectionAction,
 	type DeletedBranchGarbageCollectionReport,
 } from "../gc-core.ts";
 import { handoffSummarySchema } from "../inventory.ts";
-import { renderHandoffDestructiveResultBlock } from "./destructive-presentation.ts";
+import { confirmDestructiveAction } from "./shared.ts";
 
-const GC_ACTION_VALUE_BY_ACTION = {
-	keptActive: "kept-active",
-	wouldDelete: "would-delete",
-	deleted: "deleted",
-	error: "error",
-} as const satisfies { readonly [K in DeletedBranchGarbageCollectionAction]: string };
-export const gcActionSchema = z.enum([
-	GC_ACTION_VALUE_BY_ACTION.keptActive,
-	GC_ACTION_VALUE_BY_ACTION.wouldDelete,
-	GC_ACTION_VALUE_BY_ACTION.deleted,
-	GC_ACTION_VALUE_BY_ACTION.error,
-]);
-export type GcAction = z.infer<typeof gcActionSchema>;
+export type GcAction = DeletedBranchGarbageCollectionWireAction;
+
+export const gcActionSchema = z.enum(deletedBranchGarbageCollectionWireValues());
 
 export const gcRequestSchema = z.object({
 	dryRun: z.boolean().default(false).describe("Preview deletions without deleting."),
@@ -68,18 +64,14 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 			}),
 		);
 
-	const gate = requireInteractiveOrUsageError(ctx.interaction, {
-		message: "Deleting handoffs with gc requires --force when non-interactive.",
+	const confirmed = await confirmDestructiveAction(ctx, {
+		gateMessage: "Deleting handoffs with gc requires --force when non-interactive.",
 		missingFlag: "--force",
 		howToSupply: "Pass --force (or -f) to delete without prompting, or run --dry-run first.",
+		confirmMessage: `Delete ${preview.wouldDeleteCount} handoff(s)?`,
+		beforePrompt: () => ctx.stderr(`${renderGc(preview)}\n`),
 	});
-	if (gate) return gate;
-
-	ctx.stderr(`${renderGc(preview)}\n`);
-	const confirmed = await ctx.interaction.confirm({
-		message: `Delete ${preview.wouldDeleteCount} handoff(s)?`,
-		defaultAnswer: "no",
-	});
+	if (confirmed.type === "gateFailure") return confirmed.exit;
 	if (confirmed.type === "confirmed")
 		return ok(
 			await executeAndFormat(ctx, plan, {
@@ -96,10 +88,9 @@ export function renderGc(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const candidates = result.entries.filter(
-		(entry) =>
-			entry.action === "would-delete" || entry.action === "deleted" || entry.action === "error",
+		(entry) => deletedBranchGarbageCollectionMetadataForWireAction(entry.action).isCandidate,
 	);
-	return renderHandoffDestructiveResultBlock(caps, {
+	return renderDestructiveResultBlock(caps, {
 		kind: gcResultKind(result),
 		headline: gcHeadline(result, candidates.length),
 		body: gcBody(result, candidates),
@@ -131,7 +122,7 @@ function toGcResult(
 	return {
 		entries: report.entries.map((entry) => ({
 			...entry,
-			action: GC_ACTION_VALUE_BY_ACTION[entry.action],
+			action: deletedBranchGarbageCollectionMetadataForAction(entry.action).wireValue,
 		})),
 		wouldDeleteCount: report.counts.wouldDelete,
 		deletedCount: report.counts.deleted,
@@ -175,14 +166,5 @@ function summaryLine(result: GcResult): string {
 }
 
 function formatGcAction(action: GcAction): string {
-	switch (action) {
-		case "would-delete":
-			return "would delete";
-		case "kept-active":
-			return "kept active";
-		case "deleted":
-			return "deleted";
-		case "error":
-			return "error";
-	}
+	return deletedBranchGarbageCollectionMetadataForWireAction(action).label;
 }

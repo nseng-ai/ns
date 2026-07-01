@@ -1,5 +1,10 @@
 import { validateBranchName, type BrmemErrorInfo } from "@sdl/brmem";
-import { failure, type ClinkrExit, type ClinkrFailureExit } from "@sdl/clinkr";
+import {
+	failure,
+	requireInteractiveOrUsageError,
+	type ClinkrExit,
+	type ClinkrFailureExit,
+} from "@sdl/clinkr";
 
 import type { HandoffCliContext } from "../context.ts";
 
@@ -34,6 +39,36 @@ export async function resolveBranch(
 			`Invalid branch name ${JSON.stringify(current.branch)}: ${validation.reason}`,
 		);
 	return resolved(current.branch);
+}
+
+export type DestructiveConfirmationResult =
+	| { type: "confirmed" }
+	| { type: "declined" }
+	| { type: "aborted" }
+	| { type: "gateFailure"; exit: ClinkrExit<never> };
+
+export async function confirmDestructiveAction(
+	ctx: HandoffCliContext,
+	options: {
+		gateMessage: string;
+		missingFlag: string;
+		howToSupply: string;
+		confirmMessage: string;
+		beforePrompt?: () => void;
+	},
+): Promise<DestructiveConfirmationResult> {
+	const gate = requireInteractiveOrUsageError(ctx.interaction, {
+		message: options.gateMessage,
+		missingFlag: options.missingFlag,
+		howToSupply: options.howToSupply,
+	});
+	if (gate !== undefined) return { type: "gateFailure", exit: gate };
+
+	options.beforePrompt?.();
+	return ctx.interaction.confirm({
+		message: options.confirmMessage,
+		defaultAnswer: "no",
+	});
 }
 
 export function gatewayFailure(error: BrmemErrorInfo, prefix: string): ClinkrFailureExit {
