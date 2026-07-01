@@ -487,11 +487,7 @@ class DuplicateListGateway extends FakeBrmemGateway {
 		super({ entries: [{ namespace: "base", branch: "main", key: "same.md", content: "same" }] });
 	}
 
-	override async listEntries(_options: {
-		namespace: string;
-		key?: string | undefined;
-		branch?: string | undefined;
-	}) {
+	override async listEntries(_options: { namespace: string; key?: string; branch?: string }) {
 		const entry = {
 			...mustEntryRef("base", "same.md", "main"),
 			updatedAt: "2026-01-01T00:00:01+00:00",
@@ -511,7 +507,7 @@ class MissingCheckGateway extends FakeBrmemGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}) {
 		return brmemMissing<EntryDiagnostic>();
 	}
@@ -528,7 +524,7 @@ class MissingGetGateway extends FakeBrmemGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}) {
 		return brmemMissing<EntryContent>();
 	}

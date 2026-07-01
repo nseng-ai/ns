@@ -386,7 +386,7 @@ function realGitBrmemGateway(
 interface CommandStep {
 	command: string;
 	args: string[] | ((args: string[]) => void);
-	result?: Partial<ExecResult> | undefined;
+	result?: Partial<ExecResult>;
 }
 
 interface CommandCall {

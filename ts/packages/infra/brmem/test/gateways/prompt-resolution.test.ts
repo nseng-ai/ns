@@ -78,10 +78,7 @@ class FakeGitGateway implements GitGateway {
 	private readonly repoRootValue: string | undefined;
 	private readonly repoRootError: GitErrorInfo | undefined;
 
-	constructor(options: {
-		repoRoot?: string | undefined;
-		repoRootError?: GitErrorInfo | undefined;
-	}) {
+	constructor(options: { repoRoot?: string; repoRootError?: GitErrorInfo }) {
 		this.repoRootValue = options.repoRoot;
 		this.repoRootError = options.repoRootError;
 	}

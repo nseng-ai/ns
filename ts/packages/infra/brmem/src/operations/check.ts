@@ -33,7 +33,7 @@ export type CheckResult = z.infer<typeof checkResultSchema>;
 export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	const resolved = await resolveEntryRequest(ctx, {
 		key: request.key,
-		branch: request.branch,
+		...optionalEntry("branch", request.branch),
 		...optionalEntry("namespace", request.namespace),
 	});
 	if (resolved.type !== "resolved") return resolved;
@@ -48,7 +48,16 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	});
 	if (result.type === "error") return gatewayFailure<CheckResult>(result.error);
 	if (result.type === "missing") {
-		return ok(emptyResult({ namespace, key, branch, refName: locator, target, at: request.at }));
+		return ok(
+			emptyResult({
+				namespace,
+				key,
+				branch,
+				refName: locator,
+				target,
+				...optionalEntry("at", request.at),
+			}),
+		);
 	}
 	return ok({
 		namespace,
@@ -86,7 +95,7 @@ function emptyResult(options: {
 	branch: string;
 	refName: string;
 	target: string;
-	at?: string | undefined;
+	at?: string;
 }): CheckResult {
 	return {
 		namespace: options.namespace,

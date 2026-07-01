@@ -19,7 +19,7 @@ export interface ResolvedEntryRequest {
 
 export async function resolveEntryRequest(
 	ctx: BrmemCliContext,
-	request: { namespace?: string; key: string; branch?: string | undefined },
+	request: { namespace?: string; key: string; branch?: string },
 ): Promise<ClinkrExit<never> | { type: "resolved"; value: ResolvedEntryRequest }> {
 	const branch = request.branch ?? (await resolveCurrentBranch(ctx));
 	if (typeof branch !== "string") return branch;
