@@ -23,7 +23,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
 - [ ] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
 - [ ] **address** — 3 findings (0 high / 1 medium / 2 low). See `references/address.md`.
-- [ ] **worktree-status** — 3 findings (0 high / 2 medium / 1 low). See `references/worktree-status.md`.
+- [x] **worktree-status** — 3 findings (0 high / 2 medium / 1 low). See `references/worktree-status.md`.
+  - fixed: Repeated Switches for `GtCommitStatus`; `formatGtCommitStatus(commits, "full" | "compact")` now owns the variant switch and both status rendering and footer rendering derive their previous strings from it.
+  - fixed: Duplicated Code for renderer contracts; `CustomMessage`, `RenderTheme`, `RenderComponent`, and `WorktreeStatusMessageRenderer` are canonical in `types.ts`, with `status.ts` and `extension.ts` importing the shared contracts instead of redeclaring them.
+  - fixed: Data Clumps for GitHub PR status details; `GhPrDetails` now names the shared `prNumber`/`url`/`threads`/`checks` shape used by both available and head-mismatch statuses and by PR detail rendering.
+  - validation: `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just ts-test` passed on 2026-06-30.
 - [x] **ts-root** (`ts/scripts`, `ts/vitest.*.config.ts`) — 2 findings (0 high / 2 medium / 0 low). See `references/ts-root.md`.
   - fixed: Shotgun Surgery in `ts/vitest.config.ts`; default-test exclusions now derive from `SPECIALIZED_TEST_CATEGORIES`, so adding a specialized category is one registry edit plus its category-specific config rather than a manual exclude-list lockstep edit.
   - fixed: Duplicated Code in `ts/vitest.shared.ts`; `testGlobsFor(subdir?)` owns the canonical two-pattern package test glob shape, and the default, integration, and TypeScript style guard configs all derive their include/exclude globs from that helper/registry.

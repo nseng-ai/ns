@@ -17,17 +17,17 @@ export type {
 	WorktreeStatusIdentity,
 } from "./status.ts";
 
-interface CustomMessage {
+export interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
 	details?: unknown;
 }
 
-interface RenderTheme {
+export interface RenderTheme {
 	fg(color: string, text: string): string;
 }
 
-interface RenderComponent {
+export interface RenderComponent {
 	render(width: number): string[];
 	invalidate(): void;
 }
