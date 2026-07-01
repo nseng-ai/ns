@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 
 import { formatCommand, piExecApiToCommandExecApi } from "@sdl/core/command";
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { RealGitGateway } from "@sdl/git";
 import { reconcileTopologyToLiveBranches } from "@sdl/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
@@ -373,11 +374,4 @@ export async function loadLocalSha(
 		return failure(landStackFailure(`git rev-parse returned no SHA for ${branch}.`));
 	}
 	return success(sha);
-}
-
-export function firstNonEmptyLine(output: string): string | undefined {
-	return output
-		.split("\n")
-		.map((line) => line.trim())
-		.find(Boolean);
 }
