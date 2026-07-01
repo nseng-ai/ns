@@ -1,13 +1,10 @@
 import { formatCommandDetails } from "@sdl/exec";
 
+import type { CommandResult } from "./command-result.ts";
+
 const GIT_FACT_TIMEOUT_MS = 30_000;
 
-export interface WorktreeCommandResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed?: boolean;
-}
+export type WorktreeCommandResult = CommandResult;
 
 export type ExecGit = (args: string[], timeout: number) => Promise<WorktreeCommandResult>;
 

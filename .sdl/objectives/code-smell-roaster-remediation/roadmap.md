@@ -29,7 +29,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - validation: `pnpm --dir ts --filter @sdl/cmux run check`, `pnpm --dir ts --filter @sdl/cmux run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [ ] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
-- [ ] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
+- [x] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
+  - fixed: Duplicated text-generation contracts in testing support; `text-generation-testing.ts` now imports and re-exports the canonical request/result/generator types from `text-generation.ts` while preserving `ScriptedTextGenerator` behavior.
+  - fixed: Duplicated command-result shells; `command-result.ts` derives the package-local optional-killed command result shape from the shared `ExecResult`, and checkpoint/pending-worktree modules reuse that alias instead of restating fields.
+  - fixed: Brmem option data clumps; `BrmemCallContext` now owns the shared `gateway`/`cwd`/timeout/env/signal option group used by brmem command option types.
+  - validation: `pnpm --dir ts --filter @sdl/capability-kit run check`, `pnpm --dir ts --filter @sdl/capability-kit run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, `just dprint-check`, and `just ts-test-typescript-style-guard` passed on 2026-06-30.
 - [x] **address** — 3 findings (0 high / 1 medium / 2 low). See `references/address.md`.
   - fixed: Data Clumps for GitHub PR target payloads; `PrTargetPayload`, `prTargetPayloadSchema`, and `buildPrTargetPayload` now own the shared target shape used by download-feedback and pr-checks payloads/schemas, with `head_ref_oid` included only for pr-checks output.
   - disposed: Speculative Generality in `json-input.ts`; re-probe found file JSON input is existing test-covered behavior in `ts/packages/address/test/unit/json-input.test.ts`, and removing it would require behavior/test churn outside this Objective's no-test-source-edit boundary.
