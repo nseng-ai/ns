@@ -69,7 +69,7 @@ export interface LatestCommitTransactionInput {
 	cwd: string;
 	plan: LatestCommitAutobranchPlan;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
-	now?: (() => number) | undefined;
+	now?: () => number;
 }
 
 export async function runLatestCommitAutobranchTransaction(

@@ -29,7 +29,7 @@ export interface FlowAutobranchCheckpointInput {
 	onPhase?: (message: string) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FlowAutobranchFileStat>;
-	now?: (() => number) | undefined;
+	now?: () => number;
 }
 
 export async function createFlowAutobranchCheckpointFlow(
@@ -56,7 +56,7 @@ export async function createFlowAutobranchCheckpointFlow(
 			snapshot,
 			exec: input.exec,
 			...(input.onPhase ? { onPhase: input.onPhase } : {}),
-			now: input.now,
+			...(input.now ? { now: input.now } : {}),
 		});
 	}
 

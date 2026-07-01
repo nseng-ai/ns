@@ -9,7 +9,7 @@ import { failure, landStackFailure, success, type LandStackResult } from "./erro
 import type { LandStackExtensionAPI, WorktreeConflict, WorktreeEntry } from "./types.ts";
 
 export interface DetectWorktreeConflictsOptions {
-	normalizePath?: ((path: string) => string) | undefined;
+	normalizePath?: (path: string) => string;
 }
 
 export async function detectWorktreeConflicts(

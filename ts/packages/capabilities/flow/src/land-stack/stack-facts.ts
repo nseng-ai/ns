@@ -269,7 +269,7 @@ export async function assertCleanRepo(
 }
 
 export interface DetectInProgressOperationOptions {
-	pathExists?: ((path: string) => boolean) | undefined;
+	pathExists?: (path: string) => boolean;
 }
 
 export async function detectInProgressOperation(
