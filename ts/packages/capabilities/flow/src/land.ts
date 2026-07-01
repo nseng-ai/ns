@@ -114,16 +114,18 @@ async function runLandCommand(
 		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
-	const runtimePi = withCommandStreaming(pi, commandStream);
-	const runtimeLandPi: NormalizedLandExtensionAPI = {
+	const streamedApi = withCommandStreaming(pi, commandStream);
+	const normalizedApi: NormalizedLandExtensionAPI = {
 		...pi,
 		exec: async (command, commandArgs, commandOptions) =>
-			normalizeExecResult(await runtimePi.exec(command, commandArgs, commandOptions)),
+			normalizeExecResult(await streamedApi.exec(command, commandArgs, commandOptions)),
 	};
 	return await runLandingDispatch({
-		pi,
-		runtimePi,
-		runtimeLandPi,
+		runtimeApis: {
+			extensionApi: pi,
+			streamedApi,
+			normalizedApi,
+		},
 		ctx,
 		parsedArgs: args.value,
 		...(progressIo === undefined ? {} : { progressIo }),

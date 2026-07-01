@@ -84,12 +84,8 @@ function settleMaintenanceStop(
 	stop: PendingGraphiteMaintenanceStop,
 ): GraphiteMaintenanceStop {
 	if (stop.kind === "halt") return stop;
-	appendMaintenanceWarning(state, stop.warning);
+	state.warnings.push(stop.warning);
 	return { kind: "skip" };
-}
-
-function appendMaintenanceWarning(state: MergeLoopState, warning: LandingWarning): void {
-	state.warnings.push(warning);
 }
 
 interface GraphiteRefreshFailureOptions {
@@ -377,8 +373,7 @@ export async function performGraphiteMaintenance(
 			}
 
 			if (getResult.checkoutConflict) {
-				appendMaintenanceWarning(
-					state,
+				state.warnings.push(
 					optionalDescendantRefreshDeferredWarning(
 						maintenance.branch,
 						branch,
@@ -392,7 +387,7 @@ export async function performGraphiteMaintenance(
 				return { kind: "skip" };
 			}
 
-			appendMaintenanceWarning(state, {
+			state.warnings.push({
 				message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenance.branch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
 				commandDisplay: getCommandDisplay,
 				result: got,
@@ -403,7 +398,7 @@ export async function performGraphiteMaintenance(
 	}
 
 	if (maintenance.kind === "skip-descendant") {
-		appendMaintenanceWarning(state, skippedDescendantMaintenanceWarning(plan, branch));
+		state.warnings.push(skippedDescendantMaintenanceWarning(plan, branch));
 		return { kind: "skip" };
 	}
 
@@ -415,7 +410,7 @@ export async function performGraphiteMaintenance(
 			: `local branch ${branch} cleanup was`;
 	const topology = await loadGraphiteTopology(pi, repoRoot, plan.metadataDbPath);
 	if (topology.type === "failure") {
-		appendMaintenanceWarning(state, {
+		state.warnings.push({
 			message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${topology.failure.message}`,
 			suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 		});
@@ -717,13 +712,19 @@ interface StreamedRawGraphiteCommandOptions {
 	commandStream: LandStackCommandStream;
 	repoRoot: string;
 	args: string[];
-	finishForRaw?: (raw: ExecResult, normalized: CommandStreamFinish) => CommandStreamFinish;
+	parseCheckoutConflict?: (raw: ExecResult) => CheckedOutElsewhere | undefined;
+	finishForRaw?: (options: {
+		raw: ExecResult;
+		normalized: CommandStreamFinish;
+		checkoutConflict?: CheckedOutElsewhere;
+	}) => CommandStreamFinish;
 }
 
 interface StreamedRawGraphiteCommandResult {
 	commandDisplay: string;
 	raw: ExecResult;
 	finish: CommandStreamFinish;
+	checkoutConflict?: CheckedOutElsewhere;
 }
 
 type LocalBranchDeletion =
@@ -809,13 +810,13 @@ async function deleteFinalLocalGraphiteBranch(
 		commandStream,
 		repoRoot,
 		args: deleteArgs,
-		finishForRaw: (raw, normalized) => {
-			const checkout = !raw.killed ? parseGitCheckedOutElsewhere(raw) : undefined;
-			return checkout ? finalDeleteSkippedFinish(raw, branch) : normalized;
-		},
+		parseCheckoutConflict: (raw) => (!raw.killed ? parseGitCheckedOutElsewhere(raw) : undefined),
+		finishForRaw: ({ raw, normalized, checkoutConflict }) =>
+			checkoutConflict ? finalDeleteSkippedFinish(raw, branch) : normalized,
 	});
-	const checkout = !streamed.raw.killed ? parseGitCheckedOutElsewhere(streamed.raw) : undefined;
-	if (checkout) return { kind: "retained", branch, path: checkout.path };
+	if (streamed.checkoutConflict) {
+		return { kind: "retained", branch, path: streamed.checkoutConflict.path };
+	}
 	if (streamed.finish.result.code === 0) return { kind: "deleted" };
 	return { kind: "failed", result: streamed.finish.result };
 }
@@ -832,9 +833,20 @@ async function runStreamedRawGraphiteCommand(
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
 	const normalized = normalizeCommandFinish(GRAPHITE_COMMAND_NAME, args, raw);
-	const finish = options.finishForRaw?.(raw, normalized) ?? normalized;
+	const checkoutConflict = options.parseCheckoutConflict?.(raw);
+	const finish =
+		options.finishForRaw?.({
+			raw,
+			normalized,
+			...(checkoutConflict === undefined ? {} : { checkoutConflict }),
+		}) ?? normalized;
 	commandStream.finish(commandDisplay, finish);
-	return { commandDisplay, raw, finish };
+	return {
+		commandDisplay,
+		raw,
+		finish,
+		...(checkoutConflict === undefined ? {} : { checkoutConflict }),
+	};
 }
 
 function finalDeleteSkippedFinish(result: ExecResult, branch: string): CommandStreamFinish {
