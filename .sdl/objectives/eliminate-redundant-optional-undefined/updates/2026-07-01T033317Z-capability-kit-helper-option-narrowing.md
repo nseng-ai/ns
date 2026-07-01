@@ -15,16 +15,16 @@ Construction-path evidence: existing `execSdlCommand`, `createSdlCliExecAdapter`
 
 Scorecard:
 
-| Scope | Metric | Before | After |
-| --- | --- | ---: | ---: |
-| `ts` | Raw optional-undefined properties | 35 | 23 |
-| `ts` | Typed explicit-undefined contracts | 86 | 86 |
-| `ts` | Legacy preserve markers | 0 | 0 |
-| `ts` | Undefined-normalization/check lines | 2298 | 2298 |
-| `ts/packages/sdl-capability-kit` | Raw optional-undefined properties | 12 | 0 |
-| `ts/packages/sdl-capability-kit` | Typed explicit-undefined contracts | 13 | 13 |
-| `ts/packages/sdl-capability-kit` | Legacy preserve markers | 0 | 0 |
-| `ts/packages/sdl-capability-kit` | Undefined-normalization/check lines | 61 | 61 |
+| Scope                            | Metric                              | Before | After |
+| -------------------------------- | ----------------------------------- | -----: | ----: |
+| `ts`                             | Raw optional-undefined properties   |     35 |    23 |
+| `ts`                             | Typed explicit-undefined contracts  |     86 |    86 |
+| `ts`                             | Legacy preserve markers             |      0 |     0 |
+| `ts`                             | Undefined-normalization/check lines |   2298 |  2298 |
+| `ts/packages/sdl-capability-kit` | Raw optional-undefined properties   |     12 |     0 |
+| `ts/packages/sdl-capability-kit` | Typed explicit-undefined contracts  |     13 |    13 |
+| `ts/packages/sdl-capability-kit` | Legacy preserve markers             |      0 |     0 |
+| `ts/packages/sdl-capability-kit` | Undefined-normalization/check lines |     61 |    61 |
 
 Validation:
 
