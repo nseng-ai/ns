@@ -148,60 +148,60 @@ function detectorForKind(
       return (context) => detectInteractiveConfirm(context, metadata);
     case "exact-optional-spread":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /\.\.\.\s*\([^?]+===\s*undefined\s*\?\s*\{\s*\}\s*:\s*\{/gu,
-          "conditional exact-optional object spread",
-        );
+          pattern: /\.\.\.\s*\([^?]+===\s*undefined\s*\?\s*\{\s*\}\s*:\s*\{/gu,
+          matchedTell: "conditional exact-optional object spread",
+        });
     case "xdg-path":
       return (context) => detectXdgPath(context, metadata);
     case "hand-rolled-table":
       return (context) => detectHandRolledTable(context, metadata);
     case "raw-git":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /(?:["']git["']|["']git\s+)/gu,
-          "raw git command string",
-        );
+          pattern: /(?:["']git["']|["']git\s+)/gu,
+          matchedTell: "raw git command string",
+        });
     case "machine-envelope-literal":
       return (context) => detectMachineEnvelopeLiteral(context, metadata);
     case "command-failure-format":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /formatCommandFailure|exit code|exited with status/gu,
-          "command failure formatting",
-        );
+          pattern: /formatCommandFailure|exit code|exited with status/gu,
+          matchedTell: "command failure formatting",
+        });
     case "escape-regex":
       return (context) => detectEscapeRegex(context, metadata);
     case "osc8-hyperlink":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /\]8;;|\\u001b\]8|\\x1b\]8/gu,
-          "OSC-8 hyperlink marker",
-        );
+          pattern: /\]8;;|\\u001b\]8|\\x1b\]8/gu,
+          matchedTell: "OSC-8 hyperlink marker",
+        });
     case "manual-truncation":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /\.slice\([^\n]+(?:…|\.\.\.)/gu,
-          "manual slice plus ellipsis truncation",
-        );
+          pattern: /\.slice\([^\n]+(?:…|\.\.\.)/gu,
+          matchedTell: "manual slice plus ellipsis truncation",
+        });
     case "frontmatter-split":
       return (context) =>
-        detectSourceRegex(
+        detectSourceRegex({
           context,
           metadata,
-          /\.(?:split|indexOf)\(\s*["']---["']|^\s*\/\^?---/gmu,
-          "manual frontmatter delimiter parsing",
-        );
+          pattern: /\.(?:split|indexOf)\(\s*["']---["']|^\s*\/\^?---/gmu,
+          matchedTell: "manual frontmatter delimiter parsing",
+        });
   }
 }
 
@@ -281,12 +281,13 @@ function detectHandRolledTable(
   context: DetectorContext,
   metadata: DetectorMetadata,
 ): ReinventionCandidate[] {
-  const signals = detectSourceRegex(
+  const signals = detectSourceRegex({
     context,
     metadata,
-    /pad(?:End|Start)|Math\.max\([^\n]+\.length|\.length\s*[),;]|["'`][─━-]{3,}["'`]\.repeat\(/gu,
-    "table-width/layout signal",
-  );
+    pattern:
+      /pad(?:End|Start)|Math\.max\([^\n]+\.length|\.length\s*[),;]|["'`][─━-]{3,}["'`]\.repeat\(/gu,
+    matchedTell: "table-width/layout signal",
+  });
   return signals.length >= 2 ? [signals[0]].filter((candidate) => candidate !== undefined) : [];
 }
 
@@ -343,12 +344,15 @@ function visitForCandidates(
   return candidates;
 }
 
-function detectSourceRegex(
-  context: DetectorContext,
-  metadata: DetectorMetadata,
-  pattern: RegExp,
-  matchedTell: string,
-): ReinventionCandidate[] {
+interface DetectSourceRegexOptions {
+  readonly context: DetectorContext;
+  readonly metadata: DetectorMetadata;
+  readonly pattern: RegExp;
+  readonly matchedTell: string;
+}
+
+function detectSourceRegex(options: DetectSourceRegexOptions): ReinventionCandidate[] {
+  const { context, metadata, pattern, matchedTell } = options;
   const source = context.sourceFile.getFullText();
   const candidates: ReinventionCandidate[] = [];
   for (const match of source.matchAll(pattern)) {
@@ -365,7 +369,7 @@ function detectSourceRegex(
       column: position.character + 1,
       snippet: lineAt(source, position.line),
       matchedTell,
-      addedLine: false,
+      isAddedLine: false,
       precision: metadata.precision,
     });
   }
@@ -389,7 +393,7 @@ function buildCandidate(
     column: location.column,
     snippet: location.text,
     matchedTell,
-    addedLine: false,
+    isAddedLine: false,
     precision: metadata.precision,
   };
 }

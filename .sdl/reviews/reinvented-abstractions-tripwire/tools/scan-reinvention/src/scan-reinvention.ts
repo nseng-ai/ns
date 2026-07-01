@@ -9,9 +9,9 @@ export interface ScanReinventionOptions {
   readonly cwd: string;
   readonly diffBase: string;
   readonly files?: readonly string[];
-  readonly addedOnly: boolean;
+  readonly isAddedOnly: boolean;
   readonly kinds?: readonly string[];
-  readonly includeExempt: boolean;
+  readonly shouldIncludeExempt: boolean;
   readonly io?: ScannerIo;
 }
 
@@ -35,15 +35,15 @@ export async function scanReinvention(options: ScanReinventionOptions): Promise<
       return failure("read-file-failed", `Unable to read ${file}: ${content.message}`);
     const sourceFile = parseTypeScriptSource(file, content.value);
     const fileCandidates = runDetectors({ file, sourceFile }, kinds.value);
-    const addedLines = options.addedOnly ? await io.addedLines(diffBase, file) : undefined;
+    const addedLines = options.isAddedOnly ? await io.addedLines(diffBase, file) : undefined;
     if (addedLines !== undefined && !addedLines.ok) {
       return failure("diff-lines-failed", addedLines.message);
     }
     for (const candidate of fileCandidates) {
-      const addedLine = addedLines?.value.has(candidate.line) ?? false;
-      if (options.addedOnly && !addedLine) continue;
-      const candidateWithDiff = { ...candidate, addedLine };
-      if (!options.includeExempt && isStructurallyExempt(candidateWithDiff)) continue;
+      const isAddedLine = addedLines?.value.has(candidate.line) ?? false;
+      if (options.isAddedOnly && !isAddedLine) continue;
+      const candidateWithDiff = { ...candidate, isAddedLine };
+      if (!options.shouldIncludeExempt && isStructurallyExempt(candidateWithDiff)) continue;
       candidates.push(candidateWithDiff);
     }
   }

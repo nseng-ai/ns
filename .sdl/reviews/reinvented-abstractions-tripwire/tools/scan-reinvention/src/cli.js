@@ -10,9 +10,9 @@ else {
         cwd: process.cwd(),
         diffBase: parsed.value.diffBase,
         files: parsed.value.files,
-        addedOnly: parsed.value.addedOnly,
+        isAddedOnly: parsed.value.isAddedOnly,
         kinds: parsed.value.kinds,
-        includeExempt: parsed.value.includeExempt,
+        shouldIncludeExempt: parsed.value.shouldIncludeExempt,
     });
     writeJson(output);
     if (!output.success)
@@ -20,8 +20,8 @@ else {
 }
 export function parseArgs(args) {
     let diffBase = "";
-    let addedOnly = true;
-    let includeExempt = false;
+    let isAddedOnly = true;
+    let shouldIncludeExempt = false;
     const files = [];
     const kinds = [];
     for (let index = 0; index < args.length; index += 1) {
@@ -57,13 +57,13 @@ export function parseArgs(args) {
                 break;
             }
             case "--added-only":
-                addedOnly = true;
+                isAddedOnly = true;
                 break;
             case "--all-lines":
-                addedOnly = false;
+                isAddedOnly = false;
                 break;
             case "--include-exempt":
-                includeExempt = true;
+                shouldIncludeExempt = true;
                 break;
             default:
                 return parseFailure("unknown-argument", `Unknown argument: ${arg}`);
@@ -71,7 +71,7 @@ export function parseArgs(args) {
     }
     if (diffBase.trim() === "")
         return parseFailure("missing-diff-base", "--diff-base is required.");
-    return { ok: true, value: { diffBase, files, addedOnly, kinds, includeExempt } };
+    return { ok: true, value: { diffBase, files, isAddedOnly, kinds, shouldIncludeExempt } };
 }
 function parseFailure(code, message) {
     return { ok: false, code, message };

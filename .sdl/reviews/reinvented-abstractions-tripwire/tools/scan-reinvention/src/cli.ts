@@ -5,9 +5,9 @@ import { scanReinvention } from "./scan-reinvention.ts";
 interface CliOptions {
   readonly diffBase: string;
   readonly files: readonly string[];
-  readonly addedOnly: boolean;
+  readonly isAddedOnly: boolean;
   readonly kinds: readonly string[];
-  readonly includeExempt: boolean;
+  readonly shouldIncludeExempt: boolean;
 }
 
 type CliParseResult =
@@ -23,9 +23,9 @@ if (!parsed.ok) {
     cwd: process.cwd(),
     diffBase: parsed.value.diffBase,
     files: parsed.value.files,
-    addedOnly: parsed.value.addedOnly,
+    isAddedOnly: parsed.value.isAddedOnly,
     kinds: parsed.value.kinds,
-    includeExempt: parsed.value.includeExempt,
+    shouldIncludeExempt: parsed.value.shouldIncludeExempt,
   });
   writeJson(output);
   if (!output.success) process.exitCode = 1;
@@ -33,8 +33,8 @@ if (!parsed.ok) {
 
 export function parseArgs(args: readonly string[]): CliParseResult {
   let diffBase = "";
-  let addedOnly = true;
-  let includeExempt = false;
+  let isAddedOnly = true;
+  let shouldIncludeExempt = false;
   const files: string[] = [];
   const kinds: string[] = [];
 
@@ -70,13 +70,13 @@ export function parseArgs(args: readonly string[]): CliParseResult {
         break;
       }
       case "--added-only":
-        addedOnly = true;
+        isAddedOnly = true;
         break;
       case "--all-lines":
-        addedOnly = false;
+        isAddedOnly = false;
         break;
       case "--include-exempt":
-        includeExempt = true;
+        shouldIncludeExempt = true;
         break;
       default:
         return parseFailure("unknown-argument", `Unknown argument: ${arg}`);
@@ -84,7 +84,7 @@ export function parseArgs(args: readonly string[]): CliParseResult {
   }
 
   if (diffBase.trim() === "") return parseFailure("missing-diff-base", "--diff-base is required.");
-  return { ok: true, value: { diffBase, files, addedOnly, kinds, includeExempt } };
+  return { ok: true, value: { diffBase, files, isAddedOnly, kinds, shouldIncludeExempt } };
 }
 
 function parseFailure(code: string, message: string): CliParseResult {

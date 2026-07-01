@@ -26,9 +26,9 @@ export interface ReinventionCandidate {
   readonly column: number;
   readonly snippet: string;
   readonly matchedTell: string;
-  readonly addedLine: boolean;
+  readonly isAddedLine: boolean;
   readonly precision: CandidatePrecision;
-  readonly suppressed?: boolean;
+  readonly isSuppressed?: boolean;
   readonly suppressionReason?: string;
 }
 

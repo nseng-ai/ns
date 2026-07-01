@@ -21,16 +21,16 @@ export async function scanReinvention(options) {
             return failure("read-file-failed", `Unable to read ${file}: ${content.message}`);
         const sourceFile = parseTypeScriptSource(file, content.value);
         const fileCandidates = runDetectors({ file, sourceFile }, kinds.value);
-        const addedLines = options.addedOnly ? await io.addedLines(diffBase, file) : undefined;
+        const addedLines = options.isAddedOnly ? await io.addedLines(diffBase, file) : undefined;
         if (addedLines !== undefined && !addedLines.ok) {
             return failure("diff-lines-failed", addedLines.message);
         }
         for (const candidate of fileCandidates) {
-            const addedLine = addedLines?.value.has(candidate.line) ?? false;
-            if (options.addedOnly && !addedLine)
+            const isAddedLine = addedLines?.value.has(candidate.line) ?? false;
+            if (options.isAddedOnly && !isAddedLine)
                 continue;
-            const candidateWithDiff = { ...candidate, addedLine };
-            if (!options.includeExempt && isStructurallyExempt(candidateWithDiff))
+            const candidateWithDiff = { ...candidate, isAddedLine };
+            if (!options.shouldIncludeExempt && isStructurallyExempt(candidateWithDiff))
                 continue;
             candidates.push(candidateWithDiff);
         }

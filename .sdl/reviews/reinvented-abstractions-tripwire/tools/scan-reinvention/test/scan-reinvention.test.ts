@@ -43,8 +43,8 @@ describe("scanReinvention", () => {
     const output = await scanReinvention({
       cwd: "/repo",
       diffBase: "",
-      addedOnly: true,
-      includeExempt: false,
+      isAddedOnly: true,
+      shouldIncludeExempt: false,
       io: new FakeScannerIo({ files: {} }),
     });
 
@@ -68,8 +68,8 @@ describe("scanReinvention", () => {
     const output = await scanReinvention({
       cwd: "/repo",
       diffBase: "main",
-      addedOnly: true,
-      includeExempt: false,
+      isAddedOnly: true,
+      shouldIncludeExempt: false,
       io,
     });
 
@@ -81,7 +81,7 @@ describe("scanReinvention", () => {
         kind: "subprocess",
         file: "ts/packages/example/src/app.ts",
         line: 1,
-        addedLine: true,
+        isAddedLine: true,
       },
     ]);
     expect(io.changedFilesCalls).toEqual(["main"]);
@@ -99,9 +99,9 @@ describe("scanReinvention", () => {
       cwd: "/repo",
       diffBase: "main",
       files: ["ts/packages/example/src/config.ts"],
-      addedOnly: true,
+      isAddedOnly: true,
       kinds: ["xdg-path"],
-      includeExempt: false,
+      shouldIncludeExempt: false,
       io,
     });
 
