@@ -2,12 +2,15 @@ import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@sdl/pi/skills/expansion";
 import { truncateDisplayLine } from "@sdl/pi/terminal/presentation";
 import type {
+	AutocompleteItem,
 	CommandContext,
 	CustomMessage,
 	RenderComponent,
 	RenderTheme,
 } from "@sdl/pi/runtime/extension-types";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+
+import type { FlowRegisteredCommand } from "./command-support.ts";
 
 export const CODE_WORKFLOWS_COMMAND_NAME = "code-workflows";
 export const GH_CI_DEBUG_COMMAND_NAME = "gh-ci-debug";
@@ -42,21 +45,8 @@ export const codeWorkflowsParity = definePiSurfaceParity([
 	},
 ] as const);
 
-interface AutocompleteItem {
-	value: string;
-	label?: string;
-	description?: string;
-}
-
-interface RegisteredCommand {
-	description?: string;
-	argumentHint?: string;
-	getArgumentCompletions?: (prefix: string) => AutocompleteItem[] | null;
-	handler(args: string, ctx: CommandContext): Promise<void> | void;
-}
-
 interface CodeWorkflowsExtensionAPI {
-	registerCommand(name: string, command: RegisteredCommand): void;
+	registerCommand(name: string, command: FlowRegisteredCommand<CommandContext>): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
 	getCommands?(): readonly {
 		name: string;

@@ -1,10 +1,4 @@
-import {
-	execApiToCommandRunner,
-	type ExecOptions,
-	type ExecResult,
-	piExecApiToCommandExecApi,
-} from "@sdl/core/command";
-import { runGraphiteCommand } from "@sdl/graphite/branch";
+import type { ExecResult } from "@sdl/core/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
@@ -14,6 +8,13 @@ import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@s
 import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
 import { buildFencedTextBlock, expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
+
+import {
+	type FlowCommandContext,
+	type FlowGraphiteCommandHost,
+	type FlowRegisteredCommand,
+	runFlowGraphiteCommand,
+} from "./command-support.ts";
 
 export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
@@ -43,25 +44,10 @@ const START_RESOLVER_OPTION = "Start LM resolver";
 const LEAVE_STOPPED_OPTION = "Leave rebase stopped";
 const ABORT_REBASE_OPTION = "Abort rebase";
 
-interface CommandContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-		select?(title: string, options: string[]): Promise<string | undefined> | string | undefined;
-	};
-	waitForIdle?(): Promise<void>;
-}
+type CommandContext = FlowCommandContext;
 
-interface RegisteredCommand {
-	description?: string;
-	argumentHint?: string;
-	handler(args: string, ctx: CommandContext): Promise<void> | void;
-}
-
-export interface SmartRestackExtensionAPI {
-	registerCommand(name: string, options: RegisteredCommand): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+export interface SmartRestackExtensionAPI extends FlowGraphiteCommandHost {
+	registerCommand(name: string, options: FlowRegisteredCommand): void;
 	sendUserMessage?(content: string): Promise<void> | void;
 }
 
@@ -128,7 +114,7 @@ export async function runSmartRestack(
 		ctx,
 		message: "Running deterministic fast path: gt restack",
 	});
-	const restack = await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+	const restack = await runFlowGraphiteCommand(pi, {
 		cwd: ctx.cwd,
 		args: ["restack"],
 		timeoutMs: GT_RESTACK_TIMEOUT_MS,

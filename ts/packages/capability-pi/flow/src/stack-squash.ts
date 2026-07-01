@@ -1,15 +1,16 @@
-import {
-	execApiToCommandRunner,
-	type ExecOptions,
-	type ExecResult,
-	piExecApiToCommandExecApi,
-} from "@sdl/core/command";
-import { runGraphiteCommand } from "@sdl/graphite/branch";
+import type { ExecResult } from "@sdl/core/command";
 import { z } from "zod";
 
 import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
 import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+
+import {
+	type FlowCommandContext,
+	type FlowGraphiteCommandHost,
+	type FlowRegisteredCommand,
+	runFlowGraphiteCommand,
+} from "./command-support.ts";
 
 export const STACK_SQUASH_COMMAND_NAME = "gt:squash-stack";
 
@@ -32,24 +33,10 @@ const GIT_STATUS_TIMEOUT_MS = 60_000;
 const SLOT_STACK_BRANCHES_TIMEOUT_MS = 60_000;
 const GT_COMMAND_TIMEOUT_MS = 5 * 60 * 1_000;
 
-interface CommandContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
-	};
-	waitForIdle?(): Promise<void>;
-}
+type CommandContext = FlowCommandContext;
 
-interface RegisteredCommand {
-	description?: string;
-	argumentHint?: string;
-	handler(args: string, ctx: CommandContext): Promise<void> | void;
-}
-
-export interface StackSquashExtensionAPI {
-	registerCommand(name: string, options: RegisteredCommand): void;
-	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
+export interface StackSquashExtensionAPI extends FlowGraphiteCommandHost {
+	registerCommand(name: string, options: FlowRegisteredCommand): void;
 }
 
 interface ProcessedBranch {
@@ -243,7 +230,7 @@ async function runGt(
 	ctx: CommandContext,
 	args: readonly string[],
 ): Promise<ExecResult> {
-	return await runGraphiteCommand(execApiToCommandRunner(piExecApiToCommandExecApi(pi)), {
+	return await runFlowGraphiteCommand(pi, {
 		cwd: ctx.cwd,
 		args,
 		timeoutMs: GT_COMMAND_TIMEOUT_MS,
