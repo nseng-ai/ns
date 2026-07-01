@@ -1,4 +1,9 @@
-import type { ChildrenCorruption, TrunkMarkerStatus, WalkTermination } from "@sdl/graphite/stack";
+import type {
+	ChildrenCorruption,
+	StackFork,
+	TrunkMarkerStatus,
+	WalkTermination,
+} from "@sdl/graphite/stack";
 
 export type GraphiteWalkKind = "ancestor" | "descendant";
 export type GraphiteWalkLabel = "walk" | "selection";
@@ -27,6 +32,10 @@ export function renderChildrenCorruption(corruption: ChildrenCorruption): string
 		case "non_string":
 			return `children metadata for ${corruption.branch} contains non-string entries`;
 	}
+}
+
+export function renderStackFork(fork: StackFork): string {
+	return `branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`;
 }
 
 export function renderTrunkMarkerWarnings(marker: TrunkMarkerStatus): readonly string[] {

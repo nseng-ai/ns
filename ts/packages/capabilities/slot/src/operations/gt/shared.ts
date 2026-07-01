@@ -3,7 +3,13 @@ import { failure, type ClinkrFailureExit } from "@sdl/clinkr";
 import type { RepoSlotContext, SlotCliContext } from "../../context.ts";
 
 export type ResolvedRepoAndCurrentBranch =
-	| { readonly type: "ok"; readonly repoCtx: RepoSlotContext; readonly currentBranch: string }
+	| {
+			readonly type: "ok";
+			readonly repoCtx: RepoSlotContext;
+			readonly repoRoot: string;
+			readonly mainRepoRoot: string;
+			readonly currentBranch: string;
+	  }
 	| ClinkrFailureExit;
 
 export async function resolveRepoAndCurrentBranch(
@@ -19,5 +25,11 @@ export async function resolveRepoAndCurrentBranch(
 			"detached-head",
 			`HEAD at ${repoCtx.repo.root} is detached. Check out a branch first.`,
 		);
-	return { type: "ok", repoCtx, currentBranch: currentResult.branch };
+	return {
+		type: "ok",
+		repoCtx,
+		repoRoot: repoCtx.repo.root,
+		mainRepoRoot: repoCtx.repo.mainRepoRoot,
+		currentBranch: currentResult.branch,
+	};
 }

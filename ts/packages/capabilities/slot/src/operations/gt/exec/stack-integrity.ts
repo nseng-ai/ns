@@ -2,6 +2,7 @@ import type { StackFork, StackInfo } from "@sdl/graphite/stack";
 
 import {
 	renderChildrenCorruption,
+	renderStackFork,
 	renderTrunkMarkerWarnings,
 	renderWalkTerminationWarning,
 } from "./metadata-warnings.ts";
@@ -67,8 +68,4 @@ export function validateStackIntegrity(
 
 function forkedStackMessage(fork: StackFork, forkHint: string): string {
 	return `Graphite stack forks at '${fork.branch}' with children: ${fork.children.join(", ")}. Check out the intended tip and rerun, or pass \`${forkHint}\`.`;
-}
-
-function renderStackFork(fork: StackFork): string {
-	return `branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`;
 }
