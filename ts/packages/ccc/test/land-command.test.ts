@@ -41,6 +41,10 @@ const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 const SHA_CURRENT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_CHILD = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const CHILD_BRANCH = "child-branch";
+// Mirrors Flow's backup-ref command contract exercised through sdl-flow/api;
+// keep local to avoid exporting or deep-importing Flow land-stack internals.
+const FLOW_LAND_BACKUP_REF_NAMESPACE = "refs/sdl/flow-land-backup";
+const FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = "refs/sdl/flow-land-backup-prev";
 
 const DB_SINGLE_BRANCH = metadataDbJson([
 	{ branch: TRUNK, children: [CURRENT], trunk: true },
@@ -402,17 +406,17 @@ function successfulStackLandingSteps(): ScriptedExec[] {
 			"--prune",
 			"--no-tags",
 			".",
-			"+refs/sdl/flow-land-backup/*:refs/sdl/flow-land-backup-prev/*",
+			`+${FLOW_LAND_BACKUP_REF_NAMESPACE}/*:${FLOW_LAND_BACKUP_PREV_REF_NAMESPACE}/*`,
 		]),
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"]),
+		step("git", ["for-each-ref", "--format=%(refname)", FLOW_LAND_BACKUP_REF_NAMESPACE]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
 			stdout: `${SHA_CURRENT}\n`,
 		}),
-		step("git", ["update-ref", `refs/sdl/flow-land-backup/${CURRENT}`, SHA_CURRENT]),
+		step("git", ["update-ref", `${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CURRENT}`, SHA_CURRENT]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CHILD_BRANCH}^{commit}`], {
 			stdout: `${SHA_CHILD}\n`,
 		}),
-		step("git", ["update-ref", `refs/sdl/flow-land-backup/${CHILD_BRANCH}`, SHA_CHILD]),
+		step("git", ["update-ref", `${FLOW_LAND_BACKUP_REF_NAMESPACE}/${CHILD_BRANCH}`, SHA_CHILD]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {
 			stdout: `${SHA_CURRENT}\n`,
 		}),

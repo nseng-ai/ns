@@ -5,6 +5,7 @@ import {
 	completed,
 	failure,
 	landStackFailure,
+	type LandStackFailure,
 	type LandStackOutcome,
 } from "../land-stack/errors.ts";
 import {
@@ -38,10 +39,14 @@ export interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
 	): Promise<NormalizedExecResult>;
 }
 
+interface LandRuntimeApis {
+	extensionApi: LandStackExtensionAPI;
+	streamedApi: LandStackExtensionAPI;
+	normalizedApi: NormalizedLandExtensionAPI;
+}
+
 interface RunLandingDispatchOptions {
-	pi: LandStackExtensionAPI;
-	runtimePi: LandStackExtensionAPI;
-	runtimeLandPi: NormalizedLandExtensionAPI;
+	runtimeApis: LandRuntimeApis;
 	ctx: PrintAwareLandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	progressIo?: SdlCommandIo;
@@ -52,16 +57,10 @@ export async function runLandingDispatch(
 	options: RunLandingDispatchOptions,
 ): Promise<LandStackOutcome> {
 	const progressIo = options.progressIo;
-	const shape = await loadLandingShape(options.runtimePi, options.ctx.cwd);
+	const { extensionApi, streamedApi, normalizedApi } = options.runtimeApis;
+	const shape = await loadLandingShape(streamedApi, options.ctx.cwd);
 	if (shape.type === "failure") {
-		presentBrief({
-			ctx: options.ctx,
-			fullMessage: formatFailure(shape.failure, []),
-			level: shape.failure.level,
-			uiMessage: formatFailureNotification(shape.failure),
-			kind: landFailureKind(shape.failure),
-		});
-		return failure(shape.failure);
+		return presentAndFail(options.ctx, shape.failure);
 	}
 
 	if (
@@ -81,7 +80,7 @@ export async function runLandingDispatch(
 
 	if (isIsolatedFastPath(shape.value.stack)) {
 		const outcome = await runIsolatedFastPathLanding({
-			pi: options.runtimeLandPi,
+			pi: normalizedApi,
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
@@ -89,7 +88,7 @@ export async function runLandingDispatch(
 		});
 		if (outcome.type === "failure") return outcome;
 		return await runPostLandingSlotCleanup({
-			pi: options.runtimeLandPi,
+			pi: normalizedApi,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
@@ -102,7 +101,7 @@ export async function runLandingDispatch(
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
-	const outcome = await executeStackLanding(options.pi, options.ctx, options.parsedArgs, {
+	const outcome = await executeStackLanding(extensionApi, options.ctx, options.parsedArgs, {
 		shouldSkipMainConfirmation: true,
 		...(options.parsedArgs.shouldSkipConfirmation
 			? {}
@@ -113,7 +112,7 @@ export async function runLandingDispatch(
 	});
 	if (outcome.type === "failure") return outcome;
 	return await runPostLandingSlotCleanup({
-		pi: options.runtimePi,
+		pi: streamedApi,
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
@@ -131,14 +130,7 @@ async function confirmStackModeIfNeeded(
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
 			{ outcome: "refusal" },
 		);
-		presentBrief({
-			ctx,
-			fullMessage: landFailure.message,
-			level: landFailure.level,
-			uiMessage: formatFailureNotification(landFailure),
-			kind: landFailureKind(landFailure),
-		});
-		return failure(landFailure);
+		return presentAndFail(ctx, landFailure);
 	}
 
 	const confirmed = await ctx.ui.confirm("Land stack?", formatUpfrontStackConfirmation(shape));
@@ -147,16 +139,23 @@ async function confirmStackModeIfNeeded(
 			level: "info",
 			outcome: "refusal",
 		});
-		presentBrief({
-			ctx,
-			fullMessage: landFailure.message,
-			level: landFailure.level,
-			uiMessage: formatFailureNotification(landFailure),
-			kind: landFailureKind(landFailure),
-		});
-		return failure(landFailure);
+		return presentAndFail(ctx, landFailure);
 	}
 	return completed();
+}
+
+function presentAndFail(
+	ctx: PrintAwareLandStackCommandContext,
+	landFailure: LandStackFailure,
+): LandStackOutcome {
+	presentBrief({
+		ctx,
+		fullMessage: formatFailure(landFailure, []),
+		level: landFailure.level,
+		uiMessage: formatFailureNotification(landFailure),
+		kind: landFailureKind(landFailure),
+	});
+	return failure(landFailure);
 }
 
 function formatUpfrontStackConfirmation(shape: LandingShape): string {
