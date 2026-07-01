@@ -36,7 +36,7 @@ const RECOVERY_REPORT_BEGIN = "OBJECTIVE_AUTOPILOT_RECOVERY_BEGIN";
 const RECOVERY_REPORT_END = "OBJECTIVE_AUTOPILOT_RECOVERY_END";
 const MAX_FAILURE_TAIL_CHARS = 8_000;
 const AUTOPILOT_GRAPHITE_STACK_MUTATION_PROHIBITION =
-	"Do not run `gt create`, `gt restack`, or any command whose purpose is to rebase/reorder the Graphite stack";
+	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; use plain `git switch` after Graphite tracking succeeds";
 
 type NotifyLevel = "info" | "warning" | "error";
 
@@ -494,6 +494,7 @@ Rules:
 - Create the implementation branch with the repo's branch-context Graphite creation path: use \`sdl branch-context exec from-plan --branch-creation graphite ...\` or \`/sdl:branch-context:from-plan --graphite ...\`.
 - ${describeBranchContextGraphiteCreationSteps(parentBranch)}
 - Attach branch context only through the branch-context workflow after Graphite tracking succeeds. If branch-context Graphite creation or \`gt track\` fails, stop and report the failed command plus recovery guidance; do not continue on an untracked implementation branch.
+- After the branch is tracked, switch to the implementation branch with \`git switch <implementation-branch>\`, not \`gt checkout\`; Graphite checkout may demand a restack when a downstack branch is behind trunk, and autopilot must not restack.
 - Implement the attached plan on the implementation branch.
 - Validate according to repo/churn policy, and run relevant checks for changed files.
 - Update Objective tracking with a meaningful Semantic Update when material progress is kept.
@@ -678,8 +679,9 @@ Your job is narrow local recovery, not implementation:
 - ${AUTOPILOT_GRAPHITE_STACK_MUTATION_PROHIBITION}; restack-required submit failures must return control to the human.
 - Do not stage files unless a minimal recovery command unavoidably stages them; if staging happens, report it.
 - Prefer deterministic local commands and explain what evidence justified each action.
-- For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` only when live evidence supports that parent.
+- For a Graphite-untracked implementation branch, you may run \`gt track <implementation-branch> --parent ${context.startingBranch} --no-interactive\` only when live evidence supports that parent.
 - If \`gt track\` fails, report status needs-human or not-recovered; do not invent Branch Memory breadcrumb fallback state or continue with an untracked implementation branch.
+- If recovery must switch branches after tracking, use \`git switch <implementation-branch>\`, not \`gt checkout\`.
 - The TypeScript parent will not trust your report alone; it will re-check live branch state, HEAD, staged files, Graphite branch info, git diff --check, changed files, and Objective tracking.
 
 Finish with exactly one structured report block:
