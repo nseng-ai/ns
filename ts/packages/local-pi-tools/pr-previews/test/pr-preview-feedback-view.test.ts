@@ -1,4 +1,3 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { describe, expect, test } from "vitest";
 
@@ -7,6 +6,7 @@ import type {
 	PrPreviewFeedbackViewModel,
 } from "../src/preview-feedback-model.ts";
 import { feedbackListRows, PrPreviewFeedbackView } from "../src/preview-feedback-view.ts";
+import { identityTheme, taggingTheme } from "./preview-test-themes.ts";
 
 describe("feedbackListRows layout helper", () => {
 	test("keeps the list compact so detail dominates", () => {
@@ -250,28 +250,6 @@ function fakeTui(): TUI {
 		terminal: { rows: 30 },
 		requestRender() {},
 	} as TUI;
-}
-
-function identityTheme(): Theme {
-	return {
-		fg(_color: string, text: string): string {
-			return text;
-		},
-		bg(_color: string, text: string): string {
-			return text;
-		},
-	} as Theme;
-}
-
-function taggingTheme(): Theme {
-	return {
-		fg(color: string, text: string): string {
-			return `[${color}]${text}[/]`;
-		},
-		bg(_color: string, text: string): string {
-			return text;
-		},
-	} as Theme;
 }
 
 function renderText(view: PrPreviewFeedbackView): string {

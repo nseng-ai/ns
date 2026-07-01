@@ -47,6 +47,26 @@ export interface PrPreviewChecksViewModel {
 export interface PrPreviewChecksDetailRow {
 	role: "finding" | "review" | "body" | "evidence" | "source" | "comment" | "spacer";
 	text: string;
+	bucket?: PrPreviewCheckBucket;
+}
+
+export type PrPreviewStatusColor = "error" | "warning" | "muted" | "dim";
+
+export interface PrPreviewBucketPresentation {
+	icon: string;
+	color: PrPreviewStatusColor;
+	bold: boolean;
+}
+
+export const BUCKET_PRESENTATION = {
+	failing: { icon: "✗", color: "error", bold: true },
+	pending: { icon: "⏳", color: "warning", bold: false },
+	unknown: { icon: "?", color: "muted", bold: false },
+	passing: { icon: "✓", color: "dim", bold: false },
+} satisfies Record<PrPreviewCheckBucket, PrPreviewBucketPresentation>;
+
+export function bucketPresentation(bucket: PrPreviewCheckBucket): PrPreviewBucketPresentation {
+	return BUCKET_PRESENTATION[bucket];
 }
 
 export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewCheck[] {
@@ -84,7 +104,7 @@ export function buildCheckDetailRows(
 	if (check === undefined) return [{ role: "body", text: "No check selected." }];
 	return [
 		{ role: "finding", text: check.name },
-		{ role: "review", text: `Bucket: ${check.bucket} · Kind: ${check.kind}` },
+		{ role: "review", text: `Bucket: ${check.bucket} · Kind: ${check.kind}`, bucket: check.bucket },
 		{ role: "spacer", text: "" },
 		...fieldRows([
 			["Workflow", check.workflow_name],
@@ -110,14 +130,5 @@ function fieldRows(
 }
 
 function bucketIcon(bucket: PrPreviewCheckBucket): string {
-	switch (bucket) {
-		case "failing":
-			return "✗";
-		case "pending":
-			return "⏳";
-		case "unknown":
-			return "?";
-		case "passing":
-			return "✓";
-	}
+	return bucketPresentation(bucket).icon;
 }

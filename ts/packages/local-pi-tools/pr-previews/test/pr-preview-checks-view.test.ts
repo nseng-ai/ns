@@ -1,4 +1,3 @@
-import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { TUI } from "@earendil-works/pi-tui";
 import { createDeferred } from "@sdl/test-kit";
 import { describe, expect, test } from "vitest";
@@ -15,6 +14,7 @@ import {
 	PrPreviewChecksView,
 	type PrPreviewChecksViewModel,
 } from "../src/preview-checks-view.ts";
+import { identityTheme, taggingTheme } from "./preview-test-themes.ts";
 
 describe("PR checks preview vertical layout", () => {
 	test("allocates rows for a full-width check list above selected details", () => {
@@ -155,6 +155,47 @@ describe("PR checks preview vertical layout", () => {
 		expect(label).toContain("very long integration test name that should not be pre-truncated");
 		expect(label).not.toContain("…");
 	});
+
+	test("colors failing check rows distinctly from passing ones", () => {
+		const failing = previewCheck("typescript");
+		const passing: PrPreviewCheck = {
+			...failing,
+			name: "docs-build",
+			bucket: "passing",
+			conclusion: "SUCCESS",
+		};
+		const otherPassing: PrPreviewCheck = { ...passing, name: "areg-check" };
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: taggingTheme(),
+			model: previewModel([failing, passing, otherPassing]),
+			onClose: () => {},
+		});
+		view.handleInput("j");
+		view.handleInput("j");
+
+		const text = renderText(view);
+		expect(text).toContain("<b>[error]");
+		expect(text).toContain("[dim]");
+	});
+
+	test("renders check log summary markdown bold headings and code spans", async () => {
+		const check = previewCheck("typescript");
+		const view = new PrPreviewChecksView({
+			tui: fakeTui(),
+			theme: taggingTheme(),
+			model: previewModel([check]),
+			onClose: () => {},
+			onLoadLogs: () => Promise.resolve(["**Failure:** `oxfmt --check` failed"]),
+		});
+
+		view.handleInput("l");
+		await flushPromises();
+
+		const details = selectedDetailsText(view);
+		expect(details).toContain("<b>[mdHeading]Failure:[/]</b>");
+		expect(details).toContain("[mdCode]oxfmt --check[/]");
+	});
 });
 
 function previewCheck(name: string): PrPreviewCheck {
@@ -197,17 +238,6 @@ function fakeTui(): TUI {
 		terminal: { rows: 18 },
 		requestRender() {},
 	} as TUI;
-}
-
-function identityTheme(): Theme {
-	return {
-		fg(_color: string, text: string): string {
-			return text;
-		},
-		bg(_color: string, text: string): string {
-			return text;
-		},
-	} as Theme;
 }
 
 async function flushPromises(): Promise<void> {

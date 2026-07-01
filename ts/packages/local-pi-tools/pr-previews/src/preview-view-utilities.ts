@@ -23,6 +23,35 @@ export interface WrappedDetailViewport {
 	maxScroll: number;
 }
 
+export type CheckLogSummaryMarkdownSegment =
+	| { kind: "bold"; text: string }
+	| { kind: "code"; text: string }
+	| { kind: "plain"; text: string };
+
+const CHECK_LOG_SUMMARY_MARKDOWN_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+
+/**
+ * Intentionally narrow inline parser for model-generated one-line check log
+ * summaries. It recognizes only bold labels and code spans; general markdown
+ * rendering stays out of this view helper.
+ */
+export function parseCheckLogSummaryMarkdownLine(line: string): CheckLogSummaryMarkdownSegment[] {
+	const segments: CheckLogSummaryMarkdownSegment[] = [];
+	let lastIndex = 0;
+	for (const match of line.matchAll(CHECK_LOG_SUMMARY_MARKDOWN_PATTERN)) {
+		const matchIndex = match.index;
+		if (matchIndex > lastIndex)
+			segments.push({ kind: "plain", text: line.slice(lastIndex, matchIndex) });
+		const [, bold, code] = match;
+		segments.push(
+			bold !== undefined ? { kind: "bold", text: bold } : { kind: "code", text: code ?? "" },
+		);
+		lastIndex = matchIndex + match[0].length;
+	}
+	if (lastIndex < line.length) segments.push({ kind: "plain", text: line.slice(lastIndex) });
+	return segments;
+}
+
 export function sliceWrappedDetailLinesForViewport(
 	options: WrappedDetailViewportOptions,
 ): WrappedDetailViewport {
