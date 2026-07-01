@@ -120,6 +120,14 @@ that justified the disposition.
 This Objective is execution-friendly for `objective-next`, including
 autonomous branch creation and PR submission per slice — but never landing.
 
+The supported autonomous runner is `/objective:autopilot <slug> [--submit]`:
+each iteration spawns a fresh child Pi that runs `objective-next` for *this*
+Objective, implements one coherent slice, and leaves it **uncommitted**; the
+parent session then re-checks live repo state and owns commit and submit
+(`--submit` opens the PR via `sdl flow submit --no-restack`, never restacking
+and never landing). A human working the loop by hand follows the same steps
+below.
+
 - **Direct execution is allowed when:** the runner selects one
   `references/<area>.md` cluster (or a sub-package slice of a large cluster),
   re-verifies its findings against current code, fixes them per the Definition
@@ -131,9 +139,12 @@ autonomous branch creation and PR submission per slice — but never landing.
   or the smallest-fix as written would require a behavior change to implement
   cleanly.
 - **How work may change files and be left:** local edits and commits on a
-  feature branch (never on `main`/`master`) created via the repo's normal
-  `gt`/Graphite workflow (see `.claude/skills/graphite/SKILL.md`). Small,
-  reversible, locally validated steps are fine while exploring a cluster, but
+  feature branch (never on `main`/`master`) created via the repo's
+  **branch-context Graphite creation** path per the autoobjective branch policy
+  (`sdl branch-context exec from-plan --branch-creation graphite`, or
+  `/sdl:branch-context:from-plan --graphite`) — not bare `gt create`. See
+  `skills/branch-context/references/lifecycle.md`. Small, reversible, locally
+  validated steps are fine while exploring a cluster, but
   the submitted PR should be one coherent, review-substantive unit — usually
   one `references/<area>.md` cluster, occasionally a sub-package slice of a
   large one. Do not batch unrelated clusters into one PR.
@@ -158,7 +169,10 @@ Default runner loop:
 6. Record a Semantic Update only for kept progress, reusable findings (e.g., a
    finding that turned out stale, or an overlap with another Objective), or
    policy refinements — not a per-commit changelog.
-7. Create a branch, commit, and `gt submit` the cluster's PR; do not land it.
+7. Create the branch-context implementation branch, commit the slice, and
+   submit the cluster's PR (`sdl flow submit --no-restack`); do not land it.
+   Under `/objective:autopilot` the parent owns commit and submit while the
+   child leaves the slice uncommitted.
 
 ## Assumptions and Risks
 
