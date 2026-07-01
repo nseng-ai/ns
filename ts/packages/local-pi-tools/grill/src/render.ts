@@ -2,8 +2,10 @@ import type { GrillAskRemainingEstimate, NormalizedGrillAskInput } from "./exten
 import type { GrillAskProgress } from "./progress.ts";
 import {
 	choiceDetailLines,
+	exceptionalRowDisplay,
 	footerText,
 	rowRecommendationTag,
+	type GrillAskExceptionalRow,
 	type GrillAskMode,
 	type GrillAskRow,
 } from "./view.ts";
@@ -29,6 +31,12 @@ export interface GrillAskRenderState {
 	editorLines?: readonly string[];
 }
 
+interface GrillAskRenderContext {
+	width: number;
+	theme: GrillAskRenderTheme;
+	primitives: GrillAskRenderPrimitives;
+}
+
 export function renderGrillAskInlineUi(
 	input: NormalizedGrillAskInput,
 	state: GrillAskRenderState,
@@ -36,7 +44,11 @@ export function renderGrillAskInlineUi(
 	theme: GrillAskRenderTheme = {},
 	primitives: GrillAskRenderPrimitives = {},
 ): string[] {
-	const renderWidth = Math.max(1, width);
+	const renderContext: GrillAskRenderContext = {
+		width: Math.max(1, width),
+		theme,
+		primitives,
+	};
 	const lines: string[] = [];
 	const add = (line = "") => lines.push(line);
 
@@ -49,13 +61,13 @@ export function renderGrillAskInlineUi(
 		),
 	);
 	add("");
-	renderReadZone(input, renderWidth, theme, primitives).forEach(add);
+	renderReadZone(input, renderContext).forEach(add);
 	add("");
-	renderChoicesStacked(input, state, renderWidth, theme, primitives).forEach(add);
+	renderChoicesStacked(input, state, renderContext).forEach(add);
 	add("");
 	add(style(theme, "dim", footerText(state.mode)));
 
-	return lines.map((line) => truncate(line, renderWidth, primitives));
+	return lines.map((line) => truncate(line, renderContext.width, primitives));
 }
 
 function renderProgressLine(
@@ -132,12 +144,8 @@ function renderBasis(basis: string | undefined, label: string, theme: GrillAskRe
 	return ` ${style(theme, "dim", `(${label}: ${basis})`)}`;
 }
 
-function renderReadZone(
-	input: NormalizedGrillAskInput,
-	width: number,
-	theme: GrillAskRenderTheme,
-	primitives: GrillAskRenderPrimitives,
-): string[] {
+function renderReadZone(input: NormalizedGrillAskInput, context: GrillAskRenderContext): string[] {
+	const { primitives, theme, width } = context;
 	const lines: string[] = [];
 
 	appendStyledRichText(
@@ -193,9 +201,7 @@ function appendStyledRichText(
 function renderChoicesStacked(
 	input: NormalizedGrillAskInput,
 	state: GrillAskRenderState,
-	width: number,
-	theme: GrillAskRenderTheme,
-	primitives: GrillAskRenderPrimitives,
+	context: GrillAskRenderContext,
 ): string[] {
 	const lines: string[] = [];
 	let exceptionalRowsStarted = false;
@@ -207,16 +213,12 @@ function renderChoicesStacked(
 		}
 
 		const selected = index === state.focusIndex;
-		lines.push(renderRow(row, selected, width, theme, primitives));
+		lines.push(renderRow(row, selected, context));
 		if (row.kind === "choice") {
-			renderChoiceDetails(input, row, selected, width, theme, primitives).forEach((line) =>
-				lines.push(line),
-			);
+			renderChoiceDetails(input, row, selected, context).forEach((line) => lines.push(line));
 		}
 		if (selected && state.mode === "freeform" && row.kind === "freeform") {
-			renderFreeformEditor(state.editorLines ?? [], width, theme, primitives).forEach((line) =>
-				lines.push(line),
-			);
+			renderFreeformEditor(state.editorLines ?? [], context).forEach((line) => lines.push(line));
 		}
 	}
 
@@ -227,10 +229,9 @@ function renderChoiceDetails(
 	input: NormalizedGrillAskInput,
 	row: GrillAskRow,
 	selected: boolean,
-	width: number,
-	theme: GrillAskRenderTheme,
-	primitives: GrillAskRenderPrimitives,
+	context: GrillAskRenderContext,
 ): string[] {
+	const { primitives, theme, width } = context;
 	const indent = "     ";
 	const detailWidth = Math.max(1, width - visibleWidth(indent, primitives));
 	const detailColor = selected ? "muted" : "dim";
@@ -247,10 +248,9 @@ function renderChoiceDetails(
 
 function renderFreeformEditor(
 	editorLines: readonly string[],
-	width: number,
-	theme: GrillAskRenderTheme,
-	primitives: GrillAskRenderPrimitives,
+	context: GrillAskRenderContext,
 ): string[] {
+	const { primitives, theme, width } = context;
 	const indent = "  ";
 	const editorWidth = Math.max(1, width - visibleWidth(indent, primitives));
 	const lines = [`${indent}${style(theme, "accent", bold(theme, "Freeform answer"))}`];
@@ -260,17 +260,12 @@ function renderFreeformEditor(
 	return lines;
 }
 
-function renderRow(
-	row: GrillAskRow,
-	selected: boolean,
-	width: number,
-	theme: GrillAskRenderTheme,
-	primitives: GrillAskRenderPrimitives,
-): string {
+function renderRow(row: GrillAskRow, selected: boolean, context: GrillAskRenderContext): string {
+	const { primitives, theme, width } = context;
 	const plain =
 		row.kind === "choice"
-			? renderChoiceRowText(row, selected, width, primitives)
-			: renderExceptionalRowText(row, selected, width, primitives);
+			? renderChoiceRowText(row, selected, context)
+			: renderExceptionalRowText(row, selected, context);
 	const styled = selected
 		? focusStyle(theme, plain)
 		: style(theme, row.kind === "end-grill" ? "warning" : "text", plain);
@@ -280,9 +275,9 @@ function renderRow(
 function renderChoiceRowText(
 	row: Extract<GrillAskRow, { kind: "choice" }>,
 	selected: boolean,
-	width: number,
-	primitives: GrillAskRenderPrimitives,
+	context: GrillAskRenderContext,
 ): string {
+	const { primitives, width } = context;
 	const prefix = `${selected ? "❯" : " "} ${row.index}  `;
 	const label = singleLine(row.option.label);
 	const tag = rowRecommendationTag(row);
@@ -304,33 +299,14 @@ function renderChoiceRowText(
 }
 
 function renderExceptionalRowText(
-	row: Exclude<GrillAskRow, { kind: "choice" }>,
+	row: GrillAskExceptionalRow,
 	selected: boolean,
-	width: number,
-	primitives: GrillAskRenderPrimitives,
+	context: GrillAskRenderContext,
 ): string {
-	let glyph: string;
-	let label: string;
-	switch (row.kind) {
-		case "freeform":
-			glyph = "✎";
-			label = "Other / freeform answer";
-			break;
-		case "status":
-			glyph = "ℹ";
-			label = "Show current grill status";
-			break;
-		case "end-grill":
-			glyph = "⏹";
-			label = "End grilling session";
-			break;
-		default: {
-			const exhaustive: never = row;
-			return exhaustive;
-		}
-	}
+	const { primitives, width } = context;
+	const display = exceptionalRowDisplay(row);
 	const line = truncate(
-		`${selected ? "❯" : " "} ${row.index}  ${glyph} ${label}`,
+		`${selected ? "❯" : " "} ${row.index}  ${display.glyph} ${display.label}`,
 		width,
 		primitives,
 	);

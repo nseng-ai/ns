@@ -24,11 +24,24 @@ export interface GrillAskEndGrillRow {
 	index: number;
 }
 
-export type GrillAskRow =
-	| GrillAskChoiceRow
-	| GrillAskFreeformRow
-	| GrillAskStatusRow
-	| GrillAskEndGrillRow;
+export type GrillAskExceptionalRow = GrillAskFreeformRow | GrillAskStatusRow | GrillAskEndGrillRow;
+
+export type GrillAskRow = GrillAskChoiceRow | GrillAskExceptionalRow;
+
+export interface GrillAskExceptionalRowDisplay {
+	glyph: string;
+	label: string;
+}
+
+const ROW_KIND_DISPLAY = {
+	freeform: { glyph: "✎", label: "Other / freeform answer" },
+	status: { glyph: "ℹ", label: "Show current grill status" },
+	"end-grill": { glyph: "⏹", label: "End grilling session" },
+} as const satisfies Record<GrillAskExceptionalRow["kind"], GrillAskExceptionalRowDisplay>;
+
+export function exceptionalRowDisplay(row: GrillAskExceptionalRow): GrillAskExceptionalRowDisplay {
+	return ROW_KIND_DISPLAY[row.kind];
+}
 
 export function buildGrillAskRows(input: NormalizedGrillAskInput): GrillAskRow[] {
 	const rows: GrillAskRow[] = input.options.map((option, optionIndex) => ({
@@ -82,20 +95,9 @@ export function rowValue(row: GrillAskRow): string {
 }
 
 export function rowLabel(row: GrillAskRow): string {
-	switch (row.kind) {
-		case "choice":
-			return `${row.index}. ${singleLine(row.option.label)}`;
-		case "freeform":
-			return `${row.index}. Other / freeform answer`;
-		case "status":
-			return `${row.index}. Show current grill status`;
-		case "end-grill":
-			return `${row.index}. End grilling session`;
-		default: {
-			const exhaustive: never = row;
-			return exhaustive;
-		}
-	}
+	if (row.kind === "choice") return `${row.index}. ${singleLine(row.option.label)}`;
+
+	return `${row.index}. ${exceptionalRowDisplay(row).label}`;
 }
 
 export function rowRecommendationTag(row: GrillAskRow): string | undefined {
@@ -122,24 +124,15 @@ export function footerText(mode: GrillAskMode): string {
 }
 
 export function rowSelectDisplay(row: GrillAskRow): string {
-	switch (row.kind) {
-		case "choice": {
-			const marker = row.recommended ? "★ " : "";
-			const description =
-				row.option.description === undefined ? "" : ` — ${singleLine(row.option.description)}`;
-			return `${row.index}. ${marker}${singleLine(row.option.label)}${description}`;
-		}
-		case "freeform":
-			return `${row.index}. ✎ Other / freeform answer`;
-		case "status":
-			return `${row.index}. ℹ Show current grill status`;
-		case "end-grill":
-			return `${row.index}. ⏹ End grilling session`;
-		default: {
-			const exhaustive: never = row;
-			return exhaustive;
-		}
+	if (row.kind === "choice") {
+		const marker = row.recommended ? "★ " : "";
+		const description =
+			row.option.description === undefined ? "" : ` — ${singleLine(row.option.description)}`;
+		return `${row.index}. ${marker}${singleLine(row.option.label)}${description}`;
 	}
+
+	const display = exceptionalRowDisplay(row);
+	return `${row.index}. ${display.glyph} ${display.label}`;
 }
 
 function singleLine(value: string): string {
