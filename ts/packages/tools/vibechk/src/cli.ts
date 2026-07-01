@@ -16,7 +16,7 @@ import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import { z } from "zod";
 
-import type { LoadedBundle } from "./models.ts";
+import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";
 import {
 	renderComparisonReport,
 	renderRunReport,
@@ -174,16 +174,6 @@ interface RunsOutputBounds {
 	appliedLimit: number;
 	returnedCount: number;
 	totalCount: number;
-	isComplete: boolean;
-	continuation: string | null;
-}
-
-interface ArtifactOutputBounds {
-	kind: "artifact";
-	artifact: "plan" | "transcript" | "diff";
-	appliedByteLimit: number;
-	originalBytes: number;
-	returnedBytes: number;
 	isComplete: boolean;
 	continuation: string | null;
 }

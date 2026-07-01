@@ -1,17 +1,8 @@
 import type { RenderCapabilities } from "@sdl/clinkr";
 import { renderTextTable, type TextTableColumn } from "@sdl/core/text-table";
 
-import type { LoadedBundle } from "./models.ts";
+import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";
 import { encodeMetrics } from "./models.ts";
-
-interface ArtifactOutputBounds {
-	readonly artifact: "plan" | "transcript" | "diff";
-	readonly appliedByteLimit: number;
-	readonly originalBytes: number;
-	readonly returnedBytes: number;
-	readonly isComplete: boolean;
-	readonly continuation: string | null;
-}
 
 type RenderableBundle = LoadedBundle & {
 	readonly outputBounds?: {
@@ -286,17 +277,9 @@ function renderPlanComparison(baselinePlan: string, treatmentPlan: string): stri
 }
 
 function renderArtifactBounds(loaded: RenderableBundle): string[] {
-	if (loaded.outputBounds === undefined) return [];
-	const truncated = Object.values(loaded.outputBounds).filter((bounds) => !bounds.isComplete);
-	if (truncated.length === 0) return [];
-	return [
-		"## Output Bounds",
-		"",
-		...truncated.map(
-			(bounds) =>
-				`- ${artifactLabel(bounds.artifact)} truncated: returned ${bounds.returnedBytes} of ${bounds.originalBytes} bytes (limit ${bounds.appliedByteLimit}). ${bounds.continuation ?? ""}`,
-		),
-	];
+	const bounds = renderNamedArtifactBounds(undefined, loaded);
+	if (bounds.length === 0) return [];
+	return ["## Output Bounds", "", ...bounds];
 }
 
 function renderComparisonArtifactBounds(
@@ -312,14 +295,19 @@ function renderComparisonArtifactBounds(
 	return lines;
 }
 
-function renderNamedArtifactBounds(label: string, loaded: RenderableBundle): string[] {
+function renderNamedArtifactBounds(label: string | undefined, loaded: RenderableBundle): string[] {
 	if (loaded.outputBounds === undefined) return [];
 	return Object.values(loaded.outputBounds)
 		.filter((bounds) => !bounds.isComplete)
-		.map(
-			(bounds) =>
-				`- ${label} ${artifactLabel(bounds.artifact)} truncated: returned ${bounds.returnedBytes} of ${bounds.originalBytes} bytes (limit ${bounds.appliedByteLimit}). ${bounds.continuation ?? ""}`,
-		);
+		.map((bounds) => formatArtifactBoundsBullet(bounds, label));
+}
+
+function formatArtifactBoundsBullet(
+	bounds: ArtifactOutputBounds,
+	label: string | undefined,
+): string {
+	const labelPrefix = label === undefined ? "" : `${label} `;
+	return `- ${labelPrefix}${artifactLabel(bounds.artifact)} truncated: returned ${bounds.returnedBytes} of ${bounds.originalBytes} bytes (limit ${bounds.appliedByteLimit}). ${bounds.continuation ?? ""}`;
 }
 
 function artifactLabel(artifact: ArtifactOutputBounds["artifact"]): string {

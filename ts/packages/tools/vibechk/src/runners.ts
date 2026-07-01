@@ -1,6 +1,7 @@
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi, ExecResult } from "@sdl/exec";
 
+import { runVibechkCommand } from "./exec-util.ts";
 import type { Metrics } from "./models.ts";
 import { VibechkError } from "./store.ts";
 
@@ -105,32 +106,19 @@ export class ClaudeRunner implements Runner {
 			transcriptSink(text);
 		};
 
-		let result: ExecResult;
-		try {
-			result = await this.execApi.exec(command[0], command.slice(1), {
+		return await runVibechkCommand({
+			execApi: this.execApi,
+			command: command[0],
+			args: command.slice(1),
+			execOptions: {
 				cwd: workdir,
 				onStdout: streamText,
 				onStderr: streamText,
-			});
-		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : String(error);
-			if (isMissingExecutableError(message)) {
-				throw new VibechkError("Runner 'claude' is not installed or not on PATH.");
-			}
-			throw new VibechkError(`Runner 'claude' failed to start: ${message}`);
-		}
-		if (result.startupError !== undefined) {
-			if (isMissingExecutableError(result.startupError)) {
-				throw new VibechkError("Runner 'claude' is not installed or not on PATH.");
-			}
-			throw new VibechkError(`Runner 'claude' failed to start: ${result.startupError}`);
-		}
-		return result;
+			},
+			missingExecutableMessage: "Runner 'claude' is not installed or not on PATH.",
+			startupFailurePrefix: "Runner 'claude' failed to start",
+		});
 	}
-}
-
-function isMissingExecutableError(message: string): boolean {
-	return message.includes("ENOENT");
 }
 
 export function buildProductionRunnerRegistry(): RunnerRegistry {

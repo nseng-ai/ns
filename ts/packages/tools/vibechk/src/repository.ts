@@ -8,6 +8,7 @@ import {
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway, GitOperationResult, GitResult } from "@sdl/git";
 
+import { isMissingExecutableError, runVibechkCommand } from "./exec-util.ts";
 import type { GitProvenance } from "./models.ts";
 import { VibechkError } from "./store.ts";
 
@@ -158,29 +159,16 @@ export class RealVibechkWorkdirGateway implements VibechkWorkdirGateway {
 	}
 
 	private async runGitRaw(args: readonly string[]): Promise<ExecResult> {
-		let result: ExecResult;
-		try {
-			result = await this.execApi.exec("git", [...args], {
+		return await runVibechkCommand({
+			execApi: this.execApi,
+			command: "git",
+			args,
+			execOptions: {
 				cwd: this.workdir,
 				timeout: GIT_TIMEOUT_MS,
-			});
-		} catch (error: unknown) {
-			const message = error instanceof Error ? error.message : String(error);
-			if (isMissingExecutableError(message)) {
-				throw new VibechkError("git is not installed or not on PATH.");
-			}
-			throw new VibechkError(`git command failed before completion: ${message}`);
-		}
-		if (result.startupError !== undefined) {
-			if (isMissingExecutableError(result.startupError)) {
-				throw new VibechkError("git is not installed or not on PATH.");
-			}
-			throw new VibechkError(`git command failed before completion: ${result.startupError}`);
-		}
-		return result;
+			},
+			missingExecutableMessage: "git is not installed or not on PATH.",
+			startupFailurePrefix: "git command failed before completion",
+		});
 	}
-}
-
-function isMissingExecutableError(message: string): boolean {
-	return message.includes("ENOENT");
 }

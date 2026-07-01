@@ -44,6 +44,16 @@ export interface LoadedBundle {
 	diffPatch: string;
 }
 
+export interface ArtifactOutputBounds {
+	kind: "artifact";
+	artifact: "plan" | "transcript" | "diff";
+	appliedByteLimit: number;
+	originalBytes: number;
+	returnedBytes: number;
+	isComplete: boolean;
+	continuation: string | null;
+}
+
 // Zod schema for parsing bundle.json with snake_case keys
 const metricsSchema = z.object({
 	wall_time_seconds: z.number().nullable(),
