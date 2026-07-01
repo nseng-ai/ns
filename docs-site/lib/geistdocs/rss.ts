@@ -1,14 +1,8 @@
 import { Feed } from "feed";
 import { title } from "@/geistdocs";
 import { geistdocsConfig } from "@/lib/geistdocs/config";
-import { source } from "@/lib/geistdocs/source";
+import { getPageMetadata, source } from "@/lib/geistdocs/source";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
-
-interface RssPageData {
-  description?: string;
-  lastModified?: Date;
-  title?: string;
-}
 
 export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Response {
   const baseUrl = getSiteOrigin();
@@ -21,15 +15,15 @@ export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Respon
   });
 
   for (const page of source.getPages(lang)) {
-    const data = page.data as RssPageData;
+    const metadata = getPageMetadata(page);
     const pageUrl = new URL(page.url, baseUrl).toString();
 
     feed.addItem({
       id: pageUrl,
-      title: data.title ?? page.url,
-      description: data.description,
+      title: metadata.title,
+      description: metadata.description,
       link: pageUrl,
-      date: new Date(data.lastModified ?? new Date()),
+      date: metadata.lastModified,
       author: [
         {
           name: "sdl",

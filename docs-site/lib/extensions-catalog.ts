@@ -25,26 +25,6 @@ export interface ExtensionCategoryDescriptor {
   label: string;
 }
 
-type DescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Items[number]["category"];
-
-type MissingDescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Exclude<
-  ExtensionCategory,
-  DescriptorCategory<Items>
->;
-
-type ExtraDescriptorCategory<Items extends readonly ExtensionCategoryDescriptor[]> = Exclude<
-  DescriptorCategory<Items>,
-  ExtensionCategory
->;
-
-type DescriptorCoverageCheck<Items extends readonly ExtensionCategoryDescriptor[]> = [
-  MissingDescriptorCategory<Items>,
-] extends [never]
-  ? [ExtraDescriptorCategory<Items>] extends [never]
-    ? unknown
-    : { readonly __extraCategories: ExtraDescriptorCategory<Items> }
-  : { readonly __missingCategories: MissingDescriptorCategory<Items> };
-
 export const extensionStatusLabels = {
   "built-in": "Built in",
   workflow: "Workflow",
@@ -73,9 +53,7 @@ export function getExtensionCategoryLabel(category: ExtensionCategory) {
   return label;
 }
 
-function defineExtensionCategoryDescriptors<const Items extends readonly ExtensionCategoryDescriptor[]>(
-  items: Items & DescriptorCoverageCheck<Items>,
-) {
+function defineExtensionCategoryDescriptors(items: readonly ExtensionCategoryDescriptor[]) {
   const seenCategories = new Set<ExtensionCategory>();
 
   for (const item of items) {

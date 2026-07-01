@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, CtaLink, Eyebrow, PreviewPanel } from "@/components/marketing-ui";
+import { Card, CtaLink, MarketingHero, PreviewPanel } from "@/components/marketing-ui";
 import {
   extensionCatalogEntries,
   extensionCategoryDescriptors,
@@ -20,41 +20,36 @@ export default function ExtensionsPage() {
 
   return (
     <main className="bg-background-100">
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1fr_420px] lg:items-center lg:py-24">
-        <div className="space-y-8">
-          <Eyebrow>Extensions gallery</Eyebrow>
-          <div className="max-w-3xl space-y-5">
-            <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-[-0.04em] md:text-7xl">
-              Local workflows, agent-ready.
-            </h1>
-            <p className="text-balance text-gray-800 text-xl leading-8">
-              sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so
-              agent sessions can continue work with the right controls already in reach.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
+      <MarketingHero
+        ctas={
+          <>
             <CtaLink href="#all-extensions">Browse extensions</CtaLink>
             <CtaLink href="/docs/guides/context-across-sessions" variant="secondary">
               Read the guide
             </CtaLink>
-          </div>
-        </div>
-
-        <PreviewPanel
-          badge="static"
-          eyebrow="sdl extension catalog"
-          title={`${extensionCatalogEntries.length} local surfaces`}
-        >
-          <div className="mt-5 space-y-3 font-mono text-sm">
-            {featuredEntries.slice(0, 4).map((entry) => (
-              <div className="rounded-2xl border border-background/15 bg-background/5 p-3" key={entry.slug}>
-                <p className="text-background/60 text-xs">{entry.sourcePath}</p>
-                <p className="mt-1 text-background">{entry.commandHint}</p>
-              </div>
-            ))}
-          </div>
-        </PreviewPanel>
-      </section>
+          </>
+        }
+        description="sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
+        eyebrow="Extensions gallery"
+        sidePanel={
+          <PreviewPanel
+            badge="static"
+            eyebrow="sdl extension catalog"
+            title={`${extensionCatalogEntries.length} local surfaces`}
+          >
+            <div className="mt-5 space-y-3 font-mono text-sm">
+              {featuredEntries.slice(0, 4).map((entry) => (
+                <div className="rounded-2xl border border-background/15 bg-background/5 p-3" key={entry.slug}>
+                  <p className="text-background/60 text-xs">{entry.sourcePath}</p>
+                  <p className="mt-1 text-background">{entry.commandHint}</p>
+                </div>
+              ))}
+            </div>
+          </PreviewPanel>
+        }
+        sidePanelWidthClass="lg:grid-cols-[1fr_420px]"
+        title="Local workflows, agent-ready."
+      />
 
       <section className="mx-auto max-w-6xl px-6 pb-12">
         <div className="grid gap-4 md:grid-cols-3">

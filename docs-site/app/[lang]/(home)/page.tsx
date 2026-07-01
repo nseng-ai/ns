@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, CtaLink, Eyebrow, PreviewPanel } from "@/components/marketing-ui";
+import { Card, CtaLink, MarketingHero, PreviewPanel } from "@/components/marketing-ui";
 
 export const metadata: Metadata = {
   title: "sdl Documentation",
@@ -48,19 +48,9 @@ const installCommands = ["just docs-dev", "just docs-check", "pnpm --dir docs-si
 export default function HomePage() {
   return (
     <main className="bg-background-100">
-      <section className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1fr_440px] lg:items-center lg:py-24">
-        <div className="space-y-8">
-          <Eyebrow tone="blue">sdl Documentation</Eyebrow>
-          <div className="max-w-3xl space-y-5">
-            <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-[-0.04em] md:text-7xl">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-            </h1>
-            <p className="text-balance text-gray-800 text-xl leading-8">
-              sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt
-              ut labore et dolore magna aliqua.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
+      <MarketingHero
+        ctas={
+          <>
             <CtaLink href="/docs/introduction">Read the docs</CtaLink>
             <CtaLink href="/docs/get-started/quickstart" variant="secondary">
               Get started
@@ -68,11 +58,14 @@ export default function HomePage() {
             <CtaLink href="/extensions" variant="secondary">
               Browse extensions
             </CtaLink>
-          </div>
-        </div>
-
-        <FileTreePreview />
-      </section>
+          </>
+        }
+        description="sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        eyebrow="sdl Documentation"
+        eyebrowTone="blue"
+        sidePanel={<FileTreePreview />}
+        title="Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+      />
 
       <section className="mx-auto max-w-6xl px-6 pb-12">
         <div className="grid gap-4 md:grid-cols-3">
