@@ -24,7 +24,10 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
 - [ ] **address** — 3 findings (0 high / 1 medium / 2 low). See `references/address.md`.
 - [ ] **worktree-status** — 3 findings (0 high / 2 medium / 1 low). See `references/worktree-status.md`.
-- [ ] **ts-root** (`ts/scripts`, `ts/vitest.*.config.ts`) — 2 findings (0 high / 2 medium / 0 low). See `references/ts-root.md`.
+- [x] **ts-root** (`ts/scripts`, `ts/vitest.*.config.ts`) — 2 findings (0 high / 2 medium / 0 low). See `references/ts-root.md`.
+  - fixed: Shotgun Surgery in `ts/vitest.config.ts`; default-test exclusions now derive from `SPECIALIZED_TEST_CATEGORIES`, so adding a specialized category is one registry edit plus its category-specific config rather than a manual exclude-list lockstep edit.
+  - fixed: Duplicated Code in `ts/vitest.shared.ts`; `testGlobsFor(subdir?)` owns the canonical two-pattern package test glob shape, and the default, integration, and TypeScript style guard configs all derive their include/exclude globs from that helper/registry.
+  - validation: `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just ts-test` passed on 2026-06-30.
 
 ## Parked
 
