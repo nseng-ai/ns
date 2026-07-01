@@ -190,6 +190,31 @@ describe("RealSubmitGateway", () => {
 						"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
 				},
 			),
+			step("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], {
+				stdout: "origin/add-preflight-detect-and-skip-empty-branches\n",
+			}),
+			step(
+				"git",
+				[
+					"rev-list",
+					"--left-right",
+					"--count",
+					"HEAD...origin/add-preflight-detect-and-skip-empty-branches",
+				],
+				{ stdout: "35\t1\n" },
+			),
+			step(
+				"git",
+				[
+					"log",
+					"--format=%h %s",
+					"--max-count=3",
+					"origin/add-preflight-detect-and-skip-empty-branches",
+					"--not",
+					"HEAD",
+				],
+				{ stdout: "abc123 remote checkpoint\n" },
+			),
 		]);
 		const gateway = new RealSubmitGateway(runner.runner);
 
@@ -200,6 +225,12 @@ describe("RealSubmitGateway", () => {
 			cause: {
 				kind: "remote_updated_outside_graphite",
 				branchName: "add-preflight-detect-and-skip-empty-branches",
+				remoteSync: {
+					upstream: "origin/add-preflight-detect-and-skip-empty-branches",
+					aheadCount: 35,
+					behindCount: 1,
+					remoteOnlyCommits: ["abc123 remote checkpoint"],
+				},
 			},
 		});
 		runner.assertDone();

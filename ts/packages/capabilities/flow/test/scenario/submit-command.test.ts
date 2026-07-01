@@ -721,6 +721,20 @@ describe("project-local submit extension", () => {
 								"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
 						},
 					},
+					{
+						match: "git rev-parse --abbrev-ref --symbolic-full-name @{upstream}",
+						result: { stdout: "origin/add-preflight-detect-and-skip-empty-branches\n" },
+					},
+					{
+						match:
+							"git rev-list --left-right --count HEAD...origin/add-preflight-detect-and-skip-empty-branches",
+						result: { stdout: "35\t1\n" },
+					},
+					{
+						match:
+							"git log --format=%h %s --max-count=3 origin/add-preflight-detect-and-skip-empty-branches --not HEAD",
+						result: { stdout: "abc123 remote checkpoint\n" },
+					},
 				],
 			},
 		});
@@ -730,6 +744,10 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(
 			"Branch add-preflight-detect-and-skip-empty-branches is out of sync with its remote, so Graphite blocked the submit. Nothing was submitted.",
 		);
+		expect(error).toContain(
+			"Why: local HEAD is 35 commits ahead of and 1 commit behind origin/add-preflight-detect-and-skip-empty-branches.",
+		);
+		expect(error).toContain("Remote-only commits:\n  - abc123 remote checkpoint");
 		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.");
 		expect(error).toContain(
 			"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",

@@ -62,6 +62,7 @@ export {
 	runSubmitCommand,
 	type CurrentPrVerificationFailureCause,
 	type CurrentPrVerificationResult,
+	type RemoteSyncDiagnostics,
 	type RunSubmitCommandOptions,
 	type SubmitCommandOutput,
 	type SubmitCommandParams,

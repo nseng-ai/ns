@@ -5,6 +5,7 @@ import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
 import type {
 	CurrentPrVerificationResult,
+	RemoteSyncDiagnostics,
 	SubmitCommandOutput,
 	SubmitRestackConfirmationPrompt,
 	SubmitRunResult,
@@ -174,14 +175,56 @@ export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
 	output: SubmitCommandOutput;
 	submitDryRunCommandDisplay: string;
 	branchName?: string;
+	remoteSync?: RemoteSyncDiagnostics;
 }): string {
 	const subject = input.branchName === undefined ? "This branch" : `Branch ${input.branchName}`;
 	return [
 		`${subject} is out of sync with its remote, so Graphite blocked the submit. Nothing was submitted.`,
-		"",
+		formatRemoteSyncDetails(input.remoteSync),
 		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
 		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
 	].join("\n");
+}
+
+function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined): string {
+	if (remoteSync === undefined) return "";
+
+	const lines = [`Why: ${formatRemoteDivergence(remoteSync)}`];
+	if (remoteSync.remoteOnlyCommits !== undefined && remoteSync.remoteOnlyCommits.length > 0) {
+		lines.push("Remote-only commits:");
+		for (const commit of remoteSync.remoteOnlyCommits) {
+			lines.push(`  - ${commit}`);
+		}
+		if (
+			remoteSync.behindCount !== undefined &&
+			remoteSync.behindCount > remoteSync.remoteOnlyCommits.length
+		) {
+			lines.push(
+				`  - … ${formatCount(remoteSync.behindCount - remoteSync.remoteOnlyCommits.length, "more commit", "more commits")}`,
+			);
+		}
+	}
+	return `${lines.join("\n")}\n`;
+}
+
+function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
+	if (remoteSync.aheadCount === undefined || remoteSync.behindCount === undefined) {
+		return `remote branch ${remoteSync.upstream} changed outside Graphite; local ahead/behind counts could not be computed.`;
+	}
+	if (remoteSync.aheadCount === 0 && remoteSync.behindCount === 0) {
+		return `git reports local HEAD and ${remoteSync.upstream} are not divergent; Graphite metadata may be stale.`;
+	}
+	if (remoteSync.aheadCount === 0) {
+		return `local HEAD is ${formatCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
+	}
+	if (remoteSync.behindCount === 0) {
+		return `local HEAD is ${formatCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
+	}
+	return `local HEAD is ${formatCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
+}
+
+function formatCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 export function formatMergedPrNotInTrunkSubmitOutput(

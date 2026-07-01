@@ -66,6 +66,12 @@ const RESTACK_COMMAND_DISPLAY = "gt restack --downstack --no-interactive";
 const CURRENT_PR_COMMAND_DISPLAY = "gt branch info --no-interactive";
 const GIT_UNMERGED_ARGS = ["diff", "--name-only", "--diff-filter=U"] as const;
 const GIT_STATUS_PORCELAIN_ARGS = ["status", "--porcelain"] as const;
+const GIT_UPSTREAM_ARGS = [
+	"rev-parse",
+	"--abbrev-ref",
+	"--symbolic-full-name",
+	"@{upstream}",
+] as const;
 const SUBMIT_TIMEOUT_MS = 600_000;
 const RESTACK_TIMEOUT_MS = 600_000;
 const CURRENT_PR_TIMEOUT_MS = 60_000;
@@ -122,10 +128,21 @@ export type SubmitSemanticFailureCause = {
 };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
+export interface RemoteSyncDiagnostics {
+	upstream: string;
+	aheadCount?: number;
+	behindCount?: number;
+	remoteOnlyCommits?: readonly string[];
+}
+
 export type SubmitPreflightFailureCause =
 	| { kind: "trunk_out_of_date" }
 	| { kind: "merged_pr_not_in_trunk" }
-	| { kind: "remote_updated_outside_graphite"; branchName?: string }
+	| {
+			kind: "remote_updated_outside_graphite";
+			branchName?: string;
+			remoteSync?: RemoteSyncDiagnostics;
+	  }
 	| SubmitSemanticFailureCause;
 export type SubmitFailurePresentation = "deterministic" | "unknown";
 
@@ -256,7 +273,11 @@ export class RealSubmitGateway implements SubmitGateway {
 			...optionalOutputListenerParam(params.onOutput),
 		});
 		const joinedOutput = joinOutput(output);
-		const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
+		const knownFailureCause = await this.detectKnownPreflightFailureCause(
+			params.cwd,
+			output,
+			joinedOutput,
+		);
 		if (knownFailureCause !== undefined) {
 			return { kind: "failed", output, cause: knownFailureCause };
 		}
@@ -297,7 +318,11 @@ export class RealSubmitGateway implements SubmitGateway {
 		});
 		if (!isSuccessfulOutput(output)) {
 			const joinedOutput = joinOutput(output);
-			const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
+			const knownFailureCause = await this.detectKnownPreflightFailureCause(
+				params.cwd,
+				output,
+				joinedOutput,
+			);
 			if (knownFailureCause !== undefined) {
 				return { kind: "failed", output, cause: knownFailureCause };
 			}
@@ -352,6 +377,60 @@ export class RealSubmitGateway implements SubmitGateway {
 			...parseConflictedFiles(unmerged.stdout),
 			...parsePorcelainConflictedFiles(status.stdout),
 		]);
+	}
+
+	private async detectKnownPreflightFailureCause(
+		cwd: string,
+		output: SubmitCommandOutput,
+		joinedOutput: string,
+	): Promise<SubmitPreflightFailureCause | undefined> {
+		const cause = detectKnownPreflightFailureCause(output, joinedOutput);
+		if (cause?.kind !== "remote_updated_outside_graphite") return cause;
+
+		const remoteSync = await this.getRemoteSyncDiagnostics(cwd);
+		return {
+			...cause,
+			...(remoteSync === undefined ? {} : { remoteSync }),
+		};
+	}
+
+	private async getRemoteSyncDiagnostics(cwd: string): Promise<RemoteSyncDiagnostics | undefined> {
+		const upstreamOutput = await this.runGit([...GIT_UPSTREAM_ARGS], cwd, GIT_CHECK_TIMEOUT_MS);
+		if (!isSuccessfulOutput(upstreamOutput)) return undefined;
+
+		const upstream = firstNonEmptyLine(upstreamOutput.stdout);
+		if (upstream === undefined) return undefined;
+
+		const divergence = await this.runGit(
+			["rev-list", "--left-right", "--count", `HEAD...${upstream}`],
+			cwd,
+			GIT_CHECK_TIMEOUT_MS,
+		);
+		const counts = isSuccessfulOutput(divergence)
+			? parseAheadBehindCounts(divergence.stdout)
+			: undefined;
+		const remoteOnlyCommits =
+			counts === undefined || counts.behindCount === 0
+				? []
+				: await this.getRemoteOnlyCommitSummaries(cwd, upstream);
+
+		return {
+			upstream,
+			...(counts === undefined
+				? {}
+				: { aheadCount: counts.aheadCount, behindCount: counts.behindCount }),
+			...(remoteOnlyCommits.length === 0 ? {} : { remoteOnlyCommits }),
+		};
+	}
+
+	private async getRemoteOnlyCommitSummaries(cwd: string, upstream: string): Promise<string[]> {
+		const output = await this.runGit(
+			["log", "--format=%h %s", "--max-count=3", upstream, "--not", "HEAD"],
+			cwd,
+			GIT_CHECK_TIMEOUT_MS,
+		);
+		if (!isSuccessfulOutput(output)) return [];
+		return uniqueNonEmpty(stripTerminalEscapes(output.stdout).replace(/\r/g, "\n").split("\n"));
 	}
 
 	private async runGt(options: RunGtOptions): Promise<SubmitCommandOutput> {
@@ -526,6 +605,27 @@ export async function runSubmitCommand(
 				),
 			});
 		}
+		if (submitted.cause?.kind === "remote_updated_outside_graphite") {
+			const stderr = formatRemoteUpdatedOutsideGraphitePreflightOutput({
+				output: submitted.output,
+				submitDryRunCommandDisplay,
+				...(submitted.cause.branchName === undefined
+					? {}
+					: { branchName: submitted.cause.branchName }),
+				...(submitted.cause.remoteSync === undefined
+					? {}
+					: { remoteSync: submitted.cause.remoteSync }),
+			});
+			return failure(normalizedFailureExitCode(submitted.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"submit preflight",
+					submitCommandDisplay,
+					submitted.output,
+					stderr,
+				),
+			});
+		}
 		return failure(
 			normalizedFailureExitCode(submitted.output),
 			formatSubmitFailureOutput(submitted.output, prewrite.prepared, submitCommandDisplay),
@@ -661,6 +761,7 @@ function formatPreflightCauseOutput(input: {
 				output: input.output,
 				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
 				...(input.cause.branchName === undefined ? {} : { branchName: input.cause.branchName }),
+				...(input.cause.remoteSync === undefined ? {} : { remoteSync: input.cause.remoteSync }),
 			});
 	}
 }
@@ -972,6 +1073,28 @@ function parsePorcelainConflictedFiles(output: string): string[] {
 	}
 
 	return uniqueNonEmpty(files);
+}
+
+function firstNonEmptyLine(output: string): string | undefined {
+	return stripTerminalEscapes(output)
+		.replace(/\r/g, "\n")
+		.split("\n")
+		.map((line) => line.trim())
+		.find((line) => line !== "");
+}
+
+function parseAheadBehindCounts(
+	output: string,
+): { aheadCount: number; behindCount: number } | undefined {
+	const [aheadText, behindText] = firstNonEmptyLine(output)?.split(/\s+/u) ?? [];
+	if (aheadText === undefined || behindText === undefined) return undefined;
+
+	const aheadCount = Number.parseInt(aheadText, 10);
+	const behindCount = Number.parseInt(behindText, 10);
+	if (!Number.isSafeInteger(aheadCount) || !Number.isSafeInteger(behindCount)) return undefined;
+	if (aheadCount < 0 || behindCount < 0) return undefined;
+
+	return { aheadCount, behindCount };
 }
 
 function uniqueNonEmpty(values: string[]): string[] {
