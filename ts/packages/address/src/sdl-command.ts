@@ -1,5 +1,5 @@
 import { createSdlCwdEnvStdinContext } from "@sdl/capability-kit/sdl-context";
-import type { SdlExtensionApi } from "sdl-sdk";
+import { defineExtension, type SdlExtensionApi } from "sdl-sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
@@ -8,6 +8,10 @@ import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
 export function prAddressSdlCommand(operationName: string) {
 	const operation = findOperation(operationName);
 	return operation.toSdlCommand(createExecContext);
+}
+
+export function prAddressSdlExtension(operationName: string) {
+	return defineExtension({ commands: [prAddressSdlCommand(operationName)] });
 }
 
 function createExecContext(ctx: SdlExtensionApi): PrAddressExecContext {

@@ -1,9 +1,3 @@
-import { defineExtension } from "sdl-sdk";
+import { prAddressSdlExtension } from "../../sdl-command.ts";
 
-import { prAddressSdlCommand } from "../../sdl-command.ts";
-
-const addressExecBranchPrSdlCommand = prAddressSdlCommand("branch-pr");
-
-export default defineExtension({
-	commands: [addressExecBranchPrSdlCommand],
-});
+export default prAddressSdlExtension("branch-pr");

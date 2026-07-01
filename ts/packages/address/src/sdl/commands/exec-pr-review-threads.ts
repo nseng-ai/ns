@@ -1,9 +1,3 @@
-import { defineExtension } from "sdl-sdk";
+import { prAddressSdlExtension } from "../../sdl-command.ts";
 
-import { prAddressSdlCommand } from "../../sdl-command.ts";
-
-const addressExecPrReviewThreadsSdlCommand = prAddressSdlCommand("pr-review-threads");
-
-export default defineExtension({
-	commands: [addressExecPrReviewThreadsSdlCommand],
-});
+export default prAddressSdlExtension("pr-review-threads");

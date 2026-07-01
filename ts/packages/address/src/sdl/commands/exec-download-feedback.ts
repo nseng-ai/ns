@@ -1,9 +1,3 @@
-import { defineExtension } from "sdl-sdk";
+import { prAddressSdlExtension } from "../../sdl-command.ts";
 
-import { prAddressSdlCommand } from "../../sdl-command.ts";
-
-const addressExecDownloadFeedbackSdlCommand = prAddressSdlCommand("download-feedback");
-
-export default defineExtension({
-	commands: [addressExecDownloadFeedbackSdlCommand],
-});
+export default prAddressSdlExtension("download-feedback");
