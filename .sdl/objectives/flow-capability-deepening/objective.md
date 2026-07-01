@@ -59,3 +59,24 @@ Risks:
 - Should the single-PR land path and stack land path share a deeper `LandingWorkflow`, or should they remain separate strategies behind a small dispatch layer?
 - Which CCC-era persisted names are compatibility contracts, and which are safe internal renames?
 - Should Flow expose any additional cohesive Capability API operation after land-stack deepening, or is `executeStackLanding` still sufficient for current consumers?
+
+## Closure
+
+Closed as completed. Flow is now established as the reference first-party Capability direction for this slice: `sdl-flow/api` is narrow and command-facing, Flow owns land command presentation and compatibility, and deeper land behavior is split across Flow-private modules plus the `sdl-land` domain-core package for stack preflight/dry-run planning.
+
+Completion evidence:
+
+- Land-stack test coverage was split into Flow-owned focused files, preserving package-local helper coverage without CCC importing Flow private land-stack internals.
+- `ts/packages/capabilities/flow/src/land.ts` is a command/CLI shell, with semantic dispatch moved to private `src/land/landing-dispatch.ts`; `src/land-stack.ts` is a small private façade over focused orchestration, preflight, merge-loop, cleanup, presentation, and Graphite maintenance modules.
+- `sdl-land` provides the fake-driven stack preflight/dry-run domain seam with focused gateway vocabulary and in-memory fakes, while mutation-heavy landing execution remains intentionally Flow-owned.
+- CCC-era Flow helper names and backup-ref namespaces were cleaned up under the explicit breaking plan; no fallback for retired `refs/ccc/...` backup refs was reintroduced.
+- Flow and Land context docs plus `CONTEXT-MAP.md` record the current ownership boundaries.
+- Final API/export rebaseline removed land-stack implementation exports from `sdl-flow/api`; `sdl-flow/package.json` still exposes `./api`, shared output, and command-loader entries, not private land-stack subpaths.
+- Boundary searches show CCC/Pi/kernel/host consumers do not import private Flow land or land-stack internals and do not consume removed land-stack API symbols.
+- Validation evidence across the delivered slices includes targeted Flow/Land/CCC checks and tests, plus repo TypeScript format/lint/check gates recorded in the Semantic Updates.
+
+Remaining caveats and follow-ups:
+
+- Future Graphite maintenance or merge-loop cleanup should be treated as ordinary Flow refactoring unless it changes public Flow API, the `sdl-land` boundary, or land safety behavior.
+- Do not re-expose land-stack implementation helpers through `sdl-flow/api` or package exports for test or consumer convenience.
+- Durable rule candidate to preserve after this Objective leaves the always-loaded orientation set: Flow policy should stay in Flow/land-domain packages, not neutral infra/kernel/SDK/Pi, and `sdl-flow/api` should remain a curated consumer seam rather than a compatibility barrel.
