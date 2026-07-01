@@ -16,6 +16,10 @@ A prose-only **Objective** pattern that coordinates a family of narrower child O
 A narrower **Objective** created from a parent **Synthesis Objective** to own one implementation, research, or migration slice; the child remains `open` until its own **Objective Close**, while the parent roadmap may use `[~]` to show that the child exists and is in progress.
 *Avoid*: Subticket, hidden task, third Objective status
 
+**Autoobjective**:
+A prose-only **Objective** pattern whose roadmap and runner policy are intentionally shaped for repeated **Objective Runner** steps with parent-LM checkpoints between committed slices.
+*Avoid*: Machine category, third Objective status, hidden task queue, unattended batch controller
+
 **Durable Narrative Roadmap Record**:
 The role of an **Objective** as human-readable context and ordered work guidance, without owning workflow-control semantics.
 *Avoid*: Workflow controller, state machine, task database

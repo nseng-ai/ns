@@ -32,6 +32,10 @@ The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `list
 The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `sdl objective` command surface are thin edges over it.
 *Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`SdlExtensionApi` dependency, `…Loader` collaborator
 
+**Objective Runner**:
+A portable Objective-owned workflow core for executing one committed Objective implementation step through narrow injected runner **Gateways**, then returning checkpoint facts for a parent LM decision before any next step.
+*Avoid*: Pi-only autopilot, hidden runner state, deterministic batch loop, Objective-as-task-database
+
 **Objective Capability Dependency Boundary**:
 The directed-edge rule that Objective runtime/core code never imports the Pi host, while the container package's `pi` subpackage may use `@sdl/pi` as an optional peer for Pi presentation; in-process consumers reach Objective behavior through `@sdl/objective/api`. The general acyclic invariant it serves lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
 *Avoid*: restating the guard mechanics, non-`pi` Objective → `@sdl/pi` imports, deep-import consumption, package-root consumer import
