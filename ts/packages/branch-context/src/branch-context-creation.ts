@@ -17,6 +17,10 @@ export const BRANCH_CREATION_METHODS = ["plain-git", "graphite"] as const;
 export type BranchCreationMethod = (typeof BRANCH_CREATION_METHODS)[number];
 export const DEFAULT_BRANCH_CREATION_METHOD: BranchCreationMethod = "plain-git";
 
+export function formatBranchContextGraphiteCreationMethod(parentBranch: string): string {
+	return `Branch-context Graphite branch creation is \`git branch <target> HEAD\` plus \`gt track <target> --parent ${parentBranch} --no-interactive\`, not \`gt create\`.`;
+}
+
 export interface CreateBranchContextFromFileParams {
 	slug: string;
 	filePath: string;

@@ -147,19 +147,7 @@ Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attac
 
 Branch creation policy is selected by the workflow surface. The portable CLI uses `plain-git` when `--branch-creation` is omitted. A wrapper may choose a project-local default; in this repo, the Pi adapter configures `/sdl:branch-context:from-plan` and `/sdl:branch-context:upstack-impl-from-plan` to request Graphite branch creation unless the user passes `--plain-git`. Direct skill/CLI agent invocations in this repo bypass that Pi adapter option, so they must pass `--branch-creation graphite` unless the user explicitly requests plain Git.
 
-Graphite creation still creates the local Git branch first:
-
-```text
-git branch <target> HEAD
-```
-
-Then it registers the branch with Graphite using the current branch as parent:
-
-```text
-gt track <target> --parent <current-branch> --no-interactive
-```
-
-It does not call `gt create`. This `git branch` plus `gt track` sequence is the expected branch setup primitive for autoobjective runners.
+This workflow uses the branch-context Graphite creation method defined in `skills/branch-context/references/lifecycle.md`; it does not call `gt create`, and it is the expected branch setup primitive for autoobjective runners.
 
 This does not switch the current checkout. The plan attachment still passes the target branch to Branch Memory, so storage does not depend on the current checkout.
 

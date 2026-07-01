@@ -2,9 +2,12 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { formatBranchContextGraphiteCreationMethod } from "@sdl/branch-context/api";
 import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import {
+	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
+	GT_UPSTACK_IMPL_USAGE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	formatCreateBranchContextPreview,
@@ -58,8 +61,16 @@ describe("branch-context from-plan policy docs", () => {
 			"This repo uses Graphite (`gt`) as the default tool for branch and PR workflow",
 		);
 		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
-		expectBranchCreationPolicyPrecedence(skillText);
+		expect(skillText).toContain("For precedence and Graphite method details");
+		expect(skillText).toContain("references/lifecycle.md");
 		expectBranchCreationPolicyPrecedence(lifecycleText);
+		expect(lifecycleText).toContain(formatBranchContextGraphiteCreationMethod("<current-branch>"));
+		expect(CREATE_BRANCH_CONTEXT_USAGE).toContain(
+			formatBranchContextGraphiteCreationMethod("<current-branch>"),
+		);
+		expect(GT_UPSTACK_IMPL_USAGE).toContain(
+			formatBranchContextGraphiteCreationMethod("<current-branch>"),
+		);
 		expect(skillText).not.toContain("Omit `--branch-creation` for the portable default");
 	});
 });

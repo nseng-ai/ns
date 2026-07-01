@@ -14,6 +14,7 @@ export {
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
 	formatBranchContextEvidence,
+	formatBranchContextGraphiteCreationMethod,
 	resolveBranchContextCreatePreviewContext,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
