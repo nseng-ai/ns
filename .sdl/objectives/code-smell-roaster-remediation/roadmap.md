@@ -15,7 +15,12 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **pi-extensions** (`.pi/extensions`, `.pi/lib`) — 5 findings (0 high / 3 medium / 2 low). See `references/pi-extensions.md`.
 - [ ] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
 - [ ] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
-- [ ] **ccc** — 4 findings (1 high / 3 medium / 0 low). See `references/ccc.md`.
+- [x] **ccc** — 4 findings (1 high / 3 medium / 0 low). See `references/ccc.md`.
+  - fixed: Duplicated dispatch prompt pipeline; `dispatchTrackedBranchPrompt` now owns Branch Memory payload storage, Pi launch command construction, cmux slot launch, and success-message formatting for both current-branch and refreshed-trunk dispatch flows.
+  - fixed: Duplicated objective-sidebar exec/envelope handling; `runJsonExecCommand` centralizes startup failures, nonzero/killed results, machine-envelope parsing, and stdout-tail diagnostics while leaving slug and summary-specific validation local.
+  - fixed: Message chain in dispatch-plan checkout evidence; `resolveCurrentCheckout` now returns `PlanStoreDirectoryEvidence` directly so dispatch-plan code reads `checkout.repoRoot` and `checkout.sourceBranch` without a single-field wrapper.
+  - fixed: Speculative Generality in launch status; unused `ts/packages/ccc/src/launch-status.ts` was removed after re-grep found no importers.
+  - validation: `pnpm --dir ts --filter @sdl/ccc run check`, `pnpm --dir ts --filter @sdl/ccc run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [x] **handoff** — 4 findings (0 high / 2 medium / 2 low). See `references/handoff.md`.
   - fixed: Middle Man in destructive presentation; handoff delete/gc rendering now imports `renderDestructiveResultBlock` directly from `@sdl/cli-theme`, and the package-local wrapper/type aliases were removed.
   - fixed: Repeated Switches in handoff gc action handling; `gc-actions.ts` now owns domain action, wire value, label, candidate status, and count bucket together, deriving counting, schema, filtering, conversion, and labels from one table.
