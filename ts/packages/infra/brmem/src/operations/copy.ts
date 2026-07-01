@@ -5,11 +5,10 @@ import { z } from "zod";
 import type { BrmemCliContext } from "../context.ts";
 import { keyGlobMatches } from "../key-glob.ts";
 import {
-	BASE_NAMESPACE,
 	compareEntries,
 	mustEntryLocator,
 	namespaceDisplayLabel,
-	normalizeNamespaceOption,
+	resolveRequiredNamespaceScope,
 	type EntryRef,
 } from "../ref-layout.ts";
 import {
@@ -56,17 +55,17 @@ export type CopyPlanItem = z.infer<typeof copyPlanItemSchema>;
 export type CopyResult = z.infer<typeof copyResultSchema>;
 
 export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
-	if (request.base && request.namespace !== undefined) {
-		return failure("base-and-namespace-conflict", "--base and --namespace are mutually exclusive.");
-	}
-	if (!request.base && request.namespace === undefined) {
+	const namespaceScope = resolveRequiredNamespaceScope(request);
+	if (namespaceScope.type === "conflict")
+		return failure(namespaceScope.code, namespaceScope.message);
+	if (namespaceScope.type === "missing") {
 		return failure(
 			"copy-scope-missing",
 			"Pass --base or --namespace <name> to choose the Namespace to copy.",
 		);
 	}
 
-	const namespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
+	const namespace = namespaceScope.scope.namespace;
 	const validationFailure = firstFailure(
 		[
 			"invalid-namespace",

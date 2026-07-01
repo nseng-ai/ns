@@ -22,6 +22,8 @@ import type {
 	DeleteEntryResult,
 	EntryContent,
 	EntryDiagnostic,
+	EntryQueryOptions,
+	EntryWriteOptions,
 	ListedEntry,
 	ListedSnapshot,
 	ListSnapshotsOptions,
@@ -35,6 +37,7 @@ import {
 	mustSnapshotRef,
 	parseSnapshotRef,
 	snapshotRefPrefixes,
+	type EntryCoordinate,
 } from "./ref-layout.ts";
 import { normalizeBrmemTimestamp } from "./timestamps.ts";
 import {
@@ -60,6 +63,10 @@ interface SnapshotValidationContext {
 	namespace: string;
 	branch: string;
 	snapshotRef: string;
+}
+
+interface SnapshotStateOptions extends SnapshotValidationContext {
+	sha?: string;
 }
 
 interface SnapshotInvalidKey {
@@ -112,11 +119,9 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		this.git = options.git;
 	}
 
-	async listEntries(options: {
-		namespace: string;
-		key?: string;
-		branch?: string;
-	}): Promise<BrmemResult<readonly ListedEntry[]>> {
+	async listEntries(
+		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
+	): Promise<BrmemResult<readonly ListedEntry[]>> {
 		const validation = validateNamespaceName(options.namespace);
 		if (validation.type === "invalid")
 			return brmemError<readonly ListedEntry[]>(
@@ -130,12 +135,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		});
 	}
 
-	async getEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		at?: string;
-	}): Promise<BrmemOptionalResult<EntryContent>> {
+	async getEntry(options: EntryQueryOptions): Promise<BrmemOptionalResult<EntryContent>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error")
 			return brmemOptionalError<EntryContent>(
@@ -152,12 +152,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		return brmemFound({ content: result.stdout });
 	}
 
-	async checkEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		at?: string;
-	}): Promise<BrmemOptionalResult<EntryDiagnostic>> {
+	async checkEntry(options: EntryQueryOptions): Promise<BrmemOptionalResult<EntryDiagnostic>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") {
 			return brmemOptionalError<EntryDiagnostic>(
@@ -209,11 +204,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 			sizeBytes: Number(size.stdout.trim()),
 		});
 	}
-	protected async validateEntryAddress(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-	}): Promise<BrmemResult<void>> {
+	protected async validateEntryAddress(options: EntryCoordinate): Promise<BrmemResult<void>> {
 		const namespaceValidation = validateNamespaceName(options.namespace);
 		if (namespaceValidation.type === "invalid")
 			return brmemError(
@@ -242,6 +233,13 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 			return brmemError(code, gitValidation.error.message, gitValidation.error.displayCommand);
 		}
 		return brmemOk(undefined);
+	}
+
+	protected async loadSnapshotState(
+		options: SnapshotStateOptions,
+	): Promise<BrmemResult<Map<string, string>>> {
+		if (options.sha === undefined) return brmemOk(new Map<string, string>());
+		return await loadSnapshotEntries(this.commands, this.cwd, options);
 	}
 
 	protected async collectEntries(options: {
@@ -436,12 +434,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		);
 	}
 
-	async putEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>> {
+	async putEntry(options: EntryWriteOptions): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
 		return await this.writeEntrySnapshot(options, {
@@ -450,12 +443,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		});
 	}
 
-	async createEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>> {
+	async createEntry(options: EntryWriteOptions): Promise<BrmemResult<PutEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
 		return await this.writeEntrySnapshot(options, {
@@ -465,7 +453,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}
 
 	private async writeEntrySnapshot(
-		options: { namespace: string; key: string; branch: string; content: string },
+		options: EntryWriteOptions,
 		behavior: { shouldCreateOnly: boolean; commitMessage: string },
 	): Promise<BrmemResult<PutEntryResult>> {
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
@@ -473,14 +461,12 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			cwd: this.cwd,
 		});
 		const parentSha = parent.code === 0 ? parent.stdout.trim() : undefined;
-		const entriesResult =
-			parentSha === undefined
-				? brmemOk(new Map<string, string>())
-				: await loadSnapshotEntries(this.commands, this.cwd, {
-						namespace: options.namespace,
-						branch: options.branch,
-						snapshotRef,
-					});
+		const entriesResult = await this.loadSnapshotState({
+			namespace: options.namespace,
+			branch: options.branch,
+			snapshotRef,
+			...optionalEntry("sha", parentSha),
+		});
 		if (entriesResult.type === "error") return entriesResult;
 		const entries = entriesResult.value;
 		if (behavior.shouldCreateOnly && entries.has(options.key)) {
@@ -525,11 +511,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		});
 	}
 
-	async deleteEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-	}): Promise<BrmemResult<DeleteEntryResult>> {
+	async deleteEntry(options: EntryCoordinate): Promise<BrmemResult<DeleteEntryResult>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") return validation;
 		const snapshotRef = mustSnapshotRef(options.namespace, options.branch);
@@ -642,14 +624,12 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			snapshotRef: options.sourceRef,
 		});
 		if (sourceEntries.type === "error") return sourceEntries;
-		const destEntries =
-			options.destSha === undefined
-				? brmemOk(new Map<string, string>())
-				: await loadSnapshotEntries(this.commands, this.cwd, {
-						namespace: options.namespace,
-						branch: options.toBranch,
-						snapshotRef: options.destRef,
-					});
+		const destEntries = await this.loadSnapshotState({
+			namespace: options.namespace,
+			branch: options.toBranch,
+			snapshotRef: options.destRef,
+			...optionalEntry("sha", options.destSha),
+		});
 		if (destEntries.type === "error") return destEntries;
 		if (destEntries.value.size > 0 && !options.shouldOverwrite) {
 			return brmemError(
@@ -657,16 +637,10 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				`destination has conflicting entries: ${[...destEntries.value.keys()].sort().join(", ")}`,
 			);
 		}
-		const destShaResult = await runGit(this.commands, ["rev-parse", "--verify", options.destRef], {
-			cwd: this.cwd,
-		});
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
 			newSha: options.sourceSha,
-			...optionalEntry(
-				"expectedOldSha",
-				destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined,
-			),
+			...optionalEntry("expectedOldSha", options.destSha),
 		});
 		if (update.type === "error") return update;
 		const entries = [...sourceEntries.value.keys()]
@@ -691,14 +665,12 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			snapshotRef: options.sourceRef,
 		});
 		if (sourceEntries.type === "error") return sourceEntries;
-		const destEntries =
-			options.destSha === undefined
-				? brmemOk(new Map<string, string>())
-				: await loadSnapshotEntries(this.commands, this.cwd, {
-						namespace: options.namespace,
-						branch: options.toBranch,
-						snapshotRef: options.destRef,
-					});
+		const destEntries = await this.loadSnapshotState({
+			namespace: options.namespace,
+			branch: options.toBranch,
+			snapshotRef: options.destRef,
+			...optionalEntry("sha", options.destSha),
+		});
 		if (destEntries.type === "error") return destEntries;
 		const sourceMatching = [...sourceEntries.value].filter(([key]) =>
 			keyGlobMatches(key, options.keyGlob),

@@ -13,13 +13,20 @@ import type {
 	DeleteEntryResult,
 	EntryContent,
 	EntryDiagnostic,
+	EntryQueryOptions,
+	EntryWriteOptions,
 	ListedEntry,
 	ListedSnapshot,
 	ListSnapshotsOptions,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
-import { compareEntries, mustEntryRef, mustSnapshotRef } from "./ref-layout.ts";
+import {
+	compareEntries,
+	mustEntryRef,
+	mustSnapshotRef,
+	type EntryCoordinate,
+} from "./ref-layout.ts";
 import { normalizeBrmemTimestamp } from "./timestamps.ts";
 
 export interface FakeEntrySeed {
@@ -113,7 +120,9 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemError("detached-head", "Could not resolve current branch; HEAD appears detached.");
 	}
 
-	async listEntries(options: { namespace: string; key?: string; branch?: string }) {
+	async listEntries(
+		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
+	) {
 		const error = this.operationErrors.list;
 		if (error !== undefined) return brmemError<readonly ListedEntry[]>(error.code, error.message);
 		return brmemOk(
@@ -136,7 +145,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		);
 	}
 
-	async getEntry(options: { namespace: string; key: string; branch: string; at?: string }) {
+	async getEntry(options: EntryQueryOptions) {
 		const error = this.operationErrors.get;
 		if (error !== undefined) return brmemOptionalError<EntryContent>(error.code, error.message);
 		const stored = this.resolveSnapshot(snapshotLookup(options))?.entries.get(options.key);
@@ -144,7 +153,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemFound({ content: stored.content });
 	}
 
-	async checkEntry(options: { namespace: string; key: string; branch: string; at?: string }) {
+	async checkEntry(options: EntryQueryOptions) {
 		const error = this.operationErrors.check;
 		if (error !== undefined) return brmemOptionalError<EntryDiagnostic>(error.code, error.message);
 		const stored = this.resolveSnapshot(snapshotLookup(options))?.entries.get(options.key);
@@ -157,13 +166,13 @@ export class FakeBrmemGateway implements BrmemGateway {
 		});
 	}
 
-	async putEntry(options: { namespace: string; key: string; branch: string; content: string }) {
+	async putEntry(options: EntryWriteOptions) {
 		const error = this.operationErrors.put;
 		if (error !== undefined) return brmemError<PutEntryResult>(error.code, error.message);
 		return this.writeEntry(options);
 	}
 
-	async createEntry(options: { namespace: string; key: string; branch: string; content: string }) {
+	async createEntry(options: EntryWriteOptions) {
 		const error = this.operationErrors.create;
 		if (error !== undefined) return brmemError<PutEntryResult>(error.code, error.message);
 		const snapshot = this.ensureSnapshot(options.namespace, options.branch);
@@ -176,7 +185,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return this.writeEntry(options);
 	}
 
-	async deleteEntry(options: { namespace: string; key: string; branch: string }) {
+	async deleteEntry(options: EntryCoordinate) {
 		const error = this.operationErrors.delete;
 		if (error !== undefined) return brmemError<DeleteEntryResult>(error.code, error.message);
 		const snapshot = this.snapshots.get(snapshotId(options.namespace, options.branch));

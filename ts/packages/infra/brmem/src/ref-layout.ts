@@ -1,18 +1,47 @@
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
+import { FLAT_SEPARATOR } from "./ref-constants.ts";
 import { validateBranchName, validateEntryKey, validateNamespaceName } from "./validation.ts";
+
+export { FLAT_SEPARATOR } from "./ref-constants.ts";
 
 export const BRMEM_REF_PREFIX = "refs/brmem";
 export const BRMEM_BASE_SEGMENT = "base";
 export const BRMEM_NS_SEGMENT = "ns";
 export const BASE_NAMESPACE = "base";
-export const FLAT_SEPARATOR = "---";
+export const ALL_NAMESPACES_SCOPE = "all";
+export const BASE_NAMESPACE_CONFLICT_CODE = "base-and-namespace-conflict";
+export const BASE_NAMESPACE_CONFLICT_MESSAGE = "--base and --namespace are mutually exclusive.";
 
-export interface EntryRef {
+export interface EntryCoordinate {
 	namespace: string;
 	key: string;
 	branch: string;
+}
+
+export interface EntryRef extends EntryCoordinate {
 	entryLocator: string;
 }
+
+export type NamespaceScopeConflict = {
+	type: "conflict";
+	code: typeof BASE_NAMESPACE_CONFLICT_CODE;
+	message: typeof BASE_NAMESPACE_CONFLICT_MESSAGE;
+};
+
+export type NamespaceScopeResolution =
+	| NamespaceScopeConflict
+	| { type: "resolved"; scope: NamespaceScope };
+
+export type AllNamespaceScope = {
+	allNamespaces: true;
+	namespaceScope: typeof ALL_NAMESPACES_SCOPE;
+};
+export type ScopedNamespaceScope = {
+	allNamespaces: false;
+	namespaceScope: string;
+	namespace: string;
+};
+export type NamespaceScope = AllNamespaceScope | ScopedNamespaceScope;
 
 export interface SnapshotRefParts {
 	namespace: string;
@@ -30,6 +59,45 @@ export interface EntryLocatorParts {
 
 export function normalizeNamespaceOption(namespace: string | undefined | null): string {
 	return namespace ?? BASE_NAMESPACE;
+}
+
+export function resolveOptionalNamespaceScope(request: {
+	base: boolean;
+	namespace?: string | undefined;
+}): NamespaceScopeResolution {
+	if (request.base && request.namespace !== undefined) return namespaceScopeConflict();
+	if (!request.base && request.namespace === undefined) {
+		return {
+			type: "resolved",
+			scope: { allNamespaces: true, namespaceScope: ALL_NAMESPACES_SCOPE },
+		};
+	}
+	const namespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
+	return {
+		type: "resolved",
+		scope: { allNamespaces: false, namespace, namespaceScope: namespace },
+	};
+}
+
+export function resolveRequiredNamespaceScope(request: {
+	base: boolean;
+	namespace?: string | undefined;
+}):
+	| NamespaceScopeConflict
+	| { type: "resolved"; scope: ScopedNamespaceScope }
+	| { type: "missing" } {
+	const resolved = resolveOptionalNamespaceScope(request);
+	if (resolved.type !== "resolved") return resolved;
+	if (resolved.scope.allNamespaces) return { type: "missing" };
+	return { type: "resolved", scope: resolved.scope };
+}
+
+function namespaceScopeConflict(): NamespaceScopeConflict {
+	return {
+		type: "conflict",
+		code: BASE_NAMESPACE_CONFLICT_CODE,
+		message: BASE_NAMESPACE_CONFLICT_MESSAGE,
+	};
 }
 
 function isBaseNamespace(namespace: string): boolean {

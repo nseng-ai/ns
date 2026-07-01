@@ -3,11 +3,15 @@ import { renderTextTable } from "@sdl/core/text-table";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
-import { BASE_NAMESPACE, namespaceDisplayLabel, normalizeNamespaceOption } from "../ref-layout.ts";
+import {
+	ALL_NAMESPACES_SCOPE,
+	BASE_NAMESPACE,
+	namespaceDisplayLabel,
+	resolveOptionalNamespaceScope,
+} from "../ref-layout.ts";
 import { firstFailure, validateNamespaceName, validationMessage } from "../validation.ts";
 import { gatewayFailure } from "./shared.ts";
 
-const ALL_NAMESPACES_SCOPE = "all";
 const SNAPSHOT_SCAN_PROGRESS_INTERVAL = 100;
 const SNAPSHOT_DELETE_PROGRESS_INTERVAL = 100;
 const GC_DETAIL_TABLE_LIMIT = 20;
@@ -46,25 +50,22 @@ export type GcSnapshot = z.infer<typeof gcSnapshotSchema>;
 export type GcResult = z.infer<typeof gcResultSchema>;
 
 export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
-	if (request.base && request.namespace !== undefined) {
-		return failure("base-and-namespace-conflict", "--base and --namespace are mutually exclusive.");
-	}
-	const shouldScanAllNamespaces = !request.base && request.namespace === undefined;
-	const scopeNamespace = request.base
-		? BASE_NAMESPACE
-		: normalizeNamespaceOption(request.namespace);
+	const namespaceScope = resolveOptionalNamespaceScope(request);
+	if (namespaceScope.type === "conflict")
+		return failure(namespaceScope.code, namespaceScope.message);
+	const scope = namespaceScope.scope;
 	const validationFailure = firstFailure([
 		"invalid-namespace",
-		shouldScanAllNamespaces
+		scope.allNamespaces
 			? undefined
-			: validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace)),
+			: validationMessage("namespace", scope.namespace, validateNamespaceName(scope.namespace)),
 	]);
 	if (validationFailure !== undefined) return failure(validationFailure[0], validationFailure[1]);
 
 	writeGcStatus(ctx, "Scanning Branch Memory Snapshot refs…");
 	let lastScanProgress = 0;
 	const snapshotsResult = await ctx.gateway.listSnapshots({
-		...(shouldScanAllNamespaces ? {} : { namespace: scopeNamespace }),
+		...(scope.allNamespaces ? {} : { namespace: scope.namespace }),
 		onProgress: ({ processed, total }) => {
 			if (
 				shouldReportProgress(processed, total, lastScanProgress, SNAPSHOT_SCAN_PROGRESS_INTERVAL)
@@ -117,7 +118,7 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 	}
 
 	return ok({
-		namespaceScope: shouldScanAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
+		namespaceScope: scope.namespaceScope,
 		deleted: request.yes,
 		staleSnapshots,
 	} satisfies GcResult);

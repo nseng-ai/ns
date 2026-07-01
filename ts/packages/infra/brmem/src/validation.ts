@@ -1,3 +1,5 @@
+import { FLAT_SEPARATOR } from "./ref-constants.ts";
+
 export type ValidationResult = { type: "valid" } | { type: "invalid"; reason: string };
 
 const KEY_FORBIDDEN_CHARS = new Set([" ", "~", "^", "?", "*", "[", "\\"]);
@@ -45,8 +47,8 @@ export function validateNamespaceName(namespace: string): ValidationResult {
 
 export function validateBranchName(branch: string): ValidationResult {
 	if (branch.length === 0) return invalid("branch name must not be empty");
-	if (branch.includes("---"))
-		return invalid("branch names containing '---' cannot be encoded into refs/brmem");
+	if (branch.includes(FLAT_SEPARATOR))
+		return invalid(`branch names containing '${FLAT_SEPARATOR}' cannot be encoded into refs/brmem`);
 	return valid();
 }
 

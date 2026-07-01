@@ -5,9 +5,8 @@ import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
 import {
-	BASE_NAMESPACE,
 	namespaceDisplayLabel,
-	normalizeNamespaceOption,
+	resolveOptionalNamespaceScope,
 	type EntryRef,
 } from "../ref-layout.ts";
 import {
@@ -18,8 +17,6 @@ import {
 	validationMessage,
 } from "../validation.ts";
 import { gatewayFailure, resolveCurrentBranch } from "./shared.ts";
-
-const ALL_NAMESPACES_SCOPE = "all";
 
 export const listRequestSchema = z.object({
 	namespace: z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
@@ -49,25 +46,22 @@ export type ListRequest = z.infer<typeof listRequestSchema>;
 export type ListResult = z.infer<typeof listResultSchema>;
 
 export async function runList(ctx: BrmemCliContext, request: ListRequest) {
-	if (request.base && request.namespace !== undefined) {
-		return failure("base-and-namespace-conflict", "--base and --namespace are mutually exclusive.");
-	}
+	const namespaceScope = resolveOptionalNamespaceScope(request);
+	if (namespaceScope.type === "conflict")
+		return failure(namespaceScope.code, namespaceScope.message);
 	if (request.branch !== undefined && request.allBranches) {
 		return failure(
 			"branch-and-all-branches-conflict",
 			"--branch and --all-branches are mutually exclusive.",
 		);
 	}
-	const shouldListAllNamespaces = !request.base && request.namespace === undefined;
-	const scopeNamespace = request.base
-		? BASE_NAMESPACE
-		: normalizeNamespaceOption(request.namespace);
+	const scope = namespaceScope.scope;
 	const validationFailure = firstFailure(
 		[
 			"invalid-namespace",
-			shouldListAllNamespaces
+			scope.allNamespaces
 				? undefined
-				: validationMessage("namespace", scopeNamespace, validateNamespaceName(scopeNamespace)),
+				: validationMessage("namespace", scope.namespace, validateNamespaceName(scope.namespace)),
 		],
 		[
 			"invalid-key",
@@ -95,12 +89,12 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 	const entryFilters = {
 		...optionalEntries({ key: request.key, branch }),
 	};
-	const entriesResult = shouldListAllNamespaces
+	const entriesResult = scope.allNamespaces
 		? await ctx.gateway.listAllEntries(entryFilters)
-		: await ctx.gateway.listEntries({ namespace: scopeNamespace, ...entryFilters });
+		: await ctx.gateway.listEntries({ namespace: scope.namespace, ...entryFilters });
 	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
 	return ok({
-		namespaceScope: shouldListAllNamespaces ? ALL_NAMESPACES_SCOPE : scopeNamespace,
+		namespaceScope: scope.namespaceScope,
 		key: request.key ?? null,
 		branch: branch ?? null,
 		base: request.base,

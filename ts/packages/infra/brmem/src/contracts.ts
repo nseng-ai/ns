@@ -20,9 +20,7 @@ export function brmemError<T = never>(
 	message: string,
 	displayCommand?: string,
 ): BrmemResult<T> {
-	const error: BrmemErrorInfo = { code, message };
-	if (displayCommand !== undefined) error.displayCommand = displayCommand;
-	return { type: "error", error };
+	return { type: "error", error: buildErrorInfo(code, message, displayCommand) };
 }
 
 export function brmemFound<T>(value: T): BrmemOptionalResult<T> {
@@ -38,7 +36,11 @@ export function brmemOptionalError<T = never>(
 	message: string,
 	displayCommand?: string,
 ): BrmemOptionalResult<T> {
+	return { type: "error", error: buildErrorInfo(code, message, displayCommand) };
+}
+
+function buildErrorInfo(code: string, message: string, displayCommand?: string): BrmemErrorInfo {
 	const error: BrmemErrorInfo = { code, message };
 	if (displayCommand !== undefined) error.displayCommand = displayCommand;
-	return { type: "error", error };
+	return error;
 }
