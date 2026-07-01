@@ -31,7 +31,6 @@ import {
 	prLinksFromDetails,
 	safeTerminalHyperlink,
 	truncateDisplayLine,
-	type CustomMessageContent,
 } from "@sdl/pi/terminal/presentation";
 
 import {
@@ -40,6 +39,8 @@ import {
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
 } from "@sdl/graphite/status";
+
+import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 
 export const WORKTREE_STATUS_UI_KEY = "worktree-status";
 const COMMAND_TIMEOUT_MS = 5_000;
@@ -124,20 +125,19 @@ export interface WorktreeStatusIdentity {
 	readonly headOid?: string;
 }
 
-export interface GhStatus {
-	type: "available";
+export interface GhPrDetails {
 	prNumber: number;
 	url?: string;
 	threads: GithubReviewThreadCounts;
 	checks: GithubCheckTally;
 }
 
-export interface GhHeadMismatchStatus {
+export interface GhStatus extends GhPrDetails {
+	type: "available";
+}
+
+export interface GhHeadMismatchStatus extends GhPrDetails {
 	type: "head-mismatch";
-	prNumber: number;
-	url?: string;
-	threads: GithubReviewThreadCounts;
-	checks: GithubCheckTally;
 	prHeadOid: string;
 }
 
@@ -162,21 +162,6 @@ export interface WorktreeStatus extends LocalWorktreeStatus {
 interface LoadGhStatusInternalOptions {
 	readonly identity: WorktreeStatusIdentity;
 	readonly signal?: AbortSignal;
-}
-
-interface CustomMessage {
-	customType: string;
-	content: CustomMessageContent;
-	details?: unknown;
-}
-
-interface RenderTheme {
-	fg(color: string, text: string): string;
-}
-
-interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
 }
 
 export async function loadLocalWorktreeStatus(
@@ -745,20 +730,27 @@ export function formatGtStatus(status: GtStatus, theme?: StatusTheme): string {
 	const parts: string[] = [];
 	if (status.down !== undefined) parts.push(`↓ ${status.down}`);
 	parts.push(`↑ ${status.up}`);
-	const commits = formatGtCommitStatus(status.commits);
+	const commits = formatGtCommitStatus(status.commits, "full");
 	if (commits !== undefined) parts.push(commits);
 	if (status.dirty === "yes") parts.push("✗");
 	return `${formatStatusSegment("[gt]", theme)}${formatStatusSegment(` ${parts.join(" · ")}`, theme)}`;
 }
 
-function formatGtCommitStatus(commits: GtCommitStatus): string | undefined {
+export function formatGtCommitStatus(commits: GtCommitStatus, style: "compact"): string;
+export function formatGtCommitStatus(commits: GtCommitStatus, style: "full"): string | undefined;
+export function formatGtCommitStatus(
+	commits: GtCommitStatus,
+	style: "full" | "compact",
+): string | undefined {
 	switch (commits.type) {
 		case "count":
-			return `${commits.count} ${commits.count === 1 ? "commit" : "commits"}`;
+			return style === "full"
+				? `${commits.count} ${commits.count === 1 ? "commit" : "commits"}`
+				: commits.count.toString();
 		case "unknown":
-			return "commits ?";
+			return style === "full" ? "commits ?" : "?";
 		case "not-applicable":
-			return undefined;
+			return style === "full" ? undefined : "-";
 	}
 }
 
@@ -812,7 +804,7 @@ function formatGhStatusLine(
 }
 
 function formatGhPrDetailPieces(
-	status: Pick<GhStatus, "prNumber" | "url" | "threads" | "checks">,
+	status: GhPrDetails,
 	options: FormatWorktreeStatusOptions,
 ): string[] {
 	const resolvedThreads = Math.max(0, status.threads.total - status.threads.unresolved);
@@ -847,7 +839,7 @@ function formatGhStatusAnnotationPieces(options: FormatWorktreeStatusOptions): s
 }
 
 function formatGhPrReference(
-	status: Pick<GhStatus, "prNumber" | "url">,
+	status: Pick<GhPrDetails, "prNumber" | "url">,
 	theme: StatusTheme | undefined,
 ): string {
 	const text = `#${status.prNumber}`;

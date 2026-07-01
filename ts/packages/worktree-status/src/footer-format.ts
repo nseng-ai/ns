@@ -4,11 +4,11 @@ import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
 import {
 	findWorktreeStatusGitPaths,
+	formatGtCommitStatus,
 	formatWorktreeStatusForFooter,
 	repoNameFromWorktreeStatusGitPaths,
 	WORKTREE_STATUS_UI_KEY,
 	type FormatWorktreeStatusOptions,
-	type GtCommitStatus,
 	type GtStatus,
 	type StatusTheme,
 	type WorktreeStatus,
@@ -159,7 +159,7 @@ function buildFooterIdentitySegments(
 			{ text: gt.down ?? "-", color: "accent" },
 			{ text: " ", color: "dim" },
 			{ text: "commits:", color: "dim" },
-			{ text: footerCommitCount(gt.commits), color: "accent" },
+			{ text: formatGtCommitStatus(gt.commits, "compact"), color: "accent" },
 			{ text: " ", color: "dim" },
 			{ text: "↑:", color: "dim" },
 			{ text: gt.up, color: "accent" },
@@ -173,17 +173,6 @@ function colorFooterIdentitySegments(
 	theme: StatusTheme,
 ): string {
 	return segments.map((segment) => theme.fg(segment.color, segment.text)).join("");
-}
-
-function footerCommitCount(commits: GtCommitStatus): string {
-	switch (commits.type) {
-		case "count":
-			return commits.count.toString();
-		case "unknown":
-			return "?";
-		case "not-applicable":
-			return "-";
-	}
 }
 
 function footerIdentityParts(options: FooterIdentityPartsOptions): FooterIdentityParts {

@@ -7,8 +7,6 @@ import {
 	type PiExtensionCommandEventBus,
 } from "@sdl/pi/commands/events";
 import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
-import type { CustomMessageContent } from "@sdl/pi/terminal/presentation";
-
 import type { Clock } from "@sdl/core/clock";
 import { systemClock } from "@sdl/time";
 import type { TimerScheduler } from "@sdl/core/timers";
@@ -54,6 +52,7 @@ import type {
 	WorktreeGhStatus,
 	WorktreeStatus,
 	WorktreeStatusIdentity,
+	WorktreeStatusMessageRenderer,
 } from "./types.ts";
 
 export const WORKTREE_STATUS_REFRESH_COMMAND_NAME = "pi:worktree-status-refresh";
@@ -165,34 +164,12 @@ interface StatusContextUsage {
 	percent: number | null;
 }
 
-interface CustomMessage {
-	customType: string;
-	content: CustomMessageContent;
-	display: boolean;
-	details?: unknown;
-}
-
 interface TerminalInputResult {
 	consume?: boolean;
 	data?: string;
 }
 
 type TerminalInputHandler = (data: string) => TerminalInputResult | undefined;
-
-interface RenderTheme {
-	fg(color: string, text: string): string;
-}
-
-interface RenderComponent {
-	render(width: number): string[];
-	invalidate(): void;
-}
-
-type MessageRenderer = (
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-) => RenderComponent;
 
 interface RegisteredCommand {
 	description: string;
@@ -216,7 +193,7 @@ export interface ExtensionAPI {
 	): void;
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;
 	registerCommand?(name: string, options: RegisteredCommand): void;
-	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
+	registerMessageRenderer?(customType: string, renderer: WorktreeStatusMessageRenderer): void;
 }
 
 interface GhStatusSnapshot {
