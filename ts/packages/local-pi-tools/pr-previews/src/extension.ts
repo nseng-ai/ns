@@ -54,7 +54,7 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 ] as const);
 
 export interface ExtensionContext extends PiCommandContext {
-	modelRegistry?: PiModelRegistryLike | undefined;
+	modelRegistry?: PiModelRegistryLike;
 	ui: PiCommandContext["ui"] & {
 		custom?<T>(
 			factory: (
