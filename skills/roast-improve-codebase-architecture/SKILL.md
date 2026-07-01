@@ -6,9 +6,9 @@ description: Invoke the Improve codebase architecture Roaster review against a s
 
 # Roast: Improve codebase architecture
 
-Use `.sdl/reviews/improve-codebase-architecture.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
+Use `.sdl/reviews/improve-codebase-architecture/review.md` as the authoritative review definition. Do not duplicate or reinterpret the review rules from memory.
 
-First read `.sdl/reviews/improve-codebase-architecture.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
+First read `.sdl/reviews/improve-codebase-architecture/review.md`, then apply that review definition exactly to the supplied diff or current branch changes in this same session. Stay read-only and keep findings grounded in the diff.
 
 Use explicit automation only when the user asks for isolated runner execution or automatic review logs:
 

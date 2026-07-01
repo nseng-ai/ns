@@ -48,7 +48,11 @@ describe("Claude Code harness prompt assembly", () => {
 			],
 		});
 
-		const assembled = assembleReviewPrompt({ reviewDefinition, target: { localDiff } });
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.sdl/reviews/typescript-style",
+			target: { localDiff },
+		});
 
 		expect(assembled.promptText.startsWith("Reviewer name: typescript-style")).toBe(true);
 		expect(assembled.promptText).toContain("Reviewer description: Review TypeScript diffs.");
@@ -63,7 +67,11 @@ describe("Claude Code harness prompt assembly", () => {
 	test("renders no changed paths and collision-free diff fences", () => {
 		const localDiff = createLocalDiff({ baseRef: "main", diffText: "added ``` fence", files: [] });
 
-		const assembled = assembleReviewPrompt({ reviewDefinition, target: { localDiff } });
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.sdl/reviews/typescript-style",
+			target: { localDiff },
+		});
 
 		expect(assembled.promptText).toContain("(no changed paths reported)");
 		expect(renderPromptFence("added ``` fence", { language: "diff" })).toBe(
@@ -94,7 +102,11 @@ describe("Claude Code harness prompt assembly", () => {
 			files,
 		});
 
-		const assembled = assembleReviewPrompt({ reviewDefinition, target: { localDiff } });
+		const assembled = assembleReviewPrompt({
+			reviewDefinition,
+			reviewDir: "/repo/.sdl/reviews/typescript-style",
+			target: { localDiff },
+		});
 
 		expect(assembled.promptText).toContain(`- Changed paths: ${MAX_PROMPT_CHANGED_PATHS + 2}`);
 		expect(assembled.promptText).toContain(`- src/file-${MAX_PROMPT_CHANGED_PATHS - 1}.ts`);

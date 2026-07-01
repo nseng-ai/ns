@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - packages/*/*
+  - ../.sdl/reviews/*/tools/*
 
 allowBuilds:
   '@google/genai': true

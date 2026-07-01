@@ -8,14 +8,17 @@ import {
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 } from "./config.ts";
-import { moduleSpecifierText, parseTypeScriptSource } from "./module-specifiers.ts";
+import {
+	moduleSpecifierText,
+	parseTypeScriptSource,
+	sourceLocationFields,
+} from "@sdl/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,
 	packageSubpathForSpecifier,
 	type PackageMetadata,
 } from "./package-metadata.ts";
-import { sourceLocationFields } from "./source-location.ts";
 
 export interface SourceRuleViolation {
 	readonly rule: string;

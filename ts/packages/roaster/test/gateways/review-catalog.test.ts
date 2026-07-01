@@ -39,12 +39,25 @@ describe("FakeReviewCatalogGateway", () => {
 });
 
 describe("RealReviewCatalogGateway", () => {
-	test("discovers markdown review keys recursively in stable order", async () => {
+	test("discovers direct review folders in stable order", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-"));
-		await mkdir(join(repoRoot, ".sdl", "reviews", "nested"), { recursive: true });
-		await writeFile(join(repoRoot, ".sdl", "reviews", "typescript-style.md"), "ts", "utf8");
-		await writeFile(join(repoRoot, ".sdl", "reviews", "nested", "python.md"), "py", "utf8");
-		await writeFile(join(repoRoot, ".sdl", "reviews", "README.txt"), "ignored", "utf8");
+		await mkdir(join(repoRoot, ".sdl", "reviews", "typescript-style", "references"), {
+			recursive: true,
+		});
+		await mkdir(join(repoRoot, ".sdl", "reviews", "python"), { recursive: true });
+		await mkdir(join(repoRoot, ".sdl", "reviews", "assets-only"), { recursive: true });
+		await writeFile(
+			join(repoRoot, ".sdl", "reviews", "typescript-style", "review.md"),
+			"ts",
+			"utf8",
+		);
+		await writeFile(join(repoRoot, ".sdl", "reviews", "python", "review.md"), "py", "utf8");
+		await writeFile(
+			join(repoRoot, ".sdl", "reviews", "typescript-style", "references", "canonical.md"),
+			"not a review",
+			"utf8",
+		);
+		await writeFile(join(repoRoot, ".sdl", "reviews", "README.md"), "ignored", "utf8");
 		const gateway = new RealReviewCatalogGateway({
 			gitGateway: new InMemoryGitGateway({ repoRoot }),
 		});
@@ -55,16 +68,16 @@ describe("RealReviewCatalogGateway", () => {
 			type: "ok",
 			value: {
 				reviewsDir: join(repoRoot, ".sdl", "reviews"),
-				keys: ["nested/python", "typescript-style"],
+				keys: ["python", "typescript-style"],
 			},
 		});
 	});
 
 	test("loads source for a valid key", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-load-"));
-		await mkdir(join(repoRoot, ".sdl", "reviews"), { recursive: true });
+		await mkdir(join(repoRoot, ".sdl", "reviews", "typescript-style"), { recursive: true });
 		await writeFile(
-			join(repoRoot, ".sdl", "reviews", "typescript-style.md"),
+			join(repoRoot, ".sdl", "reviews", "typescript-style", "review.md"),
 			"review source",
 			"utf8",
 		);
@@ -81,7 +94,7 @@ describe("RealReviewCatalogGateway", () => {
 		}
 	});
 
-	test.each(["", "/absolute", "../escape", "nested/../escape"])(
+	test.each(["", ".", "..", "/absolute", "../escape", "nested/review", "nested\\review"])(
 		"rejects invalid key %#",
 		async (key) => {
 			const gateway = new RealReviewCatalogGateway({

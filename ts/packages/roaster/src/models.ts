@@ -147,6 +147,7 @@ export const reviewRunnerRequestSchema = z
 	.object({
 		model: nonBlankStringSchema,
 		reviewDefinition: reviewDefinitionSchema,
+		reviewDir: nonBlankStringSchema,
 		target: diffReviewTargetSchema,
 	})
 	.strict();

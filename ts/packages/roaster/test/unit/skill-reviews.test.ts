@@ -101,7 +101,7 @@ describe("Roaster skill review catalog", () => {
 			defaultPrompt: "Run the DRY but not too DRY roast against the current branch changes.",
 		});
 		expect(roastReviewPathForKey(loaded.entry.reviewKey)).toBe(
-			".sdl/reviews/dry-but-not-too-dry.md",
+			".sdl/reviews/dry-but-not-too-dry/review.md",
 		);
 	});
 });

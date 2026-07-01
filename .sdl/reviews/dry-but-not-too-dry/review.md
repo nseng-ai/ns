@@ -34,9 +34,9 @@ because two blocks look similar, and do not reward abstraction for its own sake.
 Suppress vague "extract a helper" comments unless the evidence passes the full
 rubric below.
 
-## Relationship to duplicative-abstractions-tripwire
+## Relationship to reinvented-abstractions-tripwire
 
-`duplicative-abstractions-tripwire.md` is the cheap duplicate-abstraction Tripwire/scout.
+`reinvented-abstractions-tripwire/review.md` is the cheap reinvented-abstraction Tripwire/scout.
 It emits investigation leads when new code appears to hand-roll infrastructure
 that may already have a repository helper.
 

@@ -37,7 +37,7 @@ export function reviewPromptTemplate(): string {
 }
 
 export function assembleReviewPrompt(
-	request: Pick<ReviewRunnerRequest, "reviewDefinition" | "target">,
+	request: Pick<ReviewRunnerRequest, "reviewDefinition" | "reviewDir" | "target">,
 ): AssembledReviewPrompt {
 	const sizedDiff = promptSizedDiff(request.target.localDiff);
 	const changedPaths = formatChangedPaths(request.target.localDiff.changedPaths);
@@ -45,6 +45,7 @@ export function assembleReviewPrompt(
 		review_name: request.reviewDefinition.name,
 		review_description: request.reviewDefinition.description,
 		review_instructions: request.reviewDefinition.instructions,
+		review_dir: request.reviewDir,
 		base_ref: request.target.localDiff.baseRef,
 		changed_path_count: String(request.target.localDiff.changedPaths.length),
 		changed_paths: changedPaths,

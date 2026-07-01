@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
@@ -56,12 +56,12 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const requiredReviewsDir = await requireReviewsDirectory(reviewsDir.value);
 		if (requiredReviewsDir.type === "error") return requiredReviewsDir;
 
-		const paths = await markdownFiles(requiredReviewsDir.value);
+		const records = await reviewRecordDirectories(requiredReviewsDir.value);
 		return {
 			type: "ok",
 			value: {
 				reviewsDir: reviewsDir.value,
-				keys: paths.map((path) => keyFromPath(reviewsDir.value, path)).sort(),
+				keys: records,
 			},
 		};
 	}
@@ -157,8 +157,8 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		const configuredFailure = this.reviewSourceFailuresByKey.get(options.key);
 		if (configuredFailure !== undefined) return error({ ...configuredFailure });
 		const source = this.reviewSourcesByKey.get(options.key);
+		const path = reviewPathForKey(this.reviewsDirValue, options.key);
 		if (source === undefined) {
-			const path = join(this.reviewsDirValue, `${options.key}.md`);
 			return error({
 				type: "review-definition-not-found",
 				message: `No fake review definition configured for key ${JSON.stringify(options.key)} at ${path}.`,
@@ -166,7 +166,7 @@ export class FakeReviewCatalogGateway implements ReviewCatalogGateway {
 		}
 		return {
 			type: "ok",
-			value: { key: options.key, path: join(this.reviewsDirValue, `${options.key}.md`), source },
+			value: { key: options.key, path, source },
 		};
 	}
 
@@ -190,17 +190,17 @@ async function resolveReviewPath(
 			type: "review-key-invalid",
 			message: "Review key must not be empty.",
 		});
-	if (normalized.startsWith("/") || normalized.split(/[\\/]/u).includes("..")) {
+	if (!isValidReviewKeyName(normalized)) {
 		return error({
 			type: "review-key-invalid",
-			message: `Review key must be a relative path without \`..\`: ${JSON.stringify(key)}`,
+			message: `Review key must be a direct folder name without slashes, backslashes, absolute paths, or traversal: ${JSON.stringify(key)}`,
 		});
 	}
 
 	const requiredReviewsDir = await requireReviewsDirectory(reviewsDir);
 	if (requiredReviewsDir.type === "error") return requiredReviewsDir;
 
-	const path = join(requiredReviewsDir.value, `${normalized}.md`);
+	const path = reviewPathForKey(requiredReviewsDir.value, normalized);
 	const rel = relative(requiredReviewsDir.value, path);
 	if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
 		return error({
@@ -216,7 +216,7 @@ async function requireReviewsDirectory(reviewsDir: string): Promise<RoasterResul
 	if (status === "missing") {
 		return error({
 			type: "reviews-dir-missing",
-			message: `No reviews directory at ${reviewsDir}. Create it and add \`<key>.md\` files.`,
+			message: `No reviews directory at ${reviewsDir}. Create it and add \`<key>/review.md\` definitions.`,
 		});
 	}
 	if (status !== "directory") {
@@ -228,20 +228,30 @@ async function requireReviewsDirectory(reviewsDir: string): Promise<RoasterResul
 	return { type: "ok", value: reviewsDir };
 }
 
-async function markdownFiles(root: string): Promise<string[]> {
+async function reviewRecordDirectories(root: string): Promise<string[]> {
 	const entries = await readdir(root, { withFileTypes: true });
-	const paths: string[] = [];
+	const keys: string[] = [];
 	for (const entry of entries) {
-		const path = join(root, entry.name);
-		if (entry.isDirectory()) paths.push(...(await markdownFiles(path)));
-		else if (entry.isFile() && entry.name.endsWith(".md")) paths.push(path);
+		if (!entry.isDirectory() || !isValidReviewKeyName(entry.name)) continue;
+		const status = await directoryStatus(reviewPathForKey(root, entry.name));
+		if (status === "file") keys.push(entry.name);
 	}
-	return paths;
+	return keys.sort((left, right) => left.localeCompare(right));
 }
 
-function keyFromPath(root: string, path: string): string {
-	const withoutSuffix = relative(root, path).replace(/\.md$/u, "");
-	return withoutSuffix.split(sep).join("/");
+function reviewPathForKey(reviewsDir: string, key: string): string {
+	return join(reviewsDir, key, "review.md");
+}
+
+function isValidReviewKeyName(key: string): boolean {
+	return (
+		key !== "" &&
+		key !== "." &&
+		key !== ".." &&
+		!isAbsolute(key) &&
+		!key.includes("/") &&
+		!key.includes("\\")
+	);
 }
 
 type PathStatus = "missing" | "file" | "directory" | "other";

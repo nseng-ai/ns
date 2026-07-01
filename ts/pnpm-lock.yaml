@@ -132,6 +132,9 @@ importers:
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/plans
+      '@sdl/review-reinvention-scanner':
+        specifier: workspace:*
+        version: link:../.sdl/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
       '@sdl/roaster':
         specifier: workspace:*
         version: link:packages/roaster
@@ -141,6 +144,9 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:packages/infra/test-kit
+      '@sdl/typescript-analysis':
+        specifier: workspace:*
+        version: link:packages/infra/typescript-analysis
       '@types/node':
         specifier: 'catalog:'
         version: 24.13.2
@@ -171,6 +177,31 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  ../.sdl/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention:
+    dependencies:
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../../../../ts/packages/infra/core
+      '@sdl/exec':
+        specifier: workspace:*
+        version: link:../../../../../ts/packages/infra/exec
+      '@sdl/typescript-analysis':
+        specifier: workspace:*
+        version: link:../../../../../ts/packages/infra/typescript-analysis
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.2
+      '@typescript/native-preview':
+        specifier: 'catalog:'
+        version: 7.0.0-dev.20260617.2
       vitest:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))
@@ -768,6 +799,12 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/infra/typescript-analysis:
+    dependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/kernel:
     dependencies:
