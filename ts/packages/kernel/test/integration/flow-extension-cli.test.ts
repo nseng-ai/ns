@@ -85,6 +85,7 @@ describe("checked-in flow SDL extension loading", () => {
 		expect(output).toContain("Usage: sdl flow push");
 		expect(output).toContain("plain git push");
 		expect(output).toContain("clean worktree");
+		expect(output).toContain("Graphite-tracked PR branches");
 		expect(output).toContain("sdl flow submit");
 		expect(help.stderr.join("")).toBe("");
 

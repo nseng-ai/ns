@@ -37,7 +37,7 @@ const SDL_FLOW_COMMANDS = [
 	),
 	flowCommand("submit", "Checkpoint outstanding changes, then submit the current Graphite stack."),
 	flowCommand("regenerate-pr", "Regenerate the current branch PR title and description."),
-	flowCommand("push", "Push already-committed work on the current branch with git push."),
+	flowCommand("push", "Push already-committed non-Graphite branch work with git push."),
 	flowCommand("land", "Land the current PR or Graphite stack into trunk."),
 	flowCommand(
 		"pull-trunk",
