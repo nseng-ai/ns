@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createTempDirTracker } from "@sdl/test-kit";
 import { afterEach, describe, expect, test } from "vitest";
+
+import { CLI_REL_PATH } from "../support/cli-rel-path.ts";
 
 const tempDirs = createTempDirTracker();
 
@@ -14,7 +16,6 @@ const renderScriptPath = fileURLToPath(
 const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
-const CLI_REL_PATH = "ts/packages/tools/areg/src/cli.ts";
 
 interface RenderShimOptions {
 	readonly outputPath: string;
@@ -89,7 +90,7 @@ describe("areg source CLI shim runtime", () => {
 		const installHint = "just install-areg or just install-tools";
 
 		await mkdir(join(checkoutRoot, "ts/node_modules"), { recursive: true });
-		await mkdir(join(checkoutRoot, "ts/packages/tools/areg/src"), { recursive: true });
+		await mkdir(dirname(cliPath), { recursive: true });
 		await mkdir(checkoutCwd, { recursive: true });
 		await writeFile(
 			cliPath,

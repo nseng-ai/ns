@@ -5,10 +5,11 @@ import { describe, expect, test } from "vitest";
 
 import { renderCliShim } from "../../../../../scripts/render-cli-shim-core.ts";
 
+import { CLI_REL_PATH } from "../support/cli-rel-path.ts";
+
 const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
-const CLI_REL_PATH = "ts/packages/tools/areg/src/cli.ts";
 
 async function readTemplate(): Promise<string> {
 	return await readFile(templatePath, "utf8");
