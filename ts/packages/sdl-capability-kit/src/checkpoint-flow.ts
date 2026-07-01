@@ -1,6 +1,8 @@
 import { formatCommandDetails } from "@sdl/exec";
 import { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
 
+import type { CommandResult } from "./command-result.ts";
+
 import {
 	formatCheckpointMessage,
 	formatCheckpointValidationFeedback,
@@ -48,12 +50,7 @@ interface FileSectionCompactedDiffInput {
 	perFileExcerptChars: number;
 }
 
-export interface CommandResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-	killed?: boolean;
-}
+export type { CommandResult } from "./command-result.ts";
 
 export interface CheckpointPromptInput {
 	status: string;

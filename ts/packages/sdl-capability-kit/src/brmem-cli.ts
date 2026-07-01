@@ -29,6 +29,14 @@ export interface BrmemExecGateway {
 	): Promise<PiExecResultLike>;
 }
 
+export interface BrmemCallContext {
+	gateway: BrmemExecGateway;
+	cwd: string;
+	timeoutMs?: number;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+}
+
 interface BrmemCommandCandidate {
 	command: string;
 	prefixArgs: string[];
@@ -56,23 +64,15 @@ export type RunBrmemResult =
 	| CompletedBrmemRun
 	| { type: "unavailable"; failures: readonly UnavailableBrmemRun[] };
 
-interface RunBrmemOnCandidateOptions {
-	gateway: BrmemExecGateway;
-	cwd: string;
+interface RunBrmemOnCandidateOptions extends BrmemCallContext {
 	candidate: BrmemCommandCandidate;
 	brmemArgs: readonly string[];
 	timeoutMs: number;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface RunBrmemOptions {
-	gateway: BrmemExecGateway;
-	cwd: string;
+export interface RunBrmemOptions extends BrmemCallContext {
 	brmemArgs: readonly string[];
 	timeoutMs: number;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface BrmemCommandErrorInfo {
@@ -85,13 +85,8 @@ export type BrmemCommandResult<T> =
 	| { ok: true; value: T }
 	| { ok: false; error: BrmemCommandErrorInfo };
 
-export interface RunAvailableBrmemCommandOptions {
-	gateway: BrmemExecGateway;
-	cwd: string;
+export interface RunAvailableBrmemCommandOptions extends BrmemCallContext {
 	brmemArgs: readonly string[];
-	timeoutMs?: number;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface BrmemPutData {
@@ -120,38 +115,23 @@ export interface BrmemEntryLocator {
 	branch: string;
 }
 
-export interface CheckBrmemEntryOptions extends BrmemEntryLocator {
-	gateway: BrmemExecGateway;
-	cwd: string;
-	timeoutMs?: number;
-	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-}
+export type CheckBrmemEntryOptions = BrmemEntryLocator & Omit<BrmemCallContext, "env">;
 
 export type BrmemEntryPresenceResult =
 	| { type: "present"; displayCommand: string }
 	| { type: "absent" }
 	| { type: "error"; error: BrmemCommandErrorInfo };
 
-export interface PutBrmemEntryFromFileOptions {
-	readonly gateway: BrmemExecGateway;
-	readonly cwd: string;
+export interface PutBrmemEntryFromFileOptions extends BrmemCallContext {
 	readonly namespace: string;
 	readonly key: string;
 	readonly branch?: string;
 	readonly sourceFile: string;
-	readonly timeoutMs?: number;
-	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
-export interface ListBrmemEntriesOptions {
-	readonly gateway: BrmemExecGateway;
-	readonly cwd: string;
+export interface ListBrmemEntriesOptions extends BrmemCallContext {
 	readonly namespace?: string;
 	readonly branch?: string;
-	readonly timeoutMs?: number;
-	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 function brmemCommandCandidates(
@@ -265,13 +245,7 @@ export async function runAvailableBrmemCommand(
 }
 
 async function runBrmemCommand(
-	options: {
-		gateway: BrmemExecGateway;
-		cwd: string;
-		timeoutMs?: number;
-		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	},
+	options: BrmemCallContext,
 	brmemArgs: readonly string[],
 ): Promise<BrmemCommandResult<CompletedBrmemRun>> {
 	return await runAvailableBrmemCommand({
