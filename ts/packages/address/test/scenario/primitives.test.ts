@@ -5,6 +5,7 @@ import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import {
 	InMemoryGithubPrFeedbackGateway,
 	discussionComment,
+	fakePrFeedbackFailure,
 	prSummary,
 	review,
 	reviewThread,
@@ -343,7 +344,9 @@ describe("pr-address primitive exec commands", () => {
 
 	test("bulk close returns semantic exit 1 with structured reply-failure data", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const run = runScenario(
@@ -373,6 +376,15 @@ describe("pr-address primitive exec commands", () => {
 							stage: "reply",
 							message: "Failed to reply to review thread RT_fail",
 							code: "reply-failed",
+							failure: {
+								code: "github_pr_feedback_gh_failed",
+								message: "reply failed",
+								details: {
+									operation: "replyToReviewThread",
+									stderr: "reply failed",
+									exitCode: 4,
+								},
+							},
 						},
 					},
 					{ thread_id: "RT_ok", error: null },
@@ -399,7 +411,9 @@ describe("pr-address primitive exec commands", () => {
 		});
 
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const run = runScenario(

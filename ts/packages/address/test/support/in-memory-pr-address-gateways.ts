@@ -35,7 +35,7 @@ function fakePrLookupMissStderr(prNumber: number): string {
 	return `no PR found for PR ${prNumber}`;
 }
 
-function fakePrFeedbackFailure(
+export function fakePrFeedbackFailure(
 	message: string,
 	operation: GithubPrFeedbackOperation = "getPr",
 ): GithubPrFeedbackFailure {
@@ -67,7 +67,9 @@ export interface InMemoryPrFeedbackState {
 	reviewFailurePrNumbers?: ReadonlySet<number>;
 	reviewThreadsFailurePrNumbers?: ReadonlySet<number>;
 	discussionCommentsFailurePrNumbers?: ReadonlySet<number>;
-	replyFailureThreadIds?: ReadonlySet<string>;
+	replyFailures?:
+		| ReadonlyMap<string, GithubPrFeedbackFailure>
+		| Record<string, GithubPrFeedbackFailure>;
 	resolveFailureThreadIds?: ReadonlySet<string>;
 	bulkResolveFailure?: GithubPrFeedbackFailure;
 }
@@ -100,7 +102,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	private readonly reviewFailurePrNumbers: ReadonlySet<number>;
 	private readonly reviewThreadsFailurePrNumbers: ReadonlySet<number>;
 	private readonly discussionCommentsFailurePrNumbers: ReadonlySet<number>;
-	private readonly replyFailureThreadIds: ReadonlySet<string>;
+	private readonly replyFailures: ReadonlyMap<string, GithubPrFeedbackFailure>;
 	private readonly resolveFailureThreadIds: ReadonlySet<string>;
 	private readonly bulkResolveFailure: GithubPrFeedbackFailure | undefined;
 	private readonly repliesInternal: ReviewThreadReplyLogEntry[] = [];
@@ -130,7 +132,7 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 		this.reviewFailurePrNumbers = state.reviewFailurePrNumbers ?? new Set();
 		this.reviewThreadsFailurePrNumbers = state.reviewThreadsFailurePrNumbers ?? new Set();
 		this.discussionCommentsFailurePrNumbers = state.discussionCommentsFailurePrNumbers ?? new Set();
-		this.replyFailureThreadIds = state.replyFailureThreadIds ?? new Set();
+		this.replyFailures = stringMap(state.replyFailures);
 		this.resolveFailureThreadIds = state.resolveFailureThreadIds ?? new Set();
 		this.bulkResolveFailure = state.bulkResolveFailure;
 	}
@@ -237,8 +239,8 @@ export class InMemoryGithubPrFeedbackGateway implements GithubPrFeedbackGateway 
 	async replyToReviewThread(
 		params: GithubPrFeedbackOptions & { readonly threadId: string; readonly body: string },
 	): Promise<Result<GithubReviewThreadReply, GithubPrFeedbackFailure>> {
-		if (this.replyFailureThreadIds.has(params.threadId))
-			return { ok: false, error: fakePrFeedbackFailure("reply failed", "replyToReviewThread") };
+		const replyFailure = this.replyFailures.get(params.threadId);
+		if (replyFailure !== undefined) return { ok: false, error: clone(replyFailure) };
 		this.repliesInternal.push({ threadId: params.threadId, body: params.body });
 		return {
 			ok: true,

@@ -63,25 +63,31 @@ export interface GithubReviewThreadState {
 	readonly isResolved: boolean;
 }
 
-export type GithubPrFeedbackFailureCode =
-	| "github_pr_feedback_gh_failed"
-	| "github_pr_feedback_startup_failed"
-	| "github_pr_feedback_json_parse_failed"
-	| "github_pr_feedback_response_invalid"
-	| "github_pr_feedback_graphql_failed"
-	| "github_pr_feedback_pagination_invalid";
+export const githubPrFeedbackFailureCodes = [
+	"github_pr_feedback_gh_failed",
+	"github_pr_feedback_startup_failed",
+	"github_pr_feedback_json_parse_failed",
+	"github_pr_feedback_response_invalid",
+	"github_pr_feedback_graphql_failed",
+	"github_pr_feedback_pagination_invalid",
+] as const;
 
-export type GithubPrFeedbackOperation =
-	| "getPr"
-	| "getPrForBranch"
-	| "listOpenPrs"
-	| "getPrReviews"
-	| "getPrReviewThreads"
-	| "getPrDiscussionComments"
-	| "getPrChecks"
-	| "replyToReviewThread"
-	| "resolveReviewThread"
-	| "resolveReviewThreads";
+export type GithubPrFeedbackFailureCode = (typeof githubPrFeedbackFailureCodes)[number];
+
+export const githubPrFeedbackOperations = [
+	"getPr",
+	"getPrForBranch",
+	"listOpenPrs",
+	"getPrReviews",
+	"getPrReviewThreads",
+	"getPrDiscussionComments",
+	"getPrChecks",
+	"replyToReviewThread",
+	"resolveReviewThread",
+	"resolveReviewThreads",
+] as const;
+
+export type GithubPrFeedbackOperation = (typeof githubPrFeedbackOperations)[number];
 
 export interface GithubPrFeedbackFailureDetails {
 	readonly operation: GithubPrFeedbackOperation;

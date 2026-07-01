@@ -1,7 +1,12 @@
 export { RealGithubPrFeedbackGateway } from "./gateway.ts";
 export { normalizeAuthor } from "./normalizers.ts";
 export { parseGithubJson } from "./parsing.ts";
-export { ghAuthorSchema, numericGithubIdentity, withNumericGithubIdentity } from "./schemas.ts";
+export {
+	ghAuthorSchema,
+	githubPrFeedbackFailureSchema,
+	numericGithubIdentity,
+	withNumericGithubIdentity,
+} from "./schemas.ts";
 export type { GithubJsonParseResult } from "./parsing.ts";
 export type {
 	GithubPrDiscussionComment,

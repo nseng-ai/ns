@@ -1,6 +1,34 @@
 import { z } from "zod";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
+import { githubPrFeedbackFailureCodes, githubPrFeedbackOperations } from "./types.ts";
+
+const githubPrFeedbackFailureOperationSchema = z.enum(githubPrFeedbackOperations);
+
+const githubPrFeedbackFailureCodeSchema = z.enum(githubPrFeedbackFailureCodes);
+
+const githubPrFeedbackFailureDetailsSchema = z.object({
+	operation: githubPrFeedbackFailureOperationSchema,
+	command: z.array(z.string()).readonly().optional(),
+	displayCommand: z.string().optional(),
+	stdout: z.string().optional(),
+	stderr: z.string().optional(),
+	exitCode: z.number().int().optional(),
+	killed: z.boolean().optional(),
+	graphqlErrors: z.unknown().optional(),
+	zodError: z.string().optional(),
+	prNumber: z.number().int().optional(),
+	threadId: z.string().optional(),
+	cursorContext: z.string().optional(),
+});
+
+export const githubPrFeedbackFailureSchema = z.object({
+	code: githubPrFeedbackFailureCodeSchema,
+	message: z.string(),
+	details: githubPrFeedbackFailureDetailsSchema.optional(),
+	displayCommand: z.string().optional(),
+});
+
 export const prSummarySchema = z.object({
 	number: z.number().int(),
 	title: z.string(),
