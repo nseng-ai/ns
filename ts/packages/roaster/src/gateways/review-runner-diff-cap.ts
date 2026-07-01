@@ -1,4 +1,5 @@
 import { estimateTokens } from "../diff-parsing.ts";
+import { formatOmittedReviewInputFile } from "../input-coverage-formatting.ts";
 import type { ReviewRunnerRequest, ReviewInputCoverage } from "../models.ts";
 
 export const MAX_PROMPT_DIFF_TOKENS = 90_000;
@@ -72,8 +73,7 @@ function buildCappedDiffHeader(coverage: ReviewInputCoverage): string {
 		`# Full diff estimate: ~${coverage.fullDiffEstimatedTokens} tokens; prompt diff cap: ${coverage.promptDiffTokenCap} tokens; per-file cap: ${coverage.promptDiffFileTokenCap} tokens.`,
 		"# Omitted file diffs:",
 		...coverage.omittedFiles.map(
-			(file) =>
-				`# - ${file.path} (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("-", " ")})`,
+			(file) => `# - ${file.path} (${formatOmittedReviewInputFile(file)})`,
 		),
 		"# Included file diffs follow.",
 	];

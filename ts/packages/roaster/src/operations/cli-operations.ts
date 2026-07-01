@@ -23,10 +23,10 @@ import {
 	postInlineFindingsResultSchema,
 	reviewFindingsPayloadSchema,
 	reviewRunResultSchema,
+	reviewUsageTotalInputTokens,
 	type ReviewDefinition,
 	type ReviewFindingsPayload,
 	type ReviewRunResult,
-	type ReviewUsage,
 } from "../models.ts";
 import { applicableReviewKeys } from "../review-applicability.ts";
 import { roasterReviewDisplayRole, roasterReviewRoleLabel } from "../review-display.ts";
@@ -326,7 +326,9 @@ export function renderReviewRun(result: ReviewRunResult): string {
 		);
 	}
 	if (result.usage !== null) {
-		lines.push(`Tokens: ${totalInputTokens(result.usage)} in / ${result.usage.outputTokens} out`);
+		lines.push(
+			`Tokens: ${reviewUsageTotalInputTokens(result.usage)} in / ${result.usage.outputTokens} out`,
+		);
 		lines.push(`Cost: $${result.usage.totalCostUsd.toFixed(4)} USD`);
 		lines.push(
 			`Duration: ${(result.usage.durationMs / 1000).toFixed(1)}s (${result.usage.numTurns} turns)`,
@@ -559,10 +561,6 @@ function reviewLogEntryResult(entry: ReviewLogEntry): ReviewLogResult["entries"]
 		reviewKey: entry.reviewKey,
 		ranAt: entry.ranAt,
 	};
-}
-
-function totalInputTokens(usage: ReviewUsage): number {
-	return usage.inputTokens + usage.cacheCreationInputTokens + usage.cacheReadInputTokens;
 }
 
 function failureFromRoaster(error: RoasterFailure): ClinkrExit<never> {

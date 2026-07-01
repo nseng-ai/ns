@@ -53,21 +53,10 @@ export class RealReviewCatalogGateway implements ReviewCatalogGateway {
 		const reviewsDir = await this.reviewsDir(options.cwd, options.signal);
 		if (reviewsDir.type === "error") return reviewsDir;
 
-		const status = await directoryStatus(reviewsDir.value);
-		if (status === "missing") {
-			return error({
-				type: "reviews-dir-missing",
-				message: `No reviews directory at ${reviewsDir.value}. Create it and add \`<key>.md\` files.`,
-			});
-		}
-		if (status !== "directory") {
-			return error({
-				type: "reviews-dir-not-directory",
-				message: `Reviews path is not a directory: ${reviewsDir.value}`,
-			});
-		}
+		const requiredReviewsDir = await requireReviewsDirectory(reviewsDir.value);
+		if (requiredReviewsDir.type === "error") return requiredReviewsDir;
 
-		const paths = await markdownFiles(reviewsDir.value);
+		const paths = await markdownFiles(requiredReviewsDir.value);
 		return {
 			type: "ok",
 			value: {
@@ -208,27 +197,35 @@ async function resolveReviewPath(
 		});
 	}
 
+	const requiredReviewsDir = await requireReviewsDirectory(reviewsDir);
+	if (requiredReviewsDir.type === "error") return requiredReviewsDir;
+
+	const path = join(requiredReviewsDir.value, `${normalized}.md`);
+	const rel = relative(requiredReviewsDir.value, path);
+	if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
+		return error({
+			type: "review-key-invalid",
+			message: `Review key ${JSON.stringify(key)} resolves outside ${requiredReviewsDir.value}.`,
+		});
+	}
+	return { type: "ok", value: { key: normalized, path } };
+}
+
+async function requireReviewsDirectory(reviewsDir: string): Promise<RoasterResult<string>> {
 	const status = await directoryStatus(reviewsDir);
-	if (status === "missing")
+	if (status === "missing") {
 		return error({
 			type: "reviews-dir-missing",
 			message: `No reviews directory at ${reviewsDir}. Create it and add \`<key>.md\` files.`,
 		});
-	if (status !== "directory")
+	}
+	if (status !== "directory") {
 		return error({
 			type: "reviews-dir-not-directory",
 			message: `Reviews path is not a directory: ${reviewsDir}`,
 		});
-
-	const path = join(reviewsDir, `${normalized}.md`);
-	const rel = relative(reviewsDir, path);
-	if (rel.startsWith("..") || rel === "" || rel.startsWith(sep)) {
-		return error({
-			type: "review-key-invalid",
-			message: `Review key ${JSON.stringify(key)} resolves outside ${reviewsDir}.`,
-		});
 	}
-	return { type: "ok", value: { key: normalized, path } };
+	return { type: "ok", value: reviewsDir };
 }
 
 async function markdownFiles(root: string): Promise<string[]> {

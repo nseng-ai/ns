@@ -11,7 +11,14 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **tools** — 12 findings (3 high / 7 medium / 2 low) across areg, packagechk, vibechk. See `references/tools.md`. Check for overlap with `ts-cli-core-structural-cleanup`'s areg god-file decomposition row.
 - [ ] **hosts** — 8 findings (2 high / 4 medium / 2 low) across hosts/pi, hosts/sdlcc. See `references/hosts.md`. Includes one large Divergent Change finding in `pi/src/commands/cli-extension.ts`.
 - [ ] **objective** (package) — 6 findings (0 high / 4 medium / 2 low). See `references/objective-package.md`.
-- [ ] **roaster** — 6 findings (0 high / 4 medium / 2 low). See `references/roaster.md`.
+- [x] **roaster** — 6 findings (0 high / 4 medium / 2 low). See `references/roaster.md`.
+  - fixed: Duplicated reviews-directory validation; `requireReviewsDirectory` now owns the missing/not-directory checks shared by list and load path resolution while preserving existing failure types/messages.
+  - fixed: Duplicated omitted-input-file rendering; `formatOmittedReviewInputFile` owns the shared omitted file detail string used by capped prompt headers and findings comment input-coverage output.
+  - fixed: Duplicated review usage token summing; `renderReviewRun` now uses the exported `reviewUsageTotalInputTokens` helper from `models.ts` and the local duplicate helper was removed.
+  - fixed: Repeated review-role switches in skill metadata; `roastSkillEntryFromDefinition` resolves the display role once and role-specific labels/prompts derive from one role table.
+  - fixed: Duplicated review-list alias command wiring; `createReviewListCommand` centralizes the shared schema/result/render/handler wiring used by `review list` and `review ls`.
+  - fixed: Duplicated GitHub read error handling in inline publication; `callGithubOrEmptyResult` wraps thrown and gateway error results for changed-file and review-comment reads.
+  - validation: `pnpm --dir ts --filter @sdl/roaster run check`, `pnpm --dir ts --filter @sdl/roaster run test`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-06-30.
 - [ ] **pi-extensions** (`.pi/extensions`, `.pi/lib`) — 5 findings (0 high / 3 medium / 2 low). See `references/pi-extensions.md`.
 - [ ] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
 - [ ] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
