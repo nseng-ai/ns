@@ -23,6 +23,7 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
@@ -42,10 +43,14 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("Summary\n- Update app behavior");
-		expect(output).toContain("- Add reviewer notes");
-		expect(output).toContain("Files\n M src/app.ts\n?? notes.md");
+		expect(output).toContain("Summary\n• Update app behavior");
+		expect(output).toContain("• Add reviewer notes");
+		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toEqual([
+			{ stream: "stderr", text: "Inspecting worktree…\n" },
+			{ stream: "stderr", text: "Generating changes summary…\n" },
+		]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -68,6 +73,45 @@ describe("project-local changes extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"diff --git a/src/app.ts b/src/app.ts",
 		);
+	});
+
+	test("dirty worktree labels common git porcelain status codes", async () => {
+		const run = runChangesWithFakes({
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{
+						match: "git status --porcelain=v1",
+						result: {
+							stdout: [
+								"UU conflict.txt",
+								"R  old.ts -> new.ts",
+								"C  template.ts -> copy.ts",
+								"A  added.ts",
+								"AM staged-and-modified.ts",
+								" D removed.ts",
+								"M  staged.ts",
+								"!! ignored.log",
+							].join("\n"),
+						},
+					},
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
+				],
+				textGeneration: [{ ok: true, text: "- Summarize status labels" }],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("• unmerged   conflict.txt");
+		expect(output).toContain("• renamed    old.ts -> new.ts");
+		expect(output).toContain("• copied     template.ts -> copy.ts");
+		expect(output).toContain("• added      added.ts");
+		expect(output).toContain("• added      staged-and-modified.ts");
+		expect(output).toContain("• deleted    removed.ts");
+		expect(output).toContain("• modified   staged.ts");
+		expect(output).toContain("• !!         ignored.log");
 	});
 
 	test("changes model can be selected by SDL environment with legacy fallback", async () => {
@@ -165,10 +209,10 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\nSummary\n- Update many files\n\nFiles",
+			"Outstanding changes on feature/demo\n\nSummary\n• Update many files\n\nFiles",
 		);
-		expect(output).toContain(" M file-49.ts");
-		expect(output).not.toContain(" M file-50.ts");
-		expect(output).toContain("... 2 more file(s)");
+		expect(output).toContain("• modified   file-49.ts");
+		expect(output).not.toContain("file-50.ts");
+		expect(output).toContain("… 2 more file(s)");
 	});
 });

@@ -40,6 +40,10 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { detectGitConflictOutput } from "../shared/git-operation-output.ts";
+import {
+	isGitPorcelainUnmergedStatus,
+	parseGitPorcelainStatusOutput,
+} from "../shared/git-porcelain.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "sdl-sdk";
 
@@ -883,16 +887,12 @@ function parseConflictedFiles(output: string): string[] {
 }
 
 function parsePorcelainConflictedFiles(output: string): string[] {
-	const conflictStatuses = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
 	const files: string[] = [];
 
-	for (const line of stripTerminalEscapes(output).replace(/\r/g, "\n").split("\n")) {
-		if (line.length < 4) continue;
+	for (const parsed of parseGitPorcelainStatusOutput(stripTerminalEscapes(output))) {
+		if (!isGitPorcelainUnmergedStatus(parsed.status)) continue;
 
-		const status = line.slice(0, 2);
-		if (!conflictStatuses.has(status)) continue;
-
-		files.push(line.slice(3));
+		files.push(parsed.path);
 	}
 
 	return uniqueNonEmpty(files);
