@@ -44,6 +44,21 @@ describe("areg gateway fakes", () => {
 		});
 		expect(inventory.skillsDirectoryNames).toEqual(["demo"]);
 		(inventory.skillsDirectoryNames as string[]).push("mutated-return");
+		const piInventory = await fake.inspectPiSkillInventory({
+			projectDir: base.projectDir,
+			env: {},
+		});
+		expect(piInventory).toEqual({
+			skillNames: [],
+			isApproximation: true,
+			source: "fake-repo-fallback-resolvable-skill-roots",
+		});
+		(piInventory.skillNames as string[]).push("mutated-return");
+		const secondPiInventory = await fake.inspectPiSkillInventory({
+			projectDir: base.projectDir,
+			env: {},
+		});
+		expect(secondPiInventory.skillNames).toEqual([]);
 		const secondInventory = await fake.inspectSkillNameInventory({
 			projectDir: base.projectDir,
 			env: {},
@@ -52,6 +67,8 @@ describe("areg gateway fakes", () => {
 		expect((fake as FakeAregProjectGateway).operations()).toEqual([
 			{ type: "inspect-project-base", cwd: "/work", projectPath: "." },
 			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
+			{ type: "inspect-pi-skill-inventory", projectDir: "/repo" },
+			{ type: "inspect-pi-skill-inventory", projectDir: "/repo" },
 			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
 		]);
 	});
