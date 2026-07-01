@@ -4,7 +4,20 @@
   "type": "module",
   "exports": {
     "./api": "./src/api.ts",
-    "./sdl-command": "./src/sdl-command.ts"
+    "./sdl-command": "./src/sdl-command.ts",
+    "./sdl/commands/exec-download-feedback": "./src/sdl/commands/exec-download-feedback.ts",
+    "./sdl/commands/exec-map-branch-prs": "./src/sdl/commands/exec-map-branch-prs.ts",
+    "./sdl/commands/exec-pr-details": "./src/sdl/commands/exec-pr-details.ts",
+    "./sdl/commands/exec-branch-pr": "./src/sdl/commands/exec-branch-pr.ts",
+    "./sdl/commands/exec-open-prs": "./src/sdl/commands/exec-open-prs.ts",
+    "./sdl/commands/exec-pr-reviews": "./src/sdl/commands/exec-pr-reviews.ts",
+    "./sdl/commands/exec-pr-review-threads": "./src/sdl/commands/exec-pr-review-threads.ts",
+    "./sdl/commands/exec-pr-discussion-comments": "./src/sdl/commands/exec-pr-discussion-comments.ts",
+    "./sdl/commands/exec-pr-checks": "./src/sdl/commands/exec-pr-checks.ts",
+    "./sdl/commands/exec-reply-review-thread": "./src/sdl/commands/exec-reply-review-thread.ts",
+    "./sdl/commands/exec-resolve-review-thread": "./src/sdl/commands/exec-resolve-review-thread.ts",
+    "./sdl/commands/exec-close-review-threads": "./src/sdl/commands/exec-close-review-threads.ts",
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

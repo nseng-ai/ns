@@ -84,6 +84,9 @@ importers:
       '@sdl/address':
         specifier: workspace:*
         version: link:packages/address
+      '@sdl/aretro':
+        specifier: workspace:*
+        version: link:packages/aretro
       '@sdl/branch-context':
         specifier: workspace:*
         version: link:packages/branch-context
@@ -111,12 +114,18 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:packages/infra/graphite
+      '@sdl/handoff':
+        specifier: workspace:*
+        version: link:packages/handoff
       '@sdl/handoff-pi':
         specifier: workspace:*
         version: link:packages/capability-pi/handoff
       '@sdl/kernel':
         specifier: workspace:*
         version: link:packages/kernel
+      '@sdl/objective':
+        specifier: workspace:*
+        version: link:packages/objective
       '@sdl/objective-pi':
         specifier: workspace:*
         version: link:packages/capability-pi/objective

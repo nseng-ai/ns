@@ -48,7 +48,10 @@
     "sdlcc": "workspace:*",
     "syncpack": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@sdl/aretro": "workspace:*",
+    "@sdl/handoff": "workspace:*",
+    "@sdl/objective": "workspace:*"
   },
   "workspaces": [
     "packages/*",

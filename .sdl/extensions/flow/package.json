@@ -20,7 +20,7 @@
       },
       {
         "name": "branch-latest-commit",
-        "description": "Move the latest eligible commit to a new Graphite child branch.",
+        "description": "Move the latest eligible commit to a new Graphite branch.",
         "entry": "./src/commands/branch-latest-commit.ts"
       },
       {
@@ -30,17 +30,17 @@
       },
       {
         "name": "submit",
-        "description": "Checkpoint outstanding changes, then submit the current Graphite stack.",
+        "description": "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
         "entry": "./src/commands/submit.ts"
       },
       {
         "name": "regenerate-pr",
-        "description": "Regenerate the current branch PR title and description.",
+        "description": "Regenerate the PR title and SDL-managed body region.",
         "entry": "./src/commands/regenerate-pr.ts"
       },
       {
         "name": "push",
-        "description": "Push already-committed work on the current branch with git push.",
+        "description": "Push committed work on the current branch with git push.",
         "entry": "./src/commands/push.ts"
       },
       {

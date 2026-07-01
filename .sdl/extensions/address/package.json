@@ -5,63 +5,63 @@
 		"commands": [
 			{
 				"name": "exec-download-feedback",
-				"description": "Run Address download-feedback operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Download current PR feedback as an LM-ready Markdown triage prompt.",
+				"entry": "./src/commands/exec-download-feedback.ts"
 			},
 			{
 				"name": "exec-map-branch-prs",
-				"description": "Run Address map-branch-prs operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Map local branches to open PRs.",
+				"entry": "./src/commands/exec-map-branch-prs.ts"
 			},
 			{
 				"name": "exec-pr-details",
-				"description": "Run Address pr-details operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return structured details for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-details.ts"
 			},
 			{
 				"name": "exec-branch-pr",
-				"description": "Run Address branch-pr operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return the open GitHub PR for a branch.",
+				"entry": "./src/commands/exec-branch-pr.ts"
 			},
 			{
 				"name": "exec-open-prs",
-				"description": "Run Address open-prs operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "List open GitHub PRs.",
+				"entry": "./src/commands/exec-open-prs.ts"
 			},
 			{
 				"name": "exec-pr-reviews",
-				"description": "Run Address pr-reviews operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return PR-level review bodies for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-reviews.ts"
 			},
 			{
 				"name": "exec-pr-review-threads",
-				"description": "Run Address pr-review-threads operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return hydrated review threads for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-review-threads.ts"
 			},
 			{
 				"name": "exec-pr-discussion-comments",
-				"description": "Run Address pr-discussion-comments operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return PR discussion comments for one GitHub PR.",
+				"entry": "./src/commands/exec-pr-discussion-comments.ts"
 			},
 			{
 				"name": "exec-pr-checks",
-				"description": "Run Address pr-checks operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Return normalized GitHub PR checks for one PR or the current branch PR.",
+				"entry": "./src/commands/exec-pr-checks.ts"
 			},
 			{
 				"name": "exec-reply-review-thread",
-				"description": "Run Address reply-review-thread operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Reply to one GitHub PR review thread.",
+				"entry": "./src/commands/exec-reply-review-thread.ts"
 			},
 			{
 				"name": "exec-resolve-review-thread",
-				"description": "Run Address resolve-review-thread operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Resolve one GitHub PR review thread.",
+				"entry": "./src/commands/exec-resolve-review-thread.ts"
 			},
 			{
 				"name": "exec-close-review-threads",
-				"description": "Run Address close-review-threads operation.",
-				"entry": "./src/commands/exec.ts"
+				"description": "Reply to and/or resolve GitHub PR review threads in bulk.",
+				"entry": "./src/commands/exec-close-review-threads.ts"
 			}
 		]
 	}

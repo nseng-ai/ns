@@ -10,7 +10,8 @@
     "./sdl/commands/delete": "./src/sdl/commands/delete.ts",
     "./sdl/commands/gc": "./src/sdl/commands/gc.ts",
     "./sdl/commands/create": "./src/sdl/commands/create.ts",
-    "./sdl/commands/pickup": "./src/sdl/commands/pickup.ts"
+    "./sdl/commands/pickup": "./src/sdl/commands/pickup.ts",
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

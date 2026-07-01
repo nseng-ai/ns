@@ -82,21 +82,31 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
-	const branchContextExtensionModule = await jiti.import<
-		typeof import("@sdl/branch-context/extension")
-	>("@sdl/branch-context/extension");
-	const branchContextCommands = branchContextExtensionModule.default.commands;
-	if (branchContextCommands === undefined) {
-		throw new Error("Expected branch-context extension to define commands.");
-	}
-	expect(branchContextCommands.map((command) => command.name)).toEqual([
-		"from-plan",
-		"load",
-		"attach",
-		"list",
-		"check",
-		"delete",
+	const addressDownloadFeedbackModule = await jiti.import<{
+		default: { commands?: readonly { name: string }[] };
+	}>("@sdl/address/sdl/commands/exec-download-feedback");
+	expect(addressDownloadFeedbackModule.default.commands?.map((command) => command.name)).toEqual([
+		"exec-download-feedback",
 	]);
+
+	const aretroCollectEvidenceModule = await jiti.import<{
+		aretroExecCollectEvidenceSdlCommand: { name: string };
+	}>("@sdl/aretro/sdl/commands/exec-collect-evidence");
+	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceSdlCommand.name).toBe(
+		"exec-collect-evidence",
+	);
+
+	const branchContextFromPlanModule = await jiti.import<{
+		default: { commands?: readonly { name: string }[] };
+	}>("@sdl/branch-context/sdl/commands/from-plan");
+	expect(branchContextFromPlanModule.default.commands?.map((command) => command.name)).toEqual([
+		"from-plan",
+	]);
+
+	const handoffListModule = await jiti.import<{
+		handoffListSdlCommand: { name: string };
+	}>("@sdl/handoff/sdl/commands/list");
+	expect(handoffListModule.handoffListSdlCommand.name).toBe("list");
 
 	const objectiveListModule = await jiti.import<{
 		objectiveListSdlCommand: { name: string };

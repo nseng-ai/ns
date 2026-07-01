@@ -5,14 +5,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./extension": "./src/extension.ts",
     "./sdl/commands/attach": "./src/sdl/commands/attach.ts",
     "./sdl/commands/check": "./src/sdl/commands/check.ts",
     "./sdl/commands/delete": "./src/sdl/commands/delete.ts",
     "./sdl/commands/from-plan": "./src/sdl/commands/from-plan.ts",
     "./sdl/commands/list": "./src/sdl/commands/list.ts",
     "./sdl/commands/load": "./src/sdl/commands/load.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

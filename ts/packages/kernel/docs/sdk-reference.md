@@ -87,6 +87,54 @@ export default defineExtension({});
 
 ---
 
+## Repo-local extension descriptors
+
+### `repoLocalSdlCommandDescriptor()`
+
+Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.sdl/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
+
+```ts
+function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
+```
+
+Repo-local first-party extensions in this repository use this command-leaf pattern:
+
+1. The implementation package owns a `src/repo-local-sdl-extension.ts` descriptor.
+2. Each public command module exports its named `SdlCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
+3. `.sdl/extensions/<group>/package.json` lists one manifest command entry per command leaf.
+4. `.sdl/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
+
+Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
+
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@sdl/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
+
+```ts
+import { repoLocalSdlCommandDescriptor } from "sdl-sdk";
+
+const descriptor = repoLocalSdlCommandDescriptor({
+  command: attachCommand,
+  manifestPath: ["exec", "attach"],
+  packageExportPrefix: "@sdl/branch-context/sdl/commands",
+});
+// manifestEntry: "./src/commands/attach.ts"
+// packageExport: "@sdl/branch-context/sdl/commands/attach"
+
+const routeEncodedDescriptor = repoLocalSdlCommandDescriptor({
+  command: reviewListCommand,
+  manifestName: "review-list",
+  manifestPath: ["review", "list"],
+  packageExportPrefix: "@sdl/roaster/commands",
+});
+// manifestEntry: "./src/commands/review-list.ts"
+// packageExport: "@sdl/roaster/commands/review-list"
+```
+
+### `defineRepoLocalSdlExtensionDescriptor()`
+
+Declares the package-owned descriptor that parity tests compare against a checked-in repo-local extension manifest. It returns its argument unchanged.
+
+---
+
 ## Commands
 
 ### `SdlCommand`

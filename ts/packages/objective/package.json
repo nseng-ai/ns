@@ -12,7 +12,8 @@
     "./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
     "./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
     "./sdl/commands/exec-tracking-gate": "./src/sdl/commands/exec-tracking-gate.ts",
-    "./sdl/commands/list": "./src/sdl/commands/list.ts"
+    "./sdl/commands/list": "./src/sdl/commands/list.ts",
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"
