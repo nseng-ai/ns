@@ -80,10 +80,10 @@ interface SdlCliExtensionRegistryDeps {
 
 export interface SdlCliDeps {
 	context?: SdlExtensionApi | undefined;
-	cwd?: string | undefined;
+	cwd?: string;
 	homeDir?: string | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
 	confirm?: SdlConfirmPrompt | undefined;
 	env?: Record<string, string | undefined> | undefined;
