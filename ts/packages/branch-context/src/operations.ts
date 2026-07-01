@@ -343,9 +343,10 @@ function branchContextExitFromError(
 	if (error instanceof AttachBranchContextUsageError) {
 		return usageError(error.message, { code: error.code });
 	}
+	const classification = classifyBranchContextError(error);
 	return failure(branchContextErrorType(operation), formatErrorMessage(error), {
-		code: branchContextErrorCode(error),
-		...branchContextErrorData(error),
+		code: classification.code,
+		...classification.data,
 	});
 }
 
@@ -366,54 +367,64 @@ function branchContextErrorType(operation: BranchContextOperation): string {
 	}
 }
 
-function branchContextErrorCode(error: unknown): string {
-	if (error instanceof NoAttachedBranchContextEntriesError) return "no-attached-entries";
-	if (error instanceof AmbiguousBranchContextPlanEntryError) return "ambiguous-attached-plan";
-	if (error instanceof UnsupportedBranchContextPlanKeyError) {
-		return "unsupported-attached-plan-key";
-	}
-	if (error instanceof NoSupportedBranchContextPlanEntriesError) {
-		return "no-supported-attached-plans";
-	}
-	if (error instanceof RequestedBranchContextPlanKeyNotFoundError) {
-		return "attached-plan-key-not-found";
-	}
-	if (error instanceof SavedPlanFallbackLoadError) return "fallback-resolution-failed";
-	if (error instanceof BranchContextNamespaceInvalidError) return error.code;
-	if (error instanceof AttachBranchContextError) return normalizeErrorCode(error.code);
-	return "unexpected-error";
+interface BranchContextErrorClassification {
+	code: string;
+	data: Record<string, unknown>;
 }
 
-function branchContextErrorData(error: unknown): Record<string, unknown> {
-	if (error instanceof NoAttachedBranchContextEntriesError) return { branch: error.branch };
+function classifyBranchContextError(error: unknown): BranchContextErrorClassification {
+	if (error instanceof NoAttachedBranchContextEntriesError) {
+		return { code: "no-attached-entries", data: { branch: error.branch } };
+	}
 	if (error instanceof AmbiguousBranchContextPlanEntryError) {
-		return { branch: error.branch, availableKeys: error.availableKeys };
+		return {
+			code: "ambiguous-attached-plan",
+			data: { branch: error.branch, availableKeys: error.availableKeys },
+		};
 	}
 	if (error instanceof UnsupportedBranchContextPlanKeyError) {
-		return { branch: error.branch, key: error.key };
+		return {
+			code: "unsupported-attached-plan-key",
+			data: { branch: error.branch, key: error.key },
+		};
 	}
 	if (error instanceof NoSupportedBranchContextPlanEntriesError) {
-		return { branch: error.branch, availableKeys: error.availableKeys };
+		return {
+			code: "no-supported-attached-plans",
+			data: { branch: error.branch, availableKeys: error.availableKeys },
+		};
 	}
 	if (error instanceof RequestedBranchContextPlanKeyNotFoundError) {
 		return {
-			branch: error.branch,
-			key: error.key,
-			availableKeys: error.availableKeys,
-			supportedKeys: error.supportedKeys,
+			code: "attached-plan-key-not-found",
+			data: {
+				branch: error.branch,
+				key: error.key,
+				availableKeys: error.availableKeys,
+				supportedKeys: error.supportedKeys,
+			},
 		};
 	}
 	if (error instanceof SavedPlanFallbackLoadError) {
 		return {
-			branch: error.branch,
-			attachedMessage: error.attachedMessage,
-			fallbackMessage: error.fallbackMessage,
+			code: "fallback-resolution-failed",
+			data: {
+				branch: error.branch,
+				attachedMessage: error.attachedMessage,
+				fallbackMessage: error.fallbackMessage,
+			},
 		};
 	}
 	if (error instanceof BranchContextNamespaceInvalidError) {
-		return { branch: error.branch, unsupportedKeys: error.unsupportedKeys };
+		return {
+			code: error.code,
+			data: { branch: error.branch, unsupportedKeys: error.unsupportedKeys },
+		};
 	}
-	return {};
+	if (error instanceof AttachBranchContextError) {
+		return { code: normalizeErrorCode(error.code), data: {} };
+	}
+	return { code: "unexpected-error", data: {} };
 }
 
 function normalizeErrorCode(code: string): string {

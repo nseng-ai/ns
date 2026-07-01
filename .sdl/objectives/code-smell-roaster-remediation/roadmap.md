@@ -17,7 +17,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
 - [ ] **ccc** — 4 findings (1 high / 3 medium / 0 low). See `references/ccc.md`.
 - [ ] **handoff** — 4 findings (0 high / 2 medium / 2 low). See `references/handoff.md`.
-- [ ] **branch-context** — 3 findings (1 high / 2 medium / 0 low). See `references/branch-context.md`.
+- [x] **branch-context** — 3 findings (1 high / 2 medium / 0 low). See `references/branch-context.md`.
+  - fixed: Repeated Switches in branch-context CLI error exits; `classifyBranchContextError` now owns each known error's code and data payload together, so the failure mapper no longer maintains parallel class cascades.
+  - fixed: Duplicated Brmem result unwrap handling; `throwBranchContextBrmemError` and `unwrapBranchContextBrmemResult` centralize branch-context Brmem error throwing for attach/list/delete/load paths without changing existing messages.
+  - fixed: Duplicated fake put/create cache updates; `InMemoryBranchMemoryGateway.recordEntryWriteResult` now owns the branch-context namespace cache synchronization shared by `putEntry` and `createEntry`.
+  - validation: `pnpm --dir ts --filter @sdl/branch-context run check`, `pnpm --dir ts --filter @sdl/branch-context run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [ ] **cmux** — 3 findings (1 high / 2 medium / 0 low). See `references/cmux.md`.
 - [ ] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.

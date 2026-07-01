@@ -146,46 +146,30 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		return await this.fake.checkEntry(options);
 	}
 
-	async putEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>> {
+	async putEntry(options: BrmemPutCall): Promise<BrmemResult<PutEntryResult>> {
 		this.putEntryCalls.push({ ...options });
 		const result = await this.fake.putEntry(options);
-		if (result.type === "ok" && options.namespace === BRANCH_CONTEXT_NAMESPACE) {
-			this.entries.set(entryKey(options.branch, options.key), {
-				branch: options.branch,
-				key: options.key,
-				content: options.content,
-				refName: result.value.entry.entryLocator,
-				commit: result.value.commitSha,
-				sourceFile: "",
-			});
-		}
+		this.recordEntryWriteResult(options, result);
 		return result;
 	}
 
-	async createEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>> {
+	async createEntry(options: BrmemPutCall): Promise<BrmemResult<PutEntryResult>> {
 		this.putEntryCalls.push({ ...options });
 		const result = await this.fake.createEntry(options);
-		if (result.type === "ok" && options.namespace === BRANCH_CONTEXT_NAMESPACE) {
-			this.entries.set(entryKey(options.branch, options.key), {
-				branch: options.branch,
-				key: options.key,
-				content: options.content,
-				refName: result.value.entry.entryLocator,
-				commit: result.value.commitSha,
-				sourceFile: "",
-			});
-		}
+		this.recordEntryWriteResult(options, result);
 		return result;
+	}
+
+	private recordEntryWriteResult(options: BrmemPutCall, result: BrmemResult<PutEntryResult>): void {
+		if (result.type !== "ok" || options.namespace !== BRANCH_CONTEXT_NAMESPACE) return;
+		this.entries.set(entryKey(options.branch, options.key), {
+			branch: options.branch,
+			key: options.key,
+			content: options.content,
+			refName: result.value.entry.entryLocator,
+			commit: result.value.commitSha,
+			sourceFile: "",
+		});
 	}
 
 	async deleteEntry(options: {

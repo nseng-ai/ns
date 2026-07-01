@@ -8,6 +8,7 @@ import {
 	getBranchContextPlan,
 	listBranchContextPlans,
 	type AttachedPlanEntry,
+	unwrapBranchContextBrmemResult,
 } from "./branch-memory.ts";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -215,12 +216,9 @@ export async function loadAttachedPlan(
 		options.cwd,
 		options.signal,
 	);
-	const list = await listBranchContextPlans(options.context.brmem, { branch });
-	if (!list.ok) {
-		throw new Error(list.error.message);
-	}
-
-	const entries = list.value;
+	const entries = unwrapBranchContextBrmemResult(
+		await listBranchContextPlans(options.context.brmem, { branch }),
+	);
 	if (entries.length === 0) {
 		throw new NoAttachedBranchContextEntriesError(branch);
 	}
@@ -230,15 +228,12 @@ export async function loadAttachedPlan(
 			? { branch, entries }
 			: { branch, requestedKey: params.requestedKey, entries };
 	const selectedKey = selectAttachedPlanKey(selectionInput);
-	const get = await getBranchContextPlan(options.context.brmem, {
-		branch,
-		key: selectedKey,
-	});
-	if (!get.ok) {
-		throw new Error(get.error.message);
-	}
-
-	const data = get.value;
+	const data = unwrapBranchContextBrmemResult(
+		await getBranchContextPlan(options.context.brmem, {
+			branch,
+			key: selectedKey,
+		}),
+	);
 	const availableKeys = sortedUniqueKeys(entries);
 	return {
 		branch,

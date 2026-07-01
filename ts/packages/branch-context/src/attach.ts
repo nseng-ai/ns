@@ -12,8 +12,10 @@ import {
 	checkBranchContextEntryPresence,
 	deleteBranchContextPlan,
 	listBranchContextPlans,
+	throwBranchContextBrmemError,
 	type AttachedPlanEntry,
 	type BranchContextAttachData,
+	unwrapBranchContextBrmemResult,
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@sdl/brmem";
@@ -106,9 +108,10 @@ export async function listBranchContextEntries(
 	options: BranchContextPrimitiveOptions,
 ): Promise<BranchContextListEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
-	const list = await listBranchContextPlans(context.brmem, { branch: context.branch });
-	if (!list.ok) throw new Error(list.error.message);
-	return { branch: context.branch, entries: list.value };
+	const entries = unwrapBranchContextBrmemResult(
+		await listBranchContextPlans(context.brmem, { branch: context.branch }),
+	);
+	return { branch: context.branch, entries };
 }
 
 export async function checkBranchContextEntry(
@@ -121,7 +124,7 @@ export async function checkBranchContextEntry(
 		branch: context.branch,
 		key,
 	});
-	if (presence.type === "error") throw new Error(presence.error.message);
+	if (presence.type === "error") throwBranchContextBrmemError(presence.error);
 	return {
 		branch: context.branch,
 		namespace: BRANCH_CONTEXT_NAMESPACE,
@@ -136,11 +139,12 @@ export async function deleteBranchContextEntry(
 ): Promise<BranchContextDeleteEvidence> {
 	const context = await resolveBranchContextPrimitiveResolution(options, params.branch);
 	const key = normalizeRequestedBranchContextKey(params.key);
-	const deleted = await deleteBranchContextPlan(context.brmem, {
-		branch: context.branch,
-		key,
-	});
-	if (!deleted.ok) throw new Error(deleted.error.message);
+	unwrapBranchContextBrmemResult(
+		await deleteBranchContextPlan(context.brmem, {
+			branch: context.branch,
+			key,
+		}),
+	);
 	return { branch: context.branch, namespace: BRANCH_CONTEXT_NAMESPACE, key, deleted: true };
 }
 
@@ -160,7 +164,7 @@ export async function assertBrmemEntryAbsent(
 				formatDefaultBrmemEntryPresentMessage(targetBranch, key),
 		);
 	}
-	throw new Error(check.error.message);
+	throwBranchContextBrmemError(check.error);
 }
 
 function formatDefaultBrmemEntryPresentMessage(targetBranch: string, key: string): string {
@@ -381,9 +385,7 @@ async function listBranchContextNamespace(
 	brmem: BrmemGateway,
 	branch: string,
 ): Promise<AttachedPlanEntry[]> {
-	const list = await listBranchContextPlans(brmem, { branch });
-	if (!list.ok) throw new Error(list.error.message);
-	return list.value;
+	return unwrapBranchContextBrmemResult(await listBranchContextPlans(brmem, { branch }));
 }
 
 function assertBranchContextNamespaceSupported(
