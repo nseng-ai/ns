@@ -132,7 +132,7 @@ export async function applyProjectMutationPlan(
 	let firstPreflightError: AregErrorInfo | undefined;
 
 	for (const operation of operations) {
-		const result = await preflightOperation(request, operation);
+		const result = await operationHandler(operation).preflight(request, operation);
 		if (result.ok) {
 			preflightStatuses.push(operationStatus(operation, "not-attempted"));
 			continue;
@@ -160,7 +160,7 @@ export async function applyProjectMutationPlan(
 	for (let index = 0; index < operations.length; index += 1) {
 		const operation = operations[index];
 		if (operation === undefined) continue;
-		const result = await applyOperation(request, operation);
+		const result = await operationHandler(operation).apply(request, operation);
 		if (!result.ok) {
 			operationStatuses.push(operationStatus(operation, "failed", result.error));
 			for (const remaining of operations.slice(index + 1))
@@ -174,7 +174,7 @@ export async function applyProjectMutationPlan(
 				operationStatuses,
 			};
 		}
-		const status = recordAppliedOperation(
+		const status = operationHandler(operation).recordSuccess(
 			{ writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths },
 			operation,
 			result,
@@ -308,28 +308,6 @@ const PROJECT_MUTATION_OPERATION_HANDLERS = {
 		Extract<ProjectMutationOperation, { type: OperationType }>
 	>;
 };
-
-async function preflightOperation(
-	request: ApplyProjectMutationPlanRequest,
-	operation: ProjectMutationOperation,
-): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }> {
-	return await operationHandler(operation).preflight(request, operation);
-}
-
-async function applyOperation(
-	request: ApplyProjectMutationPlanRequest,
-	operation: ProjectMutationOperation,
-): Promise<ProjectMutationOperationResult> {
-	return await operationHandler(operation).apply(request, operation);
-}
-
-function recordAppliedOperation(
-	paths: AppliedProjectMutationPaths,
-	operation: ProjectMutationOperation,
-	result: Extract<ProjectMutationOperationResult, { ok: true }>,
-): ProjectMutationOperationStatus {
-	return operationHandler(operation).recordSuccess(paths, operation, result);
-}
 
 function operationHandler<Operation extends ProjectMutationOperation>(
 	operation: Operation,
