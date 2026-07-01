@@ -10,13 +10,12 @@ import {
 
 function capsEnv(parts: {
 	isTty?: boolean;
-	columns?: number;
-	columnsKnown?: boolean;
+	columns?: number | "unknown";
 	env?: Record<string, string | undefined>;
 }): CapsEnv {
 	return {
 		isTty: parts.isTty ?? true,
-		columns: parts.columnsKnown === false ? undefined : (parts.columns ?? 80),
+		columns: parts.columns === "unknown" ? undefined : (parts.columns ?? 80),
 		env: parts.env ?? {},
 	};
 }
@@ -97,7 +96,7 @@ describe("resolveCaps columns", () => {
 	});
 
 	test("columns fall back to the default when unknown", () => {
-		expect(resolveCaps(capsEnv({ columnsKnown: false })).columns).toBe(DEFAULT_COLUMNS);
+		expect(resolveCaps(capsEnv({ columns: "unknown" })).columns).toBe(DEFAULT_COLUMNS);
 	});
 });
 

@@ -1,6 +1,6 @@
 import type { Component } from "@earendil-works/pi-tui";
 import type {
-	BranchContextContext,
+	BranchContextContextFactory,
 	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
@@ -69,7 +69,7 @@ export interface BranchContextExtensionOptions {
 	branchContextPrefix?: string;
 	planStoreRoot?: string;
 	branchContextOperations?: BranchContextOperations;
-	createBranchContextContext?: (pi: ExtensionAPI, cwd: string) => BranchContextContext;
+	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
 }
 
 export interface ToolContext {

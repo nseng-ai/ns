@@ -22,6 +22,8 @@ export {
 	createBranchContextContext,
 	createRealBranchContextContext,
 	type BranchContextContext,
+	type BranchContextContextFactory,
+	type BranchContextContextOptions,
 } from "./context.ts";
 export {
 	formatExistingBranchContextReuse,
