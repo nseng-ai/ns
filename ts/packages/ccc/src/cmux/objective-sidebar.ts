@@ -1,7 +1,10 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
 import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@sdl/core/command";
-import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
+import {
+	parseMachineEnvelopeData,
+	type MachineEnvelopeDataParseValid,
+} from "@sdl/core/machine-envelope";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ExtensionAPI } from "@sdl/cmux/types";
 
@@ -93,37 +96,16 @@ export async function validateObjectiveSidebarSlug(
 	cwd: string,
 	slug: string,
 ): Promise<ObjectiveSidebarValidationResult> {
-	const args = ["objective", "exec", "read-objective", slug, "--format", "json"];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("sdl", args, { cwd, timeout: OBJECTIVE_READ_TIMEOUT_MS });
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure("Could not read Objective.", "sdl", args, error),
-		};
-	}
-
-	const commandDisplay = formatCommand("sdl", args);
-	if (result.killed || result.code !== 0) {
-		return {
-			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure(
-				"Could not read Objective.",
-				commandDisplay,
-				result,
-				"objective read JSON",
-			),
-		};
-	}
-
-	const parsed = parseMachineEnvelopeData(result.stdout, {
+	const parsed = await runJsonExecCommand({
+		pi,
+		cwd,
+		command: "sdl",
+		args: ["objective", "exec", "read-objective", slug, "--format", "json"],
+		timeoutMs: OBJECTIVE_READ_TIMEOUT_MS,
+		summary: "Could not read Objective.",
 		label: "objective read JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 	});
-	if (parsed.type !== "valid") {
-		return { type: "failed", message: parsed.message };
-	}
+	if (parsed.type === "failed") return parsed;
 
 	return parseObjectiveSidebarValidation(parsed.data, slug);
 }
@@ -188,46 +170,25 @@ export async function applyObjectiveSidebarFields(
 	cwd: string,
 	fields: SidebarFields,
 ): Promise<ObjectiveSidebarApplyResult> {
-	const args = [
-		"exec",
-		"cmux-workspace-summary",
-		"--title",
-		fields.title,
-		"--description",
-		fields.description,
-		"--format",
-		"json",
-	];
-	let result: ExecResult;
-	try {
-		result = await pi.exec("ccc", args, { cwd, timeout: CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS });
-	} catch (error) {
-		return {
-			type: "failed",
-			message: formatStartupFailure("Could not apply cmux Objective sidebar.", "ccc", args, error),
-		};
-	}
-
-	const commandDisplay = formatCommand("ccc", args);
-	if (result.killed || result.code !== 0) {
-		return {
-			type: "failed",
-			message: formatFailedEnvelopeOrExecFailure(
-				"Could not apply cmux Objective sidebar.",
-				commandDisplay,
-				result,
-				"cmux workspace summary JSON",
-			),
-		};
-	}
-
-	const parsed = parseMachineEnvelopeData(result.stdout, {
+	const parsed = await runJsonExecCommand({
+		pi,
+		cwd,
+		command: "ccc",
+		args: [
+			"exec",
+			"cmux-workspace-summary",
+			"--title",
+			fields.title,
+			"--description",
+			fields.description,
+			"--format",
+			"json",
+		],
+		timeoutMs: CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS,
+		summary: "Could not apply cmux Objective sidebar.",
 		label: "cmux workspace summary JSON",
-		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 	});
-	if (parsed.type !== "valid") {
-		return { type: "failed", message: parsed.message };
-	}
+	if (parsed.type === "failed") return parsed;
 
 	if (parsed.data.success !== true) {
 		return {
@@ -237,6 +198,50 @@ export async function applyObjectiveSidebarFields(
 	}
 
 	return { type: "applied" };
+}
+
+async function runJsonExecCommand(options: {
+	pi: Pick<ExtensionAPI, "exec">;
+	cwd: string;
+	command: string;
+	args: string[];
+	timeoutMs: number;
+	summary: string;
+	label: string;
+}): Promise<MachineEnvelopeDataParseValid | { type: "failed"; message: string }> {
+	let result: ExecResult;
+	try {
+		result = await options.pi.exec(options.command, options.args, {
+			cwd: options.cwd,
+			timeout: options.timeoutMs,
+		});
+	} catch (error) {
+		return {
+			type: "failed",
+			message: formatStartupFailure(options.summary, options.command, options.args, error),
+		};
+	}
+
+	const commandDisplay = formatCommand(options.command, options.args);
+	if (result.killed || result.code !== 0) {
+		return {
+			type: "failed",
+			message: formatFailedEnvelopeOrExecFailure(
+				options.summary,
+				commandDisplay,
+				result,
+				options.label,
+			),
+		};
+	}
+
+	const parsed = parseMachineEnvelopeData(result.stdout, {
+		label: options.label,
+		stdoutTail: { maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+	});
+	if (parsed.type !== "valid") return { type: "failed", message: parsed.message };
+
+	return parsed;
 }
 
 function resolveAbsoluteObjectiveSelector(

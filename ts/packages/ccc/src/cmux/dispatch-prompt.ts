@@ -28,7 +28,7 @@ import { getPiLaunchOptions, type PiLaunchOptions } from "@sdl/cmux/pi-launch";
 import type { TextResult } from "@sdl/core/primitives";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
-import type { SlotClient } from "@sdl/slot/api";
+import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
@@ -101,13 +101,36 @@ export async function handleCccSlotDispatchPrompt(
 		return;
 	}
 
+	await dispatchTrackedBranchPrompt({
+		pi,
+		ctx,
+		branch,
+		content: buildLaunchPrompt(prompt),
+		description: `dispatch-prompt from ${branch.parentBranch}`,
+		payloadOptions,
+		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		notifyProgress: options.notifyProgress,
+	});
+}
+
+export async function dispatchTrackedBranchPrompt(options: {
+	pi: Pick<ExtensionAPI, "exec" | "getThinkingLevel">;
+	ctx: CommandContext;
+	branch: BranchCreateResult;
+	content: string;
+	description: string;
+	payloadOptions: ResolvedDispatchPromptPayloadOptions;
+	slotClient?: SlotClient;
+	notifyProgress: (message: string) => void;
+}): Promise<void> {
+	const { pi, ctx, branch } = options;
 	options.notifyProgress("Storing dispatch prompt in Branch Memory…");
 	const stored = await storeDispatchPromptPayload({
 		pi,
 		cwd: ctx.cwd,
 		branchName: branch.branchName,
-		content: buildLaunchPrompt(prompt),
-		payloadOptions,
+		content: options.content,
+		payloadOptions: options.payloadOptions,
 	});
 	if (!stored.ok) {
 		ctx.ui.notify(formatDispatchPromptStorageFailure(branch.branchName, stored.error), "error");
@@ -115,26 +138,30 @@ export async function handleCccSlotDispatchPrompt(
 	}
 
 	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openBranchInCmuxSlot({
+	await openBranchInCmuxSlot({
 		pi,
 		cwd: ctx.cwd,
 		branchName: branch.branchName,
 		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
-		description: `dispatch-prompt from ${branch.parentBranch}`,
+		description: options.description,
 		slotClient: options.slotClient ?? createCccSlotClient({ cwd: ctx.cwd }),
 		notify: (message, level) => ctx.ui.notify(message, level),
-		successMessage: (target) =>
-			[
-				`Opened cmux workspace: ${target.branchName}`,
-				`Parent: ${branch.parentBranch}`,
-				`Start point: ${branch.startPoint}`,
-				`Dispatch payload: ${stored.value.namespace}/${stored.value.key}`,
-				`Entry Locator: ${stored.value.refName}`,
-			].join("\n"),
+		successMessage: (target) => formatDispatchPromptSuccessMessage(target, branch, stored.value),
 	});
-	if ("error" in launched) {
-		return;
-	}
+}
+
+function formatDispatchPromptSuccessMessage(
+	target: SlotCheckoutTarget,
+	branch: BranchCreateResult,
+	stored: StoredDispatchPromptPayload,
+): string {
+	return [
+		`Opened cmux workspace: ${target.branchName}`,
+		`Parent: ${branch.parentBranch}`,
+		`Start point: ${branch.startPoint}`,
+		`Dispatch payload: ${stored.namespace}/${stored.key}`,
+		`Entry Locator: ${stored.refName}`,
+	].join("\n");
 }
 
 export async function createTrackedBranchForPrompt(

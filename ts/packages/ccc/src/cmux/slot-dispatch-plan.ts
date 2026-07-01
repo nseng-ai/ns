@@ -49,10 +49,6 @@ interface CommandArgs {
 	shouldShowHelp: boolean;
 }
 
-interface CurrentCheckout {
-	directory: PlanStoreDirectoryEvidence;
-}
-
 interface HandleCommandOptions {
 	pi: ExtensionAPI;
 	rawArgs: string;
@@ -66,7 +62,7 @@ interface HandleCommandOptions {
 interface AttachSlotAndLaunchOptions {
 	pi: ExtensionAPI;
 	ctx: CommandContext;
-	checkout: CurrentCheckout;
+	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
 	config: DispatchPlanConfig;
 	options: CccSlotDispatchPlanOptions;
@@ -76,7 +72,7 @@ interface AttachSlotAndLaunchOptions {
 
 interface FormatDryRunOptions {
 	plan: ValidatedSessionSavedPlan;
-	checkout: CurrentCheckout;
+	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
@@ -134,7 +130,7 @@ export async function handleCccSlotDispatchPlan({
 			return;
 		}
 
-		const selected = await resolveLatestSavedPlanFromSession(ctx, checkout.directory);
+		const selected = await resolveLatestSavedPlanFromSession(ctx, checkout);
 		if ("error" in selected) {
 			present(ctx, selected.error, "error");
 			return;
@@ -144,7 +140,7 @@ export async function handleCccSlotDispatchPlan({
 		setStatus(ctx, config, "deriving branch-context slug…");
 		const slugEvidence = await derivePlanContentSlug(pi, {
 			filePath: selectedPlan.filePath,
-			cwd: checkout.directory.repoRoot,
+			cwd: checkout.repoRoot,
 		});
 		const operation = buildBranchContextCreateOperation({
 			slug: slugEvidence.slug,
@@ -155,12 +151,12 @@ export async function handleCccSlotDispatchPlan({
 		if (parsed.isDryRun) {
 			const launchOptions = getPiLaunchOptions(pi, ctx);
 			const previewContext = await resolveBranchContextCreatePreviewContext(pi, {
-				cwd: checkout.directory.repoRoot,
-				context: dispatchBranchContextContext(pi, checkout.directory.repoRoot, options),
+				cwd: checkout.repoRoot,
+				context: dispatchBranchContextContext(pi, checkout.repoRoot, options),
 			});
 			const branchContextPreview = formatBranchContextCreatePreview(operation, {
 				...previewContext,
-				graphiteParentBranch: checkout.directory.sourceBranch,
+				graphiteParentBranch: checkout.sourceBranch,
 			});
 			presentBranchContextMessage(
 				pi,
@@ -257,7 +253,7 @@ async function resolveCurrentCheckout(
 	pi: ExtensionAPI,
 	cwd: string,
 	options: CccSlotDispatchPlanOptions,
-): Promise<CurrentCheckout | { error: string }> {
+): Promise<PlanStoreDirectoryEvidence | { error: string }> {
 	let directory: PlanStoreDirectoryEvidence;
 	try {
 		directory = await resolvePlanStoreDirectory(pi, {
@@ -270,7 +266,7 @@ async function resolveCurrentCheckout(
 		};
 	}
 
-	return { directory };
+	return directory;
 }
 
 async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): Promise<void> {
@@ -280,8 +276,8 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	let evidence: BranchContextEvidence;
 	try {
 		evidence = await createBranchContextFromFile(pi, operation.params, {
-			cwd: checkout.directory.repoRoot,
-			context: dispatchBranchContextContext(pi, checkout.directory.repoRoot, options.options),
+			cwd: checkout.repoRoot,
+			context: dispatchBranchContextContext(pi, checkout.repoRoot, options.options),
 		});
 	} catch (error) {
 		present(ctx, formatCccBranchContextCreateFailure(operation, error), "error");
@@ -300,12 +296,11 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	if (config.destination === "workspace") {
 		await openBranchInCmuxSlot({
 			pi,
-			cwd: checkout.directory.repoRoot,
+			cwd: checkout.repoRoot,
 			branchName: operation.branch,
 			command: formatPiLaunchCommand(operation, launchOptions, options.formatBranchContextCommand),
-			description: `dispatch-plan from ${checkout.directory.sourceBranch}`,
-			slotClient:
-				options.options.slotClient ?? createCccSlotClient({ cwd: checkout.directory.repoRoot }),
+			description: `dispatch-plan from ${checkout.sourceBranch}`,
+			slotClient: options.options.slotClient ?? createCccSlotClient({ cwd: checkout.repoRoot }),
 			notify: (message, level) => ctx.ui.notify(message, level),
 			onStatus: (message) => setStatus(ctx, config, message),
 			successMessage: (target) =>
@@ -322,7 +317,7 @@ async function createAttachSlotAndLaunch(options: AttachSlotAndLaunchOptions): P
 	await openBranchInCmuxSurface({
 		pi,
 		ctx,
-		cwd: checkout.directory.repoRoot,
+		cwd: checkout.repoRoot,
 		branchName: operation.branch,
 		command: formatPiLaunchCommand(operation, launchOptions, options.formatBranchContextCommand),
 		tabTitle: operation.branch,
@@ -368,7 +363,7 @@ function formatDryRun(options: FormatDryRunOptions): string {
 		launchOptions,
 		options.formatBranchContextCommand,
 	);
-	const description = `dispatch-plan from ${checkout.directory.sourceBranch}`;
+	const description = `dispatch-plan from ${checkout.sourceBranch}`;
 	return [
 		`Dry run: no branch was created, no plan was attached, and no cmux ${config.destination} was opened.`,
 		"",

@@ -12,18 +12,13 @@ import {
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 
 import {
-	buildBrmemPayloadPiLaunchCommand,
 	buildLaunchPrompt,
 	createTrackedBranchFromResolvedParent,
-	formatDispatchPromptStorageFailure,
+	dispatchTrackedBranchPrompt,
 	resolveDispatchPromptPayloadOptions,
 	runText,
-	storeDispatchPromptPayload,
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
-import { getPiLaunchOptions } from "@sdl/cmux/pi-launch";
-import { openBranchInCmuxSlot } from "./slot.ts";
-import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
 
@@ -60,40 +55,16 @@ export async function handleCccSlotDispatchFromTrunk(options: {
 		return;
 	}
 
-	options.notifyProgress("Storing dispatch prompt in Branch Memory…");
-	const stored = await storeDispatchPromptPayload({
+	await dispatchTrackedBranchPrompt({
 		pi,
-		cwd: ctx.cwd,
-		branchName: branch.branchName,
+		ctx,
+		branch,
 		content: buildLaunchPrompt(prompt, TRUNK_DISPATCH_CONTEXT_NOTE),
-		payloadOptions,
-	});
-	if (!stored.ok) {
-		ctx.ui.notify(formatDispatchPromptStorageFailure(branch.branchName, stored.error), "error");
-		return;
-	}
-
-	const launchOptions = getPiLaunchOptions(pi, ctx);
-	const launched = await openBranchInCmuxSlot({
-		pi,
-		cwd: ctx.cwd,
-		branchName: branch.branchName,
-		command: buildBrmemPayloadPiLaunchCommand(branch.branchName, launchOptions),
 		description: `dispatch-from-trunk from ${branch.parentBranch}`,
-		slotClient: options.slotClient ?? createCccSlotClient({ cwd: ctx.cwd }),
-		notify: (message, level) => ctx.ui.notify(message, level),
-		successMessage: (target) =>
-			[
-				`Opened cmux workspace: ${target.branchName}`,
-				`Parent: ${branch.parentBranch}`,
-				`Start point: ${branch.startPoint}`,
-				`Dispatch payload: ${stored.value.namespace}/${stored.value.key}`,
-				`Entry Locator: ${stored.value.refName}`,
-			].join("\n"),
+		payloadOptions,
+		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		notifyProgress: options.notifyProgress,
 	});
-	if ("error" in launched) {
-		return;
-	}
 }
 
 export async function createTrackedBranchFromTrunkForPrompt(options: {
