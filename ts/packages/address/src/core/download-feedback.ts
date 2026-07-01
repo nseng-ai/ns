@@ -17,16 +17,9 @@ import {
 import { isAutomationLikeDiscussionComment } from "./feedback-summary.ts";
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { resolvePrTarget, type PrTargetResolution } from "./pr-target.ts";
+import { buildPrTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
 
-export interface DownloadFeedbackTargetPayload {
-	kind: "github-pr";
-	pr_number: number | null;
-	branch: string | null;
-	title: string | null;
-	url: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-}
+type DownloadFeedbackTargetPayload = PrTargetPayload;
 
 export interface DownloadFeedbackCountsPayload {
 	includedReviewThreads: number;
@@ -316,30 +309,18 @@ function hasNoIncludedFeedback(counts: DownloadFeedbackCountsPayload): boolean {
 }
 
 function targetFromPr(pr: GithubPrSummary, branch: string | null): DownloadFeedbackTargetPayload {
-	return {
-		kind: "github-pr",
-		pr_number: pr.number,
-		branch: branch ?? pr.headRefName,
-		title: pr.title,
-		url: pr.url,
-		head_ref_name: pr.headRefName,
-		base_ref_name: pr.baseRefName,
-	};
+	return buildPrTargetPayload({ pr, branch, fallbackBranchToHead: true });
 }
 
 function emptyTarget(options: {
 	readonly prNumber?: number;
 	readonly branch?: string;
 }): DownloadFeedbackTargetPayload {
-	return {
-		kind: "github-pr",
-		pr_number: options.prNumber ?? null,
+	return buildPrTargetPayload({
+		pr: null,
 		branch: options.branch ?? null,
-		title: null,
-		url: null,
-		head_ref_name: null,
-		base_ref_name: null,
-	};
+		...(options.prNumber === undefined ? {} : { prNumber: options.prNumber }),
+	});
 }
 
 function zeroCounts(): DownloadFeedbackCountsPayload {

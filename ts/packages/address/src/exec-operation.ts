@@ -1,6 +1,12 @@
 import type { z } from "zod";
 
-import { failure, type ClinkrCommandSpec, type ClinkrGroup, type ClinkrHandler } from "@sdl/clinkr";
+import {
+	failure,
+	type ClinkrCommandSpec,
+	type ClinkrExit,
+	type ClinkrGroup,
+	type ClinkrHandler,
+} from "@sdl/clinkr";
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
 import type { GitResult } from "@sdl/git";
@@ -65,6 +71,22 @@ export function gatewayFailureMessage(prefix: string, gatewayFailure: GatewayFai
 
 export function prFeedbackFailureExit(prefix: string, prFeedbackFailure: GithubPrFeedbackFailure) {
 	return failure("pr-gateway-failure", prFeedbackFailureMessage(prefix, prFeedbackFailure));
+}
+
+export type PrTargetFailureResult =
+	| { type: "git_failure"; message: string; failure: GatewayFailure }
+	| { type: "pr_feedback_failure"; message: string; failure: GithubPrFeedbackFailure }
+	| { type: "detached_head"; message: string };
+
+export function prTargetFailureExit(result: PrTargetFailureResult): ClinkrExit<never> {
+	switch (result.type) {
+		case "git_failure":
+			return gatewayFailureExit(result.message, result.failure);
+		case "pr_feedback_failure":
+			return prFeedbackFailureExit(result.message, result.failure);
+		case "detached_head":
+			return failure("detached-head", result.message);
+	}
 }
 
 export function prFeedbackFailureMessage(

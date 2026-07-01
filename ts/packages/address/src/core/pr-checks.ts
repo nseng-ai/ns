@@ -9,17 +9,7 @@ import type {
 
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 import { resolvePrTarget } from "./pr-target.ts";
-
-export interface PrChecksTargetPayload {
-	kind: "github-pr";
-	pr_number: number | null;
-	branch: string | null;
-	title: string | null;
-	url: string | null;
-	head_ref_name: string | null;
-	base_ref_name: string | null;
-	head_ref_oid: string | null;
-}
+import { buildPrTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
 
 export interface PrChecksCountsPayload {
 	passing: number;
@@ -47,7 +37,7 @@ export interface PrCheckEntryPayload {
 
 export interface PrChecksPayload {
 	found: boolean;
-	target: PrChecksTargetPayload;
+	target: PrTargetPayload;
 	counts: PrChecksCountsPayload;
 	checks: PrCheckEntryPayload[];
 }
@@ -110,16 +100,11 @@ function prChecksPayload(options: {
 }): PrChecksPayload {
 	return {
 		found: options.found,
-		target: {
-			kind: "github-pr",
-			pr_number: options.pr?.number ?? null,
+		target: buildPrTargetPayload({
+			pr: options.pr,
 			branch: options.branch,
-			title: options.pr?.title ?? null,
-			url: options.pr?.url ?? null,
-			head_ref_name: options.pr?.headRefName ?? null,
-			base_ref_name: options.pr?.baseRefName ?? null,
-			head_ref_oid: options.pr?.headRefOid ?? null,
-		},
+			includeHeadRefOid: true,
+		}),
 		counts: {
 			passing: options.checks?.counts.passing ?? 0,
 			pending: options.checks?.counts.pending ?? 0,

@@ -7,9 +7,9 @@ import type { Result } from "@sdl/core/result";
 
 import {
 	defineExecOperation,
-	gatewayFailureExit,
 	gatewayOptions,
 	prFeedbackFailureExit,
+	prTargetFailureExit,
 	type ExecOperation,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
@@ -274,11 +274,9 @@ async function runPrChecks(
 		case "ok":
 			return ok(result.checks);
 		case "git_failure":
-			return gatewayFailureExit(result.message, result.failure);
 		case "pr_feedback_failure":
-			return prFeedbackFailureExit(result.message, result.failure);
 		case "detached_head":
-			return failure("detached-head", result.message);
+			return prTargetFailureExit(result);
 	}
 }
 

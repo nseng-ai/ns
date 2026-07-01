@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { githubPrFeedbackFailureSchema } from "@sdl/github/pr-feedback";
 
+import { prTargetPayloadSchema } from "../core/pr-target-payload.ts";
+
 const nullableIntSchema = z.int().nullable();
 const nullableStringSchema = z.string().nullable();
 
@@ -30,17 +32,6 @@ export const mapBranchPrsResultSchema = z.object({
 	missingBranches: z.array(z.string()),
 	ambiguousBranches: z.array(ambiguousBranchPrsEntrySchema),
 	summary: mapBranchPrsSummarySchema,
-});
-
-const prChecksTargetSchema = z.object({
-	kind: z.literal("github-pr"),
-	pr_number: nullableIntSchema,
-	branch: nullableStringSchema,
-	title: nullableStringSchema,
-	url: nullableStringSchema,
-	head_ref_name: nullableStringSchema,
-	base_ref_name: nullableStringSchema,
-	head_ref_oid: nullableStringSchema,
 });
 
 const prCheckBucketSchema = z.union([
@@ -76,19 +67,9 @@ const prChecksCountsSchema = z.object({
 
 export const prChecksResultSchema = z.object({
 	found: z.boolean(),
-	target: prChecksTargetSchema,
+	target: prTargetPayloadSchema,
 	counts: prChecksCountsSchema,
 	checks: z.array(prCheckEntrySchema),
-});
-
-const downloadFeedbackTargetSchema = z.object({
-	kind: z.literal("github-pr"),
-	pr_number: nullableIntSchema,
-	branch: nullableStringSchema,
-	title: nullableStringSchema,
-	url: nullableStringSchema,
-	head_ref_name: nullableStringSchema,
-	base_ref_name: nullableStringSchema,
 });
 
 const downloadFeedbackCountsSchema = z.object({
@@ -102,7 +83,7 @@ const downloadFeedbackCountsSchema = z.object({
 
 export const downloadFeedbackResultSchema = z.object({
 	found: z.boolean(),
-	target: downloadFeedbackTargetSchema,
+	target: prTargetPayloadSchema,
 	counts: downloadFeedbackCountsSchema,
 	markdown: z.string(),
 });
