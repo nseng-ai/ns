@@ -386,6 +386,8 @@ async function listSkillsWithSkillMd(root: string): Promise<string[]> {
 		return names;
 	} catch (error) {
 		if (isNodeErrorCode(error, "ENOENT")) return [];
+		// Pi fallback inventory is best-effort: unreadable skill roots should behave like
+		// absent roots so doctor diagnostics can continue from the remaining registry sources.
 		return [];
 	}
 }
