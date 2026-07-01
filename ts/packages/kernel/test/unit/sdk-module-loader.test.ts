@@ -82,6 +82,13 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
+	const aretroCollectEvidenceModule = await jiti.import<{
+		aretroExecCollectEvidenceSdlCommand: { name: string };
+	}>("@sdl/aretro/sdl/commands/exec-collect-evidence");
+	expect(aretroCollectEvidenceModule.aretroExecCollectEvidenceSdlCommand.name).toBe(
+		"exec-collect-evidence",
+	);
+
 	const branchContextExtensionModule = await jiti.import<
 		typeof import("@sdl/branch-context/extension")
 	>("@sdl/branch-context/extension");
@@ -97,6 +104,11 @@ test("repo-local migration extensions can import internal migration subpaths", a
 		"check",
 		"delete",
 	]);
+
+	const handoffListModule = await jiti.import<{
+		handoffListSdlCommand: { name: string };
+	}>("@sdl/handoff/sdl/commands/list");
+	expect(handoffListModule.handoffListSdlCommand.name).toBe("list");
 
 	const objectiveListModule = await jiti.import<{
 		objectiveListSdlCommand: { name: string };

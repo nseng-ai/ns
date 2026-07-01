@@ -35,7 +35,9 @@ const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GIT_SPECIFIER = "@sdl/git";
+const ARETRO_PACKAGE_NAME = "@sdl/aretro";
 const BRANCH_CONTEXT_PACKAGE_NAME = "@sdl/branch-context";
+const HANDOFF_PACKAGE_NAME = "@sdl/handoff";
 const OBJECTIVE_PACKAGE_NAME = "@sdl/objective";
 const FLOW_PACKAGE_NAME = "sdl-flow";
 const ROASTER_PACKAGE_NAME = "@sdl/roaster";
@@ -43,8 +45,12 @@ const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
+const ARETRO_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "aretro");
+const ARETRO_PACKAGE_JSON_PATH = join(ARETRO_PACKAGE_DIR, "package.json");
 const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "branch-context");
 const BRANCH_CONTEXT_PACKAGE_JSON_PATH = join(BRANCH_CONTEXT_PACKAGE_DIR, "package.json");
+const HANDOFF_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "handoff");
+const HANDOFF_PACKAGE_JSON_PATH = join(HANDOFF_PACKAGE_DIR, "package.json");
 const OBJECTIVE_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "objective");
 const OBJECTIVE_PACKAGE_JSON_PATH = join(OBJECTIVE_PACKAGE_DIR, "package.json");
 const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
@@ -95,6 +101,15 @@ function buildModuleAliasMap(
 	);
 }
 
+function buildAretroCommandAliases(): Record<string, string> {
+	return buildPackageCommandAliases({
+		packageName: ARETRO_PACKAGE_NAME,
+		packageDir: ARETRO_PACKAGE_DIR,
+		packageJsonPath: ARETRO_PACKAGE_JSON_PATH,
+		exportPrefix: "./sdl/commands/",
+	});
+}
+
 function buildBranchContextCommandAliases(): Record<string, string> {
 	return buildPackageCommandAliases({
 		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
@@ -110,6 +125,15 @@ function buildBranchContextExtensionAliases(): Record<string, string> {
 		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
 		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
 		exportSubpaths: ["./extension"],
+	});
+}
+
+function buildHandoffCommandAliases(): Record<string, string> {
+	return buildPackageCommandAliases({
+		packageName: HANDOFF_PACKAGE_NAME,
+		packageDir: HANDOFF_PACKAGE_DIR,
+		packageJsonPath: HANDOFF_PACKAGE_JSON_PATH,
+		exportPrefix: "./sdl/commands/",
 	});
 }
 
@@ -260,7 +284,9 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalWorkspaceAliases(),
+			...buildAretroCommandAliases(),
 			...buildBranchContextCommandAliases(),
+			...buildHandoffCommandAliases(),
 			...buildBranchContextExtensionAliases(),
 			...buildObjectiveCommandAliases(),
 			...buildFlowCommandAliases(),
