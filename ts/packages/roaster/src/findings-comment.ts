@@ -47,7 +47,7 @@ export type FindingsCommentBodyParseResult =
 
 export function renderFindingsComment(
 	payload: FindingsPayload,
-	options: { readonly inlineStatus?: InlinePostingStatus | null | undefined } = {},
+	options: { readonly inlineStatus?: InlinePostingStatus | null } = {},
 ): string {
 	const lines = [
 		summaryMarkerForReview(payload.reviewName),
@@ -105,7 +105,7 @@ export function extractInlineMarkers(body: string): readonly string[] {
 export function renderInlineBody(
 	marker: string,
 	finding: ReviewFinding,
-	options: { readonly reviewName: string; readonly modelProfile?: string | null | undefined },
+	options: { readonly reviewName: string; readonly modelProfile?: string | null },
 ): string {
 	return [
 		marker,

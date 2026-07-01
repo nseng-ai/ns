@@ -94,9 +94,9 @@ export function parseFindingsPayloadResult(
 export interface PublishFindingsOptions {
 	readonly prNumber: number;
 	readonly envelope: string;
-	readonly runUrl?: string | undefined;
-	readonly fallbackReviewName?: string | undefined;
-	readonly fallbackBaseRef?: string | undefined;
+	readonly runUrl?: string;
+	readonly fallbackReviewName?: string;
+	readonly fallbackBaseRef?: string;
 }
 
 export type PublicationFailurePhase =

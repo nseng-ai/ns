@@ -17,9 +17,9 @@ const GIT_TIMEOUT_MS = 10_000;
 export interface LoadDiffOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	readonly baseRef?: string | null | undefined;
+	readonly baseRef?: string | null;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	readonly excludeGlobs?: readonly string[] | undefined;
+	readonly excludeGlobs?: readonly string[];
 }
 
 export interface LocalDiffGateway {
@@ -28,7 +28,7 @@ export interface LocalDiffGateway {
 
 export interface RealLocalDiffGatewayOptions {
 	readonly execApi: CommandExecApi;
-	readonly gitGateway?: GitGateway | undefined;
+	readonly gitGateway?: GitGateway;
 }
 
 export class RealLocalDiffGateway implements LocalDiffGateway {
@@ -134,9 +134,8 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 export interface FakeLocalDiffGatewayOptions {
 	readonly diffsByBaseRef?:
 		| ReadonlyMap<string | null | undefined, RoasterResult<LocalDiff>>
-		| Readonly<Record<string, RoasterResult<LocalDiff>>>
-		| undefined;
-	readonly defaultDiff?: RoasterResult<LocalDiff> | undefined;
+		| Readonly<Record<string, RoasterResult<LocalDiff>>>;
+	readonly defaultDiff?: RoasterResult<LocalDiff>;
 }
 
 export class FakeLocalDiffGateway implements LocalDiffGateway {
@@ -205,7 +204,7 @@ function execOptions(
 
 export function formatGitDiffDisplayCommand(options: {
 	readonly baseRef: string;
-	readonly excludeGlobs?: readonly string[] | undefined;
+	readonly excludeGlobs?: readonly string[];
 }): string {
 	return formatCommand("git", buildGitDiffArgs(options));
 }

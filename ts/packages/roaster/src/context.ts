@@ -38,10 +38,10 @@ export interface CreateRealRoasterContextOptions {
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	readonly execApi?: CommandExecApi | undefined;
-	readonly gitGateway?: GitGateway | undefined;
-	readonly reviewLog?: ReviewLogGateway | undefined;
-	readonly reviewRunner?: ReviewRunnerGateway | undefined;
+	readonly execApi?: CommandExecApi;
+	readonly gitGateway?: GitGateway;
+	readonly reviewLog?: ReviewLogGateway;
+	readonly reviewRunner?: ReviewRunnerGateway;
 }
 
 export interface RoasterRunScope {

@@ -31,10 +31,10 @@ import { loadParsedReviewDefinition } from "../review-definition-loading.ts";
 
 export interface RunRoasterReviewRequest {
 	readonly key: string;
-	readonly model?: string | undefined;
-	readonly modelProfile?: string | undefined;
-	readonly baseRef?: string | undefined;
-	readonly logBranch?: string | undefined;
+	readonly model?: string;
+	readonly modelProfile?: string;
+	readonly baseRef?: string;
+	readonly logBranch?: string;
 }
 
 export type RunRoasterReviewOutcome =
@@ -77,7 +77,7 @@ interface ReviewLogMetadata {
 
 export interface LoadReviewExecutionContextRequest {
 	readonly reviewKey: string;
-	readonly baseRef?: string | undefined;
+	readonly baseRef?: string;
 }
 
 export interface ReviewExecutionContext {
@@ -181,8 +181,8 @@ export async function writeReviewRunLog(
 	options: {
 		readonly reviewKey: string;
 		readonly result: ReviewRunResult;
-		readonly ranAt?: string | undefined;
-		readonly logBranch?: string | undefined;
+		readonly ranAt?: string;
+		readonly logBranch?: string;
 	},
 ): Promise<RoasterResult<ReviewLogWriteResult>> {
 	const ranAt = options.ranAt ?? new Date().toISOString();

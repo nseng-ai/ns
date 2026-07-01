@@ -9,7 +9,7 @@ const scope = { cwd: "/repo", env: { PATH: "/bin" } };
 interface ExecCall {
 	readonly command: string;
 	readonly args: readonly string[];
-	readonly options?: ExecOptions | undefined;
+	readonly options?: ExecOptions;
 }
 
 class EchoPutCommandExecApi implements CommandExecApi {
