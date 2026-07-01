@@ -113,6 +113,76 @@ describe("RealGitBrmemGateway", () => {
 		expect(commands.calls).toEqual([]);
 	});
 
+	it("lists local branches in one Git scan", async () => {
+		const commands = new RecordingCommands([
+			{
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname:strip=2)", "refs/heads"],
+				result: { stdout: "feat/x\nmain\n" },
+			},
+		]);
+		const git = new InMemoryGitGateway();
+		const gateway = realGitBrmemGateway("/work", commands, git);
+
+		expect(await gateway.listLocalBranches()).toEqual({
+			type: "ok",
+			value: new Set(["feat/x", "main"]),
+		});
+		expect(git.localBranchPresenceCalls).toEqual([]);
+		commands.assertDone();
+	});
+
+	it("lists Snapshot entry counts from refs", async () => {
+		const commands = new RecordingCommands([
+			{
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", "refs/brmem/base/", "refs/brmem/ns/"],
+				result: {
+					stdout: "refs/brmem/base/feat---x\nrefs/brmem/ns/handoff/old\n",
+				},
+			},
+			{
+				command: "git",
+				args: ["ls-tree", "-r", "--full-tree", "--name-only", "refs/brmem/base/feat---x"],
+				result: { stdout: "one.md\ntwo.md\n" },
+			},
+			{
+				command: "git",
+				args: ["ls-tree", "-r", "--full-tree", "--name-only", "refs/brmem/ns/handoff/old"],
+				result: { stdout: "handoff.md\n" },
+			},
+		]);
+		const gateway = realGitBrmemGateway("/work", commands);
+		const progress: Array<{ processed: number; total: number }> = [];
+
+		expect(
+			await gateway.listSnapshots({
+				onProgress: (snapshotProgress) => progress.push(snapshotProgress),
+			}),
+		).toEqual({
+			type: "ok",
+			value: [
+				{
+					namespace: "base",
+					branch: "feat/x",
+					refName: "refs/brmem/base/feat---x",
+					entryCount: 2,
+				},
+				{
+					namespace: "handoff",
+					branch: "old",
+					refName: "refs/brmem/ns/handoff/old",
+					entryCount: 1,
+				},
+			],
+		});
+		expect(progress).toEqual([
+			{ processed: 1, total: 2 },
+			{ processed: 2, total: 2 },
+		]);
+		commands.assertDone();
+	});
+
 	it("short-circuits Branch Memory branch encoding validation before Git ref validation", async () => {
 		const commands = new RecordingCommands([]);
 		const git = new InMemoryGitGateway();

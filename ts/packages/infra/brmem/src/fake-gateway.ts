@@ -15,6 +15,7 @@ import type {
 	EntryDiagnostic,
 	ListedEntry,
 	ListedSnapshot,
+	ListSnapshotsOptions,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
@@ -53,6 +54,7 @@ export interface FakeBrmemGatewayOptions {
 			| "copy"
 			| "listSnapshots"
 			| "deleteSnapshot"
+			| "listLocalBranches"
 			| "localBranchPresence"
 			| "remoteConfig"
 			| "addRefspecs",
@@ -333,9 +335,9 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return value;
 	}
 
-	async listSnapshots(options: {
-		namespace?: string;
-	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
+	async listSnapshots(
+		options: ListSnapshotsOptions,
+	): Promise<BrmemResult<readonly ListedSnapshot[]>> {
 		const error = this.operationErrors.listSnapshots;
 		if (error !== undefined)
 			return brmemError<readonly ListedSnapshot[]>(error.code, error.message);
@@ -350,7 +352,17 @@ export class FakeBrmemGateway implements BrmemGateway {
 				entryCount: snapshot.entries.size,
 			});
 		}
-		return brmemOk(snapshots.sort(compareSnapshots));
+		const sorted = snapshots.sort(compareSnapshots);
+		for (let index = 0; index < sorted.length; index += 1) {
+			options.onProgress?.({ processed: index + 1, total: sorted.length });
+		}
+		return brmemOk(sorted);
+	}
+
+	async listLocalBranches(): Promise<BrmemResult<ReadonlySet<string>>> {
+		const error = this.operationErrors.listLocalBranches;
+		if (error !== undefined) return brmemError(error.code, error.message);
+		return brmemOk(new Set(this.localBranches));
 	}
 
 	async localBranchPresence(options: {

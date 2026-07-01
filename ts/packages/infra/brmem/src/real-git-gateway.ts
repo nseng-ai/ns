@@ -24,6 +24,7 @@ import type {
 	EntryDiagnostic,
 	ListedEntry,
 	ListedSnapshot,
+	ListSnapshotsOptions,
 	PutEntryResult,
 } from "./gateway.ts";
 import { keyGlobMatches } from "./key-glob.ts";
@@ -78,7 +79,15 @@ interface MktreeEntry {
 	name: string;
 }
 
+interface SnapshotRefToCount {
+	snapshotRef: string;
+	parsed: ListedSnapshotRefParts;
+}
+
+type ListedSnapshotRefParts = Pick<ListedSnapshot, "namespace" | "branch" | "refName">;
+
 const SNAPSHOT_CORRUPT_SAMPLE_LIMIT = 5;
+const SNAPSHOT_ENTRY_COUNT_CONCURRENCY = 8;
 
 export interface RealGitBrmemReadGatewayOptions {
 	cwd: string;
@@ -335,9 +344,9 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		});
 	}
 
-	async listSnapshots(options: {
-		namespace?: string;
-	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
+	async listSnapshots(
+		options: ListSnapshotsOptions,
+	): Promise<BrmemResult<readonly ListedSnapshot[]>> {
 		if (options.namespace !== undefined) {
 			const validation = validateNamespaceName(options.namespace);
 			if (validation.type === "invalid") {
@@ -353,22 +362,37 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			{ cwd: this.cwd },
 		);
 		if (result.code !== 0) return brmemOk([]);
-		const snapshots: ListedSnapshot[] = [];
-		for (const line of result.stdout.split("\n")) {
-			const snapshotRef = line.trim();
-			if (snapshotRef.length === 0) continue;
-			const parsed = parseSnapshotRef(snapshotRef);
-			if (parsed === undefined) continue;
-			if (options.namespace !== undefined && parsed.namespace !== options.namespace) continue;
-			const entries = await enumerateTreeEntries(this.commands, this.cwd, snapshotRef);
-			snapshots.push({
-				namespace: parsed.namespace,
-				branch: parsed.branch,
-				refName: parsed.refName,
-				entryCount: entries.size,
-			});
-		}
+		const snapshotRefs = parseSnapshotRefsToCount(result.stdout, options.namespace);
+		let processed = 0;
+		const total = snapshotRefs.length;
+		const snapshots = await mapWithConcurrency(
+			snapshotRefs,
+			SNAPSHOT_ENTRY_COUNT_CONCURRENCY,
+			async ({ snapshotRef, parsed }): Promise<ListedSnapshot> => {
+				const entryCount = await countTreeEntries(this.commands, this.cwd, snapshotRef);
+				processed += 1;
+				options.onProgress?.({ processed, total });
+				return {
+					namespace: parsed.namespace,
+					branch: parsed.branch,
+					refName: parsed.refName,
+					entryCount,
+				};
+			},
+		);
 		return brmemOk(snapshots.sort(compareSnapshots));
+	}
+
+	async listLocalBranches(): Promise<BrmemResult<ReadonlySet<string>>> {
+		const result = await runGit(
+			this.commands,
+			["for-each-ref", "--format=%(refname:strip=2)", "refs/heads"],
+			{ cwd: this.cwd },
+		);
+		if (result.code !== 0) {
+			return gitError("git-for-each-ref-failed", "Could not list local branches.", result);
+		}
+		return brmemOk(new Set(splitConfigValues(result.stdout)));
 	}
 
 	async localBranchPresence(options: {
@@ -1010,6 +1034,63 @@ async function enumerateTreeEntries(
 		entries.set(path, blobSha);
 	}
 	return entries;
+}
+
+function parseSnapshotRefsToCount(
+	stdout: string,
+	namespace: string | undefined,
+): readonly SnapshotRefToCount[] {
+	const snapshotRefs: SnapshotRefToCount[] = [];
+	for (const line of stdout.split("\n")) {
+		const snapshotRef = line.trim();
+		if (snapshotRef.length === 0) continue;
+		const parsed = parseSnapshotRef(snapshotRef);
+		if (parsed === undefined) continue;
+		if (namespace !== undefined && parsed.namespace !== namespace) continue;
+		snapshotRefs.push({ snapshotRef, parsed });
+	}
+	return snapshotRefs;
+}
+
+async function countTreeEntries(
+	commands: CommandExecApi,
+	cwd: string,
+	refOrTree: string,
+): Promise<number> {
+	const result = await runGit(
+		commands,
+		["ls-tree", "-r", "--full-tree", "--name-only", refOrTree],
+		{
+			cwd,
+		},
+	);
+	if (result.code !== 0) return 0;
+	let count = 0;
+	for (const line of result.stdout.split("\n")) {
+		if (line.length > 0) count += 1;
+	}
+	return count;
+}
+
+async function mapWithConcurrency<T, U>(
+	items: readonly T[],
+	concurrency: number,
+	task: (item: T) => Promise<U>,
+): Promise<U[]> {
+	const results: U[] = [];
+	let nextIndex = 0;
+	async function worker(): Promise<void> {
+		while (nextIndex < items.length) {
+			const index = nextIndex;
+			nextIndex += 1;
+			const item = items[index];
+			if (item === undefined) continue;
+			results[index] = await task(item);
+		}
+	}
+	const workerCount = Math.min(concurrency, items.length);
+	await Promise.all(Array.from({ length: workerCount }, () => worker()));
+	return results;
 }
 
 async function enumerateEntryUpdatedAt(

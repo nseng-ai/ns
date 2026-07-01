@@ -217,6 +217,10 @@ export class InMemoryBranchMemoryGateway implements BrmemGateway {
 		return await this.fake.listSnapshots(options);
 	}
 
+	async listLocalBranches(): Promise<BrmemResult<ReadonlySet<string>>> {
+		return await this.fake.listLocalBranches();
+	}
+
 	async localBranchPresence(options: {
 		branch: string;
 	}): Promise<BrmemResult<"present" | "absent">> {

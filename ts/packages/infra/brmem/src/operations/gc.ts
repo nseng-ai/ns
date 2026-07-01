@@ -8,6 +8,15 @@ import { firstFailure, validateNamespaceName, validationMessage } from "../valid
 import { gatewayFailure } from "./shared.ts";
 
 const ALL_NAMESPACES_SCOPE = "all";
+const SNAPSHOT_SCAN_PROGRESS_INTERVAL = 100;
+const SNAPSHOT_DELETE_PROGRESS_INTERVAL = 100;
+const GC_DETAIL_TABLE_LIMIT = 20;
+
+interface GcNamespaceSummary {
+	namespace: string;
+	snapshotCount: number;
+	entryCount: number;
+}
 
 export const gcRequestSchema = z.object({
 	namespace: z.string().optional().describe("Namespace filter. Omit for all Namespaces."),
@@ -52,22 +61,57 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 	]);
 	if (validationFailure !== undefined) return failure(validationFailure[0], validationFailure[1]);
 
-	const snapshotsResult = await ctx.gateway.listSnapshots(
-		shouldScanAllNamespaces ? {} : { namespace: scopeNamespace },
-	);
+	writeGcStatus(ctx, "Scanning Branch Memory Snapshot refs…");
+	let lastScanProgress = 0;
+	const snapshotsResult = await ctx.gateway.listSnapshots({
+		...(shouldScanAllNamespaces ? {} : { namespace: scopeNamespace }),
+		onProgress: ({ processed, total }) => {
+			if (
+				shouldReportProgress(processed, total, lastScanProgress, SNAPSHOT_SCAN_PROGRESS_INTERVAL)
+			) {
+				lastScanProgress = processed;
+				writeGcStatus(ctx, `Scanned ${processed}/${total} Branch Memory Snapshot refs…`);
+			}
+		},
+	});
 	if (snapshotsResult.type === "error") return gatewayFailure<GcResult>(snapshotsResult.error);
+	writeGcStatus(ctx, `Found ${snapshotsResult.value.length} Branch Memory Snapshot refs.`);
+	writeGcStatus(ctx, "Listing local branches…");
+	const localBranches = await ctx.gateway.listLocalBranches();
+	if (localBranches.type === "error") return gatewayFailure<GcResult>(localBranches.error);
+
+	const staleSnapshotCandidates = snapshotsResult.value.filter(
+		(snapshot) => !localBranches.value.has(snapshot.branch),
+	);
+	writeGcStatus(ctx, `Found ${staleSnapshotCandidates.length} stale Branch Memory Snapshot refs.`);
+	if (request.yes) writeGcStatus(ctx, "Deleting stale Branch Memory Snapshot refs…");
 
 	const staleSnapshots: GcSnapshot[] = [];
-	for (const snapshot of snapshotsResult.value) {
-		const presence = await ctx.gateway.localBranchPresence({ branch: snapshot.branch });
-		if (presence.type === "error") return gatewayFailure<GcResult>(presence.error);
-		if (presence.value === "present") continue;
+	let lastDeleteProgress = 0;
+	for (let index = 0; index < staleSnapshotCandidates.length; index += 1) {
+		const snapshot = staleSnapshotCandidates[index];
+		if (snapshot === undefined) continue;
 		if (request.yes) {
 			const deleted = await ctx.gateway.deleteSnapshot({
 				namespace: snapshot.namespace,
 				branch: snapshot.branch,
 			});
 			if (deleted.type === "error") return gatewayFailure<GcResult>(deleted.error);
+			const deletedCount = index + 1;
+			if (
+				shouldReportProgress(
+					deletedCount,
+					staleSnapshotCandidates.length,
+					lastDeleteProgress,
+					SNAPSHOT_DELETE_PROGRESS_INTERVAL,
+				)
+			) {
+				lastDeleteProgress = deletedCount;
+				writeGcStatus(
+					ctx,
+					`Deleted ${deletedCount}/${staleSnapshotCandidates.length} stale Branch Memory Snapshot refs…`,
+				);
+			}
 		}
 		staleSnapshots.push({ ...snapshot, deleted: request.yes });
 	}
@@ -79,6 +123,20 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 	} satisfies GcResult);
 }
 
+function writeGcStatus(ctx: BrmemCliContext, message: string): void {
+	ctx.stderr(`${message}\n`);
+}
+
+function shouldReportProgress(
+	processed: number,
+	total: number,
+	lastReported: number,
+	interval: number,
+): boolean {
+	if (total < interval) return false;
+	return processed === total || processed - lastReported >= interval;
+}
+
 export function renderGc(
 	result: GcResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
@@ -87,7 +145,79 @@ export function renderGc(
 	const heading = result.deleted
 		? "Deleted stale Branch Memory Snapshots."
 		: "Stale Branch Memory Snapshots found. No refs were deleted; rerun with --yes to delete.";
-	return [heading, renderGcTable(result.staleSnapshots, caps)].join("\n");
+	if (result.staleSnapshots.length <= GC_DETAIL_TABLE_LIMIT) {
+		return [heading, renderGcTable(result.staleSnapshots, caps)].join("\n");
+	}
+	return [
+		heading,
+		`Scope: ${formatGcScope(result.namespaceScope)}`,
+		`Stale Snapshot refs: ${formatGcCount(result.staleSnapshots.length)}`,
+		`Entries in stale Snapshots: ${formatGcCount(sumGcEntries(result.staleSnapshots))}`,
+		"By Namespace:",
+		renderGcNamespaceSummaryTable(summarizeGcNamespaces(result.staleSnapshots), caps),
+		"",
+		`Detailed stale ref list omitted from human output because it has ${formatGcCount(result.staleSnapshots.length)} rows.`,
+		"Run `brmem gc --format json` for the full list, or narrow with `--base` / `--namespace <name>`.",
+	].join("\n");
+}
+
+function formatGcScope(namespaceScope: string): string {
+	return namespaceScope === ALL_NAMESPACES_SCOPE
+		? "all Namespaces"
+		: namespaceDisplayLabel(namespaceScope);
+}
+
+function formatGcCount(value: number): string {
+	return value.toLocaleString("en-US");
+}
+
+function sumGcEntries(snapshots: readonly GcSnapshot[]): number {
+	return snapshots.reduce((total, snapshot) => total + snapshot.entryCount, 0);
+}
+
+function summarizeGcNamespaces(snapshots: readonly GcSnapshot[]): readonly GcNamespaceSummary[] {
+	const summaries = new Map<string, GcNamespaceSummary>();
+	for (const snapshot of snapshots) {
+		const existing = summaries.get(snapshot.namespace);
+		if (existing === undefined) {
+			summaries.set(snapshot.namespace, {
+				namespace: snapshot.namespace,
+				snapshotCount: 1,
+				entryCount: snapshot.entryCount,
+			});
+			continue;
+		}
+		existing.snapshotCount += 1;
+		existing.entryCount += snapshot.entryCount;
+	}
+	return [...summaries.values()].sort(compareGcNamespaceSummaries);
+}
+
+function compareGcNamespaceSummaries(left: GcNamespaceSummary, right: GcNamespaceSummary): number {
+	if (left.namespace === BASE_NAMESPACE && right.namespace !== BASE_NAMESPACE) return -1;
+	if (right.namespace === BASE_NAMESPACE && left.namespace !== BASE_NAMESPACE) return 1;
+	return left.namespace.localeCompare(right.namespace);
+}
+
+function renderGcNamespaceSummaryTable(
+	summaries: readonly GcNamespaceSummary[],
+	caps: RenderCapabilities,
+): string {
+	return renderTextTable({
+		columns: [
+			{ header: "NAMESPACE", style: "bold-cyan" },
+			{ header: "SNAPSHOTS" },
+			{ header: "ENTRIES" },
+		],
+		rows: summaries.map((summary) => [
+			namespaceDisplayLabel(summary.namespace),
+			formatGcCount(summary.snapshotCount),
+			formatGcCount(summary.entryCount),
+		]),
+		canEmitAnsi: caps.canEmitAnsi,
+		shouldDrawRule: true,
+		headerStyle: "bold-cyan",
+	});
 }
 
 function renderGcTable(snapshots: readonly GcSnapshot[], caps: RenderCapabilities): string {
