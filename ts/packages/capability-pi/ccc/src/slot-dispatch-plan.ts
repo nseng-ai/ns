@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import {
 	handleCccSlotDispatchPlan,
@@ -49,9 +49,7 @@ function registerDispatchPlanCommand(
 				"Attach the latest session-saved plan to a new Graphite-tracked branch via branch-context and launch it in a new cmux workspace.",
 			argumentHint: "[--dry-run] [--help]",
 			handler: async (rawArgs, ctx) => {
-				const notifyProgress = (message: string): void => {
-					sendCommandProgressOrNotify({ host: pi, ctx, message });
-				};
+				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
 				await handleCccSlotDispatchPlan({
 					pi,
 					rawArgs,

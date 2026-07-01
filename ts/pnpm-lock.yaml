@@ -401,6 +401,9 @@ importers:
       '@sdl/cmux':
         specifier: workspace:*
         version: link:../../cmux
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi

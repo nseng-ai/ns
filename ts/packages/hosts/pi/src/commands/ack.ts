@@ -78,6 +78,14 @@ export interface SendCommandProgressOrNotifyOptions<
 	shouldNotifyWhenNoUi?: boolean;
 }
 
+export interface MakeCommandProgressNotifierOptions<
+	THost,
+	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
+> {
+	host: THost;
+	ctx: ImmediateCommandNotifyContext<TLevel>;
+}
+
 export interface ImmediateCommandAckOptions {
 	delivery?: ImmediateCommandAckDelivery;
 	messageForCommand?: (commandName: string) => string;
@@ -168,6 +176,16 @@ export function sendCommandProgressMessage<THost>(host: THost, message: string):
 		display: true,
 	});
 	return true;
+}
+
+export function makeCommandProgressNotifier<
+	THost,
+	TLevel extends CommandProgressNotifyLevel = CommandProgressNotifyLevel,
+>(options: MakeCommandProgressNotifierOptions<THost, TLevel>): (message: string) => void {
+	const { host, ctx } = options;
+	return (message: string): void => {
+		sendCommandProgressOrNotify({ host, ctx, message });
+	};
 }
 
 export function sendCommandProgressOrNotify<
