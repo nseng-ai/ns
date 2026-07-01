@@ -179,7 +179,7 @@ export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
 }): string {
 	const subject = input.branchName === undefined ? "This branch" : `Branch ${input.branchName}`;
 	return [
-		`${subject} is out of sync with its remote, so Graphite blocked the submit. Nothing was submitted.`,
+		`${subject} is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.`,
 		formatRemoteSyncDetails(input.remoteSync),
 		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
 		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
@@ -189,9 +189,13 @@ export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
 function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined): string {
 	if (remoteSync === undefined) return "";
 
-	const lines = [`Why: ${formatRemoteDivergence(remoteSync)}`];
+	const lines = [
+		`Remote checked: ${remoteSync.upstream} (this is the PR branch, not trunk/master).`,
+		`Why: ${formatRemoteDivergence(remoteSync)}`,
+		"Possible cause: the PR branch was pushed/submitted from another checkout, or this local branch was rewritten after an earlier submit.",
+	];
 	if (remoteSync.remoteOnlyCommits !== undefined && remoteSync.remoteOnlyCommits.length > 0) {
-		lines.push("Remote-only commits:");
+		lines.push(`Remote-only commits on ${remoteSync.upstream} (not in local HEAD):`);
 		for (const commit of remoteSync.remoteOnlyCommits) {
 			lines.push(`  - ${commit}`);
 		}
