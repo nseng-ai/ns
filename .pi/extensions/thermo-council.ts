@@ -1,3 +1,3 @@
-// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
-// package exports are not resolvable without the ts workspace's node_modules ancestry.
-export { default } from "../../ts/packages/local-pi-tools/thermo-council/src/extension.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+export default await importTypeScriptWorkspaceDefault("@local-pi-tools/thermo-council/extension");

@@ -1,3 +1,3 @@
-// Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
-// package exports are not resolvable without the ts workspace's node_modules ancestry.
-export { default } from "../../ts/packages/worktree-status/src/extension.ts";
+import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
+
+export default await importTypeScriptWorkspaceDefault("@sdl/worktree-status/extension");

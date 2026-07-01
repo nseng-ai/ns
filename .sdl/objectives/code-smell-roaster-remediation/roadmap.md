@@ -26,7 +26,13 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Duplicated review-list alias command wiring; `createReviewListCommand` centralizes the shared schema/result/render/handler wiring used by `review list` and `review ls`.
   - fixed: Duplicated GitHub read error handling in inline publication; `callGithubOrEmptyResult` wraps thrown and gateway error results for changed-file and review-comment reads.
   - validation: `pnpm --dir ts --filter @sdl/roaster run check`, `pnpm --dir ts --filter @sdl/roaster run test`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-06-30.
-- [ ] **pi-extensions** (`.pi/extensions`, `.pi/lib`) — 5 findings (0 high / 3 medium / 2 low). See `references/pi-extensions.md`.
+- [x] **pi-extensions** (`.pi/extensions`, `.pi/lib`) — 5 findings (0 high / 3 medium / 2 low). See `references/pi-extensions.md`.
+  - fixed: Data Clumps in objective-autopilot environment handling; `AutopilotEnv` now carries the shared `pi`/`ctx` pair through git, verification, recovery, staging, commit, summary, and failure-formatting helpers.
+  - fixed: Duplicated child/recovery progress widget rendering; `formatProgressWidgetLines` and `formatRequestedModel` own the shared snapshot/model/activity/stderr line construction while child and recovery call sites provide only their labels.
+  - fixed: Duplicated `.pi/extensions` workspace shims; context-profiler, grill-ui, dispatch-runner-subagent, thermo-council, and worktree-status now use `importTypeScriptWorkspaceDefault` instead of repeating relative package re-exports.
+  - fixed: Duplicated objective-autopilot report parsers; `parseMarkerBlock` owns marker extraction, list-field accumulation, and key:value dispatch for both child and recovery-supervisor report formats.
+  - fixed: Speculative Generality in `.pi/lib/workspace-packages.ts`; the package resolver is private, the default-import helper returns the one extension shape callers use, and concrete fallback mappings centralize only the workspace packages not resolvable from the root package dependency graph.
+  - validation: `node --experimental-strip-types` import smoke checks for `.pi/lib/workspace-packages.ts`, all modified shim extensions, and `.pi/extensions/objective-autopilot.ts`; `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [ ] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
 - [x] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
   - fixed: Duplicated home/extensions hero markup; `MarketingHero` now owns the shared wrapper, heading, description, CTA row, and side-panel layout while the pages provide copy, CTAs, and previews.
