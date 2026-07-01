@@ -18,6 +18,7 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	KnownGitErrorCode,
 } from "./contract.ts";
 
 export type {
@@ -25,6 +26,7 @@ export type {
 	GitBranchPresenceResult,
 	GitCurrentBranchResult,
 	GitCwdParams,
+	GitErrorCode,
 	GitErrorInfo,
 	GitGateway,
 	GitLocalBranchTip,
@@ -34,6 +36,7 @@ export type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	KnownGitErrorCode,
 } from "./contract.ts";
 export {
 	readLocalBranchRefs,
@@ -50,7 +53,12 @@ interface CommandRun {
 	displayCommand: string;
 }
 
-type CommandRunResult = { ok: true; value: CommandRun } | { ok: false; error: GitErrorInfo };
+type CommandRunResult = GitResult<CommandRun>;
+
+interface GitExpectSuccessFailure {
+	code: KnownGitErrorCode;
+	title: string;
+}
 
 export class RealGitGateway implements GitGateway {
 	private readonly execApi: CommandExecApi;
@@ -60,19 +68,11 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async repoRoot(params: GitCwdParams): Promise<GitResult<string>> {
-		const run = await this.runGit(params, ["rev-parse", "--show-toplevel"]);
+		const run = await this.runGitExpectingSuccess(params, ["rev-parse", "--show-toplevel"], {
+			code: "repo_root_failed",
+			title: "git rev-parse --show-toplevel failed",
+		});
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"repo_root_failed",
-				formatCommandFailure(
-					"git rev-parse --show-toplevel failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 
 		const root = firstNonEmptyLine(run.value.result.stdout);
 		if (root === undefined) {
@@ -178,19 +178,11 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
-		const run = await this.runGit(params, ["rev-parse", "HEAD"]);
+		const run = await this.runGitExpectingSuccess(params, ["rev-parse", "HEAD"], {
+			code: "head_commit_failed",
+			title: "git rev-parse HEAD failed",
+		});
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"head_commit_failed",
-				formatCommandFailure(
-					"git rev-parse HEAD failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 
 		const commit = firstNonEmptyLine(run.value.result.stdout);
 		if (commit === undefined) {
@@ -204,24 +196,15 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async gitPath(params: GitPathParams): Promise<GitResult<string>> {
-		const run = await this.runGit(params, [
-			"rev-parse",
-			"--path-format=absolute",
-			"--git-path",
-			params.relativePath,
-		]);
+		const run = await this.runGitExpectingSuccess(
+			params,
+			["rev-parse", "--path-format=absolute", "--git-path", params.relativePath],
+			{
+				code: "git_path_failed",
+				title: "git rev-parse --git-path failed",
+			},
+		);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"git_path_failed",
-				formatCommandFailure(
-					"git rev-parse --git-path failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 
 		const gitPath = firstNonEmptyLine(run.value.result.stdout);
 		if (gitPath === undefined) {
@@ -285,42 +268,30 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async hasUncommittedChangesUnder(params: GitPathParams): Promise<GitResult<boolean>> {
-		const run = await this.runGit(params, ["status", "--porcelain", "--", params.relativePath]);
+		const run = await this.runGitExpectingSuccess(
+			params,
+			["status", "--porcelain", "--", params.relativePath],
+			{
+				code: "git_dirty_status_failed",
+				title: "git status for path failed",
+			},
+		);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"git_dirty_status_failed",
-				formatCommandFailure(
-					"git status for path failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 		return { ok: true, value: run.value.result.stdout.trim().length > 0 };
 	}
 
 	async listLocalBranchTips(
 		params: GitCwdParams,
 	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
-		const run = await this.runGit(params, [
-			"for-each-ref",
-			"--format=%(refname:short)%09%(committerdate:iso-strict)",
-			"refs/heads",
-		]);
+		const run = await this.runGitExpectingSuccess(
+			params,
+			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+			{
+				code: "git_branch_tips_failed",
+				title: "git local branch tip listing failed",
+			},
+		);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"git_branch_tips_failed",
-				formatCommandFailure(
-					"git local branch tip listing failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 		return { ok: true, value: parseLocalBranchTips(run.value.result.stdout) };
 	}
 
@@ -366,26 +337,31 @@ export class RealGitGateway implements GitGateway {
 	async changedPathsUnder(
 		params: GitRevisionRangePathParams,
 	): Promise<GitResult<readonly string[]>> {
-		const run = await this.runGit(params, [
-			"diff",
-			"--name-only",
-			params.revisionRange,
-			"--",
-			params.relativePath,
-		]);
+		const run = await this.runGitExpectingSuccess(
+			params,
+			["diff", "--name-only", params.revisionRange, "--", params.relativePath],
+			{
+				code: "git_changed_paths_failed",
+				title: "git changed path lookup failed",
+			},
+		);
 		if (!run.ok) return run;
-		if (run.value.result.code !== 0 || run.value.result.killed) {
-			return error(
-				"git_changed_paths_failed",
-				formatCommandFailure(
-					"git changed path lookup failed",
-					run.value.displayCommand,
-					run.value.result,
-				),
-				run.value.displayCommand,
-			);
-		}
 		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
+	}
+
+	private async runGitExpectingSuccess(
+		params: GitCwdParams,
+		args: string[],
+		failure: GitExpectSuccessFailure,
+	): Promise<GitResult<CommandRun>> {
+		const run = await this.runGit(params, args);
+		if (!run.ok) return run;
+		if (run.value.result.code === 0 && !run.value.result.killed) return run;
+		return error(
+			failure.code,
+			formatCommandFailure(failure.title, run.value.displayCommand, run.value.result),
+			run.value.displayCommand,
+		);
 	}
 
 	private async runGit(params: GitCwdParams, args: string[]): Promise<CommandRunResult> {
@@ -404,7 +380,7 @@ export class RealGitGateway implements GitGateway {
 	}
 }
 
-function failure(code: string, title: string, run: CommandRun): GitErrorInfo {
+function failure(code: KnownGitErrorCode, title: string, run: CommandRun): GitErrorInfo {
 	return error(
 		code,
 		formatCommandFailure(title, run.displayCommand, run.result),
@@ -413,7 +389,7 @@ function failure(code: string, title: string, run: CommandRun): GitErrorInfo {
 }
 
 function error(
-	code: string,
+	code: KnownGitErrorCode,
 	message: string,
 	displayCommand?: string,
 ): { ok: false; error: GitErrorInfo } {
@@ -433,20 +409,24 @@ function execOptions(params: GitCwdParams, timeout: number): ExecOptions {
 }
 
 function isMissingRevisionResult(result: ExecResult): boolean {
-	if (result.code !== 128) {
-		return false;
-	}
-	const output = `${result.stderr}\n${result.stdout}`;
-	return output.includes("Needed a single revision");
+	return result.code === 128 && outputIncludesAnyPhrase(result, ["Needed a single revision"]);
 }
 
 function isMissingTreeResult(result: ExecResult): boolean {
-	const output = `${result.stdout}\n${result.stderr}`;
-	return (
-		output.includes("exists on disk, but not in") ||
-		output.includes("does not exist in") ||
-		output.includes("unknown revision or path")
-	);
+	return outputIncludesAnyPhrase(result, [
+		"exists on disk, but not in",
+		"does not exist in",
+		"unknown revision or path",
+	]);
+}
+
+function outputIncludesAnyPhrase(result: ExecResult, phrases: readonly string[]): boolean {
+	const output = combinedOutput(result);
+	return phrases.some((phrase) => output.includes(phrase));
+}
+
+function combinedOutput(result: ExecResult): string {
+	return `${result.stdout}\n${result.stderr}`;
 }
 
 function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
