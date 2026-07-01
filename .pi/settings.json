@@ -48,7 +48,7 @@
     "-skills/skill-management",
     "-skills/skill-audit",
     "-skills/roast-improve-codebase-architecture",
-    "-skills/duplicative-abstractions-tripwire",
+    "-skills/reinvented-abstractions-tripwire",
     "-skills/roast-dry-but-not-too-dry",
     "-skills/roast-thermonuclear-review",
     "-skills/sdl-typescript-style-tripwire",
