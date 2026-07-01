@@ -119,8 +119,8 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	const branches = collectStackBranches(stack, {
 		current: stack.current,
 		trunk: stack.trunk,
-		downstackOnly: isDownstack,
-		includeCurrent: true,
+		isDownstackOnly: isDownstack,
+		shouldIncludeCurrent: true,
 	});
 	const branchTips = await ctx.git.listLocalBranchTips();
 	const snapshot = buildSnapshot({ stack, scope: request.scope, branches, branchTips });

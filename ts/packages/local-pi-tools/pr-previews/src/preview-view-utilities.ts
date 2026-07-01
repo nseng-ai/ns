@@ -28,7 +28,19 @@ export interface PreviewTargetLocator {
 	branch: string | null;
 }
 
-export function missingPreviewTargetMessage(target: PreviewTargetLocator): string {
+export interface MissingPreviewTargetMessageOptions {
+	readonly preferredLocator: "branch" | "pr_number";
+}
+
+export function missingPreviewTargetMessage(
+	target: PreviewTargetLocator,
+	options: MissingPreviewTargetMessageOptions,
+): string {
+	if (options.preferredLocator === "branch") {
+		if (target.branch !== null) return `No open PR found for branch ${target.branch}.`;
+		if (target.pr_number !== null) return `No PR found for PR ${target.pr_number}.`;
+		return "No open PR found for current branch.";
+	}
 	if (target.pr_number !== null) return `No PR found for PR ${target.pr_number}.`;
 	if (target.branch !== null) return `No open PR found for branch ${target.branch}.`;
 	return "No open PR found for the current branch.";

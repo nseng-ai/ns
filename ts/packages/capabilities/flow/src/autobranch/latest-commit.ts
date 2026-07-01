@@ -90,6 +90,7 @@ export async function createLatestCommitAutobranchFlow(
 
 	return {
 		ok: true,
+		isClean: completion.isClean,
 		summary: [
 			`New branch: ${prepared.plan.branchName}${completion.suffix}`,
 			`Moved commit: ${transaction.commitSummary}`,

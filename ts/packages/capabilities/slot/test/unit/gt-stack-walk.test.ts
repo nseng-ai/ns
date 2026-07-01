@@ -20,8 +20,8 @@ describe("Graphite stack walking", () => {
 			collectStackBranches(stack, {
 				current: "feature/b",
 				trunk: "master",
-				downstackOnly: false,
-				includeCurrent: false,
+				isDownstackOnly: false,
+				shouldIncludeCurrent: false,
 			}),
 		).toEqual(["feature/a", "feature/c", "feature/d"]);
 	});
@@ -37,11 +37,11 @@ describe("Graphite stack walking", () => {
 			collectStackBranches(stack, {
 				current: "feature/b",
 				trunk: "master",
-				downstackOnly: true,
-				includeCurrent: true,
+				isDownstackOnly: true,
+				shouldIncludeCurrent: true,
 			}),
 		).toEqual(["feature/a", "feature/b"]);
-		expect(collectStackEdges(stack, { current: "feature/b", downstackOnly: true })).toEqual([
+		expect(collectStackEdges(stack, { current: "feature/b", isDownstackOnly: true })).toEqual([
 			{ parent: "master", child: "feature/a" },
 			{ parent: "feature/a", child: "feature/b" },
 		]);

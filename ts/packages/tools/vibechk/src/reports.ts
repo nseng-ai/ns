@@ -277,7 +277,7 @@ function renderPlanComparison(baselinePlan: string, treatmentPlan: string): stri
 }
 
 function renderArtifactBounds(loaded: RenderableBundle): string[] {
-	const bounds = renderNamedArtifactBounds(undefined, loaded);
+	const bounds = renderArtifactBoundsLines(loaded);
 	if (bounds.length === 0) return [];
 	return ["## Output Bounds", "", ...bounds];
 }
@@ -287,15 +287,15 @@ function renderComparisonArtifactBounds(
 	treatment: RenderableBundle,
 ): string[] {
 	const lines: string[] = [];
-	const baselineBounds = renderNamedArtifactBounds("Baseline", baseline);
-	const treatmentBounds = renderNamedArtifactBounds("Treatment", treatment);
+	const baselineBounds = renderArtifactBoundsLines(baseline, "Baseline");
+	const treatmentBounds = renderArtifactBoundsLines(treatment, "Treatment");
 	if (baselineBounds.length === 0 && treatmentBounds.length === 0) return [];
 	lines.push("## Output Bounds", "");
 	lines.push(...baselineBounds, ...treatmentBounds);
 	return lines;
 }
 
-function renderNamedArtifactBounds(label: string | undefined, loaded: RenderableBundle): string[] {
+function renderArtifactBoundsLines(loaded: RenderableBundle, label?: string): string[] {
 	if (loaded.outputBounds === undefined) return [];
 	return Object.values(loaded.outputBounds)
 		.filter((bounds) => !bounds.isComplete)

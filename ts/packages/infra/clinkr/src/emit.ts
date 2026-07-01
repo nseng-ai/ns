@@ -50,20 +50,23 @@ export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): n
 	switch (exit.type) {
 		case "ok": {
 			options.io.stdout(`${renderOkExit(exit, options)}\n`);
-			return exitCode;
+			break;
 		}
 		case "negative": {
 			const rendered = renderNegativeExit(exit, options);
 			options.io.stderr(`${rendered}\n`);
-			return exitCode;
+			break;
 		}
-		case "failure":
+		case "failure": {
 			options.io.stderr(`error: ${exit.message}\n`);
-			return exitCode;
-		case "usageError":
+			break;
+		}
+		case "usageError": {
 			options.io.stderr(`error: ${exit.message}\n`);
-			return exitCode;
+			break;
+		}
 	}
+	return exitCode;
 }
 
 function renderOkExit<T>(exit: ClinkrOkExit<T>, options: EmitExitOptions<T>): string {

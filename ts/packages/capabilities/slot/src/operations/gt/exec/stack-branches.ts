@@ -55,8 +55,8 @@ export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBr
 	const branches = collectStackBranches(stackResult.stack, {
 		current: stackResult.stack.current,
 		trunk: stackResult.stack.trunk,
-		downstackOnly: request.downstack,
-		includeCurrent: true,
+		isDownstackOnly: request.downstack,
+		shouldIncludeCurrent: true,
 	});
 	return ok(
 		resultForStack(stackResult.stack, {
@@ -82,7 +82,7 @@ function resultForStack(
 		current: stack.current,
 		scope: options.downstack ? "downstack" : "full",
 		edges: [
-			...collectStackEdges(stack, { current: stack.current, downstackOnly: options.downstack }),
+			...collectStackEdges(stack, { current: stack.current, isDownstackOnly: options.downstack }),
 		],
 		warnings: [...options.warnings],
 	};

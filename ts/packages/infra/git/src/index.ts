@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
-import { formatCommand, formatCommandFailure } from "@sdl/exec";
+import { commandSucceeded, formatCommand, formatCommandFailure } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { firstNonEmptyLine, nonEmptyLines } from "@sdl/core/text-normalization";
 import type {
@@ -352,14 +352,14 @@ export class RealGitGateway implements GitGateway {
 	private async runGitExpectingSuccess(
 		params: GitCwdParams,
 		args: string[],
-		failure: GitExpectSuccessFailure,
+		failureInfo: GitExpectSuccessFailure,
 	): Promise<GitResult<CommandRun>> {
 		const run = await this.runGit(params, args);
 		if (!run.ok) return run;
-		if (run.value.result.code === 0 && !run.value.result.killed) return run;
+		if (commandSucceeded(run.value.result)) return run;
 		return error(
-			failure.code,
-			formatCommandFailure(failure.title, run.value.displayCommand, run.value.result),
+			failureInfo.code,
+			formatCommandFailure(failureInfo.title, run.value.displayCommand, run.value.result),
 			run.value.displayCommand,
 		);
 	}

@@ -38,7 +38,6 @@ export type AllNamespaceScope = {
 };
 export type ScopedNamespaceScope = {
 	allNamespaces: false;
-	namespaceScope: string;
 	namespace: string;
 };
 export type NamespaceScope = AllNamespaceScope | ScopedNamespaceScope;
@@ -75,8 +74,12 @@ export function resolveOptionalNamespaceScope(request: {
 	const namespace = request.base ? BASE_NAMESPACE : normalizeNamespaceOption(request.namespace);
 	return {
 		type: "resolved",
-		scope: { allNamespaces: false, namespace, namespaceScope: namespace },
+		scope: { allNamespaces: false, namespace },
 	};
+}
+
+export function namespaceScopeLabel(scope: NamespaceScope): string {
+	return scope.allNamespaces ? ALL_NAMESPACES_SCOPE : scope.namespace;
 }
 
 export function resolveRequiredNamespaceScope(request: {

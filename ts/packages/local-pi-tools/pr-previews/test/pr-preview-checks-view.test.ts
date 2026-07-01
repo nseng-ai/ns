@@ -7,7 +7,7 @@ import {
 	githubActionsJobLogArgs,
 	isIncompleteCheck,
 	splitLogLines,
-} from "../src/preview-checks-command.ts";
+} from "../src/preview-check-logs.ts";
 import { buildCheckRowLabel, type PrPreviewCheck } from "../src/preview-checks-model.ts";
 import {
 	checkListRows,

@@ -16,6 +16,7 @@ import type {
 	EntryQueryOptions,
 	EntryWriteOptions,
 	ListedEntry,
+	ListEntriesOptions,
 	ListedSnapshot,
 	ListSnapshotsOptions,
 	PutEntryResult,
@@ -120,9 +121,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemError("detached-head", "Could not resolve current branch; HEAD appears detached.");
 	}
 
-	async listEntries(
-		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
-	) {
+	async listEntries(options: ListEntriesOptions) {
 		const error = this.operationErrors.list;
 		if (error !== undefined) return brmemError<readonly ListedEntry[]>(error.code, error.message);
 		return brmemOk(

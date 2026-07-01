@@ -155,7 +155,11 @@ async function runPrPreviewFeedbackCommand(
 			return;
 		}
 		if (!download.value.found) {
-			runtime.notify(ctx, missingPreviewTargetMessage(download.value.target), "warning");
+			runtime.notify(
+				ctx,
+				missingPreviewTargetMessage(download.value.target, { preferredLocator: "pr_number" }),
+				"warning",
+			);
 			return;
 		}
 		const prNumber = download.value.target.pr_number;

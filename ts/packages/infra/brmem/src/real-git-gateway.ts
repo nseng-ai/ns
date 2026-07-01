@@ -25,6 +25,7 @@ import type {
 	EntryQueryOptions,
 	EntryWriteOptions,
 	ListedEntry,
+	ListEntriesOptions,
 	ListedSnapshot,
 	ListSnapshotsOptions,
 	PutEntryResult,
@@ -119,9 +120,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		this.git = options.git;
 	}
 
-	async listEntries(
-		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
-	): Promise<BrmemResult<readonly ListedEntry[]>> {
+	async listEntries(options: ListEntriesOptions): Promise<BrmemResult<readonly ListedEntry[]>> {
 		const validation = validateNamespaceName(options.namespace);
 		if (validation.type === "invalid")
 			return brmemError<readonly ListedEntry[]>(

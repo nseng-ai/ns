@@ -1,14 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	appendBlock,
 	claudeBlock,
-	managedBlockBounds,
 	parseSdlAregAgents,
 	parseLegacyAregJsonAgents,
+} from "../../src/operations/init.ts";
+import { appendBlock, managedBlockBounds } from "../../src/operations/managed-markdown-block.ts";
+import {
 	replaceOrAppendAregSection,
 	renderAregSection,
-} from "../../src/operations/init.ts";
+} from "../../src/operations/toml-section.ts";
 
 describe("init config helpers", () => {
 	test("parses sdl.toml areg agents and validates bad values", () => {
