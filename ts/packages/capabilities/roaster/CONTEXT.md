@@ -64,11 +64,47 @@ An inline PR review comment for a finding that can be placed on a changed line.
 
 Avoid: treating every finding as inline-commentable.
 
+### Finding fingerprint
+
+A stable Roaster identity for one Finding within a review, derived from review key and finding content/location so publish-time suppression can recognize previously surfaced work.
+
+Avoid: GitHub comment id, line number alone, summary alone.
+
+### Publication ledger
+
+Branch-scoped Roaster state recording Finding fingerprints that have already been surfaced for a review, used by the GitHub publication boundary to suppress repeated findings in both summary and inline output.
+
+Avoid: Review log, Review cache, GitHub comment history as the only source of truth.
+
 ### Review log
 
 A Branch Memory record of a Roaster run under the `roaster` namespace and `reviews/<review-key>/...` key path.
 
 Avoid: calling review logs durable Objective updates or changing the namespace/key path when changing user-facing terminology.
+
+### Review cache
+
+The machine-readable store of reusable Roaster review compute results, keyed by a review-cache identity so an equivalent review run can skip repeated LLM execution.
+
+Avoid: using Review log for cache identity or treating human/audit run history as the reusable compute artifact.
+
+### Review cache record
+
+One structured reusable Roaster review compute result in the Review cache, distinct from a Review log entry even when both are backed by Branch Memory.
+
+Avoid: rendered markdown log, findings comment, GitHub PR review.
+
+### Review cache identity
+
+The full execution-contract key for a Review cache record: normalized full filtered PR-diff hash after Roaster exclusions, Review definition content hash, resolved model/profile, and Roaster prompt/schema/cache-version identity, with commit SHAs and bounded prompt-input coverage retained as audit fields rather than key fields.
+
+Avoid: branch name, PR number, review key alone, base SHA as the cache key, bounded prompt input as the primary diff identity.
+
+### Canonical reviewed diff
+
+The exact full filtered Git diff text produced by Roaster's canonical diff command shape, with only minimal byte-level normalization before hashing for the Review cache identity.
+
+Avoid: semantic patch-id, parsed/re-rendered diff, treating a parsed diff summary as the cache-key material.
 
 ### GitHub publication boundary
 
