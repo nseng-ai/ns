@@ -1,5 +1,5 @@
 import { formatCommand, type CommandRunner, type ExecOptions, type ExecResult } from "@sdl/exec";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 
 export const GITHUB_CLI_TIMEOUT_MS = 30_000;
 export const GITHUB_CLI_STARTUP_ERROR_CODE = 127;
@@ -7,9 +7,9 @@ export const GITHUB_CLI_STARTUP_ERROR_CODE = 127;
 interface RunGitHubCliBaseOptions {
 	readonly args: readonly string[];
 	readonly cwd: string;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
-	readonly timeoutMs?: number | undefined;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+	readonly timeoutMs?: number;
 }
 
 export interface RunGitHubCliOptions extends RunGitHubCliBaseOptions {

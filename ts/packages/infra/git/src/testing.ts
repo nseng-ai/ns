@@ -21,7 +21,7 @@ export interface TempGitRepoOptions {
 
 export interface TempGitRepoRunOptions {
 	readonly input?: string;
-	readonly env?: NodeJS.ProcessEnv | undefined;
+	readonly env?: NodeJS.ProcessEnv;
 }
 
 export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo {
