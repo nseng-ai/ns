@@ -8,6 +8,7 @@ import {
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
 } from "../shared/text-generation.ts";
+import { parseGitPorcelainStatusLine } from "../shared/git-porcelain.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 import {
 	formatPendingWorktreeError,
@@ -18,15 +19,6 @@ import {
 // This project-local extension uses the public SDL SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
 const MAX_DISPLAY_FILE_LINES = 50;
-
-interface GitStatusFileLine {
-	status: GitPorcelainStatusCode;
-	path: string;
-}
-
-interface GitPorcelainStatusCode {
-	raw: string;
-}
 
 const GIT_STATUS_LABELS: ReadonlyArray<{ code: string; label: string }> = [
 	{ code: "U", label: "unmerged" },
@@ -128,7 +120,7 @@ function displayFileLines(terminalCaps: Caps, fileLines: readonly string[]): str
 }
 
 function formatStatusFileLine(terminalCaps: Caps, line: string): string {
-	const parsed = parseStatusFileLine(line);
+	const parsed = parseGitPorcelainStatusLine(line);
 	if (parsed === undefined) return bulletLine(terminalCaps, line);
 	return bulletLine(terminalCaps, `${statusLabel(parsed.status).padEnd(10)} ${parsed.path}`);
 }
@@ -137,19 +129,10 @@ function bulletLine(terminalCaps: Caps, text: string): string {
 	return `${glyph(terminalCaps, "bullet")} ${text}`;
 }
 
-function parseStatusFileLine(line: string): GitStatusFileLine | undefined {
-	if (line.length < 4) return undefined;
-	const status = parseGitPorcelainStatusCode(line.slice(0, 2));
-	const path = line.slice(3).trim();
-	if (path.length === 0) return undefined;
-	return { status, path };
-}
+function statusLabel(status: string): string {
+	const matchedStatus = GIT_STATUS_LABELS.find(({ code }) => status.includes(code));
+	if (matchedStatus !== undefined) return matchedStatus.label;
 
-function parseGitPorcelainStatusCode(raw: string): GitPorcelainStatusCode {
-	return { raw };
-}
-
-function statusLabel(status: GitPorcelainStatusCode): string {
-	const matchedStatus = GIT_STATUS_LABELS.find(({ code }) => status.raw.includes(code));
-	return matchedStatus?.label ?? (status.raw.trim() || "changed");
+	const trimmedStatus = status.trim();
+	return trimmedStatus.length > 0 ? trimmedStatus : "changed";
 }
