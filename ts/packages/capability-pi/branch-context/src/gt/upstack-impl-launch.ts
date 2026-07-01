@@ -2,16 +2,10 @@ import { type BranchContextEvidence } from "@sdl/branch-context/api";
 import { formatImplBranchContextCommand } from "@sdl/pi/commands";
 import type { ExecResult } from "@sdl/core/command";
 import { setRuntimeStatus } from "@sdl/pi/runtime/status";
-import type {
-	ExtensionAPI,
-	NewSessionOptions,
-	NewSessionResult,
-	ReplacedSessionContext,
-} from "../host-types.ts";
+import type { ExtensionAPI, NewSessionOptions, NewSessionResult } from "../host-types.ts";
 
 export type BranchContextGtUpstackImplHost = Pick<ExtensionAPI, "exec">;
 
-export type BranchContextGtUpstackImplNewSessionContext = ReplacedSessionContext;
 export type BranchContextGtUpstackImplNewSessionOptions = NewSessionOptions;
 export type BranchContextGtUpstackImplNewSessionResult = NewSessionResult;
 
