@@ -13,7 +13,7 @@
     "./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
     "./sdl/commands/exec-tracking-gate": "./src/sdl/commands/exec-tracking-gate.ts",
     "./sdl/commands/list": "./src/sdl/commands/list.ts",
-    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

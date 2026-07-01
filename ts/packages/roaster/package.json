@@ -13,7 +13,7 @@
     "./commands/exec-publish-findings": "./src/commands/exec-publish-findings.ts",
     "./commands/roast-list": "./src/commands/roast-list.ts",
     "./skill-reviews": "./src/skill-reviews.ts",
-    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

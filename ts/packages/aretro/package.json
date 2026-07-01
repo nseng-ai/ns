@@ -5,7 +5,7 @@
   "exports": {
     "./sdl/commands/exec-collect-evidence": "./src/sdl/commands/exec-collect-evidence.ts",
     "./sdl/commands/exec-read-evidence-detail": "./src/sdl/commands/exec-read-evidence-detail.ts",
-    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

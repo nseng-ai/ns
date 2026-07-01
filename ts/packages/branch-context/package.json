@@ -13,7 +13,7 @@
     "./sdl/commands/list": "./src/sdl/commands/list.ts",
     "./sdl/commands/load": "./src/sdl/commands/load.ts",
     "./testing": "./src/testing/index.ts",
-    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
+    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
   },
   "files": [
     "src"

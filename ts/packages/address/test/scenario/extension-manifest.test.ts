@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { EXEC_OPERATIONS } from "../../src/exec-commands.ts";
+import { addressRepoLocalSdlExtension } from "../../src/repo-local-sdl-extension.ts";
 
 const addressExtensionManifestSchema = z.object({
 	sdl: z.object({
@@ -16,32 +17,41 @@ const addressExtensionManifestSchema = z.object({
 	}),
 });
 
-const ADDRESS_EXTENSION_MANIFEST_PATH = "../.sdl/extensions/address/package.json";
-const ADDRESS_EXTENSION_EXEC_PATH = "../.sdl/extensions/address/src/commands/exec.ts";
+const ADDRESS_EXTENSION_ROOT = "../.sdl/extensions/address";
+const ADDRESS_EXTENSION_MANIFEST_PATH = path.join(ADDRESS_EXTENSION_ROOT, "package.json");
 
 describe("address SDL extension registration", () => {
-	test("declares every Address exec operation in the repo-local extension", async () => {
+	test("declares one repo-local shim for every package-owned Address exec command", async () => {
 		const manifestText = await readFile(ADDRESS_EXTENSION_MANIFEST_PATH, "utf8");
 		const manifest = addressExtensionManifestSchema.parse(JSON.parse(manifestText));
-		const actualManifestCommands = manifest.sdl.commands.map((command) => command.name).sort();
-		const expectedManifestCommands = EXEC_OPERATIONS.map(
-			(operation) => `exec-${operation.name}`,
-		).sort();
+		const actualManifestCommands = manifest.sdl.commands
+			.map((command) => ({
+				name: command.name,
+				description: command.description,
+				entry: command.entry,
+			}))
+			.sort((left, right) => left.name.localeCompare(right.name));
+		const expectedManifestCommands = addressRepoLocalSdlExtension.commands
+			.map((command) => ({
+				name: command.command.name,
+				description: command.command.summary,
+				entry: command.manifestEntry,
+			}))
+			.sort((left, right) => left.name.localeCompare(right.name));
 
 		expect(actualManifestCommands).toEqual(expectedManifestCommands);
-		expect(new Set(actualManifestCommands).size).toBe(actualManifestCommands.length);
-		for (const command of manifest.sdl.commands) {
-			expect(command.entry).toBe("./src/commands/exec.ts");
-			expect(command.description).toBe(
-				`Run Address ${command.name.slice("exec-".length)} operation.`,
-			);
-		}
+		expect(new Set(actualManifestCommands.map((command) => command.name)).size).toBe(
+			actualManifestCommands.length,
+		);
 	});
 
-	test("loads every Address exec operation from the extension command module", async () => {
-		const commandSource = await readFile(ADDRESS_EXTENSION_EXEC_PATH, "utf8");
-		for (const operation of EXEC_OPERATIONS) {
-			expect(commandSource).toContain(`prAddressSdlCommand("${operation.name}")`);
+	test("points every Address manifest entry at its matching public package export", async () => {
+		for (const command of addressRepoLocalSdlExtension.commands) {
+			const commandSource = await readFile(
+				path.join(ADDRESS_EXTENSION_ROOT, command.manifestEntry),
+				"utf8",
+			);
+			expect(commandSource).toContain(`export { default } from "${command.packageExport}";`);
 		}
 	});
 });

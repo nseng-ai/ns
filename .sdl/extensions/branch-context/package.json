@@ -10,7 +10,7 @@
 			},
 			{
 				"path": ["exec", "load"],
-				"description": "Load a branch-context entry and render the implementation prompt for agent invocation.",
+				"description": "Load an attached branch-context plan.",
 				"entry": "./src/extension.ts"
 			},
 			{
@@ -25,7 +25,7 @@
 			},
 			{
 				"path": ["exec", "check"],
-				"description": "Check whether a branch-context entry exists.",
+				"description": "Check a branch-context entry.",
 				"entry": "./src/extension.ts"
 			},
 			{

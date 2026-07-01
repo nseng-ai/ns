@@ -5,6 +5,7 @@ import * as sdk from "sdl-sdk";
 
 const EXPECTED_RUNTIME_EXPORTS = [
 	"defineExtension",
+	"defineRepoLocalSdlExtensionDescriptor",
 	"failed",
 	"noopSdlCommandIo",
 	"noopSdlProgress",
@@ -35,5 +36,10 @@ describe("sdl-sdk runtime exports", () => {
 	test("defineExtension preserves the extension object at runtime", () => {
 		const extension = {};
 		expect(sdk.defineExtension(extension)).toBe(extension);
+	});
+
+	test("defineRepoLocalSdlExtensionDescriptor preserves the descriptor object at runtime", () => {
+		const descriptor = { group: "example", description: "Example.", commands: [] };
+		expect(sdk.defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
 	});
 });

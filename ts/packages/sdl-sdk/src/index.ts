@@ -1,6 +1,7 @@
 // Public author API for SDL extensions.
 // Keep ts/packages/kernel/docs/sdk-reference.md in sync when changing these exports.
 export { defineExtension } from "./command.ts";
+export { defineRepoLocalSdlExtensionDescriptor } from "./repo-local-sdl-extension.ts";
 export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,
@@ -14,6 +15,10 @@ export type {
 	SdlCommandSchema,
 	SdlExtension,
 } from "./command.ts";
+export type {
+	RepoLocalSdlExtensionCommandDescriptor,
+	RepoLocalSdlExtensionDescriptor,
+} from "./repo-local-sdl-extension.ts";
 export type {
 	ExecResult,
 	SdlConfirmPrompt,

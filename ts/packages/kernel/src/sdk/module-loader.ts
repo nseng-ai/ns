@@ -8,6 +8,7 @@ import { isRecord } from "@sdl/core/primitives";
 
 import {
 	defineExtension,
+	defineRepoLocalSdlExtensionDescriptor,
 	failed,
 	noopSdlCommandIo,
 	noopSdlProgress,
@@ -228,6 +229,7 @@ function stripLeadingDotSlash(path: string): string {
 // Keep this object in sync with all runtime value exports from sdl-sdk; type-only exports are erased.
 const sdlSdkVirtualModule = {
 	defineExtension,
+	defineRepoLocalSdlExtensionDescriptor,
 	failed,
 	noopSdlCommandIo,
 	noopSdlProgress,
