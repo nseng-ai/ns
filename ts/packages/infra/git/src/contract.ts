@@ -5,8 +5,31 @@ export interface GitCwdParams {
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
+export type KnownGitErrorCode =
+	| "branch-create-failed"
+	| "branch-presence-failed"
+	| "branch-presence-killed"
+	| "branch-ref-invalid"
+	| "current-branch-failed"
+	| "git_branch_tips_failed"
+	| "git_changed_paths_failed"
+	| "git_dirty_status_failed"
+	| "git_path_empty"
+	| "git_path_failed"
+	| "git_startup_failed"
+	| "git_tree_oid_failed"
+	| "head_commit_empty"
+	| "head_commit_failed"
+	| "origin-url-failed"
+	| "origin-url-killed"
+	| "repo_root_empty"
+	| "repo_root_failed"
+	| "work_tree_probe_failed";
+
+export type GitErrorCode = KnownGitErrorCode | (string & {});
+
 export interface GitErrorInfo {
-	code: string;
+	code: GitErrorCode;
 	message: string;
 	displayCommand?: string;
 }
