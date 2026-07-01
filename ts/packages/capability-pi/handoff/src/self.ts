@@ -18,11 +18,9 @@ import {
 	HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
-	createHandoffStartMessage,
-	setStatus,
-	type HandoffCreateSkillLoader,
-	type HandoffStartMessages,
-} from "./shared.ts";
+} from "./command-constants.ts";
+import type { HandoffCreateSkillLoader } from "./create-skill.ts";
+import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type {
 	CommandContext,
 	ExtensionAPI,

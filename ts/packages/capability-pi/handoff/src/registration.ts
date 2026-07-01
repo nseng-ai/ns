@@ -15,7 +15,7 @@ import {
 	HANDOFF_TAB_COMMAND_NAME,
 	LIST_HANDOFF_COMMAND_NAME,
 	PICKUP_HANDOFF_COMMAND_NAME,
-} from "./shared.ts";
+} from "./command-constants.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 
 export const handoffParity = definePiSurfaceParity([
