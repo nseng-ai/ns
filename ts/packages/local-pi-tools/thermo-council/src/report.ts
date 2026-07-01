@@ -4,6 +4,7 @@ import type {
 	ThermoCouncilSeatStatus,
 } from "./contract.ts";
 import { SAFETY_NOTE } from "./constants.ts";
+import { summarizeThermoCouncilReviewerOutcome } from "./outcomes.ts";
 import { clusterFindings, uniqueStrings } from "./synthesis.ts";
 import type { FindingCluster } from "./types.ts";
 
@@ -19,17 +20,12 @@ export function renderThermoCouncilReport(
 	const singleFindings = clusters.filter((cluster) => cluster.support.length === 1);
 	return [
 		...renderReportIntro(),
-		"## Scope",
-		`- Working directory: ${scope.cwd}`,
-		`- Base: ${scope.baseRef} (${scope.baseSha})`,
-		`- Head: ${scope.headRef} (${scope.headSha})`,
-		`- Changed files: ${scope.changedFiles.length}`,
-		`- Diff included in reviewer prompts: ${scope.isDiffTruncated ? "truncated" : "full"}`,
-		"",
-		"```text",
-		scope.diffStat,
-		"```",
-		"",
+		...renderScopeBlock(scope, {
+			includeWorkingDirectory: true,
+			includeChangedFiles: true,
+			includeDiffTruncation: true,
+			includeDiffStat: true,
+		}),
 		"## Council Seat Status",
 		renderSeatStatusTable(outcomes),
 		"",
@@ -80,12 +76,10 @@ export function renderFinalSynthesisFailureReport({
 		...renderReportIntro(
 			"/thermo-council reviewer seats completed, but the mandatory final synthesis pass did not produce a usable report.",
 		),
-		"## Scope",
-		`- Working directory: ${scope.cwd}`,
-		`- Base: ${scope.baseRef} (${scope.baseSha})`,
-		`- Head: ${scope.headRef} (${scope.headSha})`,
-		`- Changed files: ${scope.changedFiles.length}`,
-		"",
+		...renderScopeBlock(scope, {
+			includeWorkingDirectory: true,
+			includeChangedFiles: true,
+		}),
 		"## Council Seat Status",
 		renderSeatStatusTable(outcomes),
 		"",
@@ -114,6 +108,34 @@ function renderReportIntro(intro?: string): readonly string[] {
 	return intro === undefined
 		? ["# Thermo Council Report", ""]
 		: ["# Thermo Council Report", "", intro, ""];
+}
+
+interface RenderScopeBlockOptions {
+	readonly includeWorkingDirectory?: boolean;
+	readonly includeChangedFiles?: boolean;
+	readonly includeDiffTruncation?: boolean;
+	readonly includeDiffStat?: boolean;
+}
+
+function renderScopeBlock(
+	scope: ThermoCouncilScope,
+	options: RenderScopeBlockOptions = {},
+): readonly string[] {
+	const lines = [
+		"## Scope",
+		...(options.includeWorkingDirectory === true ? [`- Working directory: ${scope.cwd}`] : []),
+		`- Base: ${scope.baseRef} (${scope.baseSha})`,
+		`- Head: ${scope.headRef} (${scope.headSha})`,
+		...(options.includeChangedFiles === true
+			? [`- Changed files: ${scope.changedFiles.length}`]
+			: []),
+		...(options.includeDiffTruncation === true
+			? [`- Diff included in reviewer prompts: ${scope.isDiffTruncated ? "truncated" : "full"}`]
+			: []),
+		"",
+	];
+	if (options.includeDiffStat !== true) return lines;
+	return [...lines, "```text", scope.diffStat, "```", ""];
 }
 
 function renderFindingClusters(clusters: readonly FindingCluster[]): readonly string[] {
@@ -165,14 +187,7 @@ function renderSeatStatusTable(outcomes: readonly ThermoCouncilReviewerOutcome[]
 }
 
 function seatDiagnostic(outcome: ThermoCouncilReviewerOutcome): string {
-	switch (outcome.type) {
-		case "completed":
-			return `${outcome.review.findings.length} findings`;
-		case "blocked":
-			return escapeTable(outcome.reason);
-		case "failed":
-			return escapeTable(outcome.diagnostic);
-	}
+	return escapeTable(summarizeThermoCouncilReviewerOutcome(outcome).diagnostic);
 }
 
 function renderSynthesisSummary(
@@ -220,10 +235,7 @@ function renderAllSeatsFailedReport(
 		...renderReportIntro(
 			"No council seat completed, so /thermo-council did not synthesize review findings.",
 		),
-		"## Scope",
-		`- Base: ${scope.baseRef} (${scope.baseSha})`,
-		`- Head: ${scope.headRef} (${scope.headSha})`,
-		"",
+		...renderScopeBlock(scope),
 		"## Council Seat Status",
 		renderSeatStatusTable(outcomes),
 		"",
