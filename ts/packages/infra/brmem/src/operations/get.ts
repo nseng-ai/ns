@@ -34,7 +34,12 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 	});
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
-	const result = await ctx.gateway.getEntry({ namespace, key, branch, at: request.at });
+	const result = await ctx.gateway.getEntry({
+		namespace,
+		key,
+		branch,
+		...optionalEntry("at", request.at),
+	});
 	if (result.type === "error") return gatewayFailure<GetResult>(result.error);
 	const locator = mustEntryLocator(namespace, key, branch);
 	const target = request.at ?? locator;

@@ -40,7 +40,12 @@ export async function runCheck(ctx: BrmemCliContext, request: CheckRequest) {
 	const { namespace, key, branch } = resolved.value;
 	const locator = mustEntryLocator(namespace, key, branch);
 	const target = request.at ?? locator;
-	const result = await ctx.gateway.checkEntry({ namespace, key, branch, at: request.at });
+	const result = await ctx.gateway.checkEntry({
+		namespace,
+		key,
+		branch,
+		...optionalEntry("at", request.at),
+	});
 	if (result.type === "error") return gatewayFailure<CheckResult>(result.error);
 	if (result.type === "missing") {
 		return ok(emptyResult({ namespace, key, branch, refName: locator, target, at: request.at }));

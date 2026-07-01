@@ -1,4 +1,5 @@
 import { failure, negative, ok, type ClinkrFailureExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
@@ -141,7 +142,7 @@ export async function runCopy(ctx: BrmemCliContext, request: CopyRequest) {
 		fromBranch: request.fromBranch,
 		toBranch: request.toBranch,
 		shouldOverwrite: request.overwrite,
-		keyGlob: request.keyGlob,
+		...optionalEntry("keyGlob", request.keyGlob),
 	});
 	if (copied.type === "error") {
 		if (copied.error.code === "copy-conflict") {

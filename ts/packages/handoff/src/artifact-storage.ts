@@ -6,6 +6,7 @@ import {
 	type BrmemReadGateway,
 	type BrmemResult,
 } from "@sdl/brmem";
+import { optionalEntry } from "@sdl/core/primitives";
 import type { GitGateway } from "@sdl/git";
 
 import {
@@ -88,7 +89,7 @@ export async function listHandoffSummaries(
 ): Promise<BrmemResult<readonly HandoffSummary[]>> {
 	const entries = await deps.brmem.listEntries({
 		namespace: HANDOFF_NAMESPACE,
-		branch: options.branch,
+		...optionalEntry("branch", options.branch),
 	});
 	if (entries.type === "error") {
 		return brmemError(entries.error.code, `Failed to list handoffs: ${entries.error.message}`);

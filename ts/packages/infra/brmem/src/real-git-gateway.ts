@@ -103,8 +103,8 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 
 	async listEntries(options: {
 		namespace: string;
-		key?: string | undefined;
-		branch?: string | undefined;
+		key?: string;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		const validation = validateNamespaceName(options.namespace);
 		if (validation.type === "invalid")
@@ -115,8 +115,8 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		return await this.collectEntries({
 			allNamespaces: false,
 			namespace: options.namespace,
-			key: options.key,
-			branch: options.branch,
+			...(options.key === undefined ? {} : { key: options.key }),
+			...(options.branch === undefined ? {} : { branch: options.branch }),
 		});
 	}
 
@@ -124,7 +124,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryContent>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error")
@@ -146,7 +146,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		namespace: string;
 		key: string;
 		branch: string;
-		at?: string | undefined;
+		at?: string;
 	}): Promise<BrmemOptionalResult<EntryDiagnostic>> {
 		const validation = await this.validateEntryAddress(options);
 		if (validation.type === "error") {
@@ -237,8 +237,8 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 	protected async collectEntries(options: {
 		allNamespaces: boolean;
 		namespace?: string;
-		key?: string | undefined;
-		branch?: string | undefined;
+		key?: string;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		if (options.key !== undefined) {
 			const keyValidation = validateEntryKey(options.key);
@@ -325,18 +325,18 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}
 
 	async listAllEntries(options: {
-		key?: string | undefined;
-		branch?: string | undefined;
+		key?: string;
+		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		return await this.collectEntries({
 			allNamespaces: true,
-			key: options.key,
-			branch: options.branch,
+			...(options.key === undefined ? {} : { key: options.key }),
+			...(options.branch === undefined ? {} : { branch: options.branch }),
 		});
 	}
 
 	async listSnapshots(options: {
-		namespace?: string | undefined;
+		namespace?: string;
 	}): Promise<BrmemResult<readonly ListedSnapshot[]>> {
 		if (options.namespace !== undefined) {
 			const validation = validateNamespaceName(options.namespace);
@@ -492,7 +492,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: snapshotRef,
 			newSha: commit.stdout.trim(),
-			expectedOldSha: parentSha,
+			...(parentSha === undefined ? {} : { expectedOldSha: parentSha }),
 		});
 		if (update.type === "error") return update;
 		return brmemOk({
@@ -551,7 +551,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		fromBranch: string;
 		toBranch: string;
 		shouldOverwrite: boolean;
-		keyGlob?: string | undefined;
+		keyGlob?: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const namespaceValidation = validateNamespaceName(options.namespace);
 		if (namespaceValidation.type === "invalid")
@@ -589,11 +589,17 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				sourceRef,
 				sourceSha: sourceSha.stdout.trim(),
 				destRef,
-				destSha,
+				...(destSha === undefined ? {} : { destSha }),
 				shouldOverwrite: options.shouldOverwrite,
 			});
 		}
-		return this.copyWithGlob({ ...options, sourceRef, destRef, destSha, keyGlob: options.keyGlob });
+		return this.copyWithGlob({
+			...options,
+			sourceRef,
+			destRef,
+			...(destSha === undefined ? {} : { destSha }),
+			keyGlob: options.keyGlob,
+		});
 	}
 
 	private async copySnapshot(options: {
@@ -603,7 +609,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		sourceRef: string;
 		sourceSha: string;
 		destRef: string;
-		destSha?: string | undefined;
+		destSha?: string;
 		shouldOverwrite: boolean;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
 		const sourceEntries = await loadSnapshotEntries(this.commands, this.cwd, {
@@ -648,7 +654,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		toBranch: string;
 		sourceRef: string;
 		destRef: string;
-		destSha?: string | undefined;
+		destSha?: string;
 		shouldOverwrite: boolean;
 		keyGlob: string;
 	}): Promise<BrmemResult<CopyEntriesResult>> {
@@ -697,7 +703,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
 			newSha: commit.stdout.trim(),
-			expectedOldSha: options.destSha,
+			...(options.destSha === undefined ? {} : { expectedOldSha: options.destSha }),
 		});
 		if (update.type === "error") return update;
 		return brmemOk({
@@ -1041,7 +1047,7 @@ function parseEntryUpdateLog(stdout: string): Map<string, string> {
 async function updateSnapshotRef(
 	commands: CommandExecApi,
 	cwd: string,
-	options: { ref: string; newSha: string; expectedOldSha?: string | undefined },
+	options: { ref: string; newSha: string; expectedOldSha?: string },
 ): Promise<BrmemResult<void>> {
 	const update = await runGit(
 		commands,
