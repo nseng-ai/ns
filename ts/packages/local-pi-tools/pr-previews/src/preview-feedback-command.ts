@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { PrPreviewFeedbackView, type PrPreviewFeedbackViewModel } from "./preview-feedback-view.ts";
 import {
+	missingPreviewTargetMessage,
 	PREVIEW_OVERLAY_MARGIN,
 	PREVIEW_OVERLAY_MAX_HEIGHT_RATIO,
 } from "./preview-view-utilities.ts";
@@ -300,10 +301,4 @@ function previewCommentFromData(
 		start_line: comment.start_line,
 		created_at: comment.created_at,
 	};
-}
-
-function missingPreviewTargetMessage(target: PreviewDownloadFeedbackData["target"]): string {
-	if (target.pr_number !== null) return `No PR found for PR ${target.pr_number}.`;
-	if (target.branch !== null) return `No open PR found for branch ${target.branch}.`;
-	return "No open PR found for the current branch.";
 }
