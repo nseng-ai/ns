@@ -23,6 +23,17 @@ export interface WrappedDetailViewport {
 	maxScroll: number;
 }
 
+export interface PreviewTargetLocator {
+	pr_number: number | null;
+	branch: string | null;
+}
+
+export function missingPreviewTargetMessage(target: PreviewTargetLocator): string {
+	if (target.pr_number !== null) return `No PR found for PR ${target.pr_number}.`;
+	if (target.branch !== null) return `No open PR found for branch ${target.branch}.`;
+	return "No open PR found for the current branch.";
+}
+
 export type CheckLogSummaryMarkdownSegment =
 	| { kind: "bold"; text: string }
 	| { kind: "code"; text: string }
