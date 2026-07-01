@@ -73,10 +73,10 @@ describe("sdl completion CLI", () => {
 			candidate: { name: "hello" },
 			command: helloCommand({
 				name: "hello",
-				schema: z.object({ topLevelFlag: z.boolean().default(false) }),
+				schema: z.object({ isTopLevel: z.boolean().default(false) }),
 			}),
-			prefix: "--top-level-f",
-			expected: "--top-level-flag\n",
+			prefix: "--is-top-l",
+			expected: "--is-top-level\n",
 			expectedLoadLog: ["hello"],
 		},
 		{
@@ -85,10 +85,10 @@ describe("sdl completion CLI", () => {
 			candidate: { group: "tools", name: "scan", sourceLevel: "global" as const },
 			command: helloCommand({
 				name: "scan",
-				schema: z.object({ groupedFlag: z.boolean().default(false) }),
+				schema: z.object({ isGrouped: z.boolean().default(false) }),
 			}),
-			prefix: "--grouped-f",
-			expected: "--grouped-flag\n",
+			prefix: "--is-group",
+			expected: "--is-grouped\n",
 			expectedLoadLog: ["tools/scan"],
 		},
 		{
@@ -97,10 +97,10 @@ describe("sdl completion CLI", () => {
 			candidate: { name: "gc", segments: ["slot", "gc"], sourceLevel: "first-party" as const },
 			command: helloCommand({
 				name: "gc",
-				schema: z.object({ deleteBranches: z.boolean().default(false) }),
+				schema: z.object({ shouldDeleteBranches: z.boolean().default(false) }),
 			}),
-			prefix: "--delete-br",
-			expected: "--delete-branches\n",
+			prefix: "--should-delete-br",
+			expected: "--should-delete-branches\n",
 			expectedLoadLog: ["slot/gc"],
 		},
 		{
@@ -109,10 +109,10 @@ describe("sdl completion CLI", () => {
 			candidate: { name: "run", segments: ["roaster", "review", "run"] },
 			command: helloCommand({
 				name: "run",
-				schema: z.object({ reviewProfile: z.boolean().default(false) }),
+				schema: z.object({ shouldReviewProfile: z.boolean().default(false) }),
 			}),
-			prefix: "--review-pro",
-			expected: "--review-profile\n",
+			prefix: "--should-review-pro",
+			expected: "--should-review-profile\n",
 			expectedLoadLog: ["roaster/review/run"],
 		},
 		{
@@ -124,10 +124,10 @@ describe("sdl completion CLI", () => {
 			},
 			command: helloCommand({
 				name: "stack-branches",
-				schema: z.object({ downstackOnly: z.boolean().default(false) }),
+				schema: z.object({ isDownstackOnly: z.boolean().default(false) }),
 			}),
-			prefix: "--downstack-o",
-			expected: "--downstack-only\n",
+			prefix: "--is-downstack-o",
+			expected: "--is-downstack-only\n",
 			expectedLoadLog: ["slot/gt/exec/stack-branches"],
 		},
 	])(
