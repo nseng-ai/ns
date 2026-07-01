@@ -258,7 +258,7 @@ export interface AutobranchFlowInput {
 	onPhase?: (message: string) => void;
 	readFile?: (path: string) => Promise<Uint8Array | string>;
 	stat?: (path: string) => Promise<FileStat>;
-	now?: (() => number) | undefined;
+	now?: () => number;
 }
 
 /**
@@ -302,7 +302,7 @@ export async function runDirtyAutobranchFlow(
 		checkpointMessage: prepared.plan.checkpointMessage,
 		exec: input.exec,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
-		now: input.now,
+		...(input.now ? { now: input.now } : {}),
 	});
 	if (!transaction.ok) {
 		return {

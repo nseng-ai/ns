@@ -45,7 +45,7 @@ export interface LatestCommitAutobranchInput {
 	snapshot: PendingWorktreeSnapshot;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	onPhase?: (message: string) => void;
-	now?: (() => number) | undefined;
+	now?: () => number;
 }
 
 export async function createLatestCommitAutobranchFlow(
@@ -65,7 +65,7 @@ export async function createLatestCommitAutobranchFlow(
 		cwd: input.cwd,
 		plan: prepared.plan,
 		exec: input.exec,
-		now: input.now,
+		...(input.now ? { now: input.now } : {}),
 	});
 	if (!transaction.ok) {
 		return {
