@@ -37,7 +37,7 @@ import {
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
 } from "@sdl/plans/api";
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,
@@ -1146,8 +1146,7 @@ async function resolveSelectedSavedPlanFile(
 	const planStoreRoot = resolvePlanStoreRootOption(options);
 	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,
-		...optionalEntry("planStoreRoot", planStoreRoot),
-		...optionalEntry("explicitPath", args.filePath),
+		...optionalEntries({ planStoreRoot, explicitPath: args.filePath }),
 		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		shouldFallbackToLatest: true,
 	});

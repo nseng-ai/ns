@@ -1,5 +1,5 @@
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries } from "@sdl/core/primitives";
 import { renderTextTable } from "@sdl/core/text-table";
 import { z } from "zod";
 
@@ -93,8 +93,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		}
 	}
 	const entryFilters = {
-		...optionalEntry("key", request.key),
-		...optionalEntry("branch", branch),
+		...optionalEntries({ key: request.key, branch }),
 	};
 	const entriesResult = shouldListAllNamespaces
 		? await ctx.gateway.listAllEntries(entryFilters)

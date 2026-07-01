@@ -1,4 +1,4 @@
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -432,8 +432,7 @@ function planStoreOptions(options: BranchContextPrimitiveOptions): PlanStoreOpti
 	return {
 		cwd: options.cwd,
 		git: options.context.git,
-		...optionalEntry("planStoreRoot", options.planStoreRoot),
-		...optionalEntry("signal", options.signal),
+		...optionalEntries({ planStoreRoot: options.planStoreRoot, signal: options.signal }),
 	};
 }
 

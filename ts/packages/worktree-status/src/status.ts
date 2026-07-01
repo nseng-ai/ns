@@ -22,7 +22,7 @@ import {
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
 } from "@sdl/github/pr-status";
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import {
@@ -195,8 +195,7 @@ export async function loadLocalWorktreeStatus(
 		loadGtStatus({
 			pi,
 			cwd,
-			...optionalEntry("signal", options.signal),
-			...optionalEntry("metadataLoader", options.metadataLoader),
+			...optionalEntries({ signal: options.signal, metadataLoader: options.metadataLoader }),
 			onDiagnostic,
 		}),
 		identityPromise,
@@ -258,8 +257,7 @@ export async function loadGtStatus(options: LoadGtStatusOptions): Promise<GtStat
 	const metadataLoader = options.metadataLoader ?? loadCurrentGraphiteMetadataStatusAsync;
 	const metadataLoaderOptions: GraphiteMetadataLoaderOptions = {
 		cwd,
-		...optionalEntry("signal", signal),
-		...optionalEntry("onDiagnostic", options.onDiagnostic),
+		...optionalEntries({ signal, onDiagnostic: options.onDiagnostic }),
 	};
 	const metadata = await metadataLoader(metadataLoaderOptions);
 	const down = loadDownBranch(metadata, signal);

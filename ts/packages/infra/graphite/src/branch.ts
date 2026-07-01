@@ -1,4 +1,4 @@
-import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@sdl/core/primitives";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -134,8 +134,7 @@ export function runGraphiteCommand(
 			timeout: params.timeoutMs ?? GT_TIMEOUT_MS,
 			env: params.env,
 			signal: params.signal,
-			...optionalEntry("onStdout", params.onStdout),
-			...optionalEntry("onStderr", params.onStderr),
+			...optionalEntries({ onStdout: params.onStdout, onStderr: params.onStderr }),
 		}),
 	);
 }
@@ -169,9 +168,6 @@ function execOptions(options: {
 	return {
 		cwd,
 		timeout,
-		...optionalEntry("env", env),
-		...optionalEntry("signal", signal),
-		...optionalEntry("onStdout", onStdout),
-		...optionalEntry("onStderr", onStderr),
+		...optionalEntries({ env, signal, onStdout, onStderr }),
 	};
 }

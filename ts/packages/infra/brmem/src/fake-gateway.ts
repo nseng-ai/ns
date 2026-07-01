@@ -1,5 +1,3 @@
-import { optionalEntry } from "@sdl/core/primitives";
-
 import {
 	brmemError,
 	brmemFound,
@@ -8,6 +6,7 @@ import {
 	brmemOptionalError,
 	type BrmemResult,
 } from "./contracts.ts";
+import { keyBranchFilter } from "./entry-filters.ts";
 import type {
 	BrmemGateway,
 	CopyEntriesResult,
@@ -119,8 +118,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 			this.collectEntries({
 				allNamespaces: false,
 				namespace: options.namespace,
-				...optionalEntry("key", options.key),
-				...optionalEntry("branch", options.branch),
+				...keyBranchFilter(options),
 			}),
 		);
 	}
@@ -131,8 +129,7 @@ export class FakeBrmemGateway implements BrmemGateway {
 		return brmemOk(
 			this.collectEntries({
 				allNamespaces: true,
-				...optionalEntry("key", options.key),
-				...optionalEntry("branch", options.branch),
+				...keyBranchFilter(options),
 			}),
 		);
 	}

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { formatZodError, optionalEntry } from "@sdl/core/primitives";
+import { formatZodError, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 
 import { loadPiAgentDefinition, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
 import type { ToolDefinition } from "@sdl/pi/runtime/tool-types";
@@ -122,8 +122,7 @@ export default function dispatchRunnerSubagentExtension(
 				title: input.title,
 				prompt: input.prompt,
 				widgetKey: WIDGET_KEY,
-				...optionalEntry("model", input.model),
-				...optionalEntry("signal", signal),
+				...optionalEntries({ model: input.model, signal }),
 				onStart: (start) => {
 					onUpdate?.({
 						content: [{ type: "text", text: `Dispatching forked Pi process: ${input.title}` }],
@@ -206,8 +205,10 @@ export function dispatchRunnerSubagentDetails(
 	const details: DispatchRunnerSubagentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
-		...optionalEntry("requestedModel", options.requestedModel),
-		...optionalEntry("curatedContext", options.curatedContext),
+		...optionalEntries({
+			requestedModel: options.requestedModel,
+			curatedContext: options.curatedContext,
+		}),
 		elapsedMs: result.elapsedMs,
 		...(sessionFile === undefined ? {} : { sessionFile }),
 		progress: result.progress,

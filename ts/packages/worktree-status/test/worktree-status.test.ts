@@ -4,7 +4,7 @@ import { githubWorktreePrStatusQuery } from "@sdl/github/pr-status";
 import { githubCheckRun } from "@sdl/github/testing";
 import { ScriptedQueue } from "@sdl/test-kit";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
 import {
 	formatGhStatus,
@@ -177,8 +177,7 @@ function withDefaultLocalOptions(
 	options: LoadLocalWorktreeStatusOptions = {},
 ): LoadLocalWorktreeStatusOptions {
 	return {
-		...optionalEntry("signal", options.signal),
-		...optionalEntry("onDiagnostic", options.onDiagnostic),
+		...optionalEntries({ signal: options.signal, onDiagnostic: options.onDiagnostic }),
 		identity: options.identity ?? identityFor(cwd),
 		metadataLoader: options.metadataLoader ?? defaultMetadataLoader,
 	};
@@ -330,9 +329,11 @@ function worktreePrCheckRun(options: {
 		workflowName: options.workflowName ?? "fixture",
 		name: options.name,
 		status: options.status ?? "COMPLETED",
-		...optionalEntry("conclusion", options.conclusion),
-		...optionalEntry("startedAt", options.startedAt),
-		...optionalEntry("completedAt", options.completedAt),
+		...optionalEntries({
+			conclusion: options.conclusion,
+			startedAt: options.startedAt,
+			completedAt: options.completedAt,
+		}),
 	});
 }
 

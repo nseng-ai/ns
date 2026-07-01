@@ -14,6 +14,7 @@ import {
 	type BrmemResult,
 	type BrmemOptionalResult,
 } from "./contracts.ts";
+import { keyBranchFilter } from "./entry-filters.ts";
 import type {
 	BrmemGateway,
 	BrmemReadGateway,
@@ -116,8 +117,7 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		return await this.collectEntries({
 			allNamespaces: false,
 			namespace: options.namespace,
-			...optionalEntry("key", options.key),
-			...optionalEntry("branch", options.branch),
+			...keyBranchFilter(options),
 		});
 	}
 
@@ -331,8 +331,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		return await this.collectEntries({
 			allNamespaces: true,
-			...optionalEntry("key", options.key),
-			...optionalEntry("branch", options.branch),
+			...keyBranchFilter(options),
 		});
 	}
 

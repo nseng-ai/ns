@@ -1,5 +1,5 @@
 import type { CommandExecApi, CommandRunner, ExecOptions, ExecResult } from "@sdl/core/command";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { ScriptedQueue } from "@sdl/test-kit";
 
 export interface DropExecOptionsFields {
@@ -151,9 +151,11 @@ export function copyExecOptionsWithout(
 ): ExecOptions | undefined {
 	if (options === undefined) return undefined;
 	return {
-		...optionalEntry("cwd", options.cwd),
-		...optionalEntry("env", dropFields.shouldDropEnv === true ? undefined : options.env),
-		...optionalEntry("timeout", options.timeout),
+		...optionalEntries({
+			cwd: options.cwd,
+			env: dropFields.shouldDropEnv === true ? undefined : options.env,
+			timeout: options.timeout,
+		}),
 		...(options.timeoutKillGraceMs === undefined
 			? {}
 			: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
@@ -161,8 +163,7 @@ export function copyExecOptionsWithout(
 		...(dropFields.shouldDropStdin === true || options.stdin === undefined
 			? {}
 			: { stdin: options.stdin }),
-		...optionalEntry("onStdout", options.onStdout),
-		...optionalEntry("onStderr", options.onStderr),
+		...optionalEntries({ onStdout: options.onStdout, onStderr: options.onStderr }),
 	};
 }
 

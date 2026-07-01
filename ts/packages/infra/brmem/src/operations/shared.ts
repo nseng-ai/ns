@@ -1,5 +1,5 @@
 import { failure, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntries } from "@sdl/core/primitives";
 
 import type { BrmemCliContext } from "../context.ts";
 import type { BrmemErrorInfo } from "../contracts.ts";
@@ -39,8 +39,7 @@ export async function resolveOperationEntryRequest(
 ): Promise<ResolvedEntryRequestResult> {
 	return await resolveEntryRequest(ctx, {
 		key: request.key,
-		...optionalEntry("branch", request.branch),
-		...optionalEntry("namespace", request.namespace),
+		...optionalEntries({ branch: request.branch, namespace: request.namespace }),
 	});
 }
 
