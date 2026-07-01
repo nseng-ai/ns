@@ -4,6 +4,7 @@ import { definePiSurfaceParity } from "../parity/extension.ts";
 
 const MODEL_SHORTCUTS = [
 	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },
+	{ command: "model:sonnet", provider: "anthropic", modelId: "claude-sonnet-4-5" },
 	{ command: "model:spud", provider: "openai-codex", modelId: "gpt-5.5" },
 	{ command: "model:gpt-mini", provider: "openai-codex", modelId: "gpt-5.4-mini" },
 	{ command: "model:gemini-pro", provider: "google", modelId: "gemini-3.1-pro-preview" },
