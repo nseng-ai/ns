@@ -25,7 +25,9 @@ export interface PrewrittenPrMetadata {
 	promptSource: PromptSource;
 }
 
-export interface PrDescriptionOrchestrationOptions {
+export type PrDescriptionFingerprintPolicy = "skip-current" | "force";
+
+export interface PrDescriptionUpdateOptions {
 	cwd: string;
 	env: Record<string, string | undefined>;
 	git: GitGateway;
@@ -33,16 +35,21 @@ export interface PrDescriptionOrchestrationOptions {
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
 	generation?: Extract<PrDescriptionGenerationResolution, { ok: true }>;
-	prewrittenMetadata?: PrewrittenPrMetadata;
-	shouldForce?: boolean;
+	fingerprintPolicy?: PrDescriptionFingerprintPolicy;
 	onProgress?: (message: string) => void;
 }
 
-export type PrDescriptionOrchestrationResult =
-	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
-	| { type: "matched_prewritten"; pr: GithubPrDetails }
-	| { type: "updated"; pr: GithubPrDetails; title: string }
-	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
+export type PreparedPrDescriptionUpdate = Extract<PrDescriptionUpdateResult, { type: "prepared" }>;
+
+export type PrDescriptionUpdateResult =
+	| { type: "skipped"; pr: GithubPrDetails; patchId: string; promptSource: PromptSource }
+	| {
+			type: "prepared";
+			pr: GithubPrDetails;
+			title: string;
+			body: string;
+			promptSource: PromptSource;
+	  }
 	| {
 			type: "failed";
 			pr?: GithubPrDetails;
@@ -51,19 +58,26 @@ export type PrDescriptionOrchestrationResult =
 			diagnostic?: ErrorInfo;
 	  };
 
-export async function orchestratePrDescription(
-	options: PrDescriptionOrchestrationOptions,
-): Promise<PrDescriptionOrchestrationResult> {
+export type ApplyPrDescriptionUpdateResult =
+	| { ok: true }
+	| { ok: false; reason: string; diagnostic?: ErrorInfo };
+
+export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOptions {
+	prewrittenMetadata?: PrewrittenPrMetadata;
+	shouldForce?: boolean;
+}
+
+export type PrDescriptionOrchestrationResult =
+	| { type: "skipped"; pr: GithubPrDetails; patchId: string }
+	| { type: "matched_prewritten"; pr: GithubPrDetails }
+	| { type: "updated"; pr: GithubPrDetails; title: string }
+	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
+	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
+
+export async function preparePrDescriptionUpdate(
+	options: PrDescriptionUpdateOptions,
+): Promise<PrDescriptionUpdateResult> {
 	const pr = options.pr;
-
-	if (options.prewrittenMetadata !== undefined) {
-		return await reconcilePrewrittenPr({
-			options,
-			pr,
-			metadata: options.prewrittenMetadata,
-		});
-	}
-
 	const generation = options.generation ?? (await resolvePrDescriptionGeneration(options));
 	if (!generation.ok) {
 		return {
@@ -93,7 +107,7 @@ export async function orchestratePrDescription(
 	};
 	const parsedRegion = parseManagedGeneratedRegion(pr.body);
 	if (
-		options.shouldForce !== true &&
+		(options.fingerprintPolicy ?? "skip-current") === "skip-current" &&
 		parsedRegion.type === "found" &&
 		fingerprintsMatch(parsedRegion.metadata, metadata)
 	) {
@@ -104,6 +118,7 @@ export async function orchestratePrDescription(
 			type: "skipped",
 			pr,
 			patchId: patchId.value.patchId,
+			promptSource: generation.promptSource,
 		};
 	}
 
@@ -136,19 +151,75 @@ export async function orchestratePrDescription(
 	});
 	if (!prepared.ok) return { type: "failed", pr, reason: prepared.error };
 
-	options.onProgress?.(`updating PR #${pr.number} description`);
-	const edited = await options.githubPr.editPr({
-		cwd: options.cwd,
-		number: pr.number,
+	return {
+		type: "prepared",
+		pr,
 		title: prepared.title,
 		body: replaceOrInsertGeneratedRegion(pr.body, prepared.body, metadata),
+		promptSource: generation.promptSource,
+	};
+}
+
+export async function applyPreparedPrDescriptionUpdate(input: {
+	cwd: string;
+	githubPr: GithubPrGateway;
+	update: PreparedPrDescriptionUpdate;
+}): Promise<ApplyPrDescriptionUpdateResult> {
+	const edited = await input.githubPr.editPr({
+		cwd: input.cwd,
+		number: input.update.pr.number,
+		title: input.update.title,
+		body: input.update.body,
+	});
+	if (edited.ok) return { ok: true };
+	return { ok: false, reason: edited.error.message, diagnostic: edited.error };
+}
+
+export async function orchestratePrDescription(
+	options: PrDescriptionOrchestrationOptions,
+): Promise<PrDescriptionOrchestrationResult> {
+	const pr = options.pr;
+
+	if (options.prewrittenMetadata !== undefined) {
+		return await reconcilePrewrittenPr({
+			options,
+			pr,
+			metadata: options.prewrittenMetadata,
+		});
+	}
+
+	const prepared = await preparePrDescriptionUpdate({
+		cwd: options.cwd,
+		env: options.env,
+		git: options.git,
+		githubPr: options.githubPr,
+		textGenerator: options.textGenerator,
+		pr,
+		...(options.generation === undefined ? {} : { generation: options.generation }),
+		fingerprintPolicy: options.shouldForce === true ? "force" : "skip-current",
+		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+	});
+	if (prepared.type === "failed") return prepared;
+	if (prepared.type === "skipped") {
+		return {
+			type: "skipped",
+			pr,
+			patchId: prepared.patchId,
+		};
+	}
+
+	options.onProgress?.(`updating PR #${pr.number} description`);
+	const edited = await applyPreparedPrDescriptionUpdate({
+		cwd: options.cwd,
+		githubPr: options.githubPr,
+		update: prepared,
 	});
 	if (!edited.ok) {
 		return {
 			type: "failed",
 			pr,
-			reason: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.error.message}`,
-			diagnostic: edited.error,
+			reason: `Generated a PR description, but failed to update PR #${pr.number}.\n${edited.reason}`,
+			...(edited.diagnostic === undefined ? {} : { diagnostic: edited.diagnostic }),
 		};
 	}
 
@@ -156,7 +227,7 @@ export async function orchestratePrDescription(
 		type: "generated",
 		pr,
 		title: prepared.title,
-		promptSource: generation.promptSource,
+		promptSource: prepared.promptSource,
 	};
 }
 

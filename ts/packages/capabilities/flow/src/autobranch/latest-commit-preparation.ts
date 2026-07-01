@@ -1,4 +1,5 @@
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
 	buildBranchSlugPrompt,
@@ -70,6 +71,8 @@ type LatestCommitFactsFailure = Extract<
 export type LatestCommitFactsResult =
 	| { ok: true; facts: LatestCommitFacts }
 	| LatestCommitFactsFailure;
+
+type LatestCommitPreparationFailure = Extract<LatestCommitPreparationResult, { ok: false }>;
 
 type PreparedLatestCommitSlugResult =
 	| { ok: true; baseSlug: string; source: LatestCommitAutobranchPlan["slugSource"] }
@@ -248,4 +251,63 @@ function buildLatestCommitSlugPrompt(facts: LatestCommitFacts): string {
 			},
 		],
 	});
+}
+
+/**
+ * Classify a latest-commit preparation failure as a declined guardrail (`refusal`) vs. a real
+ * `failure`. The four eligibility guardrails — already-pushed HEAD, existing Graphite children, and
+ * root/merge commits — decline before any mutation and render warn (house-style §7.3); everything
+ * else (probe failures, bad slug, unavailable branch name) is a real failure.
+ */
+export function classifyLatestCommitPreparationFailure(
+	result: LatestCommitPreparationFailure,
+): AutobranchFlowOutcome {
+	switch (result.kind) {
+		case "pushed_head_refusal":
+		case "child_branch_refusal":
+		case "root_commit_refusal":
+		case "merge_commit_refusal":
+			return "refusal";
+		case "upstream_check_failed":
+		case "child_branch_check_failed":
+		case "commit_parent_lookup_failed":
+		case "commit_evidence_failed":
+		case "invalid_requested_slug":
+		case "slug_generation_failed":
+		case "branch_name_unavailable":
+			return "failure";
+	}
+}
+
+export function formatLatestCommitPreparationFailure(
+	result: LatestCommitPreparationFailure,
+): string {
+	switch (result.kind) {
+		case "upstream_check_failed":
+			return `Could not determine whether HEAD is already in the current branch upstream.\n${result.error}`;
+		case "pushed_head_refusal":
+			return `Refusing to move latest commit because upstream ${result.upstream} already contains HEAD.`;
+		case "child_branch_check_failed":
+			return `Could not inspect Graphite child branches before moving the latest commit.\n${result.error}`;
+		case "child_branch_refusal":
+			return [
+				"Refusing to move latest commit because the source branch has Graphite child branches.",
+				"Move or restack child branches first:",
+				...result.children.map((child) => `- ${child}`),
+			].join("\n");
+		case "commit_parent_lookup_failed":
+			return `Could not inspect latest commit parents.\n${result.error}`;
+		case "root_commit_refusal":
+			return `Refusing to move root commit ${shortSha(result.headSha)}; latest-commit autobranch requires a single-parent commit.`;
+		case "merge_commit_refusal":
+			return `Refusing to move merge commit ${shortSha(result.headSha)} with ${result.parentCount} parents; latest-commit autobranch supports only single-parent commits.`;
+		case "commit_evidence_failed":
+			return `Could not read latest commit evidence for branch slug generation.\n${result.error}`;
+		case "invalid_requested_slug":
+			return `Invalid branch slug: ${result.requestedSlug}`;
+		case "slug_generation_failed":
+			return result.error;
+		case "branch_name_unavailable":
+			return `Could not find an available branch name based on ${result.baseSlug}.`;
+	}
 }

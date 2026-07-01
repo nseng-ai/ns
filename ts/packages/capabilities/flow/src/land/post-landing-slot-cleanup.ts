@@ -1,6 +1,11 @@
 import { formatCommand } from "@sdl/core/command";
 import { GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./stack/constants.ts";
-import { exec, execGraphite } from "./stack/command-exec.ts";
+import { exec } from "./stack/command-exec.ts";
+import {
+	formatGraphiteCommand,
+	graphiteDeleteLocalBranchArgs,
+	type LandGraphiteCommandChannel,
+} from "./stack/graphite-command-channel.ts";
 import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import type {
@@ -14,6 +19,7 @@ import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
 
 interface RunPostLandingSlotCleanupOptions {
 	pi: LandStackExtensionAPI;
+	graphite: LandGraphiteCommandChannel;
 	ctx: PrintAwareLandStackCommandContext;
 	args: ParsedArgs;
 	shape: LandingShape;
@@ -22,6 +28,7 @@ interface RunPostLandingSlotCleanupOptions {
 export async function runPostLandingSlotCleanup({
 	pi,
 	ctx,
+	graphite,
 	args,
 	shape,
 }: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
@@ -84,8 +91,8 @@ export async function runPostLandingSlotCleanup({
 		}
 
 		setStatus(ctx, `deleting ${shape.stack.actualCurrentBranch}...`);
-		const deleteArgs = ["delete", shape.stack.actualCurrentBranch, "-f", "-q"];
-		const deleteResult = await execGraphite(pi, {
+		const deleteArgs = graphiteDeleteLocalBranchArgs(shape.stack.actualCurrentBranch);
+		const deleteResult = await graphite.run({
 			args: deleteArgs,
 			cwd: shape.repoRoot,
 			timeoutMs: GT_MUTATION_TIMEOUT_MS,
@@ -94,7 +101,7 @@ export async function runPostLandingSlotCleanup({
 			const landFailure = landStackFailure(
 				`PRs were landed and ${slotName} was freed, but deleting local branch ${shape.stack.actualCurrentBranch} failed.`,
 				{
-					commandDisplay: formatCommand("gt", deleteArgs),
+					commandDisplay: formatGraphiteCommand(deleteArgs),
 					result: deleteResult,
 					suggestedAction: `Delete local branch ${shape.stack.actualCurrentBranch} manually when safe.`,
 				},
@@ -120,7 +127,7 @@ function formatPostLandingCleanupDetails(options: {
 	slotName: string;
 }): string {
 	const freeCommand = formatCommand("sdl", ["slot", "free", "--wt", options.slotName]);
-	const deleteCommand = formatCommand("gt", ["delete", options.branch, "-f", "-q"]);
+	const deleteCommand = formatGraphiteCommand(graphiteDeleteLocalBranchArgs(options.branch));
 	return [
 		"Post-landing --free cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
 		"",
@@ -135,5 +142,5 @@ function formatPostLandingCleanupDetails(options: {
 }
 
 function postLandingCleanupSuggestedAction(slotName: string, branch: string): string {
-	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatCommand("gt", ["delete", branch, "-f", "-q"])} when safe.`;
+	return `Run ${formatCommand("sdl", ["slot", "free", "--wt", slotName])}, then ${formatGraphiteCommand(graphiteDeleteLocalBranchArgs(branch))} when safe.`;
 }

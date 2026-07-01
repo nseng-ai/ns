@@ -4,10 +4,11 @@ import {
 	LandStackCommandStream,
 	createLandUiCommandIo,
 	renderCommandStreamMessage,
-	withCommandStreaming,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
 import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./stack/constants.ts";
+import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
+import { createLandRuntime } from "./stack/land-runtime.ts";
 import {
 	completed,
 	failure,
@@ -39,6 +40,7 @@ export interface ExecuteStackLandingOptions {
 	preMergeConfirmation?: PreMergeConfirmation;
 	initialShape?: LandingShape;
 	liveProgress?: LandLiveProgressSink;
+	graphite?: LandGraphiteCommandChannel;
 }
 
 export function registerLandStackRenderer(
@@ -70,7 +72,9 @@ export async function executeStackLanding(
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	const session: LandingSession = { ctx, commandStream, landed };
-	const runtimePi = withCommandStreaming(pi, commandStream);
+	const runtime = createLandRuntime(pi, commandStream);
+	const runtimePi = runtime.commands;
+	const graphite = options.graphite ?? runtime.graphite;
 	try {
 		if (parsedArgs.shouldShowHelp) {
 			present({ ctx, message: usage(), level: "info" });
@@ -80,7 +84,7 @@ export async function executeStackLanding(
 		setStatus(ctx, "preflighting...");
 		const shape = options.initialShape
 			? success(options.initialShape)
-			: await loadLandingShape(runtimePi, ctx.cwd);
+			: await loadLandingShape(runtimePi, ctx.cwd, { graphite });
 		if (shape.type === "failure") {
 			presentLandStackFailure({ session, failure: shape.failure });
 			return failure(shape.failure);
@@ -89,14 +93,15 @@ export async function executeStackLanding(
 		const plan = await buildLandingPlan(runtimePi, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
 			preloadedShape: shape.value,
+			graphite,
 		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ session, failure: plan.failure });
 			return failure(plan.failure);
 		}
 		return await executeLandingPlan({
-			pi,
 			runtimePi,
+			graphite,
 			parsedArgs,
 			options,
 			session,

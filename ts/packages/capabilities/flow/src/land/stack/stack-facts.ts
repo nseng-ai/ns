@@ -6,7 +6,13 @@ import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { RealGitGateway } from "@sdl/capability-kit/git";
 import { reconcileTopologyToLiveBranches } from "@sdl/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
-import { exec, execGraphite, formatCommandDetails } from "./command-exec.ts";
+import { exec, formatCommandDetails } from "./command-exec.ts";
+import {
+	createLandGraphiteCommandChannel,
+	formatGraphiteCommand,
+	graphiteTrunkArgs,
+	type LandGraphiteCommandChannel,
+} from "./graphite-command-channel.ts";
 import {
 	completed,
 	failure,
@@ -81,16 +87,18 @@ export async function loadCurrentBranch(
 export async function loadTrunk(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
+	graphite: LandGraphiteCommandChannel = createLandGraphiteCommandChannel({ pi }),
 ): Promise<LandStackResult<string>> {
-	const result = await execGraphite(pi, {
-		args: ["trunk", "--no-interactive"],
+	const args = graphiteTrunkArgs();
+	const result = await graphite.run({
+		args,
 		cwd: repoRoot,
 		timeoutMs: GT_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
-				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatCommand("gt", ["trunk", "--no-interactive"]))}`,
+				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteCommand(args))}`,
 			),
 		);
 	}
@@ -104,6 +112,7 @@ export async function loadTrunk(
 export async function loadLandingShape(
 	pi: LandStackExtensionAPI,
 	cwd: string,
+	options: { graphite?: LandGraphiteCommandChannel } = {},
 ): Promise<LandStackResult<LandingShape>> {
 	const repoRoot = await loadRepoRoot(pi, cwd);
 	if (repoRoot.type === "failure") return repoRoot;
@@ -111,7 +120,8 @@ export async function loadLandingShape(
 	const current = await loadCurrentBranch(pi, repoRoot.value);
 	if (current.type === "failure") return current;
 
-	const trunk = await loadTrunk(pi, repoRoot.value);
+	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi });
+	const trunk = await loadTrunk(pi, repoRoot.value, graphite);
 	if (trunk.type === "failure") return trunk;
 
 	const metadataDbPath = await resolveMetadataDbPath(pi, repoRoot.value);
@@ -213,7 +223,7 @@ export async function loadLiveLocalBranches(
 function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
 	if (droppedBranches.length === 0) return [];
 	const cleanup = droppedBranches
-		.map((branch) => formatCommand("gt", ["untrack", branch]))
+		.map((branch) => formatGraphiteCommand(["untrack", branch]))
 		.join("\n");
 	return [
 		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,

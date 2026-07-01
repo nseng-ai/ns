@@ -1,4 +1,3 @@
-import { formatCommand } from "@sdl/core/command";
 import {
 	linkifyPrReferences,
 	prLinksFromDetails,
@@ -10,10 +9,11 @@ import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
-	restackForSubmitArgs,
+	formatGraphiteCommand,
+	graphiteRestackForSubmitArgs,
+	graphiteSubmitUpdateArgs,
 	restackTargetForSubmit,
-	submitUpdateArgs,
-} from "./graphite-command-args.ts";
+} from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import type {
 	CommandStreamMessageDetails,
@@ -94,9 +94,13 @@ export function formatPlan(plan: LandingPlan): string {
 			lines.push(`  ${formatPrSubmitRequirement(requirement)}`);
 		}
 		if (restackTarget) {
-			lines.push(`  Command: ${formatCommand("gt", restackForSubmitArgs(restackTarget))}`);
+			lines.push(
+				`  Command: ${formatGraphiteCommand(graphiteRestackForSubmitArgs(restackTarget))}`,
+			);
 		}
-		lines.push(`  Command: ${formatCommand("gt", submitUpdateArgs(stack.landingTargetBranch))}`);
+		lines.push(
+			`  Command: ${formatGraphiteCommand(graphiteSubmitUpdateArgs(stack.landingTargetBranch))}`,
+		);
 	} else {
 		lines.push("No pre-merge PR submit/update is required.");
 	}

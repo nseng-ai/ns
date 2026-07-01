@@ -5,20 +5,20 @@ directory.
 
 ## Work
 
-- [ ] Collapse the Graphite command channel (review #1)
+- [x] Collapse the Graphite command channel (review #1)
       One deep channel module owns streamed-vs-raw, normalization, and gt
       arg-building; `graphite-maintenance.ts` and the land pipeline call it, and
       the `pi` triplet stops threading through the land options bags. Land as its
       own reviewable slice given the live-path blast radius.
       Evidence: land scenario + integration tests pass driving a scripted channel
       instead of the outermost `pi.exec`.
-- [ ] Give each autobranch failure one home (review #2)
+- [x] Give each autobranch failure one home (review #2)
       Co-locate each failure's verdict + message with its union arm in one
       catalog; unify the `dirty-*` and `latest-commit-*` flows onto one
       prepare→transact→catalog shape; move `AutobranchFlowOutcome` /
       `AutobranchFlowResult` out of `dirty-worktree.ts`.
       Evidence: autobranch unit + scenario tests pass.
-- [ ] Unify the PR-description update path and close the fingerprint overwrite bug (review #3)
+- [x] Unify the PR-description update path and close the fingerprint overwrite bug (review #3)
       Fold `prepareRegeneratedPrDescription` and `orchestratePrDescription` into
       one update module that takes the managed-region fingerprint policy; delete
       the `shared/pr-description.ts` duplicate.

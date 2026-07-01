@@ -9,7 +9,8 @@ import {
 	prLinksFromDetails,
 	truncateDisplayLine,
 } from "@sdl/core/terminal-presentation";
-import { commandStreamOutputLines, normalizeCommandFinish } from "./command-exec.ts";
+import { commandStreamOutputLines } from "./command-exec.ts";
+import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";
 import type {
 	CommandStreamMessageDetails,
@@ -161,7 +162,7 @@ export function withCommandStreaming(
 			const result = await runNormalizedExecResult(
 				async () => await pi.exec(command, args, options),
 			);
-			const finish = normalizeCommandFinish(command, args, result);
+			const finish = normalizeLandCommandFinish(command, args, result);
 			commandStream.finish(commandDisplay, finish);
 			return finish.result;
 		},

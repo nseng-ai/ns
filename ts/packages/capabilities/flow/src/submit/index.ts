@@ -6,10 +6,29 @@ export {
 	type StablePatchIdForPrResult,
 } from "./github-pr-gateway.ts";
 export {
+	applyRegeneratedPrDescription,
+	createSdlPrDescriptionRuntime,
+	formatPromptSourceLabel,
+	prepareRegeneratedPrDescription,
+	prepareRegeneratedPrDescriptionForCurrentBranch,
+	type RegeneratedPrDescription,
+	type RegeneratedPrDescriptionAlreadyCurrent,
+	type RegeneratedPrDescriptionResult,
+	type RegeneratedPrDescriptionUpdate,
+	type SdlPrDescriptionRuntime,
+} from "./pr-description-regenerate.ts";
+export {
+	applyPreparedPrDescriptionUpdate,
 	orchestratePrDescription,
+	preparePrDescriptionUpdate,
+	type ApplyPrDescriptionUpdateResult,
+	type PreparedPrDescriptionUpdate,
 	type PrewrittenPrMetadata,
+	type PrDescriptionFingerprintPolicy,
 	type PrDescriptionOrchestrationOptions,
 	type PrDescriptionOrchestrationResult,
+	type PrDescriptionUpdateOptions,
+	type PrDescriptionUpdateResult,
 } from "./pr-description-orchestration.ts";
 export {
 	appendGeneratedMarker,

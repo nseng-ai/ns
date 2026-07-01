@@ -1,9 +1,9 @@
 import {
 	runDirtyAutobranchFlow,
-	type AutobranchFlowResult,
 	type FileStat,
 	type ParsedAutobranchArgs,
 } from "./dirty-worktree.ts";
+import type { AutobranchFlowResult } from "./flow-result.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import {

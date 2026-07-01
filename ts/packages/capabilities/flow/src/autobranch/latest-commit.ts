@@ -1,29 +1,28 @@
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
-import type { AutobranchFlowResult, ParsedAutobranchArgs } from "./dirty-worktree.ts";
+import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
+import type { AutobranchFlowResult } from "./flow-result.ts";
 import {
 	classifyLatestCommitPreparationFailure,
-	classifyLatestCommitTransactionFailure,
 	formatLatestCommitPreparationFailure,
-	formatLatestCommitTransactionFailure,
-} from "./latest-commit-formatting.ts";
+	prepareLatestCommitAutobranchPlan,
+} from "./latest-commit-preparation.ts";
 import {
 	LATEST_COMMIT_AUTOBRANCH_WORKTREE_WARNING,
 	summarizeAutobranchCompletion,
 } from "./completion.ts";
-import { prepareLatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
-import { runLatestCommitAutobranchTransaction } from "./latest-commit-transaction.ts";
+import {
+	classifyLatestCommitTransactionFailure,
+	formatLatestCommitTransactionFailure,
+	runLatestCommitAutobranchTransaction,
+} from "./latest-commit-transaction.ts";
 import { shortSha } from "./short-sha.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 
-export type { AutobranchFlowOutcome } from "./dirty-worktree.ts";
+export type { AutobranchFlowOutcome } from "./flow-result.ts";
 export {
 	classifyLatestCommitPreparationFailure,
-	classifyLatestCommitTransactionFailure,
 	formatLatestCommitPreparationFailure,
-	formatLatestCommitTransactionFailure,
-} from "./latest-commit-formatting.ts";
-export {
 	loadLatestCommitFacts,
 	prepareLatestCommitAutobranchPlan,
 	type LatestCommitAutobranchPlan,
@@ -32,6 +31,8 @@ export {
 	type LatestCommitPreparationResult,
 } from "./latest-commit-preparation.ts";
 export {
+	classifyLatestCommitTransactionFailure,
+	formatLatestCommitTransactionFailure,
 	runLatestCommitAutobranchTransaction,
 	type CreatedBranchRecovery,
 	type LatestCommitTransactionInput,

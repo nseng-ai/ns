@@ -106,7 +106,7 @@ describe("project extension shared flow foundations", () => {
 		expect(regeneratePrSource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
-		expect(regeneratePrSource).toContain("../../submit/sdl-pr-description.ts");
+		expect(regeneratePrSource).toContain("../../submit/index.ts");
 		await expect(access(REMOVED_CORE_DIR_PATH, constants.F_OK)).rejects.toThrow();
 		expect(worktreeSource).toContain("@sdl/capability-kit/pending-worktree");
 		expect(worktreeSource).toContain("execSdlGit");

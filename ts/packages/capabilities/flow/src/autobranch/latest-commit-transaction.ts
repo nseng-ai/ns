@@ -1,4 +1,5 @@
 import type { CommandResult } from "./shared.ts";
+import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
@@ -71,6 +72,8 @@ export interface LatestCommitTransactionInput {
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	now?: () => number;
 }
+
+type LatestCommitTransactionFailure = Extract<LatestCommitTransactionResult, { ok: false }>;
 
 export async function runLatestCommitAutobranchTransaction(
 	input: LatestCommitTransactionInput,
@@ -315,4 +318,100 @@ function sanitizeBackupBranchSegment(value: string): string {
 		.slice(0, MAX_BACKUP_SEGMENT_CHARS)
 		.replace(/(?:-plan)+$/g, "")
 		.replace(/-+$/g, "");
+}
+
+/**
+ * Classify a latest-commit transaction failure. Only the pre-mutation pushed-HEAD re-check is a
+ * declined guardrail; every other transaction failure happened while (or after) mutating refs and is
+ * a real failure carrying recovery guidance.
+ */
+export function classifyLatestCommitTransactionFailure(
+	result: LatestCommitTransactionFailure,
+): AutobranchFlowOutcome {
+	switch (result.kind) {
+		case "pushed_head_refusal":
+			return "refusal";
+		case "backup_branch_name_unavailable":
+		case "backup_create_failed":
+		case "source_reset_failed":
+		case "graphite_create_failed":
+		case "transaction_upstream_check_failed":
+		case "branch_reset_failed":
+		case "head_verify_failed":
+			return "failure";
+	}
+}
+
+export function formatLatestCommitTransactionFailure(
+	result: LatestCommitTransactionFailure,
+): string {
+	switch (result.kind) {
+		case "backup_branch_name_unavailable":
+			return `Could not find an available recovery branch name for ${result.sourceBranch}; refusing to move latest commit.`;
+		case "backup_create_failed":
+			return ["Failed to create recovery branch before moving latest commit.", result.error].join(
+				"\n",
+			);
+		case "source_reset_failed":
+			return [
+				"Failed to reset source branch before Graphite branch creation.",
+				`Recovery branch: ${result.backupBranch}`,
+				result.error,
+				formatSourceResetCleanup(result),
+			].join("\n");
+		case "graphite_create_failed":
+			return [
+				"Failed to create Graphite branch after resetting source branch.",
+				`Recovery branch: ${result.backupBranch}`,
+				result.createError,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
+			].join("\n");
+		case "transaction_upstream_check_failed":
+			return `Could not re-check whether HEAD is already in the current branch upstream before moving the latest commit.\n${result.error}`;
+		case "pushed_head_refusal":
+			return `Refusing to move latest commit because upstream ${result.upstream} now contains HEAD.`;
+		case "branch_reset_failed":
+			return [
+				`Created Graphite branch ${result.branchName}, but failed to move it to the original commit.`,
+				`Recovery branch: ${result.backupBranch}`,
+				result.resetError,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
+			].join("\n");
+		case "head_verify_failed":
+			return [
+				`Created Graphite branch ${result.branchName}, but HEAD verification failed after moving it.`,
+				`Expected original commit, found: ${result.actualHead}`,
+				`Recovery branch: ${result.backupBranch}`,
+				result.restored
+					? "Restored source branch to the original HEAD."
+					: `Could not restore source branch: ${result.restoreError}`,
+				formatCreatedBranchCleanup(result),
+			].join("\n");
+	}
+}
+
+function formatSourceResetCleanup(result: SourceResetFailureRecovery): string {
+	switch (result.backupCleanup) {
+		case "deleted":
+			return "Deleted redundant recovery branch because the source branch is still at the original commit.";
+		case "delete_failed":
+			return `Could not delete redundant recovery branch: ${result.backupDeleteError}`;
+		case "recovery_required":
+			return `To restore the source branch to the saved commit, run: ${result.recoveryCommand}`;
+	}
+}
+
+function formatCreatedBranchCleanup(
+	result: CreatedBranchRecovery & { branchName: string },
+): string {
+	if (result.createdBranchDeleted) {
+		return `Deleted incomplete branch ${result.branchName}.`;
+	}
+	return `Could not delete incomplete branch ${result.branchName}: ${result.createdBranchDeleteError}`;
 }
