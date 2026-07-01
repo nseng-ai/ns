@@ -11,6 +11,7 @@ import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "./autobranch/checkpoint.ts";
+import { AUTOBRANCH_CLEAN_WORKTREE_LINE } from "./autobranch/completion.ts";
 import { renderAutoslotResultBlock } from "./autoslot-presentation.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import {
@@ -108,7 +109,7 @@ export async function createAutoslotFlow(input: AutoslotFlowInput): Promise<void
 	}
 
 	const branchName = parseCreatedBranchName(createdBranch.summary);
-	const isCleanAfter = createdBranch.summary.includes("Working directory is clean.");
+	const isCleanAfter = createdBranch.summary.includes(AUTOBRANCH_CLEAN_WORKTREE_LINE);
 	if (!isCleanAfter) {
 		// The branch was created; the slot move is a guardrail-declined follow-up (clean worktree
 		// required), so this is a warn refusal at exit 0, not a failure.

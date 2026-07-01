@@ -6,6 +6,10 @@ import {
 	formatLatestCommitPreparationFailure,
 	formatLatestCommitTransactionFailure,
 } from "./latest-commit-formatting.ts";
+import {
+	LATEST_COMMIT_AUTOBRANCH_WORKTREE_WARNING,
+	summarizeAutobranchCompletion,
+} from "./completion.ts";
 import { prepareLatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 import { runLatestCommitAutobranchTransaction } from "./latest-commit-transaction.ts";
 import { shortSha } from "./short-sha.ts";
@@ -36,8 +40,6 @@ export {
 } from "./latest-commit-transaction.ts";
 export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts";
 export { shortSha } from "./short-sha.ts";
-
-const GIT_TIMEOUT_MS = 30_000;
 
 export interface LatestCommitAutobranchInput {
 	cwd: string;
@@ -75,11 +77,11 @@ export async function createLatestCommitAutobranchFlow(
 		};
 	}
 
-	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_TIMEOUT_MS);
-	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.hasSuffix
-		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
-		: "";
+	const completion = await summarizeAutobranchCompletion({
+		exec: input.exec,
+		plan: prepared.plan,
+		dirtyWarning: LATEST_COMMIT_AUTOBRANCH_WORKTREE_WARNING,
+	});
 	const warnings = transaction.backupDeleted
 		? []
 		: [
@@ -89,12 +91,10 @@ export async function createLatestCommitAutobranchFlow(
 	return {
 		ok: true,
 		summary: [
-			`New branch: ${prepared.plan.branchName}${suffix}`,
+			`New branch: ${prepared.plan.branchName}${completion.suffix}`,
 			`Moved commit: ${transaction.commitSummary}`,
 			`Source branch ${prepared.plan.sourceBranch} reset to ${shortSha(prepared.plan.parentSha)}.`,
-			isClean
-				? "Working directory is clean."
-				: "Warning: working directory is not clean after latest-commit autobranch.",
+			completion.cleanlinessLine,
 		].join("\n"),
 		warnings,
 	};
