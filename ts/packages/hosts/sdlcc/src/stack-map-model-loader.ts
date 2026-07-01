@@ -11,7 +11,7 @@ import {
 	type StackMapSlotAssignment,
 	type StackMapSlotStatus,
 } from "./stack-map.ts";
-import { runRealCommand, type CommandRunner } from "./command-runner.ts";
+import { formatCommandFailure, runRealCommand, type CommandRunner } from "./command-runner.ts";
 
 export type { CommandOptions, CommandOutput, CommandRunner } from "./command-runner.ts";
 
@@ -262,7 +262,7 @@ async function loadCmuxTabs(
 	if (result.code !== 0)
 		return {
 			type: "failure",
-			message: `Could not load cmux tab inventory: ${result.stderr.trim() || result.stdout.trim() || `cmux tree exited ${result.code}`}`,
+			message: `Could not load cmux tab inventory: ${formatCommandFailure("cmux tree", result, { verb: "exited" })}`,
 		};
 	const parsed = parseCmuxTreeTabs(result.stdout);
 	if (parsed.type === "failure")

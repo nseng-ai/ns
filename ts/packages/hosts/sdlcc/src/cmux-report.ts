@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { runRealCommand, type CommandRunner } from "./command-runner.ts";
+import { formatCommandFailure, runRealCommand, type CommandRunner } from "./command-runner.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 const COMMAND_TIMEOUT_MS = 10_000;
@@ -115,7 +115,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "not-git-worktree",
-			message: `sdlcc cmux report must run inside a git worktree: ${commandFailureMessage("git rev-parse --show-toplevel", worktreeResult)}`,
+			message: `sdlcc cmux report must run inside a git worktree: ${formatCommandFailure("git rev-parse --show-toplevel", worktreeResult, { verb: "exited" })}`,
 			commandFailure: commandFailure("git", worktreeArgs, worktreeResult),
 		};
 	}
@@ -137,7 +137,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "git-branch-failed",
-			message: `sdlcc cmux report could not resolve the current git branch: ${commandFailureMessage("git branch --show-current", branchResult)}`,
+			message: `sdlcc cmux report could not resolve the current git branch: ${formatCommandFailure("git branch --show-current", branchResult, { verb: "exited" })}`,
 			commandFailure: commandFailure("git", branchArgs, branchResult),
 		};
 	}
@@ -160,7 +160,7 @@ export async function runSdlccCmuxReport(
 		return {
 			type: "failed",
 			code: "cmux-resume-set-failed",
-			message: `cmux surface resume set failed: ${commandFailureMessage("cmux surface resume set", cmuxResult)}`,
+			message: `cmux surface resume set failed: ${formatCommandFailure("cmux surface resume set", cmuxResult, { verb: "exited" })}`,
 			commandFailure: commandFailure("cmux", cmuxArgs, cmuxResult),
 		};
 	}
@@ -243,13 +243,6 @@ function commandFailure(
 		stdout: result.stdout,
 		stderr: result.stderr,
 	};
-}
-
-function commandFailureMessage(
-	commandName: string,
-	result: { readonly code: number; readonly stdout: string; readonly stderr: string },
-): string {
-	return `${commandName} exited ${result.code}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
 }
 
 function nonEmptyString(value: string | undefined): string | undefined {
