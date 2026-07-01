@@ -151,7 +151,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 	if (invalidModelDiagnostic !== undefined) {
 		const progress = stoppedProgress({ title, clock, startTimeMs });
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
-		return errorResult(title, progress, invalidModelDiagnostic);
+		return errorResult(progress, invalidModelDiagnostic);
 	}
 	const launch = options.preResolvedLaunch ?? resolveRunnerSubagentLaunch(pi, ctx, options);
 	const abortSignals = uniqueAbortSignals(ctx.signal, options.signal);
@@ -164,7 +164,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			...(launch === undefined ? {} : { launch }),
 		});
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
-		return cancelledResult(title, progress, abortReason(abortSignals));
+		return cancelledResult(progress, abortReason(abortSignals));
 	}
 
 	const returnMode = runnerSubagentReturnMode(options);
@@ -182,7 +182,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		});
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return errorResult(
-			title,
 			progress,
 			`Invalid subagent tool allowlist: ${formatErrorMessage(error)}`,
 			error,
@@ -206,7 +205,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			});
 			updateEmitter.emit(updateFromProgress(progress), { force: true });
 			return errorResult(
-				title,
 				progress,
 				`Invalid subagent terminal runtime configuration: ${formatErrorMessage(error)}`,
 				error,
@@ -227,7 +225,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		});
 		updateEmitter.emit(updateFromProgress(progress), { force: true });
 		return errorResult(
-			title,
 			progress,
 			`Failed to create forked Pi session file: ${formatErrorMessage(error)}`,
 			error,
@@ -275,7 +272,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 		await cleanupRuntimeFiles(runtimeFiles);
 		return errorResult(
-			title,
 			parser.getProgress(),
 			`Failed to spawn forked Pi process: ${formatErrorMessage(error)}`,
 			error,
@@ -458,7 +454,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 			updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
 			finish(
 				errorResult(
-					title,
 					parser.getProgress(),
 					`Failed to spawn forked Pi process: ${error.message}`,
 					error,
@@ -479,7 +474,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 				updateEmitter.emit(updateFromSnapshot(snapshot), { force: true });
 
 				return await resolveClosedRunnerSubagentResult<TTerminalInput>({
-					title,
 					snapshot,
 					code,
 					closeSignal,
@@ -499,7 +493,6 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 					const progress = parser.getProgress();
 					finish(
 						errorResult(
-							title,
 							progress,
 							`Failed to resolve subagent result: ${formatErrorMessage(error)}`,
 							error,
@@ -779,7 +772,6 @@ export function resolvePiInvocation(
 }
 
 interface ResolveClosedRunnerSubagentResultInput {
-	title: string | undefined;
 	snapshot: RunnerSubagentJsonEventParserSnapshot;
 	code: number | null;
 	closeSignal: NodeJS.Signals | null;
@@ -795,11 +787,11 @@ interface ResolveClosedRunnerSubagentResultInput {
 async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	input: ResolveClosedRunnerSubagentResultInput,
 ): Promise<RunnerSubagentResult<TTerminalInput>> {
-	const { title, snapshot } = input;
+	const { snapshot } = input;
 	const progress = snapshot.progress;
 
 	if (input.cancelled) {
-		return cancelledResult(title, progress, abortReason(input.abortSignals));
+		return cancelledResult(progress, abortReason(input.abortSignals));
 	}
 
 	const runtimeRead: RuntimeResultReadOutcome = input.runtimeFiles
@@ -807,7 +799,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 		: {};
 	if (runtimeRead.result?.kind === "runtime-error") {
 		return errorResult(
-			title,
 			progress,
 			`Subagent terminal runtime failed (${runtimeRead.result.code}): ${runtimeRead.result.message}`,
 			new Error(runtimeRead.result.message),
@@ -820,14 +811,13 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 			input.terminalToolStatuses,
 		);
 		if (protocolDiagnostic) {
-			return protocolErrorResult(title, progress, protocolDiagnostic, runtimeRead.result);
+			return protocolErrorResult(progress, protocolDiagnostic, runtimeRead.result);
 		}
-		return terminalCaptureResult<TTerminalInput>(title, progress, runtimeRead.result);
+		return terminalCaptureResult<TTerminalInput>(progress, runtimeRead.result);
 	}
 
 	if (snapshot.protocolError) {
 		return protocolErrorResult(
-			title,
 			progress,
 			snapshot.protocolError.message,
 			snapshot.protocolError.event,
@@ -835,12 +825,11 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	}
 
 	if (snapshot.error) {
-		return errorResult(title, progress, snapshot.error.message, snapshot.error);
+		return errorResult(progress, snapshot.error.message, snapshot.error);
 	}
 
 	if (input.code !== 0) {
 		return errorResult(
-			title,
 			progress,
 			nonzeroExitDiagnostic(input.code, input.closeSignal, input.stderr),
 		);
@@ -849,14 +838,12 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	if (runtimeRead.failure) {
 		if (snapshot.terminalAttempted) {
 			return protocolErrorResult(
-				title,
 				progress,
 				`Terminal tool was attempted, but the subagent runtime result sink was invalid: ${runtimeRead.failure.message}`,
 				runtimeRead.failure,
 			);
 		}
 		return errorResult(
-			title,
 			progress,
 			`Failed to read subagent terminal runtime result: ${runtimeRead.failure.message}`,
 			runtimeRead.failure.cause,
@@ -866,12 +853,11 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 	if (snapshot.stopReason === "error" || snapshot.stopReason === "aborted") {
 		const message =
 			snapshot.errorMessage ?? `Subagent stopped with stopReason ${snapshot.stopReason}.`;
-		return errorResult(title, progress, message, new Error(message));
+		return errorResult(progress, message, new Error(message));
 	}
 
 	if (snapshot.terminalExecutionError) {
 		return protocolErrorResult(
-			title,
 			progress,
 			snapshot.terminalExecutionError.message,
 			snapshot.terminalExecutionError.event,
@@ -880,7 +866,6 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 
 	if (snapshot.terminalAttempted) {
 		return protocolErrorResult(
-			title,
 			progress,
 			"Terminal tool was attempted, but no valid terminal capture was written by the subagent runtime.",
 		);
@@ -888,12 +873,12 @@ async function resolveClosedRunnerSubagentResult<TTerminalInput>(
 
 	if (input.returnMode === "final-text") {
 		if (snapshot.finalAssistantText !== undefined) {
-			return finalTextResult(title, progress, snapshot.finalAssistantText, snapshot.stopReason);
+			return finalTextResult(progress, snapshot.finalAssistantText, snapshot.stopReason);
 		}
-		return stoppedWithoutUsefulTextResult(title, progress, snapshot.stopReason);
+		return stoppedWithoutUsefulTextResult(progress, snapshot.stopReason);
 	}
 
-	return stoppedWithoutTerminalResult(title, progress, snapshot.stopReason);
+	return stoppedWithoutTerminalResult(progress, snapshot.stopReason);
 }
 
 interface RuntimeResultReadOutcome {
@@ -931,7 +916,6 @@ function validateTerminalCapture(
 }
 
 function terminalCaptureResult<TTerminalInput>(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	capture: Extract<RuntimeResultV1, { kind: "terminal-capture" }>,
 ): RunnerSubagentCompletedResult<TTerminalInput> | RunnerSubagentBlockedResult<TTerminalInput> {
@@ -941,7 +925,7 @@ function terminalCaptureResult<TTerminalInput>(
 		status: capture.status,
 		input: capture.input as TTerminalInput,
 	};
-	const base = resultBase(title, progress);
+	const base = resultBase(progress);
 	if (capture.status === "completed") {
 		return {
 			...base,
@@ -1006,9 +990,9 @@ async function withRunnerSubagentUsage<TTerminalInput>(
 	return { ...result, usage };
 }
 
-function resultBase(title: string | undefined, progress: RunnerSubagentProgress) {
+function resultBase(progress: RunnerSubagentProgress) {
 	return {
-		...(title === undefined ? {} : { title }),
+		...(progress.title === undefined ? {} : { title: progress.title }),
 		elapsedMs: progress.elapsedMs,
 		progress,
 		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
@@ -1016,13 +1000,12 @@ function resultBase(title: string | undefined, progress: RunnerSubagentProgress)
 }
 
 function finalTextResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	finalText: string,
 	stopReason: string | undefined,
 ): RunnerSubagentFinalTextResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "final-text",
 		finalText,
 		...(stopReason === undefined ? {} : { stopReason }),
@@ -1030,12 +1013,11 @@ function finalTextResult(
 }
 
 function stoppedWithoutTerminalResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	stopReason: string | undefined,
 ): RunnerSubagentStoppedWithoutTerminalResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "stopped-without-terminal",
 		diagnostic: STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC,
 		...(stopReason === undefined ? {} : { stopReason }),
@@ -1043,12 +1025,11 @@ function stoppedWithoutTerminalResult(
 }
 
 function stoppedWithoutUsefulTextResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	stopReason: string | undefined,
 ): RunnerSubagentStoppedWithoutUsefulTextResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "stopped-without-useful-text",
 		diagnostic: STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC,
 		...(stopReason === undefined ? {} : { stopReason }),
@@ -1056,12 +1037,11 @@ function stoppedWithoutUsefulTextResult(
 }
 
 function cancelledResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	reason: string | undefined,
 ): RunnerSubagentCancelledResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "cancelled",
 		diagnostic: "Forked Pi process cancelled by parent abort signal.",
 		...(reason === undefined ? {} : { reason }),
@@ -1069,13 +1049,12 @@ function cancelledResult(
 }
 
 function errorResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	diagnostic: string,
 	error: unknown = new Error(diagnostic),
 ): RunnerSubagentErrorResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "error",
 		diagnostic,
 		error: errorPayload(error, diagnostic),
@@ -1083,13 +1062,12 @@ function errorResult(
 }
 
 function protocolErrorResult(
-	title: string | undefined,
 	progress: RunnerSubagentProgress,
 	message: string,
 	event?: unknown,
 ): RunnerSubagentProtocolErrorResult {
 	return {
-		...resultBase(title, progress),
+		...resultBase(progress),
 		status: "protocol-error",
 		diagnostic: message,
 		protocolError: {

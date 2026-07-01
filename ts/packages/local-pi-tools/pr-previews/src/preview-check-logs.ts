@@ -1,4 +1,5 @@
 import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import { callPiModelText } from "@sdl/pi/models/call";
 import { loadGhCommand } from "@sdl/pi/shared/gh-command";
@@ -39,7 +40,7 @@ export async function loadCheckLogs(options: LoadCheckLogsOptions): Promise<stri
 		ctx: options.ctx,
 		args,
 		failureLabel: `Failed to load logs with gh ${args.join(" ")}`,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 	throwIfSignalAborted(options.signal);
 	if (logResult.type === "failed") return logResult.lines;
@@ -48,7 +49,7 @@ export async function loadCheckLogs(options: LoadCheckLogsOptions): Promise<stri
 		ctx: options.ctx,
 		check: options.check,
 		output: logResult.output,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 }
 
@@ -66,7 +67,7 @@ async function loadGhTextCommand(options: {
 		args: options.args,
 		cwd: options.ctx.cwd,
 		timeoutMs: options.runtime.commandTimeoutMs,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 	throwIfSignalAborted(options.signal);
 	if (result.type === "failed") {
@@ -100,7 +101,7 @@ async function summarizeCheckLogs(options: {
 		maxTokens: LOG_SUMMARY_MAX_TOKENS,
 		reasoning: "minimal",
 		timeoutMs: 120_000,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
+		...optionalEntry("signal", options.signal),
 	});
 	throwIfSignalAborted(options.signal);
 	if (!result.ok) {

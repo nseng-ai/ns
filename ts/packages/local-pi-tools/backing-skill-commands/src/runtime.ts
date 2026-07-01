@@ -1,23 +1,20 @@
 import {
 	registerCommandWithImmediateAck,
 	type ImmediateCommandAckCommandRegistrar,
-	type ImmediateCommandNotifyContext,
 } from "@sdl/pi/commands/ack";
 import type {
 	PiCommandContext,
 	PiCommandHost,
 	PiCommandRegistration,
 } from "@sdl/pi/runtime/command-host";
-import { buildSkillInvocationPrompt, expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
+import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@sdl/pi/skills/expansion";
 
 import { genericBackingSkillCommandSpecs, type DerivedPiCommand } from "./specs.ts";
 
-export interface BackingSkillCommandContext
-	extends
-		Pick<PiCommandContext, "cwd" | "hasUI">,
-		ImmediateCommandNotifyContext<"info" | "warning" | "error"> {
-	waitForIdle(): Promise<void> | void;
-}
+export type BackingSkillCommandContext = Pick<
+	PiCommandContext,
+	"cwd" | "hasUI" | "ui" | "waitForIdle"
+>;
 
 export type BackingSkillCommand = Omit<PiCommandRegistration, "handler"> & {
 	handler(args: string, ctx: BackingSkillCommandContext): Promise<void> | void;
@@ -51,36 +48,24 @@ export default registerBackingSkillCommands;
 
 async function handleBackingSkillCommand(options: HandleBackingSkillCommandOptions): Promise<void> {
 	const { host, spec, args, ctx } = options;
-	await ctx.waitForIdle();
-	let skillBlock: string;
-	try {
-		skillBlock = (await expandRepoSkillBlock({ cwd: ctx.cwd, skillName: spec.skillName })).block;
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		notifyCommandUi(ctx, `Could not read ${spec.skillName} backing skill: ${message}`, "error");
-		return;
-	}
-
-	notifyCommandUi(
+	await invokeRepoSkillPromptTurn({
+		host,
 		ctx,
-		`Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
-		"info",
-	);
-	await host.sendUserMessage(buildBackingSkillPrompt(spec, skillBlock, args));
+		skillName: spec.skillName,
+		fallbackMessage: `Could not read ${spec.skillName} backing skill; invoking without backing skill content.`,
+		successMessage: `Invoking ${spec.skillName}${args.trim().length > 0 ? " with initial context" : ""}.`,
+		buildPrompt: (skillBlock) => buildBackingSkillPrompt(spec, skillBlock, args),
+	});
 }
 
-function notifyCommandUi(
-	ctx: BackingSkillCommandContext,
-	message: string,
-	level: "info" | "warning" | "error",
-): void {
-	ctx.ui?.notify?.(message, level);
-}
-
-function buildBackingSkillPrompt(spec: DerivedPiCommand, skillBlock: string, args: string): string {
+function buildBackingSkillPrompt(
+	spec: DerivedPiCommand,
+	skillBlock: string | undefined,
+	args: string,
+): string {
 	return buildSkillInvocationPrompt({
 		skillName: spec.skillName,
-		skillBlock,
 		initialRequest: args,
+		...(skillBlock === undefined ? {} : { skillBlock }),
 	});
 }
