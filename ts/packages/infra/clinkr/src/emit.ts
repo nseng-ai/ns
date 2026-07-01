@@ -42,26 +42,27 @@ export interface EmitExitOptions<T> {
  * Sole owner of format dispatch. Returns the process exit code; never exits.
  */
 export function emitExit<T>(exit: ClinkrExit<T>, options: EmitExitOptions<T>): number {
+	const exitCode = exitCodeForExit(exit);
 	if (options.format === "json") {
 		options.io.stdout(`${envelopeJsonText(toMachineEnvelope(exit))}\n`);
-		return exitCodeForExit(exit);
+		return exitCode;
 	}
 	switch (exit.type) {
 		case "ok": {
 			options.io.stdout(`${renderOkExit(exit, options)}\n`);
-			return 0;
+			return exitCode;
 		}
 		case "negative": {
 			const rendered = renderNegativeExit(exit, options);
 			options.io.stderr(`${rendered}\n`);
-			return 1;
+			return exitCode;
 		}
 		case "failure":
 			options.io.stderr(`error: ${exit.message}\n`);
-			return 2;
+			return exitCode;
 		case "usageError":
 			options.io.stderr(`error: ${exit.message}\n`);
-			return 2;
+			return exitCode;
 	}
 }
 

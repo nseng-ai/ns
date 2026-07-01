@@ -305,20 +305,18 @@ function optionEqualsValueCandidates(
 	const flag = current.slice(0, equalsIndex);
 	const valuePrefix = current.slice(equalsIndex + 1);
 	const option = findOption(options, flag);
-	if (option === undefined || option.kind.type !== "enum") return [];
-	return option.kind.values
-		.filter((value) => value.startsWith(valuePrefix))
-		.map((value) => ({ value: `${flag}=${value}`, type: "option-value" }));
+	if (option === undefined) return [];
+	return enumValueCandidates(option.kind, valuePrefix, (value) => ({
+		value: `${flag}=${value}`,
+		type: "option-value",
+	}));
 }
 
 function optionValueCandidates(
 	option: ClinkrCompletionOptionPlan,
 	prefix: string,
 ): readonly ClinkrCompletionCandidate[] {
-	if (option.kind.type !== "enum") return [];
-	return option.kind.values
-		.filter((value) => value.startsWith(prefix))
-		.map((value) => ({ value, type: "option-value" }));
+	return enumValueCandidates(option.kind, prefix, (value) => ({ value, type: "option-value" }));
 }
 
 function positionalValueCandidates<TContext>(
@@ -327,10 +325,20 @@ function positionalValueCandidates<TContext>(
 	prefix: string,
 ): readonly ClinkrCompletionCandidate[] {
 	const positional = command.positionals[positionIndex(command, previous)];
-	if (positional === undefined || positional.kind.type !== "enum") return [];
-	return positional.kind.values
-		.filter((value) => value.startsWith(prefix))
-		.map((value) => ({ value, type: "positional-value" }));
+	if (positional === undefined) return [];
+	return enumValueCandidates(positional.kind, prefix, (value) => ({
+		value,
+		type: "positional-value",
+	}));
+}
+
+function enumValueCandidates(
+	kind: FieldKind,
+	prefix: string,
+	buildCandidate: (value: string) => ClinkrCompletionCandidate,
+): readonly ClinkrCompletionCandidate[] {
+	if (kind.type !== "enum") return [];
+	return kind.values.filter((value) => value.startsWith(prefix)).map(buildCandidate);
 }
 
 function positionIndex<TContext>(

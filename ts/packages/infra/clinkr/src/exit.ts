@@ -113,10 +113,7 @@ export const machineEnvelopeSchema = z.discriminatedUnion("status", [
 ]);
 
 export interface BuildFailureMachineEnvelopeSchemaOptions {
-	readonly statusSchema?: z.ZodType<"negative" | "failure" | "usageError">;
-	readonly exitCodeSchema?: z.ZodType<1 | 2>;
 	readonly errorTypeSchema?: z.ZodType<string>;
-	readonly messageSchema?: z.ZodType<string>;
 }
 
 export function buildSuccessMachineEnvelopeSchema<DataSchema extends z.ZodType>(
@@ -136,10 +133,10 @@ export function buildFailureMachineEnvelopeSchema(
 ) {
 	return z
 		.strictObject({
-			status: options.statusSchema ?? z.union([z.literal("negative"), z.literal("failure")]),
-			exitCode: options.exitCodeSchema ?? z.union([z.literal(1), z.literal(2)]),
+			status: z.union([z.literal("negative"), z.literal("failure")]),
+			exitCode: z.union([z.literal(1), z.literal(2)]),
 			errorType: options.errorTypeSchema ?? z.string(),
-			message: options.messageSchema ?? z.string(),
+			message: z.string(),
 			data: z.unknown().optional(),
 		})
 		.strict();
@@ -188,34 +185,32 @@ export function usageError(message: string, data?: unknown): ClinkrUsageErrorExi
 	};
 }
 
+const EXIT_CODE_BY_TYPE = {
+	ok: 0,
+	negative: 1,
+	failure: 2,
+	usageError: 2,
+} as const satisfies Record<ClinkrExit<unknown>["type"], 0 | 1 | 2>;
+
 export function exitCodeForExit(exit: ClinkrExit<unknown>): 0 | 1 | 2 {
-	switch (exit.type) {
-		case "ok":
-			return 0;
-		case "negative":
-			return 1;
-		case "failure":
-			return 2;
-		case "usageError":
-			return 2;
-	}
+	return EXIT_CODE_BY_TYPE[exit.type];
 }
 
 export function toMachineEnvelope(exit: ClinkrExit<unknown>): MachineEnvelope {
 	switch (exit.type) {
 		case "ok":
-			return { status: "ok", exitCode: 0, data: exit.data };
+			return { status: "ok", exitCode: EXIT_CODE_BY_TYPE.ok, data: exit.data };
 		case "negative":
 			return {
 				status: "negative",
-				exitCode: 1,
+				exitCode: EXIT_CODE_BY_TYPE.negative,
 				message: exit.message,
 				...(exit.data === undefined ? {} : { data: exit.data }),
 			};
 		case "failure":
 			return {
 				status: "failure",
-				exitCode: 2,
+				exitCode: EXIT_CODE_BY_TYPE.failure,
 				errorType: exit.errorType,
 				message: exit.message,
 				...(exit.data === undefined ? {} : { data: exit.data }),
@@ -231,7 +226,7 @@ export function usageErrorMachineEnvelope(
 ): UsageErrorMachineEnvelope {
 	return {
 		status: "usageError",
-		exitCode: 2,
+		exitCode: EXIT_CODE_BY_TYPE.usageError,
 		errorType: "usageError",
 		message,
 		...(data === undefined ? {} : { data }),
