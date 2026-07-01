@@ -47,11 +47,7 @@ export class ScriptedCommandRunner {
 	}
 
 	get calls(): readonly RunnerCall[] {
-		return this.callsInternal.map((call) => ({
-			command: call.command,
-			args: [...call.args],
-			...optionalEntry("cwd", call.cwd),
-		}));
+		return this.callsInternal.map(copyRunnerCall);
 	}
 
 	readonly runner: CommandRunner = async (command, args, options = {}) => {
@@ -111,11 +107,7 @@ export class ScriptedCommandExecApi implements CommandExecApi {
 	}
 
 	calls(): readonly ScriptedCommandExecCall[] {
-		return this.callsInternal.map((call) => ({
-			command: call.command,
-			args: [...call.args],
-			...optionalEntry("options", call.options === undefined ? undefined : { ...call.options }),
-		}));
+		return this.callsInternal.map(copyScriptedCommandExecCall);
 	}
 }
 
@@ -130,9 +122,7 @@ export class DroppingOptionsCommandExecApi implements CommandExecApi {
 		this.delegate = options.delegate;
 		this.dropFields = {
 			...optionalEntry("shouldDropEnv", options.shouldDropEnv),
-			...(options.shouldDropStdin === undefined
-				? {}
-				: { shouldDropStdin: options.shouldDropStdin }),
+			...optionalEntry("shouldDropStdin", options.shouldDropStdin),
 		};
 	}
 
@@ -156,13 +146,9 @@ export function copyExecOptionsWithout(
 			env: dropFields.shouldDropEnv === true ? undefined : options.env,
 			timeout: options.timeout,
 		}),
-		...(options.timeoutKillGraceMs === undefined
-			? {}
-			: { timeoutKillGraceMs: options.timeoutKillGraceMs }),
+		...optionalEntry("timeoutKillGraceMs", options.timeoutKillGraceMs),
 		...optionalEntry("signal", options.signal),
-		...(dropFields.shouldDropStdin === true || options.stdin === undefined
-			? {}
-			: { stdin: options.stdin }),
+		...optionalEntry("stdin", dropFields.shouldDropStdin === true ? undefined : options.stdin),
 		...optionalEntries({ onStdout: options.onStdout, onStderr: options.onStderr }),
 	};
 }
@@ -181,6 +167,27 @@ export function startupErrorStep(
 	startupError: string,
 ): ScriptStep {
 	return { command, args: [...args], exitCode: 127, startupError };
+}
+
+function copyRunnerCall(call: RunnerCall): RunnerCall {
+	return {
+		...copyCommandCallFields(call),
+		...optionalEntry("cwd", call.cwd),
+	};
+}
+
+function copyScriptedCommandExecCall(call: ScriptedCommandExecCall): ScriptedCommandExecCall {
+	return {
+		...copyCommandCallFields(call),
+		...optionalEntry("options", call.options === undefined ? undefined : { ...call.options }),
+	};
+}
+
+function copyCommandCallFields(call: {
+	readonly command: string;
+	readonly args: readonly string[];
+}): { readonly command: string; readonly args: string[] } {
+	return { command: call.command, args: [...call.args] };
 }
 
 function sameArgs(left: readonly string[], right: readonly string[]): boolean {
