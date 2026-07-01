@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { BrmemCliContext } from "../context.ts";
 import { prepareEntryContentFromSource, STDIN_SOURCE_FILE } from "../put-entry-from-file.ts";
 import { mustEntryLocator, namespaceDisplayLabel } from "../ref-layout.ts";
-import { gatewayFailure, resolveEntryRequest } from "./shared.ts";
+import { gatewayFailure, resolveOperationEntryRequest } from "./shared.ts";
 
 export const putRequestSchema = z.object({
 	key: z.string().describe("Entry Key."),
@@ -41,11 +41,7 @@ export async function runPut(ctx: BrmemCliContext, request: PutRequest) {
 		return failure(prepared.error.code, prepared.error.message);
 	}
 
-	const resolved = await resolveEntryRequest(ctx, {
-		key: request.key,
-		...optionalEntry("branch", request.branch),
-		...optionalEntry("namespace", request.namespace),
-	});
+	const resolved = await resolveOperationEntryRequest(ctx, request);
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
 
