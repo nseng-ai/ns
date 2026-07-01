@@ -22,9 +22,8 @@ import {
 	HANDOFF_TAB_LAUNCH_TOOL_NAME,
 	HANDOFF_TAB_STATUS_KEY,
 	PICKUP_HANDOFF_COMMAND_NAME,
-	setStatus,
-	type HandoffStartMessages,
-} from "./shared.ts";
+} from "./command-constants.ts";
+import { setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { CommandContext, ExtensionAPI, ToolDefinition } from "./runtime-types.ts";
 
 export type { HandoffTabLaunchResult };

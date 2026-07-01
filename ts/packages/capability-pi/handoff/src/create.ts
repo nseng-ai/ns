@@ -1,11 +1,8 @@
-import {
-	CREATE_HANDOFF_FALLBACK,
-	createHandoffStartMessage,
-	fencedBlock,
-	realHandoffCreateSkillLoader,
-	resolveCreateFocus,
-	type HandoffStartMessages,
-} from "./shared.ts";
+import { resolveCreateFocus } from "./create-focus.ts";
+import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
+import { realHandoffCreateSkillLoader } from "./create-skill.ts";
+import { fencedBlock } from "./markdown-formatting.ts";
+import { createHandoffStartMessage, type HandoffStartMessages } from "./ui-status.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
 
 const CREATE_HANDOFF_START_MESSAGES = {

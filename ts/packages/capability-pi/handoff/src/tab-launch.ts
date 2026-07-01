@@ -1,14 +1,8 @@
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
 import { launchFocusedCmuxTab, type CmuxTabLaunchStage } from "@sdl/cmux/focused-terminal-tab";
 import { setRuntimeStatus } from "@sdl/pi/runtime/status";
+import type { HandoffLaunchParams } from "./launch-flow.ts";
 import type { ExecResult, ModelInfo, ThinkingLevel } from "./runtime-types.ts";
-
-export interface HandoffTabLaunchParams {
-	branch: string;
-	slug: string;
-	key: string;
-	pickupCommand: string;
-}
 
 export type HandoffTabLaunchResult =
 	| {
@@ -53,7 +47,7 @@ export interface HandoffTabLaunchOptions {
 	hasUI: boolean;
 	ui: HandoffTabLaunchUi;
 	statusKey: string;
-	params: HandoffTabLaunchParams;
+	params: HandoffLaunchParams;
 	signal: AbortSignal | undefined;
 	onUpdate: ((update: HandoffTabLaunchUpdate) => void) | undefined;
 }

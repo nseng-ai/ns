@@ -8,13 +8,10 @@ import {
 	readHandoffArtifact,
 	type HandoffSummary,
 } from "@sdl/handoff/api";
-import {
-	LIST_HANDOFF_COMMAND_NAME,
-	PICKUP_HANDOFF_COMMAND_NAME,
-	currentBranch,
-	fencedBlock,
-	setStatus,
-} from "./shared.ts";
+import { currentBranch } from "./branch-resolution.ts";
+import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
+import { fencedBlock } from "./markdown-formatting.ts";
+import { setStatus } from "./ui-status.ts";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";
@@ -49,6 +46,11 @@ Options:
   --all              List handoffs across active branches.
   --help, -h         Show this help.`;
 
+type BranchFlagConsumeResult =
+	| { type: "consumed"; branch: string; index: number }
+	| { type: "invalid"; message: string }
+	| { type: "not-branch" };
+
 export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<PickupHandoffArgs> {
 	const parsed: PickupHandoffArgs = { help: false, selector: [] };
 	const tokens = tokenizeArgs(rawArgs);
@@ -63,21 +65,13 @@ export function parsePickupHandoffArgs(rawArgs: string): HandoffArgsParseResult<
 			parsed.help = true;
 			continue;
 		}
-		if (token === "--branch") {
-			const value = tokens[index + 1];
-			if (value === undefined || value.startsWith("--")) {
-				return { type: "invalid", message: "Missing value for --branch." };
-			}
-			parsed.branch = value;
-			index += 1;
-			continue;
+		const branchFlag = consumeBranchFlag(tokens, index);
+		if (branchFlag.type === "invalid") {
+			return { type: "invalid", message: branchFlag.message };
 		}
-		if (token.startsWith("--branch=")) {
-			const value = token.slice("--branch=".length);
-			if (value.length === 0) {
-				return { type: "invalid", message: "Missing value for --branch." };
-			}
-			parsed.branch = value;
+		if (branchFlag.type === "consumed") {
+			parsed.branch = branchFlag.branch;
+			index = branchFlag.index;
 			continue;
 		}
 		if (token.startsWith("-")) {
@@ -115,21 +109,13 @@ export function parseListHandoffArgs(rawArgs: string): HandoffArgsParseResult<Li
 			parsed.allBranches = true;
 			continue;
 		}
-		if (token === "--branch") {
-			const value = tokens[index + 1];
-			if (value === undefined || value.startsWith("--")) {
-				return { type: "invalid", message: "Missing value for --branch." };
-			}
-			parsed.branch = value;
-			index += 1;
-			continue;
+		const branchFlag = consumeBranchFlag(tokens, index);
+		if (branchFlag.type === "invalid") {
+			return { type: "invalid", message: branchFlag.message };
 		}
-		if (token.startsWith("--branch=")) {
-			const value = token.slice("--branch=".length);
-			if (value.length === 0) {
-				return { type: "invalid", message: "Missing value for --branch." };
-			}
-			parsed.branch = value;
+		if (branchFlag.type === "consumed") {
+			parsed.branch = branchFlag.branch;
+			index = branchFlag.index;
 			continue;
 		}
 		if (token.startsWith("-")) {
@@ -144,6 +130,28 @@ export function parseListHandoffArgs(rawArgs: string): HandoffArgsParseResult<Li
 	}
 
 	return { type: "valid", args: parsed };
+}
+
+function consumeBranchFlag(tokens: readonly string[], index: number): BranchFlagConsumeResult {
+	const token = tokens[index];
+	if (token === undefined) {
+		return { type: "not-branch" };
+	}
+	if (token === "--branch") {
+		const value = tokens[index + 1];
+		if (value === undefined || value.startsWith("--")) {
+			return { type: "invalid", message: "Missing value for --branch." };
+		}
+		return { type: "consumed", branch: value, index: index + 1 };
+	}
+	if (token.startsWith("--branch=")) {
+		const value = token.slice("--branch=".length);
+		if (value.length === 0) {
+			return { type: "invalid", message: "Missing value for --branch." };
+		}
+		return { type: "consumed", branch: value, index };
+	}
+	return { type: "not-branch" };
 }
 
 export function resolveHandoffKey(

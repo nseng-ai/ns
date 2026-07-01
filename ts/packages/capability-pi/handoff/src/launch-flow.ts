@@ -3,19 +3,14 @@ import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@sdl/
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 import { formatPickupHandoffCommand } from "./identity.ts";
-import {
-	CREATE_HANDOFF_FALLBACK,
-	DERIVE_HANDOFF_SLUG_TOOL_NAME,
-	checkHandoffExists,
-	createHandoffStartMessage,
-	currentBranch,
-	fencedBlock,
-	realHandoffCreateSkillLoader,
-	resolveCreateFocus,
-	setStatus,
-	type HandoffCreateSkillLoader,
-	type HandoffStartMessages,
-} from "./shared.ts";
+import { currentBranch } from "./branch-resolution.ts";
+import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
+import { resolveCreateFocus } from "./create-focus.ts";
+import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
+import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
+import { checkHandoffExists } from "./handoff-existence.ts";
+import { fencedBlock } from "./markdown-formatting.ts";
+import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
 import type { ExpandedSkillBlock } from "@sdl/pi/skills/expansion";
 import type {
 	CommandContext,

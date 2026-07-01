@@ -1,6 +1,6 @@
 import { isRecord } from "@sdl/pi/runtime/primitives";
 import { truncateDisplayLine } from "@sdl/pi/terminal/presentation";
-import { PICKUP_HANDOFF_COMMAND_NAME } from "./shared.ts";
+import { PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import type { CustomMessage, RenderComponent, RenderTheme } from "./runtime-types.ts";
 import type {
 	HandoffListBranchGroup,
