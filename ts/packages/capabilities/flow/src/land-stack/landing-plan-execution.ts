@@ -6,7 +6,8 @@ import {
 	presentLandStackFailure,
 	type LandingSession,
 } from "./landing-coordination.ts";
-import { runMergeLoop, type PreMergeConfirmation } from "./landing-operations.ts";
+import { runMergeLoop } from "./landing-operations.ts";
+import type { PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
 	formatPlan,
 	formatSuccessSummary,
