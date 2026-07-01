@@ -107,8 +107,8 @@ Useful options:
 
 - `--dry-run`: preview without creating a branch, attaching a plan, checking out, or starting a new session.
 - `--branch <name>`: use or verify an explicit target branch.
-- `--graphite`: default; stack the target branch on the current branch with Graphite.
-- `--plain-git`: create with plain Git instead.
+- `--graphite`: default; stack the target branch on the current branch by creating the local Git branch, then running `gt track`.
+- `--plain-git`: create with plain Git only, without Graphite tracking.
 - `--yes`, `-y`: compatibility no-op.
 
 ## Load and implement an attached plan
@@ -158,6 +158,8 @@ Then it registers the branch with Graphite using the current branch as parent:
 ```text
 gt track <target> --parent <current-branch> --no-interactive
 ```
+
+It does not call `gt create`. This `git branch` plus `gt track` sequence is the expected branch setup primitive for autoobjective runners.
 
 This does not switch the current checkout. The plan attachment still passes the target branch to Branch Memory, so storage does not depend on the current checkout.
 

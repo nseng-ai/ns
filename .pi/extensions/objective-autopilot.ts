@@ -476,7 +476,7 @@ async function runRecoverySupervisor(options: RunRecoverySupervisorOptions): Pro
 }
 
 function buildChildPrompt(args: ParsedArgs, iteration: number, parentBranch: string): string {
-	return `You are a fresh child Pi process for /objective:autopilot iteration ${iteration}/${args.iterations}.
+	return `You are a fresh child Pi process for /objective:autopilot autoobjective iteration ${iteration}/${args.iterations}.
 
 Objective: ${args.objective}
 Parent branch at iteration start: ${parentBranch}
@@ -486,12 +486,15 @@ Rules:
 - Do exactly one coherent Objective slice.
 - First load and follow the objective-next workflow for the explicit Objective above. Run objective-next for this Objective; do not auto-select a different Objective.
 - If objective-next stops, asks for a human, finds no substantive work, or says ready-to-close, stop and report status: stop.
-- Before implementation, create a saved implementation plan and branch-context-backed implementation branch using the repo's branch-context workflows.
+- Before implementation, create and save an implementation plan as usual.
+- Create the implementation branch with the repo's branch-context Graphite creation path: use \`sdl branch-context exec from-plan --branch-creation graphite ...\` or \`/sdl:branch-context:from-plan --graphite ...\`.
+- For this autoobjective path, branch-context Graphite creation means local Git branch creation followed immediately by \`gt track <target> --parent ${parentBranch} --no-interactive\`; do not use \`gt create\`.
+- Attach branch context only through the branch-context workflow after Graphite tracking succeeds. If branch-context Graphite creation or \`gt track\` fails, stop and report the failed command plus recovery guidance; do not continue on an untracked implementation branch.
 - Implement the attached plan on the implementation branch.
 - Validate according to repo/churn policy, and run relevant checks for changed files.
 - Update Objective tracking with a meaningful Semantic Update when material progress is kept.
 - Leave changes uncommitted. Do not commit, submit PRs, push, merge, publish, deploy, or mutate external systems.
-- Do not restack Graphite branches; if a branch appears to need restacking, report it and stop.
+- Do not run \`gt create\`, \`gt restack\`, or any command whose purpose is to rebase/reorder the Graphite stack during this autoobjective iteration; if a branch appears to need restacking, report it and stop.
 - List changed files as a best-effort summary only; the parent independently inspects git status and owns staging/commit.
 - Keep your final response concise and include exactly one report block in this format:
 
@@ -654,10 +657,11 @@ Your job is narrow local recovery, not implementation:
 - Inspect repository state and perform only minimal local recovery needed to return control to the parent verifier.
 - Do not implement Objective feature work or edit feature code.
 - Do not commit, submit, push, merge, publish, deploy, resolve GitHub threads, restack Graphite branches, or mutate external systems.
-- Do not run \`gt restack\` or any command whose purpose is to rebase/reorder the Graphite stack; restack-required submit failures must return control to the human.
+- Do not run \`gt create\`, \`gt restack\`, or any command whose purpose is to rebase/reorder the Graphite stack; restack-required submit failures must return control to the human.
 - Do not stage files unless a minimal recovery command unavoidably stages them; if staging happens, report it.
 - Prefer deterministic local commands and explain what evidence justified each action.
-- For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` when live evidence supports that parent.
+- For a Graphite-untracked implementation branch, you may run \`gt track --parent ${context.startingBranch}\` only when live evidence supports that parent.
+- If \`gt track\` fails, report status needs-human or not-recovered; do not invent Branch Memory breadcrumb fallback state or continue with an untracked implementation branch.
 - The TypeScript parent will not trust your report alone; it will re-check live branch state, HEAD, staged files, Graphite branch info, git diff --check, changed files, and Objective tracking.
 
 Finish with exactly one structured report block:
@@ -925,17 +929,13 @@ async function commitAndMaybeSubmit(options: CommitAndMaybeSubmitOptions): Promi
 	const message = usableReportText(report.commitMessage) ?? usableReportText(report.recommendedSlice) ?? "Objective autopilot update";
 	let commitOutput: string;
 	try {
-		commitOutput = await execChecked({ pi, ctx, command: "gt", args: ["modify", "-m", message] });
-	} catch {
-		try {
-			commitOutput = await execChecked({ pi, ctx, command: "git", args: ["commit", "-m", message] });
-		} catch (error) {
-			throw new AutopilotPhaseError("commit", error instanceof Error ? error.message : String(error), {
-				changedFiles: [...changedFiles],
-				stagedFiles: stage.stagedFiles,
-				recoveryNotes,
-			});
-		}
+		commitOutput = await execChecked({ pi, ctx, command: "git", args: ["commit", "-m", message] });
+	} catch (error) {
+		throw new AutopilotPhaseError("commit", error instanceof Error ? error.message : String(error), {
+			changedFiles: [...changedFiles],
+			stagedFiles: stage.stagedFiles,
+			recoveryNotes,
+		});
 	}
 	if (!shouldSubmit) return { commitOutput, recoveryNotes };
 	try {
