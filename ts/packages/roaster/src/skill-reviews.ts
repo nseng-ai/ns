@@ -5,7 +5,7 @@ import {
 	type ReviewSource,
 } from "./gateways/review-catalog.ts";
 import type { ReviewDefinition } from "./models.ts";
-import { roasterReviewDisplayRole } from "./review-display.ts";
+import { roasterReviewDisplayRole, type RoasterReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
@@ -43,6 +43,20 @@ const ACRONYMS = new Map([
 	["sdl", "SDL"],
 	["typescript", "TypeScript"],
 ]);
+
+const ROAST_SKILL_ROLE_TEXT = {
+	tripwire: {
+		labelPrefix: "Tripwire",
+		promptNoun: "tripwire",
+	},
+	deep_review: {
+		labelPrefix: "Roast",
+		promptNoun: "roast",
+	},
+} as const satisfies Record<
+	RoasterReviewDisplayRole,
+	{ readonly labelPrefix: string; readonly promptNoun: string }
+>;
 
 export async function loadRoastSkillEntries(
 	options: LoadRoastSkillEntriesOptions,
@@ -83,13 +97,8 @@ export async function loadRoastReviewDefinition(
 	};
 }
 
-function roastSkillSurfaceForDefinition(key: string, definition: ReviewDefinition): string {
-	if (
-		roasterReviewDisplayRole(definition.modelProfile) === "tripwire" &&
-		key.endsWith("-tripwire")
-	) {
-		return `skill:${key}`;
-	}
+function roastSkillSurfaceForDefinition(key: string, role: RoasterReviewDisplayRole): string {
+	if (role === "tripwire" && key.endsWith("-tripwire")) return `skill:${key}`;
 	return `skill:roast-${key}`;
 }
 
@@ -101,36 +110,31 @@ export function roastReviewPathForKey(key: string): string {
 	return `.sdl/reviews/${key}.md`;
 }
 
-function roastSkillTitleForDefinition(key: string, definition: ReviewDefinition): string {
+function roastSkillTitleForDefinition(key: string, role: RoasterReviewDisplayRole): string {
 	const titleKey =
-		roasterReviewDisplayRole(definition.modelProfile) === "tripwire" && key.endsWith("-tripwire")
-			? key.slice(0, -"-tripwire".length)
-			: key;
+		role === "tripwire" && key.endsWith("-tripwire") ? key.slice(0, -"-tripwire".length) : key;
 	const words = titleKey.split(/[/-]/u).filter((word) => word.length > 0);
 	return words.map((word, index) => humanizeKeyWord(word, index)).join(" ");
 }
 
-function roastSkillLabel(title: string, definition: ReviewDefinition): string {
-	if (roasterReviewDisplayRole(definition.modelProfile) === "tripwire") return `Tripwire: ${title}`;
-	return `Roast: ${title}`;
+function roastSkillLabel(title: string, role: RoasterReviewDisplayRole): string {
+	return `${ROAST_SKILL_ROLE_TEXT[role].labelPrefix}: ${title}`;
 }
 
-function roastDefaultPrompt(title: string, definition: ReviewDefinition): string {
-	if (roasterReviewDisplayRole(definition.modelProfile) === "tripwire") {
-		return `Run the ${title} tripwire against the current branch changes.`;
-	}
-	return `Run the ${title} roast against the current branch changes.`;
+function roastDefaultPrompt(title: string, role: RoasterReviewDisplayRole): string {
+	return `Run the ${title} ${ROAST_SKILL_ROLE_TEXT[role].promptNoun} against the current branch changes.`;
 }
 
 function roastSkillEntryFromDefinition(key: string, definition: ReviewDefinition): RoastSkillEntry {
-	const title = roastSkillTitleForDefinition(key, definition);
+	const role = roasterReviewDisplayRole(definition.modelProfile);
+	const title = roastSkillTitleForDefinition(key, role);
 	return {
-		surface: roastSkillSurfaceForDefinition(key, definition),
+		surface: roastSkillSurfaceForDefinition(key, role),
 		reviewKey: key,
 		title,
-		label: roastSkillLabel(title, definition),
+		label: roastSkillLabel(title, role),
 		description: definition.description,
-		defaultPrompt: roastDefaultPrompt(title, definition),
+		defaultPrompt: roastDefaultPrompt(title, role),
 	};
 }
 

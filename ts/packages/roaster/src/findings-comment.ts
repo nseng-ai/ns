@@ -1,5 +1,6 @@
 import { truncatedSha256Digest } from "@sdl/core/primitives";
 
+import { formatOmittedReviewInputFile } from "./input-coverage-formatting.ts";
 import {
 	type InlinePostingStatus,
 	type ReviewFinding,
@@ -192,9 +193,7 @@ function renderInputCoverage(coverage: ReviewInputCoverage): string[] {
 		"Review completed with bounded prompt input. The following filtered-diff file segments were not supplied in prompt input after configured roaster exclusions:",
 	);
 	for (const file of coverage.omittedFiles.slice(0, OMITTED_INPUT_FILES_RENDER_LIMIT)) {
-		lines.push(
-			`- \`${file.path}\` (${file.changeKind}, ${file.byteSize} bytes, ~${file.estimatedTokens} tokens, +${file.addedLines}/-${file.removedLines}; ${file.reason.replaceAll("-", " ")})`,
-		);
+		lines.push(`- \`${file.path}\` (${formatOmittedReviewInputFile(file)})`);
 	}
 	const remaining =
 		coverage.omittedFileCount -

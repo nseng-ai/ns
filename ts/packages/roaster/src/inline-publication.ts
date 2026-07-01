@@ -24,25 +24,15 @@ export async function postInlineFindings(
 	if (payload.errorType !== null || payload.count === 0) return emptyInlineResult();
 
 	const githubOptions = environmentOptions(options.runScope);
-	let changedFilesResult: Awaited<ReturnType<RoasterGitHubGateway["getPrChangedFiles"]>>;
-	try {
-		changedFilesResult = await ctx.github.getPrChangedFiles(options.prNumber, githubOptions);
-	} catch (caught) {
-		return { ...emptyInlineResult(), apiError: formatErrorMessage(caught) };
-	}
-	if (changedFilesResult.type === "error") {
-		return { ...emptyInlineResult(), apiError: changedFilesResult.error.message };
-	}
+	const changedFilesResult = await callGithubOrEmptyResult(() =>
+		ctx.github.getPrChangedFiles(options.prNumber, githubOptions),
+	);
+	if (changedFilesResult.type === "empty") return changedFilesResult.result;
 
-	let reviewCommentsResult: Awaited<ReturnType<RoasterGitHubGateway["getPrReviewComments"]>>;
-	try {
-		reviewCommentsResult = await ctx.github.getPrReviewComments(options.prNumber, githubOptions);
-	} catch (caught) {
-		return { ...emptyInlineResult(), apiError: formatErrorMessage(caught) };
-	}
-	if (reviewCommentsResult.type === "error") {
-		return { ...emptyInlineResult(), apiError: reviewCommentsResult.error.message };
-	}
+	const reviewCommentsResult = await callGithubOrEmptyResult(() =>
+		ctx.github.getPrReviewComments(options.prNumber, githubOptions),
+	);
+	if (reviewCommentsResult.type === "empty") return reviewCommentsResult.result;
 
 	const classified = classifyInlineFindings(payload.findings, changedFilesResult.value);
 	const existingMarkers = new Set(
@@ -88,6 +78,31 @@ export async function postInlineFindings(
 		apiError,
 		fallbackOnly: classified.fallbackOnly,
 	};
+}
+
+type GithubReadResult<T> =
+	| { readonly type: "ok"; readonly value: T }
+	| { readonly type: "error"; readonly error: { readonly message: string } };
+
+type GithubReadOrEmptyResult<T> =
+	| { readonly type: "ok"; readonly value: T }
+	| { readonly type: "empty"; readonly result: PostInlineFindingsResult };
+
+async function callGithubOrEmptyResult<T>(
+	call: () => Promise<GithubReadResult<T>>,
+): Promise<GithubReadOrEmptyResult<T>> {
+	try {
+		const result = await call();
+		if (result.type === "error") {
+			return { type: "empty", result: { ...emptyInlineResult(), apiError: result.error.message } };
+		}
+		return result;
+	} catch (caught) {
+		return {
+			type: "empty",
+			result: { ...emptyInlineResult(), apiError: formatErrorMessage(caught) },
+		};
+	}
 }
 
 function emptyInlineResult(): PostInlineFindingsResult {
