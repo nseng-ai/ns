@@ -58,23 +58,23 @@ export interface CmuxCreatedSurface {
 	workspaceId?: string;
 }
 
+export interface CmuxSurfaceRef {
+	workspaceId: string;
+	surfaceId: string;
+	windowId?: string;
+}
+
 export type IdentifyCmuxCallerParams = CmuxCommandContext;
 
 export interface CreateCmuxTerminalSurfaceParams extends CmuxCommandContext {
 	caller: CmuxCallerContext;
 }
 
-export interface RenameCmuxTabParams extends CmuxCommandContext {
-	workspaceId: string;
-	surfaceId: string;
-	windowId?: string;
+export interface RenameCmuxTabParams extends CmuxCommandContext, CmuxSurfaceRef {
 	title: string;
 }
 
-export interface SendCmuxTextParams extends CmuxCommandContext {
-	workspaceId: string;
-	surfaceId: string;
-	windowId?: string;
+export interface SendCmuxTextParams extends CmuxCommandContext, CmuxSurfaceRef {
 	text: string;
 }
 

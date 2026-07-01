@@ -1,11 +1,9 @@
 import { formatShellArg } from "@sdl/exec";
+import type { ModelInfo, ThinkingLevel } from "./types.ts";
 
-export type PiLaunchThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type PiLaunchThinkingLevel = ThinkingLevel;
 
-export interface PiLaunchModelInfo {
-	provider: string;
-	id: string;
-}
+export type PiLaunchModelInfo = ModelInfo;
 
 export interface PiLaunchOptions {
 	model?: PiLaunchModelInfo;

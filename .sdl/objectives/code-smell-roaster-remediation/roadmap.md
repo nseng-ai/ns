@@ -22,7 +22,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Duplicated Brmem result unwrap handling; `throwBranchContextBrmemError` and `unwrapBranchContextBrmemResult` centralize branch-context Brmem error throwing for attach/list/delete/load paths without changing existing messages.
   - fixed: Duplicated fake put/create cache updates; `InMemoryBranchMemoryGateway.recordEntryWriteResult` now owns the branch-context namespace cache synchronization shared by `putEntry` and `createEntry`.
   - validation: `pnpm --dir ts --filter @sdl/branch-context run check`, `pnpm --dir ts --filter @sdl/branch-context run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
-- [ ] **cmux** — 3 findings (1 high / 2 medium / 0 low). See `references/cmux.md`.
+- [x] **cmux** — 3 findings (1 high / 2 medium / 0 low). See `references/cmux.md`.
+  - fixed: Speculative Generality in focused terminal tab staging helpers; unused `createCmuxSurface`, `renameCmuxTab`, and `sendCmuxText` exports and their index re-exports were removed, leaving `launchFocusedCmuxTab` as the package's focused-tab orchestration entry point while preserving `identifyCmuxCaller` for its external caller.
+  - fixed: Data Clumps for cmux surface identifiers; `CmuxSurfaceRef` now names the shared `workspaceId`/`surfaceId`/optional `windowId` shape used by rename-tab and send-text gateway params.
+  - fixed: Duplicated Code in Pi launch model/thinking types; `PiLaunchThinkingLevel` and `PiLaunchModelInfo` are aliases of the canonical `ThinkingLevel` and `ModelInfo` from `types.ts`.
+  - validation: `pnpm --dir ts --filter @sdl/cmux run check`, `pnpm --dir ts --filter @sdl/cmux run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [ ] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
 - [ ] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
