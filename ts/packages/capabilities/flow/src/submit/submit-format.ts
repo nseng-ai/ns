@@ -171,8 +171,6 @@ export function formatMergedPrNotInTrunkOutput(output: SubmitCommandOutput): str
 }
 
 export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
-	output: SubmitCommandOutput;
-	submitDryRunCommandDisplay: string;
 	branchName?: string;
 	remoteSync?: RemoteSyncDiagnostics;
 }): string {

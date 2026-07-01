@@ -9,6 +9,8 @@ import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
+export const PUSH_COMMAND_SUMMARY = "Push committed non-Graphite branch work with git push.";
+
 const PUSH_COMMAND_DESCRIPTION = `Push already-committed work on the current branch with plain git push.
 
 The command first runs git status --porcelain and requires a clean worktree before pushing. It then runs plain git push with a two-minute timeout. It has no intentional arguments or options.
@@ -17,7 +19,7 @@ This command does not update Graphite metadata. Do not use it for Graphite-track
 
 export const flowPushCommand: SdlCommand = {
 	name: "push",
-	summary: "Push committed non-Graphite branch work with git push.",
+	summary: PUSH_COMMAND_SUMMARY,
 	description: PUSH_COMMAND_DESCRIPTION,
 	async run(ctx) {
 		return await runPush(ctx);

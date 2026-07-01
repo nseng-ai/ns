@@ -726,8 +726,6 @@ function formatPreflightCauseOutput(input: {
 			return formatMergedPrNotInTrunkOutput(input.output);
 		case "remote_updated_outside_graphite":
 			return formatRemoteUpdatedOutsideGraphitePreflightOutput({
-				output: input.output,
-				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
 				...optionalEntry("branchName", input.cause.branchName),
 				...optionalEntry("remoteSync", input.cause.remoteSync),
 			});
