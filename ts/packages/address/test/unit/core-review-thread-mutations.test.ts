@@ -181,6 +181,15 @@ describe("review thread mutations", () => {
 						stage: "reply",
 						message: "Failed to reply to review thread RT_fail",
 						code: "reply-failed",
+						failure: {
+							code: "github_pr_feedback_gh_failed",
+							message: "reply failed",
+							details: {
+								operation: "replyToReviewThread",
+								stderr: "reply failed",
+								exitCode: 4,
+							},
+						},
 					},
 				},
 				{ thread_id: "RT_ok", error: null },
@@ -188,6 +197,61 @@ describe("review thread mutations", () => {
 		});
 		expect(prFeedback.replies).toEqual([{ threadId: "RT_ok", body: "Fixed." }]);
 		expect(prFeedback.bulkResolutions).toEqual([{ threadIds: ["RT_ok"] }]);
+		expect(prFeedback.resolutions).toEqual([]);
+	});
+
+	test("closeReviewThreads preserves gateway failure details for reply failures", async () => {
+		const prFeedback = new InMemoryGithubPrFeedbackGateway({
+			replyFailures: new Map([
+				[
+					"RT_graphql",
+					{
+						code: "github_pr_feedback_graphql_failed",
+						message: "Resource not accessible by integration",
+						details: {
+							operation: "replyToReviewThread",
+							threadId: "RT_graphql",
+							graphqlErrors: [
+								{ type: "FORBIDDEN", message: "Resource not accessible by integration" },
+							],
+						},
+					},
+				],
+			]),
+		});
+
+		const result = await closeReviewThreads({
+			prFeedback,
+			gatewayOptions: GATEWAY_OPTIONS,
+			threadIds: ["RT_graphql"],
+			body: "Fixed.",
+		});
+
+		expect(result).toMatchObject({
+			failed: 1,
+			entries: [
+				{
+					thread_id: "RT_graphql",
+					error: {
+						stage: "reply",
+						code: "reply-failed",
+						failure: {
+							code: "github_pr_feedback_graphql_failed",
+							message: "Resource not accessible by integration",
+							details: {
+								operation: "replyToReviewThread",
+								threadId: "RT_graphql",
+								graphqlErrors: [
+									{ type: "FORBIDDEN", message: "Resource not accessible by integration" },
+								],
+							},
+						},
+					},
+				},
+			],
+		});
+		expect(prFeedback.replies).toEqual([]);
+		expect(prFeedback.bulkResolutions).toEqual([]);
 		expect(prFeedback.resolutions).toEqual([]);
 	});
 
@@ -217,6 +281,15 @@ describe("review thread mutations", () => {
 						stage: "resolve",
 						message: "Failed to resolve review thread RT_fail",
 						code: "resolve-failed",
+						failure: {
+							code: "github_pr_feedback_gh_failed",
+							message: "resolve failed",
+							details: {
+								operation: "resolveReviewThread",
+								stderr: "resolve failed",
+								exitCode: 4,
+							},
+						},
 					},
 				},
 				{ thread_id: "RT_ok", error: null },

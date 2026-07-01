@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { githubPrFeedbackFailureSchema } from "@sdl/github/pr-feedback";
 
 const nullableIntSchema = z.int().nullable();
 const nullableStringSchema = z.string().nullable();
@@ -186,6 +187,7 @@ const closeReviewThreadsEntryErrorSchema = z.object({
 	stage: z.union([z.literal("reply"), z.literal("resolve")]),
 	message: z.string(),
 	code: z.string(),
+	failure: githubPrFeedbackFailureSchema,
 });
 
 const closeReviewThreadsEntrySchema = z.object({

@@ -31,6 +31,7 @@ export interface CloseReviewThreadsEntryError {
 	stage: CloseReviewThreadsErrorStage;
 	message: string;
 	code: string;
+	failure: GithubPrFeedbackFailure;
 }
 
 export interface CloseReviewThreadsEntry {
@@ -269,5 +270,5 @@ function closeReviewThreadsEntryError(
 		{ type: "pr_feedback_failure" }
 	>,
 ): CloseReviewThreadsEntryError {
-	return { stage, message: result.message, code: `${stage}-failed` };
+	return { stage, message: result.message, code: `${stage}-failed`, failure: result.failure };
 }

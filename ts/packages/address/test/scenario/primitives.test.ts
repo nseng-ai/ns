@@ -373,6 +373,15 @@ describe("pr-address primitive exec commands", () => {
 							stage: "reply",
 							message: "Failed to reply to review thread RT_fail",
 							code: "reply-failed",
+							failure: {
+								code: "github_pr_feedback_gh_failed",
+								message: "reply failed",
+								details: {
+									operation: "replyToReviewThread",
+									stderr: "reply failed",
+									exitCode: 4,
+								},
+							},
 						},
 					},
 					{ thread_id: "RT_ok", error: null },
