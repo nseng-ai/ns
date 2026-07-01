@@ -2,6 +2,7 @@
 
 import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/cli-runtime";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
@@ -159,14 +160,14 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 export const VERSION = entry.version;
 
 export interface CliDeps {
-	context?: BrmemCliContext | undefined;
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	stdin?: (() => Promise<string>) | undefined;
-	sourceReader?: BrmemSourceReader | undefined;
-	interaction?: BrmemCliContext["interaction"] | undefined;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	context?: BrmemCliContext;
+	cwd?: string;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	stdin?: () => Promise<string>;
+	sourceReader?: BrmemSourceReader;
+	interaction?: BrmemCliContext["interaction"];
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 }
 
 export function buildCli(): ClinkrGroup<BrmemCliContext> {

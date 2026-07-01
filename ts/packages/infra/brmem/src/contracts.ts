@@ -1,7 +1,7 @@
 export interface BrmemErrorInfo {
 	code: string;
 	message: string;
-	displayCommand?: string | undefined;
+	displayCommand?: string;
 }
 
 export type BrmemResult<T> = { type: "ok"; value: T } | { type: "error"; error: BrmemErrorInfo };

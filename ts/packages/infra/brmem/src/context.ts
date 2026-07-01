@@ -1,3 +1,4 @@
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
@@ -19,7 +20,7 @@ export interface BrmemCliContext {
 }
 
 export function createRealBrmemContext(
-	options: { cwd?: string | undefined; env?: NodeJS.ProcessEnv | undefined } = {},
+	options: { cwd?: string; env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv> } = {},
 ): BrmemCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;
