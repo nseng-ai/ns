@@ -28,7 +28,7 @@ export interface CreateClinkrInteractionOptions {
 	stdin: () => Promise<string | null>;
 	stderr: (text: string) => void;
 	isInteractive?: () => boolean;
-	injectedStdin?: (() => Promise<string | null>) | undefined;
+	injectedStdin?: () => Promise<string | null>;
 	formatPrompt?: ConfirmationPromptFormatter;
 }
 

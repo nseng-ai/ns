@@ -14,7 +14,7 @@ export interface DroppingOptionsCommandExecApiOptions extends DropExecOptionsFie
 export interface RunnerCall {
 	readonly command: string;
 	readonly args: readonly string[];
-	readonly cwd?: string | undefined;
+	readonly cwd?: string;
 }
 
 export interface ResultFields {
@@ -35,7 +35,7 @@ export interface ScriptStep extends ResultFields {
 export interface ScriptedCommandExecCall {
 	readonly command: string;
 	readonly args: readonly string[];
-	readonly options?: ExecOptions | undefined;
+	readonly options?: ExecOptions;
 }
 
 export class ScriptedCommandRunner {

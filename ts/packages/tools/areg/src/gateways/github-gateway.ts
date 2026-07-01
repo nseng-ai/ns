@@ -19,7 +19,7 @@ export class RealAregGithubGateway implements AregGithubGateway {
 
 	async listSkillDirectoryNames(options: {
 		repo: string;
-		ref?: string | undefined;
+		ref?: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregGithubSkillListResult> {
 		const resource =
