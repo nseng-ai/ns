@@ -75,6 +75,43 @@ describe("project-local changes extension behavior", () => {
 		);
 	});
 
+	test("dirty worktree labels common git porcelain status codes", async () => {
+		const run = runChangesWithFakes({
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature/demo\n" } },
+					{
+						match: "git status --porcelain=v1",
+						result: {
+							stdout: [
+								"UU conflict.txt",
+								"R  old.ts -> new.ts",
+								"C  template.ts -> copy.ts",
+								"A  added.ts",
+								" D removed.ts",
+								"M  staged.ts",
+								"!! ignored.log",
+							].join("\n"),
+						},
+					},
+					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
+				],
+				textGeneration: [{ ok: true, text: "- Summarize status labels" }],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const output = run.stdout.join("");
+		expect(output).toContain("• unmerged   conflict.txt");
+		expect(output).toContain("• renamed    old.ts -> new.ts");
+		expect(output).toContain("• copied     template.ts -> copy.ts");
+		expect(output).toContain("• added      added.ts");
+		expect(output).toContain("• deleted    removed.ts");
+		expect(output).toContain("• modified   staged.ts");
+		expect(output).toContain("• !!         ignored.log");
+	});
+
 	test("changes model can be selected by SDL environment with legacy fallback", async () => {
 		const selected = runChangesWithFakes({
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },

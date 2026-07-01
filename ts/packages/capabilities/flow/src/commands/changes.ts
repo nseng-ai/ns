@@ -19,6 +19,25 @@ import {
 // exports while duplicated workflow helpers move into package-owned modules.
 const MAX_DISPLAY_FILE_LINES = 50;
 
+interface GitStatusFileLine {
+	status: GitPorcelainStatusCode;
+	path: string;
+}
+
+interface GitPorcelainStatusCode {
+	raw: string;
+}
+
+const GIT_STATUS_LABELS: ReadonlyArray<{ code: string; label: string }> = [
+	{ code: "U", label: "unmerged" },
+	{ code: "?", label: "untracked" },
+	{ code: "R", label: "renamed" },
+	{ code: "C", label: "copied" },
+	{ code: "A", label: "added" },
+	{ code: "D", label: "deleted" },
+	{ code: "M", label: "modified" },
+];
+
 const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes without committing.
 
 The command captures a pending worktree snapshot with read-only git commands. Clean worktrees print that there are no outstanding changes. Dirty worktrees ask the configured text-generation model for 1–4 reviewer-facing bullets, then print the bullets and raw porcelain status lines.
@@ -78,13 +97,12 @@ function formatOutstandingChangesMessage(
 }
 
 function summaryLines(terminalCaps: Caps, summaryText: string): string[] {
-	const bullet = glyph(terminalCaps, "bullet");
 	return summaryText
 		.trim()
 		.split(/\r?\n/)
 		.map((line) => line.trim())
 		.filter((line) => line.length > 0)
-		.map((line) => `${bullet} ${line.replace(/^-\s+/, "")}`);
+		.map((line) => bulletLine(terminalCaps, line.replace(/^-\s+/, "")));
 }
 
 function statusFileLines(status: string): string[] {
@@ -111,26 +129,27 @@ function displayFileLines(terminalCaps: Caps, fileLines: readonly string[]): str
 
 function formatStatusFileLine(terminalCaps: Caps, line: string): string {
 	const parsed = parseStatusFileLine(line);
-	const bullet = glyph(terminalCaps, "bullet");
-	if (parsed === undefined) return `${bullet} ${line}`;
-	return `${bullet} ${statusLabel(parsed.status).padEnd(10)} ${parsed.path}`;
+	if (parsed === undefined) return bulletLine(terminalCaps, line);
+	return bulletLine(terminalCaps, `${statusLabel(parsed.status).padEnd(10)} ${parsed.path}`);
 }
 
-function parseStatusFileLine(line: string): { status: string; path: string } | undefined {
+function bulletLine(terminalCaps: Caps, text: string): string {
+	return `${glyph(terminalCaps, "bullet")} ${text}`;
+}
+
+function parseStatusFileLine(line: string): GitStatusFileLine | undefined {
 	if (line.length < 4) return undefined;
-	const status = line.slice(0, 2);
+	const status = parseGitPorcelainStatusCode(line.slice(0, 2));
 	const path = line.slice(3).trim();
 	if (path.length === 0) return undefined;
 	return { status, path };
 }
 
-function statusLabel(status: string): string {
-	if (status.includes("U")) return "unmerged";
-	if (status.includes("?")) return "untracked";
-	if (status.includes("R")) return "renamed";
-	if (status.includes("C")) return "copied";
-	if (status.includes("A")) return "added";
-	if (status.includes("D")) return "deleted";
-	if (status.includes("M")) return "modified";
-	return status.trim() || "changed";
+function parseGitPorcelainStatusCode(raw: string): GitPorcelainStatusCode {
+	return { raw };
+}
+
+function statusLabel(status: GitPorcelainStatusCode): string {
+	const matchedStatus = GIT_STATUS_LABELS.find(({ code }) => status.raw.includes(code));
+	return matchedStatus?.label ?? (status.raw.trim() || "changed");
 }
