@@ -92,6 +92,10 @@ type PackageManifestParseResult =
 	| { outcome: "parse-failed"; diagnostic: ExtensionDiscoveryDiagnostic }
 	| { outcome: "schema-failed"; issues: readonly ZodIssueLike[] };
 
+type PackageManifestDiscoveryResolution =
+	| { outcome: "ok"; manifest: SdlExtensionPackageManifest }
+	| { outcome: "unavailable"; result: ExtensionDiscoveryResult };
+
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
 
@@ -202,14 +206,12 @@ export function discoverSdlPackageCommands(
 	const packageJsonPath = join(packageDir, "package.json");
 	if (!existsSync(packageJsonPath)) return { commands: [], diagnostics: [] };
 
-	const parseResult = readPackageManifest(packageJsonPath);
-	if (parseResult.outcome === "parse-failed") {
-		return { commands: [], diagnostics: [parseResult.diagnostic] };
-	}
-	if (parseResult.outcome === "schema-failed" || parseResult.manifest.sdl?.commands === undefined) {
-		return { commands: [], diagnostics: [] };
-	}
-	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, parseResult.manifest);
+	const resolution = resolvePackageManifestForDiscovery(packageJsonPath, {
+		structureDiagnostics: "suppress",
+	});
+	if (resolution.outcome === "unavailable") return resolution.result;
+	if (resolution.manifest.sdl?.commands === undefined) return { commands: [], diagnostics: [] };
+	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, resolution.manifest);
 }
 
 function readPackageManifest(packageJsonPath: string): PackageManifestParseResult {
@@ -233,6 +235,38 @@ function readPackageManifest(packageJsonPath: string): PackageManifestParseResul
 	return { outcome: "ok", manifest: manifestResult.data };
 }
 
+function resolvePackageManifestForDiscovery(
+	packageJsonPath: string,
+	options: { readonly structureDiagnostics: "emit" | "suppress" },
+): PackageManifestDiscoveryResolution {
+	const parseResult = readPackageManifest(packageJsonPath);
+	if (parseResult.outcome === "parse-failed") {
+		return {
+			outcome: "unavailable",
+			result: manifestReadFailureResult(parseResult.diagnostic),
+		};
+	}
+	if (parseResult.outcome === "schema-failed") {
+		return {
+			outcome: "unavailable",
+			result: {
+				commands: [],
+				diagnostics:
+					options.structureDiagnostics === "emit"
+						? [manifestStructureDiagnostic(parseResult.issues, packageJsonPath)]
+						: [],
+			},
+		};
+	}
+	return { outcome: "ok", manifest: parseResult.manifest };
+}
+
+function manifestReadFailureResult(
+	diagnostic: ExtensionDiscoveryDiagnostic,
+): ExtensionDiscoveryResult {
+	return { commands: [], diagnostics: [diagnostic] };
+}
+
 function discoverPackageCommands(
 	rootDir: string,
 	packageDir: string,
@@ -241,17 +275,11 @@ function discoverPackageCommands(
 ): ExtensionDiscoveryResult {
 	let manifest: SdlExtensionPackageManifest;
 	if (parsedManifest === undefined) {
-		const parseResult = readPackageManifest(packageJsonPath);
-		if (parseResult.outcome === "parse-failed") {
-			return { commands: [], diagnostics: [parseResult.diagnostic] };
-		}
-		if (parseResult.outcome === "schema-failed") {
-			return {
-				commands: [],
-				diagnostics: [manifestStructureDiagnostic(parseResult.issues, packageJsonPath)],
-			};
-		}
-		manifest = parseResult.manifest;
+		const resolution = resolvePackageManifestForDiscovery(packageJsonPath, {
+			structureDiagnostics: "emit",
+		});
+		if (resolution.outcome === "unavailable") return resolution.result;
+		manifest = resolution.manifest;
 	} else {
 		manifest = parsedManifest;
 	}
