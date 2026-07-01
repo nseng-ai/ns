@@ -3,11 +3,11 @@ import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { githubPrFeedbackFailureCodes, githubPrFeedbackOperations } from "./types.ts";
 
-export const githubPrFeedbackFailureOperationSchema = z.enum(githubPrFeedbackOperations);
+const githubPrFeedbackFailureOperationSchema = z.enum(githubPrFeedbackOperations);
 
-export const githubPrFeedbackFailureCodeSchema = z.enum(githubPrFeedbackFailureCodes);
+const githubPrFeedbackFailureCodeSchema = z.enum(githubPrFeedbackFailureCodes);
 
-export const githubPrFeedbackFailureDetailsSchema = z.object({
+const githubPrFeedbackFailureDetailsSchema = z.object({
 	operation: githubPrFeedbackFailureOperationSchema,
 	command: z.array(z.string()).readonly().optional(),
 	displayCommand: z.string().optional(),

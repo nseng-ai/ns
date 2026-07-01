@@ -5,7 +5,10 @@ import {
 	replyReviewThread,
 	resolveReviewThread,
 } from "../../src/core/review-thread-mutations.ts";
-import { InMemoryGithubPrFeedbackGateway } from "../support/in-memory-pr-address-gateways.ts";
+import {
+	InMemoryGithubPrFeedbackGateway,
+	fakePrFeedbackFailure,
+} from "../support/in-memory-pr-address-gateways.ts";
 
 const GATEWAY_OPTIONS = { cwd: "/repo" };
 
@@ -41,7 +44,9 @@ describe("review thread mutations", () => {
 
 	test("replyReviewThread returns a PR feedback failure and records no side effect", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const result = await replyReviewThread({
@@ -156,7 +161,9 @@ describe("review thread mutations", () => {
 
 	test("closeReviewThreads skips resolve after a reply failure and continues", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const result = await closeReviewThreads({

@@ -3,15 +3,11 @@ export { normalizeAuthor } from "./normalizers.ts";
 export { parseGithubJson } from "./parsing.ts";
 export {
 	ghAuthorSchema,
-	githubPrFeedbackFailureCodeSchema,
-	githubPrFeedbackFailureDetailsSchema,
-	githubPrFeedbackFailureOperationSchema,
 	githubPrFeedbackFailureSchema,
 	numericGithubIdentity,
 	withNumericGithubIdentity,
 } from "./schemas.ts";
 export type { GithubJsonParseResult } from "./parsing.ts";
-export { githubPrFeedbackFailureCodes, githubPrFeedbackOperations } from "./types.ts";
 export type {
 	GithubPrDiscussionComment,
 	GithubPrFeedbackFailure,

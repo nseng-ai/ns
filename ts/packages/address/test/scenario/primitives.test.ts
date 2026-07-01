@@ -5,6 +5,7 @@ import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import {
 	InMemoryGithubPrFeedbackGateway,
 	discussionComment,
+	fakePrFeedbackFailure,
 	prSummary,
 	review,
 	reviewThread,
@@ -343,7 +344,9 @@ describe("pr-address primitive exec commands", () => {
 
 	test("bulk close returns semantic exit 1 with structured reply-failure data", async () => {
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const run = runScenario(
@@ -408,7 +411,9 @@ describe("pr-address primitive exec commands", () => {
 		});
 
 		const prFeedback = new InMemoryGithubPrFeedbackGateway({
-			replyFailureThreadIds: new Set(["RT_fail"]),
+			replyFailures: new Map([
+				["RT_fail", fakePrFeedbackFailure("reply failed", "replyToReviewThread")],
+			]),
 		});
 
 		const run = runScenario(
