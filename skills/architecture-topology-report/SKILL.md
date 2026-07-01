@@ -113,8 +113,11 @@ Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @sdl/capability-k
   the gateway-injected pattern").
 - `orphans` — zero runtime fan-in; unwired leaves, often the furthest from the model.
 - `packages[name].loc` — approximate source size (meaningful TypeScript lines under the
-  package's `src`, tests/blank/`//` excluded). The report sizes graph nodes by this so a
-  package's visual weight matches its heft. Override the source folder with `--src-dir`.
+  package's `src`, tests/blank/`//` excluded).
+- `topologyCircles` / `circleGraph` — source topology circles discovered from root
+  `src/*.ts` files plus one circle per `src/<component>/` directory. The report sizes graph
+  nodes by circle LOC, places circles in tier lanes, and colors nodes by enclosing package.
+  Override the source folder with `--src-dir`.
 
 The script reads each workspace package's declared `sdl.tier`, validates it against the
 canonical tier taxonomy (kept in sync with the style-guard `packageTierValues` /
@@ -122,11 +125,10 @@ canonical tier taxonomy (kept in sync with the style-guard `packageTierValues` /
 reports computed `tierViolations` over runtime package edges — each tagged `severity: "hard"`,
 or `"debt"` when the offending edge is on the allowlist. It does not write the editorial
 verdict. In target mode, map the measured facts to the target's invariants yourself (the
-launcher's synthesizer does this mapping for raw mode). When you need finer detail than
-package-level edges (e.g. "does ccc import a
-capability through `/api` or through internals?"), grep the consumer's `src` for the import
-subpaths — package-level edges tell you *that* an edge exists, subpath grep tells you
-*whether it is clean*.
+launcher's synthesizer does this mapping for raw mode). When you need finer detail than package-level manifest edges, prefer the extracted
+`circleGraph` first; use targeted source greps only for questions the static circle graph does not
+classify, such as whether a capability import is intentionally through `/api` or an internal-looking
+subpath.
 
 **This JSON is the evidence base** — it already answers most scorecard rows (`cycles`,
 `tierViolations`, `kitConsumers`, `exposesApi`, `apiOnly`, `orphans`,
@@ -191,10 +193,11 @@ plus the "Spec contract" table in
 generator-owned D3 scaffold and design rationale, which you don't need to read to write a spec.
 The full field list and section sequence live there if you need them. The report mixes three visual
 registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
-(node area ∝ LOC, layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace/tier-filter), **Mermaid**
-before/after cycle diagrams in finding cards, and **hand-built Tailwind** for the tier stack,
-verdict strip, and scorecard. Package color comes from declared `sdl.tier` by default; the
-generator marks an edge `cycle: true` when both endpoints sit in a `cycles` SCC.
+(node area ∝ topology-circle LOC, node fill = enclosing package, tier lanes/filters, layered-DAG /
+tier-clustered / force layout toggle, drag/zoom/hover-trace), **Mermaid** before/after cycle diagrams
+in finding cards, and **hand-built Tailwind** for the tier stack, verdict strip, and scorecard. Tier
+presentation comes from declared `sdl.tier`; package color is separate from tier. The generator marks
+an edge `cycle: true` when both endpoints sit in a circle/package SCC.
 
 Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs
 a register the spec does not express — and prefer extending `build-report.mjs` over a one-off.

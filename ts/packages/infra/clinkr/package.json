@@ -17,7 +17,6 @@
     "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/clinkr/test"
   },
   "dependencies": {
-    "@sdl/time": "workspace:*",
     "commander": "catalog:",
     "log-update": "catalog:",
     "zod": "catalog:"

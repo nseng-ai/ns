@@ -4,7 +4,7 @@ import {
 	createManualClock,
 	createManualTimerHarness,
 	createManualTimerScheduler,
-} from "@sdl/time/testing";
+} from "@sdl/core/time/testing";
 
 describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {
@@ -17,6 +17,14 @@ describe("manual clock", () => {
 
 		manual.advanceMs(5);
 		expect(manual.clock.nowMs()).toBe(30);
+	});
+
+	test("rejects non-finite and negative clock updates", () => {
+		const manual = createManualClock(0);
+
+		expect(() => createManualClock(Number.NaN)).toThrow("startMs must be finite");
+		expect(() => manual.setMs(Number.POSITIVE_INFINITY)).toThrow("nowMs must be finite");
+		expect(() => manual.advanceMs(-1)).toThrow("deltaMs must be non-negative");
 	});
 });
 
@@ -133,5 +141,16 @@ describe("manual timer scheduler", () => {
 		manual.advanceMs(3);
 
 		expect(events).toEqual([1, 2, 3]);
+	});
+
+	test("rejects non-finite scheduler inputs", () => {
+		const manual = createManualTimerHarness();
+
+		expect(() => createManualTimerHarness(Number.NaN)).toThrow("startMs must be finite");
+		expect(() => manual.advanceMs(Number.NaN)).toThrow("deltaMs must be finite");
+		expect(() => manual.timers.setTimeout(() => {}, Number.POSITIVE_INFINITY)).toThrow(
+			"delayMs must be finite",
+		);
+		expect(() => manual.timers.setInterval(() => {}, Number.NaN)).toThrow("delayMs must be finite");
 	});
 });

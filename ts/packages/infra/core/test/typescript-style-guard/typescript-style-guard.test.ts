@@ -13,6 +13,7 @@ import {
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
+	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	deferredExtensionCycleComponents,
 	extensionGraphPackageNames,
@@ -32,6 +33,11 @@ import {
 	type SourceRuleViolation,
 } from "../support/typescript-style-guard/source-rules.ts";
 import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
+import {
+	collectTopologyCircleLayeringViolations,
+	discoverTopologyCircles,
+	type TopologyCircleFact,
+} from "../support/typescript-style-guard/topology-circles.ts";
 
 const TEST_FILE = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(TEST_FILE), "../../../../../..");
@@ -276,7 +282,7 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "timer adapter raw timer is allowed",
 			code: "setTimeout(() => {}, 10); clearTimeout(timer);",
-			path: "ts/packages/infra/time/src/index.ts",
+			path: "ts/packages/infra/core/src/time/index.ts",
 			expectedRules: [],
 		},
 		{
@@ -585,6 +591,105 @@ describe("TypeScript style guard package tier layering rules", () => {
 
 	test("real repo package manifests satisfy declared tier policy through explicit debt allowlists", () => {
 		const violations = collectPackageTierLayeringViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
+describe("TypeScript style guard topology-circle layering rules", () => {
+	const syntheticCircles: readonly TopologyCircleFact[] = [
+		{
+			id: "@sdl/core",
+			packageName: "@sdl/core",
+			component: ".",
+			tier: "neutral-infra",
+			path: "synthetic/core/src",
+		},
+		{
+			id: "@sdl/core/time",
+			packageName: "@sdl/core",
+			component: "time",
+			tier: "neutral-infra",
+			path: "synthetic/core/src/time",
+		},
+		{
+			id: "@sdl/slot",
+			packageName: "@sdl/slot",
+			component: ".",
+			tier: "capability",
+			path: "synthetic/slot/src",
+		},
+	];
+
+	test("allows same-tier intra-package circle edges", () => {
+		const violations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: syntheticCircles,
+			files: [
+				{
+					path: "synthetic/core/src/time/index.ts",
+					content: 'import { clock } from "@sdl/core/clock";',
+				},
+			],
+		});
+
+		expect(violations).toEqual([]);
+	});
+
+	test("rejects forbidden layer edges between circles", () => {
+		const violations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: syntheticCircles,
+			files: [
+				{
+					path: "synthetic/core/src/time/index.ts",
+					content: 'import { buildSlotCommandGroup } from "@sdl/slot";',
+				},
+			],
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
+		expect(violations[0]?.text).toContain("@sdl/core/time (neutral-infra) -> @sdl/slot");
+	});
+
+	test("relative imports crossing circle boundaries point at the import line", () => {
+		const violations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: syntheticCircles,
+			files: [
+				{
+					path: "synthetic/core/src/time/index.ts",
+					content: 'import { slot } from "../../../slot/src/index.ts";\nslot();',
+				},
+				{
+					path: "synthetic/slot/src/index.ts",
+					content: "export function slot(): void {}",
+				},
+			],
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
+		expect(violations[0]?.line).toBe(1);
+		expect(violations[0]?.text).toContain("@sdl/core/time");
+	});
+
+	test("discovers the core time pilot circle without a standalone time package", () => {
+		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
+		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
+		const retiredTimePackageName = "@sdl/" + "time";
+
+		expect(circles.has("@sdl/core/time")).toBe(true);
+		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
+	});
+
+	test("real repo source circle edges satisfy inherited tier layering", () => {
+		const violations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: loadPackageMetadata(REPO_ROOT),
+		});
 
 		expect(formatViolations(violations)).toBe("");
 	});

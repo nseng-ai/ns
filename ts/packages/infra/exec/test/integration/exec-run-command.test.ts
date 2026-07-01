@@ -5,7 +5,7 @@ import { join } from "node:path";
 import process from "node:process";
 
 import { runCommand } from "@sdl/exec";
-import { createManualTimerScheduler } from "@sdl/time/testing";
+import { createManualTimerScheduler } from "@sdl/core/time/testing";
 
 const tempDirs: string[] = [];
 

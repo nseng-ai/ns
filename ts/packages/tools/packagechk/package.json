@@ -20,7 +20,6 @@
     "@sdl/clinkr": "workspace:*",
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
-    "@sdl/time": "workspace:*",
     "zod": "catalog:"
   },
   "sdl": {

@@ -38,11 +38,9 @@
     "@sdl/exec": "workspace:*",
     "@sdl/git": "workspace:*",
     "@sdl/test-kit": "workspace:*",
-    "@sdl/time": "workspace:*",
     "sdl-sdk": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "capability-kit"
   }

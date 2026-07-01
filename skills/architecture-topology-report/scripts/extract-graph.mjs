@@ -1,30 +1,17 @@
 #!/usr/bin/env node
-// Extract the package dependency topology of a pnpm/npm workspace and emit
-// the structural facts an architecture-topology report is built from.
+// Extract the package and topology-circle dependency topology of a pnpm/npm
+// workspace and emit the structural facts an architecture-topology report is
+// built from.
 //
-// Structural analysis plus declared tier policy facts — it reports edges,
-// cycles, fan-in/out, exports, named-package consumers, manifest-declared
-// package tiers, and machine-computed tier-policy violations.
-//
-// Usage:
-//   node extract-graph.mjs [--root ts/packages] [--kit @sdl/capability-kit]
-//                          [--api-needle api] [--src-dir src] [--pretty]
-//
-// Each package carries an approximate `loc` (meaningful TypeScript lines under
-// <pkg>/<src-dir>, tests/blank/`//` excluded) so the report can size graph nodes
-// by source heft (node area ∝ loc).
-//
-// Defaults are tuned for sdl-tools but every knob is a flag, so this runs
-// against any workspace. Membership in the graph = "is a workspace package"
-// (a package.json found under --root); scope strings are never assumed.
-//
-// Output: JSON on stdout. Edges are RUNTIME only (dependencies + peerDependencies);
-// devDependencies are excluded because they are not part of the shipped
-// Extension Dependency Graph.
+// Packages are npm/workspace distribution units. Topology circles are source
+// components discovered by convention: a package root circle for flat
+// <pkg>/src/*.ts files plus one circle per <pkg>/src/<component>/ directory.
+// Edges are RUNTIME package manifest edges for the package graph and static
+// TypeScript import/export edges for the circle graph.
 
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join } from "node:path";
+import { dirname, join, normalize, relative, resolve } from "node:path";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(`--${name}`);
@@ -82,9 +69,6 @@ const TIER_POLICY = {
   ]),
   "local-pi-tool": new Set(["local-pi-tool", "host", "capability-gateway-backend", "neutral-infra"]),
 };
-// Tier-policy violations that are explicitly tracked as accepted debt (NUL-joined
-// "from\0to" keys) — kept in sync with `allowedPackageTierDebtEdges` in the source
-// of truth. A violating edge on this list is reported `severity: "debt"`, not "hard".
 const ALLOWED_DEBT_EDGES = new Map([
   ["@sdl/ccc\0@sdl/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
   ["@sdl/kernel\0@sdl/slot", "SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly."],
@@ -96,47 +80,62 @@ const ALLOWED_DEBT_EDGES = new Map([
     "@sdl/brmem\0@sdl/git",
     "Git gateway backend relocation debt: brmem consumes @sdl/git until the separate brmem follow-up retier lands.",
   ],
+  [
+    "@local-pi-tools/thermo-council\0@sdl/capability-kit",
+    "Text-repair helper reuse debt: thermo-council reuses the canonical Capability Kit text-repair loop until local-pi-tool tier policy is reconciled with shared helper placement.",
+  ],
 ]);
 
-// Approximate source size per package: meaningful lines of TypeScript under
-// <pkg>/<SRC_DIR>, excluding tests and blank/`//`-only lines. Used by the report
-// to size graph nodes by LOC (node area ∝ loc), so the visual weight of a package
-// matches its actual heft. Cheap and good-enough — not a SLOC tool.
-function countLoc(dir) {
-  let loc = 0;
+function toPosix(path) {
+  return path.split("\\").join("/");
+}
+
+function sourceFilePathsUnder(dir, options = {}) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
-    return 0;
+    return [];
   }
+  const paths = [];
   for (const e of entries) {
     const p = join(dir, e.name);
     if (e.isDirectory()) {
-      if (e.name === "node_modules") continue;
-      loc += countLoc(p);
+      if (e.name === "node_modules" || options.rootOnly) continue;
+      paths.push(...sourceFilePathsUnder(p, options));
     } else if (
       e.isFile() &&
       /\.(ts|tsx)$/.test(e.name) &&
       !/\.(test|spec)\.tsx?$/.test(e.name) &&
       !e.name.endsWith(".d.ts")
     ) {
-      let text;
-      try {
-        text = readFileSync(p, "utf8");
-      } catch {
-        continue;
-      }
-      for (const line of text.split("\n")) {
-        const t = line.trim();
-        if (t && !t.startsWith("//")) loc++;
-      }
+      paths.push(p);
+    }
+  }
+  return paths;
+}
+
+function countLocForFiles(files) {
+  let loc = 0;
+  for (const file of files) {
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    for (const line of text.split("\n")) {
+      const t = line.trim();
+      if (t && !t.startsWith("//")) loc++;
     }
   }
   return loc;
 }
 
-// Discover every package.json under ROOT, excluding node_modules.
+function countLoc(dir) {
+  return countLocForFiles(sourceFilePathsUnder(dir));
+}
+
 let files;
 try {
   files = execSync(
@@ -151,7 +150,8 @@ try {
   process.exit(1);
 }
 
-const pkgs = {}; // name -> { path, exports, tier, deps:{name:[kinds]} }
+const pkgs = {};
+const manifests = {};
 const manifestErrors = [];
 for (const f of files) {
   let d;
@@ -176,6 +176,7 @@ for (const f of files) {
     }
   }
   const path = f.replace(/\/package\.json$/, "");
+  manifests[d.name] = d;
   pkgs[d.name] = {
     path,
     exports: Object.keys(d.exports || {}),
@@ -192,18 +193,16 @@ if (manifestErrors.length) {
 
 const names = new Set(Object.keys(pkgs));
 
-// Runtime edges (prod + peer) limited to in-workspace targets.
-const graph = {}; // name -> [targets]
+const graph = {};
 for (const [name, p] of Object.entries(pkgs)) {
   const out = [];
   for (const [dep, kinds] of Object.entries(p.deps)) {
-    if (!names.has(dep)) continue; // external dep, not part of the workspace graph
+    if (!names.has(dep)) continue;
     if (kinds.has("prod") || kinds.has("peer")) out.push(dep);
   }
   graph[name] = [...new Set(out)].sort();
 }
 
-// Tarjan strongly-connected components -> cycles are SCCs of size > 1.
 function findCycles(g) {
   let idx = 0;
   const stack = [], onstack = {}, index = {}, low = {}, sccs = [];
@@ -236,7 +235,6 @@ function findCycles(g) {
 
 const cycles = findCycles(graph);
 
-// Fan-in / fan-out over the runtime graph.
 const fanOut = {}, fanIn = {};
 for (const n of names) {
   fanOut[n] = 0;
@@ -252,19 +250,11 @@ function tierViolationForEdge(from, to) {
   const toTier = pkgs[to]?.tier;
   if (fromTier === undefined || toTier === undefined) return undefined;
   if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
-  // The edge breaks tier policy. Accepted-debt edges are tracked, not hard failures.
   const debt = ALLOWED_DEBT_EDGES.get(`${from}\0${to}`);
   if (debt !== undefined) {
     return { from, to, fromTier, toTier, severity: "debt", policy: `${fromTier}-must-not-depend-on-${toTier}`, debtNote: debt };
   }
-  return {
-    from,
-    to,
-    fromTier,
-    toTier,
-    severity: "hard",
-    policy: `${fromTier}-must-not-depend-on-${toTier}`,
-  };
+  return { from, to, fromTier, toTier, severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
 }
 
 const tierViolations = [];
@@ -275,11 +265,135 @@ for (const [from, deps] of Object.entries(graph)) {
   }
 }
 
-// Per-package facts the report leans on.
-const exposesApi = {}; // name -> [api-ish export subpaths]
-const apiOnly = []; // packages whose ONLY exports look like /api (no command/main face)
+const circles = discoverTopologyCircles();
+const circleById = new Map(circles.map((circle) => [circle.id, circle]));
+const circleByPackageComponent = new Map(circles.map((circle) => [`${circle.packageName}\0${circle.component}`, circle]));
+const circleGraph = buildCircleGraph(circles);
+const circleCycles = findCycles(circleGraph);
+
+function discoverTopologyCircles() {
+  const discovered = [];
+  for (const [packageName, p] of Object.entries(pkgs).sort()) {
+    const srcDir = join(p.path, SRC_DIR);
+    if (!existsSync(srcDir)) continue;
+    const rootFiles = sourceFilePathsUnder(srcDir, { rootOnly: true });
+    discovered.push({
+      id: packageName,
+      packageName,
+      component: ".",
+      tier: p.tier,
+      path: toPosix(srcDir),
+      loc: countLocForFiles(rootFiles),
+    });
+
+    let entries = [];
+    try {
+      entries = readdirSync(srcDir, { withFileTypes: true });
+    } catch {
+      entries = [];
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name === "node_modules") continue;
+      const componentDir = join(srcDir, entry.name);
+      const componentFiles = sourceFilePathsUnder(componentDir);
+      if (componentFiles.length === 0) continue;
+      discovered.push({
+        id: `${packageName}/${entry.name}`,
+        packageName,
+        component: entry.name,
+        tier: p.tier,
+        path: toPosix(componentDir),
+        loc: countLocForFiles(componentFiles),
+      });
+    }
+  }
+  return discovered;
+}
+
+function buildCircleGraph(discoveredCircles) {
+  const out = Object.fromEntries(discoveredCircles.map((circle) => [circle.id, []]));
+  const edges = new Map(Object.keys(out).map((id) => [id, new Set()]));
+  for (const circle of discoveredCircles) {
+    for (const file of filesForCircle(circle)) {
+      const text = readFileSync(file, "utf8");
+      for (const specifier of staticSpecifiers(text)) {
+        const targetCircle = circleForSpecifier(specifier, file);
+        if (targetCircle === undefined) continue;
+        if (targetCircle.id === circle.id) continue;
+        edges.get(circle.id)?.add(targetCircle.id);
+      }
+    }
+  }
+  for (const [id, targets] of edges) out[id] = [...targets].sort();
+  return out;
+}
+
+function filesForCircle(circle) {
+  if (circle.component === ".") return sourceFilePathsUnder(circle.path, { rootOnly: true });
+  return sourceFilePathsUnder(circle.path);
+}
+
+function staticSpecifiers(text) {
+  const specifiers = [];
+  const fromPattern = /\b(?:import|export)\s+(?:type\s+)?[\s\S]*?\s+from\s+["']([^"']+)["']/g;
+  const sideEffectPattern = /\bimport\s+["']([^"']+)["']/g;
+  for (const pattern of [fromPattern, sideEffectPattern]) {
+    let match;
+    while ((match = pattern.exec(text)) !== null) specifiers.push(match[1]);
+  }
+  return specifiers;
+}
+
+function circleForSpecifier(specifier, importerFile) {
+  if (specifier.startsWith(".")) return circleForPath(resolve(dirname(importerFile), specifier));
+  const packageName = packageNameForSpecifier(specifier);
+  if (packageName === undefined) return undefined;
+  const component = componentForPackageSpecifier(specifier, packageName);
+  return circleByPackageComponent.get(`${packageName}\0${component}`) ?? circleByPackageComponent.get(`${packageName}\0.`);
+}
+
+function packageNameForSpecifier(specifier) {
+  const sortedNames = [...names].sort((left, right) => right.length - left.length);
+  return sortedNames.find((name) => specifier === name || specifier.startsWith(`${name}/`));
+}
+
+function componentForPackageSpecifier(specifier, packageName) {
+  if (specifier === packageName) return ".";
+  const rest = specifier.slice(packageName.length + 1);
+  const first = rest.split("/")[0];
+  if (first === undefined || first === "") return ".";
+  return circleByPackageComponent.has(`${packageName}\0${first}`) ? first : ".";
+}
+
+function circleForPath(path) {
+  const targetFile = resolveSourceFile(path);
+  if (targetFile === undefined) return undefined;
+  const normalizedTarget = toPosix(normalize(targetFile));
+  let best;
+  for (const circle of circleById.values()) {
+    const circlePath = toPosix(normalize(circle.path));
+    if (normalizedTarget === circlePath || normalizedTarget.startsWith(`${circlePath}/`)) {
+      if (best === undefined || circlePath.length > toPosix(normalize(best.path)).length) best = circle;
+    }
+  }
+  return best;
+}
+
+function resolveSourceFile(path) {
+  const candidates = [
+    path,
+    `${path}.ts`,
+    `${path}.tsx`,
+    join(path, "index.ts"),
+    join(path, "index.tsx"),
+  ];
+  return candidates.find((candidate) => existsSync(candidate) && statSync(candidate).isFile());
+}
+
+const exposesApi = {};
+const apiOnly = [];
 const kitConsumers = [];
-const orphans = []; // zero runtime fan-in (nothing in-workspace depends on it)
+const orphans = [];
 
 for (const [name, p] of Object.entries(pkgs)) {
   const apiExports = p.exports.filter((e) => e.toLowerCase().includes(API_NEEDLE.toLowerCase()));
@@ -301,7 +415,9 @@ const out = {
     kit: KIT,
     apiNeedle: API_NEEDLE,
     packageCount: names.size,
-    edgeKinds: "runtime (dependencies + peerDependencies)",
+    topologyCircleCount: circles.length,
+    edgeKinds: "package graph: runtime (dependencies + peerDependencies); circle graph: static TypeScript imports/exports",
+    topologyCircleConvention: "package root src/*.ts plus one circle per src/<component>/ directory",
     tiers: TIERS,
     tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },
@@ -310,15 +426,18 @@ const out = {
       .sort()
       .map(([n, p]) => [n, { path: p.path, tier: p.tier, exports: p.exports, runtimeDeps: graph[n], loc: p.loc }]),
   ),
+  topologyCircles: Object.fromEntries(circles.map((circle) => [circle.id, circle])),
   graph,
+  circleGraph,
   tierViolations,
-  cycles, // [] means acyclic
+  cycles,
+  circleCycles,
   fanOut: ranked(fanOut),
   fanIn: ranked(fanIn),
-  exposesApi, // capability-API convention adoption
-  apiOnly, // anomaly: API published with no command/main face
-  kitConsumers, // gateway-injected-via-kit adoption
-  orphans, // zero fan-in: unwired leaves
+  exposesApi,
+  apiOnly,
+  kitConsumers,
+  orphans,
 };
 
 if (OUT === true) {
@@ -327,7 +446,5 @@ if (OUT === true) {
 }
 
 const json = JSON.stringify(out, null, PRETTY ? 2 : 0) + "\n";
-// Tee: always print to stdout (default), and additionally persist to --out so
-// build-report.mjs can reuse it via --graph without re-extracting.
 process.stdout.write(json);
 if (typeof OUT === "string") writeFileSync(OUT, json);

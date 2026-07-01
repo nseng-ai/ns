@@ -18,7 +18,9 @@
     "./text-normalization": "./src/text-normalization.ts",
     "./text-table": "./src/text-table.ts",
     "./text-truncation": "./src/text-truncation.ts",
+    "./time": "./src/time/index.ts",
     "./time-format": "./src/time-format.ts",
+    "./time/testing": "./src/time/testing.ts",
     "./timers": "./src/timers.ts",
     "./xdg-path": "./src/xdg-path.ts"
   },

@@ -38,11 +38,9 @@
     "@sdl/kernel": "workspace:*",
     "@sdl/slot": "workspace:*",
     "@sdl/test-kit": "workspace:*",
-    "@sdl/time": "workspace:*",
     "sdl-land": "workspace:*",
     "sdl-sdk": "workspace:*"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "capability"
   }
