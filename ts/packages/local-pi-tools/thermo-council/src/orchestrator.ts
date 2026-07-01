@@ -35,6 +35,7 @@ import { errorMessage } from "@sdl/pi/shared/errors";
 import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@local-pi-tools/runner-subagents";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
+import { summarizeThermoCouncilReviewerOutcome } from "./outcomes.ts";
 import { buildReviewerPrompt } from "./prompt.ts";
 import {
 	renderFatalReport,
@@ -277,14 +278,7 @@ function renderCouncilSeatProgress(state: CouncilSeatRunState): string {
 }
 
 function renderCouncilSeatOutcome(outcome: ThermoCouncilReviewerOutcome): string {
-	switch (outcome.type) {
-		case "completed":
-			return `${outcome.seat.label} completed (${outcome.review.findings.length} findings)`;
-		case "blocked":
-			return `${outcome.seat.label} blocked`;
-		case "failed":
-			return `${outcome.seat.label} failed`;
-	}
+	return summarizeThermoCouncilReviewerOutcome(outcome).progress;
 }
 
 function renderFinalSynthesisStatus(update: RunnerSubagentUpdate): string {
