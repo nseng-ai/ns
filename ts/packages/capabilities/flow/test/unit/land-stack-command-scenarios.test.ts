@@ -5,6 +5,7 @@ import { stripAnsi } from "../../src/land-stack/command-exec.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land-stack/command-stream.ts";
+import { LAND_PHASES } from "../../src/shared/phase-stream-specs.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
 import type {
 	LandStackExtensionAPI,
@@ -23,11 +24,16 @@ const ROOT = "/repo";
 const TRUNK = "main";
 
 describe("flow land live progress", () => {
-	test("formats landed PR counter without chunk state", () => {
+	test("formats merged target PR counter without implying cleanup has finished", () => {
 		expect(formatLandProgressTitle({ landedPrs: 8, totalPrs: 11 })).toBe(
-			"sdl flow land — 8/11 PRs landed",
+			"sdl flow land — 8/11 target PRs merged",
 		);
-		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("sdl flow land — 2 PRs landed");
+		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("sdl flow land — 1 target PR merged");
+		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("sdl flow land — 2 target PRs merged");
+	});
+
+	test("uses settled merge wording scoped to target PRs", () => {
+		expect(LAND_PHASES.find((spec) => spec.key === "merge")?.item.detail).toBe("target PRs merged");
 	});
 });
 

@@ -105,10 +105,10 @@ const BASE_LAND_TITLE = "sdl flow land";
 
 export function formatLandProgressTitle(state: LandLiveProgressState): string {
 	if (state.totalPrs !== undefined) {
-		return `${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} PRs landed`;
+		return `${BASE_LAND_TITLE} — ${state.landedPrs}/${state.totalPrs} target PRs merged`;
 	}
 	if (state.landedPrs > 0) {
-		return `${BASE_LAND_TITLE} — ${state.landedPrs} PR${state.landedPrs === 1 ? "" : "s"} landed`;
+		return `${BASE_LAND_TITLE} — ${state.landedPrs} target PR${state.landedPrs === 1 ? "" : "s"} merged`;
 	}
 	return BASE_LAND_TITLE;
 }
