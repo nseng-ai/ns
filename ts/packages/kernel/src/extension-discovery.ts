@@ -1,11 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { isPathInside, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import {
+	isPathInside,
+	optionalEntries,
+	optionalEntry,
+	type ZodIssueLike,
+} from "@sdl/core/primitives";
 import {
 	sdlExtensionManifestCommandSchema,
 	sdlExtensionPackageManifestSchema,
-	z,
 	type SdlExtensionManifestCommand,
 	type SdlExtensionPackageManifest,
 } from "sdl-sdk";
@@ -17,6 +21,7 @@ import {
 	formatUnknownError,
 	type SdlCommandCandidate,
 } from "./command-registry.ts";
+import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
@@ -74,13 +79,18 @@ const requiredManifestCommandStringFields = [
 	code: string;
 }[];
 
-const packageManifestProbeSchema = z.looseObject({
-	sdl: z.unknown().optional(),
-});
+type ManifestStructureIssueKind = "missing-sdl" | "commands-not-array" | "other";
 
-const extensionManifestProbeSchema = z.looseObject({
-	commands: z.unknown().optional(),
-});
+const manifestStructureIssueRules: readonly ZodIssuePathRule<ManifestStructureIssueKind>[] = [
+	{ pattern: [], match: "exact", value: "missing-sdl" },
+	{ pattern: ["sdl"], match: "exact", value: "missing-sdl" },
+	{ pattern: ["sdl", "commands"], match: "prefix", value: "commands-not-array" },
+];
+
+type PackageManifestParseResult =
+	| { outcome: "ok"; manifest: SdlExtensionPackageManifest }
+	| { outcome: "parse-failed"; diagnostic: ExtensionDiscoveryDiagnostic }
+	| { outcome: "schema-failed"; issues: readonly ZodIssueLike[] };
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -192,26 +202,35 @@ export function discoverSdlPackageCommands(
 	const packageJsonPath = join(packageDir, "package.json");
 	if (!existsSync(packageJsonPath)) return { commands: [], diagnostics: [] };
 
+	const parseResult = readPackageManifest(packageJsonPath);
+	if (parseResult.outcome === "parse-failed") {
+		return { commands: [], diagnostics: [parseResult.diagnostic] };
+	}
+	if (parseResult.outcome === "schema-failed" || parseResult.manifest.sdl?.commands === undefined) {
+		return { commands: [], diagnostics: [] };
+	}
+	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, parseResult.manifest);
+}
+
+function readPackageManifest(packageJsonPath: string): PackageManifestParseResult {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 	} catch (error) {
 		return {
-			commands: [],
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_parse_failed",
-					`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
-					{ path: packageJsonPath },
-				),
-			],
+			outcome: "parse-failed",
+			diagnostic: diagnostic(
+				"extension_manifest_parse_failed",
+				`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
+				{ path: packageJsonPath },
+			),
 		};
 	}
 	const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
-	if (!manifestResult.success || manifestResult.data.sdl?.commands === undefined) {
-		return { commands: [], diagnostics: [] };
+	if (!manifestResult.success) {
+		return { outcome: "schema-failed", issues: manifestResult.error.issues };
 	}
-	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, manifestResult.data);
+	return { outcome: "ok", manifest: manifestResult.data };
 }
 
 function discoverPackageCommands(
@@ -220,28 +239,21 @@ function discoverPackageCommands(
 	packageJsonPath: string,
 	parsedManifest?: SdlExtensionPackageManifest,
 ): ExtensionDiscoveryResult {
-	let manifest: SdlExtensionPackageManifest | undefined = parsedManifest;
-	if (manifest === undefined) {
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-		} catch (error) {
+	let manifest: SdlExtensionPackageManifest;
+	if (parsedManifest === undefined) {
+		const parseResult = readPackageManifest(packageJsonPath);
+		if (parseResult.outcome === "parse-failed") {
+			return { commands: [], diagnostics: [parseResult.diagnostic] };
+		}
+		if (parseResult.outcome === "schema-failed") {
 			return {
 				commands: [],
-				diagnostics: [
-					diagnostic(
-						"extension_manifest_parse_failed",
-						`Could not parse extension manifest ${packageJsonPath}.\n${formatUnknownError(error)}`,
-						{ path: packageJsonPath },
-					),
-				],
+				diagnostics: [manifestStructureDiagnostic(parseResult.issues, packageJsonPath)],
 			};
 		}
-		const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
-		if (!manifestResult.success) {
-			return { commands: [], diagnostics: [manifestStructureDiagnostic(parsed, packageJsonPath)] };
-		}
-		manifest = manifestResult.data;
+		manifest = parseResult.manifest;
+	} else {
+		manifest = parsedManifest;
 	}
 
 	if (manifest.sdl === undefined) {
@@ -290,15 +302,12 @@ function discoverPackageCommands(
 }
 
 function manifestStructureDiagnostic(
-	parsed: unknown,
+	issues: readonly ZodIssueLike[],
 	packageJsonPath: string,
 ): ExtensionDiscoveryDiagnostic {
-	const packageProbe = packageManifestProbeSchema.safeParse(parsed);
-	if (!packageProbe.success) return missingSdlDiagnostic(packageJsonPath);
-	const extensionManifestProbe = extensionManifestProbeSchema.safeParse(packageProbe.data.sdl);
-	if (!extensionManifestProbe.success) return missingSdlDiagnostic(packageJsonPath);
-	if (!Array.isArray(extensionManifestProbe.data.commands))
-		return commandsNotArrayDiagnostic(packageJsonPath);
+	const kind = classifyFirstMatchingZodIssuePath(issues, manifestStructureIssueRules, "other");
+	if (kind === "missing-sdl") return missingSdlDiagnostic(packageJsonPath);
+	if (kind === "commands-not-array") return commandsNotArrayDiagnostic(packageJsonPath);
 	return diagnostic(
 		"extension_manifest_invalid",
 		`Extension manifest contains invalid SDL metadata: ${packageJsonPath}.`,

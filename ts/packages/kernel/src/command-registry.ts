@@ -9,6 +9,8 @@ import {
 	type SdlResult,
 } from "sdl-sdk";
 
+import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
+
 export type SdlCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
 
 export interface SdlCommandPath {
@@ -230,39 +232,53 @@ function findCommandEntry(
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
+const sdlExtensionCommandEntryIssueFields = [
+	{ field: "name", message: "command name must be a string" },
+	{ field: "summary", message: "command summary must be a string" },
+	{ field: "description", message: "command description must be a string" },
+	{ field: "schema", message: "command schema must be a Zod object schema from sdl-sdk" },
+	{ field: "completionProvider", message: "command completionProvider must be a function" },
+	{ field: "run", message: "command run must be a function" },
+] as const satisfies readonly { field: string; message: string }[];
+
+type SdlExtensionCommandEntryIssueField =
+	(typeof sdlExtensionCommandEntryIssueFields)[number]["field"];
+
+type SdlExtensionIssueKind =
+	| "invalid-extension"
+	| "commands-not-array"
+	| SdlExtensionCommandEntryIssueField
+	| "entry-other";
+
+const sdlExtensionIssueRules: readonly ZodIssuePathRule<SdlExtensionIssueKind>[] = [
+	{ pattern: ["commands"], match: "exact", value: "commands-not-array" },
+	...sdlExtensionCommandEntryIssueFields.map(
+		({ field }) =>
+			({
+				pattern: ["commands", { type: "number" }, field],
+				match: "exact",
+				value: field,
+			}) satisfies ZodIssuePathRule<SdlExtensionIssueKind>,
+	),
+	{ pattern: ["commands"], match: "prefix", value: "entry-other" },
+];
+
 function formatSdlExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
-	if (issue === undefined || issue.path.length === 0) {
+	const kind = classifyZodIssuePath(issue, sdlExtensionIssueRules, "invalid-extension");
+	if (kind === "invalid-extension") {
 		return "default export must be an extension object created with defineExtension().";
 	}
-	if (issue.path[0] !== "commands") {
-		return "default export must be an extension object created with defineExtension().";
-	}
-	if (issue.path.length === 1) {
+	if (kind === "commands-not-array") {
 		return "SDL extension commands must be an array of command entries.";
 	}
-	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssue(issue)}.`;
+	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssueKind(kind)}.`;
 }
 
-function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
-	const field = issue.path[2];
-	if (field === "name") {
-		return "command name must be a string";
-	}
-	if (field === "summary") {
-		return "command summary must be a string";
-	}
-	if (field === "description") {
-		return "command description must be a string";
-	}
-	if (field === "schema") {
-		return "command schema must be a Zod object schema from sdl-sdk";
-	}
-	if (field === "completionProvider") {
-		return "command completionProvider must be a function";
-	}
-	if (field === "run") {
-		return "command run must be a function";
-	}
+function formatSdlCommandEntryIssueKind(
+	kind: Exclude<SdlExtensionIssueKind, "invalid-extension" | "commands-not-array">,
+): string {
+	const entry = sdlExtensionCommandEntryIssueFields.find((field) => field.field === kind);
+	if (entry !== undefined) return entry.message;
 	return "command entry must include name, summary, description, and run";
 }
 
