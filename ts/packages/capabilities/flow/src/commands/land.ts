@@ -41,6 +41,13 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 	summary: "Land the current PR or Graphite stack into trunk.",
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
+	options: {
+		yes: { short: "-y" },
+		dryRun: { short: "-n" },
+		free: { short: "-F" },
+		force: { short: "-f" },
+		verbose: { short: "-v" },
+	},
 	run: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream

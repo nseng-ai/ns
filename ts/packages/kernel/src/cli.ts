@@ -218,6 +218,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				...(selectedCommand?.positionals === undefined
 					? {}
 					: { positionals: selectedCommand.positionals }),
+				...(selectedCommand?.options === undefined ? {} : { options: selectedCommand.options }),
 				...(selectedCommand?.completionProvider === undefined
 					? {}
 					: {
@@ -611,7 +612,7 @@ function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 		name: "install",
 		description: "Install the parent-shell wrapper in the detected or selected rc file.",
 		schema: sdlShellInstallRequestSchema,
-		options: { shell: {}, yes: { short: "-y" } },
+		options: { shell: { short: "-s" }, yes: { short: "-y" } },
 		resultSchema: sdlShellInstallResultSchema,
 		handler: runSdlShellInstall,
 		renderHuman: renderSdlShellInstall,
@@ -622,7 +623,7 @@ function buildSdlShellGroup(): ClinkrGroup<SdlCliContext> {
 function withShellOption<T>(spec: ShellCommandSpec<T>): ShellCommandSpec<T> {
 	return {
 		...spec,
-		options: { shell: {}, ...(spec.options ?? {}) },
+		options: { shell: { short: "-s" }, ...(spec.options ?? {}) },
 	};
 }
 

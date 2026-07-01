@@ -13,6 +13,7 @@ export const handoffPickupSdlCommand = handoffSdlCommand({
 	summary: "Pick up a handoff by slug.",
 	description: "Read one handoff artifact by exact slug.",
 	schema: pickupRequestSchema,
+	options: { branch: { short: "-b" } },
 	resultSchema: pickupResultSchema,
 	positionals: { slug: { position: 0 } },
 	handler: runPickup,

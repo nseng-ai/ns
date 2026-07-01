@@ -28,6 +28,8 @@ a design bug, not a style nit.
 - [ ] Primary/machine output → stdout; errors/logs/status/prompts → stderr.
 - [ ] Concise default help + complete `-h`/`--help`; help, examples, and
       `--json-schema` agree.
+- [ ] Human-facing non-`exec` options expose short aliases by default, or the
+      command records why shorthand would be ambiguous, conflicting, or low-value.
 - [ ] Large results are bounded per command (filters/limits/ranges/summaries);
       a bounded result exposes completion state, applied bound, and
       continuation/narrowing guidance (ADR 0012).

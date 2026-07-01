@@ -37,6 +37,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 	summary: "Regenerate the PR title and SDL-managed body region.",
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
+	options: { force: { short: "-f" } },
 	async run(ctx: SdlExtensionApi, request: RegeneratePrRequest) {
 		// `regenerate-pr` is flow-local (no CCC, no streaming): it reads PR metadata, generates new
 		// metadata, and reports one settled outcome whose body is domain-authored prose rather than a

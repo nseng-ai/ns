@@ -77,6 +77,13 @@ These apply to every sdl CLI command regardless of audience.
   and prompts go to **stderr**.
 - Provide concise default help plus complete `-h`/`--help`; help, examples, and
   `--json-schema` must agree with each other and with any agent-facing prose.
+- Human-facing non-`exec` command options should expose short aliases by default.
+  Choose aliases from local convention where possible: `-y` for `--yes`, `-f`
+  for `--force`, `-n` for dry-run/preview when it does not conflict, `-v` for
+  verbose, and clear local letters such as `-s` for slug/status/shell. Exceptions
+  must be explicit: framework/meta flags, local conflicts, ambiguous shorthand,
+  rare low-value flags, or aliases that reduce clarity. Hidden `exec` options are
+  exempt unless there is a strong human-facing reason.
 - Machine formats, flags, subcommands, output formats, and config are long-lived
   interfaces; change them additively.
 

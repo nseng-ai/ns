@@ -8,6 +8,7 @@ export const handoffGcSdlCommand = handoffSdlCommand({
 	summary: "Garbage-collect handoffs for deleted branches.",
 	description: "Delete handoffs whose local branch no longer exists.",
 	schema: gcRequestSchema,
+	options: { dryRun: { short: "-n" }, force: { short: "-f" } },
 	resultSchema: gcResultSchema,
 	handler: runGc,
 	renderHuman: renderGc,

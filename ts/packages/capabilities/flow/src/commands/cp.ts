@@ -43,6 +43,7 @@ export const flowCpCommand: SdlCommand<typeof cpRequestSchema> = {
 	summary: "Create a checkpoint commit for the current diff.",
 	description: CP_COMMAND_DESCRIPTION,
 	schema: cpRequestSchema,
+	options: { dryRun: { short: "-n" } },
 	async run(ctx, request: CpRequest) {
 		const runtime = createSdlCheckpointRuntime(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).

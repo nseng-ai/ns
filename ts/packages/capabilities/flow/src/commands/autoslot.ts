@@ -17,6 +17,7 @@ export const flowAutoslotCommand: SdlCommand<typeof autoslotSchema> = {
 	description:
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
+	options: { slug: { short: "-s" } },
 	run: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them into the Flow CLI
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.

@@ -14,6 +14,7 @@ export interface SdlDomainCommandOptions<S extends SdlCommandSchema, T, TContext
 	schema: S;
 	resultSchema: z.ZodType<T>;
 	positionals?: SdlCommand<S, T>["positionals"];
+	options?: SdlCommand<S, T>["options"];
 	completionProvider?: SdlCommand<S, T>["completionProvider"];
 	renderHuman?: (data: T, caps: RenderCapabilities) => string;
 	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
@@ -31,6 +32,7 @@ export function createSdlDomainCommand<S extends SdlCommandSchema, T, TContext>(
 		schema: options.schema,
 		resultSchema: options.resultSchema,
 		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
+		...(options.options === undefined ? {} : { options: options.options }),
 		...(options.completionProvider === undefined
 			? {}
 			: { completionProvider: options.completionProvider }),

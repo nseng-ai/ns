@@ -13,6 +13,7 @@ export const objectiveArchiveSdlCommand = objectiveSdlCommand({
 	summary: "Archive or unarchive an Objective record by moving its directory.",
 	description: "Archive or unarchive an Objective record by moving its directory.",
 	schema: archiveObjectiveRequestSchema,
+	options: { unarchive: { short: "-u" } },
 	resultSchema: archiveObjectiveResultSchema,
 	positionals: { slug: { position: 0 } },
 	handler: runArchiveObjective,

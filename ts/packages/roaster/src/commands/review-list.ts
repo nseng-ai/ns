@@ -23,6 +23,11 @@ export function createReviewListCommand(metadata: ReviewListCommandMetadata) {
 	return roasterSdlCommand({
 		...metadata,
 		schema: reviewListRequestSchema,
+		options: {
+			applicable: { short: "-a" },
+			ci: { short: "-c" },
+			baseRef: { short: "-b" },
+		},
 		resultSchema: reviewListResultSchema,
 		renderHuman: (data, _caps) => renderReviewList(data),
 		async handler(runtime, request) {

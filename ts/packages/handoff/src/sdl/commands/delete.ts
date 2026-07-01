@@ -13,6 +13,7 @@ export const handoffDeleteSdlCommand = handoffSdlCommand({
 	summary: "Delete a handoff by slug.",
 	description: "Delete one handoff by exact slug.",
 	schema: deleteRequestSchema,
+	options: { branch: { short: "-b" }, yes: { short: "-y" } },
 	resultSchema: deleteResultSchema,
 	positionals: { slug: { position: 0 } },
 	handler: runDelete,
