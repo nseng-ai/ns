@@ -10,7 +10,7 @@ This Objective owns the end-to-end customer onboarding thread and the currently-
 
 ## Scope
 
-- **npm distribution of the `sdl` CLI (the long pole).** Make `@sdl/kernel` and its required runtime workspace dependencies publishable (drop `private`), resolve the source-path module loader so `@sdl/objective` and its hidden `exec` surface are bundled, produce a checkout-free bundle (no `ts/node_modules` precondition), and publish a versioned package to npm. This was deferred capability-by-capability "to the umbrella Objective," which closed (`port-asdl-toolkit-to-typescript`) without doing it, on the recorded rationale that no real external consumer existed yet. This Objective is that consumer. May be split into a dedicated subobjective — see Open Questions.
+- **npm distribution of the `sdl` CLI (the long pole).** Make `@sdl/kernel` and its required runtime workspace dependencies publishable (drop `private`), resolve the source-path module loader so `@sdl/objective` and its hidden `exec` surface are bundled, produce a checkout-free bundle (no `ts/node_modules` precondition), and publish a versioned package to npm. This was deferred capability-by-capability "to the umbrella Objective," which closed (`port-asdl-toolkit-to-typescript`) without doing it, on the recorded rationale that no real external consumer existed yet. This Objective is that consumer. **Split into the dedicated `checkout-free-sdl-distribution` Objective** (decided 2026-07-01); consumed here as a hard dependency, since checkout-free `sdl` benefits every capability, not just objectives.
 - **Skill delivery to the customer's harness.** Objective skills bundled into the npm package and installable into the correct per-harness roots (`.claude/skills/` for Claude Code; `.agents/skills/` for Codex and Pi) via `skill-management-subsystem`'s Pup-inspired `sdl skills` list/path/install surface. Shipping CLI and skills together also resolves the CLI↔skill bidirectional dependency.
 - **Customer-repo bootstrap / activation.** A first-party path that materializes skills for the harnesses present in a repo, injects a minimal, portable, harness-neutral objective instruction block into `AGENTS.md` (with the `CLAUDE.md → @AGENTS.md` import for Claude Code), creates `.sdl/objectives/`, and verifies git posture. Activation has two independent requirements: the capability materialized where each harness looks, and the agents instructed to use it.
 - **Onboarding documentation content.** Real (non-placeholder) concept and quickstart content for objectives in `docs-site` (installation, quickstart, concepts/objectives, tools/objective). The docs-site shell and stack are owned by `eve-parity-docs-site`; this Objective owns the objective-specific content and its publication gating.
@@ -31,8 +31,8 @@ This Objective owns the end-to-end customer onboarding thread and the currently-
 - The objective skills install into a customer's Claude Code, Codex, and Pi harnesses through a first-party command, landing in the correct per-harness roots.
 - A first-party bootstrap step activates objectives in a customer repo: a minimal portable `AGENTS.md` instruction block (idempotent, upgradeable, removable), `.sdl/objectives/` present and committed, and git posture verified.
 - A customer can follow real installation and quickstart docs to create → advance → update → close their first objective, with no placeholder pages, and the docs site is publishable.
-- Onboarding is verified end-to-end in a throwaway non-SDL repo for at least Claude Code and Codex (Pi if feasible).
-- Explicit decisions are recorded for the Open Questions below.
+- Onboarding is verified end-to-end in a throwaway non-SDL repo for **all three of Claude Code, Codex, and Pi** (decided 2026-07-01; stronger than the prior "Claude Code and Codex, Pi if feasible" bar).
+- Explicit decisions are recorded for the Resolved Decisions below.
 
 ## Assumptions and Risks
 
@@ -52,11 +52,32 @@ Risks:
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
 - Coordinating across three in-flight dependency Objectives risks sequencing stalls; mitigate by treating them as dependencies with explicit interface expectations rather than blocking work.
 
+## Resolved Decisions
+
+Resolved 2026-07-01 in a design grilling session (full record:
+`updates/20260701T185244Z-grilling-decisions-and-distribution-split.md`).
+
+- **npm distribution structure → SPLIT** into the dedicated `checkout-free-sdl-distribution`
+  Objective; a hard dependency here, not this Objective's spine.
+- **Instruction block → LEAN.** Day-one block teaches only that objectives exist, to run
+  `sdl objective list` before non-trivial work and read overlapping records, and to use the
+  objective skills/CLI. `load-orientations` and Tracking-Gate prose are opt-in/upgradeable,
+  not day-one.
+- **Bootstrap home → `sdl init`**, a thin repo-level composing orchestrator.
+- **AGENTS.md write → managed `BEGIN`/`END` block** (areg-style `sdl:objectives:*` markers,
+  idempotent/upgradeable/removable) + the `CLAUDE.md → @AGENTS.md` import. Not copy-paste.
+- **Pi slash extension → internal/additive.** `sdl objective` CLI + skills is the single
+  portable customer substrate on all three harnesses.
+- **Mandatory harness bar → all three** (Claude Code + Codex + Pi) verified end-to-end.
+
+Derived design (first build slice, see the update for full rationale): skill delivery
+depends on `skill-management-subsystem`'s copy-into-harness-roots slice (not areg's symlink
+model); `sdl init` lives in a new `@sdl/init` capability package reusing
+`@sdl/core/managed-region`; `--harness` is explicit/required (no sniffed default); git
+posture is verify-and-write, never commit; the skill step is a faked `SkillMaterializer`
+gateway until the bundle lands.
+
 ## Open Questions
 
-- Should checkout-free npm distribution of `sdl` be split into its own dedicated Objective (it benefits every capability, not just objective), or remain the spine of this one?
-- What is the minimal, portable objective instruction block for a customer's `AGENTS.md` — does it include always-on `load-orientations` and the Tracking Gate on day one, or are those advanced / opt-in?
-- Where does repo bootstrap live: `sdl init` (repo-level, composing skill install), `sdl objective init`, or folded into `sdl skills install`?
-- Do we write the instruction block into the customer's `AGENTS.md` (managed `BEGIN`/`END` block, idempotent) or only document a copy-paste?
-- Does the Pi `/sdl:objective:*` slash extension ship to customers, or is skills + CLI the customer substrate on all three harnesses with the Pi extension staying internal and additive?
-- Which harness set is mandatory for the first customer release beyond the confirmed Claude Code + Codex + Pi?
+- None outstanding. Reopen here if the `@sdl/init` build or the `checkout-free-sdl-distribution`
+  dependency surfaces a new fork.
