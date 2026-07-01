@@ -72,7 +72,7 @@ Three deepenings, each self-contained within the Flow capability:
 - Each autobranch failure's verdict and message live with its arm in one
   catalog; both `dirty-*` and `latest-commit-*` flows share one shape; the shared
   outcome types no longer live in `dirty-worktree.ts`. Evidence: autobranch unit
-  + scenario tests pass.
+  - scenario tests pass.
 - A single PR-description update module is called by both `regenerate-pr` and
   `submit`; the shared duplicate is deleted; a test demonstrates the regenerate
   path now skips an already-current body (the previously latent overwrite).
