@@ -365,7 +365,7 @@ async function loadCurrentGraphiteMetadataStatusAsync(
 
 	const workerOptions: LoadGraphiteMetadataStatusInWorkerOptions = {
 		signal: options.signal,
-		onDiagnostic: options.onDiagnostic,
+		...(options.onDiagnostic === undefined ? {} : { onDiagnostic: options.onDiagnostic }),
 	};
 	return loadGraphiteMetadataStatusInWorker(
 		{ commonGitDir: gitPaths.commonGitDir, currentBranch },

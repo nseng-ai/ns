@@ -49,11 +49,11 @@ export interface GraphiteBranchGateway {
 export interface GraphiteCommandRunParams {
 	cwd: string;
 	args: readonly string[];
-	timeoutMs?: number | undefined;
+	timeoutMs?: number;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	onStdout?: ((text: string) => void) | undefined;
-	onStderr?: ((text: string) => void) | undefined;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
 }
 
 interface CommandRun {
@@ -134,8 +134,8 @@ export function runGraphiteCommand(
 			timeout: params.timeoutMs ?? GT_TIMEOUT_MS,
 			env: params.env,
 			signal: params.signal,
-			onStdout: params.onStdout,
-			onStderr: params.onStderr,
+			...(params.onStdout === undefined ? {} : { onStdout: params.onStdout }),
+			...(params.onStderr === undefined ? {} : { onStderr: params.onStderr }),
 		}),
 	);
 }
@@ -162,8 +162,8 @@ function execOptions(options: {
 	timeout: number;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	onStdout?: ((text: string) => void) | undefined;
-	onStderr?: ((text: string) => void) | undefined;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
 }): ExecOptions {
 	const { cwd, timeout, env, signal, onStdout, onStderr } = options;
 	return {

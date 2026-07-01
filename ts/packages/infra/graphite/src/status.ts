@@ -73,10 +73,10 @@ export type GraphiteMetadataWorkerDiagnostic =
 
 export interface LoadGraphiteMetadataStatusInWorkerOptions {
 	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	timeoutMs?: number | undefined;
-	workerFactory?: GraphiteMetadataWorkerFactory | undefined;
-	timers?: TimerScheduler | undefined;
-	onDiagnostic?: ((diagnostic: GraphiteMetadataWorkerDiagnostic) => void) | undefined;
+	timeoutMs?: number;
+	workerFactory?: GraphiteMetadataWorkerFactory;
+	timers?: TimerScheduler;
+	onDiagnostic?: (diagnostic: GraphiteMetadataWorkerDiagnostic) => void;
 }
 
 /**
@@ -89,8 +89,8 @@ export interface GraphiteBranchAccess {
 }
 
 export interface LoadGraphiteMetadataStatusOptions {
-	dbAccess?: GraphiteMetadataDbAccess | undefined;
-	branchAccess?: GraphiteBranchAccess | undefined;
+	dbAccess?: GraphiteMetadataDbAccess;
+	branchAccess?: GraphiteBranchAccess;
 }
 
 const GRAPHITE_METADATA_LOOKUP_TIMEOUT_MS = 1_000;
