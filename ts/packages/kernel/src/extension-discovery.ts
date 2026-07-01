@@ -206,7 +206,10 @@ export function discoverSdlPackageCommands(
 	const packageJsonPath = join(packageDir, "package.json");
 	if (!existsSync(packageJsonPath)) return { commands: [], diagnostics: [] };
 
-	const resolution = resolvePackageManifestForBulkDiscovery(packageJsonPath);
+	const resolution = resolvePackageManifest(packageJsonPath, () => ({
+		commands: [],
+		diagnostics: [],
+	}));
 	if (resolution.outcome === "unavailable") return resolution.result;
 	if (resolution.manifest.sdl?.commands === undefined) return { commands: [], diagnostics: [] };
 	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, resolution.manifest);
@@ -231,21 +234,6 @@ function readPackageManifest(packageJsonPath: string): PackageManifestParseResul
 		return { outcome: "schema-failed", issues: manifestResult.error.issues };
 	}
 	return { outcome: "ok", manifest: manifestResult.data };
-}
-
-function resolvePackageManifestForBulkDiscovery(
-	packageJsonPath: string,
-): PackageManifestDiscoveryResolution {
-	return resolvePackageManifest(packageJsonPath, () => ({ commands: [], diagnostics: [] }));
-}
-
-function resolvePackageManifestForDirectDiscovery(
-	packageJsonPath: string,
-): PackageManifestDiscoveryResolution {
-	return resolvePackageManifest(packageJsonPath, (issues) => ({
-		commands: [],
-		diagnostics: [manifestStructureDiagnostic(issues, packageJsonPath)],
-	}));
 }
 
 function resolvePackageManifest(
@@ -282,7 +270,10 @@ function discoverPackageCommands(
 ): ExtensionDiscoveryResult {
 	let manifest: SdlExtensionPackageManifest;
 	if (parsedManifest === undefined) {
-		const resolution = resolvePackageManifestForDirectDiscovery(packageJsonPath);
+		const resolution = resolvePackageManifest(packageJsonPath, (issues) => ({
+			commands: [],
+			diagnostics: [manifestStructureDiagnostic(issues, packageJsonPath)],
+		}));
 		if (resolution.outcome === "unavailable") return resolution.result;
 		manifest = resolution.manifest;
 	} else {
