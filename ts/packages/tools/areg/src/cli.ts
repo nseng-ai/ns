@@ -7,9 +7,9 @@ import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
 	doctorSkillsRequestSchema,
 	doctorSkillsResultSchema,
-	renderDoctorSkills,
 	runDoctorSkills,
 } from "./operations/doctor-skills.ts";
+import { renderDoctorSkills } from "./operations/doctor-skills-report.ts";
 import {
 	checkRequestSchema,
 	checkResultSchema,
