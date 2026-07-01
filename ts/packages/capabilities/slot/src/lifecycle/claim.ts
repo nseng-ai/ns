@@ -46,6 +46,11 @@ interface ClaimPlan {
 	mainRedirect: CurrentWorktreeRedirect | null;
 }
 
+interface TrunkSlotResolution {
+	target: SlotRecord;
+	assignedTrunkSlot: SlotRecord | null;
+}
+
 export async function claimBranch(
 	ctx: SlotCliContext,
 	branchName: string,
@@ -249,48 +254,35 @@ async function planTrunkClaimFromMainWorktree(
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
-	if (currentBranch.branch === trunkBranch) return null;
 	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 		return failure(
 			"dirty-current-worktree",
 			`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
 		);
+	if (currentBranch.branch === trunkBranch) {
+		const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch);
+		if (resolution.type === "failure") return resolution;
+		return okPlan({
+			target: resolution.outcome.target,
+			slotCheckoutBranch: trunkBranch,
+			source: null,
+			isAlreadyCurrent: false,
+			callerRedirect: null,
+			mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
+		});
+	}
 	if (!(await ctx.git.branchExists(currentBranch.branch)))
 		return failure(
 			"branch-missing",
 			`Current branch '${currentBranch.branch}' does not exist locally.`,
 		);
 
-	let source: SlotRecord | null = null;
-	let target: SlotRecord | null = null;
-	const match = findByBranch(inventory, trunkBranch);
-	if (match?.kind === "slot") {
-		const sourceFailure = await sourceSlotFailure(ctx, match.record);
-		if (sourceFailure !== null) return { type: "failure", failure: sourceFailure };
-		source = match.record;
-		target = match.record;
-	} else {
-		if (match?.kind === "main" && match.worktree.path !== ctx.repo.root)
-			return failure(
-				"branch-in-main-worktree",
-				`Branch '${trunkBranch}' is checked out in the main worktree at ${match.worktree.path}. Run \`slot claim\` from that worktree to move it into a slot.`,
-			);
-		const occupancy = findOccupancyByBranch(inventory, trunkBranch);
-		if (occupancy !== null && occupancy.path !== ctx.repo.root)
-			return failure("branch-in-use", branchOccupancyMessage(occupancy));
-		target = await lowestAvailable(inventory, ctx.git);
-		if (target === null)
-			return {
-				type: "failure",
-				failure: poolFullFailure(assignedSlotRecords(inventory.records), {
-					action: "claiming a branch",
-				}),
-			};
-	}
+	const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch);
+	if (resolution.type === "failure") return resolution;
 	return okPlan({
-		target,
+		target: resolution.outcome.target,
 		slotCheckoutBranch: currentBranch.branch,
-		source,
+		source: resolution.outcome.assignedTrunkSlot,
 		isAlreadyCurrent: false,
 		callerRedirect: null,
 		mainRedirect: {
@@ -298,6 +290,42 @@ async function planTrunkClaimFromMainWorktree(
 			note: null,
 		},
 	});
+}
+
+async function resolveTrunkSlotForMainClaim(
+	ctx: RepoSlotContext,
+	inventory: SlotInventory,
+	trunkBranch: string,
+): Promise<LifecycleResult<TrunkSlotResolution>> {
+	const match = findByBranch(inventory, trunkBranch);
+	if (match?.kind === "slot") {
+		const sourceFailure = await sourceSlotFailure(ctx, match.record);
+		if (sourceFailure !== null) return { type: "failure", failure: sourceFailure };
+		return {
+			type: "ok",
+			outcome: {
+				target: match.record,
+				assignedTrunkSlot: match.record,
+			},
+		};
+	}
+	if (match?.kind === "main" && match.worktree.path !== ctx.repo.root)
+		return failure(
+			"branch-in-main-worktree",
+			`Branch '${trunkBranch}' is checked out in the main worktree at ${match.worktree.path}. Run \`slot claim\` from that worktree to move it into a slot.`,
+		);
+	const occupancy = findOccupancyByBranch(inventory, trunkBranch);
+	if (occupancy !== null && occupancy.path !== ctx.repo.root)
+		return failure("branch-in-use", branchOccupancyMessage(occupancy));
+	const target = await lowestAvailable(inventory, ctx.git);
+	if (target === null)
+		return {
+			type: "failure",
+			failure: poolFullFailure(assignedSlotRecords(inventory.records), {
+				action: "claiming a branch",
+			}),
+		};
+	return { type: "ok", outcome: { target, assignedTrunkSlot: null } };
 }
 
 function currentSlotRecord(records: readonly SlotRecord[], root: string): SlotRecord | null {
