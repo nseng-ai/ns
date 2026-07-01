@@ -1,4 +1,5 @@
 import {
+	checkStatusPolicy,
 	reportToJson,
 	type CheckStatus,
 	type PackageCheckReport,
@@ -19,15 +20,18 @@ function renderResult(result: RegistryCheckResult): string {
 		result.lookupName === result.inputName
 			? ""
 			: ` as ${JSON.stringify(result.lookupName).replaceAll('"', "'")}`;
-	if (result.status === "available") return `${result.registry}: available${lookupSuffix}`;
-	if (result.status === "taken") {
-		const details = [`${result.registry}: taken${lookupSuffix}`];
-		if (result.latestVersion !== undefined) details.push(`latest ${result.latestVersion}`);
-		if (result.description !== undefined) details.push(result.description);
-		if (result.packageUrl !== undefined) details.push(result.packageUrl);
-		return details.join(" — ");
-	}
+	const policy = checkStatusPolicy(result.status);
+	if (policy.humanKind === "available") return `${result.registry}: available${lookupSuffix}`;
+	if (policy.humanKind === "taken") return renderTakenResult(result, lookupSuffix);
 	return formatRegistryStatusLine(result.registry, result.status, result.message);
+}
+
+function renderTakenResult(result: RegistryCheckResult, lookupSuffix: string): string {
+	const details = [`${result.registry}: taken${lookupSuffix}`];
+	if (result.latestVersion !== undefined) details.push(`latest ${result.latestVersion}`);
+	if (result.description !== undefined) details.push(result.description);
+	if (result.packageUrl !== undefined) details.push(result.packageUrl);
+	return details.join(" — ");
 }
 
 export function formatRegistryStatusLine(

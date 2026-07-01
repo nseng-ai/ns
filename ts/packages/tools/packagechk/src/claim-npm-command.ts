@@ -1,24 +1,14 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import type { ClinkrExit, ClinkrInteraction } from "@sdl/clinkr";
 
-import { failure, ok, usageError, type ClinkrExit, type ClinkrInteraction } from "@sdl/clinkr";
-
-import { buildNpmClaimProjectFiles, writeClaimFiles, type NpmClaimProjectSpec } from "./claim.ts";
+import { buildNpmClaimProjectFiles, type NpmClaimProjectSpec } from "./claim.ts";
 import type {
 	ClaimCommandResult,
 	ClaimDryRunData,
 	ClaimRequest,
 	ClaimViewData,
 } from "./claim-command.ts";
-import {
-	claimDryRunResult,
-	precheckExitForResult,
-	renderClaimDryRun,
-	requirePublishConfirmation,
-} from "./claim-command-shared.ts";
+import { runClaimCommand } from "./claim-command-shared.ts";
 import type { PackagechkIo } from "./io.ts";
-import { formatRegistryStatusLine } from "./output.ts";
 import type { NpmPublishGateway } from "./publish-gateways.ts";
 import type { PackageRegistryGateway } from "./registry-gateways.ts";
 import { npmPackagePageUrl } from "./urls.ts";
@@ -39,87 +29,24 @@ export async function runNpmClaimCommand(options: {
 	interaction: ClinkrInteraction;
 }): Promise<ClinkrExit<ClaimCommandResult>> {
 	const { request, registryGateway, npmPublishGateway, io, interaction } = options;
-	const isDryRun = request.dryRun === true;
-	const shouldSkipCheck = request.skipCheck === true;
-	const validationError = npmValidationError(request.name);
-	if (validationError !== null) {
-		const message = formatRegistryStatusLine("npm", "invalid", validationError);
-		return usageError(message, {
-			registry: "npm",
-			packageName: request.name,
-			reason: validationError,
-		});
-	}
-	const checkResult =
-		!isDryRun && !shouldSkipCheck ? await registryGateway.check("npm", request.name) : undefined;
-	if (checkResult !== undefined) {
-		const precheckExit = precheckExitForResult("npm", checkResult);
-		if (precheckExit !== null) return precheckExit;
-		if (checkResult.lookupName !== request.name) {
-			io.stderr(`npm lookup name: ${checkResult.lookupName}\n`);
-		}
-	}
-	const project = prepareNpmClaimProject({
-		name: request.name,
-		description: request.description,
-		claimVersion: request.version,
+	return await runClaimCommand({
+		request,
+		registryGateway,
+		io,
+		interaction,
+		registry: "npm",
+		registryLabel: "npm",
+		validationError: npmValidationError,
+		prepareProject: prepareNpmClaimProject,
+		ensurePublishToolsAvailable: () => npmPublishGateway.ensurePublishToolsAvailable(),
+		executeProject: async (projectDir) =>
+			await executeNpmClaimProject({
+				projectDir,
+				gateway: npmPublishGateway,
+				io,
+			}),
+		tempDirPrefix: "packagechk-claim-npm-",
 	});
-	if (isDryRun) {
-		const availabilityLine = shouldSkipCheck
-			? "Availability check: skipped (--skip-check)"
-			: "Availability check: would check npm before publishing";
-		renderClaimDryRun({ io, ...project.dryRun, availabilityLine });
-		return ok(claimDryRunResult("npm", project.dryRun), {
-			human: `[DRY RUN] Would claim npm package name '${project.dryRun.packageName}'.`,
-		});
-	}
-	const toolsError = npmPublishGateway.ensurePublishToolsAvailable();
-	if (toolsError !== null) {
-		return failure("publish-tools-unavailable", toolsError, {
-			registry: "npm",
-			packageName: request.name,
-		});
-	}
-	if (request.yes !== true) {
-		const confirmationExit = await requirePublishConfirmation({
-			registry: "npm",
-			registryLabel: "npm",
-			packageName: request.name,
-			version: request.version,
-			io,
-			interaction,
-		});
-		if (confirmationExit !== null) return confirmationExit;
-	}
-	const projectDir = mkdtempSync(join(tmpdir(), "packagechk-claim-npm-"));
-	try {
-		writeClaimFiles(projectDir, project.dryRun.files);
-		const publishError = await executeNpmClaimProject({
-			projectDir,
-			gateway: npmPublishGateway,
-			io,
-		});
-		if (publishError !== null) {
-			return failure("publish-failed", publishError, {
-				registry: "npm",
-				packageName: request.name,
-			});
-		}
-	} finally {
-		rmSync(projectDir, { recursive: true, force: true });
-	}
-	io.stderr(`✓ Claimed npm package name '${request.name}'.\n`);
-	io.stderr(`View ${project.view.noun}: ${project.view.url}\n`);
-	return ok(
-		{
-			type: "claimed",
-			registry: "npm",
-			packageName: request.name,
-			version: request.version,
-			url: project.view.url,
-		},
-		{ human: `Claimed npm package name '${request.name}'.` },
-	);
 }
 
 function prepareNpmClaimProject(input: {
@@ -144,7 +71,7 @@ function prepareNpmClaimProject(input: {
 			extraLines: [`License: ${spec.license}`],
 			files,
 			dryRunCommands: ["npm publish --access=public"],
-			urlLine: `npm URL: ${packageUrl}`,
+			url: packageUrl,
 		},
 		view: { noun: "package", url: packageUrl },
 	};

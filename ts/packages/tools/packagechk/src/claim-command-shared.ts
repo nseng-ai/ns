@@ -1,27 +1,149 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
 	confirmInteractiveOrUsageError,
 	failure,
 	negative,
+	ok,
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
 } from "@sdl/clinkr";
 
+import { writeClaimFiles } from "./claim.ts";
 import type { PackagechkIo } from "./io.ts";
-import { type RegistryCheckResult } from "./models.ts";
+import { checkStatusPolicy, type RegistryCheckResult } from "./models.ts";
 import { formatRegistryStatusLine } from "./output.ts";
 import type {
 	ClaimCommandResult,
 	ClaimDryRunData,
 	ClaimRegistry,
 	ClaimRegistryLabel,
+	ClaimRequest,
+	ClaimViewData,
 } from "./claim-command.ts";
+import type { PackageRegistryGateway } from "./registry-gateways.ts";
+
+export interface PreparedClaimProject {
+	lookupName?: string;
+	dryRun: ClaimDryRunData;
+	view: ClaimViewData;
+}
+
+export async function runClaimCommand(options: {
+	request: ClaimRequest;
+	registryGateway: PackageRegistryGateway;
+	io: PackagechkIo;
+	interaction: ClinkrInteraction;
+	registry: ClaimRegistry;
+	registryLabel: ClaimRegistryLabel;
+	validationError: (name: string) => string | null;
+	prepareProject: (input: {
+		name: string;
+		description: string;
+		claimVersion: string;
+	}) => PreparedClaimProject;
+	ensurePublishToolsAvailable: () => string | null;
+	executeProject: (projectDir: string) => Promise<string | null>;
+	tempDirPrefix: string;
+	printPreparedLookupNameWhenUnchecked?: boolean;
+}): Promise<ClinkrExit<ClaimCommandResult>> {
+	const { request, registryGateway, io, interaction, registry, registryLabel } = options;
+	const isDryRun = request.dryRun === true;
+	const shouldSkipCheck = request.skipCheck === true;
+	const validationError = options.validationError(request.name);
+	if (validationError !== null) {
+		const message = formatRegistryStatusLine(registry, "invalid", validationError);
+		return usageError(message, {
+			registry,
+			packageName: request.name,
+			reason: validationError,
+		});
+	}
+	const checkResult =
+		!isDryRun && !shouldSkipCheck ? await registryGateway.check(registry, request.name) : undefined;
+	if (checkResult !== undefined) {
+		const precheckExit = precheckExitForResult(registry, checkResult);
+		if (precheckExit !== null) return precheckExit;
+		if (checkResult.lookupName !== request.name) {
+			io.stderr(`${registryLabel} lookup name: ${checkResult.lookupName}\n`);
+		}
+	}
+	const project = options.prepareProject({
+		name: request.name,
+		description: request.description,
+		claimVersion: request.version,
+	});
+	if (isDryRun) {
+		const availabilityLine = shouldSkipCheck
+			? "Availability check: skipped (--skip-check)"
+			: `Availability check: would check ${registryLabel} before publishing`;
+		renderClaimDryRun({ io, ...project.dryRun, availabilityLine });
+		return ok(claimDryRunResult(registry, project.dryRun), {
+			human: `[DRY RUN] Would claim ${registryLabel} package name '${project.dryRun.packageName}'.`,
+		});
+	}
+	if (
+		checkResult === undefined &&
+		options.printPreparedLookupNameWhenUnchecked === true &&
+		project.lookupName !== undefined &&
+		project.lookupName !== request.name
+	) {
+		io.stderr(`${registryLabel} lookup name: ${project.lookupName}\n`);
+	}
+	const toolsError = options.ensurePublishToolsAvailable();
+	if (toolsError !== null) {
+		return failure("publish-tools-unavailable", toolsError, {
+			registry,
+			packageName: request.name,
+		});
+	}
+	if (request.yes !== true) {
+		const confirmationExit = await requirePublishConfirmation({
+			registry,
+			registryLabel,
+			packageName: request.name,
+			version: request.version,
+			io,
+			interaction,
+		});
+		if (confirmationExit !== null) return confirmationExit;
+	}
+	const projectDir = mkdtempSync(join(tmpdir(), options.tempDirPrefix));
+	try {
+		writeClaimFiles(projectDir, project.dryRun.files);
+		const publishError = await options.executeProject(projectDir);
+		if (publishError !== null) {
+			return failure("publish-failed", publishError, {
+				registry,
+				packageName: request.name,
+			});
+		}
+	} finally {
+		rmSync(projectDir, { recursive: true, force: true });
+	}
+	io.stderr(`✓ Claimed ${registryLabel} package name '${request.name}'.\n`);
+	io.stderr(`View ${project.view.noun}: ${project.view.url}\n`);
+	return ok(
+		{
+			type: "claimed",
+			registry,
+			packageName: request.name,
+			version: request.version,
+			url: project.view.url,
+		},
+		{ human: `Claimed ${registryLabel} package name '${request.name}'.` },
+	);
+}
 
 export function precheckExitForResult(
 	registry: ClaimRegistry,
 	result: RegistryCheckResult,
 ): ClinkrExit<ClaimCommandResult> | null {
-	if (result.status === "taken") {
+	const action = checkStatusPolicy(result.status).claimPrecheckAction;
+	if (action === "taken") {
 		const human = [
 			formatRegistryStatusLine(registry, result.status, result.message),
 			result.packageUrl,
@@ -38,14 +160,14 @@ export function precheckExitForResult(
 			human,
 		});
 	}
-	if (result.status === "invalid") {
+	if (action === "usage-error") {
 		return usageError(formatRegistryStatusLine(registry, result.status, result.message), {
 			registry,
 			packageName: result.inputName,
 			lookupName: result.lookupName,
 		});
 	}
-	if (result.status === "error") {
+	if (action === "failure") {
 		return failure("registry-check-failed", result.message, {
 			registry,
 			packageName: result.inputName,
@@ -68,7 +190,7 @@ export function claimDryRunResult(
 		description: dryRun.description,
 		filePaths: dryRun.files.map((file) => file.relativePath),
 		commands: [...dryRun.dryRunCommands],
-		url: dryRun.urlLine.replace(/^[^:]+ URL: /u, ""),
+		url: dryRun.url,
 	};
 }
 
@@ -98,7 +220,7 @@ export function renderClaimDryRun(
 	for (const command of options.dryRunCommands) {
 		options.io.stderr(`Would run: ${command}\n`);
 	}
-	options.io.stderr(`${options.urlLine}\n`);
+	options.io.stderr(`${options.registryLabel} URL: ${options.url}\n`);
 }
 
 export async function requirePublishConfirmation(options: {
