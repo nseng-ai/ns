@@ -20,10 +20,9 @@ import {
 	updateSkillsResultSchema,
 } from "./operations/update-skills.ts";
 
-export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
+export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	context?: AregCliContext;
 	interaction?: AregCliContext["interaction"];
-	env?: NodeJS.ProcessEnv;
 }
 
 const entry = defineCli<AregCliContext, CliDeps, undefined>({

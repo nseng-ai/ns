@@ -8,6 +8,7 @@ import type {
 import { machineEnvelopeSchema, type MachineEnvelope } from "../exit.ts";
 import type { ClinkrGroup } from "../group.ts";
 import type { ClinkrIo } from "../io.ts";
+import { optionalEntry } from "@sdl/core/primitives";
 
 export interface CapturedRun {
 	exitCode: number;
@@ -91,7 +92,7 @@ export function createScenarioClinkrInteraction(options: {
 		options.isInteractive ?? (options.hasStdin || options.confirmations !== undefined);
 	if (!options.hasStdin) {
 		const fake = createFakeClinkrInteraction({
-			...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
+			...optionalEntry("confirmations", options.confirmations),
 			isInteractive,
 		});
 		return {

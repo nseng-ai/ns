@@ -1,5 +1,6 @@
 import { prepareEntryContentFromSource } from "@sdl/brmem";
 import { failure, ok } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { createHandoffArtifact, prepareHandoffCreation } from "../artifact-storage.ts";
@@ -43,12 +44,11 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 	);
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
-	const sourceOptions =
-		request.file === undefined ? { stdin: true } : { file: request.file, stdin: false };
 	const prepared = await prepareEntryContentFromSource({
 		cwd: ctx.cwd,
 		key: target.value.key,
-		...sourceOptions,
+		stdin: request.file === undefined,
+		...optionalEntry("file", request.file),
 		sourceReader: ctx.sourceReader,
 	});
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);

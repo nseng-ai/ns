@@ -22,7 +22,7 @@ import {
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
-	formatBranchContextGraphiteCreationMethod,
+	describeBranchContextGraphiteCreationSteps,
 	formatExistingBranchContextReuse,
 	formatLoadedAttachedPlanEvidence,
 	resolveExistingBranchContextReuse,
@@ -59,7 +59,8 @@ const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
 const GT_UPSTACK_IMPL_STATUS_KEY = GT_UPSTACK_IMPL_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_CURRENT_SAVED_PLAN_STATUS_KEY = IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME;
-const GRAPHITE_BRANCH_CREATION_HELP = formatBranchContextGraphiteCreationMethod("<current-branch>");
+const GRAPHITE_BRANCH_CREATION_HELP =
+	describeBranchContextGraphiteCreationSteps("<current-branch>");
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 

@@ -1,5 +1,6 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createScenarioClinkrInteraction } from "@sdl/clinkr/testing";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 
@@ -18,14 +19,12 @@ export async function runPackagechk(
 	const { confirmations, ...cliDeps } = deps;
 	const scenarioInteraction = createScenarioClinkrInteraction({
 		hasStdin: deps.stdin !== undefined,
-		...(deps.interaction === undefined ? {} : { interaction: deps.interaction }),
-		...(confirmations === undefined ? {} : { confirmations }),
+		...optionalEntry("interaction", deps.interaction),
+		...optionalEntry("confirmations", confirmations),
 	});
 	const code = await runCli(args, {
 		...cliDeps,
-		...(scenarioInteraction.depsInteraction === undefined
-			? {}
-			: { interaction: scenarioInteraction.depsInteraction }),
+		...optionalEntry("interaction", scenarioInteraction.depsInteraction),
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
 	});

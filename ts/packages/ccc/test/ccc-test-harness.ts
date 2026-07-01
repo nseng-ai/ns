@@ -21,6 +21,7 @@ import type {
 	ThinkingLevel,
 } from "@sdl/cmux/types";
 import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
+import { optionalEntry } from "@sdl/core/primitives";
 
 // Local test type for skill command info
 interface SkillCommandInfo {
@@ -391,8 +392,8 @@ export function step(
 ): ScriptedExec {
 	return {
 		command,
-		...(args === undefined ? {} : { args }),
-		...(result === undefined ? {} : { result }),
+		...optionalEntry("args", args),
+		...optionalEntry("result", result),
 	};
 }
 

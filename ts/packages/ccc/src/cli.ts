@@ -33,9 +33,8 @@ type AutobranchSeamOverrides = Partial<
 	>
 >;
 
-export interface CccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
+export interface CccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
-	env?: Record<string, string | undefined>;
 	autobranch?: AutobranchSeamOverrides;
 }
 

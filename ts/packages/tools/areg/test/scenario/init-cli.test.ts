@@ -1,5 +1,6 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@sdl/clinkr/testing";
+import { optionalEntries } from "@sdl/core/primitives";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -41,8 +42,10 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const prompt = new FakeAregPromptGateway(options.prompt);
 	const interaction = createFakeClinkrInteraction({
-		...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
-		...(options.isInteractive === undefined ? {} : { isInteractive: options.isInteractive }),
+		...optionalEntries({
+			confirmations: options.confirmations,
+			isInteractive: options.isInteractive,
+		}),
 	});
 	return {
 		projectGateway,

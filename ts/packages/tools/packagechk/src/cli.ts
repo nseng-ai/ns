@@ -12,6 +12,7 @@ import {
 } from "@sdl/clinkr";
 
 import { defineCli, readStdinLine, type CliEntrypointDeps } from "@sdl/cli-runtime";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import {
@@ -52,7 +53,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
 			io,
 			interaction: resolveClinkrInteraction({
-				...(deps.interaction === undefined ? {} : { interaction: deps.interaction }),
+				...optionalEntry("interaction", deps.interaction),
 				stdin: deps.stdin ?? readStdinLine,
 				stderr: io.stderr,
 				injectedStdin: deps.stdin,
@@ -139,11 +140,13 @@ function normalizeRegistryCheckResult(result: RegistryCheckResultBoundary): Regi
 		lookupName: result.lookupName,
 		status: result.status,
 		message: result.message,
-		...registryCheckMetadataFields({
-			...(result.packageUrl === undefined ? {} : { packageUrl: result.packageUrl }),
-			...(result.latestVersion === undefined ? {} : { latestVersion: result.latestVersion }),
-			...(result.description === undefined ? {} : { description: result.description }),
-		}),
+		...registryCheckMetadataFields(
+			optionalEntries({
+				packageUrl: result.packageUrl,
+				latestVersion: result.latestVersion,
+				description: result.description,
+			}),
+		),
 	};
 }
 

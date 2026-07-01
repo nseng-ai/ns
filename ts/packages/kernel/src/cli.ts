@@ -77,12 +77,11 @@ interface SdlCliExtensionRegistryDeps {
 	) => Promise<SelectedSdlCommandLoadResult>;
 }
 
-export interface SdlCliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
+export interface SdlCliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	context?: SdlExtensionApi;
 	homeDir?: string;
 	onOutput?: (stream: SdlOutputStream, text: string) => void;
 	confirm?: SdlConfirmPrompt;
-	env?: Record<string, string | undefined> | undefined;
 	extensionRegistry?: SdlCliExtensionRegistryDeps;
 }
 

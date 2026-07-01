@@ -1,5 +1,6 @@
 import type { ConfirmationResult } from "@sdl/clinkr";
 import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
+import { optionalEntries } from "@sdl/core/primitives";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
@@ -50,8 +51,10 @@ export function runScenario(
 	const env = options.env ?? { PATH: "/fake/bin" };
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const fakeInteraction = createFakeClinkrInteraction({
-		...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
-		...(options.isInteractive === undefined ? {} : { isInteractive: options.isInteractive }),
+		...optionalEntries({
+			confirmations: options.confirmations,
+			isInteractive: options.isInteractive,
+		}),
 	});
 	const context =
 		options.context ??
