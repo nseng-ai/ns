@@ -6,11 +6,11 @@ import type {
 	RenderCapabilities,
 } from "@sdl/clinkr";
 import type { PositionalSpec } from "@sdl/clinkr/raw";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import type { z } from "zod";
 
 import type { SdlExtensionApi } from "./execution.ts";
 import type { SdlResult } from "./result.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 export type {
 	ClinkrCompletionCandidate,
@@ -35,12 +35,21 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 	name: string;
 	summary: string;
 	description: string;
-	schema?: S | undefined;
-	positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>> | undefined;
-	resultSchema?: z.ZodType<T> | undefined;
-	renderHuman?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-	renderMarkdown?: ((data: unknown, caps: RenderCapabilities) => string) | undefined;
-	completionProvider?: SdlCommandCompletionProvider | undefined;
+	schema?: ExplicitUndefined<"public-api-compatibility", S>;
+	positionals?: ExplicitUndefined<
+		"public-api-compatibility",
+		Partial<Record<keyof z.infer<S> & string, PositionalSpec>>
+	>;
+	resultSchema?: ExplicitUndefined<"public-api-compatibility", z.ZodType<T>>;
+	renderHuman?: ExplicitUndefined<
+		"public-api-compatibility",
+		(data: unknown, caps: RenderCapabilities) => string
+	>;
+	renderMarkdown?: ExplicitUndefined<
+		"public-api-compatibility",
+		(data: unknown, caps: RenderCapabilities) => string
+	>;
+	completionProvider?: ExplicitUndefined<"public-api-compatibility", SdlCommandCompletionProvider>;
 	run(
 		ctx: SdlExtensionApi,
 		request: z.output<S>,

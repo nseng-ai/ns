@@ -1,3 +1,5 @@
+import type { ExplicitUndefined } from "@sdl/core/primitives";
+
 import type { RenderCapabilities } from "./command.ts";
 import type { SdlCommandIo, SdlProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
@@ -12,9 +14,9 @@ export interface ExecResult {
 
 export interface SdlExecOptions {
 	timeoutMs?: number;
-	stdin?: string | undefined;
-	onStdout?: ((text: string) => void) | undefined;
-	onStderr?: ((text: string) => void) | undefined;
+	stdin?: ExplicitUndefined<"public-api-compatibility", string>;
+	onStdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
+	onStderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 }
 
 export type SdlOutputStream = "stdout" | "stderr";
@@ -36,15 +38,18 @@ export interface SdlExtensionApi {
 	/** Host terminal rendering capabilities for human output and previews. */
 	renderCapabilities: RenderCapabilities;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
-	stdout?: ((text: string) => void) | undefined;
+	stdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */
-	stderr?: ((text: string) => void) | undefined;
+	stderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	/** Optional full stdin reader for commands that consume a finite payload. */
-	stdin?: (() => Promise<string>) | undefined;
+	stdin?: ExplicitUndefined<"public-api-compatibility", () => Promise<string>>;
 	/** Transient live-progress output for UI bridges. */
-	onOutput?: ((stream: SdlOutputStream, text: string) => void) | undefined;
+	onOutput?: ExplicitUndefined<
+		"public-api-compatibility",
+		(stream: SdlOutputStream, text: string) => void
+	>;
 	/** Optional UI confirmation hook for interactive SDL commands. */
-	confirm?: SdlConfirmPrompt | undefined;
+	confirm?: ExplicitUndefined<"public-api-compatibility", SdlConfirmPrompt>;
 	/** Project-local extension bag. SDL commands own any values they read from it. */
-	extensions?: Readonly<Record<string, unknown>> | undefined;
+	extensions?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, unknown>>>;
 }

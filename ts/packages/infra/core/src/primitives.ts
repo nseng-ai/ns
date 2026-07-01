@@ -12,7 +12,8 @@ export type ExplicitUndefinedReason =
 	| "external-mirror"
 	| "key-event"
 	| "null-tolerant-input"
-	| "overload-selector";
+	| "overload-selector"
+	| "public-api-compatibility";
 
 export type ExplicitUndefined<Reason extends ExplicitUndefinedReason, T> =
 	| T
