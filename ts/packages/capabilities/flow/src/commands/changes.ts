@@ -8,7 +8,12 @@ import {
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
 } from "../shared/text-generation.ts";
-import { parseGitPorcelainStatusLine } from "../shared/git-porcelain.ts";
+import {
+	isGitPorcelainUnmergedStatus,
+	parseGitPorcelainStatusOutput,
+	type GitPorcelainStatus,
+	type GitPorcelainStatusLine,
+} from "../shared/git-porcelain.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 import {
 	formatPendingWorktreeError,
@@ -20,15 +25,16 @@ import {
 // exports while duplicated workflow helpers move into package-owned modules.
 const MAX_DISPLAY_FILE_LINES = 50;
 
-const GIT_STATUS_LABELS: ReadonlyArray<{ code: string; label: string }> = [
-	{ code: "U", label: "unmerged" },
-	{ code: "?", label: "untracked" },
-	{ code: "R", label: "renamed" },
-	{ code: "C", label: "copied" },
-	{ code: "A", label: "added" },
-	{ code: "D", label: "deleted" },
-	{ code: "M", label: "modified" },
-];
+const GIT_STATUS_LABEL_CODES = ["R", "C", "A", "D", "M"] as const;
+type GitStatusLabelCode = (typeof GIT_STATUS_LABEL_CODES)[number];
+
+const GIT_STATUS_LABELS = {
+	R: "renamed",
+	C: "copied",
+	A: "added",
+	D: "deleted",
+	M: "modified",
+} satisfies Readonly<Record<GitStatusLabelCode, string>>;
 
 const CHANGES_COMMAND_DESCRIPTION = `Summarize outstanding worktree changes without committing.
 
@@ -83,7 +89,10 @@ function formatOutstandingChangesMessage(
 		title: `Outstanding changes on ${snapshot.branch}`,
 		sections: [
 			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
-			{ title: "Files", lines: displayFileLines(terminalCaps, statusFileLines(snapshot.status)) },
+			{
+				title: "Files",
+				lines: displayFileLines(terminalCaps, parseGitPorcelainStatusOutput(snapshot.status)),
+			},
 		],
 	});
 }
@@ -97,14 +106,10 @@ function summaryLines(terminalCaps: Caps, summaryText: string): string[] {
 		.map((line) => bulletLine(terminalCaps, line.replace(/^-\s+/, "")));
 }
 
-function statusFileLines(status: string): string[] {
-	return status
-		.replace(/\r/g, "")
-		.split("\n")
-		.filter((line) => line.length > 0);
-}
-
-function displayFileLines(terminalCaps: Caps, fileLines: readonly string[]): string[] {
+function displayFileLines(
+	terminalCaps: Caps,
+	fileLines: readonly GitPorcelainStatusLine[],
+): string[] {
 	if (fileLines.length === 0) {
 		return ["(no status lines)"];
 	}
@@ -119,20 +124,33 @@ function displayFileLines(terminalCaps: Caps, fileLines: readonly string[]): str
 	return displayed;
 }
 
-function formatStatusFileLine(terminalCaps: Caps, line: string): string {
-	const parsed = parseGitPorcelainStatusLine(line);
-	if (parsed === undefined) return bulletLine(terminalCaps, line);
-	return bulletLine(terminalCaps, `${statusLabel(parsed.status).padEnd(10)} ${parsed.path}`);
+function formatStatusFileLine(terminalCaps: Caps, line: GitPorcelainStatusLine): string {
+	return bulletLine(terminalCaps, `${statusLabel(line.status).padEnd(10)} ${line.path}`);
 }
 
 function bulletLine(terminalCaps: Caps, text: string): string {
 	return `${glyph(terminalCaps, "bullet")} ${text}`;
 }
 
-function statusLabel(status: string): string {
-	const matchedStatus = GIT_STATUS_LABELS.find(({ code }) => status.includes(code));
-	if (matchedStatus !== undefined) return matchedStatus.label;
+function statusLabel(status: GitPorcelainStatus): string {
+	if (isGitPorcelainUnmergedStatus(status)) return "unmerged";
+	if (status.index === "?" && status.worktree === "?") return "untracked";
 
-	const trimmedStatus = status.trim();
+	const indexLabel = statusCodeLabel(status.index);
+	if (indexLabel !== undefined) return indexLabel;
+
+	const worktreeLabel = statusCodeLabel(status.worktree);
+	if (worktreeLabel !== undefined) return worktreeLabel;
+
+	const trimmedStatus = status.raw.trim();
 	return trimmedStatus.length > 0 ? trimmedStatus : "changed";
+}
+
+function statusCodeLabel(code: string): string | undefined {
+	if (!isGitStatusLabelCode(code)) return undefined;
+	return GIT_STATUS_LABELS[code];
+}
+
+function isGitStatusLabelCode(code: string): code is GitStatusLabelCode {
+	return GIT_STATUS_LABEL_CODES.some((knownCode) => knownCode === code);
 }

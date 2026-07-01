@@ -89,6 +89,7 @@ describe("project-local changes extension behavior", () => {
 								"R  old.ts -> new.ts",
 								"C  template.ts -> copy.ts",
 								"A  added.ts",
+								"AM staged-and-modified.ts",
 								" D removed.ts",
 								"M  staged.ts",
 								"!! ignored.log",
@@ -107,6 +108,7 @@ describe("project-local changes extension behavior", () => {
 		expect(output).toContain("• renamed    old.ts -> new.ts");
 		expect(output).toContain("• copied     template.ts -> copy.ts");
 		expect(output).toContain("• added      added.ts");
+		expect(output).toContain("• added      staged-and-modified.ts");
 		expect(output).toContain("• deleted    removed.ts");
 		expect(output).toContain("• modified   staged.ts");
 		expect(output).toContain("• !!         ignored.log");

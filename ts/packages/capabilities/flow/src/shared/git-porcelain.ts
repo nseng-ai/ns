@@ -1,5 +1,13 @@
+const GIT_PORCELAIN_UNMERGED_STATUS_CODES = ["DD", "AU", "UD", "UA", "DU", "AA", "UU"];
+
+export interface GitPorcelainStatus {
+	raw: string;
+	index: string;
+	worktree: string;
+}
+
 export interface GitPorcelainStatusLine {
-	status: string;
+	status: GitPorcelainStatus;
 	path: string;
 }
 
@@ -18,5 +26,10 @@ export function parseGitPorcelainStatusLine(line: string): GitPorcelainStatusLin
 	const path = line.slice(3).trim();
 	if (path.length === 0) return undefined;
 
-	return { status: line.slice(0, 2), path };
+	const raw = line.slice(0, 2);
+	return { status: { raw, index: raw[0] ?? "", worktree: raw[1] ?? "" }, path };
+}
+
+export function isGitPorcelainUnmergedStatus(status: GitPorcelainStatus): boolean {
+	return GIT_PORCELAIN_UNMERGED_STATUS_CODES.some((code) => code === status.raw);
 }
