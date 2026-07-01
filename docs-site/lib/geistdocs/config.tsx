@@ -1,16 +1,8 @@
 import { defineConfig } from "@vercel/geistdocs/config";
-import {
-  agent,
-  basePath,
-  github,
-  Logo,
-  nav,
-  prompt,
-  siteId,
-  suggestions,
-  title,
-  translations,
-} from "@/geistdocs";
+import { agent, prompt, suggestions } from "./ai-assistant";
+import { Logo } from "./brand";
+import { github, nav } from "./nav";
+import { basePath, siteId, title, translations } from "./site-identity";
 
 export const geistdocsConfig = defineConfig({
   title,

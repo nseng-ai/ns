@@ -1,15 +1,10 @@
 import { ImageResponse } from "next/og";
 import { geistdocsConfig } from "@/lib/geistdocs/config";
-import { getPageImage, source } from "@/lib/geistdocs/source";
+import { getPageImage, getPageMetadata, source } from "@/lib/geistdocs/source";
 
 interface OgImageParams {
   lang: string;
   slug: string[];
-}
-
-interface OgPageData {
-  description?: string;
-  title?: string;
 }
 
 interface LocalizedOgStaticParams {
@@ -46,9 +41,10 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
     return new Response("Not found", { status: 404 });
   }
 
-  const data = page.data as OgPageData;
-  const pageTitle = data.title ?? "sdl Documentation";
-  const description = data.description ?? "Composable tooling for plan-oriented agentic engineering.";
+  const pageMetadata = getPageMetadata(page, {
+    fallbackDescription: "Composable tooling for plan-oriented agentic engineering.",
+    fallbackTitle: "sdl Documentation",
+  });
 
   return new ImageResponse(
     <div
@@ -91,7 +87,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
             maxWidth: 960,
           }}
         >
-          {pageTitle}
+          {pageMetadata.title}
         </div>
         <div
           style={{
@@ -101,7 +97,7 @@ export function createOgImageResponse({ lang, slug }: OgImageParams): ImageRespo
             maxWidth: 940,
           }}
         >
-          {description}
+          {pageMetadata.description}
         </div>
       </div>
       <div

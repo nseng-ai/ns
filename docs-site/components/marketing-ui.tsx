@@ -58,6 +58,48 @@ export function Eyebrow({ children, className, tone = "neutral" }: EyebrowProps)
   );
 }
 
+interface MarketingHeroProps {
+  ctas: ReactNode;
+  description: ReactNode;
+  eyebrow: ReactNode;
+  eyebrowTone?: EyebrowTone;
+  sidePanel: ReactNode;
+  sidePanelWidthClass?: string;
+  title: ReactNode;
+}
+
+export function MarketingHero({
+  ctas,
+  description,
+  eyebrow,
+  eyebrowTone,
+  sidePanel,
+  sidePanelWidthClass = "lg:grid-cols-[1fr_440px]",
+  title,
+}: MarketingHeroProps) {
+  return (
+    <section
+      className={cn(
+        "mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:items-center lg:py-24",
+        sidePanelWidthClass,
+      )}
+    >
+      <div className="space-y-8">
+        <Eyebrow {...(eyebrowTone === undefined ? {} : { tone: eyebrowTone })}>{eyebrow}</Eyebrow>
+        <div className="max-w-3xl space-y-5">
+          <h1 className="text-balance font-semibold text-5xl text-gray-1000 tracking-[-0.04em] md:text-7xl">
+            {title}
+          </h1>
+          <p className="text-balance text-gray-800 text-xl leading-8">{description}</p>
+        </div>
+        <div className="flex flex-wrap gap-3">{ctas}</div>
+      </div>
+
+      {sidePanel}
+    </section>
+  );
+}
+
 interface PreviewPanelProps {
   badge?: ReactNode;
   children: ReactNode;
