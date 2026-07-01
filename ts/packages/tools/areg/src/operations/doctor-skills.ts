@@ -1,27 +1,34 @@
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
-import { renderTextTable } from "@sdl/core/text-table";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type {
 	AregCheckSkillInspection,
+	AregPathState,
 	AregPiSkillInventoryInspection,
 	AregProjectBaseInspection,
 	AregReplacementInspection,
 	AregSkillKindSkillInspection,
 	AregSkillNameInventory,
+	AregTextFileState,
 } from "../gateways.ts";
 import { uniqueSortedStrings } from "../sort.ts";
+import { renderDoctorSkills } from "./doctor-skills-report.ts";
+import {
+	DOCTOR_SKILL_SEVERITY_RANK,
+	doctorSkillFindingSeverities,
+	type DoctorSkillFindingSeverity,
+} from "./doctor-skills-severity.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { verifyPiReplacement } from "./pi-replacement.ts";
+import { derivePiReplacementCommand } from "./pi-replacement.ts";
 import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
+import { isAgentsSkillMirror, isClaudeSkillMirror } from "./skill-mirror-conventions.ts";
 
-const findingSeverities = ["error", "warning", "info"] as const;
 const doctorStatusValues = ["ok", "warning", "error"] as const;
 
-export type DoctorSkillFindingSeverity = (typeof findingSeverities)[number];
+export type { DoctorSkillFindingSeverity } from "./doctor-skills-severity.ts";
 export type DoctorSkillsStatus = (typeof doctorStatusValues)[number];
 
 export interface DoctorSkillFinding {
@@ -50,8 +57,8 @@ export interface DoctorSkillsInspection {
 	skillInventory: AregSkillNameInventory;
 	piSkillInventory: AregPiSkillInventoryInspection;
 	replacement: AregReplacementInspection;
-	piDir: Parameters<typeof parsePiSettings>[0];
-	piSettings: Parameters<typeof parsePiSettings>[1];
+	piDir: AregPathState;
+	piSettings: AregTextFileState;
 	checkSkills: readonly AregCheckSkillInspection[];
 	skillKindSkills: readonly AregSkillKindSkillInspection[];
 }
@@ -59,7 +66,7 @@ export interface DoctorSkillsInspection {
 const doctorSkillFindingSchema: z.ZodType<DoctorSkillFinding> = z
 	.object({
 		code: z.string(),
-		severity: z.enum(findingSeverities),
+		severity: z.enum(doctorSkillFindingSeverities),
 		message: z.string(),
 		remediation: z.string(),
 		skill: z.string().optional(),
@@ -75,10 +82,12 @@ const doctorSkillFindingSchema: z.ZodType<DoctorSkillFinding> = z
 			severity: finding.severity,
 			message: finding.message,
 			remediation: finding.remediation,
-			...optionalEntry("skill", finding.skill),
-			...optionalEntry("path", finding.path),
-			...optionalEntry("surface", finding.surface),
-			...optionalEntry("evidence", finding.evidence),
+			...optionalEntries({
+				skill: finding.skill,
+				path: finding.path,
+				surface: finding.surface,
+				evidence: finding.evidence,
+			}),
 		}),
 	);
 
@@ -112,7 +121,10 @@ export async function runDoctorSkills(
 	if (inspection.type === "error") return failure("project-inspection-failed", inspection.message);
 	const result = buildDoctorSkillsResult(inspection.value);
 	if (result.findings.length === 0) return ok(result);
-	return negative("Skill registry drift found.", { data: result });
+	return negative("Skill registry drift found.", {
+		data: result,
+		human: renderDoctorSkills(result),
+	});
 }
 
 export function buildDoctorSkillsResult(inspection: DoctorSkillsInspection): DoctorSkillsResult {
@@ -169,38 +181,6 @@ export function buildDoctorSkillFindings(
 	return sortFindings(findings);
 }
 
-export function renderDoctorSkills(result: DoctorSkillsResult): string {
-	if (result.findings.length === 0) return "No skill registry drift found.";
-	const lines = [
-		`Skill doctor: ${result.summary.status} (${result.summary.findingCounts.error} error, ${result.summary.findingCounts.warning} warning, ${result.summary.findingCounts.info} info)`,
-		renderTextTable({
-			columns: [
-				{ header: "SEVERITY" },
-				{ header: "CODE" },
-				{ header: "SKILL" },
-				{ header: "PATH/SURFACE" },
-				{ header: "MESSAGE" },
-			],
-			rows: result.findings.map((finding) => [
-				finding.severity,
-				finding.code,
-				finding.skill ?? "-",
-				finding.path ?? finding.surface ?? "-",
-				finding.message,
-			]),
-			shouldDrawRule: true,
-			headerStyle: "bold-cyan",
-		}),
-		"Remediation:",
-	];
-	for (const finding of result.findings) {
-		lines.push(
-			`- ${finding.code}${finding.skill === undefined ? "" : ` (${finding.skill})`}: ${finding.remediation}`,
-		);
-	}
-	return lines.join("\n");
-}
-
 async function inspectDoctorSkillsProject(
 	ctx: AregCliContext,
 	requestPath: string,
@@ -226,12 +206,7 @@ async function inspectDoctorSkillsProject(
 	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir, env: ctx.env });
 	const skillInventory = await ctx.project.inspectSkillNameInventory({ projectDir, env: ctx.env });
 	const piSkillInventory = await ctx.project.inspectPiSkillInventory({ projectDir, env: ctx.env });
-	const skillNames = uniqueSortedStrings([
-		...skillInventory.skillsDirectoryNames,
-		...skillInventory.agentsSkillNames,
-		...skillInventory.claudeSkillNames,
-		...skillInventory.skillKindNames,
-	]);
+	const skillNames = allKnownSkillNames(skillInventory, { includeSkillKindNames: true });
 	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
 	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillNames);
 	return {
@@ -253,21 +228,24 @@ async function inspectDoctorSkillsProject(
 function filesystemFindings(inspection: DoctorSkillsInspection): readonly DoctorSkillFinding[] {
 	const findings: DoctorSkillFinding[] = [];
 	const managed = new Set(inspection.skillInventory.skillKindNames);
-	const skillNames = uniqueSortedStrings([
-		...inspection.skillInventory.skillsDirectoryNames,
-		...inspection.skillInventory.agentsSkillNames,
-		...inspection.skillInventory.claudeSkillNames,
-	]);
+	const skillNames = allKnownSkillNames(inspection.skillInventory);
+	const checkSkillsByName = new Map(inspection.checkSkills.map((skill) => [skill.name, skill]));
 	for (const skillName of skillNames) {
 		const roots = rootsForSkill(inspection.skillInventory, skillName);
-		if (roots.length > 1) {
+		const independentRoots = independentRootsForSkill(
+			skillName,
+			roots,
+			checkSkillsByName.get(skillName),
+		);
+		if (independentRoots.length > 1) {
 			findings.push({
 				code: "skill-root-shadowed",
 				severity: "warning",
 				skill: skillName,
-				message: `${skillName} appears in multiple skill roots: ${roots.join(", ")}.`,
-				remediation: "Keep one canonical skill root or document and test the intended precedence.",
-				evidence: { roots },
+				message: `${skillName} appears in multiple canonical skill roots: ${independentRoots.join(", ")}.`,
+				remediation:
+					"Keep one canonical skill root; use areg-managed symlink mirrors for agent-specific skill roots.",
+				evidence: { roots, independentRoots: [...independentRoots] },
 			});
 		}
 		if (!managed.has(skillName)) {
@@ -352,56 +330,99 @@ function replacementFindings(
 	);
 	for (const record of records) {
 		if (record.artifacts.isPiExcluded && !record.replacement.verified) {
-			findings.push({
-				code: "pi-replacement-missing-surface",
-				severity: "error",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} is excluded from Pi skills but has no verified replacement command.`,
-				remediation: `Run areg skill apply command-backed ${record.skill} after adding the replacement command, or remove the Pi exclusion if the skill should stay model-facing.`,
-			});
-			findings.push({
-				code: "excluded-skill-without-replacement",
-				severity: "error",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} is excluded in .pi/settings.json without a verified replacement surface.`,
-				remediation:
-					"Add the replacement Pi command surface and keep the exclusion, or remove the exclusion.",
-			});
+			findings.push(
+				replacementFinding(record.skill, record.replacement.surface, {
+					code: "excluded-skill-without-replacement",
+					severity: "error",
+					message: `${record.skill} is excluded in .pi/settings.json without a verified replacement surface.`,
+					remediation:
+						"Add the replacement Pi command surface and keep the exclusion, or remove the exclusion.",
+				}),
+			);
 		}
 		if (record.replacement.verified && !record.artifacts.isPiExcluded) {
-			findings.push({
-				code: "command-backed-skill-not-excluded",
-				severity: "warning",
-				skill: record.skill,
-				...optionalEntry("surface", record.replacement.surface),
-				message: `${record.skill} has a verified replacement command but is not excluded from Pi skill discovery.`,
-				remediation: `Run areg skill apply command-backed ${record.skill} if this skill is command-backed, or remove the stale replacement surface expectation.`,
-			});
+			findings.push(
+				replacementFinding(record.skill, record.replacement.surface, {
+					code: "command-backed-skill-not-excluded",
+					severity: "warning",
+					message: `${record.skill} has a verified replacement command but is not excluded from Pi skill discovery.`,
+					remediation:
+						"Run areg skill apply command-backed <skill> if this skill is command-backed, or remove the stale replacement surface expectation.",
+				}),
+			);
 		}
 	}
 	for (const skill of [...excludedSkills].sort()) {
 		if (records.some((record) => record.skill === skill)) continue;
-		const replacement = verifyPiReplacement(skill, { verifiedSurfaces: [] });
-		findings.push({
-			code: "excluded-skill-without-replacement",
-			severity: "error",
-			skill,
-			...optionalEntry("surface", replacement.surface),
-			message: `${skill} is excluded in .pi/settings.json but was not found in areg's skill inventory.`,
-			remediation: "Remove the stale exclusion or restore the skill and its replacement command.",
-		});
+		const surface = derivePiReplacementCommand(skill);
+		findings.push(
+			replacementFinding(skill, surface, {
+				code: "excluded-skill-without-replacement",
+				severity: "error",
+				message: `${skill} is excluded in .pi/settings.json but was not found in areg's skill inventory.`,
+				remediation: "Remove the stale exclusion or restore the skill and its replacement command.",
+			}),
+		);
 	}
 	return findings;
 }
 
-function rootsForSkill(inventory: AregSkillNameInventory, skillName: string): string[] {
-	const roots: string[] = [];
+function replacementFinding(
+	skill: string,
+	surface: string | undefined,
+	finding: Pick<DoctorSkillFinding, "code" | "severity" | "message" | "remediation">,
+): DoctorSkillFinding {
+	return {
+		...finding,
+		skill,
+		...optionalEntry("surface", surface),
+	};
+}
+
+type SkillRoot = "skills" | ".agents/skills" | ".claude/skills";
+
+function rootsForSkill(inventory: AregSkillNameInventory, skillName: string): SkillRoot[] {
+	const roots: SkillRoot[] = [];
 	if (inventory.skillsDirectoryNames.includes(skillName)) roots.push("skills");
 	if (inventory.agentsSkillNames.includes(skillName)) roots.push(".agents/skills");
 	if (inventory.claudeSkillNames.includes(skillName)) roots.push(".claude/skills");
 	return roots;
+}
+
+function allKnownSkillNames(
+	inventory: AregSkillNameInventory,
+	options: { includeSkillKindNames?: boolean } = {},
+): readonly string[] {
+	return uniqueSortedStrings([
+		...inventory.skillsDirectoryNames,
+		...inventory.agentsSkillNames,
+		...inventory.claudeSkillNames,
+		...(options.includeSkillKindNames === true ? inventory.skillKindNames : []),
+	]);
+}
+
+function independentRootsForSkill(
+	skillName: string,
+	roots: readonly SkillRoot[],
+	checkSkill: AregCheckSkillInspection | undefined,
+): readonly SkillRoot[] {
+	return roots.filter((root) => !isAregManagedMirrorRoot(skillName, root, checkSkill));
+}
+
+function isAregManagedMirrorRoot(
+	skillName: string,
+	root: SkillRoot,
+	checkSkill: AregCheckSkillInspection | undefined,
+): boolean {
+	if (checkSkill === undefined) return false;
+	switch (root) {
+		case "skills":
+			return false;
+		case ".agents/skills":
+			return isAgentsSkillMirror(checkSkill.agentsPath, skillName);
+		case ".claude/skills":
+			return isClaudeSkillMirror(checkSkill.claudePath, skillName);
+	}
 }
 
 function missingSkillMdFinding(skill: string, path: string): DoctorSkillFinding {
@@ -436,14 +457,9 @@ function inventoryQualifier(inventory: AregPiSkillInventoryInspection): string {
 }
 
 function sortFindings(findings: readonly DoctorSkillFinding[]): readonly DoctorSkillFinding[] {
-	const severityRank: Record<DoctorSkillFindingSeverity, number> = {
-		error: 0,
-		warning: 1,
-		info: 2,
-	};
 	return [...findings].sort(
 		(left, right) =>
-			severityRank[left.severity] - severityRank[right.severity] ||
+			DOCTOR_SKILL_SEVERITY_RANK[left.severity] - DOCTOR_SKILL_SEVERITY_RANK[right.severity] ||
 			left.code.localeCompare(right.code) ||
 			(left.skill ?? "").localeCompare(right.skill ?? "") ||
 			(left.path ?? left.surface ?? "").localeCompare(right.path ?? right.surface ?? ""),

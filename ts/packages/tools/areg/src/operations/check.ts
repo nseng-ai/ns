@@ -16,6 +16,12 @@ import {
 import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import {
+	expectedAgentsSkillSymlinkTarget,
+	expectedClaudeSkillSymlinkTarget,
+	isAgentsSkillMirror,
+	isClaudeSkillMirror,
+} from "./skill-mirror-conventions.ts";
+import {
 	inferSkillKindRecord,
 	inspectSkillFrontmatter,
 	isManagedOpenaiPolicyContent,
@@ -200,7 +206,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 			),
 		);
 	}
-	const expectedAgentsTarget = `../../skills/${entry.name}`;
+	const expectedAgentsTarget = expectedAgentsSkillSymlinkTarget(entry.name);
 	if (inspected.agentsPath.type === "missing") {
 		issues.push(issue(entry.name, "agents-missing", `.agents/skills/${entry.name} does not exist`));
 	} else if (inspected.agentsPath.type !== "symlink") {
@@ -211,7 +217,7 @@ function checkLocalSkill(entry: LockfileSkill, inspected: AregCheckSkillInspecti
 				`.agents/skills/${entry.name} is a real directory, expected symlink to ${expectedAgentsTarget}`,
 			),
 		);
-	} else if (inspected.agentsPath.target !== expectedAgentsTarget) {
+	} else if (!isAgentsSkillMirror(inspected.agentsPath, entry.name)) {
 		issues.push(
 			issue(
 				entry.name,
@@ -252,7 +258,7 @@ function checkRemoteSkill(entry: LockfileSkill, inspected: AregCheckSkillInspect
 }
 
 function checkClaudeSymlink(name: string, inspected: AregCheckSkillInspection): CheckIssue[] {
-	const expectedTarget = `../../.agents/skills/${name}`;
+	const expectedTarget = expectedClaudeSkillSymlinkTarget(name);
 	if (inspected.claudePath.type === "missing")
 		return [issue(name, "claude-missing", `.claude/skills/${name} does not exist`)];
 	if (inspected.claudePath.type !== "symlink")
@@ -263,7 +269,7 @@ function checkClaudeSymlink(name: string, inspected: AregCheckSkillInspection): 
 				`.claude/skills/${name} is a real directory, expected symlink to ${expectedTarget}`,
 			),
 		];
-	if (inspected.claudePath.target !== expectedTarget)
+	if (!isClaudeSkillMirror(inspected.claudePath, name))
 		return [
 			issue(
 				name,

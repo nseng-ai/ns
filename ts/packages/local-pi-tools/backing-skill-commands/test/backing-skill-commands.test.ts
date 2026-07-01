@@ -83,8 +83,12 @@ describe("genericBackingSkillCommandSpecs", () => {
 	test("skips specialized surfaces but keeps ordinary derived commands", () => {
 		const surfaces = genericBackingSkillCommandSpecs().map((spec) => spec.surface);
 
-		expect(surfaces).toContain("pr:address");
 		expect(surfaces).toContain("code:workflows");
+		expect(surfaces).not.toContain("pr:address");
+		expect(surfaces).not.toContain("cli:push-down");
+		expect(surfaces).not.toContain("code:gh");
+		expect(surfaces).not.toContain("typescript:fake-driven-testing");
+		expect(surfaces).not.toContain("typescript:style");
 		expect(surfaces).not.toContain("grill:me");
 		expect(surfaces).not.toContain("grill:with-docs");
 		expect(surfaces).not.toContain("objective:close");
@@ -104,26 +108,26 @@ describe("registerBackingSkillCommands", () => {
 	test("registers generic commands that read repo-local backing skills", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "backing-skill-command-"));
 		try {
-			const skillDir = join(repo, "skills", "pr-address");
+			const skillDir = join(repo, "skills", "code-workflows");
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				join(skillDir, "SKILL.md"),
-				"---\nname: pr-address\n---\n\n# PR Address\n",
+				"---\nname: code-workflows\n---\n\n# Code Workflows\n",
 				"utf8",
 			);
 
 			const host = new FakeBackingSkillHost();
 			registerBackingSkillCommands(host);
-			const command = host.commands.get("pr:address");
+			const command = host.commands.get("code:workflows");
 			expect(command).toBeDefined();
 
 			await command?.handler("fix ```this``` please", commandContext(repo));
 
 			expect(host.sentMessages).toHaveLength(1);
 			expect(host.sentMessages[0]).toContain(
-				`<skill name="pr-address" location="${join(skillDir, "SKILL.md")}">`,
+				`<skill name="code-workflows" location="${join(skillDir, "SKILL.md")}">`,
 			);
-			expect(host.sentMessages[0]).toContain("# PR Address");
+			expect(host.sentMessages[0]).toContain("# Code Workflows");
 			expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
 		} finally {
 			await rm(repo, { recursive: true, force: true });
