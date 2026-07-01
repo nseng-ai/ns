@@ -1,6 +1,6 @@
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo } from "sdl-sdk";
-import { type ExecOutputListener, normalizeExecResult } from "@sdl/core/command";
+import type { ExecOutputListener } from "@sdl/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createFlowCliCommandIo } from "./cli-command-io.ts";
 import {
@@ -21,7 +21,7 @@ import {
 	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
 } from "./land-stack/land-presentation.ts";
-import { runLandingDispatch, type NormalizedLandExtensionAPI } from "./land/landing-dispatch.ts";
+import { runLandingDispatch } from "./land/landing-dispatch.ts";
 import type { Caps } from "@sdl/clinkr";
 import type {
 	AutocompleteItem,
@@ -115,16 +115,10 @@ async function runLandCommand(
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
 	const streamedApi = withCommandStreaming(pi, commandStream);
-	const normalizedApi: NormalizedLandExtensionAPI = {
-		...pi,
-		exec: async (command, commandArgs, commandOptions) =>
-			normalizeExecResult(await streamedApi.exec(command, commandArgs, commandOptions)),
-	};
 	return await runLandingDispatch({
 		runtimeApis: {
 			extensionApi: pi,
 			streamedApi,
-			normalizedApi,
 		},
 		ctx,
 		parsedArgs: args.value,

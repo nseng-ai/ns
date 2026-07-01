@@ -1,59 +1,8 @@
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
 import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "sdl-sdk";
-
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
-const SHARED_FLOW_CLI_RUNNER_PATH = join(
-	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/shared/flow-cli-runner.ts",
-);
-
-interface FlowCliExecOptions {
-	cwd?: string;
-	timeout?: number;
-}
-
-interface FlowCliRunnerInput {
-	exec(command: string, args: string[], options?: FlowCliExecOptions): Promise<ExecResult>;
-	stdout(text: string): void;
-	stderr(text: string): void;
-}
-
-interface RunFlowCliOptions {
-	ctx: SdlExtensionApi;
-	successMessage: string;
-	failureMessage: string;
-	shouldForwardLiveOutput?: boolean;
-	trustedExec?: CommandExecApi;
-	outputMode?: "forward-live" | "buffer-until-complete";
-	afterExitCode?: (exitCode: number) => Promise<void> | void;
-	run(input: FlowCliRunnerInput): Promise<number>;
-}
-
-interface FlowCliOutputCapture {
-	readonly input: Pick<FlowCliRunnerInput, "stdout" | "stderr">;
-	readonly stdout: string;
-	readonly stderr: string;
-	flush(): void;
-	toResult(
-		exitCode: number,
-		messages: { successMessage: string; failureMessage: string },
-	): SdlResult;
-}
-
-interface FlowCliRunnerModule {
-	createFlowCliOutputCapture(options: {
-		ctx: SdlExtensionApi;
-		mode?: "forward-live" | "buffer-until-complete";
-	}): FlowCliOutputCapture;
-	runFlowCli(options: RunFlowCliOptions): Promise<SdlResult>;
-}
-
+import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
 interface ExecCall {
 	command: string;
 	args: string[];
@@ -248,25 +197,8 @@ describe("project extension shared Flow CLI runner", () => {
 	});
 });
 
-async function loadFlowCliRunnerModule(): Promise<FlowCliRunnerModule> {
-	const sharedModule = await import(SHARED_FLOW_CLI_RUNNER_PATH);
-	assertFlowCliRunnerModule(sharedModule);
-	return sharedModule;
-}
-
-function assertFlowCliRunnerModule(value: unknown): asserts value is FlowCliRunnerModule {
-	if (typeof value !== "object" || value === null) {
-		throw new Error("Expected shared Flow CLI runner module object.");
-	}
-	if (!("runFlowCli" in value) || typeof value.runFlowCli !== "function") {
-		throw new Error("Expected shared Flow CLI runner to export runFlowCli.");
-	}
-	if (
-		!("createFlowCliOutputCapture" in value) ||
-		typeof value.createFlowCliOutputCapture !== "function"
-	) {
-		throw new Error("Expected shared Flow CLI runner to export createFlowCliOutputCapture.");
-	}
+async function loadFlowCliRunnerModule() {
+	return await import("../../src/shared/flow-cli-runner.ts");
 }
 
 function createFakeApi(results: readonly ExecResult[]): {

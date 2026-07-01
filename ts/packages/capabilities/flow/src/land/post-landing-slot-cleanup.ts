@@ -1,25 +1,15 @@
 import { formatCommand } from "@sdl/core/command";
 import { GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "../land-stack/constants.ts";
 import { exec, execGraphite } from "../land-stack/command-exec.ts";
-import {
-	completed,
-	failure,
-	landStackFailure,
-	type LandStackOutcome,
-} from "../land-stack/errors.ts";
-import {
-	formatFailureNotification,
-	landFailureKind,
-	notifyPrintAware,
-	presentBrief,
-	setStatus,
-} from "../land-stack/presentation.ts";
+import { completed, landStackFailure, type LandStackOutcome } from "../land-stack/errors.ts";
+import { notifyPrintAware, presentFailureOutcome, setStatus } from "../land-stack/presentation.ts";
 import type {
 	LandStackExtensionAPI,
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	ParsedArgs,
 } from "../land-stack/types.ts";
+import { confirmLandStackAction } from "../land-stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "../land-stack/worktrees.ts";
 
 interface RunPostLandingSlotCleanupOptions {
@@ -49,58 +39,30 @@ export async function runPostLandingSlotCleanup({
 		repoRoot: shape.repoRoot,
 		slotName,
 	});
-	if (!args.shouldForceCleanup && !args.shouldSkipConfirmation) {
-		if (!ctx.hasUI) {
-			const landFailure = landStackFailure(
-				[
-					"PRs were landed, but post-landing slot cleanup requires confirmation in non-interactive mode.",
-					cleanupDetails,
-					"Run the commands manually, or use --free --force for post-landing cleanup next time.",
-				].join("\n\n"),
-				{
-					outcome: "refusal",
-					suggestedAction: postLandingCleanupSuggestedAction(
-						slotName,
-						shape.stack.actualCurrentBranch,
-					),
-				},
-			);
-			presentBrief({
-				ctx,
-				fullMessage: landFailure.message,
-				level: landFailure.level,
-				uiMessage: formatFailureNotification(landFailure),
-				kind: landFailureKind(landFailure),
-			});
-			return failure(landFailure);
-		}
-
-		const confirmed = await ctx.ui.confirm(
-			"Free current slot and delete local branch?",
+	const suggestedAction = postLandingCleanupSuggestedAction(
+		slotName,
+		shape.stack.actualCurrentBranch,
+	);
+	const confirmationOutcome = await confirmLandStackAction({
+		ctx,
+		shouldPrompt: !args.shouldForceCleanup && !args.shouldSkipConfirmation,
+		title: "Free current slot and delete local branch?",
+		details: cleanupDetails,
+		nonInteractiveMessage: [
+			"PRs were landed, but post-landing slot cleanup requires confirmation in non-interactive mode.",
 			cleanupDetails,
-		);
-		if (!confirmed) {
-			const landFailure = landStackFailure(
-				`Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
-				{
-					level: "warning",
-					outcome: "refusal",
-					suggestedAction: postLandingCleanupSuggestedAction(
-						slotName,
-						shape.stack.actualCurrentBranch,
-					),
-				},
-			);
-			presentBrief({
-				ctx,
-				fullMessage: landFailure.message,
-				level: landFailure.level,
-				uiMessage: formatFailureNotification(landFailure),
-				kind: landFailureKind(landFailure),
-			});
-			return failure(landFailure);
-		}
-	}
+			"Run the commands manually, or use --free --force for post-landing cleanup next time.",
+		].join("\n\n"),
+		nonInteractiveFailureOptions: { suggestedAction },
+		cancellationMessage: `Cancelled post-landing cleanup; PRs were landed but ${slotName} and local branch ${shape.stack.actualCurrentBranch} were kept.`,
+		cancellationFailureOptions: {
+			level: "warning",
+			outcome: "refusal",
+			suggestedAction,
+		},
+		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
+	});
+	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	try {
 		setStatus(ctx, `freeing ${slotName}...`);
@@ -116,19 +78,9 @@ export async function runPostLandingSlotCleanup({
 			const landFailure = landStackFailure(`PRs were landed, but freeing ${slotName} failed.`, {
 				commandDisplay: formatCommand("sdl", freeArgs),
 				result: freeResult,
-				suggestedAction: postLandingCleanupSuggestedAction(
-					slotName,
-					shape.stack.actualCurrentBranch,
-				),
+				suggestedAction,
 			});
-			presentBrief({
-				ctx,
-				fullMessage: landFailure.message,
-				level: landFailure.level,
-				uiMessage: formatFailureNotification(landFailure),
-				kind: landFailureKind(landFailure),
-			});
-			return failure(landFailure);
+			return presentFailureOutcome(ctx, landFailure);
 		}
 
 		setStatus(ctx, `deleting ${shape.stack.actualCurrentBranch}...`);
@@ -147,14 +99,7 @@ export async function runPostLandingSlotCleanup({
 					suggestedAction: `Delete local branch ${shape.stack.actualCurrentBranch} manually when safe.`,
 				},
 			);
-			presentBrief({
-				ctx,
-				fullMessage: landFailure.message,
-				level: landFailure.level,
-				uiMessage: formatFailureNotification(landFailure),
-				kind: landFailureKind(landFailure),
-			});
-			return failure(landFailure);
+			return presentFailureOutcome(ctx, landFailure);
 		}
 	} finally {
 		setStatus(ctx, undefined);

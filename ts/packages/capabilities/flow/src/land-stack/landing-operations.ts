@@ -39,6 +39,7 @@ import {
 import { setStatus } from "./presentation.ts";
 import {
 	confirmPreMergeMaintenance,
+	optionalField,
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
@@ -82,7 +83,7 @@ export async function confirmAndFreeManagedSlots(
 
 	const confirmationOutcome = await confirmPreMergeMaintenance({
 		ctx,
-		...(options.confirmation === undefined ? {} : { confirmation: options.confirmation }),
+		...optionalField("confirmation", options.confirmation),
 		title: "Free landing slots?",
 		details,
 		nonInteractiveMessage: [
@@ -311,6 +312,9 @@ export async function runMergeLoop(
 			step: { index, branch, prNumber: currentPr.number, state, options },
 		});
 		if (maintenance.kind === "halt") return failure(maintenance.failure);
+		if (maintenance.kind === "skip" && maintenance.warning !== undefined) {
+			state.warnings.push(maintenance.warning);
+		}
 	}
 	return success(state.cleanup);
 }

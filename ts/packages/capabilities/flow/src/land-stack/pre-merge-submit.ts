@@ -5,6 +5,7 @@ import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
 	confirmPreMergeMaintenance,
+	optionalField,
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import {
@@ -33,7 +34,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 
 	const confirmationOutcome = await confirmPreMergeMaintenance({
 		ctx,
-		...(options.confirmation === undefined ? {} : { confirmation: options.confirmation }),
+		...optionalField("confirmation", options.confirmation),
 		title: restackTarget ? "Run gt restack + submit/update?" : "Run gt submit/update?",
 		details,
 		nonInteractiveMessage: [

@@ -1,8 +1,6 @@
 import { LandStackCommandStream } from "./command-stream.ts";
 import {
-	completed,
 	failure,
-	landStackFailure,
 	success,
 	type LandStackFailure,
 	type LandStackOutcome,
@@ -10,7 +8,7 @@ import {
 } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
 import { confirmAndFreeManagedSlots, residualPreMergeFailure } from "./landing-operations.ts";
-import type { PreMergeConfirmation } from "./pre-merge-confirmation.ts";
+import { confirmLandStackAction, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import { confirmAndSubmitRequiredPrUpdates } from "./pre-merge-submit.ts";
 import {
 	formatFailure,
@@ -120,37 +118,26 @@ interface ConfirmMainLandingOptions {
 	title: string;
 	details: string;
 	nonInteractiveMessage: string;
-	cancellationMessage?: string;
 }
 
 export async function confirmMainLanding(
 	options: ConfirmMainLandingOptions,
 ): Promise<LandStackOutcome> {
 	const { ctx } = options.session;
-	if (!options.shouldPrompt) return completed();
-	if (!ctx.hasUI) {
-		const landFailure = landStackFailure(options.nonInteractiveMessage, { outcome: "refusal" });
-		presentLandStackFailure({
-			session: options.session,
-			failure: landFailure,
-		});
-		return failure(landFailure);
-	}
-	const details = ctx.renderConfirmationDetails?.(options.details) ?? options.details;
-	const confirmed = await ctx.ui.confirm(options.title, details);
-	if (confirmed) return completed();
-	const landFailure = landStackFailure(
-		options.cancellationMessage ?? "Cancelled before merge; no PRs were landed.",
-		{
-			level: "info",
-			outcome: "refusal",
+	return await confirmLandStackAction({
+		ctx,
+		shouldPrompt: options.shouldPrompt,
+		title: options.title,
+		details: options.details,
+		nonInteractiveMessage: options.nonInteractiveMessage,
+		renderDetails: (details) => ctx.renderConfirmationDetails?.(details) ?? details,
+		onFailure: (landFailure) => {
+			presentLandStackFailure({
+				session: options.session,
+				failure: landFailure,
+			});
 		},
-	);
-	presentLandStackFailure({
-		session: options.session,
-		failure: landFailure,
 	});
-	return failure(landFailure);
 }
 
 export function formatPreparingLandingMilestone(plan: LandingPlan): string {

@@ -140,13 +140,13 @@ async function execFlowCliCommand(options: ExecFlowCliCommandOptions): Promise<E
 		return await createScopedFlowCliExec(options.ctx).exec(
 			options.command,
 			[...options.args],
-			buildScopedFlowCliExecOptions(options, cwd),
+			buildFlowCliExecOptions(options, cwd, { includeEnv: false }),
 		);
 	}
 	return await options.trustedExec.exec(
 		options.command,
 		[...options.args],
-		buildTrustedFlowCliExecOptions(options, cwd),
+		buildFlowCliExecOptions(options, cwd, { includeEnv: true }),
 	);
 }
 
@@ -158,24 +158,14 @@ function createTrustedFlowCliExec(): CommandExecApi {
 	return new NodeCommandExecApi();
 }
 
-function buildScopedFlowCliExecOptions(
+function buildFlowCliExecOptions(
 	options: ExecFlowCliCommandOptions,
 	cwd: string,
+	execOptions: { includeEnv: boolean },
 ): ExecOptions {
 	return {
 		cwd,
-		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
-		...buildFlowCliOutputCallbacks(options),
-	};
-}
-
-function buildTrustedFlowCliExecOptions(
-	options: ExecFlowCliCommandOptions,
-	cwd: string,
-): ExecOptions {
-	return {
-		cwd,
-		env: options.ctx.env,
+		...(execOptions.includeEnv ? { env: options.ctx.env } : {}),
 		...(options.options?.timeout === undefined ? {} : { timeout: options.options.timeout }),
 		...buildFlowCliOutputCallbacks(options),
 	};

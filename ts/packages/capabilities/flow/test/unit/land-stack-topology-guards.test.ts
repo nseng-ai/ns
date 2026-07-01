@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/test-kit";
 import { shortSha } from "../../src/land-stack/command-exec.ts";
-import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land-stack/constants.ts";
+import { BACKUP_REF_NAMESPACE } from "../../src/land-stack/constants.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
 import type {
@@ -11,6 +11,7 @@ import type {
 	NotifyLevel,
 	PullRequestSnapshot,
 } from "../../src/land-stack/types.ts";
+import { backupRefSteps } from "./land-stack-backup-ref-fixtures.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
 const PR_FIELDS =
@@ -175,17 +176,6 @@ function expectSuccess<T>(result: LandStackResult<T>): T {
 function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
 	return { command, args, result };
 }
-
-const BACKUP_ROTATION_ARGS = [
-	"fetch",
-	"--quiet",
-	"--prune",
-	"--no-tags",
-	".",
-	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
-];
-
-const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
 
 function expectedSquashMergeArgs(options: {
 	number: number;
@@ -361,29 +351,6 @@ function repoIntro(
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			},
 		),
-	];
-}
-
-function backupRefSteps(
-	branches: string[],
-	options: { shas?: Record<string, string>; staleCurrentRefs?: string[] } = {},
-): ScriptedExec[] {
-	const { shas = BRANCH_SHAS, staleCurrentRefs = [] } = options;
-	return [
-		BACKUP_ROTATION_STEP,
-		step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
-			stdout: staleCurrentRefs.join("\n"),
-		}),
-		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
-		...branches.flatMap((branch) => {
-			const sha = shas[branch] ?? SHA_A;
-			return [
-				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-					stdout: `${sha}\n`,
-				}),
-				step("git", ["update-ref", `${BACKUP_REF_NAMESPACE}/${branch}`, sha]),
-			];
-		}),
 	];
 }
 
