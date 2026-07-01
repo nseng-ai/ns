@@ -1,14 +1,12 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveCliContext } from "../../src/context.ts";
-import {
-	FakeObjectiveStorageGateway,
-	type FakeObjectiveStorageGatewayOptions,
-} from "../../src/fake-storage.ts";
-import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
+import type { FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
 import { renderTrackingGate, runTrackingGate } from "../../src/operations/tracking-gate.ts";
-import { ObjectiveStorage } from "../../src/storage.ts";
+import {
+	createFakeObjectiveContext,
+	type FakeObjectiveCliContext,
+} from "../support/fake-objective-context.ts";
 
 describe("objective tracking-gate operation", () => {
 	test("collects trunk-resolved branch diff and dirty evidence for one Objective", async () => {
@@ -100,21 +98,9 @@ describe("objective tracking-gate operation", () => {
 	});
 });
 
-interface FakeObjectiveCliContext extends ObjectiveCliContext {
-	git: InMemoryGitGateway;
-}
-
 function contextWithFakeStorage(
 	fake: FakeObjectiveStorageGatewayOptions,
-	gitState: ConstructorParameters<typeof InMemoryGitGateway>[0] = {},
+	gitState: InMemoryGitGatewayState = {},
 ): FakeObjectiveCliContext {
-	return {
-		cwd: "/repo",
-		env: { PATH: "/fake/bin" },
-		repoRoot: "/repo",
-		trunkBranch: typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main",
-		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
-		git: new InMemoryGitGateway(gitState),
-		autopilot: new FakeAutopilotGateway(),
-	};
+	return createFakeObjectiveContext({ storageState: fake, gitState });
 }

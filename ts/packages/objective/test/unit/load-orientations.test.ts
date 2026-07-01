@@ -1,17 +1,14 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveCliContext } from "../../src/context.ts";
-import {
-	FakeObjectiveStorageGateway,
-	type FakeObjectiveStorageGatewayOptions,
-} from "../../src/fake-storage.ts";
-import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
+import type { FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
 import {
 	renderLoadOrientationsMarkdown,
 	runLoadOrientations,
 } from "../../src/operations/load-orientations.ts";
-import { ObjectiveStorage } from "../../src/storage.ts";
+import {
+	createFakeObjectiveContext,
+	type FakeObjectiveCliContext,
+} from "../support/fake-objective-context.ts";
 
 describe("objective load-orientations operation", () => {
 	test("selects active open records with direct orientation files", async () => {
@@ -103,18 +100,6 @@ describe("objective load-orientations operation", () => {
 	});
 });
 
-interface FakeObjectiveCliContext extends ObjectiveCliContext {
-	git: InMemoryGitGateway;
-}
-
 function contextWithFakeStorage(fake: FakeObjectiveStorageGatewayOptions): FakeObjectiveCliContext {
-	return {
-		cwd: "/repo",
-		env: { PATH: "/fake/bin" },
-		repoRoot: "/repo",
-		trunkBranch: "master",
-		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
-		git: new InMemoryGitGateway(),
-		autopilot: new FakeAutopilotGateway(),
-	};
+	return createFakeObjectiveContext({ storageState: fake, trunkBranch: "master" });
 }

@@ -1,14 +1,12 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveCliContext } from "../../src/context.ts";
-import { FakeObjectiveStorageGateway } from "../../src/fake-storage.ts";
-import {
-	FakeAutopilotGateway,
-	type FakeAutopilotGatewayState,
-} from "../../src/operations/autopilot/fake-gateway.ts";
+import type { FakeAutopilotGatewayState } from "../../src/operations/autopilot/fake-gateway.ts";
 import { runAutopilotLandSlice } from "../../src/operations/autopilot/land-slice.ts";
-import { ObjectiveStorage } from "../../src/storage.ts";
+import {
+	createFakeObjectiveContext,
+	type FakeObjectiveCliContext,
+} from "../support/fake-objective-context.ts";
 
 describe("objective autopilot land-slice operation", () => {
 	test("verifies, stages, and commits via gt modify when the branch moved with tracking evidence", async () => {
@@ -165,10 +163,11 @@ describe("objective autopilot land-slice operation", () => {
 		});
 	});
 
-	test("reports on-trunk when the current branch is main or master", async () => {
+	test("reports on-trunk when the current branch matches the configured trunk", async () => {
 		const ctx = contextWithFakes(
-			{ currentBranch: "main" },
+			{ currentBranch: "develop" },
 			{ changedPaths: [".sdl/objectives/flow-cleanup/updates/2026-06-30-slice.md"] },
+			{ trunkBranch: "develop" },
 		);
 
 		const exit = await runAutopilotLandSlice(ctx, {
@@ -181,8 +180,31 @@ describe("objective autopilot land-slice operation", () => {
 
 		expect(exit).toMatchObject({
 			type: "negative",
-			data: { ok: false, violations: ["on-trunk"] },
+			data: { ok: false, branch: "develop", violations: ["on-trunk"] },
 		});
+		expect(ctx.autopilot.calls.graphiteBranchTracked).toEqual([]);
+	});
+
+	test("does not treat main as trunk when configured trunk differs", async () => {
+		const ctx = contextWithFakes(
+			{ currentBranch: "main" },
+			{ changedPaths: [".sdl/objectives/flow-cleanup/updates/2026-06-30-slice.md"] },
+			{ trunkBranch: "develop" },
+		);
+
+		const exit = await runAutopilotLandSlice(ctx, {
+			slug: "flow-cleanup",
+			startBranch: "feature/flow-cleanup",
+			message: "Land slice",
+			submit: false,
+			dryRun: true,
+		});
+
+		expect(exit).toMatchObject({
+			type: "ok",
+			data: { ok: true, branch: "main", violations: [] },
+		});
+		expect(ctx.autopilot.calls.graphiteBranchTracked).toEqual([{ cwd: "/repo", branch: "main" }]);
 	});
 
 	test("reports branch-not-moved when the current branch equals the start branch", async () => {
@@ -389,22 +411,14 @@ describe("objective autopilot land-slice operation", () => {
 	});
 });
 
-interface FakeObjectiveCliContext extends ObjectiveCliContext {
-	git: InMemoryGitGateway;
-	autopilot: FakeAutopilotGateway;
-}
-
 function contextWithFakes(
-	gitState: ConstructorParameters<typeof InMemoryGitGateway>[0],
+	gitState: InMemoryGitGatewayState,
 	autopilotState: FakeAutopilotGatewayState,
+	options: { trunkBranch?: string } = {},
 ): FakeObjectiveCliContext {
-	return {
-		cwd: "/repo",
-		env: { PATH: "/fake/bin" },
-		repoRoot: "/repo",
-		trunkBranch: "main",
-		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway({})),
-		git: new InMemoryGitGateway(gitState),
-		autopilot: new FakeAutopilotGateway(autopilotState),
-	};
+	return createFakeObjectiveContext({
+		gitState,
+		autopilotState,
+		...(options.trunkBranch === undefined ? {} : { trunkBranch: options.trunkBranch }),
+	});
 }

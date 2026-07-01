@@ -75,7 +75,7 @@ export async function runAutopilotLandSlice(
 
 	const violations: AutopilotLandSliceViolation[] = [];
 	if (changed.value.length === 0) violations.push("clean-worktree");
-	if (branch === "main" || branch === "master") violations.push("on-trunk");
+	if (branch === ctx.trunkBranch) violations.push("on-trunk");
 	if (branch !== null && branch === startBranch) violations.push("branch-not-moved");
 
 	if (violations.length === 0) {

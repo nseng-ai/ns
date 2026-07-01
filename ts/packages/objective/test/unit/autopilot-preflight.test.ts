@@ -1,14 +1,12 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveCliContext } from "../../src/context.ts";
-import {
-	FakeObjectiveStorageGateway,
-	type FakeObjectiveStorageGatewayOptions,
-} from "../../src/fake-storage.ts";
-import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
+import type { FakeObjectiveStorageGatewayOptions } from "../../src/fake-storage.ts";
 import { runAutopilotPreflight } from "../../src/operations/autopilot/preflight.ts";
-import { ObjectiveStorage } from "../../src/storage.ts";
+import {
+	createFakeObjectiveContext,
+	type FakeObjectiveCliContext,
+} from "../support/fake-objective-context.ts";
 
 describe("objective autopilot preflight operation", () => {
 	test("passes for a clean worktree, open Objective, and non-trunk branch", async () => {
@@ -70,18 +68,34 @@ describe("objective autopilot preflight operation", () => {
 		});
 	});
 
-	test("reports on-trunk for main and master", async () => {
-		for (const trunkBranch of ["main", "master"]) {
+	test("reports on-trunk when the current branch matches the configured trunk", async () => {
+		const ctx = contextWithFakeStorage(
+			{ records: [{ slug: "flow-cleanup" }] },
+			{ currentBranch: "develop" },
+			{ trunkBranch: "develop" },
+		);
+
+		const exit = await runAutopilotPreflight(ctx, { slug: "flow-cleanup" });
+
+		expect(exit).toMatchObject({
+			type: "negative",
+			data: { ok: false, trunk: "develop", violations: ["on-trunk"] },
+		});
+	});
+
+	test("does not treat main or master as trunk aliases when configured trunk differs", async () => {
+		for (const currentBranch of ["main", "master"]) {
 			const ctx = contextWithFakeStorage(
 				{ records: [{ slug: "flow-cleanup" }] },
-				{ currentBranch: trunkBranch },
+				{ currentBranch },
+				{ trunkBranch: "develop" },
 			);
 
 			const exit = await runAutopilotPreflight(ctx, { slug: "flow-cleanup" });
 
 			expect(exit).toMatchObject({
-				type: "negative",
-				data: { ok: false, violations: ["on-trunk"] },
+				type: "ok",
+				data: { ok: true, startBranch: currentBranch, trunk: "develop", violations: [] },
 			});
 		}
 	});
@@ -117,21 +131,14 @@ describe("objective autopilot preflight operation", () => {
 	});
 });
 
-interface FakeObjectiveCliContext extends ObjectiveCliContext {
-	git: InMemoryGitGateway;
-}
-
 function contextWithFakeStorage(
 	fake: FakeObjectiveStorageGatewayOptions,
-	gitState: ConstructorParameters<typeof InMemoryGitGateway>[0] = {},
+	gitState: InMemoryGitGatewayState = {},
+	options: { trunkBranch?: string } = {},
 ): FakeObjectiveCliContext {
-	return {
-		cwd: "/repo",
-		env: { PATH: "/fake/bin" },
-		repoRoot: "/repo",
-		trunkBranch: "main",
-		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(fake)),
-		git: new InMemoryGitGateway(gitState),
-		autopilot: new FakeAutopilotGateway(),
-	};
+	return createFakeObjectiveContext({
+		storageState: fake,
+		gitState,
+		...(options.trunkBranch === undefined ? {} : { trunkBranch: options.trunkBranch }),
+	});
 }

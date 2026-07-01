@@ -40,7 +40,7 @@ export interface FakeAutopilotGatewayCalls {
 
 export class FakeAutopilotGateway implements AutopilotGateway {
 	private readonly state: FakeAutopilotGatewayState;
-	private didFormatFix = false;
+	private hasRunFormatFix = false;
 	readonly calls: FakeAutopilotGatewayCalls = {
 		graphiteBranchTracked: [],
 		stageFiles: [],
@@ -59,7 +59,7 @@ export class FakeAutopilotGateway implements AutopilotGateway {
 		if (this.state.changedPathsFailure !== undefined) {
 			return { ok: false, error: this.state.changedPathsFailure };
 		}
-		if (this.didFormatFix && this.state.changedPathsAfterFormatFix !== undefined) {
+		if (this.hasRunFormatFix && this.state.changedPathsAfterFormatFix !== undefined) {
 			return { ok: true, value: this.state.changedPathsAfterFormatFix };
 		}
 		return { ok: true, value: this.state.changedPaths ?? [] };
@@ -104,7 +104,7 @@ export class FakeAutopilotGateway implements AutopilotGateway {
 
 	async formatCheck(params: AutopilotCwdParams): Promise<AutopilotOperationResult> {
 		this.calls.formatCheck.push(params);
-		if (this.state.formatCheckFailure !== undefined && !this.didFormatFix) {
+		if (this.state.formatCheckFailure !== undefined && !this.hasRunFormatFix) {
 			return { ok: false, error: this.state.formatCheckFailure };
 		}
 		return { ok: true };
@@ -112,7 +112,7 @@ export class FakeAutopilotGateway implements AutopilotGateway {
 
 	async formatFix(params: AutopilotCwdParams): Promise<AutopilotOperationResult> {
 		this.calls.formatFix.push(params);
-		this.didFormatFix = true;
+		this.hasRunFormatFix = true;
 		if (this.state.formatFixFailure !== undefined) {
 			return { ok: false, error: this.state.formatFixFailure };
 		}

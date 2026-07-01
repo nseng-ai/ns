@@ -1,35 +1,26 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/api.ts";
 import type { ObjectiveCliContext } from "../../src/context.ts";
-import { FakeObjectiveStorageGateway } from "../../src/fake-storage.ts";
-import { FakeAutopilotGateway } from "../../src/operations/autopilot/fake-gateway.ts";
-import { ObjectiveStorage } from "../../src/storage.ts";
+import { createFakeObjectiveContext } from "../support/fake-objective-context.ts";
 
 const OBJECTIVE_MD = "# Title\n\n## Thesis\n\nDo the thing.\n";
 const ROADMAP_MD = "# Roadmap\n\n## Work\n\n- [ ] Step\n\n## Parked\n";
 
 function buildContext(): ObjectiveCliContext {
-	const storage = new ObjectiveStorage(
-		new FakeObjectiveStorageGateway({
+	return createFakeObjectiveContext({
+		env: {},
+		trunkBranch: "master",
+		storageState: {
 			records: [
 				{ slug: "alpha", objectiveMd: OBJECTIVE_MD, roadmapMd: ROADMAP_MD },
 				{ slug: "bravo", objectiveMd: OBJECTIVE_MD, roadmapMd: ROADMAP_MD, isClosed: true },
 			],
-		}),
-	);
-	return {
-		cwd: "/repo",
-		env: {},
-		repoRoot: "/repo",
-		trunkBranch: "master",
-		storage,
-		git: new InMemoryGitGateway({
+		},
+		gitState: {
 			localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
-		}),
-		autopilot: new FakeAutopilotGateway(),
-	};
+		},
+	});
 }
 
 function buildClient(): ReturnType<typeof createObjectiveClient> {
@@ -76,24 +67,18 @@ describe("createObjectiveClient", () => {
 	});
 
 	test("surfaces storage failures as ok:false instead of throwing", async () => {
-		const storage = new ObjectiveStorage(
-			new FakeObjectiveStorageGateway({
-				failures: { ".sdl/objectives": { code: "storage-error", message: "boom" } },
-			}),
-		);
 		const client = createObjectiveClient({
 			cwd: "/repo",
-			context: {
-				cwd: "/repo",
+			context: createFakeObjectiveContext({
 				env: {},
-				repoRoot: "/repo",
 				trunkBranch: "master",
-				storage,
-				git: new InMemoryGitGateway({
+				storageState: {
+					failures: { ".sdl/objectives": { code: "storage-error", message: "boom" } },
+				},
+				gitState: {
 					localBranchTips: [{ name: "master", headIso: "2026-05-01T00:00:00Z" }],
-				}),
-				autopilot: new FakeAutopilotGateway(),
-			},
+				},
+			}),
 		});
 		const result = await client.listActiveCandidates();
 		expect(result.ok).toBe(false);

@@ -61,7 +61,7 @@ export async function runAutopilotPreflight(
 		return failure(currentBranch.error.code, currentBranch.error.message);
 	}
 	const startBranch = currentBranch.type === "branch" ? currentBranch.branch : null;
-	if (startBranch === "main" || startBranch === "master") violations.push("on-trunk");
+	if (startBranch === ctx.trunkBranch) violations.push("on-trunk");
 
 	const result: AutopilotPreflightResult = {
 		ok: violations.length === 0,

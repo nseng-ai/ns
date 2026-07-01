@@ -1,5 +1,7 @@
 import { runCommand, formatCommand, formatCommandFailure } from "@sdl/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
+import type { ErrorInfo } from "@sdl/core/result";
+import { commandFailure } from "@sdl/capability-kit/gateway-result";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
 
 const GIT_TIMEOUT_MS = 10_000;
@@ -7,11 +9,7 @@ const GT_TIMEOUT_MS = 30_000;
 const FORMAT_TIMEOUT_MS = 120_000;
 const SUBMIT_TIMEOUT_MS = 120_000;
 
-export interface AutopilotErrorInfo {
-	code: string;
-	message: string;
-	displayCommand?: string;
-}
+export type AutopilotErrorInfo = ErrorInfo;
 
 export type AutopilotResult<T> = { ok: true; value: T } | { ok: false; error: AutopilotErrorInfo };
 export type AutopilotOperationResult = { ok: true } | { ok: false; error: AutopilotErrorInfo };
@@ -51,6 +49,14 @@ export interface AutopilotGateway {
 	submit(params: AutopilotCwdParams): Promise<AutopilotResult<string>>;
 }
 
+interface RunCheckedOptions {
+	command: string;
+	args: readonly string[];
+	code: string;
+	message: string;
+	run: () => Promise<ExecResult>;
+}
+
 export class RealAutopilotGateway implements AutopilotGateway {
 	private readonly runner: CommandRunner;
 
@@ -62,29 +68,27 @@ export class RealAutopilotGateway implements AutopilotGateway {
 		params: AutopilotCwdParams,
 	): Promise<AutopilotResult<readonly string[]>> {
 		const args = ["status", "--porcelain=v1"];
-		const result = await this.runGit(args, params.cwd, GIT_TIMEOUT_MS);
-		const error = commandError(
-			"git",
+		const result = await this.runChecked({
+			command: "git",
 			args,
-			result,
-			"autopilot_status_failed",
-			"Could not read git status.",
-		);
-		if (error !== undefined) return { ok: false, error };
-		return { ok: true, value: parseGitStatusPaths(result.stdout) };
+			code: "autopilot_status_failed",
+			message: "Could not read git status.",
+			run: () => this.runGit(args, params.cwd, GIT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
+		return { ok: true, value: parseGitStatusPaths(result.value.stdout) };
 	}
 
 	async diffCheck(params: AutopilotCwdParams): Promise<AutopilotOperationResult> {
 		const args = ["diff", "--check"];
-		const result = await this.runGit(args, params.cwd, GIT_TIMEOUT_MS);
-		const error = commandError(
-			"git",
+		const result = await this.runChecked({
+			command: "git",
 			args,
-			result,
-			"autopilot_diff_check_failed",
-			"git diff --check reported whitespace errors or unresolved conflict markers.",
-		);
-		if (error !== undefined) return { ok: false, error };
+			code: "autopilot_diff_check_failed",
+			message: "git diff --check reported whitespace errors or unresolved conflict markers.",
+			run: () => this.runGit(args, params.cwd, GIT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
 		return { ok: true };
 	}
 
@@ -93,111 +97,125 @@ export class RealAutopilotGateway implements AutopilotGateway {
 		// (@sdl/graphite/branch). `gt info <branch> --no-interactive` exits non-zero on an untracked
 		// branch; we never parse its display output. Avoids the boundary-doc-flagged `gt branch info`.
 		const args = ["info", params.branch, "--no-interactive"];
-		const result = await this.runGt(args, params.cwd, GT_TIMEOUT_MS);
-		const error = commandError(
-			GRAPHITE_COMMAND_NAME,
+		const result = await this.runChecked({
+			command: GRAPHITE_COMMAND_NAME,
 			args,
-			result,
-			"autopilot_branch_untracked",
-			"Current branch is not tracked by Graphite.",
-		);
-		if (error !== undefined) return { ok: false, error };
+			code: "autopilot_branch_untracked",
+			message: "Current branch is not tracked by Graphite.",
+			run: () => this.runGt(args, params.cwd, GT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
 		return { ok: true };
 	}
 
 	async stageFiles(params: AutopilotStageParams): Promise<AutopilotOperationResult> {
 		const args = ["add", "--", ...params.files];
-		const result = await this.runGit(args, params.cwd, GIT_TIMEOUT_MS);
-		const error = commandError(
-			"git",
+		const result = await this.runChecked({
+			command: "git",
 			args,
-			result,
-			"autopilot_stage_failed",
-			"Could not stage changed files.",
-		);
-		if (error !== undefined) return { ok: false, error };
+			code: "autopilot_stage_failed",
+			message: "Could not stage changed files.",
+			run: () => this.runGit(args, params.cwd, GIT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
 		return { ok: true };
 	}
 
 	async graphiteModify(params: AutopilotMessageParams): Promise<AutopilotResult<string>> {
 		const args = ["modify", "--no-interactive", "-m", params.message];
-		const result = await this.runGt(args, params.cwd, GT_TIMEOUT_MS);
-		const error = commandError(
-			GRAPHITE_COMMAND_NAME,
+		const result = await this.runChecked({
+			command: GRAPHITE_COMMAND_NAME,
 			args,
-			result,
-			"autopilot_gt_modify_failed",
-			"gt modify failed.",
-		);
-		if (error !== undefined) return { ok: false, error };
-		return { ok: true, value: result.stdout.trim() };
+			code: "autopilot_gt_modify_failed",
+			message: "gt modify failed.",
+			run: () => this.runGt(args, params.cwd, GT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
+		return { ok: true, value: result.value.stdout.trim() };
 	}
 
 	async commit(params: AutopilotMessageParams): Promise<AutopilotResult<string>> {
 		const args = ["commit", "-m", params.message];
-		const result = await this.runGit(args, params.cwd, GIT_TIMEOUT_MS);
-		const error = commandError(
-			"git",
+		const result = await this.runChecked({
+			command: "git",
 			args,
-			result,
-			"autopilot_commit_failed",
-			"git commit failed.",
-		);
-		if (error !== undefined) return { ok: false, error };
-		return { ok: true, value: result.stdout.trim() };
+			code: "autopilot_commit_failed",
+			message: "git commit failed.",
+			run: () => this.runGit(args, params.cwd, GIT_TIMEOUT_MS),
+		});
+		if (!result.ok) return result;
+		return { ok: true, value: result.value.stdout.trim() };
 	}
 
 	async formatCheck(params: AutopilotCwdParams): Promise<AutopilotOperationResult> {
 		const args = ["ts-format-check"];
-		const result = await this.runJust(args, params.cwd);
-		const error = commandError(
-			"just",
+		const result = await this.runChecked({
+			command: "just",
 			args,
-			result,
-			"autopilot_format_check_failed",
-			"just ts-format-check failed.",
-		);
-		if (error !== undefined) return { ok: false, error };
+			code: "autopilot_format_check_failed",
+			message: "just ts-format-check failed.",
+			run: () => this.runJust(args, params.cwd),
+		});
+		if (!result.ok) return result;
 		return { ok: true };
 	}
 
 	async formatFix(params: AutopilotCwdParams): Promise<AutopilotOperationResult> {
 		const args = ["ts-format-fix"];
-		const result = await this.runJust(args, params.cwd);
-		const error = commandError(
-			"just",
+		const result = await this.runChecked({
+			command: "just",
 			args,
-			result,
-			"autopilot_format_fix_failed",
-			"just ts-format-fix failed.",
-		);
-		if (error !== undefined) return { ok: false, error };
+			code: "autopilot_format_fix_failed",
+			message: "just ts-format-fix failed.",
+			run: () => this.runJust(args, params.cwd),
+		});
+		if (!result.ok) return result;
 		return { ok: true };
 	}
 
 	async submit(params: AutopilotCwdParams): Promise<AutopilotResult<string>> {
 		const args = ["flow", "submit", "--no-restack"];
-		const result = await this.runner("sdl", args, { cwd: params.cwd, timeout: SUBMIT_TIMEOUT_MS });
-		const error = commandError(
-			"sdl",
+		const result = await this.runChecked({
+			command: "sdl",
 			args,
-			result,
-			"autopilot_submit_failed",
-			"sdl flow submit failed.",
-		);
-		if (error !== undefined) return { ok: false, error };
-		return { ok: true, value: result.stdout };
+			code: "autopilot_submit_failed",
+			message: "sdl flow submit failed.",
+			run: () => this.runner("sdl", args, { cwd: params.cwd, timeout: SUBMIT_TIMEOUT_MS }),
+		});
+		if (!result.ok) return result;
+		return { ok: true, value: result.value.stdout };
 	}
 
-	private async runGit(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
+	private async runChecked(options: RunCheckedOptions): Promise<AutopilotResult<ExecResult>> {
+		const result = await options.run();
+		const error = commandError(
+			options.command,
+			options.args,
+			result,
+			options.code,
+			options.message,
+		);
+		if (error !== undefined) return { ok: false, error };
+		return { ok: true, value: result };
+	}
+
+	private async runGit(
+		args: readonly string[],
+		cwd: string,
+		timeoutMs: number,
+	): Promise<ExecResult> {
 		return this.runner("git", args, { cwd, timeout: timeoutMs });
 	}
 
-	private async runGt(args: string[], cwd: string, timeoutMs: number): Promise<ExecResult> {
+	private async runGt(
+		args: readonly string[],
+		cwd: string,
+		timeoutMs: number,
+	): Promise<ExecResult> {
 		return runGraphiteCommand(this.runner, { cwd, args, timeoutMs });
 	}
 
-	private async runJust(args: string[], cwd: string): Promise<ExecResult> {
+	private async runJust(args: readonly string[], cwd: string): Promise<ExecResult> {
 		return this.runner("just", args, { cwd, timeout: FORMAT_TIMEOUT_MS });
 	}
 }
@@ -209,9 +227,14 @@ function commandError(
 	code: string,
 	message: string,
 ): AutopilotErrorInfo | undefined {
-	if (result.code === 0 && !result.killed) return undefined;
+	const error = commandFailure({ command, args, result, code, message });
+	if (error === undefined) return undefined;
 	const displayCommand = formatCommand(command, args);
-	return { code, message: formatCommandFailure(message, displayCommand, result), displayCommand };
+	return {
+		...error,
+		message: formatCommandFailure(message, displayCommand, result),
+		displayCommand,
+	};
 }
 
 function parseGitStatusPaths(rawStatus: string): string[] {
