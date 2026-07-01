@@ -2,10 +2,10 @@ import {
 	type CommandExecApi,
 	type ExecOptions,
 	type ExecResult,
+	commandSucceeded,
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-	isSuccessfulExecResult,
 } from "@sdl/exec";
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 
@@ -82,7 +82,7 @@ export async function runCmuxCommand(options: RunCmuxCommandOptions): Promise<Cm
 		};
 	}
 
-	if (isSuccessfulExecResult(result)) return { type: "success", result };
+	if (commandSucceeded(result)) return { type: "success", result };
 
 	return {
 		type: "failed",

@@ -17,6 +17,11 @@ export interface HeadTextTruncationOptions {
 	shouldTrimHead?: boolean;
 }
 
+interface HeadMarkerState {
+	marker: string;
+	preservedChars: number;
+}
+
 export function truncateTextHeadTail(input: HeadTailTextTruncationOptions): string {
 	if (input.value.length <= input.maxChars) return input.value;
 
@@ -36,13 +41,30 @@ export function truncateTextHead(input: HeadTextTruncationOptions): string {
 	const value = input.shouldTrimInput === true ? input.value.trim() : input.value;
 	if (value.length <= input.maxChars) return value;
 
-	let marker = input.buildMarker(0);
-	let preservedChars = Math.max(0, input.maxChars - marker.length);
-	marker = input.buildMarker(value.length - preservedChars);
-	preservedChars = Math.max(0, input.maxChars - marker.length);
-	marker = input.buildMarker(value.length - preservedChars);
-	const head = maybeTrimEnd(value.slice(0, preservedChars), input.shouldTrimHead !== false);
-	return `${head}${marker}`;
+	let markerState = headMarkerState(input, 0);
+	markerState = refineHeadMarkerState(input, value.length, markerState);
+	markerState = refineHeadMarkerState(input, value.length, markerState);
+	const head = maybeTrimEnd(
+		value.slice(0, markerState.preservedChars),
+		input.shouldTrimHead !== false,
+	);
+	return `${head}${markerState.marker}`;
+}
+
+function headMarkerState(
+	input: Pick<HeadTextTruncationOptions, "maxChars" | "buildMarker">,
+	omittedChars: number,
+): HeadMarkerState {
+	const marker = input.buildMarker(omittedChars);
+	return { marker, preservedChars: Math.max(0, input.maxChars - marker.length) };
+}
+
+function refineHeadMarkerState(
+	input: Pick<HeadTextTruncationOptions, "maxChars" | "buildMarker">,
+	valueLength: number,
+	state: HeadMarkerState,
+): HeadMarkerState {
+	return headMarkerState(input, valueLength - state.preservedChars);
 }
 
 function splitHeadChars(

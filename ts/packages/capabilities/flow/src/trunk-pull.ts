@@ -1,4 +1,4 @@
-import { type ExecResult, isSuccessfulExecResult } from "@sdl/core/command";
+import { commandSucceeded, type ExecResult } from "@sdl/core/command";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { planLocalBranchRefreshFromWorktrees } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
@@ -42,7 +42,7 @@ export async function runTrunkPullDetailed(
 			timeoutMs: GT_TIMEOUT_MS,
 		},
 	);
-	if (!isSuccessfulExecResult(trunkResult)) {
+	if (!commandSucceeded(trunkResult)) {
 		return {
 			outcome: { kind: "trunk-command-failed" },
 			command: "gt",
@@ -68,7 +68,7 @@ export async function runTrunkPullDetailed(
 		cwd,
 		timeout: GIT_TIMEOUT_MS,
 	});
-	if (!isSuccessfulExecResult(worktreeResult)) {
+	if (!commandSucceeded(worktreeResult)) {
 		return {
 			outcome: { kind: "worktree-list-failed", trunk },
 			command: "git",
@@ -87,7 +87,7 @@ export async function runTrunkPullDetailed(
 		cwd: plan.cwd,
 		timeout: GIT_TIMEOUT_MS,
 	});
-	if (!isSuccessfulExecResult(updateResult)) {
+	if (!commandSucceeded(updateResult)) {
 		return {
 			outcome: { kind: "update-failed", trunk },
 			command: "git",
