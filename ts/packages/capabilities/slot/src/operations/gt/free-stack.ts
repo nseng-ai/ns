@@ -61,8 +61,8 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 	const branches = collectStackBranches(stackResult.stack, {
 		current: currentBranch,
 		trunk: trunkResult.branch,
-		downstackOnly: request.downstack,
-		includeCurrent: false,
+		isDownstackOnly: request.downstack,
+		shouldIncludeCurrent: false,
 	});
 	const targets: string[] = [];
 	const seenSlotNames = new Set<string>();

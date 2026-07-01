@@ -7,6 +7,7 @@ import {
 	ALL_NAMESPACES_SCOPE,
 	BASE_NAMESPACE,
 	namespaceDisplayLabel,
+	namespaceScopeLabel,
 	resolveOptionalNamespaceScope,
 } from "../ref-layout.ts";
 import { firstFailure, validateNamespaceName, validationMessage } from "../validation.ts";
@@ -118,7 +119,7 @@ export async function runGc(ctx: BrmemCliContext, request: GcRequest) {
 	}
 
 	return ok({
-		namespaceScope: scope.namespaceScope,
+		namespaceScope: namespaceScopeLabel(scope),
 		deleted: request.yes,
 		staleSnapshots,
 	} satisfies GcResult);

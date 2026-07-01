@@ -18,8 +18,34 @@ import {
 	buildCountMismatchNotice,
 	sliceWrappedDetailLinesForViewport,
 } from "../src/preview-feedback-view.ts";
+import { missingPreviewTargetMessage } from "../src/preview-view-utilities.ts";
 
 const ROOT = "/repo";
+
+describe("PR preview missing target messages", () => {
+	test("preserves per-command locator precedence and fallback wording", () => {
+		const target = { pr_number: 123, branch: "feature-preview" };
+
+		expect(missingPreviewTargetMessage(target, { preferredLocator: "branch" })).toBe(
+			"No open PR found for branch feature-preview.",
+		);
+		expect(missingPreviewTargetMessage(target, { preferredLocator: "pr_number" })).toBe(
+			"No PR found for PR 123.",
+		);
+		expect(
+			missingPreviewTargetMessage(
+				{ pr_number: null, branch: null },
+				{ preferredLocator: "branch" },
+			),
+		).toBe("No open PR found for current branch.");
+		expect(
+			missingPreviewTargetMessage(
+				{ pr_number: null, branch: null },
+				{ preferredLocator: "pr_number" },
+			),
+		).toBe("No open PR found for the current branch.");
+	});
+});
 
 interface ExecCall {
 	command: string;

@@ -1,3 +1,5 @@
+import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
+
 import type {
 	ThermoCouncilReviewerOutcome,
 	ThermoCouncilScope,
@@ -20,12 +22,7 @@ export function renderThermoCouncilReport(
 	const singleFindings = clusters.filter((cluster) => cluster.support.length === 1);
 	return [
 		...renderReportIntro(),
-		...renderScopeBlock(scope, {
-			includeWorkingDirectory: true,
-			includeChangedFiles: true,
-			includeDiffTruncation: true,
-			includeDiffStat: true,
-		}),
+		...renderScopeBlock(scope, "full"),
 		"## Council Seat Status",
 		renderSeatStatusTable(outcomes),
 		"",
@@ -76,10 +73,7 @@ export function renderFinalSynthesisFailureReport({
 		...renderReportIntro(
 			"/thermo-council reviewer seats completed, but the mandatory final synthesis pass did not produce a usable report.",
 		),
-		...renderScopeBlock(scope, {
-			includeWorkingDirectory: true,
-			includeChangedFiles: true,
-		}),
+		...renderScopeBlock(scope, "synthesis-failure"),
 		"## Council Seat Status",
 		renderSeatStatusTable(outcomes),
 		"",
@@ -110,32 +104,25 @@ function renderReportIntro(intro?: string): readonly string[] {
 		: ["# Thermo Council Report", "", intro, ""];
 }
 
-interface RenderScopeBlockOptions {
-	readonly includeWorkingDirectory?: boolean;
-	readonly includeChangedFiles?: boolean;
-	readonly includeDiffTruncation?: boolean;
-	readonly includeDiffStat?: boolean;
-}
+type RenderScopeBlockVariant = "full" | "synthesis-failure" | "minimal";
 
 function renderScopeBlock(
 	scope: ThermoCouncilScope,
-	options: RenderScopeBlockOptions = {},
+	variant: RenderScopeBlockVariant = "minimal",
 ): readonly string[] {
 	const lines = [
 		"## Scope",
-		...(options.includeWorkingDirectory === true ? [`- Working directory: ${scope.cwd}`] : []),
+		...(variant !== "minimal" ? [`- Working directory: ${scope.cwd}`] : []),
 		`- Base: ${scope.baseRef} (${scope.baseSha})`,
 		`- Head: ${scope.headRef} (${scope.headSha})`,
-		...(options.includeChangedFiles === true
-			? [`- Changed files: ${scope.changedFiles.length}`]
-			: []),
-		...(options.includeDiffTruncation === true
+		...(variant !== "minimal" ? [`- Changed files: ${scope.changedFiles.length}`] : []),
+		...(variant === "full"
 			? [`- Diff included in reviewer prompts: ${scope.isDiffTruncated ? "truncated" : "full"}`]
 			: []),
 		"",
 	];
-	if (options.includeDiffStat !== true) return lines;
-	return [...lines, "```text", scope.diffStat, "```", ""];
+	if (variant !== "full") return lines;
+	return [...lines, buildFencedTextBlock(scope.diffStat, "text"), ""];
 }
 
 function renderFindingClusters(clusters: readonly FindingCluster[]): readonly string[] {

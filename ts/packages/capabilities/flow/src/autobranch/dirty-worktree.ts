@@ -11,7 +11,11 @@ import {
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
 import { sanitizeBranchName } from "@sdl/core/branch-slug";
-import { DIRTY_AUTOBRANCH_WORKTREE_WARNING, summarizeAutobranchCompletion } from "./completion.ts";
+import {
+	AUTOBRANCH_GIT_TIMEOUT_MS,
+	DIRTY_AUTOBRANCH_WORKTREE_WARNING,
+	summarizeAutobranchCompletion,
+} from "./completion.ts";
 import { runAutobranchTransaction, type AutobranchTransactionResult } from "./dirty-transaction.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
@@ -22,7 +26,6 @@ export {
 	type AutobranchTransactionResult,
 } from "./dirty-transaction.ts";
 
-const GIT_TIMEOUT_MS = 30_000;
 const MAX_UNTRACKED_FILES = 12;
 const MAX_UNTRACKED_FILE_CHARS = 4_000;
 
@@ -143,7 +146,7 @@ async function readUntrackedSnippets(
 	const listed = await input.exec(
 		"git",
 		["ls-files", "--others", "--exclude-standard", "-z"],
-		GIT_TIMEOUT_MS,
+		AUTOBRANCH_GIT_TIMEOUT_MS,
 	);
 	if (listed.code !== 0 || listed.stdout.length === 0) {
 		return "";
@@ -272,7 +275,7 @@ export interface AutobranchFlowInput {
 export type AutobranchFlowOutcome = "refusal" | "failure";
 
 export type AutobranchFlowResult =
-	| { ok: true; summary: string; warnings: string[] }
+	| { ok: true; isClean: boolean; summary: string; warnings: string[] }
 	| { ok: false; outcome: AutobranchFlowOutcome; error: string };
 
 export async function runDirtyAutobranchFlow(
@@ -321,6 +324,7 @@ export async function runDirtyAutobranchFlow(
 
 	return {
 		ok: true,
+		isClean: completion.isClean,
 		summary: [
 			`New branch: ${prepared.plan.branchName}${completion.suffix}`,
 			`Stacked on: ${input.snapshot.branch}`,

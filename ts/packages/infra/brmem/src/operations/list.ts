@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { BrmemCliContext } from "../context.ts";
 import {
 	namespaceDisplayLabel,
+	namespaceScopeLabel,
 	resolveOptionalNamespaceScope,
 	type EntryRef,
 } from "../ref-layout.ts";
@@ -94,7 +95,7 @@ export async function runList(ctx: BrmemCliContext, request: ListRequest) {
 		: await ctx.gateway.listEntries({ namespace: scope.namespace, ...entryFilters });
 	if (entriesResult.type === "error") return gatewayFailure<ListResult>(entriesResult.error);
 	return ok({
-		namespaceScope: scope.namespaceScope,
+		namespaceScope: namespaceScopeLabel(scope),
 		key: request.key ?? null,
 		branch: branch ?? null,
 		base: request.base,

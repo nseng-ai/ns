@@ -19,24 +19,24 @@ export interface GraphiteTopologyBranchWalk {
 
 interface StackPathOptions {
 	readonly current: string;
-	readonly downstackOnly: boolean;
-	readonly includeCurrent: boolean;
+	readonly isDownstackOnly: boolean;
+	readonly shouldIncludeCurrent: boolean;
 }
 
 function selectStackPath(stack: StackInfo, options: StackPathOptions): readonly string[] {
 	return [
 		...stack.ancestors,
-		...(options.includeCurrent ? [options.current] : []),
-		...(options.downstackOnly ? [] : stack.descendants),
+		...(options.shouldIncludeCurrent ? [options.current] : []),
+		...(options.isDownstackOnly ? [] : stack.descendants),
 	];
 }
 
 export function collectStackEdges(
 	stack: StackInfo,
-	options: { current: string; downstackOnly: boolean },
+	options: { current: string; isDownstackOnly: boolean },
 ): readonly StackEdge[] {
 	const deduped = deduplicateOrderedStrings(
-		selectStackPath(stack, { ...options, includeCurrent: true }),
+		selectStackPath(stack, { ...options, shouldIncludeCurrent: true }),
 	);
 	return deduped
 		.slice(0, -1)
@@ -46,13 +46,18 @@ export function collectStackEdges(
 
 export function collectStackBranches(
 	stack: StackInfo,
-	options: { current: string; trunk: string; downstackOnly: boolean; includeCurrent: boolean },
+	options: {
+		current: string;
+		trunk: string;
+		isDownstackOnly: boolean;
+		shouldIncludeCurrent: boolean;
+	},
 ): readonly string[] {
 	const branches = selectStackPath(stack, options);
 	return deduplicateOrderedStrings(
 		branches.filter(
 			(branch) =>
-				branch !== options.trunk && (options.includeCurrent || branch !== options.current),
+				branch !== options.trunk && (options.shouldIncludeCurrent || branch !== options.current),
 		),
 	);
 }

@@ -131,6 +131,14 @@ interface SnappedTurnValue<TValue> {
 	value: TValue;
 }
 
+interface DedupeAndCapBySnappedTurnOptions<TInput, TValue> {
+	readonly items: readonly TInput[];
+	readonly turns: readonly LiveTurn[];
+	readonly max: number;
+	readonly turnOf: (item: TInput) => number;
+	readonly project: (item: TInput, turn: number) => TValue;
+}
+
 export function parseSegmentationResponseText(text: string): SegmentationParseResult {
 	const envelope = parseLmJson(text, segmentationEnvelopeSchema, {
 		invalidShapeError: "response JSON has no episodes array",
@@ -207,13 +215,13 @@ export function repairEpisodes(
 		kind: "uncategorized",
 		outcome: "unknown",
 	};
-	const sortedStarts = dedupeAndCapBySnappedTurn(
-		[...starts, fallbackStart],
+	const sortedStarts = dedupeAndCapBySnappedTurn({
+		items: [...starts, fallbackStart],
 		turns,
-		MAX_EPISODES,
-		(start) => start.startTurn,
-		(start, turn): LmEpisodeStart => ({ ...start, startTurn: turn }),
-	)
+		max: MAX_EPISODES,
+		turnOf: (start) => start.startTurn,
+		project: (start, turn): LmEpisodeStart => ({ ...start, startTurn: turn }),
+	})
 		.map(({ turn, value }) => ({
 			start: value,
 			position: turns.findIndex((candidate) => candidate.index === turn),
@@ -284,30 +292,30 @@ export function repairDelegations(
 	turns: readonly LiveTurn[],
 ): DelegationClaim[] {
 	if (turns.length === 0) return [];
-	return dedupeAndCapBySnappedTurn(
-		claims,
+	return dedupeAndCapBySnappedTurn({
+		items: claims,
 		turns,
-		MAX_DELEGATIONS,
-		(claim) => claim.turn,
-		(claim, turn): DelegationClaim => ({ turn, label: claim.label, confidence: claim.confidence }),
-	).map((entry) => entry.value);
+		max: MAX_DELEGATIONS,
+		turnOf: (claim) => claim.turn,
+		project: (claim, turn): DelegationClaim => ({
+			turn,
+			label: claim.label,
+			confidence: claim.confidence,
+		}),
+	}).map((entry) => entry.value);
 }
 
 function dedupeAndCapBySnappedTurn<TInput, TValue>(
-	items: readonly TInput[],
-	turns: readonly LiveTurn[],
-	max: number,
-	turnOf: (item: TInput) => number,
-	project: (item: TInput, turn: number) => TValue,
+	options: DedupeAndCapBySnappedTurnOptions<TInput, TValue>,
 ): SnappedTurnValue<TValue>[] {
 	const valuesByTurn = new Map<number, TValue>();
-	for (const item of items) {
-		const turn = snapStartTurn(turnOf(item), turns);
-		if (!valuesByTurn.has(turn)) valuesByTurn.set(turn, project(item, turn));
+	for (const item of options.items) {
+		const turn = snapStartTurn(options.turnOf(item), options.turns);
+		if (!valuesByTurn.has(turn)) valuesByTurn.set(turn, options.project(item, turn));
 	}
 	return [...valuesByTurn.entries()]
 		.sort(([left], [right]) => left - right)
-		.slice(0, max)
+		.slice(0, options.max)
 		.map(([turn, value]) => ({ turn, value }));
 }
 

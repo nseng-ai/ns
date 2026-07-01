@@ -122,7 +122,11 @@ async function runPrPreviewChecksCommand(options: {
 			return;
 		}
 		if (!data.value.found) {
-			runtime.notify(ctx, missingPreviewTargetMessage(data.value.target), "warning");
+			runtime.notify(
+				ctx,
+				missingPreviewTargetMessage(data.value.target, { preferredLocator: "branch" }),
+				"warning",
+			);
 			return;
 		}
 		const prNumber = data.value.target.pr_number;
@@ -179,13 +183,6 @@ async function execPrChecks(options: {
 		schema: previewChecksDataSchema,
 	});
 }
-
-export {
-	checkLogUnavailableReason,
-	githubActionsJobLogArgs,
-	isIncompleteCheck,
-	splitLogLines,
-} from "./preview-check-logs.ts";
 
 function buildPreviewChecksViewModel(
 	data: PreviewChecksData,

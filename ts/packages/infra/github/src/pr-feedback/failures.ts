@@ -49,11 +49,9 @@ export function failureFromStartup(
 	};
 }
 
-export type GithubPrFeedbackFailureContextFields = GithubPrFeedbackCursorContextFields;
-
 export function failureContextFields(
-	context: GithubPrFeedbackFailureContextFields,
-): GithubPrFeedbackFailureContextFields {
+	context: GithubPrFeedbackCursorContextFields,
+): GithubPrFeedbackCursorContextFields {
 	return {
 		...(context.prNumber === undefined ? {} : { prNumber: context.prNumber }),
 		...(context.threadId === undefined ? {} : { threadId: context.threadId }),
@@ -64,7 +62,7 @@ export function failureContextFields(
 export function failureFromCompleted(
 	run: Extract<RunGitHubCliResult, { readonly type: "completed" }>,
 	operation: GithubPrFeedbackOperation,
-	context: GithubPrFeedbackFailureContextFields = {},
+	context: GithubPrFeedbackCursorContextFields = {},
 ): GithubPrFeedbackFailure {
 	return failureFromMessage({
 		code: "github_pr_feedback_gh_failed",

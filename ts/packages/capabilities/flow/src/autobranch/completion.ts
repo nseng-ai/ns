@@ -1,6 +1,6 @@
 import type { CommandResult } from "./shared.ts";
 
-const GIT_STATUS_TIMEOUT_MS = 30_000;
+export const AUTOBRANCH_GIT_TIMEOUT_MS = 30_000;
 
 export const AUTOBRANCH_CLEAN_WORKTREE_LINE = "Working directory is clean.";
 export const DIRTY_AUTOBRANCH_WORKTREE_WARNING =
@@ -24,7 +24,11 @@ export async function summarizeAutobranchCompletion(input: {
 	plan: AutobranchCompletionPlan;
 	dirtyWarning: string;
 }): Promise<AutobranchCompletionSummary> {
-	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_STATUS_TIMEOUT_MS);
+	const cleanliness = await input.exec(
+		"git",
+		["status", "--porcelain=v1"],
+		AUTOBRANCH_GIT_TIMEOUT_MS,
+	);
 	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
 	const suffix = input.plan.hasSuffix ? ` (base slug ${input.plan.baseSlug} was unavailable)` : "";
 	return {

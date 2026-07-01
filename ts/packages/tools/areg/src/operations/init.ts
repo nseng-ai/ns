@@ -29,13 +29,11 @@ import {
 } from "./project-mutations.ts";
 import { renderAregSection, replaceOrAppendAregSection } from "./toml-section.ts";
 
-export { appendBlock, managedBlockBounds } from "./managed-markdown-block.ts";
 export {
 	parseSdlAregAgents,
 	parseLegacyAregJsonAgents,
 	resolveProjectAgents,
 } from "./project-agents.ts";
-export { renderAregSection, replaceOrAppendAregSection } from "./toml-section.ts";
 
 const BOOTSTRAP_REPO = "dagster-io/asdl-tools";
 const BOOTSTRAP_SKILLS = ["skill-management", "skillx"] as const;

@@ -50,6 +50,8 @@ export interface ListSnapshotsOptions {
 
 export type EntryQueryOptions = EntryCoordinate & { at?: string };
 export type EntryWriteOptions = EntryCoordinate & EntryContent;
+export type ListEntriesOptions = Pick<EntryCoordinate, "namespace"> &
+	Partial<Pick<EntryCoordinate, "key" | "branch">>;
 
 export interface GitRemoteConfig {
 	push: readonly string[];
@@ -57,9 +59,7 @@ export interface GitRemoteConfig {
 }
 
 export interface BrmemReadGateway {
-	listEntries(
-		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
-	): Promise<BrmemResult<readonly ListedEntry[]>>;
+	listEntries(options: ListEntriesOptions): Promise<BrmemResult<readonly ListedEntry[]>>;
 
 	getEntry(options: EntryQueryOptions): Promise<BrmemOptionalResult<EntryContent>>;
 

@@ -11,9 +11,12 @@ export interface DroppingOptionsCommandExecApiOptions extends DropExecOptionsFie
 	readonly delegate: CommandExecApi;
 }
 
-export interface RunnerCall {
+export interface CommandCallFields {
 	readonly command: string;
 	readonly args: readonly string[];
+}
+
+export interface RunnerCall extends CommandCallFields {
 	readonly cwd?: string;
 }
 
@@ -27,14 +30,9 @@ export interface ResultFields {
 
 export type StepOptions = ResultFields;
 
-export interface ScriptStep extends ResultFields {
-	readonly command: string;
-	readonly args: readonly string[];
-}
+export type ScriptStep = CommandCallFields & ResultFields;
 
-export interface ScriptedCommandExecCall {
-	readonly command: string;
-	readonly args: readonly string[];
+export interface ScriptedCommandExecCall extends CommandCallFields {
 	readonly options?: ExecOptions;
 }
 
@@ -183,10 +181,7 @@ function copyScriptedCommandExecCall(call: ScriptedCommandExecCall): ScriptedCom
 	};
 }
 
-function copyCommandCallFields(call: {
-	readonly command: string;
-	readonly args: readonly string[];
-}): { readonly command: string; readonly args: string[] } {
+function copyCommandCallFields(call: CommandCallFields): CommandCallFields {
 	return { command: call.command, args: [...call.args] };
 }
 
