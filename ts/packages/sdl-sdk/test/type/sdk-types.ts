@@ -2,6 +2,9 @@ import { defineExtension, failed, ok, z } from "sdl-sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
+	SdlExtensionManifest,
+	SdlExtensionManifestCommand,
+	SdlExtensionPackageManifest,
 	SdlCommandIo,
 	SdlCommandMessageOptions,
 	SdlCommandRequest,
@@ -34,6 +37,17 @@ type CommandRequestChecks = [
 
 const commandRequestChecks: CommandRequestChecks = [true, true];
 const positionalSpec: PositionalSpec = { position: 0 };
+const manifestCommand: SdlExtensionManifestCommand = {
+	name: "changes",
+	path: ["flow", "changes"],
+	description: "Show changes.",
+	entry: "./src/changes.ts",
+};
+const manifest: SdlExtensionManifest = { group: "flow", commands: [manifestCommand] };
+const packageManifest: SdlExtensionPackageManifest = {
+	description: "Flow commands.",
+	sdl: manifest,
+};
 
 // @ts-expect-error name is required by the command schema output
 const missingNameRequest: CommandRequest = { retries: 1 };
@@ -92,6 +106,8 @@ function acceptsExtensionApi(api: SdlExtensionApi): string {
 }
 
 void commandRequestChecks;
+void manifestCommand;
+void packageManifest;
 void missingNameRequest;
 void extension;
 void commandlessExtension;
