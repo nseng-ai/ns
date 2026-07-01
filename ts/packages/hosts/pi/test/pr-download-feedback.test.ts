@@ -256,6 +256,19 @@ describe("/pr:download-feedback", () => {
 		expect(pi.userMessages).toEqual([]);
 	});
 
+	test("nonzero empty output reports stderr and leaves editor text unchanged", async () => {
+		const pi = new FakePi(execResult({ stdout: "", stderr: "extension load failed", code: 2 }));
+
+		const ctx = await runCommand(pi);
+
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "download-feedback failed: extension load failed",
+			level: "error",
+		});
+		expect(pi.userMessages).toEqual([]);
+	});
+
 	test("malformed output reports an error and leaves editor text unchanged", async () => {
 		const pi = new FakePi(execResult({ stdout: "not json", stderr: "boom", code: 2 }));
 

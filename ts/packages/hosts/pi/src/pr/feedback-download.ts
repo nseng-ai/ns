@@ -98,10 +98,10 @@ export async function downloadPrFeedback(
 		return { type: "error", message: "download-feedback timed out." };
 	}
 	if (result.code !== 0 && options.shouldAllowFailureData !== true) {
-		return {
-			type: "error",
-			message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
-		};
+		return downloadFeedbackFailed(result);
+	}
+	if (result.code !== 0 && result.stdout.trim() === "") {
+		return downloadFeedbackFailed(result);
 	}
 
 	const envelopeData = parseDownloadFeedbackEnvelopeData(
@@ -112,6 +112,13 @@ export async function downloadPrFeedback(
 	const parsedData = parseDownloadFeedbackData(envelopeData.data);
 	if (parsedData.type === "invalid") return { type: "error", message: parsedData.message };
 	return { type: "ok", data: parsedData.data, exitCode: result.code };
+}
+
+function downloadFeedbackFailed(result: ExecResult): { type: "error"; message: string } {
+	return {
+		type: "error",
+		message: `download-feedback failed: ${result.stderr.trim() || `exit code ${result.code}`}`,
+	};
 }
 
 function parseDownloadFeedbackEnvelopeData(

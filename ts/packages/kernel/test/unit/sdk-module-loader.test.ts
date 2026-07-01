@@ -82,6 +82,13 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	);
 	expect(typeof modelSlugModule.deriveSlugWithModel).toBe("function");
 
+	const addressDownloadFeedbackModule = await jiti.import<{
+		default: { commands?: readonly { name: string }[] };
+	}>("@sdl/address/sdl/commands/exec-download-feedback");
+	expect(addressDownloadFeedbackModule.default.commands?.map((command) => command.name)).toEqual([
+		"exec-download-feedback",
+	]);
+
 	const aretroCollectEvidenceModule = await jiti.import<{
 		aretroExecCollectEvidenceSdlCommand: { name: string };
 	}>("@sdl/aretro/sdl/commands/exec-collect-evidence");

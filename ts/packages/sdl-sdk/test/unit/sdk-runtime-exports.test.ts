@@ -10,6 +10,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"noopSdlCommandIo",
 	"noopSdlProgress",
 	"normalizeTextOutput",
+	"repoLocalSdlCommandDescriptor",
 	"ok",
 	"stripOuterCodeFence",
 	"trimOuterBlankLines",
@@ -41,5 +42,28 @@ describe("sdl-sdk runtime exports", () => {
 	test("defineRepoLocalSdlExtensionDescriptor preserves the descriptor object at runtime", () => {
 		const descriptor = { group: "example", description: "Example.", commands: [] };
 		expect(sdk.defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
+	});
+
+	test("repoLocalSdlCommandDescriptor derives manifest and package paths", () => {
+		const command = {
+			name: "list",
+			summary: "List things.",
+			description: "List things.",
+			run: () => sdk.ok("done"),
+		} satisfies sdk.SdlCommand;
+
+		expect(
+			sdk.repoLocalSdlCommandDescriptor({
+				command,
+				manifestPath: ["review", "list"],
+				packageExportPrefix: "@sdl/example/commands",
+			}),
+		).toEqual({
+			command,
+			manifestName: "review-list",
+			manifestPath: ["review", "list"],
+			manifestEntry: "./src/commands/review-list.ts",
+			packageExport: "@sdl/example/commands/review-list",
+		});
 	});
 });

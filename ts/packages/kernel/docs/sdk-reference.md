@@ -87,6 +87,36 @@ export default defineExtension({});
 
 ---
 
+## Repo-local extension descriptors
+
+### `repoLocalSdlCommandDescriptor()`
+
+Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module.
+
+```ts
+function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
+```
+
+`packageExportPrefix` is joined with the derived manifest command name. For flat commands the name is `command.name`; for nested manifest paths it is `manifestPath.join("-")`, so a command exposed at `path: ["review", "list"]` derives `review-list` for the compatibility name, shim, and package export.
+
+```ts
+import { repoLocalSdlCommandDescriptor } from "sdl-sdk";
+
+const descriptor = repoLocalSdlCommandDescriptor({
+  command: reviewListCommand,
+  manifestPath: ["review", "list"],
+  packageExportPrefix: "@sdl/roaster/commands",
+});
+// manifestEntry: "./src/commands/review-list.ts"
+// packageExport: "@sdl/roaster/commands/review-list"
+```
+
+### `defineRepoLocalSdlExtensionDescriptor()`
+
+Declares the package-owned descriptor that parity tests compare against a checked-in repo-local extension manifest. It returns its argument unchanged.
+
+---
+
 ## Commands
 
 ### `SdlCommand`

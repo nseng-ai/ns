@@ -1,7 +1,6 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { z } from "zod";
 
 import { addressRepoLocalSdlExtension } from "@sdl/address/repo-local-sdl-extension";
 import { aretroRepoLocalSdlExtension } from "@sdl/aretro/repo-local-sdl-extension";
@@ -14,31 +13,23 @@ import type {
 	RepoLocalSdlExtensionCommandDescriptor,
 	RepoLocalSdlExtensionDescriptor,
 } from "sdl-sdk";
+import {
+	discoverSdlPackageCommands,
+	type DiscoveredExtensionCommand,
+} from "../../src/extension-discovery.ts";
 
 interface NormalizedManifestCommand {
-	readonly name?: string;
+	readonly name: string;
 	readonly path?: readonly string[];
 	readonly description: string;
 	readonly entry: string;
 }
 
-const repoLocalExtensionManifestSchema = z.object({
-	sdl: z.object({
-		description: z.string(),
-		group: z.string(),
-		commands: z.array(
-			z.object({
-				name: z.string().optional(),
-				path: z.array(z.string()).optional(),
-				description: z.string(),
-				entry: z.string(),
-			}),
-		),
-	}),
-});
-
-type RepoLocalExtensionManifest = z.infer<typeof repoLocalExtensionManifestSchema>;
-type RepoLocalExtensionManifestCommand = RepoLocalExtensionManifest["sdl"]["commands"][number];
+interface DiscoveredManifest {
+	readonly group: string;
+	readonly description: string;
+	readonly commands: readonly DiscoveredExtensionCommand[];
+}
 
 const REPO_LOCAL_EXTENSION_ROOT = "../.sdl/extensions";
 const REPO_LOCAL_EXTENSION_DESCRIPTORS = [
@@ -78,12 +69,12 @@ describe("repo-local SDL extension manifest parity", () => {
 
 	for (const descriptor of REPO_LOCAL_EXTENSION_DESCRIPTORS) {
 		test(`${descriptor.group} manifest matches its package-owned descriptor`, async () => {
-			const manifest = await readManifest(descriptor.group);
-			expect(manifest.sdl.group).toBe(descriptor.group);
-			expect(manifest.sdl.description).toBe(descriptor.description);
+			const manifest = readDiscoveredManifest(descriptor.group);
+			expect(manifest.group).toBe(descriptor.group);
+			expect(manifest.description).toBe(descriptor.description);
 
 			const actualCommands = sortCommands(
-				manifest.sdl.commands.map((command) => normalizeManifestCommand(command)),
+				manifest.commands.map((command) => normalizeDiscoveredCommand(descriptor.group, command)),
 			);
 			const expectedCommands = sortCommands(
 				descriptor.commands.map((command) => normalizeDescriptorCommand(command)),
@@ -91,7 +82,7 @@ describe("repo-local SDL extension manifest parity", () => {
 
 			assertNoDuplicateValues(
 				`${descriptor.group} manifest compatibility names`,
-				manifest.sdl.commands.flatMap((command) => command.name ?? []),
+				actualCommands.map((command) => command.name),
 			);
 			assertNoDuplicateValues(
 				`${descriptor.group} manifest user-facing routes`,
@@ -107,36 +98,69 @@ describe("repo-local SDL extension manifest parity", () => {
 	}
 });
 
-async function readManifest(group: string): Promise<RepoLocalExtensionManifest> {
-	const manifestText = await readFile(
-		path.join(REPO_LOCAL_EXTENSION_ROOT, group, "package.json"),
-		"utf8",
-	);
-	return repoLocalExtensionManifestSchema.parse(JSON.parse(manifestText));
+function readDiscoveredManifest(group: string): DiscoveredManifest {
+	const packageDir = path.join(REPO_LOCAL_EXTENSION_ROOT, group);
+	const result = discoverSdlPackageCommands(REPO_LOCAL_EXTENSION_ROOT, packageDir);
+	if (result.diagnostics.length > 0) {
+		throw new Error(
+			[
+				`${group} repo-local SDL manifest discovery failed.`,
+				...result.diagnostics.map((diagnostic) => diagnostic.message),
+			].join("\n"),
+		);
+	}
+	if (result.commands.length === 0) {
+		throw new Error(`${group} repo-local SDL manifest did not discover any commands.`);
+	}
+	assertDiscoveredGroup(group, result.commands);
+	return {
+		group,
+		description: result.commands[0]?.groupDescription ?? "",
+		commands: result.commands,
+	};
 }
 
-function normalizeManifestCommand(
-	command: RepoLocalExtensionManifestCommand,
+function normalizeDiscoveredCommand(
+	group: string,
+	command: DiscoveredExtensionCommand,
 ): NormalizedManifestCommand {
 	return {
-		...(command.name === undefined ? {} : { name: command.name }),
-		...(command.path === undefined ? {} : { path: command.path }),
+		name: command.name,
+		...(command.segments === undefined ? {} : { path: manifestPathFromSegments(group, command) }),
 		description: command.description,
-		entry: command.entry,
+		entry: `./${path.relative(path.join(REPO_LOCAL_EXTENSION_ROOT, group), command.entryPath)}`,
 	};
 }
 
 function normalizeDescriptorCommand(
 	command: RepoLocalSdlExtensionCommandDescriptor,
 ): NormalizedManifestCommand {
-	const name =
-		command.manifestName ?? (command.manifestPath === undefined ? command.command.name : undefined);
+	const name = command.manifestName ?? command.command.name;
 	return {
-		...(name === undefined ? {} : { name }),
+		name,
 		...(command.manifestPath === undefined ? {} : { path: command.manifestPath }),
 		description: command.command.summary,
 		entry: command.manifestEntry,
 	};
+}
+
+function assertDiscoveredGroup(
+	group: string,
+	commands: readonly DiscoveredExtensionCommand[],
+): void {
+	for (const command of commands) {
+		expect(command.group).toBe(group);
+		expect(command.groupDescription).toBeDefined();
+	}
+}
+
+function manifestPathFromSegments(
+	group: string,
+	command: DiscoveredExtensionCommand,
+): readonly string[] {
+	const segments = command.segments;
+	if (segments === undefined) return [];
+	return segments[0] === group ? segments.slice(1) : segments;
 }
 
 function sortCommands(commands: readonly NormalizedManifestCommand[]): NormalizedManifestCommand[] {

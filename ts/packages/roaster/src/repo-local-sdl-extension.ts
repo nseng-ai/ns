@@ -1,4 +1,4 @@
-import { defineRepoLocalSdlExtensionDescriptor } from "sdl-sdk";
+import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
 
 import { roasterExecPublishFindingsCommand } from "./commands/exec-publish-findings.ts";
 import { roasterExecRecordFindingsCommand } from "./commands/exec-record-findings.ts";
@@ -12,50 +12,38 @@ export const roasterRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescripto
 	group: "roaster",
 	description: "Run configured code review roasters and publish findings.",
 	commands: [
-		{
+		repoLocalSdlCommandDescriptor({
 			command: roasterReviewListCommand,
-			manifestName: "review-list",
 			manifestPath: ["review", "list"],
-			manifestEntry: "./src/commands/review-list.ts",
-			packageExport: "@sdl/roaster/commands/review-list",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterReviewLsCommand,
-			manifestName: "review-ls",
 			manifestPath: ["review", "ls"],
-			manifestEntry: "./src/commands/review-ls.ts",
-			packageExport: "@sdl/roaster/commands/review-ls",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterReviewLogCommand,
-			manifestName: "review-log",
 			manifestPath: ["review", "log"],
-			manifestEntry: "./src/commands/review-log.ts",
-			packageExport: "@sdl/roaster/commands/review-log",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterReviewRunCommand,
-			manifestName: "review-run",
 			manifestPath: ["review", "run"],
-			manifestEntry: "./src/commands/review-run.ts",
-			packageExport: "@sdl/roaster/commands/review-run",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterExecRecordFindingsCommand,
-			manifestEntry: "./src/commands/exec-record-findings.ts",
-			packageExport: "@sdl/roaster/commands/exec-record-findings",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterExecPublishFindingsCommand,
-			manifestEntry: "./src/commands/exec-publish-findings.ts",
-			packageExport: "@sdl/roaster/commands/exec-publish-findings",
-		},
-		{
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
+		repoLocalSdlCommandDescriptor({
 			command: roasterRoastListCommand,
-			manifestName: "roast-list",
 			manifestPath: ["roast", "list"],
-			manifestEntry: "./src/commands/roast-list.ts",
-			packageExport: "@sdl/roaster/commands/roast-list",
-		},
+			packageExportPrefix: "@sdl/roaster/commands",
+		}),
 	],
 });

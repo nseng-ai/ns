@@ -11,6 +11,7 @@ import {
 	defineRepoLocalSdlExtensionDescriptor,
 	failed,
 	noopSdlCommandIo,
+	repoLocalSdlCommandDescriptor,
 	noopSdlProgress,
 	normalizeTextOutput,
 	ok,
@@ -35,6 +36,7 @@ const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
 const GIT_SPECIFIER = "@sdl/git";
+const ADDRESS_PACKAGE_NAME = "@sdl/address";
 const ARETRO_PACKAGE_NAME = "@sdl/aretro";
 const BRANCH_CONTEXT_PACKAGE_NAME = "@sdl/branch-context";
 const HANDOFF_PACKAGE_NAME = "@sdl/handoff";
@@ -45,6 +47,8 @@ const ROASTER_PACKAGE_NAME = "@sdl/roaster";
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
 const CAPABILITY_KIT_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "sdl-capability-kit", "src");
+const ADDRESS_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "address");
+const ADDRESS_PACKAGE_JSON_PATH = join(ADDRESS_PACKAGE_DIR, "package.json");
 const ARETRO_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "aretro");
 const ARETRO_PACKAGE_JSON_PATH = join(ARETRO_PACKAGE_DIR, "package.json");
 const BRANCH_CONTEXT_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "branch-context");
@@ -101,22 +105,62 @@ function buildModuleAliasMap(
 	);
 }
 
-function buildAretroCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
+const SDL_COMMAND_EXPORT_PREFIX = "./sdl/commands/";
+
+const PACKAGE_COMMAND_ALIAS_SOURCES = [
+	{
+		packageName: ADDRESS_PACKAGE_NAME,
+		packageDir: ADDRESS_PACKAGE_DIR,
+		packageJsonPath: ADDRESS_PACKAGE_JSON_PATH,
+		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+	},
+	{
 		packageName: ARETRO_PACKAGE_NAME,
 		packageDir: ARETRO_PACKAGE_DIR,
 		packageJsonPath: ARETRO_PACKAGE_JSON_PATH,
-		exportPrefix: "./sdl/commands/",
-	});
-}
-
-function buildBranchContextCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
+		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+	},
+	{
 		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
 		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
 		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
-		exportPrefix: "./sdl/commands/",
-	});
+		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+	},
+	{
+		packageName: HANDOFF_PACKAGE_NAME,
+		packageDir: HANDOFF_PACKAGE_DIR,
+		packageJsonPath: HANDOFF_PACKAGE_JSON_PATH,
+		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+	},
+	{
+		packageName: OBJECTIVE_PACKAGE_NAME,
+		packageDir: OBJECTIVE_PACKAGE_DIR,
+		packageJsonPath: OBJECTIVE_PACKAGE_JSON_PATH,
+		exportPrefix: SDL_COMMAND_EXPORT_PREFIX,
+	},
+	{
+		packageName: FLOW_PACKAGE_NAME,
+		packageDir: FLOW_PACKAGE_DIR,
+		packageJsonPath: FLOW_PACKAGE_JSON_PATH,
+		exportPrefix: "./commands/",
+	},
+	{
+		packageName: ROASTER_PACKAGE_NAME,
+		packageDir: ROASTER_PACKAGE_DIR,
+		packageJsonPath: ROASTER_PACKAGE_JSON_PATH,
+		exportPrefix: "./commands/",
+	},
+] as const satisfies readonly PackageCommandAliasSource[];
+
+interface PackageCommandAliasSource {
+	packageName: string;
+	packageDir: string;
+	packageJsonPath: string;
+	exportPrefix: string;
+}
+
+function buildPackageCommandAliasSources(): Record<string, string> {
+	return Object.assign({}, ...PACKAGE_COMMAND_ALIAS_SOURCES.map(buildPackageCommandAliases));
 }
 
 function buildBranchContextExtensionAliases(): Record<string, string> {
@@ -125,42 +169,6 @@ function buildBranchContextExtensionAliases(): Record<string, string> {
 		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
 		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
 		exportSubpaths: ["./extension"],
-	});
-}
-
-function buildHandoffCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
-		packageName: HANDOFF_PACKAGE_NAME,
-		packageDir: HANDOFF_PACKAGE_DIR,
-		packageJsonPath: HANDOFF_PACKAGE_JSON_PATH,
-		exportPrefix: "./sdl/commands/",
-	});
-}
-
-function buildObjectiveCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
-		packageName: OBJECTIVE_PACKAGE_NAME,
-		packageDir: OBJECTIVE_PACKAGE_DIR,
-		packageJsonPath: OBJECTIVE_PACKAGE_JSON_PATH,
-		exportPrefix: "./sdl/commands/",
-	});
-}
-
-function buildFlowCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
-		packageName: FLOW_PACKAGE_NAME,
-		packageDir: FLOW_PACKAGE_DIR,
-		packageJsonPath: FLOW_PACKAGE_JSON_PATH,
-		exportPrefix: "./commands/",
-	});
-}
-
-function buildRoasterCommandAliases(): Record<string, string> {
-	return buildPackageCommandAliases({
-		packageName: ROASTER_PACKAGE_NAME,
-		packageDir: ROASTER_PACKAGE_DIR,
-		packageJsonPath: ROASTER_PACKAGE_JSON_PATH,
-		exportPrefix: "./commands/",
 	});
 }
 
@@ -256,6 +264,7 @@ const sdlSdkVirtualModule = {
 	defineRepoLocalSdlExtensionDescriptor,
 	failed,
 	noopSdlCommandIo,
+	repoLocalSdlCommandDescriptor,
 	noopSdlProgress,
 	normalizeTextOutput,
 	ok,
@@ -284,13 +293,8 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 	return createJiti(import.meta.url, {
 		alias: {
 			...buildInternalWorkspaceAliases(),
-			...buildAretroCommandAliases(),
-			...buildBranchContextCommandAliases(),
-			...buildHandoffCommandAliases(),
+			...buildPackageCommandAliasSources(),
 			...buildBranchContextExtensionAliases(),
-			...buildObjectiveCommandAliases(),
-			...buildFlowCommandAliases(),
-			...buildRoasterCommandAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
