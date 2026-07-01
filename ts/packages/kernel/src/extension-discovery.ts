@@ -236,24 +236,21 @@ function readPackageManifest(packageJsonPath: string): PackageManifestParseResul
 function resolvePackageManifestForBulkDiscovery(
 	packageJsonPath: string,
 ): PackageManifestDiscoveryResolution {
-	const parseResult = readPackageManifest(packageJsonPath);
-	if (parseResult.outcome === "parse-failed") {
-		return {
-			outcome: "unavailable",
-			result: manifestReadFailureResult(parseResult.diagnostic),
-		};
-	}
-	if (parseResult.outcome === "schema-failed") {
-		return {
-			outcome: "unavailable",
-			result: { commands: [], diagnostics: [] },
-		};
-	}
-	return { outcome: "ok", manifest: parseResult.manifest };
+	return resolvePackageManifest(packageJsonPath, () => ({ commands: [], diagnostics: [] }));
 }
 
 function resolvePackageManifestForDirectDiscovery(
 	packageJsonPath: string,
+): PackageManifestDiscoveryResolution {
+	return resolvePackageManifest(packageJsonPath, (issues) => ({
+		commands: [],
+		diagnostics: [manifestStructureDiagnostic(issues, packageJsonPath)],
+	}));
+}
+
+function resolvePackageManifest(
+	packageJsonPath: string,
+	onSchemaFailed: (issues: readonly ZodIssueLike[]) => ExtensionDiscoveryResult,
 ): PackageManifestDiscoveryResolution {
 	const parseResult = readPackageManifest(packageJsonPath);
 	if (parseResult.outcome === "parse-failed") {
@@ -265,10 +262,7 @@ function resolvePackageManifestForDirectDiscovery(
 	if (parseResult.outcome === "schema-failed") {
 		return {
 			outcome: "unavailable",
-			result: {
-				commands: [],
-				diagnostics: [manifestStructureDiagnostic(parseResult.issues, packageJsonPath)],
-			},
+			result: onSchemaFailed(parseResult.issues),
 		};
 	}
 	return { outcome: "ok", manifest: parseResult.manifest };
