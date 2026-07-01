@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { handleCccSlotOpenBranch, type CccSlotOpenBranchOptions } from "@sdl/ccc/api";
 import type { ExtensionAPI } from "@sdl/cmux/types";
 
@@ -15,9 +15,7 @@ export function registerCccSlotOpenBranchCommand(
 			description: "Open an existing Git branch in a new cmux workspace.",
 			argumentHint: "<branch>",
 			handler: async (args, ctx) => {
-				const notifyProgress = (message: string): void => {
-					sendCommandProgressOrNotify({ host: pi, ctx, message });
-				};
+				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
 				await handleCccSlotOpenBranch({
 					pi,
 					args,

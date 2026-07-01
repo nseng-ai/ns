@@ -1,4 +1,5 @@
-import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
+import { optionalEntry } from "@sdl/core/primitives";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import {
 	handleCccSlotDispatchPrompt,
 	type DispatchPromptPayloadOptions,
@@ -21,13 +22,11 @@ export function registerCccSlotDispatchPromptCommand(
 				"Create a Graphite-tracked branch and dispatch a prompt in a new cmux workspace.",
 			argumentHint: "<prompt>",
 			handler: async (args, ctx) => {
-				const notifyProgress = (message: string): void => {
-					sendCommandProgressOrNotify({ host: pi, ctx, message });
-				};
+				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
 				await handleCccSlotDispatchPrompt({
 					pi,
 					payloadOptions,
-					...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+					...optionalEntry("slotClient", options.slotClient),
 					args,
 					ctx,
 					notifyProgress,

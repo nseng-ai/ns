@@ -13,6 +13,7 @@
   "dependencies": {
     "@sdl/ccc": "workspace:*",
     "@sdl/cmux": "workspace:*",
+    "@sdl/core": "workspace:*",
     "@sdl/pi": "workspace:*"
   },
   "devDependencies": {},
