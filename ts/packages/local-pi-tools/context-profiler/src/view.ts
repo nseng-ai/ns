@@ -114,6 +114,21 @@ interface ChatFrame {
 }
 
 type ViewFrame = OverviewFrame | BaseDetailFrame | TurnListFrame | ContentFrame | ChatFrame;
+type ViewFrameType = ViewFrame["type"];
+type FrameInputPriority = "exclusive" | "after-global";
+type ViewFrameFor<TType extends ViewFrameType> = Extract<ViewFrame, { type: TType }>;
+
+interface FrameBehavior<TFrame extends ViewFrame> {
+	inputPriority: FrameInputPriority;
+	titleCrumbs: (view: ProfilerView, frame: TFrame) => string[];
+	meta: (view: ProfilerView, frame: TFrame) => string;
+	body: (view: ProfilerView, frame: TFrame, innerWidth: number, bodyHeight: number) => string[];
+	handleInput: (view: ProfilerView, data: string, frame: TFrame) => void;
+}
+
+type FrameBehaviorMap = {
+	[TType in ViewFrameType]: FrameBehavior<ViewFrameFor<TType>>;
+};
 
 interface ListRow {
 	tokens: TokenCount;
@@ -152,6 +167,107 @@ export class ProfilerView implements Component {
 	private frames: ViewFrame[];
 	private isHelpVisible: boolean;
 	private chatEditor: Editor | null;
+
+	private static readonly frameBehaviors = {
+		overview: {
+			inputPriority: "after-global",
+			titleCrumbs: () => [],
+			meta: (view) => formatUsage(view.profile.usage),
+			body: (view, frame, innerWidth, bodyHeight) =>
+				view.renderOverviewBody(frame, innerWidth, bodyHeight),
+			handleInput: (view, data, frame) => view.handleOverviewInput(data, frame),
+		},
+		"base-detail": {
+			inputPriority: "after-global",
+			titleCrumbs: (_view, frame) => [frame.region.label],
+			meta: (_view, frame) => formatTokenCountLong(frame.region.tokens),
+			body: (view, frame, innerWidth, bodyHeight) =>
+				view.composeListBody({
+					claim: BASE_DETAIL_CLAIM,
+					rows: frame.members.map(
+						(member): ListRow => ({ tokens: member.tokens, text: member.name }),
+					),
+					state: frame,
+					onReconcile: (next) => view.replaceFrame(frame, { ...frame, ...next }),
+					emptyText: "no base members captured",
+					innerWidth,
+					bodyHeight,
+				}),
+			handleInput: (view, data, frame) =>
+				view.handleListInput({
+					data,
+					selection: frame.selection,
+					count: frame.members.length,
+					lastAreaHeight: frame.lastAreaHeight,
+					onSelectionChange: (selection) => view.replaceFrame(frame, { ...frame, selection }),
+					onEnter: () => view.openMemberContent(frame),
+				}),
+		},
+		"turn-list": {
+			inputPriority: "after-global",
+			titleCrumbs: (view, frame) => [view.resolveTurnList(frame).region.label],
+			meta: (view, frame) => formatTokenCountLong(view.resolveTurnList(frame).region.tokens),
+			body: (view, frame, innerWidth, bodyHeight) => {
+				const { region, turns } = view.resolveTurnList(frame);
+				const delegations = delegationsInSpan(view.currentDelegations(), region.turnRange);
+				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
+				return view.composeListBody({
+					claim: turnListClaim(region, {
+						analysisStatus: view.analysisStatusTextForRegion(region),
+						delegationCount: delegations.length,
+					}),
+					// The opinionated summary renders in full (prompt-steered length, no
+					// renderer truncation); the turn rows scroll beneath it.
+					summaryLines:
+						region.analysisSummary === undefined
+							? []
+							: wrapTextWithAnsi(region.analysisSummary, innerWidth),
+					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
+					rows: turns.map(
+						(turn): ListRow => ({
+							tokens: turn.tokens,
+							text: turnListRowText(turn, delegatingTurns.has(turn.index)),
+						}),
+					),
+					state: frame,
+					onReconcile: (next) => view.replaceFrame(frame, { ...frame, ...next }),
+					emptyText: "no turns in this span",
+					innerWidth,
+					bodyHeight,
+				});
+			},
+			handleInput: (view, data, frame) =>
+				view.handleListInput({
+					data,
+					selection: frame.selection,
+					count: view.resolveTurnList(frame).turns.length,
+					lastAreaHeight: frame.lastAreaHeight,
+					onSelectionChange: (selection) => view.replaceFrame(frame, { ...frame, selection }),
+					onEnter: () => view.openTurnContent(frame),
+				}),
+		},
+		content: {
+			inputPriority: "after-global",
+			titleCrumbs: (_view, frame) => [frame.source.title],
+			meta: (_view, frame) => frame.source.meta,
+			body: (view, frame, innerWidth, bodyHeight) =>
+				view.composeContentBody(frame, innerWidth, bodyHeight),
+			handleInput: (view, data, frame) => view.handleContentInput(data, frame),
+		},
+		chat: {
+			inputPriority: "exclusive",
+			titleCrumbs: () => ["ask"],
+			meta: (_view, frame) =>
+				chatFrameMeta({
+					ordinal:
+						frame.interrogation.type === "ready" ? frame.interrogation.port.bundleOrdinal : null,
+					scope: frame.scope,
+				}),
+			body: (view, frame, innerWidth, bodyHeight) =>
+				view.composeChatBody(frame, innerWidth, bodyHeight),
+			handleInput: (view, data, frame) => view.handleChatInput(data, frame),
+		},
+	} satisfies FrameBehaviorMap;
 
 	constructor(options: ProfilerViewOptions) {
 		this.tui = options.tui;
@@ -204,8 +320,8 @@ export class ProfilerView implements Component {
 
 	handleInput(data: string): void {
 		const top = this.topFrame();
-		if (top.type === "chat") {
-			this.handleChatInput(data, top);
+		if (this.frameInputPriority(top) === "exclusive") {
+			this.handleFrameInput(data, top);
 			return;
 		}
 		if (matchesKey(data, Key.escape)) {
@@ -241,35 +357,7 @@ export class ProfilerView implements Component {
 			this.requestRender();
 			return;
 		}
-		const frame = this.topFrame();
-		switch (frame.type) {
-			case "overview":
-				this.handleOverviewInput(data, frame);
-				return;
-			case "base-detail":
-				this.handleListInput({
-					data,
-					selection: frame.selection,
-					count: frame.members.length,
-					lastAreaHeight: frame.lastAreaHeight,
-					onSelectionChange: (selection) => this.replaceFrame(frame, { ...frame, selection }),
-					onEnter: () => this.openMemberContent(frame),
-				});
-				return;
-			case "turn-list":
-				this.handleListInput({
-					data,
-					selection: frame.selection,
-					count: this.resolveTurnList(frame).turns.length,
-					lastAreaHeight: frame.lastAreaHeight,
-					onSelectionChange: (selection) => this.replaceFrame(frame, { ...frame, selection }),
-					onEnter: () => this.openTurnContent(frame),
-				});
-				return;
-			case "content":
-				this.handleContentInput(data, frame);
-				return;
-		}
+		this.handleFrameInput(data, this.topFrame());
 	}
 
 	invalidate(): void {}
@@ -345,93 +433,53 @@ export class ProfilerView implements Component {
 	}
 
 	private breadcrumbTitle(): string {
-		const crumbs = this.frames.flatMap((frame): string[] => {
-			switch (frame.type) {
-				case "overview":
-					return [];
-				case "base-detail":
-					return [frame.region.label];
-				case "turn-list":
-					return [this.resolveTurnList(frame).region.label];
-				case "content":
-					return [frame.source.title];
-				case "chat":
-					return ["ask"];
-			}
-		});
+		const crumbs = this.frames.flatMap((frame): string[] =>
+			this.withFrameBehavior(frame, (behavior, selectedFrame) =>
+				behavior.titleCrumbs(this, selectedFrame),
+			),
+		);
 		return ["context profiler", ...crumbs].join(" › ");
 	}
 
 	private frameMeta(frame: ViewFrame): string {
-		switch (frame.type) {
-			case "overview":
-				return formatUsage(this.profile.usage);
-			case "base-detail":
-				return formatTokenCountLong(frame.region.tokens);
-			case "turn-list":
-				return formatTokenCountLong(this.resolveTurnList(frame).region.tokens);
-			case "content":
-				return frame.source.meta;
-			case "chat":
-				return chatFrameMeta({
-					ordinal:
-						frame.interrogation.type === "ready" ? frame.interrogation.port.bundleOrdinal : null,
-					scope: frame.scope,
-				});
-		}
+		return this.withFrameBehavior(frame, (behavior, selectedFrame) =>
+			behavior.meta(this, selectedFrame),
+		);
 	}
 
 	private renderFrameBody(frame: ViewFrame, width: number, height: number): string[] {
 		const innerWidth = frameInnerWidth(width);
 		const bodyHeight = Math.max(3, height - 2);
+		return this.withFrameBehavior(frame, (behavior, selectedFrame) =>
+			behavior.body(this, selectedFrame, innerWidth, bodyHeight),
+		);
+	}
+
+	private frameInputPriority(frame: ViewFrame): FrameInputPriority {
+		return this.withFrameBehavior(frame, (behavior) => behavior.inputPriority);
+	}
+
+	private handleFrameInput(data: string, frame: ViewFrame): void {
+		this.withFrameBehavior(frame, (behavior, selectedFrame) =>
+			behavior.handleInput(this, data, selectedFrame),
+		);
+	}
+
+	private withFrameBehavior<R>(
+		frame: ViewFrame,
+		use: <TFrame extends ViewFrame>(behavior: FrameBehavior<TFrame>, frame: TFrame) => R,
+	): R {
 		switch (frame.type) {
 			case "overview":
-				return this.renderOverviewBody(frame, innerWidth, bodyHeight);
+				return use(ProfilerView.frameBehaviors.overview, frame);
 			case "base-detail":
-				return this.composeListBody({
-					claim: BASE_DETAIL_CLAIM,
-					rows: frame.members.map(
-						(member): ListRow => ({ tokens: member.tokens, text: member.name }),
-					),
-					state: frame,
-					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
-					emptyText: "no base members captured",
-					innerWidth,
-					bodyHeight,
-				});
-			case "turn-list": {
-				const { region, turns } = this.resolveTurnList(frame);
-				const delegations = delegationsInSpan(this.currentDelegations(), region.turnRange);
-				const delegatingTurns = new Set(delegations.map((claim) => claim.turn));
-				return this.composeListBody({
-					claim: turnListClaim(region, {
-						analysisStatus: this.analysisStatusTextForRegion(region),
-						delegationCount: delegations.length,
-					}),
-					// The opinionated summary renders in full (prompt-steered length, no
-					// renderer truncation); the turn rows scroll beneath it.
-					summaryLines:
-						region.analysisSummary === undefined
-							? []
-							: wrapTextWithAnsi(region.analysisSummary, innerWidth),
-					headerLines: delegations.length === 0 ? [] : [delegationSummaryLine(delegations)],
-					rows: turns.map(
-						(turn): ListRow => ({
-							tokens: turn.tokens,
-							text: turnListRowText(turn, delegatingTurns.has(turn.index)),
-						}),
-					),
-					state: frame,
-					onReconcile: (next) => this.replaceFrame(frame, { ...frame, ...next }),
-					emptyText: "no turns in this span",
-					innerWidth,
-					bodyHeight,
-				});
-			}
+				return use(ProfilerView.frameBehaviors["base-detail"], frame);
+			case "turn-list":
+				return use(ProfilerView.frameBehaviors["turn-list"], frame);
 			case "content":
-				return this.composeContentBody(frame, innerWidth, bodyHeight);
+				return use(ProfilerView.frameBehaviors.content, frame);
 			case "chat":
-				return this.composeChatBody(frame, innerWidth, bodyHeight);
+				return use(ProfilerView.frameBehaviors.chat, frame);
 		}
 	}
 
