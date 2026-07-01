@@ -13,7 +13,7 @@ import {
 	type RenderCapabilities,
 } from "@sdl/clinkr";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import { z } from "zod";
 
 import type { LoadedBundle } from "./models.ts";
@@ -29,13 +29,7 @@ import { RealVibechkWorkdirGateway } from "./repository.ts";
 import { buildProductionRunnerRegistry, type RunnerRegistry } from "./runners.ts";
 import { generateRunId } from "./ids.ts";
 import { executeRun } from "./workflow.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
-
-export interface CliDeps {
-	cwd?: string;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
+export interface CliDeps extends CliEntrypointDeps {
 	runnerRegistry?: RunnerRegistry;
 	repositoryGatewayFactory?: (workdir: string) => VibechkWorkdirGateway;
 	clock?: () => Date;

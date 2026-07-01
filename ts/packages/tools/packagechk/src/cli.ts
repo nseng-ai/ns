@@ -11,7 +11,7 @@ import {
 	type ClinkrInteraction,
 } from "@sdl/clinkr";
 
-import { defineCli, readStdinLine } from "@sdl/cli-runtime";
+import { defineCli, readStdinLine, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import { z } from "zod";
 
 import {
@@ -154,12 +154,10 @@ const packageCheckReportSchema: z.ZodType<PackageCheckReport> = z.object({
 
 type CheckRequest = z.output<typeof checkRequestSchema>;
 
-export interface CliDeps {
+export interface CliDeps extends Pick<CliEntrypointDeps, "stdout" | "stderr"> {
 	registryGateway?: PackageRegistryGateway;
 	pypiPublishGateway?: PypiPublishGateway;
 	npmPublishGateway?: NpmPublishGateway;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 	stdin?: () => Promise<string | null>;
 	interaction?: ClinkrInteraction;
 }

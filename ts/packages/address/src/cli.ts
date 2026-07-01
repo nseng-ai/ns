@@ -1,21 +1,15 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli, readStdin } from "@sdl/cli-runtime";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@sdl/cli-runtime";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
-
-export interface CliDeps {
+export interface CliDeps extends CliEntrypointDeps {
 	context?: PrAddressContext;
 	operations?: readonly ExecOperation[];
-	cwd?: string;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	stdin?: () => Promise<string>;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 }
 
 const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>({

@@ -1,3 +1,4 @@
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import type {
 	SdlCommandIo,
 	SdlCommandMessageOptions,
@@ -64,14 +65,16 @@ export function createCliCommandIo(
 	input: CliCommandIoInput,
 	options: CliCommandIoOptions = {},
 ): SdlCommandIo {
+	const onOutput = input.onOutput;
 	const io = createCommandIo({
-		...(input.onOutput === undefined
-			? {}
-			: { phaseTransient: (text: string) => input.onOutput?.("stderr", text) }),
-		...(input.stderr === undefined ? {} : { phaseFallback: input.stderr }),
-		...(input.stdout === undefined ? {} : { notifyInfo: input.stdout }),
-		...(input.stderr === undefined ? {} : { notifyDiagnostic: input.stderr }),
-		...(options.shouldSuppress === undefined ? {} : { shouldSuppress: options.shouldSuppress }),
+		...optionalEntries({
+			phaseTransient:
+				onOutput === undefined ? undefined : (text: string) => onOutput("stderr", text),
+			phaseFallback: input.stderr,
+			notifyInfo: input.stdout,
+			notifyDiagnostic: input.stderr,
+			shouldSuppress: options.shouldSuppress,
+		}),
 	});
 
 	const onNotifyError = options.onNotifyError;
@@ -119,7 +122,7 @@ export function createCommandIo(channels: CommandIoChannels): SdlCommandIo {
 		if (channels.richMessage !== undefined) {
 			channels.richMessage(text, {
 				level,
-				...(options.details === undefined ? {} : { details: options.details }),
+				...optionalEntry("details", options.details),
 			});
 			return;
 		}
@@ -140,11 +143,7 @@ export function commandIoFromSdlExtensionApi(
 ): SdlCommandIo {
 	if (options.shouldSuppress === undefined) return ctx.commandIo;
 	return createCliCommandIo(
-		{
-			...(ctx.stdout === undefined ? {} : { stdout: ctx.stdout }),
-			...(ctx.stderr === undefined ? {} : { stderr: ctx.stderr }),
-			...(ctx.onOutput === undefined ? {} : { onOutput: ctx.onOutput }),
-		},
+		optionalEntries({ stdout: ctx.stdout, stderr: ctx.stderr, onOutput: ctx.onOutput }),
 		{ shouldSuppress: options.shouldSuppress },
 	);
 }

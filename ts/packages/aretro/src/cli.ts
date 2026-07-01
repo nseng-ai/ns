@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
 import {
@@ -62,12 +61,8 @@ const entry = defineCli<AretroCliContext, CliDeps, undefined>({
 
 export const VERSION = entry.version;
 
-export interface CliDeps {
+export interface CliDeps extends CliEntrypointDeps {
 	context?: AretroCliContext;
-	cwd?: string;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 }
 
 export function buildCli(): ClinkrGroup<AretroCliContext> {

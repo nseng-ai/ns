@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { isPathInside, isRecord } from "@sdl/core/primitives";
+import { isPathInside, isRecord, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -693,7 +693,7 @@ function diagnosticLocation(
 ): { path: string; commandName?: string } {
 	return {
 		path,
-		...(commandName === undefined ? {} : { commandName }),
+		...optionalEntry("commandName", commandName),
 	};
 }
 
@@ -706,7 +706,6 @@ function diagnostic(
 		severity: "error",
 		code,
 		message,
-		...(options.path === undefined ? {} : { path: options.path }),
-		...(options.commandName === undefined ? {} : { commandName: options.commandName }),
+		...optionalEntries({ path: options.path, commandName: options.commandName }),
 	};
 }

@@ -3,7 +3,12 @@
 import { resolve } from "node:path";
 
 import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, readStdin, runOperationCommand } from "@sdl/cli-runtime";
+import {
+	defineCli,
+	readStdin,
+	runOperationCommand,
+	type CliEntrypointDeps,
+} from "@sdl/cli-runtime";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
@@ -70,12 +75,9 @@ interface NoSavedPlanData {
 
 type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
 
-export interface CliDeps {
+export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
 	git?: GitGateway;
-	cwd?: string;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 	stdin?: () => Promise<string>;
 	planStoreRoot?: string;
 	planStoreGateway?: PlanStoreGateway;

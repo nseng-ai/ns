@@ -1,3 +1,4 @@
+import { optionalEntries } from "@sdl/core/primitives";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -10,11 +11,13 @@ import { noopSdlProgress } from "sdl-sdk";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
-	const commandIo = createCliCommandIo({
-		...(overrides.stdout === undefined ? {} : { stdout: overrides.stdout }),
-		...(overrides.stderr === undefined ? {} : { stderr: overrides.stderr }),
-		...(overrides.onOutput === undefined ? {} : { onOutput: overrides.onOutput }),
-	});
+	const commandIo = createCliCommandIo(
+		optionalEntries({
+			stdout: overrides.stdout,
+			stderr: overrides.stderr,
+			onOutput: overrides.onOutput,
+		}),
+	);
 	return {
 		cwd: "/repo",
 		env: {},

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 
 import { createRealAregContext, type AregCliContext } from "./context.ts";
 import {
@@ -20,13 +20,10 @@ import {
 	updateSkillsResultSchema,
 } from "./operations/update-skills.ts";
 
-export interface CliDeps {
+export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	context?: AregCliContext;
 	interaction?: AregCliContext["interaction"];
-	cwd?: string;
 	env?: NodeJS.ProcessEnv;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 }
 
 const entry = defineCli<AregCliContext, CliDeps, undefined>({
