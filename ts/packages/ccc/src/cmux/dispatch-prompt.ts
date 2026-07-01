@@ -16,7 +16,7 @@ import {
 	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
 } from "@sdl/core/command";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 import {
 	generateBranchSlug,
@@ -108,7 +108,7 @@ export async function handleCccSlotDispatchPrompt(
 		content: buildLaunchPrompt(prompt),
 		description: `dispatch-prompt from ${branch.parentBranch}`,
 		payloadOptions,
-		...(options.slotClient === undefined ? {} : { slotClient: options.slotClient }),
+		...optionalEntry("slotClient", options.slotClient),
 		notifyProgress: options.notifyProgress,
 	});
 }

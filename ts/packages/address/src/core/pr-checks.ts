@@ -1,15 +1,10 @@
 import type { GitGateway } from "@sdl/git";
 
-import type {
-	GithubPrFeedbackFailure,
-	GithubPrFeedbackGateway,
-	GithubPrSummary,
-	GithubStatusChecks,
-} from "../api.ts";
+import type { GithubPrFeedbackGateway, GithubPrSummary, GithubStatusChecks } from "../api.ts";
 
-import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
-import { resolvePrTarget } from "./pr-target.ts";
-import { buildPrTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
+import type { GatewayOptions } from "./gateways.ts";
+import { resolvePrTarget, type PrTargetFailureResult } from "./pr-target.ts";
+import { buildPrChecksTargetPayload, type PrTargetPayload } from "./pr-target-payload.ts";
 
 export interface PrChecksCountsPayload {
 	passing: number;
@@ -42,11 +37,7 @@ export interface PrChecksPayload {
 	checks: PrCheckEntryPayload[];
 }
 
-export type PrChecksResult =
-	| { type: "ok"; checks: PrChecksPayload }
-	| { type: "git_failure"; message: string; failure: GatewayFailure }
-	| { type: "pr_feedback_failure"; message: string; failure: GithubPrFeedbackFailure }
-	| { type: "detached_head"; message: string };
+export type PrChecksResult = { type: "ok"; checks: PrChecksPayload } | PrTargetFailureResult;
 
 export interface CollectPrChecksOptions {
 	git: GitGateway;
@@ -100,10 +91,9 @@ function prChecksPayload(options: {
 }): PrChecksPayload {
 	return {
 		found: options.found,
-		target: buildPrTargetPayload({
+		target: buildPrChecksTargetPayload({
 			pr: options.pr,
 			branch: options.branch,
-			includeHeadRefOid: true,
 		}),
 		counts: {
 			passing: options.checks?.counts.passing ?? 0,

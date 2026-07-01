@@ -1,6 +1,6 @@
 import { Feed } from "feed";
-import { title } from "@/geistdocs";
 import { geistdocsConfig } from "@/lib/geistdocs/config";
+import { title } from "@/lib/geistdocs/site-identity";
 import { getPageMetadata, source } from "@/lib/geistdocs/source";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
 

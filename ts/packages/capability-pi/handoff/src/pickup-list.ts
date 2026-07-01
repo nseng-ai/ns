@@ -8,9 +8,9 @@ import {
 	readHandoffArtifact,
 	type HandoffSummary,
 } from "@sdl/handoff/api";
+import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
-import { fencedBlock } from "./markdown-formatting.ts";
 import { setStatus } from "./ui-status.ts";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
 import { HANDOFF_LIST_MESSAGE_TYPE, formatHandoffListPlain } from "./list-rendering.ts";
@@ -214,7 +214,7 @@ Technical locator:
 
 Report the branch and handoff slug picked up, summarize the continuation focus or current state, list proposed immediate next steps from the artifact, and call out any risks, stale assumptions, or verification needed. Then stop and wait for the user's instruction before running commands, editing files, or continuing implementation. If the artifact is stale or incomplete, do not proceed automatically; summarize what should be verified before work continues.
 
-${fencedBlock("markdown", artifact)}`;
+${buildFencedTextBlock(artifact, "markdown")}`;
 }
 
 export function deriveHandoffPreview(artifact: string): string {

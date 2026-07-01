@@ -8,6 +8,8 @@ import {
 } from "@sdl/pi/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
 import type { ExecResult } from "@sdl/core/command";
+import { formatErrorMessage } from "@sdl/core/primitives";
+import { notifyCommandUi } from "@sdl/pi/commands/helpers";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
@@ -80,20 +82,17 @@ export interface ObjectiveExtensionOptions {
 	createObjectiveClient?: (options: ObjectiveClientOptions) => ObjectiveClient;
 }
 
-interface InvokeObjectiveCreateSkillOptions {
+interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 	pi: ObjectiveExtensionAPI;
 	ctx: CommandContext;
-	spec: ObjectiveCreateCommandSpec;
+	spec: TSpec;
+}
+
+interface InvokeObjectiveCreateSkillOptions extends ObjectiveInvocationContext<ObjectiveCreateCommandSpec> {
 	rawArgs: string;
 }
 
 type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
-
-interface ObjectiveInvocationContext {
-	pi: ObjectiveExtensionAPI;
-	ctx: CommandContext;
-	spec: ObjectiveCommandSpec;
-}
 
 async function invokeObjectiveSkill(
 	invocation: ObjectiveInvocationContext,
@@ -204,10 +203,7 @@ async function handleObjectiveCommand(
 }
 
 function notifyCommandError(ctx: CommandContext, error: unknown): void {
-	const message = error instanceof Error ? error.message : String(error);
-	if (ctx.hasUI) {
-		ctx.ui.notify(message, "error");
-	}
+	notifyCommandUi(ctx, formatErrorMessage(error), "error");
 }
 
 function createObjectiveCommandCompleter(

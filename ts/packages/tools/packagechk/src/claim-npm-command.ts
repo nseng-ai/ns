@@ -34,18 +34,20 @@ export async function runNpmClaimCommand(options: {
 		registryGateway,
 		io,
 		interaction,
-		registry: "npm",
-		registryLabel: "npm",
-		validationError: npmValidationError,
-		prepareProject: prepareNpmClaimProject,
-		ensurePublishToolsAvailable: () => npmPublishGateway.ensurePublishToolsAvailable(),
-		executeProject: async (projectDir) =>
-			await executeNpmClaimProject({
-				projectDir,
-				gateway: npmPublishGateway,
-				io,
-			}),
-		tempDirPrefix: "packagechk-claim-npm-",
+		adapter: {
+			registry: "npm",
+			registryLabel: "npm",
+			validationError: npmValidationError,
+			prepareProject: prepareNpmClaimProject,
+			ensurePublishToolsAvailable: () => npmPublishGateway.ensurePublishToolsAvailable(),
+			executeProject: async (projectDir) =>
+				await executeNpmClaimProject({
+					projectDir,
+					gateway: npmPublishGateway,
+					io,
+				}),
+			tempDirPrefix: "packagechk-claim-npm-",
+		},
 	});
 }
 

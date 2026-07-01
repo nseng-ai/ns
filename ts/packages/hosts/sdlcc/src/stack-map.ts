@@ -281,7 +281,7 @@ export function planStackMapCmuxActivation(
 
 	const targets = branch.cmuxTabs;
 	const slot = branch.slots[0];
-	if (targets.length === 0) return openNewCmuxTarget(branch.name, slot);
+	if (targets.length === 0) return buildOpenNewCmuxEntry(branch.name, slot);
 	if (targets.length === 1) {
 		const target = targets[0];
 		return target === undefined
@@ -303,11 +303,11 @@ export function choicesForCmuxActivationPlan(
 	if (plan.type !== "choose-tab") return [];
 	return [
 		...plan.targets.map((target): StackMapCmuxChoice => ({ type: "tab", target })),
-		openNewCmuxTarget(plan.branch, plan.slot),
+		buildOpenNewCmuxEntry(plan.branch, plan.slot),
 	];
 }
 
-export function openNewCmuxTarget(
+export function buildOpenNewCmuxEntry(
 	branch: string,
 	slot: StackMapSlotAssignment | undefined,
 ): Extract<StackMapCmuxActivationPlan, { type: "open-new" }> {

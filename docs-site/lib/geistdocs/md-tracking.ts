@@ -1,5 +1,5 @@
 import type { TrackMarkdownRequestEvent } from "@vercel/geistdocs/proxy";
-import { siteId } from "@/geistdocs";
+import { siteId } from "./site-identity";
 
 const PLATFORM_URL = "https://geistdocs.com/md-tracking";
 

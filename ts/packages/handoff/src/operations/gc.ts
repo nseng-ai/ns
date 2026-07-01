@@ -152,9 +152,8 @@ function gcBody(result: GcResult, candidates: readonly GcResultEntry[]): string 
 	if (result.cancelled) lines.push("No handoffs were deleted.");
 	for (const entry of candidates) {
 		const suffix = entry.message === null ? "" : `: ${entry.message}`;
-		lines.push(
-			`${formatGcAction(entry.action)} ${entry.branchState} ${entry.branch} ${entry.slug}${suffix}`,
-		);
+		const actionLabel = deletedBranchGarbageCollectionMetadataForWireAction(entry.action).label;
+		lines.push(`${actionLabel} ${entry.branchState} ${entry.branch} ${entry.slug}${suffix}`);
 	}
 	if (lines.length > 0) lines.push("");
 	lines.push(summaryLine(result));
@@ -163,8 +162,4 @@ function gcBody(result: GcResult, candidates: readonly GcResultEntry[]): string 
 
 function summaryLine(result: GcResult): string {
 	return `Would delete ${result.wouldDeleteCount}; deleted ${result.deletedCount}; kept ${result.keptCount}; errors ${result.errorCount}`;
-}
-
-function formatGcAction(action: GcAction): string {
-	return deletedBranchGarbageCollectionMetadataForWireAction(action).label;
 }

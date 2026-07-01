@@ -466,7 +466,7 @@ function sampleSession(repoRoot: string): ParsedSession {
 			repo_root: repoRoot,
 			cwd: repoRoot,
 			branch: null,
-			confidence: "repo_cwd",
+			confidence: "repo-cwd",
 			evidence: ["query.repo_root", "session_header.cwd"],
 		},
 		message_counts: {
@@ -517,7 +517,7 @@ function evidenceSession(repoRoot: string): ParsedSession {
 			repo_root: repoRoot,
 			cwd: repoRoot,
 			branch: null,
-			confidence: "repo_cwd",
+			confidence: "repo-cwd",
 			evidence: ["query.repo_root", "session_header.cwd"],
 		},
 		message_counts: {

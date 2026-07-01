@@ -5,6 +5,7 @@ import type {
 	AutocompleteItem,
 	CommandContext,
 	CustomMessage,
+	MessageRenderer,
 	RenderComponent,
 	RenderTheme,
 } from "@sdl/pi/runtime/extension-types";
@@ -56,12 +57,6 @@ interface CodeWorkflowsExtensionAPI {
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string): Promise<void> | void;
 }
-
-type MessageRenderer = (
-	message: CustomMessage,
-	options: { expanded: boolean },
-	theme: RenderTheme,
-) => RenderComponent;
 
 interface WorkflowRoute {
 	route: string;

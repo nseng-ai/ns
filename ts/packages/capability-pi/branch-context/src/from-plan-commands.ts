@@ -216,12 +216,12 @@ interface RunCreateBranchContextCommandOptions {
 	usage: string;
 	statusKey: string;
 	progressMessage: string;
-	previewOptions(extensionOptions: BranchContextExtensionOptions): BranchContextExtensionOptions;
+	derivePreviewOptions(
+		extensionOptions: BranchContextExtensionOptions,
+	): BranchContextExtensionOptions;
 	formatDryRunMessage(preview: CreateBranchContextPreview): string;
 	onCreated(evidence: BranchContextEvidence): Promise<void> | void;
 	handleSelectedPlanError?(args: CreateBranchContextArgs, error: unknown): Promise<boolean>;
-	clearStatusOnSelectedPlanError: boolean;
-	clearStatusAfterCreated: boolean;
 }
 
 class CreateBranchContextUsageError extends Error {
@@ -675,7 +675,7 @@ export async function handleCreateBranchContextCommand(
 		usage: CREATE_BRANCH_CONTEXT_USAGE,
 		statusKey: BRANCH_CONTEXT_STATUS_KEY,
 		progressMessage: "Finding saved plan for branch context…",
-		previewOptions: (extensionOptions) => extensionOptions,
+		derivePreviewOptions: (extensionOptions) => extensionOptions,
 		formatDryRunMessage: (preview) =>
 			`Dry run: no branch was created and no plan was attached.\n\n${formatCreateBranchContextPreview(preview)}`,
 		onCreated: (evidence) => {
@@ -687,8 +687,6 @@ export async function handleCreateBranchContextCommand(
 				"info",
 			);
 		},
-		clearStatusOnSelectedPlanError: false,
-		clearStatusAfterCreated: true,
 	});
 }
 
@@ -706,7 +704,7 @@ export async function handleGtUpstackImplCommand(
 		usage: GT_UPSTACK_IMPL_USAGE,
 		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		progressMessage: "Finding saved plan for upstack branch-context implementation…",
-		previewOptions: (extensionOptions) => ({
+		derivePreviewOptions: (extensionOptions) => ({
 			...extensionOptions,
 			branchContextDefaultCreation: "graphite",
 		}),
@@ -739,8 +737,6 @@ export async function handleGtUpstackImplCommand(
 				outputDetails: { status: "success", evidence },
 			});
 		},
-		clearStatusOnSelectedPlanError: true,
-		clearStatusAfterCreated: false,
 	});
 }
 
@@ -778,15 +774,13 @@ async function runCreateBranchContextCommand(
 	});
 	await ctx.waitForIdle();
 
-	const previewOptions = commandOptions.previewOptions(extensionOptions);
+	const previewOptions = commandOptions.derivePreviewOptions(extensionOptions);
 	let selected: SelectedSavedPlanFile;
 	setRuntimeStatus(ctx, commandOptions.statusKey, "finding saved plan…");
 	try {
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
 	} catch (error) {
-		if (commandOptions.clearStatusOnSelectedPlanError) {
-			setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
-		}
+		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
 		if ((await commandOptions.handleSelectedPlanError?.(args, error)) === true) {
 			return;
 		}
@@ -848,13 +842,8 @@ async function runCreateBranchContextCommand(
 		return;
 	}
 
-	try {
-		await commandOptions.onCreated(evidence);
-	} finally {
-		if (commandOptions.clearStatusAfterCreated) {
-			setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
-		}
-	}
+	setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
+	await commandOptions.onCreated(evidence);
 }
 
 interface CreateBranchContextFromPreviewOptions {

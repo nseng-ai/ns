@@ -9,12 +9,8 @@ import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
 import { buildFencedTextBlock, expandRepoSkillBlock } from "@sdl/pi/skills/expansion";
 
-import {
-	type FlowCommandContext,
-	type FlowGraphiteCommandHost,
-	type FlowRegisteredCommand,
-	runFlowGraphiteCommand,
-} from "./command-support.ts";
+import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
+import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
 
 export const SMART_RESTACK_COMMAND_NAME = "code:gt-restack-resolve";
 
@@ -44,8 +40,6 @@ const START_RESOLVER_OPTION = "Start LM resolver";
 const LEAVE_STOPPED_OPTION = "Leave rebase stopped";
 const ABORT_REBASE_OPTION = "Abort rebase";
 
-type CommandContext = FlowCommandContext;
-
 export interface SmartRestackExtensionAPI extends FlowGraphiteCommandHost {
 	registerCommand(name: string, options: FlowRegisteredCommand): void;
 	sendUserMessage?(content: string): Promise<void> | void;
@@ -55,14 +49,14 @@ type ResolverPromptContext = { type: "interrupted-restack" } | { type: "failed-f
 
 interface HandleRestackFailureOptions {
 	pi: SmartRestackExtensionAPI;
-	ctx: CommandContext;
+	ctx: FlowCommandContext;
 	args: string;
 	restack: ExecResult;
 }
 
 interface InvokeLmResolverOptions {
 	pi: SmartRestackExtensionAPI;
-	ctx: CommandContext;
+	ctx: FlowCommandContext;
 	args: string;
 	promptContext: ResolverPromptContext;
 }
@@ -85,7 +79,7 @@ export default function smartRestackExtension(pi: SmartRestackExtensionAPI): voi
 
 export async function runSmartRestack(
 	pi: SmartRestackExtensionAPI,
-	ctx: CommandContext,
+	ctx: FlowCommandContext,
 	args: string,
 ): Promise<void> {
 	const status = await pi.exec("git", ["status"], { cwd: ctx.cwd, timeout: GIT_STATUS_TIMEOUT_MS });
@@ -235,7 +229,7 @@ function buildResolverPrompt(
 	return `${base}\n\nAdditional user-supplied context:\n\n${buildFencedTextBlock(trimmedArgs)}`;
 }
 
-async function abortRebase(pi: SmartRestackExtensionAPI, ctx: CommandContext): Promise<void> {
+async function abortRebase(pi: SmartRestackExtensionAPI, ctx: FlowCommandContext): Promise<void> {
 	notifyCommandUi(ctx, "Aborting rebase with git rebase --abort.", "warning");
 	const abort = await pi.exec("git", ["rebase", "--abort"], {
 		cwd: ctx.cwd,

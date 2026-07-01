@@ -4,7 +4,7 @@ import { createDeferred } from "@sdl/test-kit";
 
 import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/extension.ts";
 import { createHandoffSelfWorkflow } from "../src/self.ts";
-import type { HandoffCreateSkillLoader } from "../src/shared.ts";
+import type { HandoffCreateSkillLoader } from "../src/create-skill.ts";
 import {
 	BRANCH,
 	FakePi,

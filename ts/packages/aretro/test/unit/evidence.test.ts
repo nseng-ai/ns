@@ -391,7 +391,7 @@ function session(
 			repo_root: "/repo",
 			cwd: "/repo",
 			branch: null,
-			confidence: "repo_cwd",
+			confidence: "repo-cwd",
 			evidence: [],
 		},
 		message_counts: {

@@ -58,13 +58,20 @@ export function Eyebrow({ children, className, tone = "neutral" }: EyebrowProps)
   );
 }
 
+export type MarketingHeroSidePanelWidth = "default" | "narrow";
+
+const marketingHeroSidePanelWidthClass = {
+  default: "lg:grid-cols-[1fr_440px]",
+  narrow: "lg:grid-cols-[1fr_420px]",
+} satisfies Record<MarketingHeroSidePanelWidth, string>;
+
 interface MarketingHeroProps {
   ctas: ReactNode;
   description: ReactNode;
   eyebrow: ReactNode;
   eyebrowTone?: EyebrowTone;
   sidePanel: ReactNode;
-  sidePanelWidthClass?: string;
+  sidePanelWidth?: MarketingHeroSidePanelWidth;
   title: ReactNode;
 }
 
@@ -74,14 +81,14 @@ export function MarketingHero({
   eyebrow,
   eyebrowTone,
   sidePanel,
-  sidePanelWidthClass = "lg:grid-cols-[1fr_440px]",
+  sidePanelWidth = "default",
   title,
 }: MarketingHeroProps) {
   return (
     <section
       className={cn(
         "mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl gap-10 px-6 py-16 lg:items-center lg:py-24",
-        sidePanelWidthClass,
+        marketingHeroSidePanelWidthClass[sidePanelWidth],
       )}
     >
       <div className="space-y-8">

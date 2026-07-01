@@ -47,7 +47,7 @@ export default function ExtensionsPage() {
             </div>
           </PreviewPanel>
         }
-        sidePanelWidthClass="lg:grid-cols-[1fr_420px]"
+        sidePanelWidth="narrow"
         title="Local workflows, agent-ready."
       />
 

@@ -5,19 +5,13 @@ export type CommandOutput = ExecResult;
 export type CommandOptions = ExecOptions;
 export type { CommandRunner };
 
-export interface FormatCommandFailureOptions {
-	readonly verb?: "exited" | "failed with exit code";
-}
-
 export const runRealCommand: CommandRunner = runCommand;
 
-export function formatCommandFailure(
+export function formatInlineCommandFailure(
 	commandName: string,
 	result: Pick<CommandOutput, "code" | "stdout" | "stderr">,
-	options: FormatCommandFailureOptions = {},
 ): string {
-	const verb = options.verb ?? "failed with exit code";
-	const status =
-		verb === "exited" ? `exited ${result.code}` : `failed with exit code ${result.code}`;
-	return `${commandName} ${status}. stdout: ${result.stdout.trim() || "(empty)"} stderr: ${result.stderr.trim() || "(empty)"}`;
+	const stdout = result.stdout.trim();
+	const stderr = result.stderr.trim();
+	return `${commandName} failed with exit code ${result.code}. stdout: ${stdout === "" ? "(empty)" : stdout} stderr: ${stderr === "" ? "(empty)" : stderr}`;
 }

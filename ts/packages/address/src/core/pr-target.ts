@@ -4,12 +4,15 @@ import type { GithubPrFeedbackFailure, GithubPrFeedbackGateway, GithubPrSummary 
 
 import type { GatewayFailure, GatewayOptions } from "./gateways.ts";
 
-export type PrTargetResolution =
-	| { type: "found"; pr: GithubPrSummary; branch: string | null }
-	| { type: "miss"; prNumber: number | null; branch: string | null; stderr: string }
+export type PrTargetFailureResult =
 	| { type: "git_failure"; message: string; failure: GatewayFailure }
 	| { type: "pr_feedback_failure"; message: string; failure: GithubPrFeedbackFailure }
 	| { type: "detached_head"; message: string };
+
+export type PrTargetResolution =
+	| { type: "found"; pr: GithubPrSummary; branch: string | null }
+	| { type: "miss"; prNumber: number | null; branch: string | null; stderr: string }
+	| PrTargetFailureResult;
 
 export interface ResolvePrTargetOptions {
 	git: GitGateway;
