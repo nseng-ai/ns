@@ -89,7 +89,7 @@ describe("land stack real Graphite CLI integration", () => {
 });
 
 async function withTempGraphiteRepo(run: (repo: TempGraphiteRepo) => Promise<void>): Promise<void> {
-	const tempRoot = await mkdtemp(join(tmpdir(), "sdl-ccc-real-gt-"));
+	const tempRoot = await mkdtemp(join(tmpdir(), "sdl-flow-real-gt-"));
 	const repoRoot = join(tempRoot, "repo");
 	const home = join(tempRoot, "home");
 	const env = isolatedGraphiteEnv(home);

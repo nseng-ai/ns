@@ -8,23 +8,23 @@ import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
 import type { SdlExecOptions, SdlExtensionApi, SdlResult } from "sdl-sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
-const SHARED_CCC_CLI_HELPER_PATH = join(
+const SHARED_FLOW_CLI_RUNNER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/shared/ccc-cli.ts",
+	"ts/packages/capabilities/flow/src/shared/flow-cli-runner.ts",
 );
 
-interface FlowCccCliExecOptions {
+interface FlowCliExecOptions {
 	cwd?: string;
 	timeout?: number;
 }
 
-interface FlowCccCliRunnerInput {
-	exec(command: string, args: string[], options?: FlowCccCliExecOptions): Promise<ExecResult>;
+interface FlowCliRunnerInput {
+	exec(command: string, args: string[], options?: FlowCliExecOptions): Promise<ExecResult>;
 	stdout(text: string): void;
 	stderr(text: string): void;
 }
 
-interface RunFlowCccCliOptions {
+interface RunFlowCliOptions {
 	ctx: SdlExtensionApi;
 	successMessage: string;
 	failureMessage: string;
@@ -32,11 +32,11 @@ interface RunFlowCccCliOptions {
 	trustedExec?: CommandExecApi;
 	outputMode?: "forward-live" | "buffer-until-complete";
 	afterExitCode?: (exitCode: number) => Promise<void> | void;
-	run(input: FlowCccCliRunnerInput): Promise<number>;
+	run(input: FlowCliRunnerInput): Promise<number>;
 }
 
-interface FlowCccCliOutputCapture {
-	readonly input: Pick<FlowCccCliRunnerInput, "stdout" | "stderr">;
+interface FlowCliOutputCapture {
+	readonly input: Pick<FlowCliRunnerInput, "stdout" | "stderr">;
 	readonly stdout: string;
 	readonly stderr: string;
 	flush(): void;
@@ -46,12 +46,12 @@ interface FlowCccCliOutputCapture {
 	): SdlResult;
 }
 
-interface FlowCccCliModule {
-	createFlowCccCliOutputCapture(options: {
+interface FlowCliRunnerModule {
+	createFlowCliOutputCapture(options: {
 		ctx: SdlExtensionApi;
 		mode?: "forward-live" | "buffer-until-complete";
-	}): FlowCccCliOutputCapture;
-	runFlowCccCli(options: RunFlowCccCliOptions): Promise<SdlResult>;
+	}): FlowCliOutputCapture;
+	runFlowCli(options: RunFlowCliOptions): Promise<SdlResult>;
 }
 
 interface ExecCall {
@@ -60,12 +60,12 @@ interface ExecCall {
 	options?: ExecOptions | SdlExecOptions;
 }
 
-describe("project extension shared CCC CLI helper", () => {
+describe("project extension shared Flow CLI runner", () => {
 	test("returns empty success result after forwarding emitted stdout", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, trustedExec, calls, stdout } = createFakeApi([makeExecResult()]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			trustedExec,
 			successMessage: "completed",
@@ -83,10 +83,10 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("returns fallback success message when the runner emits no stdout", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api } = createFakeApi([]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			successMessage: "completed",
 			failureMessage: "failed",
@@ -97,10 +97,10 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("returns empty failure result after forwarding emitted stderr", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, stderr } = createFakeApi([]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			successMessage: "completed",
 			failureMessage: "failed",
@@ -115,10 +115,10 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("returns fallback failure message when the runner emits no stderr", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api } = createFakeApi([]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			successMessage: "completed",
 			failureMessage: "failed",
@@ -129,12 +129,12 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("optionally forwards exec live output through ctx.onOutput", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, trustedExec, calls, liveOutput } = createFakeApi([
 			makeExecResult({ stdout: "live out\n", stderr: "live err\n" }),
 		]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			trustedExec,
 			successMessage: "completed",
@@ -159,12 +159,12 @@ describe("project extension shared CCC CLI helper", () => {
 		]);
 	});
 
-	test("buffers runFlowCccCli output until after the exit-code hook", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+	test("buffers runFlowCli output until after the exit-code hook", async () => {
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, stdout, stderr } = createFakeApi([]);
 		const events: string[] = [];
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			successMessage: "completed",
 			failureMessage: "failed",
@@ -186,9 +186,9 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("buffers emitted output until the caller flushes after progress settles", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, stdout, stderr } = createFakeApi([]);
-		const output = sharedModule.createFlowCccCliOutputCapture({
+		const output = sharedModule.createFlowCliOutputCapture({
 			ctx: api,
 			mode: "buffer-until-complete",
 		});
@@ -216,10 +216,10 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 
 	test("routes trusted pull-trunk execution to alternate cwd without scoped-cwd refusal", async () => {
-		const sharedModule = await loadFlowCccCliModule();
+		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, trustedExec, calls } = createFakeApi([makeExecResult({ stdout: "updated\n" })]);
 
-		const result = await sharedModule.runFlowCccCli({
+		const result = await sharedModule.runFlowCli({
 			ctx: api,
 			trustedExec,
 			successMessage: "completed",
@@ -248,24 +248,24 @@ describe("project extension shared CCC CLI helper", () => {
 	});
 });
 
-async function loadFlowCccCliModule(): Promise<FlowCccCliModule> {
-	const sharedModule = await import(SHARED_CCC_CLI_HELPER_PATH);
-	assertFlowCccCliModule(sharedModule);
+async function loadFlowCliRunnerModule(): Promise<FlowCliRunnerModule> {
+	const sharedModule = await import(SHARED_FLOW_CLI_RUNNER_PATH);
+	assertFlowCliRunnerModule(sharedModule);
 	return sharedModule;
 }
 
-function assertFlowCccCliModule(value: unknown): asserts value is FlowCccCliModule {
+function assertFlowCliRunnerModule(value: unknown): asserts value is FlowCliRunnerModule {
 	if (typeof value !== "object" || value === null) {
-		throw new Error("Expected shared CCC CLI helper module object.");
+		throw new Error("Expected shared Flow CLI runner module object.");
 	}
-	if (!("runFlowCccCli" in value) || typeof value.runFlowCccCli !== "function") {
-		throw new Error("Expected shared CCC CLI helper to export runFlowCccCli.");
+	if (!("runFlowCli" in value) || typeof value.runFlowCli !== "function") {
+		throw new Error("Expected shared Flow CLI runner to export runFlowCli.");
 	}
 	if (
-		!("createFlowCccCliOutputCapture" in value) ||
-		typeof value.createFlowCccCliOutputCapture !== "function"
+		!("createFlowCliOutputCapture" in value) ||
+		typeof value.createFlowCliOutputCapture !== "function"
 	) {
-		throw new Error("Expected shared CCC CLI helper to export createFlowCccCliOutputCapture.");
+		throw new Error("Expected shared Flow CLI runner to export createFlowCliOutputCapture.");
 	}
 }
 

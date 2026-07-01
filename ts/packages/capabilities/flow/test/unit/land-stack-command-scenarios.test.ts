@@ -207,7 +207,7 @@ const BACKUP_ROTATION_ARGS = [
 	"--prune",
 	"--no-tags",
 	".",
-	"+refs/ccc/land-backup/*:refs/ccc/land-backup-prev/*",
+	"+refs/sdl/flow-land-backup/*:refs/sdl/flow-land-backup-prev/*",
 ];
 
 const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
@@ -401,7 +401,7 @@ function backupRefSteps(
 	const { shas = BRANCH_SHAS, staleCurrentRefs = [] } = options;
 	return [
 		BACKUP_ROTATION_STEP,
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], {
+		step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"], {
 			stdout: staleCurrentRefs.join("\n"),
 		}),
 		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
@@ -411,7 +411,7 @@ function backupRefSteps(
 				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
 					stdout: `${sha}\n`,
 				}),
-				step("git", ["update-ref", `refs/ccc/land-backup/${branch}`, sha]),
+				step("git", ["update-ref", `refs/sdl/flow-land-backup/${branch}`, sha]),
 			];
 		}),
 	];
@@ -1281,9 +1281,9 @@ describe("land-stack command scenarios", () => {
 				.filter((call) => call.command === "git" && call.args[0] === "update-ref")
 				.map((call) => call.args[1]),
 		).toEqual([
-			"refs/ccc/land-backup/feature-a",
-			"refs/ccc/land-backup/feature-b",
-			`refs/ccc/land-backup/${DESCENDANT}`,
+			"refs/sdl/flow-land-backup/feature-a",
+			"refs/sdl/flow-land-backup/feature-b",
+			`refs/sdl/flow-land-backup/${DESCENDANT}`,
 		]);
 		expect(
 			pi.execCalls
@@ -1371,7 +1371,7 @@ describe("land-stack command scenarios", () => {
 	});
 
 	test("rotates backup refs before pruning current stale refs and writing new snapshots", async () => {
-		const staleCurrentRef = "refs/ccc/land-backup/old-branch";
+		const staleCurrentRef = "refs/sdl/flow-land-backup/old-branch";
 		const script = [
 			...singleBranchPreflight(""),
 			...backupRefSteps(["feature-a"], { staleCurrentRefs: [staleCurrentRef] }),
@@ -1386,7 +1386,7 @@ describe("land-stack command scenarios", () => {
 		const staleListIndex = pi.execCalls.findIndex(
 			(call) =>
 				call.command === "git" &&
-				sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"]),
+				sameArgs(call.args, ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"]),
 		);
 		const staleDeleteIndex = pi.execCalls.findIndex(
 			(call) =>
@@ -1426,7 +1426,7 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...singleBranchPreflight(""),
 			BACKUP_ROTATION_STEP,
-			step("git", ["for-each-ref", "--format=%(refname)", "refs/ccc/land-backup"], {
+			step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"], {
 				code: 1,
 				stderr: "cannot list refs",
 			}),

@@ -12,7 +12,7 @@ import {
 } from "sdl-sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { runFlowCccCli } from "../shared/ccc-cli.ts";
+import { runFlowCli } from "../shared/flow-cli-runner.ts";
 import {
 	createPhaseStreamController,
 	flowStreamDeps,
@@ -55,7 +55,7 @@ export const flowLandCommand: SdlCommand<typeof landSchema> = {
 		].filter((arg): arg is string => arg !== undefined);
 		const progress = createLandCliProgress(ctx, caps);
 		try {
-			return await runFlowCccCli({
+			return await runFlowCli({
 				ctx,
 				successMessage: "Land completed.",
 				failureMessage: "Land failed.",

@@ -17,13 +17,13 @@
 - [x] Introduce a fake-driven land-stack domain seam.
   - Policy: preview and then execute one bounded seam; ask first if the proposed seam changes public behavior, command names, or `sdl-flow/api` shape.
   - Delivered: added private capability package `sdl-land` with `./api` and `./testing` subpaths, stack-first land request/outcome/failure/result/preflight types, focused Git/Graphite/GitHub PR/worktree gateway vocabulary, and in-memory fakes.
-  - Delivered: Flow stack preflight/dry-run planning now calls `sdl-land` internally through a Flow adapter while preserving `sdl-flow/api`, Flow presentation, CCC imports, public command names, isolated fast-path behavior, and durable `refs/ccc/...` compatibility.
+  - Delivered: Flow stack preflight/dry-run planning now calls `sdl-land` internally through a Flow adapter while preserving `sdl-flow/api`, Flow presentation, CCC imports, public command names, and isolated fast-path behavior. Durable backup refs were later renamed in the CCC-era naming cleanup row.
   - Evidence: `sdl-land` fake-driven tests cover stack preflight planning; Flow/Land/CCC checks from the land-domain-core and adapter-helper updates passed; boundary searches showed CCC still consumes land through `sdl-flow/api`, no direct CCC `sdl-land` import was introduced, and `sdl-land` exports only `./api` plus `./testing`.
 
-- [ ] Resolve CCC-era naming residue in Flow.
-  - Policy: direct execution for clearly internal test/temp/helper names; steer first before changing persisted refs, user-visible strings, or recovery instructions.
-  - Target: inventory `ccc` names under Flow; rename safe internal residue; document or deliberately preserve durable compatibility names such as backup-ref namespaces when needed.
-  - Evidence: inventory search recorded; safe renames landed; any preserved `ccc` names have explicit rationale in code comments, context, or an Objective update.
+- [x] Resolve CCC-era naming residue in Flow.
+  - Policy: direct execution for clearly internal test/temp/helper names; persisted backup refs were renamed under an explicit breaking plan with no compatibility shim/migration.
+  - Delivered: renamed the Flow command-runner helper from `ccc-cli.ts` / `FlowCcc*` / `runFlowCcc*` to `flow-cli-runner.ts` / `FlowCli*` / `runFlowCli*`; renamed land backup refs from `refs/ccc/land-backup*` to `refs/sdl/flow-land-backup*`; corrected stale CCC ownership comments while preserving true CCC consumer-boundary language.
+  - Evidence: boundary searches show no current `refs/ccc`, `ccc-cli`, `FlowCcc`, `runFlowCcc`, `createFlowCcc`, or stale CCC ownership phrases under Flow/Land current code/tests/docs; remaining CCC mentions are compatibility-consumer/boundary references.
 
 - [x] Add Flow package context and refresh map/root wording.
   - Policy: direct execution after preview for context/docs; keep glossary style and do not rewrite historical Objective updates.
@@ -40,4 +40,3 @@
 - Public SDK promotion for Flow helpers. Keep Flow-specific policy in Flow unless another capability proves a cross-extension author need.
 - Dynamic Pi mirror discovery for Flow commands. Static `/sdl:flow:*` mirrors remain the current architecture.
 - A broader Graphite/GitHub capability design. This Objective may introduce Flow-owned gateways/collaborators, not a new generic capability.
-- Persisted backup-ref namespace migration away from `refs/ccc/...`; consider only with an explicit compatibility/migration plan.

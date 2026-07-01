@@ -1,9 +1,9 @@
-// CCC-local facade for the `autoslot` workflow's durable outcomes.
+// Flow-local facade for the `autoslot` workflow's durable outcomes.
 //
-// `autoslot` (autobranch + slot checkout) is orchestrated in CCC and reports typed settled facts here,
-// while the generic finite block layout now lives in `@sdl/cli-theme` because the repeated shape was
-// proven across Flow and CCC. This module keeps autoslot's domain-local type name and owns the mapping
-// from CCC outcome facts to that shared layout.
+// `autoslot` (autobranch + slot checkout) reports typed settled facts at the Flow CLI edge, while the
+// generic finite block layout lives in `@sdl/cli-theme` because the repeated shape was proven across
+// Flow and CCC. This module keeps autoslot's domain-local type name and owns the mapping from Flow
+// outcome facts to that shared layout.
 
 import type { Caps } from "@sdl/clinkr";
 import { renderResultBlock } from "@sdl/cli-theme";
