@@ -17,9 +17,9 @@ export interface ObjectiveCliContext {
 
 export async function createRealObjectiveContext(
 	options: {
-		cwd?: string | undefined;
+		cwd?: string;
 		env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-		git?: GitGateway | undefined;
+		git?: GitGateway;
 	} = {},
 ): Promise<ObjectiveCliContext> {
 	const cwd = options.cwd ?? process.cwd();

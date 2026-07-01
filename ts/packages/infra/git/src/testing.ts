@@ -20,7 +20,7 @@ export interface TempGitRepoOptions {
 }
 
 export interface TempGitRepoRunOptions {
-	readonly input?: string | undefined;
+	readonly input?: string;
 	readonly env?: NodeJS.ProcessEnv | undefined;
 }
 
@@ -29,7 +29,7 @@ export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo
 	const runGit = (args: readonly string[], runOptions: TempGitRepoRunOptions = {}): string => {
 		const result = spawnSync("git", [...args], {
 			cwd: path,
-			input: runOptions.input,
+			...optionalEntry("input", runOptions.input),
 			encoding: "utf8",
 			...optionalEntry("env", runOptions.env),
 		});

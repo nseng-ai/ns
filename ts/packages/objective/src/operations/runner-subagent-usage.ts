@@ -264,7 +264,7 @@ function emptySummary(
 	options: {
 		readonly status: RunnerSubagentUsageStatus;
 		readonly error: string | null;
-		readonly errorLine?: number | undefined;
+		readonly errorLine?: number;
 	},
 ): RunnerSubagentUsageSummary {
 	return {
