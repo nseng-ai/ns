@@ -4,9 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./extension": "./src/extension.ts",
-    "./picker": "./src/picker.ts",
-    "./selection": "./src/selection.ts"
+    "./extension": "./src/extension.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

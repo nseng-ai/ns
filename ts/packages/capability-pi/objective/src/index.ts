@@ -1,21 +1,21 @@
 export { default, objectiveParity } from "./extension.ts";
 export {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
+	buildObjectiveSkillPrompt,
 	changedActiveObjectiveSelection,
+	chooseActiveObjectiveSlug,
 	formatObjectiveChoice,
 	objectiveChoiceMap,
 	objectiveDiffPickerTitle,
 	objectiveRecordsWithChangedFirst,
+	objectiveSelectionContextFromCommandContext,
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
-} from "./picker.ts";
-export {
-	buildObjectiveSkillPrompt,
-	chooseActiveObjectiveSlug,
-	objectiveSelectionContextFromCommandContext,
-} from "./selection.ts";
+} from "@sdl/objective/api";
 export type {
 	BuildObjectiveSkillPromptOptions,
+	ChangedActiveObjectiveSelectionOptions,
+	ObjectiveDiffSelection,
 	ObjectiveSelectionContext,
 	ObjectiveSelectionHost,
 	ObjectiveSelectionListLoadResult,
@@ -23,5 +23,4 @@ export type {
 	ObjectiveSelectionSpec,
 	ObjectiveSelectionUi,
 	ObjectiveSkillPromptSpec,
-} from "./selection.ts";
-export type { ChangedActiveObjectiveSelectionOptions, ObjectiveDiffSelection } from "./picker.ts";
+} from "@sdl/objective/api";

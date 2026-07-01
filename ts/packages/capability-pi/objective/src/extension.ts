@@ -7,14 +7,10 @@ import {
 	type ParsedCliCommandArgs,
 } from "@sdl/pi/commands/cli-extension";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
+import type { ExecResult } from "@sdl/core/command";
 import {
 	buildObjectiveSkillPrompt,
 	chooseActiveObjectiveSlug,
-	objectiveSelectionContextFromCommandContext,
-} from "./selection.ts";
-
-import type { ExecResult } from "@sdl/core/command";
-import {
 	completeObjectiveListArgs,
 	createObjectiveClient,
 	type ObjectiveClient,
@@ -22,6 +18,7 @@ import {
 	objectiveCommandSpecs,
 	objectiveCompletionItem,
 	objectiveCreateCommandSpec,
+	objectiveSelectionContextFromCommandContext,
 	parseObjectiveCandidatesData,
 	parseObjectiveListArgTokens,
 	renderObjectiveListMarkdown,
@@ -92,12 +89,17 @@ interface InvokeObjectiveCreateSkillOptions {
 
 type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
 
+interface ObjectiveInvocationContext {
+	pi: ObjectiveExtensionAPI;
+	ctx: CommandContext;
+	spec: ObjectiveCommandSpec;
+}
+
 async function invokeObjectiveSkill(
-	pi: ObjectiveExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveCommandSpec,
+	invocation: ObjectiveInvocationContext,
 	objective: string,
 ): Promise<void> {
+	const { pi, ctx, spec } = invocation;
 	await invokeRepoSkillPromptTurn({
 		host: pi,
 		ctx,
@@ -116,11 +118,8 @@ async function invokeObjectiveSkill(
 	});
 }
 
-async function chooseObjectiveAndInvoke(
-	pi: ObjectiveExtensionAPI,
-	ctx: CommandContext,
-	spec: ObjectiveCommandSpec,
-): Promise<void> {
+async function chooseObjectiveAndInvoke(invocation: ObjectiveInvocationContext): Promise<void> {
+	const { pi, ctx, spec } = invocation;
 	const slug = await chooseActiveObjectiveSlug(
 		pi,
 		objectiveSelectionContextFromCommandContext(ctx),
@@ -130,7 +129,7 @@ async function chooseObjectiveAndInvoke(
 		return;
 	}
 
-	await invokeObjectiveSkill(pi, ctx, spec, slug);
+	await invokeObjectiveSkill(invocation, slug);
 }
 
 async function invokeObjectiveCreateSkill(
@@ -180,36 +179,34 @@ Treat this as the user's initial Objective creation request. Use it as context, 
 async function handleObjectiveCreateCommand(
 	options: HandleObjectiveCreateCommandOptions,
 ): Promise<void> {
-	const { ctx } = options;
 	try {
 		await invokeObjectiveCreateSkill(options);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (ctx.hasUI) {
-			ctx.ui.notify(message, "error");
-		}
+		notifyCommandError(options.ctx, error);
 	}
 }
 
 async function handleObjectiveCommand(
-	pi: ObjectiveExtensionAPI,
-	spec: ObjectiveCommandSpec,
+	invocation: ObjectiveInvocationContext,
 	args: string,
-	ctx: CommandContext,
 ): Promise<void> {
 	const explicitObjective = args.trim();
 	try {
 		if (explicitObjective) {
-			await invokeObjectiveSkill(pi, ctx, spec, explicitObjective);
+			await invokeObjectiveSkill(invocation, explicitObjective);
 			return;
 		}
 
-		await chooseObjectiveAndInvoke(pi, ctx, spec);
+		await chooseObjectiveAndInvoke(invocation);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		if (ctx.hasUI) {
-			ctx.ui.notify(message, "error");
-		}
+		notifyCommandError(invocation.ctx, error);
+	}
+}
+
+function notifyCommandError(ctx: CommandContext, error: unknown): void {
+	const message = error instanceof Error ? error.message : String(error);
+	if (ctx.hasUI) {
+		ctx.ui.notify(message, "error");
 	}
 }
 
@@ -495,7 +492,7 @@ export default function objectiveExtension(
 				description: spec.description,
 				argumentHint: OBJECTIVE_SELECTOR_ARGUMENT_HINT,
 				getArgumentCompletions: objectiveCommandCompleter,
-				handler: async (args, ctx) => handleObjectiveCommand(pi, spec, args, ctx),
+				handler: async (args, ctx) => handleObjectiveCommand({ pi, ctx, spec }, args),
 			},
 		});
 	}
