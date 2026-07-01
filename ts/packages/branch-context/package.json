@@ -12,7 +12,8 @@
     "./sdl/commands/from-plan": "./src/sdl/commands/from-plan.ts",
     "./sdl/commands/list": "./src/sdl/commands/list.ts",
     "./sdl/commands/load": "./src/sdl/commands/load.ts",
-    "./testing": "./src/testing/index.ts"
+    "./testing": "./src/testing/index.ts",
+    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
   },
   "files": [
     "src"

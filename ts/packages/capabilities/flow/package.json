@@ -19,7 +19,8 @@
     "./commands/push": "./src/commands/push.ts",
     "./commands/land": "./src/commands/land.ts",
     "./commands/pull-trunk": "./src/commands/pull-trunk.ts",
-    "./commands/exec-read-graphite-branch-metadata": "./src/commands/exec-read-graphite-branch-metadata.ts"
+    "./commands/exec-read-graphite-branch-metadata": "./src/commands/exec-read-graphite-branch-metadata.ts",
+    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",

@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     "./sdl/commands/exec-collect-evidence": "./src/sdl/commands/exec-collect-evidence.ts",
-    "./sdl/commands/exec-read-evidence-detail": "./src/sdl/commands/exec-read-evidence-detail.ts"
+    "./sdl/commands/exec-read-evidence-detail": "./src/sdl/commands/exec-read-evidence-detail.ts",
+    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
   },
   "files": [
     "src"

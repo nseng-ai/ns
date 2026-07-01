@@ -12,7 +12,8 @@
     "./commands/exec-record-findings": "./src/commands/exec-record-findings.ts",
     "./commands/exec-publish-findings": "./src/commands/exec-publish-findings.ts",
     "./commands/roast-list": "./src/commands/roast-list.ts",
-    "./skill-reviews": "./src/skill-reviews.ts"
+    "./skill-reviews": "./src/skill-reviews.ts",
+    "./sdl-extension-command-registry": "./src/sdl-extension-command-registry.ts"
   },
   "files": [
     "src"

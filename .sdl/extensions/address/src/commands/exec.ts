@@ -1,6 +1,6 @@
 import { defineExtension } from "sdl-sdk";
 
-import { prAddressSdlCommand } from "../../../../../ts/packages/address/src/sdl-command.ts";
+import { prAddressSdlCommand } from "@sdl/address/sdl-command";
 
 export default defineExtension({
 	commands: [
