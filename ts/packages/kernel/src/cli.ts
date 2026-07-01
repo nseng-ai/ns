@@ -172,23 +172,14 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			resolvedStderr(`${formatExtensionWarningDiagnostics(warnings)}\n`);
 		}
 
-		const selectedCommandLoader =
-			deps.extensionRegistry?.loadSelectedCommand ?? loadSelectedSdlCommand;
-		const loadedSelectedCommand =
-			selectedCandidate === undefined ? undefined : await selectedCommandLoader(selectedCandidate);
-		if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
-			resolvedStderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
-			return { type: "handled", exitCode: 2 };
-		}
-		const selectedCommand = loadedSelectedCommand?.command;
-		const selectedSource = loadedSelectedCommand?.source;
-		const selectedPath = loadedSelectedCommand?.path;
-		commandInfos = commandInfosForSelectedCommand(
+		const selectedCommandResolution = await resolveSelectedSdlCommand({
+			candidate: selectedCandidate,
 			commandInfos,
-			selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
-				? undefined
-				: { command: selectedCommand, source: selectedSource, path: selectedPath },
-		);
+			...optionalEntry("loadSelectedCommand", deps.extensionRegistry?.loadSelectedCommand),
+			stderr: resolvedStderr,
+			failureExitCode: 2,
+		});
+		if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
 
 		const contextWithIO = await buildSdlCliContext({
 			args,
@@ -206,10 +197,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 		return {
 			type: "run",
 			context: contextWithIO,
-			buildState: {
-				commandInfos,
-				...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
-			},
+			buildState: selectedCommandResolution.resolution,
 		};
 	},
 	configureCli: ({ root, buildState }) => {
@@ -323,22 +311,14 @@ async function handleCompletionResolverInvocation(options: {
 		selectedCommandKey === undefined
 			? undefined
 			: options.commandCatalog.candidates.get(selectedCommandKey);
-	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedSdlCommand;
-	const loadedSelectedCommand =
-		selectedCandidate === undefined ? undefined : await selectedCommandLoader(selectedCandidate);
-	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
-		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
-		return { type: "handled", exitCode: 0 };
-	}
-	const selectedCommand = loadedSelectedCommand?.command;
-	const selectedSource = loadedSelectedCommand?.source;
-	const selectedPath = loadedSelectedCommand?.path;
-	const commandInfos = commandInfosForSelectedCommand(
-		options.commandCatalog.commandInfos,
-		selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
-			? undefined
-			: { command: selectedCommand, source: selectedSource, path: selectedPath },
-	);
+	const selectedCommandResolution = await resolveSelectedSdlCommand({
+		candidate: selectedCandidate,
+		commandInfos: options.commandCatalog.commandInfos,
+		...optionalEntry("loadSelectedCommand", options.loadSelectedCommand),
+		stderr: options.stderr,
+		failureExitCode: 0,
+	});
+	if (!selectedCommandResolution.ok) return selectedCommandResolution.handled;
 	const context = await buildSdlCliContext({
 		args: options.args,
 		cwd: options.cwd,
@@ -352,10 +332,7 @@ async function handleCompletionResolverInvocation(options: {
 			caps: options.caps,
 		}),
 	});
-	const candidates = await buildCli({
-		commandInfos,
-		...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
-	}).completeAsync(
+	const candidates = await buildCli(selectedCommandResolution.resolution).completeAsync(
 		{ words },
 		{
 			context,
@@ -366,6 +343,49 @@ async function handleCompletionResolverInvocation(options: {
 	);
 	options.stdout(renderCompletionCandidatesNewline(candidates));
 	return { type: "handled", exitCode: 0 };
+}
+
+interface SelectedSdlCommandResolution {
+	commandInfos: readonly SdlCommandCliInfo[];
+	selectedCommand?: SdlCommand;
+	selectedCommandPath?: SdlCommandPath;
+}
+
+async function resolveSelectedSdlCommand(options: {
+	candidate: ExtensionCommandCandidate | undefined;
+	commandInfos: readonly SdlCommandCliInfo[];
+	loadSelectedCommand?: (
+		candidate: ExtensionCommandCandidate,
+	) => Promise<SelectedSdlCommandLoadResult>;
+	stderr: (text: string) => void;
+	failureExitCode: number;
+}): Promise<
+	| { ok: true; resolution: SelectedSdlCommandResolution }
+	| { ok: false; handled: { type: "handled"; exitCode: number } }
+> {
+	const selectedCommandLoader = options.loadSelectedCommand ?? loadSelectedSdlCommand;
+	const loadedSelectedCommand =
+		options.candidate === undefined ? undefined : await selectedCommandLoader(options.candidate);
+	if (loadedSelectedCommand !== undefined && !loadedSelectedCommand.ok) {
+		options.stderr(`${formatExtensionErrorDiagnostics([loadedSelectedCommand.diagnostic])}\n`);
+		return { ok: false, handled: { type: "handled", exitCode: options.failureExitCode } };
+	}
+	const selectedCommand = loadedSelectedCommand?.command;
+	const selectedSource = loadedSelectedCommand?.source;
+	const selectedPath = loadedSelectedCommand?.path;
+	const commandInfos = commandInfosForSelectedCommand(
+		options.commandInfos,
+		selectedCommand === undefined || selectedSource === undefined || selectedPath === undefined
+			? undefined
+			: { command: selectedCommand, source: selectedSource, path: selectedPath },
+	);
+	return {
+		ok: true,
+		resolution: {
+			commandInfos,
+			...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
+		},
+	};
 }
 
 async function buildSdlCliContext(options: {

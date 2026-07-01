@@ -8,6 +8,7 @@ import {
 	SDL_COMMAND_NAME_RULE,
 	commandInfoForLoadedCommand,
 	commandKey,
+	toCommandCliInfo,
 	commandPathMatches,
 	commandSegments,
 	listBuiltInSdlCommandCandidates,
@@ -157,16 +158,7 @@ export async function loadSdlCommandCatalog(
 	const finalCandidates = collisionFilter.candidates;
 	return {
 		candidates: new Map(finalCandidates.map((candidate) => [commandKey(candidate), candidate])),
-		commandInfos: finalCandidates.map((candidate) => ({
-			...(candidate.group === undefined ? {} : { group: candidate.group }),
-			...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
-			...(candidate.groupDescription === undefined
-				? {}
-				: { groupDescription: candidate.groupDescription }),
-			name: candidate.name,
-			description: candidate.description,
-			fullDescription: candidate.fullDescription,
-		})),
+		commandInfos: finalCandidates.map(toCommandCliInfo),
 		diagnostics,
 	};
 }
@@ -395,14 +387,7 @@ function externalCandidateForLevel(
 	level: "first-party" | "global" | "project",
 ): ExternalSdlCommandCandidate {
 	return {
-		...(command.group === undefined ? {} : { group: command.group }),
-		...(command.segments === undefined ? {} : { segments: command.segments }),
-		...(command.groupDescription === undefined
-			? {}
-			: { groupDescription: command.groupDescription }),
-		name: command.name,
-		description: command.description,
-		fullDescription: command.fullDescription,
+		...toCommandCliInfo(command),
 		entryPath: command.entryPath,
 		kind: command.kind,
 		source: { level, label: command.displayPath, path: command.entryPath },
@@ -554,16 +539,7 @@ function sourceLevelRank(level: ExtensionSourceLevel): number {
 }
 
 function staticCommandInfo(candidate: ExtensionCommandCandidate): SdlCommandCliInfo {
-	return {
-		...(candidate.group === undefined ? {} : { group: candidate.group }),
-		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
-		...(candidate.groupDescription === undefined
-			? {}
-			: { groupDescription: candidate.groupDescription }),
-		name: candidate.name,
-		description: candidate.description,
-		fullDescription: candidate.fullDescription,
-	};
+	return toCommandCliInfo(candidate);
 }
 
 function isBuiltInCandidate(
