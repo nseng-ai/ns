@@ -12,6 +12,9 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"normalizeTextOutput",
 	"repoLocalSdlCommandDescriptor",
 	"ok",
+	"sdlExtensionManifestCommandSchema",
+	"sdlExtensionManifestSchema",
+	"sdlExtensionPackageManifestSchema",
 	"stripOuterCodeFence",
 	"trimOuterBlankLines",
 	"truncateTextHead",
@@ -87,6 +90,37 @@ describe("sdl-sdk runtime exports", () => {
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/review-list.ts",
 			packageExport: "@sdl/example/commands/review-list",
+		});
+	});
+
+	test("extension manifest schemas accept permissive package manifests", () => {
+		const parsed = sdk.sdlExtensionPackageManifestSchema.parse({
+			description: "Package description.",
+			private: true,
+			sdl: {
+				description: "SDL commands.",
+				group: "flow",
+				owner: "repo-local",
+				commands: [
+					{
+						name: "changes",
+						path: ["flow", "changes"],
+						group: "flow",
+						description: "Show changes.",
+						fullDescription: "Show changes with details.",
+						entry: "./src/changes.ts",
+						futureField: "kept",
+					},
+				],
+			},
+		});
+
+		expect(parsed.private).toBe(true);
+		expect(parsed.sdl?.owner).toBe("repo-local");
+		expect(parsed.sdl?.commands?.[0]).toMatchObject({ futureField: "kept" });
+		expect(sdk.sdlExtensionManifestCommandSchema.parse(parsed.sdl?.commands?.[0])).toMatchObject({
+			name: "changes",
+			futureField: "kept",
 		});
 	});
 });

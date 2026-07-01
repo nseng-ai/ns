@@ -302,6 +302,43 @@ interface PositionalSpec {
 }
 ```
 
+## Extension manifest schemas
+
+SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `sdl`, and command-entry fields are accepted and preserved.
+
+### `sdlExtensionManifestCommandSchema`
+
+Validates one known `sdl.commands[]` entry shape.
+
+```ts
+const command = sdlExtensionManifestCommandSchema.parse({
+  name: "changes",
+  path: ["flow", "changes"],
+  description: "Show changes.",
+  fullDescription: "Show changes with details.",
+  entry: "./src/changes.ts",
+});
+```
+
+Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`, and `entry?`. Filesystem checks, command-name rules, grouping behavior, and final discovery diagnostics remain SDL kernel responsibilities.
+
+### `sdlExtensionManifestSchema` / `sdlExtensionPackageManifestSchema`
+
+Validate the known `sdl` object and package-level manifest wrapper.
+
+```ts
+const manifest = sdlExtensionPackageManifestSchema.parse({
+  description: "Flow command package.",
+  sdl: {
+    group: "flow",
+    description: "Flow commands.",
+    commands: [{ name: "changes", description: "Show changes.", entry: "./src/changes.ts" }],
+  },
+});
+```
+
+The inferred types are exported as `SdlExtensionManifestCommand`, `SdlExtensionManifest`, and `SdlExtensionPackageManifest`.
+
 ## Text helpers
 
 ### `normalizeTextOutput()`

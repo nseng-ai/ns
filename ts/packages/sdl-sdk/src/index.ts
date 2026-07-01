@@ -5,6 +5,16 @@ export {
 	defineRepoLocalSdlExtensionDescriptor,
 	repoLocalSdlCommandDescriptor,
 } from "./repo-local-sdl-extension.ts";
+export {
+	sdlExtensionManifestCommandSchema,
+	sdlExtensionManifestSchema,
+	sdlExtensionPackageManifestSchema,
+} from "./extension-manifest.ts";
+export type {
+	SdlExtensionManifest,
+	SdlExtensionManifestCommand,
+	SdlExtensionPackageManifest,
+} from "./extension-manifest.ts";
 export type {
 	ClinkrCompletionCandidate,
 	ClinkrCompletionResult,

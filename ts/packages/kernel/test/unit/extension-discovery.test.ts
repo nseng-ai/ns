@@ -249,6 +249,34 @@ describe("extension discovery", () => {
 		expect(result.diagnostics[0]?.commandName).toBeUndefined();
 	});
 
+	test("unknown package manifest fields do not break command discovery", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "flow", "package.json"),
+			JSON.stringify({
+				private: true,
+				sdl: {
+					group: "flow",
+					owner: "repo-local",
+					commands: [
+						{
+							name: "changes",
+							description: "Show changes.",
+							entry: "./src/changes.ts",
+							futureField: "accepted",
+						},
+					],
+				},
+			}),
+		);
+		writeFile(join(root, "flow", "src", "changes.ts"));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.diagnostics).toEqual([]);
+		expect(result.commands).toEqual([expect.objectContaining({ group: "flow", name: "changes" })]);
+	});
+
 	test("manifest command entry diagnostics include commandName when the entry has a name", async () => {
 		const root = await createTempDir();
 		writeFile(

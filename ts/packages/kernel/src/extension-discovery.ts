@@ -1,7 +1,14 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { isPathInside, isRecord, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import { isPathInside, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import {
+	sdlExtensionManifestCommandSchema,
+	sdlExtensionPackageManifestSchema,
+	z,
+	type SdlExtensionManifestCommand,
+	type SdlExtensionPackageManifest,
+} from "sdl-sdk";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -51,12 +58,6 @@ interface ParsedManifestCommandEntryFields {
 	fullDescription: string | undefined;
 }
 
-type ManifestCommandStringField = "name" | "description" | "entry" | "fullDescription";
-
-type ManifestCommandEntryShape = {
-	[key in ManifestCommandStringField]?: string;
-};
-
 type RequiredManifestCommandStringField = "description" | "entry";
 
 const requiredManifestCommandStringFields = [
@@ -72,6 +73,14 @@ const requiredManifestCommandStringFields = [
 	field: RequiredManifestCommandStringField;
 	code: string;
 }[];
+
+const packageManifestProbeSchema = z.looseObject({
+	sdl: z.unknown().optional(),
+});
+
+const extensionManifestProbeSchema = z.looseObject({
+	commands: z.unknown().optional(),
+});
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -198,20 +207,22 @@ export function discoverSdlPackageCommands(
 			],
 		};
 	}
-	if (!isRecord(parsed) || !isRecord(parsed.sdl) || !Array.isArray(parsed.sdl.commands)) {
+	const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
+	if (!manifestResult.success || manifestResult.data.sdl?.commands === undefined) {
 		return { commands: [], diagnostics: [] };
 	}
-	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, parsed);
+	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, manifestResult.data);
 }
 
 function discoverPackageCommands(
 	rootDir: string,
 	packageDir: string,
 	packageJsonPath: string,
-	parsedManifest?: unknown,
+	parsedManifest?: SdlExtensionPackageManifest,
 ): ExtensionDiscoveryResult {
-	let parsed: unknown = parsedManifest;
-	if (parsed === undefined) {
+	let manifest: SdlExtensionPackageManifest | undefined = parsedManifest;
+	if (manifest === undefined) {
+		let parsed: unknown;
 		try {
 			parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 		} catch (error) {
@@ -226,43 +237,35 @@ function discoverPackageCommands(
 				],
 			};
 		}
+		const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
+		if (!manifestResult.success) {
+			return { commands: [], diagnostics: [manifestStructureDiagnostic(parsed, packageJsonPath)] };
+		}
+		manifest = manifestResult.data;
 	}
 
-	if (!isRecord(parsed) || !isRecord(parsed.sdl)) {
+	if (manifest.sdl === undefined) {
 		return {
 			commands: [],
-			diagnostics: [
-				diagnostic(
-					"extension_manifest_missing_sdl",
-					`Extension manifest must contain an sdl object: ${packageJsonPath}.`,
-					{ path: packageJsonPath },
-				),
-			],
+			diagnostics: [missingSdlDiagnostic(packageJsonPath)],
 		};
 	}
-	const packageGroup = readNonEmptyString(parsed.sdl.group);
+	const packageGroup = readNonEmptyString(manifest.sdl.group);
 	const packageGroupDescription =
-		readNonEmptyString(parsed.sdl.description) ?? readNonEmptyString(parsed.description);
+		readNonEmptyString(manifest.sdl.description) ?? readNonEmptyString(manifest.description);
 	const packageGroupDiagnostic = groupDiagnostic({
-		group: parsed.sdl.group,
+		group: manifest.sdl.group,
 		packageJsonPath,
 		commandName: undefined,
 	});
 	if (packageGroupDiagnostic !== undefined) {
 		return { commands: [], diagnostics: [packageGroupDiagnostic] };
 	}
-	const entries = parsed.sdl.commands;
+	const entries = manifest.sdl.commands;
 	if (!Array.isArray(entries)) {
 		return {
 			commands: [],
-			diagnostics: [
-				...(packageGroupDiagnostic === undefined ? [] : [packageGroupDiagnostic]),
-				diagnostic(
-					"extension_manifest_commands_not_array",
-					`Extension manifest sdl.commands must be an array: ${packageJsonPath}.`,
-					{ path: packageJsonPath },
-				),
-			],
+			diagnostics: [commandsNotArrayDiagnostic(packageJsonPath)],
 		};
 	}
 
@@ -284,6 +287,39 @@ function discoverPackageCommands(
 		}
 	}
 	return { commands, diagnostics };
+}
+
+function manifestStructureDiagnostic(
+	parsed: unknown,
+	packageJsonPath: string,
+): ExtensionDiscoveryDiagnostic {
+	const packageProbe = packageManifestProbeSchema.safeParse(parsed);
+	if (!packageProbe.success) return missingSdlDiagnostic(packageJsonPath);
+	const extensionManifestProbe = extensionManifestProbeSchema.safeParse(packageProbe.data.sdl);
+	if (!extensionManifestProbe.success) return missingSdlDiagnostic(packageJsonPath);
+	if (!Array.isArray(extensionManifestProbe.data.commands))
+		return commandsNotArrayDiagnostic(packageJsonPath);
+	return diagnostic(
+		"extension_manifest_invalid",
+		`Extension manifest contains invalid SDL metadata: ${packageJsonPath}.`,
+		{ path: packageJsonPath },
+	);
+}
+
+function missingSdlDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
+	return diagnostic(
+		"extension_manifest_missing_sdl",
+		`Extension manifest must contain an sdl object: ${packageJsonPath}.`,
+		{ path: packageJsonPath },
+	);
+}
+
+function commandsNotArrayDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
+	return diagnostic(
+		"extension_manifest_commands_not_array",
+		`Extension manifest sdl.commands must be an array: ${packageJsonPath}.`,
+		{ path: packageJsonPath },
+	);
 }
 
 function firstExistingDirectoryIndex(entryPath: string): string | undefined {
@@ -325,20 +361,21 @@ function commandForManifestEntry(options: {
 }):
 	| { ok: true; command: DiscoveredExtensionCommand }
 	| { ok: false; diagnostics: readonly ExtensionDiscoveryDiagnostic[] } {
-	if (!isRecord(options.entry)) {
+	const entryResult = sdlExtensionManifestCommandSchema.safeParse(options.entry);
+	if (!entryResult.success) {
 		return {
 			ok: false,
 			diagnostics: [
 				diagnostic(
 					"extension_manifest_command_invalid",
-					`Extension manifest commands must be objects: ${options.packageJsonPath}.`,
+					`Extension manifest commands must be objects with supported known fields: ${options.packageJsonPath}.`,
 					{ path: options.packageJsonPath },
 				),
 			],
 		};
 	}
 	const parsedEntry = parseManifestCommandEntry({
-		entry: options.entry,
+		entry: entryResult.data,
 		packageGroup: options.packageGroup,
 		packageGroupDescription: options.packageGroupDescription,
 		packageJsonPath: options.packageJsonPath,
@@ -486,7 +523,7 @@ function commandNameFromManifestPath(segments: readonly string[] | undefined): s
 }
 
 function parseManifestCommandEntry(options: {
-	entry: Record<string, unknown>;
+	entry: SdlExtensionManifestCommand;
 	packageGroup: string | undefined;
 	packageGroupDescription: string | undefined;
 	packageJsonPath: string;
@@ -495,9 +532,8 @@ function parseManifestCommandEntry(options: {
 	diagnostics: readonly ExtensionDiscoveryDiagnostic[];
 	commandName: string | undefined;
 } {
-	const schemaEntry = parseManifestCommandEntryShape(options.entry);
 	const rawPath = parseManifestPath(options.entry.path);
-	const explicitName = schemaEntry.values.name;
+	const explicitName = readNonEmptyString(options.entry.name);
 	const commandName = explicitName ?? commandNameFromManifestPath(rawPath.value);
 	const rawEntryGroup = options.entry.group;
 	const entryGroup =
@@ -527,8 +563,8 @@ function parseManifestCommandEntry(options: {
 	});
 	if (entryGroupDiagnostic !== undefined) diagnostics.push(entryGroupDiagnostic);
 
-	if (schemaEntry.values.name !== undefined) {
-		fields.name = schemaEntry.values.name;
+	if (explicitName !== undefined) {
+		fields.name = explicitName;
 	} else if (rawPath.value === undefined || options.entry.name !== undefined) {
 		pushManifestStringDiagnostic({
 			diagnostics,
@@ -540,7 +576,7 @@ function parseManifestCommandEntry(options: {
 	}
 
 	for (const { field, code } of requiredManifestCommandStringFields) {
-		const value = schemaEntry.values[field];
+		const value = readNonEmptyString(options.entry[field]);
 		if (value !== undefined) {
 			fields[field] = value;
 			continue;
@@ -554,11 +590,12 @@ function parseManifestCommandEntry(options: {
 		});
 	}
 
-	if (schemaEntry.values.fullDescription !== undefined) {
-		fields.fullDescription = schemaEntry.values.fullDescription;
+	const fullDescription = readNonEmptyString(options.entry.fullDescription);
+	if (fullDescription !== undefined) {
+		fields.fullDescription = fullDescription;
 	} else if (options.entry.fullDescription === undefined) {
 		fields.fullDescription = fields.description;
-	} else if (schemaEntry.invalidFields.has("fullDescription")) {
+	} else {
 		pushManifestStringDiagnostic({
 			diagnostics,
 			code: "extension_manifest_command_full_description_invalid",
@@ -569,22 +606,6 @@ function parseManifestCommandEntry(options: {
 	}
 
 	return { entry: fields, diagnostics, commandName };
-}
-
-function parseManifestCommandEntryShape(entry: Record<string, unknown>): {
-	values: ManifestCommandEntryShape;
-	invalidFields: ReadonlySet<ManifestCommandStringField>;
-} {
-	const invalidFields = new Set<ManifestCommandStringField>();
-	const values: ManifestCommandEntryShape = {};
-	for (const field of ["name", "description", "entry", "fullDescription"] as const) {
-		const rawValue = entry[field];
-		if (rawValue === undefined) continue;
-		const value = readNonEmptyString(rawValue);
-		if (value !== undefined) values[field] = value;
-		else invalidFields.add(field);
-	}
-	return { values, invalidFields };
 }
 
 function pushManifestStringDiagnostic(options: {
