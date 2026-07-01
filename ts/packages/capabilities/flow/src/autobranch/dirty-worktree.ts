@@ -11,6 +11,7 @@ import {
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
 import { sanitizeBranchName } from "@sdl/core/branch-slug";
+import { DIRTY_AUTOBRANCH_WORKTREE_WARNING, summarizeAutobranchCompletion } from "./completion.ts";
 import { runAutobranchTransaction, type AutobranchTransactionResult } from "./dirty-transaction.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
@@ -312,21 +313,19 @@ export async function runDirtyAutobranchFlow(
 		};
 	}
 
-	const cleanliness = await input.exec("git", ["status", "--porcelain=v1"], GIT_TIMEOUT_MS);
-	const isClean = cleanliness.code === 0 && cleanliness.stdout.trim().length === 0;
-	const suffix = prepared.plan.hasSuffix
-		? ` (base slug ${prepared.plan.baseSlug} was unavailable)`
-		: "";
+	const completion = await summarizeAutobranchCompletion({
+		exec: input.exec,
+		plan: prepared.plan,
+		dirtyWarning: DIRTY_AUTOBRANCH_WORKTREE_WARNING,
+	});
 
 	return {
 		ok: true,
 		summary: [
-			`New branch: ${prepared.plan.branchName}${suffix}`,
+			`New branch: ${prepared.plan.branchName}${completion.suffix}`,
 			`Stacked on: ${input.snapshot.branch}`,
 			`Commit: ${transaction.commitSummary}`,
-			isClean
-				? "Working directory is clean."
-				: "Warning: working directory is not clean after checkpoint.",
+			completion.cleanlinessLine,
 		].join("\n"),
 		warnings,
 	};
