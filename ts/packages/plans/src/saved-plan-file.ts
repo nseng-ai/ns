@@ -11,7 +11,7 @@ import {
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
-import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
+import { isRecord, optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
@@ -469,10 +469,19 @@ function buildRepoIdentityOptions(
 	planStoreGateway: PlanStoreGateway,
 ): RepoIdentityOptions {
 	return {
-		cwd: options.cwd,
+		...buildGitCwdParams(options),
 		repoRoot,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
 		planStoreGateway,
+	};
+}
+
+function buildGitCwdParams(options: { cwd: string; signal?: AbortSignal }): {
+	cwd: string;
+	signal?: AbortSignal;
+} {
+	return {
+		cwd: options.cwd,
+		...optionalEntry("signal", options.signal),
 	};
 }
 
@@ -480,10 +489,7 @@ async function resolveRepoIdentity(
 	git: GitGateway,
 	options: RepoIdentityOptions,
 ): Promise<RepoIdentity> {
-	const origin = await git.originUrl({
-		cwd: options.cwd,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-	});
+	const origin = await git.originUrl(buildGitCwdParams(options));
 	if (origin.type === "error") {
 		throw new Error(origin.error.message);
 	}

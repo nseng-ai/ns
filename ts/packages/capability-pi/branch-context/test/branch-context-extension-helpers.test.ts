@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { formatBranchContextGraphiteCreationMethod } from "@sdl/branch-context/api";
+import { describeBranchContextGraphiteCreationSteps } from "@sdl/branch-context/api";
 import { DEFAULT_FAST_MODEL } from "@sdl/core/model-slug";
 import {
 	CREATE_BRANCH_CONTEXT_USAGE,
@@ -64,12 +64,12 @@ describe("branch-context from-plan policy docs", () => {
 		expect(skillText).toContain("For precedence and Graphite method details");
 		expect(skillText).toContain("references/lifecycle.md");
 		expectBranchCreationPolicyPrecedence(lifecycleText);
-		expect(lifecycleText).toContain(formatBranchContextGraphiteCreationMethod("<current-branch>"));
+		expect(lifecycleText).toContain(describeBranchContextGraphiteCreationSteps("<current-branch>"));
 		expect(CREATE_BRANCH_CONTEXT_USAGE).toContain(
-			formatBranchContextGraphiteCreationMethod("<current-branch>"),
+			describeBranchContextGraphiteCreationSteps("<current-branch>"),
 		);
 		expect(GT_UPSTACK_IMPL_USAGE).toContain(
-			formatBranchContextGraphiteCreationMethod("<current-branch>"),
+			describeBranchContextGraphiteCreationSteps("<current-branch>"),
 		);
 		expect(skillText).not.toContain("Omit `--branch-creation` for the portable default");
 	});

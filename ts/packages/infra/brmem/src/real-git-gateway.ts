@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { optionalEntry } from "@sdl/core/primitives";
 import { type CommandExecApi, formatCommand, type StdinCapableCommandExecApi } from "@sdl/exec";
 import type { GitGateway } from "@sdl/git";
 
@@ -115,8 +116,8 @@ export class RealGitBrmemReadGateway implements BrmemReadGateway {
 		return await this.collectEntries({
 			allNamespaces: false,
 			namespace: options.namespace,
-			...(options.key === undefined ? {} : { key: options.key }),
-			...(options.branch === undefined ? {} : { branch: options.branch }),
+			...optionalEntry("key", options.key),
+			...optionalEntry("branch", options.branch),
 		});
 	}
 
@@ -330,8 +331,8 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 	}): Promise<BrmemResult<readonly ListedEntry[]>> {
 		return await this.collectEntries({
 			allNamespaces: true,
-			...(options.key === undefined ? {} : { key: options.key }),
-			...(options.branch === undefined ? {} : { branch: options.branch }),
+			...optionalEntry("key", options.key),
+			...optionalEntry("branch", options.branch),
 		});
 	}
 
@@ -492,7 +493,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: snapshotRef,
 			newSha: commit.stdout.trim(),
-			...(parentSha === undefined ? {} : { expectedOldSha: parentSha }),
+			...optionalEntry("expectedOldSha", parentSha),
 		});
 		if (update.type === "error") return update;
 		return brmemOk({
@@ -589,7 +590,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 				sourceRef,
 				sourceSha: sourceSha.stdout.trim(),
 				destRef,
-				...(destSha === undefined ? {} : { destSha }),
+				...optionalEntry("destSha", destSha),
 				shouldOverwrite: options.shouldOverwrite,
 			});
 		}
@@ -597,7 +598,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 			...options,
 			sourceRef,
 			destRef,
-			...(destSha === undefined ? {} : { destSha }),
+			...optionalEntry("destSha", destSha),
 			keyGlob: options.keyGlob,
 		});
 	}
@@ -639,7 +640,10 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
 			newSha: options.sourceSha,
-			...(destShaResult.code === 0 ? { expectedOldSha: destShaResult.stdout.trim() } : {}),
+			...optionalEntry(
+				"expectedOldSha",
+				destShaResult.code === 0 ? destShaResult.stdout.trim() : undefined,
+			),
 		});
 		if (update.type === "error") return update;
 		const entries = [...sourceEntries.value.keys()]
@@ -703,7 +707,7 @@ export class RealGitBrmemGateway extends RealGitBrmemReadGateway implements Brme
 		const update = await updateSnapshotRef(this.commands, this.cwd, {
 			ref: options.destRef,
 			newSha: commit.stdout.trim(),
-			...(options.destSha === undefined ? {} : { expectedOldSha: options.destSha }),
+			...optionalEntry("expectedOldSha", options.destSha),
 		});
 		if (update.type === "error") return update;
 		return brmemOk({

@@ -1,5 +1,5 @@
 import { failure, ok, negative, type ClinkrExit } from "@sdl/clinkr";
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../context.ts";
@@ -286,10 +286,12 @@ export async function runReviewByKey(
 		ctx,
 		await runRoasterReview(ctx, {
 			key: request.key,
-			...(request.model === undefined ? {} : { model: request.model }),
-			...(request.modelProfile === undefined ? {} : { modelProfile: request.modelProfile }),
-			...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
-			...(request.logBranch === undefined ? {} : { logBranch: request.logBranch }),
+			...optionalEntries({
+				model: request.model,
+				modelProfile: request.modelProfile,
+				baseRef: request.baseRef,
+				logBranch: request.logBranch,
+			}),
 		}),
 	);
 }
@@ -349,7 +351,7 @@ export async function recordSameSessionFindings(
 
 	const loaded = await loadReviewExecutionContext(ctx, {
 		reviewKey: request.reviewKey,
-		...(request.baseRef === undefined ? {} : { baseRef: request.baseRef }),
+		...optionalEntry("baseRef", request.baseRef),
 	});
 	if (loaded.type === "error") return { type: "failed", error: loaded.error };
 	const { source, definition, diff } = loaded.value;
@@ -427,7 +429,7 @@ export async function buildReviewLogResult(
 ): Promise<RoasterResult<ReviewLogResult>> {
 	const entries = await ctx.reviewLog.listReviewLogs({
 		...environmentOptions(ctx.runScope),
-		...(request.key === undefined ? {} : { reviewKey: request.key }),
+		...optionalEntry("reviewKey", request.key),
 	});
 	if (entries.type === "error") return entries;
 	return {
@@ -509,9 +511,9 @@ export async function publishFindingsFromRequest(
 	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,
-		...(request.runUrl === undefined ? {} : { runUrl: request.runUrl }),
-		...(request.reviewName === undefined ? {} : { fallbackReviewName: request.reviewName }),
-		...(request.baseRef === undefined ? {} : { fallbackBaseRef: request.baseRef }),
+		...optionalEntry("runUrl", request.runUrl),
+		...optionalEntry("fallbackReviewName", request.reviewName),
+		...optionalEntry("fallbackBaseRef", request.baseRef),
 	});
 }
 
@@ -583,7 +585,7 @@ function loadDiffFromRequest(
 ): ReturnType<RoasterRuntime["localDiff"]["loadDiff"]> {
 	return ctx.localDiff.loadDiff({
 		...environmentOptions(ctx.runScope),
-		...(baseRef === undefined ? {} : { baseRef }),
+		...optionalEntry("baseRef", baseRef),
 	});
 }
 
