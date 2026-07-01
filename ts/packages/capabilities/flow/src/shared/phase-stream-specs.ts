@@ -38,7 +38,7 @@ export const LAND_PHASES: readonly PhaseSpec[] = [
 	},
 	{
 		key: "merge",
-		item: { name: "Merge", detail: "PRs merged", label: "merging PRs with GitHub…" },
+		item: { name: "Merge", detail: "target PRs merged", label: "merging PRs with GitHub…" },
 	},
 	{
 		key: "refresh",
