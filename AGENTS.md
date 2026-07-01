@@ -22,6 +22,7 @@ This root `AGENTS.md` contains only repo-wide rules needed before choosing a dir
 - Durable state should be git-native: refs, branches, GitHub issues/PRs where collaboration warrants; avoid hidden databases/ad-hoc state files.
 - Keep units small and testable: pure transformations plus Gateway interfaces for external I/O.
 - Port thoughtfully; do not copy abstractions unchanged when simpler designs fit.
+- SDL is self-hosting: this repo both develops the platform and is its first consumer. Before deciding whether new code is a platform capability (tested `ts/packages/*`) or a consumer instance (a `.sdl/*` artifact), read `docs/platform-and-consumer.md`; provisional consumer artifacts must carry an explicit promotion path.
 
 ## Major initiatives — load before non-trivial work
 
