@@ -153,8 +153,8 @@ describe("sdl completion CLI", () => {
 });
 
 interface FakeCompletionRegistryOptions {
-	commands?: readonly SdlCommand[] | undefined;
-	loadFailures?: Readonly<Record<string, string>> | undefined;
+	commands?: readonly SdlCommand[];
+	loadFailures?: Readonly<Record<string, string>>;
 }
 
 interface FakeCompletionRegistry {

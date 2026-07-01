@@ -10,7 +10,11 @@ import { noopSdlProgress } from "sdl-sdk";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
-	const commandIo = createCliCommandIo(overrides);
+	const commandIo = createCliCommandIo({
+		...(overrides.stdout === undefined ? {} : { stdout: overrides.stdout }),
+		...(overrides.stderr === undefined ? {} : { stderr: overrides.stderr }),
+		...(overrides.onOutput === undefined ? {} : { onOutput: overrides.onOutput }),
+	});
 	return {
 		cwd: "/repo",
 		env: {},
