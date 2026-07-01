@@ -3,6 +3,7 @@ import path from "node:path";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
 import { formatCommand, formatCommandFailure } from "@sdl/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { firstNonEmptyLine, nonEmptyLines } from "@sdl/core/text-normalization";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
@@ -455,15 +456,4 @@ function parseLocalBranchTips(stdout: string): GitLocalBranchTip[] {
 		if (name === undefined || name.length === 0) return [];
 		return [{ name, headIso: headIso === undefined || headIso.length === 0 ? null : headIso }];
 	});
-}
-
-function firstNonEmptyLine(value: string): string | undefined {
-	return nonEmptyLines(value)[0];
-}
-
-function nonEmptyLines(value: string): string[] {
-	return value
-		.split(/\r?\n/u)
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0);
 }

@@ -4,6 +4,7 @@ import {
 	prLinksFromDetails,
 	truncateDisplayLine,
 } from "@sdl/core/terminal-presentation";
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
@@ -510,11 +511,4 @@ export function setStatus(ctx: LandStackCommandContext, message: string | undefi
 	if (ctx.hasUI) {
 		ctx.ui.setStatus(STATUS_KEY, message ? `land: ${message}` : undefined);
 	}
-}
-
-function firstNonEmptyLine(output: string): string | undefined {
-	return output
-		.split("\n")
-		.map((line) => line.trim())
-		.find(Boolean);
 }

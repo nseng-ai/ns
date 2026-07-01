@@ -5,6 +5,7 @@ import {
 	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
 } from "@sdl/core/command";
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
@@ -172,11 +173,4 @@ function formatTrunkRefreshFailureTitle(plan: LocalBranchRefreshPlan, trunkBranc
 	}
 
 	return `Could not fetch trunk branch ${trunkBranch}.`;
-}
-
-function firstNonEmptyLine(text: string): string | undefined {
-	return text
-		.split(/\r?\n/)
-		.find((line) => line.trim().length > 0)
-		?.trim();
 }

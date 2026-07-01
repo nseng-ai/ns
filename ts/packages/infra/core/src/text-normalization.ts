@@ -1,5 +1,19 @@
+import { stripTerminalEscapes } from "./terminal-escapes.ts";
+
 export function normalizeTextOutput(output: string): string {
 	return stripOuterCodeFence(trimOuterBlankLines(output.replace(/\r\n?/g, "\n")));
+}
+
+export function firstNonEmptyLine(value: string): string | undefined {
+	return nonEmptyLines(value)[0];
+}
+
+export function nonEmptyLines(value: string): string[] {
+	return stripTerminalEscapes(value)
+		.replace(/\r\n?/g, "\n")
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
 }
 
 export function trimOuterBlankLines(text: string): string {

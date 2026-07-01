@@ -2,6 +2,7 @@ import { posix } from "node:path";
 
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { splitTextLines } from "@sdl/pi/shared/text-lines";
 import { stripTerminalEscapes } from "@sdl/pi/terminal/presentation";
 
@@ -173,7 +174,7 @@ function formatCommentSource(
 
 function parseCommentBody(body: string): ParsedCommentBody {
 	const lines = normalizeCommentBodyLines(body);
-	const firstLine = firstNonEmptyLine(lines);
+	const firstLine = firstNonEmptyLine(lines.join("\n")) ?? "";
 	const titleMatch = /^(?<level>info|warning|error):\s*(?<title>.*)$/u.exec(firstLine);
 	const level = normalizeFeedbackSeverityLevel(titleMatch?.groups?.level);
 	const title = titleMatch?.groups?.title ?? firstLine;
@@ -204,10 +205,6 @@ function trimBlankLines(lines: readonly string[]): string[] {
 	while (start < end && lines[start]?.trim() === "") start += 1;
 	while (end > start && lines[end - 1]?.trim() === "") end -= 1;
 	return lines.slice(start, end);
-}
-
-function firstNonEmptyLine(lines: readonly string[]): string {
-	return lines.find((line) => line.trim() !== "")?.trim() ?? "";
 }
 
 function normalizeFeedbackSeverityLevel(level: string | undefined): FeedbackSeverityLevel | null {

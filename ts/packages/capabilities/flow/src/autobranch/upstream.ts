@@ -1,3 +1,5 @@
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
+
 import type { CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
 
@@ -52,11 +54,4 @@ export async function inspectUpstreamHeadState(
 		return { type: "head_not_in_upstream", upstream: upstreamName };
 	}
 	return { type: "failed", error: formatAutobranchCommandDetails(containsHead) };
-}
-
-function firstNonEmptyLine(value: string): string | undefined {
-	return value
-		.split("\n")
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
 }

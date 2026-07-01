@@ -141,10 +141,7 @@ function formatEmptyBranchFailure(branchName: string | undefined): string {
 	].join("\n");
 }
 
-export function formatTrunkOutOfDatePreflightOutput(
-	_output: SubmitCommandOutput,
-	_submitDryRunCommandDisplay: string,
-): string {
+export function formatTrunkOutOfDatePreflightOutput(): string {
 	return [
 		"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 		"",
@@ -259,10 +256,7 @@ function formatPrState(prState: string | undefined): string {
 	return prState === undefined || prState.trim() === "" ? "" : `, ${prState.trim()}`;
 }
 
-export function formatRestackRequiredOutput(
-	_output: SubmitCommandOutput,
-	_submitDryRunCommandDisplay: string,
-): string {
+export function formatRestackRequiredOutput(): string {
 	return [
 		"Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.",
 		"",
@@ -296,10 +290,7 @@ export function formatRestackConfirmationPrompt(
 	};
 }
 
-export function formatRestackDeclinedOutput(
-	_output: SubmitCommandOutput,
-	_submitDryRunCommandDisplay: string,
-): string {
+export function formatRestackDeclinedOutput(): string {
 	return [
 		"Restack was declined, so nothing was submitted.",
 		"",
@@ -307,10 +298,7 @@ export function formatRestackDeclinedOutput(
 	].join("\n");
 }
 
-export function formatRestackConflictOutput(
-	_output: SubmitCommandOutput,
-	conflictedFiles: string[],
-): string {
+export function formatRestackConflictOutput(conflictedFiles: string[]): string {
 	const fileLines =
 		conflictedFiles.length > 0
 			? ["", "Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`)]
@@ -324,10 +312,7 @@ export function formatRestackConflictOutput(
 	].join("\n");
 }
 
-export function formatReadinessRecheckFailureOutput(
-	_output: SubmitCommandOutput,
-	submitDryRunCommandDisplay: string,
-): string {
+export function formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay: string): string {
 	return [
 		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
 		"",

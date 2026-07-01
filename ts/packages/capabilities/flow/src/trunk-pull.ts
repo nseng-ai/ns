@@ -1,4 +1,5 @@
 import { type ExecResult, isSuccessfulExecResult } from "@sdl/core/command";
+import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { planLocalBranchRefreshFromWorktrees } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
 
@@ -103,11 +104,4 @@ export async function runTrunkPullDetailed(
 		cwd: plan.cwd,
 		execResult: updateResult,
 	};
-}
-
-function firstNonEmptyLine(text: string): string | undefined {
-	return text
-		.split("\n")
-		.map((line) => line.trim())
-		.find((line) => line.length > 0);
 }
