@@ -50,7 +50,11 @@ export interface LandStackCommandContext {
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
-		confirm(title: string, message: string): Promise<boolean>;
+		confirm(
+			title: string,
+			message: string,
+			options?: { defaultAnswer?: "yes" | "no" },
+		): Promise<boolean>;
 		setStatus(key: string, value: string | undefined): void;
 		setWidget?(
 			key: string,

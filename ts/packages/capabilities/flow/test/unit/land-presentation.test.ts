@@ -46,18 +46,25 @@ describe("renderLandResultBlock", () => {
 describe("renderLandConfirmationDetails", () => {
 	test("colorizes parseable stack-path confirmation sections without changing the text", () => {
 		const message = [
-			"Land Graphite stack path: main -> feature-1 -> feature-2",
+			"Review the landing plan before merging this stack.",
 			"",
-			"Current branch: feature-2",
-			"Will merge, in order:",
-			"  1. #201 feature-1 abc123 PR 201",
-			"  2. #202 feature-2 def456 PR 202 Current branch",
+			"Impact",
+			"  • Squash-merge the selected Graphite path from bottom to top.",
+			"",
+			"Plan",
+			"  Stack   2 PRs",
+			"  Range   feature-1 → feature-2",
+			"  Target  main",
+			"",
+			"Press Enter to proceed, or type n to cancel.",
 		].join("\n");
 
 		const rendered = renderLandConfirmationDetails(caps(), message);
 
 		expect(stripAnsi(rendered)).toBe(message);
-		expect(rendered).toContain("\x1b[38;2;34;211;238mLand Graphite stack path");
-		expect(rendered).toContain("\x1b[38;2;139;148;158m  1. #201 feature-1 abc123 PR 201");
+		expect(rendered).toContain("\x1b[38;2;34;211;238mReview the landing plan");
+		expect(rendered).toContain("\x1b[38;2;34;211;238mImpact");
+		expect(rendered).toContain("\x1b[38;2;139;148;158m  Stack");
+		expect(rendered).toContain("\x1b[38;2;63;185;80mPress Enter");
 	});
 });

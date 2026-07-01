@@ -16,6 +16,7 @@ export type {
 } from "./command.ts";
 export type {
 	ExecResult,
+	SdlConfirmOptions,
 	SdlConfirmPrompt,
 	SdlExecOptions,
 	SdlExtensionApi,

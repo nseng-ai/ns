@@ -75,6 +75,17 @@ export function renderLandConfirmationDetails(caps: Caps, message: string): stri
 }
 
 function renderLandConfirmationLine(caps: Caps, line: string): string {
+	const fieldMatch = /^(  [A-Za-z]+)(\s+)(.+)$/.exec(line);
+	if (fieldMatch !== null) {
+		const key = fieldMatch[1];
+		const gap = fieldMatch[2];
+		const value = fieldMatch[3];
+		if (key !== undefined && gap !== undefined && value !== undefined) {
+			return `${paint(caps, "muted", key)}${gap}${value}`;
+		}
+	}
+	if (line.startsWith("  • ")) return `${paint(caps, "accent", "  •")} ${line.slice(4)}`;
+
 	const style = landConfirmationLineStyle(line);
 	if (style === "headline") return bold(paint(caps, "accent", line));
 	if (style === undefined) return line;
@@ -87,8 +98,9 @@ function renderLandConfirmationLine(caps: Caps, line: string): string {
  * because it renders live custom messages inside Pi instead of a Clinkr CLI confirmation prompt.
  */
 function landConfirmationLineStyle(line: string): Intent | "headline" | undefined {
-	if (line.startsWith("Land ")) return "headline";
-	if (line.endsWith(":")) return "accent";
+	if (line.startsWith("Land ") || line.startsWith("Review ")) return "headline";
+	if (line === "Impact" || line === "Plan" || line.endsWith(":")) return "accent";
+	if (line.startsWith("Press Enter")) return "success";
 	if (/^\s{2}\d+\./.test(line) || /^\s{4}\d+\./.test(line)) return "muted";
 	return undefined;
 }

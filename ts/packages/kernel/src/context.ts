@@ -6,7 +6,7 @@ import { runCommand } from "@sdl/exec";
 
 import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
 import { PiTextGenerator } from "./sdk/pi-text-generation.ts";
-import type { SdlConfirmPrompt, SdlExtensionApi } from "sdl-sdk";
+import type { SdlConfirmOptions, SdlConfirmPrompt, SdlExtensionApi } from "sdl-sdk";
 import type { TextGenerator } from "sdl-sdk";
 
 export interface RealSdlCommandContextOptions {
@@ -59,20 +59,28 @@ export function createRealSdlCommandContext(
 
 export function createTerminalConfirmPrompt(): SdlConfirmPrompt | undefined {
 	if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) return undefined;
-	return async (title, message) => {
+	return async (title, message, options) => {
+		const defaultAnswer = options?.defaultAnswer ?? "no";
+		const suffix = defaultAnswer === "yes" ? "[Y/n]" : "[y/N]";
 		const readline = createInterface({ input: process.stdin, output: process.stdout });
 		try {
-			const answer = await readline.question(`${title}\n\n${message}\n\nProceed? [y/N] `);
-			return parseTerminalConfirmAnswer(answer);
+			const answer = await readline.question(`${title}\n\n${message}\n\nProceed? ${suffix} `);
+			return parseTerminalConfirmAnswer(answer, { defaultAnswer });
 		} finally {
 			readline.close();
 		}
 	};
 }
 
-export function parseTerminalConfirmAnswer(answer: string): boolean {
+export function parseTerminalConfirmAnswer(
+	answer: string,
+	options: SdlConfirmOptions = {},
+): boolean {
 	const normalized = answer.trim().toLowerCase();
-	return normalized === "y" || normalized === "yes";
+	if (normalized === "y" || normalized === "yes") return true;
+	if (normalized === "n" || normalized === "no") return false;
+	if (normalized === "") return options.defaultAnswer === "yes";
+	return false;
 }
 
 export type { SdlExtensionApi } from "sdl-sdk";

@@ -134,6 +134,10 @@ async function confirmStackModeIfNeeded(
 		details: formatUpfrontStackConfirmation(shape),
 		nonInteractiveMessage:
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		...(ctx.renderConfirmationDetails === undefined
+			? {}
+			: { renderDetails: ctx.renderConfirmationDetails }),
+		defaultAnswer: "yes",
 		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
 	});
 }
@@ -141,23 +145,25 @@ async function confirmStackModeIfNeeded(
 function formatUpfrontStackConfirmation(shape: LandingShape): string {
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
+	const prCount = `${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"}`;
 	const lines = [
-		"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.",
+		"Review the landing plan before merging this stack.",
 		"",
-		"Step     What happens",
-		"Preflight Check PR state, branch refs, worktree safety, and landing order.",
-		"Merge    Merge each PR using its current PR title/body as the squash commit message.",
-		"Refresh  Fetch/restack/update the remaining upstack PRs after each merge.",
-		"Cleanup  Delete landed local Graphite branches when they are no longer checked out.",
+		"Impact",
+		"  • Squash-merge the selected Graphite path from bottom to top.",
+		"  • Refresh remaining upstack PRs after each merge.",
+		"  • Delete landed local Graphite branches once they are safe to remove.",
 		"",
-		`Stack: ${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"} from ${bottomBranch} through ${stack.actualCurrentBranch}`,
-		`Target: ${stack.trunk}`,
+		"Plan",
+		`  Stack   ${prCount}`,
+		`  Range   ${bottomBranch} → ${stack.actualCurrentBranch}`,
+		`  Target  ${stack.trunk}`,
 	];
 	if (stack.descendantBranches.length > 0) {
 		lines.push(
-			`Descendants: ${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
+			`  Note    ${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
 		);
 	}
-	lines.push("", "Proceed with landing?");
+	lines.push("", "Press Enter to proceed, or type n to cancel.");
 	return lines.join("\n");
 }

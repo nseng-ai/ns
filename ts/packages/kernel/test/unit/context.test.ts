@@ -15,11 +15,12 @@ describe("real SDL command context", () => {
 		expect(result).toMatchObject({ code: 0, stdout: "hello from stdin", stderr: "" });
 	});
 
-	test("terminal confirmation accepts only explicit yes", () => {
+	test("terminal confirmation honors explicit answers and configured defaults", () => {
 		expect(parseTerminalConfirmAnswer("y")).toBe(true);
 		expect(parseTerminalConfirmAnswer("YES")).toBe(true);
 		expect(parseTerminalConfirmAnswer("")).toBe(false);
-		expect(parseTerminalConfirmAnswer("n")).toBe(false);
-		expect(parseTerminalConfirmAnswer("sure")).toBe(false);
+		expect(parseTerminalConfirmAnswer("", { defaultAnswer: "yes" })).toBe(true);
+		expect(parseTerminalConfirmAnswer("n", { defaultAnswer: "yes" })).toBe(false);
+		expect(parseTerminalConfirmAnswer("sure", { defaultAnswer: "yes" })).toBe(false);
 	});
 });

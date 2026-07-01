@@ -85,6 +85,7 @@ interface Notification {
 interface Confirmation {
 	title: string;
 	message: string;
+	options?: { defaultAnswer?: "yes" | "no" };
 }
 
 class FakePi implements LandExtensionAPI {
@@ -178,8 +179,12 @@ function createContext(options: { cwd?: string; mode?: LandCommandContext["mode"
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
 			},
-			async confirm(title: string, message: string): Promise<boolean> {
-				confirmations.push({ title, message });
+			async confirm(
+				title: string,
+				message: string,
+				options?: { defaultAnswer?: "yes" | "no" },
+			): Promise<boolean> {
+				confirmations.push({ title, message, ...(options === undefined ? {} : { options }) });
 				return false;
 			},
 			setStatus(key: string, value: string | undefined): void {
@@ -946,7 +951,8 @@ describe("code land command", () => {
 			{
 				title: "Land stack?",
 				message:
-					"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.\n\nStep     What happens\nPreflight Check PR state, branch refs, worktree safety, and landing order.\nMerge    Merge each PR using its current PR title/body as the squash commit message.\nRefresh  Fetch/restack/update the remaining upstack PRs after each merge.\nCleanup  Delete landed local Graphite branches when they are no longer checked out.\n\nStack: 1 PR from feature-branch through feature-branch\nTarget: main\nDescendants: child-branch will not be merged; the command will try to maintain them after landing.\n\nProceed with landing?",
+					"Review the landing plan before merging this stack.\n\nImpact\n  • Squash-merge the selected Graphite path from bottom to top.\n  • Refresh remaining upstack PRs after each merge.\n  • Delete landed local Graphite branches once they are safe to remove.\n\nPlan\n  Stack   1 PR\n  Range   feature-branch → feature-branch\n  Target  main\n  Note    child-branch will not be merged; the command will try to maintain them after landing.\n\nPress Enter to proceed, or type n to cancel.",
+				options: { defaultAnswer: "yes" },
 			},
 		]);
 		expect(notifications).toEqual([
@@ -1004,8 +1010,8 @@ describe("code land command", () => {
 			stderr: (text) => {
 				stderr += text;
 			},
-			confirm: (title, message) => {
-				confirmations.push({ title, message });
+			confirm: (title, message, options) => {
+				confirmations.push({ title, message, ...(options === undefined ? {} : { options }) });
 				return false;
 			},
 		});
@@ -1015,7 +1021,8 @@ describe("code land command", () => {
 			{
 				title: "Land stack?",
 				message:
-					"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.\n\nStep     What happens\nPreflight Check PR state, branch refs, worktree safety, and landing order.\nMerge    Merge each PR using its current PR title/body as the squash commit message.\nRefresh  Fetch/restack/update the remaining upstack PRs after each merge.\nCleanup  Delete landed local Graphite branches when they are no longer checked out.\n\nStack: 1 PR from feature-branch through feature-branch\nTarget: main\nDescendants: child-branch will not be merged; the command will try to maintain them after landing.\n\nProceed with landing?",
+					"Review the landing plan before merging this stack.\n\nImpact\n  • Squash-merge the selected Graphite path from bottom to top.\n  • Refresh remaining upstack PRs after each merge.\n  • Delete landed local Graphite branches once they are safe to remove.\n\nPlan\n  Stack   1 PR\n  Range   feature-branch → feature-branch\n  Target  main\n  Note    child-branch will not be merged; the command will try to maintain them after landing.\n\nPress Enter to proceed, or type n to cancel.",
+				options: { defaultAnswer: "yes" },
 			},
 		]);
 		expect(stdout).toBe("Cancelled before merge; no PRs were landed.\n");
