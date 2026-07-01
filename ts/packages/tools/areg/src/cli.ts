@@ -21,10 +21,10 @@ import {
 } from "./operations/update-skills.ts";
 
 export interface CliDeps {
-	context?: AregCliContext | undefined;
-	interaction?: AregCliContext["interaction"] | undefined;
+	context?: AregCliContext;
+	interaction?: AregCliContext["interaction"];
 	cwd?: string;
-	env?: NodeJS.ProcessEnv | undefined;
+	env?: NodeJS.ProcessEnv;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 }

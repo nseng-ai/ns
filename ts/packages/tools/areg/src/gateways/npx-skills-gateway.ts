@@ -16,7 +16,7 @@ import { errorInfo } from "./errors.ts";
 export class RealAregNpxSkillsGateway implements AregNpxSkillsGateway {
 	private readonly runner: CommandRunner;
 
-	constructor(options: { runner?: CommandRunner | undefined } = {}) {
+	constructor(options: { runner?: CommandRunner } = {}) {
 		this.runner = options.runner ?? runCommand;
 	}
 

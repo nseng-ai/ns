@@ -791,7 +791,7 @@ class MutatingNpxSkillsGateway implements AregNpxSkillsGateway {
 	private readonly skillsToCreate: readonly string[];
 	private readonly failure: boolean;
 
-	constructor(options: { skillsToCreate: readonly string[]; failure?: boolean | undefined }) {
+	constructor(options: { skillsToCreate: readonly string[]; failure?: boolean }) {
 		this.skillsToCreate = [...options.skillsToCreate];
 		this.failure = options.failure === true;
 	}

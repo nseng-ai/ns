@@ -20,12 +20,12 @@ import { runScenario } from "../support/run-scenario.ts";
 const BOOTSTRAP_REPO = "dagster-io/asdl-tools";
 
 interface InitHarnessOptions {
-	project?: FakeAregProjectGatewayOptions | undefined;
-	git?: InMemoryGitGatewayState | undefined;
-	npxSkills?: FakeAregNpxSkillsGatewayOptions | undefined;
-	prompt?: FakeAregPromptGatewayOptions | undefined;
-	confirmations?: readonly ConfirmationResult[] | undefined;
-	isInteractive?: boolean | undefined;
+	project?: FakeAregProjectGatewayOptions;
+	git?: InMemoryGitGatewayState;
+	npxSkills?: FakeAregNpxSkillsGatewayOptions;
+	prompt?: FakeAregPromptGatewayOptions;
+	confirmations?: readonly ConfirmationResult[];
+	isInteractive?: boolean;
 }
 
 interface InitHarness {
