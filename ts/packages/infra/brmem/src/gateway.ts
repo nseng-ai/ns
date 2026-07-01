@@ -38,6 +38,16 @@ export interface ListedSnapshot {
 	entryCount: number;
 }
 
+export interface ListSnapshotsProgress {
+	processed: number;
+	total: number;
+}
+
+export interface ListSnapshotsOptions {
+	namespace?: string;
+	onProgress?: (progress: ListSnapshotsProgress) => void;
+}
+
 export interface GitRemoteConfig {
 	push: readonly string[];
 	fetch: readonly string[];
@@ -101,7 +111,9 @@ export interface BrmemGateway extends BrmemReadGateway {
 		keyGlob?: string;
 	}): Promise<BrmemResult<CopyEntriesResult>>;
 
-	listSnapshots(options: { namespace?: string }): Promise<BrmemResult<readonly ListedSnapshot[]>>;
+	listSnapshots(options: ListSnapshotsOptions): Promise<BrmemResult<readonly ListedSnapshot[]>>;
+
+	listLocalBranches(): Promise<BrmemResult<ReadonlySet<string>>>;
 
 	localBranchPresence(options: { branch: string }): Promise<BrmemResult<"present" | "absent">>;
 

@@ -17,6 +17,8 @@ describe("brmem gc", () => {
 		const run = runScenario(["gc", "--format", "json"], { gateway });
 
 		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toContain("Scanning Branch Memory Snapshot refs…");
+		expect(run.stderr.join("")).toContain("Found 2 stale Branch Memory Snapshot refs.");
 		expect(parseJsonOutput(run)).toMatchObject({
 			status: "ok",
 			data: {
@@ -44,6 +46,35 @@ describe("brmem gc", () => {
 		const after = await gateway.listSnapshots({});
 		expect(after.type).toBe("ok");
 		if (after.type === "ok") expect(after.value).toHaveLength(3);
+	});
+
+	test("summarizes large human output instead of rendering every stale Snapshot", async () => {
+		const staleEntries = Array.from({ length: 25 }, (_, index) => ({
+			namespace: index % 2 === 0 ? "base" : "branch-context",
+			branch: `stale-${index}`,
+			key: "note.md",
+			content: "note",
+		}));
+
+		const run = runScenario(["gc"], {
+			fake: {
+				localBranches: [],
+				entries: staleEntries,
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		const stdout = run.stdout.join("");
+		expect(stdout).toContain("Stale Snapshot refs: 25");
+		expect(stdout).toContain("By Namespace:");
+		expect(stdout).toContain("Base Namespace");
+		expect(stdout).toContain("Namespace branch-context");
+		expect(stdout).toContain(
+			"Detailed stale ref list omitted from human output because it has 25 rows.",
+		);
+		expect(stdout).toContain("brmem gc --format json");
+		expect(stdout).not.toContain("SNAPSHOT REF");
+		expect(stdout).not.toContain("refs/brmem/base/stale-0");
 	});
 
 	test("deletes stale Snapshots with --yes", async () => {

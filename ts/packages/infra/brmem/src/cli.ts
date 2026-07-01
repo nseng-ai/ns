@@ -53,6 +53,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			env: deps.env ?? context.env,
 			stdin: deps.stdin ?? context.stdin,
 			sourceReader: deps.sourceReader ?? context.sourceReader,
+			stderr: deps.stderr ?? context.stderr,
 			interaction: deps.interaction ?? context.interaction,
 		};
 		return { type: "run", context: runContext, buildState: undefined };

@@ -16,6 +16,7 @@ export interface BrmemCliContext {
 	env: NodeJS.ProcessEnv;
 	stdin: () => Promise<string>;
 	sourceReader: BrmemSourceReader;
+	stderr: (text: string) => void;
 	interaction: ClinkrInteraction;
 }
 
@@ -33,6 +34,7 @@ export function createRealBrmemContext(
 		env,
 		stdin: readStdin,
 		sourceReader: new NodeBrmemSourceReader(),
+		stderr: (text) => process.stderr.write(text),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,
 			stderr: (text) => process.stderr.write(text),

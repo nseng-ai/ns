@@ -67,6 +67,7 @@ export function runScenario(
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
 		stdin: async () => stringFromStdin(stdin),
+		stderr: (text) => stderr.push(text),
 		sourceReader:
 			options.sourceReader ??
 			new ScenarioSourceReader({
