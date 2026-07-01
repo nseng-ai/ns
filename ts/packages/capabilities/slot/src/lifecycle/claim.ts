@@ -48,7 +48,7 @@ interface ClaimPlan {
 
 interface TrunkSlotResolution {
 	target: SlotRecord;
-	source: SlotRecord | null;
+	assignedTrunkSlot: SlotRecord | null;
 }
 
 export async function claimBranch(
@@ -254,44 +254,35 @@ async function planTrunkClaimFromMainWorktree(
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
-	if (currentBranch.branch === trunkBranch) {
-		if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
-			return failure(
-				"dirty-current-worktree",
-				`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
-			);
-		const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch, {
-			assignedSlotIsSource: false,
-		});
-		if (resolution.type === "failure") return resolution;
-		return okPlan({
-			target: resolution.outcome.target,
-			slotCheckoutBranch: trunkBranch,
-			source: resolution.outcome.source,
-			isAlreadyCurrent: false,
-			callerRedirect: null,
-			mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
-		});
-	}
 	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
 		return failure(
 			"dirty-current-worktree",
 			`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
 		);
+	if (currentBranch.branch === trunkBranch) {
+		const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch);
+		if (resolution.type === "failure") return resolution;
+		return okPlan({
+			target: resolution.outcome.target,
+			slotCheckoutBranch: trunkBranch,
+			source: null,
+			isAlreadyCurrent: false,
+			callerRedirect: null,
+			mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
+		});
+	}
 	if (!(await ctx.git.branchExists(currentBranch.branch)))
 		return failure(
 			"branch-missing",
 			`Current branch '${currentBranch.branch}' does not exist locally.`,
 		);
 
-	const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch, {
-		assignedSlotIsSource: true,
-	});
+	const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch);
 	if (resolution.type === "failure") return resolution;
 	return okPlan({
 		target: resolution.outcome.target,
 		slotCheckoutBranch: currentBranch.branch,
-		source: resolution.outcome.source,
+		source: resolution.outcome.assignedTrunkSlot,
 		isAlreadyCurrent: false,
 		callerRedirect: null,
 		mainRedirect: {
@@ -305,7 +296,6 @@ async function resolveTrunkSlotForMainClaim(
 	ctx: RepoSlotContext,
 	inventory: SlotInventory,
 	trunkBranch: string,
-	options: { assignedSlotIsSource: boolean },
 ): Promise<LifecycleResult<TrunkSlotResolution>> {
 	const match = findByBranch(inventory, trunkBranch);
 	if (match?.kind === "slot") {
@@ -315,7 +305,7 @@ async function resolveTrunkSlotForMainClaim(
 			type: "ok",
 			outcome: {
 				target: match.record,
-				source: options.assignedSlotIsSource ? match.record : null,
+				assignedTrunkSlot: match.record,
 			},
 		};
 	}
@@ -335,7 +325,7 @@ async function resolveTrunkSlotForMainClaim(
 				action: "claiming a branch",
 			}),
 		};
-	return { type: "ok", outcome: { target, source: null } };
+	return { type: "ok", outcome: { target, assignedTrunkSlot: null } };
 }
 
 function currentSlotRecord(records: readonly SlotRecord[], root: string): SlotRecord | null {
