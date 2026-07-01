@@ -2,6 +2,8 @@ import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } 
 
 import { objectiveArchiveSdlCommand } from "./sdl/commands/archive.ts";
 import { objectiveCheckSdlCommand } from "./sdl/commands/check.ts";
+import { objectiveExecAutopilotLandSliceSdlCommand } from "./sdl/commands/exec-autopilot-land-slice.ts";
+import { objectiveExecAutopilotPreflightSdlCommand } from "./sdl/commands/exec-autopilot-preflight.ts";
 import { objectiveExecListCandidatesSdlCommand } from "./sdl/commands/exec-list-candidates.ts";
 import { objectiveExecLoadOrientationsSdlCommand } from "./sdl/commands/exec-load-orientations.ts";
 import { objectiveExecReadObjectiveSdlCommand } from "./sdl/commands/exec-read-objective.ts";
@@ -16,6 +18,8 @@ export const objectiveRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescrip
 		objectiveListSdlCommand,
 		objectiveCheckSdlCommand,
 		objectiveArchiveSdlCommand,
+		objectiveExecAutopilotPreflightSdlCommand,
+		objectiveExecAutopilotLandSliceSdlCommand,
 		objectiveExecListCandidatesSdlCommand,
 		objectiveExecLoadOrientationsSdlCommand,
 		objectiveExecReadObjectiveSdlCommand,
