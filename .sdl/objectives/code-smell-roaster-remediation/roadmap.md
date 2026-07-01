@@ -22,7 +22,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
 - [ ] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
 - [ ] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
-- [ ] **address** — 3 findings (0 high / 1 medium / 2 low). See `references/address.md`.
+- [x] **address** — 3 findings (0 high / 1 medium / 2 low). See `references/address.md`.
+  - fixed: Data Clumps for GitHub PR target payloads; `PrTargetPayload`, `prTargetPayloadSchema`, and `buildPrTargetPayload` now own the shared target shape used by download-feedback and pr-checks payloads/schemas, with `head_ref_oid` included only for pr-checks output.
+  - disposed: Speculative Generality in `json-input.ts`; re-probe found file JSON input is existing test-covered behavior in `ts/packages/address/test/unit/json-input.test.ts`, and removing it would require behavior/test churn outside this Objective's no-test-source-edit boundary.
+  - fixed: Repeated Switches for PR target failures; `prTargetFailureExit` now maps common `git_failure`, `pr_feedback_failure`, and `detached_head` results, leaving download-feedback and pr-checks operations to handle only their success/miss-specific cases.
+  - validation: `pnpm --dir ts --filter @sdl/address run test`, `pnpm --dir ts --filter @sdl/address run check`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-06-30.
 - [x] **worktree-status** — 3 findings (0 high / 2 medium / 1 low). See `references/worktree-status.md`.
   - fixed: Repeated Switches for `GtCommitStatus`; `formatGtCommitStatus(commits, "full" | "compact")` now owns the variant switch and both status rendering and footer rendering derive their previous strings from it.
   - fixed: Duplicated Code for renderer contracts; `CustomMessage`, `RenderTheme`, `RenderComponent`, and `WorktreeStatusMessageRenderer` are canonical in `types.ts`, with `status.ts` and `extension.ts` importing the shared contracts instead of redeclaring them.

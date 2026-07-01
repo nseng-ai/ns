@@ -1,13 +1,12 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { optionalEntry } from "@sdl/core/primitives";
 import { collectDownloadFeedback, type DownloadFeedbackPayload } from "./core/download-feedback.ts";
 import {
 	defineExecOperation,
-	gatewayFailureExit,
 	gatewayOptions,
-	prFeedbackFailureExit,
+	prTargetFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
 import { downloadFeedbackResultSchema } from "./operation-schemas/collection.ts";
@@ -53,11 +52,9 @@ async function runDownloadFeedbackOperation(
 		case "miss":
 			return negative(result.message, { data: commandPayload(result.feedback) });
 		case "git_failure":
-			return gatewayFailureExit(result.message, result.failure);
 		case "pr_feedback_failure":
-			return prFeedbackFailureExit(result.message, result.failure);
 		case "detached_head":
-			return failure("detached-head", result.message);
+			return prTargetFailureExit(result);
 	}
 }
 
