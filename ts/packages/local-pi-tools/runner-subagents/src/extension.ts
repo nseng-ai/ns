@@ -169,7 +169,7 @@ export function formatDispatchRunnerSubagentResult(result: RunnerSubagentResult)
 		`Session file: ${runnerSubagentSessionFileText(result)}`,
 		formatProgressLine(result),
 	];
-	const stopReason = readStopReason(result);
+	const stopReason = runnerSubagentStopReason(result);
 	if (stopReason !== undefined) lines.push(`Stop reason: ${stopReason}`);
 
 	if (result.status === "final-text") {
@@ -202,6 +202,7 @@ export function dispatchRunnerSubagentDetails(
 ): DispatchRunnerSubagentDetails {
 	const title = result.title ?? result.progress.title;
 	const sessionFile = runnerSubagentSessionFile(result);
+	const stopReason = runnerSubagentStopReason(result);
 	const details: DispatchRunnerSubagentDetails = {
 		status: result.status,
 		...(title === undefined ? {} : { title }),
@@ -226,13 +227,13 @@ export function dispatchRunnerSubagentDetails(
 			const finalText = truncateFinalTextForToolContent(result.finalText);
 			details.finalTextChars = finalText.originalChars;
 			details.finalTextTruncated = finalText.truncated;
-			if (result.stopReason !== undefined) details.stopReason = result.stopReason;
+			if (stopReason !== undefined) details.stopReason = stopReason;
 			break;
 		}
 		case "stopped-without-terminal":
 		case "stopped-without-useful-text":
 			details.diagnostic = result.diagnostic;
-			if (result.stopReason !== undefined) details.stopReason = result.stopReason;
+			if (stopReason !== undefined) details.stopReason = stopReason;
 			break;
 		case "cancelled":
 			details.diagnostic = result.diagnostic;
@@ -346,21 +347,6 @@ function formatProgressLine(result: RunnerSubagentResult): string {
 	return `Elapsed: ${formatElapsed(result.elapsedMs)}; turns: ${result.progress.turnCount}; tools: ${result.progress.toolCount}${currentTool}`;
 }
 
-function readStopReason(result: RunnerSubagentResult): string | undefined {
-	switch (result.status) {
-		case "completed":
-		case "blocked":
-		case "cancelled":
-		case "error":
-		case "protocol-error":
-			return undefined;
-		case "final-text":
-		case "stopped-without-terminal":
-		case "stopped-without-useful-text":
-			return result.stopReason;
-		default: {
-			const exhaustive: never = result;
-			return exhaustive;
-		}
-	}
+function runnerSubagentStopReason(result: RunnerSubagentResult): string | undefined {
+	return "stopReason" in result ? result.stopReason : undefined;
 }
