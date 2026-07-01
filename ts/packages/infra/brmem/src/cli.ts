@@ -2,9 +2,9 @@
 
 import { ClinkrGroup } from "@sdl/clinkr";
 import { defineCli } from "@sdl/cli-runtime";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
+import type { BrmemEnvOption } from "./env.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
 import {
 	checkRequestSchema,
@@ -162,7 +162,7 @@ export const VERSION = entry.version;
 export interface CliDeps {
 	context?: BrmemCliContext;
 	cwd?: string;
-	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	env?: BrmemEnvOption;
 	stdin?: () => Promise<string>;
 	sourceReader?: BrmemSourceReader;
 	interaction?: BrmemCliContext["interaction"];

@@ -1,9 +1,9 @@
-import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { readStdin, readStdinLine } from "@sdl/cli-runtime";
 
+import type { BrmemEnvOption } from "./env.ts";
 import type { BrmemGateway } from "./gateway.ts";
 import { RealBrmemPromptResolver, type BrmemPromptResolver } from "./prompt-resolution.ts";
 import { RealGitBrmemGateway } from "./real-git-gateway.ts";
@@ -20,7 +20,7 @@ export interface BrmemCliContext {
 }
 
 export function createRealBrmemContext(
-	options: { cwd?: string; env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv> } = {},
+	options: { cwd?: string; env?: BrmemEnvOption } = {},
 ): BrmemCliContext {
 	const cwd = options.cwd ?? process.cwd();
 	const env = options.env ?? process.env;

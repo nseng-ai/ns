@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";
 import { mustEntryLocator, namespaceValueLabel } from "../ref-layout.ts";
-import { gatewayFailure, resolveEntryRequest } from "./shared.ts";
+import { gatewayFailure, resolveOperationEntryRequest } from "./shared.ts";
 
 export const getRequestSchema = z.object({
 	key: z.string().describe("Entry Key to read."),
@@ -27,11 +27,7 @@ export type GetRequest = z.infer<typeof getRequestSchema>;
 export type GetResult = z.infer<typeof getResultSchema>;
 
 export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
-	const resolved = await resolveEntryRequest(ctx, {
-		key: request.key,
-		...optionalEntry("branch", request.branch),
-		...optionalEntry("namespace", request.namespace),
-	});
+	const resolved = await resolveOperationEntryRequest(ctx, request);
 	if (resolved.type !== "resolved") return resolved;
 	const { namespace, key, branch } = resolved.value;
 	const result = await ctx.gateway.getEntry({

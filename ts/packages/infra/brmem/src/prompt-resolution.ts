@@ -1,7 +1,6 @@
 import { access } from "node:fs/promises";
 import process from "node:process";
 
-import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/exec";
 import { RealGitGateway } from "@sdl/git";
@@ -10,6 +9,7 @@ import type { GitGateway } from "@sdl/git";
 import { resolveSdlXdgPath } from "@sdl/capability-kit/xdg";
 
 import { brmemError, brmemOk, type BrmemResult } from "./contracts.ts";
+import type { BrmemEnvOption } from "./env.ts";
 
 export interface BrmemPromptResolver {
 	repositoryRoot(options: { cwd: string }): Promise<BrmemResult<string>>;
@@ -24,7 +24,7 @@ export class RealBrmemPromptResolver implements BrmemPromptResolver {
 	constructor(
 		options: {
 			commands?: CommandExecApi;
-			env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+			env?: BrmemEnvOption;
 			git?: GitGateway;
 		} = {},
 	) {

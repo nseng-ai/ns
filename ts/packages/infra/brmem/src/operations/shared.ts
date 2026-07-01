@@ -1,4 +1,5 @@
 import { failure, type ClinkrExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 
 import type { BrmemCliContext } from "../context.ts";
 import type { BrmemErrorInfo } from "../contracts.ts";
@@ -17,10 +18,36 @@ export interface ResolvedEntryRequest {
 	branch: string;
 }
 
+export type ResolvedEntryRequestResult =
+	| ClinkrExit<never>
+	| {
+			type: "resolved";
+			value: ResolvedEntryRequest;
+	  };
+
+type ZodOptionalString = string | undefined;
+
+export interface EntryOperationRequest {
+	key: string;
+	namespace?: ZodOptionalString;
+	branch?: ZodOptionalString;
+}
+
+export async function resolveOperationEntryRequest(
+	ctx: BrmemCliContext,
+	request: EntryOperationRequest,
+): Promise<ResolvedEntryRequestResult> {
+	return await resolveEntryRequest(ctx, {
+		key: request.key,
+		...optionalEntry("branch", request.branch),
+		...optionalEntry("namespace", request.namespace),
+	});
+}
+
 export async function resolveEntryRequest(
 	ctx: BrmemCliContext,
 	request: { namespace?: string; key: string; branch?: string },
-): Promise<ClinkrExit<never> | { type: "resolved"; value: ResolvedEntryRequest }> {
+): Promise<ResolvedEntryRequestResult> {
 	const branch = request.branch ?? (await resolveCurrentBranch(ctx));
 	if (typeof branch !== "string") return branch;
 	const namespace = normalizeNamespaceOption(request.namespace);
