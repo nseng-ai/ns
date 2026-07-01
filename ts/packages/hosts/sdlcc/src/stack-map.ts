@@ -1,3 +1,5 @@
+import { wrapIndex } from "./tabs/list-navigation.ts";
+
 export type StackMapSlotStatus = "assigned" | "available" | "unknown";
 
 export interface StackMapSlotAssignment {
@@ -279,7 +281,7 @@ export function planStackMapCmuxActivation(
 
 	const targets = branch.cmuxTabs;
 	const slot = branch.slots[0];
-	if (targets.length === 0) return openNewPlan(branch.name, slot);
+	if (targets.length === 0) return openNewCmuxTarget(branch.name, slot);
 	if (targets.length === 1) {
 		const target = targets[0];
 		return target === undefined
@@ -301,21 +303,14 @@ export function choicesForCmuxActivationPlan(
 	if (plan.type !== "choose-tab") return [];
 	return [
 		...plan.targets.map((target): StackMapCmuxChoice => ({ type: "tab", target })),
-		openNewChoice(plan.branch, plan.slot),
+		openNewCmuxTarget(plan.branch, plan.slot),
 	];
 }
 
-function openNewPlan(
+export function openNewCmuxTarget(
 	branch: string,
 	slot: StackMapSlotAssignment | undefined,
-): StackMapCmuxActivationPlan {
-	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
-}
-
-function openNewChoice(
-	branch: string,
-	slot: StackMapSlotAssignment | undefined,
-): StackMapCmuxChoice {
+): Extract<StackMapCmuxActivationPlan, { type: "open-new" }> {
 	return slot === undefined ? { type: "open-new", branch } : { type: "open-new", branch, slot };
 }
 
@@ -638,8 +633,4 @@ function scopeMatchesBranch(branch: StackMapBranchNode, scope: StackMapScopeFilt
 function normalizedPath(path: string | undefined): string | undefined {
 	if (path === undefined || path.length === 0) return undefined;
 	return path.replace(/\/+$/, "");
-}
-
-function wrapIndex(index: number, length: number): number {
-	return ((index % length) + length) % length;
 }

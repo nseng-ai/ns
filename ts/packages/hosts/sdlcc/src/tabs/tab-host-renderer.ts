@@ -7,6 +7,7 @@ import {
 } from "@opentui/core";
 
 import type { TabController } from "./tab-controller.ts";
+import { wrapIndex } from "./list-navigation.ts";
 import type { TabModuleDeps } from "./tab-module.ts";
 
 export interface StartTabHostTuiOptions {
@@ -149,8 +150,4 @@ export function renderTabBar(controllers: readonly TabController[], activeIndex:
 			index === activeIndex ? `[${controller.label}]` : ` ${controller.label} `,
 		)
 		.join(" ");
-}
-
-function wrapIndex(index: number, length: number): number {
-	return ((index % length) + length) % length;
 }

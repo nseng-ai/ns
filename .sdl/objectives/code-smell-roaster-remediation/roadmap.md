@@ -28,6 +28,10 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - validation (handoff sub-slice): `pnpm --dir ts --filter @sdl/handoff-pi run check`, `pnpm --dir ts --filter @sdl/handoff-pi run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-07-01.
 - [ ] **tools** — 12 findings (3 high / 7 medium / 2 low) across areg, packagechk, vibechk. See `references/tools.md`. Check for overlap with `ts-cli-core-structural-cleanup`'s areg god-file decomposition row.
 - [ ] **hosts** — 8 findings (2 high / 4 medium / 2 low) across hosts/pi, hosts/sdlcc. See `references/hosts.md`. Includes one large Divergent Change finding in `pi/src/commands/cli-extension.ts`.
+  - fixed (sdlcc sub-slice): Shotgun Surgery in external command failure formatting; `formatCommandFailure` now owns the shared stdout/stderr/exit-code summary used by cmux report, stack-map cmux effects, stack-map cmux inventory loading, and the objectives tab.
+  - fixed (sdlcc sub-slice): Duplicated open-new cmux plan construction; `openNewCmuxTarget` now owns the optional-slot open-new shape used by stack-map planning, chooser choices, and choice activation.
+  - fixed (sdlcc sub-slice): Duplicated modulo wrap navigation; `tabs/list-navigation.ts` now exports `wrapIndex` for stack-map row movement, objective-tab row movement, and tab-host switching.
+  - validation (sdlcc sub-slice): `pnpm --dir ts --filter sdlcc run check`, `pnpm --dir ts --filter sdlcc run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-07-01.
 - [x] **objective** (package) — 6 findings (0 high / 4 medium / 2 low). See `references/objective-package.md`.
   - fixed: Duplicated Objective target resolution; `resolveObjectiveRecordTarget` now owns root, slug, validity, and record-existence resolution shared by read-objective and check-objective while preserving their result field names.
   - fixed: Duplicated Objective list empty/names render helpers; `emptyMessage` and `renderSlugs` are exported from the shared list renderer and reused by the pretty renderer.
