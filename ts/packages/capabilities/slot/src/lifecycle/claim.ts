@@ -201,11 +201,8 @@ async function planClaimFromMainWorktree(
 					action: "claiming a branch",
 				}),
 			};
-		if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
-			return failure(
-				"dirty-current-worktree",
-				`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
-			);
+		const dirtyFailure = await currentWorktreeDirtyFailure(ctx);
+		if (dirtyFailure !== null) return { type: "failure", failure: dirtyFailure };
 		return okPlan({
 			target,
 			slotCheckoutBranch: branchName,
@@ -254,24 +251,10 @@ async function planTrunkClaimFromMainWorktree(
 			`Failed to determine current branch at ${ctx.repo.root}: ${currentBranch.failure.message}`,
 		);
 	if (currentBranch.type === "detached") return null;
-	if (await ctx.git.hasUncommittedChanges(ctx.repo.root))
-		return failure(
-			"dirty-current-worktree",
-			`Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
-		);
-	if (currentBranch.branch === trunkBranch) {
-		const resolution = await resolveTrunkSlotForMainClaim(ctx, inventory, trunkBranch);
-		if (resolution.type === "failure") return resolution;
-		return okPlan({
-			target: resolution.outcome.target,
-			slotCheckoutBranch: trunkBranch,
-			source: null,
-			isAlreadyCurrent: false,
-			callerRedirect: null,
-			mainRedirect: { action: { type: "detach-head", ref: trunkBranch }, note: null },
-		});
-	}
-	if (!(await ctx.git.branchExists(currentBranch.branch)))
+	const dirtyFailure = await currentWorktreeDirtyFailure(ctx);
+	if (dirtyFailure !== null) return { type: "failure", failure: dirtyFailure };
+	const isTrunkCurrent = currentBranch.branch === trunkBranch;
+	if (!isTrunkCurrent && !(await ctx.git.branchExists(currentBranch.branch)))
 		return failure(
 			"branch-missing",
 			`Current branch '${currentBranch.branch}' does not exist locally.`,
@@ -281,14 +264,16 @@ async function planTrunkClaimFromMainWorktree(
 	if (resolution.type === "failure") return resolution;
 	return okPlan({
 		target: resolution.outcome.target,
-		slotCheckoutBranch: currentBranch.branch,
-		source: resolution.outcome.assignedTrunkSlot,
+		slotCheckoutBranch: isTrunkCurrent ? trunkBranch : currentBranch.branch,
+		source: isTrunkCurrent ? null : resolution.outcome.assignedTrunkSlot,
 		isAlreadyCurrent: false,
 		callerRedirect: null,
-		mainRedirect: {
-			action: { type: "checkout-branch", branch: trunkBranch, role: "trunk" },
-			note: null,
-		},
+		mainRedirect: isTrunkCurrent
+			? { action: { type: "detach-head", ref: trunkBranch }, note: null }
+			: {
+					action: { type: "checkout-branch", branch: trunkBranch, role: "trunk" },
+					note: null,
+				},
 	});
 }
 
@@ -347,6 +332,16 @@ async function currentSlotDirtyFailure(
 	return {
 		errorType: "dirty-current-slot",
 		message: `Current slot ${current.slotName} has uncommitted changes at ${current.path}. Commit or stash before claiming a branch.`,
+	};
+}
+
+async function currentWorktreeDirtyFailure(
+	ctx: RepoSlotContext,
+): Promise<SlotLifecycleFailure | null> {
+	if (!(await ctx.git.hasUncommittedChanges(ctx.repo.root))) return null;
+	return {
+		errorType: "dirty-current-worktree",
+		message: `Current worktree at ${ctx.repo.root} has uncommitted changes. Commit or stash before claiming its branch into a slot.`,
 	};
 }
 

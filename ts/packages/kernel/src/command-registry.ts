@@ -9,6 +9,8 @@ import {
 	type SdlResult,
 } from "sdl-sdk";
 
+import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
+
 export type SdlCommandSourceLevel = "built-in" | "first-party" | "global" | "project";
 
 export interface SdlCommandPath {
@@ -230,39 +232,56 @@ function findCommandEntry(
 	return extension.commands.find((command) => command.name === expectedName);
 }
 
+type SdlExtensionIssueKind =
+	| "invalid-extension"
+	| "commands-not-array"
+	| "entry-name"
+	| "entry-summary"
+	| "entry-description"
+	| "entry-schema"
+	| "entry-completion-provider"
+	| "entry-run"
+	| "entry-other";
+
+const sdlExtensionIssueRules: readonly ZodIssuePathRule<SdlExtensionIssueKind>[] = [
+	{ pattern: ["commands"], match: "exact", value: "commands-not-array" },
+	{ pattern: ["commands", { type: "number" }, "name"], match: "exact", value: "entry-name" },
+	{ pattern: ["commands", { type: "number" }, "summary"], match: "exact", value: "entry-summary" },
+	{
+		pattern: ["commands", { type: "number" }, "description"],
+		match: "exact",
+		value: "entry-description",
+	},
+	{ pattern: ["commands", { type: "number" }, "schema"], match: "exact", value: "entry-schema" },
+	{
+		pattern: ["commands", { type: "number" }, "completionProvider"],
+		match: "exact",
+		value: "entry-completion-provider",
+	},
+	{ pattern: ["commands", { type: "number" }, "run"], match: "exact", value: "entry-run" },
+	{ pattern: ["commands"], match: "prefix", value: "entry-other" },
+];
+
 function formatSdlExtensionIssue(issue: z.core.$ZodIssue | undefined): string {
-	if (issue === undefined || issue.path.length === 0) {
+	const kind = classifyZodIssuePath(issue, sdlExtensionIssueRules, "invalid-extension");
+	if (kind === "invalid-extension") {
 		return "default export must be an extension object created with defineExtension().";
 	}
-	if (issue.path[0] !== "commands") {
-		return "default export must be an extension object created with defineExtension().";
-	}
-	if (issue.path.length === 1) {
+	if (kind === "commands-not-array") {
 		return "SDL extension commands must be an array of command entries.";
 	}
-	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssue(issue)}.`;
+	return `Invalid SDL command entry in extension: ${formatSdlCommandEntryIssueKind(kind)}.`;
 }
 
-function formatSdlCommandEntryIssue(issue: z.core.$ZodIssue): string {
-	const field = issue.path[2];
-	if (field === "name") {
-		return "command name must be a string";
-	}
-	if (field === "summary") {
-		return "command summary must be a string";
-	}
-	if (field === "description") {
-		return "command description must be a string";
-	}
-	if (field === "schema") {
-		return "command schema must be a Zod object schema from sdl-sdk";
-	}
-	if (field === "completionProvider") {
-		return "command completionProvider must be a function";
-	}
-	if (field === "run") {
-		return "command run must be a function";
-	}
+function formatSdlCommandEntryIssueKind(
+	kind: Exclude<SdlExtensionIssueKind, "invalid-extension" | "commands-not-array">,
+): string {
+	if (kind === "entry-name") return "command name must be a string";
+	if (kind === "entry-summary") return "command summary must be a string";
+	if (kind === "entry-description") return "command description must be a string";
+	if (kind === "entry-schema") return "command schema must be a Zod object schema from sdl-sdk";
+	if (kind === "entry-completion-provider") return "command completionProvider must be a function";
+	if (kind === "entry-run") return "command run must be a function";
 	return "command entry must include name, summary, description, and run";
 }
 
