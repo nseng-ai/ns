@@ -21,10 +21,11 @@ import {
 import type { GlyphName, Intent } from "@sdl/cli-theme";
 
 import { MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
-import type {
-	ObjectiveListRecord,
-	ObjectiveListResult,
-	ObjectiveStatusFilter,
+import {
+	emptyMessage,
+	renderSlugs,
+	type ObjectiveListRecord,
+	type ObjectiveListResult,
 } from "./list-objectives.ts";
 
 /** caps-aware truncation: ascii mode degrades the ellipsis to "..." too. */
@@ -70,17 +71,6 @@ function subtitle(result: ObjectiveListResult): string {
 	const count = result.records.length;
 	const noun = count === 1 ? "record" : "records";
 	return dim(`${count} ${noun}  ·  filter ${result.statusFilter}  ·  root ${result.rootPath}`);
-}
-
-function emptyMessage(statusFilter: ObjectiveStatusFilter): string {
-	if (statusFilter === "active" || statusFilter === "open")
-		return "No open Objective records found.";
-	if (statusFilter === "closed") return "No closed Objective records found.";
-	return "No Objective records found.";
-}
-
-function renderSlugs(records: readonly ObjectiveListRecord[]): string {
-	return records.map((record) => record.slug).join("\n");
 }
 
 /**

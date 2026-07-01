@@ -13,10 +13,7 @@ import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
-	activeRecordRelativePath,
-	activeRootRelativePath,
 	emptyObjectiveFiles,
-	isValidObjectiveSlug,
 	objectiveFilesSchema,
 	objectiveUpdateFileSchema,
 	renderFilePresence,
@@ -25,6 +22,7 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
+import { resolveObjectiveRecordTarget } from "./objective-target.ts";
 
 const requiredObjectiveHeadings = [
 	"## Thesis",
@@ -193,54 +191,24 @@ async function checkObjective(
 	| { type: "ok"; value: CheckObjectiveResult }
 	| { type: "storage-error"; error: { code: string; message: string } }
 > {
-	const root = activeRootRelativePath();
-	const rootPresence = await storage.activeRootExists();
-	if (!rootPresence.ok) return { type: "storage-error", error: rootPresence.error };
-
-	if (slug === undefined) {
+	const targetResult = await resolveObjectiveRecordTarget(storage, slug);
+	if (targetResult.type === "storage-error") return targetResult;
+	const target = targetResult.value;
+	if (target.status !== "found") {
 		return {
 			type: "ok",
 			value: emptyResult({
-				status: "missing-slug",
-				error: "missing-slug",
-				rootPath: root,
-				slug: null,
-				path: null,
-				hasRoot: rootPresence.value,
-			}),
-		};
-	}
-	if (!isValidObjectiveSlug(slug)) {
-		return {
-			type: "ok",
-			value: emptyResult({
-				status: "invalid-slug",
-				error: "invalid-slug",
-				rootPath: root,
-				slug: null,
-				path: null,
-				hasRoot: rootPresence.value,
+				status: target.status,
+				error: target.status,
+				rootPath: target.rootPath,
+				slug: target.slug,
+				path: target.path,
+				hasRoot: target.rootExists,
 			}),
 		};
 	}
 
-	const relativePath = activeRecordRelativePath(slug);
-	const recordExists = await storage.activeRecordExists(slug);
-	if (!recordExists.ok) return { type: "storage-error", error: recordExists.error };
-	if (!recordExists.value) {
-		return {
-			type: "ok",
-			value: emptyResult({
-				status: "not-found",
-				error: "not-found",
-				rootPath: root,
-				slug,
-				path: relativePath,
-				hasRoot: rootPresence.value,
-			}),
-		};
-	}
-
+	const relativePath = target.path;
 	const files = await storage.filePresence(relativePath);
 	if (!files.ok) return { type: "storage-error", error: files.error };
 	const updates = await storage.listUpdateFiles(relativePath);
@@ -272,9 +240,9 @@ async function checkObjective(
 	const errorCount = countIssues(checks, "error");
 	const warningCount = countIssues(checks, "warning");
 	const evaluatedFacts = {
-		rootPath: root,
-		hasRoot: rootPresence.value,
-		slug,
+		rootPath: target.rootPath,
+		hasRoot: target.rootExists,
+		slug: target.slug,
 		path: relativePath,
 		hasRecord: true as const,
 		isClosed: files.value.closedMd,

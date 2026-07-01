@@ -225,30 +225,48 @@ export function archivedRecordRelativePath(slug: string): string {
 	return posixJoin(archiveRootRelativePath(), slug);
 }
 
+interface ObjectiveArchivePathRules {
+	sourceRecord(slug: string): string;
+	destinationRecord(slug: string): string;
+	sourceRoot(): string;
+	destinationRoot(): string;
+}
+
+const objectiveArchivePathRules = {
+	archive: {
+		sourceRecord: activeRecordRelativePath,
+		destinationRecord: archivedRecordRelativePath,
+		sourceRoot: activeRootRelativePath,
+		destinationRoot: archiveRootRelativePath,
+	},
+	unarchive: {
+		sourceRecord: archivedRecordRelativePath,
+		destinationRecord: activeRecordRelativePath,
+		sourceRoot: archiveRootRelativePath,
+		destinationRoot: activeRootRelativePath,
+	},
+} satisfies Record<ObjectiveArchiveDirection, ObjectiveArchivePathRules>;
+
 export function archiveSourceRelativePath(
 	slug: string,
 	direction: ObjectiveArchiveDirection,
 ): string {
-	if (direction === "unarchive") return archivedRecordRelativePath(slug);
-	return activeRecordRelativePath(slug);
+	return objectiveArchivePathRules[direction].sourceRecord(slug);
 }
 
 export function archiveDestinationRelativePath(
 	slug: string,
 	direction: ObjectiveArchiveDirection,
 ): string {
-	if (direction === "unarchive") return activeRecordRelativePath(slug);
-	return archivedRecordRelativePath(slug);
+	return objectiveArchivePathRules[direction].destinationRecord(slug);
 }
 
 export function archiveEmptySourceRelativePath(direction: ObjectiveArchiveDirection): string {
-	if (direction === "unarchive") return archiveRootRelativePath();
-	return activeRootRelativePath();
+	return objectiveArchivePathRules[direction].sourceRoot();
 }
 
 export function archiveEmptyDestinationRelativePath(direction: ObjectiveArchiveDirection): string {
-	if (direction === "unarchive") return activeRootRelativePath();
-	return archiveRootRelativePath();
+	return objectiveArchivePathRules[direction].destinationRoot();
 }
 
 export function emptyObjectiveFiles(): ObjectiveFiles {
