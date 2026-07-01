@@ -1,7 +1,8 @@
 import { formatCommand } from "@sdl/core/command";
 import { collectPrSubmitRequirements } from "../api.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
+import { exec, formatCommandDetails } from "./command-exec.ts";
+import { shortSha } from "./graphite-command-channel.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
 import {
 	completed,

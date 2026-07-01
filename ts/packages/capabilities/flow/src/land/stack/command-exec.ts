@@ -12,15 +12,6 @@ import {
 import { normalizeLandCommandFinish, stripAnsi } from "./graphite-command-channel.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 
-export {
-	isGtDeleteMissingBranch,
-	normalizeLandCommandFinish as normalizeCommandFinish,
-	parseGitCheckedOutElsewhere,
-	shortSha,
-	stripAnsi,
-	type CheckedOutElsewhere,
-} from "./graphite-command-channel.ts";
-
 export interface ExecOptions {
 	pi: LandStackExtensionAPI;
 	command: string;

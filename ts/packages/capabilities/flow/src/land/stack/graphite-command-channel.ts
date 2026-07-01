@@ -228,17 +228,31 @@ async function runRawGraphiteCommand(
 	);
 }
 
+async function withGraphiteCommandStream<T>(
+	pi: LandStackExtensionAPI,
+	commandStream: GraphiteCommandStream,
+	options: GraphiteCommandOptions,
+	finishAndValue: (raw: ExecResult) => { finish?: CommandStreamFinish; value: T },
+): Promise<T> {
+	const commandDisplay = formatGraphiteCommand(options.args);
+	commandStream.start(commandDisplay);
+	const raw = await runRawGraphiteCommand(pi, options);
+	const { finish, value } = finishAndValue(raw);
+	if (finish !== undefined) {
+		commandStream.finish(commandDisplay, finish);
+	}
+	return value;
+}
+
 async function runStreamedGraphiteCommand(
 	pi: LandStackExtensionAPI,
 	commandStream: GraphiteCommandStream,
 	options: GraphiteCommandOptions,
 ): Promise<CommandStreamFinish> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const finish = normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
-	return finish;
+	return await withGraphiteCommandStream(pi, commandStream, options, (raw) => {
+		const finish = normalizeGraphiteCommandFinish(options.args, raw);
+		return { finish, value: finish };
+	});
 }
 
 async function runOptionalDescendantStreamedGraphiteCommand(
@@ -246,17 +260,21 @@ async function runOptionalDescendantStreamedGraphiteCommand(
 	commandStream: GraphiteCommandStream,
 	options: GraphiteCommandOptions,
 ): Promise<OptionalDescendantGraphiteCommandResult> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
-	if (rawCheckoutConflict) {
-		return optionalGraphiteCommandResult(raw, rawCheckoutConflict);
-	}
+	return await withGraphiteCommandStream(pi, commandStream, options, (raw) => {
+		const rawCheckoutConflict = parseOptionalCheckoutConflict(raw);
+		if (rawCheckoutConflict) {
+			return { value: optionalGraphiteCommandResult(raw, rawCheckoutConflict) };
+		}
 
-	const finish = normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
-	return optionalGraphiteCommandResult(finish.result, parseOptionalCheckoutConflict(finish.result));
+		const finish = normalizeGraphiteCommandFinish(options.args, raw);
+		return {
+			finish,
+			value: optionalGraphiteCommandResult(
+				finish.result,
+				parseOptionalCheckoutConflict(finish.result),
+			),
+		};
+	});
 }
 
 async function deleteFinalLocalGraphiteBranchStreamed(
@@ -265,20 +283,23 @@ async function deleteFinalLocalGraphiteBranchStreamed(
 	options: GraphiteCommandOptions,
 	branch: string,
 ): Promise<FinalLocalGraphiteBranchDeletion> {
-	const commandDisplay = formatGraphiteCommand(options.args);
-	commandStream.start(commandDisplay);
-	const raw = await runRawGraphiteCommand(pi, options);
-	const checkoutConflict = parseOptionalCheckoutConflict(raw);
-	const finish = checkoutConflict
-		? finalDeleteSkippedFinish(raw, branch)
-		: normalizeGraphiteCommandFinish(options.args, raw);
-	commandStream.finish(commandDisplay, finish);
+	return await withGraphiteCommandStream<FinalLocalGraphiteBranchDeletion>(
+		pi,
+		commandStream,
+		options,
+		(raw) => {
+			const checkoutConflict = parseOptionalCheckoutConflict(raw);
+			const finish = checkoutConflict
+				? finalDeleteSkippedFinish(raw, branch)
+				: normalizeGraphiteCommandFinish(options.args, raw);
 
-	if (checkoutConflict) {
-		return { kind: "retained", branch, path: checkoutConflict.path };
-	}
-	if (finish.result.code === 0) return { kind: "deleted" };
-	return { kind: "failed", result: finish.result };
+			if (checkoutConflict) {
+				return { finish, value: { kind: "retained", branch, path: checkoutConflict.path } };
+			}
+			if (finish.result.code === 0) return { finish, value: { kind: "deleted" } };
+			return { finish, value: { kind: "failed", result: finish.result } };
+		},
+	);
 }
 
 function parseOptionalCheckoutConflict(result: ExecResult): CheckedOutElsewhere | undefined {

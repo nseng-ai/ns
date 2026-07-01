@@ -10,6 +10,7 @@ import {
 import {
 	applyPreparedPrDescriptionUpdate,
 	preparePrDescriptionUpdate,
+	type PreparedPrDescriptionUpdate,
 	type PrDescriptionUpdateResult,
 } from "./pr-description-orchestration.ts";
 import type { PromptSource } from "./pr-description.ts";
@@ -20,28 +21,13 @@ export interface SdlPrDescriptionRuntime {
 	git: GitGateway;
 }
 
-export type RegeneratedPrDescriptionResult =
-	| { ok: true; value: RegeneratedPrDescriptionUpdate }
-	| { ok: false; error: string; exitCode?: number };
-
-export type RegeneratedPrDescriptionUpdate =
-	| RegeneratedPrDescriptionAlreadyCurrent
-	| RegeneratedPrDescription;
-
-export interface RegeneratedPrDescriptionAlreadyCurrent {
-	type: "already_current";
-	pr: GithubPrDetails;
-	patchId: string;
-	promptSource: PromptSource;
-}
-
-export interface RegeneratedPrDescription {
-	type: "prepared";
-	pr: GithubPrDetails;
-	title: string;
-	body: string;
-	promptSource: PromptSource;
-}
+export type RegeneratedPrDescriptionResult = PrDescriptionUpdateResult;
+export type RegeneratedPrDescriptionUpdate = Exclude<PrDescriptionUpdateResult, { type: "failed" }>;
+export type RegeneratedPrDescriptionAlreadyCurrent = Extract<
+	PrDescriptionUpdateResult,
+	{ type: "skipped" }
+>;
+export type RegeneratedPrDescription = PreparedPrDescriptionUpdate;
 
 /** Temporary internal migration seam; not exported from `@sdl/kernel/sdk`. */
 export function createSdlPrDescriptionRuntime(ctx: SdlExtensionApi): SdlPrDescriptionRuntime {
@@ -61,7 +47,7 @@ export async function prepareRegeneratedPrDescriptionForCurrentBranch(input: {
 }): Promise<RegeneratedPrDescriptionResult> {
 	const pr = await input.githubPr.viewCurrentBranchPr({ cwd: input.cwd });
 	if (!pr.ok) {
-		return { ok: false, error: `Could not resolve current branch PR.\n${pr.error.message}` };
+		return { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
 	}
 	return await prepareRegeneratedPrDescription({ ...input, pr: pr.value });
 }
@@ -74,23 +60,21 @@ export async function prepareRegeneratedPrDescription(input: {
 	textGenerator: TextGenerator;
 	pr: GithubPrDetails;
 }): Promise<RegeneratedPrDescriptionResult> {
-	return formatRegeneratedPrDescriptionResult(
-		await preparePrDescriptionUpdate({
-			cwd: input.cwd,
-			env: input.env,
-			githubPr: input.githubPr,
-			git: input.git,
-			textGenerator: input.textGenerator,
-			pr: input.pr,
-			fingerprintPolicy: "skip-current",
-		}),
-	);
+	return await preparePrDescriptionUpdate({
+		cwd: input.cwd,
+		env: input.env,
+		githubPr: input.githubPr,
+		git: input.git,
+		textGenerator: input.textGenerator,
+		pr: input.pr,
+		fingerprintPolicy: "skip-current",
+	});
 }
 
 export async function applyRegeneratedPrDescription(input: {
 	cwd: string;
 	githubPr: GithubPrGateway;
-	regenerated: RegeneratedPrDescription;
+	regenerated: PreparedPrDescriptionUpdate;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
 	const edited = await applyPreparedPrDescriptionUpdate({
 		cwd: input.cwd,
@@ -103,38 +87,4 @@ export async function applyRegeneratedPrDescription(input: {
 
 export function formatPromptSourceLabel(source: PromptSource): string {
 	return source.type === "builtin" ? "built-in" : source.path;
-}
-
-function formatRegeneratedPrDescriptionResult(
-	result: PrDescriptionUpdateResult,
-): RegeneratedPrDescriptionResult {
-	switch (result.type) {
-		case "skipped":
-			return {
-				ok: true,
-				value: {
-					type: "already_current",
-					pr: result.pr,
-					patchId: result.patchId,
-					promptSource: result.promptSource,
-				},
-			};
-		case "prepared":
-			return {
-				ok: true,
-				value: {
-					type: "prepared",
-					pr: result.pr,
-					title: result.title,
-					body: result.body,
-					promptSource: result.promptSource,
-				},
-			};
-		case "failed":
-			return {
-				ok: false,
-				error: result.reason,
-				...(result.exitCode === undefined ? {} : { exitCode: result.exitCode }),
-			};
-	}
 }
