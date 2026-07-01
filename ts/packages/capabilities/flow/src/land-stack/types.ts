@@ -220,6 +220,13 @@ export interface RemainingCleanup {
 	retainedLocalBranches: RetainedLocalBranchCleanup[];
 }
 
+export interface MergeLoopState {
+	expectedShas: Map<string, string>;
+	deletedBranches: Set<string>;
+	warnings: LandingWarning[];
+	cleanup: RemainingCleanup;
+}
+
 export interface CommandStreamFinish {
 	result: ExecResult;
 	note?: string;

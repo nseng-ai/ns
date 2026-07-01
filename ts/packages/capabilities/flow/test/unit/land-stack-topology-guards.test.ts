@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/test-kit";
 import { shortSha } from "../../src/land-stack/command-exec.ts";
+import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land-stack/constants.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
 import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
 import type {
@@ -181,7 +182,7 @@ const BACKUP_ROTATION_ARGS = [
 	"--prune",
 	"--no-tags",
 	".",
-	"+refs/sdl/flow-land-backup/*:refs/sdl/flow-land-backup-prev/*",
+	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 ];
 
 const BACKUP_ROTATION_STEP = step("git", BACKUP_ROTATION_ARGS);
@@ -370,7 +371,7 @@ function backupRefSteps(
 	const { shas = BRANCH_SHAS, staleCurrentRefs = [] } = options;
 	return [
 		BACKUP_ROTATION_STEP,
-		step("git", ["for-each-ref", "--format=%(refname)", "refs/sdl/flow-land-backup"], {
+		step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
 			stdout: staleCurrentRefs.join("\n"),
 		}),
 		...staleCurrentRefs.map((ref) => step("git", ["update-ref", "-d", ref])),
@@ -380,7 +381,7 @@ function backupRefSteps(
 				step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
 					stdout: `${sha}\n`,
 				}),
-				step("git", ["update-ref", `refs/sdl/flow-land-backup/${branch}`, sha]),
+				step("git", ["update-ref", `${BACKUP_REF_NAMESPACE}/${branch}`, sha]),
 			];
 		}),
 	];
@@ -806,7 +807,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(streamText).toContain(
 			`local branch feature-b moved from ${shortSha(SHA_B)} to ${shortSha(SHA_C)} since landing started; refusing gt get --force to avoid clobbering local commits`,
 		);
-		expect(streamText).toContain("refs/sdl/flow-land-backup");
+		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "get")).toBe(
 			false,
 		);
@@ -847,7 +848,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		expect(streamText).toContain(
 			"feature-a now has unexpected Graphite children (rogue-branch); refusing gt delete",
 		);
-		expect(streamText).toContain("refs/sdl/flow-land-backup");
+		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,
 		);
@@ -878,7 +879,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("feature-a now has unexpected Graphite children (rogue-branch)");
 		expect(streamText).toContain("local branch feature-a cleanup was skipped");
-		expect(streamText).toContain("refs/sdl/flow-land-backup");
+		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
 		expect(streamText).toContain("Landed 1 PR: #101 feature-a.");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,

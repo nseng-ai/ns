@@ -3,7 +3,10 @@ import { collectSubmitRestackRequirements } from "sdl-land/api";
 import { execGraphite } from "./command-exec.ts";
 import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
-import { confirmPreMergeMaintenance, type PreMergeConfirmation } from "./pre-merge-confirmation.ts";
+import {
+	confirmPreMergeMaintenance,
+	type PreMergeMaintenanceOptions,
+} from "./pre-merge-confirmation.ts";
 import {
 	restackForSubmitArgs,
 	restackTargetForSubmit,
@@ -13,23 +16,10 @@ import { createLandContext } from "./land-context-adapter.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import { setStatus } from "./presentation.ts";
-import type {
-	LandStackCommandContext,
-	LandStackExtensionAPI,
-	LandingPlan,
-	PrSubmitRequirement,
-	RestackRequirement,
-} from "./types.ts";
-
-interface ConfirmAndSubmitRequiredPrUpdatesOptions {
-	pi: LandStackExtensionAPI;
-	ctx: LandStackCommandContext;
-	plan: LandingPlan;
-	confirmation?: PreMergeConfirmation;
-}
+import type { LandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
 
 export async function confirmAndSubmitRequiredPrUpdates(
-	options: ConfirmAndSubmitRequiredPrUpdatesOptions,
+	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
 	const { pi, ctx, plan } = options;
 	const submitArgs = submitUpdateArgs(plan.stack.landingTargetBranch);
