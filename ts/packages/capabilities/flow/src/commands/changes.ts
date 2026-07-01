@@ -1,4 +1,5 @@
-import { renderBufferedReport } from "@sdl/cli-theme";
+import { dim, glyph, renderBufferedReport } from "@sdl/cli-theme";
+import { commandIoFromSdlExtensionApi, runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
 import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
@@ -32,23 +33,28 @@ export const flowChangesCommand: SdlCommand = {
 	summary: "Summarize outstanding worktree changes without committing.",
 	description: CHANGES_COMMAND_DESCRIPTION,
 	async run(ctx) {
-		const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
-		if (!loaded.ok) {
-			return failed(formatPendingWorktreeError(loaded.error), 2);
-		}
+		const io = commandIoFromSdlExtensionApi(ctx);
+		return await runWithSdlCommandIo(io, async (io) => {
+			io.phase("Inspecting worktree…");
+			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
+			if (!loaded.ok) {
+				return failed(formatPendingWorktreeError(loaded.error), 2);
+			}
 
-		const snapshot = loaded.snapshot;
-		if (snapshot.clean) {
-			return ok("Working tree is clean; no outstanding changes.");
-		}
+			const snapshot = loaded.snapshot;
+			if (snapshot.clean) {
+				return ok("Working tree is clean; no outstanding changes.");
+			}
 
-		const summary = await prepareFlowChangesSummary(ctx, snapshot);
-		if (!summary.ok) {
-			return failed(summary.error, 2);
-		}
+			io.phase("Generating changes summary…");
+			const summary = await prepareFlowChangesSummary(ctx, snapshot);
+			if (!summary.ok) {
+				return failed(summary.error, 2);
+			}
 
-		const caps = resolveFlowStreamCaps(ctx);
-		return ok(formatOutstandingChangesMessage(caps, snapshot, summary.summaryText));
+			const caps = resolveFlowStreamCaps(ctx);
+			return ok(formatOutstandingChangesMessage(caps, snapshot, summary.summaryText));
+		});
 	},
 };
 
@@ -65,17 +71,20 @@ function formatOutstandingChangesMessage(
 		caps: renderCapabilitiesForTerminal(terminalCaps),
 		title: `Outstanding changes on ${snapshot.branch}`,
 		sections: [
-			{ title: "Summary", lines: summaryLines(summaryText) },
-			{ title: "Files", lines: displayFileLines(statusFileLines(snapshot.status)) },
+			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
+			{ title: "Files", lines: displayFileLines(terminalCaps, statusFileLines(snapshot.status)) },
 		],
 	});
 }
 
-function summaryLines(summaryText: string): string[] {
+function summaryLines(terminalCaps: Caps, summaryText: string): string[] {
+	const bullet = glyph(terminalCaps, "bullet");
 	return summaryText
 		.trim()
 		.split(/\r?\n/)
-		.filter((line) => line.trim().length > 0);
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0)
+		.map((line) => `${bullet} ${line.replace(/^-\s+/, "")}`);
 }
 
 function statusFileLines(status: string): string[] {
@@ -85,15 +94,43 @@ function statusFileLines(status: string): string[] {
 		.filter((line) => line.length > 0);
 }
 
-function displayFileLines(fileLines: readonly string[]): string[] {
+function displayFileLines(terminalCaps: Caps, fileLines: readonly string[]): string[] {
 	if (fileLines.length === 0) {
 		return ["(no status lines)"];
 	}
 
-	const displayed = fileLines.slice(0, MAX_DISPLAY_FILE_LINES);
+	const displayed = fileLines
+		.slice(0, MAX_DISPLAY_FILE_LINES)
+		.map((line) => formatStatusFileLine(terminalCaps, line));
 	const omitted = fileLines.length - displayed.length;
 	if (omitted > 0) {
-		displayed.push(`... ${omitted} more file(s)`);
+		displayed.push(dim(`… ${omitted} more file(s)`));
 	}
 	return displayed;
+}
+
+function formatStatusFileLine(terminalCaps: Caps, line: string): string {
+	const parsed = parseStatusFileLine(line);
+	const bullet = glyph(terminalCaps, "bullet");
+	if (parsed === undefined) return `${bullet} ${line}`;
+	return `${bullet} ${statusLabel(parsed.status).padEnd(10)} ${parsed.path}`;
+}
+
+function parseStatusFileLine(line: string): { status: string; path: string } | undefined {
+	if (line.length < 4) return undefined;
+	const status = line.slice(0, 2);
+	const path = line.slice(3).trim();
+	if (path.length === 0) return undefined;
+	return { status, path };
+}
+
+function statusLabel(status: string): string {
+	if (status.includes("U")) return "unmerged";
+	if (status.includes("?")) return "untracked";
+	if (status.includes("R")) return "renamed";
+	if (status.includes("C")) return "copied";
+	if (status.includes("A")) return "added";
+	if (status.includes("D")) return "deleted";
+	if (status.includes("M")) return "modified";
+	return status.trim() || "changed";
 }

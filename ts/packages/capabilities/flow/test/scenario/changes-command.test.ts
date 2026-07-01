@@ -23,6 +23,7 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("Working tree is clean; no outstanding changes.\n");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toEqual([{ stream: "stderr", text: "Inspecting worktree…\n" }]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
@@ -42,10 +43,14 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("Summary\n- Update app behavior");
-		expect(output).toContain("- Add reviewer notes");
-		expect(output).toContain("Files\n M src/app.ts\n?? notes.md");
+		expect(output).toContain("Summary\n• Update app behavior");
+		expect(output).toContain("• Add reviewer notes");
+		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(run.stderr.join("")).toBe("");
+		expect(run.liveOutput).toEqual([
+			{ stream: "stderr", text: "Inspecting worktree…\n" },
+			{ stream: "stderr", text: "Generating changes summary…\n" },
+		]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",
 			"git symbolic-ref --short HEAD",
@@ -165,10 +170,10 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\nSummary\n- Update many files\n\nFiles",
+			"Outstanding changes on feature/demo\n\nSummary\n• Update many files\n\nFiles",
 		);
-		expect(output).toContain(" M file-49.ts");
-		expect(output).not.toContain(" M file-50.ts");
-		expect(output).toContain("... 2 more file(s)");
+		expect(output).toContain("• modified   file-49.ts");
+		expect(output).not.toContain("file-50.ts");
+		expect(output).toContain("… 2 more file(s)");
 	});
 });
