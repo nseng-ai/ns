@@ -5,6 +5,7 @@ import {
 	type BrmemSourceReader,
 } from "@sdl/brmem";
 import { createSdlClinkrInteraction, SdlStdinCapableCommandExecApi } from "@sdl/capability-kit";
+import { optionalEntry } from "@sdl/core/primitives";
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
 import type { GitGateway } from "@sdl/git";
@@ -51,10 +52,10 @@ function readHandoffOverrides(ctx: SdlExtensionApi): HandoffSdlExtensionOverride
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
 	const overrides = raw as Partial<HandoffSdlExtensionOverrides>;
 	return {
-		...(overrides.brmem === undefined ? {} : { brmem: overrides.brmem }),
-		...(overrides.git === undefined ? {} : { git: overrides.git }),
-		...(overrides.sourceReader === undefined ? {} : { sourceReader: overrides.sourceReader }),
-		...(overrides.interaction === undefined ? {} : { interaction: overrides.interaction }),
+		...optionalEntry("brmem", overrides.brmem),
+		...optionalEntry("git", overrides.git),
+		...optionalEntry("sourceReader", overrides.sourceReader),
+		...optionalEntry("interaction", overrides.interaction),
 	};
 }
 

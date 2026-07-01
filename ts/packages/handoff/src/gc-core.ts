@@ -5,13 +5,13 @@ import {
 	type DeleteHandoffArtifactResult,
 	type HandoffDeleteStorageDeps,
 } from "./artifact-storage.ts";
+import {
+	deletedBranchGarbageCollectionMetadataForAction,
+	type DeletedBranchGarbageCollectionAction,
+} from "./gc-actions.ts";
 import type { HandoffSummary } from "./inventory.ts";
 
-export type DeletedBranchGarbageCollectionAction =
-	| "keptActive"
-	| "wouldDelete"
-	| "deleted"
-	| "error";
+export type { DeletedBranchGarbageCollectionAction } from "./gc-actions.ts";
 
 export interface DeletedBranchGarbageCollectionEntry extends HandoffSummary {
 	action: DeletedBranchGarbageCollectionAction;
@@ -104,25 +104,14 @@ function entryFromDeletion(
 function countEntries(
 	entries: readonly DeletedBranchGarbageCollectionEntry[],
 ): DeletedBranchGarbageCollectionCounts {
-	let wouldDelete = 0;
-	let deleted = 0;
-	let kept = 0;
-	let error = 0;
+	const counts: DeletedBranchGarbageCollectionCounts = {
+		wouldDelete: 0,
+		deleted: 0,
+		kept: 0,
+		error: 0,
+	};
 	for (const entry of entries) {
-		switch (entry.action) {
-			case "wouldDelete":
-				wouldDelete += 1;
-				break;
-			case "deleted":
-				deleted += 1;
-				break;
-			case "error":
-				error += 1;
-				break;
-			case "keptActive":
-				kept += 1;
-				break;
-		}
+		counts[deletedBranchGarbageCollectionMetadataForAction(entry.action).countKey] += 1;
 	}
-	return { wouldDelete, deleted, kept, error };
+	return counts;
 }
