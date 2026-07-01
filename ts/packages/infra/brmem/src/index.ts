@@ -11,7 +11,12 @@ export {
 	parseEntryLocator,
 	normalizeNamespaceOption,
 } from "./ref-layout.ts";
-export type { EntryRef, SnapshotRefParts, EntryLocatorParts } from "./ref-layout.ts";
+export type {
+	EntryCoordinate,
+	EntryRef,
+	SnapshotRefParts,
+	EntryLocatorParts,
+} from "./ref-layout.ts";
 export {
 	validateBranchName,
 	validateNamespaceName,
@@ -30,6 +35,8 @@ export type {
 	DeleteEntryResult,
 	CopyEntriesResult,
 	GitRemoteConfig,
+	EntryQueryOptions,
+	EntryWriteOptions,
 } from "./gateway.ts";
 export type { BrmemErrorInfo, BrmemOptionalResult, BrmemResult } from "./contracts.ts";
 export { brmemOk, brmemError, brmemFound, brmemMissing, brmemOptionalError } from "./contracts.ts";

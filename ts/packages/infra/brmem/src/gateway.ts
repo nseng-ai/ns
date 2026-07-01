@@ -1,5 +1,5 @@
 import type { BrmemOptionalResult, BrmemResult } from "./contracts.ts";
-import type { EntryRef } from "./ref-layout.ts";
+import type { EntryCoordinate, EntryRef } from "./ref-layout.ts";
 
 export interface EntryContent {
 	content: string;
@@ -48,31 +48,22 @@ export interface ListSnapshotsOptions {
 	onProgress?: (progress: ListSnapshotsProgress) => void;
 }
 
+export type EntryQueryOptions = EntryCoordinate & { at?: string };
+export type EntryWriteOptions = EntryCoordinate & EntryContent;
+
 export interface GitRemoteConfig {
 	push: readonly string[];
 	fetch: readonly string[];
 }
 
 export interface BrmemReadGateway {
-	listEntries(options: {
-		namespace: string;
-		key?: string;
-		branch?: string;
-	}): Promise<BrmemResult<readonly ListedEntry[]>>;
+	listEntries(
+		options: Pick<EntryCoordinate, "namespace"> & Partial<Pick<EntryCoordinate, "key" | "branch">>,
+	): Promise<BrmemResult<readonly ListedEntry[]>>;
 
-	getEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		at?: string;
-	}): Promise<BrmemOptionalResult<EntryContent>>;
+	getEntry(options: EntryQueryOptions): Promise<BrmemOptionalResult<EntryContent>>;
 
-	checkEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		at?: string;
-	}): Promise<BrmemOptionalResult<EntryDiagnostic>>;
+	checkEntry(options: EntryQueryOptions): Promise<BrmemOptionalResult<EntryDiagnostic>>;
 }
 
 export interface BrmemGateway extends BrmemReadGateway {
@@ -83,25 +74,11 @@ export interface BrmemGateway extends BrmemReadGateway {
 		branch?: string;
 	}): Promise<BrmemResult<readonly ListedEntry[]>>;
 
-	putEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>>;
+	putEntry(options: EntryWriteOptions): Promise<BrmemResult<PutEntryResult>>;
 
-	createEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-		content: string;
-	}): Promise<BrmemResult<PutEntryResult>>;
+	createEntry(options: EntryWriteOptions): Promise<BrmemResult<PutEntryResult>>;
 
-	deleteEntry(options: {
-		namespace: string;
-		key: string;
-		branch: string;
-	}): Promise<BrmemResult<DeleteEntryResult>>;
+	deleteEntry(options: EntryCoordinate): Promise<BrmemResult<DeleteEntryResult>>;
 
 	copyEntries(options: {
 		namespace: string;
