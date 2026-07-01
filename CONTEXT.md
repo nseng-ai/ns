@@ -137,3 +137,15 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 **Package Tier**:
 The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` tier was deleted with `@sdl/domain-primitives-transitional`; do not reintroduce a live transitional tier as a debt label. `capability-gateway-backend` is defined for **Capability Gateway Backends** (ADR 0020) but is not yet declared or enforced — `@sdl/git`, `@sdl/graphite`, and `@sdl/cmux` still carry `neutral-infra` until that follow-up slice lands.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
+
+**Published package**:
+The normal npm distribution unit that users install and Node resolves at runtime. A published package may contain multiple architecture-level source components, but it is not itself the only architecture boundary.
+*Avoid*: topology node, source subpackage, package tier
+
+**Topology circle**:
+An architecture topology graph node representing a source component identified by project directory conventions, not necessarily a separate npm package. Topology circles preserve architectural granularity inside coarse published packages and are subject to import-boundary discipline.
+*Avoid*: npm package, package color, hidden package
+
+**Topology overlay**:
+The architecture-report and guard layer that interprets ordinary source directories as topology circles, tier lanes, package colors, and dependency-boundary facts without turning those directories into npm packages.
+*Avoid*: package manager, runtime loader, build system
