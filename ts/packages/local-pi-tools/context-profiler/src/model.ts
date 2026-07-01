@@ -530,7 +530,7 @@ export function delegationsInSpan(
 	return claims.filter((claim) => claim.turn >= turnRange.start && claim.turn <= turnRange.end);
 }
 
-function analysisVerdictFields(source: AnalysisVerdicts): AnalysisVerdicts {
+export function analysisVerdictFields(source: AnalysisVerdicts): AnalysisVerdicts {
 	return {
 		...(source.efficiency === undefined ? {} : { efficiency: source.efficiency }),
 		...(source.relevance === undefined ? {} : { relevance: source.relevance }),

@@ -1,4 +1,4 @@
-import type { LiveRegion } from "./model.ts";
+import { analysisVerdictFields, type LiveRegion } from "./model.ts";
 
 export const INTERROGATION_TOOLS = ["read", "grep", "find", "ls"] as const;
 
@@ -57,9 +57,7 @@ export function scopeForRegion(region: LiveRegion): InterrogationScope {
 			kind: region.kind,
 			outcome: region.outcome,
 			turnRange: { ...region.turnRange },
-			...(region.efficiency === undefined ? {} : { efficiency: region.efficiency }),
-			...(region.relevance === undefined ? {} : { relevance: region.relevance }),
-			...(region.analysisSummary === undefined ? {} : { analysisSummary: region.analysisSummary }),
+			...analysisVerdictFields(region),
 		},
 	};
 }
