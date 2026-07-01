@@ -941,12 +941,7 @@ function terminalCaptureResult<TTerminalInput>(
 		status: capture.status,
 		input: capture.input as TTerminalInput,
 	};
-	const base = {
-		...(title === undefined ? {} : { title }),
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
-	};
+	const base = resultBase(title, progress);
 	if (capture.status === "completed") {
 		return {
 			...base,
@@ -1011,6 +1006,15 @@ async function withRunnerSubagentUsage<TTerminalInput>(
 	return { ...result, usage };
 }
 
+function resultBase(title: string | undefined, progress: RunnerSubagentProgress) {
+	return {
+		...(title === undefined ? {} : { title }),
+		elapsedMs: progress.elapsedMs,
+		progress,
+		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
+	};
+}
+
 function finalTextResult(
 	title: string | undefined,
 	progress: RunnerSubagentProgress,
@@ -1018,11 +1022,8 @@ function finalTextResult(
 	stopReason: string | undefined,
 ): RunnerSubagentFinalTextResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "final-text",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		finalText,
 		...(stopReason === undefined ? {} : { stopReason }),
 	};
@@ -1034,11 +1035,8 @@ function stoppedWithoutTerminalResult(
 	stopReason: string | undefined,
 ): RunnerSubagentStoppedWithoutTerminalResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "stopped-without-terminal",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		diagnostic: STOPPED_WITHOUT_TERMINAL_DIAGNOSTIC,
 		...(stopReason === undefined ? {} : { stopReason }),
 	};
@@ -1050,11 +1048,8 @@ function stoppedWithoutUsefulTextResult(
 	stopReason: string | undefined,
 ): RunnerSubagentStoppedWithoutUsefulTextResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "stopped-without-useful-text",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		diagnostic: STOPPED_WITHOUT_USEFUL_TEXT_DIAGNOSTIC,
 		...(stopReason === undefined ? {} : { stopReason }),
 	};
@@ -1066,11 +1061,8 @@ function cancelledResult(
 	reason: string | undefined,
 ): RunnerSubagentCancelledResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "cancelled",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		diagnostic: "Forked Pi process cancelled by parent abort signal.",
 		...(reason === undefined ? {} : { reason }),
 	};
@@ -1083,11 +1075,8 @@ function errorResult(
 	error: unknown = new Error(diagnostic),
 ): RunnerSubagentErrorResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "error",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		diagnostic,
 		error: errorPayload(error, diagnostic),
 	};
@@ -1100,11 +1089,8 @@ function protocolErrorResult(
 	event?: unknown,
 ): RunnerSubagentProtocolErrorResult {
 	return {
-		...(title === undefined ? {} : { title }),
+		...resultBase(title, progress),
 		status: "protocol-error",
-		elapsedMs: progress.elapsedMs,
-		progress,
-		...(progress.sessionFile === undefined ? {} : { sessionFile: progress.sessionFile }),
 		diagnostic: message,
 		protocolError: {
 			message,
