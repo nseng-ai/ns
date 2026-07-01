@@ -108,8 +108,8 @@ export interface VerifyHandoffLaunchOptions<P extends HandoffLaunchParams = Hand
 	verifyStatus: string;
 	verifyUpdate?: string;
 	missingMessage(params: P): string;
-	failureDetails?: ((message: string, params: P) => unknown) | undefined;
-	onUpdate?: ((update: Partial<ToolResult>) => void) | undefined;
+	failureDetails?: (message: string, params: P) => unknown;
+	onUpdate?: (update: Partial<ToolResult>) => void;
 }
 
 export type VerifyHandoffLaunchResult = { type: "ok" } | { type: "failed"; result: ToolResult };
@@ -322,8 +322,8 @@ export function buildHandoffLaunchTool<P extends HandoffLaunchParams = HandoffLa
 				verifyStatus: spec.verifyStatus(parsed.params),
 				...optionalEntry("verifyUpdate", spec.verifyUpdate),
 				missingMessage: spec.missingMessage,
-				failureDetails: spec.verifyFailureDetails,
-				onUpdate,
+				...optionalEntry("failureDetails", spec.verifyFailureDetails),
+				...optionalEntry("onUpdate", onUpdate),
 			});
 			if (verified.type === "failed") {
 				return verified.result;
