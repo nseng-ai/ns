@@ -177,6 +177,12 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.exitCode === 0 || result.stderr.trim() === "") return result;
 	const rawTranscript = renderRawFailureTranscript(result);
 	const rawLog = await writeSubmitFailureRawLog(rawTranscript, ctx.env);
+	// Failures we classified deterministically already carry a precise, hand-written
+	// message. Present it verbatim (plus the raw-log pointer); the model interpreter is
+	// only for turning unrecognized Graphite/subprocess output into guidance.
+	if (result.failurePresentation === "deterministic") {
+		return { ...result, stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }) };
+	}
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
 		exitCode: result.exitCode,
@@ -190,7 +196,7 @@ async function maybeFormatSubmitFailureWithModel(
 	}
 	return {
 		...result,
-		stderr: formatOriginalFailureFallback({ stderr: result.stderr, rawLog }),
+		stderr: formatFailureWithRawLog({ stderr: result.stderr, rawLog }),
 	};
 }
 
@@ -228,19 +234,13 @@ function buildSubmitFailureInterpretationPrompt(input: {
 		"Interpret this `sdl flow submit` failure for the user.",
 		"Your output is the primary user-facing error message.",
 		"Output only plain terminal text: no Markdown headings, no bold markers, and no fenced code blocks.",
-		"The first line must be the diagnosis.",
-		"Use short labeled sections where useful: Problem:, Branch:, What succeeded:, Next step:, Alternative:, Details:.",
-		"Include only facts supported by the transcript.",
-		"Prefer exact commands already present in the transcript.",
+		"Be terse. The first line is a plain-language diagnosis of what went wrong.",
+		"Then give the concrete next step(s) to fix it on a line prefixed with `Fix:` (add a `Bypass:` line only if the transcript shows an override flag such as --force).",
+		"Keep it to a few short lines. Do not add labeled sections, restate the same point multiple ways, or narrate what succeeded.",
+		"Include only facts supported by the transcript, and prefer exact commands already present in it.",
 		"If the failure is ambiguous, say what to inspect instead of guessing.",
 		"Do not paste raw logs.",
 		"Do not include the raw-log path; the wrapper appends exactly one raw-log line after your text.",
-		"Empty-branch rule: if the transcript says Graphite skipped submission because branch <name> is empty or because a branch in the submit stack has no changes, make the first line close to: Submit stack contains an empty branch; Graphite will not submit it.",
-		"For empty branches, repeat the exact branch name when known. Explain that `sdl flow submit` stopped before final submit because Graphite would otherwise skip that branch and can then report all PRs up to date or nothing to submit.",
-		"For empty branches with no remaining work, make deletion the primary remediation. If the branch name is known, include `gt delete <branch> -f -q` as the concrete command, and say to switch to the parent/downstack branch first if Graphite cannot delete the checked-out branch.",
-		"Present committing real changes only as the alternative when the branch should still have its own PR.",
-		"Do not present add/delete/reparent as equal choices for empty branches.",
-		"Merged-PR trunk rule: if the transcript says a branch's PR has already been merged but its commits are not contained in the current trunk branch, make the first line close to: A merged PR in this stack is missing from the current trunk branch. Repeat the exact branch, PR number/state, and trunk when known. The primary next step is to ensure trunk contains the merged PR's commits or move/reparent the branch onto a trunk that does contain them, then rerun `sdl flow submit`.",
 		"",
 		`Exit code: ${input.exitCode}`,
 		`Transcript limit: ${SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS} characters`,
@@ -306,7 +306,7 @@ function formatModelPrimaryFailure(input: {
 	return appendRawLogLine(input.text.trim(), input.rawLog);
 }
 
-function formatOriginalFailureFallback(input: {
+function formatFailureWithRawLog(input: {
 	stderr: string;
 	rawLog: { ok: true; path: string } | { ok: false; message: string };
 }): string {

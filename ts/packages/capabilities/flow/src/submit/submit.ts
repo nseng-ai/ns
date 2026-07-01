@@ -414,13 +414,27 @@ export async function runSubmitCommand(
 		});
 		const restackDecision = await shouldRunRestack(options, readiness.output);
 		if (restackDecision === "unavailable") {
-			return failure(1, formatRestackRequiredOutput(readiness.output, submitDryRunCommandDisplay), {
+			const stderr = formatRestackRequiredOutput(readiness.output, submitDryRunCommandDisplay);
+			return failure(1, stderr, {
 				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"preflight",
+					submitDryRunCommandDisplay,
+					readiness.output,
+					stderr,
+				),
 			});
 		}
 		if (restackDecision === "declined") {
-			return failure(1, formatRestackDeclinedOutput(readiness.output, submitDryRunCommandDisplay), {
+			const stderr = formatRestackDeclinedOutput(readiness.output, submitDryRunCommandDisplay);
+			return failure(1, stderr, {
 				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"preflight",
+					submitDryRunCommandDisplay,
+					readiness.output,
+					stderr,
+				),
 			});
 		}
 
@@ -538,9 +552,10 @@ export async function runSubmitCommand(
 			submitCommandDisplay,
 		});
 		return failure(1, stderr, {
-			failurePresentation: isDeterministicPostSubmitFailure(submitted, currentPr)
-				? "deterministic"
-				: "unknown",
+			// Post-submit verification failures keep their raw command output in the
+			// message, so route them through the model interpreter rather than showing
+			// the transcript verbatim.
+			failurePresentation: "unknown",
 			rawFailureTranscript: postSubmitFailureTranscript(
 				stderr,
 				submitted,
@@ -757,13 +772,6 @@ function shouldFailPostSubmitVerification(
 	if (currentPr.kind === "present") return false;
 	if (currentPr.kind === "no_current_pr" && submitted.prLinks.length > 0) return false;
 	return true;
-}
-
-function isDeterministicPostSubmitFailure(
-	submitted: Extract<SubmitRunResult, { kind: "success" }>,
-	currentPr: CurrentPrVerificationResult,
-): boolean {
-	return submitted.semanticFailureCause === undefined && currentPr.kind === "no_current_pr";
 }
 
 function toSubmitCommandOutput(result: ExecResult): SubmitCommandOutput {
