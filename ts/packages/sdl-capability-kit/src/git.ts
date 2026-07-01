@@ -91,20 +91,20 @@ export interface ExecSdlCommandOptions {
 	ctx: SdlExtensionApi;
 	command: string;
 	args: readonly string[];
-	cwd?: string | undefined;
-	timeoutMs?: number | undefined;
-	onStdout?: ((text: string) => void) | undefined;
-	onStderr?: ((text: string) => void) | undefined;
+	cwd?: string;
+	timeoutMs?: number;
+	onStdout?: (text: string) => void;
+	onStderr?: (text: string) => void;
 }
 
 interface CliExecOptions {
-	cwd?: string | undefined;
-	timeout?: number | undefined;
+	cwd?: string;
+	timeout?: number;
 }
 
 interface SdlCliExecAdapterOptions {
 	ctx: SdlExtensionApi;
-	onOutput?: ((stream: "stdout" | "stderr", text: string) => void) | undefined;
+	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
 }
 
 export async function execSdlCommand(options: ExecSdlCommandOptions): Promise<ExecResult> {
