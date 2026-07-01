@@ -29,6 +29,7 @@ import {
 	listSavedPlans,
 	writeSavedPlanFile,
 	type LatestSavedPlanFileEvidence,
+	type PlanStoreOptions,
 	type SavedPlanFileEvidence,
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
@@ -162,12 +163,7 @@ async function handleList(
 					? undefined
 					: normalizeRootPath(request.planStoreRoot, ctx.cwd);
 			const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
-			const plans = await listSavedPlans(ctx.commands, {
-				cwd: ctx.cwd,
-				git: ctx.git,
-				planStoreGateway: ctx.planStoreGateway,
-				...(planStoreRoot === undefined ? {} : { planStoreRoot }),
-			});
+			const plans = await listSavedPlans(ctx.commands, planStoreOptions(ctx, planStoreRoot));
 			return ok(savedPlanListJson(plans));
 		},
 		failureFromError: plansFailureFromError,
@@ -213,12 +209,7 @@ async function handleSave(
 					content,
 					...(request.summary === undefined ? {} : { summary: request.summary }),
 				},
-				{
-					cwd: ctx.cwd,
-					git: ctx.git,
-					planStoreGateway: ctx.planStoreGateway,
-					...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
-				},
+				planStoreOptions(ctx),
 			);
 			return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
 		},
@@ -254,6 +245,18 @@ function plansFailureFromError(operation: PlansOperation, error: unknown): Clink
 	});
 }
 
+function planStoreOptions(
+	ctx: PlansCliContext,
+	planStoreRoot: string | undefined = ctx.planStoreRoot,
+): PlanStoreOptions {
+	return {
+		cwd: ctx.cwd,
+		git: ctx.git,
+		planStoreGateway: ctx.planStoreGateway,
+		...(planStoreRoot === undefined ? {} : { planStoreRoot }),
+	};
+}
+
 function plansErrorType(operation: PlansOperation): string {
 	switch (operation) {
 		case "list":
@@ -283,12 +286,7 @@ async function resolvePlanEvidence(
 		});
 		return { source: "explicit", filePath };
 	}
-	const latest = await findLatestSavedPlanFile(ctx.commands, {
-		cwd: ctx.cwd,
-		git: ctx.git,
-		planStoreGateway: ctx.planStoreGateway,
-		...(ctx.planStoreRoot === undefined ? {} : { planStoreRoot: ctx.planStoreRoot }),
-	});
+	const latest = await findLatestSavedPlanFile(ctx.commands, planStoreOptions(ctx));
 	return { source: "latest", ...latest };
 }
 

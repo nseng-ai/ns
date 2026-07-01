@@ -183,58 +183,27 @@ export async function resolvePlanStoreRepoDirectory(
 	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreRepoEvidence> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const planStoreGateway = resolvePlanStoreGateway(options);
-	const repoRoot = await resolveRequiredGitRepoRoot(
-		git,
-		options.cwd,
-		options.signal,
-		planStoreGateway,
+	return await resolvePlanStoreRepoDirectoryFromContext(
+		options,
+		await resolvePlanStoreRepositoryContext(pi, options),
 	);
-	const repoIdentity = await resolveRepoIdentity(
-		git,
-		buildRepoIdentityOptions(options, repoRoot, planStoreGateway),
-	);
-	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
-	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
-	const repoDirectoryPath = join(planStoreRoot, repoKey);
-
-	return {
-		repoRoot,
-		repoKey,
-		repoIdentitySource: repoIdentity.source,
-		repoDirectoryPath,
-	};
 }
 
 export async function resolvePlanStoreDirectory(
 	pi: CommandExecApi,
 	options: PlanStoreOptions,
 ): Promise<PlanStoreDirectoryEvidence> {
-	const git = options.git ?? new RealGitGateway(pi);
-	const planStoreGateway = resolvePlanStoreGateway(options);
-	const repoRoot = await resolveRequiredGitRepoRoot(
-		git,
-		options.cwd,
-		options.signal,
-		planStoreGateway,
-	);
-	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(
-		git,
-		buildRepoIdentityOptions(options, repoRoot, planStoreGateway),
-	);
-	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
+	const context = await resolvePlanStoreRepositoryContext(pi, options);
+	const sourceBranch = await resolveCurrentBranch(context.git, options.cwd, options.signal);
+	const repoDirectory = await resolvePlanStoreRepoDirectoryFromContext(options, context);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
-	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
-	const repoDirectoryPath = join(planStoreRoot, repoKey);
-	const directoryPath = buildPlanStoreBranchDirectoryPath({ repoDirectoryPath, branchKey });
+	const directoryPath = buildPlanStoreBranchDirectoryPath({
+		repoDirectoryPath: repoDirectory.repoDirectoryPath,
+		branchKey,
+	});
 
 	return {
-		repoRoot,
-		repoKey,
-		repoIdentitySource: repoIdentity.source,
-		repoDirectoryPath,
+		...repoDirectory,
 		sourceBranch,
 		branchKey,
 		directoryPath,
@@ -456,11 +425,53 @@ async function resolveCurrentBranch(
 	throw new Error(branch.error.message);
 }
 
+interface PlanStoreRepositoryContext {
+	git: GitGateway;
+	planStoreGateway: PlanStoreGateway;
+	repoRoot: string;
+}
+
 interface RepoIdentityOptions {
 	cwd: string;
 	repoRoot: string;
 	signal?: AbortSignal;
 	planStoreGateway: PlanStoreGateway;
+}
+
+async function resolvePlanStoreRepositoryContext(
+	pi: CommandExecApi,
+	options: PlanStoreOptions,
+): Promise<PlanStoreRepositoryContext> {
+	const git = options.git ?? new RealGitGateway(pi);
+	const planStoreGateway = resolvePlanStoreGateway(options);
+	const repoRoot = await resolveRequiredGitRepoRoot(
+		git,
+		options.cwd,
+		options.signal,
+		planStoreGateway,
+	);
+
+	return { git, planStoreGateway, repoRoot };
+}
+
+async function resolvePlanStoreRepoDirectoryFromContext(
+	options: PlanStoreOptions,
+	context: PlanStoreRepositoryContext,
+): Promise<PlanStoreRepoEvidence> {
+	const repoIdentity = await resolveRepoIdentity(
+		context.git,
+		buildRepoIdentityOptions(options, context.repoRoot, context.planStoreGateway),
+	);
+	const repoKey = buildRepoPlanStoreKey(context.repoRoot, repoIdentity.identity);
+	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
+	const repoDirectoryPath = join(planStoreRoot, repoKey);
+
+	return {
+		repoRoot: context.repoRoot,
+		repoKey,
+		repoIdentitySource: repoIdentity.source,
+		repoDirectoryPath,
+	};
 }
 
 function buildRepoIdentityOptions(
