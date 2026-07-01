@@ -178,6 +178,46 @@ function emptyBranchGuidance(branchName: string | undefined): {
 	};
 }
 
+export function formatEmptyBranchSubmitPreflightOutput(input: {
+	output: SubmitCommandOutput;
+	submitCommandDisplay: string;
+	branchName?: string;
+}): string {
+	const branchGuidance = emptyBranchGuidance(input.branchName);
+	return formatPreflightGuidanceOutput({
+		headingLines: [
+			"Submit stack contains an empty branch; Graphite will not submit it.",
+			branchGuidance.branchHeadingLine,
+		],
+		attemptLine:
+			"Graphite aborted the final submit preflight because it would skip the empty branch and can then report all PRs up to date.",
+		whatSucceededLines: [
+			`- ${input.submitCommandDisplay} reached Graphite validation before submitting PRs.`,
+		],
+		actionSections: [
+			{
+				title: "Recommended remediation:",
+				lines: [
+					`- If ${branchGuidance.branch} has no remaining work, delete it before rerunning \`sdl flow submit\`.`,
+					...branchGuidance.deleteCommandLines,
+					"- If Graphite cannot delete the checked-out branch, switch to its parent/downstack branch first, then delete it.",
+				],
+			},
+			{
+				title: "Alternative:",
+				lines: [
+					`- If ${branchGuidance.branch} should still have its own PR, commit real changes to it, then rerun \`sdl flow submit\`.`,
+				],
+			},
+		],
+		detailLines: [branchGuidance.detailLine],
+		command: {
+			display: input.submitCommandDisplay,
+			output: input.output,
+		},
+	});
+}
+
 export function formatTrunkOutOfDatePreflightOutput(
 	_output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,

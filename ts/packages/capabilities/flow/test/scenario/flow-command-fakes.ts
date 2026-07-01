@@ -442,18 +442,20 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	context.onOutput = (stream, text) => {
 		liveOutput.push({ stream, text });
 	};
+	const completed = runFlowCommand({
+		context,
+		command: fixture.command,
+		request: fixture.request,
+		stdout: context.stdout,
+		stderr: context.stderr,
+	});
 	return {
 		context,
 		stdout,
 		stderr,
 		liveOutput,
-		exit: runFlowCommand({
-			context,
-			command: fixture.command,
-			request: fixture.request,
-			stdout: context.stdout,
-			stderr: context.stderr,
-		}),
+		result: completed.then((result) => result.result),
+		exit: completed.then((result) => result.exitCode),
 	};
 }
 
@@ -463,7 +465,7 @@ async function runFlowCommand(input: {
 	request: unknown;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
-}): Promise<number> {
+}): Promise<{ exitCode: number; result: SdlResult }> {
 	const parsedRequest = input.command.schema?.safeParse(input.request) ?? {
 		success: true,
 		data: {},
@@ -472,14 +474,14 @@ async function runFlowCommand(input: {
 		const issue = parsedRequest.error.issues[0]?.message ?? "request did not match command schema";
 		const result = failed(`Invalid request for command ${input.command.name}: ${issue}`, 2);
 		writeSdlResultOutput(result, input);
-		return 2;
+		return { exitCode: 2, result };
 	}
 	const result = await input.command.run(input.context, parsedRequest.data);
 	if (!isSdlResult(result)) {
 		throw new Error(`Flow test command ${input.command.name} returned a rendered result.`);
 	}
 	writeSdlResultOutput(result, input);
-	return result.ok ? 0 : result.exitCode;
+	return { exitCode: result.ok ? 0 : result.exitCode, result };
 }
 
 function isSdlResult(result: unknown): result is SdlResult {

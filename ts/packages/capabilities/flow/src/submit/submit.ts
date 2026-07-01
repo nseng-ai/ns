@@ -16,6 +16,7 @@ import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
 	formatEmptyBranchPreflightOutput,
+	formatEmptyBranchSubmitPreflightOutput,
 	formatMergedPrNotInTrunkPreflightOutput,
 	formatMergedPrNotInTrunkSubmitOutput,
 	formatPreflightFailureOutput,
@@ -253,21 +254,15 @@ export class RealSubmitGateway implements SubmitGateway {
 			...optionalOutputListenerParam(params.onOutput),
 		});
 		const joinedOutput = joinOutput(output);
-		if (isUsableOutput(output)) {
-			const semanticFailureCause = detectSubmitSemanticFailureCause(joinedOutput);
-			if (semanticFailureCause?.kind === "empty_branch_skipped") {
-				return { kind: "failed", output, cause: semanticFailureCause };
-			}
+		const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
+		if (knownFailureCause !== undefined) {
+			return { kind: "failed", output, cause: knownFailureCause };
 		}
 		if (isSuccessfulOutput(output)) {
 			return { kind: "ready", output };
 		}
 		if (isUsableOutput(output) && detectRestackNeeded(joinedOutput)) {
 			return { kind: "restack_required", output };
-		}
-		const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
-		if (knownFailureCause !== undefined) {
-			return { kind: "failed", output, cause: knownFailureCause };
 		}
 		return { kind: "failed", output };
 	}
@@ -487,6 +482,24 @@ export async function runSubmitCommand(
 				submitCommandDisplay,
 				submitDryRunCommandDisplay,
 			);
+			return failure(normalizedFailureExitCode(submitted.output), stderr, {
+				failurePresentation: "deterministic",
+				rawFailureTranscript: commandFailureTranscript(
+					"submit preflight",
+					submitCommandDisplay,
+					submitted.output,
+					stderr,
+				),
+			});
+		}
+		if (submitted.cause?.kind === "empty_branch_skipped") {
+			const stderr = formatEmptyBranchSubmitPreflightOutput({
+				output: submitted.output,
+				submitCommandDisplay,
+				...(submitted.cause.branchName === undefined
+					? {}
+					: { branchName: submitted.cause.branchName }),
+			});
 			return failure(normalizedFailureExitCode(submitted.output), stderr, {
 				failurePresentation: "deterministic",
 				rawFailureTranscript: commandFailureTranscript(
@@ -956,6 +969,8 @@ function detectKnownPreflightFailureCause(
 	joinedOutput: string,
 ): SubmitPreflightFailureCause | undefined {
 	if (!isUsableOutput(output)) return undefined;
+	const semanticFailureCause = detectSubmitSemanticFailureCause(joinedOutput);
+	if (semanticFailureCause !== undefined) return semanticFailureCause;
 	if (detectTrunkOutOfDate(joinedOutput)) return { kind: "trunk_out_of_date" };
 	if (detectMergedPrNotInTrunk(joinedOutput)) return { kind: "merged_pr_not_in_trunk" };
 	return undefined;

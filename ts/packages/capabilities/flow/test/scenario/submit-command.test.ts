@@ -1115,16 +1115,25 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 						},
 					},
 				],
-				textGeneration: [
-					{
-						ok: true,
-						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: empty-branch-test\nRecommended remediation: delete it with `gt delete empty-branch-test -f -q`, then rerun `sdl flow submit` from the branch you intended to submit.",
-					},
-				],
+				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(
+				result.message.startsWith(
+					"Submit stack contains an empty branch; Graphite will not submit it.",
+				),
+			).toBe(true);
+			expect(result.message).toContain("Recommended remediation:");
+			expect(result.message.indexOf("Recommended remediation:")).toBeLessThan(
+				result.message.indexOf("Details:"),
+			);
+			expect(result.message.match(/^Raw log: /gmu)).toHaveLength(1);
+		}
 		const error = run.stderr.join("");
 		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
 		expect(error).toContain("Branch: empty-branch-test");

@@ -90,11 +90,8 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 						ctx,
 					);
 					return {
-						result: failed("", checkpoint.output.exitCode),
+						result: failed(resultFailureMessage(checkpointFailure), checkpoint.output.exitCode),
 						isFailed: true,
-						afterFinish: () => {
-							ctx.stderr?.(checkpointFailure.stderr);
-						},
 					};
 				}
 
@@ -121,15 +118,20 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 				// Result payloads print as scrollback below the settled region: the checkpoint commit summary
 				// (if any) first, then the submit success text or interpreted failure.
 				const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
+				const isFailed = interpretedResult.exitCode !== 0;
 				return {
-					result:
-						interpretedResult.exitCode === 0 ? ok("") : failed("", interpretedResult.exitCode),
-					isFailed: interpretedResult.exitCode !== 0,
+					result: isFailed
+						? failed(resultFailureMessage(interpretedResult), interpretedResult.exitCode)
+						: ok(""),
+					isFailed,
 					afterFinish: () => {
 						if (checkpoint.kind === "checkpointed") {
 							writeCommandResultOutput(checkpoint.output, ctx);
 						}
-						writeCommandResultOutput(interpretedResult, ctx);
+						writeCommandResultOutput(
+							isFailed ? { ...interpretedResult, stderr: "" } : interpretedResult,
+							ctx,
+						);
 					},
 				};
 			},
@@ -140,6 +142,12 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 export default defineExtension({
 	commands: [flowSubmitCommand],
 });
+
+function resultFailureMessage(result: SubmitCommandResult): string {
+	const message = result.stderr.trimEnd();
+	if (message !== "") return message;
+	return `sdl flow submit failed with exit code ${result.exitCode}.`;
+}
 
 function writeCommandResultOutput(
 	result: Pick<SubmitCommandResult, "stdout" | "stderr">,
