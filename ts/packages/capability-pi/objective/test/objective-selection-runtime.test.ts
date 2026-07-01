@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
-} from "../src/selection.ts";
+} from "@sdl/objective/api";
 import type { CommandContext, ExecResult } from "@sdl/pi/runtime/types";
 
 describe("objective selection runtime behavior", () => {
