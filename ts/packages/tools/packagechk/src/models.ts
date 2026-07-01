@@ -20,6 +20,42 @@ export interface PackageCheckReport {
 	results: readonly RegistryCheckResult[];
 }
 
+export type CheckStatusHumanKind = "available" | "taken" | "status-line";
+export type CheckStatusClaimPrecheckAction = "continue" | "taken" | "usage-error" | "failure";
+
+export interface CheckStatusPolicy {
+	reportExitCode: number;
+	humanKind: CheckStatusHumanKind;
+	claimPrecheckAction: CheckStatusClaimPrecheckAction;
+}
+
+export const CHECK_STATUS_POLICIES = {
+	available: {
+		reportExitCode: 0,
+		humanKind: "available",
+		claimPrecheckAction: "continue",
+	},
+	taken: {
+		reportExitCode: 1,
+		humanKind: "taken",
+		claimPrecheckAction: "taken",
+	},
+	invalid: {
+		reportExitCode: 2,
+		humanKind: "status-line",
+		claimPrecheckAction: "usage-error",
+	},
+	error: {
+		reportExitCode: 2,
+		humanKind: "status-line",
+		claimPrecheckAction: "failure",
+	},
+} as const satisfies Record<CheckStatus, CheckStatusPolicy>;
+
+export function checkStatusPolicy(status: CheckStatus): CheckStatusPolicy {
+	return CHECK_STATUS_POLICIES[status];
+}
+
 export interface RegistryCheckMetadataFields {
 	packageUrl?: string;
 	latestVersion?: string;
@@ -102,11 +138,10 @@ export function errorResult(
 }
 
 export function reportExitCode(report: PackageCheckReport): number {
-	const statuses = new Set(report.results.map((result) => result.status));
-	if (statuses.has("invalid")) return 2;
-	if (statuses.has("error")) return 2;
-	if (statuses.has("taken")) return 1;
-	return 0;
+	return Math.max(
+		0,
+		...report.results.map((result) => checkStatusPolicy(result.status).reportExitCode),
+	);
 }
 
 export function registryCheckResultToJson(result: RegistryCheckResult): Record<string, string> {

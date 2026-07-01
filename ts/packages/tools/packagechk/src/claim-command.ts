@@ -65,7 +65,7 @@ export interface ClaimDryRunData {
 	extraLines: readonly string[];
 	files: readonly ClaimProjectFile[];
 	dryRunCommands: readonly string[];
-	urlLine: string;
+	url: string;
 }
 
 export interface ClaimViewData {
