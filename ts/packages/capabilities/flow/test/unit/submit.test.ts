@@ -165,7 +165,159 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "trunk_out_of_date" });
+		expect(result).toMatchObject({ kind: "failed", cause: { kind: "trunk_out_of_date" } });
+		runner.assertDone();
+	});
+
+	test("checkSubmitReadiness classifies remotely updated branch dry-run output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					exitCode: 1,
+					stderr:
+						"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
+				},
+			),
+			step("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], {
+				stdout: "origin/add-preflight-detect-and-skip-empty-branches\n",
+			}),
+			step(
+				"git",
+				[
+					"rev-list",
+					"--left-right",
+					"--count",
+					"HEAD...origin/add-preflight-detect-and-skip-empty-branches",
+				],
+				{ stdout: "35\t1\n" },
+			),
+			step(
+				"git",
+				[
+					"log",
+					"--format=%h %s",
+					"--max-count=3",
+					"origin/add-preflight-detect-and-skip-empty-branches",
+					"--not",
+					"HEAD",
+				],
+				{ stdout: "abc123 remote checkpoint\n" },
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "remote_updated_outside_graphite",
+				branchName: "add-preflight-detect-and-skip-empty-branches",
+				remoteSync: {
+					upstream: "origin/add-preflight-detect-and-skip-empty-branches",
+					aheadCount: 35,
+					behindCount: 1,
+					remoteOnlyCommits: ["abc123 remote checkpoint"],
+				},
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("checkSubmitReadiness classifies empty-branch dry-run warnings", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					stdout: `Running submit in 'dry-run' mode.
+🥞 Validating that this Graphite stack is ready to submit...
+▸ code-smell/tools-vibechk-exec-artifact-bounds
+`,
+					stderr: `WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "empty_branch_skipped",
+				branchName: "code-smell/tools-vibechk-exec-artifact-bounds",
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("checkSubmitReadiness classifies empty branch when dry-run also reports no-op PRs", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					stdout: `Running submit in 'dry-run' mode.
+🥞 Validating that this Graphite stack is ready to submit...
+WARNING: This branch does not introduce any changes:
+▸ empty-branch-test
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+WARNING: In order to submit, commit some changes to it or delete it and try again.
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-preflight-detect-and-skip-empty-branches (No-op)
+
+🆗 All PRs up to date.
+`,
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "empty_branch_skipped",
+				branchName: "empty-branch-test",
+			},
+		});
 		runner.assertDone();
 	});
 
@@ -196,7 +348,10 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: { kind: "merged_pr_not_in_trunk" },
+		});
 		runner.assertDone();
 	});
 
@@ -274,7 +429,10 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.submitCurrentStack({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: { kind: "merged_pr_not_in_trunk" },
+		});
 		runner.assertDone();
 	});
 

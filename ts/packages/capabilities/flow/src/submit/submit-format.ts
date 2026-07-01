@@ -1,10 +1,11 @@
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import type { PrewrittenPrMetadata } from "./index.ts";
+import { formatItemCount, type PrewrittenPrMetadata } from "./index.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
 import type {
 	CurrentPrVerificationResult,
+	RemoteSyncDiagnostics,
 	SubmitCommandOutput,
 	SubmitRestackConfirmationPrompt,
 	SubmitRunResult,
@@ -117,75 +118,110 @@ export function formatPreflightFailureOutput(
 		.join("\n");
 }
 
-export function formatTrunkOutOfDatePreflightOutput(
-	_output: SubmitCommandOutput,
-	submitDryRunCommandDisplay: string,
-): string {
+export function formatEmptyBranchFailureOutput(input: { branchName?: string }): string {
+	return formatEmptyBranchFailure(input.branchName);
+}
+
+function formatEmptyBranchFailure(branchName: string | undefined): string {
+	if (branchName === undefined) {
+		return [
+			"The submit stack contains an empty branch, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+			"",
+			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
+			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
+		].join("\n");
+	}
 	return [
-		"Graphite could not update the trunk branch before submit.",
-		"Submission was not attempted.",
+		`Branch ${branchName} is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.`,
 		"",
-		"What to do next:",
-		"- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
-		"- If Graphite reports a specific trunk-update problem, resolve that first.",
-		`- To inspect the raw Graphite dry-run output, rerun with \`sdl flow submit --verbose\` or run \`${submitDryRunCommandDisplay}\` manually.`,
+		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
+		`    gt delete ${branchName} -f -q`,
+		"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
+		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
 	].join("\n");
 }
 
-export function formatMergedPrNotInTrunkPreflightOutput(
-	output: SubmitCommandOutput,
-	submitDryRunCommandDisplay: string,
+export function formatTrunkOutOfDatePreflightOutput(
+	_output: SubmitCommandOutput,
+	_submitDryRunCommandDisplay: string,
 ): string {
-	return formatMergedPrNotInTrunkOutput({
-		output,
-		submitDryRunCommandDisplay,
-		attemptLine: "Submission was not attempted.",
-		detailsLine:
-			"- Graphite will not submit a stack containing this branch until trunk contains the merged PR's commits.",
-	});
-}
-
-export function formatMergedPrNotInTrunkSubmitOutput(
-	output: SubmitCommandOutput,
-	submitCommandDisplay: string,
-	submitDryRunCommandDisplay: string,
-): string {
-	return formatMergedPrNotInTrunkOutput({
-		output,
-		submitDryRunCommandDisplay,
-		attemptLine: "Graphite aborted the final submit preflight before submitting PRs.",
-		detailsLine: `- The earlier dry-run passed, but ${submitCommandDisplay} re-ran Graphite validation and found the merged-PR/trunk mismatch before submission.`,
-	});
-}
-
-function formatMergedPrNotInTrunkOutput(input: {
-	output: SubmitCommandOutput;
-	submitDryRunCommandDisplay: string;
-	attemptLine: string;
-	detailsLine: string;
-}): string {
-	const details = parseMergedPrNotInTrunkDetails(input.output);
-	const affectedBranch = details.branch ?? "the affected branch";
 	return [
-		"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
-		details.branch === undefined ? undefined : `Branch: ${formatMergedPrBranchDetails(details)}`,
-		details.trunk === undefined ? undefined : `Trunk: ${details.trunk}`,
-		input.attemptLine,
+		"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 		"",
-		"What succeeded:",
-		`- ${input.submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
+		"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
+	].join("\n");
+}
+
+export function formatMergedPrNotInTrunkOutput(output: SubmitCommandOutput): string {
+	const details = parseMergedPrNotInTrunkDetails(output);
+	const affectedBranch = details.branch ?? "the affected branch";
+	const trunkName = details.trunk ?? "trunk";
+	const identityLine =
+		details.branch === undefined
+			? undefined
+			: `Branch ${formatMergedPrBranchDetails(details)}${details.trunk === undefined ? "" : `; trunk ${details.trunk}`}.`;
+	return [
+		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
+		identityLine,
 		"",
-		"Next step:",
-		details.trunk === undefined
-			? `- Ensure the trunk branch contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`
-			: `- Ensure ${details.trunk} contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`,
-		"- Then rerun `sdl flow submit`.",
-		"",
-		"Details:",
-		input.detailsLine,
+		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");
+}
+
+export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
+	branchName?: string;
+	remoteSync?: RemoteSyncDiagnostics;
+}): string {
+	const subject = input.branchName === undefined ? "This branch" : `Branch ${input.branchName}`;
+	return [
+		`${subject} is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.`,
+		formatRemoteSyncDetails(input.remoteSync),
+		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
+		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+	].join("\n");
+}
+
+function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined): string {
+	if (remoteSync === undefined) return "";
+
+	const lines = [
+		`Remote checked: ${remoteSync.upstream} (this is the PR branch, not trunk/master).`,
+		`Why: ${formatRemoteDivergence(remoteSync)}`,
+		"Possible cause: the PR branch was pushed/submitted from another checkout, or this local branch was rewritten after an earlier submit.",
+	];
+	if (remoteSync.remoteOnlyCommits !== undefined && remoteSync.remoteOnlyCommits.length > 0) {
+		lines.push(`Remote-only commits on ${remoteSync.upstream} (not in local HEAD):`);
+		for (const commit of remoteSync.remoteOnlyCommits) {
+			lines.push(`  - ${commit}`);
+		}
+		if (
+			remoteSync.behindCount !== undefined &&
+			remoteSync.behindCount > remoteSync.remoteOnlyCommits.length
+		) {
+			lines.push(
+				`  - … ${formatItemCount(remoteSync.behindCount - remoteSync.remoteOnlyCommits.length, "more commit", "more commits")}`,
+			);
+		}
+	}
+	return `${lines.join("\n")}\n`;
+}
+
+function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
+	if (remoteSync.aheadCount === undefined || remoteSync.behindCount === undefined) {
+		return `remote branch ${remoteSync.upstream} changed outside Graphite; local ahead/behind counts could not be computed.`;
+	}
+	if (remoteSync.aheadCount === 0 && remoteSync.behindCount === 0) {
+		return `git reports local HEAD and ${remoteSync.upstream} are not divergent; Graphite metadata may be stale.`;
+	}
+	if (remoteSync.aheadCount === 0) {
+		return `local HEAD is ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
+	}
+	if (remoteSync.behindCount === 0) {
+		return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
+	}
+	return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
 }
 
 interface MergedPrNotInTrunkDetails {
@@ -224,22 +260,14 @@ function formatPrState(prState: string | undefined): string {
 }
 
 export function formatRestackRequiredOutput(
-	output: SubmitCommandOutput,
-	submitDryRunCommandDisplay: string,
+	_output: SubmitCommandOutput,
+	_submitDryRunCommandDisplay: string,
 ): string {
 	return [
-		"Graphite requires a restack before submission.",
-		"Plain `sdl flow submit` normally runs `gt restack --downstack --no-interactive` automatically when required; this output means automatic restack was disabled or unavailable.",
-		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
-		"Submission was not attempted.",
+		"Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.",
 		"",
-		`$ ${submitDryRunCommandDisplay}`,
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+	].join("\n");
 }
 
 export function formatRestackConfirmationPrompt(
@@ -269,66 +297,42 @@ export function formatRestackConfirmationPrompt(
 }
 
 export function formatRestackDeclinedOutput(
-	output: SubmitCommandOutput,
-	submitDryRunCommandDisplay: string,
+	_output: SubmitCommandOutput,
+	_submitDryRunCommandDisplay: string,
 ): string {
 	return [
-		"Restack was not run. Submission was not attempted.",
-		"Run `gt restack --downstack`, resolve any conflicts, then run `sdl flow submit` again.",
+		"Restack was declined, so nothing was submitted.",
 		"",
-		`$ ${submitDryRunCommandDisplay}`,
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+	].join("\n");
 }
 
 export function formatRestackConflictOutput(
-	output: SubmitCommandOutput,
+	_output: SubmitCommandOutput,
 	conflictedFiles: string[],
 ): string {
 	const fileLines =
 		conflictedFiles.length > 0
-			? ["Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`), ""]
+			? ["", "Conflicted files:", ...conflictedFiles.map((file) => `- ${file}`)]
 			: [];
 
 	return [
-		"`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
-		"",
+		"`gt restack --downstack` hit merge conflicts, so nothing was submitted.",
 		...fileLines,
-		"Resolve the conflicts, continue or abort the rebase as appropriate, then run `sdl flow submit` again.",
 		"",
-		"$ gt restack --downstack --no-interactive",
-		"",
-		formatOutputSection("stdout", output.stdout),
-		formatOutputSection("stderr", output.stderr),
-	]
-		.filter(Boolean)
-		.join("\n");
+		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `sdl flow submit`.",
+	].join("\n");
 }
 
 export function formatReadinessRecheckFailureOutput(
-	output: SubmitCommandOutput,
+	_output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,
 ): string {
 	return [
-		[
-			"Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
-			"Submission was not attempted. PR metadata was not prepared.",
-		].join("\n"),
-		formatIndentedOutputBlock("Graphite dry-run error:", output.stderr),
-		[
-			"Next steps:",
-			"- Run `gt restack --downstack` manually and resolve any conflicts, skipped branches, or stale branch state Graphite reports.",
-			`- Verify readiness: \`${submitDryRunCommandDisplay}\``,
-			"- Then rerun: `sdl flow submit`",
-		].join("\n"),
-		formatIndentedOutputBlock("Additional dry-run stdout:", output.stdout),
-	]
-		.filter((section): section is string => section !== undefined && section !== "")
-		.join("\n\n");
+		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+		"",
+		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`sdl flow submit\`.`,
+	].join("\n");
 }
 
 export function formatRestackFailureOutput(output: SubmitCommandOutput): string {
@@ -492,20 +496,6 @@ function formatBufferedCommandSection(
 		formatOutputSection("stdout", output.stdout),
 		formatOutputSection("stderr", output.stderr),
 	].join("\n");
-}
-
-function formatIndentedOutputBlock(title: string, output: string): string | undefined {
-	const lines = normalizedOutputLines(output);
-	if (lines.length === 0) return undefined;
-	return [title, ...lines.map((line) => `  ${line}`)].join("\n");
-}
-
-function normalizedOutputLines(output: string): string[] {
-	return stripTerminalEscapes(output)
-		.replace(/\r/g, "\n")
-		.split("\n")
-		.map((line) => line.trimEnd())
-		.filter((line) => line.trim() !== "");
 }
 
 function formatOutputSection(name: "stdout" | "stderr", output: string): string {

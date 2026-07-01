@@ -29,19 +29,19 @@ the Graphite **SQLite DB** with `sqlite3`.
 
 ## Per-command matrix
 
-| Command                                | git | gt  | gh  | sqlite3 | LLM | Slots | Notes                                                 |
-| -------------------------------------- | :-: | :-: | :-: | :-----: | :-: | :---: | ----------------------------------------------------- |
-| **push**                               |  ✓  |  –  |  –  |    –    |  –  |   –   | Plain `git push` only.                                |
-| **changes**                            |  ✓  |  –  |  –  |    –    | ✓¹  |   –   | Read-only git snapshot + model summary.               |
-| **cp**                                 |  ✓  |  –  |  –  |    –    | ✓²  |   –   | Checkpoint commit.                                    |
-| **autobranch**                         |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/track).                |
-| **branch-latest-commit**               |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/children).             |
-| **autoslot**                           |  ✓  |  ✓  |  –  |    –    | ✓³  |   ✓   | autobranch + `@sdl/slot/api` (move into slot).        |
-| **regenerate-pr**                      |  ✓  |  –  |  ✓  |    –    |  ✓  |   –   | `@sdl/github/cli`; **no gt**.                         |
-| **submit**                             |  ✓  |  ✓  |  ✓  |    –    |  ✓  |   –   | `@sdl/graphite/branch` (gt submit) + gh PR metadata.  |
-| **land**                               |  ✓  |  ✓  |  ✓  |    –    |  –  |  ✓⁴   | `@sdl/graphite` + `gh pr view/merge`; slots optional. |
-| **pull-trunk**                         |  ✓  |  ✓  |  –  |    –    |  –  |   –   | `@sdl/graphite/branch` (resolve trunk + refresh).     |
-| **exec-read-graphite-branch-metadata** |  –  |  –  |  –  |    ✓    |  –  |   –   | Reads Graphite DB via `sqlite3`, **not** `gt`.        |
+| Command                                | git | gt  | gh  | sqlite3 | LLM | Slots | Notes                                                                                                 |
+| -------------------------------------- | :-: | :-: | :-: | :-----: | :-: | :---: | ----------------------------------------------------------------------------------------------------- |
+| **push**                               |  ✓  |  –  |  –  |    –    |  –  |   –   | Plain `git push` only; does not update Graphite metadata and is not for Graphite-tracked PR branches. |
+| **changes**                            |  ✓  |  –  |  –  |    –    | ✓¹  |   –   | Read-only git snapshot + model summary.                                                               |
+| **cp**                                 |  ✓  |  –  |  –  |    –    | ✓²  |   –   | Checkpoint commit.                                                                                    |
+| **autobranch**                         |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/track).                                                                |
+| **branch-latest-commit**               |  ✓  |  ✓  |  –  |    –    | ✓³  |   –   | Direct `exec("gt", …)` (create/children).                                                             |
+| **autoslot**                           |  ✓  |  ✓  |  –  |    –    | ✓³  |   ✓   | autobranch + `@sdl/slot/api` (move into slot).                                                        |
+| **regenerate-pr**                      |  ✓  |  –  |  ✓  |    –    |  ✓  |   –   | `@sdl/github/cli`; **no gt**.                                                                         |
+| **submit**                             |  ✓  |  ✓  |  ✓  |    –    |  ✓  |   –   | `@sdl/graphite/branch` (gt submit) + gh PR metadata.                                                  |
+| **land**                               |  ✓  |  ✓  |  ✓  |    –    |  –  |  ✓⁴   | `@sdl/graphite` + `gh pr view/merge`; slots optional.                                                 |
+| **pull-trunk**                         |  ✓  |  ✓  |  –  |    –    |  –  |   –   | `@sdl/graphite/branch` (resolve trunk + refresh).                                                     |
+| **exec-read-graphite-branch-metadata** |  –  |  –  |  –  |    ✓    |  –  |   –   | Reads Graphite DB via `sqlite3`, **not** `gt`.                                                        |
 
 1. `changes` calls the model only when the worktree is dirty; a clean worktree
    short-circuits with no LLM call.

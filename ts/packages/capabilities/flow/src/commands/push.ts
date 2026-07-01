@@ -9,15 +9,17 @@ import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
+export const PUSH_COMMAND_SUMMARY = "Push committed non-Graphite branch work with git push.";
+
 const PUSH_COMMAND_DESCRIPTION = `Push already-committed work on the current branch with plain git push.
 
 The command first runs git status --porcelain and requires a clean worktree before pushing. It then runs plain git push with a two-minute timeout. It has no intentional arguments or options.
 
-This is not a replacement for sdl flow submit. Use \`sdl flow submit\` / \`/sdl:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
+This command does not update Graphite metadata. Do not use it for Graphite-tracked PR branches, because moving the remote PR branch outside Graphite can make later gt submit / sdl flow submit runs fail until local Graphite state is synced with gt get or gt sync. Use \`sdl flow submit\` / \`/sdl:flow:submit\` when the current Graphite stack needs submission, PR metadata updates, or the full submit flow.`;
 
 export const flowPushCommand: SdlCommand = {
 	name: "push",
-	summary: "Push committed work on the current branch with git push.",
+	summary: PUSH_COMMAND_SUMMARY,
 	description: PUSH_COMMAND_DESCRIPTION,
 	async run(ctx) {
 		return await runPush(ctx);
@@ -93,6 +95,8 @@ async function runPush(ctx: SdlExtensionApi) {
 				command: "git push",
 				cwd: ctx.cwd,
 				result: pushResult,
+				guidance:
+					"For Graphite-tracked PR branches, prefer `sdl flow submit`; if this push moved a PR branch outside Graphite, run `gt get` or `gt sync` before submitting again.",
 			}),
 		);
 	}
@@ -101,7 +105,7 @@ async function runPush(ctx: SdlExtensionApi) {
 		renderGitResultBlock(caps, {
 			kind: "failure",
 			headline:
-				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl flow submit` / `/sdl:flow:submit` when appropriate.",
+				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `sdl flow submit` / `/sdl:flow:submit` for Graphite-tracked PR branches.",
 			command: "git push",
 			cwd: ctx.cwd,
 			result: pushResult,

@@ -671,7 +671,7 @@ describe("project-local submit extension", () => {
 		expect(formattedExecCalls(run.context)).toContain("gt restack --downstack --no-interactive");
 	});
 
-	test("trunk-out-of-date dry-run failure is deterministic and uses model summarization", async () => {
+	test("trunk-out-of-date dry-run failure is deterministic and skips model summarization", async () => {
 		const run = runWithFakes({
 			state: {
 				exec: [
@@ -687,10 +687,53 @@ describe("project-local submit extension", () => {
 						},
 					},
 				],
-				textGeneration: [
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Graphite could not update your local trunk before submitting. Nothing was submitted.",
+		);
+		expect(error).toContain("Fix: update or repair your local trunk checkout");
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("----- stdout -----");
+		expect(error).not.toContain("ERROR: Aborting submit because trunk branch is out of date");
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
+	});
+
+	test("remotely updated branch dry-run failure explains what changed outside Graphite", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
 					{
-						ok: true,
-						text: "Graphite could not update trunk before submit.\nNext step: Update or repair the local Graphite trunk checkout.",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							code: 1,
+							stdout:
+								"Running submit in 'dry-run' mode. No branches will be pushed and no PRs will be opened or updated.\n\n🥞 Validating that this Graphite stack is ready to submit...\n",
+							stderr:
+								"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
+						},
+					},
+					{
+						match: "git rev-parse --abbrev-ref --symbolic-full-name @{upstream}",
+						result: { stdout: "origin/add-preflight-detect-and-skip-empty-branches\n" },
+					},
+					{
+						match:
+							"git rev-list --left-right --count HEAD...origin/add-preflight-detect-and-skip-empty-branches",
+						result: { stdout: "35\t1\n" },
+					},
+					{
+						match:
+							"git log --format=%h %s --max-count=3 origin/add-preflight-detect-and-skip-empty-branches --not HEAD",
+						result: { stdout: "abc123 remote checkpoint\n" },
 					},
 				],
 			},
@@ -698,13 +741,33 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("Graphite could not update trunk before submit.");
-		expect(error).toContain("Next step: Update or repair the local Graphite trunk checkout.");
+		expect(error).toContain(
+			"Branch add-preflight-detect-and-skip-empty-branches is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.",
+		);
+		expect(error).toContain(
+			"Remote checked: origin/add-preflight-detect-and-skip-empty-branches (this is the PR branch, not trunk/master).",
+		);
+		expect(error).toContain(
+			"Why: local HEAD is 35 commits ahead of and 1 commit behind origin/add-preflight-detect-and-skip-empty-branches.",
+		);
+		expect(error).toContain(
+			"Possible cause: the PR branch was pushed/submitted from another checkout, or this local branch was rewritten after an earlier submit.",
+		);
+		expect(error).toContain(
+			"Remote-only commits on origin/add-preflight-detect-and-skip-empty-branches (not in local HEAD):\n  - abc123 remote checkpoint",
+		);
+		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.");
+		expect(error).toContain(
+			"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+		);
 		expect(error).toContain("Raw log:");
-		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
-		expect(error).not.toContain("----- stdout -----");
-		expect(error).not.toContain("ERROR: Aborting submit because trunk branch is out of date");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(error).not.toContain("Problem: Branch");
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain(
+			"has been updated remotely outside of Graphite",
+		);
 	});
 
 	test("merged PR missing from trunk dry-run failure gives deterministic guidance", async () => {
@@ -724,30 +787,26 @@ describe("project-local submit extension", () => {
 						},
 					},
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
 		expect(error).toContain(
-			"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
+			"A merged PR in this stack is not in trunk master, so Graphite will not submit the stack. Nothing was submitted.",
 		);
 		expect(error).toContain(
-			"Branch: handoff-capability/stack-feedback-remediation (PR #2257, merged)",
+			"Branch handoff-capability/stack-feedback-remediation (PR #2257, merged); trunk master.",
 		);
-		expect(error).toContain("Trunk: master");
 		expect(error).toContain(
-			"Ensure master contains the merged PR's commits, or move/reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them.",
+			"Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `sdl flow submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1. Submission was not attempted.");
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"Graphite found a merged PR in the submit stack",
-		);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 	});
 
 	test("merged PR missing from trunk final submit preflight gives deterministic guidance", async () => {
@@ -786,29 +845,26 @@ describe("project-local submit extension", () => {
 						},
 					},
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
 		expect(error).toContain(
-			"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
+			"A merged PR in this stack is not in trunk master, so Graphite will not submit the stack. Nothing was submitted.",
 		);
-		expect(error).toContain("Branch: shared-import-scanner-test-helpers (PR #2289, merged)");
-		expect(error).toContain("Trunk: master");
-		expect(error).toContain("Graphite aborted the final submit preflight before submitting PRs.");
 		expect(error).toContain(
-			"Ensure master contains the merged PR's commits, or move/reparent shared-import-scanner-test-helpers onto a trunk that already contains them.",
+			"Branch shared-import-scanner-test-helpers (PR #2289, merged); trunk master.",
+		);
+		expect(error).toContain(
+			"Fix: ensure master contains the merged PR's commits, or reparent shared-import-scanner-test-helpers onto a trunk that already contains them, then rerun `sdl flow submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1");
 		expect(formattedExecCalls(run.context)).toContain(
 			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
 		);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"Graphite aborted the final submit preflight before submitting PRs.",
-		);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("phase: submit preflight");
@@ -934,13 +990,15 @@ describe("project-local submit extension", () => {
 						result: { code: 1, stderr: "must be restacked before submit\n" },
 					},
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("Graphite requires a restack before submission.");
+		expect(run.stderr.join("")).toContain(
+			"Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.",
+		);
 		expect(run.stderr.join("")).toContain("Raw log:");
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(formattedExecCalls(run.context)).not.toContain(
 			"gt restack --downstack --no-interactive",
 		);
@@ -963,17 +1021,16 @@ describe("project-local submit extension", () => {
 					{ match: "git diff --name-only --diff-filter=U", result: { stdout: "src/app.ts\n" } },
 					{ match: "git status --porcelain", result: { stdout: "UU src/app.ts\n" } },
 				],
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain(
-			"`gt restack --downstack` hit merge conflicts. Submission was not attempted.",
+			"`gt restack --downstack` hit merge conflicts, so nothing was submitted.",
 		);
 		expect(run.stderr.join("")).toContain("- src/app.ts");
 		expect(run.stderr.join("")).toContain("Raw log:");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(
 			formattedExecCalls(run.context).filter(
 				(call) =>
@@ -983,7 +1040,7 @@ describe("project-local submit extension", () => {
 		).toEqual([]);
 	});
 
-	test("readiness recheck failure is deterministic and uses model summarization", async () => {
+	test("readiness recheck failure is deterministic and skips model summarization", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
 			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
@@ -1008,10 +1065,47 @@ describe("project-local submit extension", () => {
 						},
 					},
 				],
-				textGeneration: [
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+		);
+		expect(error).toContain("Fix: run `gt restack --downstack` manually");
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("WARNING: You must restack before submitting this stack.");
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain(
+			"WARNING: You must restack before submitting this stack.",
+		);
+	});
+
+	test("empty-branch dry-run warning stops during preflight before metadata or submit", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
 					{
-						ok: true,
-						text: "Graphite still requires restack after sdl already ran gt restack.\nNext step: Verify readiness with the dry-run command from the raw log.",
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							stdout: `Running submit in 'dry-run' mode.
+
+🥞 Validating that this Graphite stack is ready to submit...
+
+▸ code-smell/tools-vibechk-exec-artifact-bounds
+`,
+							stderr: `WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+						},
 					},
 				],
 			},
@@ -1019,19 +1113,79 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("Graphite still requires restack after sdl already ran gt restack.");
-		expect(error).toContain("Next step: Verify readiness with the dry-run command");
-		expect(error).toContain("Raw log:");
-		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
-		expect(error).not.toContain("Graphite dry-run error:");
-		expect(error).not.toContain("WARNING: You must restack before submitting this stack.");
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"Graphite still requires restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`.",
+		expect(error).toContain(
+			"Branch code-smell/tools-vibechk-exec-artifact-bounds is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
 		);
+		expect(error).toContain("gt delete code-smell/tools-vibechk-exec-artifact-bounds -f -q");
+		expect(error).toContain("Raw log:");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt log --stack --reverse --no-interactive",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
-		expect(await readFile(rawPath ?? "", "utf8")).toContain("Graphite dry-run error:");
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("phase: preflight");
+	});
+
+	test("empty branch dry-run with no-op PRs stops before metadata or submit", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							stdout: `Running submit in 'dry-run' mode.
+
+🥞 Validating that this Graphite stack is ready to submit...
+WARNING: This branch does not introduce any changes:
+▸ empty-branch-test
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+WARNING: In order to submit, commit some changes to it or delete it and try again.
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-preflight-detect-and-skip-empty-branches (No-op)
+
+🆗 All PRs up to date.
+`,
+						},
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const result = await run.result;
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(
+				result.message.startsWith(
+					"Branch empty-branch-test is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+				),
+			).toBe(true);
+			expect(result.message).toContain("gt delete empty-branch-test -f -q");
+			expect(result.message.match(/^Raw log: /gmu)).toHaveLength(1);
+		}
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Branch empty-branch-test is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
+		);
+		expect(error).toContain("gt delete empty-branch-test -f -q");
+		expect(error).toContain("Raw log:");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt log --stack --reverse --no-interactive",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 	});
 
 	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
@@ -1083,7 +1237,7 @@ describe("project-local submit extension", () => {
 				textGeneration: [
 					{
 						ok: true,
-						text: "Current branch is empty; Graphite skipped it.\nBranch: sdl-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nNext step: Remove, delete, or reparent around the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
+						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: sdl-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nRecommended remediation: delete the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
 					},
 				],
 			},
@@ -1091,7 +1245,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("Current branch is empty; Graphite skipped it.");
+		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
 		expect(error).toContain("Branch: sdl-extension-api-followup-stack");
 		expect(error).toContain("Non-empty branches may already have been submitted or updated.");
 		expect(error).toContain("Raw log:");
@@ -1100,9 +1254,11 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("```");
 		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
 		expect(error).not.toContain("----- stdout -----");
-		expect(error.indexOf("Next step: Remove, delete, or reparent")).toBeGreaterThanOrEqual(0);
+		expect(
+			error.indexOf("Recommended remediation: delete the empty branch"),
+		).toBeGreaterThanOrEqual(0);
 		expect(error.indexOf("Alternative: Add and commit real changes")).toBeGreaterThan(
-			error.indexOf("Next step: Remove, delete, or reparent"),
+			error.indexOf("Recommended remediation: delete the empty branch"),
 		);
 		expect(error.match(/^Raw log: /gmu)).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
@@ -1134,7 +1290,6 @@ describe("project-local submit extension", () => {
 							]
 						: [response],
 				),
-				textGeneration: [{ ok: false, error: "summary unavailable" }],
 			},
 		});
 
@@ -1151,12 +1306,7 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("----- stdout -----");
 		expect(error).not.toContain("----- stderr -----");
 
-		expect(run.context.textGeneratorCalls).toHaveLength(1);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("command: gh");
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
-			"args: pr view 123 --json number,url,title,body,headRefName,baseRefName",
-		);
-		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(ghStderr.trim());
+		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);
 		const rawLog = await readFile(rawPath ?? "", "utf8");
@@ -1215,10 +1365,7 @@ describe("project-local submit extension", () => {
 						result: { code: 1, stderr: "edit denied\n" },
 					},
 				],
-				textGeneration: [
-					{ ok: true, text: "Generated PR\n\nGenerated body" },
-					{ ok: false, error: "summary unavailable" },
-				],
+				textGeneration: [{ ok: true, text: "Generated PR\n\nGenerated body" }],
 			},
 		});
 
@@ -1228,6 +1375,6 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(`#123 ${PR_URL}`);
 		expect(error).toContain("Could not update PR #123.");
 		expect(error).toContain("Raw log:");
-		expect(run.context.textGeneratorCalls).toHaveLength(2);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 });

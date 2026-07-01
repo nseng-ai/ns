@@ -40,7 +40,7 @@
       },
       {
         "name": "push",
-        "description": "Push committed work on the current branch with git push.",
+        "description": "Push committed non-Graphite branch work with git push.",
         "entry": "./src/commands/push.ts"
       },
       {
