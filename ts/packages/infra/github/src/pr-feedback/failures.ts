@@ -2,13 +2,14 @@ import type { RunGitHubCliResult } from "../cli.ts";
 import { errorDetailText, resultErr, resultOk, type Result } from "@sdl/core/result";
 
 import type {
+	GithubPrFeedbackCursorContextFields,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackFailureCode,
 	GithubPrFeedbackFailureDetails,
 	GithubPrFeedbackOperation,
 } from "./types.ts";
 
-interface FailureFromMessageOptions {
+interface FailureFromMessageOptions extends GithubPrFeedbackCursorContextFields {
 	readonly code: GithubPrFeedbackFailureCode;
 	readonly operation: GithubPrFeedbackOperation;
 	readonly message: string;
@@ -19,9 +20,6 @@ interface FailureFromMessageOptions {
 	readonly killed?: boolean;
 	readonly graphqlErrors?: unknown;
 	readonly zodError?: string;
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
 }
 
 export function feedbackOk<T>(value: T): Result<T, GithubPrFeedbackFailure> {
@@ -51,11 +49,7 @@ export function failureFromStartup(
 	};
 }
 
-export interface GithubPrFeedbackFailureContextFields {
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
-}
+export type GithubPrFeedbackFailureContextFields = GithubPrFeedbackCursorContextFields;
 
 export function failureContextFields(
 	context: GithubPrFeedbackFailureContextFields,

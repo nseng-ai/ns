@@ -52,6 +52,7 @@ import {
 } from "./schemas.ts";
 import type {
 	GithubPrDiscussionComment,
+	GithubPrFeedbackCursorContextFields,
 	GithubPrFeedbackFailure,
 	GithubPrFeedbackOperation,
 	GithubPrFeedbackOptions,
@@ -63,14 +64,11 @@ import type {
 	GithubReviewThreadState,
 } from "./types.ts";
 
-interface RunGhParsedOptions<T> {
+interface RunGhParsedOptions<T> extends GithubPrFeedbackCursorContextFields {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly args: readonly string[];
 	readonly params: GithubPrFeedbackOptions;
 	readonly schema: z.ZodType<T>;
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
 }
 
 type GhJsonParser<T> = (

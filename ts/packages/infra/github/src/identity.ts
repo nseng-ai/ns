@@ -13,15 +13,8 @@ export function githubPrIdentityFromUrl(
 	url: string,
 	expectedNumber?: number,
 ): GithubPrIdentity | undefined {
-	let parsed: URL;
-	try {
-		parsed = new URL(url);
-	} catch {
-		return undefined;
-	}
-	if (parsed.hostname !== "github.com") return undefined;
-	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
-	if (parts.length !== 4 || parts[2] !== "pull") return undefined;
+	const parts = githubUrlPathParts(url);
+	if (parts === undefined || parts.length !== 4 || parts[2] !== "pull") return undefined;
 	const number = Number(parts[3]);
 	if (!Number.isInteger(number) || number <= 0) return undefined;
 	if (expectedNumber !== undefined && number !== expectedNumber) return undefined;
@@ -46,15 +39,8 @@ export function normalizeGitRemoteUrl(rawUrl: string): string {
 export function githubRepositoryIdentityFromNormalizedRemoteUrl(
 	normalizedUrl: string,
 ): GithubRepositoryIdentity | undefined {
-	let parsed: URL;
-	try {
-		parsed = new URL(normalizedUrl);
-	} catch {
-		return undefined;
-	}
-	if (parsed.hostname !== "github.com") return undefined;
-	const parts = parsed.pathname.split("/").filter((part) => part.length > 0);
-	if (parts.length !== 2) return undefined;
+	const parts = githubUrlPathParts(normalizedUrl);
+	if (parts === undefined || parts.length !== 2) return undefined;
 	return repositoryIdentityFromParts(parts[0], parts[1]);
 }
 
@@ -63,6 +49,17 @@ export function githubRepositoryIdentityFromRemoteUrl(
 ): GithubRepositoryIdentity | undefined {
 	const normalized = normalizeGitRemoteUrl(url);
 	return githubRepositoryIdentityFromNormalizedRemoteUrl(normalized);
+}
+
+function githubUrlPathParts(url: string): readonly string[] | undefined {
+	let parsed: URL;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return undefined;
+	}
+	if (parsed.hostname !== "github.com") return undefined;
+	return parsed.pathname.split("/").filter((part) => part.length > 0);
 }
 
 function repositoryIdentityFromParts(

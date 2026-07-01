@@ -6,7 +6,12 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import type { Result } from "@sdl/core/result";
 
 import { failureContextFields, failureFromMessage, feedbackErr, feedbackOk } from "./failures.ts";
-import type { GithubPrFeedbackFailure, GithubPrFeedbackOperation } from "./types.ts";
+import type {
+	GithubPrFeedbackCursorContextFields,
+	GithubPrFeedbackFailure,
+	GithubPrFeedbackOperation,
+	GithubPrFeedbackRequiredCursorContextFields,
+} from "./types.ts";
 
 export type GithubJsonParseResult<T> =
 	| { readonly type: "ok"; readonly value: T }
@@ -116,15 +121,14 @@ function validateParsedJson<T>(
 	return feedbackOk(result.data);
 }
 
+type RequireCursorContext = GithubPrFeedbackRequiredCursorContextFields & {
+	readonly operation: GithubPrFeedbackOperation;
+	readonly message: string;
+};
+
 export function requireCursor(
 	endCursor: string | null | undefined,
-	context: {
-		readonly operation: GithubPrFeedbackOperation;
-		readonly message: string;
-		readonly prNumber?: number;
-		readonly threadId?: string;
-		readonly cursorContext: string;
-	},
+	context: RequireCursorContext,
 ): Result<string, GithubPrFeedbackFailure> {
 	if (endCursor !== null && endCursor !== undefined && endCursor !== "")
 		return feedbackOk(endCursor);
@@ -138,10 +142,7 @@ export function requireCursor(
 	);
 }
 
-export interface GithubPrFeedbackFailureContext {
+export interface GithubPrFeedbackFailureContext extends GithubPrFeedbackCursorContextFields {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly run: Extract<RunGitHubCliResult, { readonly type: "completed" }>;
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
 }

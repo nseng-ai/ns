@@ -89,7 +89,20 @@ export const githubPrFeedbackOperations = [
 
 export type GithubPrFeedbackOperation = (typeof githubPrFeedbackOperations)[number];
 
-export interface GithubPrFeedbackFailureDetails {
+export interface GithubPrFeedbackCursorContextFields {
+	readonly prNumber?: number;
+	readonly threadId?: string;
+	readonly cursorContext?: string;
+}
+
+export interface GithubPrFeedbackRequiredCursorContextFields extends Omit<
+	GithubPrFeedbackCursorContextFields,
+	"cursorContext"
+> {
+	readonly cursorContext: string;
+}
+
+export interface GithubPrFeedbackFailureDetails extends GithubPrFeedbackCursorContextFields {
 	readonly operation: GithubPrFeedbackOperation;
 	readonly command?: readonly string[];
 	readonly displayCommand?: string;
@@ -99,9 +112,6 @@ export interface GithubPrFeedbackFailureDetails {
 	readonly killed?: boolean;
 	readonly graphqlErrors?: unknown;
 	readonly zodError?: string;
-	readonly prNumber?: number;
-	readonly threadId?: string;
-	readonly cursorContext?: string;
 }
 
 export interface GithubPrFeedbackFailure extends ErrorInfo<GithubPrFeedbackFailureDetails> {
