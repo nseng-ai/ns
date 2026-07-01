@@ -50,8 +50,8 @@ export function runScenario(
 	const env = options.env ?? { PATH: "/fake/bin" };
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const fakeInteraction = createFakeClinkrInteraction({
-		confirmations: options.confirmations,
-		isInteractive: options.isInteractive,
+		...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
+		...(options.isInteractive === undefined ? {} : { isInteractive: options.isInteractive }),
 	});
 	const context =
 		options.context ??

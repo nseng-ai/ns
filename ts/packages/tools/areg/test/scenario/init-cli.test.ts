@@ -41,8 +41,8 @@ function initHarness(options: InitHarnessOptions = {}): InitHarness {
 	const npxSkills = new FakeAregNpxSkillsGateway(options.npxSkills);
 	const prompt = new FakeAregPromptGateway(options.prompt);
 	const interaction = createFakeClinkrInteraction({
-		confirmations: options.confirmations,
-		isInteractive: options.isInteractive,
+		...(options.confirmations === undefined ? {} : { confirmations: options.confirmations }),
+		...(options.isInteractive === undefined ? {} : { isInteractive: options.isInteractive }),
 	});
 	return {
 		projectGateway,

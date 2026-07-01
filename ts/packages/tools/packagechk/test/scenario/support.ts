@@ -11,15 +11,15 @@ export interface CliRun {
 
 export async function runPackagechk(
 	args: readonly string[],
-	deps: CliDeps & { confirmations?: readonly ConfirmationResult[] | undefined } = {},
+	deps: CliDeps & { confirmations?: readonly ConfirmationResult[] } = {},
 ): Promise<CliRun> {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const { confirmations, ...cliDeps } = deps;
 	const scenarioInteraction = createScenarioClinkrInteraction({
 		hasStdin: deps.stdin !== undefined,
-		interaction: deps.interaction,
-		confirmations,
+		...(deps.interaction === undefined ? {} : { interaction: deps.interaction }),
+		...(confirmations === undefined ? {} : { confirmations }),
 	});
 	const code = await runCli(args, {
 		...cliDeps,

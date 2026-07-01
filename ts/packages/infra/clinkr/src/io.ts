@@ -24,10 +24,10 @@ export function createProcessIo(): ClinkrIo {
 }
 
 export interface ClinkrIoOverrides {
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
-	canEmitAnsi?: boolean | undefined;
-	caps?: Caps | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
+	canEmitAnsi?: boolean;
+	caps?: Caps;
 }
 
 /** Process io with per-stream overrides; the seam CLIs hand their deps to. */

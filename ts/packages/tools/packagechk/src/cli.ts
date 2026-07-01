@@ -52,7 +52,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 			npmPublishGateway: deps.npmPublishGateway ?? new RealNpmPublishGateway(),
 			io,
 			interaction: resolveClinkrInteraction({
-				interaction: deps.interaction,
+				...(deps.interaction === undefined ? {} : { interaction: deps.interaction }),
 				stdin: deps.stdin ?? readStdinLine,
 				stderr: io.stderr,
 				injectedStdin: deps.stdin,

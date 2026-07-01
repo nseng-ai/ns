@@ -27,13 +27,13 @@ export interface ClinkrInteraction {
 export interface CreateClinkrInteractionOptions {
 	stdin: () => Promise<string | null>;
 	stderr: (text: string) => void;
-	isInteractive?: (() => boolean) | undefined;
+	isInteractive?: () => boolean;
 	injectedStdin?: (() => Promise<string | null>) | undefined;
-	formatPrompt?: ConfirmationPromptFormatter | undefined;
+	formatPrompt?: ConfirmationPromptFormatter;
 }
 
 export interface ResolveClinkrInteractionOptions extends CreateClinkrInteractionOptions {
-	interaction?: ClinkrInteraction | undefined;
+	interaction?: ClinkrInteraction;
 }
 
 export function createClinkrInteraction(
