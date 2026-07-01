@@ -7,7 +7,7 @@ import {
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails, shortSha } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
-import { emptyResult, type LandStackFailure } from "./errors.ts";
+import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
 	restackForSubmitArgs,
 	restackTargetForSubmit,
@@ -359,6 +359,20 @@ export function formatFailureNotification(failure: LandStackFailure): string {
 		return detail;
 	}
 	return `land stopped: ${detail}`;
+}
+
+export function presentFailureOutcome(
+	ctx: PrintAwareLandStackCommandContext,
+	landFailure: LandStackFailure,
+): LandStackOutcome {
+	presentBrief({
+		ctx,
+		fullMessage: formatFailure(landFailure, []),
+		level: landFailure.level,
+		uiMessage: formatFailureNotification(landFailure),
+		kind: landFailureKind(landFailure),
+	});
+	return failure(landFailure);
 }
 
 /**

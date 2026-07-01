@@ -1,20 +1,9 @@
-import type { ExecResult } from "@sdl/core/command";
+import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "sdl-sdk";
 import { executeStackLanding } from "../land-stack.ts";
 import type { LandLiveProgressSink } from "../land-stack/command-stream.ts";
-import {
-	completed,
-	failure,
-	landStackFailure,
-	type LandStackFailure,
-	type LandStackOutcome,
-} from "../land-stack/errors.ts";
-import {
-	formatFailure,
-	formatFailureNotification,
-	landFailureKind,
-	presentBrief,
-} from "../land-stack/presentation.ts";
+import { completed, type LandStackOutcome } from "../land-stack/errors.ts";
+import { presentBrief, presentFailureOutcome } from "../land-stack/presentation.ts";
 import { loadLandingShape } from "../land-stack/stack-facts.ts";
 import type {
 	LandingShape,
@@ -22,10 +11,11 @@ import type {
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
 } from "../land-stack/types.ts";
+import { confirmLandStackAction } from "../land-stack/pre-merge-confirmation.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
 
-export interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
+interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
 	exec(
 		command: string,
 		args: string[],
@@ -36,7 +26,6 @@ export interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
 interface LandRuntimeApis {
 	extensionApi: LandStackExtensionAPI;
 	streamedApi: LandStackExtensionAPI;
-	normalizedApi: NormalizedLandExtensionAPI;
 }
 
 interface RunLandingDispatchOptions {
@@ -51,10 +40,11 @@ export async function runLandingDispatch(
 	options: RunLandingDispatchOptions,
 ): Promise<LandStackOutcome> {
 	const progressIo = options.progressIo;
-	const { extensionApi, streamedApi, normalizedApi } = options.runtimeApis;
+	const { extensionApi, streamedApi } = options.runtimeApis;
+	const normalizedApi = normalizeLandExtensionApi(streamedApi);
 	const shape = await loadLandingShape(streamedApi, options.ctx.cwd);
 	if (shape.type === "failure") {
-		return presentAndFail(options.ctx, shape.failure);
+		return presentFailureOutcome(options.ctx, shape.failure);
 	}
 
 	if (
@@ -80,8 +70,7 @@ export async function runLandingDispatch(
 			isDryRun: options.parsedArgs.isDryRun,
 			...(progressIo === undefined ? {} : { progressIo }),
 		});
-		if (outcome.type === "failure") return outcome;
-		return await runPostLandingSlotCleanup({
+		return await finishAfterLanding(outcome, {
 			pi: normalizedApi,
 			ctx: options.ctx,
 			args: options.parsedArgs,
@@ -104,8 +93,7 @@ export async function runLandingDispatch(
 		...(progressIo === undefined ? {} : { io: progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
-	if (outcome.type === "failure") return outcome;
-	return await runPostLandingSlotCleanup({
+	return await finishAfterLanding(outcome, {
 		pi: streamedApi,
 		ctx: options.ctx,
 		args: options.parsedArgs,
@@ -113,43 +101,41 @@ export async function runLandingDispatch(
 	});
 }
 
+function normalizeLandExtensionApi(streamedApi: LandStackExtensionAPI): NormalizedLandExtensionAPI {
+	return {
+		...streamedApi,
+		exec: async (command, args, options) =>
+			normalizeExecResult(await streamedApi.exec(command, args, options)),
+	};
+}
+
+async function finishAfterLanding(
+	outcome: LandStackOutcome,
+	options: {
+		pi: LandStackExtensionAPI;
+		ctx: PrintAwareLandStackCommandContext;
+		args: ParsedArgs;
+		shape: LandingShape;
+	},
+): Promise<LandStackOutcome> {
+	if (outcome.type === "failure") return outcome;
+	return await runPostLandingSlotCleanup(options);
+}
+
 async function confirmStackModeIfNeeded(
 	ctx: PrintAwareLandStackCommandContext,
 	shape: LandingShape,
 	options: { isDryRun: boolean; shouldSkipConfirmation: boolean },
 ): Promise<LandStackOutcome> {
-	if (options.isDryRun || options.shouldSkipConfirmation) return completed();
-	if (!ctx.hasUI) {
-		const landFailure = landStackFailure(
-			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
-			{ outcome: "refusal" },
-		);
-		return presentAndFail(ctx, landFailure);
-	}
-
-	const confirmed = await ctx.ui.confirm("Land stack?", formatUpfrontStackConfirmation(shape));
-	if (!confirmed) {
-		const landFailure = landStackFailure("Cancelled before merge; no PRs were landed.", {
-			level: "info",
-			outcome: "refusal",
-		});
-		return presentAndFail(ctx, landFailure);
-	}
-	return completed();
-}
-
-function presentAndFail(
-	ctx: PrintAwareLandStackCommandContext,
-	landFailure: LandStackFailure,
-): LandStackOutcome {
-	presentBrief({
+	return await confirmLandStackAction({
 		ctx,
-		fullMessage: formatFailure(landFailure, []),
-		level: landFailure.level,
-		uiMessage: formatFailureNotification(landFailure),
-		kind: landFailureKind(landFailure),
+		shouldPrompt: !options.isDryRun && !options.shouldSkipConfirmation,
+		title: "Land stack?",
+		details: formatUpfrontStackConfirmation(shape),
+		nonInteractiveMessage:
+			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
 	});
-	return failure(landFailure);
 }
 
 function formatUpfrontStackConfirmation(shape: LandingShape): string {

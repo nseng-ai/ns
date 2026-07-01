@@ -19,10 +19,8 @@ export interface PreMergeMaintenanceOptions {
 	confirmation?: PreMergeConfirmation;
 }
 
-export function preMergeConfirmationOption(confirmation: PreMergeConfirmation | undefined): {
-	confirmation?: PreMergeConfirmation;
-} {
-	return confirmation === undefined ? {} : { confirmation };
+export function optionalField<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V } {
+	return value === undefined ? {} : ({ [key]: value } as { [P in K]: V });
 }
 
 interface ConfirmLandStackActionOptions {
@@ -32,6 +30,8 @@ interface ConfirmLandStackActionOptions {
 	details: string;
 	nonInteractiveMessage: string;
 	nonInteractiveFailureOptions?: LandStackFailureOptions;
+	cancellationMessage?: string;
+	cancellationFailureOptions?: LandStackFailureOptions;
 	renderDetails?: (details: string) => string;
 	onFailure?: (landFailure: LandStackFailure) => void;
 }
@@ -54,10 +54,14 @@ export async function confirmLandStackAction(
 	const confirmed = await options.ctx.ui.confirm(options.title, details);
 	if (confirmed) return completed();
 
-	const landFailure = landStackFailure(LANDING_CANCELLED_MESSAGE, {
+	const cancellationFailureOptions = options.cancellationFailureOptions ?? {
 		level: "info",
 		outcome: "refusal",
-	});
+	};
+	const landFailure = landStackFailure(
+		options.cancellationMessage ?? LANDING_CANCELLED_MESSAGE,
+		cancellationFailureOptions,
+	);
 	options.onFailure?.(landFailure);
 	return failure(landFailure);
 }
@@ -80,8 +84,6 @@ export async function confirmPreMergeMaintenance(
 		title: options.title,
 		details: options.details,
 		nonInteractiveMessage: options.nonInteractiveMessage,
-		...(options.nonInteractiveFailureOptions === undefined
-			? {}
-			: { nonInteractiveFailureOptions: options.nonInteractiveFailureOptions }),
+		...optionalField("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
 	});
 }
