@@ -35,6 +35,7 @@ export const flowBranchLatestCommitCommand: SdlCommand<typeof branchLatestCommit
 	summary: "Move the latest eligible commit to a new Graphite branch.",
 	description: BRANCH_LATEST_COMMIT_DESCRIPTION,
 	schema: branchLatestCommitRequestSchema,
+	options: { slug: { short: "-s" } },
 	async run(ctx, request: BranchLatestCommitRequest) {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: LatestCommitAutobranchInput["args"] =

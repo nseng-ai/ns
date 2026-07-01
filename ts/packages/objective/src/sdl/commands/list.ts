@@ -15,6 +15,7 @@ export const objectiveListSdlCommand = objectiveSdlCommand({
 	summary: "List Objective records in the current checkout.",
 	description: "List Objective records in the current checkout.",
 	schema: listObjectivesRequestSchema,
+	options: { names: { short: "-n" }, status: { short: "-s" }, minimal: { short: "-m" } },
 	resultSchema: objectiveListResultSchema,
 	handler: runListObjectives,
 	renderHuman: (data, caps) =>

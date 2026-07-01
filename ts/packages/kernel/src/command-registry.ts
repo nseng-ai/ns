@@ -62,6 +62,7 @@ const sdlCommandSchema = z.object({
 	description: z.string(),
 	schema: z.custom<SdlCommandSchema>(isZodObjectSchema).optional(),
 	positionals: z.custom<SdlCommand["positionals"]>(isRecord).optional(),
+	options: z.custom<SdlCommand["options"]>(isRecord).optional(),
 	resultSchema: z.custom<SdlCommand["resultSchema"]>(isZodSchema).optional(),
 	renderHuman: z
 		.custom<SdlCommand["renderHuman"]>((value) => typeof value === "function")
@@ -241,6 +242,7 @@ const sdlExtensionCommandEntryIssueFields = [
 	{ field: "summary", message: "command summary must be a string" },
 	{ field: "description", message: "command description must be a string" },
 	{ field: "schema", message: "command schema must be a Zod object schema from sdl-sdk" },
+	{ field: "options", message: "command options must be an object" },
 	{ field: "completionProvider", message: "command completionProvider must be a function" },
 	{ field: "run", message: "command run must be a function" },
 ] as const satisfies readonly { field: string; message: string }[];

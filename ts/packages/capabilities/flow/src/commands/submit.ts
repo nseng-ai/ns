@@ -56,6 +56,11 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 	summary: "Checkpoint pending changes, then submit the Graphite stack with gt submit.",
 	description: SUBMIT_COMMAND_DESCRIPTION,
 	schema: submitSchema,
+	options: {
+		restack: { short: "-R" },
+		force: { short: "-f" },
+		verbose: { short: "-v" },
+	},
 	async run(ctx: SdlExtensionApi, request: SubmitRequest) {
 		const runtime = createSdlSubmitRuntime(ctx);
 		const caps = resolveFlowStreamCaps(ctx);

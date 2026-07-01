@@ -51,6 +51,7 @@ export const flowAutobranchCommand: SdlCommand<typeof autobranchRequestSchema> =
 	summary: "Create a Graphite branch from dirty worktree changes.",
 	description: AUTOBRANCH_DESCRIPTION,
 	schema: autobranchRequestSchema,
+	options: { slug: { short: "-s" } },
 	async run(ctx, request: AutobranchRequest) {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };

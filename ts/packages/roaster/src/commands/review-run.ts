@@ -19,6 +19,12 @@ export const roasterReviewRunCommand = roasterSdlCommand({
 	description: REVIEW_RUN_DESCRIPTION,
 	schema: reviewRunRequestSchema,
 	positionals: { key: { position: 0 } },
+	options: {
+		model: { short: "-m" },
+		modelProfile: { short: "-p" },
+		baseRef: { short: "-b" },
+		logBranch: { short: "-l" },
+	},
 	resultSchema: reviewRunResultSchema,
 	renderHuman: (data, _caps) => renderReviewRun(data),
 	async handler(runtime, request) {

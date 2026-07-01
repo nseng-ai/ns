@@ -3,6 +3,7 @@ import type {
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
 	ClinkrExit,
+	OptionSpec,
 	RenderCapabilities,
 } from "@sdl/clinkr";
 import type { PositionalSpec } from "@sdl/clinkr/raw";
@@ -17,6 +18,7 @@ export type {
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
 	ClinkrExit,
+	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,
 } from "@sdl/clinkr";
@@ -39,6 +41,10 @@ export interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknow
 	positionals?: ExplicitUndefined<
 		"public-api-compatibility",
 		Partial<Record<keyof z.infer<S> & string, PositionalSpec>>
+	>;
+	options?: ExplicitUndefined<
+		"public-api-compatibility",
+		Partial<Record<keyof z.infer<S> & string, OptionSpec>>
 	>;
 	resultSchema?: ExplicitUndefined<"public-api-compatibility", z.ZodType<T>>;
 	renderHuman?: ExplicitUndefined<
