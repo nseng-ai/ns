@@ -149,14 +149,14 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 		const entryPath = join(rootDir, entry.name);
 		if (entry.isFile()) {
 			if (isLoadableExtensionFile(entry.name)) {
-				const command = commandForDirectEntry({
+				addDirectEntryCommand({
+					commands,
+					diagnostics,
+					rootDir,
 					kind: "file",
 					name: basename(entry.name, extname(entry.name)),
 					entryPath,
-					rootDir,
 				});
-				if (command.ok) commands.push(command.command);
-				else diagnostics.push(command.diagnostic);
 			}
 			continue;
 		}
@@ -172,14 +172,14 @@ export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryRes
 
 		const indexPath = firstExistingDirectoryIndex(entryPath);
 		if (indexPath !== undefined) {
-			const command = commandForDirectEntry({
+			addDirectEntryCommand({
+				commands,
+				diagnostics,
+				rootDir,
 				kind: "dir-index",
 				name: entry.name,
 				entryPath: indexPath,
-				rootDir,
 			});
-			if (command.ok) commands.push(command.command);
-			else diagnostics.push(command.diagnostic);
 			continue;
 		}
 		diagnostics.push(
@@ -260,6 +260,24 @@ function manifestReadFailureResult(
 	diagnostic: ExtensionDiscoveryDiagnostic,
 ): ExtensionDiscoveryResult {
 	return { commands: [], diagnostics: [diagnostic] };
+}
+
+function addDirectEntryCommand(options: {
+	commands: DiscoveredExtensionCommand[];
+	diagnostics: ExtensionDiscoveryDiagnostic[];
+	rootDir: string;
+	kind: "file" | "dir-index";
+	name: string;
+	entryPath: string;
+}): void {
+	const command = commandForDirectEntry({
+		kind: options.kind,
+		name: options.name,
+		entryPath: options.entryPath,
+		rootDir: options.rootDir,
+	});
+	if (command.ok) options.commands.push(command.command);
+	else options.diagnostics.push(command.diagnostic);
 }
 
 function discoverPackageCommands(

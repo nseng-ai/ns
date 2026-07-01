@@ -27,7 +27,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Data Clumps for cmux surface identifiers; `CmuxSurfaceRef` now names the shared `workspaceId`/`surfaceId`/optional `windowId` shape used by rename-tab and send-text gateway params.
   - fixed: Duplicated Code in Pi launch model/thinking types; `PiLaunchThinkingLevel` and `PiLaunchModelInfo` are aliases of the canonical `ThinkingLevel` and `ModelInfo` from `types.ts`.
   - validation: `pnpm --dir ts --filter @sdl/cmux run check`, `pnpm --dir ts --filter @sdl/cmux run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
-- [ ] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
+- [x] **kernel** — 3 findings (1 high / 2 medium / 0 low). See `references/kernel.md`.
+  - fixed: Duplicated selected-command loading in the SDL CLI; `resolveSelectedSdlCommand` now owns candidate loading, diagnostic handling, selected command path capture, and command-info refresh for both normal runs and completion resolver invocations.
+  - fixed: Duplicated direct-entry discovery handling; `addDirectEntryCommand` now owns the shared `commandForDirectEntry` success/diagnostic push shape for root files and directory indexes.
+  - fixed: Duplicated command CLI info projection; `toCommandCliInfo` now owns the optional group/segments/group-description plus description fields used by static listings, catalog output, and external candidate construction.
+  - validation: `pnpm --dir ts --filter @sdl/kernel run check`, `pnpm --dir ts --filter @sdl/kernel run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
 - [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
 - [x] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
   - fixed: Duplicated text-generation contracts in testing support; `text-generation-testing.ts` now imports and re-exports the canonical request/result/generator types from `text-generation.ts` while preserving `ScriptedTextGenerator` behavior.

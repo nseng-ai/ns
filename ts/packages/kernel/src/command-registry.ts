@@ -118,15 +118,22 @@ export function listBuiltInSdlCommandCandidates(): BuiltInSdlCommandCandidate[] 
 }
 
 export function listStaticSdlCommandInfos(): SdlCommandCliInfo[] {
-	return listBuiltInSdlCommandCandidates().map(
-		({ group, name, description, fullDescription, groupDescription }) => ({
-			...(group === undefined ? {} : { group }),
-			...(groupDescription === undefined ? {} : { groupDescription }),
-			name,
-			description,
-			fullDescription,
-		}),
-	);
+	return listBuiltInSdlCommandCandidates().map(toCommandCliInfo);
+}
+
+export function toCommandCliInfo(
+	candidate: SdlCommandPath & Pick<SdlCommandCliInfo, "description" | "fullDescription">,
+): SdlCommandCliInfo {
+	return {
+		...(candidate.group === undefined ? {} : { group: candidate.group }),
+		...(candidate.segments === undefined ? {} : { segments: candidate.segments }),
+		...(candidate.groupDescription === undefined
+			? {}
+			: { groupDescription: candidate.groupDescription }),
+		name: candidate.name,
+		description: candidate.description,
+		fullDescription: candidate.fullDescription,
+	};
 }
 
 export function commandInfoForLoadedCommand(
