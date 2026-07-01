@@ -2,6 +2,8 @@ export {
 	createBranchContextContext,
 	createRealBranchContextContext,
 	type BranchContextContext,
+	type BranchContextContextFactory,
+	type BranchContextContextOptions,
 } from "./context.ts";
 export {
 	BRANCH_CONTEXT_NAMESPACE,

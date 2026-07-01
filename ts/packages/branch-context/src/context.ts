@@ -12,9 +12,17 @@ export interface BranchContextContext {
 	graphite: GraphiteBranchGateway;
 }
 
+export interface BranchContextContextOptions {
+	cwd?: string;
+}
+
+export type BranchContextContextFactory<Args extends unknown[]> = (
+	...args: Args
+) => BranchContextContext;
+
 export function createBranchContextContext(
 	commands: StdinCapableCommandExecApi,
-	options: { cwd?: string } = {},
+	options: BranchContextContextOptions = {},
 ): BranchContextContext {
 	const cwd = options.cwd ?? process.cwd();
 	const git = new RealGitGateway(commands);
@@ -28,7 +36,7 @@ export function createBranchContextContext(
 }
 
 export function createRealBranchContextContext(
-	options: { cwd?: string } = {},
+	options: BranchContextContextOptions = {},
 ): BranchContextContext {
 	return createBranchContextContext(new NodeCommandExecApi(), options);
 }

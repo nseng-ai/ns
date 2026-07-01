@@ -191,12 +191,10 @@ export async function resolvePlanStoreRepoDirectory(
 		options.signal,
 		planStoreGateway,
 	);
-	const repoIdentity = await resolveRepoIdentity(git, {
-		cwd: options.cwd,
-		repoRoot,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-		planStoreGateway,
-	});
+	const repoIdentity = await resolveRepoIdentity(
+		git,
+		buildRepoIdentityOptions(options, repoRoot, planStoreGateway),
+	);
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
 	const repoDirectoryPath = join(planStoreRoot, repoKey);
@@ -222,12 +220,10 @@ export async function resolvePlanStoreDirectory(
 		planStoreGateway,
 	);
 	const sourceBranch = await resolveCurrentBranch(git, options.cwd, options.signal);
-	const repoIdentity = await resolveRepoIdentity(git, {
-		cwd: options.cwd,
-		repoRoot,
-		...(options.signal === undefined ? {} : { signal: options.signal }),
-		planStoreGateway,
-	});
+	const repoIdentity = await resolveRepoIdentity(
+		git,
+		buildRepoIdentityOptions(options, repoRoot, planStoreGateway),
+	);
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
 	const branchKey = encodeBranchForPlanPath(sourceBranch);
 	const planStoreRoot = resolvePrimaryPlanStoreRoot(options);
@@ -467,11 +463,27 @@ interface RepoIdentityOptions {
 	planStoreGateway: PlanStoreGateway;
 }
 
+function buildRepoIdentityOptions(
+	options: PlanStoreOptions,
+	repoRoot: string,
+	planStoreGateway: PlanStoreGateway,
+): RepoIdentityOptions {
+	return {
+		cwd: options.cwd,
+		repoRoot,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+		planStoreGateway,
+	};
+}
+
 async function resolveRepoIdentity(
 	git: GitGateway,
 	options: RepoIdentityOptions,
 ): Promise<RepoIdentity> {
-	const origin = await git.originUrl({ cwd: options.cwd, signal: options.signal });
+	const origin = await git.originUrl({
+		cwd: options.cwd,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
+	});
 	if (origin.type === "error") {
 		throw new Error(origin.error.message);
 	}

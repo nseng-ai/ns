@@ -43,7 +43,10 @@ describe("writeSavedPlanFile", () => {
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
-		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
+		const git = new FakeGitGateway({
+			currentBranch: fakeCurrentBranch(sourceBranch),
+			origin: fakeOriginUrl(origin),
+		});
 
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
@@ -77,7 +80,10 @@ describe("writeSavedPlanFile", () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
-		const git = new FakeGitGateway({ currentBranch: sourceBranch, hasOrigin: false });
+		const git = new FakeGitGateway({
+			currentBranch: fakeCurrentBranch(sourceBranch),
+			origin: missingOriginUrl(),
+		});
 
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
@@ -99,7 +105,10 @@ describe("writeSavedPlanFile", () => {
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
 		const filePath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
 		planStoreGateway.writeFile(filePath, "# Existing Plan\n");
-		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
+		const git = new FakeGitGateway({
+			currentBranch: fakeCurrentBranch(sourceBranch),
+			origin: fakeOriginUrl(origin),
+		});
 
 		await expect(
 			writeSavedPlanFile(
@@ -117,7 +126,10 @@ describe("writeSavedPlanFile", () => {
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
-		const git = new FakeGitGateway({ currentBranch: sourceBranch, originUrl: origin });
+		const git = new FakeGitGateway({
+			currentBranch: fakeCurrentBranch(sourceBranch),
+			origin: fakeOriginUrl(origin),
+		});
 
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
@@ -155,8 +167,8 @@ describe("writeSavedPlanFile", () => {
 		);
 		planStoreGateway.writeFile(legacyPath, "# Legacy Plan\n");
 		const git = new FakeGitGateway({
-			currentBranch: sourceBranch,
-			originUrl: "git@github.com:owner/repo.git",
+			currentBranch: fakeCurrentBranch(sourceBranch),
+			origin: fakeOriginUrl("git@github.com:owner/repo.git"),
 		});
 
 		const evidence = await writeSavedPlanFile(
@@ -199,7 +211,7 @@ describe("writeSavedPlanFile", () => {
 	test("rejects detached HEAD with a clear named-branch message", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
-		const git = new FakeGitGateway({ isDetached: true });
+		const git = new FakeGitGateway({ currentBranch: { type: "detached" } });
 
 		await expect(
 			writeSavedPlanFile(
@@ -215,28 +227,37 @@ describe("writeSavedPlanFile", () => {
 
 const unusedPi = { exec: async () => ({ stdout: "", stderr: "", code: 0, killed: false }) };
 
+function fakeCurrentBranch(branch: string): FakeCurrentBranch {
+	return { type: "branch", branch };
+}
+
+function fakeOriginUrl(url: string): FakeOriginUrl {
+	return { type: "found", url };
+}
+
+function missingOriginUrl(): FakeOriginUrl {
+	return { type: "missing" };
+}
+
+type FakeCurrentBranch = { type: "branch"; branch: string } | { type: "detached" };
+type FakeOriginUrl = { type: "found"; url: string } | { type: "missing" };
+
 interface FakeGitOptions {
 	repoRoot?: string;
-	currentBranch?: string;
-	originUrl?: string;
-	isDetached?: boolean;
-	hasOrigin?: boolean;
+	currentBranch?: FakeCurrentBranch;
+	origin?: FakeOriginUrl;
 }
 
 class FakeGitGateway implements GitGateway {
 	readonly calls: string[] = [];
 	private readonly repoRootValue: string;
-	private readonly currentBranchValue: string | undefined;
-	private readonly originUrlValue: string | undefined;
+	private readonly currentBranchValue: FakeCurrentBranch;
+	private readonly originUrlValue: FakeOriginUrl;
 
 	constructor(options: FakeGitOptions = {}) {
 		this.repoRootValue = options.repoRoot ?? ROOT;
-		this.currentBranchValue =
-			options.isDetached === true ? undefined : (options.currentBranch ?? "main");
-		this.originUrlValue =
-			options.hasOrigin === false
-				? undefined
-				: (options.originUrl ?? "git@github.com:owner/repo.git");
+		this.currentBranchValue = options.currentBranch ?? fakeCurrentBranch("main");
+		this.originUrlValue = options.origin ?? fakeOriginUrl("git@github.com:owner/repo.git");
 	}
 
 	async repoRoot(_params: GitCwdParams): Promise<GitResult<string>> {
@@ -251,8 +272,8 @@ class FakeGitGateway implements GitGateway {
 
 	async currentBranch(_params: GitCwdParams): Promise<GitCurrentBranchResult> {
 		this.calls.push("currentBranch");
-		if (this.currentBranchValue === undefined) return { type: "detached" };
-		return { type: "branch", branch: this.currentBranchValue };
+		if (this.currentBranchValue.type === "detached") return { type: "detached" };
+		return { type: "branch", branch: this.currentBranchValue.branch };
 	}
 
 	async isInsideWorkTree(_params: GitCwdParams): Promise<GitResult<boolean>> {
@@ -267,10 +288,10 @@ class FakeGitGateway implements GitGateway {
 
 	async originUrl(_params: GitCwdParams): Promise<GitOptionalResult<string>> {
 		this.calls.push("originUrl");
-		if (this.originUrlValue === undefined) {
+		if (this.originUrlValue.type === "missing") {
 			return { type: "missing" };
 		}
-		return { type: "found", value: this.originUrlValue };
+		return { type: "found", value: this.originUrlValue.url };
 	}
 
 	async headCommit(_params: GitCwdParams): Promise<GitResult<string>> {

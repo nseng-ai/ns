@@ -10,6 +10,7 @@ import {
 	formatBranchContextCreatePreview,
 	resolveBranchContextCreatePreviewContext,
 	type BranchContextContext,
+	type BranchContextContextFactory,
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
@@ -98,7 +99,7 @@ interface FormatSurfaceSuccessOptions {
 
 export interface CccSlotDispatchPlanOptions {
 	planStoreRoot?: string;
-	createBranchContextContext?: (pi: ExtensionAPI, cwd: string) => BranchContextContext;
+	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
 	slotClient?: SlotClient;
 }
 
