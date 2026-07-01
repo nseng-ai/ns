@@ -30,7 +30,8 @@ describe("Pi command surfaces", () => {
 	test("selects generic command-style skill names with the canonical filter", () => {
 		const skillNames = genericCommandStyleSkillNames();
 
-		expect(skillNames).toContain("pr-address");
+		expect(skillNames).toContain("code-workflows");
+		expect(skillNames).not.toContain("pr-address");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("grill-me");
 		expect(skillNames).not.toContain("grill-with-docs");
@@ -46,7 +47,10 @@ describe("Pi command surfaces", () => {
 			]),
 		);
 		expect(skillNames).not.toContain("objective-create");
+		expect(skillNames).not.toContain("code-gh");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");
+		expect(skillNames).not.toContain("typescript-fake-driven-testing");
+		expect(skillNames).not.toContain("typescript-style");
 		expect(genericCommandStyleSkillNames(["plain", "foo-bar", "objective-create"])).toEqual([
 			"foo-bar",
 		]);
@@ -57,7 +61,12 @@ describe("Pi command surfaces", () => {
 
 		expect(new Set(surfaces).size).toBe(surfaces.length);
 		expect(surfaces).toEqual(expect.arrayContaining([...SPECIALIZED_PI_COMMAND_SURFACES]));
-		expect(surfaces).toContain("pr:address");
+		expect(surfaces).toContain("code:workflows");
+		expect(surfaces).not.toContain("pr:address");
+		expect(surfaces).not.toContain("cli:push-down");
+		expect(surfaces).not.toContain("code:gh");
+		expect(surfaces).not.toContain("typescript:fake-driven-testing");
+		expect(surfaces).not.toContain("typescript:style");
 		expect(surfaces).toContain("objective:close");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");

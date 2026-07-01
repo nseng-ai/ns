@@ -44,10 +44,8 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"ccc-sidebar",
 	"ccc-stack-map",
 	"changelog-update",
-	"cli-push-down",
 	"code-autobranch",
 	"code-checkpoint",
-	"code-gh",
 	"code-gt-linearize-descendants",
 	"code-just-fix",
 	"code-just-the-stack",
@@ -75,7 +73,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"objective-update",
 	"pi-grill-ui",
 	"pi-grill-with-docs-ui",
-	"pr-address",
 	"pytest",
 	"python-fake-driven-test-layout",
 	"python-fake-driven-testing",
@@ -99,8 +96,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"thermo-nuclear-code-quality-review",
 	"ts-morph-analyze",
 	"ts-morph-refactor",
-	"typescript-fake-driven-testing",
-	"typescript-style",
 	"writing-great-skills",
 ] as const;
 

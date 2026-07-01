@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { FakeAregSkillKindSkillOptions } from "../../src/fake-gateways.ts";
+import type {
+	FakeAregCheckSkillOptions,
+	FakeAregSkillKindSkillOptions,
+} from "../../src/fake-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 function skill(
@@ -9,6 +12,34 @@ function skill(
 	options: Partial<FakeAregSkillKindSkillOptions> = {},
 ): FakeAregSkillKindSkillOptions {
 	return { name, skillMd, ...options };
+}
+
+function localCheckSkill(
+	name: string,
+	options: Partial<FakeAregCheckSkillOptions> = {},
+): FakeAregCheckSkillOptions {
+	return {
+		name,
+		skillsPath: { type: "directory" },
+		agentsPath: { type: "symlink", target: `../../skills/${name}` },
+		claudePath: { type: "symlink", target: `../../.agents/skills/${name}` },
+		localSkillMd: `---\nname: ${name}\ndescription: ${name}\n---\n`,
+		remoteSkillMd: `---\nname: ${name}\ndescription: ${name}\n---\n`,
+		...options,
+	};
+}
+
+function vendoredCheckSkill(
+	name: string,
+	options: Partial<FakeAregCheckSkillOptions> = {},
+): FakeAregCheckSkillOptions {
+	return {
+		name,
+		agentsPath: { type: "directory" },
+		claudePath: { type: "symlink", target: `../../.agents/skills/${name}` },
+		remoteSkillMd: `---\nname: ${name}\ndescription: ${name}\n---\n`,
+		...options,
+	};
 }
 
 describe("areg doctor skills CLI", () => {
@@ -24,6 +55,52 @@ describe("areg doctor skills CLI", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe("No skill registry drift found.\n");
 		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("does not report areg-managed agent symlink mirrors as shadowed", async () => {
+		const run = runScenario(["doctor", "skills"], {
+			project: {
+				skillsDirectoryNames: ["local"],
+				agentsSkillNames: ["local", "vendored"],
+				claudeSkillNames: ["local", "vendored"],
+				checkSkills: [localCheckSkill("local"), vendoredCheckSkill("vendored")],
+				localSkills: [skill("local"), skill("vendored", undefined, { sourceType: "vendored" })],
+				piSkillInventory: {
+					skillNames: ["local", "vendored"],
+					isApproximation: false,
+					source: "test",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toBe("No skill registry drift found.\n");
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("reports real duplicate canonical skill roots as shadowed", async () => {
+		const run = runScenario(["doctor", "skills", "--format", "json"], {
+			project: {
+				skillsDirectoryNames: ["demo"],
+				agentsSkillNames: ["demo"],
+				checkSkills: [localCheckSkill("demo", { agentsPath: { type: "directory" } })],
+				localSkills: [skill("demo")],
+				piSkillInventory: { skillNames: ["demo"], isApproximation: false, source: "test" },
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const findings = JSON.parse(run.stdout.join("")).data.findings;
+		expect(findings).toContainEqual(
+			expect.objectContaining({
+				code: "skill-root-shadowed",
+				severity: "warning",
+				skill: "demo",
+				evidence: expect.objectContaining({
+					independentRoots: ["skills", ".agents/skills"],
+				}),
+			}),
+		);
 	});
 
 	test("reports observed-style missing Pi model-facing inventory", async () => {
@@ -54,6 +131,30 @@ describe("areg doctor skills CLI", () => {
 				evidence: expect.objectContaining({ piInventorySource: "test-startup-inventory" }),
 			}),
 		);
+	});
+
+	test("renders actionable human diagnostics for drift", async () => {
+		const run = runScenario(["doctor", "skills"], {
+			project: {
+				skillsDirectoryNames: ["objective-create"],
+				localSkills: [skill("objective-create")],
+				piSkillInventory: {
+					skillNames: [],
+					isApproximation: false,
+					source: "test-startup-inventory",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stdout.join("")).toBe("");
+		const stderr = run.stderr.join("");
+		expect(stderr).toContain("Skill doctor: warning (0 error, 1 warning, 0 info)");
+		expect(stderr).toContain("Project: /repo");
+		expect(stderr).toContain("warning  pi-inventory-missing-skill  (1)");
+		expect(stderr).toContain("objective-create");
+		expect(stderr).toContain("Fix: Refresh Pi startup skill inventory");
+		expect(stderr).toContain("areg doctor skills --format json");
 	});
 
 	test("reports filesystem root drift", async () => {
