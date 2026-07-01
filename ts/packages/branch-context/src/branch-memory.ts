@@ -37,6 +37,15 @@ export type BrmemAttachmentPresenceResult =
 	| { type: "absent" }
 	| { type: "error"; error: BrmemErrorInfo };
 
+export function throwBranchContextBrmemError(error: BrmemErrorInfo): never {
+	throw new Error(error.message);
+}
+
+export function unwrapBranchContextBrmemResult<T>(result: BranchContextBrmemResult<T>): T {
+	if (!result.ok) throwBranchContextBrmemError(result.error);
+	return result.value;
+}
+
 export async function checkBranchContextEntryPresence(
 	brmem: BrmemGateway,
 	params: { branch: string; key: string },
