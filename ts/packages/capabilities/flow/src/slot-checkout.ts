@@ -27,7 +27,9 @@ export function createFlowSlotClient(options: {
 	return createSlotClient({
 		cwd: options.cwd,
 		...(options.env === undefined ? {} : { env: options.env }),
-		sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: false },
+		// Autoslot is a CLI navigation command: honor the active SDL shell wrapper's cd directive
+		// while avoiding an extra clipboard write beyond the explicit success guidance.
+		sideEffects: { shouldCopyClipboard: false, shouldWriteCdDirective: true },
 	});
 }
 
