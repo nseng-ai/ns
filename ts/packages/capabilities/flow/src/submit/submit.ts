@@ -15,6 +15,7 @@ import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./ind
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
+	formatEmptyBranchPreflightOutput,
 	formatMergedPrNotInTrunkPreflightOutput,
 	formatMergedPrNotInTrunkSubmitOutput,
 	formatPreflightFailureOutput,
@@ -119,7 +120,10 @@ export type SubmitSemanticFailureCause = {
 };
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
-export type SubmitPreflightFailureCause = "trunk_out_of_date" | "merged_pr_not_in_trunk";
+export type SubmitPreflightFailureCause =
+	| { kind: "trunk_out_of_date" }
+	| { kind: "merged_pr_not_in_trunk" }
+	| SubmitSemanticFailureCause;
 export type SubmitFailurePresentation = "deterministic" | "unknown";
 
 export interface SubmitFailureTranscriptCommand {
@@ -248,17 +252,22 @@ export class RealSubmitGateway implements SubmitGateway {
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
 		});
+		const joinedOutput = joinOutput(output);
+		if (isUsableOutput(output)) {
+			const semanticFailureCause = detectSubmitSemanticFailureCause(joinedOutput);
+			if (semanticFailureCause?.kind === "empty_branch_skipped") {
+				return { kind: "failed", output, cause: semanticFailureCause };
+			}
+		}
 		if (isSuccessfulOutput(output)) {
 			return { kind: "ready", output };
 		}
-		if (!output.startupError && !output.killed && detectRestackNeeded(joinOutput(output))) {
+		if (isUsableOutput(output) && detectRestackNeeded(joinedOutput)) {
 			return { kind: "restack_required", output };
 		}
-		if (!output.startupError && !output.killed && detectTrunkOutOfDate(joinOutput(output))) {
-			return { kind: "failed", output, cause: "trunk_out_of_date" };
-		}
-		if (!output.startupError && !output.killed && detectMergedPrNotInTrunk(joinOutput(output))) {
-			return { kind: "failed", output, cause: "merged_pr_not_in_trunk" };
+		const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
+		if (knownFailureCause !== undefined) {
+			return { kind: "failed", output, cause: knownFailureCause };
 		}
 		return { kind: "failed", output };
 	}
@@ -291,11 +300,9 @@ export class RealSubmitGateway implements SubmitGateway {
 		});
 		if (!isSuccessfulOutput(output)) {
 			const joinedOutput = joinOutput(output);
-			if (!output.startupError && !output.killed && detectMergedPrNotInTrunk(joinedOutput)) {
-				return { kind: "failed", output, cause: "merged_pr_not_in_trunk" };
-			}
-			if (!output.startupError && !output.killed && detectTrunkOutOfDate(joinedOutput)) {
-				return { kind: "failed", output, cause: "trunk_out_of_date" };
+			const knownFailureCause = detectKnownPreflightFailureCause(output, joinedOutput);
+			if (knownFailureCause !== undefined) {
+				return { kind: "failed", output, cause: knownFailureCause };
 			}
 			return { kind: "failed", output };
 		}
@@ -383,36 +390,12 @@ export async function runSubmitCommand(
 	emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
 	const readiness = await options.gateway.checkSubmitReadiness(commandParams);
 	if (readiness.kind === "failed") {
-		if (readiness.cause === "trunk_out_of_date") {
-			const stderr = formatTrunkOutOfDatePreflightOutput(
-				readiness.output,
-				submitDryRunCommandDisplay,
-			);
-			return failure(normalizedFailureExitCode(readiness.output), stderr, {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript(
-					"preflight",
-					submitDryRunCommandDisplay,
-					readiness.output,
-					stderr,
-				),
-			});
-		}
-		if (readiness.cause === "merged_pr_not_in_trunk") {
-			const stderr = formatMergedPrNotInTrunkPreflightOutput(
-				readiness.output,
-				submitDryRunCommandDisplay,
-			);
-			return failure(normalizedFailureExitCode(readiness.output), stderr, {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript(
-					"preflight",
-					submitDryRunCommandDisplay,
-					readiness.output,
-					stderr,
-				),
-			});
-		}
+		const preflightFailure = preflightFailureFor({
+			result: readiness,
+			phase: "preflight",
+			submitDryRunCommandDisplay,
+		});
+		if (preflightFailure !== undefined) return preflightFailure;
 		return failure(
 			normalizedFailureExitCode(readiness.output),
 			formatPreflightFailureOutput(readiness.output, submitDryRunCommandDisplay),
@@ -450,6 +433,12 @@ export async function runSubmitCommand(
 		}
 
 		const rechecked = await options.gateway.checkSubmitReadiness(commandParams);
+		const recheckPreflightFailure = preflightFailureFor({
+			result: rechecked,
+			phase: "readiness recheck",
+			submitDryRunCommandDisplay,
+		});
+		if (recheckPreflightFailure !== undefined) return recheckPreflightFailure;
 		if (rechecked.kind !== "ready") {
 			const stderr = formatReadinessRecheckFailureOutput(
 				rechecked.output,
@@ -492,7 +481,7 @@ export async function runSubmitCommand(
 	});
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
-		if (submitted.cause === "merged_pr_not_in_trunk") {
+		if (submitted.cause?.kind === "merged_pr_not_in_trunk") {
 			const stderr = formatMergedPrNotInTrunkSubmitOutput(
 				submitted.output,
 				submitCommandDisplay,
@@ -593,6 +582,51 @@ type RestackDecision = "run" | "declined" | "unavailable";
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
+}
+
+function preflightFailureFor(input: {
+	result: SubmitPreflightResult;
+	phase: string;
+	submitDryRunCommandDisplay: string;
+}): SubmitCommandResult | undefined {
+	if (input.result.kind !== "failed" || input.result.cause === undefined) return undefined;
+
+	const stderr = formatPreflightCauseOutput({
+		cause: input.result.cause,
+		output: input.result.output,
+		submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
+	});
+	return failure(normalizedFailureExitCode(input.result.output), stderr, {
+		failurePresentation: "deterministic",
+		rawFailureTranscript: commandFailureTranscript(
+			input.phase,
+			input.submitDryRunCommandDisplay,
+			input.result.output,
+			stderr,
+		),
+	});
+}
+
+function formatPreflightCauseOutput(input: {
+	cause: SubmitPreflightFailureCause;
+	output: SubmitCommandOutput;
+	submitDryRunCommandDisplay: string;
+}): string {
+	switch (input.cause.kind) {
+		case "empty_branch_skipped":
+			return formatEmptyBranchPreflightOutput({
+				output: input.output,
+				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
+				...(input.cause.branchName === undefined ? {} : { branchName: input.cause.branchName }),
+			});
+		case "trunk_out_of_date":
+			return formatTrunkOutOfDatePreflightOutput(input.output, input.submitDryRunCommandDisplay);
+		case "merged_pr_not_in_trunk":
+			return formatMergedPrNotInTrunkPreflightOutput(
+				input.output,
+				input.submitDryRunCommandDisplay,
+			);
+	}
 }
 
 async function shouldRunRestack(
@@ -913,6 +947,20 @@ function uniqueNonEmpty(values: string[]): string[] {
 	return unique;
 }
 
+function isUsableOutput(output: SubmitCommandOutput): boolean {
+	return !output.startupError && !output.killed;
+}
+
+function detectKnownPreflightFailureCause(
+	output: SubmitCommandOutput,
+	joinedOutput: string,
+): SubmitPreflightFailureCause | undefined {
+	if (!isUsableOutput(output)) return undefined;
+	if (detectTrunkOutOfDate(joinedOutput)) return { kind: "trunk_out_of_date" };
+	if (detectMergedPrNotInTrunk(joinedOutput)) return { kind: "merged_pr_not_in_trunk" };
+	return undefined;
+}
+
 function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailureCause | undefined {
 	const strippedOutput = stripTerminalEscapes(output).replace(/\r/g, "\n");
 	const emptyBranchWarning = /This branch does not introduce any changes:/i.test(strippedOutput);
@@ -921,7 +969,9 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 		/GitHub does not allow empty PRs/i.test(strippedOutput);
 
 	if (emptyBranchWarning && skippedSubmissionWarning) {
-		const branchName = parseSubmitValidationBranchName(strippedOutput);
+		const branchName =
+			parseSubmitEmptyBranchWarningBranchName(strippedOutput) ??
+			parseSubmitValidationBranchName(strippedOutput);
 		return {
 			kind: "empty_branch_skipped",
 			...(branchName === undefined ? {} : { branchName }),
@@ -929,6 +979,12 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 	}
 
 	return undefined;
+}
+
+function parseSubmitEmptyBranchWarningBranchName(output: string): string | undefined {
+	return output.match(
+		/This branch does not introduce any changes:\s*\n\s*▸\s*(?<branch>\S+)\s*(?:\n|$)/iu,
+	)?.groups?.branch;
 }
 
 function parseSubmitValidationBranchName(output: string): string | undefined {

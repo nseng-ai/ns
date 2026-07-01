@@ -117,19 +117,88 @@ export function formatPreflightFailureOutput(
 		.join("\n");
 }
 
+export function formatEmptyBranchPreflightOutput(input: {
+	output: SubmitCommandOutput;
+	submitDryRunCommandDisplay: string;
+	branchName?: string;
+}): string {
+	const branchGuidance = emptyBranchGuidance(input.branchName);
+	return formatPreflightGuidanceOutput({
+		headingLines: [
+			"Submit stack contains an empty branch; Graphite will not submit it.",
+			branchGuidance.branchHeadingLine,
+		],
+		attemptLine:
+			"Submission was not attempted because Graphite would skip the empty branch and can then report all PRs up to date.",
+		whatSucceededLines: [preflightRanBeforeMutationLine(input.submitDryRunCommandDisplay)],
+		actionSections: [
+			{
+				title: "Recommended remediation:",
+				lines: [
+					`- If ${branchGuidance.branch} has no remaining work, delete it before rerunning \`sdl flow submit\`.`,
+					...branchGuidance.deleteCommandLines,
+					"- If Graphite cannot delete the checked-out branch, switch to its parent/downstack branch first, then delete it.",
+				],
+			},
+			{
+				title: "Alternative:",
+				lines: [
+					`- If ${branchGuidance.branch} should still have its own PR, commit real changes to it, then rerun \`sdl flow submit\`.`,
+				],
+			},
+		],
+		detailLines: [branchGuidance.detailLine],
+		command: {
+			display: input.submitDryRunCommandDisplay,
+			output: input.output,
+		},
+	});
+}
+
+function emptyBranchGuidance(branchName: string | undefined): {
+	branch: string;
+	branchHeadingLine: string | undefined;
+	deleteCommandLines: readonly string[];
+	detailLine: string;
+} {
+	if (branchName === undefined) {
+		return {
+			branch: "the empty branch",
+			branchHeadingLine: undefined,
+			deleteCommandLines: [],
+			detailLine:
+				"- Graphite reports this branch does not introduce any changes, and GitHub does not allow empty PRs.",
+		};
+	}
+	return {
+		branch: branchName,
+		branchHeadingLine: `Branch: ${branchName}`,
+		deleteCommandLines: [`- Delete the empty branch: \`gt delete ${branchName} -f -q\`.`],
+		detailLine: `- Graphite skipped submission because branch ${branchName} is empty; it does not introduce any changes, and GitHub does not allow empty PRs.`,
+	};
+}
+
 export function formatTrunkOutOfDatePreflightOutput(
 	_output: SubmitCommandOutput,
 	submitDryRunCommandDisplay: string,
 ): string {
-	return [
-		"Graphite could not update the trunk branch before submit.",
-		"Submission was not attempted.",
-		"",
-		"What to do next:",
-		"- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
-		"- If Graphite reports a specific trunk-update problem, resolve that first.",
-		`- To inspect the raw Graphite dry-run output, rerun with \`sdl flow submit --verbose\` or run \`${submitDryRunCommandDisplay}\` manually.`,
-	].join("\n");
+	return formatPreflightGuidanceOutput({
+		headingLines: ["Graphite could not update trunk before submit."],
+		attemptLine: "Submission was not attempted.",
+		whatSucceededLines: [preflightRanBeforeMutationLine(submitDryRunCommandDisplay)],
+		actionSections: [
+			{
+				title: "What to do next:",
+				lines: [
+					"- Update or repair your local Graphite trunk checkout, then rerun `sdl flow submit`.",
+					"- If Graphite reports a specific trunk-update problem, resolve that first.",
+				],
+			},
+		],
+		detailLines: [
+			`- To inspect the raw Graphite dry-run output, rerun with \`sdl flow submit --verbose\` or run \`${submitDryRunCommandDisplay}\` manually.`,
+		],
+	});
 }
 
 export function formatMergedPrNotInTrunkPreflightOutput(
@@ -166,26 +235,70 @@ function formatMergedPrNotInTrunkOutput(input: {
 }): string {
 	const details = parseMergedPrNotInTrunkDetails(input.output);
 	const affectedBranch = details.branch ?? "the affected branch";
-	return [
-		"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
-		details.branch === undefined ? undefined : `Branch: ${formatMergedPrBranchDetails(details)}`,
-		details.trunk === undefined ? undefined : `Trunk: ${details.trunk}`,
-		input.attemptLine,
-		"",
-		"What succeeded:",
-		`- ${input.submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
-		"",
-		"Next step:",
-		details.trunk === undefined
-			? `- Ensure the trunk branch contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`
-			: `- Ensure ${details.trunk} contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`,
-		"- Then rerun `sdl flow submit`.",
-		"",
-		"Details:",
-		input.detailsLine,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
+	return formatPreflightGuidanceOutput({
+		headingLines: [
+			"Graphite found a merged PR in the submit stack whose commits are not in the current trunk branch.",
+			details.branch === undefined ? undefined : `Branch: ${formatMergedPrBranchDetails(details)}`,
+			details.trunk === undefined ? undefined : `Trunk: ${details.trunk}`,
+		],
+		attemptLine: input.attemptLine,
+		whatSucceededLines: [
+			`- ${input.submitDryRunCommandDisplay} started and validated the stack in dry-run mode.`,
+		],
+		actionSections: [
+			{
+				title: "Next step:",
+				lines: [
+					details.trunk === undefined
+						? `- Ensure the trunk branch contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`
+						: `- Ensure ${details.trunk} contains the merged PR's commits, or move/reparent ${affectedBranch} onto a trunk that already contains them.`,
+					"- Then rerun `sdl flow submit`.",
+				],
+			},
+		],
+		detailLines: [input.detailsLine],
+	});
+}
+
+interface PreflightGuidanceSection {
+	title: string;
+	lines: readonly string[];
+}
+
+function preflightRanBeforeMutationLine(submitDryRunCommandDisplay: string): string {
+	return `- ${submitDryRunCommandDisplay} ran before PR metadata preparation or submit mutation.`;
+}
+
+function formatPreflightGuidanceOutput(input: {
+	headingLines: readonly (string | undefined)[];
+	attemptLine: string;
+	whatSucceededLines: readonly string[];
+	actionSections: readonly PreflightGuidanceSection[];
+	detailLines: readonly string[];
+	command?: {
+		display: string;
+		output: SubmitCommandOutput;
+	};
+}): string {
+	const lines: string[] = [];
+	for (const line of input.headingLines) {
+		if (line !== undefined) lines.push(line);
+	}
+	lines.push(input.attemptLine, "", "What succeeded:", ...input.whatSucceededLines);
+	for (const section of input.actionSections) {
+		lines.push("", section.title, ...section.lines);
+	}
+	lines.push("", "Details:", ...input.detailLines);
+	if (input.command !== undefined) {
+		lines.push(
+			"",
+			`$ ${input.command.display}`,
+			"",
+			formatOutputSection("stdout", input.command.output.stdout),
+			formatOutputSection("stderr", input.command.output.stderr),
+		);
+	}
+	return lines.join("\n");
 }
 
 interface MergedPrNotInTrunkDetails {

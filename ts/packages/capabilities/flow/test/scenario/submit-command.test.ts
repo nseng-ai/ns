@@ -1034,6 +1034,117 @@ describe("project-local submit extension", () => {
 		expect(await readFile(rawPath ?? "", "utf8")).toContain("Graphite dry-run error:");
 	});
 
+	test("empty-branch dry-run warning stops during preflight before metadata or submit", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							stdout: `Running submit in 'dry-run' mode.
+
+🥞 Validating that this Graphite stack is ready to submit...
+
+▸ code-smell/tools-vibechk-exec-artifact-bounds
+`,
+							stderr: `WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+						},
+					},
+				],
+				textGeneration: [
+					{
+						ok: true,
+						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: code-smell/tools-vibechk-exec-artifact-bounds\nRecommended remediation: delete it with `gt delete code-smell/tools-vibechk-exec-artifact-bounds -f -q` if it has no remaining work.",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
+		expect(error).toContain("Branch: code-smell/tools-vibechk-exec-artifact-bounds");
+		expect(error).toContain("Raw log:");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt log --stack --reverse --no-interactive",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("phase: preflight");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"because branch code-smell/tools-vibechk-exec-artifact-bounds is empty",
+		);
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain("phase: preflight");
+	});
+
+	test("empty branch dry-run with no-op PRs stops before metadata or submit", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							stdout: `Running submit in 'dry-run' mode.
+
+🥞 Validating that this Graphite stack is ready to submit...
+WARNING: This branch does not introduce any changes:
+▸ empty-branch-test
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+WARNING: In order to submit, commit some changes to it or delete it and try again.
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-preflight-detect-and-skip-empty-branches (No-op)
+
+🆗 All PRs up to date.
+`,
+						},
+					},
+				],
+				textGeneration: [
+					{
+						ok: true,
+						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: empty-branch-test\nRecommended remediation: delete it with `gt delete empty-branch-test -f -q`, then rerun `sdl flow submit` from the branch you intended to submit.",
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
+		expect(error).toContain("Branch: empty-branch-test");
+		expect(error).toContain("gt delete empty-branch-test -f -q");
+		expect(error).toContain("Raw log:");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt log --stack --reverse --no-interactive",
+		);
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web",
+		);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain("phase: preflight");
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"because branch empty-branch-test is empty",
+		);
+		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
+			"gt delete empty-branch-test -f -q",
+		);
+	});
+
 	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
 		const run = runWithFakes({
@@ -1083,7 +1194,7 @@ describe("project-local submit extension", () => {
 				textGeneration: [
 					{
 						ok: true,
-						text: "Current branch is empty; Graphite skipped it.\nBranch: sdl-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nNext step: Remove, delete, or reparent around the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
+						text: "Submit stack contains an empty branch; Graphite will not submit it.\nBranch: sdl-extension-api-followup-stack\nWhat succeeded: Non-empty branches may already have been submitted or updated.\nRecommended remediation: delete the empty branch if it has no remaining work.\nAlternative: Add and commit real changes only if this branch should still have its own PR.",
 					},
 				],
 			},
@@ -1091,7 +1202,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
-		expect(error).toContain("Current branch is empty; Graphite skipped it.");
+		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
 		expect(error).toContain("Branch: sdl-extension-api-followup-stack");
 		expect(error).toContain("Non-empty branches may already have been submitted or updated.");
 		expect(error).toContain("Raw log:");
@@ -1100,9 +1211,11 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("```");
 		expect(error).not.toContain("----- AI interpretation (model-generated) -----");
 		expect(error).not.toContain("----- stdout -----");
-		expect(error.indexOf("Next step: Remove, delete, or reparent")).toBeGreaterThanOrEqual(0);
+		expect(
+			error.indexOf("Recommended remediation: delete the empty branch"),
+		).toBeGreaterThanOrEqual(0);
 		expect(error.indexOf("Alternative: Add and commit real changes")).toBeGreaterThan(
-			error.indexOf("Next step: Remove, delete, or reparent"),
+			error.indexOf("Recommended remediation: delete the empty branch"),
 		);
 		expect(error.match(/^Raw log: /gmu)).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(

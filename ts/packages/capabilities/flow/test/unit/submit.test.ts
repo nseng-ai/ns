@@ -165,7 +165,92 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "trunk_out_of_date" });
+		expect(result).toMatchObject({ kind: "failed", cause: { kind: "trunk_out_of_date" } });
+		runner.assertDone();
+	});
+
+	test("checkSubmitReadiness classifies empty-branch dry-run warnings", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					stdout: `Running submit in 'dry-run' mode.
+🥞 Validating that this Graphite stack is ready to submit...
+▸ code-smell/tools-vibechk-exec-artifact-bounds
+`,
+					stderr: `WARNING: This branch does not introduce any changes:
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+`,
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "empty_branch_skipped",
+				branchName: "code-smell/tools-vibechk-exec-artifact-bounds",
+			},
+		});
+		runner.assertDone();
+	});
+
+	test("checkSubmitReadiness classifies empty branch when dry-run also reports no-op PRs", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					stdout: `Running submit in 'dry-run' mode.
+🥞 Validating that this Graphite stack is ready to submit...
+WARNING: This branch does not introduce any changes:
+▸ empty-branch-test
+WARNING: This branch and any dependent branches will not be submitted, as GitHub does not allow empty PRs.
+WARNING: In order to submit, commit some changes to it or delete it and try again.
+
+📝 Preparing to submit PRs for the following branches...
+▸ add-preflight-detect-and-skip-empty-branches (No-op)
+
+🆗 All PRs up to date.
+`,
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "empty_branch_skipped",
+				branchName: "empty-branch-test",
+			},
+		});
 		runner.assertDone();
 	});
 
@@ -196,7 +281,10 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: { kind: "merged_pr_not_in_trunk" },
+		});
 		runner.assertDone();
 	});
 
@@ -274,7 +362,10 @@ describe("RealSubmitGateway", () => {
 
 		const result = await gateway.submitCurrentStack({ cwd: "/repo" });
 
-		expect(result).toMatchObject({ kind: "failed", cause: "merged_pr_not_in_trunk" });
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: { kind: "merged_pr_not_in_trunk" },
+		});
 		runner.assertDone();
 	});
 
