@@ -20,7 +20,7 @@ export interface ScriptedExec {
 	command: string;
 	args: string[];
 	result: Partial<ExecResult> | Promise<Partial<ExecResult>> | undefined;
-	onCall?: (() => void) | undefined;
+	onCall?: () => void;
 }
 
 export class OrderlessFakePi {

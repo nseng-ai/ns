@@ -11,7 +11,7 @@ export interface BufferedReportSection {
 export interface RenderBufferedReportOptions {
 	readonly caps: RenderCapabilities;
 	readonly title: string;
-	readonly titleStyle?: "accent" | "plain" | undefined;
+	readonly titleStyle?: "accent" | "plain";
 	readonly sections: readonly BufferedReportSection[];
 }
 

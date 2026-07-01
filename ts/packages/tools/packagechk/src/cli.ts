@@ -56,7 +56,7 @@ const entry = defineCli<PackagechkCliContext, CliDeps, undefined>({
 				...optionalEntry("interaction", deps.interaction),
 				stdin: deps.stdin ?? readStdinLine,
 				stderr: io.stderr,
-				injectedStdin: deps.stdin,
+				...optionalEntry("injectedStdin", deps.stdin),
 			}),
 		};
 		return { type: "run", context, buildState: undefined };

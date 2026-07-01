@@ -27,6 +27,7 @@ import {
 	type ExtensionDiscoveryDiagnostic,
 } from "./extension-discovery.ts";
 import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg-path";
 import type { SdlCommand } from "sdl-sdk";
 
@@ -78,7 +79,7 @@ export interface DiagnosticClassification {
 interface LoadSdlCommandCatalogOptions {
 	cwd: string;
 	homeDir?: string;
-	env?: Record<string, string | undefined> | undefined;
+	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 }
 
 const ORDERED_SOURCE_LEVELS = [
