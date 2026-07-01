@@ -31,8 +31,8 @@ export type GtFreeStackResult = z.infer<typeof gtFreeStackResultSchema>;
 export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
-	const { repoCtx, currentBranch } = resolved;
-	const trunkResult = await ctx.gt.trunk(repoCtx.repo.root);
+	const { repoCtx, repoRoot, mainRepoRoot, currentBranch } = resolved;
+	const trunkResult = await ctx.gt.trunk(repoRoot);
 	if (trunkResult.type === "failure")
 		return failure("gt-trunk-failed", trunkResult.failure.message);
 	if (currentBranch === trunkResult.branch)
@@ -46,11 +46,11 @@ export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRe
 			}),
 		);
 	const inventory = await buildSlotInventory(repoCtx.git, {
-		mainRepoRoot: repoCtx.repo.mainRepoRoot,
+		mainRepoRoot,
 	});
 	if (poolSize(inventory) === 0)
 		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
-	const stackResult = await ctx.gt.stack(repoCtx.repo.root);
+	const stackResult = await ctx.gt.stack(repoRoot);
 	if (stackResult.type === "failure")
 		return failure("gt-stack-failed", stackResult.failure.message);
 	if (stackResult.type === "untracked_branch")

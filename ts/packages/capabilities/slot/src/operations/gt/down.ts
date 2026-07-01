@@ -16,7 +16,7 @@ export type GtDownRequest = z.infer<typeof gtDownRequestSchema>;
 export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
-	const parent = await ctx.gt.parentOf(resolved.repoCtx.repo.root);
+	const parent = await ctx.gt.parentOf(resolved.repoRoot);
 	if (parent.type === "untracked_branch")
 		return failure(
 			"untracked-branch",

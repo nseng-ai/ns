@@ -20,6 +20,7 @@ import {
 import {
 	renderChildrenCorruption,
 	type GraphiteWalkKind,
+	renderStackFork,
 	renderTrunkMarkerWarnings,
 	renderWalkTerminationWarning,
 } from "./metadata-warnings.ts";
@@ -78,13 +79,13 @@ export async function runGtStackMapBranches(
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
 
-	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
+	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")
 		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure")
 		return failure("gt-stack-read-failed", stackResult.failure.message);
 
-	const graphResult = await ctx.gt.stackGraph(resolved.repoCtx.repo.root);
+	const graphResult = await ctx.gt.stackGraph(resolved.repoRoot);
 	if (graphResult.type === "git_common_dir_missing")
 		return failure("git-common-dir-missing", graphResult.message);
 	if (graphResult.type === "failure")
@@ -97,7 +98,7 @@ export async function runGtStackMapBranches(
 	}
 
 	const inventory = await buildSlotInventory(ctx.git, {
-		mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot,
+		mainRepoRoot: resolved.mainRepoRoot,
 	});
 	const slotRows = assignedSlotRows(inventory.records);
 	const recentBranches = recentBranchNames(
@@ -273,10 +274,7 @@ function renderStackWarnings(stack: StackInfo): string[] {
 		label: "walk",
 	});
 	if (ancestorProblem !== null) warnings.push(ancestorProblem);
-	for (const fork of stack.descendantWalk.forks)
-		warnings.push(
-			`branch ${fork.branch} has ${fork.children.length} Graphite children; descendants follow the first child only`,
-		);
+	for (const fork of stack.descendantWalk.forks) warnings.push(renderStackFork(fork));
 	const descendantProblem = renderWalkTerminationWarning({
 		kind: "descendant",
 		termination: stack.descendantWalk.termination,

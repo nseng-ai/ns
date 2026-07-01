@@ -82,7 +82,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
 
-	const stackResult = await ctx.gt.stack(resolved.repoCtx.repo.root);
+	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")
 		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
 	if (stackResult.type === "failure")
@@ -131,7 +131,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	if (snapshotCheck.type === "failure")
 		return failure(snapshotCheck.errorType, snapshotCheck.message, snapshotCheck.data);
 	const inventory = await buildSlotInventory(ctx.git, {
-		mainRepoRoot: resolved.repoCtx.repo.mainRepoRoot,
+		mainRepoRoot: resolved.mainRepoRoot,
 	});
 	const blockers = [
 		...collectOccupancyBlockers({

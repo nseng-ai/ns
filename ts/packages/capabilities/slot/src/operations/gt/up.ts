@@ -28,7 +28,7 @@ export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
 export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
 	if (resolved.type !== "ok") return resolved;
-	const children = await ctx.gt.childrenOf(resolved.repoCtx.repo.root);
+	const children = await ctx.gt.childrenOf(resolved.repoRoot);
 	if (children.type === "untracked_branch")
 		return failure(
 			"untracked-branch",
