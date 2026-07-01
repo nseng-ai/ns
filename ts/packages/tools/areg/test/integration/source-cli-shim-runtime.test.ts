@@ -14,6 +14,7 @@ const renderScriptPath = fileURLToPath(
 const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
+const CLI_REL_PATH = "ts/packages/tools/areg/src/cli.ts";
 
 interface RenderShimOptions {
 	readonly outputPath: string;
@@ -29,7 +30,7 @@ function renderShim(options: RenderShimOptions) {
 			SDL_OUTPUT: options.outputPath,
 			SDL_TOOL: "areg",
 			SDL_CANONICAL_CHECKOUT: options.canonicalCheckout,
-			SDL_CLI_REL_PATH: "ts/packages/tools/areg/src/cli.ts",
+			SDL_CLI_REL_PATH: CLI_REL_PATH,
 			SDL_INSTALL_HINT: options.installHint,
 		},
 		encoding: "utf8",
@@ -82,7 +83,7 @@ describe("areg source CLI shim runtime", () => {
 		const tempRoot = await tempDirs.makeTempDir("areg-shim-checkout-lookup-");
 		const checkoutRoot = join(tempRoot, "checkout");
 		const checkoutCwd = join(checkoutRoot, "nested", "workdir");
-		const cliPath = join(checkoutRoot, "ts/packages/tools/areg/src/cli.ts");
+		const cliPath = join(checkoutRoot, CLI_REL_PATH);
 		const outputPath = join(tempRoot, "areg-shim");
 		const missingCanonicalCheckout = join(tempRoot, "missing-canonical-checkout");
 		const installHint = "just install-areg or just install-tools";

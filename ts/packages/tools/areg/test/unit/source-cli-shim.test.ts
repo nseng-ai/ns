@@ -8,6 +8,7 @@ import { renderCliShim } from "../../../../../scripts/render-cli-shim-core.ts";
 const templatePath = fileURLToPath(
 	new URL("../../../../../scripts/source-cli-shim-template", import.meta.url),
 );
+const CLI_REL_PATH = "ts/packages/tools/areg/src/cli.ts";
 
 async function readTemplate(): Promise<string> {
 	return await readFile(templatePath, "utf8");
@@ -22,7 +23,7 @@ describe("areg source CLI shim rendering", () => {
 			template: await readTemplate(),
 			tool: "areg",
 			canonicalCheckout,
-			cliRelPath: "ts/packages/tools/areg/src/cli.ts",
+			cliRelPath: CLI_REL_PATH,
 			installHint,
 		});
 
@@ -32,7 +33,7 @@ describe("areg source CLI shim rendering", () => {
 		expect(result.rendered).not.toContain("@@SDL_");
 		expect(result.rendered).toContain("tool=areg\n");
 		expect(result.rendered).toContain("fallback_mode=literal\n");
-		expect(result.rendered).toContain("cli_rel_path=ts/packages/tools/areg/src/cli.ts\n");
+		expect(result.rendered).toContain(`cli_rel_path=${CLI_REL_PATH}\n`);
 		expect(result.rendered).toContain("no sdl checkout found");
 		expect(result.rendered).not.toContain("no asdl checkout found");
 		expect(result.rendered).not.toContain("ts/packages/areg/src/cli.ts");
@@ -46,7 +47,7 @@ describe("areg source CLI shim rendering", () => {
 			template: await readTemplate(),
 			tool: "areg",
 			canonicalCheckout: "/tmp/sdl",
-			cliRelPath: "ts/packages/tools/areg/src/cli.ts",
+			cliRelPath: CLI_REL_PATH,
 			installHint: "just install-areg",
 			fallbackMode: "surprise",
 		});
