@@ -32,7 +32,11 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Duplicated direct-entry discovery handling; `addDirectEntryCommand` now owns the shared `commandForDirectEntry` success/diagnostic push shape for root files and directory indexes.
   - fixed: Duplicated command CLI info projection; `toCommandCliInfo` now owns the optional group/segments/group-description plus description fields used by static listings, catalog output, and external candidate construction.
   - validation: `pnpm --dir ts --filter @sdl/kernel run check`, `pnpm --dir ts --filter @sdl/kernel run test`, `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
-- [ ] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
+- [x] **plans** — 3 findings (1 high / 2 medium / 0 low). See `references/plans.md`.
+  - fixed: Duplicated plan-store repository resolution; `resolvePlanStoreRepositoryContext` and `resolvePlanStoreRepoDirectoryFromContext` now own the shared repo-root/repo-identity/repo-directory derivation used by repo-wide and branch-specific plan-store resolution, while preserving the detached-HEAD failure ordering.
+  - fixed: Duplicated CLI plan-store option literals; `planStoreOptions` now builds the shared `cwd`/`git`/`planStoreGateway`/optional-root option shape for list, save, and latest-plan resolution paths.
+  - fixed: Shotgun Surgery in saved-plan slug word policy; `MIN_PLAN_SLUG_WORDS` and `MAX_PLAN_SLUG_WORDS` are exported from `plan-persistence.ts`, with prompt construction, output repair, and validation messages deriving from the shared constants.
+  - validation: `pnpm --dir ts --filter @sdl/plans run check`, `pnpm --dir ts --filter @sdl/plans run test`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-06-30.
 - [x] **sdl-capability-kit** — 3 findings (1 high / 1 medium / 1 low). See `references/sdl-capability-kit.md`.
   - fixed: Duplicated text-generation contracts in testing support; `text-generation-testing.ts` now imports and re-exports the canonical request/result/generator types from `text-generation.ts` while preserving `ScriptedTextGenerator` behavior.
   - fixed: Duplicated command-result shells; `command-result.ts` derives the package-local optional-killed command result shape from the shared `ExecResult`, and checkpoint/pending-worktree modules reuse that alias instead of restating fields.

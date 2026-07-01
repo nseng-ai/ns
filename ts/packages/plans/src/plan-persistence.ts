@@ -9,6 +9,9 @@ import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-
 
 export { isPathInside } from "@sdl/core/primitives";
 
+export const MIN_PLAN_SLUG_WORDS = 3;
+export const MAX_PLAN_SLUG_WORDS = 7;
+
 const GENERIC_SLUG_WORDS = new Set([
 	"plan",
 	"task",
@@ -41,11 +44,11 @@ export function validatePlanSlug(slug: string): string | undefined {
 	}
 
 	const tokens = normalized.split("-");
-	if (tokens.length < 3) {
-		return "Slug must contain at least 3 words.";
+	if (tokens.length < MIN_PLAN_SLUG_WORDS) {
+		return `Slug must contain at least ${MIN_PLAN_SLUG_WORDS} words.`;
 	}
-	if (tokens.length > 7) {
-		return "Slug must contain at most 7 words.";
+	if (tokens.length > MAX_PLAN_SLUG_WORDS) {
+		return `Slug must contain at most ${MAX_PLAN_SLUG_WORDS} words.`;
 	}
 
 	if (tokens.some((token) => /^(?:19|20)\d{2}$/.test(token))) {

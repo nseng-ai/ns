@@ -1,9 +1,8 @@
 import { type CommandExecApi, formatOutputSection } from "@sdl/exec";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
-import { validatePlanSlug } from "./plan-persistence.ts";
+import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 
 const MAX_ERROR_CHARS = 4_000;
-const MAX_PLAN_SLUG_WORDS = 7;
 
 export const MAX_PLAN_CONTENT_CHARS = 32_000;
 
@@ -64,7 +63,7 @@ export function buildContentSlugPrompt(
 		"Return exactly one slug and no prose.",
 		"Rules:",
 		"- Use lowercase ASCII kebab-case words separated by single hyphens.",
-		"- Use 3–7 words.",
+		`- Use ${MIN_PLAN_SLUG_WORDS}–${MAX_PLAN_SLUG_WORDS} words.`,
 		"- Make the slug specific to the implementation described by the plan.",
 		"- Prefer concrete deliverables and nouns from the plan body.",
 		"- Do not use dates, random IDs, generic-only slugs, or the saved-plan filename.",
