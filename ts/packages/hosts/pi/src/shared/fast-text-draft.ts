@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CommandResult } from "@sdl/capability-kit/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
+import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";
 import { withSafePiUi } from "./safe-ui.ts";
 import { unrefTimerScheduler } from "./timers.ts";
@@ -18,7 +19,7 @@ const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", 
 const DEFAULT_MAX_TOKENS = 512;
 
 export type DraftHarness = "codex-pi" | "claude-cli";
-export type NotifyLevel = "info" | "warning" | "error";
+export type { NotifyLevel };
 
 type WidgetPlacement = "aboveEditor" | "belowEditor";
 

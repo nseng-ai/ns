@@ -1,3 +1,4 @@
+import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../shared/timers.ts";
 import {
@@ -60,7 +61,7 @@ export interface ImmediateCommandNotifyContext<
 
 export type ImmediateCommandAckDelivery = "status" | "message" | "none";
 export type CommandProgressDelivery = "message" | "notify" | "both" | "none";
-export type CommandProgressNotifyLevel = "info" | "success" | "warning" | "error";
+export type CommandProgressNotifyLevel = NotifyLevel | "success";
 
 export interface SendCommandProgressOrNotifyOptions<
 	THost,

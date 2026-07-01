@@ -1,4 +1,5 @@
 import { type ExecResult, formatOutputSection, tailText } from "@sdl/exec";
+import type { NotifyLevel } from "./runtime/tool-types.ts";
 
 const DEFAULT_COMMAND_OUTPUT_TAIL_OPTIONS = { maxChars: 4_000, maxLines: 30 } as const;
 
@@ -10,7 +11,7 @@ export interface CommandOutputFormatOptions {
 export interface NotifiableCommandContext {
 	hasUI?: boolean;
 	ui: {
-		notify(message: string, level?: "info" | "warning" | "error"): void;
+		notify(message: string, level?: NotifyLevel): void;
 	};
 }
 
@@ -36,7 +37,7 @@ export function formatCommandOutput(
 export function notifyCommandUi(
 	ctx: NotifiableCommandContext,
 	message: string,
-	level: "info" | "warning" | "error",
+	level: NotifyLevel,
 ): void {
 	if (ctx.hasUI !== false) ctx.ui.notify(message, level);
 }

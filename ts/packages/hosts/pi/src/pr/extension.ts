@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { parseCliCommandArgs } from "../commands/cli-extension.ts";
 import { parseMachineEnvelopeDataWithFailureData } from "../runtime/machine-envelope.ts";
+import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { definePiSurfaceParity } from "../parity/extension.ts";
 import {
 	downloadPrFeedback,
@@ -82,7 +83,7 @@ export interface ExtensionContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui?: {
-		notify?(message: string, level?: "info" | "warning" | "error"): void;
+		notify?(message: string, level?: NotifyLevel): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setEditorText?(text: string): void;
 		custom?<T>(
@@ -479,6 +480,6 @@ function prefillEditor(ctx: ExtensionContext, markdown: string, message: string)
 	notify(ctx, message, "info");
 }
 
-function notify(ctx: ExtensionContext, message: string, level: "info" | "warning" | "error"): void {
+function notify(ctx: ExtensionContext, message: string, level: NotifyLevel): void {
 	ctx.ui?.notify?.(message, level);
 }
