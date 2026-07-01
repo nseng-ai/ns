@@ -63,11 +63,11 @@ const entry = defineCli<AretroCliContext, CliDeps, undefined>({
 export const VERSION = entry.version;
 
 export interface CliDeps {
-	context?: AretroCliContext | undefined;
-	cwd?: string | undefined;
+	context?: AretroCliContext;
+	cwd?: string;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
-	stdout?: ((text: string) => void) | undefined;
-	stderr?: ((text: string) => void) | undefined;
+	stdout?: (text: string) => void;
+	stderr?: (text: string) => void;
 }
 
 export function buildCli(): ClinkrGroup<AretroCliContext> {

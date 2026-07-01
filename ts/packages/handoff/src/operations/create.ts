@@ -43,11 +43,12 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 	);
 	if (target.type === "error") return failure(target.error.code, target.error.message);
 
+	const sourceOptions =
+		request.file === undefined ? { stdin: true } : { file: request.file, stdin: false };
 	const prepared = await prepareEntryContentFromSource({
 		cwd: ctx.cwd,
 		key: target.value.key,
-		file: request.file,
-		stdin: request.file === undefined,
+		...sourceOptions,
 		sourceReader: ctx.sourceReader,
 	});
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);

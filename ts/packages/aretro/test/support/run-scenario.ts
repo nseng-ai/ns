@@ -5,9 +5,9 @@ import type { AretroCliContext } from "../../src/context.ts";
 import { FakeSessionSource } from "../../src/sessions/source-fake.ts";
 
 export interface ScenarioRunOptions {
-	cwd?: string | undefined;
-	env?: NodeJS.ProcessEnv | undefined;
-	context?: AretroCliContext | undefined;
+	cwd?: string;
+	env?: NodeJS.ProcessEnv;
+	context?: AretroCliContext;
 }
 
 export interface ScenarioRun {
