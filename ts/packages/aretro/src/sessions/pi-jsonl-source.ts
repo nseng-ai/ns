@@ -178,42 +178,22 @@ export class PiJsonlSessionSource implements SessionSource {
 
 	async query(query: SessionQuery): Promise<SessionQueryResult> {
 		const sessionRoot = query.session_root ?? defaultPiSessionRoot();
-
-		try {
-			const stat = statSync(sessionRoot);
-			if (!stat.isDirectory()) {
-				return warningResult({
-					code: "session-root-not-directory",
-					message: `Pi session root is not a directory: ${sessionRoot}`,
-					path: sessionRoot,
-				});
-			}
-		} catch {
-			return warningResult({
-				code: "session-root-missing",
-				message: `Pi session root does not exist: ${sessionRoot}`,
-				path: sessionRoot,
-			});
-		}
+		const sessionRootWarning = requireDirectory(sessionRoot, {
+			notDirectoryCode: "session-root-not-directory",
+			notDirectoryMessage: `Pi session root is not a directory: ${sessionRoot}`,
+			missingCode: "session-root-missing",
+			missingMessage: `Pi session root does not exist: ${sessionRoot}`,
+		});
+		if (sessionRootWarning !== null) return sessionRootWarning;
 
 		const repoSessionDir = join(sessionRoot, encodePiSessionDirName(query.repo_root));
-
-		try {
-			const stat = statSync(repoSessionDir);
-			if (!stat.isDirectory()) {
-				return warningResult({
-					code: "repo-session-dir-not-directory",
-					message: `Pi session path is not a directory: ${repoSessionDir}`,
-					path: repoSessionDir,
-				});
-			}
-		} catch {
-			return warningResult({
-				code: "repo-session-dir-missing",
-				message: `Pi session directory does not exist for repo: ${query.repo_root}`,
-				path: repoSessionDir,
-			});
-		}
+		const repoSessionDirWarning = requireDirectory(repoSessionDir, {
+			notDirectoryCode: "repo-session-dir-not-directory",
+			notDirectoryMessage: `Pi session path is not a directory: ${repoSessionDir}`,
+			missingCode: "repo-session-dir-missing",
+			missingMessage: `Pi session directory does not exist for repo: ${query.repo_root}`,
+		});
+		if (repoSessionDirWarning !== null) return repoSessionDirWarning;
 
 		const files = readdirSync(repoSessionDir)
 			.filter((name) => name.endsWith(".jsonl"))
@@ -235,6 +215,34 @@ export class PiJsonlSessionSource implements SessionSource {
 			sessions: limited,
 			warnings: allWarnings,
 		};
+	}
+}
+
+interface RequiredDirectoryOptions {
+	notDirectoryCode: string;
+	notDirectoryMessage: string;
+	missingCode: string;
+	missingMessage: string;
+}
+
+function requireDirectory(
+	path: string,
+	options: RequiredDirectoryOptions,
+): SessionQueryResult | null {
+	try {
+		const stat = statSync(path);
+		if (stat.isDirectory()) return null;
+		return warningResult({
+			code: options.notDirectoryCode,
+			message: options.notDirectoryMessage,
+			path,
+		});
+	} catch {
+		return warningResult({
+			code: options.missingCode,
+			message: options.missingMessage,
+			path,
+		});
 	}
 }
 
@@ -469,18 +477,23 @@ function parseToolResult(message: JsonObject, sourceRef: SessionSourceRef): Sess
 		stringValue(message, "toolCallId") ?? stringValue(message, "tool_call_id") ?? "";
 	const toolName = stringValue(message, "toolName") ?? stringValue(message, "tool_name");
 
-	const result: SessionToolResult = {
+	const truncated = boolValue(message, "truncated");
+	return {
 		tool_call_id: toolCallId,
 		tool_name: toolName,
 		is_error: isError,
 		error_message: null,
+		output: {
+			length: textLength,
+			line_count: lineCount,
+			truncated,
+			source_ref: sourceRef,
+		},
 		text_length: textLength,
 		line_count: lineCount,
-		truncated: boolValue(message, "truncated"),
+		truncated,
 		source_ref: sourceRef,
 	};
-
-	return result;
 }
 
 function parsePiCommandExecution(options: {
@@ -502,14 +515,21 @@ function parsePiCommandExecution(options: {
 	}
 
 	const { textLength, lineCount } = textMetrics(options.message["output"]);
+	const truncated = boolValue(options.message, "truncated");
 	return {
 		commandExecution: {
 			command,
 			exit_code: firstIntValue(options.message, ["exitCode", "exit_code"]),
 			cancelled: boolValue(options.message, "cancelled"),
-			truncated: boolValue(options.message, "truncated"),
+			output: {
+				length: textLength,
+				line_count: lineCount,
+				truncated,
+				source_ref: options.sourceRef,
+			},
 			output_length: textLength,
 			line_count: lineCount,
+			truncated,
 			source_ref: options.sourceRef,
 		},
 		warnings: [],

@@ -4,27 +4,33 @@
 
 import { z } from "zod";
 
-import { sha256HexPrefix } from "../sha256.ts";
+import { boundedCommandSubject } from "../command-subject.ts";
 
+import {
+	optionalSessionSourceRefToDto,
+	sessionSourceRefDtoSchema,
+	type SessionSourceRefDto,
+} from "../contracts.ts";
 import type {
 	AggregateMetricsDto,
 	EvidenceItemDto,
 	RepoContextDto,
 	SessionQueryDto,
 	SessionSourceInfoDto,
-	SessionSourceRefDto,
 	SessionSummaryDto,
 	SessionWarningDto,
 } from "../contracts.ts";
-import type {
-	ParsedSession,
-	SessionCommandExecution,
-	SessionModelEvent,
-	SessionSourceRef,
-	SessionToolCall,
-	SessionToolResult,
-	SessionUsage,
-	SessionWarning,
+import {
+	sessionCommandExecutionOutput,
+	sessionToolResultOutput,
+	type ParsedSession,
+	type SessionCommandExecution,
+	type SessionModelEvent,
+	type SessionSourceRef,
+	type SessionToolCall,
+	type SessionToolResult,
+	type SessionUsage,
+	type SessionWarning,
 } from "../sessions/types.ts";
 
 const MAX_COMMAND_SUBJECT_LENGTH = 500;
@@ -33,13 +39,8 @@ const COMMAND_HASH_PREFIX_LENGTH = 16;
 
 type CommandMetadata = Record<string, string | number | boolean | null>;
 
-export const payloadSourceRefDtoSchema = z.object({
-	path: z.string().nullable(),
-	uri: z.string().nullable(),
-	lineNumber: z.number().nullable(),
-});
-
-export type PayloadSourceRefDto = z.infer<typeof payloadSourceRefDtoSchema>;
+export const payloadSourceRefDtoSchema = sessionSourceRefDtoSchema;
+export type PayloadSourceRefDto = SessionSourceRefDto;
 
 export const payloadWarningDtoSchema = z.object({
 	code: z.string(),
@@ -190,18 +191,19 @@ export function commandSubjectForPayload(command: string): {
 	subject: string;
 	metadata: CommandMetadata;
 } {
-	if (command.length <= MAX_COMMAND_SUBJECT_LENGTH) {
-		return { subject: command, metadata: {} };
-	}
-
-	const sha256Prefix = sha256HexPrefix(command, COMMAND_HASH_PREFIX_LENGTH);
-	const subject = `${command.slice(0, COMMAND_SUBJECT_PREFIX_LENGTH)}…[sha256:${sha256Prefix}]`;
+	const bounded = boundedCommandSubject(command, {
+		maxLength: MAX_COMMAND_SUBJECT_LENGTH,
+		prefixLength: COMMAND_SUBJECT_PREFIX_LENGTH,
+		hashPrefixLength: COMMAND_HASH_PREFIX_LENGTH,
+		formatTruncatedSubject: (prefix, sha256Prefix) => `${prefix}…[sha256:${sha256Prefix}]`,
+	});
+	if (!bounded.truncated) return { subject: bounded.subject, metadata: {} };
 	return {
-		subject,
+		subject: bounded.subject,
 		metadata: {
 			truncated: true,
-			originalLength: command.length,
-			sha256Prefix: sha256Prefix,
+			originalLength: bounded.originalLength,
+			sha256Prefix: bounded.sha256Prefix,
 		},
 	};
 }
@@ -280,7 +282,7 @@ function modelEventDetail(options: {
 	return {
 		provider: options.event.provider ?? null,
 		model: options.event.model ?? null,
-		sourceRef: optionalSourceRefToDto(options.event.source_ref ?? null),
+		sourceRef: optionalSessionSourceRefToDto(options.event.source_ref ?? null),
 	};
 }
 
@@ -304,7 +306,7 @@ function toolCallDetail(options: {
 		callId: options.call.call_id,
 		toolName: options.call.tool_name,
 		argumentKeys: [...options.call.argument_keys],
-		sourceRef: optionalSourceRefToDto(options.call.source_ref),
+		sourceRef: optionalSessionSourceRefToDto(options.call.source_ref),
 		path: options.call.path ?? null,
 		commandSubject: commandSubject,
 		commandMetadata: commandMetadata,
@@ -316,7 +318,8 @@ function toolResultDetail(options: {
 	pointer: string;
 	pointerIndex: Map<string, string[]>;
 }): ToolResultDetailDto {
-	indexSourceRef(options.result.source_ref, {
+	const output = sessionToolResultOutput(options.result);
+	indexSourceRef(output.source_ref, {
 		pointer: options.pointer,
 		pointerIndex: options.pointerIndex,
 	});
@@ -325,10 +328,10 @@ function toolResultDetail(options: {
 		toolName: options.result.tool_name,
 		isError: options.result.is_error,
 		hasErrorMessage: options.result.error_message !== null,
-		textLength: options.result.text_length,
-		lineCount: options.result.line_count,
-		isTruncated: options.result.truncated,
-		sourceRef: optionalSourceRefToDto(options.result.source_ref),
+		textLength: output.length,
+		lineCount: output.line_count,
+		isTruncated: output.truncated,
+		sourceRef: optionalSessionSourceRefToDto(output.source_ref),
 	};
 }
 
@@ -337,7 +340,8 @@ function commandExecutionDetail(options: {
 	pointer: string;
 	pointerIndex: Map<string, string[]>;
 }): CommandExecutionDetailDto {
-	indexSourceRef(options.execution.source_ref, {
+	const output = sessionCommandExecutionOutput(options.execution);
+	indexSourceRef(output.source_ref, {
 		pointer: options.pointer,
 		pointerIndex: options.pointerIndex,
 	});
@@ -347,10 +351,10 @@ function commandExecutionDetail(options: {
 		commandMetadata: bounded.metadata,
 		exitCode: options.execution.exit_code,
 		isCancelled: options.execution.cancelled,
-		isTruncated: options.execution.truncated,
-		outputLength: options.execution.output_length,
-		lineCount: options.execution.line_count,
-		sourceRef: optionalSourceRefToDto(options.execution.source_ref),
+		isTruncated: output.truncated,
+		outputLength: output.length,
+		lineCount: output.line_count,
+		sourceRef: optionalSessionSourceRefToDto(output.source_ref),
 	};
 }
 
@@ -369,7 +373,7 @@ function usageDetail(options: {
 		cache_read_tokens: options.usage.cache_read_tokens,
 		cache_write_tokens: options.usage.cache_write_tokens,
 		total_tokens: options.usage.total_tokens,
-		sourceRef: optionalSourceRefToDto(options.usage.source_ref),
+		sourceRef: optionalSessionSourceRefToDto(options.usage.source_ref),
 	};
 }
 
@@ -433,7 +437,7 @@ function warningToDto(warning: SessionWarning): PayloadWarningDto {
 	return {
 		code: warning.code,
 		message: warning.message,
-		sourceRef: optionalSourceRefToDto(warning.source_ref),
+		sourceRef: optionalSessionSourceRefToDto(warning.source_ref),
 		harness: warning.harness,
 		adapterName: warning.adapter_name,
 	};
@@ -443,7 +447,7 @@ function payloadWarningFromDto(warning: SessionWarningDto): PayloadWarningDto {
 	return {
 		code: warning.code,
 		message: warning.message,
-		sourceRef: warning.sourceRef === null ? null : dtoSourceRefToPayload(warning.sourceRef),
+		sourceRef: warning.sourceRef,
 		harness: warning.harness,
 		adapterName: warning.adapterName,
 	};
@@ -456,26 +460,7 @@ function evidenceItemToPayloadObject(item: EvidenceItemDto): Record<string, unkn
 		summary: item.summary,
 		count: item.count,
 		sessionCount: item.sessionCount,
-		sourceRefs: item.sourceRefs.map((sourceRef) => dtoSourceRefToPayload(sourceRef)),
+		sourceRefs: [...item.sourceRefs],
 		metadata: { ...item.metadata },
-	};
-}
-
-function optionalSourceRefToDto(sourceRef: SessionSourceRef | null): PayloadSourceRefDto | null {
-	if (sourceRef === null) {
-		return null;
-	}
-	return {
-		path: sourceRef.path,
-		uri: sourceRef.uri,
-		lineNumber: sourceRef.line_number,
-	};
-}
-
-function dtoSourceRefToPayload(sourceRef: SessionSourceRefDto): PayloadSourceRefDto {
-	return {
-		path: sourceRef.path,
-		uri: sourceRef.uri,
-		lineNumber: sourceRef.lineNumber,
 	};
 }

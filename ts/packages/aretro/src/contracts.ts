@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { payloadReferenceSchema, type PayloadReference } from "./payloads/models.ts";
+import { SESSION_ASSOCIATION_CONFIDENCES, type SessionSourceRef } from "./sessions/types.ts";
 
 export { payloadReferenceSchema };
 export type { PayloadReference };
@@ -47,6 +48,21 @@ export const sessionSourceRefDtoSchema = z.object({
 
 export type SessionSourceRefDto = z.infer<typeof sessionSourceRefDtoSchema>;
 
+export function sessionSourceRefToDto(sourceRef: SessionSourceRef): SessionSourceRefDto {
+	return {
+		path: sourceRef.path,
+		uri: sourceRef.uri,
+		lineNumber: sourceRef.line_number,
+	};
+}
+
+export function optionalSessionSourceRefToDto(
+	sourceRef: SessionSourceRef | null,
+): SessionSourceRefDto | null {
+	if (sourceRef === null) return null;
+	return sessionSourceRefToDto(sourceRef);
+}
+
 export const sessionWarningDtoSchema = z.object({
 	code: z.string(),
 	message: z.string(),
@@ -61,7 +77,7 @@ export const sessionAssociationDtoSchema = z.object({
 	repoRoot: z.string().nullable(),
 	cwd: z.string().nullable(),
 	branch: z.string().nullable(),
-	confidence: z.string(),
+	confidence: z.enum(SESSION_ASSOCIATION_CONFIDENCES),
 	evidence: z.array(z.string()),
 });
 

@@ -1,6 +1,12 @@
-import { sha256HexPrefix } from "../sha256.ts";
+import { boundedCommandSubject } from "../command-subject.ts";
 
-import type { ParsedSession, SessionSourceRef, SessionUsage } from "./types.ts";
+import {
+	sessionCommandExecutionOutput,
+	sessionToolResultOutput,
+	type ParsedSession,
+	type SessionSourceRef,
+	type SessionUsage,
+} from "./types.ts";
 
 export type EvidenceMetadataValue = string | number | boolean | null;
 
@@ -161,12 +167,13 @@ function failedToolItems(
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const toolResult of session.tool_results) {
 			if (!toolResult.is_error) continue;
+			const output = sessionToolResultOutput(toolResult);
 			const subject = toolResult.tool_name ?? UNKNOWN_TOOL;
 			const group = groups.get(subject) ?? emptyFailureAccumulator();
 			const base = recordGroup({
 				group,
 				sessionIndex,
-				ref: sourceRef(toolResult.source_ref, session),
+				ref: sourceRef(output.source_ref, session),
 				maxSourceRefs,
 			});
 			groups.set(subject, {
@@ -242,13 +249,14 @@ function repeatedShellCommandItems(
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const commandExecution of session.command_executions) {
 			const command = commandExecution.command;
+			const output = sessionCommandExecutionOutput(commandExecution);
 			const group = groups.get(command) ?? emptyGroupAccumulator();
 			groups.set(
 				command,
 				recordGroup({
 					group,
 					sessionIndex,
-					ref: sourceRef(commandExecution.source_ref, session),
+					ref: sourceRef(output.source_ref, session),
 					maxSourceRefs,
 				}),
 			);
@@ -272,7 +280,7 @@ function repeatedShellCommandItems(
 	const items: SessionEvidenceItem[] = [];
 	for (const [command, group] of groups) {
 		if (group.count < threshold) continue;
-		const { subject, metadata } = boundedCommandSubject(command);
+		const { subject, metadata } = evidenceCommandSubject(command);
 		items.push({
 			kind: "repeated-shell-command",
 			subject,
@@ -334,9 +342,10 @@ function largeOutputItems(
 
 	for (const [sessionIndex, session] of sessions.entries()) {
 		for (const toolResult of session.tool_results) {
-			const charHit = hitsThreshold(toolResult.text_length, options.charThreshold);
-			const lineHit = hitsThreshold(toolResult.line_count, options.lineThreshold);
-			if (toolResult.truncated !== true && !charHit && !lineHit) continue;
+			const output = sessionToolResultOutput(toolResult);
+			const charHit = hitsThreshold(output.length, options.charThreshold);
+			const lineHit = hitsThreshold(output.line_count, options.lineThreshold);
+			if (output.truncated !== true && !charHit && !lineHit) continue;
 
 			const subject = `tool_result:${toolResult.tool_name ?? UNKNOWN_TOOL}`;
 			const group = groups.get(subject) ?? emptyLargeOutputAccumulator();
@@ -345,11 +354,11 @@ function largeOutputItems(
 				recordLargeOutput({
 					group,
 					sessionIndex,
-					ref: sourceRef(toolResult.source_ref, session),
+					ref: sourceRef(output.source_ref, session),
 					maxSourceRefs: options.maxSourceRefs,
-					outputLength: toolResult.text_length,
-					lineCount: toolResult.line_count,
-					truncated: toolResult.truncated,
+					outputLength: output.length,
+					lineCount: output.line_count,
+					truncated: output.truncated,
 					hasCharThresholdHit: charHit,
 					hasLineThresholdHit: lineHit,
 				}),
@@ -357,9 +366,10 @@ function largeOutputItems(
 		}
 
 		for (const commandExecution of session.command_executions) {
-			const charHit = hitsThreshold(commandExecution.output_length, options.charThreshold);
-			const lineHit = hitsThreshold(commandExecution.line_count, options.lineThreshold);
-			if (commandExecution.truncated !== true && !charHit && !lineHit) continue;
+			const output = sessionCommandExecutionOutput(commandExecution);
+			const charHit = hitsThreshold(output.length, options.charThreshold);
+			const lineHit = hitsThreshold(output.line_count, options.lineThreshold);
+			if (output.truncated !== true && !charHit && !lineHit) continue;
 
 			const subject = "command_execution";
 			const group = groups.get(subject) ?? emptyLargeOutputAccumulator();
@@ -368,11 +378,11 @@ function largeOutputItems(
 				recordLargeOutput({
 					group,
 					sessionIndex,
-					ref: sourceRef(commandExecution.source_ref, session),
+					ref: sourceRef(output.source_ref, session),
 					maxSourceRefs: options.maxSourceRefs,
-					outputLength: commandExecution.output_length,
-					lineCount: commandExecution.line_count,
-					truncated: commandExecution.truncated,
+					outputLength: output.length,
+					lineCount: output.line_count,
+					truncated: output.truncated,
 					hasCharThresholdHit: charHit,
 					hasLineThresholdHit: lineHit,
 				}),
@@ -532,20 +542,21 @@ function isShellTool(toolName: string): boolean {
 	return SHELL_TOOL_NAMES.has(toolName.toLowerCase());
 }
 
-function boundedCommandSubject(command: string): {
+function evidenceCommandSubject(command: string): {
 	subject: string;
 	metadata: Record<string, EvidenceMetadataValue>;
 } {
-	if (command.length <= MAX_SUBJECT_LENGTH) {
-		return { subject: command, metadata: {} };
-	}
-	const digest = sha256HexPrefix(command, HASH_PREFIX_LENGTH);
-	const subject = `${command.slice(0, MAX_SUBJECT_LENGTH)}…`;
+	const bounded = boundedCommandSubject(command, {
+		maxLength: MAX_SUBJECT_LENGTH,
+		prefixLength: MAX_SUBJECT_LENGTH,
+		hashPrefixLength: HASH_PREFIX_LENGTH,
+	});
+	if (!bounded.truncated) return { subject: bounded.subject, metadata: {} };
 	return {
-		subject,
+		subject: bounded.subject,
 		metadata: {
 			subjectTruncated: true,
-			commandSha256Prefix: digest,
+			commandSha256Prefix: bounded.sha256Prefix,
 		},
 	};
 }
