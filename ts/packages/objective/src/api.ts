@@ -191,7 +191,7 @@ export interface ObjectiveSelectionCommandUi {
 export interface ObjectiveSelectionCommandContext {
 	cwd: string;
 	waitForIdle(): Promise<void>;
-	hasUI?: boolean | undefined;
+	hasUI?: boolean;
 	ui: ObjectiveSelectionCommandUi;
 }
 

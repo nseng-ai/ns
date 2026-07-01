@@ -144,7 +144,7 @@ export type GrillAskUiRunner = (
 
 export interface GrillAskExecutionOptions {
 	uiRunner?: GrillAskUiRunner;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 }
 
 export interface GrillAskCustomComponent {
@@ -362,7 +362,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		],
 		parameters: GRILL_ASK_PARAMETERS,
 		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			executeGrillAsk(params, ctx, { signal }),
+			executeGrillAsk(params, ctx, signal === undefined ? {} : { signal }),
 	});
 }
 

@@ -129,7 +129,7 @@ export type RunnerSubagentProgressCallback = (update: RunnerSubagentUpdate) => v
 export type RunnerSubagentOptions = {
 	title?: string;
 	prompt: string;
-	model?: string | undefined;
+	model?: string;
 	cwd?: string;
 	signal?: AbortSignal;
 	tools?: readonly string[];

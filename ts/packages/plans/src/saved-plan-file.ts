@@ -194,7 +194,7 @@ export async function resolvePlanStoreRepoDirectory(
 	const repoIdentity = await resolveRepoIdentity(git, {
 		cwd: options.cwd,
 		repoRoot,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 		planStoreGateway,
 	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
@@ -225,7 +225,7 @@ export async function resolvePlanStoreDirectory(
 	const repoIdentity = await resolveRepoIdentity(git, {
 		cwd: options.cwd,
 		repoRoot,
-		signal: options.signal,
+		...(options.signal === undefined ? {} : { signal: options.signal }),
 		planStoreGateway,
 	});
 	const repoKey = buildRepoPlanStoreKey(repoRoot, repoIdentity.identity);
@@ -463,7 +463,7 @@ async function resolveCurrentBranch(
 interface RepoIdentityOptions {
 	cwd: string;
 	repoRoot: string;
-	signal?: AbortSignal | undefined;
+	signal?: AbortSignal;
 	planStoreGateway: PlanStoreGateway;
 }
 
