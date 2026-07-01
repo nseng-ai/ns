@@ -33,7 +33,13 @@ Each row is one package/area cluster from the code-smell-roaster sweep. Re-verif
   - fixed: Duplicated objective-autopilot report parsers; `parseMarkerBlock` owns marker extraction, list-field accumulation, and key:value dispatch for both child and recovery-supervisor report formats.
   - fixed: Speculative Generality in `.pi/lib/workspace-packages.ts`; the package resolver is private, the default-import helper returns the one extension shape callers use, and concrete fallback mappings centralize only the workspace packages not resolvable from the root package dependency graph.
   - validation: `node --experimental-strip-types` import smoke checks for `.pi/lib/workspace-packages.ts`, all modified shim extensions, and `.pi/extensions/objective-autopilot.ts`; `just ts-format-check`, `just ts-lint`, `just ts-check`, and `just dprint-check` passed on 2026-06-30.
-- [ ] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
+- [x] **aretro** — 5 findings (0 high / 3 medium / 2 low). See `references/aretro.md`.
+  - fixed: Duplicated command-subject truncation; `boundedCommandSubject` now owns shared max-length/prefix/hash derivation while compact evidence and payload detail callers preserve their existing subject and metadata contracts.
+  - fixed: Truncatable output data clump; `TruncatableOutput` and session output accessors now centralize length/line/truncated/source-ref handling for tool results and command executions while keeping existing compatibility fields intact.
+  - fixed: Primitive confidence strings; `SessionAssociationConfidence` and `SESSION_ASSOCIATION_CONFIDENCES` constrain association confidence values across session types and DTO validation, including the legacy `repo_cwd` fixture value still present in tests.
+  - fixed: Source-ref DTO duplication; the contract-level source-ref schema and conversion helpers are reused by collect-evidence and payload detail construction, removing payload-local duplicate converters.
+  - fixed: Duplicated Pi JSONL directory stat checks; `requireDirectory` owns missing/not-directory warning construction for session roots and repo session directories.
+  - validation: `pnpm --dir ts --filter @sdl/aretro run check`, `pnpm --dir ts --filter @sdl/aretro run test`, `just ts-format-check`, `just ts-lint`, and `just ts-check` passed on 2026-07-01.
 - [x] **docs-site** — 4 findings (1 high / 2 medium / 1 low). See `references/docs-site.md`.
   - fixed: Duplicated home/extensions hero markup; `MarketingHero` now owns the shared wrapper, heading, description, CTA row, and side-panel layout while the pages provide copy, CTAs, and previews.
   - fixed: Divergent Change in Geistdocs configuration; brand, nav/GitHub, AI assistant copy, and site identity now live in focused `lib/geistdocs/*` modules, with `config.tsx` composing them and root `geistdocs.tsx` preserving the existing re-export surface.

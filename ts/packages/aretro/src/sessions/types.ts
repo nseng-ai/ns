@@ -10,6 +10,24 @@ export interface SessionSourceRef {
 	line_number: number | null;
 }
 
+export const SESSION_ASSOCIATION_CONFIDENCES = [
+	"unknown",
+	"query-repo-root",
+	"cwd",
+	"repo-cwd",
+	"repo_cwd",
+	"cwd-mismatch",
+] as const;
+
+export type SessionAssociationConfidence = (typeof SESSION_ASSOCIATION_CONFIDENCES)[number];
+
+export interface TruncatableOutput {
+	length: number | null;
+	line_count: number | null;
+	truncated: boolean | null;
+	source_ref: SessionSourceRef | null;
+}
+
 export interface SessionWarning {
 	code: string;
 	message: string;
@@ -22,7 +40,7 @@ export interface SessionAssociation {
 	repo_root: string | null;
 	cwd: string | null;
 	branch: string | null;
-	confidence: string;
+	confidence: SessionAssociationConfidence;
 	evidence: readonly string[];
 }
 
@@ -55,6 +73,7 @@ export interface SessionToolResult {
 	tool_name: string | null;
 	is_error: boolean;
 	error_message: string | null;
+	output?: TruncatableOutput;
 	text_length: number | null;
 	line_count: number | null;
 	truncated: boolean | null;
@@ -65,10 +84,35 @@ export interface SessionCommandExecution {
 	command: string;
 	exit_code: number | null;
 	cancelled: boolean | null;
-	truncated: boolean | null;
+	output?: TruncatableOutput;
 	output_length: number | null;
 	line_count: number | null;
+	truncated: boolean | null;
 	source_ref: SessionSourceRef | null;
+}
+
+export function sessionToolResultOutput(result: SessionToolResult): TruncatableOutput {
+	return (
+		result.output ?? {
+			length: result.text_length,
+			line_count: result.line_count,
+			truncated: result.truncated,
+			source_ref: result.source_ref,
+		}
+	);
+}
+
+export function sessionCommandExecutionOutput(
+	execution: SessionCommandExecution,
+): TruncatableOutput {
+	return (
+		execution.output ?? {
+			length: execution.output_length,
+			line_count: execution.line_count,
+			truncated: execution.truncated,
+			source_ref: execution.source_ref,
+		}
+	);
 }
 
 export interface SessionUsage {

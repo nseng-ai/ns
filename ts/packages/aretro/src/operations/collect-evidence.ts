@@ -5,12 +5,12 @@ import type { AretroCliContext } from "../context.ts";
 import type { BranchSource } from "../contracts.ts";
 import {
 	collectEvidenceResultSchema,
+	sessionSourceRefToDto,
 	type CollectEvidenceResult,
 	type CollectEvidenceError,
 	type RepoContextDto,
 	type SessionQueryDto,
 	type SessionSourceInfoDto,
-	type SessionSourceRefDto,
 	type SessionWarningDto,
 	type SessionAssociationDto,
 	type MessageCountsDto,
@@ -467,7 +467,7 @@ export function summarizeSession(session: ParsedSession): SessionSummaryDto {
 		sessionId: session.session_id,
 		startedAtIso: session.started_at_iso,
 		endedAtIso: session.ended_at_iso,
-		sourceRef: sourceRefToDto(session.source_ref),
+		sourceRef: sessionSourceRefToDto(session.source_ref),
 		association: associationToDto(session.association),
 		messageCounts: messageCountsToDto(session.message_counts),
 		modelEventCount: session.model_events.length,
@@ -517,19 +517,11 @@ function sourceInfoToDto(sourceInfo: SessionSourceInfo): SessionSourceInfoDto {
 	};
 }
 
-function sourceRefToDto(sourceRef: SessionSourceRef): SessionSourceRefDto {
-	return {
-		path: sourceRef.path,
-		uri: sourceRef.uri,
-		lineNumber: sourceRef.line_number,
-	};
-}
-
 function warningToDto(warning: SessionWarning): SessionWarningDto {
 	return {
 		code: warning.code,
 		message: warning.message,
-		sourceRef: warning.source_ref !== null ? sourceRefToDto(warning.source_ref) : null,
+		sourceRef: warning.source_ref !== null ? sessionSourceRefToDto(warning.source_ref) : null,
 		harness: warning.harness,
 		adapterName: warning.adapter_name,
 	};
@@ -571,7 +563,7 @@ function evidenceItemToDto(item: {
 		summary: item.summary,
 		count: item.count,
 		sessionCount: item.sessionCount,
-		sourceRefs: item.sourceRefs.map((ref) => sourceRefToDto(ref)),
+		sourceRefs: item.sourceRefs.map((ref) => sessionSourceRefToDto(ref)),
 		metadata: { ...item.metadata },
 	};
 }
