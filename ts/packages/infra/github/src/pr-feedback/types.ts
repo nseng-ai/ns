@@ -1,9 +1,10 @@
+import type { ExplicitUndefined } from "@sdl/core/primitives";
 import type { ErrorInfo } from "@sdl/core/result";
 
 export interface GithubPrFeedbackOptions {
 	readonly cwd: string;
-	readonly env?: NodeJS.ProcessEnv | undefined;
-	readonly signal?: AbortSignal | undefined;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
 export interface GithubPrSummary {

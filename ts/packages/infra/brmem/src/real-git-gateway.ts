@@ -786,7 +786,7 @@ function splitConfigValues(stdout: string): readonly string[] {
 async function runGit(
 	commands: CommandExecApi,
 	args: readonly string[],
-	options: { cwd: string; env?: NodeJS.ProcessEnv | undefined; stdin?: string | undefined },
+	options: { cwd: string; env?: NodeJS.ProcessEnv; stdin?: string },
 ): Promise<GitRunResult> {
 	const result = await commands.exec("git", [...args], {
 		cwd: options.cwd,
