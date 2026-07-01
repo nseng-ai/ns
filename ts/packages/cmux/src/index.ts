@@ -19,6 +19,7 @@ export type {
 	CmuxGatewayFailure,
 	CmuxOperation,
 	CmuxResult,
+	CmuxSurfaceRef,
 	CreateCmuxTerminalSurfaceParams,
 	IdentifyCmuxCallerParams,
 	OpenCmuxWorkspaceParams,
@@ -35,20 +36,11 @@ export {
 } from "./gateway.ts";
 export type {
 	CmuxExecHost,
-	CmuxSendOptions,
 	CmuxTabLaunchStage,
-	CmuxTabOptions,
-	CreateCmuxSurfaceOptions,
 	FocusedCmuxTabLaunchResult,
 	LaunchFocusedCmuxTabOptions,
 } from "./focused-terminal-tab.ts";
-export {
-	createCmuxSurface,
-	identifyCmuxCaller,
-	launchFocusedCmuxTab,
-	renameCmuxTab,
-	sendCmuxText,
-} from "./focused-terminal-tab.ts";
+export { identifyCmuxCaller, launchFocusedCmuxTab } from "./focused-terminal-tab.ts";
 export type {
 	PiLaunchModelInfo,
 	PiLaunchOptions,
