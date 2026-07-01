@@ -188,6 +188,25 @@ describe("slot claim CLI", () => {
 		expect(run.stdout.join("\n")).toContain("detached main worktree at master");
 	});
 
+	it.each([
+		{ currentBranch: "master", claimedBranch: "master" },
+		{ currentBranch: "feature/main", claimedBranch: "master" },
+	])(
+		"from main refuses dirty current worktree before claiming $claimedBranch from $currentBranch",
+		async ({ currentBranch, claimedBranch }) => {
+			const run = runScenario(["claim", claimedBranch, "--format", "json"], {
+				git: {
+					localBranches: ["master", "feature/main"],
+					worktrees: [{ path: "/repo", branch: currentBranch }, slotWorktree("slot-01")],
+					dirtyPaths: ["/repo"],
+				},
+			});
+			expect(await run.exit).toBe(2);
+			expect(parseJsonOutput(run)).toMatchObject({ errorType: "dirty-current-worktree" });
+			expect(run.git.operations()).toEqual([]);
+		},
+	);
+
 	it("refuses dirty source slot before mutation", async () => {
 		const run = runScenario(["claim", "feature/source", "--format", "json"], {
 			cwd: slot1Path,

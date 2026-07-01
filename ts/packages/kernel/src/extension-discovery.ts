@@ -1,11 +1,15 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, extname, join, relative, resolve } from "node:path";
 
-import { isPathInside, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import {
+	isPathInside,
+	optionalEntries,
+	optionalEntry,
+	type ZodIssueLike,
+} from "@sdl/core/primitives";
 import {
 	sdlExtensionManifestCommandSchema,
 	sdlExtensionPackageManifestSchema,
-	z,
 	type SdlExtensionManifestCommand,
 	type SdlExtensionPackageManifest,
 } from "sdl-sdk";
@@ -73,14 +77,6 @@ const requiredManifestCommandStringFields = [
 	field: RequiredManifestCommandStringField;
 	code: string;
 }[];
-
-const packageManifestProbeSchema = z.looseObject({
-	sdl: z.unknown().optional(),
-});
-
-const extensionManifestProbeSchema = z.looseObject({
-	commands: z.unknown().optional(),
-});
 
 export function discoverExtensionsInRoot(rootDir: string): ExtensionDiscoveryResult {
 	if (!existsSync(rootDir)) return { commands: [], diagnostics: [] };
@@ -239,7 +235,10 @@ function discoverPackageCommands(
 		}
 		const manifestResult = sdlExtensionPackageManifestSchema.safeParse(parsed);
 		if (!manifestResult.success) {
-			return { commands: [], diagnostics: [manifestStructureDiagnostic(parsed, packageJsonPath)] };
+			return {
+				commands: [],
+				diagnostics: [manifestStructureDiagnostic(manifestResult.error.issues, packageJsonPath)],
+			};
 		}
 		manifest = manifestResult.data;
 	}
@@ -290,15 +289,17 @@ function discoverPackageCommands(
 }
 
 function manifestStructureDiagnostic(
-	parsed: unknown,
+	issues: readonly ZodIssueLike[],
 	packageJsonPath: string,
 ): ExtensionDiscoveryDiagnostic {
-	const packageProbe = packageManifestProbeSchema.safeParse(parsed);
-	if (!packageProbe.success) return missingSdlDiagnostic(packageJsonPath);
-	const extensionManifestProbe = extensionManifestProbeSchema.safeParse(packageProbe.data.sdl);
-	if (!extensionManifestProbe.success) return missingSdlDiagnostic(packageJsonPath);
-	if (!Array.isArray(extensionManifestProbe.data.commands))
-		return commandsNotArrayDiagnostic(packageJsonPath);
+	const firstIssue = issues[0];
+	if (firstIssue === undefined || firstIssue.path.length === 0) {
+		return missingSdlDiagnostic(packageJsonPath);
+	}
+	if (firstIssue.path[0] === "sdl") {
+		if (firstIssue.path.length === 1) return missingSdlDiagnostic(packageJsonPath);
+		if (firstIssue.path[1] === "commands") return commandsNotArrayDiagnostic(packageJsonPath);
+	}
 	return diagnostic(
 		"extension_manifest_invalid",
 		`Extension manifest contains invalid SDL metadata: ${packageJsonPath}.`,

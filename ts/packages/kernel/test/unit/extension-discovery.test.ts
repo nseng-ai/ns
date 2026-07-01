@@ -249,6 +249,23 @@ describe("extension discovery", () => {
 		expect(result.diagnostics[0]?.commandName).toBeUndefined();
 	});
 
+	test("manifest structure diagnostics are classified from shared schema issues", async () => {
+		const root = await createTempDir();
+		writeFile(
+			join(root, "bad-commands", "package.json"),
+			JSON.stringify({ sdl: { commands: "./src/index.ts" } }),
+		);
+		writeFile(join(root, "bad-sdl", "package.json"), JSON.stringify({ sdl: "commands" }));
+
+		const result = discoverExtensionsInRoot(root);
+
+		expect(result.commands).toEqual([]);
+		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+			"extension_manifest_commands_not_array",
+			"extension_manifest_missing_sdl",
+		]);
+	});
+
 	test("unknown package manifest fields do not break command discovery", async () => {
 		const root = await createTempDir();
 		writeFile(
