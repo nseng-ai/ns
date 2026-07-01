@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — sdl-flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", flowchart: { htmlLabels: true, curve: "basis" } });
+    </script>
+    <style>
+      .seam { stroke-dasharray: 5 4; }
+      .deep { background: linear-gradient(135deg, #0f172a, #1e293b); }
+      .lbl { font-size: 0.62rem; letter-spacing: 0.09em; text-transform: uppercase; }
+      .mod { border: 1px solid #cbd5e1; border-radius: 0.4rem; background: #fff; }
+      .thin { height: 1.6rem; }
+      details > summary { cursor: pointer; list-style: none; }
+      details > summary::-webkit-details-marker { display: none; }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans antialiased">
+    <main class="max-w-5xl mx-auto px-6 py-12 space-y-14">
+      <header class="space-y-4">
+        <h1 class="font-serif text-4xl text-slate-900">Architecture review — <span class="text-indigo-700">sdl-flow</span></h1>
+        <p class="text-sm text-slate-500">ts/packages/capabilities/flow · 14,605 lines src · 2026-07-01</p>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600 border-t border-b border-slate-200 py-3">
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-3 mod"></span> module</span>
+          <span class="flex items-center gap-1.5"><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" class="seam" stroke="#64748b" stroke-width="2"/></svg> seam</span>
+          <span class="flex items-center gap-1.5"><svg width="26" height="8"><line x1="0" y1="4" x2="26" y2="4" stroke="#dc2626" stroke-width="2"/></svg> leakage</span>
+          <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-3 rounded-sm deep"></span> deep module</span>
+          <span class="ml-auto flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-600">Speculative</span>
+          </span>
+        </div>
+        <p class="text-sm text-slate-600 max-w-3xl">Seven deepening opportunities across the <b>Flow</b> capability. Vocabulary is exact: <i>module, interface, implementation, deep, shallow, seam, adapter, leverage, locality</i>. Domain terms come from <span class="font-mono text-xs">flow/CONTEXT.md</span>.</p>
+      </header>
+
+      <section id="candidates" class="space-y-12">
+
+      <!-- ============ CANDIDATE 1 ============ -->
+      <article id="c1" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">1 · Collapse the Graphite command channel</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">local-substitutable</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">land-stack/command-exec.ts · command-stream.ts · graphite-command-args.ts · graphite-metadata-command.ts · graphite-maintenance.ts</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — one <span class="normal-case font-mono">gt</span> mutation, five hops + a pi triplet</p>
+            <pre class="mermaid">
+flowchart TB
+  M["graphite-maintenance<br/><span style='font-size:9px'>inlines gt args</span>"] --> EG["execGraphite"]
+  M -.-> ER["execRawGraphite<br/><span style='font-size:9px'>bypass double-stream</span>"]
+  EG --> RG["runGraphiteCommand<br/><span style='font-size:9px'>@sdl/graphite</span>"]
+  ER --> RG
+  RG --> A1["execApiToCommandRunner"]
+  A1 --> A2["piExecApiToCommandExecApi"]
+  A2 --> PX["pi.exec"]
+  WS["withCommandStreaming<br/><span style='font-size:9px'>2nd wrap</span>"] --> PX
+  NF["normalizeCommandFinish<br/><span style='font-size:9px'>runs at 2 layers</span>"] -.-> EG
+  NF -.-> WS
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class WS,NF leak
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">Three <span class="font-mono">pi</span> variants — <span class="font-mono">extensionApi</span> / <span class="font-mono">streamedApi</span> / <span class="font-mono">unstreamedPi</span> — threaded by hand through every options bag. Passing the wrong one is a correctness bug with no type guard.</p>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — one deep channel, streaming absorbed inside</p>
+            <div class="space-y-3">
+              <div class="rounded-md border-2 border-indigo-400 bg-slate-800/60 p-3">
+                <p class="lbl text-indigo-300">GraphiteCommandChannel</p>
+                <p class="text-xs text-slate-300 mt-1 font-mono">run(spec): CommandResult</p>
+                <div class="mt-2 space-y-1 opacity-45 text-[11px] font-mono text-slate-400">
+                  <p>· streamed vs raw (internal)</p>
+                  <p>· normalizeCommandFinish (internal)</p>
+                  <p>· @sdl/graphite adapter (internal)</p>
+                  <p>· arg builders (internal)</p>
+                </div>
+              </div>
+              <div class="flex gap-2 text-[11px]">
+                <span class="px-2 py-1 rounded bg-slate-700 text-slate-200 font-mono">RealGraphiteChannel</span>
+                <span class="px-2 py-1 rounded bg-slate-700 text-slate-200 font-mono">ScriptedGraphiteChannel</span>
+              </div>
+              <p class="text-[11px] text-slate-400">Callers hold one handle. The <span class="font-mono">pi</span> triplet disappears.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>One Graphite mutation crosses four wrapping files and two orthogonal normalize layers; callers thread three <span class="font-mono">pi</span> variants by hand.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>One channel module owns streamed-vs-raw, normalization, and arg-building internally; expose one <span class="font-mono">run(spec)</span> interface.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-emerald-500">
+          <li>leverage: one interface, every land call site</li>
+          <li>locality: streaming bug lives in one module</li>
+          <li>two adapters justify the seam: real gt, scripted</li>
+          <li>the <span class="font-mono">pi</span> triplet dissolves into the channel</li>
+          <li>interface shrinks; wrappers absorbed</li>
+          <li>tests drive one channel, not the outer <span class="font-mono">pi.exec</span></li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 2 ============ -->
+      <article id="c2" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">2 · Give each failure one home</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">in-process</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">autobranch/latest-commit-transaction.ts · latest-commit-preparation.ts · latest-commit-formatting.ts · dirty-worktree.ts · dirty-transaction.ts</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — one failure, three files</p>
+            <svg viewBox="0 0 320 210" class="w-full">
+              <rect x="8" y="10" width="150" height="52" class="mod" fill="#fff"/>
+              <text x="83" y="30" text-anchor="middle" class="lbl" fill="#334155">transaction.ts</text>
+              <text x="83" y="48" text-anchor="middle" font-size="10" font-family="monospace" fill="#0f172a">union arm: head_verify_failed</text>
+
+              <rect x="8" y="80" width="150" height="52" class="mod" fill="#fff"/>
+              <text x="83" y="100" text-anchor="middle" class="lbl" fill="#334155">formatting.ts</text>
+              <text x="83" y="118" text-anchor="middle" font-size="10" font-family="monospace" fill="#0f172a">classify → refusal?</text>
+
+              <rect x="8" y="150" width="150" height="52" class="mod" fill="#fff"/>
+              <text x="83" y="170" text-anchor="middle" class="lbl" fill="#334155">formatting.ts</text>
+              <text x="83" y="188" text-anchor="middle" font-size="10" font-family="monospace" fill="#0f172a">format → message</text>
+
+              <path d="M83 62 L83 80" stroke="#dc2626" stroke-width="2" marker-end="url(#a2)"/>
+              <path d="M83 132 L83 150" stroke="#dc2626" stroke-width="2" marker-end="url(#a2)"/>
+              <text x="230" y="105" text-anchor="middle" font-size="11" fill="#dc2626">3 edits to</text>
+              <text x="230" y="120" text-anchor="middle" font-size="11" fill="#dc2626">add 1 failure</text>
+              <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#dc2626"/></marker></defs>
+            </svg>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — arm + verdict + message co-located</p>
+            <svg viewBox="0 0 320 210" class="w-full">
+              <rect x="30" y="30" width="260" height="150" rx="8" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+              <text x="160" y="55" text-anchor="middle" class="lbl" fill="#a5b4fc">failure catalog</text>
+              <rect x="50" y="72" width="220" height="90" rx="5" fill="#0f172a" stroke="#475569"/>
+              <text x="160" y="92" text-anchor="middle" font-size="10" font-family="monospace" fill="#e2e8f0">head_verify_failed = {</text>
+              <text x="160" y="112" text-anchor="middle" font-size="10" font-family="monospace" fill="#94a3b8">kind: "failure",</text>
+              <text x="160" y="132" text-anchor="middle" font-size="10" font-family="monospace" fill="#94a3b8">message: (f) => "…" }</text>
+              <text x="160" y="152" text-anchor="middle" font-size="9" fill="#64748b">one place, exhaustive by type</text>
+            </svg>
+            <p class="text-[11px] text-slate-400 mt-1">Same shape for both flows — the dirty and latest-commit transactions stop being organized on different principles.</p>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>Each autobranch failure is spread across its union arm, a <span class="font-mono">classify</span> case, and a <span class="font-mono">format</span> case; the twin transactions are split on different principles, so learning one doesn't teach the other.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>Co-locate each failure's verdict and message with its arm in one catalog; give both flows the same prepare→transact→catalog shape.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-emerald-500">
+          <li>locality: one failure, one edit site</li>
+          <li>twin flows share one shape</li>
+          <li><span class="font-mono">AutobranchFlowOutcome</span> stops living in the wrong sibling</li>
+          <li>interface tests one catalog, not scattered cases</li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 3 ============ -->
+      <article id="c3" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">3 · One PR-description update path</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">Strong</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">in-process</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">shared/pr-description.ts · submit/pr-description-orchestration.ts · submit/pr-description.ts</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — two paths, one honors the fingerprint</p>
+            <pre class="mermaid">
+flowchart TB
+  RG["regenerate-pr"] --> SP["shared: prepareRegenerated<br/>PrDescription"]
+  SUB["submit"] --> OR["orchestratePrDescription"]
+  SP --> D1["resolve → generate → edit<br/><span style='font-size:9px'>NO fingerprint skip</span>"]
+  OR --> D2["resolve → generate → edit<br/><span style='font-size:9px'>fingerprint skip/force</span>"]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#7f1d1d;
+  class D1 leak
+            </pre>
+            <p class="text-xs text-slate-500 mt-2">Same generate-then-edit dance twice. The regenerate path skips the managed-region fingerprint — latent drift: it can overwrite a body the submit path would have left alone.</p>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — one deep module, both callers enter it</p>
+            <pre class="mermaid">
+flowchart TB
+  RG["regenerate-pr"] --> U["PrDescriptionUpdate<br/><span style='font-size:9px'>fingerprint honored once</span>"]
+  SUB["submit"] --> U
+  U --> E["edit PR body"]
+  classDef deep fill:#1e293b,stroke:#818cf8,stroke-width:2px,color:#e2e8f0;
+  class U deep
+            </pre>
+            <p class="text-[11px] text-slate-400 mt-2">The fingerprint skip/force logic lives in one implementation; both the <b>Flow Submit Boundary</b> and regenerate call it.</p>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>Two modules run the same resolve→generate→edit sequence; only <span class="font-mono">orchestratePrDescription</span> respects the managed-region fingerprint, so the regenerate path can clobber an already-current body.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>Fold both into one PR-description update module whose interface takes the fingerprint policy; delete the shared duplicate.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-emerald-500">
+          <li>locality: fingerprint logic in one place</li>
+          <li>closes a latent overwrite bug</li>
+          <li>leverage: one interface, two callers</li>
+          <li>interface is the test surface for both paths</li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 4 ============ -->
+      <article id="c4" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">4 · Collapse the sdl-land round trip</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">ports &amp; adapters</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">land-stack/landing-plan.ts · land-context-adapter.ts · plan-mapping.ts · pre-merge-submit.ts</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — six representations of "the stack"</p>
+            <div class="space-y-1.5 text-[11px] font-mono">
+              <div class="mod px-2 py-1">LandingShape <span class="text-slate-400">(Flow)</span></div>
+              <div class="text-center text-slate-400">↓ preloadedShape literal</div>
+              <div class="mod px-2 py-1">LandContext gateways</div>
+              <div class="text-center text-slate-400">↓ buildStackLandingPlan</div>
+              <div class="mod px-2 py-1">sdl-land internal plan</div>
+              <div class="text-center text-slate-400">↓ LandPlanForFlow mirror</div>
+              <div class="mod px-2 py-1">LandPlanForFlow</div>
+              <div class="text-center text-slate-400">↓ toFlowLandingPlan</div>
+              <div class="mod px-2 py-1">LandingPlan <span class="text-slate-400">(Flow)</span></div>
+            </div>
+            <p class="text-xs text-red-600 mt-2">Two <span class="font-mono">type↔kind</span> mappers, two duplicate operation-label heuristics, stubbed gateway methods. Entered from three call sites, each rebuilding a <span class="font-mono">LandContext</span>.</p>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — one adapter, one crossing</p>
+            <div class="space-y-2 text-[11px] font-mono">
+              <div class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1.5">LandingShape <span class="text-slate-400">(Flow)</span></div>
+              <div class="text-center text-indigo-300">↓ Flow Stack Preflight Adapter</div>
+              <div class="rounded-md border-2 border-indigo-400 bg-slate-800/60 px-2 py-3 text-center">
+                <span class="lbl text-indigo-300">single adapter module</span>
+                <div class="opacity-45 mt-1 text-slate-400">map-in · call sdl-land · map-back<br/>one label heuristic, shared</div>
+              </div>
+              <div class="text-center text-indigo-300">↓</div>
+              <div class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1.5">LandingPlan <span class="text-slate-400">(Flow)</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-md bg-amber-50 border border-amber-300 px-4 py-3 text-sm text-amber-900">
+          ⚠︎ <b>Touches the in-flight land extraction.</b> <span class="font-mono text-xs">CONTEXT.md</span> names this the <b>Flow Stack Preflight Adapter</b> and the <b>Flow Land Compatibility Boundary</b> — the round trip is deliberate during migration. Worth reopening because six representations with duplicated heuristics is a standing correctness hazard, but sequence it <i>with</i> the extraction, not against it. Load <span class="font-mono text-xs">sdl objective exec load-orientations</span> first.
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>Tracing one plan field crosses six shapes with two independent <span class="font-mono">type↔kind</span> translations and two operation-label heuristics.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>One adapter module owns map-in / call / map-back with a single label heuristic; call sites share one <span class="font-mono">LandContext</span> builder.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-amber-500">
+          <li>locality: one translation, not two</li>
+          <li>seam stays real: Flow ↔ sdl-land</li>
+          <li>drops duplicate label heuristics</li>
+          <li>one <span class="font-mono">LandContext</span> across three call sites</li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 5 ============ -->
+      <article id="c5" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">5 · Unify the land presentation surface</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">local-substitutable</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">land-stack/presentation.ts (520) · land-presentation.ts (132) · command-stream.ts (249)</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — one outcome, three renderers by mechanism</p>
+            <svg viewBox="0 0 320 200" class="w-full">
+              <rect x="120" y="8" width="80" height="34" class="mod" fill="#eef2ff"/>
+              <text x="160" y="29" text-anchor="middle" font-size="11" font-family="monospace" fill="#3730a3">a failure</text>
+              <rect x="6" y="120" width="96" height="60" class="mod" fill="#fff"/>
+              <text x="54" y="145" text-anchor="middle" font-size="9" fill="#334155">presentation.ts</text>
+              <text x="54" y="160" text-anchor="middle" font-size="8" fill="#64748b">plain + routing</text>
+              <rect x="112" y="120" width="96" height="60" class="mod" fill="#fff"/>
+              <text x="160" y="145" text-anchor="middle" font-size="9" fill="#334155">land-presentation</text>
+              <text x="160" y="160" text-anchor="middle" font-size="8" fill="#64748b">ANSI house-style</text>
+              <rect x="218" y="120" width="96" height="60" class="mod" fill="#fff"/>
+              <text x="266" y="145" text-anchor="middle" font-size="9" fill="#334155">command-stream</text>
+              <text x="266" y="160" text-anchor="middle" font-size="8" fill="#64748b">scrollback mirror</text>
+              <path d="M150 42 L60 120" stroke="#dc2626" stroke-width="1.5"/>
+              <path d="M160 42 L160 120" stroke="#dc2626" stroke-width="1.5"/>
+              <path d="M172 42 L262 120" stroke="#dc2626" stroke-width="1.5"/>
+              <text x="160" y="85" text-anchor="middle" font-size="10" fill="#dc2626">formatted, re-wrapped, mirrored</text>
+            </svg>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — one module, backend chosen by caps</p>
+            <svg viewBox="0 0 320 200" class="w-full">
+              <rect x="120" y="8" width="80" height="34" rx="4" fill="#312e81" stroke="#818cf8"/>
+              <text x="160" y="29" text-anchor="middle" font-size="11" font-family="monospace" fill="#c7d2fe">a failure</text>
+              <rect x="70" y="66" width="180" height="46" rx="6" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+              <text x="160" y="85" text-anchor="middle" class="lbl" fill="#a5b4fc">LandRender.outcome(kind)</text>
+              <text x="160" y="102" text-anchor="middle" font-size="8" fill="#64748b">picks backend internally</text>
+              <path d="M160 42 L160 66" stroke="#818cf8" stroke-width="2"/>
+              <rect x="26" y="150" width="80" height="32" rx="4" fill="#0f172a" stroke="#475569"/>
+              <text x="66" y="170" text-anchor="middle" font-size="8" font-family="monospace" fill="#94a3b8">plain</text>
+              <rect x="120" y="150" width="80" height="32" rx="4" fill="#0f172a" stroke="#475569"/>
+              <text x="160" y="170" text-anchor="middle" font-size="8" font-family="monospace" fill="#94a3b8">ansi</text>
+              <rect x="214" y="150" width="80" height="32" rx="4" fill="#0f172a" stroke="#475569"/>
+              <text x="254" y="170" text-anchor="middle" font-size="8" font-family="monospace" fill="#94a3b8">stream</text>
+              <path d="M120 112 L66 150" stroke="#475569" stroke-width="1.5" class="seam"/>
+              <path d="M160 112 L160 150" stroke="#475569" stroke-width="1.5" class="seam"/>
+              <path d="M200 112 L254 150" stroke="#475569" stroke-width="1.5" class="seam"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>"How does a land failure render" needs three files plus the <span class="font-mono">renderResultBlock</span>-set / line-prefix / <span class="font-mono">LandResultKind</span>-vs-<span class="font-mono">NotifyLevel</span> distinctions; the split is by rendering mechanism, not by outcome.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>One presentation module keyed by outcome; plain / ANSI / stream become internal backends selected from caps.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-amber-500">
+          <li>locality: one outcome, one render call</li>
+          <li>backends selected inside, not by caller</li>
+          <li>string-authoring stops splitting from routing</li>
+          <li>interface tests outcome → text once</li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 6 ============ -->
+      <article id="c6" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">6 · Delete the forwarder shims</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">in-process</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">shared/git.ts (5) · text-helpers.ts (9) · checkpoint-message.ts (2) · submit/format.ts (3) · autobranch/short-sha.ts (3) · land-stack/graphite-metadata-command.ts (7)</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — open a file, learn a renamed symbol</p>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 text-[11px] font-mono">
+                <span class="mod px-2 py-1">worktree.ts</span><span class="text-slate-400">→</span>
+                <span class="mod px-2 py-1 bg-red-50 border-red-200">git.ts</span><span class="text-slate-400">→</span>
+                <span class="mod px-2 py-1">@sdl/capability-kit</span>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] font-mono">
+                <span class="mod px-2 py-1">model-generation</span><span class="text-slate-400">→</span>
+                <span class="mod px-2 py-1 bg-red-50 border-red-200">text-helpers.ts</span><span class="text-slate-400">→</span>
+                <span class="mod px-2 py-1">capability-kit</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Each shim adds a hop and a renamed symbol, no behavior. <span class="font-mono">text-helpers.ts</span> has one consumer; <span class="font-mono">git.ts</span> only prefixes <span class="font-mono">Sdl→Flow</span>.</p>
+            </div>
+            <div class="mt-3 rounded bg-stone-100 border border-stone-200 p-2 text-[11px] text-slate-600">
+              <b>Deletion test:</b> deleting each shim <i>moves nothing</i> — it removes indirection at no cost. That is the signature of a shallow forwarder, not a module.
+            </div>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — call the real interface directly</p>
+            <div class="space-y-2 text-[11px] font-mono">
+              <div class="flex items-center gap-2">
+                <span class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1">worktree.ts</span>
+                <span class="text-indigo-300">→</span>
+                <span class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1">@sdl/capability-kit</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1">model-generation</span>
+                <span class="text-indigo-300">→</span>
+                <span class="rounded border border-slate-600 bg-slate-800/60 px-2 py-1">capability-kit</span>
+              </div>
+              <p class="text-slate-400 mt-2 font-sans">Six files gone. Stable naming that earns its keep (e.g. <span class="font-mono">shared/text-generation.ts</span>, 8 consumers) stays.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/>Six single-purpose files exist only to rename or re-export one symbol; navigation bounces through them for zero added behavior.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>Inline the rename/single-consumer shims into their callers; keep only re-exports that serve many consumers as a naming seam.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-amber-500">
+          <li>fewer hops per concept</li>
+          <li>shallow forwarders removed, no depth lost</li>
+          <li>type resolution stops routing through barrels</li>
+          <li>duplicate-named traps (two <span class="font-mono">text-generation</span>) reduced</li>
+        </ul>
+      </article>
+
+      <!-- ============ CANDIDATE 7 ============ -->
+      <article id="c7" class="rounded-xl border border-slate-200 bg-white shadow-sm p-7 space-y-5">
+        <div class="flex items-start justify-between gap-4">
+          <h2 class="font-serif text-2xl">7 · De-leak the submit gateway</h2>
+          <div class="flex flex-col items-end gap-1 shrink-0">
+            <span class="px-2.5 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800">Worth exploring</span>
+            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-600">local-substitutable</span>
+          </div>
+        </div>
+        <p class="font-mono text-xs text-slate-500">submit/submit.ts (946) · submit-format.ts (514)</p>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="lbl text-slate-400 mb-3">Before — the "gateway" encodes Graphite's stderr taxonomy</p>
+            <svg viewBox="0 0 320 210" class="w-full">
+              <rect x="8" y="8" width="304" height="120" rx="6" class="mod" fill="#fff"/>
+              <text x="20" y="26" font-size="10" class="lbl" fill="#334155">submit.ts · 946 lines</text>
+              <rect x="20" y="36" width="130" height="30" fill="#f1f5f9" stroke="#cbd5e1"/>
+              <text x="85" y="55" text-anchor="middle" font-size="9" fill="#334155">runSubmitCommand</text>
+              <rect x="20" y="72" width="130" height="30" fill="#fef2f2" stroke="#fecaca"/>
+              <text x="85" y="91" text-anchor="middle" font-size="9" fill="#991b1b">RealSubmitGateway</text>
+              <rect x="162" y="36" width="140" height="30" fill="#f1f5f9" stroke="#cbd5e1"/>
+              <text x="232" y="55" text-anchor="middle" font-size="8" fill="#334155">type unions ×6</text>
+              <rect x="162" y="72" width="140" height="30" fill="#fef2f2" stroke="#fecaca"/>
+              <text x="232" y="86" text-anchor="middle" font-size="8" fill="#991b1b">detectRestackNeeded()</text>
+              <text x="232" y="97" text-anchor="middle" font-size="8" fill="#991b1b">detectTrunkOutOfDate()…</text>
+              <rect x="8" y="150" width="304" height="46" rx="6" class="mod" fill="#fff"/>
+              <text x="160" y="170" text-anchor="middle" font-size="9" fill="#334155">submit-format.ts — 15 formatXFailureOutput fns</text>
+              <text x="160" y="186" text-anchor="middle" font-size="8" fill="#64748b">each failure branch bounces submit.ts ⇄ submit-format.ts</text>
+              <path d="M232 102 L232 128 L160 128 L160 150" stroke="#dc2626" stroke-width="1.5" fill="none" class="seam"/>
+            </svg>
+            <p class="text-xs text-red-600 mt-1"><span class="font-mono">restack_required</span> / <span class="font-mono">trunk_out_of_date</span> / <span class="font-mono">merged_pr_not_in_trunk</span> are Graphite stderr regexes — the interface exposes Graphite's error dialect instead of hiding it.</p>
+          </div>
+          <div class="rounded-lg border-2 border-slate-800 p-4 deep text-slate-100">
+            <p class="lbl text-slate-400 mb-3">After — classification behind the seam</p>
+            <div class="space-y-2">
+              <div class="rounded-md border-2 border-indigo-400 bg-slate-800/60 p-3">
+                <p class="lbl text-indigo-300">SubmitGateway</p>
+                <p class="text-[11px] font-mono text-slate-300 mt-1">→ domain results only</p>
+                <p class="text-[11px] font-mono text-slate-500 mt-2 opacity-50">gt stderr classifier (internal)</p>
+              </div>
+              <div class="rounded-md border border-slate-600 bg-slate-800/60 p-2">
+                <p class="text-[11px] font-mono text-slate-300">runSubmitCommand — orchestration only</p>
+              </div>
+              <p class="text-[11px] text-slate-400">Failure shape + its message live together, so a branch stops bouncing to <span class="font-mono">submit-format.ts</span>.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+          <p><span class="lbl text-slate-400">Problem</span><br/><span class="font-mono">RealSubmitGateway</span> mixes shelling out with Graphite-stderr classification, so the gateway interface leaks Graphite's error taxonomy; each failure branch splits across <span class="font-mono">submit.ts</span> and <span class="font-mono">submit-format.ts</span>.</p>
+          <p><span class="lbl text-slate-400">Solution</span><br/>Move stderr classification behind the gateway so it returns domain results; co-locate each failure shape with its message.</p>
+        </div>
+        <ul class="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-sm text-slate-700 list-disc list-inside marker:text-amber-500">
+          <li>seam hides Graphite's dialect</li>
+          <li>locality: failure shape + message together</li>
+          <li>orchestration testable without stderr fixtures</li>
+          <li>946-line file sheds two responsibilities</li>
+        </ul>
+      </article>
+
+      </section>
+
+      <!-- ============ TOP RECOMMENDATION ============ -->
+      <section id="top-recommendation">
+        <div class="rounded-xl border-2 border-emerald-500 bg-white shadow-md p-8 space-y-4">
+          <div class="flex items-center gap-3">
+            <span class="lbl text-emerald-600">Top recommendation</span>
+            <span class="h-px flex-1 bg-emerald-200"></span>
+          </div>
+          <h2 class="font-serif text-3xl">Start with <a href="#c1" class="text-emerald-700 underline decoration-emerald-300 underline-offset-4">#1 — the Graphite command channel</a>.</h2>
+          <p class="text-slate-700 max-w-3xl">It is the deepest leverage in the package: one interface behind every land call site, with two adapters that genuinely justify the seam — the real <span class="font-mono text-sm">gt</span> runner in production, a scripted channel in tests. Today the land scenarios drive the outermost <span class="font-mono text-sm">pi.exec</span>, so the real sequencing bugs hide behind four wrapping layers; a single channel makes the <span class="font-mono text-sm">pi</span> triplet — a live, unguarded correctness hazard — disappear into one module. It unblocks <a href="#c5" class="underline">#5</a> (presentation stops fighting the stream wrapper) and is independent of the in-flight <b>Flow Land</b> extraction, so it can land now.</p>
+          <p class="text-sm text-slate-500">If you'd rather bank a fast, low-risk win first: <a href="#c3" class="underline">#3</a> closes a latent PR-description overwrite bug, and <a href="#c6" class="underline">#6</a> deletes six forwarder files outright.</p>
+        </div>
+      </section>
+
+      <footer class="pt-6 text-xs text-slate-400 border-t border-slate-200">
+        Architecture vocabulary from <span class="font-mono">/codebase-design</span> · domain terms from <span class="font-mono">flow/CONTEXT.md</span> · this report is a static artifact, not committed to the repo.
+      </footer>
+    </main>
+  </body>
+</html>
