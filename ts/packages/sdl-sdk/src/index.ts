@@ -25,6 +25,7 @@ export type {
 } from "./repo-local-sdl-extension.ts";
 export type {
 	ExecResult,
+	SdlConfirmOptions,
 	SdlConfirmPrompt,
 	SdlExecOptions,
 	SdlExtensionApi,

@@ -20,7 +20,15 @@ export interface SdlExecOptions {
 }
 
 export type SdlOutputStream = "stdout" | "stderr";
-export type SdlConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+export interface SdlConfirmOptions {
+	defaultAnswer?: "yes" | "no";
+}
+
+export type SdlConfirmPrompt = (
+	title: string,
+	message: string,
+	options?: SdlConfirmOptions,
+) => Promise<boolean> | boolean;
 
 export interface SdlExtensionApi {
 	/** Current repository working directory for command-entry execution. */

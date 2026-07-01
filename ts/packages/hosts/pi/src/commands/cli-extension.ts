@@ -15,6 +15,7 @@ import {
 	type CustomMessageContent,
 } from "../terminal/presentation.ts";
 import { unrefTimerScheduler } from "../shared/timers.ts";
+import type { SdlConfirmOptions } from "sdl-sdk";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "SDL_PI_CLI_TRACE";
@@ -82,6 +83,7 @@ export interface CliCommandInfo {
 export type CliCommandConfirmPrompt = (
 	title: string,
 	message: string,
+	options?: SdlConfirmOptions,
 ) => Promise<boolean> | boolean;
 
 export interface CliCommandRunDeps {
@@ -120,7 +122,11 @@ export interface CommandContext {
 	hasUI?: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
-		confirm?(title: string, message: string): Promise<boolean> | boolean;
+		confirm?(
+			title: string,
+			message: string,
+			options?: SdlConfirmOptions,
+		): Promise<boolean> | boolean;
 		setEditorText?(text: string): void;
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?(
@@ -439,10 +445,10 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		};
 		if (ctx.hasUI && ctx.ui.confirm !== undefined) {
 			const confirm = ctx.ui.confirm;
-			runDeps.confirm = async (title, message) => {
+			runDeps.confirm = async (title, message, options) => {
 				progress.setPhase("waiting for confirmation");
 				try {
-					return await confirm(title, message);
+					return await confirm(title, message, options);
 				} finally {
 					progress.setPhase("running CLI command");
 				}

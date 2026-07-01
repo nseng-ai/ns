@@ -33,6 +33,7 @@ interface ConfirmLandStackActionOptions {
 	cancellationMessage?: string;
 	cancellationFailureOptions?: LandStackFailureOptions;
 	renderDetails?: (details: string) => string;
+	defaultAnswer?: "yes" | "no";
 	onFailure?: (landFailure: LandStackFailure) => void;
 }
 
@@ -51,7 +52,11 @@ export async function confirmLandStackAction(
 	}
 
 	const details = options.renderDetails?.(options.details) ?? options.details;
-	const confirmed = await options.ctx.ui.confirm(options.title, details);
+	const confirmOptions =
+		options.defaultAnswer === undefined
+			? undefined
+			: optionalField("defaultAnswer", options.defaultAnswer);
+	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
 	if (confirmed) return completed();
 
 	const cancellationFailureOptions = options.cancellationFailureOptions ?? {

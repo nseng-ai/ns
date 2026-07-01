@@ -1,5 +1,5 @@
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo, SdlConfirmOptions } from "sdl-sdk";
 import type { ExecOutputListener } from "@sdl/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createFlowCliCommandIo } from "./cli-command-io.ts";
@@ -78,7 +78,11 @@ export function registerLandCommand(pi: LandExtensionAPI): void {
 	});
 }
 
-export type LandCliConfirmPrompt = (title: string, message: string) => Promise<boolean> | boolean;
+export type LandCliConfirmPrompt = (
+	title: string,
+	message: string,
+	options?: SdlConfirmOptions,
+) => Promise<boolean> | boolean;
 
 interface RunLandCommandOptions {
 	progressIo?: SdlCommandIo;
@@ -190,8 +194,8 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						notify(message, level) {
 							progressIo.notify(message, level === "success" ? "info" : level);
 						},
-						confirm: async (title, message) =>
-							confirm === undefined ? false : await confirm(title, message),
+						confirm: async (title, message, options) =>
+							confirm === undefined ? false : await confirm(title, message, options),
 						setStatus: (_key, value) => {
 							if (value !== undefined) progressIo.phase(value);
 						},
@@ -204,8 +208,8 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 						? {}
 						: {
 								renderResultBlock: createCliResultBlockRenderer(caps),
-								renderConfirmationDetails: (message: string) =>
-									renderLandConfirmationDetails(caps, message),
+								renderConfirmationDetails: (details) =>
+									renderLandConfirmationDetails(caps, details),
 							}),
 				},
 				{ progressIo, ...(liveProgress === undefined ? {} : { liveProgress }) },

@@ -1,7 +1,11 @@
 import process from "node:process";
-import { createInterface } from "node:readline/promises";
 
-import { renderCapabilitiesForTerminal, resolveProcessCaps } from "@sdl/clinkr";
+import {
+	createClinkrInteraction,
+	renderCapabilitiesForTerminal,
+	resolveProcessCaps,
+} from "@sdl/clinkr";
+import { readStdinLine } from "@sdl/cli-runtime";
 import { runCommand } from "@sdl/exec";
 
 import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
@@ -58,21 +62,22 @@ export function createRealSdlCommandContext(
 }
 
 export function createTerminalConfirmPrompt(): SdlConfirmPrompt | undefined {
-	if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) return undefined;
-	return async (title, message) => {
-		const readline = createInterface({ input: process.stdin, output: process.stdout });
-		try {
-			const answer = await readline.question(`${title}\n\n${message}\n\nProceed? [y/N] `);
-			return parseTerminalConfirmAnswer(answer);
-		} finally {
-			readline.close();
-		}
+	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return undefined;
+	return async (title, message, options) => {
+		const interaction = createClinkrInteraction({
+			stdin: readStdinLine,
+			stderr: (text) => {
+				process.stderr.write(text);
+			},
+			isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
+			formatPrompt: (_request, suffix) => `${title}\n\n${message}\n\nProceed? ${suffix} `,
+		});
+		const result = await interaction.confirm({
+			message,
+			defaultAnswer: options?.defaultAnswer ?? "no",
+		});
+		return result.type === "confirmed";
 	};
-}
-
-export function parseTerminalConfirmAnswer(answer: string): boolean {
-	const normalized = answer.trim().toLowerCase();
-	return normalized === "y" || normalized === "yes";
 }
 
 export type { SdlExtensionApi } from "sdl-sdk";

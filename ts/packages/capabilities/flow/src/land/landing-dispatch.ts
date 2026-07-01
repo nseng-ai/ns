@@ -3,10 +3,12 @@ import type { SdlCommandIo } from "sdl-sdk";
 import { executeStackLanding } from "../land-stack.ts";
 import type { LandLiveProgressSink } from "../land-stack/command-stream.ts";
 import { completed, type LandStackOutcome } from "../land-stack/errors.ts";
+import { renderPlainLandConfirmationDetails } from "../land-stack/land-presentation.ts";
 import { presentBrief, presentFailureOutcome } from "../land-stack/presentation.ts";
 import { loadLandingShape } from "../land-stack/stack-facts.ts";
 import type {
 	LandingShape,
+	LandConfirmationPreview,
 	LandStackExtensionAPI,
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
@@ -127,37 +129,45 @@ async function confirmStackModeIfNeeded(
 	shape: LandingShape,
 	options: { isDryRun: boolean; shouldSkipConfirmation: boolean },
 ): Promise<LandStackOutcome> {
+	const confirmationDetails = buildUpfrontStackConfirmation(shape);
 	return await confirmLandStackAction({
 		ctx,
 		shouldPrompt: !options.isDryRun && !options.shouldSkipConfirmation,
 		title: "Land stack?",
-		details: formatUpfrontStackConfirmation(shape),
+		details:
+			ctx.renderConfirmationDetails?.(confirmationDetails) ??
+			renderPlainLandConfirmationDetails(confirmationDetails),
 		nonInteractiveMessage:
 			"Refusing to land a stack without confirmation in non-interactive mode. Re-run with --yes.",
+		defaultAnswer: "yes",
 		onFailure: (landFailure) => presentFailureOutcome(ctx, landFailure),
 	});
 }
 
-function formatUpfrontStackConfirmation(shape: LandingShape): string {
+function buildUpfrontStackConfirmation(shape: LandingShape): LandConfirmationPreview {
 	const stack = shape.stack;
 	const bottomBranch = stack.landingBranches[0] ?? stack.actualCurrentBranch;
-	const lines = [
-		"This will squash-merge the selected Graphite stack path from bottom to top, refreshing each remaining PR before it lands.",
-		"",
-		"Step     What happens",
-		"Preflight Check PR state, branch refs, worktree safety, and landing order.",
-		"Merge    Merge each PR using its current PR title/body as the squash commit message.",
-		"Refresh  Fetch/restack/update the remaining upstack PRs after each merge.",
-		"Cleanup  Delete landed local Graphite branches when they are no longer checked out.",
-		"",
-		`Stack: ${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"} from ${bottomBranch} through ${stack.actualCurrentBranch}`,
-		`Target: ${stack.trunk}`,
-	];
-	if (stack.descendantBranches.length > 0) {
-		lines.push(
-			`Descendants: ${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
-		);
-	}
-	lines.push("", "Proceed with landing?");
-	return lines.join("\n");
+	const prCount = `${stack.landingBranches.length} PR${stack.landingBranches.length === 1 ? "" : "s"}`;
+	return {
+		headline: "Review the landing plan before merging this stack.",
+		impactLines: [
+			"Squash-merge the selected Graphite path from bottom to top.",
+			"Refresh remaining upstack PRs after each merge.",
+			"Delete landed local Graphite branches once they are safe to remove.",
+		],
+		planRows: [
+			{ label: "Stack", value: prCount },
+			{ label: "Range", value: `${bottomBranch} → ${stack.actualCurrentBranch}` },
+			{ label: "Target", value: stack.trunk },
+			...(stack.descendantBranches.length === 0
+				? []
+				: [
+						{
+							label: "Note",
+							value: `${stack.descendantBranches.join(", ")} will not be merged; the command will try to maintain them after landing.`,
+						},
+					]),
+		],
+		guidance: "Press Enter to proceed, or type n to cancel.",
+	};
 }

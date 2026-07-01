@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { describe, expect, test } from "vitest";
 
-import { createRealSdlCommandContext, parseTerminalConfirmAnswer } from "@sdl/kernel/context";
+import { createRealSdlCommandContext } from "@sdl/kernel/context";
 
 describe("real SDL command context", () => {
 	test("forwards stdin to executed commands", async () => {
@@ -13,13 +13,5 @@ describe("real SDL command context", () => {
 		});
 
 		expect(result).toMatchObject({ code: 0, stdout: "hello from stdin", stderr: "" });
-	});
-
-	test("terminal confirmation accepts only explicit yes", () => {
-		expect(parseTerminalConfirmAnswer("y")).toBe(true);
-		expect(parseTerminalConfirmAnswer("YES")).toBe(true);
-		expect(parseTerminalConfirmAnswer("")).toBe(false);
-		expect(parseTerminalConfirmAnswer("n")).toBe(false);
-		expect(parseTerminalConfirmAnswer("sure")).toBe(false);
 	});
 });

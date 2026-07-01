@@ -6,7 +6,9 @@ import { stripAnsi } from "@sdl/clinkr/testing";
 import {
 	renderLandConfirmationDetails,
 	renderLandResultBlock,
+	renderPlainLandConfirmationDetails,
 } from "../../src/land-stack/land-presentation.ts";
+import type { LandConfirmationPreview } from "../../src/land-stack/types.ts";
 
 const DIM = "\x1b[2m";
 
@@ -44,20 +46,40 @@ describe("renderLandResultBlock", () => {
 });
 
 describe("renderLandConfirmationDetails", () => {
-	test("colorizes parseable stack-path confirmation sections without changing the text", () => {
-		const message = [
-			"Land Graphite stack path: main -> feature-1 -> feature-2",
-			"",
-			"Current branch: feature-2",
-			"Will merge, in order:",
-			"  1. #201 feature-1 abc123 PR 201",
-			"  2. #202 feature-2 def456 PR 202 Current branch",
-		].join("\n");
+	test("colorizes structured stack-path confirmation sections without changing the text", () => {
+		const preview: LandConfirmationPreview = {
+			headline: "Review the landing plan before merging this stack.",
+			impactLines: ["Squash-merge the selected Graphite path from bottom to top."],
+			planRows: [
+				{ label: "Stack", value: "2 PRs" },
+				{ label: "Range", value: "feature-1 → feature-2" },
+				{ label: "Target", value: "main" },
+			],
+			guidance: "Press Enter to proceed, or type n to cancel.",
+		};
 
-		const rendered = renderLandConfirmationDetails(caps(), message);
+		const plain = renderPlainLandConfirmationDetails(preview);
+		const rendered = renderLandConfirmationDetails(caps(), preview);
 
-		expect(stripAnsi(rendered)).toBe(message);
-		expect(rendered).toContain("\x1b[38;2;34;211;238mLand Graphite stack path");
-		expect(rendered).toContain("\x1b[38;2;139;148;158m  1. #201 feature-1 abc123 PR 201");
+		expect(plain).toBe(
+			[
+				"Review the landing plan before merging this stack.",
+				"",
+				"Impact",
+				"  • Squash-merge the selected Graphite path from bottom to top.",
+				"",
+				"Plan",
+				"  Stack   2 PRs",
+				"  Range   feature-1 → feature-2",
+				"  Target  main",
+				"",
+				"Press Enter to proceed, or type n to cancel.",
+			].join("\n"),
+		);
+		expect(stripAnsi(rendered)).toBe(plain);
+		expect(rendered).toContain("\x1b[38;2;34;211;238mReview the landing plan");
+		expect(rendered).toContain("\x1b[38;2;34;211;238mImpact");
+		expect(rendered).toContain("\x1b[38;2;139;148;158m  Stack");
+		expect(rendered).toContain("\x1b[38;2;63;185;80mPress Enter");
 	});
 });
