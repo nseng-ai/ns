@@ -57,6 +57,13 @@ export interface DoctorSkillsInspection {
 	skillKindSkills: readonly AregSkillKindSkillInspection[];
 }
 
+interface FindingGroup {
+	code: string;
+	severity: DoctorSkillFindingSeverity;
+	remediation: string;
+	findings: readonly DoctorSkillFinding[];
+}
+
 const doctorSkillFindingSchema: z.ZodType<DoctorSkillFinding> = z
 	.object({
 		code: z.string(),
@@ -211,12 +218,7 @@ async function inspectDoctorSkillsProject(
 	const piArtifacts = await ctx.project.inspectPiArtifacts({ projectDir, env: ctx.env });
 	const skillInventory = await ctx.project.inspectSkillNameInventory({ projectDir, env: ctx.env });
 	const piSkillInventory = await ctx.project.inspectPiSkillInventory({ projectDir, env: ctx.env });
-	const skillNames = uniqueSortedStrings([
-		...skillInventory.skillsDirectoryNames,
-		...skillInventory.agentsSkillNames,
-		...skillInventory.claudeSkillNames,
-		...skillInventory.skillKindNames,
-	]);
+	const skillNames = allKnownSkillNames(skillInventory, { includeSkillKindNames: true });
 	const checkSkills = await collectCheckSkillInspections(ctx, projectDir, skillNames);
 	const skillKindSkills = await collectSkillKindInspections(ctx, projectDir, skillNames);
 	return {
@@ -238,11 +240,7 @@ async function inspectDoctorSkillsProject(
 function filesystemFindings(inspection: DoctorSkillsInspection): readonly DoctorSkillFinding[] {
 	const findings: DoctorSkillFinding[] = [];
 	const managed = new Set(inspection.skillInventory.skillKindNames);
-	const skillNames = uniqueSortedStrings([
-		...inspection.skillInventory.skillsDirectoryNames,
-		...inspection.skillInventory.agentsSkillNames,
-		...inspection.skillInventory.claudeSkillNames,
-	]);
+	const skillNames = allKnownSkillNames(inspection.skillInventory);
 	const checkSkillsByName = new Map(inspection.checkSkills.map((skill) => [skill.name, skill]));
 	for (const skillName of skillNames) {
 		const roots = rootsForSkill(inspection.skillInventory, skillName);
@@ -403,6 +401,18 @@ function rootsForSkill(inventory: AregSkillNameInventory, skillName: string): Sk
 	return roots;
 }
 
+function allKnownSkillNames(
+	inventory: AregSkillNameInventory,
+	options: { includeSkillKindNames?: boolean } = {},
+): readonly string[] {
+	return uniqueSortedStrings([
+		...inventory.skillsDirectoryNames,
+		...inventory.agentsSkillNames,
+		...inventory.claudeSkillNames,
+		...(options.includeSkillKindNames === true ? inventory.skillKindNames : []),
+	]);
+}
+
 function independentRootsForSkill(
 	skillName: string,
 	roots: readonly SkillRoot[],
@@ -451,12 +461,7 @@ const DETAIL_THRESHOLD = 3;
 const AFFECTED_CAP = 12;
 const AFFECTED_WRAP_WIDTH = 78;
 
-function renderFindingBlock(group: {
-	code: string;
-	severity: DoctorSkillFindingSeverity;
-	remediation: string;
-	findings: readonly DoctorSkillFinding[];
-}): string {
+function renderFindingBlock(group: FindingGroup): string {
 	const lines = [
 		`${group.severity}  ${group.code}  (${group.findings.length})`,
 		`  Fix: ${group.remediation}`,
@@ -503,31 +508,17 @@ function wrapCommaList(items: readonly string[], indent: string, maxWidth: numbe
 	return lines;
 }
 
-function groupFindingsByType(findings: readonly DoctorSkillFinding[]): readonly {
-	code: string;
-	severity: DoctorSkillFindingSeverity;
-	remediation: string;
-	findings: readonly DoctorSkillFinding[];
-}[] {
-	const groups = new Map<
-		string,
-		{
-			code: string;
-			severity: DoctorSkillFindingSeverity;
-			remediation: string;
-			findings: DoctorSkillFinding[];
-		}
-	>();
+function groupFindingsByType(findings: readonly DoctorSkillFinding[]): readonly FindingGroup[] {
+	const groups = new Map<string, FindingGroup>();
 	for (const finding of findings) {
 		const key = `${finding.severity}\0${finding.code}\0${finding.remediation}`;
-		const group = groups.get(key) ?? {
+		const group = groups.get(key);
+		groups.set(key, {
 			code: finding.code,
 			severity: finding.severity,
 			remediation: finding.remediation,
-			findings: [],
-		};
-		group.findings.push(finding);
-		groups.set(key, group);
+			findings: group === undefined ? [finding] : [...group.findings, finding],
+		});
 	}
 	return [...groups.values()].sort((left, right) => {
 		const severityRank: Record<DoctorSkillFindingSeverity, number> = {

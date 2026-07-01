@@ -365,7 +365,6 @@ async function listFirstPartySkillKindNames(projectDir: string): Promise<string[
 
 async function listSkillsWithSkillMd(root: string): Promise<string[]> {
 	return await scanSkillDirectoryNames(root, {
-		isBestEffortFallback: true,
 		keepEntry: async (entry) =>
 			(await inspectTextFile(path.join(root, entry.name, "SKILL.md"))).type === "file",
 	});
@@ -386,7 +385,6 @@ async function scanSkillDirectoryNames(
 	root: string,
 	options: {
 		keepEntry: (entry: Dirent) => Promise<boolean>;
-		isBestEffortFallback?: boolean;
 	},
 ): Promise<string[]> {
 	try {
@@ -399,13 +397,9 @@ async function scanSkillDirectoryNames(
 			if (await options.keepEntry(entry)) names.push(entry.name);
 		}
 		return names;
-	} catch (error) {
-		if (isNodeErrorCode(error, "ENOENT")) return [];
-		if (options.isBestEffortFallback) {
-			// Pi fallback inventory is best-effort: unreadable skill roots should behave like
-			// absent roots so doctor diagnostics can continue from the remaining registry sources.
-			return [];
-		}
+	} catch {
+		// Skill root inventory is best-effort: absent or unreadable roots behave like empty
+		// roots so diagnostics can continue from the remaining registry sources.
 		return [];
 	}
 }

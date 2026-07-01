@@ -6,12 +6,14 @@ import type {
 } from "../../src/fake-gateways.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
-function skill(
-	name: string,
-	skillMd = `---\nname: ${name}\ndescription: ${name}\n---\n`,
-	options: Partial<FakeAregSkillKindSkillOptions> = {},
-): FakeAregSkillKindSkillOptions {
-	return { name, skillMd, ...options };
+type SkillFixtureOptions = Omit<Partial<FakeAregSkillKindSkillOptions>, "name">;
+
+function skill(name: string, options: SkillFixtureOptions = {}): FakeAregSkillKindSkillOptions {
+	return {
+		...options,
+		name,
+		skillMd: options.skillMd ?? `---\nname: ${name}\ndescription: ${name}\n---\n`,
+	};
 }
 
 function localCheckSkill(
@@ -64,7 +66,7 @@ describe("areg doctor skills CLI", () => {
 				agentsSkillNames: ["local", "vendored"],
 				claudeSkillNames: ["local", "vendored"],
 				checkSkills: [localCheckSkill("local"), vendoredCheckSkill("vendored")],
-				localSkills: [skill("local"), skill("vendored", undefined, { sourceType: "vendored" })],
+				localSkills: [skill("local"), skill("vendored", { sourceType: "vendored" })],
 				piSkillInventory: {
 					skillNames: ["local", "vendored"],
 					isApproximation: false,
@@ -168,7 +170,7 @@ describe("areg doctor skills CLI", () => {
 						localSkillMd: { type: "missing" },
 					},
 				],
-				localSkills: [skill("broken", "", { skillMd: { type: "missing" } })],
+				localSkills: [skill("broken", { skillMd: { type: "missing" } })],
 				piSkillInventory: { skillNames: ["broken"], source: "test" },
 			},
 		});
@@ -191,13 +193,10 @@ describe("areg doctor skills CLI", () => {
 				piSettings: { skills: ["-skills/objective-create"] },
 				skillsDirectoryNames: ["objective-create"],
 				localSkills: [
-					skill(
-						"objective-create",
-						"---\nname: objective-create\ndisable-model-invocation: true\n---\n",
-						{
-							openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
-						},
-					),
+					skill("objective-create", {
+						skillMd: "---\nname: objective-create\ndisable-model-invocation: true\n---\n",
+						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
+					}),
 				],
 				piSkillInventory: { skillNames: ["objective-create"], source: "test" },
 				replacementSurfaces: [],
