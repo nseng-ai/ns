@@ -19,6 +19,7 @@ import {
 	formatEmptyBranchSubmitPreflightOutput,
 	formatMergedPrNotInTrunkPreflightOutput,
 	formatMergedPrNotInTrunkSubmitOutput,
+	formatRemoteUpdatedOutsideGraphitePreflightOutput,
 	formatPreflightFailureOutput,
 	formatPrewriteFailureOutput,
 	formatTrunkOutOfDatePreflightOutput,
@@ -124,6 +125,7 @@ export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "c
 export type SubmitPreflightFailureCause =
 	| { kind: "trunk_out_of_date" }
 	| { kind: "merged_pr_not_in_trunk" }
+	| { kind: "remote_updated_outside_graphite"; branchName?: string }
 	| SubmitSemanticFailureCause;
 export type SubmitFailurePresentation = "deterministic" | "unknown";
 
@@ -639,6 +641,12 @@ function formatPreflightCauseOutput(input: {
 				input.output,
 				input.submitDryRunCommandDisplay,
 			);
+		case "remote_updated_outside_graphite":
+			return formatRemoteUpdatedOutsideGraphitePreflightOutput({
+				output: input.output,
+				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
+				...(input.cause.branchName === undefined ? {} : { branchName: input.cause.branchName }),
+			});
 	}
 }
 
@@ -925,6 +933,19 @@ function detectMergedPrNotInTrunk(output: string): boolean {
 	);
 }
 
+function detectRemoteUpdatedOutsideGraphite(
+	output: string,
+): { kind: "remote_updated_outside_graphite"; branchName?: string } | undefined {
+	const match = stripTerminalEscapes(output).match(
+		/Branch\s+(?<branch>\S+)\s+has been updated remotely outside of Graphite/iu,
+	);
+	if (match === null) return undefined;
+	return {
+		kind: "remote_updated_outside_graphite",
+		...(match.groups?.branch === undefined ? {} : { branchName: match.groups.branch }),
+	};
+}
+
 function detectRestackMergeConflict(output: string, conflictedFiles: string[]): boolean {
 	return detectGitConflictOutput(output, conflictedFiles);
 }
@@ -971,6 +992,8 @@ function detectKnownPreflightFailureCause(
 	if (!isUsableOutput(output)) return undefined;
 	const semanticFailureCause = detectSubmitSemanticFailureCause(joinedOutput);
 	if (semanticFailureCause !== undefined) return semanticFailureCause;
+	const remoteUpdatedCause = detectRemoteUpdatedOutsideGraphite(joinedOutput);
+	if (remoteUpdatedCause !== undefined) return remoteUpdatedCause;
 	if (detectTrunkOutOfDate(joinedOutput)) return { kind: "trunk_out_of_date" };
 	if (detectMergedPrNotInTrunk(joinedOutput)) return { kind: "merged_pr_not_in_trunk" };
 	return undefined;

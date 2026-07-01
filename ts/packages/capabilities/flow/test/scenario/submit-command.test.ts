@@ -707,6 +707,55 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 	});
 
+	test("remotely updated branch dry-run failure explains what changed outside Graphite", async () => {
+		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		tempDirs.push(logRoot);
+		const run = runWithFakes({
+			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			state: {
+				exec: [
+					...cleanCheckpointResponses(),
+					{
+						match:
+							"gt submit --no-edit --publish --no-stack --no-ai --no-interactive --no-view --no-web --dry-run",
+						result: {
+							code: 1,
+							stdout:
+								"Running submit in 'dry-run' mode. No branches will be pushed and no PRs will be opened or updated.\n\n🥞 Validating that this Graphite stack is ready to submit...\n",
+							stderr:
+								"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
+						},
+					},
+				],
+				textGeneration: [{ ok: false, error: "summary unavailable" }],
+			},
+		});
+
+		expect(await run.exit).toBe(1);
+		const error = run.stderr.join("");
+		expect(error).toContain(
+			"Graphite sees a remote branch update that local Graphite metadata has not synced yet.",
+		);
+		expect(error).toContain("Branch: add-preflight-detect-and-skip-empty-branches");
+		expect(error).toContain("Recommended remediation:");
+		expect(error).toContain("Run `gt get` or `gt sync`");
+		expect(error).toContain(
+			"Graphite is not saying add-preflight-detect-and-skip-empty-branches changed by itself",
+		);
+		expect(error).toContain("direct `git push`/`git push --force-with-lease`");
+		expect(error.indexOf("Recommended remediation:")).toBeLessThan(
+			error.indexOf("Why this can happen:"),
+		);
+		expect(error).toContain("Raw log:");
+		expect(error).not.toContain("Problem: Branch");
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
+		expect(rawPath?.startsWith(logRoot)).toBe(true);
+		expect(await readFile(rawPath ?? "", "utf8")).toContain(
+			"has been updated remotely outside of Graphite",
+		);
+	});
+
 	test("merged PR missing from trunk dry-run failure gives deterministic guidance", async () => {
 		const run = runWithFakes({
 			state: {

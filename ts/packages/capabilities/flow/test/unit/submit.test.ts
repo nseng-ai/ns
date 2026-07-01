@@ -169,6 +169,42 @@ describe("RealSubmitGateway", () => {
 		runner.assertDone();
 	});
 
+	test("checkSubmitReadiness classifies remotely updated branch dry-run output", async () => {
+		const runner = new ScriptedCommandRunner([
+			step(
+				"gt",
+				[
+					"submit",
+					"--no-edit",
+					"--publish",
+					"--no-stack",
+					"--no-ai",
+					"--no-interactive",
+					"--no-view",
+					"--no-web",
+					"--dry-run",
+				],
+				{
+					exitCode: 1,
+					stderr:
+						"ERROR: Branch add-preflight-detect-and-skip-empty-branches has been updated remotely outside of Graphite. Use gt get or gt sync to sync with remote before submitting (or use the --force flag to override this check).\n",
+				},
+			),
+		]);
+		const gateway = new RealSubmitGateway(runner.runner);
+
+		const result = await gateway.checkSubmitReadiness({ cwd: "/repo" });
+
+		expect(result).toMatchObject({
+			kind: "failed",
+			cause: {
+				kind: "remote_updated_outside_graphite",
+				branchName: "add-preflight-detect-and-skip-empty-branches",
+			},
+		});
+		runner.assertDone();
+	});
+
 	test("checkSubmitReadiness classifies empty-branch dry-run warnings", async () => {
 		const runner = new ScriptedCommandRunner([
 			step(

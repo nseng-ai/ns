@@ -254,6 +254,51 @@ export function formatMergedPrNotInTrunkPreflightOutput(
 	});
 }
 
+export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
+	output: SubmitCommandOutput;
+	submitDryRunCommandDisplay: string;
+	branchName?: string;
+}): string {
+	const branch = input.branchName ?? "this branch";
+	return formatPreflightGuidanceOutput({
+		headingLines: [
+			"Graphite sees a remote branch update that local Graphite metadata has not synced yet.",
+			input.branchName === undefined ? undefined : `Branch: ${input.branchName}`,
+		],
+		attemptLine: "Submission was not attempted.",
+		whatSucceededLines: [preflightRanBeforeMutationLine(input.submitDryRunCommandDisplay)],
+		actionSections: [
+			{
+				title: "Recommended remediation:",
+				lines: [
+					"- Run `gt get` or `gt sync` to bring Graphite's local state back in sync with the remote branch, then rerun `sdl flow submit`.",
+				],
+			},
+			{
+				title: "Why this can happen:",
+				lines: [
+					`- Graphite is not saying ${branch} changed by itself; it is saying the remote branch differs from the local Graphite-tracked state.`,
+					"- Common causes are a direct `git push`/`git push --force-with-lease`, another checkout or agent pushing the branch, or GitHub updating the PR branch outside `gt submit`.",
+				],
+			},
+			{
+				title: "Override:",
+				lines: [
+					"- Use `sdl flow submit --force` only if you intentionally want Graphite to ignore this remote-update safety check.",
+				],
+			},
+		],
+		detailLines: [
+			"- Graphite reported: branch has been updated remotely outside of Graphite.",
+			"- `sdl flow submit` stopped during dry-run preflight before metadata preparation or submit mutation.",
+		],
+		command: {
+			display: input.submitDryRunCommandDisplay,
+			output: input.output,
+		},
+	});
+}
+
 export function formatMergedPrNotInTrunkSubmitOutput(
 	output: SubmitCommandOutput,
 	submitCommandDisplay: string,
