@@ -1,3 +1,4 @@
+import type { ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "sdl-sdk";
 import { executeStackLanding } from "../land-stack.ts";
 import type { LandLiveProgressSink } from "../land-stack/command-stream.ts";
@@ -24,19 +25,12 @@ import type {
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
 
-interface NormalizedExecResult {
-	stdout: string;
-	stderr: string;
-	code: number;
-	killed?: boolean;
-}
-
 export interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
 	exec(
 		command: string,
 		args: string[],
 		options?: { cwd?: string; timeout?: number },
-	): Promise<NormalizedExecResult>;
+	): Promise<ExecResult>;
 }
 
 interface LandRuntimeApis {
