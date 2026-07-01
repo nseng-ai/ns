@@ -10,9 +10,9 @@ import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.t
 
 interface MetadataRow {
 	branch: string | number | null;
-	parent?: string | null | undefined;
-	children?: string | number | null | undefined;
-	validation?: string | null | undefined;
+	parent?: string | null;
+	children?: string | number | null;
+	validation?: string | null;
 }
 
 const canRunSqlite = spawnSync("sqlite3", ["--version"], { encoding: "utf8" }).status === 0;

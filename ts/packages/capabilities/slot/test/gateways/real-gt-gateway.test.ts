@@ -14,9 +14,9 @@ import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.t
 
 interface MetadataRow {
 	branch_name: string | number | null;
-	parent_branch_name?: string | null | undefined;
-	children?: string | number | null | undefined;
-	validation_result?: string | null | undefined;
+	parent_branch_name?: string | null;
+	children?: string | number | null;
+	validation_result?: string | null;
 }
 
 const COMMON_DIR = "/repo/.git";
@@ -358,8 +358,8 @@ function trunk(
 function gatewayWithMetadata(options: {
 	currentBranch: string;
 	rows: readonly MetadataRow[] | SqliteJsonOutcome;
-	exists?: boolean | undefined;
-	schema?: SqliteJsonOutcome | undefined;
+	exists?: boolean;
+	schema?: SqliteJsonOutcome;
 }): { gateway: RealGraphiteStackGateway; dbAccess: FakeGraphiteMetadataDbAccess } {
 	const rows: SqliteJsonOutcome = isMetadataRows(options.rows)
 		? resultOk(options.rows)

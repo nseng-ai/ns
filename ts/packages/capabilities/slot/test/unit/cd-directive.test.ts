@@ -82,8 +82,8 @@ class FakeDirectiveFilesystem implements CdDirectiveFilesystem {
 
 	constructor(
 		options: {
-			existingParents?: readonly string[] | undefined;
-			writeFailure?: string | undefined;
+			existingParents?: readonly string[];
+			writeFailure?: string;
 		} = {},
 	) {
 		this.existingParents = new Set(options.existingParents ?? ["/tmp"]);
