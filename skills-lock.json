@@ -104,7 +104,7 @@
     "code-thermostack": {
       "source": "skills/code-thermostack",
       "sourceType": "local",
-      "computedHash": "f2c7aee6a102ab9d65cd71f2fcf7118b1fb0e230a7d508a6107f55c74154ec54"
+      "computedHash": "dc4758834d61f88180dd05c018620b6be08de5746cc1a015d7a4a70b8eefc626"
     },
     "code-workflows": {
       "source": "skills/code-workflows",
@@ -145,7 +145,7 @@
     "dignified-python-tripwire": {
       "source": "skills/dignified-python-tripwire",
       "sourceType": "local",
-      "computedHash": "0b1f145b037ae62568b062a6672ecb75000ada9da44c5e1e282b19f26638c385"
+      "computedHash": "75ac551d6427ce3fbf8f1cbb6576e48192f5ee6551a3b596050b1f50dc37caf6"
     },
     "domain-modeling": {
       "source": "mattpocock/skills",
@@ -153,10 +153,10 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "67343881f5def98487d56243155716110afbcbf22ec92421c882d532b941cb17"
     },
-    "duplicative-abstractions-tripwire": {
-      "source": "skills/duplicative-abstractions-tripwire",
+    "reinvented-abstractions-tripwire": {
+      "source": "skills/reinvented-abstractions-tripwire",
       "sourceType": "local",
-      "computedHash": "4081510461e4d823b6a5c8415db15c0f245648898f4878fd3505e077aa106b7f"
+      "computedHash": "d77ac7b897d91771beee4904ce38a457c13e94df99749c89fb8f4da3b2e39b5d"
     },
     "enriched-plan-save": {
       "source": "skills/enriched-plan-save",
@@ -309,17 +309,17 @@
     "roast-dry-but-not-too-dry": {
       "source": "skills/roast-dry-but-not-too-dry",
       "sourceType": "local",
-      "computedHash": "9ed580dd1d8aa87de23e5b8f05ed4e7708e5e12cbdba766155ee5d22384fa3f3"
+      "computedHash": "42cf62df05c7bad6bf25a1bb8f07df328d9aeb459ba3db40db3abcea68cac0cf"
     },
     "roast-improve-codebase-architecture": {
       "source": "skills/roast-improve-codebase-architecture",
       "sourceType": "local",
-      "computedHash": "72f72ca09700b1d039dfc9424fc0e3efd16a092e980c9da99794fb91dc77ce62"
+      "computedHash": "757dca5a58804d899d376435d1608a0d653289a13c002b38b176ea60d3c14ff9"
     },
     "roast-thermonuclear-review": {
       "source": "skills/roast-thermonuclear-review",
       "sourceType": "local",
-      "computedHash": "cf6e74aa5d0f7f21877b9f00ed9be58fa0413477d8431239720eae10a8553764"
+      "computedHash": "7e80abba397da7b48024bc6680466004e89424e3600167d095c1ad02d320dc62"
     },
     "sdl-cli-design": {
       "source": "skills/sdl-cli-design",
@@ -339,7 +339,7 @@
     "sdl-typescript-style-tripwire": {
       "source": "skills/sdl-typescript-style-tripwire",
       "sourceType": "local",
-      "computedHash": "ba1f488f99744ebb61ad2163af8fa5d9d11fb06872c32537f770258285ab4ca8"
+      "computedHash": "96a9ddfe19832575d7244b0478cc2cdee785250bd6225fc2ab4b863f49e11722"
     },
     "setup-dprint": {
       "source": "skills/setup-dprint",

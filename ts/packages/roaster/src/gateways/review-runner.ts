@@ -131,6 +131,7 @@ export class ClaudeCodeProcessReviewRunner implements ReviewRunnerGateway {
 
 		const assembled = assembleReviewPrompt({
 			reviewDefinition: request.reviewDefinition,
+			reviewDir: request.reviewDir,
 			target: request.target,
 		});
 		const args = buildClaudeCodeArgs({

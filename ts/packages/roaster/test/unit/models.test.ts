@@ -181,6 +181,7 @@ describe("roaster domain schemas", () => {
 		const request = reviewRunnerRequestSchema.parse({
 			model: "haiku",
 			reviewDefinition,
+			reviewDir: "/repo/.sdl/reviews/typescript-style",
 			target: { localDiff },
 		});
 		const response = reviewExecutionResponseSchema.parse({
@@ -196,7 +197,7 @@ describe("roaster domain schemas", () => {
 	test("validates review run result contract", () => {
 		const result = reviewRunResultSchema.parse({
 			reviewName: "typescript-style",
-			reviewPath: ".sdl/reviews/typescript-style.md",
+			reviewPath: ".sdl/reviews/typescript-style/review.md",
 			modelProfile: "quick",
 			model: "haiku",
 			baseRef: "main",

@@ -58,7 +58,7 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"create-python-package",
 	"dignified-python",
 	"dignified-python-tripwire",
-	"duplicative-abstractions-tripwire",
+	"reinvented-abstractions-tripwire",
 	"enriched-plan-save",
 	"fdt-refactor-mock-to-fake",
 	"handoff-create",

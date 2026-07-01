@@ -30,7 +30,7 @@ Avoid: importing private `@sdl/roaster/src/...` modules or treating the broad pa
 
 ### Review definition
 
-A Markdown catalog entry under `.sdl/reviews/<key>.md` with frontmatter and instructions that defines what Roaster should check.
+A Markdown catalog entry at `.sdl/reviews/<key>/review.md`, where `<key>` is a direct review folder name, with frontmatter and instructions that define what Roaster should check. Sibling assets under that folder are not separate Review definitions.
 
 Avoid: calling review definitions GitHub PR reviews, or treating the catalog key as a GitHub review identity.
 

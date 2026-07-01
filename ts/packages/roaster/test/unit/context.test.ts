@@ -61,7 +61,7 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 		this.sourceCalls.push(options);
 		return {
 			type: "ok",
-			value: { key: options.key, path: "/repo/.sdl/reviews/type.md", source: "" },
+			value: { key: options.key, path: "/repo/.sdl/reviews/type/review.md", source: "" },
 		};
 	}
 }
@@ -177,6 +177,7 @@ describe("createRoasterRuntime", () => {
 			{
 				model: "sonnet",
 				reviewDefinition: sampleReviewDefinition,
+				reviewDir: "/repo/.sdl/reviews/typescript-style",
 				target: { localDiff: sampleDiff },
 			},
 			runOptions,

@@ -380,7 +380,7 @@ describe("GitHub status check classification", () => {
 					workflowName: "roaster",
 					workflowRunDatabaseId: 101,
 					workflowRunUpdatedAt: "2026-06-26T14:22:00Z",
-					name: "review (duplicative-abstractions-tripwire)",
+					name: "review (reinvented-abstractions-tripwire)",
 					status: "COMPLETED",
 					conclusion: "SUCCESS",
 					completedAt: "2026-06-26T14:21:23Z",

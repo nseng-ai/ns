@@ -31,6 +31,7 @@ function request(
 			applicability: { include: ["**/*.ts"], exclude: [] },
 			localOnly: false,
 		},
+		reviewDir: "/repo/.sdl/reviews/typescript-style",
 		target: {
 			localDiff: createLocalDiff({
 				baseRef: "main",

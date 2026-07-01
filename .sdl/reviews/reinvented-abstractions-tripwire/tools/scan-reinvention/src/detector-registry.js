@@ -1,0 +1,281 @@
+import { forEachChild, isCallExpression, isIdentifier, isImportDeclaration, isObjectLiteralExpression, isPropertyAccessExpression, isPropertyAssignment, isRegularExpressionLiteral, isStringLiteralLike, } from "typescript";
+import { moduleSpecifierText, sourceLocationFields } from "@sdl/typescript-analysis";
+import { manifestRefForKind, reinventionKinds, } from "./output-schema.ts";
+export const detectorMetadata = [
+    {
+        kind: "subprocess",
+        canonical: "runCommand / NodeCommandExecApi / CommandExecApi",
+        import: "@sdl/exec / @sdl/core/command",
+        precision: "high",
+    },
+    {
+        kind: "interactive-confirm",
+        canonical: "confirmation/prompt gateway owned by the command layer",
+        import: "@sdl/* command prompt helpers",
+        precision: "high",
+    },
+    {
+        kind: "exact-optional-spread",
+        canonical: "conditional object spread for exactOptionalPropertyTypes",
+        import: "local construction idiom",
+        precision: "medium",
+    },
+    {
+        kind: "xdg-path",
+        canonical: "SDL XDG path helpers",
+        import: "@sdl/core/path or capability-owned XDG helpers",
+        precision: "medium",
+    },
+    {
+        kind: "hand-rolled-table",
+        canonical: "table/rendering helpers",
+        import: "@sdl/cli-theme or package renderer helpers",
+        precision: "low",
+    },
+    {
+        kind: "raw-git",
+        canonical: "GitGateway",
+        import: "@sdl/git / capability gateway",
+        precision: "low",
+    },
+    {
+        kind: "machine-envelope-literal",
+        canonical: "Clinkr/result envelope builders",
+        import: "@sdl/clinkr or package command result helpers",
+        precision: "medium",
+    },
+    {
+        kind: "command-failure-format",
+        canonical: "formatCommandFailure / formatCommandResultFailure",
+        import: "@sdl/exec / @sdl/core/command",
+        precision: "high",
+    },
+    {
+        kind: "escape-regex",
+        canonical: "stripTerminalEscapes",
+        import: "@sdl/core/command or @sdl/core/terminal-escapes",
+        precision: "medium",
+    },
+    {
+        kind: "osc8-hyperlink",
+        canonical: "OSC-8 hyperlink formatter/parser",
+        import: "@sdl/cli-theme or terminal helpers",
+        precision: "high",
+    },
+    {
+        kind: "manual-truncation",
+        canonical: "tailText / bounded text helpers",
+        import: "@sdl/core/command or package formatter helper",
+        precision: "low",
+    },
+    {
+        kind: "frontmatter-split",
+        canonical: "frontmatter/review definition parser",
+        import: "existing review/frontmatter parser",
+        precision: "low",
+    },
+];
+const detectorByKind = new Map();
+for (const metadata of detectorMetadata) {
+    detectorByKind.set(metadata.kind, { ...metadata, detect: detectorForKind(metadata) });
+}
+export function activeDetectorKinds() {
+    return reinventionKinds;
+}
+export function runDetectors(context, kinds) {
+    const candidates = [];
+    for (const kind of kinds) {
+        const detector = detectorByKind.get(kind);
+        if (detector === undefined)
+            continue;
+        candidates.push(...detector.detect(context));
+    }
+    return candidates;
+}
+export function isReinventionKind(value) {
+    return reinventionKinds.some((kind) => kind === value);
+}
+function detectorForKind(metadata) {
+    switch (metadata.kind) {
+        case "subprocess":
+            return (context) => detectSubprocess(context, metadata);
+        case "interactive-confirm":
+            return (context) => detectInteractiveConfirm(context, metadata);
+        case "exact-optional-spread":
+            return (context) => detectSourceRegex(context, metadata, /\.\.\.\s*\([^?]+===\s*undefined\s*\?\s*\{\s*\}\s*:\s*\{/gu, "conditional exact-optional object spread");
+        case "xdg-path":
+            return (context) => detectXdgPath(context, metadata);
+        case "hand-rolled-table":
+            return (context) => detectHandRolledTable(context, metadata);
+        case "raw-git":
+            return (context) => detectSourceRegex(context, metadata, /(?:["']git["']|["']git\s+)/gu, "raw git command string");
+        case "machine-envelope-literal":
+            return (context) => detectMachineEnvelopeLiteral(context, metadata);
+        case "command-failure-format":
+            return (context) => detectSourceRegex(context, metadata, /formatCommandFailure|exit code|exited with status/gu, "command failure formatting");
+        case "escape-regex":
+            return (context) => detectEscapeRegex(context, metadata);
+        case "osc8-hyperlink":
+            return (context) => detectSourceRegex(context, metadata, /]8;;|\\u001b\]8|\\x1b\]8/gu, "OSC-8 hyperlink marker");
+        case "manual-truncation":
+            return (context) => detectSourceRegex(context, metadata, /\.slice\([^\n]+(?:…|\.\.\.)/gu, "manual slice plus ellipsis truncation");
+        case "frontmatter-split":
+            return (context) => detectSourceRegex(context, metadata, /\.(?:split|indexOf)\(\s*["']---["']|^\s*\/\^?---/gmu, "manual frontmatter delimiter parsing");
+    }
+}
+function detectSubprocess(context, metadata) {
+    return visitForCandidates(context, metadata, (node) => {
+        if (isImportDeclaration(node)) {
+            const specifier = moduleSpecifierText(node);
+            if (specifier === "node:child_process" || specifier === "child_process") {
+                return "node:child_process import";
+            }
+        }
+        if (isCallExpression(node)) {
+            const first = node.arguments[0];
+            if (first !== undefined && isStringLiteralLike(first)) {
+                const callee = expressionText(node.expression);
+                if ((callee === "require" || callee === "import") && isChildProcessSpecifier(first.text)) {
+                    return "dynamic child_process load";
+                }
+            }
+        }
+        return undefined;
+    });
+}
+function detectInteractiveConfirm(context, metadata) {
+    return visitForCandidates(context, metadata, (node) => {
+        if (isImportDeclaration(node)) {
+            const specifier = moduleSpecifierText(node);
+            if (specifier === "node:readline" ||
+                specifier === "readline" ||
+                specifier === "node:readline/promises") {
+                return "readline import for interactive confirmation";
+            }
+        }
+        if (isPropertyAccessExpression(node) &&
+            node.getText(context.sourceFile) === "process.stdin.isTTY") {
+            return "process.stdin.isTTY check";
+        }
+        return undefined;
+    });
+}
+function detectXdgPath(context, metadata) {
+    return visitForCandidates(context, metadata, (node) => {
+        if (isCallExpression(node) && expressionText(node.expression) === "os.homedir") {
+            return "os.homedir path construction";
+        }
+        if (isPropertyAccessExpression(node)) {
+            const text = node.getText(context.sourceFile);
+            if (/process\.env\.(?:XDG_[A-Z_]+|HOME)$/u.test(text))
+                return "direct XDG/HOME environment read";
+        }
+        if (isStringLiteralLike(node) &&
+            (node.text.includes(".local/state") || node.text.includes(".config"))) {
+            return "literal XDG path segment";
+        }
+        return undefined;
+    });
+}
+function detectHandRolledTable(context, metadata) {
+    const signals = detectSourceRegex(context, metadata, /pad(?:End|Start)|Math\.max\([^\n]+\.length|\.length\s*[),;]|["'`][─━-]{3,}["'`]\.repeat\(/gu, "table-width/layout signal");
+    return signals.length >= 2 ? [signals[0]].filter((candidate) => candidate !== undefined) : [];
+}
+function detectMachineEnvelopeLiteral(context, metadata) {
+    return visitForCandidates(context, metadata, (node) => {
+        if (!isObjectLiteralExpression(node))
+            return undefined;
+        const names = new Set();
+        for (const property of node.properties) {
+            if (isPropertyAssignment(property)) {
+                const name = propertyNameText(property.name);
+                if (name !== undefined)
+                    names.add(name);
+            }
+        }
+        return names.has("status") &&
+            names.has("exitCode") &&
+            (names.has("data") || names.has("message"))
+            ? "machine envelope literal"
+            : undefined;
+    });
+}
+function detectEscapeRegex(context, metadata) {
+    return visitForCandidates(context, metadata, (node) => {
+        if (isRegularExpressionLiteral(node) && /\\x1b|\\u001b|\\033/u.test(node.text)) {
+            return "terminal escape regex literal";
+        }
+        if (isStringLiteralLike(node) && /\\x1b|\\u001b|\\033/u.test(node.text)) {
+            return "terminal escape string literal";
+        }
+        return undefined;
+    });
+}
+function visitForCandidates(context, metadata, match) {
+    const candidates = [];
+    function visit(node) {
+        const matchedTell = match(node);
+        if (matchedTell !== undefined) {
+            candidates.push(buildCandidate(context, metadata, node, matchedTell));
+        }
+        forEachChild(node, visit);
+    }
+    visit(context.sourceFile);
+    return candidates;
+}
+function detectSourceRegex(context, metadata, pattern, matchedTell) {
+    const source = context.sourceFile.getFullText();
+    const candidates = [];
+    for (const match of source.matchAll(pattern)) {
+        const index = match.index;
+        if (index === undefined)
+            continue;
+        const position = context.sourceFile.getLineAndCharacterOfPosition(index);
+        candidates.push({
+            kind: metadata.kind,
+            manifestRef: manifestRefForKind(metadata.kind),
+            canonical: metadata.canonical,
+            import: metadata.import,
+            file: context.file,
+            line: position.line + 1,
+            column: position.character + 1,
+            snippet: lineAt(source, position.line),
+            matchedTell,
+            addedLine: false,
+            precision: metadata.precision,
+        });
+    }
+    return candidates;
+}
+function buildCandidate(context, metadata, node, matchedTell) {
+    const location = sourceLocationFields(context.file, context.sourceFile, node);
+    return {
+        kind: metadata.kind,
+        manifestRef: manifestRefForKind(metadata.kind),
+        canonical: metadata.canonical,
+        import: metadata.import,
+        file: location.path,
+        line: location.line,
+        column: location.column,
+        snippet: location.text,
+        matchedTell,
+        addedLine: false,
+        precision: metadata.precision,
+    };
+}
+function expressionText(expression) {
+    return expression.getText();
+}
+function isChildProcessSpecifier(value) {
+    return value === "node:child_process" || value === "child_process";
+}
+function propertyNameText(name) {
+    if (isIdentifier(name))
+        return name.text;
+    if (isStringLiteralLike(name))
+        return name.text;
+    return undefined;
+}
+function lineAt(source, zeroBasedLine) {
+    return source.split(/\r?\n/u)[zeroBasedLine]?.trim() ?? "";
+}

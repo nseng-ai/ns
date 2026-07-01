@@ -1,9 +1,10 @@
-export function testGlobsFor(subdir?: string): readonly [string, string] {
+export function testGlobsFor(subdir?: string): readonly [string, string, string] {
 	const testPath = subdir === undefined ? "" : `${subdir}/`;
 
 	return [
 		`packages/*/test/${testPath}**/*.test.ts`,
 		`packages/*/*/test/${testPath}**/*.test.ts`,
+		`../.sdl/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
 	] as const;
 }
 

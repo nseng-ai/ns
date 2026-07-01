@@ -80,6 +80,7 @@ describe("runRoasterReview", () => {
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
 		expect(reviewRunner.calls()[0]?.request.model).toBe("opus");
+		expect(reviewRunner.calls()[0]?.request.reviewDir).toBe("/repo/.sdl/reviews/typescript-style");
 		expect(localDiff.requestedExcludeGlobs()).toEqual([["generated/**"]]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.reviewKey).toBe("typescript-style");

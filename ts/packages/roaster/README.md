@@ -8,7 +8,7 @@ sdl roaster ...
 
 ## Review definitions
 
-Review definitions live in `.sdl/reviews/<key>.md`. The key is the repo-relative filename without `.md`, for example `.sdl/reviews/sdl-typescript-style-tripwire.md` is `sdl-typescript-style-tripwire`.
+Review definitions live in `.sdl/reviews/<key>/review.md`. The key is the direct child folder name under `.sdl/reviews`; for example `.sdl/reviews/sdl-typescript-style-tripwire/review.md` is `sdl-typescript-style-tripwire`. Roaster loads only direct child `review.md` files, so colocated files such as `references/*.md` are review assets rather than review definitions.
 
 A definition is a Markdown file with YAML frontmatter followed by the review instructions:
 
@@ -67,7 +67,7 @@ sdl roaster review run <review-key> --base-ref main
 Useful checks after editing a review definition:
 
 ```bash
-dprint check .sdl/reviews/<review-key>.md
+dprint check .sdl/reviews/<review-key>/review.md
 sdl roaster review list --ci --format json
 sdl roaster review list --ci --applicable --base-ref main --format json
 ```

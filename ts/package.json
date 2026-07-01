@@ -38,6 +38,8 @@
     "@sdl/roaster": "workspace:*",
     "@sdl/slot": "workspace:*",
     "@sdl/test-kit": "workspace:*",
+    "@sdl/typescript-analysis": "workspace:*",
+    "@sdl/review-reinvention-scanner": "workspace:*",
     "@types/node": "catalog:",
     "@typescript/native-preview": "catalog:",
     "@withgraphite/graphite-cli": "catalog:",
@@ -55,7 +57,8 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/*/*"
+    "packages/*/*",
+    "../.sdl/reviews/*/tools/*"
   ],
   "patchedDependencies": {
     "@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"

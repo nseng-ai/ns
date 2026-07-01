@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { formatErrorMessage } from "@sdl/core/primitives";
 
@@ -115,6 +115,7 @@ export async function runRoasterReview(
 		{
 			model: model.model,
 			reviewDefinition: definition,
+			reviewDir: dirname(source.path),
 			target: { localDiff: diff },
 		},
 		environmentOptions(ctx.runScope),
