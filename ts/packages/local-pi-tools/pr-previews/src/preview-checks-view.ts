@@ -4,17 +4,19 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 
 import {
 	bucketPresentation,
-	bucketThemeColor,
 	buildCheckDetailRows,
 	buildCheckRowLabel,
-	parseCheckLogSummaryMarkdownLine,
 	type PrPreviewChecksDetailRow,
 	type PrPreviewCheck,
 	type PrPreviewChecksViewModel,
 	type PrPreviewStatusColor,
 } from "./preview-checks-model.ts";
 import { clamp, fitToWidth, reconcileScroll } from "@sdl/pi/terminal/layout";
-import { sliceWrappedDetailLinesForViewport, wrapDetailLines } from "./preview-view-utilities.ts";
+import {
+	parseCheckLogSummaryMarkdownLine,
+	sliceWrappedDetailLinesForViewport,
+	wrapDetailLines,
+} from "./preview-view-utilities.ts";
 import type {
 	WrappedDetailViewport,
 	WrappedDetailViewportOptions,
@@ -230,7 +232,7 @@ export class PrPreviewChecksView implements Component {
 				return this.color("accent", `▣ ${row.text}`);
 			case "review":
 				return this.color(
-					row.bucket === undefined ? "muted" : bucketThemeColor(row.bucket),
+					row.bucket === undefined ? "muted" : bucketPresentation(row.bucket).color,
 					`  ${row.text}`,
 				);
 			case "body":

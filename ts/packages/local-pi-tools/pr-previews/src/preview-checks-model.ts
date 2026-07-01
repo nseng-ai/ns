@@ -69,34 +69,6 @@ export function bucketPresentation(bucket: PrPreviewCheckBucket): PrPreviewBucke
 	return BUCKET_PRESENTATION[bucket];
 }
 
-export function bucketThemeColor(bucket: PrPreviewCheckBucket): PrPreviewStatusColor {
-	return bucketPresentation(bucket).color;
-}
-
-export type CheckLogSummaryMarkdownSegment =
-	| { kind: "bold"; text: string }
-	| { kind: "code"; text: string }
-	| { kind: "plain"; text: string };
-
-const CHECK_LOG_SUMMARY_MARKDOWN_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`/g;
-
-export function parseCheckLogSummaryMarkdownLine(line: string): CheckLogSummaryMarkdownSegment[] {
-	const segments: CheckLogSummaryMarkdownSegment[] = [];
-	let lastIndex = 0;
-	for (const match of line.matchAll(CHECK_LOG_SUMMARY_MARKDOWN_PATTERN)) {
-		const matchIndex = match.index;
-		if (matchIndex > lastIndex)
-			segments.push({ kind: "plain", text: line.slice(lastIndex, matchIndex) });
-		const [, bold, code] = match;
-		segments.push(
-			bold !== undefined ? { kind: "bold", text: bold } : { kind: "code", text: code ?? "" },
-		);
-		lastIndex = matchIndex + match[0].length;
-	}
-	if (lastIndex < line.length) segments.push({ kind: "plain", text: line.slice(lastIndex) });
-	return segments;
-}
-
 export function sortPreviewChecks(checks: readonly PrPreviewCheck[]): PrPreviewCheck[] {
 	const order: Record<PrPreviewCheckBucket, number> = {
 		failing: 0,
