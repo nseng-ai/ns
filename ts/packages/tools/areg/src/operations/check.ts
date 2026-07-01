@@ -3,6 +3,7 @@ import type { Result } from "@sdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
+import { missingCheckSkillInspection } from "../gateways.ts";
 import type { AregCheckSkillInspection } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { isPathStateError } from "./file-state.ts";
@@ -136,7 +137,7 @@ export function buildCheckReport(
 	const issues: CheckIssue[] = [];
 	const byName = new Map(inspection.skills.map((skill) => [skill.name, skill]));
 	for (const entry of lockfile.skills) {
-		const inspected = byName.get(entry.name) ?? missingSkillInspection(entry.name);
+		const inspected = byName.get(entry.name) ?? missingCheckSkillInspection(entry.name);
 		if (entry.sourceType === "local") issues.push(...checkLocalSkill(entry, inspected));
 		if (entry.sourceType !== "local") issues.push(...checkRemoteSkill(entry, inspected));
 		issues.push(...checkSkillMd(entry, inspected));
@@ -451,7 +452,7 @@ function checkOrphansAndDangling(
 			);
 	}
 	for (const name of sortStrings([...lockNames])) {
-		const inspected = byName.get(name) ?? missingSkillInspection(name);
+		const inspected = byName.get(name) ?? missingCheckSkillInspection(name);
 		if (
 			inspected.skillsPath.type === "missing" &&
 			inspected.agentsPath.type === "missing" &&
@@ -516,17 +517,4 @@ function piSettingsPathFailureReport(projectDir: string, message: string): Check
 
 function issue(skill: string, code: CheckIssueCode, message: string): CheckIssue {
 	return { skill, code, message };
-}
-
-function missingSkillInspection(name: string): AregCheckSkillInspection {
-	const missing = { type: "missing" as const };
-	return {
-		name,
-		skillsPath: missing,
-		agentsPath: missing,
-		claudePath: missing,
-		localSkillMd: missing,
-		remoteSkillMd: missing,
-		openaiPolicy: missing,
-	};
 }

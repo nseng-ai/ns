@@ -244,41 +244,27 @@ async function resolveWriteTextFileTarget(
 ): Promise<
 	{ type: "ok"; value: string; projectRoot: string } | { type: "error"; error: AregErrorInfo }
 > {
-	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
-	const target = resolveAllowedWriteTarget({
-		policy: request.policy,
-		projectRoot: projectRoot.value,
-		relativePath: request.relativePath,
-		description: request.description,
-	});
-	if (target.type === "error") return { type: "error", error: target.error };
+	const target = await resolveProjectMutationTarget(request);
+	if (target.type === "error") return target;
 	const validation = await validateWriteTarget({
 		policy: request.policy,
 		target: target.value,
-		projectRoot: projectRoot.value,
+		projectRoot: target.projectRoot,
 		shouldCreateParent: request.createParent,
 		description: request.description,
 	});
 	if (!validation.ok) return { type: "error", error: validation.error };
-	return { type: "ok", value: target.value, projectRoot: projectRoot.value };
+	return target;
 }
 
 async function resolveDeleteFileTarget(
 	request: AregProjectFileDeleteRequest,
 ): Promise<{ type: "ok"; value: string } | { type: "error"; error: AregErrorInfo }> {
-	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
-	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
-	const target = resolveAllowedWriteTarget({
-		policy: request.policy,
-		projectRoot: projectRoot.value,
-		relativePath: request.relativePath,
-		description: request.description,
-	});
-	if (target.type === "error") return { type: "error", error: target.error };
+	const target = await resolveProjectMutationTarget(request);
+	if (target.type === "error") return target;
 	const validation = await validateSkillKindDeleteTarget(
 		target.value,
-		projectRoot.value,
+		target.projectRoot,
 		request.description,
 	);
 	if (!validation.ok) return { type: "error", error: validation.error };
@@ -290,6 +276,25 @@ async function resolveRemoveEmptyDirTarget(
 ): Promise<
 	{ type: "ok"; value: string; exists: boolean } | { type: "error"; error: AregErrorInfo }
 > {
+	const target = await resolveProjectMutationTarget(request);
+	if (target.type === "error") return target;
+	const validation = await validateSkillKindRemoveDirTarget(
+		target.value,
+		target.projectRoot,
+		request.description,
+	);
+	if (!validation.ok) return { type: "error", error: validation.error };
+	return { type: "ok", value: target.value, exists: validation.exists };
+}
+
+async function resolveProjectMutationTarget(request: {
+	projectDir: string;
+	policy: AregProjectTextWriteRequest["policy"];
+	relativePath: string;
+	description: string;
+}): Promise<
+	{ type: "ok"; value: string; projectRoot: string } | { type: "error"; error: AregErrorInfo }
+> {
 	const projectRoot = await resolveExistingDirectory(request.projectDir, "project root");
 	if (projectRoot.type === "error") return { type: "error", error: projectRoot.error };
 	const target = resolveAllowedWriteTarget({
@@ -299,13 +304,7 @@ async function resolveRemoveEmptyDirTarget(
 		description: request.description,
 	});
 	if (target.type === "error") return { type: "error", error: target.error };
-	const validation = await validateSkillKindRemoveDirTarget(
-		target.value,
-		projectRoot.value,
-		request.description,
-	);
-	if (!validation.ok) return { type: "error", error: validation.error };
-	return { type: "ok", value: target.value, exists: validation.exists };
+	return { type: "ok", value: target.value, projectRoot: projectRoot.value };
 }
 
 async function inspectCheckSkill(

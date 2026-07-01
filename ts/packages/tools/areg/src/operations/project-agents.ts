@@ -48,16 +48,10 @@ export function parseSdlAregAgents(text: string, pathLabel = "sdl.toml"): Result
 			message: `${pathLabel} [areg].agents must be a string array.`,
 		});
 	if (agents.length === 0) return { ok: true, value: [] };
-	const result: string[] = [];
-	for (const agent of agents) {
-		if (typeof agent !== "string" || agent.trim().length === 0)
-			return err({
-				code: "sdl_toml_invalid",
-				message: `${pathLabel} [areg].agents must be a non-empty string list.`,
-			});
-		result.push(agent);
-	}
-	return { ok: true, value: result };
+	return validateNonEmptyStringList(agents, {
+		code: "sdl_toml_invalid",
+		message: `${pathLabel} [areg].agents must be a non-empty string list.`,
+	});
 }
 
 export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
@@ -78,13 +72,19 @@ export function parseLegacyAregJsonAgents(text: string): Result<string[]> {
 			code: "areg_agents_invalid",
 			message: "areg.json field `agents` must be a non-empty string list.",
 		});
+	return validateNonEmptyStringList(agents, {
+		code: "areg_agents_invalid",
+		message: "areg.json field `agents` must be a non-empty string list.",
+	});
+}
+
+function validateNonEmptyStringList(
+	agents: readonly unknown[],
+	invalid: { code: string; message: string },
+): Result<string[]> {
 	const result: string[] = [];
 	for (const agent of agents) {
-		if (typeof agent !== "string" || agent.trim().length === 0)
-			return err({
-				code: "areg_agents_invalid",
-				message: "areg.json field `agents` must be a non-empty string list.",
-			});
+		if (typeof agent !== "string" || agent.trim().length === 0) return err(invalid);
 		result.push(agent);
 	}
 	return { ok: true, value: result };

@@ -111,6 +111,19 @@ export interface AregCheckSkillInspection {
 	openaiPolicy: AregTextFileState;
 }
 
+export function missingCheckSkillInspection(name: string): AregCheckSkillInspection {
+	const missing = { type: "missing" as const };
+	return {
+		name,
+		skillsPath: missing,
+		agentsPath: missing,
+		claudePath: missing,
+		localSkillMd: missing,
+		remoteSkillMd: missing,
+		openaiPolicy: missing,
+	};
+}
+
 export interface AregCheckPairingDirectory {
 	relativeDir: string;
 	hasAgents: boolean;
