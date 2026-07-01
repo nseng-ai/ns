@@ -55,8 +55,18 @@ export function stringArrayField(
 	return value.every((item): item is string => typeof item === "string") ? value : undefined;
 }
 
-export function optionalEntry<T>(key: string, value: T | undefined): Record<string, T> {
-	return value === undefined ? {} : { [key]: value };
+export type OptionalEntries<T extends Record<string, unknown>> = {
+	[P in keyof T]?: Exclude<T[P], undefined>;
+};
+
+export function optionalEntries<T extends Record<string, unknown>>(entries: T): OptionalEntries<T> {
+	return Object.fromEntries(
+		Object.entries(entries).filter(([, value]) => value !== undefined),
+	) as OptionalEntries<T>;
+}
+
+export function optionalEntry<K extends string, T>(key: K, value: T | undefined): { [P in K]?: T } {
+	return optionalEntries({ [key]: value }) as { [P in K]?: T };
 }
 
 export function formatErrorMessage(error: unknown): string {

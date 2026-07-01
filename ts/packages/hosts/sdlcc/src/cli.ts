@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, ok, usageError } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
 import { runRealCommand, type CommandRunner } from "./command-runner.ts";
@@ -16,12 +16,9 @@ import {
 	sdlccCmuxReportResultSchema,
 } from "./cmux-report.ts";
 
-export interface SdlccCliDeps {
-	readonly cwd?: string;
+export interface SdlccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	readonly env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	readonly runCommand?: CommandRunner;
-	readonly stdout?: (text: string) => void;
-	readonly stderr?: (text: string) => void;
 	readonly startTui?: () => Promise<void> | void;
 }
 

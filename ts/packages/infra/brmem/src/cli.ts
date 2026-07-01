@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
-import type { BrmemEnvOption } from "./env.ts";
 import type { BrmemSourceReader } from "./source-reader.ts";
 import {
 	checkRequestSchema,
@@ -159,15 +158,11 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 
 export const VERSION = entry.version;
 
-export interface CliDeps {
+export interface CliDeps extends CliEntrypointDeps {
 	context?: BrmemCliContext;
-	cwd?: string;
-	env?: BrmemEnvOption;
 	stdin?: () => Promise<string>;
 	sourceReader?: BrmemSourceReader;
 	interaction?: BrmemCliContext["interaction"];
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 }
 
 export function buildCli(): ClinkrGroup<BrmemCliContext> {

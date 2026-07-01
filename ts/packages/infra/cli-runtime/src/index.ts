@@ -27,6 +27,11 @@ export interface CliEntrypointDeps {
 	readonly stderr?: (text: string) => void;
 }
 
+export interface CliRunIfMainInput {
+	readonly isImportMetaMain: boolean;
+	readonly argv?: readonly string[];
+}
+
 export type CliPrepareRunResult<TContext, TBuildState> =
 	| { readonly type: "handled"; readonly exitCode: number }
 	| {
@@ -119,10 +124,7 @@ export interface DefinedCli<TContext, TDeps extends CliEntrypointDeps, TBuildSta
 	readonly runtimeInfo: () => string;
 	readonly buildCli: (buildState: TBuildState) => ClinkrGroup<TContext>;
 	readonly run: (args: readonly string[], deps?: CliRunDeps<TDeps>) => Promise<number>;
-	readonly runIfMain: (input: {
-		readonly isImportMetaMain: boolean;
-		readonly argv?: readonly string[];
-	}) => Promise<void>;
+	readonly runIfMain: (input: CliRunIfMainInput) => Promise<void>;
 }
 
 const packageJsonSchema = z.object({
@@ -243,10 +245,7 @@ export function defineCli<
 			return handledExitCode;
 		}
 	};
-	const runIfMain = async (input: {
-		readonly isImportMetaMain: boolean;
-		readonly argv?: readonly string[];
-	}): Promise<void> => {
+	const runIfMain = async (input: CliRunIfMainInput): Promise<void> => {
 		const argv = input.argv ?? process.argv;
 		if (!input.isImportMetaMain && !isDirectCliInvocation(options.metaUrl, argv[1])) return;
 		process.exitCode = await run(argv.slice(2));

@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { failure, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { runOperationCommand } from "@sdl/cli-runtime";
+import { runOperationCommand, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
 import { normalizePlanFilePath, validatePlanSlug } from "@sdl/plans";
 import { z } from "zod";
@@ -180,11 +180,8 @@ export function createRealBranchContextCliContext(options: {
 	};
 }
 
-export interface CliDeps {
+export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	context?: BranchContextContext;
-	cwd?: string;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 	planStoreRoot?: string;
 }
 

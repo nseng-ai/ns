@@ -13,7 +13,8 @@ import {
 } from "@sdl/clinkr";
 import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli, readStdin } from "@sdl/cli-runtime";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@sdl/cli-runtime";
+import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
 
 import {
@@ -76,12 +77,9 @@ interface SdlCliExtensionRegistryDeps {
 	) => Promise<SelectedSdlCommandLoadResult>;
 }
 
-export interface SdlCliDeps {
+export interface SdlCliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	context?: SdlExtensionApi;
-	cwd?: string;
 	homeDir?: string;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 	onOutput?: (stream: SdlOutputStream, text: string) => void;
 	confirm?: SdlConfirmPrompt;
 	env?: Record<string, string | undefined> | undefined;
@@ -120,7 +118,7 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			deps.extensionRegistry?.loadCommandCatalog ?? loadSdlCommandCatalog
 		)({
 			cwd: resolvedCwd,
-			...(homeDir === undefined ? {} : { homeDir }),
+			...optionalEntry("homeDir", homeDir),
 		});
 		if (isCompletionResolverInvocation(args)) {
 			return await handleCompletionResolverInvocation({
@@ -130,13 +128,13 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 				env: resolvedEnv,
 				stdout: resolvedStdout,
 				stderr: resolvedStderr,
-				...(deps.extensionRegistry?.loadSelectedCommand === undefined
-					? {}
-					: { loadSelectedCommand: deps.extensionRegistry.loadSelectedCommand }),
-				...(injectedContext === undefined ? {} : { injectedContext }),
-				...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
-				...(deps.confirm === undefined ? {} : { confirm: deps.confirm }),
-				...(io.caps === undefined ? {} : { caps: io.caps }),
+				...optionalEntries({
+					loadSelectedCommand: deps.extensionRegistry?.loadSelectedCommand,
+					injectedContext,
+					onOutput: deps.onOutput,
+					confirm: deps.confirm,
+					caps: io.caps,
+				}),
 			});
 		}
 		const isCompletionScriptRequest = isCompletionScriptInvocation(args);
@@ -199,18 +197,19 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 			env: resolvedEnv,
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			...(injectedContext === undefined ? {} : { injectedContext }),
-			...(deps.onOutput === undefined ? {} : { onOutput: deps.onOutput }),
-			...(deps.confirm === undefined ? {} : { confirm: deps.confirm }),
-			...(io.caps === undefined ? {} : { caps: io.caps }),
+			...optionalEntries({
+				injectedContext,
+				onOutput: deps.onOutput,
+				confirm: deps.confirm,
+				caps: io.caps,
+			}),
 		});
 		return {
 			type: "run",
 			context: contextWithIO,
 			buildState: {
 				commandInfos,
-				...(selectedCommand === undefined ? {} : { selectedCommand }),
-				...(selectedPath === undefined ? {} : { selectedCommandPath: selectedPath }),
+				...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
 			},
 		};
 	},
@@ -282,10 +281,10 @@ const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
 export function buildCli(options: BuildSdlCliOptions = {}): ClinkrGroup<SdlCliContext> {
 	return entry.buildCli({
 		commandInfos: options.commandInfos ?? listStaticSdlCommandInfos(),
-		...(options.selectedCommand === undefined ? {} : { selectedCommand: options.selectedCommand }),
-		...(options.selectedCommandPath === undefined
-			? {}
-			: { selectedCommandPath: options.selectedCommandPath }),
+		...optionalEntries({
+			selectedCommand: options.selectedCommand,
+			selectedCommandPath: options.selectedCommandPath,
+		}),
 	});
 }
 
@@ -347,15 +346,16 @@ async function handleCompletionResolverInvocation(options: {
 		env: options.env,
 		stdout: options.stdout,
 		stderr: options.stderr,
-		...(options.injectedContext === undefined ? {} : { injectedContext: options.injectedContext }),
-		...(options.onOutput === undefined ? {} : { onOutput: options.onOutput }),
-		...(options.confirm === undefined ? {} : { confirm: options.confirm }),
-		...(options.caps === undefined ? {} : { caps: options.caps }),
+		...optionalEntries({
+			injectedContext: options.injectedContext,
+			onOutput: options.onOutput,
+			confirm: options.confirm,
+			caps: options.caps,
+		}),
 	});
 	const candidates = await buildCli({
 		commandInfos,
-		...(selectedCommand === undefined ? {} : { selectedCommand }),
-		...(selectedPath === undefined ? {} : { selectedCommandPath: selectedPath }),
+		...optionalEntries({ selectedCommand, selectedCommandPath: selectedPath }),
 	}).completeAsync(
 		{ words },
 		{
@@ -390,7 +390,7 @@ async function buildSdlCliContext(options: {
 	const commandIo = createCliCommandIo({
 		stdout: options.stdout,
 		stderr: options.stderr,
-		...(onOutput === undefined ? {} : { onOutput }),
+		...optionalEntry("onOutput", onOutput),
 	});
 	const context: SdlExtensionApi = {
 		cwd: options.cwd,
@@ -403,15 +403,13 @@ async function buildSdlCliContext(options: {
 		stdout: options.stdout,
 		stderr: options.stderr,
 		stdin,
-		...(onOutput === undefined ? {} : { onOutput }),
-		...(confirm === undefined ? {} : { confirm }),
-		...(contextExtensions === undefined ? {} : { extensions: contextExtensions }),
+		...optionalEntries({ onOutput, confirm, extensions: contextExtensions }),
 	};
 	const slotContext = await createRealSlotContext({
 		cwd: options.cwd,
 		env: options.env,
 		stderr: options.stderr,
-		...(contextExtensions === undefined ? {} : { extensions: contextExtensions }),
+		...optionalEntry("extensions", contextExtensions),
 		renderCapabilities,
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(options.args),
 	});

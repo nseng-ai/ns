@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
 import { NodeCommandExecApi } from "@sdl/exec";
 import type { CommandExecApi } from "@sdl/core/command";
 
@@ -33,12 +33,9 @@ type AutobranchSeamOverrides = Partial<
 	>
 >;
 
-export interface CccCliDeps {
+export interface CccCliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
-	cwd?: string;
 	env?: Record<string, string | undefined>;
-	stdout?: (text: string) => void;
-	stderr?: (text: string) => void;
 	autobranch?: AutobranchSeamOverrides;
 }
 
