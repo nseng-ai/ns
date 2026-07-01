@@ -1,5 +1,5 @@
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import type { PrewrittenPrMetadata } from "./index.ts";
+import { formatItemCount, type PrewrittenPrMetadata } from "./index.ts";
 
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
@@ -118,19 +118,7 @@ export function formatPreflightFailureOutput(
 		.join("\n");
 }
 
-export function formatEmptyBranchPreflightOutput(input: {
-	output: SubmitCommandOutput;
-	submitDryRunCommandDisplay: string;
-	branchName?: string;
-}): string {
-	return formatEmptyBranchFailure(input.branchName);
-}
-
-export function formatEmptyBranchSubmitPreflightOutput(input: {
-	output: SubmitCommandOutput;
-	submitCommandDisplay: string;
-	branchName?: string;
-}): string {
+export function formatEmptyBranchFailureOutput(input: { branchName?: string }): string {
 	return formatEmptyBranchFailure(input.branchName);
 }
 
@@ -164,11 +152,22 @@ export function formatTrunkOutOfDatePreflightOutput(
 	].join("\n");
 }
 
-export function formatMergedPrNotInTrunkPreflightOutput(
-	output: SubmitCommandOutput,
-	_submitDryRunCommandDisplay: string,
-): string {
-	return formatMergedPrNotInTrunkOutput(output);
+export function formatMergedPrNotInTrunkOutput(output: SubmitCommandOutput): string {
+	const details = parseMergedPrNotInTrunkDetails(output);
+	const affectedBranch = details.branch ?? "the affected branch";
+	const trunkName = details.trunk ?? "trunk";
+	const identityLine =
+		details.branch === undefined
+			? undefined
+			: `Branch ${formatMergedPrBranchDetails(details)}${details.trunk === undefined ? "" : `; trunk ${details.trunk}`}.`;
+	return [
+		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
+		identityLine,
+		"",
+		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
+	]
+		.filter((line): line is string => line !== undefined)
+		.join("\n");
 }
 
 export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
@@ -204,7 +203,7 @@ function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined):
 			remoteSync.behindCount > remoteSync.remoteOnlyCommits.length
 		) {
 			lines.push(
-				`  - … ${formatCount(remoteSync.behindCount - remoteSync.remoteOnlyCommits.length, "more commit", "more commits")}`,
+				`  - … ${formatItemCount(remoteSync.behindCount - remoteSync.remoteOnlyCommits.length, "more commit", "more commits")}`,
 			);
 		}
 	}
@@ -219,42 +218,12 @@ function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
 		return `git reports local HEAD and ${remoteSync.upstream} are not divergent; Graphite metadata may be stale.`;
 	}
 	if (remoteSync.aheadCount === 0) {
-		return `local HEAD is ${formatCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
+		return `local HEAD is ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
 	}
 	if (remoteSync.behindCount === 0) {
-		return `local HEAD is ${formatCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
+		return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
 	}
-	return `local HEAD is ${formatCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
-}
-
-function formatCount(count: number, singular: string, plural: string): string {
-	return `${count} ${count === 1 ? singular : plural}`;
-}
-
-export function formatMergedPrNotInTrunkSubmitOutput(
-	output: SubmitCommandOutput,
-	_submitCommandDisplay: string,
-	_submitDryRunCommandDisplay: string,
-): string {
-	return formatMergedPrNotInTrunkOutput(output);
-}
-
-function formatMergedPrNotInTrunkOutput(output: SubmitCommandOutput): string {
-	const details = parseMergedPrNotInTrunkDetails(output);
-	const affectedBranch = details.branch ?? "the affected branch";
-	const trunkName = details.trunk ?? "trunk";
-	const identityLine =
-		details.branch === undefined
-			? undefined
-			: `Branch ${formatMergedPrBranchDetails(details)}${details.trunk === undefined ? "" : `; trunk ${details.trunk}`}.`;
-	return [
-		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
-		identityLine,
-		"",
-		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
+	return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
 }
 
 interface MergedPrNotInTrunkDetails {

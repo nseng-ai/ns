@@ -7,6 +7,7 @@ import {
 	formatCommand,
 	outputListenerToExecCallbacks,
 } from "@sdl/core/command";
+import { optionalEntry } from "@sdl/core/primitives";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import type { GitGateway } from "@sdl/git";
 import { runGraphiteCommand } from "@sdl/graphite/branch";
@@ -15,10 +16,8 @@ import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./ind
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	formatPostSubmitFailureOutput,
-	formatEmptyBranchPreflightOutput,
-	formatEmptyBranchSubmitPreflightOutput,
-	formatMergedPrNotInTrunkPreflightOutput,
-	formatMergedPrNotInTrunkSubmitOutput,
+	formatEmptyBranchFailureOutput,
+	formatMergedPrNotInTrunkOutput,
 	formatRemoteUpdatedOutsideGraphitePreflightOutput,
 	formatPreflightFailureOutput,
 	formatPrewriteFailureOutput,
@@ -273,7 +272,7 @@ export class RealSubmitGateway implements SubmitGateway {
 			...optionalOutputListenerParam(params.onOutput),
 		});
 		const joinedOutput = joinOutput(output);
-		const knownFailureCause = await this.detectKnownPreflightFailureCause(
+		const knownFailureCause = await this.resolveKnownPreflightFailureCause(
 			params.cwd,
 			output,
 			joinedOutput,
@@ -318,7 +317,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		});
 		if (!isSuccessfulOutput(output)) {
 			const joinedOutput = joinOutput(output);
-			const knownFailureCause = await this.detectKnownPreflightFailureCause(
+			const knownFailureCause = await this.resolveKnownPreflightFailureCause(
 				params.cwd,
 				output,
 				joinedOutput,
@@ -379,7 +378,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		]);
 	}
 
-	private async detectKnownPreflightFailureCause(
+	private async resolveKnownPreflightFailureCause(
 		cwd: string,
 		output: SubmitCommandOutput,
 		joinedOutput: string,
@@ -390,7 +389,7 @@ export class RealSubmitGateway implements SubmitGateway {
 		const remoteSync = await this.getRemoteSyncDiagnostics(cwd);
 		return {
 			...cause,
-			...(remoteSync === undefined ? {} : { remoteSync }),
+			...optionalEntry("remoteSync", remoteSync),
 		};
 	}
 
@@ -419,7 +418,10 @@ export class RealSubmitGateway implements SubmitGateway {
 			...(counts === undefined
 				? {}
 				: { aheadCount: counts.aheadCount, behindCount: counts.behindCount }),
-			...(remoteOnlyCommits.length === 0 ? {} : { remoteOnlyCommits }),
+			...optionalEntry(
+				"remoteOnlyCommits",
+				remoteOnlyCommits.length === 0 ? undefined : remoteOnlyCommits,
+			),
 		};
 	}
 
@@ -571,61 +573,15 @@ export async function runSubmitCommand(
 	});
 	const submitted = await options.gateway.submitCurrentStack(submitStreamingCommandParams(options));
 	if (submitted.kind === "failed") {
-		if (submitted.cause?.kind === "merged_pr_not_in_trunk") {
-			const stderr = formatMergedPrNotInTrunkSubmitOutput(
-				submitted.output,
-				submitCommandDisplay,
-				submitDryRunCommandDisplay,
-			);
-			return failure(normalizedFailureExitCode(submitted.output), stderr, {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript(
-					"submit preflight",
-					submitCommandDisplay,
-					submitted.output,
-					stderr,
-				),
-			});
-		}
-		if (submitted.cause?.kind === "empty_branch_skipped") {
-			const stderr = formatEmptyBranchSubmitPreflightOutput({
-				output: submitted.output,
-				submitCommandDisplay,
-				...(submitted.cause.branchName === undefined
-					? {}
-					: { branchName: submitted.cause.branchName }),
-			});
-			return failure(normalizedFailureExitCode(submitted.output), stderr, {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript(
-					"submit preflight",
-					submitCommandDisplay,
-					submitted.output,
-					stderr,
-				),
-			});
-		}
-		if (submitted.cause?.kind === "remote_updated_outside_graphite") {
-			const stderr = formatRemoteUpdatedOutsideGraphitePreflightOutput({
-				output: submitted.output,
-				submitDryRunCommandDisplay,
-				...(submitted.cause.branchName === undefined
-					? {}
-					: { branchName: submitted.cause.branchName }),
-				...(submitted.cause.remoteSync === undefined
-					? {}
-					: { remoteSync: submitted.cause.remoteSync }),
-			});
-			return failure(normalizedFailureExitCode(submitted.output), stderr, {
-				failurePresentation: "deterministic",
-				rawFailureTranscript: commandFailureTranscript(
-					"submit preflight",
-					submitCommandDisplay,
-					submitted.output,
-					stderr,
-				),
-			});
-		}
+		const submitPreflightFailure = knownSubmitFailureFor({
+			cause: submitted.cause,
+			output: submitted.output,
+			phase: "submit preflight",
+			transcriptCommandDisplay: submitCommandDisplay,
+			submitDryRunCommandDisplay,
+		});
+		if (submitPreflightFailure !== undefined) return submitPreflightFailure;
+
 		return failure(
 			normalizedFailureExitCode(submitted.output),
 			formatSubmitFailureOutput(submitted.output, prewrite.prepared, submitCommandDisplay),
@@ -719,19 +675,36 @@ function preflightFailureFor(input: {
 	phase: string;
 	submitDryRunCommandDisplay: string;
 }): SubmitCommandResult | undefined {
-	if (input.result.kind !== "failed" || input.result.cause === undefined) return undefined;
-
-	const stderr = formatPreflightCauseOutput({
+	if (input.result.kind !== "failed") return undefined;
+	return knownSubmitFailureFor({
 		cause: input.result.cause,
 		output: input.result.output,
+		phase: input.phase,
+		transcriptCommandDisplay: input.submitDryRunCommandDisplay,
 		submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
 	});
-	return failure(normalizedFailureExitCode(input.result.output), stderr, {
+}
+
+function knownSubmitFailureFor(input: {
+	cause: SubmitPreflightFailureCause | undefined;
+	output: SubmitCommandOutput;
+	phase: string;
+	transcriptCommandDisplay: string;
+	submitDryRunCommandDisplay: string;
+}): SubmitCommandResult | undefined {
+	if (input.cause === undefined) return undefined;
+
+	const stderr = formatPreflightCauseOutput({
+		cause: input.cause,
+		output: input.output,
+		submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
+	});
+	return failure(normalizedFailureExitCode(input.output), stderr, {
 		failurePresentation: "deterministic",
 		rawFailureTranscript: commandFailureTranscript(
 			input.phase,
-			input.submitDryRunCommandDisplay,
-			input.result.output,
+			input.transcriptCommandDisplay,
+			input.output,
 			stderr,
 		),
 	});
@@ -744,24 +717,19 @@ function formatPreflightCauseOutput(input: {
 }): string {
 	switch (input.cause.kind) {
 		case "empty_branch_skipped":
-			return formatEmptyBranchPreflightOutput({
-				output: input.output,
-				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
-				...(input.cause.branchName === undefined ? {} : { branchName: input.cause.branchName }),
+			return formatEmptyBranchFailureOutput({
+				...optionalEntry("branchName", input.cause.branchName),
 			});
 		case "trunk_out_of_date":
 			return formatTrunkOutOfDatePreflightOutput(input.output, input.submitDryRunCommandDisplay);
 		case "merged_pr_not_in_trunk":
-			return formatMergedPrNotInTrunkPreflightOutput(
-				input.output,
-				input.submitDryRunCommandDisplay,
-			);
+			return formatMergedPrNotInTrunkOutput(input.output);
 		case "remote_updated_outside_graphite":
 			return formatRemoteUpdatedOutsideGraphitePreflightOutput({
 				output: input.output,
 				submitDryRunCommandDisplay: input.submitDryRunCommandDisplay,
-				...(input.cause.branchName === undefined ? {} : { branchName: input.cause.branchName }),
-				...(input.cause.remoteSync === undefined ? {} : { remoteSync: input.cause.remoteSync }),
+				...optionalEntry("branchName", input.cause.branchName),
+				...optionalEntry("remoteSync", input.cause.remoteSync),
 			});
 	}
 }
@@ -1051,7 +1019,7 @@ function detectRemoteUpdatedOutsideGraphite(
 	if (match === null) return undefined;
 	return {
 		kind: "remote_updated_outside_graphite",
-		...(match.groups?.branch === undefined ? {} : { branchName: match.groups.branch }),
+		...optionalEntry("branchName", match.groups?.branch),
 	};
 }
 
@@ -1143,7 +1111,7 @@ function detectSubmitSemanticFailureCause(output: string): SubmitSemanticFailure
 			parseSubmitValidationBranchName(strippedOutput);
 		return {
 			kind: "empty_branch_skipped",
-			...(branchName === undefined ? {} : { branchName }),
+			...optionalEntry("branchName", branchName),
 		};
 	}
 
