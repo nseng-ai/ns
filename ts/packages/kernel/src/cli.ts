@@ -303,10 +303,7 @@ async function handleCompletionResolverInvocation(options: {
 	caps?: Caps;
 }): Promise<{ type: "handled"; exitCode: number }> {
 	const words = completionResolverWords(options.args);
-	const selectedCommandKey = requestedCompletedCommandKey(
-		words,
-		options.commandCatalog.commandInfos,
-	);
+	const selectedCommandKey = requestedCommandKey(words, options.commandCatalog.commandInfos);
 	const selectedCandidate =
 		selectedCommandKey === undefined
 			? undefined
@@ -450,40 +447,6 @@ function completionResolverWords(args: readonly string[]): readonly string[] {
 	return resolverArgs.slice(1);
 }
 
-function requestedCompletedCommandKey(
-	words: readonly string[],
-	commandInfos: readonly SdlCommandCliInfo[],
-): string | undefined {
-	const firstWord = words[0];
-	if (firstWord === undefined || firstWord === "" || firstWord.startsWith("-")) return undefined;
-	const directCommand = commandInfos.find(
-		(commandInfo) => commandInfo.group === undefined && commandInfo.name === firstWord,
-	);
-	if (directCommand !== undefined) return directCommand.name;
-
-	const groupedCommands = commandInfos.filter((commandInfo) => commandInfo.group === firstWord);
-	if (groupedCommands.length === 0) return undefined;
-	const secondWord = words[1];
-	if (secondWord === undefined || secondWord === "" || secondWord.startsWith("-")) return undefined;
-	if (secondWord === SDL_EXEC_GROUP_NAME) {
-		const execCommand = words[2];
-		if (execCommand === undefined || execCommand === "" || execCommand.startsWith("-")) {
-			return undefined;
-		}
-		const key = commandKey({ group: firstWord, name: execInternalCommandName(execCommand) });
-		return optionsIncludesCommandKey(groupedCommands, key) ? key : undefined;
-	}
-	const key = commandKey({ group: firstWord, name: secondWord });
-	return optionsIncludesCommandKey(groupedCommands, key) ? key : undefined;
-}
-
-function optionsIncludesCommandKey(
-	commandInfos: readonly SdlCommandCliInfo[],
-	key: string,
-): boolean {
-	return commandInfos.some((commandInfo) => commandKey(commandInfo) === key);
-}
-
 function requestedCommandKey(
 	args: readonly string[],
 	commandInfos: readonly SdlCommandCliInfo[],
@@ -520,10 +483,6 @@ function cliLeafCommandName(commandInfo: SdlCommandCliInfo): string {
 	if (commandInfo.segments !== undefined) return commandLeafName(commandInfo);
 	if (!isGroupedExecCommand(commandInfo)) return commandInfo.name;
 	return commandInfo.name.slice(SDL_EXEC_COMMAND_PREFIX.length);
-}
-
-function execInternalCommandName(displayName: string): string {
-	return `${SDL_EXEC_COMMAND_PREFIX}${displayName}`;
 }
 
 function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {

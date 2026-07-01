@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
+import { commandKey } from "../../src/command-registry.ts";
 import type { SdlCliDeps } from "../../src/cli.ts";
 import type {
 	ExtensionCommandCandidate,
@@ -64,6 +65,89 @@ describe("sdl completion CLI", () => {
 		expect(run.stderr.join("")).toBe("");
 		expect(registry.loadLog).toEqual(["hello"]);
 	});
+
+	test.each([
+		{
+			name: "top-level project command",
+			path: ["hello"],
+			candidate: { name: "hello" },
+			command: helloCommand({
+				name: "hello",
+				schema: z.object({ isTopLevel: z.boolean().default(false) }),
+			}),
+			prefix: "--is-top-l",
+			expected: "--is-top-level\n",
+			expectedLoadLog: ["hello"],
+		},
+		{
+			name: "one-level grouped global command",
+			path: ["tools", "scan"],
+			candidate: { group: "tools", name: "scan", sourceLevel: "global" as const },
+			command: helloCommand({
+				name: "scan",
+				schema: z.object({ isGrouped: z.boolean().default(false) }),
+			}),
+			prefix: "--is-group",
+			expected: "--is-grouped\n",
+			expectedLoadLog: ["tools/scan"],
+		},
+		{
+			name: "two-segment first-party command path",
+			path: ["slot", "gc"],
+			candidate: { name: "gc", segments: ["slot", "gc"], sourceLevel: "first-party" as const },
+			command: helloCommand({
+				name: "gc",
+				schema: z.object({ shouldDeleteBranches: z.boolean().default(false) }),
+			}),
+			prefix: "--should-delete-br",
+			expected: "--should-delete-branches\n",
+			expectedLoadLog: ["slot/gc"],
+		},
+		{
+			name: "three-segment command path",
+			path: ["roaster", "review", "run"],
+			candidate: { name: "run", segments: ["roaster", "review", "run"] },
+			command: helloCommand({
+				name: "run",
+				schema: z.object({ shouldReviewProfile: z.boolean().default(false) }),
+			}),
+			prefix: "--should-review-pro",
+			expected: "--should-review-profile\n",
+			expectedLoadLog: ["roaster/review/run"],
+		},
+		{
+			name: "nested exec command path",
+			path: ["slot", "gt", "exec", "stack-branches"],
+			candidate: {
+				name: "stack-branches",
+				segments: ["slot", "gt", "exec", "stack-branches"],
+			},
+			command: helloCommand({
+				name: "stack-branches",
+				schema: z.object({ isDownstackOnly: z.boolean().default(false) }),
+			}),
+			prefix: "--is-downstack-o",
+			expected: "--is-downstack-only\n",
+			expectedLoadLog: ["slot/gt/exec/stack-branches"],
+		},
+	])(
+		"selected extension option completion loads the selected command for $name",
+		async (testCase) => {
+			const registry = fakeCompletionRegistry({
+				commands: [testCase.command],
+				paths: { [testCase.command.name]: testCase.candidate },
+			});
+			const run = runWithFakes({
+				args: ["completion", "exec", "resolve", "--", ...testCase.path, testCase.prefix],
+				extensionRegistry: registry,
+			});
+
+			expect(await run.exit).toBe(0);
+			expect(run.stdout.join("")).toBe(testCase.expected);
+			expect(run.stderr.join("")).toBe("");
+			expect(registry.loadLog).toEqual(testCase.expectedLoadLog);
+		},
+	);
 
 	test("selected broken command reports on stderr without candidate stdout", async () => {
 		const registry = fakeCompletionRegistry({
@@ -152,9 +236,16 @@ describe("sdl completion CLI", () => {
 	});
 });
 
+interface FakeCompletionPath {
+	group?: string;
+	segments?: readonly string[];
+	sourceLevel?: "first-party" | "global" | "project";
+}
+
 interface FakeCompletionRegistryOptions {
 	commands?: readonly SdlCommand[];
 	loadFailures?: Readonly<Record<string, string>>;
+	paths?: Readonly<Record<string, FakeCompletionPath>>;
 }
 
 interface FakeCompletionRegistry {
@@ -170,26 +261,30 @@ interface FakeCompletionRegistry {
 function fakeCompletionRegistry(
 	options: FakeCompletionRegistryOptions = {},
 ): FakeCompletionRegistry {
-	const commands = options.commands ?? [];
-	const candidates = commands.map(commandCandidate);
-	const candidateMap = new Map(candidates.map((candidate) => [candidate.name, candidate]));
+	const entries = (options.commands ?? []).map((command) => {
+		const candidate = commandCandidate(command, options.paths?.[command.name]);
+		return { key: commandKey(candidate), command, candidate };
+	});
+	const candidateMap = new Map(entries.map((entry) => [entry.key, entry.candidate]));
 	const loadLog: string[] = [];
 	return {
 		loadLog,
 		async loadCommandCatalog(_options) {
 			return {
 				candidates: candidateMap,
-				commandInfos: candidates.map(({ name, description, fullDescription }) => ({
-					name,
-					description,
-					fullDescription,
+				commandInfos: entries.map(({ candidate }) => ({
+					...commandPathFields(candidate),
+					name: candidate.name,
+					description: candidate.description,
+					fullDescription: candidate.fullDescription,
 				})),
 				diagnostics: [],
 			};
 		},
 		async loadSelectedCommand(candidate) {
-			loadLog.push(candidate.name);
-			const failure = options.loadFailures?.[candidate.name];
+			const key = commandKey(candidate);
+			loadLog.push(key);
+			const failure = options.loadFailures?.[key] ?? options.loadFailures?.[candidate.name];
 			if (failure !== undefined) {
 				return {
 					ok: false,
@@ -197,39 +292,54 @@ function fakeCompletionRegistry(
 						severity: "error",
 						code: "extension_load_failed",
 						message: failure,
-						commandName: candidate.name,
+						commandName: key,
 					},
 				};
 			}
-			const command = commands.find((entry) => entry.name === candidate.name);
-			if (command === undefined) {
+			const entry = entries.find((candidateEntry) => candidateEntry.key === key);
+			if (entry === undefined) {
 				return {
 					ok: false,
 					diagnostic: {
 						severity: "error",
 						code: "extension_command_missing",
-						message: `Missing fake command ${candidate.name}`,
-						commandName: candidate.name,
+						message: `Missing fake command ${key}`,
+						commandName: key,
 					},
 				};
 			}
 			return {
 				ok: true,
-				command,
-				source: { level: "project", label: `fake ${candidate.name}` },
-				path: { name: candidate.name },
+				command: entry.command,
+				source: entry.candidate.source,
+				path: { ...commandPathFields(entry.candidate), name: entry.candidate.name },
 			};
 		},
 	};
 }
 
-function commandCandidate(command: SdlCommand): ExtensionCommandCandidate {
+function commandPathFields(path: { group?: string; segments?: readonly string[] }): {
+	group?: string;
+	segments?: readonly string[];
+} {
 	return {
-		name: command.name,
+		...(path.group === undefined ? {} : { group: path.group }),
+		...(path.segments === undefined ? {} : { segments: path.segments }),
+	};
+}
+
+function commandCandidate(
+	command: SdlCommand,
+	path: FakeCompletionPath = {},
+): ExtensionCommandCandidate {
+	const candidatePath = { ...commandPathFields(path), name: command.name };
+	const key = commandKey(candidatePath);
+	return {
+		...candidatePath,
 		description: command.summary,
 		fullDescription: command.description,
-		source: { level: "project", label: `fake ${command.name}` },
-		entryPath: `fake://${command.name}`,
+		source: { level: path.sourceLevel ?? "project", label: `fake ${key}` },
+		entryPath: `fake://${key}`,
 		kind: "file",
 	};
 }
