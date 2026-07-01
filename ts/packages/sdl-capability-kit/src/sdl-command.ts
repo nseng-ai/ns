@@ -13,10 +13,10 @@ export interface SdlDomainCommandOptions<S extends SdlCommandSchema, T, TContext
 	description: string;
 	schema: S;
 	resultSchema: z.ZodType<T>;
-	positionals?: SdlCommand<S, T>["positionals"] | undefined;
-	completionProvider?: SdlCommand<S, T>["completionProvider"] | undefined;
-	renderHuman?: ((data: T, caps: RenderCapabilities) => string) | undefined;
-	renderMarkdown?: ((data: T, caps: RenderCapabilities) => string) | undefined;
+	positionals?: SdlCommand<S, T>["positionals"];
+	completionProvider?: SdlCommand<S, T>["completionProvider"];
+	renderHuman?: (data: T, caps: RenderCapabilities) => string;
+	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
 	createContext(ctx: SdlExtensionApi): Promise<TContext> | TContext;
 	handler(ctx: TContext, request: z.output<S>): Promise<ClinkrExit<T>> | ClinkrExit<T>;
 }

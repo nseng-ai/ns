@@ -3,7 +3,7 @@ import type { SdlExtensionApi } from "sdl-sdk";
 
 export interface SdlClinkrInteractionOptions {
 	title: string;
-	formatMessage?: ((request: ConfirmationRequest) => string) | undefined;
+	formatMessage?: (request: ConfirmationRequest) => string;
 }
 
 export interface SdlCwdEnvStdinContext {
