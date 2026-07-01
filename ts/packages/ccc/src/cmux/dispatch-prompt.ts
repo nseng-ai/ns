@@ -9,11 +9,11 @@ import {
 	type BrmemPutData,
 } from "@sdl/capability-kit/brmem-cli";
 import {
+	commandSucceeded,
 	execApiToCommandRunner,
 	formatCommand,
 	formatCommandFailure,
 	formatShellArg,
-	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
 } from "@sdl/core/command";
 import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
@@ -216,7 +216,7 @@ export async function createTrackedBranchFromResolvedParent(options: {
 		cwd,
 		args: trackArgs,
 	});
-	if (!isSuccessfulExecResult(track)) {
+	if (!commandSucceeded(track)) {
 		return {
 			error: [
 				`Created git branch ${branchName}, but Graphite tracking failed:`,

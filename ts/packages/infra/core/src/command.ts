@@ -132,10 +132,6 @@ export async function runNormalizedExecResult(
 	}
 }
 
-export function isSuccessfulExecResult(result: ExecResult): boolean {
-	return commandSucceeded(result);
-}
-
 export function commandSucceeded(result: ExecResult): boolean {
 	return result.code === 0 && !result.killed;
 }

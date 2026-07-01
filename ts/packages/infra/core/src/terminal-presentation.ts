@@ -1,4 +1,4 @@
-import type { ExplicitUndefined } from "./primitives.ts";
+import { isRecord, type ExplicitUndefined } from "./primitives.ts";
 export interface CustomMessageTextPart {
 	type: string;
 	text?: string;
@@ -95,8 +95,4 @@ export function linkifyPrReferences(line: string, prLinks: ReadonlyMap<number, s
 		const url = prLinks.get(Number(numberText));
 		return url ? terminalHyperlink(match, url) : match;
 	});
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

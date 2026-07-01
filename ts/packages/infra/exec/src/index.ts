@@ -21,7 +21,6 @@ export {
 	formatCommandStartupFailure,
 	formatOutputSection,
 	formatShellArg,
-	isSuccessfulExecResult,
 	MAX_ERROR_CHARS,
 	normalizeExecResult,
 	outputListenerToExecCallbacks,

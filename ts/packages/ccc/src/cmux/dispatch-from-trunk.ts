@@ -1,8 +1,8 @@
 import {
+	commandSucceeded,
 	execApiToCommandRunner,
 	formatCommand,
 	formatCommandFailure,
-	isSuccessfulExecResult,
 	piExecApiToCommandExecApi,
 } from "@sdl/core/command";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
@@ -81,7 +81,7 @@ export async function createTrackedBranchFromTrunkForPrompt(options: {
 		cwd,
 		args: ["trunk", "--no-interactive"],
 	});
-	if (!isSuccessfulExecResult(trunk)) {
+	if (!commandSucceeded(trunk)) {
 		return {
 			error: formatCommandFailure(
 				"Could not resolve Graphite trunk.",
@@ -133,7 +133,7 @@ async function refreshLocalTrunkBranch(options: {
 		cwd,
 		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
 	});
-	if (!isSuccessfulExecResult(worktrees)) {
+	if (!commandSucceeded(worktrees)) {
 		return {
 			ok: false,
 			message: formatCommandFailure(
@@ -153,7 +153,7 @@ async function refreshLocalTrunkBranch(options: {
 		cwd: plan.cwd,
 		timeout: GIT_TRUNK_REFRESH_TIMEOUT_MS,
 	});
-	if (isSuccessfulExecResult(refresh)) return { ok: true };
+	if (commandSucceeded(refresh)) return { ok: true };
 	return {
 		ok: false,
 		message: [

@@ -1,4 +1,4 @@
-import { finiteNumberField } from "./primitives.ts";
+import { finiteNumberField, isRecord } from "./primitives.ts";
 
 export interface RuntimeRunnerSubagentUsageTotals {
 	input: number;
@@ -93,7 +93,7 @@ export function addRuntimeRunnerSubagentUsageCostTotals(
 }
 
 function usageFromRecord(record: unknown): RunnerSubagentUsageRecord | null {
-	if (!isJsonRecord(record)) return null;
+	if (!isRecord(record)) return null;
 	if (record.type !== undefined && record.type !== "message") return null;
 
 	const message = mappingField(record, "message");
@@ -171,7 +171,7 @@ function hasUsableTokenUsage(usage: JsonRecord): boolean {
 
 function mappingField(data: JsonRecord, key: string): JsonRecord | null {
 	const value = data[key];
-	if (!isJsonRecord(value)) return null;
+	if (!isRecord(value)) return null;
 	return value;
 }
 
@@ -183,10 +183,6 @@ function stringField(data: JsonRecord, key: string): string | null {
 
 function numberField(data: JsonRecord, key: string): number {
 	return finiteNumberField(data, key) ?? 0;
-}
-
-function isJsonRecord(value: unknown): value is JsonRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function jsonParseErrorMessage(error: unknown): string {

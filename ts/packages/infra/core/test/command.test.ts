@@ -12,7 +12,6 @@ import {
 	formatCommandStartupFailure,
 	formatOutputSection,
 	formatShellArg,
-	isSuccessfulExecResult,
 	normalizeExecResult,
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
@@ -107,7 +106,6 @@ describe("command presentation helpers", () => {
 		expect(commandSucceeded({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
 		expect(commandSucceeded({ stdout: "", stderr: "", code: 1, killed: false })).toBe(false);
 		expect(commandSucceeded({ stdout: "", stderr: "", code: 0, killed: true })).toBe(false);
-		expect(isSuccessfulExecResult({ stdout: "", stderr: "", code: 0, killed: false })).toBe(true);
 	});
 
 	test("formats full command evidence for SDK command failures", () => {
