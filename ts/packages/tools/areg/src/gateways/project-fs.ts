@@ -128,12 +128,6 @@ export function resolveAllowedWriteTarget(
 export async function validateWriteTarget(
 	options: ValidateTextWriteTargetOptions,
 ): Promise<WriteTargetValidationResult> {
-	return await validateTextWriteTarget(options);
-}
-
-async function validateTextWriteTarget(
-	options: ValidateTextWriteTargetOptions,
-): Promise<WriteTargetValidationResult> {
 	const descriptor = getAregProjectMutationPolicyDescriptor(options.policy);
 	const targetState = await inspectPath(options.target);
 	if (targetState.type === "symlink")

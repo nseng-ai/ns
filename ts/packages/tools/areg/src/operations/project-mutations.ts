@@ -94,6 +94,32 @@ interface ApplyProjectMutationPlanSuccessFields {
 	operationStatuses: readonly ProjectMutationOperationStatusRecord[];
 }
 
+interface AppliedProjectMutationPaths {
+	writtenRelativePaths: string[];
+	deletedRelativePaths: string[];
+	removedEmptyDirRelativePaths: string[];
+}
+
+type ProjectMutationOperationResult =
+	| { ok: true; removed?: boolean }
+	| { ok: false; error: AregErrorInfo };
+
+interface ProjectMutationOperationHandler<Operation extends ProjectMutationOperation> {
+	preflight(
+		request: ApplyProjectMutationPlanRequest,
+		operation: Operation,
+	): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }>;
+	apply(
+		request: ApplyProjectMutationPlanRequest,
+		operation: Operation,
+	): Promise<ProjectMutationOperationResult>;
+	recordSuccess(
+		paths: AppliedProjectMutationPaths,
+		operation: Operation,
+		result: Extract<ProjectMutationOperationResult, { ok: true }>,
+	): ProjectMutationOperationStatus;
+}
+
 export type ApplyProjectMutationPlanResult =
 	| ({ ok: true } & ApplyProjectMutationPlanSuccessFields)
 	| ({ ok: false; error: AregErrorInfo } & ApplyProjectMutationPlanSuccessFields);
@@ -148,18 +174,12 @@ export async function applyProjectMutationPlan(
 				operationStatuses,
 			};
 		}
-		if (operation.type === "write") {
-			writtenRelativePaths.push(operation.relativePath);
-			operationStatuses.push(operationStatus(operation, "applied"));
-		} else if (operation.type === "delete") {
-			deletedRelativePaths.push(operation.relativePath);
-			operationStatuses.push(operationStatus(operation, "applied"));
-		} else if (result.removed) {
-			removedEmptyDirRelativePaths.push(operation.relativePath);
-			operationStatuses.push(operationStatus(operation, "applied"));
-		} else {
-			operationStatuses.push(operationStatus(operation, "skipped"));
-		}
+		const status = recordAppliedOperation(
+			{ writtenRelativePaths, deletedRelativePaths, removedEmptyDirRelativePaths },
+			operation,
+			result,
+		);
+		operationStatuses.push(operationStatus(operation, status));
 	}
 
 	return {
@@ -202,12 +222,9 @@ function flattenProjectMutationPlan(
 	return [...writes, ...deletes, ...removeEmptyDirs];
 }
 
-async function preflightOperation(
-	request: ApplyProjectMutationPlanRequest,
-	operation: ProjectMutationOperation,
-): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }> {
-	switch (operation.type) {
-		case "write":
+const PROJECT_MUTATION_OPERATION_HANDLERS = {
+	write: {
+		async preflight(request, operation) {
 			return await request.ctx.project.preflightWriteTextFile({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,
@@ -217,31 +234,8 @@ async function preflightOperation(
 				policy: request.policy,
 				env: request.ctx.env,
 			});
-		case "delete":
-			return await request.ctx.project.preflightDeleteFile({
-				projectDir: request.projectDir,
-				relativePath: operation.plan.relativePath,
-				description: operation.plan.description,
-				policy: "skill-kind",
-				env: request.ctx.env,
-			});
-		case "remove-empty-dir":
-			return await request.ctx.project.preflightRemoveEmptyDir({
-				projectDir: request.projectDir,
-				relativePath: operation.plan.relativePath,
-				description: operation.plan.description,
-				policy: "skill-kind",
-				env: request.ctx.env,
-			});
-	}
-}
-
-async function applyOperation(
-	request: ApplyProjectMutationPlanRequest,
-	operation: ProjectMutationOperation,
-): Promise<{ ok: true; removed?: boolean } | { ok: false; error: AregErrorInfo }> {
-	switch (operation.type) {
-		case "write":
+		},
+		async apply(request, operation) {
 			return await request.ctx.project.writeTextFile({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,
@@ -251,7 +245,23 @@ async function applyOperation(
 				policy: request.policy,
 				env: request.ctx.env,
 			});
-		case "delete":
+		},
+		recordSuccess(paths, operation) {
+			paths.writtenRelativePaths.push(operation.relativePath);
+			return "applied";
+		},
+	},
+	delete: {
+		async preflight(request, operation) {
+			return await request.ctx.project.preflightDeleteFile({
+				projectDir: request.projectDir,
+				relativePath: operation.plan.relativePath,
+				description: operation.plan.description,
+				policy: "skill-kind",
+				env: request.ctx.env,
+			});
+		},
+		async apply(request, operation) {
 			return await request.ctx.project.deleteFile({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,
@@ -259,7 +269,23 @@ async function applyOperation(
 				policy: "skill-kind",
 				env: request.ctx.env,
 			});
-		case "remove-empty-dir": {
+		},
+		recordSuccess(paths, operation) {
+			paths.deletedRelativePaths.push(operation.relativePath);
+			return "applied";
+		},
+	},
+	"remove-empty-dir": {
+		async preflight(request, operation) {
+			return await request.ctx.project.preflightRemoveEmptyDir({
+				projectDir: request.projectDir,
+				relativePath: operation.plan.relativePath,
+				description: operation.plan.description,
+				policy: "skill-kind",
+				env: request.ctx.env,
+			});
+		},
+		async apply(request, operation) {
 			const result = await request.ctx.project.removeEmptyDir({
 				projectDir: request.projectDir,
 				relativePath: operation.plan.relativePath,
@@ -268,8 +294,49 @@ async function applyOperation(
 				env: request.ctx.env,
 			});
 			return result.ok ? { ok: true, removed: result.removed } : result;
-		}
-	}
+		},
+		recordSuccess(paths, operation, result) {
+			if (result.removed) {
+				paths.removedEmptyDirRelativePaths.push(operation.relativePath);
+				return "applied";
+			}
+			return "skipped";
+		},
+	},
+} satisfies {
+	readonly [OperationType in ProjectFileMutationOperationType]: ProjectMutationOperationHandler<
+		Extract<ProjectMutationOperation, { type: OperationType }>
+	>;
+};
+
+async function preflightOperation(
+	request: ApplyProjectMutationPlanRequest,
+	operation: ProjectMutationOperation,
+): Promise<{ ok: true } | { ok: false; error: AregErrorInfo }> {
+	return await operationHandler(operation).preflight(request, operation);
+}
+
+async function applyOperation(
+	request: ApplyProjectMutationPlanRequest,
+	operation: ProjectMutationOperation,
+): Promise<ProjectMutationOperationResult> {
+	return await operationHandler(operation).apply(request, operation);
+}
+
+function recordAppliedOperation(
+	paths: AppliedProjectMutationPaths,
+	operation: ProjectMutationOperation,
+	result: Extract<ProjectMutationOperationResult, { ok: true }>,
+): ProjectMutationOperationStatus {
+	return operationHandler(operation).recordSuccess(paths, operation, result);
+}
+
+function operationHandler<Operation extends ProjectMutationOperation>(
+	operation: Operation,
+): ProjectMutationOperationHandler<Operation> {
+	return PROJECT_MUTATION_OPERATION_HANDLERS[
+		operation.type
+	] as ProjectMutationOperationHandler<Operation>;
 }
 
 function emptyFailure(

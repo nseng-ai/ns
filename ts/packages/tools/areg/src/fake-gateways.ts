@@ -1,6 +1,7 @@
 import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
 
+import { missingCheckSkillInspection } from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -243,7 +244,9 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			skillName: request.skillName,
 		});
 		const skill = this.checkSkills.find((candidate) => candidate.name === request.skillName);
-		return skill === undefined ? missingCheckSkill(request.skillName) : copyCheckSkill(skill);
+		return skill === undefined
+			? missingCheckSkillInspection(request.skillName)
+			: copyCheckSkill(skill);
 	}
 
 	async inspectSkillKindSkill(
@@ -703,19 +706,6 @@ function copySkillKindSkill(skill: AregSkillKindSkillInspection): AregSkillKindS
 		skillDir: copyPathState(skill.skillDir),
 		skillMd: copyTextFileState(skill.skillMd),
 		openaiPolicy: copyTextFileState(skill.openaiPolicy),
-	};
-}
-
-function missingCheckSkill(name: string): AregCheckSkillInspection {
-	const missing = { type: "missing" as const };
-	return {
-		name,
-		skillsPath: missing,
-		agentsPath: missing,
-		claudePath: missing,
-		localSkillMd: missing,
-		remoteSkillMd: missing,
-		openaiPolicy: missing,
 	};
 }
 

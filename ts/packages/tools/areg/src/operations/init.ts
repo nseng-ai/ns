@@ -7,13 +7,18 @@ import {
 	usageError,
 	type ClinkrExit,
 } from "@sdl/clinkr";
-import { managedRegionBounds } from "@sdl/core/managed-region";
 import { resultErr, type Result } from "@sdl/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
 import type { AregInitTextWritePlan, AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";
+import {
+	appendBlock,
+	contentWithoutManagedBlock,
+	managedBlockBounds,
+	type ManagedMarkers,
+} from "./managed-markdown-block.ts";
 import { parseSdlAregAgents, resolveProjectAgents } from "./project-agents.ts";
 import { inspectInitProject } from "./project-inspection.ts";
 import {
@@ -22,12 +27,15 @@ import {
 	PROJECT_MUTATION_OPERATION_TYPES,
 	type ProjectMutationOperationStatusRecord,
 } from "./project-mutations.ts";
+import { renderAregSection, replaceOrAppendAregSection } from "./toml-section.ts";
 
+export { appendBlock, managedBlockBounds } from "./managed-markdown-block.ts";
 export {
 	parseSdlAregAgents,
 	parseLegacyAregJsonAgents,
 	resolveProjectAgents,
 } from "./project-agents.ts";
+export { renderAregSection, replaceOrAppendAregSection } from "./toml-section.ts";
 
 const BOOTSTRAP_REPO = "dagster-io/asdl-tools";
 const BOOTSTRAP_SKILLS = ["skill-management", "skillx"] as const;
@@ -110,11 +118,6 @@ interface SkippedFile {
 interface InitTextPlan {
 	writes: readonly AregInitTextWritePlan[];
 	skippedFiles: readonly SkippedFile[];
-}
-
-interface ManagedMarkers {
-	start: string;
-	end: string;
 }
 
 interface InitMutationFailureOptions {
@@ -279,52 +282,6 @@ export function renderInit(result: InitResult): string {
 		"Review and commit generated files when ready.",
 		"Install more persistent skills with `npx skills add ...`.",
 	].join("\n");
-}
-
-export function renderAregSection(agents: readonly string[]): string {
-	return `[areg]\nagents = ${JSON.stringify([...agents])}\n`;
-}
-
-export function replaceOrAppendAregSection(content: string, agents: readonly string[]): string {
-	const lines = content.split(/(?<=\n)/u);
-	if (lines.length === 1 && lines[0] === "") lines.pop();
-	const start = aregSectionStart(lines);
-	if (start === undefined) return appendTomlSection(content, renderAregSection(agents));
-	const end = tomlSectionEnd(lines, start);
-	let replacement = renderAregSection(agents);
-	if (end < lines.length) replacement += "\n";
-	lines.splice(
-		start,
-		end - start,
-		...(replacement.match(/.*(?:\n|$)/gu)?.filter((line) => line.length > 0) ?? []),
-	);
-	return lines.join("");
-}
-
-export function managedBlockBounds(
-	content: string,
-	markers: ManagedMarkers,
-	pathLabel: string,
-): Result<{ start: number; end: number } | null> {
-	const bounds = managedRegionBounds({
-		text: content,
-		startMarker: markers.start,
-		endMarker: markers.end,
-	});
-	if (bounds.type === "missing") return { ok: true, value: null };
-	if (bounds.type === "malformed")
-		return resultErr({
-			code: "managed_block_malformed",
-			message: `${pathLabel} has a malformed areg-managed block. Fix the markers manually.`,
-		});
-	return { ok: true, value: { start: bounds.start, end: bounds.end } };
-}
-
-export function appendBlock(content: string, block: string): string {
-	if (content.length === 0) return `${block}\n`;
-	if (content.endsWith("\n\n")) return `${content}${block}\n`;
-	if (content.endsWith("\n")) return `${content}\n${block}\n`;
-	return `${content}\n\n${block}\n`;
 }
 
 export function claudeBlock(options: { includeAgentsRef: boolean }): string {
@@ -541,20 +498,6 @@ async function confirmManagedBlockChange(
 	return confirmed.type === "confirmed" ? { type: "confirmed" } : { type: "declined" };
 }
 
-function contentWithoutManagedBlock(
-	content: string,
-	markers: ManagedMarkers,
-	pathLabel: string,
-): Result<string> {
-	const bounds = managedBlockBounds(content, markers, pathLabel);
-	if (!bounds.ok) return bounds;
-	if (bounds.value === null) return { ok: true, value: content };
-	return {
-		ok: true,
-		value: `${content.slice(0, bounds.value.start)}${content.slice(bounds.value.end)}`,
-	};
-}
-
 function planSettings(
 	claudeDirState: AregPathState,
 	settingsState: AregTextFileState,
@@ -604,38 +547,4 @@ function writePlan(
 	createParent = false,
 ): AregInitTextWritePlan {
 	return { relativePath, content, description, createParent };
-}
-
-function appendTomlSection(content: string, section: string): string {
-	if (content.length === 0) return section;
-	if (content.endsWith("\n\n")) return `${content}${section}`;
-	if (content.endsWith("\n")) return `${content}\n${section}`;
-	return `${content}\n\n${section}`;
-}
-
-function aregSectionStart(lines: readonly string[]): number | undefined {
-	for (let index = 0; index < lines.length; index += 1) {
-		if (tomlTableName(lines[index] ?? "") === "areg") return index;
-	}
-	return undefined;
-}
-
-function tomlSectionEnd(lines: readonly string[], start: number): number {
-	for (let index = start + 1; index < lines.length; index += 1) {
-		if (tomlTableName(lines[index] ?? "") !== null) return index;
-	}
-	return lines.length;
-}
-
-function tomlTableName(line: string): string | null {
-	const stripped = line.trim();
-	if (stripped.startsWith("[[")) {
-		const closingIndex = stripped.indexOf("]]", 2);
-		if (closingIndex < 0) return null;
-		return stripped.slice(2, closingIndex).trim();
-	}
-	if (!stripped.startsWith("[")) return null;
-	const closingIndex = stripped.indexOf("]");
-	if (closingIndex < 0) return null;
-	return stripped.slice(1, closingIndex).trim();
 }
