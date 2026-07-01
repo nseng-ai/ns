@@ -215,48 +215,48 @@ function normalizeGithubStatusCheck(item: unknown): GithubStatusCheckEntry {
 	if (typename === "CheckRun") {
 		const name = nonEmptyString(item.name) ?? "Unknown check";
 		return {
-			bucket,
-			kind: "check_run",
-			name,
+			...baseStatusCheckEntry({ bucket, kind: "check_run", name, identity }),
 			workflowName: checkRunWorkflowName(item) ?? null,
 			status: nonEmptyString(item.status) ?? null,
 			conclusion: nonEmptyString(item.conclusion) ?? null,
-			state: null,
 			startedAt: nonEmptyString(item.startedAt) ?? null,
 			completedAt: nonEmptyString(item.completedAt) ?? null,
-			createdAt: null,
 			detailsUrl: nonEmptyString(item.detailsUrl) ?? null,
-			targetUrl: null,
-			identity,
 		};
 	}
 	if (typename === "StatusContext") {
 		const name = nonEmptyString(item.context) ?? "Unknown status context";
 		return {
-			bucket,
-			kind: "status_context",
-			name,
-			workflowName: null,
-			status: null,
-			conclusion: null,
+			...baseStatusCheckEntry({ bucket, kind: "status_context", name, identity }),
 			state: nonEmptyString(item.state) ?? null,
-			startedAt: null,
-			completedAt: null,
 			createdAt: nonEmptyString(item.createdAt) ?? null,
-			detailsUrl: null,
 			targetUrl: nonEmptyString(item.targetUrl) ?? null,
-			identity,
 		};
 	}
 	return unknownStatusCheckEntry(item);
 }
 
 function unknownStatusCheckEntry(item: unknown): GithubStatusCheckEntry {
-	const identity = statusCheckIdentity(item) ?? null;
-	return {
+	return baseStatusCheckEntry({
 		bucket: "unknown",
 		kind: "unknown",
 		name: "Unknown check",
+		identity: statusCheckIdentity(item) ?? null,
+	});
+}
+
+interface BaseStatusCheckEntryOptions {
+	readonly bucket: GithubCheckBucket;
+	readonly kind: GithubStatusCheckKind;
+	readonly name: string;
+	readonly identity: string | null;
+}
+
+function baseStatusCheckEntry(options: BaseStatusCheckEntryOptions): GithubStatusCheckEntry {
+	return {
+		bucket: options.bucket,
+		kind: options.kind,
+		name: options.name,
 		workflowName: null,
 		status: null,
 		conclusion: null,
@@ -266,7 +266,7 @@ function unknownStatusCheckEntry(item: unknown): GithubStatusCheckEntry {
 		createdAt: null,
 		detailsUrl: null,
 		targetUrl: null,
-		identity,
+		identity: options.identity,
 	};
 }
 
