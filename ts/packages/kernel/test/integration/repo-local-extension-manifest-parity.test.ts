@@ -89,6 +89,7 @@ describe("repo-local SDL extension manifest parity", () => {
 				actualCommands.map((command) => userFacingRouteKey(command)),
 			);
 			assertManifestCommandsMatch(descriptor.group, actualCommands, expectedCommands);
+			assertCommandLeafManifestEntries(descriptor.group, descriptor.commands);
 
 			for (const command of descriptor.commands) {
 				await expectManifestEntryExists(descriptor.group, command);
@@ -190,6 +191,23 @@ function duplicateValues(values: readonly string[]): string[] {
 		seen.add(value);
 	}
 	return [...duplicates].sort();
+}
+
+function assertCommandLeafManifestEntries(
+	group: string,
+	commands: readonly RepoLocalSdlExtensionCommandDescriptor[],
+): void {
+	const nonLeafEntries = commands.filter(
+		(command) => !/^\.\/src\/commands\/[a-z0-9-]+\.ts$/.test(command.manifestEntry),
+	);
+	if (nonLeafEntries.length === 0) return;
+	throw new Error(
+		[
+			`${group} repo-local SDL manifest descriptors must use one command leaf per entry.`,
+			"Expected entries under ./src/commands/<command>.ts, not a shared extension multiplexer.",
+			...nonLeafEntries.map((command) => `- ${command.manifestEntry}`),
+		].join("\n"),
+	);
 }
 
 function assertManifestCommandsMatch(

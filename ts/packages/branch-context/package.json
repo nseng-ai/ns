@@ -5,7 +5,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./extension": "./src/extension.ts",
     "./sdl/commands/attach": "./src/sdl/commands/attach.ts",
     "./sdl/commands/check": "./src/sdl/commands/check.ts",
     "./sdl/commands/delete": "./src/sdl/commands/delete.ts",

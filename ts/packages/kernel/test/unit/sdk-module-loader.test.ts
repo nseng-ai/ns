@@ -96,20 +96,11 @@ test("repo-local migration extensions can import internal migration subpaths", a
 		"exec-collect-evidence",
 	);
 
-	const branchContextExtensionModule = await jiti.import<
-		typeof import("@sdl/branch-context/extension")
-	>("@sdl/branch-context/extension");
-	const branchContextCommands = branchContextExtensionModule.default.commands;
-	if (branchContextCommands === undefined) {
-		throw new Error("Expected branch-context extension to define commands.");
-	}
-	expect(branchContextCommands.map((command) => command.name)).toEqual([
+	const branchContextFromPlanModule = await jiti.import<{
+		default: { commands?: readonly { name: string }[] };
+	}>("@sdl/branch-context/sdl/commands/from-plan");
+	expect(branchContextFromPlanModule.default.commands?.map((command) => command.name)).toEqual([
 		"from-plan",
-		"load",
-		"attach",
-		"list",
-		"check",
-		"delete",
 	]);
 
 	const handoffListModule = await jiti.import<{

@@ -97,6 +97,15 @@ Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name
 function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
 ```
 
+Repo-local first-party extensions in this repository use this command-leaf pattern:
+
+1. The implementation package owns a `src/repo-local-sdl-extension.ts` descriptor.
+2. Each public command module exports its named `SdlCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
+3. `.sdl/extensions/<group>/package.json` lists one manifest command entry per command leaf.
+4. `.sdl/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
+
+Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
+
 `packageExportPrefix` is joined with the derived manifest command name. For flat commands the name is `command.name`; for nested manifest paths it is `manifestPath.join("-")`, so a command exposed at `path: ["review", "list"]` derives `review-list` for the compatibility name, shim, and package export.
 
 ```ts
@@ -110,6 +119,8 @@ const descriptor = repoLocalSdlCommandDescriptor({
 // manifestEntry: "./src/commands/review-list.ts"
 // packageExport: "@sdl/roaster/commands/review-list"
 ```
+
+When the user-facing manifest path intentionally differs from the package export name, hand-author the descriptor fields while preserving the same command-leaf pattern. For example, a route exposed as `path: ["exec", "from-plan"]` may keep `manifestEntry: "./src/commands/from-plan.ts"` and `packageExport: "@sdl/branch-context/sdl/commands/from-plan"` if `from-plan` is the package command name.
 
 ### `defineRepoLocalSdlExtensionDescriptor()`
 

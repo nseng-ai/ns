@@ -1,3 +1,5 @@
+import { defineExtension } from "sdl-sdk";
+
 import { branchContextCommand } from "../command.ts";
 import { checkResultSchema, handleCheck, keyRequestSchema } from "../../operations.ts";
 
@@ -9,4 +11,8 @@ export const branchContextCheckSdlCommand = branchContextCommand({
 	resultSchema: checkResultSchema,
 	positionals: { key: { position: 0 } },
 	handler: handleCheck,
+});
+
+export default defineExtension({
+	commands: [branchContextCheckSdlCommand],
 });

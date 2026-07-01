@@ -1,4 +1,4 @@
-import { defineRepoLocalSdlExtensionDescriptor, type SdlCommand } from "sdl-sdk";
+import { defineRepoLocalSdlExtensionDescriptor } from "sdl-sdk";
 
 import { branchContextAttachSdlCommand } from "./sdl/commands/attach.ts";
 import { branchContextCheckSdlCommand } from "./sdl/commands/check.ts";
@@ -7,8 +7,6 @@ import { branchContextFromPlanSdlCommand } from "./sdl/commands/from-plan.ts";
 import { branchContextListSdlCommand } from "./sdl/commands/list.ts";
 import { branchContextLoadSdlCommand } from "./sdl/commands/load.ts";
 
-const BRANCH_CONTEXT_EXTENSION_ENTRY = "./src/extension.ts";
-const BRANCH_CONTEXT_EXTENSION_EXPORT = "@sdl/branch-context/extension";
 const BRANCH_CONTEXT_COMMANDS = [
 	branchContextFromPlanSdlCommand,
 	branchContextLoadSdlCommand,
@@ -16,7 +14,7 @@ const BRANCH_CONTEXT_COMMANDS = [
 	branchContextListSdlCommand,
 	branchContextCheckSdlCommand,
 	branchContextDeleteSdlCommand,
-] as const satisfies readonly SdlCommand[];
+] as const;
 
 export const branchContextRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
 	group: "branch-context",
@@ -24,7 +22,7 @@ export const branchContextRepoLocalSdlExtension = defineRepoLocalSdlExtensionDes
 	commands: BRANCH_CONTEXT_COMMANDS.map((command) => ({
 		command,
 		manifestPath: ["exec", command.name],
-		manifestEntry: BRANCH_CONTEXT_EXTENSION_ENTRY,
-		packageExport: BRANCH_CONTEXT_EXTENSION_EXPORT,
+		manifestEntry: `./src/commands/${command.name}.ts`,
+		packageExport: `@sdl/branch-context/sdl/commands/${command.name}`,
 	})),
 });

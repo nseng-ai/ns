@@ -163,15 +163,6 @@ function buildPackageCommandAliasSources(): Record<string, string> {
 	return Object.assign({}, ...PACKAGE_COMMAND_ALIAS_SOURCES.map(buildPackageCommandAliases));
 }
 
-function buildBranchContextExtensionAliases(): Record<string, string> {
-	return buildPackageExportAliases({
-		packageName: BRANCH_CONTEXT_PACKAGE_NAME,
-		packageDir: BRANCH_CONTEXT_PACKAGE_DIR,
-		packageJsonPath: BRANCH_CONTEXT_PACKAGE_JSON_PATH,
-		exportSubpaths: ["./extension"],
-	});
-}
-
 function buildPackageCommandAliases(options: {
 	packageName: string;
 	packageDir: string;
@@ -294,7 +285,6 @@ export function createSdlJiti(): ReturnType<typeof createJiti> {
 		alias: {
 			...buildInternalWorkspaceAliases(),
 			...buildPackageCommandAliasSources(),
-			...buildBranchContextExtensionAliases(),
 			[CCC_AUTOSLOT_SPECIFIER]: CCC_AUTOSLOT_MODULE_PATH,
 			[CCC_LAND_SPECIFIER]: CCC_LAND_MODULE_PATH,
 			[CCC_TRUNK_PULL_SPECIFIER]: CCC_TRUNK_PULL_MODULE_PATH,
