@@ -9,6 +9,10 @@ Rules for working under `ts/`, the pnpm workspace holding SDL's first-party Type
 - `ts/` package tests are Vitest-backed; default to the full TS validation suite rather than asking to narrow scope.
 - Do not add Bun-runner package tests. Only standalone Bun templates/projects may use Bun tests, and then run `bun test --sequential`.
 
+## Package and subpackage structure
+
+Before creating a workspace package, declaring or renaming `sdl.subpackages` entries, adding `exports` subpaths to a container package, or restructuring a package's `src/` layout, read `docs/subpackage-conventions.md` (rank test, subpackage kinds, importer rules; decisions in ADR 0022/0023).
+
 ## Time seams
 
 Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in SDL-owned TypeScript logic. Inject/use `Clock` from `@sdl/core/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@sdl/core/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@sdl/core/time/testing`. Use `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
