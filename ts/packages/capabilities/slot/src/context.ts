@@ -15,7 +15,10 @@ import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
 import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateways/repository.ts";
-import { RealGraphiteStackGateway, type GraphiteStackGateway } from "@sdl/graphite/stack";
+import {
+	RealGraphiteStackGateway,
+	type GraphiteStackGateway,
+} from "@sdl/capability-kit/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import {

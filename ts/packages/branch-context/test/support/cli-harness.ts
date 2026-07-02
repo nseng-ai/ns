@@ -14,7 +14,7 @@ import {
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "@sdl/graphite/testing";
+} from "@sdl/capability-kit/graphite/testing";
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";

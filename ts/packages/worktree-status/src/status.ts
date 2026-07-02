@@ -11,17 +11,17 @@ import {
 	type PiExecResultLike,
 	tailText,
 } from "@sdl/core/command";
-import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/git";
-import { runGitHubCli } from "@sdl/github/cli";
-import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/github/identity";
+import { RealGitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
+import { runGitHubCli } from "@sdl/capability-kit/github/cli";
+import { githubRepositoryIdentityFromRemoteUrl } from "@sdl/capability-kit/github/identity";
 import {
 	githubWorktreePrStatusArgs,
 	parseGithubWorktreePrStatusJsonResult,
 	type GithubCheckTally,
 	type GithubReviewThreadCounts,
 	type GithubWorktreePrStatusParseResult,
-} from "@sdl/github/pr-status";
+} from "@sdl/capability-kit/github/pr-status";
 import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { parseMachineEnvelopeData } from "@sdl/pi/runtime/machine-envelope";
@@ -38,7 +38,7 @@ import {
 	type GraphiteMetadataStatus,
 	type GraphiteMetadataWorkerDiagnostic,
 	type LoadGraphiteMetadataStatusInWorkerOptions,
-} from "@sdl/graphite/status";
+} from "@sdl/capability-kit/graphite/status";
 
 import type { CustomMessage, RenderComponent, RenderTheme } from "./types.ts";
 

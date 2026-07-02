@@ -32,7 +32,6 @@ const OUT = arg("out", false);
 const TIERS = [
   "capability",
   "capability-kit",
-  "capability-gateway-backend",
   "sdk",
   "neutral-infra",
   "host",
@@ -42,31 +41,14 @@ const TIERS = [
 ];
 const TIER_SET = new Set(TIERS);
 const TIER_POLICY = {
-  capability: new Set(["capability", "capability-kit", "capability-gateway-backend", "sdk", "neutral-infra"]),
-  "capability-kit": new Set(["capability-gateway-backend", "sdk", "neutral-infra"]),
-  "capability-gateway-backend": new Set(["capability-gateway-backend", "neutral-infra"]),
+  capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra"]),
+  "capability-kit": new Set(["sdk", "neutral-infra"]),
   sdk: new Set(["sdk", "neutral-infra"]),
   "neutral-infra": new Set(["neutral-infra"]),
-  host: new Set(["capability", "sdk", "capability-kit", "capability-gateway-backend", "neutral-infra"]),
-  "capability-pi": new Set([
-    "capability-pi",
-    "host",
-    "capability",
-    "capability-kit",
-    "capability-gateway-backend",
-    "sdk",
-    "neutral-infra",
-  ]),
-  "standalone-tool": new Set([
-    "standalone-tool",
-    "host",
-    "capability",
-    "capability-kit",
-    "capability-gateway-backend",
-    "sdk",
-    "neutral-infra",
-  ]),
-  "local-pi-tool": new Set(["local-pi-tool", "host", "capability-gateway-backend", "neutral-infra"]),
+  host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
+  "capability-pi": new Set(["capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
+  "standalone-tool": new Set(["standalone-tool", "host", "capability", "capability-kit", "sdk", "neutral-infra"]),
+  "local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
 const ALLOWED_DEBT_EDGES = new Map([
   ["@sdl/ccc\0@sdl/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
@@ -80,8 +62,8 @@ const ALLOWED_DEBT_EDGES = new Map([
     "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
   ],
   [
-    "@sdl/brmem\0@sdl/git",
-    "Git gateway backend relocation debt: brmem consumes @sdl/git until the separate brmem follow-up retier lands.",
+    "@local-pi-tools/pr-feedback-watch\0@sdl/capability-kit",
+    "GitHub gateway fold debt: pr-feedback-watch now consumes Capability Kit until the local Pi tools container conversion retires the standalone local package.",
   ],
   [
     "@local-pi-tools/thermo-council\0@sdl/capability-kit",

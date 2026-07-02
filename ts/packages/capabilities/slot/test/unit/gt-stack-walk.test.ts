@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { deduplicateOrderedStrings } from "../../src/collections.ts";
 import { collectStackBranches, collectStackEdges } from "../../src/operations/gt/stack-walk.ts";
-import { fakeStackInfo } from "@sdl/graphite/testing";
+import { fakeStackInfo } from "@sdl/capability-kit/graphite/testing";
 
 describe("Graphite stack walking", () => {
 	it("deduplicates values while preserving first-seen order", () => {

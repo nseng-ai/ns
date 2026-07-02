@@ -26,8 +26,6 @@
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/clinkr": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/git": "workspace:*",
-		"@sdl/graphite": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"@sdl/plans": "workspace:*",
 		"zod": "catalog:"

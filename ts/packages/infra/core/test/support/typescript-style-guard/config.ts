@@ -26,7 +26,6 @@ export const ADVISORY_OPTIONAL_UNDEFINED_PROPERTY = "SDL_TS_ADVISORY_OPTIONAL_UN
 export const packageTierValues = [
 	"capability",
 	"capability-kit",
-	"capability-gateway-backend",
 	"sdk",
 	"neutral-infra",
 	"host",
@@ -40,30 +39,16 @@ export type PackageTier = (typeof packageTierValues)[number];
 export const packageTierSet = new Set<string>(packageTierValues);
 
 export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet<PackageTier>>> = {
-	capability: new Set([
-		"capability",
-		"capability-kit",
-		"capability-gateway-backend",
-		"sdk",
-		"neutral-infra",
-	]),
-	"capability-kit": new Set(["capability-gateway-backend", "sdk", "neutral-infra"]),
-	"capability-gateway-backend": new Set(["capability-gateway-backend", "neutral-infra"]),
+	capability: new Set(["capability", "capability-kit", "sdk", "neutral-infra"]),
+	"capability-kit": new Set(["sdk", "neutral-infra"]),
 	sdk: new Set(["sdk", "neutral-infra"]),
 	"neutral-infra": new Set(["neutral-infra"]),
-	host: new Set([
-		"capability",
-		"sdk",
-		"capability-kit",
-		"capability-gateway-backend",
-		"neutral-infra",
-	]),
+	host: new Set(["capability", "sdk", "capability-kit", "neutral-infra"]),
 	"capability-pi": new Set([
 		"capability-pi",
 		"host",
 		"capability",
 		"capability-kit",
-		"capability-gateway-backend",
 		"sdk",
 		"neutral-infra",
 	]),
@@ -72,16 +57,10 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 		"host",
 		"capability",
 		"capability-kit",
-		"capability-gateway-backend",
 		"sdk",
 		"neutral-infra",
 	]),
-	"local-pi-tool": new Set([
-		"local-pi-tool",
-		"host",
-		"capability-gateway-backend",
-		"neutral-infra",
-	]),
+	"local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
@@ -98,8 +77,8 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
 	],
 	[
-		"@sdl/brmem\0@sdl/git",
-		"Git gateway backend relocation debt: brmem consumes @sdl/git until the separate brmem follow-up retier lands.",
+		"@local-pi-tools/pr-feedback-watch\0@sdl/capability-kit",
+		"GitHub gateway fold debt: pr-feedback-watch now consumes Capability Kit until the local Pi tools container conversion retires the standalone local package.",
 	],
 	[
 		"@local-pi-tools/thermo-council\0@sdl/capability-kit",
@@ -124,13 +103,13 @@ export const neutralPeerPackageNames = new Set([
 	"/cli-runtime",
 	"@sdl/brmem",
 	"@sdl/clinkr",
-	"@sdl/cmux",
+	"@sdl/capability-kit/cmux",
 	"@sdl/core",
 	"@sdl/capability-kit",
 	"@sdl/core/exec",
-	"@sdl/git",
-	"@sdl/github",
-	"@sdl/graphite",
+	"@sdl/capability-kit/git",
+	"@sdl/capability-kit/github",
+	"@sdl/capability-kit/graphite",
 ]);
 
 export const manifestDependencyFields = [

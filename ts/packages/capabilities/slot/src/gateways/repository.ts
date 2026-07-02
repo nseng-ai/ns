@@ -4,7 +4,7 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import type { CommandExecApi } from "@sdl/core/command";
 import { parseGitWorktreePorcelain } from "@sdl/capability-kit/git";
-import { RealGitGateway, type GitGateway } from "@sdl/git";
+import { RealGitGateway, type GitGateway } from "@sdl/capability-kit/git";
 import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 
 import {

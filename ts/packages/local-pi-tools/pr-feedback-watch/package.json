@@ -12,9 +12,9 @@
 	},
 	"dependencies": {
 		"@sdl/core": "workspace:*",
-		"@sdl/github": "workspace:*",
 		"@sdl/pi": "workspace:*",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@sdl/capability-kit": "workspace:*"
 	},
 	"sdl": {
 		"tier": "local-pi-tool"

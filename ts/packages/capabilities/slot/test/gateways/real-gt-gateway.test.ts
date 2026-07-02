@@ -7,8 +7,8 @@ import {
 	type GraphiteMetadataDbAccess,
 	type SqliteJsonError,
 	type SqliteJsonOutcome,
-} from "@sdl/graphite/metadata";
-import { RealGraphiteStackGateway } from "@sdl/graphite/stack";
+} from "@sdl/capability-kit/graphite/metadata";
+import { RealGraphiteStackGateway } from "@sdl/capability-kit/graphite/stack";
 import { resultErr, resultOk } from "@sdl/core/result";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 

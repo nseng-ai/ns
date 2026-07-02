@@ -210,7 +210,7 @@ function GRAPH_RENDERER() {
   // Canonical architectural stacking (consumers → foundation): consumers and tools at
   // the top, the SDK and gateway backends in the middle, neutral infra at the bottom.
   // Tiers absent from this list fall back to mean-depth ordering.
-  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "capability-gateway-backend", "sdk", "neutral-infra"];
+  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"];
   const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
   const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
   const tierBand = new Map(presentTiers.map((t, i) => [t, i]));

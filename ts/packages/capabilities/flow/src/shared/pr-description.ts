@@ -1,4 +1,4 @@
-import type { GitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import {
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	RealGithubPrGateway,

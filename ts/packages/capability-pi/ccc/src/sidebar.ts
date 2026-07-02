@@ -5,7 +5,7 @@ import {
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
 } from "@sdl/ccc/api";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";

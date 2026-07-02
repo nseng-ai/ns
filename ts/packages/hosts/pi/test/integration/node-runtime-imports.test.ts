@@ -14,7 +14,7 @@ const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.met
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();
 
 const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
-	"@sdl/graphite/status",
+	"@sdl/capability-kit/graphite/status",
 	"@sdl/core/exec",
 	"@sdl/branch-context",
 	"@sdl/plans",

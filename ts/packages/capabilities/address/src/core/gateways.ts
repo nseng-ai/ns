@@ -1,4 +1,4 @@
-import type { GitErrorInfo } from "@sdl/git";
+import type { GitErrorInfo } from "@sdl/capability-kit/git";
 import type { ErrorInfo } from "@sdl/core/result";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 

@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/core/exec";
 import { ScriptedQueue } from "@sdl/core/test-kit";
-import { RealGraphiteBranchGateway } from "@sdl/graphite/branch";
+import { RealGraphiteBranchGateway } from "@sdl/capability-kit/graphite/branch";
 import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
-import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
+import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const BRANCH = "branch-contexts/branch-scoped-plan";

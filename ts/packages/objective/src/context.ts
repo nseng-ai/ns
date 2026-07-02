@@ -1,6 +1,6 @@
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";

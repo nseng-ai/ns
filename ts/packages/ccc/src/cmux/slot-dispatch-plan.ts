@@ -27,12 +27,12 @@ import { createCccSlotClient } from "../slot-checkout.ts";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@sdl/cmux/focused-terminal-tab";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/cmux/pi-launch";
-import type { PiLaunchOptions } from "@sdl/cmux/pi-launch";
+} from "@sdl/capability-kit/cmux/focused-terminal-tab";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@sdl/capability-kit/cmux/pi-launch";
+import type { PiLaunchOptions } from "@sdl/capability-kit/cmux/pi-launch";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
-import type { CommandContext, ExtensionAPI, NotifyLevel } from "@sdl/cmux/types";
+import type { CommandContext, ExtensionAPI, NotifyLevel } from "@sdl/capability-kit/cmux/types";
 
 const BRANCH_CREATION = "graphite";
 

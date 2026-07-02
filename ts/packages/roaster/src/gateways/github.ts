@@ -3,13 +3,13 @@ import {
 	commandFailureReason,
 	execApiToCommandRunner,
 } from "@sdl/core/command";
-import { runGitHubCli } from "@sdl/github/cli";
+import { runGitHubCli } from "@sdl/capability-kit/github/cli";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,
 	parseGithubJson,
 	withNumericGithubIdentity,
-} from "@sdl/github/pr-feedback";
+} from "@sdl/capability-kit/github/pr-feedback";
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 import { withTemporaryJsonFile } from "@sdl/capability-kit/temp-files";
 import { z } from "zod";

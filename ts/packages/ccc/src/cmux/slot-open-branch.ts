@@ -6,7 +6,11 @@ import {
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "../slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
-import type { AutocompleteItem, CommandContext, ExtensionAPI } from "@sdl/cmux/types";
+import type {
+	AutocompleteItem,
+	CommandContext,
+	ExtensionAPI,
+} from "@sdl/capability-kit/cmux/types";
 
 interface BranchCandidate {
 	name: string;

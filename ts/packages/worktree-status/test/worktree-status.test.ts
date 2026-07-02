@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@sdl/github/pr-status";
-import { githubCheckRun } from "@sdl/github/testing";
+import { githubWorktreePrStatusQuery } from "@sdl/capability-kit/github/pr-status";
+import { githubCheckRun } from "@sdl/capability-kit/github/testing";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/graphite/status";
+import type { GraphiteMetadataWorkerDiagnostic } from "@sdl/capability-kit/graphite/status";
 import {
 	formatGhStatus,
 	formatGtStatus,
@@ -26,7 +26,7 @@ import {
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
 } from "@sdl/worktree-status";
-import type { GraphiteMetadataStatus } from "@sdl/graphite/status";
+import type { GraphiteMetadataStatus } from "@sdl/capability-kit/graphite/status";
 
 const ROOT = "/repo";
 const HEAD_OID = "abc123";
@@ -352,7 +352,10 @@ describe("worktree status message rendering", () => {
 				display: true,
 				details: {
 					prLinks: [
-						{ number: 489, url: "https://app.graphite.com/github/pr/dagster-io/sdl-tools/489" },
+						{
+							number: 489,
+							url: "https://app.graphite.com/capability-kit/github/pr/dagster-io/sdl-tools/489",
+						},
 					],
 				},
 			},
@@ -361,7 +364,7 @@ describe("worktree status message rendering", () => {
 		);
 
 		expect(component.render(200)).toEqual([
-			"[gh] \x1B]8;;https://app.graphite.com/github/pr/dagster-io/sdl-tools/489\x07#489\x1B]8;;\x07 · comments 0/0 · checks 12✓ · landable",
+			"[gh] \x1B]8;;https://app.graphite.com/capability-kit/github/pr/dagster-io/sdl-tools/489\x07#489\x1B]8;;\x07 · comments 0/0 · checks 12✓ · landable",
 		]);
 	});
 

@@ -10,7 +10,7 @@ import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
 } from "@sdl/capability-kit/git";
-import { runGraphiteCommand } from "@sdl/graphite/branch";
+import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 import { optionalEntry } from "@sdl/core/primitives";
 
 import {
@@ -22,7 +22,7 @@ import {
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
 import type { SlotClient } from "@sdl/slot/api";
-import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
+import type { CommandContext, ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;

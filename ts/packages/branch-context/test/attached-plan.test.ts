@@ -16,7 +16,7 @@ import type { CommandExecApi } from "@sdl/core/exec";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@sdl/plans";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
+import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";

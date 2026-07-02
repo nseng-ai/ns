@@ -5,8 +5,8 @@ import {
 	formatCommand,
 	formatCommandFailure,
 } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
-import type { GitGateway, GitOperationResult, GitResult } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway, GitOperationResult, GitResult } from "@sdl/capability-kit/git";
 
 import { isMissingExecutableError, runVibechkCommand } from "./exec-util.ts";
 import type { GitProvenance } from "./models.ts";

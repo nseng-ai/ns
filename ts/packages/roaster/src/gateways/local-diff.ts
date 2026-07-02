@@ -3,8 +3,8 @@ import { join } from "node:path";
 
 import { type CommandExecApi, commandFailureReason, formatCommand } from "@sdl/core/command";
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
-import type { GitGateway } from "@sdl/git";
-import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
 
 import { parseUnifiedDiff } from "../diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../failures.ts";

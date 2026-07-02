@@ -1,5 +1,5 @@
 import { optionalEntry } from "@sdl/core/primitives";
-import { githubPrIdentityFromUrl } from "@sdl/github/identity";
+import { githubPrIdentityFromUrl } from "@sdl/capability-kit/github/identity";
 
 import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
 import { loadGhCommand } from "@sdl/pi/shared/gh-command";

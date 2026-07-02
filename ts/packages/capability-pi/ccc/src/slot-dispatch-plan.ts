@@ -5,7 +5,7 @@ import {
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 } from "@sdl/ccc/api";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";
 const SURFACE_COMMAND_NAME = "ccc:surface:dispatch-plan";

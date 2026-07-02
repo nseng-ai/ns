@@ -30,8 +30,6 @@
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/clinkr": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/git": "workspace:*",
-		"@sdl/github": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"zod": "catalog:"
 	},

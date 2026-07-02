@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 import registerCccPiExtension from "../src/extension.ts";
 

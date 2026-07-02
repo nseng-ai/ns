@@ -19,7 +19,7 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "@sdl/cmux/types";
+} from "@sdl/capability-kit/cmux/types";
 import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
 import { optionalEntries } from "@sdl/core/primitives";
 

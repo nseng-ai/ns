@@ -102,7 +102,7 @@ An internal package such as `@sdl/ccc` that may own implementation orchestration
 
 ## Extension layering
 
-The end-state architecture for SDL capabilities relative to the SDL extension API (`@sdl/kernel/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/kernel`) plus the `@sdl/kernel/sdk` package. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
+The end-state architecture for SDL capabilities relative to the SDL extension API (`@sdl/kernel/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/kernel`) plus the `@sdl/kernel/sdk` package. Above the SDK: the Capability Kit (including gateway subpackages such as `@sdl/capability-kit/graphite`) plus the Capabilities (first-party extensions) built on it.
 
 **Capability extension**:
 An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.

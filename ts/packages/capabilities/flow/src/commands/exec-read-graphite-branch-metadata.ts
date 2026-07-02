@@ -2,7 +2,7 @@ import { formatCommand } from "@sdl/core/command";
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,
-} from "@sdl/graphite/metadata";
+} from "@sdl/capability-kit/graphite/metadata";
 import {
 	defineExtension,
 	failed,

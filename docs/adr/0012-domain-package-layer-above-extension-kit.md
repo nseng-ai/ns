@@ -47,11 +47,11 @@ Capabilities  (first-party Extensions, above the Capability Kit)   <- most domai
     each = kernel-loaded commands over gateway-injected domain logic,
            plus a Capability API where a consumer depends on it in-process
         |  built on
-Capability Kit  (@sdl/capability-kit, thin)                  <- ctx->gateway adapter
+Capability Kit  (@sdl/capability-kit + gateway subpackages)  <- ctx->gateway adapter
         |                                                       + shared result/error shapes
-SDK  (SDL kernel @sdl/kernel + sdl-sdk package)
+SDK  (SDL kernel @sdl/kernel + @sdl/kernel/sdk)
         |
-Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/graphite, @sdl/brmem)
+Neutral Infra  (@sdl/core, @sdl/clinkr, @sdl/brmem)
 ```
 
 ## Consequences

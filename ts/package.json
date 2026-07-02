@@ -30,7 +30,6 @@
 		"@sdl/ccc-pi": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"@sdl/flow-pi": "workspace:*",
-		"@sdl/graphite": "workspace:*",
 		"@sdl/handoff-pi": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"@sdl/objective-pi": "workspace:*",
@@ -40,7 +39,6 @@
 		"@sdl/review-reinvention-scanner": "workspace:*",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
-		"@withgraphite/graphite-cli": "catalog:",
 		"jsonc-parser": "catalog:",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
@@ -51,7 +49,8 @@
 		"vitest": "catalog:",
 		"@sdl/aretro": "workspace:*",
 		"@sdl/handoff": "workspace:*",
-		"@sdl/objective": "workspace:*"
+		"@sdl/objective": "workspace:*",
+		"@withgraphite/graphite-cli": "catalog:"
 	},
 	"workspaces": [
 		"packages/*",

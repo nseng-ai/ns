@@ -1,7 +1,7 @@
 import { commandSucceeded, type ExecResult } from "@sdl/core/command";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { planLocalBranchRefreshFromWorktrees } from "@sdl/capability-kit/git";
-import { runGraphiteCommand } from "@sdl/graphite/branch";
+import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 
 const GT_TIMEOUT_MS = 30_000;
 const GIT_TIMEOUT_MS = 2 * 60 * 1000;

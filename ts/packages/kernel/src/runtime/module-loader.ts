@@ -38,7 +38,7 @@ const CAPABILITY_KIT_MODEL_SLUG_SPECIFIER = "@sdl/capability-kit/model-slug";
 const CORE_MODEL_SLUG_SPECIFIER = "@sdl/core/model-slug";
 const CORE_PRIMITIVES_SPECIFIER = "@sdl/core/primitives";
 const CORE_TEXT_NORMALIZATION_SPECIFIER = "@sdl/core/text-normalization";
-const GIT_SPECIFIER = "@sdl/git";
+const GIT_SPECIFIER = "@sdl/capability-kit/git";
 const ADDRESS_PACKAGE_NAME = "@sdl/address";
 const ARETRO_PACKAGE_NAME = "@sdl/aretro";
 const BRANCH_CONTEXT_PACKAGE_NAME = "@sdl/branch-context";
@@ -68,11 +68,11 @@ const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "autoslot.ts");
 const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "land.ts");
 const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "trunk-pull.ts");
 const EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec", "index.ts");
-const CAPABILITY_KIT_MODEL_SLUG_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "model-slug.ts");
+const CAPABILITY_KIT_MODEL_SLUG_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "kit", "model-slug.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "primitives", "model-slug.ts");
 const CORE_PRIMITIVES_MODULE_PATH = join(CORE_SRC_DIR, "primitives", "primitives.ts");
 const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "terminal", "text-normalization.ts");
-const GIT_MODULE_PATH = join(SDL_SRC_DIR, "..", "..", "infra", "git", "src", "index.ts");
+const GIT_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "git", "index.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 	"@sdl/kernel/cli": "cli/index.ts",
@@ -81,12 +81,12 @@ const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
 } as const;
 
 const CAPABILITY_KIT_MODULE_PATHS = {
-	"@sdl/capability-kit/checkpoint-flow": "checkpoint-flow.ts",
-	"@sdl/capability-kit/checkpoint-message": "checkpoint-message.ts",
-	"@sdl/capability-kit/pending-worktree": "pending-worktree.ts",
-	"@sdl/capability-kit/temp-files": "temp-files.ts",
-	"@sdl/capability-kit/text-generation": "text-generation.ts",
-	"@sdl/capability-kit/text-repair": "text-repair.ts",
+	"@sdl/capability-kit/checkpoint-flow": "kit/checkpoint-flow.ts",
+	"@sdl/capability-kit/checkpoint-message": "kit/checkpoint-message.ts",
+	"@sdl/capability-kit/pending-worktree": "kit/pending-worktree.ts",
+	"@sdl/capability-kit/temp-files": "kit/temp-files.ts",
+	"@sdl/capability-kit/text-generation": "kit/text-generation.ts",
+	"@sdl/capability-kit/text-repair": "kit/text-repair.ts",
 } as const;
 
 function buildInternalWorkspaceAliases(): Record<string, string> {

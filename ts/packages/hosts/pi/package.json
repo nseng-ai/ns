@@ -41,9 +41,7 @@
 	},
 	"dependencies": {
 		"@sdl/capability-kit": "workspace:*",
-		"@sdl/cmux": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/graphite": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
