@@ -12,7 +12,7 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
-} from "@sdl/capability-kit/git";
+} from "./contract.ts";
 
 interface FailureState {
 	type: "failure";

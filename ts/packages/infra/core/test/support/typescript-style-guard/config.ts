@@ -133,12 +133,6 @@ export interface DeferredTopologyCircleCycle {
 
 export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
 	{
-		name: "capability-kit-git-kit",
-		packageName: "@sdl/capability-kit",
-		circles: new Set(["git", "kit"]),
-		reason: "root kit exports git while tests consume kit fakes; the fix relocates both edges.",
-	},
-	{
 		name: "kernel-cli-extensions-operations",
 		packageName: "@sdl/kernel",
 		circles: new Set(["cli", "extensions", "operations"]),
