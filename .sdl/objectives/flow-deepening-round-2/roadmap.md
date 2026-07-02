@@ -62,18 +62,21 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       no-op on current, and default prompt on stale; full DoP suite reported
       green by the step, independently re-verified via flow package tests
       (47 files / 419 tests) and `just ts-check`.
-- [ ] Delete the forwarder shims (review #6)
-      Policy: direct.
-      What: inline five single-purpose rename/re-export files into their
-      callers: `src/shared/git.ts` (5 lines), `src/shared/text-helpers.ts`
-      (9), `src/shared/checkpoint-message.ts` (2), `src/submit/format.ts` (3),
-      `src/autobranch/short-sha.ts` (3). Keep `src/shared/text-generation.ts`
-      (many consumers — a real naming seam).
-      `src/land-stack/graphite-metadata-command.ts` is already absorbed —
-      the operation-shaping row deleted it into the channel on 2026-07-02;
-      only the five forwarder files remain for this row.
-      Evidence: the five files are gone; `just ts-check` and the flow test
-      suite pass; no re-export replaces them.
+- [x] Delete the forwarder shims (review #6)
+      Delivered 2026-07-02 (runner step, commit `67c6e49ee` on
+      `flow-delete-forwarder-shims`): the five forwarder files
+      (`shared/git.ts`, `shared/text-helpers.ts`,
+      `shared/checkpoint-message.ts`, `submit/format.ts`,
+      `autobranch/short-sha.ts`) are deleted with callers pointed at the
+      real interfaces; no replacement re-export added;
+      `shared/text-generation.ts` survives as the real naming seam;
+      `graphite-metadata-command.ts` had already been absorbed by the
+      channel row.
+      Evidence: parent-verified — files absent, only remaining path
+      reference is a negative regression assertion in
+      `extension-shared-flow-foundations.test.ts`; flow suite passes
+      (44 files / 413 tests) and `just ts-check` green; full DoP suite
+      reported green by the step.
 - [ ] Land Domain extraction — inventory (no code moves)
       Policy: direct.
       What: produce the migration map. Enumerate every behavior in
