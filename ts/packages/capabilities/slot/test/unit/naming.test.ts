@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { extractSlotNumber, generateSlotName } from "../../src/naming.ts";
+import { extractSlotNumber, generateSlotName } from "../../src/core/naming.ts";
 
 describe("slot naming", () => {
 	it("generates two-digit managed slot names", () => {

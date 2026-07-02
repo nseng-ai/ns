@@ -1,7 +1,10 @@
 import { basename, resolve } from "node:path";
 
-import { mainRepoRootFromGitCommonDir, type SlotRepositoryGateway } from "./gateways/repository.ts";
-import type { SlotStorageGateway } from "./gateways/storage.ts";
+import {
+	mainRepoRootFromGitCommonDir,
+	type SlotRepositoryGateway,
+} from "../gateways/repository.ts";
+import type { SlotStorageGateway } from "../gateways/storage.ts";
 
 export interface RepoContext {
 	type: "repo";

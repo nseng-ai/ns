@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { discoverRepoOrSentinel, ensureSlotsMetadataDir } from "../../src/repo-context.ts";
+import { discoverRepoOrSentinel, ensureSlotsMetadataDir } from "../../src/core/repo-context.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 

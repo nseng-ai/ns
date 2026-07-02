@@ -19,66 +19,66 @@ import {
 	checkoutResultSchema,
 	renderCheckout,
 	runCheckout,
-} from "./operations/checkout.ts";
+} from "../operations/checkout.ts";
 import {
 	claimRequestSchema,
 	claimResultSchema,
 	renderClaim,
 	runClaim,
-} from "./operations/claim.ts";
+} from "../operations/claim.ts";
 import {
 	foreachRequestSchema,
 	foreachResultSchema,
 	renderForeach,
 	runForeach,
-} from "./operations/foreach.ts";
-import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./operations/free.ts";
-import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./operations/gc.ts";
+} from "../operations/foreach.ts";
+import { freeRequestSchema, freeResultSchema, renderFree, runFree } from "../operations/free.ts";
+import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../operations/gc.ts";
 import {
 	gtDownRequestSchema,
 	gtDownResultSchema,
 	renderGtDownNavigation,
 	runGtDown,
-} from "./operations/gt/down.ts";
+} from "../operations/gt/down.ts";
 import {
 	gtStackBranchesRequestSchema,
 	gtStackBranchesResultSchema,
 	renderStackBranches,
 	runGtStackBranches,
-} from "./operations/gt/exec/stack-branches.ts";
+} from "../operations/gt/exec/stack-branches.ts";
 import {
 	gtQuiescenceRequestSchema,
 	gtQuiescenceResultSchema,
 	renderGtQuiescence,
 	runGtQuiescence,
-} from "./operations/gt/exec/quiescence.ts";
+} from "../operations/gt/exec/quiescence.ts";
 import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderStackMapBranches,
 	runGtStackMapBranches,
-} from "./operations/gt/exec/stack-map-branches.ts";
+} from "../operations/gt/exec/stack-map-branches.ts";
 import {
 	gtFreeStackRequestSchema,
 	gtFreeStackResultSchema,
 	renderGtFreeStack,
 	runGtFreeStack,
-} from "./operations/gt/free-stack.ts";
+} from "../operations/gt/free-stack.ts";
 import {
 	gtNavigationResultSchema,
 	gtUpRequestSchema,
 	renderGtUpNavigation,
 	runGtUp,
-} from "./operations/gt/up.ts";
-import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "./operations/goto.ts";
-import { initRequestSchema, initResultSchema, renderInit, runInit } from "./operations/init.ts";
-import { listRequestSchema, listResultSchema, renderList, runList } from "./operations/list.ts";
+} from "../operations/gt/up.ts";
+import { gotoRequestSchema, gotoResultSchema, renderGoto, runGoto } from "../operations/goto.ts";
+import { initRequestSchema, initResultSchema, renderInit, runInit } from "../operations/init.ts";
+import { listRequestSchema, listResultSchema, renderList, runList } from "../operations/list.ts";
 import {
 	renderResize,
 	resizeRequestSchema,
 	resizeResultSchema,
 	runResize,
-} from "./operations/resize.ts";
+} from "../operations/resize.ts";
 
 export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({

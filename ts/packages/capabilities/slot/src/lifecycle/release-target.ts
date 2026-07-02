@@ -1,5 +1,5 @@
 import type { SlotRepositoryGateway } from "../gateways/repository.ts";
-import { findBySlot, type SlotInventory, type SlotRecord } from "../inventory.ts";
+import { findBySlot, type SlotInventory, type SlotRecord } from "../core/inventory.ts";
 
 export interface FreedSlot {
 	slotName: string;

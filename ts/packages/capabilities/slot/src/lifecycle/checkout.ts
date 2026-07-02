@@ -1,7 +1,7 @@
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
-import { buildSlotInventory } from "../inventory.ts";
-import { planCheckout, planCurrentCheckout, type CheckoutPlan } from "../planning.ts";
-import { ensureSlotsMetadataDir } from "../repo-context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
+import { buildSlotInventory } from "../core/inventory.ts";
+import { planCheckout, planCurrentCheckout, type CheckoutPlan } from "../core/planning.ts";
+import { ensureSlotsMetadataDir } from "../core/repo-context.ts";
 import {
 	branchInUseFailure,
 	poolFullFailure,

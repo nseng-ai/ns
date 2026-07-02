@@ -2,7 +2,7 @@ import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from 
 import { renderResultBlock } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
+import type { SlotCliContext } from "../core/context.ts";
 import { initializePool } from "../lifecycle/pool.ts";
 
 export const initRequestSchema = z.object({

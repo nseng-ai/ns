@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
 	renderSlotNavigationSuccess,
 	type SlotNavigationPresentationInput,
-} from "../../src/navigation-presentation.ts";
+} from "../../src/core/navigation-presentation.ts";
 
 const unicodeColorCaps: Caps = {
 	isTty: true,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { resolveSlotsRoot } from "../../src/context.ts";
+import { resolveSlotsRoot } from "../../src/core/context.ts";
 
 describe("resolveSlotsRoot", () => {
 	test("defaults to SDL XDG state slots", () => {

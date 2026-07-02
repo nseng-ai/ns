@@ -1,5 +1,5 @@
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
-import type { CurrentWorktreeRedirect } from "../planning.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
+import type { CurrentWorktreeRedirect } from "../core/planning.ts";
 import {
 	findByBranch,
 	findOccupancyByBranch,
@@ -7,9 +7,9 @@ import {
 	type SlotInventory,
 	type SlotRecord,
 	buildSlotInventory,
-} from "../inventory.ts";
-import { planCurrentWtRedirect } from "../planning.ts";
-import { ensureSlotsMetadataDir } from "../repo-context.ts";
+} from "../core/inventory.ts";
+import { planCurrentWtRedirect } from "../core/planning.ts";
+import { ensureSlotsMetadataDir } from "../core/repo-context.ts";
 import {
 	assignedSlotRecords,
 	branchOccupancyMessage,

@@ -1,5 +1,5 @@
-import type { RepoSlotContext } from "../context.ts";
-import type { CurrentWorktreeRedirect } from "../planning.ts";
+import type { RepoSlotContext } from "../core/context.ts";
+import type { CurrentWorktreeRedirect } from "../core/planning.ts";
 import type { SlotLifecycleFailure } from "./common.ts";
 
 export async function executeCurrentWorktreeRedirect(

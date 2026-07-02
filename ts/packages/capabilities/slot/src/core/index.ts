@@ -8,6 +8,6 @@ export {
 	writeCdDirectiveIfActive,
 	SLOT_CD_DIRECTIVE_FILE,
 	SDL_CD_DIRECTIVE_FILE,
-} from "./shell/cd-directive.ts";
-export { FakeClipboardGateway, RealClipboardGateway } from "./gateways/clipboard.ts";
-export type { ClipboardCopyResult, ClipboardGateway } from "./gateways/clipboard.ts";
+} from "../shell/cd-directive.ts";
+export { FakeClipboardGateway, RealClipboardGateway } from "../gateways/clipboard.ts";
+export type { ClipboardCopyResult, ClipboardGateway } from "../gateways/clipboard.ts";

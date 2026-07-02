@@ -1,5 +1,5 @@
 import type { WorktreeOccupancy } from "../gateways/repository.ts";
-import type { SlotRecord } from "../inventory.ts";
+import type { SlotRecord } from "../core/inventory.ts";
 
 export interface SlotLifecycleFailure {
 	errorType: string;

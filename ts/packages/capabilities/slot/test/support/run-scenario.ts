@@ -7,8 +7,8 @@ import {
 } from "@sdl/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@sdl/clinkr/testing";
 
-import { buildSlotCommandGroup } from "../../src/command-face.ts";
-import type { SlotCliContext } from "../../src/context.ts";
+import { buildSlotCommandGroup } from "../../src/core/command-face.ts";
+import type { SlotCliContext } from "../../src/core/context.ts";
 import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
 import {
 	FakeSlotCommandGateway,
@@ -24,7 +24,7 @@ import {
 } from "@sdl/capability-kit/graphite/testing";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
-import type { RepoContext } from "../../src/repo-context.ts";
+import type { RepoContext } from "../../src/core/repo-context.ts";
 
 export interface ScenarioRunOptions {
 	git?: FakeSlotRepositoryGatewayOptions;

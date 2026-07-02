@@ -7,8 +7,8 @@ import {
 	createDiagnosticCommandRunner,
 	createSlotDiagnosticSinkFromEnv,
 	type SlotDiagnosticSink,
-} from "../diagnostics.ts";
-import { parseJsonObject } from "../json.ts";
+} from "../core/diagnostics.ts";
+import { parseJsonObject } from "../core/json.ts";
 import { optionalEntry, type ExplicitUndefined } from "@sdl/core/primitives";
 
 const SLOT_PR_TIMEOUT_MS = 10_000;

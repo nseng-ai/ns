@@ -1,7 +1,7 @@
-import type { RepoSlotContext } from "../context.ts";
+import type { RepoSlotContext } from "../core/context.ts";
 import type { PrState, PrSummary } from "../gateways/pr.ts";
 import { prFailureMessage } from "../gateways/pr.ts";
-import { buildSlotInventory, type SlotRecord } from "../inventory.ts";
+import { buildSlotInventory, type SlotRecord } from "../core/inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
 import {
 	executeReleaseCleanup,

@@ -2,12 +2,12 @@ import { basename } from "node:path";
 
 import { failure, type ClinkrFailureExit, type RenderCapabilities } from "@sdl/clinkr";
 
-import type { SlotCliContext } from "../../context.ts";
-import { findByBranch, buildSlotInventory } from "../../inventory.ts";
+import type { SlotCliContext } from "../../core/context.ts";
+import { findByBranch, buildSlotInventory } from "../../core/inventory.ts";
 import { checkoutBranch } from "../../lifecycle/checkout.ts";
-import { prepareNavigation, type NavigationResultFields } from "../../navigation-result.ts";
-import { renderSlotNavigationSuccess } from "../../navigation-presentation.ts";
-import { extractSlotNumber } from "../../naming.ts";
+import { prepareNavigation, type NavigationResultFields } from "../../core/navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../../core/navigation-presentation.ts";
+import { extractSlotNumber } from "../../core/naming.ts";
 
 export type GtNavigationResult = {
 	slotName: string | null;

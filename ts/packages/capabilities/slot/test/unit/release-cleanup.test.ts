@@ -10,7 +10,7 @@ import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.t
 import { FakeGraphiteStackGateway } from "@sdl/capability-kit/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
-import type { RepoSlotContext } from "../../src/context.ts";
+import type { RepoSlotContext } from "../../src/core/context.ts";
 
 const target: FreedSlot = {
 	slotName: "slot-01",

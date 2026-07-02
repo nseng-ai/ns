@@ -12,15 +12,15 @@ import { paint } from "@sdl/core/cli-theme";
 import { readStdinLine } from "@sdl/core/cli-runtime";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
-import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
-import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
-import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateways/repository.ts";
+import { RealClipboardGateway, type ClipboardGateway } from "../gateways/clipboard.ts";
+import { RealSlotCommandGateway, type SlotCommandGateway } from "../gateways/command.ts";
+import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "../gateways/repository.ts";
 import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
 } from "@sdl/capability-kit/graphite/stack";
-import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
-import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
+import { RealSlotPrGateway, type SlotPrGateway } from "../gateways/pr.ts";
+import { RealSlotStorageGateway, type SlotStorageGateway } from "../gateways/storage.ts";
 import {
 	discoverRepoOrSentinel,
 	type RepoContext,

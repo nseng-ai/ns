@@ -1,6 +1,6 @@
 import type { SlotCliContext } from "./context.ts";
 import { createRealSlotContext } from "./context.ts";
-import { checkoutBranch, checkoutCurrent } from "./lifecycle/checkout.ts";
+import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
 import { prepareNavigation, type CheckoutSideEffects } from "./navigation-result.ts";
 
 export interface SlotCheckoutTarget {

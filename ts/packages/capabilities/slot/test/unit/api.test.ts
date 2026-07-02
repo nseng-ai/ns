@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { createSlotClient } from "../../src/api.ts";
+import { createSlotClient } from "../../src/core/api.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { SDL_CD_DIRECTIVE_FILE } from "../../src/shell/cd-directive.ts";
 import { runScenario, slotWorktree } from "../support/run-scenario.ts";
