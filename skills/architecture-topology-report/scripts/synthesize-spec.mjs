@@ -309,7 +309,7 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
 
     graphIntro:
       `Every runtime package edge, live. Node <strong>area ∝ LOC</strong>; node color = declared tier; lanes/filters = declared tier. `
-      + `Toggle the view to <em>subpackage circles</em> for source-component granularity (static TypeScript import edges; node color = tier hue shaded per enclosing package). `
+      + `Toggle the view to <em>subpackage circles</em> for source-component granularity (static TypeScript import edges; node color = tier hue shaded per enclosing package), or click a package node to zoom into that package's internal circle graph — the toolbar chip clears the zoom. `
       + (cycles.length
         ? `<span class="text-red-600 font-medium">Red edges</span> mark cycle back-edges. `
         : `The package graph is <strong>acyclic</strong> — no red cycle edges to draw. `)
