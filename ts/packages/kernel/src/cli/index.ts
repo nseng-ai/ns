@@ -15,23 +15,24 @@ import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli, readStdin, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
 import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { createRealSlotContext, type SlotCliContext } from "@sdl/slot/api";
+import { createRealSlotContext } from "@sdl/slot/api";
 
 import {
-	commandDisplayName,
-	commandKey,
-	commandLeafName,
-	commandPathMatches,
-	commandSegments,
-	executeSdlCommand,
-	formatUnknownError,
-	listStaticSdlCommandInfos,
-	validateSdlClinkrExit,
-	type SdlCommandInfo,
-	type SdlCommandCliInfo,
-	type SdlCommandPath,
-} from "./command-registry.ts";
-import { createRealSdlCommandContext } from "./context.ts";
+	buildSdlCompletionScript,
+	renderSdlCompletionScriptResult,
+	sdlCompletionScriptResultSchema,
+} from "./completion.ts";
+import { createRealSdlCommandContext, type SdlCliContext } from "./context.ts";
+import {
+	renderSdlShellInstall,
+	renderSdlShellShow,
+	runSdlShellInstall,
+	runSdlShellShow,
+	sdlShellInstallRequestSchema,
+	sdlShellInstallResultSchema,
+	sdlShellShowRequestSchema,
+	sdlShellShowResultSchema,
+} from "./shell.ts";
 import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -53,22 +54,22 @@ import type {
 	SdlOutputStream,
 } from "../sdk/index.ts";
 import {
-	buildSdlCompletionScript,
-	renderSdlCompletionScriptResult,
-	sdlCompletionScriptResultSchema,
-} from "../operations/completion.ts";
-import {
-	renderSdlShellInstall,
-	renderSdlShellShow,
-	runSdlShellInstall,
-	runSdlShellShow,
-	sdlShellInstallRequestSchema,
-	sdlShellInstallResultSchema,
-	sdlShellShowRequestSchema,
-	sdlShellShowResultSchema,
-} from "../operations/shell.ts";
+	commandDisplayName,
+	commandKey,
+	commandLeafName,
+	commandPathMatches,
+	commandSegments,
+	executeSdlCommand,
+	formatUnknownError,
+	listStaticSdlCommandInfos,
+	validateSdlClinkrExit,
+	type SdlCommandInfo,
+	type SdlCommandCliInfo,
+	type SdlCommandPath,
+} from "../extensions/command-registry.ts";
 
-export type { SdlCommandInfo } from "./command-registry.ts";
+export type { SdlCliContext } from "./context.ts";
+export type { SdlCommandInfo } from "../extensions/command-registry.ts";
 
 interface SdlCliExtensionRegistryDeps {
 	loadCommandCatalog?: (options: { cwd: string; homeDir?: string }) => Promise<SdlCommandCatalog>;
@@ -89,11 +90,6 @@ export interface BuildSdlCliOptions {
 	commandInfos?: readonly SdlCommandCliInfo[];
 	selectedCommand?: SdlCommand;
 	selectedCommandPath?: SdlCommandPath;
-}
-
-export interface SdlCliContext extends SlotCliContext {
-	context: SdlExtensionApi;
-	stdout: (text: string) => void;
 }
 
 interface SdlCliBuildState {

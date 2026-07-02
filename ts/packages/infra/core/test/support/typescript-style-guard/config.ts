@@ -133,13 +133,6 @@ export interface DeferredTopologyCircleCycle {
 
 export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
 	{
-		name: "kernel-cli-extensions-operations",
-		packageName: "@sdl/kernel",
-		circles: new Set(["cli", "extensions", "operations"]),
-		reason:
-			"command-registry and zod issue helpers are misfiled; the fix folds operations into cli.",
-	},
-	{
 		name: "slot-core-lifecycle",
 		packageName: "@sdl/slot",
 		circles: new Set(["core", "lifecycle"]),

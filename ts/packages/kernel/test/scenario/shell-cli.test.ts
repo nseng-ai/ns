@@ -9,7 +9,7 @@ import { runCli } from "@sdl/kernel/cli";
 import {
 	sdlShellIntegrationBeginMarker,
 	sdlShellIntegrationEndMarker,
-} from "../../src/operations/shell.ts";
+} from "../../src/cli/shell.ts";
 
 const tempHomes: string[] = [];
 

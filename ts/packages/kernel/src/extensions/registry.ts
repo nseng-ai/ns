@@ -19,7 +19,7 @@ import {
 	type SdlCommandPath,
 	type SdlCommandSourceInfo,
 	type SdlCommandSourceLevel,
-} from "../cli/command-registry.ts";
+} from "./command-registry.ts";
 import {
 	discoverExtensionsInRoot,
 	discoverSdlPackageCommands,

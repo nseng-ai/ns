@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { validateSdlExtensionContribution } from "../../src/cli/command-registry.ts";
+import { validateSdlExtensionContribution } from "../../src/extensions/command-registry.ts";
 import { loadSdlExtensionContribution } from "../../src/extensions/loader.ts";
 import { z, type SdlCommand } from "@sdl/kernel/sdk";
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import { commandKey } from "../../src/cli/command-registry.ts";
+import { commandKey } from "../../src/extensions/command-registry.ts";
 import type { SdlCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,

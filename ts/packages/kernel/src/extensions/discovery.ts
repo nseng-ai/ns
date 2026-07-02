@@ -20,8 +20,8 @@ import {
 	commandLeafName,
 	formatUnknownError,
 	type SdlCommandCandidate,
-} from "../cli/command-registry.ts";
-import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "../cli/zod-issue-path.ts";
+} from "./command-registry.ts";
+import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 
