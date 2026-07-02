@@ -7,7 +7,7 @@ import {
 	runnerStepResultSchema,
 	runRunnerStep,
 	type RunnerStepResult,
-} from "../../operations/runner-step.ts";
+} from "../../core/operations/runner-step.ts";
 import { resolveGuidance } from "../../runner/guidance.ts";
 import {
 	createSdlObjectiveRunnerContext,
