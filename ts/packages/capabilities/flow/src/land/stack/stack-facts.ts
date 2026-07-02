@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 
 import { formatCommand, piExecApiToCommandExecApi } from "@sdl/core/command";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
-import { RealGitGateway } from "@sdl/capability-kit/git";
+import { RealGitGateway, type GitLocalBranchTip } from "@sdl/capability-kit/git";
 import { reconcileTopologyToLiveBranches } from "@sdl/capability-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
@@ -150,6 +150,7 @@ export interface LoadStackSnapshotOptions {
 	metadataDbPath: string;
 	current: string;
 	trunk: string;
+	liveLocalBranches?: readonly string[] | ReadonlySet<string>;
 }
 
 export async function loadStackSnapshot(
@@ -162,7 +163,13 @@ export async function loadStackSnapshot(
 	// Graphite's own plumbing silently drops metadata rows/children whose local
 	// refs no longer exist; reconcile once here so the ancestor walk, fork gate,
 	// and descendant subtree all operate on the gt-equivalent (live-ref) view.
-	const liveBranches = await loadLiveLocalBranches(pi, repoRoot);
+	const liveBranches = await loadLiveLocalBranchNames({
+		pi,
+		repoRoot,
+		...(options.liveLocalBranches === undefined
+			? {}
+			: { liveLocalBranches: options.liveLocalBranches }),
+	});
 	if (liveBranches.type === "failure") return liveBranches;
 	const { topology: reconciled, droppedBranches } = reconcileTopologyToLiveBranches(
 		topology.value,
@@ -200,10 +207,10 @@ export async function loadStackSnapshot(
 	});
 }
 
-export async function loadLiveLocalBranches(
+export async function loadLiveLocalBranchTips(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
-): Promise<LandStackResult<ReadonlySet<string>>> {
+): Promise<LandStackResult<readonly GitLocalBranchTip[]>> {
 	const git = new RealGitGateway(piExecApiToCommandExecApi(pi));
 	const tips = await git.listLocalBranchTips({ cwd: repoRoot });
 	if (!tips.ok) {
@@ -213,7 +220,27 @@ export async function loadLiveLocalBranches(
 			),
 		);
 	}
+	return success(tips.value);
+}
+
+export async function loadLiveLocalBranches(
+	pi: LandStackExtensionAPI,
+	repoRoot: string,
+): Promise<LandStackResult<ReadonlySet<string>>> {
+	const tips = await loadLiveLocalBranchTips(pi, repoRoot);
+	if (tips.type === "failure") return tips;
 	return success(new Set(tips.value.map((tip) => tip.name)));
+}
+
+function loadLiveLocalBranchNames(options: {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly liveLocalBranches?: readonly string[] | ReadonlySet<string>;
+}): Promise<LandStackResult<ReadonlySet<string>>> {
+	if (options.liveLocalBranches !== undefined) {
+		return Promise.resolve(success(new Set(options.liveLocalBranches)));
+	}
+	return loadLiveLocalBranches(options.pi, options.repoRoot);
 }
 
 // A dangling child (a metadata row/child pointer for a branch deleted in git but

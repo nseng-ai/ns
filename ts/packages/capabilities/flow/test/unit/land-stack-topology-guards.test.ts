@@ -350,7 +350,11 @@ function repoIntro(
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step(
 			"git",
-			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+			[
+				"for-each-ref",
+				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+				"refs/heads",
+			],
 			{
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			},

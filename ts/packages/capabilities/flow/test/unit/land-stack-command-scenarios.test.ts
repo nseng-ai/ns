@@ -385,11 +385,47 @@ function repoIntro(
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step(
 			"git",
-			["for-each-ref", "--format=%(refname:short)%09%(committerdate:iso-strict)", "refs/heads"],
+			[
+				"for-each-ref",
+				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+				"refs/heads",
+			],
 			{
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			},
 		),
+	];
+}
+
+function domainRepoIntro(
+	options: {
+		current?: string;
+		trunk?: string;
+		dbRows?: string;
+		liveBranches?: string[];
+	} = {},
+): ScriptedExec[] {
+	const dbRows = options.dbRows ?? DB_WITH_DESCENDANT;
+	const liveBranches = options.liveBranches ?? metadataBranchNames(dbRows);
+	return [
+		step("git", ["rev-parse", "--show-toplevel"], { stdout: `${ROOT}\n` }),
+		step("git", ["symbolic-ref", "--short", "HEAD"], { stdout: `${options.current ?? CURRENT}\n` }),
+		step("gt", ["trunk", "--no-interactive"], { stdout: `${options.trunk ?? TRUNK}\n` }),
+		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+			stdout: `${GIT_COMMON_DIR}\n`,
+		}),
+		step(
+			"git",
+			[
+				"for-each-ref",
+				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
+				"refs/heads",
+			],
+			{
+				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+			},
+		),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
 
@@ -880,8 +916,29 @@ function singleBranchPreflightWithRefs(options: {
 	worktrees?: string;
 	dbRows?: string;
 }): ScriptedExec[] {
+	return singleBranchPreflightWithRepoIntro(repoIntro, options);
+}
+
+function singleBranchDomainPreflightWithRefs(options: {
+	localSha: string;
+	prSha: string;
+	worktrees?: string;
+	dbRows?: string;
+}): ScriptedExec[] {
+	return singleBranchPreflightWithRepoIntro(domainRepoIntro, options);
+}
+
+function singleBranchPreflightWithRepoIntro(
+	loadRepoIntro: typeof repoIntro,
+	options: {
+		localSha: string;
+		prSha: string;
+		worktrees?: string;
+		dbRows?: string;
+	},
+): ScriptedExec[] {
 	return [
-		...repoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
+		...loadRepoIntro({ current: "feature-a", dbRows: options.dbRows ?? DB_SINGLE_BRANCH }),
 		...cleanRepoChecks(),
 		...localBranchChecks(["feature-a"]),
 		step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
@@ -2193,7 +2250,7 @@ describe("land-stack command scenarios", () => {
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
 			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 				stdout: `${SHA_B}\n`,
@@ -2249,7 +2306,7 @@ describe("land-stack command scenarios", () => {
 			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
 			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 				stdout: `${SHA_B}\n`,
@@ -2312,7 +2369,7 @@ describe("land-stack command scenarios", () => {
 			}),
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
 			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 				stdout: `${SHA_B}\n`,
@@ -2382,7 +2439,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", restackArgs),
 			submitRestackRecheckStep(),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_C, prSha: SHA_C }),
 			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_C } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 				stdout: `${SHA_C}\n`,
@@ -2461,7 +2518,7 @@ describe("land-stack command scenarios", () => {
 			step("gt", ["restack", "--branch", "feature-a", "--upstack", "--no-interactive"]),
 			submitRestackRecheckStep(),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
 			...backupRefSteps(["feature-a"], { shas: { "feature-a": SHA_B } }),
 			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
 				stdout: `${SHA_B}\n`,
@@ -2575,7 +2632,11 @@ describe("land-stack command scenarios", () => {
 				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
 			}),
 			step("gt", submitArgs),
-			...singleBranchPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B, worktrees: slotWorktrees }),
+			...singleBranchDomainPreflightWithRefs({
+				localSha: SHA_B,
+				prSha: SHA_B,
+				worktrees: slotWorktrees,
+			}),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script, {
 			confirms: [true, true],

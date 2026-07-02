@@ -21,10 +21,10 @@ import {
 	assertLocalBranchExists,
 	detectInProgressOperation,
 	loadCurrentBranch,
-	loadLandingShape,
-	loadLiveLocalBranches,
+	loadLiveLocalBranchTips,
 	loadLocalSha,
 	loadRepoRoot,
+	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
@@ -62,11 +62,18 @@ export function createLandContext(
 			metadataDbPath: async ({ repoRoot }) =>
 				toLandResult(await resolveMetadataDbPath(pi, repoRoot), "graphite"),
 			stackShape: async (request) => {
-				const shape = await loadLandingShape(pi, request.repoRoot, { graphite });
-				if (shape.type === "failure") return toLandResult(shape, "graphite");
+				const stack = await loadStackSnapshot({
+					pi,
+					repoRoot: request.repoRoot,
+					metadataDbPath: request.metadataDbPath,
+					current: request.current,
+					trunk: request.trunk,
+					liveLocalBranches: request.liveLocalBranches,
+				});
+				if (stack.type === "failure") return toLandResult(stack, "graphite");
 				return landSuccess({
-					...shape.value.stack,
-					warnings: shape.value.stack.warnings.map((message) => ({ level: "warning", message })),
+					...stack.value,
+					warnings: stack.value.warnings.map((message) => ({ level: "warning", message })),
 				});
 			},
 			prepareSubmitUpdate: async () => landCompleted(),
@@ -138,9 +145,11 @@ async function loadLocalBranches(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 ): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
-	const branches = await loadLiveLocalBranches(pi, repoRoot);
+	const branches = await loadLiveLocalBranchTips(pi, repoRoot);
 	if (branches.type === "failure") return toLandResult(branches, "git");
-	return landSuccess([...branches.value].map((name) => ({ name, sha: "" })));
+	return landSuccess(
+		branches.value.map((branch) => ({ name: branch.name, sha: branch.headSha ?? "" })),
+	);
 }
 
 interface LoadBranchContainsParentOptions {
