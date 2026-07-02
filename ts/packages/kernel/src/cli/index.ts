@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
 	ClinkrGroup,
+	clinkrFormatFromArgs,
 	isClinkrHumanOutputInvocation,
 	ok,
 	renderCapabilitiesForTerminal,
@@ -406,6 +407,7 @@ async function buildSdlCliContext(options: {
 		commandIo,
 		progress: noopSdlProgress,
 		renderCapabilities,
+		outputFormat: clinkrFormatFromArgs(options.args),
 		exec: baseContext.exec.bind(baseContext),
 		stdout: options.stdout,
 		stderr: options.stderr,

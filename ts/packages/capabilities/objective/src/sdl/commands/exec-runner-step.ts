@@ -27,9 +27,10 @@ const RUNNER_STEP_DESCRIPTION =
  *
  * The composition supplies the one Pi-coupled dependency (the child-session
  * gateway); the wired default export below composes the real Pi adapter.
- * Renderers return the checkpoint verbatim for exit-0 states; exit 1/2 states
- * already wrote the checkpoint to stdout inside the operation (ADR 0022:
- * the checkpoint is the only stdout in every terminal state).
+ * Renderers return the checkpoint verbatim for exit-0 states. Non-ok checkpoint
+ * exits still use runner-local stdout emission for human/markdown modes, but
+ * suppress that stream in JSON mode so the machine envelope remains valid until
+ * clinkr owns non-ok stdout artifacts structurally.
  */
 export function createObjectiveExecRunnerStepSdlCommand(
 	composition: ObjectiveRunnerComposition,

@@ -476,6 +476,7 @@ interface SdlExtensionApi {
   commandIo: SdlCommandIo;
   progress: SdlProgress;
   renderCapabilities: RenderCapabilities;
+  outputFormat?: ClinkrFormat;
   stdout?: ((text: string) => void) | undefined;
   stderr?: ((text: string) => void) | undefined;
   stdin?: (() => Promise<string>) | undefined;
@@ -494,6 +495,7 @@ interface SdlExtensionApi {
 - `commandIo` — required higher-level human command-output service. Command authors can call `ctx.commandIo.phase(...)`, `ctx.commandIo.notify(...)`, `ctx.commandIo.message(...)`, and `ctx.commandIo.clearPhase()` for host-adapted progress and notifications.
 - `progress` — required structured phase-progress sink. Command authors can call `ctx.progress.phase(event)` with `SdlProgressPhaseEvent` values when a host or capability wants typed phase lifecycle events.
 - `renderCapabilities` — required host terminal rendering capabilities for human output and previews. Use this explicit field for color/unicode decisions; do not transport terminal capabilities through `extensions`.
+- `outputFormat?` — host-selected command output format, useful only for commands that stream durable output before returning.
 - `stdout?` / `stderr?` — durable output hooks for commands that stream multiple chunks before returning. `stdout` is reserved for primary output.
 - `stdin?` — optional full stdin reader for commands that consume a finite payload.
 - `onOutput?` — transient live-progress hook for UI bridges, tagged by `SdlOutputStream`.

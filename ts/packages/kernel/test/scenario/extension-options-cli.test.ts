@@ -20,6 +20,7 @@ const optionProbeResultSchema = z.object({
 		force: z.boolean(),
 		clipboard: z.boolean(),
 	}),
+	outputFormat: z.enum(["human", "json", "markdown"]),
 });
 
 const optionProbeCommand = {
@@ -32,8 +33,8 @@ const optionProbeCommand = {
 		clipboard: { short: "-C" },
 	},
 	resultSchema: optionProbeResultSchema,
-	async run(_ctx, request) {
-		return { type: "ok", data: { request } };
+	async run(ctx, request) {
+		return { type: "ok", data: { request, outputFormat: ctx.outputFormat ?? "human" } };
 	},
 } satisfies SdlCommand<typeof optionProbeSchema, z.infer<typeof optionProbeResultSchema>>;
 
@@ -54,7 +55,10 @@ describe("extension command option specs", () => {
 		expect(await run.exit).toBe(0);
 		const envelope = parseJsonOutput(run);
 		expect(envelope.status).toBe("ok");
-		expect(envelope.data).toEqual({ request: { force: true, clipboard: false } });
+		expect(envelope.data).toEqual({
+			request: { force: true, clipboard: false },
+			outputFormat: "json",
+		});
 		expect(run.stderr.join("")).toBe("");
 	});
 });

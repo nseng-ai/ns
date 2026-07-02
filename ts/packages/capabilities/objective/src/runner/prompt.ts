@@ -12,8 +12,6 @@ const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
 export interface RunnerRecoverContext {
 	branch: string;
 	changedPaths: readonly string[];
-	/** Prior failure diagnostics the parent chose to forward. */
-	diagnostics?: string;
 }
 
 export interface BuildRunnerChildPromptOptions {
@@ -84,9 +82,6 @@ function recoverPreamble(recoverContext: RunnerRecoverContext): string {
 		"Changed paths left by the failed attempt:",
 		...changedPathLines,
 	];
-	if (recoverContext.diagnostics !== undefined) {
-		parts.push("", "Failure diagnostics from the previous attempt:", recoverContext.diagnostics);
-	}
 	return parts.join("\n");
 }
 

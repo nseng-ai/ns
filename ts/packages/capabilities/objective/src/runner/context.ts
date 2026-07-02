@@ -1,5 +1,6 @@
 import type { GraphiteBranchGateway } from "@sdl/capability-kit/graphite/branch";
 import type { CommandExecApi } from "@sdl/core/exec";
+import type { ClinkrFormat } from "@sdl/kernel/sdk";
 
 import type { ObjectiveCliContext } from "../core/context.ts";
 import type { ChildSessionGateway } from "./child-session.ts";
@@ -17,14 +18,15 @@ export type RunnerTextFileReadResult =
  * Extends the plain Objective CLI context with the runner's injected gateways
  * (Graphite tracking check, raw command exec for `git diff --check`, child
  * session dispatch) and the presentation seams the step contract requires:
- * `writeStdout` carries the Runner Checkpoint (the only stdout in every
- * terminal state), `writeStderr` streams live progress, and `phase` mirrors
- * `SdlCommandIo.phase` transient phase text.
+ * `writeStdout` is a tactical Runner Checkpoint stream for human/markdown modes
+ * until clinkr owns non-ok stdout artifacts, `writeStderr` streams live progress,
+ * and `phase` mirrors `SdlCommandIo.phase` transient phase text.
  */
 export interface ObjectiveRunnerContext extends ObjectiveCliContext {
 	graphite: GraphiteBranchGateway;
 	commands: CommandExecApi;
 	childSession: ChildSessionGateway;
+	outputFormat?: ClinkrFormat;
 	writeStdout(text: string): void;
 	writeStderr(text: string): void;
 	/** Transient, human-facing phase text. Non-contractual wording. */

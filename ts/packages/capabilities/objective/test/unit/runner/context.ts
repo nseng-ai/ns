@@ -1,4 +1,9 @@
-import type { GitCurrentBranchResult, GitCwdParams, GitResult } from "@sdl/capability-kit/git";
+import type {
+	GitCurrentBranchResult,
+	GitCwdParams,
+	GitResult,
+	GitStatusPathFacts,
+} from "@sdl/capability-kit/git";
 import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
 import {
 	InMemoryGraphiteBranchGateway,
@@ -27,28 +32,35 @@ import {
 	type RunnerReportStatus,
 } from "../../../src/runner/report.ts";
 
+type FailureState = { type: "failure"; error?: { code: string; message: string } };
+type ValueState<T> = T | FailureState;
+
 export interface SequencedGitGatewayState extends InMemoryGitGatewayState {
 	/** Per-call current-branch values; the last value repeats once exhausted. */
 	currentBranchSequence?: readonly string[];
 	/** Per-call HEAD values; the last value repeats once exhausted. */
 	headCommitSequence?: readonly string[];
+	/** Per-call status-path values; the last value repeats once exhausted. */
+	statusPathsSequence?: readonly ValueState<GitStatusPathFacts>[];
 }
 
 /**
- * InMemoryGitGateway plus call-by-call sequences for the two facts a runner
- * step observes twice (at dispatch and at verification): the current branch
- * and the HEAD commit.
+ * InMemoryGitGateway plus call-by-call sequences for runner facts observed
+ * multiple times during a step: current branch, HEAD commit, and status paths.
  */
 export class SequencedGitGateway extends InMemoryGitGateway {
 	private readonly currentBranchSequence: readonly string[];
 	private currentBranchIndex = 0;
 	private readonly headCommitSequence: readonly string[];
 	private headCommitIndex = 0;
+	private readonly statusPathsSequence: readonly ValueState<GitStatusPathFacts>[];
+	private statusPathsIndex = 0;
 
 	constructor(state: SequencedGitGatewayState = {}) {
 		super(state);
 		this.currentBranchSequence = [...(state.currentBranchSequence ?? [])];
 		this.headCommitSequence = [...(state.headCommitSequence ?? [])];
+		this.statusPathsSequence = (state.statusPathsSequence ?? []).map(cloneStatusPathsState);
 	}
 
 	override async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
@@ -66,6 +78,37 @@ export class SequencedGitGateway extends InMemoryGitGateway {
 		if (head === undefined) return await super.headCommit(params);
 		return { ok: true, value: head };
 	}
+
+	override async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
+		const index = Math.min(this.statusPathsIndex, this.statusPathsSequence.length - 1);
+		this.statusPathsIndex += 1;
+		const state = this.statusPathsSequence[index];
+		if (state === undefined) return await super.statusPaths(params);
+		await super.statusPaths(params);
+		if (isFailureState(state)) {
+			return {
+				ok: false,
+				error: state.error ?? {
+					code: "git_status_paths_failed",
+					message: "Could not read git status paths.",
+				},
+			};
+		}
+		return { ok: true, value: { changedPaths: [...state.changedPaths] } };
+	}
+}
+
+function cloneStatusPathsState(
+	state: ValueState<GitStatusPathFacts>,
+): ValueState<GitStatusPathFacts> {
+	if (isFailureState(state)) {
+		return { type: "failure", ...(state.error === undefined ? {} : { error: { ...state.error } }) };
+	}
+	return { changedPaths: [...state.changedPaths] };
+}
+
+function isFailureState(value: unknown): value is FailureState {
+	return typeof value === "object" && value !== null && "type" in value && value.type === "failure";
 }
 
 export interface RecordedExecCall {
@@ -110,6 +153,7 @@ export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): Runner
 			options.trunkBranch ??
 			(typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main"),
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.storage ?? {})),
+		outputFormat: "human",
 		git: new SequencedGitGateway(gitState),
 		graphite: new InMemoryGraphiteBranchGateway(options.graphite ?? {}),
 		commands: {

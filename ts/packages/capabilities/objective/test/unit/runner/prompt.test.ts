@@ -74,7 +74,6 @@ describe("buildRunnerChildPrompt", () => {
 			recoverContext: {
 				branch: "feature/demo-step",
 				changedPaths: ["src/a.ts", "src/b.ts"],
-				diagnostics: "Verification failed: worktree-dirty",
 			},
 		});
 
@@ -83,7 +82,7 @@ describe("buildRunnerChildPrompt", () => {
 		expect(prompt).toContain("Repair the attempt on this same branch.");
 		expect(prompt).toContain("- src/a.ts");
 		expect(prompt).toContain("- src/b.ts");
-		expect(prompt).toContain("Verification failed: worktree-dirty");
+		expect(prompt).not.toContain("Failure diagnostics from the previous attempt");
 		expect(prompt).toContain("Stay on the current branch.");
 		expect(prompt).not.toContain("Create your own implementation branch");
 	});

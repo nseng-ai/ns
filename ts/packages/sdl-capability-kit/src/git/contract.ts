@@ -74,7 +74,6 @@ export interface GitCommitParams extends GitCwdParams {
 
 export interface GitStatusPathFacts {
 	changedPaths: readonly string[];
-	stagedPaths: readonly string[];
 }
 
 export interface GitLocalBranchTip {

@@ -18,6 +18,7 @@ export type {
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
 	ClinkrExit,
+	ClinkrFormat,
 	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,

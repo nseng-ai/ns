@@ -38,10 +38,7 @@ function defaultHappyOptions(overrides: RunnerFakesOptions = {}): RunnerFakesOpt
 		storage: OPEN_OBJECTIVE,
 		git: {
 			currentBranchSequence: ["main", "feature/demo-step"],
-			statusPathsSequence: [
-				{ changedPaths: [], stagedPaths: [] },
-				{ changedPaths: ["src/a.ts", "src/b.ts"], stagedPaths: [] },
-			],
+			statusPathsSequence: [{ changedPaths: [] }, { changedPaths: ["src/a.ts", "src/b.ts"] }],
 			commitSha: "abc1234",
 			...overrides.git,
 		},
@@ -104,7 +101,7 @@ describe("runRunnerStep", () => {
 			storage: OPEN_OBJECTIVE,
 			git: {
 				currentBranch: "feature/demo-step",
-				statusPaths: { changedPaths: ["src/a.ts"], stagedPaths: [] },
+				statusPaths: { changedPaths: ["src/a.ts"] },
 				commitSha: "rec1234",
 			},
 			childScripts: [
@@ -199,10 +196,7 @@ describe("runRunnerStep", () => {
 				// Child never moved off the base branch.
 				git: {
 					currentBranchSequence: ["main", "main"],
-					statusPathsSequence: [
-						{ changedPaths: [], stagedPaths: [] },
-						{ changedPaths: ["src/a.ts"], stagedPaths: [] },
-					],
+					statusPathsSequence: [{ changedPaths: [] }, { changedPaths: ["src/a.ts"] }],
 				},
 				childScripts: [{ outcome: completed(childReportText({ branch: "main" })) }],
 			}),
@@ -232,10 +226,7 @@ describe("runRunnerStep", () => {
 						"1111111111111111111111111111111111111111",
 						"2222222222222222222222222222222222222222",
 					],
-					statusPathsSequence: [
-						{ changedPaths: [], stagedPaths: [] },
-						{ changedPaths: ["src/a.ts"], stagedPaths: [] },
-					],
+					statusPathsSequence: [{ changedPaths: [] }, { changedPaths: ["src/a.ts"] }],
 				},
 			}),
 		);
@@ -339,7 +330,7 @@ describe("runRunnerStep", () => {
 			storage: OPEN_OBJECTIVE,
 			git: {
 				currentBranch: "main",
-				statusPaths: { changedPaths: ["src/a.ts"], stagedPaths: [] },
+				statusPaths: { changedPaths: ["src/a.ts"] },
 			},
 		});
 
@@ -358,7 +349,7 @@ describe("runRunnerStep", () => {
 			storage: OPEN_OBJECTIVE,
 			git: {
 				currentBranch: "feature/demo-step",
-				statusPaths: { changedPaths: [], stagedPaths: [] },
+				statusPaths: { changedPaths: [] },
 			},
 		});
 
@@ -375,7 +366,7 @@ describe("runRunnerStep", () => {
 			storage: OPEN_OBJECTIVE,
 			git: {
 				currentBranch: "main",
-				statusPaths: { changedPaths: ["src/a.ts"], stagedPaths: [] },
+				statusPaths: { changedPaths: ["src/a.ts"] },
 			},
 		});
 

@@ -72,10 +72,10 @@ export type RunnerStepResult = z.infer<typeof runnerStepResultSchema>;
  *
  * Exit mapping (ADR 0022): `ok` = committed/stop (checkpoint travels in
  * `result.checkpointMarkdown`, emitted by the command renderers); `negative` =
- * blocked/verification-failed (this operation writes the checkpoint to
- * `ctx.writeStdout` first); `failure` = runner malfunction (best-effort
- * malfunction checkpoint via `ctx.writeStdout`); `usageError` = malformed
- * request with nothing dispatched.
+ * blocked/verification-failed (this operation tactically writes checkpoint
+ * stdout for human/markdown modes and suppresses it in JSON mode); `failure` =
+ * runner malfunction (best-effort checkpoint under the same stream rule);
+ * `usageError` = malformed request with nothing dispatched.
  */
 export async function runRunnerStep(
 	ctx: ObjectiveRunnerContext,
@@ -125,26 +125,26 @@ export async function runRunnerStep(
 	const emitCheckpoint = (
 		facts: Omit<CheckpointFacts, "slug" | "mode" | "baseBranch">,
 		narrative: string | undefined,
-	): { facts: CheckpointFacts; result: RunnerStepResult } => {
+	): RunnerStepResult => {
 		const checkpointFacts: CheckpointFacts = { slug, mode, baseBranch, ...facts };
 		const checkpointMarkdown = renderRunnerCheckpoint(checkpointFacts, narrative);
-		return { facts: checkpointFacts, result: buildResult(checkpointFacts, checkpointMarkdown) };
+		return buildResult(checkpointFacts, checkpointMarkdown);
 	};
 
-	const emitMalfunction = (
+	const emitMalfunction = async (
 		errorType: string,
 		message: string,
 		options: { diagnostics?: readonly string[]; narrative?: string; branch?: string } = {},
-	): ClinkrExit<RunnerStepResult> => {
-		const { result } = emitCheckpoint(
+	): Promise<ClinkrExit<RunnerStepResult>> => {
+		const result = emitCheckpoint(
 			{
 				status: "malfunction",
-				branch: options.branch ?? baseBranch,
+				branch: options.branch ?? (await liveBranchDisplay(ctx)),
 				diagnostics: [message, ...(options.diagnostics ?? [])],
 			},
 			options.narrative,
 		);
-		ctx.writeStdout(result.checkpointMarkdown);
+		emitCheckpointStdout(ctx, result);
 		return failure(errorType, message, result);
 	};
 
@@ -183,16 +183,16 @@ export async function runRunnerStep(
 
 	if (report.status === "stop" || report.status === "blocked") {
 		const status: RunnerCheckpointStatus = report.status;
-		const { result } = emitCheckpoint(
+		const result = emitCheckpoint(
 			{
 				status,
-				branch: await liveBranchOrBase(ctx, baseBranch),
+				branch: await liveBranchDisplay(ctx),
 				...(report.stopReason === undefined ? {} : { stopReason: report.stopReason }),
 			},
 			narrative,
 		);
 		if (status === "stop") return ok(result);
-		ctx.writeStdout(result.checkpointMarkdown);
+		emitCheckpointStdout(ctx, result);
 		const reason = report.stopReason === undefined ? "" : `: ${report.stopReason}`;
 		return negative(`Child reported blocked${reason}.`, { data: result });
 	}
@@ -201,16 +201,16 @@ export async function runRunnerStep(
 	const gate = await verifyRunnerStep(ctx, { mode, report, baseBranch, headAtDispatch });
 	if (!gate.passed) {
 		const failedChecks = gate.checks.filter((check) => check.status === "failed");
-		const { result } = emitCheckpoint(
+		const result = emitCheckpoint(
 			{
 				status: "verification-failed",
-				branch: gate.branch ?? baseBranch,
+				branch: gate.branch ?? branchUnknownDisplay(gate.checks),
 				changedPaths: gate.changedPaths,
 				gateChecks: gate.checks,
 			},
 			narrative,
 		);
-		ctx.writeStdout(result.checkpointMarkdown);
+		emitCheckpointStdout(ctx, result);
 		return negative(
 			`Verification failed: ${failedChecks.length} of ${gate.checks.length} gate check(s) failed (${failedChecks.map((check) => check.id).join(", ")}).`,
 			{ data: result },
@@ -224,7 +224,7 @@ export async function runRunnerStep(
 		return emitMalfunction(
 			"report-integrity",
 			"Report is ready-for-parent-commit but carries no commitSubject.",
-			{ narrative, branch: gate.branch ?? baseBranch },
+			{ narrative, branch: gate.branch ?? branchUnknownDisplay(gate.checks) },
 		);
 	}
 
@@ -239,7 +239,7 @@ export async function runRunnerStep(
 	if (commit.type === "error") {
 		return emitMalfunction(commit.code, `Runner commit failed: ${commit.message}`, {
 			narrative,
-			branch: gate.branch ?? baseBranch,
+			branch: gate.branch ?? branchUnknownDisplay(gate.checks),
 		});
 	}
 
@@ -247,10 +247,10 @@ export async function runRunnerStep(
 		outcome.sessionFile === undefined
 			? undefined
 			: await summarizeRunnerSubagentUsage([outcome.sessionFile]);
-	const { result } = emitCheckpoint(
+	const result = emitCheckpoint(
 		{
 			status: "committed",
-			branch: gate.branch ?? baseBranch,
+			branch: gate.branch ?? branchUnknownDisplay(gate.checks),
 			commitSha: commit.commitSha,
 			changedPaths: gate.changedPaths,
 			gateChecks: gate.checks,
@@ -278,9 +278,30 @@ function buildResult(facts: CheckpointFacts, checkpointMarkdown: string): Runner
 	};
 }
 
-async function liveBranchOrBase(ctx: ObjectiveRunnerContext, baseBranch: string): Promise<string> {
+async function liveBranchDisplay(ctx: ObjectiveRunnerContext): Promise<string> {
 	const current = await ctx.git.currentBranch({ cwd: ctx.repoRoot });
-	return current.type === "branch" ? current.branch : baseBranch;
+	if (current.type === "branch") return current.branch;
+	if (current.type === "detached") return "unknown (detached HEAD)";
+	return `unknown (could not determine branch: ${current.error.message})`;
+}
+
+function branchUnknownDisplay(checks: readonly { detail?: string }[]): string {
+	const branchDetail = checks.find(
+		(check) => check.detail?.startsWith("Could not determine current branch:") === true,
+	)?.detail;
+	if (branchDetail !== undefined) {
+		const message = branchDetail.replace(
+			"Could not determine current branch:",
+			"could not determine branch:",
+		);
+		return `unknown (${message})`;
+	}
+	return "unknown (detached HEAD)";
+}
+
+function emitCheckpointStdout(ctx: ObjectiveRunnerContext, result: RunnerStepResult): void {
+	if (ctx.outputFormat === "json") return;
+	ctx.writeStdout(result.checkpointMarkdown);
 }
 
 function stderrTailDiagnostics(stderrTail: string): string[] {

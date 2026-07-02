@@ -20,6 +20,7 @@ export type {
 	ClinkrCompletionResult,
 	ClinkrDynamicCompletionRequest,
 	ClinkrExit,
+	ClinkrFormat,
 	PositionalSpec,
 	RenderCapabilities,
 	SdlCommand,
