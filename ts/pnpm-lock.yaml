@@ -101,7 +101,7 @@ importers:
         version: link:packages/capabilities/ccc
       '@sdl/handoff':
         specifier: workspace:*
-        version: link:packages/handoff
+        version: link:packages/capabilities/handoff
       '@sdl/kernel':
         specifier: workspace:*
         version: link:packages/kernel
@@ -302,6 +302,31 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
+  packages/capabilities/handoff:
+    dependencies:
+      '@sdl/brmem':
+        specifier: workspace:*
+        version: link:../../infra/brmem
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+
   packages/capabilities/objective:
     dependencies:
       '@sdl/capability-kit':
@@ -383,31 +408,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-
-  packages/handoff:
-    dependencies:
-      '@sdl/brmem':
-        specifier: workspace:*
-        version: link:../infra/brmem
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../sdl-capability-kit
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-      '@sdl/kernel':
-        specifier: workspace:*
-        version: link:../kernel
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../hosts/pi
 
   packages/hosts/pi:
     dependencies:
