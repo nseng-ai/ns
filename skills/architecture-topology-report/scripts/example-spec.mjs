@@ -62,7 +62,7 @@ export default {
     ],
     offAxis:
       `Off this axis (not modeled as capabilities): the <span class="font-mono">@sdl/pi</span> presentation host, standalone tools
-       <span class="font-mono">areg / vibechk / packagechk / worktree-status</span>, and the <span class="font-mono">@local-pi-tools/*</span> presentation tools.`,
+       <span class="font-mono">areg / vibechk / packagechk</span>, and the <span class="font-mono">@sdl-local/pi-tools/*</span> presentation tools.`,
   },
 
   graphIntro:

@@ -1,0 +1,52 @@
+{
+	"name": "@sdl-local/pi-tools",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./backing-skill-commands": "./src/backing-skill-commands/index.ts",
+		"./backing-skill-commands/extension": "./src/backing-skill-commands/extension.ts",
+		"./context-profiler": "./src/context-profiler/index.ts",
+		"./context-profiler/extension": "./src/context-profiler/extension.ts",
+		"./grill": "./src/grill/index.ts",
+		"./grill/extension": "./src/grill/extension.ts",
+		"./pr-feedback-watch": "./src/pr-feedback-watch/index.ts",
+		"./pr-feedback-watch/extension": "./src/pr-feedback-watch/extension.ts",
+		"./pr-previews": "./src/pr-previews/index.ts",
+		"./pr-previews/extension": "./src/pr-previews/extension.ts",
+		"./runner-subagents": "./src/runner-subagents/index.ts",
+		"./runner-subagents/extension": "./src/runner-subagents/extension.ts",
+		"./runner-subagents/json-events": "./src/runner-subagents/json-events.ts",
+		"./runner-subagents/presentation": "./src/runner-subagents/presentation.ts",
+		"./runner-subagents/process": "./src/runner-subagents/subagent-process.ts",
+		"./runner-subagents/runtime": "./src/runner-subagents/subagent-runtime.ts",
+		"./runner-subagents/testing": "./src/runner-subagents/testing.ts",
+		"./runner-subagents/usage": "./src/runner-subagents/usage.ts",
+		"./thermo-council": "./src/thermo-council/index.ts",
+		"./thermo-council/extension": "./src/thermo-council/extension.ts"
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@earendil-works/pi-tui": "catalog:",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/pi": "workspace:*",
+		"zod": "catalog:"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/local/pi-tools/test"
+	},
+	"sdl": {
+		"tier": "local-pi-tool",
+		"subpackages": [
+			"backing-skill-commands",
+			"context-profiler",
+			"grill",
+			"pr-feedback-watch",
+			"pr-previews",
+			"runner-subagents",
+			"thermo-council"
+		]
+	}
+}
