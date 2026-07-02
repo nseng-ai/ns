@@ -1,6 +1,7 @@
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorInfo,
@@ -12,6 +13,8 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	GitStagePathsParams,
+	GitStatusPathFacts,
 } from "./contract.ts";
 
 interface FailureState {
@@ -43,6 +46,11 @@ export interface InMemoryGitGatewayState {
 	localBranchTipsFailure?: GitErrorInfo;
 	treeOids?: Readonly<Record<string, string | null | GitErrorInfo>>;
 	changedPaths?: Readonly<Record<string, readonly string[] | GitErrorInfo>>;
+	statusPaths?: ValueState<GitStatusPathFacts>;
+	statusPathsSequence?: readonly ValueState<GitStatusPathFacts>[];
+	stagePathsFailure?: GitErrorInfo;
+	commitSha?: string;
+	commitFailure?: GitErrorInfo;
 }
 
 export interface GitCall {
@@ -64,6 +72,14 @@ export interface GitRefsPathCall extends GitPathCall {
 
 export interface GitRevisionRangePathCall extends GitPathCall {
 	revisionRange: string;
+}
+
+export interface GitStagePathsCall extends GitCall {
+	paths: readonly string[];
+}
+
+export interface GitCommitCall extends GitCall {
+	message: string;
 }
 
 export class InMemoryGitGateway implements GitGateway {
@@ -88,6 +104,11 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly localBranchTipsFailure: GitErrorInfo | undefined;
 	private readonly treeOids: ReadonlyMap<string, string | null | GitErrorInfo>;
 	private readonly changedPaths: ReadonlyMap<string, readonly string[] | GitErrorInfo>;
+	private readonly statusPathsState: ValueState<GitStatusPathFacts>;
+	private readonly statusPathsSequence: readonly ValueState<GitStatusPathFacts>[];
+	private readonly stagePathsFailure: GitErrorInfo | undefined;
+	private readonly commitSha: string;
+	private readonly commitFailure: GitErrorInfo | undefined;
 	private readonly repoRootLog: GitCall[] = [];
 	private readonly optionalRepoRootLog: GitCall[] = [];
 	private readonly currentBranchLog: GitCall[] = [];
@@ -103,6 +124,9 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly listLocalBranchTipsLog: GitCall[] = [];
 	private readonly treeOidsAtRefsLog: GitRefsPathCall[] = [];
 	private readonly changedPathsUnderLog: GitRevisionRangePathCall[] = [];
+	private readonly statusPathsLog: GitCall[] = [];
+	private readonly stagePathsLog: GitStagePathsCall[] = [];
+	private readonly commitLog: GitCommitCall[] = [];
 
 	constructor(state: InMemoryGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -139,6 +163,13 @@ export class InMemoryGitGateway implements GitGateway {
 				cloneChangedPathsValue(value),
 			]),
 		);
+		this.statusPathsState = cloneStatusPathsState(
+			state.statusPaths ?? { changedPaths: [], stagedPaths: [] },
+		);
+		this.statusPathsSequence = (state.statusPathsSequence ?? []).map(cloneStatusPathsState);
+		this.stagePathsFailure = state.stagePathsFailure;
+		this.commitSha = state.commitSha ?? "fedcba9876543210fedcba9876543210fedcba98";
+		this.commitFailure = state.commitFailure;
 	}
 
 	get repoRootCalls(): readonly GitCall[] {
@@ -199,6 +230,18 @@ export class InMemoryGitGateway implements GitGateway {
 
 	get changedPathsUnderCalls(): readonly GitRevisionRangePathCall[] {
 		return copyRevisionRangePathCalls(this.changedPathsUnderLog);
+	}
+
+	get statusPathsCalls(): readonly GitCall[] {
+		return copyCalls(this.statusPathsLog);
+	}
+
+	get stagePathsCalls(): readonly GitStagePathsCall[] {
+		return this.stagePathsLog.map((call) => ({ ...call, paths: [...call.paths] }));
+	}
+
+	get commitCalls(): readonly GitCommitCall[] {
+		return this.commitLog.map((call) => ({ ...call }));
 	}
 
 	get existingBranches(): readonly string[] {
@@ -360,6 +403,51 @@ export class InMemoryGitGateway implements GitGateway {
 		if (isGitErrorInfo(value)) return { ok: false, error: { ...value } };
 		return { ok: true, value: [...(value ?? [])] };
 	}
+
+	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
+		const callIndex = this.statusPathsLog.length;
+		this.statusPathsLog.push(callFromParams(params));
+		const state =
+			this.statusPathsSequence.length > 0
+				? (this.statusPathsSequence[Math.min(callIndex, this.statusPathsSequence.length - 1)] ??
+					this.statusPathsState)
+				: this.statusPathsState;
+		if (isFailureState(state)) {
+			return {
+				ok: false,
+				error: state.error ?? {
+					code: "git_status_paths_failed",
+					message: "Could not read git status paths.",
+				},
+			};
+		}
+		return {
+			ok: true,
+			value: { changedPaths: [...state.changedPaths], stagedPaths: [...state.stagedPaths] },
+		};
+	}
+
+	async stagePaths(params: GitStagePathsParams): Promise<GitOperationResult> {
+		this.stagePathsLog.push({ ...callFromParams(params), paths: [...params.paths] });
+		if (params.paths.length === 0) {
+			return {
+				ok: false,
+				error: { code: "git_stage_paths_failed", message: "Refusing to stage an empty path list." },
+			};
+		}
+		if (this.stagePathsFailure !== undefined) {
+			return { ok: false, error: { ...this.stagePathsFailure } };
+		}
+		return { ok: true };
+	}
+
+	async commit(params: GitCommitParams): Promise<GitResult<string>> {
+		this.commitLog.push({ ...callFromParams(params), message: params.message });
+		if (this.commitFailure !== undefined) {
+			return { ok: false, error: { ...this.commitFailure } };
+		}
+		return { ok: true, value: this.commitSha };
+	}
 }
 
 function valueResult<T>(
@@ -448,6 +536,15 @@ function cloneChangedPathsValue(
 ): readonly string[] | GitErrorInfo {
 	if (isGitErrorInfo(value)) return { ...value };
 	return [...value];
+}
+
+function cloneStatusPathsState(
+	state: ValueState<GitStatusPathFacts>,
+): ValueState<GitStatusPathFacts> {
+	if (isFailureState(state)) {
+		return { type: "failure", ...(state.error === undefined ? {} : { error: { ...state.error } }) };
+	}
+	return { changedPaths: [...state.changedPaths], stagedPaths: [...state.stagedPaths] };
 }
 
 function isGitErrorInfo(value: unknown): value is GitErrorInfo {

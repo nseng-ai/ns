@@ -347,4 +347,89 @@ describe("in-memory git gateway", () => {
 		expect(calls).toEqual([{ cwd: "/mutated" }]);
 		expect(git.repoRootCalls).toEqual([{ cwd: ROOT, signal: controller.signal }]);
 	});
+
+	test("defaults status paths to a clean worktree and records calls", async () => {
+		const git = new InMemoryGitGateway();
+
+		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: { changedPaths: [], stagedPaths: [] },
+		});
+		expect(git.statusPathsCalls).toEqual([{ cwd: ROOT }]);
+	});
+
+	test("returns canned status paths and supports failure state", async () => {
+		const dirty = new InMemoryGitGateway({
+			statusPaths: { changedPaths: ["a.ts"], stagedPaths: [] },
+		});
+		expect(await dirty.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: { changedPaths: ["a.ts"], stagedPaths: [] },
+		});
+
+		const failing = new InMemoryGitGateway({ statusPaths: { type: "failure" } });
+		expect(await failing.statusPaths({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_status_paths_failed" },
+		});
+	});
+
+	test("serves status paths call-by-call from a sequence, clamping to the last entry", async () => {
+		const git = new InMemoryGitGateway({
+			statusPathsSequence: [
+				{ changedPaths: [], stagedPaths: [] },
+				{ changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
+			],
+		});
+
+		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: { changedPaths: [], stagedPaths: [] },
+		});
+		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: { changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
+		});
+		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: { changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
+		});
+		expect(git.statusPathsCalls).toHaveLength(3);
+	});
+
+	test("records stage and commit calls and returns configured outcomes", async () => {
+		const git = new InMemoryGitGateway({ commitSha: "1111111111111111111111111111111111111111" });
+
+		expect(await git.stagePaths({ cwd: ROOT, paths: ["a.ts", "b.ts"] })).toEqual({ ok: true });
+		expect(await git.stagePaths({ cwd: ROOT, paths: [] })).toMatchObject({
+			ok: false,
+			error: { code: "git_stage_paths_failed" },
+		});
+		expect(await git.commit({ cwd: ROOT, message: "subject\n\nbody" })).toEqual({
+			ok: true,
+			value: "1111111111111111111111111111111111111111",
+		});
+
+		expect(git.stagePathsCalls).toEqual([
+			{ cwd: ROOT, paths: ["a.ts", "b.ts"] },
+			{ cwd: ROOT, paths: [] },
+		]);
+		expect(git.commitCalls).toEqual([{ cwd: ROOT, message: "subject\n\nbody" }]);
+	});
+
+	test("supports configured stage and commit failures", async () => {
+		const git = new InMemoryGitGateway({
+			stagePathsFailure: { code: "git_stage_paths_failed", message: "stage denied" },
+			commitFailure: { code: "git_commit_failed", message: "commit denied" },
+		});
+
+		expect(await git.stagePaths({ cwd: ROOT, paths: ["a.ts"] })).toEqual({
+			ok: false,
+			error: { code: "git_stage_paths_failed", message: "stage denied" },
+		});
+		expect(await git.commit({ cwd: ROOT, message: "subject" })).toEqual({
+			ok: false,
+			error: { code: "git_commit_failed", message: "commit denied" },
+		});
+	});
 });
