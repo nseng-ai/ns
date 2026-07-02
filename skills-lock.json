@@ -249,6 +249,11 @@
       "sourceType": "local",
       "computedHash": "dc21206e36df8c70c91f3fb2ec338c43bf50dce91a2259e7cab85ef8c06f118c"
     },
+    "objective-runner-step": {
+      "source": "skills/objective-runner-step",
+      "sourceType": "local",
+      "computedHash": "f00f0d671c638a7cb6fe77b33c58fe612ebf83f07839cf78abe9364475cbf1e0"
+    },
     "objective-stack-impl": {
       "source": "skills/objective-stack-impl",
       "sourceType": "local",
