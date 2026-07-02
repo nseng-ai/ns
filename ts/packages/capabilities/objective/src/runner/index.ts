@@ -56,3 +56,10 @@ export {
 	type CheckpointFacts,
 	type RunnerCheckpointStatus,
 } from "./checkpoint.ts";
+export {
+	runRunnerStep,
+	runnerStepRequestSchema,
+	runnerStepResultSchema,
+	type RunnerStepRequest,
+	type RunnerStepResult,
+} from "./step.ts";

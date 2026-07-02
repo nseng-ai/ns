@@ -5,17 +5,17 @@ import {
 	renderRunnerCheckpoint,
 	type CheckpointFacts,
 	type RunnerCheckpointStatus,
-} from "../../runner/checkpoint.ts";
-import { commitRunnerStep } from "../../runner/commit.ts";
-import type { ObjectiveRunnerContext, RunnerStepMode } from "../../runner/context.ts";
-import { GATE_CHECK_IDS, GATE_CHECK_STATUSES, verifyRunnerStep } from "../../runner/gate.ts";
-import { checkRunnerPreconditions } from "../../runner/preconditions.ts";
-import { buildRunnerChildPrompt } from "../../runner/prompt.ts";
-import { parseRunnerReport, renderRunnerReportNarrative } from "../../runner/report.ts";
+} from "./checkpoint.ts";
+import { commitRunnerStep } from "./commit.ts";
+import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import { GATE_CHECK_IDS, GATE_CHECK_STATUSES, verifyRunnerStep } from "./gate.ts";
+import { checkRunnerPreconditions } from "./preconditions.ts";
+import { buildRunnerChildPrompt } from "./prompt.ts";
+import { parseRunnerReport, renderRunnerReportNarrative } from "./report.ts";
 import {
 	runnerSubagentUsageResultSchema,
 	summarizeRunnerSubagentUsage,
-} from "./runner-subagent-usage.ts";
+} from "../core/operations/runner-subagent-usage.ts";
 
 export const runnerStepRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to run one implementation step for."),

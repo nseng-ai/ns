@@ -8,7 +8,7 @@ import {
 	runRunnerStep,
 	runnerStepRequestSchema,
 	type RunnerStepRequest,
-} from "../../../src/core/operations/runner-step.ts";
+} from "../../../src/runner/step.ts";
 import type { ChildSessionOutcome } from "../../../src/runner/child-session.ts";
 import { childReportText, contextWithRunnerFakes, type RunnerFakesOptions } from "./context.ts";
 
