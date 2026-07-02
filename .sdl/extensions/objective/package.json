@@ -34,6 +34,11 @@
 				"entry": "./src/commands/exec-read-objective.ts"
 			},
 			{
+				"name": "exec-runner-step",
+				"description": "Run one verified Objective implementation step through a dispatched child session and emit the Runner Checkpoint.",
+				"entry": "./src/commands/exec-runner-step.ts"
+			},
+			{
 				"name": "exec-runner-subagent-usage",
 				"description": "Summarize Pi runner subagent JSONL usage telemetry for Objective stack digests.",
 				"entry": "./src/commands/exec-runner-subagent-usage.ts"

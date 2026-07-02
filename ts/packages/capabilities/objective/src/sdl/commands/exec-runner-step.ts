@@ -1,7 +1,12 @@
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import { usageError } from "@sdl/clinkr";
-import type { SdlCommand } from "@sdl/kernel/sdk";
+import { systemTimerScheduler } from "@sdl/core/time";
+import { defineExtension, type SdlCommand } from "@sdl/kernel/sdk";
 
+// jiti constraint: import the adapter by its concrete module path, never via
+// the src/pi/index.ts barrel — the barrel re-exports extension.ts and would
+// pull the optional @sdl/pi peer into this command's transpile graph.
+import { createPiChildSessionGateway } from "../../pi/child-session/pi-child-session-gateway.ts";
 import {
 	runnerStepRequestSchema,
 	runnerStepResultSchema,
@@ -21,7 +26,7 @@ const RUNNER_STEP_DESCRIPTION =
  * Factory for the `exec-runner-step` sdl command.
  *
  * The composition supplies the one Pi-coupled dependency (the child-session
- * gateway); the wired default export appears in Slice 5 with the real adapter.
+ * gateway); the wired default export below composes the real Pi adapter.
  * Renderers return the checkpoint verbatim for exit-0 states; exit 1/2 states
  * already wrote the checkpoint to stdout inside the operation (ADR 0022:
  * the checkpoint is the only stdout in every terminal state).
@@ -56,3 +61,13 @@ export function createObjectiveExecRunnerStepSdlCommand(
 		renderMarkdown: (result) => result.checkpointMarkdown,
 	});
 }
+
+/** Live command: the factory composed with the real Pi child-session adapter. */
+export const objectiveExecRunnerStepSdlCommand = createObjectiveExecRunnerStepSdlCommand({
+	createChildSessionGateway: ({ env }) =>
+		createPiChildSessionGateway({ env, timers: systemTimerScheduler }),
+});
+
+export default defineExtension({
+	commands: [objectiveExecRunnerStepSdlCommand],
+});
