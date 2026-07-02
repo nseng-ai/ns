@@ -116,7 +116,7 @@ importers:
         version: link:../.sdl/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
       '@sdl/roaster':
         specifier: workspace:*
-        version: link:packages/roaster
+        version: link:packages/capabilities/roaster
       '@sdl/slot':
         specifier: workspace:*
         version: link:packages/capabilities/slot
@@ -335,6 +335,33 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/capabilities/roaster:
+    dependencies:
+      '@pierre/diffs':
+        specifier: 'catalog:'
+        version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.6.1
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -583,33 +610,6 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/roaster:
-    dependencies:
-      '@pierre/diffs':
-        specifier: 'catalog:'
-        version: 1.2.11(@shikijs/themes@4.2.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../sdl-capability-kit
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-      '@sdl/kernel':
-        specifier: workspace:*
-        version: link:../kernel
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.6.1
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
       zod:
         specifier: 'catalog:'
         version: 4.4.3

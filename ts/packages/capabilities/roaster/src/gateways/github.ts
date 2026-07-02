@@ -1,0 +1,458 @@
+import {
+	type CommandExecApi,
+	commandFailureReason,
+	execApiToCommandRunner,
+} from "@sdl/core/command";
+import { runGitHubCli } from "@sdl/capability-kit/github/cli";
+import {
+	ghAuthorSchema,
+	normalizeAuthor,
+	parseGithubJson,
+	withNumericGithubIdentity,
+} from "@sdl/capability-kit/github/pr-feedback";
+import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
+import { withTemporaryJsonFile } from "@sdl/capability-kit/temp-files";
+import { z } from "zod";
+
+import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";
+import type {
+	PRChangedFile,
+	PRDiscussionComment,
+	PRInlineCommentInput,
+	PRReviewComment,
+} from "../core/models.ts";
+import { ROASTER_BOT_LOGIN } from "../core/roaster-bot.ts";
+
+const ghChangedFileSchema = z
+	.object({
+		filename: z.string().optional(),
+		path: z.string().optional(),
+		status: z.string().default("modified"),
+		patch: z.string().nullable().optional(),
+	})
+	.loose();
+const ghReviewCommentSchema = z
+	.object({
+		body: z.string().default(""),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+	})
+	.loose();
+const ghDiscussionCommentSchema = z
+	.object({
+		id: z.union([z.number().int(), z.string()]).optional(),
+		databaseId: z.number().int().optional(),
+		body: z.string().default(""),
+		author: ghAuthorSchema.optional(),
+		user: ghAuthorSchema.optional(),
+	})
+	.loose()
+	.transform((comment, ctx) => withNumericGithubIdentity(comment, ctx, "Discussion comment"));
+
+export interface GitHubGatewayOptions {
+	readonly cwd: string;
+	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
+}
+
+export interface FindPrDiscussionCommentByMarkerOptions extends GitHubGatewayOptions {
+	readonly prNumber: number;
+	readonly marker: string;
+	readonly authorLogin: string;
+}
+
+export interface RoasterGitHubGateway {
+	getPrChangedFiles(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRChangedFile[]>>;
+	getPrReviewComments(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRReviewComment[]>>;
+	createPrReview(
+		prNumber: number,
+		comments: readonly PRInlineCommentInput[],
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<void>>;
+	findPrDiscussionCommentByMarker(
+		options: FindPrDiscussionCommentByMarkerOptions,
+	): Promise<RoasterResult<PRDiscussionComment | null>>;
+	addPrDiscussionComment(
+		prNumber: number,
+		body: string,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>>;
+	updatePrDiscussionComment(
+		commentId: number,
+		body: string,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>>;
+}
+
+export class RealRoasterGitHubGateway implements RoasterGitHubGateway {
+	private readonly execApi: CommandExecApi;
+
+	constructor(execApi: CommandExecApi) {
+		this.execApi = execApi;
+	}
+
+	async getPrChangedFiles(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRChangedFile[]>> {
+		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/files`];
+		const result = await this.runGh(args, options);
+		if (result.type === "error") return result;
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghChangedFileSchema),
+			"list PR changed files",
+		);
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: parsed.value
+				.map((file) => ({
+					path: file.filename ?? file.path ?? "",
+					status: file.status,
+					patch: file.patch ?? null,
+				}))
+				.filter((file) => file.path !== ""),
+		};
+	}
+
+	async getPrReviewComments(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRReviewComment[]>> {
+		const args = ["api", "--paginate", `repos/{owner}/{repo}/pulls/${prNumber}/comments`];
+		const result = await this.runGh(args, options);
+		if (result.type === "error") return result;
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghReviewCommentSchema),
+			"list PR review comments",
+		);
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: parsed.value.map((comment) => ({
+				author: normalizeAuthor(comment.user ?? comment.author ?? null),
+				body: comment.body,
+			})),
+		};
+	}
+
+	async createPrReview(
+		prNumber: number,
+		comments: readonly PRInlineCommentInput[],
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<void>> {
+		return await withTemporaryJsonFile(
+			{
+				prefix: "roaster-gh-",
+				value: {
+					event: "COMMENT",
+					comments: comments.map((comment) => ({
+						path: comment.path,
+						line: comment.line,
+						body: comment.body,
+					})),
+				},
+			},
+			async (inputPath) => {
+				const args = [
+					"api",
+					"--method",
+					"POST",
+					`repos/{owner}/{repo}/pulls/${prNumber}/reviews`,
+					"--input",
+					inputPath,
+				];
+				const result = await this.runGh(args, options);
+				if (result.type === "error") return result;
+				return { type: "ok", value: undefined };
+			},
+		);
+	}
+
+	async findPrDiscussionCommentByMarker(
+		options: FindPrDiscussionCommentByMarkerOptions,
+	): Promise<RoasterResult<PRDiscussionComment | null>> {
+		const comments = await this.getIssueComments(options.prNumber, options);
+		if (comments.type === "error") return comments;
+		const comment = comments.value.find(
+			(item) => item.author === options.authorLogin && item.body.includes(options.marker),
+		);
+		return { type: "ok", value: comment === undefined ? null : publicDiscussionComment(comment) };
+	}
+
+	async addPrDiscussionComment(
+		prNumber: number,
+		body: string,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		const args = [
+			"api",
+			"--method",
+			"POST",
+			`repos/{owner}/{repo}/issues/${prNumber}/comments`,
+			"-f",
+			`body=${body}`,
+		];
+		return await this.runDiscussionMutation(args, options);
+	}
+
+	async updatePrDiscussionComment(
+		commentId: number,
+		body: string,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		const args = [
+			"api",
+			"--method",
+			"PATCH",
+			`repos/{owner}/{repo}/issues/comments/${commentId}`,
+			"-f",
+			`body=${body}`,
+		];
+		return await this.runDiscussionMutation(args, options);
+	}
+
+	private async getIssueComments(
+		prNumber: number,
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly AuthoredDiscussionComment[]>> {
+		const args = ["api", "--paginate", `repos/{owner}/{repo}/issues/${prNumber}/comments`];
+		const result = await this.runGh(args, options);
+		if (result.type === "error") return result;
+		const parsed = parseJson(
+			result.value.stdout,
+			z.array(ghDiscussionCommentSchema),
+			"list PR discussion comments",
+		);
+		if (parsed.type === "error") return parsed;
+		return {
+			type: "ok",
+			value: parsed.value.map(normalizeDiscussionComment),
+		};
+	}
+
+	private async runDiscussionMutation(
+		args: readonly string[],
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		const result = await this.runGh(args, options);
+		if (result.type === "error") return result;
+		const parsed = parseJson(
+			result.value.stdout,
+			ghDiscussionCommentSchema,
+			"mutate PR discussion comment",
+		);
+		if (parsed.type === "error") return parsed;
+		return { type: "ok", value: publicDiscussionComment(normalizeDiscussionComment(parsed.value)) };
+	}
+
+	private async runGh(
+		args: readonly string[],
+		options: GitHubGatewayOptions,
+	): Promise<RoasterResult<{ readonly stdout: string }>> {
+		const run = await runGitHubCli({
+			runner: execApiToCommandRunner(this.execApi),
+			args,
+			cwd: options.cwd,
+			...(options.env === undefined ? {} : { env: options.env }),
+			...(options.signal === undefined ? {} : { signal: options.signal }),
+		});
+		if (run.type === "startup_error") {
+			return error({
+				type: "github-cli-failed",
+				message: `${run.displayCommand} failed to start in ${options.cwd}: ${run.message}`,
+			});
+		}
+		const result = run.result;
+		if (result.code !== 0 || result.killed) {
+			return error({
+				type: "github-cli-failed",
+				message: `${run.displayCommand} failed in ${options.cwd}: ${commandFailureReason(result)}`,
+			});
+		}
+		return { type: "ok", value: { stdout: result.stdout } };
+	}
+}
+
+export interface CreatedReviewLogEntry {
+	readonly prNumber: number;
+	readonly comments: readonly PRInlineCommentInput[];
+}
+
+export interface FakeRoasterGitHubGatewayOptions {
+	readonly changedFilesByPr?: ReadonlyMap<number, readonly PRChangedFile[]>;
+	readonly reviewCommentsByPr?: ReadonlyMap<number, readonly PRReviewComment[]>;
+	readonly discussionCommentsByPr?: ReadonlyMap<
+		number,
+		readonly (PRDiscussionComment & { readonly author: string })[]
+	>;
+}
+
+export class FakeRoasterGitHubGateway implements RoasterGitHubGateway {
+	private readonly changedFilesByPr = new Map<number, PRChangedFile[]>();
+	private readonly reviewCommentsByPr = new Map<number, PRReviewComment[]>();
+	private readonly discussionCommentsByPr = new Map<
+		number,
+		Array<PRDiscussionComment & { readonly author: string }>
+	>();
+	private readonly createdReviewsInternal: CreatedReviewLogEntry[] = [];
+	private nextCommentId = 1;
+
+	constructor(options: FakeRoasterGitHubGatewayOptions = {}) {
+		copyMapArray(options.changedFilesByPr, this.changedFilesByPr, copyChangedFile);
+		copyMapArray(options.reviewCommentsByPr, this.reviewCommentsByPr, copyReviewComment);
+		copyMapArray(
+			options.discussionCommentsByPr,
+			this.discussionCommentsByPr,
+			copyAuthoredDiscussionComment,
+		);
+	}
+
+	async getPrChangedFiles(
+		prNumber: number,
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRChangedFile[]>> {
+		return { type: "ok", value: (this.changedFilesByPr.get(prNumber) ?? []).map(copyChangedFile) };
+	}
+
+	async getPrReviewComments(
+		prNumber: number,
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<readonly PRReviewComment[]>> {
+		return {
+			type: "ok",
+			value: (this.reviewCommentsByPr.get(prNumber) ?? []).map(copyReviewComment),
+		};
+	}
+
+	async createPrReview(
+		prNumber: number,
+		comments: readonly PRInlineCommentInput[],
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<void>> {
+		this.createdReviewsInternal.push({ prNumber, comments: comments.map(copyInlineCommentInput) });
+		return { type: "ok", value: undefined };
+	}
+
+	async findPrDiscussionCommentByMarker(
+		options: FindPrDiscussionCommentByMarkerOptions,
+	): Promise<RoasterResult<PRDiscussionComment | null>> {
+		const comment = (this.discussionCommentsByPr.get(options.prNumber) ?? []).find(
+			(item) => item.author === options.authorLogin && item.body.includes(options.marker),
+		);
+		return {
+			type: "ok",
+			value: comment === undefined ? null : { id: comment.id, body: comment.body },
+		};
+	}
+
+	async addPrDiscussionComment(
+		prNumber: number,
+		body: string,
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		const comment = { id: this.nextCommentId, body, author: ROASTER_BOT_LOGIN };
+		this.nextCommentId += 1;
+		const comments = this.discussionCommentsByPr.get(prNumber) ?? [];
+		comments.push(comment);
+		this.discussionCommentsByPr.set(prNumber, comments);
+		return { type: "ok", value: { id: comment.id, body: comment.body } };
+	}
+
+	async updatePrDiscussionComment(
+		commentId: number,
+		body: string,
+		_options: GitHubGatewayOptions,
+	): Promise<RoasterResult<PRDiscussionComment>> {
+		for (const [prNumber, comments] of this.discussionCommentsByPr.entries()) {
+			const index = comments.findIndex((comment) => comment.id === commentId);
+			if (index === -1) continue;
+			const existing = comments[index];
+			if (existing === undefined) continue;
+			comments[index] = { ...existing, body };
+			this.discussionCommentsByPr.set(prNumber, comments);
+			return { type: "ok", value: { id: commentId, body } };
+		}
+		return error({
+			type: "github-response-invalid",
+			message: `No fake discussion comment with id ${commentId}.`,
+		});
+	}
+
+	createdReviews(): readonly CreatedReviewLogEntry[] {
+		return this.createdReviewsInternal.map((entry) => ({
+			prNumber: entry.prNumber,
+			comments: entry.comments.map(copyInlineCommentInput),
+		}));
+	}
+}
+
+function parseJson<T>(text: string, schema: z.ZodType<T>, operation: string): RoasterResult<T> {
+	const result = parseGithubJson(text, schema);
+	if (result.type === "parse-error")
+		return error({
+			type: "github-json-invalid",
+			message: `GitHub response for ${operation} is not valid JSON: ${formatErrorMessage(result.error)}`,
+		});
+	if (result.type === "schema-error")
+		return error({
+			type: "github-response-invalid",
+			message: `GitHub response for ${operation} did not match the expected shape: ${z.prettifyError(result.error)}`,
+		});
+	return { type: "ok", value: result.value };
+}
+
+type AuthoredDiscussionComment = PRDiscussionComment & { readonly author: string };
+
+function normalizeDiscussionComment(
+	comment: z.infer<typeof ghDiscussionCommentSchema>,
+): AuthoredDiscussionComment {
+	return {
+		id: comment.numericId,
+		body: comment.body,
+		author: normalizeAuthor(comment.user ?? comment.author ?? null),
+	};
+}
+
+function error(errorValue: GitHubGatewayFailure): RoasterResult<never> {
+	return { type: "error", error: errorValue };
+}
+
+function publicDiscussionComment(comment: PRDiscussionComment): PRDiscussionComment {
+	return { id: comment.id, body: comment.body };
+}
+
+function copyChangedFile(file: PRChangedFile): PRChangedFile {
+	return { path: file.path, status: file.status, patch: file.patch };
+}
+
+function copyReviewComment(comment: PRReviewComment): PRReviewComment {
+	return { author: comment.author, body: comment.body };
+}
+
+function copyInlineCommentInput(comment: PRInlineCommentInput): PRInlineCommentInput {
+	return { path: comment.path, line: comment.line, body: comment.body };
+}
+
+function copyAuthoredDiscussionComment(
+	comment: AuthoredDiscussionComment,
+): AuthoredDiscussionComment {
+	return { id: comment.id, body: comment.body, author: comment.author };
+}
+
+function copyMapArray<TKey, TValue>(
+	source: ReadonlyMap<TKey, readonly TValue[]> | undefined,
+	target: Map<TKey, TValue[]>,
+	copy: (value: TValue) => TValue,
+): void {
+	if (source === undefined) return;
+	for (const [key, values] of source.entries()) target.set(key, values.map(copy));
+}

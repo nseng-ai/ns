@@ -8,7 +8,7 @@ SDL is **self-hosting**: the same `sdl-tools` repo that **develops** the platfor
 
 Ask which of these you are doing:
 
-- **Platform (developer hat):** changing a *capability* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/roaster`, `ts/packages/objective`), is tested, and ships to every consumer of that capability.
+- **Platform (developer hat):** changing a *capability* — the engine, loader, CLI, or storage contract that many instances depend on. Lives in `ts/packages/*` (for example `ts/packages/capabilities/roaster`, `ts/packages/capabilities/objective`), is tested, and ships to every consumer of that capability.
 - **Consumer (consumer hat):** changing an *instance* — one concrete artifact that a capability loads and runs. Lives in `.sdl/*` (for example a single `.sdl/reviews/<slug>/review.md` review or a `.sdl/objectives/<slug>/` objective). It is configuration and content, not capability.
 
 Rule of thumb: if your change alters what the tool *can do*, it is platform; if it alters one thing the tool *is currently doing to this repo*, it is consumer.
