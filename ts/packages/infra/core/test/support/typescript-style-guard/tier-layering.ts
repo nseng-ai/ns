@@ -41,6 +41,7 @@ export function collectPackageTierLayeringViolations(
 		if (fromTier === undefined || toTier === undefined) continue;
 		const violation = tierEdgeViolation(fromTier, toTier);
 		if (violation === undefined) continue;
+		if (isAllowedPiSubpackagePeerEdge(edge, metadataByName)) continue;
 		if (allowedDebtEdges.has(packageEdgeKey(edge.from, edge.to))) continue;
 		violations.push({
 			rule: BAN_PACKAGE_TIER_LAYERING,
@@ -69,6 +70,27 @@ function tierEdgeViolation(
 ): TierEdgeViolation | undefined {
 	if (packageTierAllowedTargets[fromTier].has(toTier)) return undefined;
 	return { severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
+}
+
+function isAllowedPiSubpackagePeerEdge(
+	edge: { readonly from: string; readonly to: string; readonly field: string },
+	metadataByName: ReadonlyMap<string, PackageMetadata>,
+): boolean {
+	if (edge.to !== "@sdl/pi" || edge.field !== "peerDependencies") return false;
+	const metadata = metadataByName.get(edge.from);
+	if (metadata?.sdlTier !== "capability") return false;
+	if (!metadata.sdlSubpackages.includes("pi")) return false;
+	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@sdl/pi");
+}
+
+function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
+	if (!isRecord(peerDependenciesMeta)) return false;
+	const entry = peerDependenciesMeta[packageName];
+	return isRecord(entry) && entry.optional === true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function buildTierMetadataViolation(

@@ -64,7 +64,7 @@ export interface BasePiSurfaceParity {
 		| "@local-pi-tools/pr-previews"
 		| "@local-pi-tools/thermo-council"
 		| "@sdl/branch-context-pi"
-		| "@sdl/flow-pi"
+		| "sdl-flow/pi"
 		| "@sdl/handoff-pi"
 		| "@sdl/objective-pi"
 		| "@sdl/worktree-status";

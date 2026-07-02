@@ -1,4 +1,4 @@
-import { runLandCli } from "../land.ts";
+import { runLandCli } from "../core/land.ts";
 import type { LandLiveProgressEvent, LandLiveProgressSink } from "../land-stack/command-stream.ts";
 import { createCommandIo } from "@sdl/kernel/command-io";
 import {

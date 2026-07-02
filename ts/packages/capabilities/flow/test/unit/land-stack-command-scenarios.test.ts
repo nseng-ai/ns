@@ -7,7 +7,11 @@ import { type LandStackResult } from "../../src/land-stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land-stack/command-stream.ts";
 import { LAND_PHASES } from "../../src/shared/phase-stream-specs.ts";
-import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
+import {
+	executeStackLanding,
+	parseArgs,
+	registerLandStackRenderer,
+} from "../../src/core/land-stack.ts";
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,

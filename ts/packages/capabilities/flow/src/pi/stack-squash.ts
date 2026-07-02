@@ -18,7 +18,7 @@ export const stackSquashParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "slot gt exec stack-branches --downstack --format json, then gt checkout + gt squash for each branch from tip to bottom",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/flow-pi",
+		sourcePackage: "sdl-flow/pi",
 		sourceModule: "stack-squash",
 		notes:
 			"Pi command is deterministic Graphite automation; non-Pi users can run the same gt command sequence manually.",

@@ -24,7 +24,7 @@ export const smartRestackParity = definePiSurfaceParity([
 		fallback:
 			"Claude Code, Codex, and other non-Pi users should invoke the portable `code-gt-restack-resolve` skill directly; it runs the same Graphite restack workflow from the current repository state.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/flow-pi",
+		sourcePackage: "sdl-flow/pi",
 		sourceModule: "smart-restack",
 		notes:
 			"This Pi-native command is a turn-saving UI wrapper over the portable code-gt-restack-resolve skill; the skill remains the cross-harness workflow contract.",

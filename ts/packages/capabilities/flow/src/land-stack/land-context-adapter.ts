@@ -1,5 +1,5 @@
 import { formatCommand } from "@sdl/core/command";
-import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "sdl-land/api";
+import { landCompleted, landFailure, landOutcomeFailure, landSuccess } from "../land/api.ts";
 import type {
 	LandContext,
 	LandingFailure,
@@ -7,7 +7,7 @@ import type {
 	LandResult,
 	WorkingTreeStatus,
 	WorktreeClassification,
-} from "sdl-land/api";
+} from "../land/api.ts";
 import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";

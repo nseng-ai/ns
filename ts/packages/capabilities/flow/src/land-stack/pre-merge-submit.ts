@@ -1,5 +1,5 @@
 import { formatCommand } from "@sdl/core/exec";
-import { collectSubmitRestackRequirements } from "sdl-land/api";
+import { collectSubmitRestackRequirements } from "../land/api.ts";
 import { execGraphite } from "./command-exec.ts";
 import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";

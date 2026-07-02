@@ -6,11 +6,11 @@ import {
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
-import codeExtension from "../src/code-extension.ts";
-import codeWorkflowsExtension, { codeWorkflowsParity } from "../src/code-workflows.ts";
-import sdlExtension, { sdlExtensionParity } from "../src/sdl-extension.ts";
-import { smartRestackParity } from "../src/smart-restack.ts";
-import { stackSquashParity } from "../src/stack-squash.ts";
+import codeExtension from "../../src/pi/code-extension.ts";
+import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/pi/code-workflows.ts";
+import sdlExtension, { sdlExtensionParity } from "../../src/pi/sdl-extension.ts";
+import { smartRestackParity } from "../../src/pi/smart-restack.ts";
+import { stackSquashParity } from "../../src/pi/stack-squash.ts";
 
 async function collectFlowPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();

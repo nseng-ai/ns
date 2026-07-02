@@ -1,5 +1,5 @@
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
-import type { LandingFailure } from "sdl-land/api";
+import type { LandingFailure } from "../land/api.ts";
 import type { LandingPlan, RestackRequirement } from "./types.ts";
 
 export type LandingFailureSource = "git" | "graphite" | "github" | "worktree" | "slot";

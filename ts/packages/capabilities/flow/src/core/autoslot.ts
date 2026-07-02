@@ -10,7 +10,7 @@ import { createFlowCliCommandIo } from "./cli-command-io.ts";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
-} from "./autobranch/checkpoint.ts";
+} from "../autobranch/checkpoint.ts";
 import { renderAutoslotResultBlock } from "./autoslot-presentation.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import {

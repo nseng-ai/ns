@@ -17,7 +17,7 @@ A thin project-local extension file whose job is to register Pi commands or tool
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow Pi presentation now lives in `@sdl/flow-pi`; Branch Context, Handoff, and Objective Pi presentation live in their own capability-pi packages.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow Pi presentation now lives in `sdl-flow/pi`; Branch Context, Handoff, and Objective Pi presentation live in their own capability-pi packages.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Local Pi-tool package**:

@@ -1,6 +1,6 @@
 import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import { executeStackLanding } from "../land-stack.ts";
+import { executeStackLanding } from "../core/land-stack.ts";
 import type { LandLiveProgressSink } from "../land-stack/command-stream.ts";
 import { completed, type LandStackOutcome } from "../land-stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "../land-stack/land-presentation.ts";

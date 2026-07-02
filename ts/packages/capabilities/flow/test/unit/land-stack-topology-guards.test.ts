@@ -4,7 +4,11 @@ import { ScriptedQueue } from "@sdl/core/test-kit";
 import { shortSha } from "../../src/land-stack/command-exec.ts";
 import { BACKUP_REF_NAMESPACE } from "../../src/land-stack/constants.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";
-import { executeStackLanding, parseArgs, registerLandStackRenderer } from "../../src/land-stack.ts";
+import {
+	executeStackLanding,
+	parseArgs,
+	registerLandStackRenderer,
+} from "../../src/core/land-stack.ts";
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,

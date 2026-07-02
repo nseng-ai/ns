@@ -21,7 +21,7 @@ vi.mock("@sdl/slot/api", () => ({
 }));
 vi.resetModules();
 
-const { createFlowSlotClient } = await import("../../src/slot-checkout.ts");
+const { createFlowSlotClient } = await import("../../src/core/slot-checkout.ts");
 
 describe("Flow slot checkout client", () => {
 	it("enables parent-shell cd directives for CLI autoslot while suppressing clipboard writes", () => {

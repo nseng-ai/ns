@@ -29,7 +29,6 @@
 		"@sdl/ccc": "workspace:*",
 		"@sdl/ccc-pi": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/flow-pi": "workspace:*",
 		"@sdl/handoff-pi": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"@sdl/objective-pi": "workspace:*",

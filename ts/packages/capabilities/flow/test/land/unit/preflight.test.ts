@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vitest";
 
-import { buildStackLandingPlan, executeLanding } from "sdl-land/api";
-import { createInMemoryLandContext, pullRequestFacts, stackSnapshot } from "sdl-land/testing";
+import { buildStackLandingPlan, executeLanding } from "sdl-flow/land/api";
+import { createInMemoryLandContext, pullRequestFacts, stackSnapshot } from "sdl-flow/land/testing";
 
 const ROOT = "/repo";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SHA_PR_OLD = "1111111111111111111111111111111111111111";
 
-describe("sdl-land stack preflight planning", () => {
+describe("sdl-flow land stack preflight planning", () => {
 	test("builds a renderer-independent dry-run outcome without merge mutations", async () => {
 		const { context, git, graphite } = createInMemoryLandContext({
 			git: {

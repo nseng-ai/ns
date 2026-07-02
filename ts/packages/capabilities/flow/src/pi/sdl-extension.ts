@@ -54,7 +54,7 @@ export const sdlExtensionParity = definePiSurfaceParity(
 		parity: "FULL" as const,
 		cli: `sdl ${command.displayName}`,
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/flow-pi" as const,
+		sourcePackage: "sdl-flow/pi" as const,
 		sourceModule: "sdl-extension",
 		notes: `Pi command delegates to sdl ${command.displayName} through registerCliCommandExtension; flat lifecycle mirrors are intentionally not registered.`,
 	})),
