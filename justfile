@@ -82,14 +82,14 @@ install-areg: (_install-ts-shim "areg" "ts/packages/tools/areg/src/cli.ts" "just
 # Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-vibechk: (_install-ts-shim "vibechk" "ts/packages/tools/vibechk/src/cli.ts" "just install-vibechk")
+install-vibechk: (_install-ts-shim "vibechk" "ts/packages/tools/vibechk/src/cli.ts" "just install-vibechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
 # Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
 # TypeScript CLI from source: the enclosing checkout's sources when invoked
 # inside an sdl checkout, this checkout's sources everywhere else.
-install-packagechk: (_install-ts-shim "packagechk" "ts/packages/tools/packagechk/src/cli.ts" "just install-packagechk")
+install-packagechk: (_install-ts-shim "packagechk" "ts/packages/tools/packagechk/src/cli.ts" "just install-packagechk or just install-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
     @echo "removed stale project venv packagechk script if present"
 
@@ -130,8 +130,8 @@ topology *args:
     {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
-install-tools: _remove-stale-branch-context-bin install-sdl install-brmem install-areg
-    @echo "installed: sdl, brmem, and areg (TypeScript shims); branch-context is available via sdl branch-context"
+install-tools: _remove-stale-branch-context-bin install-sdl install-brmem install-areg install-vibechk install-packagechk
+    @echo "installed: sdl, brmem, areg, vibechk, and packagechk (TypeScript shims); branch-context is available via sdl branch-context"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz
