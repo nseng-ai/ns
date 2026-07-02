@@ -41,11 +41,18 @@ const branchPrEntrySchema = z.looseObject({
 	base_ref_name: z.string(),
 });
 
+const ambiguousBranchPrEntrySchema = z.looseObject({
+	branch: z.string(),
+});
+
 const mapBranchPrsDataSchema = z.looseObject({
 	branchPrs: z.array(branchPrEntrySchema),
+	missingBranches: z.array(z.string()).optional(),
+	ambiguousBranches: z.array(ambiguousBranchPrEntrySchema).optional(),
 });
 
 type BranchPrEntry = z.output<typeof branchPrEntrySchema>;
+type MapBranchPrsData = z.output<typeof mapBranchPrsDataSchema>;
 interface StackFeedbackDownload {
 	entry: BranchPrEntry;
 	markdown: string;
@@ -246,11 +253,13 @@ async function runPrDownloadStackFeedbackCommand(
 			downloads.push(downloaded.value);
 		}
 
-		const markdown = buildStackDownloadFeedbackMarkdown(downloads);
+		const markdown = buildStackDownloadFeedbackMarkdown(downloads, {
+			missingBranches: mapped.missingBranches,
+		});
 		prefillEditor(
 			ctx,
 			markdown,
-			"Downloaded PR stack feedback into the editor. Review/edit, then press Enter.",
+			stackDownloadCompleteMessage(downloads.length, mapped.missingBranches),
 		);
 	} finally {
 		ctx.ui?.setStatus?.(DOWNLOAD_STACK_FEEDBACK_STATUS_KEY, undefined);
@@ -315,7 +324,10 @@ async function mapStackBranchesToPrs(
 	pi: ExtensionAPI,
 	ctx: ExtensionContext,
 	branches: readonly string[],
-): Promise<{ type: "ok"; entries: BranchPrEntry[] } | { type: "error"; message: string }> {
+): Promise<
+	| { type: "ok"; entries: BranchPrEntry[]; missingBranches: string[] }
+	| { type: "error"; message: string }
+> {
 	const branchesJson = JSON.stringify({ branches });
 	const result = await pi.exec(
 		"sdl",
@@ -326,9 +338,27 @@ async function mapStackBranchesToPrs(
 		label: "sdl address exec map-branch-prs",
 		result,
 		schema: mapBranchPrsDataSchema,
+		// map-branch-prs uses exit 1 for partial branch coverage; stack feedback can
+		// still download the mapped PRs and note branches without open PRs.
+		allowFailureData: true,
 	});
 	if (parsed.type === "error") return parsed;
-	return { type: "ok", entries: parsed.value.branchPrs };
+	const ambiguousBranchNames = branchNames(parsed.value.ambiguousBranches ?? []);
+	if (ambiguousBranchNames.length > 0) {
+		return {
+			type: "error",
+			message: `Cannot download stack feedback because multiple open PRs matched branches: ${ambiguousBranchNames.join(", ")}`,
+		};
+	}
+	return {
+		type: "ok",
+		entries: parsed.value.branchPrs,
+		missingBranches: parsed.value.missingBranches ?? [],
+	};
+}
+
+function branchNames(entries: NonNullable<MapBranchPrsData["ambiguousBranches"]>): string[] {
+	return entries.map((entry) => entry.branch);
 }
 
 async function downloadFeedbackForPr(
@@ -373,7 +403,11 @@ function parseEnvelopeWithSchema<T>(options: EnvelopeWithSchemaOptions<T>): Comm
 	return { type: "ok", value: schemaResult.data };
 }
 
-function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDownload[]): string {
+function buildStackDownloadFeedbackMarkdown(
+	downloads: readonly StackFeedbackDownload[],
+	options: { missingBranches?: readonly string[] } = {},
+): string {
+	const missingBranches = options.missingBranches ?? [];
 	return [
 		"# PR stack feedback triage request",
 		"",
@@ -383,6 +417,7 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 		...downloads.map(
 			({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`,
 		),
+		...renderMissingStackBranches(missingBranches),
 		"",
 		"## Feedback by PR",
 		...downloads.flatMap(({ entry, markdown }) => [
@@ -394,13 +429,16 @@ function buildStackDownloadFeedbackMarkdown(downloads: readonly StackFeedbackDow
 			...demoteMarkdownHeadings(stripPrDownloadHeading(markdown)).split("\n"),
 		]),
 		"",
-		...renderStackDownloadFeedbackSummary(downloads),
+		...renderStackDownloadFeedbackSummary(downloads, missingBranches),
 		"",
 		...renderStackInstructions(),
 	].join("\n");
 }
 
-function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDownload[]): string[] {
+function renderStackDownloadFeedbackSummary(
+	downloads: readonly StackFeedbackDownload[],
+	missingBranches: readonly string[],
+): string[] {
 	const totals = sumDownloadFeedbackCounts(downloads);
 	return [
 		"## Summary",
@@ -410,6 +448,7 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 		...downloads.map(
 			({ entry }) => `- #${entry.pr_number} ${entry.branch}: ${entry.title} (${entry.url})`,
 		),
+		...renderMissingStackBranches(missingBranches),
 		"",
 		"Totals:",
 		`- Unresolved review threads included: ${totals.includedReviewThreads}`,
@@ -419,6 +458,20 @@ function renderStackDownloadFeedbackSummary(downloads: readonly StackFeedbackDow
 		`- Empty PR-level reviews excluded: ${totals.excludedEmptyReviews}`,
 		`- Automation-like discussion comments excluded: ${totals.excludedAutomationComments}`,
 	];
+}
+
+function renderMissingStackBranches(missingBranches: readonly string[]): string[] {
+	if (missingBranches.length === 0) return [];
+	return ["", "Branches without open PRs:", ...missingBranches.map((branch) => `- ${branch}`)];
+}
+
+function stackDownloadCompleteMessage(
+	downloadCount: number,
+	missingBranches: readonly string[],
+): string {
+	if (missingBranches.length === 0)
+		return "Downloaded PR stack feedback into the editor. Review/edit, then press Enter.";
+	return `Downloaded PR stack feedback for ${downloadCount} ${downloadCount === 1 ? "PR" : "PRs"} into the editor; skipped ${missingBranches.length} ${missingBranches.length === 1 ? "branch" : "branches"} without an open PR: ${missingBranches.join(", ")}. Review/edit, then press Enter.`;
 }
 
 function sumDownloadFeedbackCounts(
