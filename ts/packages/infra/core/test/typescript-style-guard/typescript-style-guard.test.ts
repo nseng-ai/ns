@@ -440,7 +440,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/capability-kit",
 		"@sdl/core",
 		"@sdl/handoff",
-		"@sdl/handoff-pi",
+		"@sdl/objective-pi",
 		"@sdl/pi",
 		"@sdl/kernel",
 		"@sdl/slot",
@@ -453,7 +453,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@sdl/capability-kit", "capability-kit"],
 		["@sdl/core", "neutral-infra"],
 		["@sdl/handoff", "capability"],
-		["@sdl/handoff-pi", "capability-pi"],
+		["@sdl/objective-pi", "capability-pi"],
 		["@sdl/pi", "host"],
 		["@sdl/kernel", "sdk"],
 		["@sdl/slot", "capability"],
@@ -491,17 +491,17 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "capability pi to host is allowed",
-			edges: [{ from: "@sdl/handoff-pi", to: "@sdl/pi" }],
+			edges: [{ from: "@sdl/objective-pi", to: "@sdl/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability pi to capability is allowed",
-			edges: [{ from: "@sdl/handoff-pi", to: "@sdl/handoff" }],
+			edges: [{ from: "@sdl/objective-pi", to: "@sdl/handoff" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability to capability pi is rejected",
-			edges: [{ from: "@sdl/handoff", to: "@sdl/handoff-pi" }],
+			edges: [{ from: "@sdl/handoff", to: "@sdl/objective-pi" }],
 			expectedTextIncludes: "capability-must-not-depend-on-capability-pi",
 		},
 		{

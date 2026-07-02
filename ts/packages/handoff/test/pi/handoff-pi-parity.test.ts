@@ -6,8 +6,8 @@ import {
 	type LivePiSurface,
 } from "@sdl/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
-import claudeExtension, { claudeHandoffParity } from "../src/claude-extension.ts";
-import handoffExtension, { handoffParity } from "../src/extension.ts";
+import claudeExtension, { claudeHandoffParity } from "../../src/pi/claude-extension.ts";
+import handoffExtension, { handoffParity } from "../../src/pi/extension.ts";
 
 async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();

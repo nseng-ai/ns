@@ -5,9 +5,9 @@ import {
 	buildHandoffContentSlugPrompt,
 	deriveHandoffContentSlug,
 	normalizeHandoffContentSlugOutput,
-} from "../src/content-slug.ts";
+} from "../../src/pi/content-slug.ts";
 import type { ExecResult } from "@sdl/core/command";
-import type { ExtensionAPI } from "../src/extension.ts";
+import type { ExtensionAPI } from "../../src/pi/extension.ts";
 
 const CWD = "/repo";
 const HANDOFF_CONTENT = `# Handoff: Associate Sessions With Branches

@@ -6,7 +6,7 @@ import {
 	createHandoffArtifact,
 	prepareHandoffCreation,
 	type HandoffStorageDeps,
-} from "../../src/artifact-storage.ts";
+} from "../../src/core/artifact-storage.ts";
 
 const HANDOFF_NAMESPACE = "handoff";
 

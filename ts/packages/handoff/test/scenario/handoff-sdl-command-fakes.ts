@@ -12,7 +12,7 @@ import type {
 	TextGenerationResult,
 } from "@sdl/kernel/sdk";
 
-import { HANDOFF_NAMESPACE } from "../../src/identity.ts";
+import { HANDOFF_NAMESPACE } from "../../src/core/identity.ts";
 
 export interface FakeHandoffSdlApiOptions {
 	cwd?: string;

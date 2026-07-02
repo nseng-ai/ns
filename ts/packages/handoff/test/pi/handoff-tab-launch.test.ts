@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { launchHandoffTab, type HandoffTabLaunchHost } from "../src/tab-launch.ts";
+import { launchHandoffTab, type HandoffTabLaunchHost } from "../../src/pi/tab-launch.ts";
 import {
 	cmuxCreateSurfaceRefStep,
 	cmuxCreateSurfaceStep,

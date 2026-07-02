@@ -3,11 +3,11 @@ import {
 	repoLocalSdlCommandDescriptor,
 } from "@sdl/kernel/sdk";
 
-import { handoffCreateSdlCommand } from "./sdl/commands/create.ts";
-import { handoffDeleteSdlCommand } from "./sdl/commands/delete.ts";
-import { handoffGcSdlCommand } from "./sdl/commands/gc.ts";
-import { handoffListSdlCommand } from "./sdl/commands/list.ts";
-import { handoffPickupSdlCommand } from "./sdl/commands/pickup.ts";
+import { handoffCreateSdlCommand } from "./commands/create.ts";
+import { handoffDeleteSdlCommand } from "./commands/delete.ts";
+import { handoffGcSdlCommand } from "./commands/gc.ts";
+import { handoffListSdlCommand } from "./commands/list.ts";
+import { handoffPickupSdlCommand } from "./commands/pickup.ts";
 
 export const handoffRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescriptor({
 	group: "handoff",

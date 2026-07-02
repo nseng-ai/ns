@@ -2,12 +2,12 @@ import { FakeBrmemGateway } from "@sdl/brmem";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import type { HandoffStorageDeps } from "../../src/artifact-storage.ts";
+import type { HandoffStorageDeps } from "../../src/core/artifact-storage.ts";
 import {
 	executeDeletedBranchGarbageCollection,
 	planDeletedBranchGarbageCollection,
-} from "../../src/gc-core.ts";
-import type { BranchState, HandoffSummary } from "../../src/inventory.ts";
+} from "../../src/core/gc-core.ts";
+import type { BranchState, HandoffSummary } from "../../src/core/inventory.ts";
 
 function createSummary(options: {
 	branch: string;

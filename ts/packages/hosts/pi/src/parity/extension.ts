@@ -65,7 +65,7 @@ export interface BasePiSurfaceParity {
 		| "@local-pi-tools/thermo-council"
 		| "@sdl/branch-context-pi"
 		| "sdl-flow/pi"
-		| "@sdl/handoff-pi"
+		| "@sdl/handoff/pi"
 		| "@sdl/objective-pi"
 		| "@sdl/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */

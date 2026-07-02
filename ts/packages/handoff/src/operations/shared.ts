@@ -6,7 +6,7 @@ import {
 	type ClinkrFailureExit,
 } from "@sdl/clinkr";
 
-import type { HandoffCliContext } from "../context.ts";
+import type { HandoffCliContext } from "../core/context.ts";
 
 export type Resolved<T> = { type: "resolved"; value: T } | ClinkrExit<never>;
 export function resolved<T>(value: T): Resolved<T> {
