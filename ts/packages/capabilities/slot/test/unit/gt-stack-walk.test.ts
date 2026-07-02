@@ -4,7 +4,7 @@ import { deduplicateOrderedStrings } from "../../src/core/collections.ts";
 import {
 	collectStackBranches,
 	collectStackEdges,
-} from "../../src/core/operations/gt/stack-walk.ts";
+} from "../../src/lifecycle/operations/gt/stack-walk.ts";
 import { fakeStackInfo } from "@sdl/capability-kit/graphite/testing";
 
 describe("Graphite stack walking", () => {

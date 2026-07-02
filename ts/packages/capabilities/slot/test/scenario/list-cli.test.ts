@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { renderList, type ListResult } from "../../src/core/operations/list.ts";
+import { renderList, type ListResult } from "../../src/lifecycle/operations/list.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 const nonEmptyListGit = {

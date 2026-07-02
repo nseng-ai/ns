@@ -2,9 +2,9 @@ import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 import { optionalEntry } from "@sdl/core/primitives";
 
-import type { SlotCliContext } from "../../context.ts";
-import { buildSlotInventory, findByBranch, poolSize } from "../../inventory.ts";
-import { executeFreePlan, planFreeSlots } from "../../../lifecycle/free.ts";
+import type { SlotCliContext } from "../../../core/context.ts";
+import { buildSlotInventory, findByBranch, poolSize } from "../../../core/inventory.ts";
+import { executeFreePlan, planFreeSlots } from "../../free.ts";
 import {
 	buildSlotDestructiveResultBlock,
 	renderSlotDestructiveResultBlock,

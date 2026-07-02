@@ -1,7 +1,7 @@
 import { failure, negative, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../../context.ts";
+import type { SlotCliContext } from "../../../core/context.ts";
 import { buildGtNavigationResult, resolveOrCheckoutWorktreeForBranch } from "./navigation.ts";
 import { resolveRepoAndCurrentBranch } from "./shared.ts";
 

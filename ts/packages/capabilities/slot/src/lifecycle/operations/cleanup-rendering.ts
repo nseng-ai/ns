@@ -1,7 +1,7 @@
 import type { Caps } from "@sdl/clinkr";
 import { glyph, paint } from "@sdl/core/cli-theme";
 
-import type { SlotFreeCleanupResult } from "../../lifecycle/release-cleanup.ts";
+import type { SlotFreeCleanupResult } from "../release-cleanup.ts";
 
 export function cleanupErrorCount(cleanup: readonly SlotFreeCleanupResult[]): number {
 	return cleanup.filter((result) => result.status === "error").length;

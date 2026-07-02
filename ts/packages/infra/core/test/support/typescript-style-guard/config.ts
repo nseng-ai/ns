@@ -133,13 +133,6 @@ export interface DeferredTopologyCircleCycle {
 
 export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
 	{
-		name: "slot-core-lifecycle",
-		packageName: "@sdl/slot",
-		circles: new Set(["core", "lifecycle"]),
-		reason:
-			"core command operations currently sit above lifecycle; the fix moves them into lifecycle.",
-	},
-	{
 		name: "flow-api-core-land-submit",
 		packageName: "sdl-flow",
 		circles: new Set(["api", "core", "land", "submit"]),

@@ -1,6 +1,6 @@
 import { failure, type ClinkrFailureExit } from "@sdl/clinkr";
 
-import type { RepoSlotContext, SlotCliContext } from "../../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";
 
 export type ResolvedRepoAndCurrentBranch =
 	| {

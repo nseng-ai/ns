@@ -2,8 +2,8 @@ import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 import { optionalEntry } from "@sdl/core/primitives";
 
-import type { SlotCliContext } from "../context.ts";
-import { resizePool } from "../../lifecycle/pool.ts";
+import type { SlotCliContext } from "../../core/context.ts";
+import { resizePool } from "../pool.ts";
 import {
 	buildSlotDestructiveResultBlock,
 	renderSlotDestructiveResultBlock,

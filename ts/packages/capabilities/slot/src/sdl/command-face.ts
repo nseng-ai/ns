@@ -19,86 +19,86 @@ import {
 	checkoutResultSchema,
 	renderCheckout,
 	runCheckout,
-} from "../core/operations/checkout.ts";
+} from "../lifecycle/operations/checkout.ts";
 import {
 	claimRequestSchema,
 	claimResultSchema,
 	renderClaim,
 	runClaim,
-} from "../core/operations/claim.ts";
+} from "../lifecycle/operations/claim.ts";
 import {
 	foreachRequestSchema,
 	foreachResultSchema,
 	renderForeach,
 	runForeach,
-} from "../core/operations/foreach.ts";
+} from "../lifecycle/operations/foreach.ts";
 import {
 	freeRequestSchema,
 	freeResultSchema,
 	renderFree,
 	runFree,
-} from "../core/operations/free.ts";
-import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../core/operations/gc.ts";
+} from "../lifecycle/operations/free.ts";
+import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../lifecycle/operations/gc.ts";
 import {
 	gtDownRequestSchema,
 	gtDownResultSchema,
 	renderGtDownNavigation,
 	runGtDown,
-} from "../core/operations/gt/down.ts";
+} from "../lifecycle/operations/gt/down.ts";
 import {
 	gtStackBranchesRequestSchema,
 	gtStackBranchesResultSchema,
 	renderStackBranches,
 	runGtStackBranches,
-} from "../core/operations/gt/exec/stack-branches.ts";
+} from "../lifecycle/operations/gt/exec/stack-branches.ts";
 import {
 	gtQuiescenceRequestSchema,
 	gtQuiescenceResultSchema,
 	renderGtQuiescence,
 	runGtQuiescence,
-} from "../core/operations/gt/exec/quiescence.ts";
+} from "../lifecycle/operations/gt/exec/quiescence.ts";
 import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderStackMapBranches,
 	runGtStackMapBranches,
-} from "../core/operations/gt/exec/stack-map-branches.ts";
+} from "../lifecycle/operations/gt/exec/stack-map-branches.ts";
 import {
 	gtFreeStackRequestSchema,
 	gtFreeStackResultSchema,
 	renderGtFreeStack,
 	runGtFreeStack,
-} from "../core/operations/gt/free-stack.ts";
+} from "../lifecycle/operations/gt/free-stack.ts";
 import {
 	gtNavigationResultSchema,
 	gtUpRequestSchema,
 	renderGtUpNavigation,
 	runGtUp,
-} from "../core/operations/gt/up.ts";
+} from "../lifecycle/operations/gt/up.ts";
 import {
 	gotoRequestSchema,
 	gotoResultSchema,
 	renderGoto,
 	runGoto,
-} from "../core/operations/goto.ts";
+} from "../lifecycle/operations/goto.ts";
 import {
 	initRequestSchema,
 	initResultSchema,
 	renderInit,
 	runInit,
-} from "../core/operations/init.ts";
+} from "../lifecycle/operations/init.ts";
 import {
 	listRequestSchema,
 	listResultSchema,
 	renderList,
 	runList,
-} from "../core/operations/list.ts";
+} from "../lifecycle/operations/list.ts";
 import {
 	renderResize,
 	resizeRequestSchema,
 	resizeResultSchema,
 	runResize,
-} from "../core/operations/resize.ts";
+} from "../lifecycle/operations/resize.ts";
 
 export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({
