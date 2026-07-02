@@ -8,8 +8,8 @@ import type {
 	WorkingTreeStatus,
 	WorktreeClassification,
 } from "../api.ts";
-import { exec } from "./command-exec.ts";
-import { GIT_TIMEOUT_MS } from "./constants.ts";
+import { exec, formatCommandDetails } from "./command-exec.ts";
+import { GH_MERGE_TIMEOUT_MS, GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
@@ -27,6 +27,7 @@ import {
 	loadStackSnapshot,
 	loadTrunk,
 } from "./stack-facts.ts";
+import { squashMergeArgs } from "./landing-operations.ts";
 import type { LandStackExtensionAPI } from "./types.ts";
 import {
 	isManagedSlotPath,
@@ -97,6 +98,30 @@ export function createLandContext(
 						: { mergeStateStatus: pr.value.mergeStateStatus }),
 					...(pr.value.url === undefined ? {} : { url: pr.value.url }),
 					...(pr.value.mergedAt === undefined ? {} : { mergedAt: pr.value.mergedAt }),
+				});
+			},
+			squashMergePullRequest: async ({ repoRoot, pullRequest }) => {
+				const mergeArgs = squashMergeArgs(pullRequest);
+				const result = await exec({
+					pi,
+					command: "gh",
+					args: mergeArgs,
+					cwd: repoRoot,
+					timeoutMs: GH_MERGE_TIMEOUT_MS,
+				});
+				if (result.code === 0) {
+					return landSuccess({ stdout: result.stdout, stderr: result.stderr });
+				}
+
+				const commandDisplay = formatCommand("gh", mergeArgs);
+				const message = `gh pr merge --squash with PR title/body failed for PR #${pullRequest.number}.\n${formatCommandDetails(result, commandDisplay)}`;
+				return landFailure({
+					type: "boundary",
+					phase: "merge",
+					source: "github",
+					code: "squash_merge_failed",
+					message,
+					displayCommand: commandDisplay,
 				});
 			},
 		},

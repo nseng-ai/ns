@@ -303,11 +303,20 @@ export interface LandGraphiteGateway {
 	}): Promise<LandOutcome>;
 }
 
+export interface SquashMergePullRequestResult {
+	readonly stdout: string;
+	readonly stderr: string;
+}
+
 export interface LandGithubPrFactsGateway {
 	pullRequestFacts(request: {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;
 	}): Promise<LandResult<PullRequestFacts>>;
+	squashMergePullRequest(request: {
+		readonly repoRoot: string;
+		readonly pullRequest: PullRequestFacts;
+	}): Promise<LandResult<SquashMergePullRequestResult>>;
 }
 
 export interface LandWorktreeSlotFactsGateway {

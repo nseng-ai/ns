@@ -13,6 +13,18 @@ const FOR_EACH_REF_ARGS = [
 	"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
 	"refs/heads",
 ];
+const SQUASH_MERGE_ARGS = [
+	"pr",
+	"merge",
+	"42",
+	"--squash",
+	"--match-head-commit",
+	"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"--subject",
+	"Merge subject",
+	"--body",
+	"Merge body",
+];
 
 interface ExecCall {
 	command: string;
@@ -91,6 +103,33 @@ describe("land context adapter facts", () => {
 				{ name: "feature", sha: "2222222222222222222222222222222222222222" },
 			],
 		});
+		pi.assertDone();
+	});
+
+	test("squash merges pull requests with the existing gh argv", async () => {
+		const pi = new FakePi([
+			step("gh", SQUASH_MERGE_ARGS, { stdout: "merged\n", stderr: "notice\n" }),
+		]);
+		const context = createLandContext(pi);
+
+		await expect(
+			context.github.squashMergePullRequest({
+				repoRoot: ROOT,
+				pullRequest: {
+					number: 42,
+					title: "Merge subject",
+					body: "Merge body",
+					state: "OPEN",
+					isDraft: false,
+					headRefName: "feature",
+					baseRefName: "main",
+					headRefOid: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				},
+			}),
+		).resolves.toEqual({ type: "success", value: { stdout: "merged\n", stderr: "notice\n" } });
+		expect(pi.execCalls).toEqual([
+			{ command: "gh", args: SQUASH_MERGE_ARGS, options: { cwd: ROOT, timeout: 120000 } },
+		]);
 		pi.assertDone();
 	});
 
