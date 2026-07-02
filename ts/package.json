@@ -30,7 +30,6 @@
 		"@sdl/ccc-pi": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"@sdl/kernel": "workspace:*",
-		"@sdl/objective-pi": "workspace:*",
 		"@sdl/plans": "workspace:*",
 		"@sdl/roaster": "workspace:*",
 		"@sdl/slot": "workspace:*",

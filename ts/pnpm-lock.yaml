@@ -113,10 +113,7 @@ importers:
         version: link:packages/kernel
       '@sdl/objective':
         specifier: workspace:*
-        version: link:packages/objective
-      '@sdl/objective-pi':
-        specifier: workspace:*
-        version: link:packages/capability-pi/objective
+        version: link:packages/capabilities/objective
       '@sdl/plans':
         specifier: workspace:*
         version: link:packages/capabilities/plans
@@ -267,6 +264,28 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
+  packages/capabilities/objective:
+    dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
+      '@sdl/clinkr':
+        specifier: workspace:*
+        version: link:../../infra/clinkr
+      '@sdl/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../../kernel
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../../hosts/pi
+
   packages/capabilities/plans:
     dependencies:
       '@sdl/capability-kit':
@@ -336,21 +355,6 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/capability-pi/objective:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@sdl/objective':
-        specifier: workspace:*
-        version: link:../../objective
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
   packages/ccc:
     dependencies:
       '@sdl/branch-context':
@@ -370,7 +374,7 @@ importers:
         version: link:../kernel
       '@sdl/objective':
         specifier: workspace:*
-        version: link:../objective
+        version: link:../capabilities/objective
       '@sdl/plans':
         specifier: workspace:*
         version: link:../capabilities/plans
@@ -451,7 +455,7 @@ importers:
         version: link:../../infra/core
       '@sdl/objective':
         specifier: workspace:*
-        version: link:../../objective
+        version: link:../../capabilities/objective
       '@sdl/slot':
         specifier: workspace:*
         version: link:../../capabilities/slot
@@ -614,24 +618,6 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/objective:
-    dependencies:
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../sdl-capability-kit
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-      '@sdl/kernel':
-        specifier: workspace:*
-        version: link:../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
