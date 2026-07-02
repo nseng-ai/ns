@@ -283,14 +283,19 @@ function discoverTopologyCircles() {
   for (const [packageName, p] of Object.entries(pkgs).sort()) {
     const srcDir = join(p.path, SRC_DIR);
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
-    discovered.push({
-      id: packageName,
-      packageName,
-      component: ".",
-      tier: p.tier,
-      path: toPosix(srcDir),
-      loc: countLocForFiles(filesForPackageRootCircle(packageName, srcDir)),
-    });
+    // A fully decomposed package (every src file inside a declared subpackage)
+    // gets no root/remainder circle — an empty shell node carries no signal.
+    const rootFiles = filesForPackageRootCircle(packageName, srcDir);
+    if (rootFiles.length > 0 || declaredSubpackages(manifests[packageName]).length === 0) {
+      discovered.push({
+        id: packageName,
+        packageName,
+        component: ".",
+        tier: p.tier,
+        path: toPosix(srcDir),
+        loc: countLocForFiles(rootFiles),
+      });
+    }
 
     for (const component of declaredSubpackages(manifests[packageName])) {
       const componentDir = join(srcDir, component);
@@ -375,8 +380,22 @@ function circleForSpecifier(specifier, importerFile) {
   if (specifier.startsWith(".")) return circleForPath(resolve(dirname(importerFile), specifier));
   const packageName = packageNameForSpecifier(specifier);
   if (packageName === undefined) return undefined;
+  const exportedFileCircle = circleForExportedFile(specifier, packageName);
+  if (exportedFileCircle !== undefined) return exportedFileCircle;
   const component = componentForPackageSpecifier(specifier, packageName);
   return circleByPackageComponent.get(`${packageName}\0${component}`) ?? circleByPackageComponent.get(`${packageName}\0.`);
+}
+
+// Subpath exports are aliases (`@sdl/core/result` -> src/primitives/result.ts),
+// so specifier segments alone misattribute edges to the package-root circle.
+// Resolve through the exports map and credit the circle that owns the file.
+function circleForExportedFile(specifier, packageName) {
+  const exportsMap = manifests[packageName]?.exports;
+  if (exportsMap === undefined) return undefined;
+  const key = specifier === packageName ? "." : `./${specifier.slice(packageName.length + 1)}`;
+  const target = exportsMap[key];
+  if (typeof target !== "string") return undefined;
+  return circleForPath(resolve(pkgs[packageName].path, target));
 }
 
 function packageNameForSpecifier(specifier) {
