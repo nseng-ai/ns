@@ -6,6 +6,7 @@ import { join } from "node:path";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorInfo,
@@ -16,6 +17,8 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	GitStagePathsParams,
+	GitStatusPathFacts,
 	GitGateway,
 } from "@sdl/capability-kit/git";
 import { describe, expect, it } from "vitest";
@@ -151,5 +154,17 @@ class FakeGitGateway implements GitGateway {
 		_params: GitRevisionRangePathParams,
 	): Promise<GitResult<readonly string[]>> {
 		throw new Error("FakeGitGateway.changedPathsUnder should not be called");
+	}
+
+	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
+		throw new Error("FakeGitGateway.statusPaths should not be called");
+	}
+
+	async stagePaths(_params: GitStagePathsParams): Promise<GitOperationResult> {
+		throw new Error("FakeGitGateway.stagePaths should not be called");
+	}
+
+	async commit(_params: GitCommitParams): Promise<GitResult<string>> {
+		throw new Error("FakeGitGateway.commit should not be called");
 	}
 }

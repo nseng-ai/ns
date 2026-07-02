@@ -13,10 +13,14 @@ export type KnownGitErrorCode =
 	| "current-branch-failed"
 	| "git_branch_tips_failed"
 	| "git_changed_paths_failed"
+	| "git_commit_failed"
 	| "git_dirty_status_failed"
 	| "git_path_empty"
 	| "git_path_failed"
+	| "git_stage_paths_failed"
 	| "git_startup_failed"
+	| "git_status_parse_failed"
+	| "git_status_paths_failed"
 	| "git_tree_oid_failed"
 	| "head_commit_empty"
 	| "head_commit_failed"
@@ -60,6 +64,19 @@ export interface GitRevisionRangePathParams extends GitPathParams {
 	revisionRange: string;
 }
 
+export interface GitStagePathsParams extends GitCwdParams {
+	paths: readonly string[];
+}
+
+export interface GitCommitParams extends GitCwdParams {
+	message: string;
+}
+
+export interface GitStatusPathFacts {
+	changedPaths: readonly string[];
+	stagedPaths: readonly string[];
+}
+
 export interface GitLocalBranchTip {
 	name: string;
 	headIso: string | null;
@@ -89,4 +106,7 @@ export interface GitGateway {
 		params: GitRefsPathParams,
 	): Promise<GitResult<Readonly<Record<string, string | null>>>>;
 	changedPathsUnder(params: GitRevisionRangePathParams): Promise<GitResult<readonly string[]>>;
+	statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>>;
+	stagePaths(params: GitStagePathsParams): Promise<GitOperationResult>;
+	commit(params: GitCommitParams): Promise<GitResult<string>>;
 }

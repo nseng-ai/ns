@@ -10,6 +10,7 @@ import { firstNonEmptyLine, nonEmptyLines } from "@sdl/core/text-normalization";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorInfo,
@@ -21,12 +22,16 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	GitStagePathsParams,
+	GitStatusPathFacts,
 	KnownGitErrorCode,
 } from "./contract.ts";
+import { parseGitStatusPaths } from "./status-paths.ts";
 
 export type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
 	GitErrorCode,
@@ -39,8 +44,11 @@ export type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	GitStagePathsParams,
+	GitStatusPathFacts,
 	KnownGitErrorCode,
 } from "./contract.ts";
+export { parseGitStatusPaths } from "./status-paths.ts";
 export {
 	readLocalBranchRefs,
 	type LocalBranchRefDirent,
@@ -350,6 +358,36 @@ export class RealGitGateway implements GitGateway {
 		);
 		if (!run.ok) return run;
 		return { ok: true, value: nonEmptyLines(run.value.result.stdout) };
+	}
+
+	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
+		const run = await this.runGitExpectingSuccess(params, ["status", "--porcelain=v1"], {
+			code: "git_status_paths_failed",
+			title: "git status --porcelain=v1 failed",
+		});
+		if (!run.ok) return run;
+		return parseGitStatusPaths(run.value.result.stdout);
+	}
+
+	async stagePaths(params: GitStagePathsParams): Promise<GitOperationResult> {
+		if (params.paths.length === 0) {
+			return error("git_stage_paths_failed", "Refusing to stage an empty path list.");
+		}
+		const run = await this.runGitExpectingSuccess(params, ["add", "--", ...params.paths], {
+			code: "git_stage_paths_failed",
+			title: "git add failed",
+		});
+		if (!run.ok) return run;
+		return { ok: true };
+	}
+
+	async commit(params: GitCommitParams): Promise<GitResult<string>> {
+		const run = await this.runGitExpectingSuccess(params, ["commit", "-m", params.message], {
+			code: "git_commit_failed",
+			title: "git commit failed",
+		});
+		if (!run.ok) return run;
+		return await this.headCommit(params);
 	}
 
 	private async runGitExpectingSuccess(

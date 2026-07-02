@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,
+	GitCommitParams,
 	GitCurrentBranchResult,
 	GitCwdParams,
 	GitGateway,
@@ -14,6 +15,8 @@ import type {
 	GitRefsPathParams,
 	GitResult,
 	GitRevisionRangePathParams,
+	GitStagePathsParams,
+	GitStatusPathFacts,
 } from "@sdl/capability-kit/git";
 import {
 	buildRepoPlanStoreKey,
@@ -343,6 +346,21 @@ class FakeGitGateway implements GitGateway {
 	): Promise<GitResult<readonly string[]>> {
 		this.calls.push("changedPathsUnder");
 		return { ok: true, value: [] };
+	}
+
+	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
+		this.calls.push("statusPaths");
+		return { ok: true, value: { changedPaths: [], stagedPaths: [] } };
+	}
+
+	async stagePaths(_params: GitStagePathsParams): Promise<GitOperationResult> {
+		this.calls.push("stagePaths");
+		return { ok: true };
+	}
+
+	async commit(_params: GitCommitParams): Promise<GitResult<string>> {
+		this.calls.push("commit");
+		return { ok: true, value: "abc123" };
 	}
 }
 

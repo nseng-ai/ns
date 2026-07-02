@@ -295,5 +295,14 @@ function createUnusedGitGateway(): GitGateway {
 		async changedPathsUnder() {
 			return { ok: true, value: [] };
 		},
+		async statusPaths() {
+			return { ok: true, value: { changedPaths: [], stagedPaths: [] } };
+		},
+		async stagePaths() {
+			return { ok: true };
+		},
+		async commit() {
+			return { ok: true, value: "HEAD" };
+		},
 	};
 }

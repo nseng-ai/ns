@@ -506,4 +506,95 @@ describe("real git gateway", () => {
 		).toMatchObject({ ok: false, error: { code: "git_changed_paths_failed" } });
 		commands.assertDone();
 	});
+
+	test("parses status paths from porcelain v1 output", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["status", "--porcelain=v1"], {
+				stdout: "M  staged.ts\n M unstaged.ts\nR  old.ts -> renamed.ts\n?? fresh.ts\n",
+			}),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
+			ok: true,
+			value: {
+				changedPaths: ["staged.ts", "unstaged.ts", "renamed.ts", "fresh.ts"],
+				stagedPaths: ["staged.ts", "renamed.ts"],
+			},
+		});
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{
+				command: "git",
+				args: ["status", "--porcelain=v1"],
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+		]);
+	});
+
+	test("maps status command and parse failures to distinct codes", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["status", "--porcelain=v1"], { code: 2, stderr: "bad status" }),
+			step("git", ["status", "--porcelain=v1"], { stdout: "garbage-line\n" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.statusPaths({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_status_paths_failed" },
+		});
+		expect(await git.statusPaths({ cwd: ROOT })).toMatchObject({
+			ok: false,
+			error: { code: "git_status_parse_failed" },
+		});
+		commands.assertDone();
+	});
+
+	test("stages explicit paths and refuses an empty list without running git", async () => {
+		const commands = new ScriptedCommands([step("git", ["add", "--", "a.ts", "b/c.md"], {})]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.stagePaths({ cwd: ROOT, paths: [] })).toMatchObject({
+			ok: false,
+			error: { code: "git_stage_paths_failed" },
+		});
+		expect(await git.stagePaths({ cwd: ROOT, paths: ["a.ts", "b/c.md"] })).toEqual({ ok: true });
+		commands.assertDone();
+		expect(commands.execCalls).toEqual([
+			{
+				command: "git",
+				args: ["add", "--", "a.ts", "b/c.md"],
+				options: { cwd: ROOT, timeout: 10_000 },
+			},
+		]);
+	});
+
+	test("commits with a multi-line message as a single argument and returns the new HEAD", async () => {
+		const message = "Add runner step\n\nBody line one.\n\nObjective-Runner-Step: my-objective";
+		const commands = new ScriptedCommands([
+			step("git", ["commit", "-m", message], {}),
+			step("git", ["rev-parse", "HEAD"], { stdout: `${START_POINT}\n` }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.commit({ cwd: ROOT, message })).toEqual({ ok: true, value: START_POINT });
+		commands.assertDone();
+		expect(commands.execCalls.map((call) => call.args)).toEqual([
+			["commit", "-m", message],
+			["rev-parse", "HEAD"],
+		]);
+	});
+
+	test("maps commit failures to git_commit_failed", async () => {
+		const commands = new ScriptedCommands([
+			step("git", ["commit", "-m", "subject"], { code: 1, stderr: "nothing to commit" }),
+		]);
+		const git = new RealGitGateway(commands);
+
+		expect(await git.commit({ cwd: ROOT, message: "subject" })).toMatchObject({
+			ok: false,
+			error: { code: "git_commit_failed" },
+		});
+		commands.assertDone();
+	});
 });
