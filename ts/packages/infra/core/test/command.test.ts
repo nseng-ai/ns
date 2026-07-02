@@ -18,7 +18,7 @@ import {
 	shellQuote,
 	tailText,
 } from "../src/primitives/command.ts";
-import { stripTerminalEscapes } from "../src/terminal/terminal-escapes.ts";
+import { stripTerminalEscapes } from "../src/primitives/terminal-escapes.ts";
 
 describe("command presentation helpers", () => {
 	test("adapts CommandExecApi to CommandRunner without exposing caller-owned args", async () => {

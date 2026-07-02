@@ -1,7 +1,5 @@
 import { formatErrorMessage } from "./primitives.ts";
-import { stripTerminalEscapes } from "../terminal/terminal-escapes.ts";
-
-export { stripTerminalEscapes } from "../terminal/terminal-escapes.ts";
+import { stripTerminalEscapes } from "./terminal-escapes.ts";
 
 const STARTUP_FAILURE_EXIT_CODE = 127;
 export const MAX_ERROR_CHARS = 4_000;

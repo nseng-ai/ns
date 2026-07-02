@@ -27,7 +27,6 @@ export {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	shellQuote,
-	stripTerminalEscapes,
 	tailText,
 	type CommandExecApi,
 	type CommandPrefix,
@@ -43,6 +42,7 @@ export {
 	type StdinCapableCommandExecApi,
 	type TailTextOptions,
 } from "@sdl/core/command";
+export { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;

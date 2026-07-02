@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "./terminal-escapes.ts";
+import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 
 export type TextTableAlign = "left" | "right";
 
