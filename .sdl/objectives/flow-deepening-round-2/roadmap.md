@@ -47,26 +47,21 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       test demonstrates a new mutation needs only a spec entry; full DoP
       suite reported green by the step, independently re-verified via flow
       package tests (47 files / 419 tests) and `just ts-check`.
-- [ ] Give `regenerate-pr --force` full force semantics (decided 2026-07-02)
-      Policy: direct.
-      What: `--force`/`-f` regenerates even when the fingerprint is current
-      AND skips the confirmation prompt — matching land's `--force`
-      (`src/core/land-stack.ts:145`,
-      `src/land/post-landing-slot-cleanup.ts:52`). Wire
-      `src/commands/regenerate-pr.ts:67` to pass
-      `fingerprintPolicy: request.force ? "force" : "skip-current"`
-      (`PrDescriptionFingerprintPolicy`,
-      `src/submit/pr-description-orchestration.ts:28`) and suppress the
-      confirmation step when forced. Delete the no-op doc sentence
-      (`regenerate-pr.ts:28`) and the no-op notice branch (`:168-181`).
-      Precondition: read the confirmation danger-tier conventions (closed
-      `clinkr-confirmation-danger-tiers` Objective record) and follow them for
-      the bypass wiring; if they forbid bypassing this prompt, stop and ask —
-      that contradicts this row's premise.
-      Evidence: scenario tests in
-      `test/scenario/regenerate-pr-command.test.ts` cover: force on a current
-      body regenerates without prompting; default on a current body still
-      no-ops; default on a stale body still prompts.
+- [x] Give `regenerate-pr --force` full force semantics (decided 2026-07-02)
+      Delivered 2026-07-02 (runner step, commit `bbdd2b5f7` on
+      `flow-regenerate-pr-force-semantics`): `--force`/`-f` passes
+      `fingerprintPolicy: "force"` and suppresses the confirmation step;
+      the no-op compatibility sentence and notice branch are deleted.
+      Precondition held: ADR 0014 (`docs/adr/0014-clinkr-confirmation-danger-tiers.md`)
+      standardizes `--force`/`-f` as the non-interactive authorization that
+      relaxes confirmation, matching land's `--force` — the bypass is the
+      sanctioned convention, not a violation (the archived Objective record
+      is gone; the ADR is the durable home of the conventions).
+      Evidence: `test/scenario/regenerate-pr-command.test.ts` covers force
+      regenerating a fingerprint-current body without prompting, default
+      no-op on current, and default prompt on stale; full DoP suite reported
+      green by the step, independently re-verified via flow package tests
+      (47 files / 419 tests) and `just ts-check`.
 - [ ] Delete the forwarder shims (review #6)
       Policy: direct.
       What: inline five single-purpose rename/re-export files into their
