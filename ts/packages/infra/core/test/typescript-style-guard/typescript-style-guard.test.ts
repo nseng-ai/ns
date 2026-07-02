@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +14,7 @@ import {
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
+	BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
 	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	deferredExtensionCycleComponents,
@@ -33,6 +35,7 @@ import {
 	type SourceRuleViolation,
 } from "../support/typescript-style-guard/source-rules.ts";
 import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
+import { collectSubpackageDeclarationConformanceViolations } from "../support/typescript-style-guard/subpackage-conformance.ts";
 import {
 	collectTopologyCircleLayeringViolations,
 	discoverTopologyCircles,
@@ -707,6 +710,99 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 	});
 });
 
+describe("TypeScript style guard subpackage declaration conformance", () => {
+	test("rejects a declared subpackage whose source directory is missing", () => {
+		withTempRepo((repoRoot) => {
+			writeSyntheticPackage(repoRoot, "synthetic/core", ["src/index.ts"]);
+			const metadataByName = buildSyntheticSubpackageMetadata({
+				packageDir: "synthetic/core",
+				subpackages: ["time"],
+				remainder: true,
+			});
+
+			const violations = collectSubpackageDeclarationConformanceViolations({
+				repoRoot,
+				packageMetadataByName: metadataByName,
+			});
+
+			expect(violations.map((violation) => violation.rule)).toEqual([
+				BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
+			]);
+			expect(violations[0]?.text).toContain("src/time is not a directory");
+		});
+	});
+
+	test("rejects unassociated source when no remainder is declared", () => {
+		withTempRepo((repoRoot) => {
+			writeSyntheticPackage(repoRoot, "synthetic/core", ["src/time/index.ts", "src/index.ts"]);
+			const metadataByName = buildSyntheticSubpackageMetadata({
+				packageDir: "synthetic/core",
+				subpackages: ["time"],
+				remainder: false,
+			});
+
+			const violations = collectSubpackageDeclarationConformanceViolations({
+				repoRoot,
+				packageMetadataByName: metadataByName,
+			});
+
+			expect(violations.map((violation) => violation.rule)).toEqual([
+				BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
+			]);
+			expect(violations[0]?.path).toBe("synthetic/core/src/index.ts");
+			expect(violations[0]?.text).toContain("without sdl.remainder");
+		});
+	});
+
+	test("allows unassociated source when a remainder is declared", () => {
+		withTempRepo((repoRoot) => {
+			writeSyntheticPackage(repoRoot, "synthetic/core", ["src/time/index.ts", "src/index.ts"]);
+			const metadataByName = buildSyntheticSubpackageMetadata({
+				packageDir: "synthetic/core",
+				subpackages: ["time"],
+				remainder: true,
+			});
+
+			const violations = collectSubpackageDeclarationConformanceViolations({
+				repoRoot,
+				packageMetadataByName: metadataByName,
+			});
+
+			expect(violations).toEqual([]);
+		});
+	});
+
+	test("allows all source under declared subpackage directories without a remainder", () => {
+		withTempRepo((repoRoot) => {
+			writeSyntheticPackage(repoRoot, "synthetic/core", [
+				"src/time/index.ts",
+				"src/time/testing.ts",
+			]);
+			const metadataByName = buildSyntheticSubpackageMetadata({
+				packageDir: "synthetic/core",
+				subpackages: ["time"],
+				remainder: false,
+			});
+
+			const violations = collectSubpackageDeclarationConformanceViolations({
+				repoRoot,
+				packageMetadataByName: metadataByName,
+			});
+
+			expect(violations).toEqual([]);
+		});
+	});
+
+	test("real repo package declarations match their declared subpackage/remainder state", () => {
+		const violations = collectSubpackageDeclarationConformanceViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: loadPackageMetadata(REPO_ROOT),
+		});
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
 		"@sdl/branch-context",
@@ -846,6 +942,65 @@ interface DependencyGraphCase {
 	readonly shouldHaveCycle: boolean;
 	readonly expectedTextIncludes?: string;
 	readonly expectedLine?: number;
+}
+
+interface SyntheticSubpackageMetadataOptions {
+	readonly packageDir: string;
+	readonly subpackages: readonly string[];
+	readonly remainder: boolean;
+}
+
+function withTempRepo(run: (repoRoot: string) => void): void {
+	const repoRoot = mkdtempSync(join(tmpdir(), "sdl-subpackage-guard-"));
+	try {
+		run(repoRoot);
+	} finally {
+		rmSync(repoRoot, { recursive: true, force: true });
+	}
+}
+
+function writeSyntheticPackage(
+	repoRoot: string,
+	packageDir: string,
+	sourcePaths: readonly string[],
+): void {
+	for (const sourcePath of sourcePaths) {
+		const absolutePath = join(repoRoot, packageDir, sourcePath);
+		mkdirSync(dirname(absolutePath), { recursive: true });
+		writeFileSync(absolutePath, "export {};\n");
+	}
+	writeFileSync(join(repoRoot, packageDir, "package.json"), "{}\n");
+}
+
+function buildSyntheticSubpackageMetadata(
+	options: SyntheticSubpackageMetadataOptions,
+): Map<string, PackageMetadata> {
+	const packageName = "@sdl/core";
+	const manifest: PackageManifest = {
+		name: packageName,
+		sdl: {
+			tier: "neutral-infra",
+			subpackages: options.subpackages,
+			...(options.remainder ? { remainder: true } : {}),
+		},
+	};
+	return new Map([
+		[
+			packageName,
+			{
+				name: packageName,
+				packageDir: options.packageDir,
+				packageJsonPath: `${options.packageDir}/package.json`,
+				manifest,
+				manifestContent: JSON.stringify(manifest, null, 2),
+				sdlTier: "neutral-infra",
+				rawSdlTier: "neutral-infra",
+				sdlSubpackages: options.subpackages,
+				sdlRemainder: options.remainder,
+				exportSubpaths: new Set(["."]),
+			},
+		],
+	]);
 }
 
 function buildSyntheticPackageMetadata(
