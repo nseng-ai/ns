@@ -8,6 +8,7 @@ import { basename, join } from "node:path";
 import type { Clock } from "@sdl/core/clock";
 import { systemClock } from "@sdl/core/time";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { BoundedTextTailBuffer } from "@sdl/core/text-tail-buffer";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 import { systemTimerScheduler } from "@sdl/core/time";
 import {
@@ -241,7 +242,10 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		...(launch === undefined ? {} : { launch }),
 	});
 	updateEmitter.emit(updateFromSnapshot(parser.getSnapshot()), { force: true });
-	const stderr = new BoundedTextBuffer(dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES);
+	const stderr = new BoundedTextTailBuffer({
+		maxBytes: dependencies.stderrLimitBytes ?? DEFAULT_STDERR_LIMIT_BYTES,
+		omissionLabel: "stderr",
+	});
 	const childArgs = buildChildPiArgs({
 		prompt: options.prompt,
 		sessionFile,
@@ -1152,30 +1156,4 @@ function isSafelyDiscoverablePiScript(scriptPath: string): boolean {
 		/^(pi|pi-coding-agent)(\.[cm]?[jt]s)?$/.test(scriptName) ||
 		scriptPath.includes("pi-coding-agent")
 	);
-}
-
-class BoundedTextBuffer {
-	private readonly limitBytes: number;
-	private value = "";
-	private omittedBytes = 0;
-
-	constructor(limitBytes: number) {
-		this.limitBytes = limitBytes;
-	}
-
-	append(chunk: string | Uint8Array): void {
-		this.value += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
-		const bytes = Buffer.byteLength(this.value, "utf8");
-		if (bytes <= this.limitBytes) return;
-
-		const buffer = Buffer.from(this.value, "utf8");
-		const tail = buffer.subarray(buffer.length - this.limitBytes);
-		this.omittedBytes += buffer.length - tail.length;
-		this.value = tail.toString("utf8");
-	}
-
-	toString(): string {
-		if (this.omittedBytes === 0) return this.value;
-		return `… ${this.omittedBytes} stderr byte(s) omitted\n${this.value}`;
-	}
 }

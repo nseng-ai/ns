@@ -17,6 +17,7 @@
 		"./terminal-presentation": "./src/terminal/terminal-presentation.ts",
 		"./text-normalization": "./src/terminal/text-normalization.ts",
 		"./text-table": "./src/terminal/text-table.ts",
+		"./text-tail-buffer": "./src/terminal/text-tail-buffer.ts",
 		"./text-truncation": "./src/terminal/text-truncation.ts",
 		"./time": "./src/time/index.ts",
 		"./time-format": "./src/terminal/time-format.ts",

@@ -27,6 +27,12 @@ export type ChildSessionOutcome =
 			stopReason?: string;
 			sessionFile?: string;
 	  }
+	| {
+			type: "signaled";
+			signal: NodeJS.Signals | string | null;
+			stderrTail: string;
+			sessionFile?: string;
+	  }
 	| { type: "timed-out"; stderrTail: string; sessionFile?: string }
 	| { type: "startup-failed"; message: string };
 

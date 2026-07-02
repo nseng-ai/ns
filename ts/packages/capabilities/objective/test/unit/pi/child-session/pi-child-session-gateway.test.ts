@@ -560,15 +560,19 @@ describe("createPiChildSessionGateway", () => {
 		expect(calls).toEqual([]);
 	});
 
-	test("a signal-killed close without an exit code maps to a nonzero sentinel exit", async () => {
+	test("a signal-killed close without an exit code resolves a typed signaled outcome", async () => {
 		const { deps, calls } = createFakePiGateway();
 		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
 		const call = await waitForSpawn(calls);
 
+		call.process.emitStderr("terminated");
 		call.process.close(null, "SIGTERM");
 		const outcome = await handle.outcome;
-		expect(outcome.type).toBe("completed");
-		if (outcome.type !== "completed") throw new Error("expected completed outcome");
-		expect(outcome.exitCode).toBe(-1);
+		expect(outcome).toEqual({
+			type: "signaled",
+			signal: "SIGTERM",
+			stderrTail: "terminated",
+			sessionFile: SESSION_FILE,
+		});
 	});
 });

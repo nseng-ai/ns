@@ -154,6 +154,12 @@ export async function runRunnerStep(
 		return failure(errorType, message, result);
 	};
 
+	const emitChildFailure = (errorType: string, message: string, stderrTail: string) => {
+		return emitMalfunction(errorType, message, {
+			diagnostics: stderrTailDiagnostics(stderrTail),
+		});
+	};
+
 	if (outcome.type === "startup-failed") {
 		return emitMalfunction(
 			"child-startup-failed",
@@ -161,18 +167,26 @@ export async function runRunnerStep(
 		);
 	}
 	if (outcome.type === "timed-out") {
-		return emitMalfunction(
+		return emitChildFailure(
 			"child-timed-out",
 			`Child session timed out after ${request.timeout}s.`,
-			{
-				diagnostics: stderrTailDiagnostics(outcome.stderrTail),
-			},
+			outcome.stderrTail,
+		);
+	}
+	if (outcome.type === "signaled") {
+		const signalDisplay = outcome.signal ?? "unknown signal";
+		return emitChildFailure(
+			"child-signaled",
+			`Child session exited after signal ${signalDisplay}.`,
+			outcome.stderrTail,
 		);
 	}
 	if (outcome.exitCode !== 0) {
-		return emitMalfunction("child-exit-nonzero", `Child session exited ${outcome.exitCode}.`, {
-			diagnostics: stderrTailDiagnostics(outcome.stderrTail),
-		});
+		return emitChildFailure(
+			"child-exit-nonzero",
+			`Child session exited ${outcome.exitCode}.`,
+			outcome.stderrTail,
+		);
 	}
 
 	const parsed = parseRunnerReport(outcome.finalText);
