@@ -253,6 +253,20 @@ function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[]
 	];
 }
 
+function domainGraphiteShapeSteps(dbRows: string): ScriptedExec[] {
+	const liveBranches = metadataBranchNames(dbRows);
+	return [
+		step("git", GIT_ROOT_ARGS, { stdout: `${ROOT}\n` }),
+		step("git", GIT_CURRENT_ARGS, { stdout: `${CURRENT}\n` }),
+		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
+		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
+		step("git", GIT_FOR_EACH_REF_ARGS, {
+			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+		}),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+	];
+}
+
 function expectedShapeCalls(options: { forEachRef?: boolean } = {}): ExecCall[] {
 	const calls: ExecCall[] = [
 		{ command: "git", args: GIT_ROOT_ARGS, options: { cwd: ROOT, timeout: GIT_TIMEOUT_MS } },
@@ -400,6 +414,7 @@ function worktreeOutput(entries: Array<{ path: string; branch?: string }>): stri
 function successfulStackLandingSteps(): ScriptedExec[] {
 	const worktrees = worktreeOutput([{ path: ROOT, branch: CURRENT }]);
 	return [
+		...domainGraphiteShapeSteps(DB_WITH_DESCENDANT),
 		...cleanRepoChecks(),
 		step("git", ["show-ref", "--verify", `refs/heads/${CURRENT}`]),
 		step("git", ["rev-parse", "--verify", `refs/heads/${CURRENT}^{commit}`], {

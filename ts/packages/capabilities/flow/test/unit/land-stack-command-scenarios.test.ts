@@ -15,7 +15,6 @@ import {
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
-	LandingShape,
 	NotifyLevel,
 	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
@@ -382,7 +381,6 @@ function repoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step(
 			"git",
 			[
@@ -394,6 +392,7 @@ function repoIntro(
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			},
 		),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
 
@@ -885,25 +884,6 @@ function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
 			stderr: "restack failed",
 		}),
 	];
-}
-
-function singleBranchShape(): LandingShape {
-	return {
-		repoRoot: ROOT,
-		current: "feature-a",
-		trunk: TRUNK,
-		metadataDbPath: DB_PATH,
-		stack: {
-			trunk: TRUNK,
-			current: "feature-a",
-			actualCurrentBranch: "feature-a",
-			landingTargetBranch: "feature-a",
-			landingBranches: ["feature-a"],
-			remainingLandingBranches: [],
-			descendantBranches: [],
-			warnings: [],
-		},
-	};
 }
 
 function singleBranchPreflight(worktrees: string): ScriptedExec[] {
@@ -2344,7 +2324,7 @@ describe("land-stack command scenarios", () => {
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 
-	test("reloads stack facts for the submit/update recheck after using an initial shape", async () => {
+	test("reloads stack facts for the submit/update recheck after domain preflight", async () => {
 		const submitArgs = [
 			"submit",
 			"--branch",
@@ -2356,17 +2336,7 @@ describe("land-stack command scenarios", () => {
 			"--no-interactive",
 		];
 		const script = [
-			...cleanRepoChecks(),
-			...localBranchChecks(["feature-a"]),
-			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
-				stdout: `${SHA_B}\n`,
-			}),
-			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
-				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
-			}),
-			step("git", ["worktree", "list", "--porcelain"], {
-				stdout: worktreeOutput([{ path: ROOT, branch: "feature-a" }]),
-			}),
+			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_A }),
 			step("git", ["rev-list", "-1", "refs/heads/main", "--not", "refs/heads/feature-a"]),
 			step("gt", submitArgs),
 			...singleBranchDomainPreflightWithRefs({ localSha: SHA_B, prSha: SHA_B }),
@@ -2396,28 +2366,23 @@ describe("land-stack command scenarios", () => {
 		const pi = new FakePi(script);
 		const context = createContext({ confirms: [true] });
 
-		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes")), {
-			initialShape: singleBranchShape(),
-		});
+		await executeStackLanding(pi, context.ctx, expectSuccess(parseArgs("--yes")));
 
 		pi.assertDone();
 		const submitIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gt" && sameArgs(call.args, submitArgs),
 		);
-		const recheckStackIndex = pi.execCalls.findIndex(
-			(call) => call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS),
+		const stackReadIndices = pi.execCalls.flatMap((call, index) =>
+			call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS) ? [index] : [],
 		);
+		const recheckStackIndex = stackReadIndices.find((index) => index > submitIndex) ?? -1;
 		const mergeIndex = pi.execCalls.findIndex(
 			(call) => call.command === "gh" && call.args[1] === "merge",
 		);
 		expect(submitIndex).toBeGreaterThanOrEqual(0);
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
-		expect(
-			pi.execCalls
-				.slice(0, mergeIndex)
-				.filter((call) => call.command === TOPOLOGY_COMMAND && sameArgs(call.args, TOPOLOGY_ARGS)),
-		).toHaveLength(1);
+		expect(stackReadIndices.filter((index) => index < mergeIndex)).toHaveLength(2);
 		expect(context.notifications.at(-1)?.level).toBe("success");
 	});
 

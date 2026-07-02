@@ -23,7 +23,8 @@ import {
 	detectForkViolations,
 	type GraphiteTopology,
 } from "../../src/land/stack/graphite-topology.ts";
-import { validateOpenPrBasicsForLandStack } from "../../src/land/stack/pr-facts.ts";
+import { validateOpenPrBasics } from "../../src/land/api.ts";
+import type { LandOutcome } from "../../src/land/api.ts";
 import {
 	formatFailure,
 	formatPlan,
@@ -176,6 +177,14 @@ function expectFailure<T>(result: LandStackResult<T>) {
 	expect(result.type).toBe("failure");
 	if (result.type !== "failure") {
 		throw new Error("Expected land-stack failure, got success.");
+	}
+	return result.failure;
+}
+
+function expectDomainFailure(result: LandOutcome) {
+	expect(result.type).toBe("failure");
+	if (result.type !== "failure") {
+		throw new Error("Expected land-domain failure, got completed.");
 	}
 	return result.failure;
 }
@@ -473,7 +482,7 @@ describe("land-stack pure helpers", () => {
 		});
 
 		pi.assertDone();
-		expect(operation).toBe("A rebase");
+		expect(operation).toBe("rebase");
 	});
 
 	test("ignores stale rebase pseudo-refs when active rebase directories are absent", async () => {
@@ -892,8 +901,8 @@ describe("land-stack pure helpers", () => {
 		expect(shortSha(SHA_A)).toBe("aaaaaaa");
 
 		expect(
-			expectFailure(
-				validateOpenPrBasicsForLandStack({
+			expectDomainFailure(
+				validateOpenPrBasics({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({
@@ -908,8 +917,8 @@ describe("land-stack pure helpers", () => {
 		).toContain("draft");
 
 		expect(
-			expectFailure(
-				validateOpenPrBasicsForLandStack({
+			expectDomainFailure(
+				validateOpenPrBasics({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({
@@ -923,8 +932,8 @@ describe("land-stack pure helpers", () => {
 			).message,
 		).toContain("CLOSED");
 		expect(
-			expectFailure(
-				validateOpenPrBasicsForLandStack({
+			expectDomainFailure(
+				validateOpenPrBasics({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({ number: 101, branch: "wrong-head", base: TRUNK, sha: SHA_A }),
@@ -932,8 +941,8 @@ describe("land-stack pure helpers", () => {
 			).message,
 		).toContain("head branch is wrong-head");
 		expect(
-			expectFailure(
-				validateOpenPrBasicsForLandStack({
+			expectDomainFailure(
+				validateOpenPrBasics({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),

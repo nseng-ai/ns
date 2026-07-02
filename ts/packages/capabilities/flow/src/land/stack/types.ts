@@ -188,7 +188,7 @@ export interface WorktreeEntry {
 	branch?: string;
 }
 
-export interface LandingPlan {
+export interface FlowLandingPlan {
 	repoRoot: string;
 	metadataDbPath: string;
 	stack: StackSnapshot;
@@ -198,6 +198,8 @@ export interface LandingPlan {
 	managedSlotConflicts: WorktreeConflict[];
 	descendantMaintenance: DescendantMaintenancePlan;
 }
+
+export type LandingPlan = FlowLandingPlan;
 
 export interface LandedPr {
 	branch: string;

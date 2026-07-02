@@ -16,13 +16,13 @@ import type {
 	PullRequestFacts,
 	RestackRequirement,
 	StackSnapshot,
+	WorkingTreeStatus,
 	WorktreeConflict,
 	WorktreeEntry,
 } from "./types.ts";
 
 export interface BuildStackLandingPlanOptions {
 	readonly shouldAllowSubmitRequiredState?: boolean;
-	readonly preloadedShape?: LandingShape;
 	readonly landingBranchLimit?: number;
 }
 
@@ -31,9 +31,7 @@ export async function buildStackLandingPlan(
 	cwd: string,
 	options: BuildStackLandingPlanOptions = {},
 ): Promise<LandResult<LandingPlan>> {
-	const shape = options.preloadedShape
-		? landSuccess(options.preloadedShape)
-		: await loadLandingShape(context, cwd);
+	const shape = await loadLandingShape(context, cwd);
 	if (shape.type === "failure") return shape;
 
 	const stack = scopeStackSnapshot(shape.value.stack, options.landingBranchLimit);
@@ -240,7 +238,7 @@ async function assertCleanRepo(context: LandContext, repoRoot: string): Promise<
 			domainFailure({
 				phase: "preflight",
 				reason: "operation-in-progress",
-				message: `Repository has an in-progress ${status.value.inProgressOperation}; finish or abort it before landing.`,
+				message: `${operationInProgressLabel(status.value.inProgressOperation)} is in progress; refusing to start stack landing.`,
 			}),
 		);
 	}
@@ -531,6 +529,13 @@ export function formatManualWorktreeConflict(conflicts: readonly WorktreeConflic
 		"Relevant branches are checked out in non-slot worktrees; detach them manually and rerun:",
 		...conflicts.map((conflict) => `- ${conflict.branch} ${conflict.path}`),
 	].join("\n");
+}
+
+function operationInProgressLabel(
+	operation: NonNullable<WorkingTreeStatus["inProgressOperation"]>,
+): string {
+	if (operation === "cherry-pick") return "A cherry-pick";
+	return `A ${operation}`;
 }
 
 function shortSha(sha: string): string {

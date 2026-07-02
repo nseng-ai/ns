@@ -347,7 +347,6 @@ function repoIntro(
 		step("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
 			stdout: `${GIT_COMMON_DIR}\n`,
 		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 		step(
 			"git",
 			[
@@ -359,6 +358,7 @@ function repoIntro(
 				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
 			},
 		),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
 }
 
@@ -739,7 +739,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 
 	test("fails closed when the Graphite metadata DB is missing or unreadable", async () => {
 		const script = [
-			...repoIntro().slice(0, 4),
+			...repoIntro().slice(0, 5),
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
 				code: 1,
 				stderr: "Error: unable to open database file\n",
@@ -756,7 +756,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 
 	test("fails closed when sqlite3 cannot run", async () => {
 		const script = [
-			...repoIntro().slice(0, 4),
+			...repoIntro().slice(0, 5),
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { code: 1, stderr: "spawn sqlite3 ENOENT" }),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);

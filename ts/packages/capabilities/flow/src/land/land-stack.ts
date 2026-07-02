@@ -22,12 +22,10 @@ import { presentLandStackFailure, type LandingSession } from "./stack/landing-co
 import type { PreMergeConfirmation } from "./stack/pre-merge-confirmation.ts";
 import { present, setStatus, usage } from "./stack/presentation.ts";
 import { executeLandingPlan } from "./stack/landing-plan-execution.ts";
-import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
 	LandedPr,
-	LandingShape,
 	LandingWarning,
 	ParsedArgs,
 } from "./stack/types.ts";
@@ -38,7 +36,6 @@ export interface ExecuteStackLandingOptions {
 	io?: SdlCommandIo;
 	shouldSkipMainConfirmation?: boolean;
 	preMergeConfirmation?: PreMergeConfirmation;
-	initialShape?: LandingShape;
 	liveProgress?: LandLiveProgressSink;
 	graphite?: LandGraphiteCommandChannel;
 }
@@ -84,17 +81,8 @@ export async function executeStackLanding(
 		}
 
 		setStatus(ctx, "preflighting...");
-		const shape = options.initialShape
-			? success(options.initialShape)
-			: await loadLandingShape(runtime.commands, ctx.cwd, { graphite: runtime.graphite });
-		if (shape.type === "failure") {
-			presentLandStackFailure({ session, failure: shape.failure });
-			return failure(shape.failure);
-		}
-
 		const plan = await buildLandingPlan(runtime, ctx.cwd, {
 			shouldAllowSubmitRequiredState: true,
-			preloadedShape: shape.value,
 		});
 		if (plan.type === "failure") {
 			presentLandStackFailure({ session, failure: plan.failure });
