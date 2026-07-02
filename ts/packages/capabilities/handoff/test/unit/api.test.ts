@@ -20,7 +20,7 @@ import {
 	prepareHandoffCreation,
 	prepareHandoffDeletion,
 	readHandoffArtifact,
-} from "../../src/core/api.ts";
+} from "../../src/api/index.ts";
 
 describe("@sdl/handoff/api", () => {
 	test("exports identity helpers and schemas", () => {

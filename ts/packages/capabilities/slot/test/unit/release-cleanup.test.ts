@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
 import { repoContext } from "../support/run-scenario.ts";
-import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
-import { FakeSlotCommandGateway } from "../../src/gateways/fakes/command.ts";
-import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
+import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
+import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
+import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@sdl/capability-kit/graphite/testing";
-import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
-import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
+import { FakeSlotPrGateway } from "../../src/core/gateways/fakes/pr.ts";
+import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/core/context.ts";
 
 const target: FreedSlot = {

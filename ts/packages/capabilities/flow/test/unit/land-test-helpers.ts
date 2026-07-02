@@ -3,7 +3,7 @@ import { GRAPHITE_BRANCH_METADATA_QUERY } from "@sdl/capability-kit/graphite/met
 export const TOPOLOGY_QUERY = GRAPHITE_BRANCH_METADATA_QUERY;
 export const TOPOLOGY_COMMAND = "sdl";
 
-import { buildReadGraphiteBranchMetadataArgs } from "../../src/land-stack/graphite-metadata-command.ts";
+import { buildReadGraphiteBranchMetadataArgs } from "../../src/land/stack/graphite-metadata-command.ts";
 
 export function topologyArgs(dbPath: string): string[] {
 	return buildReadGraphiteBranchMetadataArgs(dbPath);

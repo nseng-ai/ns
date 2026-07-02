@@ -8,7 +8,7 @@ import type { ExecResult } from "@sdl/core/command";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
-import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
+import { RealSlotRepositoryGateway } from "../../src/core/gateways/repository.ts";
 
 describe("RealSlotRepositoryGateway", () => {
 	it("delegates repository root lookup to the injected core git gateway", async () => {

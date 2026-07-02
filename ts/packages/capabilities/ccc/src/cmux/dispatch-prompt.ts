@@ -27,7 +27,7 @@ import {
 import { getPiLaunchOptions, type PiLaunchOptions } from "@sdl/capability-kit/cmux/pi-launch";
 import type { TextResult } from "@sdl/core/primitives";
 import { openBranchInCmuxSlot } from "./slot.ts";
-import { createCccSlotClient } from "../core/slot-checkout.ts";
+import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
 import type { CommandContext, ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 

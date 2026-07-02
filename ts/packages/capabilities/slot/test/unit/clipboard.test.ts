@@ -4,7 +4,7 @@ import {
 	FakeClipboardGateway,
 	RealClipboardGateway,
 	type ClipboardProcessRunner,
-} from "../../src/gateways/clipboard.ts";
+} from "../../src/core/gateways/clipboard.ts";
 
 describe("clipboard gateway primitives", () => {
 	it("reports copied success", async () => {

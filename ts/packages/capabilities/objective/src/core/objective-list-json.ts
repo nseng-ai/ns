@@ -3,7 +3,7 @@ import { formatZodIssue } from "@sdl/core/primitives";
 import {
 	objectiveListResultSchema,
 	type ObjectiveListResult,
-} from "../operations/list-objectives.ts";
+} from "./operations/list-objectives.ts";
 
 export interface ObjectiveListParseValid {
 	type: "valid";

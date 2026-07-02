@@ -6,7 +6,7 @@ import {
 	readObjectiveResultSchema,
 	renderReadObjective,
 	runReadObjective,
-} from "../../operations/read-objective.ts";
+} from "../../core/operations/read-objective.ts";
 
 export const objectiveExecReadObjectiveSdlCommand = objectiveSdlCommand({
 	name: "exec-read-objective",

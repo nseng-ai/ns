@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import {
 	summarizeRunnerSubagentSessionFile,
 	summarizeRunnerSubagentUsage,
-} from "../../src/operations/runner-subagent-usage.ts";
+} from "../../src/core/operations/runner-subagent-usage.ts";
 
 describe("runner subagent usage summaries", () => {
 	test("summarizes multiple assistant usage messages", async () => {

@@ -10,7 +10,7 @@ import type {
 	ObjectiveSelectionContext,
 	ObjectiveSelectionListLoadResult,
 	ObjectiveSelectionSpec,
-} from "../../src/core/api.ts";
+} from "../../src/api/index.ts";
 import { CLI_COMMAND_OUTPUT_MESSAGE_TYPE } from "@sdl/pi/commands/cli-extension";
 import objectiveExtension, {
 	type CommandContext,

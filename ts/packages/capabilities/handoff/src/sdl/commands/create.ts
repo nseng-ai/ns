@@ -6,7 +6,7 @@ import {
 	createResultSchema,
 	renderCreate,
 	runCreate,
-} from "../../operations/create.ts";
+} from "../../core/operations/create.ts";
 
 export const handoffCreateSdlCommand = handoffSdlCommand({
 	name: "create",

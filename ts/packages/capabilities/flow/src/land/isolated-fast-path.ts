@@ -1,21 +1,16 @@
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { formatCommand } from "@sdl/core/command";
-import {
-	completed,
-	failure,
-	landStackFailure,
-	type LandStackOutcome,
-} from "../land-stack/errors.ts";
-import { exec, formatCommandDetails } from "../land-stack/command-exec.ts";
-import { GH_MERGE_TIMEOUT_MS } from "../land-stack/constants.ts";
-import { squashMergeArgs } from "../land-stack/landing-operations.ts";
-import { loadPr } from "../land-stack/pr-facts.ts";
-import { notifyPrintAware, setStatus } from "../land-stack/presentation.ts";
+import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
+import { exec, formatCommandDetails } from "./stack/command-exec.ts";
+import { GH_MERGE_TIMEOUT_MS } from "./stack/constants.ts";
+import { squashMergeArgs } from "./stack/landing-operations.ts";
+import { loadPr } from "./stack/pr-facts.ts";
+import { notifyPrintAware, setStatus } from "./stack/presentation.ts";
 import type {
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	StackSnapshot,
-} from "../land-stack/types.ts";
+} from "./stack/types.ts";
 
 export interface ValidPullRequestView {
 	number: number;

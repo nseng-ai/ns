@@ -8,7 +8,7 @@ import {
 	poolSize,
 	slotStatus,
 } from "../../src/core/inventory.ts";
-import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
+import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 describe("slot inventory", () => {
 	it("derives managed slots, skips main and non-slot worktrees, and sorts by number", async () => {

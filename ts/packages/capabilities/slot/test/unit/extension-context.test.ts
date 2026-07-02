@@ -10,15 +10,15 @@ vi.mock("../../src/core/context.ts", () => ({
 	createRealSlotContext,
 }));
 
-vi.mock("../../src/operations/list.ts", async (importActual) => {
-	const actual = await importActual<typeof import("../../src/operations/list.ts")>();
+vi.mock("../../src/core/operations/list.ts", async (importActual) => {
+	const actual = await importActual<typeof import("../../src/core/operations/list.ts")>();
 	return {
 		...actual,
 		runList: vi.fn(() => ok({ slots: [] })),
 	};
 });
 
-const slotExtension = (await import("../../src/core/extension.ts")).default;
+const slotExtension = (await import("../../src/sdl/extension.ts")).default;
 
 const colorCaps: Caps = {
 	isTty: true,

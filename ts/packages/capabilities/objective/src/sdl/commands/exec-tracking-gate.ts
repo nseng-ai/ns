@@ -6,7 +6,7 @@ import {
 	runTrackingGate,
 	trackingGateRequestSchema,
 	trackingGateResultSchema,
-} from "../../operations/tracking-gate.ts";
+} from "../../core/operations/tracking-gate.ts";
 
 export const objectiveExecTrackingGateSdlCommand = objectiveSdlCommand({
 	name: "exec-tracking-gate",

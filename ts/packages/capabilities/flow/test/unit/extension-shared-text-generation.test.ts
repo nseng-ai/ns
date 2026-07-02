@@ -7,11 +7,11 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_TEXT_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/shared/text-generation.ts",
+	"ts/packages/capabilities/flow/src/core/text-generation.ts",
 );
 const SUBMIT_EXTENSION_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/submit.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/submit.ts",
 );
 
 type ModelSelector = (env: Record<string, string | undefined>) => string;

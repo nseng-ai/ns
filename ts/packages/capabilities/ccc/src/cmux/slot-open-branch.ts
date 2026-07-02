@@ -4,7 +4,7 @@ import {
 } from "@sdl/branch-context/api";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
-import { createCccSlotClient } from "../core/slot-checkout.ts";
+import { createCccSlotClient } from "./slot-checkout.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import type {
 	AutocompleteItem,

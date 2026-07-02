@@ -4,7 +4,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
-		"./api": "./src/core/api.ts",
+		"./api": "./src/api/index.ts",
 		"./sdl/commands/archive": "./src/sdl/commands/archive.ts",
 		"./sdl/commands/check": "./src/sdl/commands/check.ts",
 		"./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
@@ -34,10 +34,10 @@
 	"sdl": {
 		"tier": "capability",
 		"subpackages": [
+			"api",
 			"core",
-			"operations",
-			"pi",
-			"sdl"
+			"sdl",
+			"pi"
 		]
 	},
 	"peerDependencies": {

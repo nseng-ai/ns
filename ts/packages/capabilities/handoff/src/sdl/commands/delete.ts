@@ -6,7 +6,7 @@ import {
 	deleteResultSchema,
 	renderDelete,
 	runDelete,
-} from "../../operations/delete.ts";
+} from "../../core/operations/delete.ts";
 
 export const handoffDeleteSdlCommand = handoffSdlCommand({
 	name: "delete",

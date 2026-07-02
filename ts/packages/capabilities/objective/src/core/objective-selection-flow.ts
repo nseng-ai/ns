@@ -1,6 +1,6 @@
 import type { ExecResult } from "@sdl/core/exec";
 
-import type { ObjectiveListRecord, ObjectiveListResult } from "../operations/list-objectives.ts";
+import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {
 	VIEW_OTHER_OBJECTIVES_CHOICE,
 	changedActiveObjectiveSelection,

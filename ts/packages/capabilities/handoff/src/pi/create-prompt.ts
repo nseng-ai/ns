@@ -1,4 +1,4 @@
-import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "@sdl/handoff/api";
+import { HANDOFF_KEY_SUFFIX, HANDOFF_NAMESPACE } from "../api/index.ts";
 
 export const CREATE_HANDOFF_FALLBACK = `Use the handoff-create workflow to create a concise, directed Markdown handoff for a specific future continuation. Treat Branch Memory as the storage command, not the public user model.
 

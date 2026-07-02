@@ -5,7 +5,7 @@ import {
 	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
 	type ObjectiveListArgsParseResult,
-} from "../../src/core/api.ts";
+} from "../../src/api/index.ts";
 
 describe("objective list argument policy", () => {
 	test("completions advertise checkout-local options and status values", () => {

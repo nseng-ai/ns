@@ -1,4 +1,4 @@
-import type { SlotRepositoryGateway } from "../gateways/repository.ts";
+import type { SlotRepositoryGateway } from "../core/gateways/repository.ts";
 import { findBySlot, type SlotInventory, type SlotRecord } from "../core/inventory.ts";
 
 export interface FreedSlot {

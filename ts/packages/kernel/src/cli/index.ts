@@ -15,7 +15,7 @@ import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
 import { rawCommand } from "@sdl/clinkr/raw";
 import { defineCli, readStdin, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
 import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { createRealSlotContext, type SlotCliContext } from "@sdl/slot";
+import { createRealSlotContext, type SlotCliContext } from "@sdl/slot/api";
 
 import {
 	commandDisplayName,

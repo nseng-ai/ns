@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
-import type { AutoslotCliInput, AutoslotFlowInput } from "../src/core/autoslot.ts";
-import { createAutoslotFlow, runAutoslotCli } from "../src/core/autoslot.ts";
+import type { AutoslotCliInput, AutoslotFlowInput } from "../src/sdl/autoslot.ts";
+import { createAutoslotFlow, runAutoslotCli } from "../src/sdl/autoslot.ts";
 import { fail, ok, type CommandResult } from "./autobranch-test-helpers.ts";
 
 // Mono caps keep durable-outcome assertions readable: no color SGR, glyph still present. The

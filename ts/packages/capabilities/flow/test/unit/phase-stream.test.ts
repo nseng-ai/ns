@@ -15,7 +15,7 @@ import {
 	runPhaseStream,
 	runSettledPhaseStream,
 	type PhaseSpec,
-} from "../../src/shared/phase-stream.ts";
+} from "../../src/core/phase-stream.ts";
 
 const CURSOR_HIDE = "\x1b[?25l";
 const CURSOR_SHOW = "\x1b[?25h";

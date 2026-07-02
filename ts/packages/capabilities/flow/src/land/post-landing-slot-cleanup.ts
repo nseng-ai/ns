@@ -1,16 +1,16 @@
 import { formatCommand } from "@sdl/core/command";
-import { GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "../land-stack/constants.ts";
-import { exec, execGraphite } from "../land-stack/command-exec.ts";
-import { completed, landStackFailure, type LandStackOutcome } from "../land-stack/errors.ts";
-import { notifyPrintAware, presentFailureOutcome, setStatus } from "../land-stack/presentation.ts";
+import { GT_MUTATION_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./stack/constants.ts";
+import { exec, execGraphite } from "./stack/command-exec.ts";
+import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
+import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import type {
 	LandStackExtensionAPI,
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	ParsedArgs,
-} from "../land-stack/types.ts";
-import { confirmLandStackAction } from "../land-stack/pre-merge-confirmation.ts";
-import { isManagedSlotPath, slotNameFromPath } from "../land-stack/worktrees.ts";
+} from "./stack/types.ts";
+import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
+import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
 
 interface RunPostLandingSlotCleanupOptions {
 	pi: LandStackExtensionAPI;

@@ -7,7 +7,7 @@ import {
 	renderList,
 	renderListMarkdown,
 	runList,
-} from "../../operations/list.ts";
+} from "../../core/operations/list.ts";
 
 export const handoffListSdlCommand = handoffSdlCommand({
 	name: "list",

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { ObjectiveList, ObjectiveListRecord } from "../../src/core/api.ts";
+import type { ObjectiveList, ObjectiveListRecord } from "../../src/api/index.ts";
 import {
 	changedActiveObjectiveSelection,
 	formatObjectiveChoice,
@@ -10,7 +10,7 @@ import {
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
 	type ObjectiveDiffSelection,
-} from "../../src/core/api.ts";
+} from "../../src/api/index.ts";
 
 describe("parseObjectiveDiffChangedSlugs", () => {
 	test("modified Objective path produces a slug", () => {

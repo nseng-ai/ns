@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { parseObjectiveListData } from "../../src/core/api.ts";
+import { parseObjectiveListData } from "../../src/api/index.ts";
 
 describe("parseObjectiveListData", () => {
 	test("parses the current objective list JSON shape", () => {

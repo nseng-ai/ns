@@ -6,7 +6,10 @@ import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
 } from "../../src/core/fake-storage.ts";
-import { renderListCandidates, runListCandidates } from "../../src/operations/list-candidates.ts";
+import {
+	renderListCandidates,
+	runListCandidates,
+} from "../../src/core/operations/list-candidates.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 describe("objective list-candidates operation", () => {

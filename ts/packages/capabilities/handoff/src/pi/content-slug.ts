@@ -1,6 +1,6 @@
 import { formatOutputSection } from "@sdl/core/command";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
-import { parseFlatHandoffSlug } from "@sdl/handoff/api";
+import { parseFlatHandoffSlug } from "../api/index.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 
 const MAX_ERROR_CHARS = 4_000;

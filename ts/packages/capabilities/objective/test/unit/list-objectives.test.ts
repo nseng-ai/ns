@@ -1,13 +1,13 @@
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { buildObjectiveBranchAttribution } from "../../src/operations/list-branch-attribution.ts";
+import { buildObjectiveBranchAttribution } from "../../src/core/operations/list-branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
 	matchesStatusFilter,
 	type ObjectiveListResult,
 	renderObjectiveListHuman,
-} from "../../src/operations/list-objectives.ts";
+} from "../../src/core/operations/list-objectives.ts";
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",

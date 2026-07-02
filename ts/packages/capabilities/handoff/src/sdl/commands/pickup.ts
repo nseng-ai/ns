@@ -6,7 +6,7 @@ import {
 	pickupResultSchema,
 	renderPickup,
 	runPickup,
-} from "../../operations/pickup.ts";
+} from "../../core/operations/pickup.ts";
 
 export const handoffPickupSdlCommand = handoffSdlCommand({
 	name: "pickup",

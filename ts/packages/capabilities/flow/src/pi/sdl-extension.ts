@@ -1,5 +1,5 @@
 import { runCli, type SdlCommandInfo } from "@sdl/kernel/cli";
-import { PUSH_COMMAND_SUMMARY } from "sdl-flow/commands/push";
+import { PUSH_COMMAND_SUMMARY } from "../sdl/commands/push.ts";
 
 import {
 	registerCliCommandExtension,

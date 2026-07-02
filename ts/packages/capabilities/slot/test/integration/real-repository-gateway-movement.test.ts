@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
+import { RealSlotRepositoryGateway } from "../../src/core/gateways/repository.ts";
 
 const execFileAsync = promisify(execFile);
 const roots: string[] = [];

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { renderDelete, type DeleteResult } from "../../src/operations/delete.ts";
-import { renderGc, type GcResult } from "../../src/operations/gc.ts";
+import { renderDelete, type DeleteResult } from "../../src/core/operations/delete.ts";
+import { renderGc, type GcResult } from "../../src/core/operations/gc.ts";
 
 const DELETE_SUCCESS: DeleteResult = {
 	branch: "feat/x",

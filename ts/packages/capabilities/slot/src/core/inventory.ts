@@ -4,7 +4,7 @@ import type {
 	SlotRepositoryGateway,
 	WorktreeInfo,
 	WorktreeOccupancy,
-} from "../gateways/repository.ts";
+} from "./gateways/repository.ts";
 import { extractSlotNumber } from "./naming.ts";
 
 export type SlotStatus = "assigned" | "available";

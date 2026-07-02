@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { objectiveCompletionItem, parseObjectiveCandidatesData } from "../../src/core/api.ts";
+import { objectiveCompletionItem, parseObjectiveCandidatesData } from "../../src/api/index.ts";
 
 describe("parseObjectiveCandidatesData", () => {
 	test("parses candidate payloads", () => {

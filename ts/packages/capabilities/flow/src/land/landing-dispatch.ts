@@ -1,19 +1,19 @@
 import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import { executeStackLanding } from "../core/land-stack.ts";
-import type { LandLiveProgressSink } from "../land-stack/command-stream.ts";
-import { completed, type LandStackOutcome } from "../land-stack/errors.ts";
-import { renderPlainLandConfirmationDetails } from "../land-stack/land-presentation.ts";
-import { presentBrief, presentFailureOutcome } from "../land-stack/presentation.ts";
-import { loadLandingShape } from "../land-stack/stack-facts.ts";
+import { executeStackLanding } from "./land-stack.ts";
+import type { LandLiveProgressSink } from "./stack/command-stream.ts";
+import { completed, type LandStackOutcome } from "./stack/errors.ts";
+import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
+import { presentBrief, presentFailureOutcome } from "./stack/presentation.ts";
+import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
 	LandingShape,
 	LandConfirmationPreview,
 	LandStackExtensionAPI,
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
-} from "../land-stack/types.ts";
-import { confirmLandStackAction } from "../land-stack/pre-merge-confirmation.ts";
+} from "./stack/types.ts";
+import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
 

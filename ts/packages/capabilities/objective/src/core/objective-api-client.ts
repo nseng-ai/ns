@@ -5,8 +5,8 @@ import {
 	matchesStatusFilter,
 	type ListObjectivesRequest,
 	type ObjectiveListResult,
-} from "../operations/list-objectives.ts";
-import { readObjectiveRecord, type ReadObjectiveResult } from "../operations/read-objective.ts";
+} from "./operations/list-objectives.ts";
+import { readObjectiveRecord, type ReadObjectiveResult } from "./operations/read-objective.ts";
 import type { ObjectiveRecordStatus } from "./storage.ts";
 
 export interface ObjectiveApiFailure {
