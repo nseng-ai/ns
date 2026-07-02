@@ -131,14 +131,6 @@ export interface DeferredTopologyCircleCycle {
 	readonly reason: string;
 }
 
-export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
-	{
-		name: "pi-host-five-circle",
-		packageName: "@sdl/pi",
-		circles: new Set(["kit", "commands", "runtime", "parity", "core"]),
-		reason:
-			"bottom types and parity base are misfiled; the fix moves modules into runtime and parity.",
-	},
-];
+export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [];
 
 export type ManifestDependencyField = (typeof manifestDependencyFields)[number];

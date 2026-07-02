@@ -9,7 +9,7 @@ import { z } from "zod";
 import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
 import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-envelope.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
-import { definePiSurfaceParity } from "../../parity/extension.ts";
+import { definePiSurfaceParity } from "../../runtime/parity-extension.ts";
 import {
 	downloadPrFeedback,
 	type ExecOptions,

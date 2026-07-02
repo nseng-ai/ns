@@ -3,7 +3,7 @@ import {
 	loadPiAgentDefinition,
 	type PiAgentDefinition,
 } from "../../runtime/agent-definition.ts";
-import { definePiSurfaceParity } from "../../parity/extension.ts";
+import { definePiSurfaceParity } from "../../runtime/parity-extension.ts";
 import { renderInvestigationResultMessage } from "./renderer.ts";
 import type { CommandContext, ExtensionAPI } from "../../runtime/extension-types.ts";
 

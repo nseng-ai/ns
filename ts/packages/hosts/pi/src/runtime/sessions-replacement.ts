@@ -1,4 +1,4 @@
-import type { AgentMessageDelivery } from "../shared/message-delivery.ts";
+import type { AgentMessageDelivery } from "./message-delivery.ts";
 
 export type SessionUserMessageDelivery = AgentMessageDelivery;
 
