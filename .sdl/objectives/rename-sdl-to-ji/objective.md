@@ -36,9 +36,11 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
   sweep with it.
 - **Decision records:** an ADR capturing the rename, the accepted collisions (Jujutsu
   `jj` adjacency, npm squat, zoxide `ji` alias convention), the lowercase rule, and the
-  npm plan B; the naming brief lands under `docs/`.
-- **npm clearance:** file the dispute for the squatted `ji` package (abandoned v0.0.0
-  placeholder) immediately; nothing internal waits on the outcome.
+  `@ji` npm scope plan; the naming brief lands under `docs/`.
+- **npm clearance:** claim the `@ji` npm scope as an org owned by the `schrockn` npm
+  account. No
+  dispute for the squatted unscoped `ji` slug — the squat is an accepted collision;
+  nothing waits on external parties.
 - **GitHub repo rename:** `nseng-ai/sdl-tools` → `nseng-ai/ji`, sequenced last, executed
   manually by the owner; the Objective tracks it as a checklist item only.
 - **Manual migration checklist:** one-shot documented `mv` steps for local machines (XDG
@@ -73,8 +75,10 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
 - The ADR is merged and the naming brief is checked in under `docs/`.
 - `checkout-free-sdl-distribution`'s publish-name open question is re-recorded as
   resolved by this Objective (done early, not at close).
-- The npm `ji` slug is secured, **or** plan B is invoked and recorded: publish as
-  `@nseng-ai/ji` with the binary still installing as `ji`.
+- The `@ji` npm scope is registered as an org owned by the `schrockn` npm account; the
+  unscoped
+  `ji` squat is recorded as an accepted collision (no dispute), with the binary
+  installing as `ji` regardless of inner package name.
 - The GitHub repo is renamed to `nseng-ai/ji` (manual, final step).
 
 ## Assumptions and Risks
@@ -85,8 +89,9 @@ Assumptions:
   consumer exists yet. This is what makes the hard cutover safe. If an external consumer
   appears before cutover, revisit the no-compat stance.
 - GitHub redirects the old repo slug for clones, remotes, and links.
-- The npm dispute for an abandoned v0.0.0 placeholder is likely to succeed but may take
-  weeks; it is the long external pole and gates only the final publish-name step.
+- The `@ji` npm scope is claimable: as of 2026-07-02 no npm user `ji` exists and the
+  scope carries zero packages. Registering the org is a one-shot owner action with no
+  external gate; if it turns out taken, fall back to `@nseng-ai/ji` with bin `ji`.
 
 Risks:
 
@@ -104,7 +109,4 @@ Risks:
 
 ## Open Questions
 
-- Exact ADR number and filename at merge time.
-- Whether the `@ji` npm scope itself is claimable (only relevant if scoped packages
-  beyond plan B are ever published).
 - The cutover landing window: pick a moment when the Graphite stack is shallow.
