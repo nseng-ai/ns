@@ -330,6 +330,10 @@ export interface LandWorktreeSlotFactsGateway {
 		readonly path: string;
 		readonly branch?: string;
 	}): Promise<LandResult<WorktreeClassification>>;
+	freeSlots(request: {
+		readonly repoRoot: string;
+		readonly slots: readonly ManagedSlotWorktree[];
+	}): Promise<LandResult<readonly ManagedSlotWorktree[]>>;
 }
 
 export interface WorktreeEntry {

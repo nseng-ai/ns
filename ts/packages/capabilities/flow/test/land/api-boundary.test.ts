@@ -185,6 +185,7 @@ describe("sdl-flow/land API boundary", () => {
 				worktrees: {
 					worktrees: async () => landSuccess([]),
 					classifyWorktree: async () => landSuccess({ type: "manual-worktree" }),
+					freeSlots: async ({ slots }) => landSuccess(slots),
 				},
 			},
 			"/repo",

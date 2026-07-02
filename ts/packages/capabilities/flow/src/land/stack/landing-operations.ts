@@ -1,7 +1,7 @@
 import { formatCommand } from "@sdl/core/command";
 import { exec } from "./command-exec.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import { GH_MERGE_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
+import { GH_MERGE_TIMEOUT_MS } from "./constants.ts";
 import {
 	completed,
 	failure,
@@ -33,6 +33,7 @@ import {
 	detectWorktreeConflicts,
 	formatConflict,
 	formatSlotConflict,
+	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
 import { setStatus } from "./presentation.ts";
@@ -43,7 +44,12 @@ import {
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
-import type { LandGitGateway } from "../api.ts";
+import type {
+	LandContext,
+	LandGitGateway,
+	LandingFailure,
+	ManagedSlotWorktree,
+} from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
 	return [
@@ -68,10 +74,14 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 	return undefined;
 }
 
+interface PreMergeSlotMaintenanceOptions extends PreMergeMaintenanceOptions {
+	readonly landContext: LandContext;
+}
+
 export async function confirmAndFreeManagedSlots(
-	options: PreMergeMaintenanceOptions,
+	options: PreMergeSlotMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { runtime, ctx, plan } = options;
+	const { runtime, ctx, landContext, plan } = options;
 	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
@@ -97,23 +107,12 @@ export async function confirmAndFreeManagedSlots(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	setStatus(ctx, "freeing landing slots...");
-	const result = await exec({
-		pi,
-		command: "sdl",
-		args: ["slot", ...freeArgs],
-		cwd: plan.repoRoot,
-		timeoutMs: SLOT_TIMEOUT_MS,
+	const result = await landContext.worktrees.freeSlots({
+		repoRoot: plan.repoRoot,
+		slots: plan.managedSlotConflicts.map(toManagedSlotWorktree),
 	});
-	if (result.code !== 0) {
-		return failure(
-			landStackFailure("Targeted slot cleanup failed before any PRs were landed.", {
-				commandDisplay,
-				result,
-				suggestedAction:
-					"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:flow:land.",
-			}),
-		);
-	}
+	if (result.type === "failure")
+		return failure(preMergeSlotFailure(result.failure, commandDisplay));
 
 	setStatus(ctx, "rechecking landing worktrees...");
 	const cleanRepo = await assertCleanRepo(pi, plan.repoRoot);
@@ -144,28 +143,25 @@ export async function confirmAndFreeManagedSlots(
 	return completed();
 }
 
-function slotFreeArgs(conflicts: WorktreeConflict[]): string[] {
-	const args = ["free"];
-	const seenSlots = new Set<string>();
-	const seenBranches = new Set<string>();
+function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree {
+	const slotName = slotNameFromPath(conflict.path);
+	return {
+		type: "managed-slot",
+		branch: conflict.branch,
+		path: conflict.path,
+		...(slotName === undefined ? {} : { slotName }),
+	};
+}
 
-	for (const conflict of conflicts) {
-		const slotName = slotNameFromPath(conflict.path);
-		if (slotName) {
-			if (!seenSlots.has(slotName)) {
-				seenSlots.add(slotName);
-				args.push("--wt", slotName);
-			}
-			continue;
-		}
-
-		if (!seenBranches.has(conflict.branch)) {
-			seenBranches.add(conflict.branch);
-			args.push("--branch", conflict.branch);
-		}
-	}
-
-	return args;
+function preMergeSlotFailure(
+	landFailureValue: LandingFailure,
+	commandDisplay: string,
+): LandStackFailure {
+	return landStackFailure(landFailureValue.message, {
+		commandDisplay,
+		suggestedAction:
+			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:flow:land.",
+	});
 }
 
 export function squashMergeArgs(pr: PullRequestSnapshot): string[] {

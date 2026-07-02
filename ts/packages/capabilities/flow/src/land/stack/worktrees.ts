@@ -81,6 +81,32 @@ export function slotNameFromPath(path: string): string | undefined {
 	return normalized.match(/\/worktrees\/(slot-[^/]+)/)?.[1];
 }
 
+export function slotFreeArgs(
+	conflicts: readonly { readonly branch: string; readonly path: string }[],
+): string[] {
+	const args = ["free"];
+	const seenSlots = new Set<string>();
+	const seenBranches = new Set<string>();
+
+	for (const conflict of conflicts) {
+		const slotName = slotNameFromPath(conflict.path);
+		if (slotName) {
+			if (!seenSlots.has(slotName)) {
+				seenSlots.add(slotName);
+				args.push("--wt", slotName);
+			}
+			continue;
+		}
+
+		if (!seenBranches.has(conflict.branch)) {
+			seenBranches.add(conflict.branch);
+			args.push("--branch", conflict.branch);
+		}
+	}
+
+	return args;
+}
+
 export function normalizeExistingPath(path: string): string {
 	try {
 		return realpathSync.native(path);
