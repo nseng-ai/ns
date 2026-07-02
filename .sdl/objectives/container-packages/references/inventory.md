@@ -3,10 +3,19 @@
 Drafted 2026-07-01 from code evidence (src file counts, `src/` top-level structure,
 `sdl.tier`, and the workspace dependency graph); revised same day with user
 rulings (tools standalone, clinkr standalone, plans stays split, gateway
-backends fold into `@sdl/capability-kit`, three-way categorization, and the
-**pi-subpackage model** replacing a capability-pi container). **Status: DRAFT —
-pending user approval in a single review pass.** No conversion row is
-actionable until this inventory is approved.
+backends fold into `@sdl/capability-kit`, three-way categorization, the
+**pi-subpackage model** replacing a capability-pi container, all
+`capability`-tier packages living under `ts/packages/capabilities/`,
+`ts/packages/local/` as the hierarchy space for unpublished project-local
+packages, worktree-status folding into the `@sdl/pi` host, and sdl-sdk
+folding into `@sdl/kernel` as its `sdk` subpackage). Finalized in the
+2026-07-01 review pass with the closing rulings: aretro demoted to
+standalone, roaster confirmed containerize, the consolidation container named
+`@sdl-local/pi-tools`, the kernel `sdk` subpackage kept pure (public
+extension API only), the strict `local/` admission invariant, and a dedicated
+relocation slice for standalone movers. **Status: APPROVED 2026-07-01**
+(single review pass complete). Conversion rows in `roadmap.md` are
+actionable; keep-standalone entries are closed with rationale recorded.
 
 This file is durable source material, not current truth: a conversion slice
 re-verifies its entry against current code at pickup (files where the split
@@ -26,8 +35,8 @@ expects them, no new unclaimed areas, dependency edges unchanged) before acting.
 
 Fold rules (from `objective.md`): no package-level dependency cycles; a new
 **consolidation container** is allowed only when net-negative on top-level
-count and its name is user-approved. Container names marked `(name TBD)` are
-placeholders.
+count and its name is user-approved (the sole new container is
+`@sdl-local/pi-tools`, approved at review).
 
 ## The pi-subpackage model (user-confirmed)
 
@@ -57,12 +66,12 @@ Each capability that has a Pi surface owns a **`pi` subpackage** (exported as
 Every top-level package belongs to one of three categories:
 
 - **Core infra** — the neutral floor plus SDK layers: core, clinkr, brmem,
-  sdl-sdk, kernel, capability-kit.
-- **Standalone tools** — self-contained tool CLIs: areg, packagechk, vibechk,
-  worktree-status.
+  kernel (absorbing sdl-sdk), capability-kit.
+- **Standalone tools** — self-contained tool CLIs: areg, packagechk, vibechk.
 - **First-party extensions/capabilities** — capabilities, their Pi surfaces,
-  and hosts: flow, slot, aretro, roaster, pi, local Pi tools, ccc, handoff,
-  objective, address, plans, branch-context, sdlcc.
+  and hosts: flow, slot, aretro, roaster, pi (absorbing worktree-status),
+  local Pi tools, ccc, handoff, objective, address, plans, branch-context,
+  sdlcc.
 
 These roughly project the existing `sdl.tier` lanes upward (neutral-infra/sdk →
 core infra; standalone-tool → standalone tools; capability/capability-pi/
@@ -70,23 +79,26 @@ local-pi-tool/host → extensions/capabilities).
 
 ## End-state census (proposed)
 
-- Top-level packages: **44 → 23** (12 containers + 11 standalone).
-- Subpackages: ~52–55 across the 12 containers.
+- Top-level packages: **44 → 21** (12 containers + 9 standalone).
+- Subpackages: ~52–56 across the 12 containers.
 - New consolidation containers: 1 (local Pi tools).
 
 | Category                | Cluster                                    | Decision                | Top-level delta |
 | ----------------------- | ------------------------------------------ | ----------------------- | --------------- |
 | Core infra              | `@sdl/core` + 5 neutral-infra folds        | container               | 6 → 1           |
 | Core infra              | `@sdl/capability-kit` + 4 gateway folds    | container               | 5 → 1           |
-| Core infra              | clinkr, brmem, sdl-sdk, kernel             | standalone              | 4 → 4           |
-| Standalone tools        | areg, packagechk, vibechk, worktree-status | standalone              | 4 → 4           |
+| Core infra              | `@sdl/kernel` + `sdl-sdk`                  | container               | 2 → 1           |
+| Core infra              | clinkr, brmem                              | standalone              | 2 → 2           |
+| Standalone tools        | areg, packagechk, vibechk                  | standalone              | 3 → 3           |
 | Extensions/capabilities | `sdl-flow` + `sdl-land` + `@sdl/flow-pi`   | container               | 3 → 1           |
 | Extensions/capabilities | `@sdl/handoff` + `@sdl/handoff-pi`         | container               | 2 → 1           |
 | Extensions/capabilities | `@sdl/objective` + `@sdl/objective-pi`     | container               | 2 → 1           |
 | Extensions/capabilities | `@sdl/ccc` + `@sdl/ccc-pi`                 | container               | 2 → 1           |
 | Extensions/capabilities | `@sdl/branch-context` + its `-pi`          | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/slot`, `@sdl/pi`                     | containers              | 2 → 2           |
-| Extensions/capabilities | `@sdl/aretro`, `@sdl/roaster`              | containers (borderline) | 2 → 2           |
+| Extensions/capabilities | `@sdl/slot`                                | container               | 1 → 1           |
+| Extensions/capabilities | `@sdl/pi` + `@sdl/worktree-status`         | container               | 2 → 1           |
+| Extensions/capabilities | `@sdl/aretro`                              | standalone              | 1 → 1           |
+| Extensions/capabilities | `@sdl/roaster`                             | container               | 1 → 1           |
 | Extensions/capabilities | local Pi tools (7 packages)                | new container           | 7 → 1           |
 | Extensions/capabilities | address, plans, sdlcc                      | standalone              | 3 → 3           |
 
@@ -146,15 +158,34 @@ subpackages inside `capability`-tier containers.
 - Cannot fold into core: `brmem → @sdl/capability-kit → @sdl/core` would create
   a package cycle. Under the ≥4 threshold as its own container → standalone.
 
-### sdl-sdk — **standalone**
+### @sdl/kernel — **containerize** (absorbs sdl-sdk; user ruling)
 
-- Tier `sdk`, 9 files. The public SDL extension API; identity worth keeping
-  clean. Split would be ≤2 units.
+- Tier `sdk`, 12 files + 9 from `sdl-sdk` = 21. End-state: `sdk` (the
+  absorbed extension API, imported as `@sdl/kernel/sdk`), `cli`
+  (cli.ts, command-registry), `extensions` (discovery, loader, registry),
+  `operations`, core ≈ 4–5 units. The kernel keeps the `sdl` bin.
+- Resolves the former Open Question ("later kernel/sdl-sdk merge") in favor of
+  merging now: the SDK/runtime split expressed as two packages is expressed
+  instead by the `sdk` subpackage boundary — extensions author against
+  `@sdl/kernel/sdk` only, guard-enforced.
+- Cycle-safe: the only edge is kernel → sdl-sdk; nothing depends on sdl-sdk
+  without also being able to depend on kernel.
+- Cost accepted at ruling: sdl-sdk's ~12 workspace dependents (every
+  capability, capability-kit, hosts/pi) re-import from `@sdl/kernel/sdk` and
+  their dependency now points at a manifest carrying kernel's heavier deps
+  (`pi-ai`, `pi-coding-agent`, `jiti`) — manifest-level noise in this
+  source-export workspace, not runtime weight.
+- `sdk` purity (user ruling at review): the `sdk` subpackage is exclusively
+  the absorbed public extension API — "extensions author against
+  `@sdl/kernel/sdk` only" stays crisp. Kernel's existing `src/sdk/` internals
+  (command-io, pi-text-generation; internalWorkspaceExports, not public
+  plugin API) move into another unit, exact home pinned at conversion time.
 
-### @sdl/kernel — **standalone**
+### sdl-sdk — **fold → @sdl/kernel/sdk** (user ruling)
 
-- Tier `sdk`, 12 files. ≤3 units. A later kernel/sdl-sdk merge is an Open
-  Question, not part of this inventory.
+- Tier `sdk`, 9 files (command, execution, extension-manifest, schema,
+  services, result, text-generation). Deps: clinkr, core, zod — all already
+  kernel deps.
 
 ### @sdl/capability-kit — **containerize** (absorbs the gateway backends; user ruling)
 
@@ -188,6 +219,9 @@ tier note above.
 ## Standalone tools — all standalone (user ruling)
 
 User ruled these keep their own package identity; no tools container.
+(worktree-status left this group by user ruling — despite its
+`standalone-tool` tier it has no `bin` and is Pi-native UI; it folds into
+`@sdl/pi`, see the extensions section.)
 
 ### @sdl/areg — **standalone** (41 files; own split `operations`, `gateways`, core ≈ 3 units)
 
@@ -195,9 +229,13 @@ User ruled these keep their own package identity; no tools container.
 
 ### @sdl/vibechk — **standalone** (10 files; ≤3 units)
 
-### @sdl/worktree-status — **standalone** (8 files; ≤2 units)
-
 ## First-party extensions/capabilities
+
+Directory placement (user ruling): every `capability`-tier package lives under
+`ts/packages/capabilities/`. Today only flow, land, and slot are there;
+handoff, objective, ccc, branch-context, plans, address, aretro, and roaster
+relocate as part of their conversion slices (standalone rulings like plans and
+address still move — the ruling is about directory placement, not shape).
 
 ### sdl-flow — **containerize** (absorbs sdl-land and @sdl/flow-pi)
 
@@ -270,24 +308,41 @@ User ruled these keep their own package identity; no tools container.
   it is ever extracted it becomes `@sdl/address/pi` under the pi-subpackage
   model.
 
-### @sdl/aretro — **containerize** (borderline — flag at review)
+### @sdl/aretro — **standalone** (user ruling at review; demoted from borderline containerize)
 
-- Tier `capability`, 26 files. End-state: `payloads`, `sessions`, `sdl`,
-  `operations`, core ≈ 5 units — clears the threshold, but the units are small
-  (2–8 files each). Approve or demote to standalone at review.
+- Tier `capability`, 26 files. The proposed ~5-unit split (`payloads`,
+  `sessions`, `sdl`, `operations`, core) cleared the threshold only
+  technically — units of 2–8 files each. Ruled standalone: five tiny circles
+  hurt topology legibility more than they help, and containerizing later is a
+  purely additive manifest change. Relocates under `capabilities/` in the
+  relocation slice.
 
-### @sdl/roaster — **containerize** (borderline — flag at review)
+### @sdl/roaster — **containerize** (user-confirmed at review)
 
 - Tier `capability`, 39 files. End-state: `gateways`, `commands`, `sdl` +
   `operations`, core unit for 19 loose root files ≈ 4 units. The large loose
-  root is the real question; demote to standalone if the split feels forced.
+  root was flagged as making the split feel forced; the user confirmed
+  containerize anyway — gateways/commands are real seams, and the core unit
+  absorbs the loose root.
 
-### New consolidation container `@local-pi-tools/tools` (name TBD) — 7 subpackages
+### New consolidation container `@sdl-local/pi-tools` (user-approved name) — 7 subpackages
 
 All seven are tier `local-pi-tool` with no workspace dependents;
 `thermo-council → runner-subagents` becomes an internal subpackage edge. These
 are Pi-*native* tools, not capability shells, so the pi-subpackage model does
-not apply — they consolidate as a peer container above the host.
+not apply — they consolidate as a peer container above the host. Directory
+placement (user ruling): the container lives at `ts/packages/local/pi-tools/`
+— `ts/packages/local/` is the designated hierarchy space for unpublished,
+project-local packages (per `ts/packages/README.md`, these are private tools
+registered only through this repo's `.pi/extensions/*` adapters, not SDL
+capabilities or distribution packages).
+
+Strict `local/` admission invariant (user ruling, guard-checkable): a package
+lives under `ts/packages/local/` **iff** its name is `@sdl-local/*`; it must
+be `private: true`, is not an SDL capability or distribution package, and no
+platform package may depend on it (zero workspace dependents outside
+`local/`). The `@sdl-local` scope is reserved for this space; the seven
+`@local-pi-tools/*` names retire with the fold.
 
 - @local-pi-tools/backing-skill-commands — **fold** (5 files)
 - @local-pi-tools/context-profiler — **fold** (18 files)
@@ -297,15 +352,34 @@ not apply — they consolidate as a peer container above the host.
 - @local-pi-tools/runner-subagents — **fold** (15 files)
 - @local-pi-tools/thermo-council — **fold** (14 files)
 
-### @sdl/pi — **containerize**
+### @sdl/pi — **containerize** (absorbs @sdl/worktree-status; user ruling)
 
-- Tier `host`, 44 files across 11 small dirs. End-state: `kit` (the neutral
-  `@sdl/pi/...` helpers consumed by capability `pi` subpackages, CCC, and
-  local Pi tools), `commands`, `runtime`, `parity`, core — ~5 units, with the
-  tail dirs (models, investigate, terminal, sessions, pr, skills, grill)
-  folded into those.
+- Tier `host`, 44 files across 11 small dirs + 8 from `@sdl/worktree-status`.
+  End-state: `kit` (the neutral `@sdl/pi/...` helpers consumed by capability
+  `pi` subpackages, CCC, and local Pi tools), `commands`, `runtime`, `parity`,
+  `worktree-status` (absorbed), core — ~6 units, with the tail dirs (models,
+  investigate, terminal, sessions, pr, skills, grill) folded into those.
 - As the optional-peer target of every capability `pi` subpackage, `@sdl/pi`
   must continue to depend on no capability package.
+
+### @sdl/worktree-status — **fold → @sdl/pi/worktree-status** (user ruling)
+
+- Tier `standalone-tool` today, but the classification was a misfit: no `bin`
+  (unlike areg/packagechk/vibechk), Pi-native footer UI consumed only via the
+  `.pi/extensions/worktree-status.ts` adapter, and it deep-imports pi
+  internals (`@sdl/pi/commands/ack`, `@sdl/pi/shared/timers`,
+  `@sdl/pi/commands/events`).
+- Cycle-safe: the only package edge is worktree-status → pi, which becomes
+  internal. The pi ↔ worktree-status cycle that
+  `hosts/pi/src/parity/worktree-status.ts` avoids by keeping parity metadata
+  as strings dissolves — the parity record can reference the internal
+  subpackage directly.
+- Cannot fold into a capability (e.g. slot): boundary rule "only a
+  capability's `pi` subpackage imports `@sdl/pi`" plus "@sdl/pi depends on no
+  capability" leave the host container as the only legal fold target.
+- Adds `@earendil-works/pi-tui` as a pi runtime dep (currently devDep) and
+  git/github/graphite gateway deps (already inside capability-kit, which pi
+  depends on).
 
 ### sdlcc — **standalone**
 
@@ -313,11 +387,18 @@ not apply — they consolidate as a peer container above the host.
 
 ---
 
-## Review checklist for approval
+## Review resolution (2026-07-01)
 
-1. Approve/adjust the local Pi tools container name (the only new package).
-2. Rule on the two borderline containerize decisions (`aretro`, `roaster`).
-3. Confirm CLI bin ownership for folded packages (bin entries move to the
-   container manifest).
-4. On approval: keep-standalone entries close immediately; each containerize
-   and fold decision becomes a thin conversion row in `roadmap.md`.
+1. ~~Local Pi tools container name~~ — approved as `@sdl-local/pi-tools`,
+   with the `@sdl-local` scope reserved for the `local/` space.
+2. ~~Borderline containerize decisions~~ — aretro demoted to standalone;
+   roaster confirmed containerize.
+3. ~~CLI bin ownership for folded packages~~ — verified non-issue from code:
+   zero folded packages carry a `bin`. All bins live in surviving packages
+   (`sdl` in kernel, `ccc`, `brmem`, `areg`, `packagechk`, `vibechk`,
+   `sdlcc`).
+4. Done: keep-standalone entries are closed; conversion rows appended to
+   `roadmap.md`, one per containerize/fold decision plus the dedicated
+   relocation slice (user ruling: standalone movers — plans, address, aretro
+   — relocate under `capabilities/` in one early mechanical slice; containers
+   relocate within their own conversion slices).
