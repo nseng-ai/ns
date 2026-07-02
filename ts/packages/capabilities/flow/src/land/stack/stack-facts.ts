@@ -9,8 +9,7 @@ import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
 	createLandGraphiteCommandChannel,
-	formatGraphiteCommand,
-	graphiteTrunkArgs,
+	formatGraphiteOperation,
 	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import {
@@ -89,16 +88,16 @@ export async function loadTrunk(
 	repoRoot: string,
 	graphite: LandGraphiteCommandChannel = createLandGraphiteCommandChannel({ pi }),
 ): Promise<LandStackResult<string>> {
-	const args = graphiteTrunkArgs();
+	const operation = { kind: "trunk" } as const;
 	const result = await graphite.run({
-		args,
+		operation,
 		cwd: repoRoot,
 		timeoutMs: GT_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(
-				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteCommand(args))}`,
+				`Could not resolve Graphite trunk.\n${formatCommandDetails(result, formatGraphiteOperation(operation))}`,
 			),
 		);
 	}
@@ -223,7 +222,7 @@ export async function loadLiveLocalBranches(
 function staleMetadataBranchWarnings(droppedBranches: readonly string[]): string[] {
 	if (droppedBranches.length === 0) return [];
 	const cleanup = droppedBranches
-		.map((branch) => formatGraphiteCommand(["untrack", branch]))
+		.map((branch) => formatGraphiteOperation({ kind: "untrack-local-branch", branch }))
 		.join("\n");
 	return [
 		`Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,

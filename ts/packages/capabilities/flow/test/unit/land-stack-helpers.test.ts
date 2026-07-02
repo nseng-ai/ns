@@ -3,6 +3,8 @@ import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
 import {
+	createLandGraphiteCommandChannel,
+	formatGraphiteOperation,
 	isGtDeleteMissingBranch,
 	parseGitCheckedOutElsewhere,
 	shortSha,
@@ -600,6 +602,18 @@ describe("land-stack pure helpers", () => {
 				"feature-a",
 			),
 		).toBe(false);
+	});
+
+	test("runs a new Graphite mutation through an operation spec", async () => {
+		const pi = new FakePi([step("gt", ["untrack", "stale-branch"])]);
+		const graphite = createLandGraphiteCommandChannel({ pi });
+		const operation = { kind: "untrack-local-branch", branch: "stale-branch" } as const;
+
+		const result = await graphite.run({ operation, cwd: ROOT, timeoutMs: 123 });
+
+		pi.assertDone();
+		expect(result.code).toBe(0);
+		expect(formatGraphiteOperation(operation)).toBe("gt untrack stale-branch");
 	});
 
 	test("formats plans and failures", () => {

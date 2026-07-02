@@ -6,12 +6,7 @@ import {
 	optionalField,
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
-import {
-	formatGraphiteCommand,
-	graphiteRestackForSubmitArgs,
-	graphiteSubmitUpdateArgs,
-	restackTargetForSubmit,
-} from "./graphite-command-channel.ts";
+import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
 import { createLandContext } from "./land-context-adapter.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
@@ -23,15 +18,18 @@ export async function confirmAndSubmitRequiredPrUpdates(
 ): Promise<LandStackOutcome> {
 	const { ctx, plan, runtime } = options;
 	const graphite = runtime.graphite;
-	const submitArgs = graphiteSubmitUpdateArgs(plan.stack.landingTargetBranch);
+	const submitOperation = {
+		kind: "submit-update",
+		branch: plan.stack.landingTargetBranch,
+	} as const;
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
 	const commandLines = restackTarget
 		? [
-				formatGraphiteCommand(graphiteRestackForSubmitArgs(restackTarget)),
-				formatGraphiteCommand(submitArgs),
+				formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget }),
+				formatGraphiteOperation(submitOperation),
 			]
-		: [formatGraphiteCommand(submitArgs)];
+		: [formatGraphiteOperation(submitOperation)];
 	const manualCommandText = commandLines.map((commandLine) => `\`${commandLine}\``).join(" then ");
 	const actionName = restackTarget ? "restack + submit/update" : "submit/update";
 
@@ -52,19 +50,19 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	if (restackTarget) {
-		const restackArgs = graphiteRestackForSubmitArgs(restackTarget);
+		const restackOperation = { kind: "restack-upstack", branch: restackTarget } as const;
 		setStatus(ctx, `restacking ${restackTarget}...`);
 		const restacked = await graphite.run({
-			args: restackArgs,
+			operation: restackOperation,
 			cwd: plan.repoRoot,
 			timeoutMs: GT_MUTATION_TIMEOUT_MS,
 		});
 		if (restacked.code !== 0) {
 			return failure(
 				landStackFailure("gt restack failed before any PRs were landed.", {
-					commandDisplay: formatGraphiteCommand(restackArgs),
+					commandDisplay: formatGraphiteOperation(restackOperation),
 					result: restacked,
-					suggestedAction: `Resolve the restack failure, run ${formatGraphiteCommand(restackArgs)} and ${formatGraphiteCommand(submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
+					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
 				}),
 			);
 		}
@@ -93,16 +91,16 @@ export async function confirmAndSubmitRequiredPrUpdates(
 
 	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
 	const result = await graphite.run({
-		args: submitArgs,
+		operation: submitOperation,
 		cwd: plan.repoRoot,
 		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure("gt submit/update failed before any PRs were landed.", {
-				commandDisplay: formatGraphiteCommand(submitArgs),
+				commandDisplay: formatGraphiteOperation(submitOperation),
 				result,
-				suggestedAction: `Resolve the submit failure, run ${formatGraphiteCommand(submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
+				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
 			}),
 		);
 	}
@@ -110,14 +108,17 @@ export async function confirmAndSubmitRequiredPrUpdates(
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {
-	const submitArgs = graphiteSubmitUpdateArgs(plan.stack.landingTargetBranch);
+	const submitOperation = {
+		kind: "submit-update",
+		branch: plan.stack.landingTargetBranch,
+	} as const;
 	const restackTarget = restackTargetForSubmit(plan);
 	const commands = restackTarget
 		? [
-				formatGraphiteCommand(graphiteRestackForSubmitArgs(restackTarget)),
-				formatGraphiteCommand(submitArgs),
+				formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget }),
+				formatGraphiteOperation(submitOperation),
 			]
-		: [formatGraphiteCommand(submitArgs)];
+		: [formatGraphiteOperation(submitOperation)];
 	const lines = [
 		restackTarget
 			? "Local branch reachability shows this stack needs restack before submit/update, and GitHub PR metadata is behind local refs. Run restack then submit/update before merging?"

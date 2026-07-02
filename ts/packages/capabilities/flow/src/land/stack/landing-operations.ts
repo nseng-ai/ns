@@ -16,7 +16,7 @@ import {
 	performGraphiteMaintenance,
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
-import { formatGraphiteCommand, graphiteSubmitUpdateArgs } from "./graphite-command-channel.ts";
+import { formatGraphiteOperation } from "./graphite-command-channel.ts";
 import { loadPr, validateStrictMergeGate } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
@@ -62,7 +62,7 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 	}
 	if (plan.prSubmitRequirements.length > 0) {
 		return landStackFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-			suggestedAction: `Run ${formatGraphiteCommand(graphiteSubmitUpdateArgs(plan.stack.landingTargetBranch))} manually, inspect PR heads, and rerun /sdl:flow:land.`,
+			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /sdl:flow:land.`,
 		});
 	}
 	return undefined;

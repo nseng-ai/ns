@@ -12,7 +12,7 @@ import {
 } from "@sdl/capability-kit/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
-import { buildReadGraphiteBranchMetadataArgs } from "./graphite-metadata-command.ts";
+import { readGraphiteBranchMetadataCommand } from "./graphite-command-channel.ts";
 import {
 	failure,
 	landStackFailure,
@@ -51,18 +51,18 @@ export async function loadGraphiteTopology(
 	repoRoot: string,
 	dbPath: string,
 ): Promise<LandStackResult<GraphiteTopology>> {
-	const args = buildReadGraphiteBranchMetadataArgs(dbPath);
+	const metadataCommand = readGraphiteBranchMetadataCommand(dbPath);
 	const result = await exec({
 		pi,
-		command: "sdl",
-		args,
+		command: metadataCommand.command,
+		args: metadataCommand.args,
 		cwd: repoRoot,
 		timeoutMs: SQLITE_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
 		return failure(
 			landStackFailure(classifyTopologyReadFailure(result.stderr, dbPath), {
-				commandDisplay: formatCommand("sdl", args),
+				commandDisplay: metadataCommand.display,
 				result,
 			}),
 		);
@@ -76,7 +76,7 @@ export async function loadGraphiteTopology(
 			landStackFailure(
 				`sdl flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
-					commandDisplay: formatCommand("sdl", args),
+					commandDisplay: metadataCommand.display,
 					result,
 				},
 			),
@@ -88,7 +88,7 @@ export async function loadGraphiteTopology(
 			landStackFailure(
 				`sdl flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`,
 				{
-					commandDisplay: formatCommand("sdl", args),
+					commandDisplay: metadataCommand.display,
 					result,
 				},
 			),
