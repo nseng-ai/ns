@@ -94,6 +94,15 @@ function commitsJson(): string {
 	});
 }
 
+function currentManagedBody(): string {
+	return formatManagedGeneratedRegion("Existing generated body", {
+		version: "2",
+		patchId: "default-patch-id",
+		promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
+		generator: "sdl-pr-description-v2",
+	});
+}
+
 function bodyInspectingEditResponse(assertBody: (body: string) => void): ScriptedExecResponse {
 	return {
 		match: (call: ExecCall) => {
@@ -115,9 +124,18 @@ function bodyInspectingEditResponse(assertBody: (body: string) => void): Scripte
 
 describe("project-local regenerate-pr extension behavior", () => {
 	test("regenerates the current branch PR after confirmation", async () => {
-		const run = runRegeneratePrWithFakes({ state: { confirm: () => true } });
+		let confirmCalls = 0;
+		const run = runRegeneratePrWithFakes({
+			state: {
+				confirm: () => {
+					confirmCalls += 1;
+					return true;
+				},
+			},
+		});
 
 		expect(await run.exit).toBe(0);
+		expect(confirmCalls).toBe(1);
 		const stdout = stripAnsi(run.stdout.join(""));
 		expect(stdout).toContain("Regenerated PR title and description.");
 		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
@@ -187,12 +205,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 
 	test("already-current managed region succeeds without confirming, generating, or editing", async () => {
 		let confirmCalls = 0;
-		const currentBody = formatManagedGeneratedRegion("Existing generated body", {
-			version: "2",
-			patchId: "default-patch-id",
-			promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
-			generator: "sdl-pr-description-v2",
-		});
+		const currentBody = currentManagedBody();
 		const run = runRegeneratePrWithFakes({
 			state: {
 				confirm: () => {
@@ -215,21 +228,25 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(calls).not.toContainEqual(expect.stringContaining("gh pr edit"));
 	});
 
-	test("--force remains a compatibility no-op and still asks before editing", async () => {
-		let asked = false;
+	test("--force regenerates a current managed region without prompting", async () => {
+		let confirmCalls = 0;
 		const run = runRegeneratePrWithFakes({
 			request: { force: true },
 			state: {
-				confirm: (_title, message) => {
-					asked = true;
-					expect(message).toContain("--force was provided");
-					return true;
+				confirm: () => {
+					confirmCalls += 1;
+					return false;
 				},
+				exec: [
+					...successfulReadOnlyRegeneratePrResponses({ body: currentManagedBody() }),
+					{ match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} },
+				],
 			},
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(asked).toBe(true);
+		expect(confirmCalls).toBe(0);
+		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(formattedExecCalls(run.context)).toContainEqual(
 			expect.stringMatching(/^gh pr edit 123 --title Improve PR descriptions --body-file /),
 		);
