@@ -6,7 +6,6 @@ import {
 
 import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";
-import { formatItemCount } from "./index.ts";
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkTextRow, prNumberFromLink } from "./submit-pr-link.ts";
@@ -147,6 +146,10 @@ export function formatPrDescriptionFailureText(
 		"Checkout the branch and run `sdl flow regenerate-pr` to regenerate its PR description.",
 	];
 	return lines.join("\n");
+}
+
+function formatItemCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function formatPrDescriptionFailureRow(failure: PrDescriptionFailure): string {

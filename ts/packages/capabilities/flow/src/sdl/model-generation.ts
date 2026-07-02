@@ -1,6 +1,5 @@
-import type { SdlExtensionApi } from "@sdl/kernel/sdk";
-
 import { prepareCheckpointMessage } from "@sdl/capability-kit/checkpoint-flow";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 import { selectCheckpointModelRef } from "@sdl/capability-kit/text-generation";
 
 import { draftChangesSummary } from "../changes/changes-model-summary.ts";

@@ -14,7 +14,7 @@ import { detectGitConflictOutput } from "./git-operation-output.ts";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 
-import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./index.ts";
+import type { GithubPrGateway, TextGenerator } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import {
 	detectKnownPreflightFailureCause,
@@ -644,6 +644,10 @@ export async function runSubmitCommand(
 }
 
 type RestackDecision = "run" | "declined" | "unavailable";
+
+function formatItemCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
+}
 
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";

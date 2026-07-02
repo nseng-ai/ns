@@ -1,9 +1,13 @@
 import { commandSucceeded, type ExecResult } from "@sdl/core/command";
 import { defineExtension, failed, ok, type SdlCommand } from "@sdl/kernel/sdk";
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
-import type { GitErrorInfo, GitGateway } from "@sdl/capability-kit/git";
+import {
+	execSdlGit,
+	readSdlGitPorcelainStatus,
+	type GitErrorInfo,
+	type GitGateway,
+} from "@sdl/capability-kit/git";
 
-import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/capability-kit/git";
 import { renderGitResultBlock } from "../presentation/git-result-block.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
