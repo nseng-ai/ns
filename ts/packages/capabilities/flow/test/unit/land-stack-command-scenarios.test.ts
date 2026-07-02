@@ -7,6 +7,10 @@ import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/ns/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
+import type {
+	FlowLandExternalCallCategory,
+	FlowLandExternalCallTelemetryEvent,
+} from "../../src/land/stack/external-call-telemetry.ts";
 import { LAND_PHASES } from "../../src/phase-stream/phase-stream-specs.ts";
 import {
 	executeStackLanding,
@@ -492,18 +496,25 @@ function backupRefStepsForNumberedBranches(start: number, end: number): Scripted
 }
 
 function elevenPrLandingScript(): ScriptedExec[] {
+	return linearStackLandingScript(11);
+}
+
+function linearStackLandingScript(size: number): ScriptedExec[] {
 	return [
-		...numberedPreflight({ end: 11, current: 11 }),
-		...backupRefStepsForNumberedBranches(1, 11),
-		...Array.from({ length: 11 }, (_, offset) => offset + 1).flatMap((index) =>
-			mergeNumberedBranch(index, index === 11 ? { finalCheckedOut: true } : { next: index + 1 }),
+		...numberedPreflight({ end: size, current: size }),
+		...backupRefStepsForNumberedBranches(1, size),
+		...Array.from({ length: size }, (_, offset) => offset + 1).flatMap((index) =>
+			mergeNumberedBranch(
+				index,
+				index === size ? { finalCheckedOut: true } : { next: index + 1, stackEnd: size },
+			),
 		),
 	].flat();
 }
 
 function mergeNumberedBranch(
 	index: number,
-	options: { next?: number; finalCheckedOut?: boolean; mergeCode?: number } = {},
+	options: { next?: number; finalCheckedOut?: boolean; mergeCode?: number; stackEnd?: number } = {},
 ): ScriptedExec[] {
 	const branch = numberedBranch(index);
 	const sha = numberedSha(index);
@@ -559,7 +570,7 @@ function mergeNumberedBranch(
 				base: branch,
 			}),
 		);
-		if (options.next < 11) {
+		if (options.next < (options.stackEnd ?? 11)) {
 			steps.push(guardShaStep(numberedBranch(options.next + 1), numberedSha(options.next + 1)));
 		}
 		steps.push(submitUpdateStep(nextBranch));
@@ -870,6 +881,43 @@ function badInitialPrPreflight(pr: PullRequestSnapshot): ScriptedExec[] {
 	];
 }
 
+interface ExternalCallBaselineSummary {
+	calls: number;
+	failures: number;
+	categories: Record<FlowLandExternalCallCategory, number>;
+	githubQuota: {
+		graphqlRequests: number;
+		restRequests: number;
+		rateLimitCost: number;
+	};
+}
+
+function summarizeExternalCallBaseline(
+	events: readonly FlowLandExternalCallTelemetryEvent[],
+): ExternalCallBaselineSummary {
+	const categories: Record<FlowLandExternalCallCategory, number> = {
+		graphite: 0,
+		"github-cli": 0,
+		"github-api": 0,
+		git: 0,
+		"other-command": 0,
+	};
+	const githubQuota = { graphqlRequests: 0, restRequests: 0, rateLimitCost: 0 };
+	let failures = 0;
+
+	for (const event of events) {
+		categories[event.category] += event.count;
+		if (event.status === "failure") failures += event.count;
+		if (event.quota !== undefined) {
+			githubQuota.graphqlRequests += event.quota.graphqlRequests;
+			githubQuota.restRequests += event.quota.restRequests;
+			githubQuota.rateLimitCost += event.quota.rateLimitCost;
+		}
+	}
+
+	return { calls: events.length, failures, categories, githubQuota };
+}
+
 async function captureConsole<T>(run: () => Promise<T>): Promise<T> {
 	const originalLog = console.log;
 	const originalError = console.error;
@@ -988,6 +1036,57 @@ describe("land-stack command scenarios", () => {
 			"Local branch feature-11 was kept (still checked out at /repo); delete it manually or run gt sync.",
 		);
 		expect(notifications.at(-1)?.level).toBe("success");
+	});
+
+	test("fake-backed large-stack telemetry baseline is stable for representative linear stacks", async () => {
+		const baseline = [
+			{
+				name: "linear-11",
+				size: 11,
+				expected: {
+					calls: 205,
+					failures: 3,
+					categories: {
+						graphite: 54,
+						"github-cli": 54,
+						"github-api": 0,
+						git: 97,
+						"other-command": 0,
+					},
+					githubQuota: { graphqlRequests: 65, restRequests: 0, rateLimitCost: 65 },
+				},
+			},
+			{
+				name: "linear-25",
+				size: 25,
+				expected: {
+					calls: 457,
+					failures: 3,
+					categories: {
+						graphite: 124,
+						"github-cli": 124,
+						"github-api": 0,
+						git: 209,
+						"other-command": 0,
+					},
+					githubQuota: { graphqlRequests: 149, restRequests: 0, rateLimitCost: 149 },
+				},
+			},
+		] as const;
+
+		for (const scenario of baseline) {
+			const telemetry: FlowLandExternalCallTelemetryEvent[] = [];
+			const { pi, confirmations, notifications } = await runLandStack(
+				"--yes",
+				linearStackLandingScript(scenario.size),
+				{ executeOptions: { externalCallTelemetry: (event) => telemetry.push(event) } },
+			);
+
+			pi.assertDone();
+			expect(confirmations, scenario.name).toEqual([]);
+			expect(notifications.at(-1)?.level, scenario.name).toBe("success");
+			expect(summarizeExternalCallBaseline(telemetry), scenario.name).toEqual(scenario.expected);
+		}
 	});
 
 	test("interactive large-stack landing asks one stack-path confirmation", async () => {
