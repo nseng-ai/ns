@@ -1,4 +1,4 @@
-import { stripTerminalEscapes } from "./terminal-escapes.ts";
+import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 
 export function normalizeTextOutput(output: string): string {
 	return stripOuterCodeFence(trimOuterBlankLines(output.replace(/\r\n?/g, "\n")));

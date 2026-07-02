@@ -1,5 +1,5 @@
 import { resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 
 import { paint } from "./palette.ts";
 

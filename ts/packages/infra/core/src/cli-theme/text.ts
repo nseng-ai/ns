@@ -1,7 +1,7 @@
 // Width and layout helpers for SDL CLI theme. Layout math must measure VISIBLE cells, not bytes, so
 // `visibleWidth` strips terminal escapes before counting and the padders pad by plain width.
 
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { stripTerminalEscapes } from "../primitives/terminal-escapes.ts";
 
 // LIMITATION: width is `.length`-based (UTF-16 code units after stripping escapes). It is NOT east-asian-
 // wide aware — CJK/full-width and emoji that occupy two terminal cells are counted as one. That is out

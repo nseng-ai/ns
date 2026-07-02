@@ -133,12 +133,6 @@ export interface DeferredTopologyCircleCycle {
 
 export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
 	{
-		name: "core-primitives-terminal",
-		packageName: "@sdl/core",
-		circles: new Set(["primitives", "terminal"]),
-		reason: "stripTerminalEscapes currently lives in terminal; the fix moves it into primitives.",
-	},
-	{
 		name: "capability-kit-git-kit",
 		packageName: "@sdl/capability-kit",
 		circles: new Set(["git", "kit"]),
