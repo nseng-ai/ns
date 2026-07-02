@@ -2,24 +2,21 @@ import { dim, glyph, renderBufferedReport } from "@sdl/core/cli-theme";
 import { commandIoFromSdlExtensionApi, runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "@sdl/kernel/sdk";
-import { prepareFlowChangesSummary } from "../../core/model-generation.ts";
+import { prepareFlowChangesSummary } from "../../changes/model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,
 	DEFAULT_CHANGES_MODEL_REF,
 	LEGACY_CHANGES_MODEL_ENV,
-} from "../../core/text-generation.ts";
+} from "@sdl/capability-kit/text-generation";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
 	type GitPorcelainStatus,
 	type GitPorcelainStatusLine,
-} from "../../core/git-porcelain.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+} from "../../changes/git-porcelain.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
-import {
-	loadFlowPendingWorktreeSnapshot,
-	type PendingWorktreeSnapshot,
-} from "../../core/worktree.ts";
+import { loadFlowPendingWorktreeSnapshot, type PendingWorktreeSnapshot } from "../worktree.ts";
 
 // This project-local extension uses the public SDL SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.

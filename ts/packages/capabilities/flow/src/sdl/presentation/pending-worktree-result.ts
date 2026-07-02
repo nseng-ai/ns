@@ -10,7 +10,7 @@
 import type { Caps } from "@sdl/clinkr";
 
 import { renderGitResultBlock } from "./git-result-block.ts";
-import type { PendingWorktreeError } from "./worktree.ts";
+import type { PendingWorktreeError } from "../worktree.ts";
 
 interface PendingWorktreeFailureInput {
 	error: PendingWorktreeError;

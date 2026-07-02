@@ -8,7 +8,6 @@
 	"type": "module",
 	"exports": {
 		"./api": "./src/api/index.ts",
-		"./shared/git-operation-output": "./src/core/git-operation-output.ts",
 		"./commands/changes": "./src/sdl/commands/changes.ts",
 		"./commands/cp": "./src/sdl/commands/cp.ts",
 		"./commands/autobranch": "./src/sdl/commands/autobranch.ts",
@@ -45,11 +44,15 @@
 		"subpackages": [
 			"api",
 			"autobranch",
-			"core",
+			"autoslot",
+			"changes",
+			"checkpoint",
 			"land",
+			"phase-stream",
 			"pi",
 			"sdl",
-			"submit"
+			"submit",
+			"trunk-pull"
 		]
 	},
 	"peerDependencies": {

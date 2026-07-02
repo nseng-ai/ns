@@ -198,7 +198,7 @@ describe("project extension shared Flow CLI runner", () => {
 });
 
 async function loadFlowCliRunnerModule() {
-	return await import("../../src/core/flow-cli-runner.ts");
+	return await import("../../src/sdl/flow-cli-runner.ts");
 }
 
 function createFakeApi(results: readonly ExecResult[]): {

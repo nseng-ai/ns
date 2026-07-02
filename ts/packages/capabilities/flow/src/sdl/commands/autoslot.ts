@@ -1,8 +1,8 @@
-import { runAutoslotCli } from "../../core/autoslot.ts";
+import { runAutoslotCli } from "../../autoslot/autoslot.ts";
 import { defineExtension, z, type SdlCommand } from "@sdl/kernel/sdk";
 
-import { runFlowCli } from "../../core/flow-cli-runner.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { runFlowCli } from "../flow-cli-runner.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const autoslotSchema = z.object({
 	slug: z

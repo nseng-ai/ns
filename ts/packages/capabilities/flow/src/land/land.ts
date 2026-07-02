@@ -2,7 +2,7 @@ import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo, SdlConfirmOptions } from "@sdl/kernel/sdk";
 import type { ExecOutputListener } from "@sdl/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
-import { createFlowCliCommandIo } from "../core/cli-command-io.ts";
+import { createCliCommandIo } from "@sdl/kernel/command-io";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
@@ -179,7 +179,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 
 	const confirm = input.confirm;
 	const caps = input.caps;
-	const progressIo = input.progressIo ?? createFlowCliCommandIo(input);
+	const progressIo = input.progressIo ?? createCliCommandIo(input);
 	const liveProgress = input.liveProgress;
 	const outcome = await runWithSdlCommandIo(
 		progressIo,

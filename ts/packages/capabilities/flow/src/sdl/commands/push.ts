@@ -3,9 +3,9 @@ import { defineExtension, failed, ok, type SdlCommand } from "@sdl/kernel/sdk";
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 import type { GitErrorInfo, GitGateway } from "@sdl/capability-kit/git";
 
-import { execFlowGit, readFlowGitPorcelainStatus } from "../../core/git.ts";
-import { renderGitResultBlock } from "../../core/git-result-block.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { execSdlGit, readSdlGitPorcelainStatus } from "@sdl/capability-kit/git";
+import { renderGitResultBlock } from "../presentation/git-result-block.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const PUSH_TIMEOUT_MS = 120_000;
 
@@ -57,7 +57,7 @@ export async function runPushCore(options: RunPushCoreOptions): Promise<RunPushC
 async function runPush(ctx: SdlExtensionApi) {
 	const caps = resolveFlowStreamCaps(ctx);
 
-	const status = await readFlowGitPorcelainStatus(ctx);
+	const status = await readSdlGitPorcelainStatus(ctx);
 	if (!status.ok) {
 		return failed(
 			renderGitResultBlock(caps, {
@@ -86,7 +86,7 @@ async function runPush(ctx: SdlExtensionApi) {
 		);
 	}
 
-	const pushResult = await execFlowGit(ctx, ["push"], PUSH_TIMEOUT_MS);
+	const pushResult = await execSdlGit(ctx, ["push"], PUSH_TIMEOUT_MS);
 	if (commandSucceeded(pushResult)) {
 		return ok(
 			renderGitResultBlock(caps, {

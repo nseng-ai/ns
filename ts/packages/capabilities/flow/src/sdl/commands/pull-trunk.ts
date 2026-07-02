@@ -1,11 +1,11 @@
-import { runTrunkPullDetailed, type TrunkPullResult } from "../../core/trunk-pull.ts";
+import { runTrunkPullDetailed, type TrunkPullResult } from "../../trunk-pull/trunk-pull.ts";
 import { formatCommand } from "@sdl/core/command";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/kernel/sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { runFlowCliOperation } from "../../core/flow-cli-runner.ts";
-import { renderGitResultBlock } from "../../core/git-result-block.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { runFlowCliOperation } from "../flow-cli-runner.ts";
+import { renderGitResultBlock } from "../presentation/git-result-block.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const pullTrunkSchema = z.object({});
 

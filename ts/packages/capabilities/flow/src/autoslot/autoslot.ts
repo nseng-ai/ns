@@ -1,17 +1,16 @@
 import type { Caps } from "@sdl/clinkr";
-import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
+import { createCliCommandIo, runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
 	type FlowAutobranchRequest,
 } from "../autobranch/checkpoint-flow.ts";
-import { createFlowCliCommandIo } from "./cli-command-io.ts";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
 } from "../autobranch/checkpoint.ts";
-import { renderAutoslotResultBlock } from "./autoslot-presentation.ts";
+import { renderAutoslotResultBlock } from "./presentation.ts";
 import type { SlotClient } from "@sdl/slot/api";
 import {
 	checkoutSlot,
@@ -45,7 +44,7 @@ export interface AutoslotCliInput {
 
 export async function runAutoslotCli(input: AutoslotCliInput): Promise<number> {
 	let hasError = false;
-	const io = createFlowCliCommandIo(input, {
+	const io = createCliCommandIo(input, {
 		onNotifyError: () => {
 			hasError = true;
 		},

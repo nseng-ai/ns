@@ -5,7 +5,15 @@ import { join } from "node:path";
 
 import { optionalEntry } from "@sdl/core/primitives";
 
-export * from "./git-testing.ts";
+export { InMemoryGitGateway, normalizeGitTestingRelativePath } from "./git-testing.ts";
+export type {
+	GitBranchCall,
+	GitCall,
+	GitPathCall,
+	GitRefsPathCall,
+	GitRevisionRangePathCall,
+	InMemoryGitGatewayState,
+} from "./git-testing.ts";
 
 export interface TempGitRepo {
 	readonly path: string;

@@ -4,7 +4,7 @@ import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusLine,
 	parseGitPorcelainStatusOutput,
-} from "../../src/core/git-porcelain.ts";
+} from "../../src/changes/git-porcelain.ts";
 
 describe("git porcelain status parsing", () => {
 	test("parses the two-column status code and trimmed path", () => {

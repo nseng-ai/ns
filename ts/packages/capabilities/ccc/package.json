@@ -8,7 +8,7 @@
 	},
 	"exports": {
 		".": "./src/api/index.ts",
-		"./api": "./src/api/api.ts",
+		"./api": "./src/api/index.ts",
 		"./autoslot": "./src/sdl/autoslot.ts",
 		"./cli": "./src/sdl/cli.ts",
 		"./land": "./src/sdl/land.ts",

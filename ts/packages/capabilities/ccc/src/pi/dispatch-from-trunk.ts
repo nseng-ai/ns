@@ -4,7 +4,7 @@ import {
 	handleCccSlotDispatchFromTrunk,
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
-} from "../api/api.ts";
+} from "../api/index.ts";
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";

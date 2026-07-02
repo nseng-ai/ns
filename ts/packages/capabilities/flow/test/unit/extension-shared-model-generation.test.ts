@@ -10,9 +10,13 @@ import type {
 } from "@sdl/capability-kit/text-generation";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
-const SHARED_MODEL_GENERATION_HELPER_PATH = join(
+const CHANGES_MODEL_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/core/model-generation.ts",
+	"ts/packages/capabilities/flow/src/changes/model-generation.ts",
+);
+const CHECKPOINT_MODEL_GENERATION_HELPER_PATH = join(
+	REPO_ROOT,
+	"ts/packages/capabilities/flow/src/checkpoint/model-generation.ts",
 );
 
 const validCheckpointMessage = `[cp] Update model helper
@@ -162,7 +166,9 @@ describe("project extension shared model generation helper", () => {
 });
 
 async function loadSharedModelGenerationModule(): Promise<SharedModelGenerationModule> {
-	const sharedModule = await import(SHARED_MODEL_GENERATION_HELPER_PATH);
+	const changesModule = await import(CHANGES_MODEL_GENERATION_HELPER_PATH);
+	const checkpointModule = await import(CHECKPOINT_MODEL_GENERATION_HELPER_PATH);
+	const sharedModule = { ...changesModule, ...checkpointModule };
 	assertSharedModelGenerationModule(sharedModule);
 	return sharedModule;
 }

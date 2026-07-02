@@ -4,7 +4,7 @@ import type { Caps, ColorDepth } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
 import type { ExecResult } from "@sdl/kernel/sdk";
 
-import { renderGitResultBlock } from "../../src/core/git-result-block.ts";
+import { renderGitResultBlock } from "../../src/sdl/presentation/git-result-block.ts";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
