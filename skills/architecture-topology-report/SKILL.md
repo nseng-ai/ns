@@ -117,7 +117,8 @@ Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @sdl/capability-k
 - `topologyCircles` / `circleGraph` — source topology circles discovered from root
   `src/*.ts` files plus one circle per `src/<component>/` directory. The report's graph
   defaults to package granularity; an in-report toggle drills down to these circles
-  (nodes sized by circle LOC, placed in tier lanes, tier-hue shades per enclosing package).
+  (nodes sized by circle LOC, placed in tier lanes, tier-hue shades per enclosing package),
+  and clicking a package node zooms into that single package's internal circle graph.
   Override the source folder with `--src-dir`.
 
 The script reads each workspace package's declared `sdl.tier`, validates it against the
@@ -195,7 +196,8 @@ generator-owned D3 scaffold and design rationale, which you don't need to read t
 The full field list and section sequence live there if you need them. The report mixes three visual
 registers so it reads as editorial, not as a generic dashboard: the interactive **D3 graph**
 (package view by default — runtime edges, node fill = tier — with a subpackage-circle drill-down
-toggle — static import edges, tier-hue fills shaded per enclosing package; node area ∝ LOC, tier lanes/filters,
+toggle — static import edges, tier-hue fills shaded per enclosing package — and click-to-zoom on a
+package node to isolate that package's internal circle graph; node area ∝ LOC, tier lanes/filters,
 layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace), **Mermaid** before/after cycle diagrams
 in finding cards, and **hand-built Tailwind** for the tier stack, verdict strip, and scorecard. Tier
 presentation comes from declared `sdl.tier`; package color is separate from tier. The generator marks

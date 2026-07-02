@@ -249,7 +249,10 @@ function GRAPH_RENDERER() {
   svg.attr("viewBox", [0, 0, W, H]);
   const tip = d3.select("#g-tip");
   const VIEWS = [["package", "Packages"], ["circle", "Subpackage circles"]].filter(([k]) => DATA[k]);
-  let view = "package", mode = "layered";
+  // focusPkg zooms the circle view down to one package's own circles (set by
+  // clicking a package node, or a circle in the all-circles view; cleared by the
+  // focus chip or either view button).
+  let view = "package", mode = "layered", focusPkg = null;
   const active = new Set(Object.keys(TIERS));
   let sim = null, setLayout = () => {}, applyFilter = () => {};
   const zoom = d3.zoom().scaleExtent([0.3, 4]);
@@ -268,9 +271,19 @@ function GRAPH_RENDERER() {
     tip.classed("hidden", true);
     d3.selectAll(".view-btn").style("opacity", function () { return this.dataset.view === viewKey ? 1 : 0.4; })
       .style("font-weight", function () { return this.dataset.view === viewKey ? 600 : 400; });
-    const NODES = DATA[viewKey].nodes, LINKS = DATA[viewKey].links;
-    // ~4× the nodes need more vertical room for the tier lanes to stay readable
-    H = viewKey === "circle" ? 1600 : 820;
+    d3.select("#focus-chip").style("display", viewKey === "circle" && focusPkg ? null : "none")
+      .text(focusPkg ? "✕ " + focusPkg : "");
+    let NODES = DATA[viewKey].nodes, LINKS = DATA[viewKey].links;
+    if (viewKey === "circle" && focusPkg) {
+      // zoomed: only this package's circles, and only the edges between them
+      // (links may hold string ids or node refs depending on prior builds)
+      NODES = NODES.filter((n) => n.packageName === focusPkg);
+      const keep = new Set(NODES.map((n) => n.id));
+      LINKS = LINKS.filter((l) => keep.has(l.source.id || l.source) && keep.has(l.target.id || l.target));
+    }
+    // ~4× the nodes need more vertical room for the tier lanes to stay readable;
+    // a single package's circles fit the standard viewport
+    H = viewKey === "circle" && !focusPkg ? 1600 : 820;
     svg.attr("viewBox", [0, 0, W, H]).style("height", H + "px");
     const maxLoc = d3.max(NODES, (d) => d.loc);
     const r = d3.scaleSqrt().domain([0, maxLoc]).range([0, 50]); // area ∝ loc
@@ -402,8 +415,20 @@ function GRAPH_RENDERER() {
       const who = viewKey === "package"
         ? `<div class="text-slate-300">tier ${TIERS[d.tier].name}${sub}</div>`
         : `<div class="text-slate-300">package <span class="font-mono">${d.packageName}</span> · tier ${TIERS[d.tier].name}</div>`;
-      return `<div class="font-semibold">${d.id}</div>${who}<div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`;
+      const zoomHint = zoomTarget(d)
+        ? `<div class="text-slate-400 mt-1 italic">click to zoom into ${viewKey === "package" ? `${d.subpackageCount + 1} circles` : `<span class="font-mono">${d.packageName}</span>`}</div>`
+        : "";
+      return `<div class="font-semibold">${d.id}</div>${who}<div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>${zoomHint}`;
     };
+    // zoom targets: a package node with subpackages, or (in the all-circles
+    // view) any circle — clicking isolates its enclosing package's circles.
+    const zoomTarget = (d) => DATA.circle
+      && (viewKey === "package" ? d.subpackageCount > 0 : !focusPkg);
+    nodeG.on("click", (e, d) => {
+      if (e.defaultPrevented || !zoomTarget(d)) return; // drags suppress clicks
+      focusPkg = viewKey === "package" ? d.id : d.packageName;
+      build("circle");
+    });
     nodeG.on("mouseover", (e, d) => {
       const near = nbr.get(d.id);
       nodeG.style("opacity", (n) => vis(n) ? (near.has(n.id) ? 1 : 0.12) : 0);
@@ -425,7 +450,13 @@ function GRAPH_RENDERER() {
     const vt = d3.select("#view-toolbar");
     vt.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("view:");
     VIEWS.forEach(([k, lab]) =>
-      vt.append("button").attr("class", "view-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-view", k).text(lab).on("click", () => { if (k !== view) build(k); }));
+      vt.append("button").attr("class", "view-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-view", k).text(lab)
+        .on("click", () => { if (k !== view || focusPkg) { focusPkg = null; build(k); } }));
+    // shows the zoomed-in package while focused; click to widen back to all circles
+    vt.append("button").attr("id", "focus-chip")
+      .attr("class", "rounded-full border border-slate-400 bg-slate-100 px-2.5 py-0.5 font-mono")
+      .attr("title", "clear package zoom").style("display", "none")
+      .on("click", () => { focusPkg = null; build("circle"); });
   }
   const lt = d3.select("#layout-toolbar");
   lt.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("layout:");
@@ -515,7 +546,7 @@ function renderGraphSection(s, graphData) {
   return html`
   <section id="actual-graph" class="space-y-4">
     <h2 class="text-2xl font-semibold">The graph as it stands</h2>
-    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "The package dependency graph, live — every runtime edge between workspace packages, nodes colored by tier. Toggle the view to <em>subpackage circles</em> to drill into source components (static TypeScript import edges; nodes keep their tier's hue, shaded per enclosing package, with a heavier ring on each package-root circle). Node <strong>area ∝ LOC</strong>; tier lanes and filters remain architectural layer semantics. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
+    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "The package dependency graph, live — every runtime edge between workspace packages, nodes colored by tier. Toggle the view to <em>subpackage circles</em> to drill into source components (static TypeScript import edges; nodes keep their tier's hue, shaded per enclosing package, with a heavier ring on each package-root circle), or <strong>click a package</strong> to zoom into just that package's internal circle graph — the chip in the toolbar clears the zoom. Node <strong>area ∝ LOC</strong>; tier lanes and filters remain architectural layer semantics. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
     <script type="application/json" id="graphdata">${JSON.stringify(graphData)}</script>
     <div class="flex flex-wrap items-center gap-3 mb-2">
       <div id="view-toolbar" class="flex items-center gap-1 text-xs"></div>
