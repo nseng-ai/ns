@@ -349,10 +349,6 @@ async function collectRepoChangeFacts(env: AutopilotEnv): Promise<RepoChangeFact
 	return { rawStatus, changedFiles, hasChanges: changedFiles.length > 0 };
 }
 
-function sameStringList(left: readonly string[], right: readonly string[]): boolean {
-	return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function objectiveDirectory(objective: string): string {
 	if (objective.startsWith(".sdl/objectives/")) return objective;
 	return path.join(".sdl", "objectives", objective);
@@ -923,30 +919,13 @@ async function runJustFormatterRecoveryIfNeeded(env: AutopilotEnv, changedFiles:
 
 async function stageChangedFiles(env: AutopilotEnv, changedFiles: readonly string[]): Promise<StageChangedFilesResult> {
 	if (changedFiles.length === 0) throw new AutopilotPhaseError("staging", "No changed files to stage.");
-	const first = await execResult({ env, command: "git", args: ["add", "--", ...changedFiles] });
-	if (first.code === 0 && !first.killed) return { stagedFiles: [...changedFiles], recoveryNotes: [] };
+	const commandArgs = ["add", "-A", "--", "."];
+	const result = await execResult({ env, command: "git", args: commandArgs });
+	if (result.code === 0 && !result.killed) return { stagedFiles: [...changedFiles], recoveryNotes: [] };
 
-	const freshFacts = await collectRepoChangeFacts(env);
-	if (freshFacts.changedFiles.length === 0 || sameStringList(changedFiles, freshFacts.changedFiles)) {
-		const commandArgs = ["add", "--", ...changedFiles];
-		throw new AutopilotPhaseError("staging", `Unable to stage changed files.\n${commandFailureMessage("git", commandArgs, first)}`, {
-			changedFiles: [...changedFiles],
-			command: formatCommand("git", commandArgs),
-		});
-	}
-
-	const retry = await execResult({ env, command: "git", args: ["add", "--", ...freshFacts.changedFiles] });
-	if (retry.code === 0 && !retry.killed) {
-		return {
-			stagedFiles: [...freshFacts.changedFiles],
-			recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
-		};
-	}
-	const commandArgs = ["add", "--", ...freshFacts.changedFiles];
-	throw new AutopilotPhaseError("staging", `Unable to stage changed files after refreshing git status.\n${commandFailureMessage("git", commandArgs, retry)}`, {
-		changedFiles: freshFacts.changedFiles,
+	throw new AutopilotPhaseError("staging", `Unable to stage changed files.\n${commandFailureMessage("git", commandArgs, result)}`, {
+		changedFiles: [...changedFiles],
 		command: formatCommand("git", commandArgs),
-		recoveryNotes: ["refreshed changed-file list from git status after staging failed"],
 	});
 }
 
