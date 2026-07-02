@@ -106,7 +106,7 @@ The container pilot, properly formed (no `remainder` line):
 A capability with a Pi surface (the pi-subpackage model):
 
 ```jsonc
-// ts/packages/handoff/package.json
+// ts/packages/capabilities/handoff/package.json
 {
   "name": "@sdl/handoff",
   "sdl": {

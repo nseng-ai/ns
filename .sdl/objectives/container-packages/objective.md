@@ -102,11 +102,21 @@ Risks:
 
 ## Open Questions
 
-- Do subpackages ever need their own tier (for example a capability container whose `api` subpackage should sit differently)?
-- Does the remainder unit carry any import-boundary rules of its own during the transition, or is it exempt until converted?
-- Should the guard eventually require every subpath export of a properly formed container to resolve into a declared subpackage?
-- What is the recorded name for a keep-flat package in the end-state vocabulary — "standalone package" (the user's phrasing when setting the containerize threshold, the current front-runner), "flat package," or simply a package with no container aspiration? Canonize in the vocabulary slice.
-- What is `@sdl/core`'s end-state subpackage set beyond `time` (primitives, terminal, …)? The user has confirmed core containerizes — several subpackages are expected — but the concrete split is proposed and approved at inventory review.
-- Name for the one proposed consolidation container (local Pi tools) — a placeholder is proposed in the inventory; the user picks the final name at inventory approval.
+- Parked for a later Objective: Do subpackages ever need their own tier (for example a capability container whose `api` subpackage should sit differently)?
+- Resolved for this Objective: no package currently declares `sdl.remainder`, so remainder-specific import rules are not needed for the completed conversion. Revisit only if a future transition reintroduces a declared remainder.
+- Parked for a later Objective: Should the guard eventually require every subpath export of a properly formed container to resolve into a declared subpackage?
+- Resolved: the recorded keep-flat term is **Standalone package**.
+- Resolved: `@sdl/core` declares `time`, `exec`, `cli-runtime`, `cli-theme`, `test-kit`, `typescript-analysis`, `primitives`, `terminal`, and `config`.
+- Resolved: the local Pi tools consolidation container is `@sdl-local/pi-tools` under `ts/packages/local/pi-tools/`.
 - ~~Should `sdl-sdk` and `@sdl/kernel` consolidate in a later pass?~~ Resolved (user ruling): they merge in this inventory — `sdl-sdk` folds into `@sdl/kernel` as its `sdk` subpackage, and the ADR 0012 layer distinction is carried by the subpackage boundary (extensions import `@sdl/kernel/sdk` only).
-- Should the remaining standalone capability packages (`address`, `aretro`, `handoff`, `objective`, `roaster`, `ccc`) consolidate into a capability container in a later pass if the user wants the top-level count lower still?
+- Later-pass option, not a closure blocker: should the remaining standalone capability packages (`address`, `aretro`, `plans`) consolidate into a capability container if the user wants the top-level count lower still?
+
+## Closure
+
+Closed after the final handoff relocation and closure bookkeeping. The approved target is implemented in the live workspace: 21 top-level packages (12 containers + 9 standalone), 87 topology circles, zero package cycles, zero circle cycles, no `sdl.remainder` declarations, and container packages declared through manifest `sdl.subpackages`. The only tier violations reported by topology extraction are the two accepted debt edges with debt notes: `@sdl/brmem` → `@sdl/capability-kit` and `@sdl-local/pi-tools` → `@sdl/capability-kit`.
+
+The final mechanical gap was `@sdl/handoff` directory placement. It now lives at `ts/packages/capabilities/handoff/`, matching the approved capability-tier layout, with package scripts, tsconfig inheritance, lockfile links, kernel command-module resolution, `.pi` adapter imports, and context/target-layout references updated.
+
+Completion criteria are satisfied: vocabulary and ADR 0022 are recorded; `sdl.subpackages` is the single topology/guard config; the approved inventory records a containerize/keep-standalone/fold decision for every original package; approved folds reduced the package count from 44 to 21 without package cycles; every top-level package has one of the user-confirmed categories; every conversion row has a resolved converted disposition; and keep-standalone rationale is recorded in the inventory.
+
+Validation for the closing slice passed: `pnpm --dir ts --filter @sdl/handoff run check`, `pnpm --dir ts --filter @sdl/handoff run test`, `just`, `just ts-test-integration`, and `just ts-test-typescript-style-guard`. Parked follow-ups remain outside this Objective: per-subpackage tier declarations, export-to-subpackage conformance, optional consolidation of remaining standalone capabilities, and resolving the two accepted debt-tier edges.
