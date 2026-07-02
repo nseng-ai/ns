@@ -10,7 +10,7 @@ import {
 } from "@sdl/branch-context";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
+import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";

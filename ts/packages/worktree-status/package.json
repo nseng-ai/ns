@@ -14,9 +14,6 @@
 		"@earendil-works/pi-tui": "catalog:",
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/git": "workspace:*",
-		"@sdl/github": "workspace:*",
-		"@sdl/graphite": "workspace:*",
 		"@sdl/pi": "workspace:*"
 	},
 	"sdl": {

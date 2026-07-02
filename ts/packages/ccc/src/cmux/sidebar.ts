@@ -21,7 +21,7 @@ import type {
 	ModelInfo,
 	NotifyLevel,
 	ThinkingLevel,
-} from "@sdl/cmux/types";
+} from "@sdl/capability-kit/cmux/types";
 
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";

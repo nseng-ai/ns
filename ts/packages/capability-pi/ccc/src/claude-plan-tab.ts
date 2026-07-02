@@ -6,7 +6,7 @@ import {
 } from "@sdl/ccc/api";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:claude-plan-tab";
 const PROMPT_DIR = join(homedir(), ".pi", "agent", "ccc-claude-plan-tab-prompts");

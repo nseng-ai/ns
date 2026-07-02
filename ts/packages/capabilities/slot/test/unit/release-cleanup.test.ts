@@ -7,7 +7,7 @@ import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/gateways/clipboard.ts";
 import { FakeSlotCommandGateway } from "../../src/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
-import { FakeGraphiteStackGateway } from "@sdl/graphite/testing";
+import { FakeGraphiteStackGateway } from "@sdl/capability-kit/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/context.ts";

@@ -11,7 +11,7 @@ import { attachBranchContextEntry } from "../src/attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "../src/constants.ts";
 import type { BranchContextContext } from "../src/context.ts";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
+import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const SOURCE_BRANCH = "feature/source-plan";

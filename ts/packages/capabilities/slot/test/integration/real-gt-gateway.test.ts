@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { RealGraphiteStackGateway } from "@sdl/graphite/stack";
+import { RealGraphiteStackGateway } from "@sdl/capability-kit/graphite/stack";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 interface MetadataRow {

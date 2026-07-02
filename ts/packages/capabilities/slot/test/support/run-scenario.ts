@@ -21,7 +21,7 @@ import {
 import {
 	FakeGraphiteStackGateway,
 	type FakeGraphiteStackGatewayOptions,
-} from "@sdl/graphite/testing";
+} from "@sdl/capability-kit/graphite/testing";
 import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/repo-context.ts";

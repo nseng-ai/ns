@@ -6,7 +6,7 @@ import {
 	type MachineEnvelopeDataParseValid,
 } from "@sdl/core/machine-envelope";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;

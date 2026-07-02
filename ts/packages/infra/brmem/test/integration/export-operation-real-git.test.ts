@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
 
 import { RealGitBrmemGateway } from "../../src/real-git-gateway.ts";
 import { parseJsonOutput, runScenario } from "../support/run-scenario.ts";
-import { createTempGitRepo } from "@sdl/git/testing";
+import { createTempGitRepo } from "@sdl/capability-kit/git/testing";
 
 describe("export operation real-Git integration", () => {
 	it("wires public export through RealGitBrmemGateway", async () => {

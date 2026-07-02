@@ -1,7 +1,7 @@
 import { failure, ok, type ClinkrExit, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { GitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { renderTextTable, type TextTableColumn } from "@sdl/core/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";

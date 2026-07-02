@@ -7,7 +7,7 @@ import {
 	tailText,
 } from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 import {
 	MAX_COMMAND_STREAM_OUTPUT_LINES,
 	MAX_OUTPUT_TAIL_CHARS,

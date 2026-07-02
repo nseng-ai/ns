@@ -9,7 +9,7 @@ import {
 } from "@sdl/clinkr";
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import type { SdlCommand, SdlExtensionApi } from "@sdl/kernel/sdk";
-import type { GitResult } from "@sdl/git";
+import type { GitResult } from "@sdl/capability-kit/git";
 import type { GithubPrFeedbackFailure } from "./api.ts";
 import { errorDetailText } from "@sdl/core/result";
 

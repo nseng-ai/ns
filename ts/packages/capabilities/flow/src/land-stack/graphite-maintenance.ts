@@ -1,5 +1,5 @@
 import { type ExecResult, formatCommand } from "@sdl/core/exec";
-import { GRAPHITE_COMMAND_NAME } from "@sdl/graphite/branch";
+import { GRAPHITE_COMMAND_NAME } from "@sdl/capability-kit/graphite/branch";
 import { isLikelyInProgressGitOperationFailure } from "../shared/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import {

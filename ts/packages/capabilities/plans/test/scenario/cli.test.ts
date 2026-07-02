@@ -4,7 +4,7 @@ import { join, relative } from "node:path";
 import { optionalEntry } from "@sdl/core/primitives";
 
 import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";

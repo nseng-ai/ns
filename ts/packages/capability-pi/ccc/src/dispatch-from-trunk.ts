@@ -5,7 +5,7 @@ import {
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
 } from "@sdl/ccc/api";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
 

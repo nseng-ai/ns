@@ -11,8 +11,8 @@ import { optionalEntry } from "@sdl/core/primitives";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import { detectGitConflictOutput } from "../shared/git-operation-output.ts";
-import type { GitGateway } from "@sdl/git";
-import { runGraphiteCommand } from "@sdl/graphite/branch";
+import type { GitGateway } from "@sdl/capability-kit/git";
+import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 
 import { formatItemCount, type GithubPrGateway, type TextGenerator } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";

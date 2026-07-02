@@ -15,8 +15,6 @@
 		"@sdl/branch-context": "workspace:*",
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/core": "workspace:*",
-		"@sdl/git": "workspace:*",
-		"@sdl/graphite": "workspace:*",
 		"@sdl/pi": "workspace:*",
 		"@sdl/plans": "workspace:*"
 	},

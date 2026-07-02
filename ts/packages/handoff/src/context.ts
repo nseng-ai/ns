@@ -6,8 +6,8 @@ import {
 } from "@sdl/brmem";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import { readStdinLine } from "@sdl/core/cli-runtime";
 
 export interface HandoffCliContext {

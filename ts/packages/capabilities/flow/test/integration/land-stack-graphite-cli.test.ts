@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { runCommand } from "@sdl/core/exec";
 import { type ExecResult, formatCommandResultFailure } from "@sdl/core/command";
-import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/graphite/metadata";
+import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/capability-kit/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land-stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";
 

@@ -17,9 +17,9 @@ export type {
 	SessionStartContext,
 	ThinkingLevel,
 	UiLike,
-} from "@sdl/cmux/types";
+} from "@sdl/capability-kit/cmux/types";
 
-import type { ThinkingLevel } from "@sdl/cmux/types";
+import type { ThinkingLevel } from "@sdl/capability-kit/cmux/types";
 
 const THINKING_LEVELS = [
 	"off",

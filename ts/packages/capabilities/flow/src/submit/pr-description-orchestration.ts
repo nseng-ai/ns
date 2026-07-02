@@ -1,4 +1,4 @@
-import type { GitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import type { ErrorInfo } from "@sdl/core/result";
 
 import type { GithubPrDetails, GithubPrGateway } from "./github-pr-gateway.ts";

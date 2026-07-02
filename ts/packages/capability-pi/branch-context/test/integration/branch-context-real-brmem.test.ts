@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import type { ExecOptions, ExecResult } from "@sdl/core/command";
 import { copyExecOptionsWithout } from "@sdl/core/exec/testing";
-import { createTempGitRepo } from "@sdl/git/testing";
+import { createTempGitRepo } from "@sdl/capability-kit/git/testing";
 import { createTempDirTracker } from "@sdl/core/test-kit";
 import registerBranchContextExtension from "../../src/extension.ts";
 import {

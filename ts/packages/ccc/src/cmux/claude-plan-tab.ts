@@ -3,10 +3,10 @@ import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@sdl/cmux/focused-terminal-tab";
+} from "@sdl/capability-kit/cmux/focused-terminal-tab";
 import { isRecord, stringField } from "@sdl/core/primitives";
 import { writeTimestampedPromptFile, type ResolvedPromptFileOptions } from "./prompt-file.ts";
-import type { CommandContext, ExtensionAPI } from "@sdl/cmux/types";
+import type { CommandContext, ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;

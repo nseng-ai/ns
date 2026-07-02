@@ -7,7 +7,7 @@ import {
 	type BrmemResult,
 } from "@sdl/brmem";
 import { optionalEntry } from "@sdl/core/primitives";
-import type { GitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 
 import {
 	HANDOFF_NAMESPACE,

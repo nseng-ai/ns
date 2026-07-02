@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 import { registerCccClaudePlanTabCommand } from "./claude-plan-tab.ts";
 import { registerCccSlotDispatchFromTrunkCommand } from "./dispatch-from-trunk.ts";
 import { registerCccSlotDispatchPromptCommand } from "./dispatch-prompt.ts";

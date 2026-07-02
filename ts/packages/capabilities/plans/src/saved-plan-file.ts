@@ -2,12 +2,12 @@ import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
 import type { CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
-import type { GitGateway } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@sdl/github/identity";
+} from "@sdl/capability-kit/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/capability-kit/xdg";

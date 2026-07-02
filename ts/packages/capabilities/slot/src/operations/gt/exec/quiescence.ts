@@ -5,7 +5,7 @@ import type { SlotCliContext } from "../../../context.ts";
 import type { LocalBranchTip, WorktreeOccupancy } from "../../../gateways/repository.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
 import { parseJsonObject } from "../../../json.ts";
-import type { StackInfo } from "@sdl/graphite/stack";
+import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";

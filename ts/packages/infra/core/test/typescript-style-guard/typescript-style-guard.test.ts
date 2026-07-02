@@ -131,7 +131,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "capability gateway backend import is allowed for capabilities",
-			code: 'import { RealGitGateway } from "@sdl/git";',
+			code: 'import { RealGitGateway } from "@sdl/capability-kit/git";',
 			path: "ts/packages/ccc/src/peer.ts",
 			expectedRules: [],
 		},
@@ -439,8 +439,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/ccc",
 		"@sdl/capability-kit",
 		"@sdl/core",
-		"@sdl/git",
-		"@sdl/graphite",
 		"@sdl/handoff",
 		"@sdl/handoff-pi",
 		"@sdl/pi",
@@ -454,8 +452,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 		["@sdl/ccc", "capability"],
 		["@sdl/capability-kit", "capability-kit"],
 		["@sdl/core", "neutral-infra"],
-		["@sdl/git", "capability-gateway-backend"],
-		["@sdl/graphite", "capability-gateway-backend"],
 		["@sdl/handoff", "capability"],
 		["@sdl/handoff-pi", "capability-pi"],
 		["@sdl/pi", "host"],
@@ -524,11 +520,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 			expectedViolation: false,
 		},
 		{
-			name: "local pi tool to backend is allowed",
-			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/git" }],
-			expectedViolation: false,
-		},
-		{
 			name: "local pi tool to standalone tool is rejected",
 			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/areg" }],
 			expectedTextIncludes: "local-pi-tool-must-not-depend-on-standalone-tool",
@@ -541,36 +532,6 @@ describe("TypeScript style guard package tier layering rules", () => {
 		{
 			name: "capability to capability kit is allowed",
 			edges: [{ from: "@sdl/handoff", to: "@sdl/capability-kit" }],
-			expectedViolation: false,
-		},
-		{
-			name: "backend to capability kit is rejected",
-			edges: [{ from: "@sdl/git", to: "@sdl/capability-kit" }],
-			expectedTextIncludes: "capability-gateway-backend-must-not-depend-on-capability-kit",
-		},
-		{
-			name: "capability kit to backend is allowed",
-			edges: [{ from: "@sdl/capability-kit", to: "@sdl/git" }],
-			expectedViolation: false,
-		},
-		{
-			name: "neutral infra to backend is rejected",
-			edges: [{ from: "@sdl/core", to: "@sdl/git" }],
-			expectedTextIncludes: "neutral-infra-must-not-depend-on-capability-gateway-backend",
-		},
-		{
-			name: "sdk to backend is rejected",
-			edges: [{ from: "@sdl/kernel", to: "@sdl/git" }],
-			expectedTextIncludes: "sdk-must-not-depend-on-capability-gateway-backend",
-		},
-		{
-			name: "backend to neutral infra is allowed",
-			edges: [{ from: "@sdl/git", to: "@sdl/core" }],
-			expectedViolation: false,
-		},
-		{
-			name: "backend to backend is allowed",
-			edges: [{ from: "@sdl/graphite", to: "@sdl/git" }],
 			expectedViolation: false,
 		},
 	];
@@ -1101,7 +1062,6 @@ function isSyntheticPackageTier(value: SyntheticTier): value is PackageTier {
 	return (
 		value === "capability" ||
 		value === "capability-kit" ||
-		value === "capability-gateway-backend" ||
 		value === "sdk" ||
 		value === "neutral-infra" ||
 		value === "host" ||

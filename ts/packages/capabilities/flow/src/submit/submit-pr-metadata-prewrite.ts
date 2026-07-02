@@ -1,8 +1,8 @@
 import { runCommand } from "@sdl/core/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
-import type { GitGateway } from "@sdl/git";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
+import type { GitGateway } from "@sdl/capability-kit/git";
 import type { MaybePromise } from "@sdl/core/primitives";
 
 import { commandFailure } from "./index.ts";

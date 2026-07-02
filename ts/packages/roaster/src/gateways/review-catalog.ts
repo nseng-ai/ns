@@ -2,8 +2,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/git";
-import { RealGitGateway } from "@sdl/git";
+import type { GitGateway } from "@sdl/capability-kit/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
 import { mapFromRecordOrMap, type ExplicitUndefined } from "@sdl/core/primitives";
 
 import type { ReviewCatalogFailure, RoasterResult } from "../failures.ts";

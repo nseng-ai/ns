@@ -8,7 +8,6 @@
 export const TIERS = {
   capability: { fill: "#bbf7d0", stroke: "#10b981", name: "capability" },
   "capability-kit": { fill: "#d9f99d", stroke: "#65a30d", name: "capability kit" },
-  "capability-gateway-backend": { fill: "#99f6e4", stroke: "#0d9488", name: "capability gateway backend" },
   sdk: { fill: "#c7d2fe", stroke: "#6366f1", name: "SDK" },
   "neutral-infra": { fill: "#cbd5e1", stroke: "#64748b", name: "neutral infra" },
   host: { fill: "#475569", stroke: "#0f172a", name: "presentation host" },
@@ -31,7 +30,6 @@ export const TIER_RANK = [
   "host",
   "capability",
   "capability-kit",
-  "capability-gateway-backend",
   "sdk",
   "neutral-infra",
 ];

@@ -108,9 +108,6 @@ importers:
       '@sdl/flow-pi':
         specifier: workspace:*
         version: link:packages/capability-pi/flow
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:packages/infra/graphite
       '@sdl/handoff':
         specifier: workspace:*
         version: link:packages/handoff
@@ -205,12 +202,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -232,12 +223,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../../infra/github
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -256,9 +241,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -277,15 +259,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../../infra/github
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -309,12 +282,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../../infra/github
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -330,15 +297,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../../infra/github
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -360,12 +318,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../infra/graphite
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -375,12 +327,12 @@ importers:
 
   packages/capability-pi/ccc:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/ccc':
         specifier: workspace:*
         version: link:../../ccc
-      '@sdl/cmux':
-        specifier: workspace:*
-        version: link:../../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
@@ -390,12 +342,12 @@ importers:
 
   packages/capability-pi/flow:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -417,15 +369,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
-      '@sdl/cmux':
-        specifier: workspace:*
-        version: link:../../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
       '@sdl/handoff':
         specifier: workspace:*
         version: link:../../handoff
@@ -459,15 +405,9 @@ importers:
       '@sdl/clinkr':
         specifier: workspace:*
         version: link:../infra/clinkr
-      '@sdl/cmux':
-        specifier: workspace:*
-        version: link:../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -491,12 +431,6 @@ importers:
         specifier: workspace:*
         version: link:../capability-pi/ccc
 
-  packages/cmux:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
-
   packages/handoff:
     dependencies:
       '@sdl/brmem':
@@ -511,9 +445,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -526,15 +457,9 @@ importers:
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
-      '@sdl/cmux':
-        specifier: workspace:*
-        version: link:../../cmux
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../../infra/graphite
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
@@ -584,9 +509,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../git
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -614,30 +536,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
-
-  packages/infra/git:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../core
-
-  packages/infra/github:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../core
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/infra/graphite:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../git
 
   packages/kernel:
     dependencies:
@@ -698,12 +596,12 @@ importers:
 
   packages/local-pi-tools/pr-feedback-watch:
     dependencies:
+      '@sdl/capability-kit':
+        specifier: workspace:*
+        version: link:../../sdl-capability-kit
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../../infra/github
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -770,9 +668,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -794,12 +689,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../infra/github
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -821,9 +710,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -842,9 +728,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -878,9 +761,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../../infra/git
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -896,15 +776,6 @@ importers:
       '@sdl/core':
         specifier: workspace:*
         version: link:../infra/core
-      '@sdl/git':
-        specifier: workspace:*
-        version: link:../infra/git
-      '@sdl/github':
-        specifier: workspace:*
-        version: link:../infra/github
-      '@sdl/graphite':
-        specifier: workspace:*
-        version: link:../infra/graphite
       '@sdl/pi':
         specifier: workspace:*
         version: link:../hosts/pi

@@ -10,7 +10,7 @@ import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
 import type { Clock } from "@sdl/core/clock";
 import { systemClock } from "@sdl/core/time";
 import type { TimerScheduler } from "@sdl/core/timers";
-import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
+import { shutdownGraphiteMetadataWorker } from "@sdl/capability-kit/graphite/status";
 
 import {
 	combineWorktreeStatus,

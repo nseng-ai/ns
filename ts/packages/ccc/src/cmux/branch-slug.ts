@@ -5,7 +5,7 @@ import {
 	trimBranchSlugToLength,
 } from "@sdl/core/branch-slug";
 import type { TextResult } from "@sdl/core/primitives";
-import type { ExtensionAPI } from "@sdl/cmux/types";
+import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
 

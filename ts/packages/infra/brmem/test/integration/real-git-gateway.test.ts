@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import { NodeCommandExecApi } from "@sdl/core/exec";
 import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/git";
+import { RealGitGateway } from "@sdl/capability-kit/git";
 import { DroppingOptionsCommandExecApi } from "@sdl/core/exec/testing";
-import { createTempGitRepo } from "@sdl/git/testing";
-import type { TempGitRepo } from "@sdl/git/testing";
+import { createTempGitRepo } from "@sdl/capability-kit/git/testing";
+import type { TempGitRepo } from "@sdl/capability-kit/git/testing";
 import type { BrmemResult } from "../../src/contracts.ts";
 import type {
 	CopyEntriesResult,
