@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 const REPO_ROOT = fileURLToPath(new URL("../../../../../../", import.meta.url));
 const PI_EXTENSIONS_PACKAGE_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
-const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../ccc/", import.meta.url));
+const CCC_PACKAGE_ROOT = fileURLToPath(new URL("../../../../capabilities/ccc/", import.meta.url));
 const SDL_PACKAGE_ROOT = fileURLToPath(new URL("../../../../kernel/", import.meta.url));
 
 const PROJECT_EXTENSION_ADAPTERS = discoverProjectExtensionAdapters();

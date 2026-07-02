@@ -15,7 +15,7 @@ import {
 } from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
 import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
 import { optionalEntry } from "../../ts/packages/infra/core/src/primitives/primitives.ts";
-import { describeBranchContextGraphiteCreationSteps } from "../../ts/packages/branch-context/src/api.ts";
+import { describeBranchContextGraphiteCreationSteps } from "../../ts/packages/capabilities/branch-context/src/core/api.ts";
 import {
 	formatCommand,
 	formatCommandFailure,

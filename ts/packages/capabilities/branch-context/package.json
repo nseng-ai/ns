@@ -1,0 +1,56 @@
+{
+	"name": "@sdl/branch-context",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/core/api.ts",
+		"./sdl/commands/attach": "./src/sdl/commands/attach.ts",
+		"./sdl/commands/check": "./src/sdl/commands/check.ts",
+		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
+		"./sdl/commands/from-plan": "./src/sdl/commands/from-plan.ts",
+		"./sdl/commands/list": "./src/sdl/commands/list.ts",
+		"./sdl/commands/load": "./src/sdl/commands/load.ts",
+		"./testing": "./src/testing/index.ts",
+		"./repo-local-sdl-extension": "./src/core/repo-local-sdl-extension.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/extension": "./src/pi/extension.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/branch-context/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-tui": "catalog:",
+		"@sdl/brmem": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/kernel": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@sdl/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@sdl/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@sdl/pi": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability",
+		"subpackages": [
+			"core",
+			"sdl",
+			"testing",
+			"pi"
+		]
+	}
+}

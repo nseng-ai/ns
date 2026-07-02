@@ -23,7 +23,6 @@
 		"@local-pi-tools/pr-feedback-watch": "workspace:*",
 		"@sdl/address": "workspace:*",
 		"@sdl/branch-context": "workspace:*",
-		"@sdl/branch-context-pi": "workspace:*",
 		"@sdl/brmem": "workspace:*",
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/ccc": "workspace:*",
