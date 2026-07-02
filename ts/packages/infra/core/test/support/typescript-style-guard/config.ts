@@ -133,13 +133,6 @@ export interface DeferredTopologyCircleCycle {
 
 export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
 	{
-		name: "flow-api-core-land-submit",
-		packageName: "sdl-flow",
-		circles: new Set(["api", "core", "land", "submit"]),
-		reason:
-			"orchestrator logic in api and submit wrappers in core form a cycle; the fix relocates both.",
-	},
-	{
 		name: "pi-host-five-circle",
 		packageName: "@sdl/pi",
 		circles: new Set(["kit", "commands", "runtime", "parity", "core"]),

@@ -12,7 +12,7 @@ import {
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
 } from "../../core/text-generation.ts";
-import { formatPendingWorktreeError } from "../../core/worktree.ts";
+import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
 	createSdlCheckpointRuntime,
 	runCheckpointWorkflow,

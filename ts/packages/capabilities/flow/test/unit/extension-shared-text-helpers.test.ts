@@ -12,7 +12,7 @@ const SHARED_TEXT_HELPER_PATH = join(
 
 interface SharedTextHelpersModule {
 	draftChangesSummary: unknown;
-	preparePrDescription: unknown;
+	prepareCheckpointMessage: unknown;
 }
 
 describe("project extension shared text helpers", () => {
@@ -21,14 +21,15 @@ describe("project extension shared text helpers", () => {
 		assertSharedTextHelpersModule(sharedModule);
 
 		expect(typeof sharedModule.draftChangesSummary).toBe("function");
-		expect(typeof sharedModule.preparePrDescription).toBe("function");
+		expect(typeof sharedModule.prepareCheckpointMessage).toBe("function");
 	});
 
 	test("keep the helper as package re-export shims", async () => {
 		const source = await readFile(SHARED_TEXT_HELPER_PATH, "utf8");
 
 		expect(source).toContain("./changes-model-summary.ts");
-		expect(source).toContain("./pr-description.ts");
+		expect(source).toContain("@sdl/capability-kit/checkpoint-flow");
+		expect(source).not.toContain("./pr-description.ts");
 		expect(source).not.toContain("function parsePrDescriptionOutput");
 		expect(source).not.toContain("prepareRepairedText");
 		expect(source).not.toContain("CHANGES_SUMMARY_SYSTEM_PROMPT");
@@ -44,7 +45,7 @@ function assertSharedTextHelpersModule(value: unknown): asserts value is SharedT
 	if (!("draftChangesSummary" in value)) {
 		throw new Error("Expected shared text helper to export draftChangesSummary.");
 	}
-	if (!("preparePrDescription" in value)) {
-		throw new Error("Expected shared text helper to export preparePrDescription.");
+	if (!("prepareCheckpointMessage" in value)) {
+		throw new Error("Expected shared text helper to export prepareCheckpointMessage.");
 	}
 }

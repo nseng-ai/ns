@@ -15,8 +15,8 @@ import {
 	type GitPorcelainStatusLine,
 } from "../../core/git-porcelain.ts";
 import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
-	formatPendingWorktreeError,
 	loadFlowPendingWorktreeSnapshot,
 	type PendingWorktreeSnapshot,
 } from "../../core/worktree.ts";
