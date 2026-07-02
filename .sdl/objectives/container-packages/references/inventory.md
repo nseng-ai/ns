@@ -83,24 +83,24 @@ local-pi-tool/host → extensions/capabilities).
 - Subpackages: ~52–56 across the 12 containers.
 - New consolidation containers: 1 (local Pi tools).
 
-| Category                | Cluster                                    | Decision                | Top-level delta |
-| ----------------------- | ------------------------------------------ | ----------------------- | --------------- |
-| Core infra              | `@sdl/core` + 5 neutral-infra folds        | container               | 6 → 1           |
-| Core infra              | `@sdl/capability-kit` + 4 gateway folds    | container               | 5 → 1           |
-| Core infra              | `@sdl/kernel` + `sdl-sdk`                  | container               | 2 → 1           |
-| Core infra              | clinkr, brmem                              | standalone              | 2 → 2           |
-| Standalone tools        | areg, packagechk, vibechk                  | standalone              | 3 → 3           |
-| Extensions/capabilities | `sdl-flow` + `sdl-land` + `@sdl/flow-pi`   | container               | 3 → 1           |
-| Extensions/capabilities | `@sdl/handoff` + `@sdl/handoff-pi`         | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/objective` + `@sdl/objective-pi`     | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/ccc` + `@sdl/ccc-pi`                 | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/branch-context` + its `-pi`          | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/slot`                                | container               | 1 → 1           |
-| Extensions/capabilities | `@sdl/pi` + `@sdl/worktree-status`         | container               | 2 → 1           |
-| Extensions/capabilities | `@sdl/aretro`                              | standalone              | 1 → 1           |
-| Extensions/capabilities | `@sdl/roaster`                             | container               | 1 → 1           |
-| Extensions/capabilities | local Pi tools (7 packages)                | new container           | 7 → 1           |
-| Extensions/capabilities | address, plans, sdlcc                      | standalone              | 3 → 3           |
+| Category                | Cluster                                  | Decision      | Top-level delta |
+| ----------------------- | ---------------------------------------- | ------------- | --------------- |
+| Core infra              | `@sdl/core` + 5 neutral-infra folds      | container     | 6 → 1           |
+| Core infra              | `@sdl/capability-kit` + 4 gateway folds  | container     | 5 → 1           |
+| Core infra              | `@sdl/kernel` + `sdl-sdk`                | container     | 2 → 1           |
+| Core infra              | clinkr, brmem                            | standalone    | 2 → 2           |
+| Standalone tools        | areg, packagechk, vibechk                | standalone    | 3 → 3           |
+| Extensions/capabilities | `sdl-flow` + `sdl-land` + `@sdl/flow-pi` | container     | 3 → 1           |
+| Extensions/capabilities | `@sdl/handoff` + `@sdl/handoff-pi`       | container     | 2 → 1           |
+| Extensions/capabilities | `@sdl/objective` + `@sdl/objective-pi`   | container     | 2 → 1           |
+| Extensions/capabilities | `@sdl/ccc` + `@sdl/ccc-pi`               | container     | 2 → 1           |
+| Extensions/capabilities | `@sdl/branch-context` + its `-pi`        | container     | 2 → 1           |
+| Extensions/capabilities | `@sdl/slot`                              | container     | 1 → 1           |
+| Extensions/capabilities | `@sdl/pi` + `@sdl/worktree-status`       | container     | 2 → 1           |
+| Extensions/capabilities | `@sdl/aretro`                            | standalone    | 1 → 1           |
+| Extensions/capabilities | `@sdl/roaster`                           | container     | 1 → 1           |
+| Extensions/capabilities | local Pi tools (7 packages)              | new container | 7 → 1           |
+| Extensions/capabilities | address, plans, sdlcc                    | standalone    | 3 → 3           |
 
 Tier note (user-ruled): folding `git`, `github`, `graphite`, `cmux` into
 `@sdl/capability-kit` retires the `capability-gateway-backend` tier — the code
