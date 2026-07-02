@@ -28,7 +28,7 @@ import {
 	type ObjectiveCommandSpec,
 	type ObjectiveCreateCommandSpec,
 	type ObjectiveListParsedArgs,
-} from "../core/api.ts";
+} from "../api/index.ts";
 import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
 import {
 	buildFencedTextBlock,
@@ -48,8 +48,8 @@ export {
 	completeObjectiveListArgs,
 	parseObjectiveListArgTokens,
 	parseObjectiveListArgs,
-} from "../core/api.ts";
-export type { ObjectiveListArgsParseResult, ObjectiveListParsedArgs } from "../core/api.ts";
+} from "../api/index.ts";
+export type { ObjectiveListArgsParseResult, ObjectiveListParsedArgs } from "../api/index.ts";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"on" | "registerCommand" | "exec" | "getCommands" | "sendMessage" | "sendUserMessage"

@@ -1,4 +1,4 @@
-import type { ObjectiveListRecord, ObjectiveListResult } from "../operations/list-objectives.ts";
+import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 
 export type ObjectiveList = ObjectiveListResult;
 

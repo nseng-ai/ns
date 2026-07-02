@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { discoverRepoOrSentinel, ensureSlotsMetadataDir } from "../../src/core/repo-context.ts";
-import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
-import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
+import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
+import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 
 describe("repo context", () => {
 	it("returns a sentinel when the start path is missing", async () => {

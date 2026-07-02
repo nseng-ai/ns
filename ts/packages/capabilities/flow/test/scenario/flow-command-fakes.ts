@@ -1,15 +1,15 @@
 import { join } from "node:path";
 
-import { flowAutobranchCommand } from "../../src/commands/autobranch.ts";
-import { flowAutoslotCommand } from "../../src/commands/autoslot.ts";
-import { flowBranchLatestCommitCommand } from "../../src/commands/branch-latest-commit.ts";
-import { flowChangesCommand } from "../../src/commands/changes.ts";
-import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/commands/cp.ts";
-import { flowPullTrunkCommand } from "../../src/commands/pull-trunk.ts";
-import { flowPushCommand } from "../../src/commands/push.ts";
-import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
-import { flowSubmitCommand } from "../../src/commands/submit.ts";
+import { flowAutobranchCommand } from "../../src/sdl/commands/autobranch.ts";
+import { flowAutoslotCommand } from "../../src/sdl/commands/autoslot.ts";
+import { flowBranchLatestCommitCommand } from "../../src/sdl/commands/branch-latest-commit.ts";
+import { flowChangesCommand } from "../../src/sdl/commands/changes.ts";
+import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/sdl/commands/exec-read-graphite-branch-metadata.ts";
+import { flowCpCommand } from "../../src/sdl/commands/cp.ts";
+import { flowPullTrunkCommand } from "../../src/sdl/commands/pull-trunk.ts";
+import { flowPushCommand } from "../../src/sdl/commands/push.ts";
+import { flowRegeneratePrCommand } from "../../src/sdl/commands/regenerate-pr.ts";
+import { flowSubmitCommand } from "../../src/sdl/commands/submit.ts";
 import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
 import { failed } from "@sdl/kernel/sdk";
 

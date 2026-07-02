@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
-import { runCli } from "../../src/core/cli.ts";
+import { runCli } from "../../src/sdl/cli.ts";
 import {
 	createGitWorldExec,
 	eventIndex,
@@ -115,7 +115,7 @@ describe("ccc CLI", () => {
 		const runtime = runWithFakes(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(output(runtime).stdout).toBe(
-			"runtime: typescript\nentry_point: @sdl/ccc bin ccc -> ts/packages/capabilities/ccc/src/core/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/ccc bin ccc -> ts/packages/capabilities/ccc/src/sdl/cli.ts\n",
 		);
 
 		const execHelp = runWithFakes(["exec", "--help"]);

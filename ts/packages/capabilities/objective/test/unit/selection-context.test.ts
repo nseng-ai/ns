@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionCommandUi,
-} from "../../src/core/api.ts";
+} from "../../src/api/index.ts";
 
 interface SourceUi extends ObjectiveSelectionCommandUi {
 	readonly label: string;

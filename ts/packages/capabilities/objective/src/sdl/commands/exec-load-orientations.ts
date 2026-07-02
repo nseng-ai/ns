@@ -6,7 +6,7 @@ import {
 	loadOrientationsResultSchema,
 	renderLoadOrientationsMarkdown,
 	runLoadOrientations,
-} from "../../operations/load-orientations.ts";
+} from "../../core/operations/load-orientations.ts";
 
 export const objectiveExecLoadOrientationsSdlCommand = objectiveSdlCommand({
 	name: "exec-load-orientations",

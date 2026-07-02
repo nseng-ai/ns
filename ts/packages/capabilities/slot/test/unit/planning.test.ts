@@ -7,7 +7,7 @@ import {
 	inventoryWithoutCallerBranchOccupancy,
 } from "../../src/core/planning.ts";
 import type { SlotInventory } from "../../src/core/inventory.ts";
-import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
+import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 const slot1 = {
 	slotName: "slot-01",

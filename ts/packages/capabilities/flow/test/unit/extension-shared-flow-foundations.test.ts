@@ -6,33 +6,33 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
-const SHARED_GIT_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/shared/git.ts");
-const SHARED_WORKTREE_PATH = join(
+const SHARED_GIT_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/core/git.ts");
+const SHARED_WORKTREE_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/core/worktree.ts");
+const PUSH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/sdl/commands/push.ts");
+const SUBMIT_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/shared/worktree.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/submit.ts",
 );
-const PUSH_COMMAND_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/commands/push.ts");
-const SUBMIT_COMMAND_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/commands/submit.ts");
 const REGENERATE_PR_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/regenerate-pr.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
 );
 const AUTOBRANCH_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/autobranch.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts",
 );
 const BRANCH_LATEST_COMMIT_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/branch-latest-commit.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts",
 );
 const AUTOSLOT_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/autoslot.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/autoslot.ts",
 );
-const LAND_COMMAND_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/commands/land.ts");
+const LAND_COMMAND_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/sdl/commands/land.ts");
 const PULL_TRUNK_COMMAND_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/commands/pull-trunk.ts",
+	"ts/packages/capabilities/flow/src/sdl/commands/pull-trunk.ts",
 );
 const FLOW_PACKAGE_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/package.json");
 const OLD_AUTOBRANCH_PACKAGE_MANIFEST_PATH = join(REPO_ROOT, "ts/packages/autobranch/package.json");
@@ -42,10 +42,10 @@ const FLOW_AUTOBRANCH_INTERNAL_PATH = join(
 );
 
 const REMOVED_LOCAL_AUTOBRANCH_HELPERS = [
-	["ts/packages/capabilities/flow/src/shared", "branch-availability.ts"],
-	["ts/packages/capabilities/flow/src/shared", "branch-slugs.ts"],
-	["ts/packages/capabilities/flow/src/shared", "branch-slug-text.ts"],
-	["ts/packages/capabilities/flow/src/shared", ["latest", "commit", "autobranch.ts"].join("-")],
+	["ts/packages/capabilities/flow/src/core", "branch-availability.ts"],
+	["ts/packages/capabilities/flow/src/core", "branch-slugs.ts"],
+	["ts/packages/capabilities/flow/src/core", "branch-slug-text.ts"],
+	["ts/packages/capabilities/flow/src/core", ["latest", "commit", "autobranch.ts"].join("-")],
 ] as const;
 
 describe("project extension shared flow foundations", () => {
@@ -53,8 +53,8 @@ describe("project extension shared flow foundations", () => {
 		const autobranchSource = await readFile(AUTOBRANCH_COMMAND_PATH, "utf8");
 		const branchLatestCommitSource = await readFile(BRANCH_LATEST_COMMIT_COMMAND_PATH, "utf8");
 
-		expect(autobranchSource).toContain("../autobranch/dirty-worktree.ts");
-		expect(branchLatestCommitSource).toContain("../autobranch/latest-commit.ts");
+		expect(autobranchSource).toContain("../../autobranch/dirty-worktree.ts");
+		expect(branchLatestCommitSource).toContain("../../autobranch/latest-commit.ts");
 		const oldAutobranchPackageName = ["@sdl", "autobranch"].join("/");
 		expect(autobranchSource).not.toContain(`${oldAutobranchPackageName}/dirty-worktree`);
 		expect(branchLatestCommitSource).not.toContain(`${oldAutobranchPackageName}/latest-commit`);
@@ -81,10 +81,10 @@ describe("project extension shared flow foundations", () => {
 		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
 			expect(source).not.toContain(cccPackageName);
 		}
-		expect(flowPackage).toContain('"./api": "./src/core/api.ts"');
-		expect(autoslotSource).toContain("../core/autoslot.ts");
-		expect(landSource).toContain("../core/land.ts");
-		expect(pullTrunkSource).toContain("../core/trunk-pull.ts");
+		expect(flowPackage).toContain('"./api": "./src/api/index.ts"');
+		expect(autoslotSource).toContain("../../core/autoslot.ts");
+		expect(landSource).toContain("../../land/land.ts");
+		expect(pullTrunkSource).toContain("../../core/trunk-pull.ts");
 		expect(autobranchSource).not.toContain("_cwd");
 		expect(branchLatestCommitSource).not.toContain("_cwd");
 	});
@@ -99,11 +99,11 @@ describe("project extension shared flow foundations", () => {
 		expect(submitSource).not.toContain("private/tmp/sdl-submit-extension-build");
 		expect(submitSource).not.toContain(["@sdl", "core", "submit"].join("/"));
 		expect(submitSource).not.toContain(["@sdl", "graphite", "submit"].join("/"));
-		expect(submitSource).toContain("../shared/submit.ts");
+		expect(submitSource).toContain("../../core/submit.ts");
 		expect(regeneratePrSource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
-		expect(regeneratePrSource).toContain("../shared/pr-description.ts");
+		expect(regeneratePrSource).toContain("../../core/pr-description.ts");
 		expect(sharedGitSource).toContain("execSdlGit as execFlowGit");
 		expect(sharedGitSource).toContain("readSdlGitPorcelainStatus as readFlowGitPorcelainStatus");
 		expect(sharedGitSource).not.toContain("git push");
@@ -112,7 +112,7 @@ describe("project extension shared flow foundations", () => {
 		expect(worktreeSource).toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
-		expect(pushSource).toContain("../shared/git.ts");
+		expect(pushSource).toContain("../../core/git.ts");
 		expect(pushSource).toContain("readFlowGitPorcelainStatus");
 		expect(pushSource).toContain("execFlowGit");
 		expect(pushSource).not.toContain('ctx.exec("git"');

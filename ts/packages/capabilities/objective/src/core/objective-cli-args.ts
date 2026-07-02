@@ -1,4 +1,4 @@
-import type { ObjectiveStatusFilter } from "../operations/list-objectives.ts";
+import type { ObjectiveStatusFilter } from "./operations/list-objectives.ts";
 
 import type { ObjectiveCliCompletionItem } from "./objective-candidates.ts";
 

@@ -3,7 +3,7 @@ import { formatZodIssue } from "@sdl/core/primitives";
 import {
 	listCandidatesResultSchema,
 	type ObjectiveCandidateRecord,
-} from "../operations/list-candidates.ts";
+} from "./operations/list-candidates.ts";
 
 export type ObjectiveCandidatesParseResult =
 	| { type: "valid"; records: ObjectiveCandidateRecord[] }

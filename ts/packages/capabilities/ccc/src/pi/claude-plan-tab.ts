@@ -3,7 +3,7 @@ import {
 	handleCccClaudePlanTab,
 	type PromptFileOptions,
 	resolvePromptFileOptions,
-} from "@sdl/ccc/api";
+} from "../api/api.ts";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";

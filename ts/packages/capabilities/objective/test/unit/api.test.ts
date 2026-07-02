@@ -1,7 +1,7 @@
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/core/api.ts";
+import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/api/index.ts";
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";

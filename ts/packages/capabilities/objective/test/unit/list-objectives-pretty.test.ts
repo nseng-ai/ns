@@ -1,12 +1,12 @@
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { ObjectiveListResult } from "../../src/operations/list-objectives.ts";
+import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
 import { objectiveListSdlCommand } from "../../src/sdl/commands/list.ts";
 import {
 	relativeTime,
 	renderObjectiveListPretty,
-} from "../../src/operations/list-objectives-pretty.ts";
+} from "../../src/core/operations/list-objectives-pretty.ts";
 
 const ESC = String.fromCharCode(0x1b);
 const NOW = Date.parse("2026-06-27T18:00:00Z");

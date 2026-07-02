@@ -1,4 +1,4 @@
-import { checkHandoffArtifact, handoffKeyToSlug } from "@sdl/handoff/api";
+import { checkHandoffArtifact, handoffKeyToSlug } from "../api/index.ts";
 import { createPiHandoffStorageDeps } from "./api-context.ts";
 import type { ExtensionAPI } from "./runtime-types.ts";
 

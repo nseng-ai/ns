@@ -4,7 +4,7 @@ import {
 	handleCccSlotDispatchPlan,
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
-} from "@sdl/ccc/api";
+} from "../api/api.ts";
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";

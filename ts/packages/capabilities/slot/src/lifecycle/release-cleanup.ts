@@ -1,5 +1,5 @@
 import type { RepoSlotContext } from "../core/context.ts";
-import { prFailureMessage } from "../gateways/pr.ts";
+import { prFailureMessage } from "../core/gateways/pr.ts";
 import type { FreedSlot } from "./release-target.ts";
 
 export type SlotFreeCleanupAction = "pr" | "local-branch";

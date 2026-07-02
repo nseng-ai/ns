@@ -6,7 +6,7 @@ import {
 	checkObjectiveResultSchema,
 	renderCheckObjective,
 	runCheckObjective,
-} from "../../operations/check-objective.ts";
+} from "../../core/operations/check-objective.ts";
 
 export const objectiveCheckSdlCommand = objectiveSdlCommand({
 	name: "check",

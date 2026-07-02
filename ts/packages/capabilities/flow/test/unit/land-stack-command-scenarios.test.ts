@@ -1,24 +1,24 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
-import { stripAnsi } from "../../src/land-stack/command-exec.ts";
-import { BACKUP_REF_NAMESPACE } from "../../src/land-stack/constants.ts";
-import { type LandStackResult } from "../../src/land-stack/errors.ts";
-import { formatLandProgressTitle } from "../../src/commands/land.ts";
-import type { LandLiveProgressEvent } from "../../src/land-stack/command-stream.ts";
-import { LAND_PHASES } from "../../src/shared/phase-stream-specs.ts";
+import { stripAnsi } from "../../src/land/stack/command-exec.ts";
+import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
+import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { formatLandProgressTitle } from "../../src/sdl/commands/land.ts";
+import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
+import { LAND_PHASES } from "../../src/core/phase-stream-specs.ts";
 import {
 	executeStackLanding,
 	parseArgs,
 	registerLandStackRenderer,
-} from "../../src/core/land-stack.ts";
+} from "../../src/land/land-stack.ts";
 import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandingShape,
 	NotifyLevel,
 	PullRequestSnapshot,
-} from "../../src/land-stack/types.ts";
+} from "../../src/land/stack/types.ts";
 import {
 	BACKUP_ROTATION_ARGS,
 	BACKUP_ROTATION_STEP,

@@ -10,7 +10,7 @@ import {
 } from "@sdl/capability-kit/graphite/metadata";
 import { RealGraphiteStackGateway } from "@sdl/capability-kit/graphite/stack";
 import { resultErr, resultOk } from "@sdl/core/result";
-import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
+import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 interface MetadataRow {
 	branch_name: string | number | null;

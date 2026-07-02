@@ -6,7 +6,7 @@ import {
 	runHandoffCreateCommand,
 	type HandoffLaunchPromptCopy,
 } from "./launch-flow.ts";
-import { HANDOFF_NAMESPACE, handoffSlugToKey } from "@sdl/handoff/api";
+import { HANDOFF_NAMESPACE, handoffSlugToKey } from "../api/index.ts";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import type { HandoffStartMessages } from "./ui-status.ts";
 import type {

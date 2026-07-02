@@ -1,7 +1,7 @@
 import { defineExtension } from "@sdl/kernel/sdk";
 
 import { handoffSdlCommand } from "../command.ts";
-import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../../operations/gc.ts";
+import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../../core/operations/gc.ts";
 
 export const handoffGcSdlCommand = handoffSdlCommand({
 	name: "gc",

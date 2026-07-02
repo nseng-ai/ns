@@ -4,15 +4,15 @@
 	"private": true,
 	"type": "module",
 	"bin": {
-		"ccc": "./src/core/cli.ts"
+		"ccc": "./src/sdl/cli.ts"
 	},
 	"exports": {
-		".": "./src/core/index.ts",
-		"./api": "./src/core/api.ts",
-		"./autoslot": "./src/core/autoslot.ts",
-		"./cli": "./src/core/cli.ts",
-		"./land": "./src/core/land.ts",
-		"./trunk-pull": "./src/core/trunk-pull.ts",
+		".": "./src/api/index.ts",
+		"./api": "./src/api/api.ts",
+		"./autoslot": "./src/sdl/autoslot.ts",
+		"./cli": "./src/sdl/cli.ts",
+		"./land": "./src/sdl/land.ts",
+		"./trunk-pull": "./src/sdl/trunk-pull.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -46,9 +46,9 @@
 	"sdl": {
 		"tier": "capability",
 		"subpackages": [
-			"autobranch",
+			"api",
 			"cmux",
-			"core",
+			"sdl",
 			"pi"
 		]
 	}

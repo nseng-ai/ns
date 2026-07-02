@@ -5,7 +5,7 @@
 	"exports": {
 		".": "./src/core/index.ts",
 		"./identity": "./src/core/identity.ts",
-		"./api": "./src/core/api.ts",
+		"./api": "./src/api/index.ts",
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
 		"./sdl/commands/gc": "./src/sdl/commands/gc.ts",
@@ -33,10 +33,10 @@
 	"sdl": {
 		"tier": "capability",
 		"subpackages": [
+			"api",
 			"core",
-			"operations",
-			"pi",
-			"sdl"
+			"sdl",
+			"pi"
 		]
 	},
 	"peerDependencies": {

@@ -1,6 +1,6 @@
 import type { RepoSlotContext } from "../core/context.ts";
-import type { PrState, PrSummary } from "../gateways/pr.ts";
-import { prFailureMessage } from "../gateways/pr.ts";
+import type { PrState, PrSummary } from "../core/gateways/pr.ts";
+import { prFailureMessage } from "../core/gateways/pr.ts";
 import { buildSlotInventory, type SlotRecord } from "../core/inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
 import {

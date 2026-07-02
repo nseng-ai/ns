@@ -7,8 +7,8 @@ import {
 	objectiveListResultSchema,
 	renderObjectiveListMarkdown,
 	runListObjectives,
-} from "../../operations/list-objectives.ts";
-import { renderObjectiveListPretty } from "../../operations/list-objectives-pretty.ts";
+} from "../../core/operations/list-objectives.ts";
+import { renderObjectiveListPretty } from "../../core/operations/list-objectives-pretty.ts";
 
 export const objectiveListSdlCommand = objectiveSdlCommand({
 	name: "list",

@@ -11,7 +11,7 @@ export {
 	objectiveSelectionContextFromCommandContext,
 	parseObjectiveDiffChangedSlugs,
 	parseObjectiveStatusChangedSlugs,
-} from "../core/api.ts";
+} from "../api/index.ts";
 export type {
 	BuildObjectiveSkillPromptOptions,
 	ChangedActiveObjectiveSelectionOptions,
@@ -23,4 +23,4 @@ export type {
 	ObjectiveSelectionSpec,
 	ObjectiveSelectionUi,
 	ObjectiveSkillPromptSpec,
-} from "../core/api.ts";
+} from "../api/index.ts";

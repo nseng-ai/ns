@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { renderAutoslotResultBlock } from "../src/core/autoslot-presentation.ts";
+import { renderAutoslotResultBlock } from "../src/sdl/autoslot-presentation.ts";
 
 const DIM = "\x1b[2m";
 

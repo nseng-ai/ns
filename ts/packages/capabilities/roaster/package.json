@@ -33,13 +33,6 @@
 		"zod": "catalog:"
 	},
 	"sdl": {
-		"tier": "capability",
-		"subpackages": [
-			"commands",
-			"core",
-			"gateways",
-			"operations",
-			"sdl"
-		]
+		"tier": "standalone-tool"
 	}
 }

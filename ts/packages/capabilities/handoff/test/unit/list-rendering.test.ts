@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { renderList, renderListMarkdown, type ListResult } from "../../src/operations/list.ts";
+import { renderList, renderListMarkdown, type ListResult } from "../../src/core/operations/list.ts";
 
 const BRANCH_SCOPE_RESULT: ListResult = {
 	scope: "branch",

@@ -6,7 +6,7 @@ import {
 	archiveObjectiveResultSchema,
 	renderArchiveObjective,
 	runArchiveObjective,
-} from "../../operations/archive-objective.ts";
+} from "../../core/operations/archive-objective.ts";
 
 export const objectiveArchiveSdlCommand = objectiveSdlCommand({
 	name: "archive",

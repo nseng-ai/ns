@@ -12,7 +12,7 @@ import type {
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_MODEL_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/shared/model-generation.ts",
+	"ts/packages/capabilities/flow/src/core/model-generation.ts",
 );
 
 const validCheckpointMessage = `[cp] Update model helper
@@ -82,8 +82,8 @@ describe("project extension shared model generation helper", () => {
 			},
 			{
 				branch: "flow-model-generation-helper",
-				status: " M ts/packages/capabilities/flow/src/commands/changes.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/commands/changes.ts b/ts/packages/capabilities/flow/src/commands/changes.ts\n",
+				status: " M ts/packages/capabilities/flow/src/sdl/commands/changes.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/sdl/commands/changes.ts b/ts/packages/capabilities/flow/src/sdl/commands/changes.ts\n",
 			},
 		);
 
@@ -108,8 +108,8 @@ describe("project extension shared model generation helper", () => {
 				textGenerator,
 			},
 			{
-				status: " M ts/packages/capabilities/flow/src/commands/cp.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/commands/cp.ts b/ts/packages/capabilities/flow/src/commands/cp.ts\n",
+				status: " M ts/packages/capabilities/flow/src/sdl/commands/cp.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/sdl/commands/cp.ts b/ts/packages/capabilities/flow/src/sdl/commands/cp.ts\n",
 			},
 		);
 
@@ -136,8 +136,8 @@ describe("project extension shared model generation helper", () => {
 				textGenerator,
 			},
 			{
-				status: " M ts/packages/capabilities/flow/src/commands/autobranch.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/commands/autobranch.ts b/ts/packages/capabilities/flow/src/commands/autobranch.ts\n",
+				status: " M ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts b/ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts\n",
 			},
 		);
 

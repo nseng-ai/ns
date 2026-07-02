@@ -6,7 +6,7 @@ import {
 	listCandidatesResultSchema,
 	renderListCandidates,
 	runListCandidates,
-} from "../../operations/list-candidates.ts";
+} from "../../core/operations/list-candidates.ts";
 
 export const objectiveExecListCandidatesSdlCommand = objectiveSdlCommand({
 	name: "exec-list-candidates",

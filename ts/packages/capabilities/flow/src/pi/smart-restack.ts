@@ -2,7 +2,7 @@ import type { ExecResult } from "@sdl/core/command";
 import {
 	combinedGitCommandOutput,
 	isGitRebaseInProgressOutput,
-} from "sdl-flow/shared/git-operation-output";
+} from "../core/git-operation-output.ts";
 import { sendCommandProgressOrNotify, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 
 import { formatCommandOutput, notifyCommandUi } from "@sdl/pi/commands/helpers";

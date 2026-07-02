@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/core/diagnostics.ts";
-import { RealSlotPrGateway } from "../../src/gateways/pr.ts";
+import { RealSlotPrGateway } from "../../src/core/gateways/pr.ts";
 
 describe("RealSlotPrGateway", () => {
 	it("looks up multiple branch PRs with one GraphQL batch request", async () => {

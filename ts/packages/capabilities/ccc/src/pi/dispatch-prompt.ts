@@ -4,7 +4,7 @@ import {
 	handleCccSlotDispatchPrompt,
 	type DispatchPromptPayloadOptions,
 	resolveDispatchPromptPayloadOptions,
-} from "@sdl/ccc/api";
+} from "../api/api.ts";
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";

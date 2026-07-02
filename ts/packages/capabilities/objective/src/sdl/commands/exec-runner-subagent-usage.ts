@@ -6,7 +6,7 @@ import {
 	runnerSubagentUsageRequestSchema,
 	runnerSubagentUsageResultSchema,
 	runRunnerSubagentUsage,
-} from "../../operations/runner-subagent-usage.ts";
+} from "../../core/operations/runner-subagent-usage.ts";
 
 export const objectiveExecRunnerSubagentUsageSdlCommand = objectiveSdlCommand({
 	name: "exec-runner-subagent-usage",

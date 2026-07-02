@@ -5,7 +5,7 @@ import { firstNonEmptyLine } from "@sdl/core/text-normalization";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
-} from "../shared/git-porcelain.ts";
+} from "../core/git-porcelain.ts";
 
 export interface SubmitOutputLike {
 	stdout: string;

@@ -7,7 +7,7 @@ import {
 	listHandoffSummaries,
 	readHandoffArtifact,
 	type HandoffSummary,
-} from "@sdl/handoff/api";
+} from "../api/index.ts";
 import { buildFencedTextBlock } from "@sdl/pi/skills/expansion";
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";

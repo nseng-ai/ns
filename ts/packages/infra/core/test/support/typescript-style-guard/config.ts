@@ -91,7 +91,6 @@ export const capabilityPackageNames = new Set([
 	"@sdl/objective",
 	"@sdl/plans",
 	"@sdl/address",
-	"@sdl/roaster",
 	"@sdl/slot",
 	"sdl-flow",
 ]);

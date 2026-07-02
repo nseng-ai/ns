@@ -6,7 +6,7 @@ import {
 	SLOT_CD_DIRECTIVE_FILE,
 	type CdDirectiveFilesystem,
 	writeCdDirectiveIfActive,
-} from "../../src/shell/cd-directive.ts";
+} from "../../src/core/shell/cd-directive.ts";
 
 describe("cd directive", () => {
 	it("is inactive when env is absent or empty", () => {

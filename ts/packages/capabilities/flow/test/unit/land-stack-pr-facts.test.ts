@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
-import { type LandStackResult } from "../../src/land-stack/errors.ts";
-import { loadPr } from "../../src/land-stack/pr-facts.ts";
-import type { LandStackExtensionAPI } from "../../src/land-stack/types.ts";
+import { type LandStackResult } from "../../src/land/stack/errors.ts";
+import { loadPr } from "../../src/land/stack/pr-facts.ts";
+import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 
 const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";

@@ -7,23 +7,29 @@ import {
 } from "@sdl/clinkr";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@sdl/clinkr/testing";
 
-import { buildSlotCommandGroup } from "../../src/core/command-face.ts";
+import { buildSlotCommandGroup } from "../../src/sdl/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
-import { FakeClipboardGateway, type ClipboardCopyResult } from "../../src/gateways/clipboard.ts";
+import {
+	FakeClipboardGateway,
+	type ClipboardCopyResult,
+} from "../../src/core/gateways/clipboard.ts";
 import {
 	FakeSlotCommandGateway,
 	type FakeSlotCommandGatewayOptions,
-} from "../../src/gateways/fakes/command.ts";
+} from "../../src/core/gateways/fakes/command.ts";
 import {
 	FakeSlotRepositoryGateway,
 	type FakeSlotRepositoryGatewayOptions,
-} from "../../src/gateways/fakes/repository.ts";
+} from "../../src/core/gateways/fakes/repository.ts";
 import {
 	FakeGraphiteStackGateway,
 	type FakeGraphiteStackGatewayOptions,
 } from "@sdl/capability-kit/graphite/testing";
-import { FakeSlotPrGateway, type FakeSlotPrGatewayOptions } from "../../src/gateways/fakes/pr.ts";
-import { FakeSlotStorageGateway } from "../../src/gateways/fakes/storage.ts";
+import {
+	FakeSlotPrGateway,
+	type FakeSlotPrGatewayOptions,
+} from "../../src/core/gateways/fakes/pr.ts";
+import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/core/repo-context.ts";
 
 export interface ScenarioRunOptions {

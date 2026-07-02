@@ -4,7 +4,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
-		"./api": "./src/core/api.ts",
+		"./api": "./src/api/index.ts",
 		"./sdl/commands/attach": "./src/sdl/commands/attach.ts",
 		"./sdl/commands/check": "./src/sdl/commands/check.ts",
 		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
@@ -12,7 +12,7 @@
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./sdl/commands/load": "./src/sdl/commands/load.ts",
 		"./testing": "./src/testing/index.ts",
-		"./repo-local-sdl-extension": "./src/core/repo-local-sdl-extension.ts",
+		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -47,9 +47,10 @@
 	"sdl": {
 		"tier": "capability",
 		"subpackages": [
+			"api",
 			"core",
-			"sdl",
 			"testing",
+			"sdl",
 			"pi"
 		]
 	}
