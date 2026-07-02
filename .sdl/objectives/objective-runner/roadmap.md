@@ -12,6 +12,8 @@
       Scenario tests over the command surface per the branch-context `cli-harness.ts` pattern; resolves the `--guidance` file-form flag shape.
 - [ ] Implement the real Pi-subprocess dispatch adapter at the objective container's own Pi-coupled edge (the `pi` subpackage, `src/pi/child-session/`) and resolve the host composition point that injects it into the exec command context.
       This slice answers the open wiring question in `objective.md`; post-reorg the `runner-subagents` region of `@sdl-local/pi-tools` is a tier-illegal dependency sink, and the container's `pi` subpackage (the folded former `@sdl/objective-pi`) is the sanctioned adapter home.
+- [x] Enrich real Pi child-session stderr progress for dogfooding visibility: elapsed activity prefixes, first-line live session JSONL pointer, compact tool argument/failure previews, and completed assistant/thinking block previews.
+      Evidence: `pi-child-session-gateway` fake-process unit coverage exercises prefixed activity, pointer-first behavior, summaries/previews, block-preview de-dupe, and unchanged stderr passthrough/final-text capture.
 - [ ] Add the small real-git integration-lane test: verify → stage → commit → trailers against a temp repo with a scripted child.
 - [ ] Write the parent playbook skill: interpreting Runner Checkpoints (verified vs claimed zones), choosing `--recover` vs reset vs hand-fix, and when a checkpoint warrants a Semantic Update via `objective-update`.
 - [x] Ship the `objective-autorun` parent orchestration wrapper skill: the Claude Code entry point that drives repeated `runner-step` invocations with a judgment checkpoint between every step.
