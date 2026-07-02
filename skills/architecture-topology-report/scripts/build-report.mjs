@@ -71,31 +71,22 @@ function getAnalysis(args) {
   return JSON.parse(out);
 }
 
-// ── 2. mechanical graph assembly: topology circles (+ declared/overridden tier)
-//        and edges (+cycle). When older graph JSON lacks circle facts, fall back
-//        to package nodes so historical reports still render.
-function assembleGraph(analysis, tierOverrides = {}) {
-  const overrideEntries = Object.entries(tierOverrides || {});
-  const invalidOverrides = overrideEntries.filter(([, tier]) => !Object.hasOwn(TIERS, tier));
+// ── 2. mechanical graph assembly: two granularities over the same analysis.
+//        Package view (the default): one node per workspace package, runtime
+//        manifest edges, fill = declared tier. Circle view (the drill-down):
+//        one node per topology circle, static TS import edges, fill = enclosing
+//        package. Legacy graph JSONs without circle facts render package-only.
+//        Every node carries its own fill/stroke so the renderer never branches.
+function validateTierOverrides(tierOverrides) {
+  const invalidOverrides = Object.entries(tierOverrides || {}).filter(([, tier]) => !Object.hasOwn(TIERS, tier));
   if (invalidOverrides.length) {
     throw new Error(
       `Invalid spec.tiers override(s): ${invalidOverrides.map(([id, tier]) => `${id}=${tier}`).join(", ")}. Known tiers: ${Object.keys(TIERS).join(", ")}`,
     );
   }
+}
 
-  const circleFacts = analysis.topologyCircles ?? Object.fromEntries(
-    Object.entries(analysis.packages).map(([id, pkg]) => [id, {
-      id,
-      packageName: id,
-      component: ".",
-      tier: pkg.tier,
-      path: pkg.path,
-      loc: pkg.loc ?? 0,
-    }]),
-  );
-  const edgeGraph = analysis.circleGraph ?? analysis.graph;
-  const cycleFacts = analysis.circleCycles ?? analysis.cycles ?? [];
-  const ids = Object.keys(circleFacts).sort();
+function fanCounts(edgeGraph, ids) {
   const fanOut = new Map(ids.map((n) => [n, 0]));
   const fanIn = new Map(ids.map((n) => [n, 0]));
   for (const [src, deps] of Object.entries(edgeGraph)) {
@@ -104,53 +95,135 @@ function assembleGraph(analysis, tierOverrides = {}) {
       fanIn.set(d, (fanIn.get(d) || 0) + 1);
     }
   }
-  const scc = new Set(cycleFacts.flat());
+  return { fanOut, fanIn };
+}
+
+function assembleLinks(edgeGraph, cycleFacts) {
+  // cycle:true only when both endpoints sit in the SAME strongly-connected
+  // component — membership in two different SCCs is not a cycle edge.
+  const sccIndex = new Map();
+  cycleFacts.forEach((scc, i) => scc.forEach((id) => sccIndex.set(id, i)));
+  const links = [];
+  for (const [src, deps] of Object.entries(edgeGraph)) {
+    for (const t of deps) {
+      links.push({ source: src, target: t, cycle: sccIndex.has(src) && sccIndex.get(src) === sccIndex.get(t) });
+    }
+  }
+  return links;
+}
+
+function assemblePackageGraph(analysis, tierOverrides = {}) {
+  const ids = Object.keys(analysis.packages).sort();
+  const { fanOut, fanIn } = fanCounts(analysis.graph, ids);
+  const subpackageCounts = new Map();
+  for (const fact of Object.values(analysis.topologyCircles ?? {})) {
+    if (fact.component === ".") continue;
+    subpackageCounts.set(fact.packageName, (subpackageCounts.get(fact.packageName) || 0) + 1);
+  }
+  const warnings = [];
+  const nodes = ids.map((id) => {
+    const pkg = analysis.packages[id];
+    const declaredTier = tierOverrides[id] ?? pkg.tier;
+    if (!Object.hasOwn(TIERS, declaredTier)) warnings.push(id);
+    const tier = Object.hasOwn(TIERS, declaredTier) ? declaredTier : FALLBACK_TIER;
+    return {
+      id,
+      label: label(id),
+      loc: pkg.loc ?? 0,
+      tier,
+      path: pkg.path,
+      fanIn: fanIn.get(id) || 0,
+      fanOut: fanOut.get(id) || 0,
+      subpackageCount: subpackageCounts.get(id) || 0,
+      fill: TIERS[tier].fill,
+      stroke: TIERS[tier].stroke,
+    };
+  });
+  return { graph: { nodes, links: assembleLinks(analysis.graph, analysis.cycles ?? []) }, warnings };
+}
+
+function assembleCircleGraph(analysis, tierOverrides = {}) {
+  const circleFacts = analysis.topologyCircles;
+  const ids = Object.keys(circleFacts).sort();
+  const { fanOut, fanIn } = fanCounts(analysis.circleGraph, ids);
+  const colors = circlePackageColors(circleFacts, tierOverrides);
   const warnings = [];
   const nodes = ids.map((id) => {
     const fact = circleFacts[id];
-    const declaredTier = fact.tier;
-    const tier = tierOverrides[id] ?? tierOverrides[fact.packageName] ?? declaredTier;
-    if (!Object.hasOwn(TIERS, tier)) warnings.push(id);
+    const declaredTier = tierOverrides[id] ?? tierOverrides[fact.packageName] ?? fact.tier;
+    if (!Object.hasOwn(TIERS, declaredTier)) warnings.push(id);
     return {
       id,
       label: label(id),
       loc: fact.loc ?? 0,
-      tier: Object.hasOwn(TIERS, tier) ? tier : FALLBACK_TIER,
+      tier: Object.hasOwn(TIERS, declaredTier) ? declaredTier : FALLBACK_TIER,
       packageName: fact.packageName,
-      packageColorKey: fact.packageName,
       component: fact.component,
+      isRoot: fact.component === ".",
       path: fact.path,
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
+      fill: colors[fact.packageName].fill,
+      stroke: colors[fact.packageName].stroke,
     };
   });
-  const links = [];
-  for (const [src, deps] of Object.entries(edgeGraph)) {
-    for (const t of deps) links.push({ source: src, target: t, cycle: scc.has(src) && scc.has(t) });
-  }
-  return { graph: { nodes, links }, warnings };
+  return { graph: { nodes, links: assembleLinks(analysis.circleGraph, analysis.circleCycles ?? []) }, warnings };
 }
 
-function packageColorsForNodes(nodes) {
-  const palette = [
-    ["#dbeafe", "#2563eb"],
-    ["#dcfce7", "#16a34a"],
-    ["#fef3c7", "#d97706"],
-    ["#fce7f3", "#db2777"],
-    ["#ede9fe", "#7c3aed"],
-    ["#ccfbf1", "#0f766e"],
-    ["#fee2e2", "#dc2626"],
-    ["#e0e7ff", "#4f46e5"],
-    ["#f3e8ff", "#9333ea"],
-    ["#ecfccb", "#65a30d"],
-    ["#cffafe", "#0891b2"],
-    ["#f1f5f9", "#64748b"],
-  ];
-  const packageNames = [...new Set(nodes.map((node) => node.packageColorKey))].sort();
-  return Object.fromEntries(packageNames.map((packageName, index) => {
-    const [fill, stroke] = palette[index % palette.length];
-    return [packageName, { fill, stroke, name: packageName }];
-  }));
+// Circle-view coloring: every circle stays inside its tier's color family (so the
+// tier read matches the package view and the legend), and packages within a tier
+// get distinct shades of that family — hue swept ±22° and lightness stepped around
+// the tier base. Same-package circles share an exact shade, so they read as one
+// group instead of the recycled-palette confetti a 21-package workspace produces.
+function circlePackageColors(circleFacts, tierOverrides) {
+  const pkgTier = new Map();
+  for (const fact of Object.values(circleFacts)) {
+    if (pkgTier.has(fact.packageName)) continue;
+    const declared = tierOverrides[fact.packageName] ?? fact.tier;
+    pkgTier.set(fact.packageName, Object.hasOwn(TIERS, declared) ? declared : FALLBACK_TIER);
+  }
+  const byTier = new Map();
+  for (const [pkg, tier] of [...pkgTier.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (!byTier.has(tier)) byTier.set(tier, []);
+    byTier.get(tier).push(pkg);
+  }
+  const colors = {};
+  for (const [tier, pkgs] of byTier) {
+    pkgs.forEach((pkg, i) => {
+      const t = pkgs.length === 1 ? 0 : i / (pkgs.length - 1) - 0.5;
+      colors[pkg] = { fill: shiftColor(TIERS[tier].fill, t), stroke: shiftColor(TIERS[tier].stroke, t) };
+    });
+  }
+  return colors;
+}
+
+function shiftColor(hex, t) {
+  const { h, s, l } = hexToHsl(hex);
+  return hslToHex({
+    h: (h + t * 44 + 360) % 360,
+    s,
+    l: Math.min(0.94, Math.max(0.16, l + t * 0.16)),
+  });
+}
+
+function hexToHsl(hex) {
+  const v = hex.replace("#", "");
+  const r = parseInt(v.slice(0, 2), 16) / 255, g = parseInt(v.slice(2, 4), 16) / 255, b = parseInt(v.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  if (max === min) return { h: 0, s: 0, l };
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: h * 60, s, l };
+}
+
+function hslToHex({ h, s, l }) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
 }
 
 // ── 3. tier template: dump declared manifest tiers for review/optional override. ─
@@ -165,126 +238,195 @@ function tiersTemplate(analysis) {
 // ── 4. the baked D3 renderer (a real function; stringified into the page so
 //        Node never escapes a thing and it can never drift from this source). ─
 function GRAPH_RENDERER() {
+  // DATA carries both granularities: { package: {nodes, links}, circle: {nodes, links} | null }.
+  // The whole SVG lives inside build(viewKey) so the granularity toggle can tear it
+  // down and rebuild from the other dataset; view/layout/tier-filter state and the
+  // three toolbars live out here and persist across view switches.
   const DATA = JSON.parse(document.getElementById("graphdata").textContent);
   const TIERS = window.__TIERS__;
-  const PACKAGE_COLORS = window.__PACKAGE_COLORS__;
   const svg = d3.select("#depgraph"), el = svg.node();
   let W = el.clientWidth || 900, H = 820;
   svg.attr("viewBox", [0, 0, W, H]);
-  const maxLoc = d3.max(DATA.nodes, (d) => d.loc);
-  const r = d3.scaleSqrt().domain([0, maxLoc]).range([0, 50]); // area ∝ loc
-  DATA.nodes.forEach((n) => (n.r = Math.max(4, r(n.loc))));
-  // layered ranks: longest dependency path, cycle edges excluded so it's a DAG
-  const parents = new Map(DATA.nodes.map((n) => [n.id, []]));
-  DATA.links.forEach((l) => {
-    if (!l.cycle) {
-      const s = l.source.id || l.source, t = l.target.id || l.target;
-      parents.get(t).push(s);
-    }
-  });
-  const memo = new Map();
-  function depthOf(id) {
-    if (memo.has(id)) return memo.get(id);
-    memo.set(id, 0);
-    let d = 0;
-    for (const p of parents.get(id)) d = Math.max(d, depthOf(p) + 1);
-    memo.set(id, d);
-    return d;
-  }
-  DATA.nodes.forEach((n) => (n.depth = depthOf(n.id)));
-  const maxDepth = d3.max(DATA.nodes, (d) => d.depth) || 1;
-  // top-to-bottom: top-level consumers (depth 0, nothing depends on them) sit at the top,
-  // foundational neutral infra (max depth, everything chains down to it) at the bottom —
-  // so a normal consumer→provider edge points DOWN and a cycle back-edge points UP.
-  const layerY = (d) => 50 + (d.depth / maxDepth) * (H - 100);
-  DATA.nodes.forEach((n) => { n.y = layerY(n); n.x = W / 2 + (Math.random() - 0.5) * W * 0.6; });
-  // tier clustering stacked in DAG order: order tiers by mean dependency depth
-  // (consumers shallow → top band, neutral infra deep → bottom band) and give each
-  // tier a horizontal swimlane, so same-tier nodes cluster and clusters broadly stack.
-  const tierDepthSum = new Map(), tierCount = new Map();
-  DATA.nodes.forEach((n) => {
-    tierDepthSum.set(n.tier, (tierDepthSum.get(n.tier) || 0) + n.depth);
-    tierCount.set(n.tier, (tierCount.get(n.tier) || 0) + 1);
-  });
-  const meanDepth = (t) => tierDepthSum.get(t) / tierCount.get(t);
-  // Canonical architectural stacking (consumers → foundation): consumers and tools at
-  // the top, the SDK and gateway backends in the middle, neutral infra at the bottom.
-  // Tiers absent from this list fall back to mean-depth ordering.
-  const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"];
-  const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
-  const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
-  const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
-  const nBands = Math.max(1, presentTiers.length);
-  const bandSpan = () => (H - 120) / nBands;
-  const bandY = (tier) => 60 + (tierBand.get(tier) + 0.5) * bandSpan();
-  function anchorOf(tier) { return { x: W / 2, y: bandY(tier) }; }
-  const defs = svg.append("defs");
-  [["arrow", "#94a3b8"], ["arrow-cy", "#dc2626"]].forEach(([id, col]) => {
-    defs.append("marker").attr("id", id).attr("viewBox", "0 -5 10 10").attr("refX", 9).attr("refY", 0)
-      .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
-      .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", col);
-  });
-  const rootG = svg.append("g");
-  const linkSel = rootG.append("g").attr("fill", "none").selectAll("line").data(DATA.links).join("line")
-    .attr("stroke", (d) => d.cycle ? "#dc2626" : "#cbd5e1").attr("stroke-width", (d) => d.cycle ? 2.4 : 1)
-    .attr("marker-end", (d) => d.cycle ? "url(#arrow-cy)" : "url(#arrow)");
-  const nodeG = rootG.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor", "pointer").call(drag());
-  nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => PACKAGE_COLORS[d.packageColorKey].fill).attr("stroke", (d) => PACKAGE_COLORS[d.packageColorKey].stroke)
-    .attr("stroke-width", 1.4);
-  nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
-    .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
-    .attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 3);
-  // per-tier cluster captions, shown only in the clustered layout
-  const clusterLabels = rootG.append("g").attr("pointer-events", "none").style("display", "none");
-  const clusterText = clusterLabels.selectAll("text").data(presentTiers).join("text")
-    .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", 700)
-    .attr("fill", (t) => TIERS[t].stroke).attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 4)
-    .style("text-transform", "uppercase").style("letter-spacing", "0.08em").text((t) => TIERS[t].name);
-  const sim = d3.forceSimulation(DATA.nodes).on("tick", tick);
-  function tick() {
-    linkSel.each(function (d) {
-      const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y, dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist;
-      d.x1 = d.source.x + ux * d.source.r; d.y1 = d.source.y + uy * d.source.r;
-      d.x2 = d.target.x - ux * (d.target.r + 5); d.y2 = d.target.y - uy * (d.target.r + 5);
-    });
-    linkSel.attr("x1", (d) => d.x1).attr("y1", (d) => d.y1).attr("x2", (d) => d.x2).attr("y2", (d) => d.y2);
-    nodeG.attr("transform", (d) => `translate(${d.x},${d.y})`);
-  }
-  let mode = "layered";
-  function setLayout(m) {
-    mode = m;
-    d3.selectAll(".layout-btn").style("opacity", function () { return this.dataset.mode === m ? 1 : 0.4; })
-      .style("font-weight", function () { return this.dataset.mode === m ? 600 : 400; });
-    sim.force("link", d3.forceLink(DATA.links).id((d) => d.id)
-      .distance((d) => m === "force" ? (r(d.source.loc) + r(d.target.loc) + 46) : (m === "clustered" ? 46 : 70))
-      .strength(m === "clustered" ? 0.02 : (m === "layered" ? 0.05 : 0.35)))
-      .force("collide", d3.forceCollide().radius((d) => d.r + 7).strength(0.92));
-    if (m === "layered") sim.force("charge", d3.forceManyBody().strength((d) => -90 - d.r * 5))
-      .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY((d) => layerY(d)).strength(1.0));
-    else if (m === "clustered") sim.force("charge", d3.forceManyBody().strength((d) => -70 - d.r * 4))
-      .force("x", d3.forceX(W / 2).strength(0.12)).force("y", d3.forceY((d) => bandY(d.tier)).strength(0.94));
-    else sim.force("charge", d3.forceManyBody().strength((d) => -170 - d.r * 9))
-      .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY(H / 2).strength(0.07));
-    clusterLabels.style("display", m === "clustered" ? null : "none");
-    if (m === "clustered") clusterText.attr("x", W / 2).attr("y", (t) => Math.max(16, bandY(t) - bandSpan() * 0.5 + 13));
-    sim.alpha(0.9).restart();
-  }
-  const zoom = d3.zoom().scaleExtent([0.3, 4]).on("zoom", (e) => rootG.attr("transform", e.transform));
+  const tip = d3.select("#g-tip");
+  const VIEWS = [["package", "Packages"], ["circle", "Subpackage circles"]].filter(([k]) => DATA[k]);
+  let view = "package", mode = "layered";
+  const active = new Set(Object.keys(TIERS));
+  let sim = null, setLayout = () => {}, applyFilter = () => {};
+  const zoom = d3.zoom().scaleExtent([0.3, 4]);
   svg.call(zoom);
-  const nbr = new Map(DATA.nodes.map((n) => [n.id, new Set([n.id])]));
-  DATA.links.forEach((l) => { const s = l.source.id || l.source, t = l.target.id || l.target; nbr.get(s).add(t); nbr.get(t).add(s); });
-  const tip = d3.select("#g-tip"), active = new Set(Object.keys(TIERS));
-  const vis = (d) => active.has(d.tier), lvis = (l) => active.has(l.source.tier) && active.has(l.target.tier);
-  nodeG.on("mouseover", (e, d) => {
-    const near = nbr.get(d.id);
-    nodeG.style("opacity", (n) => vis(n) ? (near.has(n.id) ? 1 : 0.12) : 0);
-    linkSel.style("opacity", (l) => lvis(l) && (l.source.id === d.id || l.target.id === d.id) ? 1 : (lvis(l) ? 0.05 : 0))
-      .attr("stroke", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? "#dc2626" : "#475569") : (l.cycle ? "#dc2626" : "#cbd5e1"))
-      .attr("stroke-width", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? 2.6 : 1.8) : (l.cycle ? 2.4 : 1));
-    tip.html(`<div class="font-semibold">${d.id}</div><div class="text-slate-300">package <span class="font-mono">${d.packageName}</span> · tier ${TIERS[d.tier].name}</div><div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`).classed("hidden", false);
-  })
-    .on("mousemove", (e) => { const b = el.getBoundingClientRect(); tip.style("left", (e.clientX - b.left + 14) + "px").style("top", (e.clientY - b.top + 10) + "px"); })
-    .on("mouseout", () => { tip.classed("hidden", true); applyFilter(); });
+  function drag() {
+    return d3.drag()
+      .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
+  }
+  function build(viewKey) {
+    view = viewKey;
+    if (sim) sim.stop();
+    svg.selectAll("*").remove();
+    svg.call(zoom.transform, d3.zoomIdentity);
+    tip.classed("hidden", true);
+    d3.selectAll(".view-btn").style("opacity", function () { return this.dataset.view === viewKey ? 1 : 0.4; })
+      .style("font-weight", function () { return this.dataset.view === viewKey ? 600 : 400; });
+    const NODES = DATA[viewKey].nodes, LINKS = DATA[viewKey].links;
+    // ~4× the nodes need more vertical room for the tier lanes to stay readable
+    H = viewKey === "circle" ? 1600 : 820;
+    svg.attr("viewBox", [0, 0, W, H]).style("height", H + "px");
+    const maxLoc = d3.max(NODES, (d) => d.loc);
+    const r = d3.scaleSqrt().domain([0, maxLoc]).range([0, 50]); // area ∝ loc
+    NODES.forEach((n) => (n.r = Math.max(4, r(n.loc))));
+    // layered ranks: longest dependency path, cycle edges excluded so it's a DAG
+    const parents = new Map(NODES.map((n) => [n.id, []]));
+    LINKS.forEach((l) => {
+      if (!l.cycle) {
+        const s = l.source.id || l.source, t = l.target.id || l.target;
+        parents.get(t).push(s);
+      }
+    });
+    const memo = new Map();
+    function depthOf(id) {
+      if (memo.has(id)) return memo.get(id);
+      memo.set(id, 0);
+      let d = 0;
+      for (const p of parents.get(id)) d = Math.max(d, depthOf(p) + 1);
+      memo.set(id, d);
+      return d;
+    }
+    NODES.forEach((n) => (n.depth = depthOf(n.id)));
+    const maxDepth = d3.max(NODES, (d) => d.depth) || 1;
+    // top-to-bottom: top-level consumers (depth 0, nothing depends on them) sit at the top,
+    // foundational neutral infra (max depth, everything chains down to it) at the bottom —
+    // so a normal consumer→provider edge points DOWN and a cycle back-edge points UP.
+    const layerY = (d) => 50 + (d.depth / maxDepth) * (H - 100);
+    NODES.forEach((n) => { n.y = layerY(n); n.x = W / 2 + (Math.random() - 0.5) * W * 0.6; });
+    // tier clustering stacked in DAG order: order tiers by mean dependency depth
+    // (consumers shallow → top band, neutral infra deep → bottom band) and give each
+    // tier a horizontal swimlane, so same-tier nodes cluster and clusters broadly stack.
+    const tierDepthSum = new Map(), tierCount = new Map();
+    NODES.forEach((n) => {
+      tierDepthSum.set(n.tier, (tierDepthSum.get(n.tier) || 0) + n.depth);
+      tierCount.set(n.tier, (tierCount.get(n.tier) || 0) + 1);
+    });
+    const meanDepth = (t) => tierDepthSum.get(t) / tierCount.get(t);
+    // Canonical architectural stacking (consumers → foundation): consumers and tools at
+    // the top, the SDK and gateway backends in the middle, neutral infra at the bottom.
+    // Tiers absent from this list fall back to mean-depth ordering.
+    const TIER_RANK = ["local-pi-tool", "standalone-tool", "capability-pi", "host", "capability", "capability-kit", "sdk", "neutral-infra"];
+    const rankOf = (t) => { const i = TIER_RANK.indexOf(t); return i === -1 ? 100 + meanDepth(t) : i; };
+    const presentTiers = [...tierCount.keys()].sort((a, b) => rankOf(a) - rankOf(b) || meanDepth(a) - meanDepth(b));
+    const tierBand = new Map(presentTiers.map((t, i) => [t, i]));
+    const nBands = Math.max(1, presentTiers.length);
+    const bandSpan = () => (H - 120) / nBands;
+    const bandY = (tier) => 60 + (tierBand.get(tier) + 0.5) * bandSpan();
+    // clustered layout, circle view: give each package its own x slot inside the
+    // tier band so a package's circles huddle together instead of interleaving.
+    // Stored as a fraction so resize (which changes W) keeps working.
+    const slotFrac = new Map();
+    if (viewKey === "circle") {
+      presentTiers.forEach((t) => {
+        const members = NODES.filter((n) => n.tier === t);
+        const pkgs = [...new Set(members.map((n) => n.packageName))].sort();
+        members.forEach((n) => slotFrac.set(n.id, (pkgs.indexOf(n.packageName) + 0.5) / pkgs.length));
+      });
+    }
+    const clusterX = (d) => slotFrac.has(d.id) ? 80 + (W - 160) * slotFrac.get(d.id) : W / 2;
+    const defs = svg.append("defs");
+    [["arrow", "#94a3b8"], ["arrow-cy", "#dc2626"]].forEach(([id, col]) => {
+      defs.append("marker").attr("id", id).attr("viewBox", "0 -5 10 10").attr("refX", 9).attr("refY", 0)
+        .attr("markerWidth", 6).attr("markerHeight", 6).attr("orient", "auto")
+        .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", col);
+    });
+    const rootG = svg.append("g");
+    zoom.on("zoom", (e) => rootG.attr("transform", e.transform));
+    // faint tier-lane backgrounds, shown only in the clustered layout
+    const bandRectG = rootG.append("g").attr("pointer-events", "none").style("display", "none");
+    const bandRects = bandRectG.selectAll("rect").data(presentTiers).join("rect")
+      .attr("fill", (t) => TIERS[t].fill).attr("fill-opacity", 0.22).attr("rx", 8);
+    const linkSel = rootG.append("g").attr("fill", "none").selectAll("line").data(LINKS).join("line")
+      .attr("stroke", (d) => d.cycle ? "#dc2626" : "#cbd5e1").attr("stroke-width", (d) => d.cycle ? 2.4 : 1)
+      .attr("marker-end", (d) => d.cycle ? "url(#arrow-cy)" : "url(#arrow)");
+    const nodeG = rootG.append("g").selectAll("g").data(NODES).join("g").style("cursor", "pointer").call(drag());
+    // package view: fill = tier color; circle view: tier hue shaded per package
+    // (both baked into node data at assembly time, so nothing branches here).
+    // Package-root circles get a heavier ring so the package anchor stands out.
+    nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => d.fill).attr("stroke", (d) => d.stroke)
+      .attr("stroke-width", (d) => d.isRoot ? 2.6 : 1.4);
+    nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
+      .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
+      .attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 3);
+    // per-tier cluster captions, shown only in the clustered layout
+    const clusterLabels = rootG.append("g").attr("pointer-events", "none").style("display", "none");
+    const clusterText = clusterLabels.selectAll("text").data(presentTiers).join("text")
+      .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", 700)
+      .attr("fill", (t) => TIERS[t].stroke).attr("paint-order", "stroke").attr("stroke", "#f8fafc").attr("stroke-width", 4)
+      .style("text-transform", "uppercase").style("letter-spacing", "0.08em").text((t) => TIERS[t].name);
+    sim = d3.forceSimulation(NODES).on("tick", tick);
+    function tick() {
+      linkSel.each(function (d) {
+        const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y, dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist;
+        d.x1 = d.source.x + ux * d.source.r; d.y1 = d.source.y + uy * d.source.r;
+        d.x2 = d.target.x - ux * (d.target.r + 5); d.y2 = d.target.y - uy * (d.target.r + 5);
+      });
+      linkSel.attr("x1", (d) => d.x1).attr("y1", (d) => d.y1).attr("x2", (d) => d.x2).attr("y2", (d) => d.y2);
+      nodeG.attr("transform", (d) => `translate(${d.x},${d.y})`);
+    }
+    setLayout = function (m) {
+      mode = m;
+      d3.selectAll(".layout-btn").style("opacity", function () { return this.dataset.mode === m ? 1 : 0.4; })
+        .style("font-weight", function () { return this.dataset.mode === m ? 600 : 400; });
+      sim.force("link", d3.forceLink(LINKS).id((d) => d.id)
+        .distance((d) => m === "force" ? (r(d.source.loc) + r(d.target.loc) + 46) : (m === "clustered" ? 46 : 70))
+        .strength(m === "clustered" ? 0.02 : (m === "layered" ? 0.05 : 0.35)))
+        .force("collide", d3.forceCollide().radius((d) => d.r + 7).strength(0.92));
+      if (m === "layered") sim.force("charge", d3.forceManyBody().strength((d) => -90 - d.r * 5))
+        .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY((d) => layerY(d)).strength(1.0));
+      else if (m === "clustered") sim.force("charge", d3.forceManyBody().strength((d) => -70 - d.r * 4))
+        .force("x", d3.forceX((d) => clusterX(d)).strength(viewKey === "circle" ? 0.3 : 0.12))
+        .force("y", d3.forceY((d) => bandY(d.tier)).strength(0.94));
+      else sim.force("charge", d3.forceManyBody().strength((d) => -170 - d.r * 9))
+        .force("x", d3.forceX(W / 2).strength(0.05)).force("y", d3.forceY(H / 2).strength(0.07));
+      clusterLabels.style("display", m === "clustered" ? null : "none");
+      bandRectG.style("display", m === "clustered" ? null : "none");
+      if (m === "clustered") {
+        clusterText.attr("x", W / 2).attr("y", (t) => Math.max(16, bandY(t) - bandSpan() * 0.5 + 13));
+        bandRects.attr("x", 8).attr("width", Math.max(0, W - 16))
+          .attr("y", (t) => bandY(t) - bandSpan() * 0.5 + 4).attr("height", Math.max(0, bandSpan() - 8));
+      }
+      sim.alpha(0.9).restart();
+    };
+    const nbr = new Map(NODES.map((n) => [n.id, new Set([n.id])]));
+    LINKS.forEach((l) => { const s = l.source.id || l.source, t = l.target.id || l.target; nbr.get(s).add(t); nbr.get(t).add(s); });
+    const vis = (d) => active.has(d.tier), lvis = (l) => active.has(l.source.tier) && active.has(l.target.tier);
+    const tipHtml = (d) => {
+      const sub = d.subpackageCount > 0 ? ` · ${d.subpackageCount} subpackage${d.subpackageCount === 1 ? "" : "s"}` : "";
+      const who = viewKey === "package"
+        ? `<div class="text-slate-300">tier ${TIERS[d.tier].name}${sub}</div>`
+        : `<div class="text-slate-300">package <span class="font-mono">${d.packageName}</span> · tier ${TIERS[d.tier].name}</div>`;
+      return `<div class="font-semibold">${d.id}</div>${who}<div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`;
+    };
+    nodeG.on("mouseover", (e, d) => {
+      const near = nbr.get(d.id);
+      nodeG.style("opacity", (n) => vis(n) ? (near.has(n.id) ? 1 : 0.12) : 0);
+      linkSel.style("opacity", (l) => lvis(l) && (l.source.id === d.id || l.target.id === d.id) ? 1 : (lvis(l) ? 0.05 : 0))
+        .attr("stroke", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? "#dc2626" : "#475569") : (l.cycle ? "#dc2626" : "#cbd5e1"))
+        .attr("stroke-width", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? 2.6 : 1.8) : (l.cycle ? 2.4 : 1));
+      tip.html(tipHtml(d)).classed("hidden", false);
+    })
+      .on("mousemove", (e) => { const b = el.getBoundingClientRect(); tip.style("left", (e.clientX - b.left + 14) + "px").style("top", (e.clientY - b.top + 10) + "px"); })
+      .on("mouseout", () => { tip.classed("hidden", true); applyFilter(); });
+    applyFilter = function () {
+      nodeG.style("opacity", (d) => vis(d) ? 1 : 0.06).style("pointer-events", (d) => vis(d) ? "all" : "none");
+      linkSel.style("opacity", (l) => lvis(l) ? (l.cycle ? 0.95 : 0.5) : 0.02).attr("stroke", (l) => l.cycle ? "#dc2626" : "#cbd5e1").attr("stroke-width", (l) => l.cycle ? 2.4 : 1);
+    };
+    setLayout(mode);
+    applyFilter();
+  }
+  if (VIEWS.length > 1) {
+    const vt = d3.select("#view-toolbar");
+    vt.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("view:");
+    VIEWS.forEach(([k, lab]) =>
+      vt.append("button").attr("class", "view-btn rounded-full border border-slate-300 px-2.5 py-0.5").attr("data-view", k).text(lab).on("click", () => { if (k !== view) build(k); }));
+  }
   const lt = d3.select("#layout-toolbar");
   lt.append("span").attr("class", "uppercase tracking-wider text-slate-400 mr-1").text("layout:");
   [["layered", "Layered (DAG)"], ["clustered", "Clustered (tiers)"], ["force", "Force"]].forEach(([m, lab]) =>
@@ -297,18 +439,8 @@ function GRAPH_RENDERER() {
     b.append("span").text(v.name);
     b.on("click", function () { active.has(k) ? active.delete(k) : active.add(k); d3.select(this).style("opacity", active.has(k) ? 1 : 0.35); applyFilter(); });
   });
-  function applyFilter() {
-    nodeG.style("opacity", (d) => vis(d) ? 1 : 0.06).style("pointer-events", (d) => vis(d) ? "all" : "none");
-    linkSel.style("opacity", (l) => lvis(l) ? (l.cycle ? 0.95 : 0.5) : 0.02).attr("stroke", (l) => l.cycle ? "#dc2626" : "#cbd5e1").attr("stroke-width", (l) => l.cycle ? 2.4 : 1);
-  }
-  function drag() {
-    return d3.drag()
-      .on("start", (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-      .on("drag", (e, d) => { d.fx = e.x; d.fy = e.y; })
-      .on("end", (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; });
-  }
   window.addEventListener("resize", () => { W = el.clientWidth || W; svg.attr("viewBox", [0, 0, W, H]); setLayout(mode); });
-  setLayout("layered"); applyFilter();
+  build("package");
 }
 
 // ── 5. section renderers (editorial markup; content comes from the spec) ─────
@@ -334,8 +466,8 @@ function renderHeader(s, analysis) {
       <span class="uppercase tracking-wider text-slate-400">legend</span>
       ${Object.keys(TIERS).map(legendSwatch).join("\n      ")}
       <span class="inline-flex items-center gap-1.5"><span class="inline-block w-5 h-0.5" style="background:#dc2626"></span>cycle edge</span>
-      <span class="inline-flex items-center gap-1.5 text-slate-400">node area ∝ circle LOC</span>
-      <span class="inline-flex items-center gap-1.5 text-slate-400">node fill = enclosing package</span>
+      <span class="inline-flex items-center gap-1.5 text-slate-400">node area ∝ LOC</span>
+      <span class="inline-flex items-center gap-1.5 text-slate-400">package view: fill = tier · circle view: tier hue, shaded per package</span>
     </div>
   </header>`;
 }
@@ -383,9 +515,10 @@ function renderGraphSection(s, graphData) {
   return html`
   <section id="actual-graph" class="space-y-4">
     <h2 class="text-2xl font-semibold">The graph as it stands</h2>
-    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "Every topology-circle edge, live. Node <strong>area ∝ circle LOC</strong>; node fill identifies the enclosing package; tier lanes and filters remain architectural layer semantics. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
+    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "The package dependency graph, live — every runtime edge between workspace packages, nodes colored by tier. Toggle the view to <em>subpackage circles</em> to drill into source components (static TypeScript import edges; nodes keep their tier's hue, shaded per enclosing package, with a heavier ring on each package-root circle). Node <strong>area ∝ LOC</strong>; tier lanes and filters remain architectural layer semantics. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
     <script type="application/json" id="graphdata">${JSON.stringify(graphData)}</script>
     <div class="flex flex-wrap items-center gap-3 mb-2">
+      <div id="view-toolbar" class="flex items-center gap-1 text-xs"></div>
       <div id="layout-toolbar" class="flex items-center gap-1 text-xs"></div>
       <div id="tier-toolbar" class="flex flex-wrap items-center gap-2 text-xs"></div>
     </div>
@@ -508,8 +641,8 @@ function renderKeystone(s) {
 }
 
 // ── 6. assemble the page ────────────────────────────────────────────────────
-function renderHtml(s, analysis, graphData, packageColors) {
-  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\nwindow.__PACKAGE_COLORS__=${JSON.stringify(packageColors)};\n(${GRAPH_RENDERER.toString()})();`;
+function renderHtml(s, analysis, graphData) {
+  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\n(${GRAPH_RENDERER.toString()})();`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -572,10 +705,16 @@ async function main() {
       : (await import(pathToFileURL(specPath).href)).default;
   }
 
-  const { graph, warnings } = assembleGraph(analysis, spec.tiers || {});
-  const packageColors = packageColorsForNodes(graph.nodes);
+  const tierOverrides = spec.tiers || {};
+  validateTierOverrides(tierOverrides);
+  const packageView = assemblePackageGraph(analysis, tierOverrides);
+  // Older graph JSONs lack circle facts; they render the package view only
+  // (the report omits the granularity toggle when `circle` is null).
+  const circleView = analysis.topologyCircles ? assembleCircleGraph(analysis, tierOverrides) : null;
+  const graphData = { package: packageView.graph, circle: circleView?.graph ?? null };
+  const warnings = [...new Set([...packageView.warnings, ...(circleView?.warnings ?? [])])];
   if (warnings.length) {
-    console.error(`warning: ${warnings.length} package(s) had no known declared/overridden tier (defaulted to "${FALLBACK_TIER}"):`);
+    console.error(`warning: ${warnings.length} package(s)/circle(s) had no known declared/overridden tier (defaulted to "${FALLBACK_TIER}"):`);
     console.error("  " + warnings.join(", "));
   }
 
@@ -583,7 +722,7 @@ async function main() {
     process.env.TMPDIR || tmpdir() || "/tmp",
     `architecture-topology-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.html`,
   );
-  writeFileSync(out, renderHtml(spec, analysis, graph, packageColors));
+  writeFileSync(out, renderHtml(spec, analysis, graphData));
   console.log(out);
 
   if (args.includes("--open")) {
