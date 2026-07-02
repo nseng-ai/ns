@@ -4,15 +4,6 @@ export {
 	SdlStdinCapableCommandExecApi,
 } from "./command-runner.ts";
 export {
-	createSdlCliExecAdapter,
-	createSdlGitGateway,
-	execSdlCommand,
-	execSdlGit,
-	readSdlGitPorcelainStatus,
-	type ExecSdlCommandOptions,
-	type SdlGitPorcelainStatusResult,
-} from "../git/index.ts";
-export {
 	commandFailure,
 	err,
 	formatCommandFailureConciseCause,

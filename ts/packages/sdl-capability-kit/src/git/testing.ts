@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { optionalEntry } from "@sdl/core/primitives";
 
-export * from "../kit/git-testing.ts";
+export * from "./git-testing.ts";
 
 export interface TempGitRepo {
 	readonly path: string;
