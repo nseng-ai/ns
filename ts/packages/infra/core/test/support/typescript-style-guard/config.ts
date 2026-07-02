@@ -18,6 +18,7 @@ export const BAN_CAPABILITY_PRIVATE_PEER_IMPORT = "SDL_TS_BAN_CAPABILITY_PRIVATE
 export const BAN_SNAKE_CASE_CLI_MACHINE_VALUE = "SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE";
 export const BAN_RAW_PRODUCTION_TIMERS = "SDL_TS_BAN_RAW_PRODUCTION_TIMERS";
 export const BAN_EXTENSION_DEPENDENCY_CYCLE = "SDL_TS_BAN_EXTENSION_DEPENDENCY_CYCLE";
+export const BAN_LOCAL_SPACE_ADMISSION = "SDL_TS_LOCAL_SPACE_ADMISSION";
 export const BAN_PACKAGE_TIER_LAYERING = "SDL_TS_PACKAGE_TIER_LAYERING";
 export const BAN_TOPOLOGY_CIRCLE_LAYERING = "SDL_TS_TOPOLOGY_CIRCLE_LAYERING";
 export const BAN_SUBPACKAGE_DECLARATION_CONFORMANCE = "SDL_TS_SUBPACKAGE_DECLARATION_CONFORMANCE";
@@ -77,12 +78,8 @@ export const allowedPackageTierDebtEdges = new Map<string, string>([
 		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
 	],
 	[
-		"@local-pi-tools/pr-feedback-watch\0@sdl/capability-kit",
-		"GitHub gateway fold debt: pr-feedback-watch now consumes Capability Kit until the local Pi tools container conversion retires the standalone local package.",
-	],
-	[
-		"@local-pi-tools/thermo-council\0@sdl/capability-kit",
-		"Text-repair helper reuse debt: thermo-council reuses the canonical Capability Kit text-repair loop until local-pi-tool tier policy is reconciled with shared helper placement.",
+		"@sdl-local/pi-tools\0@sdl/capability-kit",
+		"Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
 	],
 ]);
 

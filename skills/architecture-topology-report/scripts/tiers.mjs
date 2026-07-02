@@ -36,4 +36,8 @@ export const TIER_RANK = [
 
 // Short display name for a package id (drops the well-known scope prefixes).
 export const label = (id) =>
-  id.replace(/^@sdl\//, "").replace(/^@local-pi-tools\//, "lpt:").replace(/^sdl-/, "");
+  id
+    .replace(/^@sdl-local\/pi-tools\//, "lpt:")
+    .replace(/^@sdl-local\//, "local:")
+    .replace(/^@sdl\//, "")
+    .replace(/^sdl-/, "");

@@ -1,3 +1,3 @@
 import { importTypeScriptWorkspaceDefault } from "../lib/workspace-packages.ts";
 
-export default await importTypeScriptWorkspaceDefault("@local-pi-tools/grill/extension");
+export default await importTypeScriptWorkspaceDefault("@sdl-local/pi-tools/grill/extension");

@@ -12,6 +12,7 @@ import {
 	BAN_EMPTY_INTERFACE_EXTENDS,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
+	BAN_LOCAL_SPACE_ADMISSION,
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
@@ -24,6 +25,7 @@ import {
 } from "../support/typescript-style-guard/config.ts";
 import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
 import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
+import { collectLocalSpaceAdmissionViolations } from "../support/typescript-style-guard/local-space.ts";
 import {
 	loadPackageMetadata,
 	type PackageManifest,
@@ -431,10 +433,99 @@ describe("TypeScript style guard documentation references", () => {
 	});
 });
 
+describe("TypeScript style guard local-space admission rules", () => {
+	const cases: readonly LocalSpaceAdmissionCase[] = [
+		{
+			name: "rejects packages under local with a non-local scope",
+			packages: [
+				localSpaceSyntheticPackage({
+					name: "@sdl/grill",
+					packageDir: "ts/packages/local/grill",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "must use the @sdl-local/ scope",
+		},
+		{
+			name: "rejects sdl-local packages outside local",
+			packages: [
+				localSpaceSyntheticPackage({
+					name: "@sdl-local/pi-tools",
+					packageDir: "ts/packages/misplaced/pi-tools",
+					privateValue: true,
+				}),
+			],
+			expectedTextIncludes: "must live under ts/packages/local",
+		},
+		{
+			name: "rejects non-private sdl-local packages",
+			packages: [
+				localSpaceSyntheticPackage({
+					name: "@sdl-local/pi-tools",
+					packageDir: "ts/packages/local/pi-tools",
+					privateValue: false,
+				}),
+			],
+			expectedTextIncludes: "must be private",
+		},
+		{
+			name: "rejects outside workspace dependents on sdl-local packages",
+			packages: [
+				localSpaceSyntheticPackage({
+					name: "@sdl-local/pi-tools",
+					packageDir: "ts/packages/local/pi-tools",
+					privateValue: true,
+				}),
+				localSpaceSyntheticPackage({
+					name: "@sdl/ccc",
+					packageDir: "ts/packages/capabilities/ccc",
+					privateValue: true,
+					dependencies: { "@sdl-local/pi-tools": "workspace:*" },
+				}),
+			],
+			expectedTextIncludes: "must not depend on local-space package @sdl-local/pi-tools",
+		},
+		{
+			name: "allows private sdl-local packages under local",
+			packages: [
+				localSpaceSyntheticPackage({
+					name: "@sdl-local/pi-tools",
+					packageDir: "ts/packages/local/pi-tools",
+					privateValue: true,
+				}),
+			],
+			expectedViolation: false,
+		},
+	];
+
+	test.each(cases)("$name", (testCase) => {
+		const violations = collectLocalSpaceAdmissionViolations(
+			buildLocalSpaceSyntheticMetadata(testCase.packages),
+		);
+		const actualHasViolation = violations.some(
+			(violation) => violation.rule === BAN_LOCAL_SPACE_ADMISSION,
+		);
+
+		expect(actualHasViolation).toBe(testCase.expectedViolation ?? true);
+		const expectedTextIncludes = testCase.expectedTextIncludes;
+		if (expectedTextIncludes !== undefined) {
+			expect(violations.some((violation) => violation.text.includes(expectedTextIncludes))).toBe(
+				true,
+			);
+		}
+	});
+
+	test("real repo package manifests satisfy local-space admission policy", () => {
+		const violations = collectLocalSpaceAdmissionViolations(loadPackageMetadata(REPO_ROOT));
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
 describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
-		"@local-pi-tools/grill",
-		"@local-pi-tools/runner-subagents",
+		"@sdl-local/pi-tools/grill",
+		"@sdl-local/pi-tools/runner-subagents",
 		"@sdl/areg",
 		"@sdl/ccc",
 		"@sdl/capability-kit",
@@ -446,8 +537,8 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@sdl/slot",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
-		["@local-pi-tools/grill", "local-pi-tool"],
-		["@local-pi-tools/runner-subagents", "local-pi-tool"],
+		["@sdl-local/pi-tools/grill", "local-pi-tool"],
+		["@sdl-local/pi-tools/runner-subagents", "local-pi-tool"],
 		["@sdl/areg", "standalone-tool"],
 		["@sdl/ccc", "capability"],
 		["@sdl/capability-kit", "capability-kit"],
@@ -511,22 +602,22 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "local pi tool to host is allowed",
-			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/pi" }],
+			edges: [{ from: "@sdl-local/pi-tools/grill", to: "@sdl/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "local pi tool to local pi tool is allowed",
-			edges: [{ from: "@local-pi-tools/grill", to: "@local-pi-tools/runner-subagents" }],
+			edges: [{ from: "@sdl-local/pi-tools/grill", to: "@sdl-local/pi-tools/runner-subagents" }],
 			expectedViolation: false,
 		},
 		{
 			name: "local pi tool to standalone tool is rejected",
-			edges: [{ from: "@local-pi-tools/grill", to: "@sdl/areg" }],
+			edges: [{ from: "@sdl-local/pi-tools/grill", to: "@sdl/areg" }],
 			expectedTextIncludes: "local-pi-tool-must-not-depend-on-standalone-tool",
 		},
 		{
 			name: "standalone tool to local pi tool is rejected",
-			edges: [{ from: "@sdl/areg", to: "@local-pi-tools/grill" }],
+			edges: [{ from: "@sdl/areg", to: "@sdl-local/pi-tools/grill" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-local-pi-tool",
 		},
 		{
@@ -896,6 +987,20 @@ interface TierLayeringCase {
 
 type SyntheticTier = PackageTier | string | undefined;
 
+interface LocalSpaceAdmissionCase {
+	readonly name: string;
+	readonly packages: readonly LocalSpaceSyntheticPackage[];
+	readonly expectedViolation?: boolean;
+	readonly expectedTextIncludes?: string;
+}
+
+interface LocalSpaceSyntheticPackage {
+	readonly name: string;
+	readonly packageDir: string;
+	readonly privateValue: boolean;
+	readonly dependencies?: Record<string, string>;
+}
+
 interface DependencyGraphCase {
 	readonly name: string;
 	readonly edges?: readonly SyntheticEdge[];
@@ -962,6 +1067,42 @@ function buildSyntheticSubpackageMetadata(
 			},
 		],
 	]);
+}
+
+function buildLocalSpaceSyntheticMetadata(
+	packages: readonly LocalSpaceSyntheticPackage[],
+): Map<string, PackageMetadata> {
+	return new Map(
+		packages.map((syntheticPackage) => {
+			const manifest: PackageManifest = {
+				name: syntheticPackage.name,
+				private: syntheticPackage.privateValue,
+				dependencies: syntheticPackage.dependencies ?? {},
+				sdl: { tier: "local-pi-tool" },
+			};
+			return [
+				syntheticPackage.name,
+				{
+					name: syntheticPackage.name,
+					packageDir: syntheticPackage.packageDir,
+					packageJsonPath: `${syntheticPackage.packageDir}/package.json`,
+					manifest,
+					manifestContent: JSON.stringify(manifest, null, 2),
+					sdlTier: "local-pi-tool",
+					rawSdlTier: "local-pi-tool",
+					sdlSubpackages: [],
+					sdlRemainder: false,
+					exportSubpaths: new Set(["."]),
+				},
+			];
+		}),
+	);
+}
+
+function localSpaceSyntheticPackage(
+	options: LocalSpaceSyntheticPackage,
+): LocalSpaceSyntheticPackage {
+	return options;
 }
 
 function buildSyntheticPackageMetadata(

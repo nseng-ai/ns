@@ -185,6 +185,7 @@ function isFirstPartyModuleSpecifier(specifier: string): boolean {
 		specifier.startsWith("/") ||
 		specifier.startsWith("@/") ||
 		specifier.startsWith("@sdl/") ||
+		specifier.startsWith("@sdl-local/") ||
 		specifier === "sdlcc" ||
 		specifier.startsWith("sdlcc/")
 	);

@@ -6,6 +6,7 @@ import { findPackageJsonFiles } from "./file-discovery.ts";
 
 export interface PackageManifest {
 	readonly name: string;
+	readonly private?: unknown;
 	readonly exports?: unknown;
 	readonly dependencies?: unknown;
 	readonly optionalDependencies?: unknown;
@@ -95,11 +96,9 @@ export function packageNameForPath(
 
 export function packageNameForSpecifier(specifier: string): string | undefined {
 	if (specifier === "sdl-flow" || specifier.startsWith("sdl-flow/")) return "sdl-flow";
-	if (!specifier.startsWith("@sdl/")) return undefined;
-	const parts = specifier.split("/");
-	const scope = parts[0];
-	const name = parts[1];
+	const [scope, name] = specifier.split("/");
 	if (scope === undefined || name === undefined) return undefined;
+	if (scope !== "@sdl" && scope !== "@sdl-local") return undefined;
 	return `${scope}/${name}`;
 }
 

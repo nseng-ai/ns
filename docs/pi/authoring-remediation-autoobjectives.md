@@ -133,7 +133,7 @@ that turns `roadmap.md` into a task database, which is an explicit anti-goal.
   default unit because it's how the smells were found and how ownership is
   easiest to reason about. Allow a large cluster to split into sub-package
   sub-rows at pickup time (the seed roadmap flags `infra`, `capabilities`, and
-  `local-pi-tools` for this, and calls out the big god-file findings that each
+  `local/pi-tools` for this, and calls out the big god-file findings that each
   deserve their own slice).
 - **Flag cross-Objective overlap in the row itself.** Where a cluster sits near
   another active Objective's open rows (the seed run's `infra`/`capabilities`

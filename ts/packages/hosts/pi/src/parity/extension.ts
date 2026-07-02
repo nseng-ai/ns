@@ -57,12 +57,12 @@ export interface BasePiSurfaceParity {
 	 */
 	readonly sourcePackage:
 		| "@sdl/pi"
-		| "@local-pi-tools/backing-skill-commands"
-		| "@local-pi-tools/context-profiler"
-		| "@local-pi-tools/grill"
-		| "@local-pi-tools/pr-feedback-watch"
-		| "@local-pi-tools/pr-previews"
-		| "@local-pi-tools/thermo-council"
+		| "@sdl-local/pi-tools/backing-skill-commands"
+		| "@sdl-local/pi-tools/context-profiler"
+		| "@sdl-local/pi-tools/grill"
+		| "@sdl-local/pi-tools/pr-feedback-watch"
+		| "@sdl-local/pi-tools/pr-previews"
+		| "@sdl-local/pi-tools/thermo-council"
 		| "@sdl/branch-context/pi"
 		| "sdl-flow/pi"
 		| "@sdl/handoff/pi"

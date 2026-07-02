@@ -20,7 +20,7 @@
 		"test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
 	},
 	"devDependencies": {
-		"@local-pi-tools/pr-feedback-watch": "workspace:*",
+		"@sdl-local/pi-tools": "workspace:*",
 		"@sdl/address": "workspace:*",
 		"@sdl/branch-context": "workspace:*",
 		"@sdl/brmem": "workspace:*",

@@ -78,9 +78,9 @@ importers:
         specifier: workspace:*
         version: link:packages/infra/core
     devDependencies:
-      '@local-pi-tools/pr-feedback-watch':
+      '@sdl-local/pi-tools':
         specifier: workspace:*
-        version: link:packages/local-pi-tools/pr-feedback-watch
+        version: link:packages/local/pi-tools
       '@sdl/address':
         specifier: workspace:*
         version: link:packages/capabilities/address
@@ -515,13 +515,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
-  packages/local-pi-tools/backing-skill-commands:
-    dependencies:
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-
-  packages/local-pi-tools/context-profiler:
+  packages/local/pi-tools:
     dependencies:
       '@earendil-works/pi-ai':
         specifier: 'catalog:'
@@ -532,75 +526,6 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.79.1
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/local-pi-tools/grill:
-    dependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.79.1(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 0.79.1
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-
-  packages/local-pi-tools/pr-feedback-watch:
-    dependencies:
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../../sdl-capability-kit
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/local-pi-tools/pr-previews:
-    dependencies:
-      '@earendil-works/pi-coding-agent':
-        specifier: 'catalog:'
-        version: 0.79.1(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 0.79.1
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/local-pi-tools/runner-subagents:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/local-pi-tools/thermo-council:
-    dependencies:
-      '@local-pi-tools/runner-subagents':
-        specifier: workspace:*
-        version: link:../runner-subagents
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit

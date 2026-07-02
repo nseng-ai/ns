@@ -62,12 +62,8 @@ const ALLOWED_DEBT_EDGES = new Map([
     "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
   ],
   [
-    "@local-pi-tools/pr-feedback-watch\0@sdl/capability-kit",
-    "GitHub gateway fold debt: pr-feedback-watch now consumes Capability Kit until the local Pi tools container conversion retires the standalone local package.",
-  ],
-  [
-    "@local-pi-tools/thermo-council\0@sdl/capability-kit",
-    "Text-repair helper reuse debt: thermo-council reuses the canonical Capability Kit text-repair loop until local-pi-tool tier policy is reconciled with shared helper placement.",
+    "@sdl-local/pi-tools\0@sdl/capability-kit",
+    "Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
   ],
 ]);
 

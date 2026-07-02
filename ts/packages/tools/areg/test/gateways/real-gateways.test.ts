@@ -158,7 +158,7 @@ describe("real areg gateways", () => {
 			});
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
 			await mkdir(
-				path.join(project, "ts", "packages", "local-pi-tools", "backing-skill-commands", "src"),
+				path.join(project, "ts", "packages", "local", "pi-tools", "src", "backing-skill-commands"),
 				{
 					recursive: true,
 				},
@@ -190,9 +190,10 @@ describe("real areg gateways", () => {
 					project,
 					"ts",
 					"packages",
-					"local-pi-tools",
-					"backing-skill-commands",
+					"local",
+					"pi-tools",
 					"src",
+					"backing-skill-commands",
 					"extension.ts",
 				),
 				"export {};\n",

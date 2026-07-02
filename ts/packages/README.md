@@ -15,7 +15,7 @@ This tree is part architecture map and part migration task list.
 - `capabilities/` contains first-party capabilities that are already in the category directory, including standalone capabilities and converted/certified capability extensions.
 - `hosts/` contains presentation/runtime hosts such as Pi and `sdlcc`.
 - `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.
-- `local-pi-tools/` contains private, project-local Pi-native tools. They are not SDL capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.
+- `local/` contains private, project-local Pi-native tools under the reserved `@sdl-local/*` scope. They are not SDL capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.
 - `tools/` contains standalone tools that are off the capability-extension completion axis.
 
 Package names, public import specifiers, binary names, and workspace dependency names are independent of this filesystem taxonomy and should remain stable unless an explicit package-rename plan says otherwise.

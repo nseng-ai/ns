@@ -6,14 +6,14 @@ import * as path from "node:path";
 // Project-local Pi adapters are imported directly by Node from .pi/extensions, where workspace
 // package exports are not resolvable without the ts workspace's node_modules ancestry. Match the
 // rest of .pi/extensions and reach into the ts workspace by relative path instead of bare specifier.
-import { compactPreviewText } from "../../ts/packages/local-pi-tools/runner-subagents/src/activity.ts";
+import { compactPreviewText } from "../../ts/packages/local/pi-tools/src/runner-subagents/activity.ts";
 import {
 	createRunnerSubagentJsonEventParser,
 	formatElapsed,
 	runnerSubagentPrimaryActivityPreview,
 	type RunnerSubagentJsonEventParserSnapshot,
-} from "../../ts/packages/local-pi-tools/runner-subagents/src/index.ts";
-import { resolvePiInvocation } from "../../ts/packages/local-pi-tools/runner-subagents/src/subagent-process.ts";
+} from "../../ts/packages/local/pi-tools/src/runner-subagents/index.ts";
+import { resolvePiInvocation } from "../../ts/packages/local/pi-tools/src/runner-subagents/subagent-process.ts";
 import { optionalEntry } from "../../ts/packages/infra/core/src/primitives/primitives.ts";
 import { describeBranchContextGraphiteCreationSteps } from "../../ts/packages/capabilities/branch-context/src/core/api.ts";
 import {

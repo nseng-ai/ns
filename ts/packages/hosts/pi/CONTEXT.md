@@ -21,7 +21,7 @@ A tested host-resident implementation area under `ts/packages/hosts/pi/src/<doma
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Local Pi-tool package**:
-A private workspace package under `ts/packages/local-pi-tools/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@local-pi-tools/context-profiler`, `@local-pi-tools/grill`, `@local-pi-tools/thermo-council`, `@local-pi-tools/backing-skill-commands`, `@local-pi-tools/pr-previews`, or the dispatch-focused `@local-pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
+A private workspace package under `ts/packages/local/pi-tools/src/<tool>/` for a Pi-native standalone tool extracted from the host, such as `@sdl-local/pi-tools/context-profiler`, `@sdl-local/pi-tools/grill`, `@sdl-local/pi-tools/thermo-council`, `@sdl-local/pi-tools/backing-skill-commands`, `@sdl-local/pi-tools/pr-previews`, or the dispatch-focused `@sdl-local/pi-tools/runner-subagents`. It owns its source, tests, and tool-specific parity metadata; may depend on neutral `@sdl/pi/...` helper/runtime subpaths; and is registered by a project-local discovery adapter without any `@sdl/pi` import of the tool package.
 *Avoid*: Capability package, host subdirectory, neutral helper subpath, host dependency.
 
 **Neutral Pi helper subpath**:
@@ -53,7 +53,7 @@ A host-resident Pi command surface whose durable lifecycle, selection, storage, 
 *Avoid*: Pi-tool package, duplicate domain owner, host-owned storage semantics, capability migration shortcut.
 
 **PR feedback Pi presentation residue**:
-The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@local-pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`sdl address exec ...` / `@sdl/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
+The accepted remaining host-resident Pi presentation/session behavior around PR feedback workflows: editor prefill, stack-prompt assembly, live watch state, dirty-tree/idle gating, and prompt injection. PR feedback/check modal previews now live in the Local Pi-tool package `@sdl-local/pi-tools/pr-previews`; portable download/check/thread primitives belong to the Address Capability (`sdl address exec ...` / `@sdl/address/api`); future reusable watch/fingerprint seams should move through a focused Address Capability/API follow-up.
 *Avoid*: Pi-native tool candidate, PR feedback domain owner, Address Capability API owner.
 
 **Immediate command acknowledgement**:
@@ -65,7 +65,7 @@ The parity-review convention that Pi model-visible tools are host-native bridges
 *Avoid*: custom-tool parity row, hidden command surface, tool as workflow owner.
 
 **Runner subagent**:
-A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool and its shared runtime, process, JSON-event, and presentation helpers live in `@local-pi-tools/runner-subagents`; the package still consumes neutral `@sdl/pi/...` runtime/tool helper subpaths where it needs Pi host types or agent-definition loading.
+A fresh Pi subprocess launched by a parent extension with an isolated conversation and explicit return mode. The model-visible dispatch tool and its shared runtime, process, JSON-event, and presentation helpers live in `@sdl-local/pi-tools/runner-subagents`; the package still consumes neutral `@sdl/pi/...` runtime/tool helper subpaths where it needs Pi host types or agent-definition loading.
 *Avoid*: queued slash command, child thread, transcript scrape, forcing `@sdl/pi` to import the extracted dispatch package.
 
 **Terminal helper surface**:
