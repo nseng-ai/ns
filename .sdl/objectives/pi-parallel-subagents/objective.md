@@ -92,9 +92,13 @@ Risks:
 
 ## Open Questions
 
-- Adopt, fork, or build — the spike's outcome (roadmap item 1).
-- If built: where the engineered implementation lives (`ts/packages/local/pi-tools`
-  alongside runner-subagents vs `ts/packages/hosts/pi`) and its promotion path.
+- ~~Adopt, fork, or build — the spike's outcome (roadmap item 1).~~ Resolved
+  2026-07-02: **build** on the runner-subagent substrate
+  (`updates/2026-07-02-adopt-vs-build-decision.md`).
+- ~~If built: where the engineered implementation lives (`ts/packages/local/pi-tools`
+  alongside runner-subagents vs `ts/packages/hosts/pi`) and its promotion path.~~
+  Resolved 2026-07-02: `ts/packages/local/pi-tools` alongside runner-subagents, as
+  engineered platform code from the start (same update).
 - Whether the in-process fork-runtime adapter is worth the Pi SDK coupling, and what the
   runtime seam looks like (Gateway-style interface with subprocess + in-process
   adapters).

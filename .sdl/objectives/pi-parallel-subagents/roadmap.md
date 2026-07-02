@@ -2,13 +2,16 @@
 
 ## Work
 
-- [ ] Adopt-vs-build decision spike: evaluate tintinweb/pi-subagents,
+- [x] Adopt-vs-build decision spike: evaluate tintinweb/pi-subagents,
       nicobailon/pi-subagents, gotgenes/pi-packages, mjakl/pi-subagent, and Pi's
       first-party example (checkouts under `~/code/githubs/`; re-pull heads first)
       against the priorities — maintenance burden, prompt/UX control, and ability to
       subsume `dispatchRunnerSubagent` + thermo-council. Adopt-as-is, fork-and-own, and
       build are all admissible outcomes.
       Evidence: decision recorded as an objective update with per-candidate rationale.
+      Outcome: **build** on the runner-subagent substrate in
+      `ts/packages/local/pi-tools`; see
+      `updates/2026-07-02-adopt-vs-build-decision.md`.
 - [ ] Explorer agent definition: scout output contract (`## Files Retrieved` with line
       ranges, `## Key Code`, `## Architecture`, `## Start Here`), cheap-model default
       with dispatch-time auth fallback and runtime failover, read-only tool allowlist
