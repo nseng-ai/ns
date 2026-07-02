@@ -29,6 +29,11 @@ export {
 	type RunnerRecoverContext,
 } from "./prompt.ts";
 export {
+	resolveGuidance,
+	type ResolveGuidanceOptions,
+	type ResolveGuidanceResult,
+} from "./guidance.ts";
+export {
 	checkRunnerPreconditions,
 	type CheckRunnerPreconditionsOptions,
 	type RunnerPreconditionFacts,
