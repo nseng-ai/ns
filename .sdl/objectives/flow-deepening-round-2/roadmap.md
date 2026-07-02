@@ -123,9 +123,14 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   through the Graphite gateway) delivered 2026-07-02 (runner step, commit
   `e7f834fdd` on `flow-map-slice5-premerge-submit-gateway`) — see
   `updates/2026-07-02T205626Z-extraction-slice-5-premerge-submit.md`; the
-  second mid-execution `LandContext` crossing is gone. Next: slice 6
-  (slot-action seam + pre-merge slot freeing via `freeSlots`, which keeps
-  shelling to `sdl slot free`).
+  second mid-execution `LandContext` crossing is gone. Slice 6
+  (slot-action seam + pre-merge slot freeing) delivered 2026-07-02
+  (runner step, commit `e3a8da316` on `flow-map-slice6-slot-free-gateway`)
+  — see
+  `updates/2026-07-02T210812Z-extraction-slice-6-slot-free-seam.md`;
+  post-landing `--free` cleanup intentionally unchanged until slice 9.
+  Next: slice 7 (stack merge loop onto gateways — high risk, interleaved
+  presentation; channel-backed streaming per the settled decision).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for
