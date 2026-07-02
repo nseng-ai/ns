@@ -18,7 +18,7 @@ import {
 } from "@sdl/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
-import { prepareFlowCheckpointMessage } from "../../checkpoint/model-generation.ts";
+import { prepareFlowCheckpointMessage } from "../model-generation.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import modelShortcutExtension from "../src/parity/model-shortcuts.ts";
-import type { ExtensionAPI } from "../src/parity/model-shortcuts.ts";
+import modelShortcutExtension from "../src/core/model-shortcuts/extension.ts";
+import type { ExtensionAPI } from "../src/core/model-shortcuts/extension.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type NotifyLevel = "info" | "warning" | "error";
