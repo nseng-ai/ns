@@ -17,22 +17,22 @@ import {
 	type SdlExtensionApi,
 } from "@sdl/kernel/sdk";
 
-import { renderAutobranchFailureResultBlock } from "../../core/autobranch-result-block.ts";
-import { prepareFlowCheckpointMessage } from "../../core/model-generation.ts";
-import { renderPendingWorktreeFailure } from "../../core/pending-worktree-result.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
+import { prepareFlowCheckpointMessage } from "../../checkpoint/model-generation.ts";
+import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "../../core/text-generation.ts";
+} from "@sdl/capability-kit/text-generation";
 import {
 	createCommitWithPreparedMessage,
 	execExtensionCommand,
 	loadFlowPendingWorktreeSnapshot,
 	type PendingWorktreeError,
 	type PendingWorktreeSnapshot,
-} from "../../core/worktree.ts";
+} from "../worktree.ts";
 
 const AUTOBRANCH_DESCRIPTION = `Create a Graphite branch using \`gt create\` from dirty worktree changes.
 

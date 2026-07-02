@@ -6,7 +6,7 @@ import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { formatLandProgressTitle } from "../../src/sdl/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
-import { LAND_PHASES } from "../../src/core/phase-stream-specs.ts";
+import { LAND_PHASES } from "../../src/phase-stream/phase-stream-specs.ts";
 import {
 	executeStackLanding,
 	parseArgs,

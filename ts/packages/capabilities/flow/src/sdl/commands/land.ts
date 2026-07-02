@@ -15,13 +15,13 @@ import {
 } from "@sdl/kernel/sdk";
 import type { Caps } from "@sdl/clinkr";
 
-import { runFlowCli } from "../../core/flow-cli-runner.ts";
+import { runFlowCli } from "../flow-cli-runner.ts";
 import {
 	createPhaseStreamController,
 	flowStreamDeps,
 	LAND_PHASES,
 	resolveFlowStreamCaps,
-} from "../../core/phase-stream.ts";
+} from "../../phase-stream/phase-stream.ts";
 
 const landSchema = z.object({
 	yes: z.boolean().optional().describe("Confirm stack landing without an interactive prompt."),

@@ -17,88 +17,65 @@ import type { SlotCliContext } from "../core/context.ts";
 import {
 	checkoutRequestSchema,
 	checkoutResultSchema,
-	renderCheckout,
-	runCheckout,
-} from "../lifecycle/operations/checkout.ts";
-import {
 	claimRequestSchema,
 	claimResultSchema,
-	renderClaim,
-	runClaim,
-} from "../lifecycle/operations/claim.ts";
-import {
 	foreachRequestSchema,
 	foreachResultSchema,
-	renderForeach,
-	runForeach,
-} from "../lifecycle/operations/foreach.ts";
-import {
 	freeRequestSchema,
 	freeResultSchema,
-	renderFree,
-	runFree,
-} from "../lifecycle/operations/free.ts";
-import { gcRequestSchema, gcResultSchema, renderGc, runGc } from "../lifecycle/operations/gc.ts";
-import {
-	gtDownRequestSchema,
-	gtDownResultSchema,
-	renderGtDownNavigation,
-	runGtDown,
-} from "../lifecycle/operations/gt/down.ts";
-import {
-	gtStackBranchesRequestSchema,
-	gtStackBranchesResultSchema,
-	renderStackBranches,
-	runGtStackBranches,
-} from "../lifecycle/operations/gt/exec/stack-branches.ts";
-import {
-	gtQuiescenceRequestSchema,
-	gtQuiescenceResultSchema,
-	renderGtQuiescence,
-	runGtQuiescence,
-} from "../lifecycle/operations/gt/exec/quiescence.ts";
-import {
-	gtStackMapBranchesRequestSchema,
-	gtStackMapBranchesResultSchema,
-	renderStackMapBranches,
-	runGtStackMapBranches,
-} from "../lifecycle/operations/gt/exec/stack-map-branches.ts";
-import {
-	gtFreeStackRequestSchema,
-	gtFreeStackResultSchema,
-	renderGtFreeStack,
-	runGtFreeStack,
-} from "../lifecycle/operations/gt/free-stack.ts";
-import {
-	gtNavigationResultSchema,
-	gtUpRequestSchema,
-	renderGtUpNavigation,
-	runGtUp,
-} from "../lifecycle/operations/gt/up.ts";
-import {
+	gcRequestSchema,
+	gcResultSchema,
 	gotoRequestSchema,
 	gotoResultSchema,
-	renderGoto,
-	runGoto,
-} from "../lifecycle/operations/goto.ts";
-import {
+	gtDownRequestSchema,
+	gtDownResultSchema,
+	gtFreeStackRequestSchema,
+	gtFreeStackResultSchema,
+	gtNavigationResultSchema,
+	gtQuiescenceRequestSchema,
+	gtQuiescenceResultSchema,
+	gtStackBranchesRequestSchema,
+	gtStackBranchesResultSchema,
+	gtStackMapBranchesRequestSchema,
+	gtStackMapBranchesResultSchema,
+	gtUpRequestSchema,
 	initRequestSchema,
 	initResultSchema,
-	renderInit,
-	runInit,
-} from "../lifecycle/operations/init.ts";
-import {
 	listRequestSchema,
 	listResultSchema,
+	renderCheckout,
+	renderClaim,
+	renderForeach,
+	renderFree,
+	renderGc,
+	renderGoto,
+	renderGtDownNavigation,
+	renderGtFreeStack,
+	renderGtQuiescence,
+	renderGtUpNavigation,
+	renderInit,
 	renderList,
-	runList,
-} from "../lifecycle/operations/list.ts";
-import {
 	renderResize,
+	renderStackBranches,
+	renderStackMapBranches,
 	resizeRequestSchema,
 	resizeResultSchema,
+	runCheckout,
+	runClaim,
+	runForeach,
+	runFree,
+	runGc,
+	runGoto,
+	runGtDown,
+	runGtFreeStack,
+	runGtQuiescence,
+	runGtStackBranches,
+	runGtStackMapBranches,
+	runGtUp,
+	runInit,
+	runList,
 	runResize,
-} from "../lifecycle/operations/resize.ts";
+} from "../lifecycle/operations/index.ts";
 
 export function buildSlotCommandGroup<TContext extends SlotCliContext>(): ClinkrGroup<TContext> {
 	const group = new ClinkrGroup<TContext>({

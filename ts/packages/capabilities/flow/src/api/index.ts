@@ -7,11 +7,11 @@ export type {
 	FlowAutobranchCheckpointResult,
 	FlowAutobranchFileStat,
 	FlowAutobranchRequest,
-} from "./autobranch.ts";
-export { createFlowAutobranchCheckpointFlow } from "./autobranch.ts";
+} from "../autobranch/checkpoint-flow.ts";
+export { createFlowAutobranchCheckpointFlow } from "../autobranch/checkpoint-flow.ts";
 
-export type { AutoslotCliInput, AutoslotFlowInput } from "../core/autoslot.ts";
-export { createAutoslotFlow, runAutoslotCli } from "../core/autoslot.ts";
+export type { AutoslotCliInput, AutoslotFlowInput } from "../autoslot/autoslot.ts";
+export { createAutoslotFlow, runAutoslotCli } from "../autoslot/autoslot.ts";
 
 export type {
 	ExecResult,
@@ -26,5 +26,5 @@ export type {
 } from "../land/land.ts";
 export { parsePullRequestView, registerLandCommand, runLandCli } from "../land/land.ts";
 
-export type { TrunkPullOutcome, TrunkPullResult } from "../core/trunk-pull.ts";
-export { runTrunkPullDetailed } from "../core/trunk-pull.ts";
+export type { TrunkPullOutcome, TrunkPullResult } from "../trunk-pull/trunk-pull.ts";
+export { runTrunkPullDetailed } from "../trunk-pull/trunk-pull.ts";

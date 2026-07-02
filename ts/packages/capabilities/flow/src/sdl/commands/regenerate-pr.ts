@@ -15,7 +15,7 @@ import {
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
 } from "../../submit/sdl-pr-description.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
 const PR_DESCRIPTION_PROMPT_ENV = "SDL_DEV_PR_DESCRIPTION_PROMPT";

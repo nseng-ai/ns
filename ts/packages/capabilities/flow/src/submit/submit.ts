@@ -10,7 +10,7 @@ import {
 import { optionalEntry } from "@sdl/core/primitives";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { firstNonEmptyLine } from "@sdl/core/text-normalization";
-import { detectGitConflictOutput } from "../core/git-operation-output.ts";
+import { detectGitConflictOutput } from "./git-operation-output.ts";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
 

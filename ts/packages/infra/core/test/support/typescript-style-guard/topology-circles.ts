@@ -40,14 +40,12 @@ export interface TopologyCircleImportEdgeOptions {
 	readonly packageMetadataByName: ReadonlyMap<string, PackageMetadata>;
 	readonly files?: readonly TopologyCircleSourceFile[];
 	readonly circles?: readonly TopologyCircleFact[];
-}
-
-export interface TopologyCircleLayeringOptions extends TopologyCircleImportEdgeOptions {
 	readonly importEdges?: readonly TopologyCircleImportEdge[];
 }
+
+export type TopologyCircleLayeringOptions = TopologyCircleImportEdgeOptions;
 
 export interface TopologyCircleCycleOptions extends TopologyCircleImportEdgeOptions {
-	readonly importEdges?: readonly TopologyCircleImportEdge[];
 	readonly deferredCycles?: readonly DeferredTopologyCircleCycle[];
 }
 
@@ -57,6 +55,11 @@ export interface TopologyCircleImportEdge extends Pick<
 > {
 	readonly from: TopologyCircleFact;
 	readonly to: TopologyCircleFact;
+}
+
+export interface TopologyCircleCycleComponent {
+	readonly packageName: string;
+	readonly circles: ReadonlySet<string>;
 }
 
 interface RawImportEdge {
@@ -165,6 +168,42 @@ export function collectTopologyCircleCycleViolations(
 ): SourceRuleViolation[] {
 	const deferredCycles = options.deferredCycles ?? deferredTopologyCircleCycles;
 	const importEdges = options.importEdges ?? collectTopologyCircleImportEdges(options);
+	const cycleComponents = collectTopologyCircleCycleComponents(importEdges);
+
+	const violations: SourceRuleViolation[] = [];
+	for (const cycleComponent of cycleComponents) {
+		const deferredMatch = matchDeferredTopologyCircleCycle(
+			cycleComponent.packageName,
+			cycleComponent.circles,
+			deferredCycles,
+		);
+		if (deferredMatch.containingDeferredCycle !== undefined) continue;
+
+		const circlesText = [...cycleComponent.circles].sort().join(", ");
+		const overlapText = formatDeferredTopologyCircleCycleOverlap(deferredMatch.overlapping);
+		for (const edge of importEdges) {
+			if (edge.from.packageName !== cycleComponent.packageName) continue;
+			if (edge.to.packageName !== cycleComponent.packageName) continue;
+			if (!cycleComponent.circles.has(edge.from.component)) continue;
+			if (!cycleComponent.circles.has(edge.to.component)) continue;
+			violations.push({
+				rule: BAN_TOPOLOGY_CIRCLE_CYCLE,
+				path: edge.path,
+				line: edge.line,
+				column: edge.column,
+				text:
+					`non-deferred subpackage circle cycle in ${cycleComponent.packageName} among ${circlesText}; edge ${edge.from.id} -> ${edge.to.id} participates. ` +
+					`Break the cycle by making imports flow one way between circles, or add a deferredTopologyCircleCycles entry in config.ts${overlapText}.`,
+			});
+		}
+	}
+
+	return violations;
+}
+
+export function collectTopologyCircleCycleComponents(
+	importEdges: readonly TopologyCircleImportEdge[],
+): readonly TopologyCircleCycleComponent[] {
 	const intraPackageEdges = importEdges.filter(
 		(edge) => edge.from.packageName === edge.to.packageName && edge.from.id !== edge.to.id,
 	);
@@ -175,7 +214,7 @@ export function collectTopologyCircleCycleViolations(
 		edgesByPackage.set(edge.from.packageName, packageEdges);
 	}
 
-	const violations: SourceRuleViolation[] = [];
+	const cycles: TopologyCircleCycleComponent[] = [];
 	for (const [packageName, packageEdges] of [...edgesByPackage.entries()].sort(([left], [right]) =>
 		left.localeCompare(right),
 	)) {
@@ -184,46 +223,24 @@ export function collectTopologyCircleCycleViolations(
 			circlesById.set(edge.from.id, edge.from);
 			circlesById.set(edge.to.id, edge.to);
 		}
-		const cycleComponents = findCycleComponents(
+		const components = findCycleComponents(
 			[...circlesById.keys()].sort(),
 			packageEdges.map((edge) => ({ from: edge.from.id, to: edge.to.id })),
 		);
-
-		for (const component of cycleComponents) {
-			const componentIds = new Set(component);
-			const componentNames = component
-				.map((id) => requiredCircle(circlesById, id).component)
-				.sort();
-			const componentNameSet = new Set(componentNames);
-			const deferredCycle = findContainingDeferredTopologyCircleCycle(
+		for (const component of components) {
+			cycles.push({
 				packageName,
-				componentNameSet,
-				deferredCycles,
-			);
-			if (deferredCycle !== undefined) continue;
-
-			const circlesText = componentNames.join(", ");
-			const overlapText = formatDeferredTopologyCircleCycleOverlap(
-				packageName,
-				componentNameSet,
-				deferredCycles,
-			);
-			for (const edge of packageEdges) {
-				if (!componentIds.has(edge.from.id) || !componentIds.has(edge.to.id)) continue;
-				violations.push({
-					rule: BAN_TOPOLOGY_CIRCLE_CYCLE,
-					path: edge.path,
-					line: edge.line,
-					column: edge.column,
-					text:
-						`non-deferred subpackage circle cycle in ${packageName} among ${circlesText}; edge ${edge.from.id} -> ${edge.to.id} participates. ` +
-						`Break the cycle by making imports flow one way between circles, or add a deferredTopologyCircleCycles entry in config.ts${overlapText}.`,
-				});
-			}
+				circles: new Set(
+					component.map((circleId) => requiredCircle(circlesById, circleId).component),
+				),
+			});
 		}
 	}
-
-	return violations;
+	return cycles.sort((left, right) =>
+		`${left.packageName}\0${[...left.circles].sort().join("\0")}`.localeCompare(
+			`${right.packageName}\0${[...right.circles].sort().join("\0")}`,
+		),
+	);
 }
 
 function collectProductionSourceFiles(
@@ -377,31 +394,33 @@ function resolveSourceFile(
 	});
 }
 
-function findContainingDeferredTopologyCircleCycle(
+interface DeferredTopologyCircleCycleMatch {
+	readonly containingDeferredCycle: DeferredTopologyCircleCycle | undefined;
+	readonly overlapping: readonly DeferredTopologyCircleCycle[];
+}
+
+function matchDeferredTopologyCircleCycle(
 	packageName: string,
 	componentNames: ReadonlySet<string>,
 	deferredCycles: readonly DeferredTopologyCircleCycle[],
-): DeferredTopologyCircleCycle | undefined {
-	return deferredCycles.find(
-		(deferredCycle) =>
-			deferredCycle.packageName === packageName &&
-			[...componentNames].every((componentName) => deferredCycle.circles.has(componentName)),
+): DeferredTopologyCircleCycleMatch {
+	const packageDeferredCycles = deferredCycles.filter(
+		(deferredCycle) => deferredCycle.packageName === packageName,
 	);
+	return {
+		containingDeferredCycle: packageDeferredCycles.find((deferredCycle) =>
+			[...componentNames].every((componentName) => deferredCycle.circles.has(componentName)),
+		),
+		overlapping: packageDeferredCycles.filter((deferredCycle) =>
+			[...componentNames].some((componentName) => deferredCycle.circles.has(componentName)),
+		),
+	};
 }
 
 function formatDeferredTopologyCircleCycleOverlap(
-	packageName: string,
-	componentNames: ReadonlySet<string>,
-	deferredCycles: readonly DeferredTopologyCircleCycle[],
+	overlapping: readonly DeferredTopologyCircleCycle[],
 ): string {
-	const overlappingNames = deferredCycles
-		.filter(
-			(deferredCycle) =>
-				deferredCycle.packageName === packageName &&
-				[...componentNames].some((componentName) => deferredCycle.circles.has(componentName)),
-		)
-		.map((deferredCycle) => deferredCycle.name)
-		.sort();
+	const overlappingNames = overlapping.map((deferredCycle) => deferredCycle.name).sort();
 	return overlappingNames.length === 0
 		? ""
 		: `; overlaps deferredTopologyCircleCycles entry/entries: ${overlappingNames.join(", ")}`;

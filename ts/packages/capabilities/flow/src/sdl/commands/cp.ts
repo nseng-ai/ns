@@ -6,19 +6,19 @@ import {
 	flowStreamDeps,
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
-} from "../../core/phase-stream.ts";
+} from "../../phase-stream/phase-stream.ts";
 import {
 	CHECKPOINT_MODEL_ENV,
 	DEFAULT_CHECKPOINT_MODEL_REF,
 	LEGACY_CHECKPOINT_MODEL_ENV,
-} from "../../core/text-generation.ts";
+} from "@sdl/capability-kit/text-generation";
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import {
 	createSdlCheckpointRuntime,
 	runCheckpointWorkflow,
 	type CheckpointGateway,
 	type CheckpointWorkflowResult,
-} from "../../core/checkpoint.ts";
+} from "../../checkpoint/checkpoint.ts";
 
 const CP_COMMAND_DESCRIPTION = `Create a checkpoint commit for the current diff.
 

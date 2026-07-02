@@ -10,8 +10,8 @@ vi.mock("../../src/core/context.ts", () => ({
 	createRealSlotContext,
 }));
 
-vi.mock("../../src/lifecycle/operations/list.ts", async (importActual) => {
-	const actual = await importActual<typeof import("../../src/lifecycle/operations/list.ts")>();
+vi.mock("../../src/lifecycle/operations/index.ts", async (importActual) => {
+	const actual = await importActual<typeof import("../../src/lifecycle/operations/index.ts")>();
 	return {
 		...actual,
 		runList: vi.fn(() => ok({ slots: [] })),

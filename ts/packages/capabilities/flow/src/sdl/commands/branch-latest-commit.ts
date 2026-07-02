@@ -6,11 +6,11 @@ import { renderResultBlock } from "@sdl/core/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/kernel/sdk";
 
-import { renderAutobranchFailureResultBlock } from "../../core/autobranch-result-block.ts";
-import { renderGitResultBlock } from "../../core/git-result-block.ts";
-import { renderPendingWorktreeFailure } from "../../core/pending-worktree-result.ts";
-import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
-import { execExtensionCommand, loadFlowPendingWorktreeSnapshot } from "../../core/worktree.ts";
+import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
+import { renderGitResultBlock } from "../presentation/git-result-block.ts";
+import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
+import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
+import { execExtensionCommand, loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
 
 const BRANCH_LATEST_COMMIT_DESCRIPTION = `Move the latest eligible unpushed single-parent commit to a new Graphite child branch.
 

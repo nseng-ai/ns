@@ -2,21 +2,21 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 
-import { RealCheckpointGateway, runCheckpointIfPending } from "../../core/checkpoint.ts";
-import { createFlowLiveOutput, type FlowLiveOutput } from "../../core/live-output.ts";
+import { RealCheckpointGateway, runCheckpointIfPending } from "../../checkpoint/checkpoint.ts";
+import { createFlowLiveOutput, type FlowLiveOutput } from "../../phase-stream/live-output.ts";
 import {
 	checkpointEventLabel,
 	flowStreamDeps,
 	resolveFlowStreamCaps,
 	runSettledPhaseStream,
 	SUBMIT_PHASES,
-} from "../../core/phase-stream.ts";
+} from "../../phase-stream/phase-stream.ts";
 import {
 	createSdlSubmitRuntime,
 	runSubmitCommand,
 	type SubmitCommandResult,
 } from "../../submit/sdl-runtime.ts";
-import { selectSubmitFailureModelRef } from "../../core/text-generation.ts";
+import { selectSubmitFailureModelRef } from "@sdl/capability-kit/text-generation";
 import {
 	defineExtension,
 	failed,

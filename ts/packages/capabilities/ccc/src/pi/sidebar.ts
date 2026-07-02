@@ -4,7 +4,7 @@ import {
 	createCccSidebarController,
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
-} from "../api/api.ts";
+} from "../api/index.ts";
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";

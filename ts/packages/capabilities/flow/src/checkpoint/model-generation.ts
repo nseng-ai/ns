@@ -1,20 +1,9 @@
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
-import { selectCheckpointModelRef } from "./text-generation.ts";
-import { draftChangesSummary, prepareCheckpointMessage } from "./text-helpers.ts";
+import { prepareCheckpointMessage } from "@sdl/capability-kit/checkpoint-flow";
+import { selectCheckpointModelRef } from "@sdl/capability-kit/text-generation";
 
 export type FlowModelGenerationContext = Pick<SdlExtensionApi, "env" | "textGenerator">;
-
-export function prepareFlowChangesSummary(
-	ctx: FlowModelGenerationContext,
-	snapshot: { branch: string; status: string; diff: string },
-) {
-	return draftChangesSummary({
-		textGenerator: ctx.textGenerator,
-		env: ctx.env,
-		snapshot,
-	});
-}
 
 export function prepareFlowCheckpointMessage(
 	ctx: FlowModelGenerationContext,

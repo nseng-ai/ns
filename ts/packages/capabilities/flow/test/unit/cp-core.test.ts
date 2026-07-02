@@ -7,8 +7,8 @@ import type {
 } from "@sdl/capability-kit/text-generation";
 
 import { runCpCore } from "../../src/sdl/commands/cp.ts";
-import type { CheckpointGateway } from "../../src/core/checkpoint.ts";
-import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/core/worktree.ts";
+import type { CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";
+import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/sdl/worktree.ts";
 
 const validCheckpointMessage = `[cp] Update cp core
 

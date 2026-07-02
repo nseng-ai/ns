@@ -26,10 +26,7 @@ import {
 	type ManifestDependencyField,
 	type PackageTier,
 } from "../support/typescript-style-guard/config.ts";
-import {
-	collectExtensionDependencyCycleViolations,
-	findCycleComponents,
-} from "../support/typescript-style-guard/dependency-graph.ts";
+import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
 import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
 import { collectLocalSpaceAdmissionViolations } from "../support/typescript-style-guard/local-space.ts";
 import {
@@ -45,12 +42,12 @@ import {
 import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
 import { collectSubpackageDeclarationConformanceViolations } from "../support/typescript-style-guard/subpackage-conformance.ts";
 import {
+	collectTopologyCircleCycleComponents,
 	collectTopologyCircleCycleViolations,
 	collectTopologyCircleImportEdges,
 	collectTopologyCircleLayeringViolations,
 	discoverTopologyCircles,
 	type TopologyCircleFact,
-	type TopologyCircleImportEdge,
 	type TopologyCircleSourceFile,
 } from "../support/typescript-style-guard/topology-circles.ts";
 
@@ -917,7 +914,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 			repoRoot: REPO_ROOT,
 			packageMetadataByName,
 		});
-		const actualCycles = detectTopologyCircleCycleComponents(importEdges);
+		const actualCycles = collectTopologyCircleCycleComponents(importEdges);
 
 		expect(
 			deferredTopologyCircleCycles
@@ -1151,11 +1148,6 @@ interface SyntheticEdge {
 	readonly field?: SyntheticDependencyField;
 }
 
-interface TopologyCircleCycleComponent {
-	readonly packageName: string;
-	readonly circles: ReadonlySet<string>;
-}
-
 interface TierLayeringCase {
 	readonly name: string;
 	readonly edges?: readonly SyntheticEdge[];
@@ -1208,57 +1200,8 @@ function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
 	];
 }
 
-function detectTopologyCircleCycleComponents(
-	importEdges: readonly TopologyCircleImportEdge[],
-): readonly TopologyCircleCycleComponent[] {
-	const intraPackageEdges = importEdges.filter(
-		(edge) => edge.from.packageName === edge.to.packageName && edge.from.id !== edge.to.id,
-	);
-	const edgesByPackage = new Map<string, TopologyCircleImportEdge[]>();
-	for (const edge of intraPackageEdges) {
-		const packageEdges = edgesByPackage.get(edge.from.packageName) ?? [];
-		packageEdges.push(edge);
-		edgesByPackage.set(edge.from.packageName, packageEdges);
-	}
-
-	const cycles: TopologyCircleCycleComponent[] = [];
-	for (const [packageName, packageEdges] of edgesByPackage) {
-		const circlesById = new Map<string, TopologyCircleFact>();
-		for (const edge of packageEdges) {
-			circlesById.set(edge.from.id, edge.from);
-			circlesById.set(edge.to.id, edge.to);
-		}
-		const components = findCycleComponents(
-			[...circlesById.keys()].sort(),
-			packageEdges.map((edge) => ({ from: edge.from.id, to: edge.to.id })),
-		);
-		for (const component of components) {
-			cycles.push({
-				packageName,
-				circles: new Set(
-					component.map((circleId) => requiredCircleComponent(circlesById, circleId)),
-				),
-			});
-		}
-	}
-	return cycles.sort((left, right) =>
-		`${left.packageName}\0${[...left.circles].sort().join("\0")}`.localeCompare(
-			`${right.packageName}\0${[...right.circles].sort().join("\0")}`,
-		),
-	);
-}
-
 function setsAreEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
 	return left.size === right.size && [...left].every((value) => right.has(value));
-}
-
-function requiredCircleComponent(
-	circlesById: ReadonlyMap<string, TopologyCircleFact>,
-	circleId: string,
-): string {
-	const circle = circlesById.get(circleId);
-	if (circle === undefined) throw new Error(`Missing topology circle ${circleId}`);
-	return circle.component;
 }
 
 function withTempRepo(run: (repoRoot: string) => void): void {
