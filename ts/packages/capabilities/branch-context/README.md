@@ -1,6 +1,6 @@
 # @sdl/branch-context
 
-`@sdl/branch-context` owns the branch-context CLI and prompt-loading behavior for attaching and implementing branch-scoped plans.
+`@sdl/branch-context` owns the SDL `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `sdl branch-context ...`.
 
 ## Plan contract trial rollback
 
