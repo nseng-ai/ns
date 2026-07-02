@@ -82,6 +82,17 @@ export interface GitLocalBranchTip {
 }
 
 export type GitOperationResult = { ok: true } | { ok: false; error: GitErrorInfo };
+
+export function rejectEmptyStagePaths(paths: readonly string[]): GitOperationResult | undefined {
+	if (paths.length > 0) return undefined;
+	return {
+		ok: false,
+		error: {
+			code: "git_stage_paths_failed",
+			message: "Refusing to stage an empty path list.",
+		},
+	};
+}
 export type GitBranchPresenceResult =
 	| { type: "present"; refName: string; displayCommand: string }
 	| { type: "absent"; refName: string }

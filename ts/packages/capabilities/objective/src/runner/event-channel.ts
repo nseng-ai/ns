@@ -19,25 +19,24 @@ export function createEventChannel<T>(): EventChannel<T> {
 	let isClosed = false;
 	let hasConsumer = false;
 
+	function settlePendingPull(result: IteratorResult<T, undefined>): boolean {
+		if (pendingPull === null) return false;
+		const resolvePull = pendingPull;
+		pendingPull = null;
+		resolvePull(result);
+		return true;
+	}
+
 	function push(value: T): void {
 		if (isClosed) throw new Error("Cannot push to a closed event channel.");
-		if (pendingPull !== null) {
-			const resolvePull = pendingPull;
-			pendingPull = null;
-			resolvePull({ done: false, value });
-			return;
-		}
+		if (settlePendingPull({ done: false, value })) return;
 		buffered.push({ value });
 	}
 
 	function close(): void {
 		if (isClosed) return;
 		isClosed = true;
-		if (pendingPull !== null) {
-			const resolvePull = pendingPull;
-			pendingPull = null;
-			resolvePull({ done: true, value: undefined });
-		}
+		settlePendingPull({ done: true, value: undefined });
 	}
 
 	function next(): Promise<IteratorResult<T, undefined>> {

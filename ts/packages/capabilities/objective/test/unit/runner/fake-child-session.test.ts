@@ -6,6 +6,7 @@ import type {
 	ChildSessionRequest,
 } from "../../../src/runner/child-session.ts";
 import { FakeChildSessionGateway } from "../../../src/runner/fake-child-session.ts";
+import { collectAsync } from "./support.ts";
 
 const COMPLETED_OUTCOME: ChildSessionOutcome = {
 	type: "completed",
@@ -25,7 +26,7 @@ describe("FakeChildSessionGateway", () => {
 
 		const handle = gateway.dispatch(requestFixture());
 
-		expect(await collect(handle.events)).toEqual(events);
+		expect(await collectAsync(handle.events)).toEqual(events);
 	});
 
 	test("resolves outcome to the scripted outcome", async () => {
@@ -41,7 +42,7 @@ describe("FakeChildSessionGateway", () => {
 
 		const handle = gateway.dispatch(requestFixture());
 
-		await collect(handle.events);
+		await collectAsync(handle.events);
 		expect(await handle.outcome).toEqual(outcome);
 	});
 
@@ -111,8 +112,8 @@ describe("FakeChildSessionGateway", () => {
 		const first = gateway.dispatch(requestFixture());
 		const second = gateway.dispatch(requestFixture());
 
-		expect(await collect(first.events)).toEqual([{ type: "activity", line: "one" }]);
-		expect(await collect(second.events)).toEqual([{ type: "activity", line: "two" }]);
+		expect(await collectAsync(first.events)).toEqual([{ type: "activity", line: "one" }]);
+		expect(await collectAsync(second.events)).toEqual([{ type: "activity", line: "two" }]);
 		expect(await first.outcome).toEqual(COMPLETED_OUTCOME);
 		expect(await second.outcome).toEqual({ type: "timed-out", stderrTail: "tail" });
 	});
@@ -123,7 +124,7 @@ describe("FakeChildSessionGateway", () => {
 
 		const exhausted = gateway.dispatch(requestFixture());
 
-		expect(await collect(exhausted.events)).toEqual([]);
+		expect(await collectAsync(exhausted.events)).toEqual([]);
 		const outcome = await exhausted.outcome;
 		expect(outcome.type).toBe("startup-failed");
 		if (outcome.type === "startup-failed") {
@@ -146,7 +147,7 @@ describe("FakeChildSessionGateway", () => {
 
 		const handle = gateway.dispatch(requestFixture());
 
-		expect(await collect(handle.events)).toEqual([]);
+		expect(await collectAsync(handle.events)).toEqual([]);
 		expect(await handle.outcome).toEqual({
 			type: "startup-failed",
 			message: "FakeChildSessionGateway onDispatch threw: repo mutation failed",
@@ -156,12 +157,4 @@ describe("FakeChildSessionGateway", () => {
 
 function requestFixture(overrides: Partial<ChildSessionRequest> = {}): ChildSessionRequest {
 	return { cwd: "/repo", prompt: "implement the next slice", ...overrides };
-}
-
-async function collect(iterable: AsyncIterable<ChildSessionEvent>): Promise<ChildSessionEvent[]> {
-	const events: ChildSessionEvent[] = [];
-	for await (const event of iterable) {
-		events.push(event);
-	}
-	return events;
 }

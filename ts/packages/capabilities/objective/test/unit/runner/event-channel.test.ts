@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { createEventChannel } from "../../../src/runner/event-channel.ts";
+import { collectAsync } from "./support.ts";
 
 describe("runner event channel", () => {
 	test("delivers values pushed before consumption in order", async () => {
@@ -9,7 +10,7 @@ describe("runner event channel", () => {
 		channel.push("second");
 		channel.close();
 
-		expect(await collect(channel.iterable)).toEqual(["first", "second"]);
+		expect(await collectAsync(channel.iterable)).toEqual(["first", "second"]);
 	});
 
 	test("resolves a pending pull when a value is pushed later", async () => {
@@ -40,7 +41,7 @@ describe("runner event channel", () => {
 		channel.push(3);
 		channel.close();
 
-		expect(await collect(channel.iterable)).toEqual([1, 2, 3]);
+		expect(await collectAsync(channel.iterable)).toEqual([1, 2, 3]);
 	});
 
 	test("interleaves pushes with consumption", async () => {
@@ -63,7 +64,7 @@ describe("runner event channel", () => {
 		channel.close();
 		channel.close();
 
-		expect(await collect(channel.iterable)).toEqual([]);
+		expect(await collectAsync(channel.iterable)).toEqual([]);
 	});
 
 	test("push after close throws", () => {
@@ -80,11 +81,3 @@ describe("runner event channel", () => {
 		expect(() => channel.iterable[Symbol.asyncIterator]()).toThrowError(/single consumer/);
 	});
 });
-
-async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
-	const values: T[] = [];
-	for await (const value of iterable) {
-		values.push(value);
-	}
-	return values;
-}

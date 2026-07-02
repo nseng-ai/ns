@@ -1,3 +1,5 @@
+import { optionalEntry } from "@sdl/core/primitives";
+
 import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
 
 export interface ComposeRunnerCommitMessageOptions {
@@ -43,7 +45,7 @@ export async function commitRunnerStep(
 
 	const message = composeRunnerCommitMessage({
 		subject: options.subject,
-		...(options.body === undefined ? {} : { body: options.body }),
+		...optionalEntry("body", options.body),
 		slug: options.slug,
 		mode: options.mode,
 	});

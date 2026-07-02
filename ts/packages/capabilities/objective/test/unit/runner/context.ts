@@ -32,7 +32,10 @@ import {
 	type RunnerReportStatus,
 } from "../../../src/runner/report.ts";
 
-type FailureState = { type: "failure"; error?: { code: string; message: string } };
+interface FailureState {
+	type: "failure";
+	error?: { code: string; message: string };
+}
 type ValueState<T> = T | FailureState;
 
 export interface SequencedGitGatewayState extends InMemoryGitGatewayState {
@@ -64,25 +67,23 @@ export class SequencedGitGateway extends InMemoryGitGateway {
 	}
 
 	override async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
-		const index = Math.min(this.currentBranchIndex, this.currentBranchSequence.length - 1);
-		this.currentBranchIndex += 1;
-		const branch = this.currentBranchSequence[index];
-		if (branch === undefined) return await super.currentBranch(params);
-		return { type: "branch", branch };
+		const next = nextFromSequence(this.currentBranchSequence, this.currentBranchIndex);
+		this.currentBranchIndex = next.nextIndex;
+		if (next.value === undefined) return await super.currentBranch(params);
+		return { type: "branch", branch: next.value };
 	}
 
 	override async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
-		const index = Math.min(this.headCommitIndex, this.headCommitSequence.length - 1);
-		this.headCommitIndex += 1;
-		const head = this.headCommitSequence[index];
-		if (head === undefined) return await super.headCommit(params);
-		return { ok: true, value: head };
+		const next = nextFromSequence(this.headCommitSequence, this.headCommitIndex);
+		this.headCommitIndex = next.nextIndex;
+		if (next.value === undefined) return await super.headCommit(params);
+		return { ok: true, value: next.value };
 	}
 
 	override async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		const index = Math.min(this.statusPathsIndex, this.statusPathsSequence.length - 1);
-		this.statusPathsIndex += 1;
-		const state = this.statusPathsSequence[index];
+		const next = nextFromSequence(this.statusPathsSequence, this.statusPathsIndex);
+		this.statusPathsIndex = next.nextIndex;
+		const state = next.value;
 		if (state === undefined) return await super.statusPaths(params);
 		await super.statusPaths(params);
 		if (isFailureState(state)) {
@@ -96,6 +97,14 @@ export class SequencedGitGateway extends InMemoryGitGateway {
 		}
 		return { ok: true, value: { changedPaths: [...state.changedPaths] } };
 	}
+}
+
+function nextFromSequence<T>(
+	sequence: readonly T[],
+	index: number,
+): { value: T | undefined; nextIndex: number } {
+	if (sequence.length === 0) return { value: undefined, nextIndex: index };
+	return { value: sequence[Math.min(index, sequence.length - 1)], nextIndex: index + 1 };
 }
 
 function cloneStatusPathsState(

@@ -14,7 +14,9 @@ import {
 	runnerStepRequestSchema,
 	runRunnerStep,
 	type RunnerStepRequest,
-} from "../../src/core/operations/runner-step.ts";
+	type RunnerStepResult,
+} from "../../src/runner/step.ts";
+import type { ChildSessionOutcome } from "../../src/runner/child-session.ts";
 import type { ObjectiveRunnerContext } from "../../src/runner/context.ts";
 import { FakeChildSessionGateway, type FakeChildSessionScript } from "../../src/runner/testing.ts";
 import { childReportText } from "../unit/runner/context.ts";
@@ -87,6 +89,28 @@ function request(overrides: Partial<RunnerStepRequest> = {}): RunnerStepRequest 
 	return { ...runnerStepRequestSchema.parse({ slug: SLUG }), ...overrides };
 }
 
+function completedOutcome(report: Parameters<typeof childReportText>[0]): ChildSessionOutcome {
+	return {
+		type: "completed",
+		exitCode: 0,
+		finalText: childReportText(report),
+		stderrTail: "",
+	};
+}
+
+function expectOk(exit: Awaited<ReturnType<typeof runRunnerStep>>): RunnerStepResult {
+	expect(exit.type).toBe("ok");
+	if (exit.type !== "ok") throw new Error("expected ok exit");
+	return exit.data;
+}
+
+function expectNegative(exit: Awaited<ReturnType<typeof runRunnerStep>>): RunnerStepResult {
+	expect(exit.type).toBe("negative");
+	if (exit.type !== "negative") throw new Error("expected negative exit");
+	if (exit.data === undefined) throw new Error("expected negative exit data");
+	return exit.data;
+}
+
 test(
 	"happy default-mode step commits the child's work with provenance trailers",
 	async () => {
@@ -100,26 +124,19 @@ test(
 					writeFileSync(join(workRepo.path, "feature-a.txt"), "feature a\n", "utf8");
 					writeFileSync(join(workRepo.path, "feature-b.txt"), "feature b\n", "utf8");
 				},
-				outcome: {
-					type: "completed",
-					exitCode: 0,
-					finalText: childReportText({
-						branch: CHILD_BRANCH,
-						commitSubject: "Implement demo slice",
-						commitBody: ["Body line one", "Body line two"],
-					}),
-					stderrTail: "",
-				},
+				outcome: completedOutcome({
+					branch: CHILD_BRANCH,
+					commitSubject: "Implement demo slice",
+					commitBody: ["Body line one", "Body line two"],
+				}),
 			},
 		]);
 
-		const exit = await runRunnerStep(ctx, request());
+		const exit = expectOk(await runRunnerStep(ctx, request()));
 
-		expect(exit.type).toBe("ok");
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("committed");
-		expect(exit.data.baseBranch).toBe("main");
-		expect(exit.data.branch).toBe(CHILD_BRANCH);
+		expect(exit.status).toBe("committed");
+		expect(exit.baseBranch).toBe("main");
+		expect(exit.branch).toBe(CHILD_BRANCH);
 
 		expect(workRepo.runGit(["branch", "--show-current"])).toBe(`${CHILD_BRANCH}\n`);
 		// %B is the raw message (ending in \n); git log appends one more newline.
@@ -130,7 +147,7 @@ test(
 				`Objective-Runner-Step: ${SLUG}\n\n`,
 		);
 		expect(commitMessage).not.toContain("Objective-Runner-Mode");
-		expect(exit.data.commitSha).toBe(workRepo.runGit(["rev-parse", "HEAD"]).trim());
+		expect(exit.commitSha).toBe(workRepo.runGit(["rev-parse", "HEAD"]).trim());
 		expect(workRepo.runGit(["status", "--porcelain"])).toBe("");
 	},
 	TEST_TIMEOUT_MS,
@@ -152,24 +169,17 @@ test(
 					writeFileSync(join(workRepo.path, "half-done.txt"), "repaired work\n", "utf8");
 					writeFileSync(join(workRepo.path, "repair-extra.txt"), "extra repair\n", "utf8");
 				},
-				outcome: {
-					type: "completed",
-					exitCode: 0,
-					finalText: childReportText({
-						branch: CHILD_BRANCH,
-						commitSubject: "Repair demo slice",
-					}),
-					stderrTail: "",
-				},
+				outcome: completedOutcome({
+					branch: CHILD_BRANCH,
+					commitSubject: "Repair demo slice",
+				}),
 			},
 		]);
 
-		const exit = await runRunnerStep(ctx, request({ recover: true }));
+		const exit = expectOk(await runRunnerStep(ctx, request({ recover: true })));
 
-		expect(exit.type).toBe("ok");
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("committed");
-		expect(exit.data.mode).toBe("recover");
+		expect(exit.status).toBe("committed");
+		expect(exit.mode).toBe("recover");
 
 		const commitMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
 		expect(commitMessage).toContain("Repair demo slice");
@@ -195,25 +205,18 @@ test(
 					workRepo.runGit(["commit", "-m", "child commits illegally"]);
 					writeFileSync(join(workRepo.path, "leftover.txt"), "uncommitted leftover\n", "utf8");
 				},
-				outcome: {
-					type: "completed",
-					exitCode: 0,
-					finalText: childReportText({
-						branch: CHILD_BRANCH,
-						commitSubject: "Implement demo slice",
-					}),
-					stderrTail: "",
-				},
+				outcome: completedOutcome({
+					branch: CHILD_BRANCH,
+					commitSubject: "Implement demo slice",
+				}),
 			},
 		]);
 		const commitCountBeforeStep = 3; // initial + seed + the child's own commit
 
-		const exit = await runRunnerStep(ctx, request());
+		const exit = expectNegative(await runRunnerStep(ctx, request()));
 
-		expect(exit.type).toBe("negative");
-		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const headCheck = exit.data?.gateChecks.find((check) => check.id === "head-unchanged");
+		expect(exit.status).toBe("verification-failed");
+		const headCheck = exit.gateChecks.find((check) => check.id === "head-unchanged");
 		expect(headCheck?.status).toBe("failed");
 		expect(ctx.stdoutChunks.join("")).toContain(
 			`# Runner Checkpoint: ${SLUG} (verification-failed)`,

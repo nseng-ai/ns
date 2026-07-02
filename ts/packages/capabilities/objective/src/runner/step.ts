@@ -1,4 +1,5 @@
 import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
 import {
@@ -8,7 +9,12 @@ import {
 } from "./checkpoint.ts";
 import { commitRunnerStep } from "./commit.ts";
 import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
-import { GATE_CHECK_IDS, GATE_CHECK_STATUSES, verifyRunnerStep } from "./gate.ts";
+import {
+	GATE_CHECK_IDS,
+	GATE_CHECK_STATUSES,
+	verifyRunnerStep,
+	type GateBranchUnavailableReason,
+} from "./gate.ts";
 import { checkRunnerPreconditions } from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
 import { parseRunnerReport, renderRunnerReportNarrative } from "./report.ts";
@@ -103,7 +109,7 @@ export async function runRunnerStep(
 		objectivePath,
 		mode,
 		baseBranch,
-		...(request.guidance === undefined ? {} : { guidance: request.guidance }),
+		...optionalEntry("guidance", request.guidance),
 		...(mode === "recover" ? { recoverContext: { branch: baseBranch, changedPaths } } : {}),
 	});
 
@@ -111,7 +117,7 @@ export async function runRunnerStep(
 	const handle = ctx.childSession.dispatch({
 		cwd: ctx.repoRoot,
 		prompt,
-		...(request.model === undefined ? {} : { model: request.model }),
+		...optionalEntry("model", request.model),
 		timeoutMs: request.timeout * 1000,
 	});
 
@@ -122,7 +128,7 @@ export async function runRunnerStep(
 	}
 	const outcome = await handle.outcome;
 
-	const emitCheckpoint = (
+	const buildCheckpointResult = (
 		facts: Omit<CheckpointFacts, "slug" | "mode" | "baseBranch">,
 		narrative: string | undefined,
 	): RunnerStepResult => {
@@ -136,7 +142,7 @@ export async function runRunnerStep(
 		message: string,
 		options: { diagnostics?: readonly string[]; narrative?: string; branch?: string } = {},
 	): Promise<ClinkrExit<RunnerStepResult>> => {
-		const result = emitCheckpoint(
+		const result = buildCheckpointResult(
 			{
 				status: "malfunction",
 				branch: options.branch ?? (await liveBranchDisplay(ctx)),
@@ -183,11 +189,11 @@ export async function runRunnerStep(
 
 	if (report.status === "stop" || report.status === "blocked") {
 		const status: RunnerCheckpointStatus = report.status;
-		const result = emitCheckpoint(
+		const result = buildCheckpointResult(
 			{
 				status,
 				branch: await liveBranchDisplay(ctx),
-				...(report.stopReason === undefined ? {} : { stopReason: report.stopReason }),
+				...optionalEntry("stopReason", report.stopReason),
 			},
 			narrative,
 		);
@@ -199,12 +205,14 @@ export async function runRunnerStep(
 
 	ctx.phase("verifying");
 	const gate = await verifyRunnerStep(ctx, { mode, report, baseBranch, headAtDispatch });
-	if (!gate.passed) {
+	const gateBranchDisplay =
+		gate.branch ?? formatGateBranchUnavailable(gate.branchUnavailableReason);
+	if (!gate.hasPassed) {
 		const failedChecks = gate.checks.filter((check) => check.status === "failed");
-		const result = emitCheckpoint(
+		const result = buildCheckpointResult(
 			{
 				status: "verification-failed",
-				branch: gate.branch ?? branchUnknownDisplay(gate.checks),
+				branch: gateBranchDisplay,
 				changedPaths: gate.changedPaths,
 				gateChecks: gate.checks,
 			},
@@ -224,7 +232,7 @@ export async function runRunnerStep(
 		return emitMalfunction(
 			"report-integrity",
 			"Report is ready-for-parent-commit but carries no commitSubject.",
-			{ narrative, branch: gate.branch ?? branchUnknownDisplay(gate.checks) },
+			{ narrative, branch: gateBranchDisplay },
 		);
 	}
 
@@ -233,13 +241,13 @@ export async function runRunnerStep(
 		slug,
 		mode,
 		subject: commitSubject,
-		...(report.commitBody === undefined ? {} : { body: report.commitBody }),
+		...optionalEntry("body", report.commitBody),
 		changedPaths: gate.changedPaths,
 	});
 	if (commit.type === "error") {
 		return emitMalfunction(commit.code, `Runner commit failed: ${commit.message}`, {
 			narrative,
-			branch: gate.branch ?? branchUnknownDisplay(gate.checks),
+			branch: gateBranchDisplay,
 		});
 	}
 
@@ -247,14 +255,14 @@ export async function runRunnerStep(
 		outcome.sessionFile === undefined
 			? undefined
 			: await summarizeRunnerSubagentUsage([outcome.sessionFile]);
-	const result = emitCheckpoint(
+	const result = buildCheckpointResult(
 		{
 			status: "committed",
-			branch: gate.branch ?? branchUnknownDisplay(gate.checks),
+			branch: gateBranchDisplay,
 			commitSha: commit.commitSha,
 			changedPaths: gate.changedPaths,
 			gateChecks: gate.checks,
-			...(usage === undefined ? {} : { usage }),
+			...optionalEntry("usage", usage),
 		},
 		narrative,
 	);
@@ -285,16 +293,9 @@ async function liveBranchDisplay(ctx: ObjectiveRunnerContext): Promise<string> {
 	return `unknown (could not determine branch: ${current.error.message})`;
 }
 
-function branchUnknownDisplay(checks: readonly { detail?: string }[]): string {
-	const branchDetail = checks.find(
-		(check) => check.detail?.startsWith("Could not determine current branch:") === true,
-	)?.detail;
-	if (branchDetail !== undefined) {
-		const message = branchDetail.replace(
-			"Could not determine current branch:",
-			"could not determine branch:",
-		);
-		return `unknown (${message})`;
+function formatGateBranchUnavailable(reason: GateBranchUnavailableReason | null): string {
+	if (reason?.type === "failure") {
+		return `unknown (could not determine branch: ${reason.message})`;
 	}
 	return "unknown (detached HEAD)";
 }

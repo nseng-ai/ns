@@ -28,7 +28,7 @@ export interface ObjectiveRunnerComposition {
 	createChildSessionGateway(init: ChildSessionGatewayInit): ChildSessionGateway;
 }
 
-interface ObjectiveRunnerSdlExtensionOverrides {
+export interface ObjectiveRunnerOverrides {
 	git?: GitGateway;
 	graphite?: GraphiteBranchGateway;
 	commands?: CommandExecApi;
@@ -42,10 +42,10 @@ export async function createSdlObjectiveRunnerContext(
 	composition: ObjectiveRunnerComposition,
 ): Promise<ObjectiveRunnerContext> {
 	const overrides = readObjectiveRunnerOverrides(ctx);
-	const base = await createSdlObjectiveContext(ctx, {
-		...(overrides?.git === undefined ? {} : { git: overrides.git }),
-		...(overrides?.storage === undefined ? {} : { storage: overrides.storage }),
-	});
+	const base = await createSdlObjectiveContext(
+		ctx,
+		optionalEntries({ git: overrides?.git, storage: overrides?.storage }),
+	);
 	const commands = overrides?.commands ?? new SdlCommandExecApi(ctx);
 	return {
 		...base,
@@ -63,12 +63,10 @@ export async function createSdlObjectiveRunnerContext(
 	};
 }
 
-function readObjectiveRunnerOverrides(
-	ctx: SdlExtensionApi,
-): ObjectiveRunnerSdlExtensionOverrides | undefined {
+function readObjectiveRunnerOverrides(ctx: SdlExtensionApi): ObjectiveRunnerOverrides | undefined {
 	const raw = ctx.extensions?.objectiveRunner;
 	if (raw === undefined || raw === null || typeof raw !== "object") return undefined;
-	const overrides = raw as Partial<ObjectiveRunnerSdlExtensionOverrides>;
+	const overrides = raw as Partial<ObjectiveRunnerOverrides>;
 	return optionalEntries({
 		git: overrides.git,
 		graphite: overrides.graphite,
