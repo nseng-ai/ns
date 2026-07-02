@@ -122,23 +122,25 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       Flow land internals.
       Evidence: grep shows zero `LandPlanForFlow` references; one label
       heuristic; land scenario + integration tests pass.
-- [ ] De-leak the submit gateway and build the shared failure catalog (review #7 + autobranch residual)
-      Policy: direct. Independent of the extraction; may interleave.
-      What: move Graphite-stderr classification (`detectRestackNeeded`,
-      `detectTrunkOutOfDate`, and the other regex classifiers in
-      `src/submit/submit.ts`, 969 lines) behind `SubmitGateway` so the
-      interface returns domain results; co-locate each failure shape with its
-      message so branches stop bouncing `submit.ts` ⇄ `submit-format.ts`
-      (489 lines, 15 `format*FailureOutput` functions). Establish one
-      per-failure catalog idiom — entry = arm + verdict + message, exhaustive
-      by type — and apply it to the autobranch switches too
-      (`src/autobranch/latest-commit-transaction.ts:328` classify, `:345`
-      format, plus the `dirty-transaction.ts` twins), completing the
-      one-edit-site goal the co-location slice deferred.
-      Evidence: submit orchestration unit-testable without stderr fixtures;
-      no Graphite stderr taxonomy in `SubmitGateway`'s interface types;
-      adding a failure in submit or autobranch is demonstrably one edit site
-      (a unit test adds one catalog entry and nothing else).
+- [x] De-leak the submit gateway and build the shared failure catalog (review #7 + autobranch residual)
+      Delivered 2026-07-02 (runner step, commit `06ccafe87` on
+      `flow-submit-failure-catalog`): Graphite-stderr classification moved
+      into `src/submit/submit-gateway.ts` behind the `SubmitGateway` seam
+      (regex classifiers isolated in `src/submit/submit-detect.ts`,
+      imported only by the gateway implementation and its own test);
+      `SubmitGateway` returns domain results (`SubmitPreflightResult`,
+      `SubmitRestackResult`, `SubmitRunResult`,
+      `CurrentPrVerificationResult` — raw command transcripts pass through
+      for display only, no classification vocabulary on the interface).
+      Shared catalog idiom in `src/shared/failure-catalog.ts` (entry = arm
+      + verdict + message, exhaustive by type) applied to submit failures
+      (`src/submit/submit-failure-catalog.ts`) and both autobranch
+      transaction switches (`latest-commit-transaction.ts`,
+      `dirty-transaction.ts`).
+      Evidence: parent-verified — `submit-detect` has no orchestration
+      importers; `test/unit/failure-catalog.test.ts` demonstrates adding a
+      failure arm is one catalog entry; flow suite passes (415 tests) and
+      `just ts-check` green; full DoP suite reported green by the step.
 
 ## Parked
 
