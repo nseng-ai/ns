@@ -17,7 +17,7 @@
 
 import type { Caps } from "@sdl/clinkr";
 import { dim, resultBlockHeadline } from "@sdl/core/cli-theme";
-import type { ExecResult } from "sdl-sdk";
+import type { ExecResult } from "@sdl/kernel/sdk";
 
 type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {
 	readonly killed?: boolean;

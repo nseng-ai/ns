@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
 import { prAddressSdlCommand } from "./sdl-command.ts";

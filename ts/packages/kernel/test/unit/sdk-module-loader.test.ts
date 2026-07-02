@@ -1,14 +1,14 @@
 import { expect, test } from "vitest";
 
-import { createSdlJiti, resolveCommandExportTarget } from "../../src/sdk/module-loader.ts";
+import { createSdlJiti, resolveCommandExportTarget } from "../../src/runtime/module-loader.ts";
 
 function sortedKeys(value: object): string[] {
 	return Object.keys(value).sort();
 }
 
 test("virtual SDK module mirrors SDK runtime value exports", async () => {
-	const sdkModule = await import("sdl-sdk");
-	const virtualModule = await createSdlJiti().import<typeof sdkModule>("sdl-sdk");
+	const sdkModule = await import("@sdl/kernel/sdk");
+	const virtualModule = await createSdlJiti().import<typeof sdkModule>("@sdl/kernel/sdk");
 	const sdkKeys = sortedKeys(sdkModule);
 
 	expect(sortedKeys(virtualModule)).toEqual(sdkKeys);

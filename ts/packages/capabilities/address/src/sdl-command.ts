@@ -1,5 +1,5 @@
 import { createSdlCwdEnvStdinContext } from "@sdl/capability-kit/sdl-context";
-import { defineExtension, type SdlExtensionApi } from "sdl-sdk";
+import { defineExtension, type SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { createRealPrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";

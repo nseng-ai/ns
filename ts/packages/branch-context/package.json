@@ -28,8 +28,8 @@
 		"@sdl/core": "workspace:*",
 		"@sdl/git": "workspace:*",
 		"@sdl/graphite": "workspace:*",
+		"@sdl/kernel": "workspace:*",
 		"@sdl/plans": "workspace:*",
-		"sdl-sdk": "workspace:*",
 		"zod": "catalog:"
 	},
 	"sdl": {

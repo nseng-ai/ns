@@ -19,18 +19,18 @@ import {
 	type SdlCommandPath,
 	type SdlCommandSourceInfo,
 	type SdlCommandSourceLevel,
-} from "./command-registry.ts";
+} from "../cli/command-registry.ts";
 import {
 	discoverExtensionsInRoot,
 	discoverSdlPackageCommands,
 	type DiscoveredExtensionCommand,
 	type DiscoveredExtensionCommandKind,
 	type ExtensionDiscoveryDiagnostic,
-} from "./extension-discovery.ts";
-import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./extension-loader.ts";
+} from "./discovery.ts";
+import { loadSdlExtensionContribution, type ExtensionLoadDiagnostic } from "./loader.ts";
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 import { requireXdgPath, resolveSdlXdgPath } from "@sdl/core/xdg-path";
-import type { SdlCommand } from "sdl-sdk";
+import type { SdlCommand } from "../sdk/index.ts";
 
 export type ExtensionSourceLevel = SdlCommandSourceLevel;
 export type ExtensionSourceInfo = SdlCommandSourceInfo;
@@ -342,7 +342,7 @@ function loadFirstPartyCandidates(): {
 }
 
 function firstPartyPackagesRoot(): string | undefined {
-	const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+	const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 	return existsSync(sourceRoot) ? sourceRoot : undefined;
 }
 

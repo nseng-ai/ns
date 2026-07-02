@@ -2,13 +2,13 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import type { SdlCliDeps } from "../../src/cli.ts";
+import type { SdlCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
-} from "../../src/extension-registry.ts";
+} from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes } from "./sdl-cli-fakes.ts";
-import type { SdlCommand } from "sdl-sdk";
+import type { SdlCommand } from "@sdl/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),

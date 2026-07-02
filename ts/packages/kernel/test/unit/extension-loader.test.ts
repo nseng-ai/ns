@@ -5,9 +5,9 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { validateSdlExtensionContribution } from "../../src/command-registry.ts";
-import { loadSdlExtensionContribution } from "../../src/extension-loader.ts";
-import { z, type SdlCommand } from "sdl-sdk";
+import { validateSdlExtensionContribution } from "../../src/cli/command-registry.ts";
+import { loadSdlExtensionContribution } from "../../src/extensions/loader.ts";
+import { z, type SdlCommand } from "@sdl/kernel/sdk";
 
 const tempDirs: string[] = [];
 
@@ -29,7 +29,7 @@ afterEach(() => {
 describe("extension loader", () => {
 	test("loads a TypeScript command entry with SDK identity", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -56,7 +56,7 @@ export default defineExtension({
 
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{

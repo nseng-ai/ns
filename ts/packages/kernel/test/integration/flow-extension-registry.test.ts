@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extension-registry.ts";
+import { loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extensions/registry.ts";
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import { runCliWithFakes } from "../scenario/sdl-cli-fakes.ts";
 

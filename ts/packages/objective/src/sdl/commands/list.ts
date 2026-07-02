@@ -1,5 +1,5 @@
 import { resolveRenderCapabilities } from "@sdl/clinkr";
-import { defineExtension } from "sdl-sdk";
+import { defineExtension } from "@sdl/kernel/sdk";
 
 import { objectiveSdlCommand } from "../command.ts";
 import {

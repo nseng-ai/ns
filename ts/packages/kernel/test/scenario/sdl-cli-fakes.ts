@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { runCli, type SdlCliDeps } from "@sdl/kernel/cli";
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 import type {
 	SdlExecOptions,
 	ExecResult,
@@ -9,7 +9,7 @@ import type {
 	SdlExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 
 export type ScriptedTextGenerationResult = TextGenerationResult | Promise<TextGenerationResult>;
 

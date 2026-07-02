@@ -9,7 +9,7 @@ import { optionalEntries } from "@sdl/core/primitives";
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
 import type { GitGateway } from "@sdl/git";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import type { HandoffCliContext } from "../context.ts";
 

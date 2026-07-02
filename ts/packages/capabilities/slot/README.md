@@ -41,7 +41,7 @@ sdl slot shell install --shell bash
 
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
-During the extension-contract transition, the Slot SDL extension uses the current `sdl-sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+During the extension-contract transition, the Slot SDL extension uses the current `@sdl/kernel/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
 
 ## Completion
 

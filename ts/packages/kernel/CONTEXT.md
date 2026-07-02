@@ -21,7 +21,7 @@ The host layer of the `sdl` CLI: command discovery, precedence, selected extensi
 *Avoid*: repository workflow command bundle, Graphite/GitHub policy owner, hidden plugin registry, task database, synonym for all SDL packages.
 
 **SDL extension**:
-Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions default-export an extension object created with `defineExtension()` from `sdl-sdk`; command contributions currently live in an optional `commands` bucket.
+Repo-local or global lifecycle behavior exposed through SDL because it belongs to the Source Development Lifecycle even when it depends on project-specific tools, policy, or orchestration packages. SDL extensions default-export an extension object created with `defineExtension()` from `@sdl/kernel/sdk`; command contributions currently live in an optional `commands` bucket.
 *Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
 
 **Project-local SDL extension**:
@@ -57,15 +57,15 @@ A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `au
 *Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
 
 **SDL extension API**:
-The concrete `sdl-sdk` package used by SDL extension authors — the live instance that fills the Public author API slot today. `sdl-sdk` is the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
+The concrete `@sdl/kernel/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. `@sdl/kernel/sdk` is the SDK layer; `@sdl/kernel` is the host/kernel container that loads extensions. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
 *Avoid*: Public SDL extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, direct `zod` dependency for command schemas when the SDK `z` export is available.
 
 **Public author API**:
-The abstract slot — the stable package specifier we promise to point SDL extension authors at, independent of which specifier currently fills it. The SDL extension API (`sdl-sdk`) is its current and only filler. Use this term for the promise/contract; use SDL extension API for the concrete exports.
-*Avoid*: synonym for `sdl-sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
+The abstract slot — the stable module specifier we promise to point SDL extension authors at, independent of which specifier currently fills it. The SDL extension API (`@sdl/kernel/sdk`) is its current and only filler. Use this term for the promise/contract; use SDL extension API for the concrete exports.
+*Avoid*: synonym for `@sdl/kernel/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
 
 **Command-first SDK promotion rule**:
-The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.sdl/extensions/` when that keeps project-local authoring readable; promotion to `sdl-sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
+The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.sdl/extensions/` when that keeps project-local authoring readable; promotion to `@sdl/kernel/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
@@ -73,7 +73,7 @@ An `@sdl/kernel` subpath shared across first-party workspace packages (`ccc`, `p
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, capability-building primitives under precise `@sdl/capability-kit/*` subpaths, and deferred `public-sdk` promotion into `sdl-sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `sdl-sdk`.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, internal workspace exports for package-owned migration seams, capability-building primitives under precise `@sdl/capability-kit/*` subpaths, and deferred `public-sdk` promotion into `@sdl/kernel/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@sdl/kernel/sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
@@ -102,7 +102,7 @@ An internal package such as `@sdl/ccc` that may own implementation orchestration
 
 ## Extension layering
 
-The end-state architecture for SDL capabilities relative to the SDL extension API (`sdl-sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/kernel`) plus the `sdl-sdk` package. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
+The end-state architecture for SDL capabilities relative to the SDL extension API (`@sdl/kernel/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@sdl/core`, `@sdl/clinkr`, `@sdl/graphite`, `@sdl/brmem`). The SDK: the SDL kernel (`@sdl/kernel`) plus the `@sdl/kernel/sdk` package. Above the SDK: the Capability Kit plus the Capabilities (first-party extensions) built on it.
 
 **Capability extension**:
 An above-SDK extension that contributes one Source Development Lifecycle capability — flow, handoff, objective, branch-context, plans, address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.
@@ -127,5 +127,5 @@ The above-SDK package holding cross-cutting, capability-agnostic code shared amo
 *Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@sdl/core`.
 
 **Capability-building primitive subpaths** (`@sdl/capability-kit/*`):
-Precise internal workspace subpaths for small shared first-party capability-building primitives extracted out of the former transitional package (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). They are not public `sdl-sdk` author API by default and not product capability owners; they exist to avoid both kernel/SDK pollution and a permanent transitional holding pen.
+Precise internal workspace subpaths for small shared first-party capability-building primitives extracted out of the former transitional package (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). They are not public `@sdl/kernel/sdk` author API by default and not product capability owners; they exist to avoid both kernel/SDK pollution and a permanent transitional holding pen.
 *Avoid*: public SDK surface, product capability domain home, below-SDK package, transitional debt label, root-barrel convenience.

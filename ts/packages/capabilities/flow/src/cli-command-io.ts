@@ -3,7 +3,7 @@ import {
 	type CliCommandIoInput,
 	type CliCommandIoOptions,
 } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 
 /** Minimal CLI stream/callback surface that Flow standalone commands adapt to SdlCommandIo. */
 export type FlowCliCommandIoInput = CliCommandIoInput;

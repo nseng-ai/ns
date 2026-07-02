@@ -12,7 +12,7 @@ import {
 	sdlExtensionPackageManifestSchema,
 	type SdlExtensionManifestCommand,
 	type SdlExtensionPackageManifest,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 
 import {
 	SDL_COMMAND_NAME_PATTERN,
@@ -20,8 +20,8 @@ import {
 	commandLeafName,
 	formatUnknownError,
 	type SdlCommandCandidate,
-} from "./command-registry.ts";
-import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
+} from "../cli/command-registry.ts";
+import { classifyFirstMatchingZodIssuePath, type ZodIssuePathRule } from "../cli/zod-issue-path.ts";
 
 export type DiscoveredExtensionCommandKind = "file" | "dir-index" | "package";
 

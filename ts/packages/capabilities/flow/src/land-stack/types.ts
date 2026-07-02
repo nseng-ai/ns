@@ -1,5 +1,5 @@
 import type { ExecResult, PiExecResultLike } from "@sdl/core/command";
-import type { SdlConfirmOptions } from "sdl-sdk";
+import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 

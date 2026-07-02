@@ -2,7 +2,7 @@ import {
 	createSdlDomainCommand,
 	type SdlDomainCommandOptions,
 } from "@sdl/capability-kit/sdl-command";
-import type { SdlCommand, SdlCommandSchema } from "sdl-sdk";
+import type { SdlCommand, SdlCommandSchema } from "@sdl/kernel/sdk";
 
 import type { AretroCliContext } from "../context.ts";
 import { createSdlAretroContext } from "./context.ts";

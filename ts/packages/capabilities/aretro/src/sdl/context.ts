@@ -1,5 +1,5 @@
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import type { AretroCliContext } from "../context.ts";
 import { PiJsonlSessionSource } from "../sessions/pi-jsonl-source.ts";

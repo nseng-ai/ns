@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { DEFAULT_COLUMNS } from "@sdl/clinkr";
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import type { StreamClock, StreamSinkDeps, StreamWriter } from "@sdl/clinkr/stream";
 import { spinnerFrame } from "@sdl/core/cli-theme";
 
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import {
 	createPhaseStream,

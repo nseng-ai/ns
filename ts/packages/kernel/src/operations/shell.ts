@@ -12,7 +12,7 @@ import {
 	resolveRequestedShell,
 } from "@sdl/capability-kit/shell-support";
 
-import type { SdlCliContext } from "../cli.ts";
+import type { SdlCliContext } from "../cli/index.ts";
 
 export const sdlShellIntegrationBeginMarker = "# >>> sdl shell integration >>>";
 export const sdlShellIntegrationEndMarker = "# <<< sdl shell integration <<<";

@@ -17,7 +17,14 @@ import {
 	type SubmitCommandResult,
 } from "../shared/submit.ts";
 import { selectSubmitFailureModelRef } from "../shared/text-generation.ts";
-import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
+import {
+	defineExtension,
+	failed,
+	ok,
+	z,
+	type SdlCommand,
+	type SdlExtensionApi,
+} from "@sdl/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "SDL_SUBMIT_FAILURE_LOG_DIR";

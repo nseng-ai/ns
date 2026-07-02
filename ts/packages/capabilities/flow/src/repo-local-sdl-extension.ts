@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { flowAutobranchCommand } from "./commands/autobranch.ts";
 import { flowAutoslotCommand } from "./commands/autoslot.ts";

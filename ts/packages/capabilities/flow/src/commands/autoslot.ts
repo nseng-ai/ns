@@ -1,5 +1,5 @@
 import { runAutoslotCli } from "../autoslot.ts";
-import { defineExtension, z, type SdlCommand } from "sdl-sdk";
+import { defineExtension, z, type SdlCommand } from "@sdl/kernel/sdk";
 
 import { runFlowCli } from "../shared/flow-cli-runner.ts";
 import { resolveFlowStreamCaps } from "../shared/phase-stream.ts";

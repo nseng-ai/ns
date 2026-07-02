@@ -211,12 +211,12 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../infra/graphite
+      '@sdl/kernel':
+        specifier: workspace:*
+        version: link:../kernel
       '@sdl/plans':
         specifier: workspace:*
         version: link:../capabilities/plans
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -238,9 +238,9 @@ importers:
       '@sdl/github':
         specifier: workspace:*
         version: link:../../infra/github
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../../sdl-sdk
+        version: link:../../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -259,9 +259,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../../infra/git
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../../sdl-sdk
+        version: link:../../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -295,9 +295,6 @@ importers:
       sdl-land:
         specifier: workspace:*
         version: link:../land
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../../sdl-sdk
 
   packages/capabilities/land: {}
 
@@ -342,9 +339,9 @@ importers:
       '@sdl/graphite':
         specifier: workspace:*
         version: link:../../infra/graphite
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../../sdl-sdk
+        version: link:../../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -486,9 +483,6 @@ importers:
       sdl-flow:
         specifier: workspace:*
         version: link:../capabilities/flow
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -520,9 +514,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../sdl-sdk
+        version: link:../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -544,9 +538,6 @@ importers:
       '@sdl/kernel':
         specifier: workspace:*
         version: link:../../kernel
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -665,9 +656,6 @@ importers:
       jiti:
         specifier: 'catalog:'
         version: 2.7.0
-      sdl-sdk:
-        specifier: workspace:*
-        version: link:../sdl-sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -785,9 +773,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../sdl-sdk
+        version: link:../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -812,9 +800,9 @@ importers:
       '@sdl/github':
         specifier: workspace:*
         version: link:../infra/github
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../sdl-sdk
+        version: link:../kernel
       smol-toml:
         specifier: 'catalog:'
         version: 1.6.1
@@ -836,21 +824,9 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../infra/git
-      sdl-sdk:
+      '@sdl/kernel':
         specifier: workspace:*
-        version: link:../sdl-sdk
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-
-  packages/sdl-sdk:
-    dependencies:
-      '@sdl/clinkr':
-        specifier: workspace:*
-        version: link:../infra/clinkr
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../infra/core
+        version: link:../kernel
       zod:
         specifier: 'catalog:'
         version: 4.4.3

@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { roasterExecPublishFindingsCommand } from "./commands/exec-publish-findings.ts";
 import { roasterExecRecordFindingsCommand } from "./commands/exec-record-findings.ts";

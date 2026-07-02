@@ -6,9 +6,9 @@ import {
 	createCliCommandIo,
 	createCommandIo,
 	runWithSdlCommandIo,
-} from "../src/sdk/command-io.ts";
-import { noopSdlProgress } from "sdl-sdk";
-import type { SdlExtensionApi } from "sdl-sdk";
+} from "../src/runtime/command-io.ts";
+import { noopSdlProgress } from "@sdl/kernel/sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 function createCtx(overrides: Partial<SdlExtensionApi>): SdlExtensionApi {
 	const commandIo = createCliCommandIo(

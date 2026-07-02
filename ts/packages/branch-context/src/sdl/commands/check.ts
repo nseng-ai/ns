@@ -1,4 +1,4 @@
-import { defineExtension } from "sdl-sdk";
+import { defineExtension } from "@sdl/kernel/sdk";
 
 import { branchContextCommand } from "../command.ts";
 import { checkResultSchema, handleCheck, keyRequestSchema } from "../../operations.ts";

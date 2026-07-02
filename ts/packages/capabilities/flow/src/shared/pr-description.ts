@@ -16,7 +16,7 @@ import {
 
 import { createSdlCommandRunner } from "@sdl/capability-kit";
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 export { preparePrDescription } from "../submit/index.ts";
 export type {
@@ -43,7 +43,7 @@ export interface RegeneratedPrDescription {
 	promptSource: PromptSource;
 }
 
-/** Temporary internal migration seam; not exported from `sdl-sdk`. */
+/** Temporary internal migration seam; not exported from `@sdl/kernel/sdk`. */
 export function createSdlPrDescriptionRuntime(ctx: SdlExtensionApi): SdlPrDescriptionRuntime {
 	const runner = createSdlCommandRunner(ctx);
 	return {

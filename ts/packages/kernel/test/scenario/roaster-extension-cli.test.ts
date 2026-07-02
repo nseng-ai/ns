@@ -2,13 +2,13 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import type { SdlCliDeps } from "../../src/cli.ts";
+import type { SdlCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
-} from "../../src/extension-registry.ts";
+} from "../../src/extensions/registry.ts";
 import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
-import type { SdlCommand, SdlExtensionApi } from "sdl-sdk";
+import type { SdlCommand, SdlExtensionApi } from "@sdl/kernel/sdk";
 
 function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	const registry = fakeRoasterRegistry();

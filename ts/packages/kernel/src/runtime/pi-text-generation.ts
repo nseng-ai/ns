@@ -7,7 +7,7 @@ import type {
 	TextGenerationResult,
 	TextGenerationUsage,
 	TextGenerator,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 
 const DEFAULT_MAX_TOKENS = 512;
 const DEFAULT_REASONING = "low";

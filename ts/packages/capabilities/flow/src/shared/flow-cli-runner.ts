@@ -5,7 +5,7 @@ import {
 	outputListenerToExecCallbacks,
 } from "@sdl/core/command";
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
-import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "sdl-sdk";
+import { failed, ok, type ExecResult, type SdlExtensionApi, type SdlResult } from "@sdl/kernel/sdk";
 
 export interface FlowCliExecOptions {
 	cwd?: string;

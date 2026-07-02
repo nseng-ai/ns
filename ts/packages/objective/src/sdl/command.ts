@@ -2,7 +2,7 @@ import {
 	createSdlDomainCommand,
 	type SdlDomainCommandOptions,
 } from "@sdl/capability-kit/sdl-command";
-import type { SdlCommand, SdlCommandSchema } from "sdl-sdk";
+import type { SdlCommand, SdlCommandSchema } from "@sdl/kernel/sdk";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import { createSdlObjectiveContext } from "./context.ts";

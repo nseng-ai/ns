@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { formatCommand } from "@sdl/core/command";
 import {
 	completed,

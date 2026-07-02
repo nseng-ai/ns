@@ -1,19 +1,19 @@
-# `sdl-sdk` — Reference
+# `@sdl/kernel/sdk` — Reference
 
-`sdl-sdk` is the public author API for SDL extensions — the one package you import from to write an SDL extension; this document is the complete reference for its exports. `sdl-sdk` is the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions.
+`@sdl/kernel/sdk` is the public author API for SDL extensions — the one package you import from to write an SDL extension; this document is the complete reference for its exports. `@sdl/kernel/sdk` is the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions.
 
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failed, ok, z } from "sdl-sdk";
-import type { SdlExtensionApi, SdlResult } from "sdl-sdk";
+import { defineExtension, failed, ok, z } from "@sdl/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the SDL host.
 
 Do not import SDL implementation modules (`@sdl/kernel/*`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Capability APIs such as `@sdl/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `sdl-sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+Capability APIs such as `@sdl/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@sdl/kernel/sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 
 For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@sdl/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
@@ -49,7 +49,7 @@ function defineExtension(extension: SdlExtension): SdlExtension;
 **Example.**
 
 ```ts
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -109,7 +109,7 @@ Do not point multiple manifest command entries at a shared `.sdl/extensions/<gro
 `packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@sdl/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
 ```ts
-import { repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import { repoLocalSdlCommandDescriptor } from "@sdl/kernel/sdk";
 
 const descriptor = repoLocalSdlCommandDescriptor({
   command: attachCommand,
@@ -171,7 +171,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 **Example.** Declared inline so `request` is inferred from `schema`:
 
 ```ts
-import { defineExtension, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "@sdl/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -210,7 +210,7 @@ Provides dynamic completion candidates for the selected command without invoking
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineExtension, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "@sdl/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -243,13 +243,13 @@ The user-facing setup, resolver behavior, supported shells, and limitations for 
 type SdlCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with `z` imported from `sdl-sdk`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `@sdl/kernel/sdk`.
 
 **Example.**
 
 ```ts
-import { z } from "sdl-sdk";
-import type { SdlCommandSchema } from "sdl-sdk";
+import { z } from "@sdl/kernel/sdk";
+import type { SdlCommandSchema } from "@sdl/kernel/sdk";
 
 const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -265,8 +265,8 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import { z } from "sdl-sdk";
-import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "sdl-sdk";
+import { z } from "@sdl/kernel/sdk";
+import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
@@ -417,7 +417,7 @@ A discriminated union on `ok`. Construct values with `ok()` and `failed()` rathe
 **Example.**
 
 ```ts
-import type { SdlExtensionApi, SdlResult } from "sdl-sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
 
 function run(ctx: SdlExtensionApi): SdlResult {
   return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
@@ -703,7 +703,7 @@ ctx.stdout?.(result.text);
 Command schemas are [Zod](https://zod.dev) schemas. The SDK exports the host's schema builder so single-file extensions do not need their own resolvable `zod` dependency. Its API is Zod's own — see the Zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "sdl-sdk";
+import { z } from "@sdl/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 ```

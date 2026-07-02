@@ -5,10 +5,17 @@ import {
 } from "../autobranch/dirty-worktree.ts";
 import { renderResultBlock } from "@sdl/core/cli-theme";
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { commandIoFromSdlExtensionApi } from "@sdl/kernel/command-io";
-import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
+import {
+	defineExtension,
+	failed,
+	ok,
+	z,
+	type SdlCommand,
+	type SdlExtensionApi,
+} from "@sdl/kernel/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../shared/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../shared/model-generation.ts";

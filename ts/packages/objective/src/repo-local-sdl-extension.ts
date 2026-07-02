@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { objectiveArchiveSdlCommand } from "./sdl/commands/archive.ts";
 import { objectiveCheckSdlCommand } from "./sdl/commands/check.ts";

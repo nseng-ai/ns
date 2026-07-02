@@ -59,7 +59,7 @@ import {
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
-import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "sdl-sdk";
+import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "@sdl/kernel/sdk";
 
 export type {
 	RemoteSyncDiagnostics,

@@ -1,8 +1,8 @@
 import { ok, type Caps, type RenderCapabilities } from "@sdl/clinkr";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "sdl-sdk";
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@sdl/kernel/sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({ __contextOptions: options }));
 

@@ -23,13 +23,13 @@ import {
 	truncateTextHead,
 	truncateTextHeadTail,
 	z,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 
 const SDL_SDK_DIR = dirname(fileURLToPath(import.meta.url));
 const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
 
 /** Module specifier that SDL command entries import the SDK from. */
-const SDK_SPECIFIER = "sdl-sdk";
+const SDK_SPECIFIER = "@sdl/kernel/sdk";
 const CCC_AUTOSLOT_SPECIFIER = "@sdl/ccc/autoslot";
 const CCC_LAND_SPECIFIER = "@sdl/ccc/land";
 const CCC_TRUNK_PULL_SPECIFIER = "@sdl/ccc/trunk-pull";
@@ -75,9 +75,9 @@ const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "terminal", "text
 const GIT_MODULE_PATH = join(SDL_SRC_DIR, "..", "..", "infra", "git", "src", "index.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
-	"@sdl/kernel/cli": "cli.ts",
-	"@sdl/kernel/context": "context.ts",
-	"@sdl/kernel/pi-text-generation": "sdk/pi-text-generation.ts",
+	"@sdl/kernel/cli": "cli/index.ts",
+	"@sdl/kernel/context": "cli/context.ts",
+	"@sdl/kernel/pi-text-generation": "runtime/pi-text-generation.ts",
 } as const;
 
 const CAPABILITY_KIT_MODULE_PATHS = {
@@ -252,7 +252,7 @@ function stripLeadingDotSlash(path: string): string {
 	return path.startsWith("./") ? path.slice("./".length) : path;
 }
 
-// Keep this object in sync with all runtime value exports from sdl-sdk; type-only exports are erased.
+// Keep this object in sync with all runtime value exports from @sdl/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const sdlSdkVirtualModule = {
 	defineExtension,
@@ -276,7 +276,7 @@ const sdlSdkVirtualModule = {
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `sdl-sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `@sdl/kernel/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.sdl/extensions`.
