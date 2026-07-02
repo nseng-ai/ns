@@ -111,8 +111,12 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   `updates/2026-07-02T202105Z-extraction-slice-2-facts-backend.md`.
   Residual: production keeps the `preloadedShape` preflight bypass for
   upfront stack confirmation/dispatch until the round-trip retirement
-  row. Next: slice 3 (isolated fast-path merge via
-  `squashMergePullRequest`).
+  row. Slice 3 (isolated fast-path merge via gateways) delivered
+  2026-07-02 (runner step, commit `ee486b9f0` on
+  `flow-map-slice3-isolated-fast-path-gateway`) — see
+  `updates/2026-07-02T203536Z-extraction-slice-3-isolated-fast-path.md`.
+  Next: slice 4 (backup refs onto `LandGitGateway` via
+  `snapshotBackupRefs`; ref writes are mutations — byte-for-byte).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for
