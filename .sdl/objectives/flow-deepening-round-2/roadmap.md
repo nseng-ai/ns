@@ -129,8 +129,12 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   — see
   `updates/2026-07-02T210812Z-extraction-slice-6-slot-free-seam.md`;
   post-landing `--free` cleanup intentionally unchanged until slice 9.
-  Next: slice 7 (stack merge loop onto gateways — high risk, interleaved
-  presentation; channel-backed streaming per the settled decision).
+  Slice 7 (stack merge loop onto gateways) delivered 2026-07-02 (runner
+  step, commit `8f60ae783` on `flow-map-slice7-merge-loop-gateway`) — see
+  `updates/2026-07-02T211745Z-extraction-slice-7-merge-loop.md`; zero
+  gateway or assertion changes. Next: slice 8 (post-merge Graphite
+  maintenance — RISKIEST; map-named `LandGraphiteGateway` methods only;
+  every destructive guard and severity preserved).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for
