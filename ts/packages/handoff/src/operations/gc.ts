@@ -2,20 +2,20 @@ import { renderDestructiveResultBlock } from "@sdl/core/cli-theme";
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { HandoffCliContext } from "../context.ts";
-import { listHandoffSummaries } from "../artifact-storage.ts";
+import type { HandoffCliContext } from "../core/context.ts";
+import { listHandoffSummaries } from "../core/artifact-storage.ts";
 import {
 	deletedBranchGarbageCollectionMetadataForAction,
 	deletedBranchGarbageCollectionMetadataForWireAction,
 	deletedBranchGarbageCollectionWireValues,
 	type DeletedBranchGarbageCollectionWireAction,
-} from "../gc-actions.ts";
+} from "../core/gc-actions.ts";
 import {
 	executeDeletedBranchGarbageCollection,
 	planDeletedBranchGarbageCollection,
 	type DeletedBranchGarbageCollectionReport,
-} from "../gc-core.ts";
-import { handoffSummarySchema } from "../inventory.ts";
+} from "../core/gc-core.ts";
+import { handoffSummarySchema } from "../core/inventory.ts";
 import { confirmDestructiveAction } from "./shared.ts";
 
 export type GcAction = DeletedBranchGarbageCollectionWireAction;

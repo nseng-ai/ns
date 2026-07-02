@@ -11,7 +11,7 @@ import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
-import type { HandoffCliContext } from "../context.ts";
+import type { HandoffCliContext } from "../core/context.ts";
 
 interface HandoffSdlExtensionOverrides {
 	brmem?: BrmemGateway;

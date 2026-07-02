@@ -2,7 +2,7 @@ import { FakeBrmemGateway } from "@sdl/brmem";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { readHandoffArtifact, type HandoffStorageDeps } from "../../src/artifact-storage.ts";
+import { readHandoffArtifact, type HandoffStorageDeps } from "../../src/core/artifact-storage.ts";
 
 const HANDOFF_NAMESPACE = "handoff";
 

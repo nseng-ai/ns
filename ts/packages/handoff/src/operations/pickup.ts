@@ -1,10 +1,10 @@
 import { failure, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
-import { readHandoffArtifact } from "../artifact-storage.ts";
-import type { HandoffCliContext } from "../context.ts";
-import { HANDOFF_NAMESPACE } from "../identity.ts";
-import { handoffSummarySchema } from "../inventory.ts";
+import { readHandoffArtifact } from "../core/artifact-storage.ts";
+import type { HandoffCliContext } from "../core/context.ts";
+import { HANDOFF_NAMESPACE } from "../core/identity.ts";
+import { handoffSummarySchema } from "../core/inventory.ts";
 import { resolveBranch } from "./shared.ts";
 
 export const pickupRequestSchema = z.object({

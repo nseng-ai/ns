@@ -16,7 +16,7 @@ import handoffExtension, {
 	resolveHandoffKey,
 	type HandoffListMessageDetails,
 	type HandoffListMessageItem,
-} from "../src/extension.ts";
+} from "../../src/pi/extension.ts";
 import {
 	BRANCH,
 	FakePi,
@@ -497,7 +497,7 @@ describe("handoff pure helpers", () => {
 	});
 
 	test("pickup-list adapter calls Handoff API instead of standalone handoff or raw brmem get", async () => {
-		const source = await readFile(new URL("../src/pickup-list.ts", import.meta.url), "utf8");
+		const source = await readFile(new URL("../../src/pi/pickup-list.ts", import.meta.url), "utf8");
 
 		expect(source).toContain("listHandoffSummaries");
 		expect(source).toContain("readHandoffArtifact");

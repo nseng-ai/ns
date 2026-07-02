@@ -27,7 +27,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "sdl handoff create",
 		skill: "handoff-create",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff-pi",
+		sourcePackage: "@sdl/handoff/pi",
 		sourceModule: "handoff",
 		notes:
 			"Pi command expands the portable handoff-create skill; the final artifact is stored through `sdl handoff create` after model confirmation.",
@@ -40,7 +40,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "sdl handoff pickup",
 		skill: "handoff-pickup",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff-pi",
+		sourcePackage: "@sdl/handoff/pi",
 		sourceModule: "handoff",
 		notes:
 			"Pi command reads Handoff artifacts through the Handoff Capability API and expands the same portable pickup workflow.",
@@ -53,7 +53,7 @@ export const handoffParity = definePiSurfaceParity([
 		cli: "sdl handoff list",
 		skill: "handoff-pickup",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff-pi",
+		sourcePackage: "@sdl/handoff/pi",
 		sourceModule: "handoff",
 		notes: "List support is part of the portable handoff pickup/list workflow.",
 	},
@@ -65,7 +65,7 @@ export const handoffParity = definePiSurfaceParity([
 		fallback:
 			"Create the handoff with handoff-create, then manually open the target harness/session and pick it up with handoff-pickup.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff-pi",
+		sourcePackage: "@sdl/handoff/pi",
 		sourceModule: "handoff",
 		notes:
 			"Focused cmux tab launch is a Pi/cmux session primitive; storage and pickup are separately portable.",
@@ -79,7 +79,7 @@ export const handoffParity = definePiSurfaceParity([
 		fallback:
 			"Create the handoff with handoff-create, start a new Pi session manually, then run handoff-pickup for the saved artifact.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff-pi",
+		sourcePackage: "@sdl/handoff/pi",
 		sourceModule: "handoff",
 		notes:
 			"Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",

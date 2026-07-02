@@ -3,9 +3,9 @@ import { optionalEntry } from "@sdl/core/primitives";
 import { cell, paint, renderBufferedReport, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { HandoffCliContext } from "../context.ts";
-import { listHandoffSummaries } from "../artifact-storage.ts";
-import { handoffSummarySchema } from "../inventory.ts";
+import type { HandoffCliContext } from "../core/context.ts";
+import { listHandoffSummaries } from "../core/artifact-storage.ts";
+import { handoffSummarySchema } from "../core/inventory.ts";
 import { resolveBranch } from "./shared.ts";
 
 export const listRequestSchema = z.object({

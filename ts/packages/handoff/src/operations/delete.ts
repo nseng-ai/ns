@@ -2,8 +2,8 @@ import { renderDestructiveResultBlock } from "@sdl/core/cli-theme";
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { HandoffCliContext } from "../context.ts";
-import { deleteHandoffArtifact, prepareHandoffDeletion } from "../artifact-storage.ts";
+import type { HandoffCliContext } from "../core/context.ts";
+import { deleteHandoffArtifact, prepareHandoffDeletion } from "../core/artifact-storage.ts";
 import { confirmDestructiveAction, resolveBranch } from "./shared.ts";
 
 export const deleteRequestSchema = z.object({

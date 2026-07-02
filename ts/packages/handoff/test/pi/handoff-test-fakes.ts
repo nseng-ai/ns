@@ -8,14 +8,14 @@ import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
 	type ExtensionAPI,
-} from "../src/extension.ts";
+} from "../../src/pi/extension.ts";
 import type {
 	NewSessionOptions,
 	RenderComponent,
 	SendUserMessageOptions,
 	ThinkingLevel,
 	TuiHandle,
-} from "../src/runtime-types.ts";
+} from "../../src/pi/runtime-types.ts";
 
 export const ROOT = "/repo";
 export const BRANCH = "feature/handoff";

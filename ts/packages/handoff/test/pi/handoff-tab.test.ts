@@ -5,8 +5,8 @@ import { describe, expect, test } from "vitest";
 import handoffExtension, {
 	buildHandoffTabPrompt,
 	deriveSemanticHandoffSlug,
-} from "../src/extension.ts";
-import { buildHandoffContentSlugPrompt } from "../src/content-slug.ts";
+} from "../../src/pi/extension.ts";
+import { buildHandoffContentSlugPrompt } from "../../src/pi/content-slug.ts";
 import {
 	BRANCH,
 	FakePi,

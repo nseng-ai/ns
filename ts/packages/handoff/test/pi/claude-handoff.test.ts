@@ -11,7 +11,7 @@ import {
 	scrubClaudeEnv,
 	type InteractiveClaudeInvocation,
 	type InteractiveClaudeRunResult,
-} from "../src/claude-command.ts";
+} from "../../src/pi/claude-command.ts";
 import {
 	BRANCH,
 	FakePi,

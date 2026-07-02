@@ -2,9 +2,9 @@ import { describe, expect, test, vi } from "vitest";
 
 import { createDeferred } from "@sdl/core/test-kit";
 
-import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../src/extension.ts";
-import { createHandoffSelfWorkflow } from "../src/self.ts";
-import type { HandoffCreateSkillLoader } from "../src/create-skill.ts";
+import { buildHandoffSelfPrompt, formatHandoffSelfKickoffPrompt } from "../../src/pi/extension.ts";
+import { createHandoffSelfWorkflow } from "../../src/pi/self.ts";
+import type { HandoffCreateSkillLoader } from "../../src/pi/create-skill.ts";
 import {
 	BRANCH,
 	FakePi,

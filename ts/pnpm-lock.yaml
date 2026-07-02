@@ -108,9 +108,6 @@ importers:
       '@sdl/handoff':
         specifier: workspace:*
         version: link:packages/handoff
-      '@sdl/handoff-pi':
-        specifier: workspace:*
-        version: link:packages/capability-pi/handoff
       '@sdl/kernel':
         specifier: workspace:*
         version: link:packages/kernel
@@ -339,24 +336,6 @@ importers:
         specifier: workspace:*
         version: link:../../hosts/pi
 
-  packages/capability-pi/handoff:
-    dependencies:
-      '@sdl/brmem':
-        specifier: workspace:*
-        version: link:../../infra/brmem
-      '@sdl/capability-kit':
-        specifier: workspace:*
-        version: link:../../sdl-capability-kit
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../../infra/core
-      '@sdl/handoff':
-        specifier: workspace:*
-        version: link:../../handoff
-      '@sdl/pi':
-        specifier: workspace:*
-        version: link:../../hosts/pi
-
   packages/capability-pi/objective:
     dependencies:
       '@sdl/core':
@@ -429,6 +408,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@sdl/pi':
+        specifier: workspace:*
+        version: link:../hosts/pi
 
   packages/hosts/pi:
     dependencies:

@@ -3,15 +3,17 @@
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./identity": "./src/identity.ts",
-		"./api": "./src/api.ts",
+		".": "./src/core/index.ts",
+		"./identity": "./src/core/identity.ts",
+		"./api": "./src/core/api.ts",
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./sdl/commands/delete": "./src/sdl/commands/delete.ts",
 		"./sdl/commands/gc": "./src/sdl/commands/gc.ts",
 		"./sdl/commands/create": "./src/sdl/commands/create.ts",
 		"./sdl/commands/pickup": "./src/sdl/commands/pickup.ts",
-		"./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
+		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/extension": "./src/pi/extension.ts"
 	},
 	"files": [
 		"src"
@@ -29,6 +31,23 @@
 		"zod": "catalog:"
 	},
 	"sdl": {
-		"tier": "capability"
+		"tier": "capability",
+		"subpackages": [
+			"core",
+			"operations",
+			"pi",
+			"sdl"
+		]
+	},
+	"peerDependencies": {
+		"@sdl/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@sdl/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@sdl/pi": "workspace:*"
 	}
 }

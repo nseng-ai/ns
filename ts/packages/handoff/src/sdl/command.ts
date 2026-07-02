@@ -4,7 +4,7 @@ import {
 } from "@sdl/capability-kit/sdl-command";
 import type { SdlCommand, SdlCommandSchema } from "@sdl/kernel/sdk";
 
-import type { HandoffCliContext } from "../context.ts";
+import type { HandoffCliContext } from "../core/context.ts";
 import { createSdlHandoffContext } from "./context.ts";
 
 type HandoffSdlCommandOptions<S extends SdlCommandSchema, T> = Omit<

@@ -3,9 +3,9 @@ import { failure, ok } from "@sdl/clinkr";
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import { createHandoffArtifact, prepareHandoffCreation } from "../artifact-storage.ts";
-import type { HandoffCliContext } from "../context.ts";
-import { HANDOFF_NAMESPACE } from "../identity.ts";
+import { createHandoffArtifact, prepareHandoffCreation } from "../core/artifact-storage.ts";
+import type { HandoffCliContext } from "../core/context.ts";
+import { HANDOFF_NAMESPACE } from "../core/identity.ts";
 import { resolveBranch } from "./shared.ts";
 
 const STDIN_SOURCE_FILE = "<stdin>";
