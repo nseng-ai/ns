@@ -131,8 +131,6 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string;
 }
 
-export type AregSkillKindSourceType = "local" | "vendored";
-
 export const AREG_SKILL_FIND_ROOT_DESCRIPTORS = [
 	{ root: "skills", sourceType: "repo" },
 	{ root: ".agents/skills", sourceType: "vendored" },
@@ -142,6 +140,16 @@ export const AREG_SKILL_FIND_ROOT_DESCRIPTORS = [
 export type AregSkillFindRootDescriptor = (typeof AREG_SKILL_FIND_ROOT_DESCRIPTORS)[number];
 export type AregSkillFindRoot = AregSkillFindRootDescriptor["root"];
 export type AregSkillFindSourceType = AregSkillFindRootDescriptor["sourceType"];
+export type AregSkillKindSourceType = Extract<AregSkillFindSourceType, "repo" | "vendored">;
+export type AregSkillKindRootDescriptor = Extract<
+	AregSkillFindRootDescriptor,
+	{ sourceType: AregSkillKindSourceType }
+>;
+
+export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.filter(
+	(descriptor): descriptor is AregSkillKindRootDescriptor =>
+		descriptor.sourceType === "repo" || descriptor.sourceType === "vendored",
+);
 
 export const AREG_SKILL_FIND_ROOTS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
 	(descriptor): AregSkillFindRoot => descriptor.root,
@@ -176,6 +184,16 @@ export function skillFindDescriptorForSourceType(
 ): AregSkillFindRootDescriptor {
 	const descriptor = AREG_SKILL_FIND_DESCRIPTOR_BY_SOURCE_TYPE.get(sourceType);
 	if (descriptor === undefined) throw new Error(`Unknown skill-find source type: ${sourceType}`);
+	return descriptor;
+}
+
+export function skillKindDescriptorForSourceType(
+	sourceType: AregSkillKindSourceType,
+): AregSkillKindRootDescriptor {
+	const descriptor = AREG_SKILL_KIND_ROOT_DESCRIPTORS.find(
+		(candidate) => candidate.sourceType === sourceType,
+	);
+	if (descriptor === undefined) throw new Error(`Unknown skill-kind source type: ${sourceType}`);
 	return descriptor;
 }
 

@@ -125,11 +125,6 @@ export interface FakeAregProjectGatewayOptions {
 	applyFailure?: AregErrorInfo;
 }
 
-const AREG_SKILL_KIND_SOURCE_TO_FIND_SOURCE_TYPE = {
-	local: "repo",
-	vendored: "vendored",
-} as const satisfies Record<AregSkillKindSourceType, AregSkillFindSourceType>;
-
 export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly projectDir: string;
 	private readonly projectPathState: AregPathState;
@@ -727,13 +722,12 @@ function copyFakeSkillFindSkill(
 function copyFakeSkillKindSkill(
 	skill: FakeAregSkillKindSkillOptions,
 ): AregSkillKindSkillInspection {
-	const sourceType = skill.sourceType ?? "local";
+	const sourceType = skill.sourceType ?? "repo";
+	const descriptor = skillFindDescriptorForSourceType(sourceType);
 	return {
 		name: skill.name,
 		sourceType,
-		baseRelativePath:
-			skill.baseRelativePath ??
-			(sourceType === "local" ? `skills/${skill.name}` : `.agents/skills/${skill.name}`),
+		baseRelativePath: skill.baseRelativePath ?? `${descriptor.root}/${skill.name}`,
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
@@ -779,9 +773,7 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 function skillKindSkillToFindSkill(
 	skill: AregSkillKindSkillInspection,
 ): AregSkillFindSkillInspection {
-	const descriptor = skillFindDescriptorForSourceType(
-		AREG_SKILL_KIND_SOURCE_TO_FIND_SOURCE_TYPE[skill.sourceType],
-	);
+	const descriptor = skillFindDescriptorForSourceType(skill.sourceType);
 	return {
 		name: skill.name,
 		root: descriptor.root,
@@ -796,7 +788,7 @@ function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {
 	const missing = { type: "missing" as const };
 	return {
 		name,
-		sourceType: "local",
+		sourceType: "repo",
 		baseRelativePath: `skills/${name}`,
 		skillDir: missing,
 		skillMd: missing,

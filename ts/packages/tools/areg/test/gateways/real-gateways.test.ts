@@ -251,7 +251,7 @@ describe("real areg gateways", () => {
 			expect(inventory.skillKindNames).toEqual(["demo", "vendored"]);
 			expect(skill).toMatchObject({
 				name: "demo",
-				sourceType: "local",
+				sourceType: "repo",
 				baseRelativePath: "skills/demo",
 				skillDir: { type: "directory" },
 				skillMd: { type: "file", text: "---\nname: demo\n---\n" },

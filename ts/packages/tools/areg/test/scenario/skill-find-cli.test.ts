@@ -20,6 +20,24 @@ describe("areg skill find CLI", () => {
 		expect(run.stdout.join("")).toBe("demo\n  skills/demo/SKILL.md\n");
 	});
 
+	test("includes parsed frontmatter with predicate boolean naming", async () => {
+		const run = runScenario(["skill", "find", "demo", "--format", "json"], {
+			project: { findSkills: [{ name: "demo", root: "skills", skillMd: DEMO_SKILL }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(jsonOutput(run)).toMatchObject({
+			status: "ok",
+			data: {
+				preferred: {
+					frontmatterName: "demo",
+					description: "Demo skill",
+					shouldDisableModelInvocation: true,
+				},
+			},
+		});
+	});
+
 	test("finds vendored and Claude-root skills", async () => {
 		const vendored = runScenario(["skill", "find", "vendored", "--format", "json"], {
 			project: { findSkills: [{ name: "vendored", root: ".agents/skills" }] },

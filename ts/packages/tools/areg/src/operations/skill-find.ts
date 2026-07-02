@@ -12,6 +12,7 @@ import {
 } from "../gateways.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
+import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
 
 const skillFindRootSchema = z.enum(AREG_SKILL_FIND_ROOTS);
 const skillFindSourceTypeSchema = z.enum(AREG_SKILL_FIND_SOURCE_TYPES);
@@ -33,7 +34,7 @@ const skillFindMatchSchema = z.object({
 	skillFilePath: z.string(),
 	frontmatterName: z.string().optional(),
 	description: z.string().optional(),
-	disableModelInvocation: z.boolean().optional(),
+	shouldDisableModelInvocation: z.boolean().optional(),
 	warnings: z.array(skillFindWarningSchema).optional(),
 });
 
@@ -90,7 +91,13 @@ export async function runSkillFind(
 	ctx: AregCliContext,
 	request: SkillFindRequest,
 ): Promise<ClinkrExit<SkillFindResult>> {
-	const resolved = await inspectResolvedProjectDir(ctx, request.path);
+	const resolved = await inspectResolvedProjectGitRoot(ctx, request.path, (context, projectPath) =>
+		context.project.inspectProjectBase({
+			cwd: context.cwd,
+			projectPath,
+			env: context.env,
+		}),
+	);
 	if (resolved.type === "error") return failure("project-inspection-failed", resolved.message);
 	const projectDir = resolved.projectDir;
 	const inspection = await ctx.project.inspectSkillFindRoots({ projectDir, env: ctx.env });
@@ -173,7 +180,7 @@ function parseSkillFindFrontmatter(
 	skillFileRelativePath: string,
 	skillMd: AregSkillFindSkillInspection["skillMd"],
 ): {
-	fields: Pick<SkillFindMatch, "frontmatterName" | "description" | "disableModelInvocation">;
+	fields: Pick<SkillFindMatch, "frontmatterName" | "description" | "shouldDisableModelInvocation">;
 	warnings: Array<{ code: string; message: string; path: string }>;
 } {
 	if (skillMd.type !== "file") {
@@ -203,14 +210,14 @@ function parseSkillFindFrontmatter(
 	}
 	const frontmatterName = nonEmpty(parsed.value.fields.name);
 	const description = nonEmpty(parsed.value.fields.description);
-	const disableModelInvocation = parseOptionalBoolean(
+	const shouldDisableModelInvocation = parseOptionalBoolean(
 		parsed.value.fields["disable-model-invocation"],
 	);
 	return {
 		fields: {
 			...(frontmatterName === undefined ? {} : { frontmatterName }),
 			...(description === undefined ? {} : { description }),
-			...(disableModelInvocation === undefined ? {} : { disableModelInvocation }),
+			...(shouldDisableModelInvocation === undefined ? {} : { shouldDisableModelInvocation }),
 		},
 		warnings: [],
 	};
@@ -288,43 +295,4 @@ function renderSkillFindMiss(result: SkillFindMissResult): string {
 		for (const candidate of result.candidates) lines.push(`  ${candidate.name}`);
 	}
 	return lines.join("\n");
-}
-
-async function inspectResolvedProjectDir(
-	ctx: AregCliContext,
-	requestPath: string,
-): Promise<
-	{ type: "ok"; projectDir: string } | { type: "error"; message: string; projectDir: string }
-> {
-	const targetInspection = await ctx.project.inspectProjectBase({
-		cwd: ctx.cwd,
-		projectPath: requestPath,
-		env: ctx.env,
-	});
-	if (targetInspection.projectPathState.type === "missing")
-		return {
-			type: "error",
-			message: `Target ${targetInspection.projectDir} does not exist.`,
-			projectDir: targetInspection.projectDir,
-		};
-	if (targetInspection.projectPathState.type !== "directory")
-		return {
-			type: "error",
-			message: `${targetInspection.projectDir} is not a directory.`,
-			projectDir: targetInspection.projectDir,
-		};
-	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
-	if (repoRoot.type === "error")
-		return {
-			type: "error",
-			message: repoRoot.error.message,
-			projectDir: targetInspection.projectDir,
-		};
-	if (repoRoot.type === "missing")
-		return {
-			type: "error",
-			message: `No Git root found containing ${targetInspection.projectDir}.`,
-			projectDir: targetInspection.projectDir,
-		};
-	return { type: "ok", projectDir: repoRoot.value };
 }
