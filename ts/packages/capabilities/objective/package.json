@@ -27,6 +27,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/objective/test"
 	},
 	"dependencies": {
+		"@sdl/branch-context": "workspace:*",
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/clinkr": "workspace:*",
 		"@sdl/core": "workspace:*",

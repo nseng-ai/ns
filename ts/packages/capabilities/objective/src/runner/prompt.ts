@@ -1,0 +1,125 @@
+import { describeBranchContextGraphiteCreationSteps } from "@sdl/branch-context/api";
+
+import type { RunnerStepMode } from "./context.ts";
+import { OBJECTIVE_RUNNER_REPORT_BEGIN, OBJECTIVE_RUNNER_REPORT_END } from "./report.ts";
+
+// Ported from the autopilot prototype's stack-navigation rule: the runner
+// owns commit/verify, so the child must never reshape or navigate the
+// Graphite stack mid-step.
+const RUNNER_GRAPHITE_STACK_NAVIGATION_RULE =
+	"Do not run `gt create`, `gt checkout`, `gt restack`, or any command whose purpose is to rebase/reorder or navigate the Graphite stack; after Graphite tracking succeeds, use plain `git switch` instead of `gt checkout` because Graphite checkout may demand a restack when a downstack branch is behind trunk. If a branch appears to need restacking, report it and stop.";
+
+export interface RunnerRecoverContext {
+	branch: string;
+	changedPaths: readonly string[];
+	/** Prior failure diagnostics the parent chose to forward. */
+	diagnostics?: string;
+}
+
+export interface BuildRunnerChildPromptOptions {
+	slug: string;
+	objectivePath: string;
+	mode: RunnerStepMode;
+	baseBranch: string;
+	guidance?: string;
+	recoverContext?: RunnerRecoverContext;
+}
+
+/**
+ * Builds the thin child prompt for one Objective Runner step.
+ *
+ * Deliberately thin: it points the child at the Objective record and the
+ * repo's existing workflows/skills instead of inlining Objective content, and
+ * it carries no tracking-update instruction — Semantic Update judgment
+ * belongs to the parent (ADR 0022).
+ */
+export function buildRunnerChildPrompt(options: BuildRunnerChildPromptOptions): string {
+	const parts = [
+		"You are a fresh child implementation session for one Objective Runner step.",
+		"",
+		`Objective: ${options.slug}`,
+		`Objective record: ${options.objectivePath}`,
+		`Base branch at dispatch: ${options.baseBranch}`,
+	];
+	if (options.recoverContext !== undefined) {
+		parts.push("", recoverPreamble(options.recoverContext));
+	}
+	parts.push("", "Rules:", rules(options), "", reportContract(options.mode));
+	if (options.guidance !== undefined) {
+		parts.push("", "Parent guidance (follow it within the rules above):", options.guidance);
+	}
+	return parts.join("\n");
+}
+
+function rules(options: BuildRunnerChildPromptOptions): string {
+	const branchRules =
+		options.mode === "recover"
+			? [
+					"- Stay on the current branch. Do not create branches, switch branches, or reset the worktree; repair the existing attempt in place.",
+				]
+			: [
+					`- Create your own implementation branch before changing files. ${describeBranchContextGraphiteCreationSteps(options.baseBranch)}`,
+					"- After creating the implementation branch, do not switch branches again for the rest of the step.",
+				];
+	return [
+		"- Operate only in the current repository/worktree.",
+		"- Implement exactly one focused, coherent implementation slice for the Objective above.",
+		"- Load Objective context yourself: follow the repo's objective-next workflow and existing skills for this Objective. Do not expect Objective content in this prompt.",
+		...branchRules,
+		`- ${RUNNER_GRAPHITE_STACK_NAVIGATION_RULE}`,
+		"- Leave ALL changes uncommitted. Never run `git commit`, `git commit --amend`, `git push`, or anything that submits, merges, or publishes; the runner owns staging and commit.",
+		"- Run the repository's checks and deterministic fixers for the files you changed, per the repo's prose validation policy, and report what you ran and the results in the `## Validation` section of your report.",
+		"- Finish your final response with exactly one report block in the format below.",
+	].join("\n");
+}
+
+function recoverPreamble(recoverContext: RunnerRecoverContext): string {
+	const changedPathLines =
+		recoverContext.changedPaths.length === 0
+			? ["- (none recorded)"]
+			: recoverContext.changedPaths.map((path) => `- ${path}`);
+	const parts = [
+		"Recovery mode: a previous runner step failed and left uncommitted work behind.",
+		`You are on the dirty branch \`${recoverContext.branch}\`. Repair the attempt on this same branch.`,
+		"Changed paths left by the failed attempt:",
+		...changedPathLines,
+	];
+	if (recoverContext.diagnostics !== undefined) {
+		parts.push("", "Failure diagnostics from the previous attempt:", recoverContext.diagnostics);
+	}
+	return parts.join("\n");
+}
+
+function reportContract(mode: RunnerStepMode): string {
+	const branchLine =
+		mode === "recover" ? "branch: <the current branch>" : "branch: <your implementation branch>";
+	return [
+		"Report block format (all header fields and all five sections are mandatory unless marked optional; keep it concise):",
+		"",
+		OBJECTIVE_RUNNER_REPORT_BEGIN,
+		"status: ready-for-parent-commit | stop | blocked",
+		branchLine,
+		"roadmapItems:",
+		"- <roadmap item this slice advanced>",
+		"commitSubject: <proposed commit subject line; required when status is ready-for-parent-commit>",
+		"commitBody:",
+		"- <optional commit body bullet; omit the field when you have none>",
+		"stopReason: <why, when status is stop or blocked; omit otherwise>",
+		"",
+		"## Summary",
+		"<what you did>",
+		"",
+		"## Objective Impact",
+		"<claimed impact on the Objective roadmap>",
+		"",
+		"## Risks/Blockers",
+		"<risks or blockers, or 'none'>",
+		"",
+		"## Follow-Ups",
+		"<follow-up work you deferred, or 'none'>",
+		"",
+		"## Validation",
+		"<commands you ran with results, including any deterministic fixes performed>",
+		OBJECTIVE_RUNNER_REPORT_END,
+	].join("\n");
+}

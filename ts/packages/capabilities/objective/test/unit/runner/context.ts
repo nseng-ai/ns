@@ -1,0 +1,188 @@
+import type { GitCurrentBranchResult, GitCwdParams, GitResult } from "@sdl/capability-kit/git";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
+import {
+	InMemoryGraphiteBranchGateway,
+	type InMemoryGraphiteGatewayState,
+} from "@sdl/capability-kit/graphite/testing";
+import type { ExecResult } from "@sdl/core/exec";
+
+import {
+	FakeObjectiveStorageGateway,
+	type FakeObjectiveStorageGatewayOptions,
+} from "../../../src/core/fake-storage.ts";
+import { ObjectiveStorage } from "../../../src/core/storage.ts";
+import type {
+	ObjectiveRunnerContext,
+	RunnerTextFileReadResult,
+} from "../../../src/runner/context.ts";
+import {
+	FakeChildSessionGateway,
+	type FakeChildSessionScript,
+} from "../../../src/runner/testing.ts";
+import {
+	OBJECTIVE_RUNNER_REPORT_BEGIN,
+	OBJECTIVE_RUNNER_REPORT_END,
+	RUNNER_REPORT_SECTION_TITLES,
+	type RunnerReportSectionTitle,
+	type RunnerReportStatus,
+} from "../../../src/runner/report.ts";
+
+export interface SequencedGitGatewayState extends InMemoryGitGatewayState {
+	/** Per-call current-branch values; the last value repeats once exhausted. */
+	currentBranchSequence?: readonly string[];
+	/** Per-call HEAD values; the last value repeats once exhausted. */
+	headCommitSequence?: readonly string[];
+}
+
+/**
+ * InMemoryGitGateway plus call-by-call sequences for the two facts a runner
+ * step observes twice (at dispatch and at verification): the current branch
+ * and the HEAD commit.
+ */
+export class SequencedGitGateway extends InMemoryGitGateway {
+	private readonly currentBranchSequence: readonly string[];
+	private currentBranchIndex = 0;
+	private readonly headCommitSequence: readonly string[];
+	private headCommitIndex = 0;
+
+	constructor(state: SequencedGitGatewayState = {}) {
+		super(state);
+		this.currentBranchSequence = [...(state.currentBranchSequence ?? [])];
+		this.headCommitSequence = [...(state.headCommitSequence ?? [])];
+	}
+
+	override async currentBranch(params: GitCwdParams): Promise<GitCurrentBranchResult> {
+		const index = Math.min(this.currentBranchIndex, this.currentBranchSequence.length - 1);
+		this.currentBranchIndex += 1;
+		const branch = this.currentBranchSequence[index];
+		if (branch === undefined) return await super.currentBranch(params);
+		return { type: "branch", branch };
+	}
+
+	override async headCommit(params: GitCwdParams): Promise<GitResult<string>> {
+		const index = Math.min(this.headCommitIndex, this.headCommitSequence.length - 1);
+		this.headCommitIndex += 1;
+		const head = this.headCommitSequence[index];
+		if (head === undefined) return await super.headCommit(params);
+		return { ok: true, value: head };
+	}
+}
+
+export interface RecordedExecCall {
+	command: string;
+	args: string[];
+}
+
+export interface RunnerFakesOptions {
+	storage?: FakeObjectiveStorageGatewayOptions;
+	git?: SequencedGitGatewayState;
+	graphite?: InMemoryGraphiteGatewayState;
+	childScripts?: readonly FakeChildSessionScript[];
+	/** Overrides for every `ctx.commands.exec` result (defaults to exit 0). */
+	execResult?: Partial<ExecResult>;
+	trunkBranch?: string;
+	textFiles?: Readonly<Record<string, string>>;
+}
+
+export interface RunnerFakesContext extends ObjectiveRunnerContext {
+	git: SequencedGitGateway;
+	graphite: InMemoryGraphiteBranchGateway;
+	childSession: FakeChildSessionGateway;
+	stdoutChunks: string[];
+	stderrChunks: string[];
+	phases: string[];
+	execCalls: RecordedExecCall[];
+}
+
+export function contextWithRunnerFakes(options: RunnerFakesOptions = {}): RunnerFakesContext {
+	const stdoutChunks: string[] = [];
+	const stderrChunks: string[] = [];
+	const phases: string[] = [];
+	const execCalls: RecordedExecCall[] = [];
+	const gitState = options.git ?? {};
+	const execResult = options.execResult ?? {};
+	const textFiles = options.textFiles ?? {};
+	return {
+		cwd: "/repo",
+		env: { PATH: "/fake/bin" },
+		repoRoot: "/repo",
+		trunkBranch:
+			options.trunkBranch ??
+			(typeof gitState.trunkBranch === "string" ? gitState.trunkBranch : "main"),
+		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway(options.storage ?? {})),
+		git: new SequencedGitGateway(gitState),
+		graphite: new InMemoryGraphiteBranchGateway(options.graphite ?? {}),
+		commands: {
+			async exec(command, args) {
+				execCalls.push({ command, args: [...args] });
+				return { stdout: "", stderr: "", code: 0, killed: false, ...execResult };
+			},
+		},
+		childSession: new FakeChildSessionGateway(options.childScripts ?? []),
+		writeStdout(text) {
+			stdoutChunks.push(text);
+		},
+		writeStderr(text) {
+			stderrChunks.push(text);
+		},
+		phase(label) {
+			phases.push(label);
+		},
+		async readTextFile(path): Promise<RunnerTextFileReadResult> {
+			const content = textFiles[path];
+			if (content === undefined) return { type: "error", message: `Unreadable file: ${path}` };
+			return { type: "ok", content };
+		},
+		stdoutChunks,
+		stderrChunks,
+		phases,
+		execCalls,
+	};
+}
+
+export interface ChildReportTextOptions {
+	status?: RunnerReportStatus;
+	branch?: string;
+	roadmapItems?: readonly string[];
+	commitSubject?: string;
+	omitCommitSubject?: boolean;
+	commitBody?: readonly string[];
+	stopReason?: string;
+	sectionOverrides?: Partial<Record<RunnerReportSectionTitle, string>>;
+	omitSections?: readonly RunnerReportSectionTitle[];
+}
+
+/** Builds a well-formed child report block wrapped in surrounding chatter. */
+export function childReportText(options: ChildReportTextOptions = {}): string {
+	const status = options.status ?? "ready-for-parent-commit";
+	const lines = [
+		`status: ${status}`,
+		`branch: ${options.branch ?? "feature/demo-step"}`,
+		"roadmapItems:",
+		...(options.roadmapItems ?? ["Slice 1 — demo slice"]).map((item) => `- ${item}`),
+	];
+	if (options.omitCommitSubject !== true && status === "ready-for-parent-commit") {
+		lines.push(`commitSubject: ${options.commitSubject ?? "Implement demo slice"}`);
+	}
+	if (options.commitSubject !== undefined && status !== "ready-for-parent-commit") {
+		lines.push(`commitSubject: ${options.commitSubject}`);
+	}
+	if (options.commitBody !== undefined && options.commitBody.length > 0) {
+		lines.push("commitBody:", ...options.commitBody.map((bodyLine) => `- ${bodyLine}`));
+	}
+	if (options.stopReason !== undefined) lines.push(`stopReason: ${options.stopReason}`);
+	lines.push("");
+	const omitted = new Set(options.omitSections ?? []);
+	for (const title of RUNNER_REPORT_SECTION_TITLES) {
+		if (omitted.has(title)) continue;
+		const body = options.sectionOverrides?.[title] ?? `${title} content.`;
+		lines.push(`## ${title}`, body, "");
+	}
+	return [
+		"Some final assistant chatter before the report.",
+		OBJECTIVE_RUNNER_REPORT_BEGIN,
+		...lines,
+		OBJECTIVE_RUNNER_REPORT_END,
+		"Trailing chatter.",
+	].join("\n");
+}

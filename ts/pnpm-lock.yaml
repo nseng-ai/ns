@@ -329,6 +329,9 @@ importers:
 
   packages/capabilities/objective:
     dependencies:
+      '@sdl/branch-context':
+        specifier: workspace:*
+        version: link:../branch-context
       '@sdl/capability-kit':
         specifier: workspace:*
         version: link:../../sdl-capability-kit
