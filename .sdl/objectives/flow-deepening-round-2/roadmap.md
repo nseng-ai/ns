@@ -179,7 +179,18 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       `pi.exec` scripting); the migrated behavior has no remaining
       `land-stack/` orchestration copy, or the duplication is noted with its
       removal slice.
-- [ ] Retire the compatibility round trip (dissolves review #4)
+- [x] Retire the compatibility round trip (dissolves review #4)
+      Delivered 2026-07-02 (runner step, commit `a7c05569a` on
+      `flow-r2-round-trip-retirement`) — see
+      `updates/2026-07-02T220602Z-round-trip-retired.md`. `plan-mapping.ts`
+      deleted (mirror, both mappers, duplicate label heuristic,
+      nothing-to-land copy); `pr-facts.ts` delegation adapters and the
+      `preloadedShape` bypass retired; no `flow-adapter-failure` collapse.
+      Parent-verified: zero `LandPlanForFlow`/`plan-mapping`/
+      `preloadedShape`/`flow-adapter-failure` references; ccc clean of
+      private Flow land imports; mutation argv pins unchanged (only
+      fact-command assertions moved, per the relaxed gate).
+      Original row prose follows for history:
       Policy: direct once the migration row's slices are landed.
       What: delete the `LandPlanForFlow` mirror and both `type↔kind` mappers
       in `src/land-stack/plan-mapping.ts`; collapse the duplicate
