@@ -14,7 +14,7 @@ import {
 	formatPromptSourceLabel,
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
-} from "../../core/pr-description.ts";
+} from "../../submit/sdl-pr-description.ts";
 import { resolveFlowStreamCaps } from "../../core/phase-stream.ts";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";

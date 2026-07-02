@@ -9,7 +9,7 @@ import {
 	type RunSubmitCommandOptions,
 	type SubmitCommandResult,
 	type SubmitFailureTranscript,
-} from "../submit/index.ts";
+} from "./index.ts";
 
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 

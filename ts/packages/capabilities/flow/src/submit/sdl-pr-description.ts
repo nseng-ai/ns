@@ -12,20 +12,20 @@ import {
 	type PrDescriptionPromptContext,
 	type PromptSource,
 	type TextGenerator,
-} from "../submit/index.ts";
+} from "./index.ts";
 
 import { createSdlCommandRunner } from "@sdl/capability-kit";
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
 import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
-export { preparePrDescription } from "../submit/index.ts";
+export { preparePrDescription } from "./index.ts";
 export type {
 	GithubPrDetails,
 	PrCommitMessage,
 	PrDescriptionPromptContext,
 	PreparedPrDescription,
 	PromptSource,
-} from "../submit/index.ts";
+} from "./index.ts";
 
 export interface SdlPrDescriptionRuntime {
 	githubPr: RealGithubPrGateway;

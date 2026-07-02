@@ -15,7 +15,7 @@ import {
 	createSdlSubmitRuntime,
 	runSubmitCommand,
 	type SubmitCommandResult,
-} from "../../core/submit.ts";
+} from "../../submit/sdl-runtime.ts";
 import { selectSubmitFailureModelRef } from "../../core/text-generation.ts";
 import {
 	defineExtension,

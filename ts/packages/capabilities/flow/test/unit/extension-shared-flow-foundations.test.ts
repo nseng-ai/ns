@@ -99,11 +99,11 @@ describe("project extension shared flow foundations", () => {
 		expect(submitSource).not.toContain("private/tmp/sdl-submit-extension-build");
 		expect(submitSource).not.toContain(["@sdl", "core", "submit"].join("/"));
 		expect(submitSource).not.toContain(["@sdl", "graphite", "submit"].join("/"));
-		expect(submitSource).toContain("../../core/submit.ts");
+		expect(submitSource).toContain("../../submit/sdl-runtime.ts");
 		expect(regeneratePrSource).not.toContain("MANAGED_BODY_BEGIN_MARKER");
 		expect(regeneratePrSource).not.toContain("parseManagedRegionMetadata");
 		expect(regeneratePrSource).not.toContain('ctx.exec("git"');
-		expect(regeneratePrSource).toContain("../../core/pr-description.ts");
+		expect(regeneratePrSource).toContain("../../submit/sdl-pr-description.ts");
 		expect(sharedGitSource).toContain("execSdlGit as execFlowGit");
 		expect(sharedGitSource).toContain("readSdlGitPorcelainStatus as readFlowGitPorcelainStatus");
 		expect(sharedGitSource).not.toContain("git push");
