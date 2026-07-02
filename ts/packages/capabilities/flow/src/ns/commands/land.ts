@@ -4,6 +4,11 @@ import type {
 	LandLiveProgressSink,
 } from "../../land/stack/command-stream.ts";
 import {
+	createFlowLandTelemetryRun,
+	formatFlowLandTelemetrySummary,
+	type FlowLandTelemetryRunFinish,
+} from "../../land/stack/external-call-telemetry-run.ts";
+import {
 	landCommandOptionSpecs,
 	landCommandSchemaShape,
 	landRawArgsFromCommandRequest,
@@ -19,6 +24,7 @@ import {
 	type NsProgressPhaseEvent,
 } from "@ns/kernel/sdk";
 import type { Caps } from "@ns/clinkr";
+import { systemClock } from "@ns/core/time";
 
 import { runFlowCli } from "../flow-cli-runner.ts";
 import {
@@ -41,16 +47,19 @@ export const flowLandCommand: NsCommand<typeof landSchema> = {
 		// edge so the settled land result blocks render in the house style; the shared Pi command-stream
 		// path is never given caps and stays ANSI-free.
 		const caps = resolveFlowStreamCaps(ctx);
+		const telemetry = createFlowLandTelemetryRun({ env: ctx.env, clock: systemClock });
+		let telemetryFinish: FlowLandTelemetryRunFinish | undefined;
 		const rawArgs = landRawArgsFromCommandRequest(request);
 		const progress = createLandCliProgress(ctx, caps);
 		try {
-			return await runFlowCli({
+			const result = await runFlowCli({
 				ctx,
 				successMessage: "Land completed.",
 				failureMessage: "Land failed.",
 				outputMode: "buffer-until-complete",
 				shouldForwardLiveOutput: request.verbose === true,
 				afterExitCode: async (exitCode) => {
+					telemetryFinish = await telemetry.finish(exitCode);
 					await progress.finish(exitCode);
 					progress.flushFailureDetails(exitCode);
 				},
@@ -64,9 +73,14 @@ export const flowLandCommand: NsCommand<typeof landSchema> = {
 						caps,
 						progressIo: progress.io,
 						liveProgress: progress.liveProgress,
+						externalCallTelemetry: telemetry.sink,
 						...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
 					}),
 			});
+			if (request.verbose === true && telemetryFinish !== undefined) {
+				ctx.stderr?.(`${formatFlowLandTelemetrySummary(telemetryFinish)}\n`);
+			}
+			return result;
 		} finally {
 			await progress.stop();
 		}
