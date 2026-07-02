@@ -14,6 +14,9 @@
       This slice answers the open wiring question in `objective.md`; post-reorg the `runner-subagents` region of `@sdl-local/pi-tools` is a tier-illegal dependency sink, and the container's `pi` subpackage (the folded former `@sdl/objective-pi`) is the sanctioned adapter home.
 - [ ] Add the small real-git integration-lane test: verify → stage → commit → trailers against a temp repo with a scripted child.
 - [ ] Write the parent playbook skill: interpreting Runner Checkpoints (verified vs claimed zones), choosing `--recover` vs reset vs hand-fix, and when a checkpoint warrants a Semantic Update via `objective-update`.
+- [x] Ship the `objective-autorun` parent orchestration wrapper skill: the Claude Code entry point that drives repeated `runner-step` invocations with a judgment checkpoint between every step.
+      Parent-judgment iteration per ADR 0022 — distinct from the parked batch/multi-step mode, which is a lower-agency machine loop. The skill defers per-step mechanics to `objective-runner-step`, routes tracking through `objective-update`, and never submits or pushes.
+      Evidence: `skills/objective-autorun/SKILL.md` shipped invoke-only with umbrella-family registration.
 - [ ] Dogfood `runner-step` on a real Objective, including at least one `--recover` cycle if a failure occurs naturally or can be provoked cheaply; record findings as Semantic Updates here, especially any evidence bearing on the parked automatic-supervisor question.
 - [ ] Delete the frozen `.pi/extensions/objective-autopilot.ts` (final slice, only after dogfooding mileage).
 

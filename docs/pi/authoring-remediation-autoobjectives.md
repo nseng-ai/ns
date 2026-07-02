@@ -177,41 +177,42 @@ list (no land/merge, no deploy, no GitHub mutation beyond opening the PR).
 For a structural/quality backlog, also state **no observable behavior change**
 as a non-goal and require existing-or-focused tests to confirm parity per slice.
 
-## Step 6 — Execute the backlog with `/objective:autopilot`
+## Step 6 — Execute the backlog with Objective Runner steps
 
-Authoring stops at a runnable record; execution is a separate Pi command. The
-supported runner for a remediation autoobjective is **`/objective:autopilot`** —
-a bounded fresh-child loop, not an unattended daemon:
+Authoring stops at a runnable record; execution is a separate surface. The
+supported runner for a remediation autoobjective is the Objective Runner step
+workflow (ADR 0022): each step is one invocation of
 
 ```text
-/objective:autopilot <slug-or-path> [--iterations N] [--submit] [--dry-run] [--model provider/model]
+sdl objective exec runner-step <slug> [--guidance <text|@file>] [--model <m>] [--timeout <seconds>]
 ```
 
-Each iteration (default one):
+driven by a judging parent — the `objective-autorun` skill is the entry point
+for running the backlog as repeated steps, and `objective-runner-step` is the
+per-step parent playbook. (The earlier `/objective:autopilot` Pi command is
+frozen legacy slated for deletion; do not use it.)
 
-1. spawns a **fresh child Pi** that does exactly one coherent slice — it runs the
-   `objective-next` workflow for *this* Objective (never auto-selecting another),
-   then creates a saved plan and a branch-context implementation branch,
-   implements the slice, validates changed files, records a Semantic Update when
-   it keeps material progress, and leaves the work **uncommitted**;
-2. hands control to the **parent** Pi session, which independently re-checks live
-   repo state (git status, that the branch actually moved off the start branch,
-   `gt branch info`, `git diff --check`, Objective-tracking evidence) and **owns
-   commit and submit** — the child never commits.
+Each step dispatches a **fresh child session** that does exactly one coherent
+slice for *this* Objective and leaves the work uncommitted; the runner then
+deterministically verifies the tree the child left behind, **creates the commit
+itself** with provenance trailers, and prints a Runner Checkpoint. The parent
+reads the checkpoint and makes every between-step decision — continue, recover
+with `--recover`, record a Semantic Update via `objective-update`, or stop.
 
-This is where the Step 5 Runner Policy is consumed, and the autonomy ceiling you
-wrote maps onto flags. The seed Objective's "full pipeline up to PR submission,
-never landing" is `--submit`, which runs `sdl flow submit --no-restack` — it opens
-the PR and never lands or merges; omit `--submit` to commit each slice locally
-without a PR. `--dry-run` verifies a slice but never commits or submits.
-`--iterations N` works up to N slices in one launch.
+This is where the Step 5 Runner Policy is consumed. The autonomy ceiling you
+wrote maps onto parent behavior, not flags: a step budget given to
+`objective-autorun` bounds a launch the way `--iterations` once did, and PR
+submission is never runner behavior — the seed Objective's "full pipeline up to
+PR submission, never landing" now means the parent (or human) submits the
+resulting stack through the normal `gt`/flow workflow after the run.
 
-Guards that make it safe to point at a ~160-finding backlog: it refuses a dirty
-starting worktree, refuses to commit on `main`/`master`, refuses a closed
-Objective, never restacks Graphite (a restack-required submit returns control to
-a human), and runs `just ts-format-fix` recovery for changed TypeScript. A
-verification failure triggers a narrow recovery supervisor; anything it cannot
-cleanly recover stops for manual review.
+Guards that make it safe to point at a ~160-finding backlog: the runner refuses
+a dirty starting worktree (default mode), a detached HEAD, or a closed
+Objective; it never commits on `main`/`master`, never pushes or submits, and
+fails verification for a child that committed on its own. A verification
+failure leaves the tree as the child left it and returns control to the parent,
+whose biased default is one `--recover` re-dispatch with sharpened guidance;
+anything that cannot be cleanly recovered stops for manual review.
 
 Because each child re-derives its slice from `references/` plus current repo
 state, the "re-verify at pickup" rule from Step 3 is enforced per iteration: a

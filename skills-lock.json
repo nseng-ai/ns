@@ -153,11 +153,6 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "67343881f5def98487d56243155716110afbcbf22ec92421c882d532b941cb17"
     },
-    "reinvented-abstractions-tripwire": {
-      "source": "skills/reinvented-abstractions-tripwire",
-      "sourceType": "local",
-      "computedHash": "d77ac7b897d91771beee4904ce38a457c13e94df99749c89fb8f4da3b2e39b5d"
-    },
     "enriched-plan-save": {
       "source": "skills/enriched-plan-save",
       "sourceType": "local",
@@ -223,6 +218,11 @@
       "source": "skills/objective",
       "sourceType": "local",
       "computedHash": "efc2774742540f365f5a2059fbaca75de64d4cb1c60dc69f9509115aa4ff5f37"
+    },
+    "objective-autorun": {
+      "source": "skills/objective-autorun",
+      "sourceType": "local",
+      "computedHash": "4dbf0909c6db6afc239217c3fd157a84535000fc3f3fcdbaf66ec2a1e7fcd7fb"
     },
     "objective-close": {
       "source": "skills/objective-close",
@@ -310,6 +310,11 @@
       "source": "skills/refactor-swarm",
       "sourceType": "local",
       "computedHash": "25cf816171ecf9305fdfb42d70464dd29e9af144042abab8eb92cc3138a386d7"
+    },
+    "reinvented-abstractions-tripwire": {
+      "source": "skills/reinvented-abstractions-tripwire",
+      "sourceType": "local",
+      "computedHash": "d77ac7b897d91771beee4904ce38a457c13e94df99749c89fb8f4da3b2e39b5d"
     },
     "roast-dry-but-not-too-dry": {
       "source": "skills/roast-dry-but-not-too-dry",

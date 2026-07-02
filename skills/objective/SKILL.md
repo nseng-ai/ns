@@ -38,6 +38,8 @@ Use these step skills for explicit workflow requests:
 - `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`.
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
 - `objective-stack-impl`: parent orchestration for implementing one Objective as small slices or a Graphite stack. It uses Objective updates as checkpoints, but does not own the general Objective lifecycle.
+- `objective-runner-step`: parent playbook for exactly one verified runner step via `sdl objective exec runner-step`, including `--recover` decisions and Runner Checkpoint interpretation. It runs one step only and never updates tracking.
+- `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations with a judgment checkpoint between steps. It delegates each step to the runner, routes tracking through `objective-update`, and never submits or pushes.
 - `objective-review-briefing`: read-only producer for post-merge delivered-scope review briefings. It reconstructs an Objective's delivering PR/commit/file basis and stores a review-agnostic briefing in the objective-owned `objective-review` Branch Memory namespace; it does not mutate Objective records or run a review lens.
 
 When a step skill triggers, use this `objective` skill first for shared model and safety rules, then follow the self-contained step workflow.
