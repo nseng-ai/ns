@@ -15,7 +15,7 @@
   },
   "scripts": {
     "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/plans/test"
+    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/plans/test"
   },
   "dependencies": {
     "@sdl/capability-kit": "workspace:*",
