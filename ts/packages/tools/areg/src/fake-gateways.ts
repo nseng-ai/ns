@@ -1,7 +1,7 @@
 import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
 
-import { missingCheckSkillInspection } from "./gateways.ts";
+import { AREG_SKILL_FIND_ROOT_DESCRIPTORS, missingCheckSkillInspection } from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -135,7 +135,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly excludedSkillNames: readonly string[];
 	private readonly checkSkills: AregCheckSkillInspection[];
 	private readonly localSkills: AregSkillKindSkillInspection[];
-	private readonly findSkills: AregSkillFindSkillInspection[];
+	private readonly explicitFindSkills: AregSkillFindSkillInspection[] | undefined;
 	private readonly pairingDirectories: readonly AregCheckPairingDirectory[];
 	private readonly resolveFailures: ReadonlyMap<string, AregErrorInfo>;
 	private readonly preflightFailures: ReadonlyMap<string, AregErrorInfo>;
@@ -172,10 +172,8 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		this.excludedSkillNames = [...(options.excludedSkillNames ?? [])];
 		this.checkSkills = (options.checkSkills ?? []).map(copyFakeCheckSkill);
 		this.localSkills = (options.localSkills ?? []).map(copyFakeSkillKindSkill);
-		this.findSkills =
-			options.findSkills === undefined
-				? this.localSkills.map(skillKindSkillToFindSkill)
-				: options.findSkills.map(copyFakeSkillFindSkill);
+		this.explicitFindSkills =
+			options.findSkills === undefined ? undefined : options.findSkills.map(copyFakeSkillFindSkill);
 		this.pairingDirectories = (options.pairingDirectories ?? []).map(copyPairingDirectory);
 		this.resolveFailures = new Map(
 			Object.entries(options.resolveFailures ?? {}).map(([key, value]) => [
@@ -262,7 +260,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		request: AregProjectDirRequest,
 	): Promise<AregSkillFindRootsInspection> {
 		this.log.push({ type: "inspect-skill-find-roots", projectDir: request.projectDir });
-		return { skills: this.findSkills.map(copySkillFindSkill) };
+		return { skills: this.currentFindSkills().map(copySkillFindSkill) };
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
@@ -433,6 +431,10 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 
 	private fileState(relativePath: string): AregTextFileState {
 		return copyTextFileState(this.files.get(relativePath) ?? { type: "missing" });
+	}
+
+	private currentFindSkills(): AregSkillFindSkillInspection[] {
+		return this.explicitFindSkills ?? this.localSkills.map(skillKindSkillToFindSkill);
 	}
 
 	private preflightFailure(relativePath: string): AregErrorInfo | undefined {
@@ -783,25 +785,25 @@ function skillKindSkillToFindSkill(
 }
 
 function rootForSkillFindSource(sourceType: AregSkillFindSourceType): AregSkillFindRoot {
-	switch (sourceType) {
-		case "repo":
-			return "skills";
-		case "vendored":
-			return ".agents/skills";
-		case "claude":
-			return ".claude/skills";
-	}
+	return skillFindDescriptorForSource(sourceType).root;
 }
 
 function sourceForSkillFindRoot(root: AregSkillFindRoot): AregSkillFindSourceType {
-	switch (root) {
-		case "skills":
-			return "repo";
-		case ".agents/skills":
-			return "vendored";
-		case ".claude/skills":
-			return "claude";
-	}
+	return skillFindDescriptorForRoot(root).sourceType;
+}
+
+function skillFindDescriptorForSource(sourceType: AregSkillFindSourceType) {
+	const descriptor = AREG_SKILL_FIND_ROOT_DESCRIPTORS.find(
+		(candidate) => candidate.sourceType === sourceType,
+	);
+	if (descriptor === undefined) throw new Error(`Unknown skill-find source type: ${sourceType}`);
+	return descriptor;
+}
+
+function skillFindDescriptorForRoot(root: AregSkillFindRoot) {
+	const descriptor = AREG_SKILL_FIND_ROOT_DESCRIPTORS.find((candidate) => candidate.root === root);
+	if (descriptor === undefined) throw new Error(`Unknown skill-find root: ${root}`);
+	return descriptor;
 }
 
 function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {

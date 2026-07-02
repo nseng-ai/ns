@@ -176,7 +176,13 @@ describe("areg gateway fakes", () => {
 			skillName: "demo",
 			env: {},
 		});
+		const afterFind = await project.inspectSkillFindRoots({ projectDir: "/repo", env: {} });
 		expect(afterApply.skillMd).toMatchObject({
+			type: "file",
+			text: expect.stringContaining("disable-model-invocation: true"),
+		});
+		expect(afterFind.skills).toHaveLength(1);
+		expect(afterFind.skills[0]?.skillMd).toMatchObject({
 			type: "file",
 			text: expect.stringContaining("disable-model-invocation: true"),
 		});

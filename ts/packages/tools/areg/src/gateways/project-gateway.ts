@@ -8,6 +8,7 @@ import { RealGitGateway } from "@sdl/capability-kit/git";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
 
+import { AREG_SKILL_FIND_ROOT_DESCRIPTORS } from "../gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -19,10 +20,8 @@ import type {
 	AregProjectRemoveEmptyDirRequest,
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
-	AregSkillFindRoot,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
-	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -49,15 +48,6 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 // AREG imports only the neutral @sdl/pi/commands surface, not project-local
 // Pi extension entrypoints.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
-
-const SKILL_FIND_ROOTS = [
-	{ root: "skills", sourceType: "repo" },
-	{ root: ".agents/skills", sourceType: "vendored" },
-	{ root: ".claude/skills", sourceType: "claude" },
-] as const satisfies ReadonlyArray<{
-	root: AregSkillFindRoot;
-	sourceType: AregSkillFindSourceType;
-}>;
 
 export class RealAregProjectGateway implements AregProjectGateway {
 	private readonly git: GitGateway;
@@ -402,7 +392,7 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 
 async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
-	for (const root of SKILL_FIND_ROOTS) {
+	for (const root of AREG_SKILL_FIND_ROOT_DESCRIPTORS) {
 		const rootPath = path.join(projectDir, ...root.root.split("/"));
 		const names = await scanSkillDirectoryNames(rootPath, {
 			keepEntry: async (entry) =>

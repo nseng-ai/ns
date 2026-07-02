@@ -133,8 +133,16 @@ export interface AregCheckPairingDirectory {
 
 export type AregSkillKindSourceType = "local" | "vendored";
 
-export type AregSkillFindRoot = "skills" | ".agents/skills" | ".claude/skills";
-export type AregSkillFindSourceType = "repo" | "vendored" | "claude";
+export const AREG_SKILL_FIND_ROOTS = ["skills", ".agents/skills", ".claude/skills"] as const;
+export const AREG_SKILL_FIND_SOURCE_TYPES = ["repo", "vendored", "claude"] as const;
+export const AREG_SKILL_FIND_ROOT_DESCRIPTORS = [
+	{ root: AREG_SKILL_FIND_ROOTS[0], sourceType: AREG_SKILL_FIND_SOURCE_TYPES[0] },
+	{ root: AREG_SKILL_FIND_ROOTS[1], sourceType: AREG_SKILL_FIND_SOURCE_TYPES[1] },
+	{ root: AREG_SKILL_FIND_ROOTS[2], sourceType: AREG_SKILL_FIND_SOURCE_TYPES[2] },
+] as const;
+
+export type AregSkillFindRoot = (typeof AREG_SKILL_FIND_ROOTS)[number];
+export type AregSkillFindSourceType = (typeof AREG_SKILL_FIND_SOURCE_TYPES)[number];
 
 export interface AregSkillFindSkillInspection {
 	name: string;
