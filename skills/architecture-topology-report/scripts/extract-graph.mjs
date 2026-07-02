@@ -10,6 +10,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, join, normalize, relative, resolve } from "node:path";
 
 function arg(name, fallback) {
@@ -21,6 +22,18 @@ function arg(name, fallback) {
 
 const ROOT = arg("root", "ts/packages");
 const KIT = arg("kit", "@sdl/capability-kit");
+
+// The workspace's own TypeScript compiler, when installed, gives AST-grade
+// import scanning (dynamic import(), multi-line forms, no matches inside
+// strings/comments). Absent a resolvable compiler, fall back to the regex scan.
+function loadWorkspaceTypescript() {
+  try {
+    return createRequire(resolve(ROOT, "package.json"))("typescript");
+  } catch {
+    return undefined;
+  }
+}
+const workspaceTypescript = loadWorkspaceTypescript();
 const API_NEEDLE = arg("api-needle", "api");
 const SRC_DIR = arg("src-dir", "src");
 const PRETTY = arg("pretty", false);
@@ -339,6 +352,15 @@ function filesForCircle(circle) {
 }
 
 function staticSpecifiers(text) {
+  if (workspaceTypescript !== undefined) {
+    return workspaceTypescript.preProcessFile(text, true, true).importedFiles.map((file) => file.fileName);
+  }
+  return regexStaticSpecifiers(text);
+}
+
+// Fallback scan for workspaces without a resolvable typescript install. Misses
+// dynamic import() and can match import-shaped text inside strings/comments.
+function regexStaticSpecifiers(text) {
   const specifiers = [];
   const fromPattern = /\b(?:import|export)\s+(?:type\s+)?[\s\S]*?\s+from\s+["']([^"']+)["']/g;
   const sideEffectPattern = /\bimport\s+["']([^"']+)["']/g;
@@ -373,12 +395,18 @@ function componentForPackageSpecifier(specifier, packageName) {
 function circleForPath(path) {
   const targetFile = resolveSourceFile(path);
   if (targetFile === undefined) return undefined;
-  const normalizedTarget = toPosix(normalize(targetFile));
+  // Resolve both sides: the target is already cwd-absolute (built via
+  // resolve()), while circle paths stay ROOT-relative when --root is relative.
+  const normalizedTarget = toPosix(resolve(targetFile));
   let best;
+  let bestPathLength = -1;
   for (const circle of circleById.values()) {
-    const circlePath = toPosix(normalize(circle.path));
+    const circlePath = toPosix(resolve(circle.path));
     if (normalizedTarget === circlePath || normalizedTarget.startsWith(`${circlePath}/`)) {
-      if (best === undefined || circlePath.length > toPosix(normalize(best.path)).length) best = circle;
+      if (circlePath.length > bestPathLength) {
+        best = circle;
+        bestPathLength = circlePath.length;
+      }
     }
   }
   return best;
