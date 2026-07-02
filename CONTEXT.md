@@ -135,17 +135,37 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` tier was deleted with `@sdl/domain-primitives-transitional`; do not reintroduce a live transitional tier as a debt label. `capability-gateway-backend` is defined for **Capability Gateway Backends** (ADR 0020) but is not yet declared or enforced — `@sdl/git`, `@sdl/graphite`, and `@sdl/cmux` still carry `neutral-infra` until that follow-up slice lands.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `sdl.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability-gateway-backend`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` tier was deleted with `@sdl/domain-primitives-transitional`; do not reintroduce a live transitional tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
 
 **Published package**:
-The normal npm distribution unit that users install and Node resolves at runtime. A published package may contain multiple architecture-level source components, but it is not itself the only architecture boundary.
-*Avoid*: topology node, source subpackage, package tier
+The normal npm distribution unit that users install and Node resolves at runtime. A published package may be a **Standalone package** or a **Container package**, so it is not itself always the only architecture boundary.
+*Avoid*: topology circle, subpackage, package tier
+
+**Standalone package**:
+A **Published package** intentionally kept as one architecture unit rather than as a **Container package**, either because it does not clear the containerization threshold or because its product/distribution role should stay flat.
+*Avoid*: flat package, keep-flat package, legacy package
+
+**Container package**:
+A **Published package** whose architecture units are **Subpackages** rather than the package as a single flat unit. A container package is properly formed when all of its source belongs to declared subpackages and no **Remainder subpackage** is declared.
+*Avoid*: meta-package, bundle package, namespace package, monorepo folder
+
+**Subpackage**:
+A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `sdl.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage.
+*Avoid*: published package, topology circle, npm package, source folder, internal package
+
+**Remainder subpackage**:
+The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `sdl.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
+*Avoid*: miscellaneous folder, hidden subpackage, sentinel entry, `.` subpackage, debt label
+
+**Local space**:
+The private workspace area for repo-local Pi-tool packages: packages under `ts/packages/local/` using the `@sdl-local/*` scope, marked private, and without outside workspace dependents.
+*Avoid*: experimental area, staging area, sandbox, public package namespace
 
 **Topology circle**:
-An architecture topology graph node representing a source component identified by project directory conventions, not necessarily a separate npm package. Topology circles preserve architectural granularity inside coarse published packages and are subject to import-boundary discipline.
-*Avoid*: npm package, package color, hidden package
+An architecture topology graph node representing an architecture unit: a **Standalone package**, a **Container package**'s declared **Subpackage**, or its declared **Remainder subpackage** during conversion. Topology circles preserve architectural granularity inside coarse published packages and are sourced from manifests, not directory auto-discovery.
+*Avoid*: npm package, package color, hidden package, auto-discovered directory circle
 
 **Topology overlay**:
-The architecture-report and guard layer that interprets ordinary source directories as topology circles, tier lanes, package colors, and dependency-boundary facts without turning those directories into npm packages.
+The architecture-report and guard layer that interprets package manifests as topology circles, tier lanes, package colors, and dependency-boundary facts without turning subdirectories into npm packages.
 *Avoid*: package manager, runtime loader, build system
