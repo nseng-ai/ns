@@ -1,6 +1,6 @@
-import { registerCommandWithImmediateAck } from "../commands/ack.ts";
-import { notifyCommandUi, type NotifiableCommandContext } from "../command-helpers.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
+import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
+import { notifyCommandUi, type NotifiableCommandContext } from "../../commands/helpers.ts";
+import { definePiSurfaceParity } from "../../parity/extension.ts";
 
 const MODEL_SHORTCUTS = [
 	{ command: "model:fable", provider: "anthropic", modelId: "claude-fable-5" },

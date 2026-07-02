@@ -6,7 +6,7 @@ import {
 	DRAFT_MODEL_ENV,
 	resolveClaudeCliDraftModel,
 	resolveCodexDraftModel,
-} from "../src/shared/fast-text-draft.ts";
+} from "../src/kit/shared/fast-text-draft.ts";
 
 describe("resolveCodexDraftModel", () => {
 	test("uses the shared fast-model default when the env var is unset", () => {

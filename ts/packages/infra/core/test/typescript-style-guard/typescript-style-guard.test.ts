@@ -291,7 +291,7 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "pi unref timer adapter raw interval is allowed",
 			code: "setInterval(() => {}, 10); clearInterval(timer);",
-			path: "ts/packages/hosts/pi/src/shared/timers.ts",
+			path: "ts/packages/hosts/pi/src/kit/shared/timers.ts",
 			expectedRules: [],
 		},
 		{

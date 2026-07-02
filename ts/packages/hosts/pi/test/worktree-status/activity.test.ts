@@ -16,7 +16,7 @@ import worktreeStatusExtension, {
 	WORKTREE_STATUS_REFRESH_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
-} from "../src/extension.ts";
+} from "../../src/worktree-status/extension.ts";
 
 describe("worktree status activity lifecycle", () => {
 	test("worktree status enters dormant mode after two minutes of idle session time", async () => {

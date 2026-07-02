@@ -5,7 +5,7 @@ import {
 	callPiModelText,
 	type CompleteSimpleFunction,
 	type PiModelRegistryLike,
-} from "../src/models/call.ts";
+} from "../src/kit/models/call.ts";
 
 const MODEL_TOKEN = { id: "fake-model" };
 

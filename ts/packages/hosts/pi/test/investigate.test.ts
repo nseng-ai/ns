@@ -5,7 +5,7 @@ import investigateExtension, {
 	INVESTIGATE_RESULT_MESSAGE_TYPE,
 	buildInvestigationTitle,
 	type InvestigateExtensionAPI,
-} from "../src/investigate/extension.ts";
+} from "../src/core/investigate/extension.ts";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 import type {
 	CommandContext,

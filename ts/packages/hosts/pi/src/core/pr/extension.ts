@@ -1,15 +1,15 @@
 import { readFileSync } from "node:fs";
 
-import { registerCommandWithImmediateAck } from "../commands/ack.ts";
+import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { formatZodError, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import { parseCliCommandArgs } from "../commands/cli-extension.ts";
-import { parseMachineEnvelopeDataWithFailureData } from "../runtime/machine-envelope.ts";
-import type { NotifyLevel } from "../runtime/tool-types.ts";
-import { definePiSurfaceParity } from "../parity/extension.ts";
+import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
+import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-envelope.ts";
+import type { NotifyLevel } from "../../runtime/tool-types.ts";
+import { definePiSurfaceParity } from "../../parity/extension.ts";
 import {
 	downloadPrFeedback,
 	type ExecOptions,

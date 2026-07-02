@@ -1,11 +1,11 @@
 import type { NotifyLevel } from "../runtime/tool-types.ts";
-import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
-import { unrefTimerScheduler } from "../shared/timers.ts";
+import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
+import { unrefTimerScheduler } from "../kit/shared/timers.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
 	type CustomMessageContent,
-} from "../terminal/presentation.ts";
+} from "../kit/terminal/presentation.ts";
 
 export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "sdl-command-ack";
 export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "sdl-command-progress";

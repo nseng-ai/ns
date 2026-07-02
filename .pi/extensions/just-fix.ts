@@ -2,7 +2,7 @@ import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "../../ts/packages/hosts/pi/src/commands/ack.ts";
-import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/skills/expansion.ts";
+import { expandRepoSkillBlock } from "../../ts/packages/hosts/pi/src/kit/skills/expansion.ts";
 
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_OUTPUT_CHARS = 24_000;

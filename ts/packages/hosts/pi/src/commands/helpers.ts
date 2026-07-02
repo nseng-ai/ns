@@ -1,5 +1,5 @@
 import { type ExecResult, formatOutputSection, tailText } from "@sdl/core/exec";
-import type { NotifyLevel } from "./runtime/tool-types.ts";
+import type { NotifyLevel } from "../runtime/tool-types.ts";
 
 const DEFAULT_COMMAND_OUTPUT_TAIL_OPTIONS = { maxChars: 4_000, maxLines: 30 } as const;
 

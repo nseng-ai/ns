@@ -6,8 +6,8 @@ import prExtension, {
 	type ExtensionAPI,
 	type ExtensionContext,
 	type RegisteredCommand,
-} from "../src/pr/extension.ts";
-import type { ExecResult } from "../src/pr/feedback-download.ts";
+} from "../src/core/pr/extension.ts";
+import type { ExecResult } from "../src/core/pr/feedback-download.ts";
 
 const ROOT = "/repo";
 

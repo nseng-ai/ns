@@ -122,7 +122,6 @@ export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
 	"@sdl/pi",
 	"@sdl/kernel",
-	"@sdl/worktree-status",
 	"sdlcc",
 ]);
 
