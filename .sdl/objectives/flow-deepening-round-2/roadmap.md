@@ -102,26 +102,26 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       Slice gate (replaces the human preview; every check must hold to
       keep a slice):
       - land scenario tests pass with UNCHANGED argv assertions
-        (byte-for-byte command construction);
+      (byte-for-byte command construction);
       - the full Definition of Progress suite is green;
       - `sdl-flow/api` exports untouched;
       - no behavior left orchestrated in both `land-stack/` and `land/`
-        without a roadmap note naming the slice that removes it;
+      without a roadmap note naming the slice that removes it;
       - gateway-interface changes limited to the methods the map names for
-        that slice.
+      that slice.
       Stop and ask instead of proceeding when a slice needs gateway changes
       beyond the map's named methods, the argv contract cannot be met, or
       work would contradict a recorded decision below.
       Decisions (settled 2026-07-02 to enable autonomous slices):
       - Isolated fast path: remains a Flow-side shortcut but performs its
-        merge via the new `squashMergePullRequest` gateway method and gains
-        the post-merge MERGED verification it currently skips; it does NOT
-        become a domain target (CONTEXT.md vocabulary unchanged).
+      merge via the new `squashMergePullRequest` gateway method and gains
+      the post-merge MERGED verification it currently skips; it does NOT
+      become a domain target (CONTEXT.md vocabulary unchanged).
       - Progress reporting: the operation-shaped command channel becomes
-        the gateway backend; per-command start/finish streaming and command
-        output are preserved unchanged.
+      the gateway backend; per-command start/finish streaming and command
+      output are preserved unchanged.
       - Slot freeing: the `freeSlots` gateway method keeps shelling out to
-        `sdl slot free`; only the call site moves behind the seam.
+      `sdl slot free`; only the call site moves behind the seam.
       What: per the map, move execution behaviors to run on the Land Domain
       Core's `LandContext` gateways, extending gateway interfaces where the
       map says they fall short. Presentation, prompts, and command streaming
