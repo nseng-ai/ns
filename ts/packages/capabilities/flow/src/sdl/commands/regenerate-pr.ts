@@ -9,11 +9,12 @@ import {
 } from "@sdl/kernel/sdk";
 
 import {
-	applyRegeneratedPrDescription,
+	applyPreparedPrDescriptionUpdate,
 	createSdlPrDescriptionRuntime,
 	formatPromptSourceLabel,
-	prepareRegeneratedPrDescriptionForCurrentBranch,
-	type RegeneratedPrDescription,
+	preparePrDescriptionUpdate,
+	type PreparedPrDescriptionUpdate,
+	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
@@ -54,13 +55,18 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// transcript to mine for cause markers. Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
-		const prepared = await prepareRegeneratedPrDescriptionForCurrentBranch({
-			cwd: ctx.cwd,
-			env: ctx.env,
-			githubPr: runtime.githubPr,
-			git: runtime.git,
-			textGenerator: ctx.textGenerator,
-		});
+		const pr = await runtime.githubPr.viewCurrentBranchPr({ cwd: ctx.cwd });
+		const prepared: PrDescriptionUpdateResult = pr.ok
+			? await preparePrDescriptionUpdate({
+					cwd: ctx.cwd,
+					env: ctx.env,
+					githubPr: runtime.githubPr,
+					git: runtime.git,
+					textGenerator: ctx.textGenerator,
+					pr: pr.value,
+					fingerprintPolicy: "skip-current",
+				})
+			: { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
 		if (prepared.type === "failed") {
 			// PR lookup / diff / prompt / generation failure: the domain string already leads with a
 			// summary sentence, so route its first line to the bold headline and the rest to the body
@@ -121,10 +127,10 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 			);
 		}
 
-		const edited = await applyRegeneratedPrDescription({
+		const edited = await applyPreparedPrDescriptionUpdate({
 			cwd: ctx.cwd,
 			githubPr: runtime.githubPr,
-			regenerated: prepared,
+			update: prepared,
 		});
 		if (!edited.ok) {
 			return failed(
@@ -132,7 +138,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 					kind: "failure",
 					headline: `Generated a PR description, but failed to update PR #${prepared.pr.number}.`,
 					cwd: ctx.cwd,
-					body: edited.error.trimEnd(),
+					body: edited.reason.trimEnd(),
 				}),
 				1,
 			);
@@ -158,7 +164,7 @@ export default defineExtension({
 });
 
 function formatConfirmationMessage(input: {
-	generated: RegeneratedPrDescription;
+	generated: PreparedPrDescriptionUpdate;
 	force: boolean;
 }): string {
 	const lines = [

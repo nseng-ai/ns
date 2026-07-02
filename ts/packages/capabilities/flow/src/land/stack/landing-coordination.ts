@@ -58,7 +58,7 @@ async function preparePlanForMergeCore(
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
 		const slotOutcome = await confirmAndFreeManagedSlots({
-			pi: runtime.commands,
+			runtime,
 			ctx,
 			plan,
 			confirmation: preMergeConfirmation,
@@ -92,11 +92,10 @@ async function submitRequiredUpdatesAndRecheckPlan(
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, ctx, plan, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
-		pi: runtime.commands,
+		runtime,
 		ctx,
 		plan,
 		confirmation: preMergeConfirmation,
-		graphite: runtime.graphite,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 

@@ -4,12 +4,11 @@ import { exec } from "./stack/command-exec.ts";
 import {
 	formatGraphiteCommand,
 	graphiteDeleteLocalBranchArgs,
-	type LandGraphiteCommandChannel,
 } from "./stack/graphite-command-channel.ts";
 import { completed, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
+import type { LandRuntime } from "./stack/land-runtime.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";
 import type {
-	LandStackExtensionAPI,
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	ParsedArgs,
@@ -18,17 +17,15 @@ import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { isManagedSlotPath, slotNameFromPath } from "./stack/worktrees.ts";
 
 interface RunPostLandingSlotCleanupOptions {
-	pi: LandStackExtensionAPI;
-	graphite: LandGraphiteCommandChannel;
+	runtime: LandRuntime;
 	ctx: PrintAwareLandStackCommandContext;
 	args: ParsedArgs;
 	shape: LandingShape;
 }
 
 export async function runPostLandingSlotCleanup({
-	pi,
+	runtime,
 	ctx,
-	graphite,
 	args,
 	shape,
 }: RunPostLandingSlotCleanupOptions): Promise<LandStackOutcome> {
@@ -72,6 +69,8 @@ export async function runPostLandingSlotCleanup({
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
 	try {
+		const pi = runtime.commands;
+		const graphite = runtime.graphite;
 		setStatus(ctx, `freeing ${slotName}...`);
 		const freeArgs = ["slot", "free", "--wt", slotName];
 		const freeResult = await exec({

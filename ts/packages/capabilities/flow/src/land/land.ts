@@ -123,7 +123,6 @@ async function runLandCommand(
 		runtime,
 		ctx,
 		parsedArgs: args.value,
-		commandStream,
 		...(progressIo === undefined ? {} : { progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});

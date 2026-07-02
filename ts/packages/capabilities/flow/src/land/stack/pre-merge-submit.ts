@@ -11,7 +11,6 @@ import {
 	graphiteRestackForSubmitArgs,
 	graphiteSubmitUpdateArgs,
 	restackTargetForSubmit,
-	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import { createLandContext } from "./land-context-adapter.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
@@ -20,9 +19,10 @@ import { setStatus } from "./presentation.ts";
 import type { LandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
 
 export async function confirmAndSubmitRequiredPrUpdates(
-	options: PreMergeMaintenanceOptions & { graphite: LandGraphiteCommandChannel },
+	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { ctx, plan, graphite } = options;
+	const { ctx, plan, runtime } = options;
+	const graphite = runtime.graphite;
 	const submitArgs = graphiteSubmitUpdateArgs(plan.stack.landingTargetBranch);
 	const restackTarget = restackTargetForSubmit(plan);
 	const details = formatSubmitUpdateDetails(plan);
@@ -71,7 +71,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 
 		setStatus(ctx, "verifying restack...");
 		const remainingRestack = await collectSubmitRestackRequirements(
-			createLandContext(options.pi, { graphite }),
+			createLandContext(runtime.commands, { graphite }),
 			plan.repoRoot,
 			{
 				...plan.stack,

@@ -71,7 +71,8 @@ export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | u
 export async function confirmAndFreeManagedSlots(
 	options: PreMergeMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { pi, ctx, plan } = options;
+	const { runtime, ctx, plan } = options;
+	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
 	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
 	const details = [
