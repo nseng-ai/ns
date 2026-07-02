@@ -65,7 +65,7 @@ export async function executeLandingPlan(
 	const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 	const mergeOutcome = await runMergeLoop({
 		runtime,
-		git: landContext.git,
+		landContext,
 		ctx,
 		plan: readyPlan.value,
 		landed,

@@ -1,7 +1,5 @@
-import { formatCommand } from "@sdl/core/command";
-import { exec } from "./command-exec.ts";
+import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import { GH_MERGE_TIMEOUT_MS } from "./constants.ts";
 import {
 	completed,
 	failure,
@@ -16,8 +14,8 @@ import {
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
-import { loadPr, validateStrictMergeGateForLandStack } from "./pr-facts.ts";
-import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
+import { validateStrictMergeGateForLandStack } from "./pr-facts.ts";
+import { assertCleanRepo } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
 	LandStackCommandContext,
@@ -159,6 +157,40 @@ function preMergeSlotFailure(
 	});
 }
 
+function stackMergeRejectedFailure(
+	landFailureValue: LandingFailure,
+	pr: PullRequestSnapshot,
+	branch: string,
+): LandStackFailure {
+	const result = execResultFromLandingFailure(landFailureValue);
+	return landStackFailure("Merge rejected; stopping stack landing immediately.", {
+		...(result === undefined
+			? {}
+			: { commandDisplay: formatCommandForDisplay("gh", squashMergeArgs(pr)), result }),
+		failedBranch: branch,
+		failedPr: pr.number,
+		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
+	});
+}
+
+function execResultFromLandingFailure(failureValue: LandingFailure): ExecResult | undefined {
+	if (failureValue.type !== "boundary") return undefined;
+	const result = failureValue.details?.execResult;
+	if (!isExecResult(result)) return undefined;
+	return result;
+}
+
+function isExecResult(value: unknown): value is ExecResult {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+	const result = value as Partial<ExecResult>;
+	return (
+		typeof result.stdout === "string" &&
+		typeof result.stderr === "string" &&
+		typeof result.code === "number" &&
+		typeof result.killed === "boolean"
+	);
+}
+
 export function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 	return [
 		"pr",
@@ -199,7 +231,7 @@ export async function prepareMergeLoopState(
 
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	runtime: LandRuntime;
-	git: LandGitGateway;
+	landContext: LandContext;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	landed: LandedPr[];
@@ -210,12 +242,11 @@ export async function runMergeLoop(
 	options: RunMergeLoopOptions,
 ): Promise<LandStackResult<RemainingCleanup>> {
 	const { runtime, ctx, plan, landed, warnings } = options;
-	const pi = runtime.commands;
 	const { repoRoot, stack } = plan;
 	let state = options.mergeState;
 	if (!state) {
 		const preparedState = await prepareMergeLoopState({
-			git: options.git,
+			git: options.landContext.git,
 			repoRoot,
 			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,
@@ -226,10 +257,13 @@ export async function runMergeLoop(
 
 	for (let index = 0; index < stack.landingBranches.length; index += 1) {
 		const branch = stack.landingBranches[index] ?? "";
-		const localSha = await loadLocalSha(pi, repoRoot, branch);
-		if (localSha.type === "failure") return localSha;
-		const pr = await loadPr(pi, repoRoot, branch);
-		if (pr.type === "failure") return pr;
+		const localSha = await options.landContext.git.localBranchSha({ repoRoot, branch });
+		if (localSha.type === "failure") return failure(toLandStackFailure(localSha.failure));
+		const pr = await options.landContext.github.pullRequestFacts({
+			repoRoot,
+			branchOrNumber: branch,
+		});
+		if (pr.type === "failure") return failure(toLandStackFailure(pr.failure));
 		const currentPr = pr.value;
 		const mergeGate = validateStrictMergeGateForLandStack({
 			branch,
@@ -240,27 +274,18 @@ export async function runMergeLoop(
 		if (mergeGate.type === "failure") return mergeGate;
 		options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
-		const mergeArgs = squashMergeArgs(currentPr);
-		const merge = await exec({
-			pi,
-			command: "gh",
-			args: mergeArgs,
-			cwd: repoRoot,
-			timeoutMs: GH_MERGE_TIMEOUT_MS,
+		const merge = await options.landContext.github.squashMergePullRequest({
+			repoRoot,
+			pullRequest: currentPr,
 		});
-		if (merge.code !== 0) {
-			return failure(
-				landStackFailure("Merge rejected; stopping stack landing immediately.", {
-					commandDisplay: formatCommandForDisplay("gh", mergeArgs),
-					result: merge,
-					failedBranch: branch,
-					failedPr: currentPr.number,
-					suggestedAction: `Inspect PR #${currentPr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
-				}),
-			);
+		if (merge.type === "failure") {
+			return failure(stackMergeRejectedFailure(merge.failure, currentPr, branch));
 		}
 		setStatus(ctx, `verifying #${currentPr.number}...`);
-		const verified = await loadPr(pi, repoRoot, String(currentPr.number));
+		const verified = await options.landContext.github.pullRequestFacts({
+			repoRoot,
+			branchOrNumber: String(currentPr.number),
+		});
 		if (verified.type === "failure") {
 			return failure(
 				landStackFailure(
