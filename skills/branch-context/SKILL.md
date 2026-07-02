@@ -29,7 +29,7 @@ Admin and repair requests include changing or retargeting a saved plan's source 
 
 - Inspect before mutating.
 - Refuse collisions, existing files, existing branches, and existing Branch Memory entries unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `enriched-plan exec` commands for Saved plans and `branch-context exec` commands for branch/attachment operations when available.
+- Prefer deterministic `enriched-plan exec` commands for Saved plans and `sdl branch-context exec` commands for branch/attachment operations when available.
 - Use read-only Branch Memory inspection only for diagnostics.
 - If plan content appears stale relative to repository state, explain the discrepancy before changing scope.
 

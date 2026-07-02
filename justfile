@@ -106,11 +106,16 @@ _install-ts-shim tool cli_rel_path install_hint: ts-install
     chmod +x "$HOME/.local/bin/{{tool}}"
     @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
 
-# Link the branch-context bin through pnpm so `branch-context` is on PATH.
-# The linked CLI uses the Node shebang from the TypeScript workspace source.
-link-branch-context: ts-install
-    cd {{justfile_directory()}}/ts/packages/branch-context && {{ts_pnpm}} link
-    @echo "linked: branch-context (pnpm global bin)"
+# Retired: Branch Context is exposed through `sdl branch-context ...`, not a
+# standalone `branch-context` binary.
+link-branch-context:
+    @echo "branch-context standalone binary is retired; use: sdl branch-context ..." >&2
+    @exit 2
+
+_remove-stale-branch-context-bin:
+    rm -f "$HOME/.local/bin/branch-context"
+    rm -f "{{justfile_directory()}}/ts/node_modules/.bin/branch-context"
+    @echo "removed stale standalone branch-context shims if present"
 
 areg-check: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts check --path {{justfile_directory()}}
@@ -125,8 +130,8 @@ topology *args:
     {{justfile_directory()}}/skills/architecture-topology-report/scripts/topology {{args}}
 
 # Install public tools via TypeScript source shims.
-install-tools: install-sdl install-brmem install-areg
-    @echo "installed: sdl, brmem, and areg (TypeScript shims)"
+install-tools: _remove-stale-branch-context-bin install-sdl install-brmem install-areg
+    @echo "installed: sdl, brmem, and areg (TypeScript shims); branch-context is available via sdl branch-context"
 
 clean:
     rm -rf dist/*.whl dist/*.tar.gz

@@ -15,7 +15,7 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 - **Attached plan**: the canonical implementation plan stored as a branch-context entry in Branch Memory namespace `branch-context`, under a named Markdown key.
 - **Local plan store**: the machine-local pre-branch file store for saved plans.
 - **Branch Memory namespace `branch-context`**: the branch-scoped storage location for attached plans, not the pre-branch saved-plan store.
-- **Saved-plan filename slug**: the local filename stem in the Local plan store. `branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md` as the attached key.
+- **Saved-plan filename slug**: the local filename stem in the Local plan store. `sdl branch-context exec attach --plan <saved-plan-slug>` uses `<saved-plan-slug>.md` as the attached key.
 - **Branch-context slug**: the implementation slug derived before create. It drives the default target branch and from-plan attached key `<branch-context-slug>.md`.
 - **Source branch plan file**: one saved plan scoped to the repository and source branch where planning happened.
 - **Branch context**: the branch's standing working context stored in Branch Memory namespace `branch-context`. A plan can be the founding entry, but branch context is not a special branch type.
@@ -46,7 +46,7 @@ The Local plan store is pre-branch handoff storage. The attached plan is the can
 
 ## First-class workflow surfaces
 
-Pi slash commands and CLI commands are equal first-class workflow surfaces over the same branch-context contract.
+Pi slash commands and SDL CLI commands are equal first-class workflow surfaces over the same branch-context contract. There is no supported standalone `branch-context` binary.
 
 Pi surfaces:
 
@@ -61,16 +61,16 @@ CLI surfaces:
 - `enriched-plan list` for read-only local saved-plan store inspection
 - `enriched-plan exec save`
 - `enriched-plan exec resolve`
-- `branch-context exec from-plan`
-- `branch-context exec attach`
-- `branch-context exec list`
-- `branch-context exec check`
-- `branch-context exec delete`
-- `branch-context exec load [<key>]`
+- `sdl branch-context exec from-plan`
+- `sdl branch-context exec attach`
+- `sdl branch-context exec list`
+- `sdl branch-context exec check`
+- `sdl branch-context exec delete`
+- `sdl branch-context exec load [<key>]`
 
 ## Branch creation policy
 
-Choose the branch creation method before invoking `branch-context exec from-plan`. Policy precedence is:
+Choose the branch creation method before invoking `sdl branch-context exec from-plan`. Policy precedence is:
 
 1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; direct CLI invocations translate these to `--branch-creation graphite` or `--branch-creation plain-git`.
 2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.
