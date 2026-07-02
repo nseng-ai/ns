@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
 import { z } from "zod";
 
@@ -8,9 +6,11 @@ import {
 	AREG_SKILL_FIND_ROOT_DESCRIPTORS,
 	AREG_SKILL_FIND_ROOTS,
 	AREG_SKILL_FIND_SOURCE_TYPES,
+	skillFindRootRank,
 	type AregSkillFindRoot,
 	type AregSkillFindSkillInspection,
 } from "../gateways.ts";
+import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 
 const skillFindRootSchema = z.enum(AREG_SKILL_FIND_ROOTS);
@@ -40,7 +40,6 @@ const skillFindMatchSchema = z.object({
 const skillFindSearchedRootSchema = z.object({
 	root: skillFindRootSchema,
 	sourceType: skillFindSourceTypeSchema,
-	rootRelativePath: z.string(),
 	searchedRelativePath: z.string(),
 	searchedPath: z.string(),
 });
@@ -142,9 +141,8 @@ function buildSkillFindSearchedRoots(projectDir: string, query: string): SkillFi
 		return {
 			root: descriptor.root,
 			sourceType: descriptor.sourceType,
-			rootRelativePath: descriptor.root,
 			searchedRelativePath,
-			searchedPath: path.join(projectDir, ...searchedRelativePath.split("/")),
+			searchedPath: toProjectPath(projectDir, searchedRelativePath),
 		};
 	});
 }
@@ -155,7 +153,7 @@ function toSkillFindMatch(
 	isPreferred: boolean,
 ): SkillFindMatch {
 	const skillFileRelativePath = `${skill.baseRelativePath}/SKILL.md`;
-	const skillFilePath = path.join(projectDir, ...skillFileRelativePath.split("/"));
+	const skillFilePath = toProjectPath(projectDir, skillFileRelativePath);
 	const frontmatter = parseSkillFindFrontmatter(skillFileRelativePath, skill.skillMd);
 	return {
 		name: skill.name,
@@ -164,7 +162,7 @@ function toSkillFindMatch(
 		isPreferred,
 		baseRelativePath: skill.baseRelativePath,
 		skillFileRelativePath,
-		basePath: path.join(projectDir, ...skill.baseRelativePath.split("/")),
+		basePath: toProjectPath(projectDir, skill.baseRelativePath),
 		skillFilePath,
 		...frontmatter.fields,
 		...(frontmatter.warnings.length === 0 ? {} : { warnings: frontmatter.warnings }),
@@ -266,14 +264,10 @@ function compareSkillFindInspection(
 	left: AregSkillFindSkillInspection,
 	right: AregSkillFindSkillInspection,
 ): number {
-	return rootRank(left.root) - rootRank(right.root) || left.name.localeCompare(right.name);
-}
-
-function rootRank(root: AregSkillFindRoot): number {
-	const index = AREG_SKILL_FIND_ROOT_DESCRIPTORS.findIndex(
-		(descriptor) => descriptor.root === root,
+	return (
+		skillFindRootRank(left.root) - skillFindRootRank(right.root) ||
+		left.name.localeCompare(right.name)
 	);
-	return index === -1 ? AREG_SKILL_FIND_ROOT_DESCRIPTORS.length : index;
 }
 
 function renderSkillFindSuccess(result: SkillFindSuccessResult): string {

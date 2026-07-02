@@ -36,6 +36,7 @@ import {
 	isNodeErrorCode,
 	resolveAllowedWriteTarget,
 	resolveExistingDirectory,
+	toProjectPath,
 	validateSkillKindDeleteTarget,
 	validateSkillKindRemoveDirTarget,
 	validateWriteTarget,
@@ -393,7 +394,7 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
 	for (const root of AREG_SKILL_FIND_ROOT_DESCRIPTORS) {
-		const rootPath = path.join(projectDir, ...root.root.split("/"));
+		const rootPath = toProjectPath(projectDir, root.root);
 		const names = await scanSkillDirectoryNames(rootPath, {
 			keepEntry: async (entry) =>
 				(entry.isDirectory() || entry.isSymbolicLink()) &&
@@ -406,7 +407,6 @@ async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindS
 				name,
 				root: root.root,
 				sourceType: root.sourceType,
-				rootRelativePath: root.root,
 				baseRelativePath,
 				skillDir: await inspectPath(basePath),
 				skillMd: await inspectTextFile(path.join(basePath, "SKILL.md")),

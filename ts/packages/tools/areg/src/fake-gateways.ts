@@ -1,7 +1,11 @@
 import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
 
-import { AREG_SKILL_FIND_ROOT_DESCRIPTORS, missingCheckSkillInspection } from "./gateways.ts";
+import {
+	missingCheckSkillInspection,
+	skillFindDescriptorForRoot,
+	skillFindDescriptorForSourceType,
+} from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -34,6 +38,7 @@ import type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
+	AregSkillKindSourceType,
 	AregSkillxInstallRequest,
 	AregSkillxInstallResult,
 	AregSkillxInstalledSkill,
@@ -75,7 +80,7 @@ export interface FakeAregCheckSkillOptions {
 
 export interface FakeAregSkillKindSkillOptions {
 	name: string;
-	sourceType?: "local" | "vendored";
+	sourceType?: AregSkillKindSourceType;
 	baseRelativePath?: string;
 	skillDir?: AregPathState;
 	skillMd?: AregTextFileState | string;
@@ -86,7 +91,6 @@ export interface FakeAregSkillFindSkillOptions {
 	name: string;
 	root?: AregSkillFindRoot;
 	sourceType?: AregSkillFindSourceType;
-	rootRelativePath?: AregSkillFindRoot;
 	baseRelativePath?: string;
 	skillDir?: AregPathState;
 	skillMd?: AregTextFileState | string;
@@ -120,6 +124,11 @@ export interface FakeAregProjectGatewayOptions {
 	mutationFailures?: Readonly<Record<string, AregErrorInfo>>;
 	applyFailure?: AregErrorInfo;
 }
+
+const AREG_SKILL_KIND_SOURCE_TO_FIND_SOURCE_TYPE = {
+	local: "repo",
+	vendored: "vendored",
+} as const satisfies Record<AregSkillKindSourceType, AregSkillFindSourceType>;
 
 export class FakeAregProjectGateway implements AregProjectGateway {
 	private readonly projectDir: string;
@@ -701,15 +710,13 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 function copyFakeSkillFindSkill(
 	skill: FakeAregSkillFindSkillOptions,
 ): AregSkillFindSkillInspection {
-	const root = skill.root ?? rootForSkillFindSource(skill.sourceType ?? "repo");
-	const sourceType = skill.sourceType ?? sourceForSkillFindRoot(root);
-	const rootRelativePath = skill.rootRelativePath ?? root;
+	const root = skill.root ?? skillFindDescriptorForSourceType(skill.sourceType ?? "repo").root;
+	const sourceType = skill.sourceType ?? skillFindDescriptorForRoot(root).sourceType;
 	return {
 		name: skill.name,
 		root,
 		sourceType,
-		rootRelativePath,
-		baseRelativePath: skill.baseRelativePath ?? `${rootRelativePath}/${skill.name}`,
+		baseRelativePath: skill.baseRelativePath ?? `${root}/${skill.name}`,
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
@@ -763,7 +770,6 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 		name: skill.name,
 		root: skill.root,
 		sourceType: skill.sourceType,
-		rootRelativePath: skill.rootRelativePath,
 		baseRelativePath: skill.baseRelativePath,
 		skillDir: copyPathState(skill.skillDir),
 		skillMd: copyTextFileState(skill.skillMd),
@@ -773,37 +779,17 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 function skillKindSkillToFindSkill(
 	skill: AregSkillKindSkillInspection,
 ): AregSkillFindSkillInspection {
+	const descriptor = skillFindDescriptorForSourceType(
+		AREG_SKILL_KIND_SOURCE_TO_FIND_SOURCE_TYPE[skill.sourceType],
+	);
 	return {
 		name: skill.name,
-		root: skill.sourceType === "local" ? "skills" : ".agents/skills",
-		sourceType: skill.sourceType === "local" ? "repo" : "vendored",
-		rootRelativePath: skill.sourceType === "local" ? "skills" : ".agents/skills",
+		root: descriptor.root,
+		sourceType: descriptor.sourceType,
 		baseRelativePath: skill.baseRelativePath,
 		skillDir: copyPathState(skill.skillDir),
 		skillMd: copyTextFileState(skill.skillMd),
 	};
-}
-
-function rootForSkillFindSource(sourceType: AregSkillFindSourceType): AregSkillFindRoot {
-	return skillFindDescriptorForSource(sourceType).root;
-}
-
-function sourceForSkillFindRoot(root: AregSkillFindRoot): AregSkillFindSourceType {
-	return skillFindDescriptorForRoot(root).sourceType;
-}
-
-function skillFindDescriptorForSource(sourceType: AregSkillFindSourceType) {
-	const descriptor = AREG_SKILL_FIND_ROOT_DESCRIPTORS.find(
-		(candidate) => candidate.sourceType === sourceType,
-	);
-	if (descriptor === undefined) throw new Error(`Unknown skill-find source type: ${sourceType}`);
-	return descriptor;
-}
-
-function skillFindDescriptorForRoot(root: AregSkillFindRoot) {
-	const descriptor = AREG_SKILL_FIND_ROOT_DESCRIPTORS.find((candidate) => candidate.root === root);
-	if (descriptor === undefined) throw new Error(`Unknown skill-find root: ${root}`);
-	return descriptor;
 }
 
 function missingSkillKindSkill(name: string): AregSkillKindSkillInspection {

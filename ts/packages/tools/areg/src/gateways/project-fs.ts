@@ -10,6 +10,10 @@ import { getAregProjectMutationPolicyDescriptor } from "./mutation-policy.ts";
 
 export { inspectPath, isNodeErrorCode } from "./fs-utils.ts";
 
+export function toProjectPath(projectRoot: string, relativePath: string): string {
+	return path.join(projectRoot, ...relativePath.split("/"));
+}
+
 interface ResolveAllowedWriteTargetOptions {
 	policy: AregProjectMutationPolicy;
 	projectRoot: string;
@@ -111,7 +115,7 @@ export function resolveAllowedWriteTarget(
 			),
 		};
 	}
-	const target = path.join(options.projectRoot, ...options.relativePath.split("/"));
+	const target = toProjectPath(options.projectRoot, options.relativePath);
 	const relative = path.relative(options.projectRoot, target);
 	if (relative.startsWith("..") || path.isAbsolute(relative)) {
 		return {
