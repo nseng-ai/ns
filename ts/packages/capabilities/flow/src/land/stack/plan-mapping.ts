@@ -144,19 +144,34 @@ function toFlowDescendantMaintenance(
 
 export function toLandStackFailure(failureValue: LandingFailure): LandStackFailure {
 	if (failureValue.type === "domain") {
+		const options = landStackFailureOptionsForDomainFailure(failureValue);
 		if (failureValue.reason === "nothing-to-land") {
-			return landStackFailure(failureValue.message, { level: "info" });
+			return landStackFailure(failureValue.message, { ...options, level: "info" });
 		}
 		if (failureValue.reason === "dirty-worktree") {
-			return landStackFailure("Working tree is dirty; refusing to start stack landing.");
+			return landStackFailure("Working tree is dirty; refusing to start stack landing.", options);
 		}
 		if (failureValue.reason === "operation-in-progress") {
 			return landStackFailure(
 				`${operationLabel(failureValue.message)} is in progress; refusing to start stack landing.`,
+				options,
 			);
 		}
+		return landStackFailure(failureValue.message, options);
 	}
 	return landStackFailure(failureValue.message);
+}
+
+function landStackFailureOptionsForDomainFailure(
+	failureValue: Extract<LandingFailure, { readonly type: "domain" }>,
+) {
+	return {
+		...(failureValue.failedBranch === undefined ? {} : { failedBranch: failureValue.failedBranch }),
+		...(failureValue.failedPrNumber === undefined ? {} : { failedPr: failureValue.failedPrNumber }),
+		...(failureValue.suggestedAction === undefined
+			? {}
+			: { suggestedAction: failureValue.suggestedAction }),
+	};
 }
 
 function operationLabel(message: string): string {

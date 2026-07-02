@@ -1,9 +1,10 @@
 import { formatCommand } from "@sdl/core/command";
-import { collectPrSubmitRequirements } from "../api.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
+import { validateOpenPrBasics, validateStrictMergeGate } from "../preflight.ts";
+import type { LandOutcome } from "../types.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { shortSha } from "./graphite-command-channel.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";
+import { shortSha } from "./graphite-command-channel.ts";
 import {
 	completed,
 	failure,
@@ -12,12 +13,10 @@ import {
 	type LandStackOutcome,
 	type LandStackResult,
 } from "./errors.ts";
-import type {
-	BranchPlan,
-	LandStackExtensionAPI,
-	PrSubmitRequirement,
-	PullRequestSnapshot,
-} from "./types.ts";
+import { toLandStackFailure } from "./plan-mapping.ts";
+import type { LandStackExtensionAPI, PrSubmitRequirement, PullRequestSnapshot } from "./types.ts";
+
+type LandOutcomeFailure = Extract<LandOutcome, { readonly type: "failure" }>["failure"];
 
 export async function loadPr(
 	pi: LandStackExtensionAPI,
@@ -95,89 +94,52 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function validateInitialPrPreflight(
-	branchPlans: BranchPlan[],
-	trunk: string,
-	options: { shouldAllowSubmitRequiredState?: boolean } = {},
-): LandStackOutcome {
-	for (let index = 0; index < branchPlans.length; index += 1) {
-		const branchPlan = branchPlans[index];
-		if (!branchPlan) continue;
-		const { branch, localSha, pr } = branchPlan;
-		const basics = validateOpenPrBasics({
-			branch,
-			localSha,
-			pr,
-			allowHeadShaMismatch: Boolean(options.shouldAllowSubmitRequiredState),
-		});
-		if (basics.type === "failure") return basics;
-		if (index === 0 && pr.baseRefName !== trunk && !options.shouldAllowSubmitRequiredState) {
-			return failure(
-				landStackFailure(
-					`Bottom PR #${pr.number} targets ${pr.baseRefName}, expected ${trunk}; restack/submit it first.`,
-				),
-			);
-		}
-	}
-	return completed();
-}
-
-export function validateStrictMergeGate(input: {
+export function validateStrictMergeGateForLandStack(input: {
 	branch: string;
 	localSha: string;
 	pr: PullRequestSnapshot;
 	trunk: string;
 }): LandStackOutcome {
-	const basics = validateOpenPrBasics(input);
+	const basics = validateOpenPrBasicsForLandStack(input);
 	if (basics.type === "failure") return basics;
-	if (input.pr.baseRefName !== input.trunk) {
-		return failure(
-			landStackFailure(
-				`PR #${input.pr.number} targets ${input.pr.baseRefName}, expected ${input.trunk}; restack/submit it first.`,
-				{
-					failedBranch: input.branch,
-					failedPr: input.pr.number,
-					suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
-				},
-			),
-		);
-	}
-	return completed();
+	return toLandStackOutcome(validateStrictMergeGate(input));
 }
 
-export function validateOpenPrBasics(input: {
+export function validateOpenPrBasicsForLandStack(input: {
 	branch: string;
 	localSha: string;
 	pr: PullRequestSnapshot;
 	allowHeadShaMismatch?: boolean;
 }): LandStackOutcome {
-	const { branch, localSha, pr } = input;
-	if (pr.state !== "OPEN") {
-		return failure(
-			landStackFailure(`PR #${pr.number} for ${branch} is ${pr.state}, expected OPEN.`),
-		);
-	}
-	if (pr.isDraft) {
-		return failure(
-			landStackFailure(`PR #${pr.number} for ${branch} is a draft; mark it ready before landing.`),
-		);
-	}
-	if (pr.headRefName !== branch) {
-		return failure(
-			landStackFailure(`PR #${pr.number} head branch is ${pr.headRefName}, expected ${branch}.`),
-		);
-	}
-	if (pr.headRefOid !== localSha && !input.allowHeadShaMismatch) {
-		return failure(
-			landStackFailure(
-				`PR #${pr.number} head SHA does not match local branch SHA; run gt submit/update first.\nPR head: ${shortSha(pr.headRefOid)}\nLocal ${branch}: ${shortSha(localSha)}`,
-			),
-		);
-	}
-	return completed();
+	const outcome = validateOpenPrBasics(input);
+	if (outcome.type === "completed") return completed();
+	return failure(landStackFailure(openPrBasicsMessageForLandStack(input, outcome.failure)));
 }
 
-export { collectPrSubmitRequirements };
+function openPrBasicsMessageForLandStack(
+	input: {
+		branch: string;
+		localSha: string;
+		pr: PullRequestSnapshot;
+		allowHeadShaMismatch?: boolean;
+	},
+	failureValue: LandOutcomeFailure,
+): string {
+	if (
+		failureValue.type === "domain" &&
+		failureValue.reason === "pull-request-head-mismatch" &&
+		input.pr.headRefOid !== input.localSha &&
+		!input.allowHeadShaMismatch
+	) {
+		return `PR #${input.pr.number} head SHA does not match local branch SHA; run gt submit/update first.\nPR head: ${shortSha(input.pr.headRefOid)}\nLocal ${input.branch}: ${shortSha(input.localSha)}`;
+	}
+	return failureValue.message;
+}
+
+function toLandStackOutcome(outcome: LandOutcome): LandStackOutcome {
+	if (outcome.type === "completed") return completed();
+	return failure(toLandStackFailure(outcome.failure));
+}
 
 export function formatPrSubmitRequirement(requirement: PrSubmitRequirement): string {
 	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
