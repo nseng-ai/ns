@@ -1,4 +1,4 @@
-import { formatUnknownError } from "../cli/command-registry.ts";
+import { formatUnknownError } from "./command-registry.ts";
 import { loadSdlUserModuleDefault } from "../runtime/module-loader.ts";
 
 export interface ExtensionLoadDiagnostic {

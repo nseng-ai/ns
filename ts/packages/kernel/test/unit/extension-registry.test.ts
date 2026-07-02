@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
 import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
-import { commandInfoForLoadedCommand } from "../../src/cli/command-registry.ts";
+import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,

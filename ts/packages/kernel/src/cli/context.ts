@@ -7,11 +7,17 @@ import {
 } from "@sdl/clinkr";
 import { readStdinLine } from "@sdl/core/cli-runtime";
 import { runCommand } from "@sdl/core/exec";
+import type { SlotCliContext } from "@sdl/slot/api";
 
 import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";
 import type { SdlConfirmPrompt, SdlExtensionApi } from "../sdk/index.ts";
 import type { TextGenerator } from "../sdk/index.ts";
+
+export interface SdlCliContext extends SlotCliContext {
+	context: SdlExtensionApi;
+	stdout: (text: string) => void;
+}
 
 export interface RealSdlCommandContextOptions {
 	cwd?: string;

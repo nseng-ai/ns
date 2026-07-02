@@ -16,7 +16,6 @@
 		"subpackages": [
 			"cli",
 			"extensions",
-			"operations",
 			"runtime",
 			"sdk"
 		],
