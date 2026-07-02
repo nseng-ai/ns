@@ -15,9 +15,9 @@ export default {
      The question is not "find refactors" — it is <em>how well are we tracking toward the architecture we said we wanted.</em>
      Since the last reading the headline cycle is gone; the new measure is the declared-tier guard.`,
 
-  // Tier lanes come from declared package.json `sdl.tier` values. Node color comes from the
-  // enclosing package for each topology circle. Add a `tiers` object only when a report needs
-  // explicit presentation overrides.
+  // Tier lanes come from declared package.json `sdl.tier` values. Node color is the tier in
+  // the default package view; the subpackage-circle drill-down keeps the tier hue, shaded
+  // per enclosing package. Add a `tiers` object only for explicit presentation overrides.
 
   verdict: {
     headline: "The cycle is gone. What's left is the migration tail plus one real inversion.",
