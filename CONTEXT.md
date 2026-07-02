@@ -151,8 +151,24 @@ A **Published package** whose architecture units are **Subpackages** rather than
 *Avoid*: meta-package, bundle package, namespace package, monorepo folder
 
 **Subpackage**:
-A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `sdl.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage.
-*Avoid*: published package, topology circle, npm package, source folder, internal package
+A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `sdl.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage. Every declared subpackage is an **API subpackage**, **Testing subpackage**, **Host-surface subpackage**, or **Feature subpackage** (ADR 0023); internal layers are folders, not subpackages.
+*Avoid*: published package, topology circle, npm package, source folder, internal package, layer
+
+**API subpackage**:
+The `api` **Subpackage** of a **Container package**: the sole cross-package programmatic import surface, hosting the package's **Capability API** as a thin contract over the package's internals. Its rank comes from inbound edge significance, not source size.
+*Avoid*: core, public API layer, package-root export, second public door
+
+**Testing subpackage**:
+The `testing` **Subpackage**: the cross-package test-time contract exporting fakes and test kits, importable by any package's tests and never by runtime code.
+*Avoid*: test folder, test utils, mocks folder
+
+**Host-surface subpackage**:
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `sdl` (the SDL Command Face), `pi` (Pi mirrors), `repo-local-sdl-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
+*Avoid*: context subpackage, commands, shell, presentation layer
+
+**Feature subpackage**:
+A **Subpackage** naming a real domain vertical of a **Container package** (for example `land-stack`, `submit`, `cmux`, `lifecycle`). It is host-free, its dependency edges stay inside the package, and any feature-level `api`/`testing` modules serve sibling subpackages only.
+*Avoid*: internal layer, operations, gateways, shared, module folder
 
 **Remainder subpackage**:
 The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `sdl.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
