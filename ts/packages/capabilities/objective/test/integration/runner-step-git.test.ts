@@ -14,7 +14,7 @@ import {
 	runnerStepRequestSchema,
 	runRunnerStep,
 	type RunnerStepRequest,
-} from "../../src/operations/runner-step.ts";
+} from "../../src/core/operations/runner-step.ts";
 import type { ObjectiveRunnerContext } from "../../src/runner/context.ts";
 import { FakeChildSessionGateway, type FakeChildSessionScript } from "../../src/runner/testing.ts";
 import { childReportText } from "../unit/runner/context.ts";
