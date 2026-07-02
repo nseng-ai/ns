@@ -254,7 +254,8 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
       `<strong>No target architecture was supplied</strong>, so this is a raw inventory of the actual workspace topology: package distribution units from `
       + `<span class="font-mono text-sm">package.json</span> files plus source topology circles discovered from <span class="font-mono text-sm">src/&lt;component&gt;/</span> directories. `
       + `Readings are factual (package cycles, declared-tier violations, fan shape, seams, orphans); nothing here is graded as "drift" or "on track" `
-      + `except the declared-tier violations, which the package manifests encode directly. The graph visualization renders topology circles; lanes are tiers and node colors are enclosing packages.`,
+      + `except the declared-tier violations, which the package manifests encode directly. The graph visualization defaults to the package graph over runtime edges; `
+      + `a toggle switches to the topology circles (static TypeScript import edges) for source-component granularity.`,
 
     verdict: {
       headline: cycles.length || hard.length
@@ -301,16 +302,18 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
       rule:
         `No target model was supplied. Shown instead is the <strong>declared-tier stack</strong> as it stands — each package placed in the `
         + `band of its manifest <span class="font-mono text-sm">sdl.tier</span>, ordered from consumers at the top down to neutral infra at the bottom. `
-        + `The graph below splits packages into topology circles where source directories expose component structure; those circles inherit their enclosing package tier.`, 
+        + `The graph below renders these packages by default; toggle to the subpackage-circle view to split packages into the topology circles their `
+        + `source directories expose — circles inherit their enclosing package tier.`,
       bands: tierBands(analysis),
     },
 
     graphIntro:
-      `Every topology-circle edge, live. Node <strong>area ∝ circle LOC</strong>; node color = enclosing package; lanes/filters = declared tier. `
+      `Every runtime package edge, live. Node <strong>area ∝ LOC</strong>; node color = declared tier; lanes/filters = declared tier. `
+      + `Toggle the view to <em>subpackage circles</em> for source-component granularity (static TypeScript import edges, node color = enclosing package). `
       + (cycles.length
         ? `<span class="text-red-600 font-medium">Red edges</span> mark cycle back-edges. `
-        : `The graph is <strong>acyclic</strong> — no red cycle edges to draw. `)
-      + `Drag to pin, scroll to zoom, hover to trace a circle's neighbours, toggle to the tier-clustered layout, toggle tiers to drop the off-axis tools.`,
+        : `The package graph is <strong>acyclic</strong> — no red cycle edges to draw. `)
+      + `Drag to pin, scroll to zoom, hover to trace a node's neighbours, toggle to the tier-clustered layout, toggle tiers to drop the off-axis tools.`,
     graphCaption:
       `Heaviest node: ${mono(heaviestId(analysis))}. Fan-in spine: ${mono(spine.name)} (${spine.count} dependents) — `
       + `load-bearing infra. Highest fan-out: ${mono(top.name)} (${top.count}).`,
