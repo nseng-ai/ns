@@ -156,7 +156,11 @@ below.
 - How work may change files and be left: code edits within
   `ts/packages/capabilities/flow` (tests included), plus this Objective's
   record files; work is left committed on its feature branch with a Semantic
-  Update appended. Roadmap checkboxes flip only with passing validation named
+  Update appended. Scoped exception for migration slice 2 (owner-authorized
+  2026-07-02, see
+  `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`): the
+  `sdl-capability-kit` git gateway branch-listing format string and the
+  `ccc`/flow test assertions that pin it. Roadmap checkboxes flip only with passing validation named
   in the row.
 - Validation before keeping work: the Definition of Progress suite, plus the
   row's named tests.
@@ -187,7 +191,8 @@ below.
   Originally mitigated by the inventory-first row plus `Policy: preview` on
   migration slices. As of 2026-07-02 the inventory is done and the owner
   replaced the per-slice human preview with a deterministic slice gate
-  (unchanged argv assertions, full DoP suite, map-bounded gateway changes,
+  (unchanged mutation-command argv assertions — read-only fact-command argv
+  relaxed 2026-07-02 — full DoP suite, map-bounded gateway changes,
   no unrecorded dual orchestration — see the migration row). The risk is
   accepted, not de-risked: autonomous slices trade preview latitude for
   hard stop-and-ask triggers on anything the map did not anticipate.

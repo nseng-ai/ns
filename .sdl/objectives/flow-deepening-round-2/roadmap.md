@@ -108,8 +108,11 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       that crossing. Next: slice 2 (real `stackShape`/facts backend).
       Slice gate (replaces the human preview; every check must hold to
       keep a slice):
-      - land scenario tests pass with UNCHANGED argv assertions
-      (byte-for-byte command construction);
+      - land scenario tests pass; argv assertions stay byte-for-byte for
+        MUTATION commands. Read-only fact-command argv/order may change
+        when fidelity requires it (owner decision 2026-07-02, see
+        `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`),
+        with assertions updated in the same slice;
       - the full Definition of Progress suite is green;
       - `sdl-flow/api` exports untouched;
       - no behavior left orchestrated in both `land-stack/` and `land/`
