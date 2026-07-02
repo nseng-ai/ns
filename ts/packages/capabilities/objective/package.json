@@ -14,6 +14,8 @@
 		"./sdl/commands/exec-tracking-gate": "./src/sdl/commands/exec-tracking-gate.ts",
 		"./sdl/commands/list": "./src/sdl/commands/list.ts",
 		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
+		"./runner": "./src/runner/index.ts",
+		"./runner/testing": "./src/runner/testing.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -36,6 +38,7 @@
 		"subpackages": [
 			"api",
 			"core",
+			"runner",
 			"sdl",
 			"pi"
 		]
