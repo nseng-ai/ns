@@ -7,6 +7,8 @@
 		"./backing-skill-commands/extension": "./src/backing-skill-commands/extension.ts",
 		"./context-profiler": "./src/context-profiler/index.ts",
 		"./context-profiler/extension": "./src/context-profiler/extension.ts",
+		"./explore": "./src/explore/index.ts",
+		"./explore/testing": "./src/explore/testing.ts",
 		"./grill": "./src/grill/index.ts",
 		"./grill/extension": "./src/grill/extension.ts",
 		"./pr-feedback-watch": "./src/pr-feedback-watch/index.ts",
@@ -40,6 +42,7 @@
 		"subpackages": [
 			"backing-skill-commands",
 			"context-profiler",
+			"explore",
 			"grill",
 			"pr-feedback-watch",
 			"pr-previews",

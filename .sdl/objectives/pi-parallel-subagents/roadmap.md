@@ -12,10 +12,19 @@
       Outcome: **build** on the runner-subagent substrate in
       `ts/packages/local/pi-tools`; see
       `updates/2026-07-02-adopt-vs-build-decision.md`.
-- [ ] Explorer agent definition: scout output contract (`## Files Retrieved` with line
+- [x] Explorer agent definition: scout output contract (`## Files Retrieved` with line
       ranges, `## Key Code`, `## Architecture`, `## Start Here`), cheap-model default
       with dispatch-time auth fallback and runtime failover, read-only tool allowlist
       with no `bash`/`edit`/`write`.
+      Evidence: `.sdl/pi/agents/explorer.md` plus `@sdl-local/pi-tools/explore`
+      (`contract.ts` allowlist `read,grep,find,ls`; `model-policy.ts` haiku default
+      with AuthStorage dispatch-time probe; `dispatch.ts` single-retry runtime
+      failover on `error`/`protocol-error`), 12 fake-driven tests, and a real
+      end-to-end smoke: haiku child (`anthropic/claude-haiku-4-5`, 13 read-only tool
+      calls, $0.055) returned an accurate line-cited four-section scout report on the
+      SIGTERM-escalation question. Haiku-recon assumption held in the smoke; the
+      no-`bash` risk was not stressed. Fan-out tool and `.pi/extensions/` shim are
+      item 3.
 - [ ] Model-invocable fan-out tool: parent-facing prompt engineering (parallel calls in
       one message, never delegate understanding, quick/medium/very-thorough breadth
       vocabulary, prefer direct grep/read for known targets) plus depth, concurrency,
