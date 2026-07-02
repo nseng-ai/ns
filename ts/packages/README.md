@@ -6,13 +6,13 @@ This tree is part architecture map and part migration task list.
 
 - `sdl/` is the SDL kernel and CLI package. It stays top-level by design.
 - `sdl-capability-kit/` is the first-party Capability Kit substrate (`@sdl/capability-kit`). It stays top-level by design and does not need a category wrapper.
-- Capability packages that have not completed the capability-extension shape intentionally remain top-level. Absence from `capabilities/` is a task-list signal, not neglect.
-- `ccc` is a capability, not a separate orchestrator category. It moves to `capabilities/ccc` only after its own conversion is complete.
+- Capability packages move under `capabilities/` either when certified standalone (`plans`, `address`, `aretro`) or during their container conversion slices. Remaining top-level capability packages are migration residue.
+- `ccc` is a capability, not a separate orchestrator category. It moves to `capabilities/ccc` only during its own conversion slice.
 
 ## Category directories
 
 - `infra/` contains below-SDK neutral packages such as core primitives, CLI framework support, Branch Memory, and Graphite support. The former transitional domain-primitives package has been deleted; shared first-party capability-building primitives now live under precise `@sdl/capability-kit/*` subpaths.
-- `capabilities/` contains completed or explicitly certified first-party capability extensions only. Moving a package here is part of the Definition of Done for that capability migration.
+- `capabilities/` contains first-party capabilities that are already in the category directory, including standalone capabilities and converted/certified capability extensions.
 - `hosts/` contains presentation/runtime hosts such as Pi and `sdlcc`.
 - `capability-pi/` contains Pi command/presentation packages attached to first-party capabilities. They depend on the owning capability APIs plus neutral Pi host helper subpaths, and project-local `.pi/extensions/*` discovery adapters import them directly.
 - `local-pi-tools/` contains private, project-local Pi-native tools. They are not SDL capabilities, not public CLIs, and not distribution packages. They are registered only through this repository's `.pi/extensions/*` discovery adapters.

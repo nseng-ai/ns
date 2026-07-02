@@ -24,7 +24,7 @@ This definition carries the additive thesis: a plan is the harness's artifact, a
 
 - **`enriched-plan`** replaces the `plans` CLI group: `enriched-plan exec save`, `enriched-plan exec resolve`, `enriched-plan list`. Wordiness is acceptable: exec operations are skill-invoked, and the human surfaces are the Pi commands.
 - **save** replaces **write** as the intake verb (`enriched-plan exec save`, Pi `/sdl:plan:save`, `/sdl:plan:grill-and-save`). Saving is source-agnostic: it covers plans authored in-session and plans brought in from any harness's planning surface. The authorship framing of "write" is retired.
-- The initially proposed TypeScript package rename (`ts/packages/plans/` → `ts/packages/enriched-plan/`) was scope-corrected during implementation: the package remains `@sdl/plans` / `ts/packages/plans/`; only the CLI group, verb, store path, and skill renamed.
+- The initially proposed TypeScript package rename (`ts/packages/plans/` → `ts/packages/enriched-plan/`) was scope-corrected during implementation: the package remains `@sdl/plans`, now located at `ts/packages/capabilities/plans/`; only the CLI group, verb, store path, and skill renamed.
 - The local store re-keys from `~/.sdl/planned-branch/plans/<repo>/<branch>/` to an `enriched-plan` store path. The old path was mis-keyed twice over: the store is pre-branch by definition, and it predates the vocabulary. No migration shim (unreleased software).
 - The `plans-write` skill renames to `enriched-plan-save`.
 - **planned-branch dissolves into branch-context** — ADR 0006 supersedes this session's initial retention decision. The durable differentiator is a branch's standing Branch Memory context, with a plan as one entry type, not a branded special branch type.
