@@ -36,6 +36,10 @@
   },
   "devDependencies": {},
   "sdl": {
-    "tier": "neutral-infra"
+    "tier": "neutral-infra",
+    "subpackages": [
+      "time"
+    ],
+    "remainder": true
   }
 }

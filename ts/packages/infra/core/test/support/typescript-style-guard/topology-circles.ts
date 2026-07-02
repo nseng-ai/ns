@@ -63,12 +63,9 @@ export function discoverTopologyCircles(
 			path: relative(repoRoot, sourceDir),
 		});
 
-		for (const sourcePath of findTypeScriptSourceFiles(sourceDir)) {
-			const relativeToSource = relative(sourceDir, sourcePath);
-			const [component] = relativeToSource.split(/[\\/]/);
-			if (component === undefined || component.endsWith(".ts") || component.endsWith(".tsx")) {
-				continue;
-			}
+		for (const component of metadata.sdlSubpackages) {
+			const componentDir = join(sourceDir, component);
+			if (!directoryExists(componentDir)) continue;
 			const id = `${metadata.name}/${component}`;
 			if (circles.has(id)) continue;
 			circles.set(id, {
@@ -76,7 +73,7 @@ export function discoverTopologyCircles(
 				packageName: metadata.name,
 				component,
 				tier: metadata.sdlTier,
-				path: relative(repoRoot, join(sourceDir, component)),
+				path: relative(repoRoot, componentDir),
 			});
 		}
 	}
@@ -266,7 +263,11 @@ function resolveSourceFile(
 }
 
 function isCircleGuardEnabledPackage(metadata: PackageMetadata): boolean {
-	return metadata.name === "@sdl/core";
+	return metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;
+}
+
+function directoryExists(path: string): boolean {
+	return existsSync(path) && statSync(path).isDirectory();
 }
 
 function isAllowedCircleEdge(from: TopologyCircleFact, to: TopologyCircleFact): boolean {

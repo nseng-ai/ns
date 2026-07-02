@@ -676,13 +676,25 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 		expect(violations[0]?.text).toContain("@sdl/core/time");
 	});
 
-	test("discovers the core time pilot circle without a standalone time package", () => {
+	test("discovers the core time pilot circle from the package manifest", () => {
 		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
+		const coreMetadata = packageMetadataByName.get("@sdl/core");
+		if (coreMetadata === undefined) throw new Error("Missing @sdl/core package metadata");
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
 		const retiredTimePackageName = "@sdl/" + "time";
 
+		expect(coreMetadata.sdlSubpackages).toContain("time");
 		expect(circles.has("@sdl/core/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
+	});
+
+	test("does not auto-discover undeclared source directories as circles", () => {
+		const circles = discoverTopologyCircles(REPO_ROOT, loadPackageMetadata(REPO_ROOT));
+
+		expect(circles.has("@sdl/slot/gateways")).toBe(false);
+		expect(circles.has("@sdl/slot/lifecycle")).toBe(false);
+		expect(circles.has("@sdl/slot/operations")).toBe(false);
+		expect(circles.has("@sdl/slot/shell")).toBe(false);
 	});
 
 	test("real repo source circle edges satisfy inherited tier layering", () => {
@@ -868,6 +880,8 @@ function buildSyntheticPackageMetadata(
 			manifestContent: JSON.stringify(manifest, null, 2),
 			sdlTier: isSyntheticPackageTier(rawSdlTier) ? rawSdlTier : undefined,
 			rawSdlTier,
+			sdlSubpackages: [],
+			sdlRemainder: false,
 			exportSubpaths: new Set(["."]),
 		});
 	}

@@ -2,9 +2,10 @@
 
 ## Work
 
-- [ ] Land the pilot rename on branch `core-time-topology-circle-consolidation` (PR #2677): the manifest fields are `sdl.subpackages` and `sdl.remainder`, `@sdl/core` declares `subpackages: ["time"]` with `remainder: true`, `extract-graph.mjs` splits only declared subpackages plus the declared remainder, and the TypeScript style guard reads the same config instead of hardcoding `@sdl/core`.
+- [~] Land the pilot rename on branch `core-time-topology-circle-consolidation` (PR #2677): the manifest fields are `sdl.subpackages` and `sdl.remainder`, `@sdl/core` declares `subpackages: ["time"]` with `remainder: true`, `extract-graph.mjs` splits only declared subpackages plus the declared remainder, and the TypeScript style guard reads the same config instead of hardcoding `@sdl/core`.
   - Policy: direct execution; field names, the term "remainder subpackage", and pilot scope are all user-confirmed.
   - Evidence: topology report shows `@sdl/core/time` and no auto-discovered directory circles; guard tests and `just` pass.
+  - Disposition: **converted** on branch `manifest-driven-topology-circles`, pending parent commit/submit. Evidence so far: topology report package count stayed 44, topology circles changed 99 → 45, `@sdl/core/time` remains declared, and undeclared `@sdl/slot/*` source directories no longer auto-discover as circles; `just ts-test-typescript-style-guard`, `just ts-format-check`, `just dprint-check`, and `just ts-check` passed.
 - [ ] Document the vocabulary: add **Subpackage**, **Container package**, and **Remainder subpackage** headwords to root `CONTEXT.md`, reconcile the **Topology circle** entry's "source component" phrasing, and record the end-state ADR (published packages as containers; `sdl.subpackages` as manifest source of truth; the declared remainder as the explicit transitional state; properly formed = no remainder).
   - Policy: steer first on final wording, including confirming the remainder mechanic and term; this is the deliberate domain-language slice.
   - Also from the review pass: consider a headword for the **local space** (`ts/packages/local/`, `@sdl-local/*` scope, strict admission invariant), and fix known drift — the **Package Tier** entry says the gateways "still carry `neutral-infra`", but all four already declare `capability-gateway-backend` in their manifests.
