@@ -438,6 +438,76 @@ describe("/pr:download-stack-feedback", () => {
 		expect(pi.userMessages).toEqual([]);
 	});
 
+	test("continues when the current downstack branch has no open PR", async () => {
+		const pr101Markdown = "# PR feedback triage request\n\n## Target PR\n- PR: 101";
+		const pi = new FakePi([
+			execResult({ stdout: envelope({ branches: ["branch-one", "autorun-feedback"] }) }),
+			execResult({
+				stdout: negativeEnvelope({
+					branchPrs: [
+						{
+							branch: "branch-one",
+							pr_number: 101,
+							title: "First",
+							url: "https://example.test/pull/101",
+							head_ref_name: "branch-one",
+							base_ref_name: "main",
+						},
+					],
+					missingBranches: ["autorun-feedback"],
+					ambiguousBranches: [],
+				}),
+				code: 1,
+			}),
+			execResult({
+				stdout: envelope(
+					downloadFeedbackData({
+						markdown: pr101Markdown,
+						prNumber: 101,
+						countsOverrides: counts({ includedReviewThreads: 1 }),
+					}),
+				),
+			}),
+		]);
+
+		const ctx = await runStackCommand(pi);
+
+		expect(pi.calls.map((call) => call.args[0])).toEqual(["slot", "address", "address"]);
+		expect(ctx.editorTexts).toHaveLength(1);
+		const prompt = ctx.editorTexts[0] ?? "";
+		expect(prompt).toContain("- #101 branch-one: First (https://example.test/pull/101)");
+		expect(prompt).toContain("Branches without open PRs:\n- autorun-feedback");
+		expect(ctx.notifications.at(-1)).toEqual({
+			message:
+				"Downloaded PR stack feedback for 1 PR into the editor; skipped 1 branch without an open PR: autorun-feedback. Review/edit, then press Enter.",
+			level: "info",
+		});
+	});
+
+	test("reports ambiguous branch-to-PR mapping as an error", async () => {
+		const pi = new FakePi([
+			execResult({ stdout: envelope({ branches: ["branch-one"] }) }),
+			execResult({
+				stdout: negativeEnvelope({
+					branchPrs: [],
+					missingBranches: [],
+					ambiguousBranches: [{ branch: "branch-one" }],
+				}),
+				code: 1,
+			}),
+		]);
+
+		const ctx = await runStackCommand(pi);
+
+		expect(pi.calls).toHaveLength(2);
+		expect(ctx.editorTexts).toEqual([]);
+		expect(ctx.notifications.at(-1)).toEqual({
+			message:
+				"Cannot download stack feedback because multiple open PRs matched branches: branch-one",
+			level: "error",
+		});
+	});
+
 	test("reports no stack branches from a negative stack discovery envelope", async () => {
 		const pi = new FakePi(execResult({ stdout: negativeEnvelope({ branches: [] }), code: 1 }));
 
