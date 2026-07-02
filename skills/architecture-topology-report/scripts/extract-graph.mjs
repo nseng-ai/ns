@@ -3,11 +3,10 @@
 // workspace and emit the structural facts an architecture-topology report is
 // built from.
 //
-// Packages are npm/workspace distribution units. Topology circles are source
-// components discovered by convention: a package root circle for flat
-// <pkg>/src/*.ts files plus one circle per <pkg>/src/<component>/ directory.
-// Edges are RUNTIME package manifest edges for the package graph and static
-// TypeScript import/export edges for the circle graph.
+// Packages are npm/workspace distribution units. Topology circles are package
+// root/remainder circles plus subpackage circles declared in package manifests
+// at sdl.subpackages. Edges are RUNTIME package manifest edges for the package
+// graph and static TypeScript import/export edges for the circle graph.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -275,32 +274,24 @@ function discoverTopologyCircles() {
   const discovered = [];
   for (const [packageName, p] of Object.entries(pkgs).sort()) {
     const srcDir = join(p.path, SRC_DIR);
-    if (!existsSync(srcDir)) continue;
-    const rootFiles = sourceFilePathsUnder(srcDir, { rootOnly: true });
+    if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
     discovered.push({
       id: packageName,
       packageName,
       component: ".",
       tier: p.tier,
       path: toPosix(srcDir),
-      loc: countLocForFiles(rootFiles),
+      loc: countLocForFiles(filesForPackageRootCircle(packageName, srcDir)),
     });
 
-    let entries = [];
-    try {
-      entries = readdirSync(srcDir, { withFileTypes: true });
-    } catch {
-      entries = [];
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name === "node_modules") continue;
-      const componentDir = join(srcDir, entry.name);
+    for (const component of declaredSubpackages(manifests[packageName])) {
+      const componentDir = join(srcDir, component);
+      if (!existsSync(componentDir) || !statSync(componentDir).isDirectory()) continue;
       const componentFiles = sourceFilePathsUnder(componentDir);
-      if (componentFiles.length === 0) continue;
       discovered.push({
-        id: `${packageName}/${entry.name}`,
+        id: `${packageName}/${component}`,
         packageName,
-        component: entry.name,
+        component,
         tier: p.tier,
         path: toPosix(componentDir),
         loc: countLocForFiles(componentFiles),
@@ -308,6 +299,25 @@ function discoverTopologyCircles() {
     }
   }
   return discovered;
+}
+
+function declaredSubpackages(manifest) {
+  const value = manifest?.sdl?.subpackages;
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry) => typeof entry === "string" && entry !== "");
+}
+
+function filesForPackageRootCircle(packageName, srcDir) {
+  const declaredComponentDirs = new Set(
+    declaredSubpackages(manifests[packageName]).map((component) => toPosix(join(srcDir, component))),
+  );
+  return sourceFilePathsUnder(srcDir).filter((file) => {
+    const normalized = toPosix(file);
+    for (const dir of declaredComponentDirs) {
+      if (normalized === dir || normalized.startsWith(`${dir}/`)) return false;
+    }
+    return true;
+  });
 }
 
 function buildCircleGraph(discoveredCircles) {
@@ -329,7 +339,7 @@ function buildCircleGraph(discoveredCircles) {
 }
 
 function filesForCircle(circle) {
-  if (circle.component === ".") return sourceFilePathsUnder(circle.path, { rootOnly: true });
+  if (circle.component === ".") return filesForPackageRootCircle(circle.packageName, circle.path);
   return sourceFilePathsUnder(circle.path);
 }
 
@@ -417,7 +427,7 @@ const out = {
     packageCount: names.size,
     topologyCircleCount: circles.length,
     edgeKinds: "package graph: runtime (dependencies + peerDependencies); circle graph: static TypeScript imports/exports",
-    topologyCircleConvention: "package root src/*.ts plus one circle per src/<component>/ directory",
+    topologyCircleConvention: "package root/remainder circle plus manifest-declared sdl.subpackages circles",
     tiers: TIERS,
     tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },

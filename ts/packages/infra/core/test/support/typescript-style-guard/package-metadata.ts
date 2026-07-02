@@ -23,6 +23,8 @@ export interface PackageMetadata {
 	manifestContent: string;
 	readonly sdlTier: PackageTier | undefined;
 	readonly rawSdlTier: unknown;
+	readonly sdlSubpackages: readonly string[];
+	readonly sdlRemainder: boolean;
 	readonly exportSubpaths: ReadonlySet<string>;
 }
 
@@ -42,6 +44,8 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 			manifestContent,
 			sdlTier: parsePackageTier(rawSdlTier),
 			rawSdlTier,
+			sdlSubpackages: readSdlSubpackages(parsed.sdl),
+			sdlRemainder: readSdlRemainder(parsed.sdl),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
@@ -51,6 +55,18 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 export function readRawSdlTier(sdlField: unknown): unknown {
 	if (!isRecord(sdlField)) return undefined;
 	return sdlField.tier;
+}
+
+export function readSdlSubpackages(sdlField: unknown): readonly string[] {
+	if (!isRecord(sdlField)) return [];
+	const value = sdlField.subpackages;
+	if (!Array.isArray(value)) return [];
+	return value.filter((entry): entry is string => typeof entry === "string" && entry !== "");
+}
+
+export function readSdlRemainder(sdlField: unknown): boolean {
+	if (!isRecord(sdlField)) return false;
+	return sdlField.remainder === true;
 }
 
 export function parsePackageTier(value: unknown): PackageTier | undefined {
