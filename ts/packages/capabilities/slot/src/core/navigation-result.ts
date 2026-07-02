@@ -1,5 +1,5 @@
 import type { SlotCliContext } from "./context.ts";
-import { writeCdDirectiveIfActive } from "./shell/cd-directive.ts";
+import { writeCdDirectiveIfActive } from "../shell/cd-directive.ts";
 
 export interface NavigationResultFields {
 	worktreePath: string;

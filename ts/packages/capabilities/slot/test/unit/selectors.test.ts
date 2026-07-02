@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveCurrent, resolveNum, resolveWt } from "../../src/selectors.ts";
+import { resolveCurrent, resolveNum, resolveWt } from "../../src/core/selectors.ts";
 
 describe("slot selectors", () => {
 	it("resolves in-range slot numbers", () => {

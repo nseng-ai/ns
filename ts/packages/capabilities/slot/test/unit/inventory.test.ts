@@ -7,7 +7,7 @@ import {
 	lowestAvailable,
 	poolSize,
 	slotStatus,
-} from "../../src/inventory.ts";
+} from "../../src/core/inventory.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 describe("slot inventory", () => {

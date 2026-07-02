@@ -1,4 +1,4 @@
-import type { RepoSlotContext } from "../context.ts";
+import type { RepoSlotContext } from "../core/context.ts";
 import { prFailureMessage } from "../gateways/pr.ts";
 import type { FreedSlot } from "./release-target.ts";
 

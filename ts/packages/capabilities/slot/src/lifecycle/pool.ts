@@ -1,9 +1,14 @@
 import { join } from "node:path";
 
-import { buildSlotInventory, poolSize, type SlotInventory, type SlotRecord } from "../inventory.ts";
-import { generateSlotName } from "../naming.ts";
-import { ensureSlotsMetadataDir } from "../repo-context.ts";
-import type { SlotCliContext } from "../context.ts";
+import {
+	buildSlotInventory,
+	poolSize,
+	type SlotInventory,
+	type SlotRecord,
+} from "../core/inventory.ts";
+import { generateSlotName } from "../core/naming.ts";
+import { ensureSlotsMetadataDir } from "../core/repo-context.ts";
+import type { SlotCliContext } from "../core/context.ts";
 
 export const MIN_POOL_SIZE = 1;
 export const MAX_POOL_SIZE = 99;

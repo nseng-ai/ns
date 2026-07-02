@@ -1,5 +1,5 @@
-import type { RepoSlotContext } from "../context.ts";
-import { buildSlotInventory, findBySlot, type SlotInventory } from "../inventory.ts";
+import type { RepoSlotContext } from "../core/context.ts";
+import { buildSlotInventory, findBySlot, type SlotInventory } from "../core/inventory.ts";
 import { slotOperationMessage, type LifecycleResult } from "./common.ts";
 import {
 	freedSlotFromRecord,

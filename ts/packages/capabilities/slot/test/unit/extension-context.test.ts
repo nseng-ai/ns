@@ -6,7 +6,7 @@ import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({ __contextOptions: options }));
 
-vi.mock("../../src/context.ts", () => ({
+vi.mock("../../src/core/context.ts", () => ({
 	createRealSlotContext,
 }));
 
@@ -18,7 +18,7 @@ vi.mock("../../src/operations/list.ts", async (importActual) => {
 	};
 });
 
-const slotExtension = (await import("../../src/extension.ts")).default;
+const slotExtension = (await import("../../src/core/extension.ts")).default;
 
 const colorCaps: Caps = {
 	isTty: true,

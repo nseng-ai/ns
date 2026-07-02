@@ -9,8 +9,8 @@ import {
 import { cell, paint, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
-import { buildSlotInventory, poolSize, type SlotRecord } from "../inventory.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
+import { buildSlotInventory, poolSize, type SlotRecord } from "../core/inventory.ts";
 
 const FOREACH_OUTPUT_MAX_CHARS = 4_000;
 const FOREACH_OUTPUT_MAX_LINES = 80;

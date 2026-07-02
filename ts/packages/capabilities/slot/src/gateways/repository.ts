@@ -11,7 +11,7 @@ import {
 	createSlotDiagnosticSinkFromEnv,
 	runDiagnosticCommand,
 	type SlotDiagnosticSink,
-} from "../diagnostics.ts";
+} from "../core/diagnostics.ts";
 
 const SLOT_GIT_TIMEOUT_MS = 10_000;
 

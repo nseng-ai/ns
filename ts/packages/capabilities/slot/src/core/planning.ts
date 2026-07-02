@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 
 import { optionalEntry } from "@sdl/core/primitives";
-import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
+import type { SlotRepositoryGateway, WorktreeOccupancy } from "../gateways/repository.ts";
 import {
 	buildSlotInventory,
 	findByBranch,

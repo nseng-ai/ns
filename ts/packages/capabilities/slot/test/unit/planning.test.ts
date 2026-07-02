@@ -5,8 +5,8 @@ import {
 	planCurrentCheckout,
 	planCurrentWtRedirect,
 	inventoryWithoutCallerBranchOccupancy,
-} from "../../src/planning.ts";
-import type { SlotInventory } from "../../src/inventory.ts";
+} from "../../src/core/planning.ts";
+import type { SlotInventory } from "../../src/core/inventory.ts";
 import { FakeSlotRepositoryGateway } from "../../src/gateways/fakes/repository.ts";
 
 const slot1 = {

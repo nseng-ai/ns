@@ -1,11 +1,11 @@
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
+import type { SlotCliContext } from "../core/context.ts";
 import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
-import { prepareNavigation } from "../navigation-result.ts";
-import { renderSlotNavigationSuccess } from "../navigation-presentation.ts";
-import { extractSlotNumber } from "../naming.ts";
+import { prepareNavigation } from "../core/navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../core/navigation-presentation.ts";
+import { extractSlotNumber } from "../core/naming.ts";
 
 export const checkoutRequestSchema = z.object({
 	branchName: z.string().optional().describe("Branch to check out."),

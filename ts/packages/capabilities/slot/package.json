@@ -6,10 +6,10 @@
 	],
 	"type": "module",
 	"exports": {
-		".": "./src/index.ts",
-		"./api": "./src/api.ts",
-		"./command-face": "./src/command-face.ts",
-		"./extension": "./src/extension.ts"
+		".": "./src/core/index.ts",
+		"./api": "./src/core/api.ts",
+		"./command-face": "./src/core/command-face.ts",
+		"./extension": "./src/core/extension.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
@@ -25,6 +25,13 @@
 	"sdl": {
 		"description": "Manage the SDL worktree slot pool.",
 		"tier": "capability",
+		"subpackages": [
+			"core",
+			"gateways",
+			"lifecycle",
+			"operations",
+			"shell"
+		],
 		"commands": [
 			{
 				"path": [
@@ -32,7 +39,7 @@
 					"list"
 				],
 				"description": "List worktree pool slots derived from Git worktree state.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -40,7 +47,7 @@
 					"ls"
 				],
 				"description": "Alias for list.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -48,7 +55,7 @@
 					"checkout"
 				],
 				"description": "Check out a branch into an available pool slot worktree.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -56,7 +63,7 @@
 					"co"
 				],
 				"description": "Alias for checkout.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -64,7 +71,7 @@
 					"goto"
 				],
 				"description": "Print/copy a cd command for an assigned slot.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -72,7 +79,7 @@
 					"claim"
 				],
 				"description": "Move a local branch into the current managed slot or lowest available slot.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -80,7 +87,7 @@
 					"free"
 				],
 				"description": "Free assigned slots back to the pool.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -88,7 +95,7 @@
 					"foreach"
 				],
 				"description": "Run a command in every managed slot worktree.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -96,7 +103,7 @@
 					"gc"
 				],
 				"description": "Free slots whose pull requests have closed or merged.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -104,7 +111,7 @@
 					"init"
 				],
 				"description": "Initialize the worktree pool with N detached slots at trunk.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -112,7 +119,7 @@
 					"resize"
 				],
 				"description": "Grow or shrink the worktree pool to --size slots.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -121,7 +128,7 @@
 					"up"
 				],
 				"description": "Print/copy a cd command for the immediate upstack Graphite branch.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -130,7 +137,7 @@
 					"down"
 				],
 				"description": "Print/copy a cd command for the immediate downstack Graphite branch.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -139,7 +146,7 @@
 					"free-stack"
 				],
 				"description": "Release every assigned slot in the current Graphite stack except the current branch.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -149,7 +156,7 @@
 					"stack-branches"
 				],
 				"description": "Emit the current Graphite stack branch list for skill/agent invocation.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -159,7 +166,7 @@
 					"stack-map-branches"
 				],
 				"description": "Emit a Graphite branch graph and slot rows for stack-map skill/agent invocation.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -168,7 +175,7 @@
 					"show"
 				],
 				"description": "Print the parent-shell wrapper script.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			},
 			{
 				"path": [
@@ -177,7 +184,7 @@
 					"install"
 				],
 				"description": "Install the parent-shell wrapper in the detected or selected rc file.",
-				"entry": "./src/extension.ts"
+				"entry": "./src/core/extension.ts"
 			}
 		]
 	}

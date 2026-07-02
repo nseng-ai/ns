@@ -9,7 +9,7 @@ import {
 	createSlotDiagnosticSinkFromEnv,
 	runDiagnosticCommand,
 	SLOT_DIAGNOSTIC_LOG_ENV,
-} from "../../src/diagnostics.ts";
+} from "../../src/core/diagnostics.ts";
 
 describe("slot diagnostics", () => {
 	it("is disabled when no diagnostic log path is configured", () => {

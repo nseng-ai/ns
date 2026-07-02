@@ -11,7 +11,7 @@ import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/core/
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
 import {
 	outcomeFromGcPlan,
 	planGc,

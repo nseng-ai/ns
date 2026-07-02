@@ -655,10 +655,10 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 	test("does not auto-discover undeclared source directories as circles", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, loadPackageMetadata(REPO_ROOT));
 
-		expect(circles.has("@sdl/slot/gateways")).toBe(false);
-		expect(circles.has("@sdl/slot/lifecycle")).toBe(false);
-		expect(circles.has("@sdl/slot/operations")).toBe(false);
-		expect(circles.has("@sdl/slot/shell")).toBe(false);
+		expect(circles.has("@sdl/aretro/operations")).toBe(false);
+		expect(circles.has("@sdl/aretro/payloads")).toBe(false);
+		expect(circles.has("@sdl/aretro/sdl")).toBe(false);
+		expect(circles.has("@sdl/aretro/sessions")).toBe(false);
 	});
 
 	test("real repo source circle edges satisfy inherited tier layering", () => {

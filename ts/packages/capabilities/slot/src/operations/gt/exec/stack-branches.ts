@@ -1,7 +1,7 @@
 import { failure, negative, ok } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../../../context.ts";
+import type { SlotCliContext } from "../../../core/context.ts";
 import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches, collectStackEdges } from "../stack-walk.ts";

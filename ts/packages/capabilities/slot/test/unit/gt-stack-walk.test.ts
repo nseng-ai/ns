@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deduplicateOrderedStrings } from "../../src/collections.ts";
+import { deduplicateOrderedStrings } from "../../src/core/collections.ts";
 import { collectStackBranches, collectStackEdges } from "../../src/operations/gt/stack-walk.ts";
 import { fakeStackInfo } from "@sdl/capability-kit/graphite/testing";
 

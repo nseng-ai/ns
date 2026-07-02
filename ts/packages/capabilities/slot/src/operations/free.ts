@@ -9,9 +9,14 @@ import {
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import { deduplicateOrderedStrings } from "../collections.ts";
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
-import { buildSlotInventory, findByBranch, poolSize, type SlotInventory } from "../inventory.ts";
+import { deduplicateOrderedStrings } from "../core/collections.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
+import {
+	buildSlotInventory,
+	findByBranch,
+	poolSize,
+	type SlotInventory,
+} from "../core/inventory.ts";
 import {
 	executeFreePlan,
 	planFreeSlots,
@@ -25,7 +30,7 @@ import {
 	type SlotReleaseCleanupProgressReporter,
 } from "../lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../lifecycle/release-target.ts";
-import { resolveCurrent, resolveNum, resolveWt } from "../selectors.ts";
+import { resolveCurrent, resolveNum, resolveWt } from "../core/selectors.ts";
 import { cleanupErrorCount, renderCleanupLines } from "./cleanup-rendering.ts";
 import {
 	buildSlotDestructiveResultBlock,

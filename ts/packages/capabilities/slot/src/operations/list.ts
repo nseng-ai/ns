@@ -2,8 +2,8 @@ import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from 
 import { cell, paint, renderBufferedReport, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
-import { buildSlotInventory, poolSize, slotStatus } from "../inventory.ts";
+import type { SlotCliContext } from "../core/context.ts";
+import { buildSlotInventory, poolSize, slotStatus } from "../core/inventory.ts";
 
 export const listRequestSchema = z.object({});
 

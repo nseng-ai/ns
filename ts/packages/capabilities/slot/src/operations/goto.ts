@@ -1,12 +1,12 @@
 import { failure, negative, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
-import { buildSlotInventory, findBySlot } from "../inventory.ts";
-import { prepareNavigation } from "../navigation-result.ts";
-import { renderSlotNavigationSuccess } from "../navigation-presentation.ts";
-import { poolSize } from "../inventory.ts";
-import { resolveNum, resolveWt } from "../selectors.ts";
+import type { RepoSlotContext, SlotCliContext } from "../core/context.ts";
+import { buildSlotInventory, findBySlot } from "../core/inventory.ts";
+import { prepareNavigation } from "../core/navigation-result.ts";
+import { renderSlotNavigationSuccess } from "../core/navigation-presentation.ts";
+import { poolSize } from "../core/inventory.ts";
+import { resolveNum, resolveWt } from "../core/selectors.ts";
 
 export const gotoRequestSchema = z.object({
 	num: z.number().int().optional().describe("Slot number."),
