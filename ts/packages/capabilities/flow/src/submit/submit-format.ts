@@ -2,10 +2,14 @@ import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
+import {
+	formatCurrentPrVerificationFailureCause,
+	formatSubmitSemanticFailureCause,
+	type SubmitCurrentPrVerificationFailure,
+} from "./submit-failure-catalog.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
 import type {
 	CurrentPrVerificationResult,
-	RemoteSyncDiagnostics,
 	SubmitCommandOutput,
 	SubmitRestackConfirmationPrompt,
 	SubmitRunResult,
@@ -116,148 +120,6 @@ export function formatPreflightFailureOutput(
 	]
 		.filter(Boolean)
 		.join("\n");
-}
-
-export function formatEmptyBranchFailureOutput(input: { branchName?: string }): string {
-	return formatEmptyBranchFailure(input.branchName);
-}
-
-function formatEmptyBranchFailure(branchName: string | undefined): string {
-	if (branchName === undefined) {
-		return [
-			"The submit stack contains an empty branch, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
-			"",
-			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
-			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
-		].join("\n");
-	}
-	return [
-		`Branch ${branchName} is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.`,
-		"",
-		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
-		`    gt delete ${branchName} -f -q`,
-		"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
-		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
-	].join("\n");
-}
-
-export function formatTrunkOutOfDatePreflightOutput(): string {
-	return [
-		"Graphite could not update your local trunk before submitting. Nothing was submitted.",
-		"",
-		"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
-	].join("\n");
-}
-
-export function formatMergedPrNotInTrunkOutput(output: SubmitCommandOutput): string {
-	const details = parseMergedPrNotInTrunkDetails(output);
-	const affectedBranch = details.branch ?? "the affected branch";
-	const trunkName = details.trunk ?? "trunk";
-	const identityLine =
-		details.branch === undefined
-			? undefined
-			: `Branch ${formatMergedPrBranchDetails(details)}${details.trunk === undefined ? "" : `; trunk ${details.trunk}`}.`;
-	return [
-		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
-		identityLine,
-		"",
-		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
-	]
-		.filter((line): line is string => line !== undefined)
-		.join("\n");
-}
-
-export function formatRemoteUpdatedOutsideGraphitePreflightOutput(input: {
-	branchName?: string;
-	remoteSync?: RemoteSyncDiagnostics;
-}): string {
-	const subject = input.branchName === undefined ? "This branch" : `Branch ${input.branchName}`;
-	return [
-		`${subject} is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.`,
-		formatRemoteSyncDetails(input.remoteSync),
-		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
-		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
-	].join("\n");
-}
-
-function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined): string {
-	if (remoteSync === undefined) return "";
-
-	const lines = [
-		`Remote checked: ${remoteSync.upstream} (this is the PR branch, not trunk/master).`,
-		`Why: ${formatRemoteDivergence(remoteSync)}`,
-		"Possible cause: the PR branch was pushed/submitted from another checkout, or this local branch was rewritten after an earlier submit.",
-	];
-	if (remoteSync.remoteOnlyCommits !== undefined && remoteSync.remoteOnlyCommits.length > 0) {
-		lines.push(`Remote-only commits on ${remoteSync.upstream} (not in local HEAD):`);
-		for (const commit of remoteSync.remoteOnlyCommits) {
-			lines.push(`  - ${commit}`);
-		}
-		if (
-			remoteSync.behindCount !== undefined &&
-			remoteSync.behindCount > remoteSync.remoteOnlyCommits.length
-		) {
-			lines.push(
-				`  - … ${formatItemCount(remoteSync.behindCount - remoteSync.remoteOnlyCommits.length, "more commit", "more commits")}`,
-			);
-		}
-	}
-	return `${lines.join("\n")}\n`;
-}
-
-function formatItemCount(count: number, singular: string, plural: string): string {
-	return `${count} ${count === 1 ? singular : plural}`;
-}
-
-function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
-	if (remoteSync.aheadCount === undefined || remoteSync.behindCount === undefined) {
-		return `remote branch ${remoteSync.upstream} changed outside Graphite; local ahead/behind counts could not be computed.`;
-	}
-	if (remoteSync.aheadCount === 0 && remoteSync.behindCount === 0) {
-		return `git reports local HEAD and ${remoteSync.upstream} are not divergent; Graphite metadata may be stale.`;
-	}
-	if (remoteSync.aheadCount === 0) {
-		return `local HEAD is ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
-	}
-	if (remoteSync.behindCount === 0) {
-		return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
-	}
-	return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
-}
-
-interface MergedPrNotInTrunkDetails {
-	branch?: string;
-	prNumber?: string;
-	prState?: string;
-	trunk?: string;
-}
-
-function parseMergedPrNotInTrunkDetails(output: SubmitCommandOutput): MergedPrNotInTrunkDetails {
-	const text = stripTerminalEscapes(`${output.stdout}\n${output.stderr}`).replace(/\r/g, "\n");
-	const branchMatch = text.match(
-		/^\s*▸\s*(?<branch>\S+)(?:\s+-\s+PR\s+#(?<prNumber>\d+)\s+\((?<prState>[^)]+)\))?/mu,
-	);
-	const trunkMatch = text.match(/latest trunk branch (?<trunk>[^\s.]+)\./iu);
-	return {
-		...(branchMatch?.groups?.branch === undefined ? {} : { branch: branchMatch.groups.branch }),
-		...(branchMatch?.groups?.prNumber === undefined
-			? {}
-			: { prNumber: branchMatch.groups.prNumber }),
-		...(branchMatch?.groups?.prState === undefined ? {} : { prState: branchMatch.groups.prState }),
-		...(trunkMatch?.groups?.trunk === undefined ? {} : { trunk: trunkMatch.groups.trunk }),
-	};
-}
-
-function formatMergedPrBranchDetails(details: MergedPrNotInTrunkDetails): string {
-	const prSuffix =
-		details.prNumber === undefined
-			? ""
-			: ` (PR #${details.prNumber}${formatPrState(details.prState)})`;
-	return `${details.branch ?? "unknown"}${prSuffix}`;
-}
-
-function formatPrState(prState: string | undefined): string {
-	return prState === undefined || prState.trim() === "" ? "" : `, ${prState.trim()}`;
 }
 
 export function formatRestackRequiredOutput(): string {
@@ -429,37 +291,21 @@ function formatPostSubmitFailureReason(
 		.join("\n");
 }
 
-function formatSubmitSemanticFailureCause(cause: SubmitSemanticFailureCause): string {
-	switch (cause.kind) {
-		case "empty_branch_skipped":
-			return cause.branchName === undefined
-				? "gt submit exited 0, but Graphite skipped submitting part of the submit scope because a branch is empty."
-				: `gt submit exited 0, but Graphite skipped submitting part of the submit scope because branch ${cause.branchName} is empty.`;
-	}
-	return assertNever(cause.kind);
-}
-
 function formatCurrentPrVerificationFailureReason(
 	currentPr: CurrentPrVerificationResult,
 ): string | undefined {
-	if (currentPr.kind === "present") return undefined;
-	if (currentPr.kind === "no_current_pr") {
-		return "gt submit exited 0, but the current branch still has no PR.";
-	}
-	const cause = currentPr.cause;
-	switch (cause) {
-		case "startup_error":
-			return `gt submit exited 0, but current PR verification could not start: ${currentPr.output.startupError ?? "unknown startup error"}`;
-		case "timeout":
-			return `gt submit exited 0, but current PR verification timed out after ${CURRENT_PR_TIMEOUT_MS / 1000}s.`;
-		case "command_failed":
-			return `gt submit exited 0, but current PR verification failed with exit code ${currentPr.output.exitCode}.`;
-	}
-	return assertNever(cause);
+	const failure = currentPrVerificationFailure(currentPr);
+	return failure === undefined ? undefined : formatCurrentPrVerificationFailureCause(failure);
 }
 
-function assertNever(value: never): never {
-	throw new Error(`Unhandled value: ${String(value)}`);
+function currentPrVerificationFailure(
+	currentPr: CurrentPrVerificationResult,
+): SubmitCurrentPrVerificationFailure | undefined {
+	if (currentPr.kind === "present") return undefined;
+	if (currentPr.kind === "no_current_pr") {
+		return { kind: "no_current_pr", output: currentPr.output };
+	}
+	return { kind: currentPr.cause, output: currentPr.output };
 }
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {

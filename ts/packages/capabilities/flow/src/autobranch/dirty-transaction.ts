@@ -1,5 +1,7 @@
 import type { CommandResult } from "./shared.ts";
 import { formatAutobranchCommandDetails } from "./shared.ts";
+import type { AutobranchFlowOutcome } from "./flow-result.ts";
+import { defineFailureCatalog } from "../phase-stream/failure-catalog.ts";
 
 const GIT_FACT_TIMEOUT_MS = 30_000;
 const GT_CREATE_TIMEOUT_MS = 120_000;
@@ -155,35 +157,92 @@ async function createCheckpointCommit(
 
 type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
 
+interface AutobranchTransactionFailureContext {
+	branchName: string;
+}
+
+const autobranchTransactionFailureCatalog = defineFailureCatalog<
+	AutobranchTransactionFailure,
+	AutobranchFlowOutcome,
+	AutobranchTransactionFailureContext
+>()({
+	stash_failed: {
+		arm: "stash_failed",
+		verdict: "failure",
+		message: (failure) => {
+			const result = expectAutobranchTransactionFailureKind(failure, "stash_failed");
+			return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
+		},
+	},
+	stash_ref_missing: {
+		arm: "stash_ref_missing",
+		verdict: "failure",
+		message: (failure) => {
+			const result = expectAutobranchTransactionFailureKind(failure, "stash_ref_missing");
+			return [
+				`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
+				"Inspect `git stash list` before continuing.",
+				result.error,
+			].join("\n");
+		},
+	},
+	graphite_create_failed: {
+		arm: "graphite_create_failed",
+		verdict: "failure",
+		message: (failure, context) => {
+			const result = expectAutobranchTransactionFailureKind(failure, "graphite_create_failed");
+			return [
+				`Failed to create Graphite branch ${context.branchName}.`,
+				result.createError,
+				result.restored
+					? "Restored pending changes to the original branch."
+					: `Could not restore pending changes: ${result.restoreError}`,
+			].join("\n");
+		},
+	},
+	restore_failed_after_branch_create: {
+		arm: "restore_failed_after_branch_create",
+		verdict: "failure",
+		message: (failure, context) => {
+			const result = expectAutobranchTransactionFailureKind(
+				failure,
+				"restore_failed_after_branch_create",
+			);
+			return [
+				`Created branch ${context.branchName}, but failed to restore pending changes from the stash.`,
+				result.restoreError,
+				"Inspect `git stash list` before continuing.",
+			].join("\n");
+		},
+	},
+	commit_failed_after_branch_create: {
+		arm: "commit_failed_after_branch_create",
+		verdict: "failure",
+		message: (failure, context) => {
+			const result = expectAutobranchTransactionFailureKind(
+				failure,
+				"commit_failed_after_branch_create",
+			);
+			return `Branch ${context.branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
+		},
+	},
+});
+
 export function formatAutobranchTransactionFailure(
 	result: AutobranchTransactionFailure,
 	branchName: string,
 ): string {
-	if (result.kind === "stash_failed") {
-		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
+	return autobranchTransactionFailureCatalog[result.kind].message(result, { branchName });
+}
+
+function expectAutobranchTransactionFailureKind<K extends AutobranchTransactionFailure["kind"]>(
+	failure: AutobranchTransactionFailure,
+	kind: K,
+): Extract<AutobranchTransactionFailure, { kind: K }> {
+	if (failure.kind !== kind) {
+		throw new Error(
+			`Dirty autobranch transaction failure catalog mismatch: expected ${kind}, got ${failure.kind}`,
+		);
 	}
-	if (result.kind === "stash_ref_missing") {
-		return [
-			`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
-			"Inspect `git stash list` before continuing.",
-			result.error,
-		].join("\n");
-	}
-	if (result.kind === "graphite_create_failed") {
-		return [
-			`Failed to create Graphite branch ${branchName}.`,
-			result.createError,
-			result.restored
-				? "Restored pending changes to the original branch."
-				: `Could not restore pending changes: ${result.restoreError}`,
-		].join("\n");
-	}
-	if (result.kind === "restore_failed_after_branch_create") {
-		return [
-			`Created branch ${branchName}, but failed to restore pending changes from the stash.`,
-			result.restoreError,
-			"Inspect `git stash list` before continuing.",
-		].join("\n");
-	}
-	return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
+	return failure as Extract<AutobranchTransactionFailure, { kind: K }>;
 }
