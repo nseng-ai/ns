@@ -123,7 +123,7 @@ export const neutralPeerPackageNames = new Set([
 	"@sdl/cmux",
 	"@sdl/core",
 	"@sdl/capability-kit",
-	"@sdl/exec",
+	"@sdl/core/exec",
 	"@sdl/git",
 	"@sdl/github",
 	"@sdl/graphite",

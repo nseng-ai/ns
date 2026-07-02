@@ -6,7 +6,7 @@ import {
 	type ClinkrExit,
 	type RenderCapabilities,
 } from "@sdl/clinkr";
-import { cell, kv, paint, renderTable } from "@sdl/cli-theme";
+import { cell, kv, paint, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

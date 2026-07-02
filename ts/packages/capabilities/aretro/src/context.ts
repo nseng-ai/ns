@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import { NodeCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import type { SessionSource } from "./sessions/source.ts";

@@ -1,4 +1,4 @@
-import { commandSucceeded, type ExecResult } from "@sdl/exec";
+import { commandSucceeded, type ExecResult } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/git";
 import type { SdlExtensionApi } from "sdl-sdk";
 

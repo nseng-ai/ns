@@ -1,4 +1,4 @@
-import type { ExecOptions, ExecResult } from "@sdl/exec";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import { composePiAgentPrompt, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
 import {

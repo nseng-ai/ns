@@ -1,8 +1,8 @@
 import { access } from "node:fs/promises";
 import process from "node:process";
 
-import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 

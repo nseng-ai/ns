@@ -1,4 +1,4 @@
-import { formatShellArg } from "@sdl/exec";
+import { formatShellArg } from "@sdl/core/exec";
 
 const TOKEN_PREFIX = "@@SDL_";
 

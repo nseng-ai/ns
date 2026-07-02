@@ -6,7 +6,7 @@ import {
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@sdl/clinkr";
-import { cell, paint, renderTable } from "@sdl/cli-theme";
+import { cell, paint, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../context.ts";

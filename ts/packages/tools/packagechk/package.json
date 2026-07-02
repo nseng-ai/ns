@@ -1,28 +1,26 @@
 {
-  "name": "@sdl/packagechk",
-  "version": "0.1.0",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "bin": {
-    "packagechk": "./src/cli.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/packagechk/test"
-  },
-  "dependencies": {
-    "@sdl/cli-runtime": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "zod": "catalog:"
-  },
-  "sdl": {
-    "tier": "standalone-tool"
-  }
+	"name": "@sdl/packagechk",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"bin": {
+		"packagechk": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/packagechk/test"
+	},
+	"dependencies": {
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"zod": "catalog:"
+	},
+	"sdl": {
+		"tier": "standalone-tool"
+	}
 }

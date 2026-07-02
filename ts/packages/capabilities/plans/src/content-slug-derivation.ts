@@ -1,4 +1,4 @@
-import { type CommandExecApi, formatOutputSection } from "@sdl/exec";
+import { type CommandExecApi, formatOutputSection } from "@sdl/core/exec";
 import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 

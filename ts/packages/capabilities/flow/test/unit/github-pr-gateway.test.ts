@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import type { CommandRunner } from "@sdl/core/command";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
-import { ScriptedCommandRunner, step } from "@sdl/exec/testing";
+import { ScriptedCommandRunner, step } from "@sdl/core/exec/testing";
 import { createManualTimerScheduler } from "@sdl/core/time/testing";
 
 describe("RealGithubPrGateway", () => {

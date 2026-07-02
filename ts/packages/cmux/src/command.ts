@@ -6,7 +6,7 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@sdl/exec";
+} from "@sdl/core/exec";
 import { formatErrorMessage, type ExplicitUndefined } from "@sdl/core/primitives";
 
 // Neutral cmux command runner: keep process execution behind CommandExecApi for package extraction.

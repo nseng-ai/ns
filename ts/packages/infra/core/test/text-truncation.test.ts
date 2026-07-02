@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { truncateTextHead, truncateTextHeadTail } from "../src/text-truncation.ts";
+import { truncateTextHead, truncateTextHeadTail } from "../src/terminal/text-truncation.ts";
 
 describe("truncateTextHeadTail", () => {
 	test("keeps unbounded values unchanged", () => {

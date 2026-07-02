@@ -1,5 +1,5 @@
 import { optionalEntries } from "@sdl/core/primitives";
-import { ScriptedQueue } from "@sdl/test-kit";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 
 import type {
 	TextGenerationRequest,

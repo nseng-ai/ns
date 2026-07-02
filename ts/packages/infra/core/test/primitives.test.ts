@@ -9,7 +9,7 @@ import {
 	sha256Digest,
 	stringArrayField,
 	truncatedSha256Digest,
-} from "../src/primitives.ts";
+} from "../src/primitives/primitives.ts";
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {

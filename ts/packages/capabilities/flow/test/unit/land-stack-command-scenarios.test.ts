@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { ScriptedQueue } from "@sdl/test-kit";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 import { stripAnsi } from "../../src/land-stack/command-exec.ts";
 import { BACKUP_REF_NAMESPACE } from "../../src/land-stack/constants.ts";
 import { type LandStackResult } from "../../src/land-stack/errors.ts";

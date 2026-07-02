@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
+import { defineCli, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
 
 import { createRealAretroContext, type AretroCliContext } from "./context.ts";
 import {

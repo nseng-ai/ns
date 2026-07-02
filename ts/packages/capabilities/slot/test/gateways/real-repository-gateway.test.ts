@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ExecResult } from "@sdl/core/command";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@sdl/exec/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import type { SlotCommandDiagnosticEvent, SlotDiagnosticSink } from "../../src/diagnostics.ts";
 import { RealSlotRepositoryGateway } from "../../src/gateways/repository.ts";
 

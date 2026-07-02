@@ -1,4 +1,4 @@
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import type { BrmemGateway } from "@sdl/brmem";
 import { selectAttachedPlanKey } from "./attached-plan.ts";
 import { checkBranchContextEntryPresence, listBranchContextPlans } from "./branch-memory.ts";

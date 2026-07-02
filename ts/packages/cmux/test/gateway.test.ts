@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedCommandExecApi } from "@sdl/exec/testing";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 import { RealCmuxGateway } from "../src/gateway.ts";
 
 const CWD = "/repo";

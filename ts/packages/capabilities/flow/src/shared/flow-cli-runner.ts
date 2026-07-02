@@ -1,4 +1,4 @@
-import { NodeCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 import {
 	type CommandExecApi,
 	type ExecOptions,

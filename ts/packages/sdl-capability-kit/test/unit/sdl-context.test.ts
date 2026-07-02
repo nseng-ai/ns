@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import type { ExecResult } from "@sdl/exec";
+import type { ExecResult } from "@sdl/core/exec";
 import type { SdlExtensionApi } from "sdl-sdk";
 
 import {

@@ -1,7 +1,7 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import {

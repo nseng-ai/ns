@@ -1,7 +1,7 @@
 import * as ts from "typescript";
 
 import { ADVISORY_OPTIONAL_UNDEFINED_PROPERTY } from "./config.ts";
-import { parseTypeScriptSource, sourceLocationFields } from "@sdl/typescript-analysis";
+import { parseTypeScriptSource, sourceLocationFields } from "@sdl/core/typescript-analysis";
 
 export interface OptionalUndefinedPropertyCandidate {
 	readonly rule: typeof ADVISORY_OPTIONAL_UNDEFINED_PROPERTY;

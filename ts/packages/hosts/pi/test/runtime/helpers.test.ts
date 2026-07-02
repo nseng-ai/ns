@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, formatCommandFailure, formatCommandStartupFailure } from "@sdl/exec";
+import { formatCommand, formatCommandFailure, formatCommandStartupFailure } from "@sdl/core/exec";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 import { parseMachineEnvelopeData } from "../../src/runtime/machine-envelope.ts";

@@ -1,46 +1,42 @@
 {
-  "name": "@sdl/ccc",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "bin": {
-    "ccc": "./src/cli.ts"
-  },
-  "exports": {
-    ".": "./src/index.ts",
-    "./api": "./src/api.ts",
-    "./autoslot": "./src/autoslot.ts",
-    "./cli": "./src/cli.ts",
-    "./land": "./src/land.ts",
-    "./trunk-pull": "./src/trunk-pull.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/ccc/test"
-  },
-  "dependencies": {
-    "@sdl/branch-context": "workspace:*",
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/cli-runtime": "workspace:*",
-    "@sdl/cli-theme": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/cmux": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/kernel": "workspace:*",
-    "@sdl/objective": "workspace:*",
-    "@sdl/plans": "workspace:*",
-    "@sdl/slot": "workspace:*",
-    "@sdl/test-kit": "workspace:*",
-    "sdl-flow": "workspace:*",
-    "sdl-sdk": "workspace:*",
-    "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@sdl/ccc-pi": "workspace:*"
-  },
-  "sdl": {
-    "tier": "capability"
-  }
+	"name": "@sdl/ccc",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ccc": "./src/cli.ts"
+	},
+	"exports": {
+		".": "./src/index.ts",
+		"./api": "./src/api.ts",
+		"./autoslot": "./src/autoslot.ts",
+		"./cli": "./src/cli.ts",
+		"./land": "./src/land.ts",
+		"./trunk-pull": "./src/trunk-pull.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/ccc/test"
+	},
+	"dependencies": {
+		"@sdl/branch-context": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/cmux": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/kernel": "workspace:*",
+		"@sdl/objective": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"sdl-flow": "workspace:*",
+		"sdl-sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"devDependencies": {
+		"@sdl/ccc-pi": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability"
+	}
 }

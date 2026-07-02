@@ -6,7 +6,7 @@ import {
 	normalizeTextOutput,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
-} from "../src/text-normalization.ts";
+} from "../src/terminal/text-normalization.ts";
 
 describe("trimOuterBlankLines", () => {
 	test("removes leading and trailing blank lines without touching inner spacing", () => {

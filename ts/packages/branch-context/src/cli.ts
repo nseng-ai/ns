@@ -1,5 +1,5 @@
 import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/cli-runtime";
+import { defineCli } from "@sdl/core/cli-runtime";
 import { optionalEntry } from "@sdl/core/primitives";
 
 import {

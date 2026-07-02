@@ -1,45 +1,60 @@
 {
-  "name": "@sdl/core",
-  "version": "0.1.0",
-  "type": "module",
-  "exports": {
-    "./branch-slug": "./src/branch-slug.ts",
-    "./clock": "./src/clock.ts",
-    "./command": "./src/command.ts",
-    "./machine-envelope": "./src/machine-envelope.ts",
-    "./managed-region": "./src/managed-region.ts",
-    "./markdown-frontmatter": "./src/markdown-frontmatter.ts",
-    "./model-slug": "./src/model-slug.ts",
-    "./primitives": "./src/primitives.ts",
-    "./result": "./src/result.ts",
-    "./runner-usage": "./src/runner-usage.ts",
-    "./terminal-escapes": "./src/terminal-escapes.ts",
-    "./terminal-presentation": "./src/terminal-presentation.ts",
-    "./text-normalization": "./src/text-normalization.ts",
-    "./text-table": "./src/text-table.ts",
-    "./text-truncation": "./src/text-truncation.ts",
-    "./time": "./src/time/index.ts",
-    "./time-format": "./src/time-format.ts",
-    "./time/testing": "./src/time/testing.ts",
-    "./timers": "./src/timers.ts",
-    "./xdg-path": "./src/xdg-path.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
-  },
-  "dependencies": {
-    "zod": "catalog:"
-  },
-  "devDependencies": {},
-  "sdl": {
-    "tier": "neutral-infra",
-    "subpackages": [
-      "time"
-    ],
-    "remainder": true
-  }
+	"name": "@sdl/core",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		"./branch-slug": "./src/primitives/branch-slug.ts",
+		"./clock": "./src/time/clock.ts",
+		"./command": "./src/primitives/command.ts",
+		"./machine-envelope": "./src/primitives/machine-envelope.ts",
+		"./managed-region": "./src/primitives/managed-region.ts",
+		"./markdown-frontmatter": "./src/primitives/markdown-frontmatter.ts",
+		"./model-slug": "./src/primitives/model-slug.ts",
+		"./primitives": "./src/primitives/primitives.ts",
+		"./result": "./src/primitives/result.ts",
+		"./runner-usage": "./src/terminal/runner-usage.ts",
+		"./terminal-escapes": "./src/terminal/terminal-escapes.ts",
+		"./terminal-presentation": "./src/terminal/terminal-presentation.ts",
+		"./text-normalization": "./src/terminal/text-normalization.ts",
+		"./text-table": "./src/terminal/text-table.ts",
+		"./text-truncation": "./src/terminal/text-truncation.ts",
+		"./time": "./src/time/index.ts",
+		"./time-format": "./src/terminal/time-format.ts",
+		"./time/testing": "./src/time/testing.ts",
+		"./timers": "./src/time/timers.ts",
+		"./xdg-path": "./src/config/xdg-path.ts",
+		"./exec": "./src/exec/index.ts",
+		"./exec/testing": "./src/exec/testing.ts",
+		"./cli-runtime": "./src/cli-runtime/index.ts",
+		"./cli-runtime/testing": "./src/cli-runtime/testing.ts",
+		"./cli-theme": "./src/cli-theme/index.ts",
+		"./test-kit": "./src/test-kit/index.ts",
+		"./typescript-analysis": "./src/typescript-analysis/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
+	},
+	"dependencies": {
+		"@sdl/clinkr": "workspace:*",
+		"typescript": "catalog:",
+		"zod": "catalog:"
+	},
+	"sdl": {
+		"tier": "neutral-infra",
+		"subpackages": [
+			"time",
+			"exec",
+			"cli-runtime",
+			"cli-theme",
+			"test-kit",
+			"typescript-analysis",
+			"primitives",
+			"terminal",
+			"config"
+		]
+	}
 }

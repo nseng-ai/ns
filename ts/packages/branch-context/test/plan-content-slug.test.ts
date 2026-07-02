@@ -10,7 +10,7 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/index.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";

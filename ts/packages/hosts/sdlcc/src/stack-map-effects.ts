@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { shellQuote } from "@sdl/exec";
+import { shellQuote } from "@sdl/core/exec";
 import {
 	createSlotClient,
 	type SlotCheckoutFailure,

@@ -11,7 +11,7 @@ import {
 	type ClinkrInteraction,
 } from "@sdl/clinkr";
 
-import { defineCli, readStdinLine, type CliEntrypointDeps } from "@sdl/cli-runtime";
+import { defineCli, readStdinLine, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
 import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 

@@ -1,4 +1,4 @@
-import type { ExecResult } from "@sdl/exec";
+import type { ExecResult } from "@sdl/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
@@ -8,7 +8,7 @@ import type {
 import type { ThinkingLevel } from "./types.ts";
 import type { ExtensionMode, ToolContext, ToolDefinition } from "./tool-types.ts";
 
-export type { ExecResult } from "@sdl/exec";
+export type { ExecResult } from "@sdl/core/exec";
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,

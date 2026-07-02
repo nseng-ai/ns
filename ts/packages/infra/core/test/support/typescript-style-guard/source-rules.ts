@@ -12,7 +12,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@sdl/typescript-analysis";
+} from "@sdl/core/typescript-analysis";
 import {
 	packageNameForPath,
 	packageNameForSpecifier,

@@ -1,5 +1,5 @@
 import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { cell, paint, renderBufferedReport, renderTable } from "@sdl/cli-theme";
+import { cell, paint, renderBufferedReport, renderTable } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../context.ts";

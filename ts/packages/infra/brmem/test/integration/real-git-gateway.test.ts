@@ -4,10 +4,10 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { NodeCommandExecApi } from "@sdl/exec";
-import type { StdinCapableCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import type { StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
-import { DroppingOptionsCommandExecApi } from "@sdl/exec/testing";
+import { DroppingOptionsCommandExecApi } from "@sdl/core/exec/testing";
 import { createTempGitRepo } from "@sdl/git/testing";
 import type { TempGitRepo } from "@sdl/git/testing";
 import type { BrmemResult } from "../../src/contracts.ts";

@@ -8,10 +8,10 @@ import {
 	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
-} from "@sdl/cli-runtime";
+} from "@sdl/core/cli-runtime";
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { z } from "zod";

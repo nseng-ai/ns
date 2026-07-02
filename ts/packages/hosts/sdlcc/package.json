@@ -1,28 +1,26 @@
 {
-  "name": "sdlcc",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "bin": {
-    "sdlcc": "./src/cli.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/sdlcc/test",
-    "start": "bun src/cli.ts",
-    "stack-map": "bun src/cli.ts"
-  },
-  "dependencies": {
-    "@opentui/core": "catalog:",
-    "@sdl/cli-runtime": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/objective": "workspace:*",
-    "@sdl/slot": "workspace:*",
-    "zod": "catalog:"
-  },
-  "sdl": {
-    "tier": "host"
-  }
+	"name": "sdlcc",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"sdlcc": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/sdlcc/test",
+		"start": "bun src/cli.ts",
+		"stack-map": "bun src/cli.ts"
+	},
+	"dependencies": {
+		"@opentui/core": "catalog:",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/objective": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"zod": "catalog:"
+	},
+	"sdl": {
+		"tier": "host"
+	}
 }

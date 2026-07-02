@@ -1,5 +1,5 @@
 import { type CommandResolver } from "@sdl/core/command";
-import { defaultCommandResolver } from "@sdl/exec";
+import { defaultCommandResolver } from "@sdl/core/exec";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
 import { isClaudeCodeSupportedModelPattern } from "@sdl/core/model-slug";
 import {

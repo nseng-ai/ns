@@ -1,2 +1,2 @@
-export { ScriptedCommandRunner, startupErrorStep, step } from "@sdl/exec/testing";
-export type { ResultFields, RunnerCall, ScriptStep } from "@sdl/exec/testing";
+export { ScriptedCommandRunner, startupErrorStep, step } from "@sdl/core/exec/testing";
+export type { ResultFields, RunnerCall, ScriptStep } from "@sdl/core/exec/testing";

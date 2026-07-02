@@ -1,5 +1,5 @@
 import type { SdlProgressPhaseEvent } from "sdl-sdk";
-import type { PhaseState, StatusLineItem } from "@sdl/cli-theme";
+import type { PhaseState, StatusLineItem } from "@sdl/core/cli-theme";
 
 import type { PhaseSpec } from "./phase-stream-specs.ts";
 

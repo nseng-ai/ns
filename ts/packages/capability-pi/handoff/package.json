@@ -1,26 +1,25 @@
 {
-  "name": "@sdl/handoff-pi",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./extension": "./src/extension.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/handoff/test"
-  },
-  "dependencies": {
-    "@sdl/brmem": "workspace:*",
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/cmux": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "@sdl/handoff": "workspace:*",
-    "@sdl/pi": "workspace:*",
-    "@sdl/test-kit": "workspace:*"
-  },
-  "sdl": {
-    "tier": "capability-pi"
-  }
+	"name": "@sdl/handoff-pi",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capability-pi/handoff/test"
+	},
+	"dependencies": {
+		"@sdl/brmem": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/cmux": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/git": "workspace:*",
+		"@sdl/handoff": "workspace:*",
+		"@sdl/pi": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability-pi"
+	}
 }

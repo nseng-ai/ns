@@ -1,7 +1,7 @@
 import path from "node:path";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
-import { commandSucceeded, formatCommand, formatCommandFailure } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
+import { commandSucceeded, formatCommand, formatCommandFailure } from "@sdl/core/exec";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { firstNonEmptyLine, nonEmptyLines } from "@sdl/core/text-normalization";
 import type {

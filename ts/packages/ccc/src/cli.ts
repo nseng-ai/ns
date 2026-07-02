@@ -3,8 +3,8 @@
 import { z } from "zod";
 
 import { ClinkrGroup, failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
-import { defineCli, type CliEntrypointDeps } from "@sdl/cli-runtime";
-import { NodeCommandExecApi } from "@sdl/exec";
+import { defineCli, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 import type { CommandExecApi } from "@sdl/core/command";
 
 import {

@@ -1,4 +1,4 @@
-import { renderDestructiveResultBlock } from "@sdl/cli-theme";
+import { renderDestructiveResultBlock } from "@sdl/core/cli-theme";
 import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
 import { z } from "zod";
 

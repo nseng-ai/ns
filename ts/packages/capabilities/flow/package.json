@@ -1,47 +1,44 @@
 {
-  "name": "sdl-flow",
-  "version": "0.1.0",
-  "private": true,
-  "files": [
-    "src"
-  ],
-  "type": "module",
-  "exports": {
-    "./api": "./src/api.ts",
-    "./shared/git-operation-output": "./src/shared/git-operation-output.ts",
-    "./commands/changes": "./src/commands/changes.ts",
-    "./commands/cp": "./src/commands/cp.ts",
-    "./commands/autobranch": "./src/commands/autobranch.ts",
-    "./commands/branch-latest-commit": "./src/commands/branch-latest-commit.ts",
-    "./commands/autoslot": "./src/commands/autoslot.ts",
-    "./commands/submit": "./src/commands/submit.ts",
-    "./commands/regenerate-pr": "./src/commands/regenerate-pr.ts",
-    "./commands/push": "./src/commands/push.ts",
-    "./commands/land": "./src/commands/land.ts",
-    "./commands/pull-trunk": "./src/commands/pull-trunk.ts",
-    "./commands/exec-read-graphite-branch-metadata": "./src/commands/exec-read-graphite-branch-metadata.ts",
-    "./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
-  },
-  "dependencies": {
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/cli-theme": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "@sdl/github": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/kernel": "workspace:*",
-    "@sdl/slot": "workspace:*",
-    "@sdl/test-kit": "workspace:*",
-    "sdl-land": "workspace:*",
-    "sdl-sdk": "workspace:*"
-  },
-  "sdl": {
-    "tier": "capability"
-  }
+	"name": "sdl-flow",
+	"version": "0.1.0",
+	"private": true,
+	"files": [
+		"src"
+	],
+	"type": "module",
+	"exports": {
+		"./api": "./src/api.ts",
+		"./shared/git-operation-output": "./src/shared/git-operation-output.ts",
+		"./commands/changes": "./src/commands/changes.ts",
+		"./commands/cp": "./src/commands/cp.ts",
+		"./commands/autobranch": "./src/commands/autobranch.ts",
+		"./commands/branch-latest-commit": "./src/commands/branch-latest-commit.ts",
+		"./commands/autoslot": "./src/commands/autoslot.ts",
+		"./commands/submit": "./src/commands/submit.ts",
+		"./commands/regenerate-pr": "./src/commands/regenerate-pr.ts",
+		"./commands/push": "./src/commands/push.ts",
+		"./commands/land": "./src/commands/land.ts",
+		"./commands/pull-trunk": "./src/commands/pull-trunk.ts",
+		"./commands/exec-read-graphite-branch-metadata": "./src/commands/exec-read-graphite-branch-metadata.ts",
+		"./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
+	},
+	"dependencies": {
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/git": "workspace:*",
+		"@sdl/github": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/kernel": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"sdl-land": "workspace:*",
+		"sdl-sdk": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability"
+	}
 }

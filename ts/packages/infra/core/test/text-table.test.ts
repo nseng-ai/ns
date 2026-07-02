@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { displayWidth, renderTextTable } from "../src/text-table.ts";
+import { displayWidth, renderTextTable } from "../src/terminal/text-table.ts";
 
 describe("renderTextTable", () => {
 	test("aligns columns to their widest cell and trims trailing padding", () => {

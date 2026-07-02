@@ -1,4 +1,4 @@
-import { runCommand } from "@sdl/exec";
+import { runCommand } from "@sdl/core/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
 import type { SdlProgressPhaseListener } from "sdl-sdk";
 import { formatElapsedMs } from "@sdl/core/time-format";

@@ -1,6 +1,6 @@
 // The caps-aware git/Graphite subprocess result/failure block for finite Flow command outcomes.
 //
-// The generic headline invariant now lives in `@sdl/cli-theme` because the repeated result-block
+// The generic headline invariant now lives in `@sdl/core/cli-theme` because the repeated result-block
 // shape was proven across Flow and CCC. Git transcript plumbing stays flow-local: this renderer owns
 // command/cwd/exit facts, cause-marker mining, refusal stdout detail, and inline stdout/stderr output.
 //
@@ -16,7 +16,7 @@
 //     dimmed.
 
 import type { Caps } from "@sdl/clinkr";
-import { dim, resultBlockHeadline } from "@sdl/cli-theme";
+import { dim, resultBlockHeadline } from "@sdl/core/cli-theme";
 import type { ExecResult } from "sdl-sdk";
 
 type GitTranscriptResult = Pick<ExecResult, "stdout" | "stderr" | "code"> & {

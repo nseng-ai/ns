@@ -1,4 +1,4 @@
-import { runCommand } from "@sdl/exec";
+import { runCommand } from "@sdl/core/exec";
 import {
 	type CommandRunner,
 	type ExecOutputListener,

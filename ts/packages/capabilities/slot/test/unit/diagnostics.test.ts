@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { ScriptedCommandExecApi } from "@sdl/exec/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import {
 	createSlotDiagnosticSinkFromEnv,
 	runDiagnosticCommand,

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
 	parseMachineEnvelopeData,
 	parseMachineEnvelopeDataWithFailureData,
-} from "../src/machine-envelope.ts";
+} from "../src/primitives/machine-envelope.ts";
 
 describe("parseMachineEnvelopeData", () => {
 	test("parses a valid envelope with object data", () => {

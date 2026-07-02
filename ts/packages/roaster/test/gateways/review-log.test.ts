@@ -1,5 +1,5 @@
 import type { CommandExecApi, ExecOptions } from "@sdl/core/command";
-import { ScriptedCommandExecApi } from "@sdl/exec/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import { describe, expect, test } from "vitest";
 
 import { RealReviewLogGateway } from "../../src/gateways/review-log.ts";

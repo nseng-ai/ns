@@ -3,7 +3,7 @@ import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/p
 import path from "node:path";
 
 import { formatErrorMessage } from "@sdl/core/primitives";
-import { NodeCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";

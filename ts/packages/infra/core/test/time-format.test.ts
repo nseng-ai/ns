@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCountdownMs, formatElapsedMs } from "../src/time-format.ts";
+import { formatCountdownMs, formatElapsedMs } from "../src/terminal/time-format.ts";
 
 describe("formatElapsedMs", () => {
 	test("clamps negative elapsed time to zero seconds", () => {

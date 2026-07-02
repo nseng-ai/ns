@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join, relative } from "node:path";
 import { optionalEntry } from "@sdl/core/primitives";
 
-import type { CommandExecApi, ExecOptions } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/git";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";

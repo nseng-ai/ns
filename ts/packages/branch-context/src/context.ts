@@ -1,6 +1,6 @@
 import { RealGitBrmemGateway, type BrmemGateway } from "@sdl/brmem";
-import { NodeCommandExecApi } from "@sdl/exec";
-import type { CommandExecApi, StdinCapableCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi, StdinCapableCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { RealGraphiteBranchGateway, type GraphiteBranchGateway } from "@sdl/graphite/branch";

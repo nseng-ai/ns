@@ -1,7 +1,7 @@
 import type { z } from "zod";
 
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
-import type { CommandRunner, ExecResult } from "@sdl/exec";
+import type { CommandRunner, ExecResult } from "@sdl/core/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
 import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { Result } from "@sdl/core/result";
