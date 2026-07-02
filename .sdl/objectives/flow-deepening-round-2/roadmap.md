@@ -119,9 +119,13 @@ stated. Validation baseline for every row: the Definition of Progress suite in
   (runner step, commit `1df170eb6` on
   `flow-map-slice4-backup-refs-gateway`) — see
   `updates/2026-07-02T204810Z-extraction-slice-4-backup-refs.md`; the
-  mutation argv pins passed unchanged. Next: slice 5 (pre-merge
-  submit/restack through the Graphite gateway — make the stubs real,
-  channel-backed per the settled progress-reporting decision).
+  mutation argv pins passed unchanged. Slice 5 (pre-merge submit/restack
+  through the Graphite gateway) delivered 2026-07-02 (runner step, commit
+  `e7f834fdd` on `flow-map-slice5-premerge-submit-gateway`) — see
+  `updates/2026-07-02T205626Z-extraction-slice-5-premerge-submit.md`; the
+  second mid-execution `LandContext` crossing is gone. Next: slice 6
+  (slot-action seam + pre-merge slot freeing via `freeSlots`, which keeps
+  shelling to `sdl slot free`).
   Slice gate (replaces the human preview; every check must hold to
   keep a slice):
   - land scenario tests pass; argv assertions stay byte-for-byte for
