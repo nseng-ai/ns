@@ -68,4 +68,14 @@ test("repo-local migration extensions can import internal migration subpaths", a
 		objectiveListSdlCommand: { name: string };
 	}>("@sdl/objective/sdl/commands/list");
 	expect(objectiveListModule.objectiveListSdlCommand.name).toBe("list");
+
+	// jiti tripwire: this command's module graph includes the real Pi
+	// child-session adapter and must load without pulling the optional
+	// @sdl/pi peer (the adapter spawns the pi binary; it imports no Pi code).
+	const objectiveRunnerStepModule = await jiti.import<{
+		default: { commands?: readonly { name: string }[] };
+	}>("@sdl/objective/sdl/commands/exec-runner-step");
+	expect(objectiveRunnerStepModule.default.commands?.map((command) => command.name)).toEqual([
+		"exec-runner-step",
+	]);
 });

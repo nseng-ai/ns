@@ -10,8 +10,8 @@
       Fake-driven tests: happy path, each gate check failing individually, blocked/stop passthrough, malformed report → malfunction, recover-mode gate variant.
 - [ ] Ship `sdl objective exec runner-step <slug>` with `--recover`, `--guidance` (inline/file), `--model`, `--timeout`; clinkr exit codes (0 committed/stop, 1 blocked/verification-failed, 2 malfunction); checkpoint-only stdout and streamed stderr progress.
       Scenario tests over the command surface per the branch-context `cli-harness.ts` pattern; resolves the `--guidance` file-form flag shape.
-- [ ] Implement the real Pi-subprocess dispatch adapter at the Pi-coupled edge (`runner-subagents` region) and resolve the host composition point that injects it into the exec command context.
-      This slice answers the open wiring question in `objective.md`; the adapter must not migrate into `@sdl/objective` to dodge wiring pain.
+- [ ] Implement the real Pi-subprocess dispatch adapter at the objective container's own Pi-coupled edge (the `pi` subpackage, `src/pi/child-session/`) and resolve the host composition point that injects it into the exec command context.
+      This slice answers the open wiring question in `objective.md`; post-reorg the `runner-subagents` region of `@sdl-local/pi-tools` is a tier-illegal dependency sink, and the container's `pi` subpackage (the folded former `@sdl/objective-pi`) is the sanctioned adapter home.
 - [ ] Add the small real-git integration-lane test: verify → stage → commit → trailers against a temp repo with a scripted child.
 - [ ] Write the parent playbook skill: interpreting Runner Checkpoints (verified vs claimed zones), choosing `--recover` vs reset vs hand-fix, and when a checkpoint warrants a Semantic Update via `objective-update`.
 - [ ] Dogfood `runner-step` on a real Objective, including at least one `--recover` cycle if a failure occurs naturally or can be provoked cheaply; record findings as Semantic Updates here, especially any evidence bearing on the parked automatic-supervisor question.
