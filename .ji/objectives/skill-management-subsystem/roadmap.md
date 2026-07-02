@@ -2,30 +2,27 @@
 
 ## Work
 
-- [ ] Establish the package and command vocabulary for the `ji` CLI.
-      Decide the reusable package name, public CLI command names, and whether user-facing prose says skills, resources, or agent resources.
+- [~] Establish the package and command vocabulary for the `ji` CLI.
+      Decided (see `updates/20260702T035321Z-harness-artifact-vocabulary-and-layering.md`): domain term **harness artifact** with kinds `skill`/`agent`/`extension-bundle`; user-facing command `ji skills`; verb **provision**; **harness** over "platform"; AREG re-read as Artifact Registry. Remaining: confirm the package name (leading candidate `@ji/harness-artifacts`).
 
-- [ ] Design the first resource model and platform path table.
-      Define resource entries, catalog shape, supported entry kinds, platform aliases, user-vs-project scope, and deterministic install-plan output. Evidence should include tests for path resolution and alias normalization.
+- [ ] Design the artifact model, harness path table, and install manifest.
+      Define artifact entries, catalog shape, the three entry kinds, harness specs with aliases and user-vs-project scope (including `CLAUDE_CONFIG_DIR` handling), deterministic provision-plan output, and the install manifest with per-file content hashes. Conflict policy is LBYL: detect stale content after upgrades, refuse to clobber locally edited files without `--force`, clean up renames. Evidence should include tests for path resolution, alias normalization, plan output, and manifest-driven conflict behavior.
 
 - [ ] Implement the `ji` CLI catalog steel thread.
-      Make the `ji` CLI able to list, path, and install/plan at least one SDL-owned assistant resource through the shared subsystem.
+      Make the `ji` CLI able to list, path, and provision (with deterministic preview) at least one SDL-owned skill through the shared subsystem, with zero `npx skills` dependency.
 
-- [ ] Prove subsystem reuse with a second consumer.
-      Make a second first-party consumer (for example a host CLI such as `ccc`/`jicc`, or an SDL extension) list/path/install through the same shared subsystem instead of duplicating platform logic, validating that the abstraction is genuinely reusable.
+- [ ] Extension-carried artifact provisioning (pulled forward from parked).
+      An SDL extension declares bundled or companion skills statically in its package manifest (`sdl` field in `package.json`); installing/enabling the extension provisions them through the shared subsystem with no extension code executed during discovery. Decide the hook point: a unifying `ji extension install <source>` versus per-surface hooks (Pi-native install plus a `ji skills sync`-style follow-up).
 
-- [ ] Decide and implement first-slice entry-kind breadth.
-      Either support skills, agents, and extension bundles together, or implement skills first and record a concrete follow-up boundary for agent/subagent Markdown and Pi extension bundles.
+- [ ] Re-platform AREG onto the shared core as the proving second consumer.
+      Replace AREG's `npx skills` materialization path with the shared provisioner and converge `skills-lock.json` with the install manifest on one hash/record format so `areg check`/`doctor` can verify casual-path installs. Coordinate with the active `migrate-areg-and-ns-skills`, `areg-typescript-port`, and `areg-ts-cli-cleanup` Objectives before implementation.
 
-- [ ] De-risk extension reuse without implementing a marketplace.
-      Document or prototype how an SDL extension could contribute a catalog without eager execution during discovery/help, then split any remaining extension work if it is larger than the core `ji` slice.
-
-- [ ] Reconcile with existing skill workflows and docs.
-      Compare the new subsystem against `skillx`, the `@sdl/areg` agent registry CLI, `npx skills`, repo skill conventions, and harness skill-invocation docs so the new CLI behavior is additive and not a conflicting second workflow.
+- [ ] Reconcile with existing skill workflows, docs, and vocabulary.
+      Compare the new subsystem against `skillx`, the `@sdl/areg` CLI, `npx skills`, repo skill conventions, and harness skill-invocation docs so the new CLI behavior is additive. Includes the bare-"artifact" collision cleanup: handoff artifact and consumer artifact stay owned by their domains; AREG's "managed artifacts" overlay sense is renamed (e.g. "kind overlays").
 
 ## Parked
 
 - [ ] Marketplace or remote catalog discovery.
-- [ ] Update/uninstall/version resolution.
-- [ ] Full SDL extension catalog contribution implementation if it exceeds the core `sdl` first slice.
-- [ ] Rich Pi extension bundle install support if the first implementation ships skills only.
+- [ ] Update/uninstall/version-resolution command surface (the install manifest is main-line and enables these later; the commands themselves are not first-slice).
+- [ ] Provisioning the `agent` and `extension-bundle` kinds (modeled in types from day one; skills ship first).
+- [ ] Replacing AREG's `npx skills add` acquisition channel for third-party GitHub skills with a first-party fetch-and-vendor path.
