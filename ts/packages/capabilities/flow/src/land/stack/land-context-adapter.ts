@@ -14,12 +14,15 @@ import {
 	BACKUP_REF_PREV_NAMESPACE,
 	GH_MERGE_TIMEOUT_MS,
 	GIT_TIMEOUT_MS,
+	GT_MUTATION_TIMEOUT_MS,
 } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
 	createLandGraphiteCommandChannel,
+	formatGraphiteOperation,
 	type LandGraphiteCommandChannel,
+	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
 import { loadPr } from "./pr-facts.ts";
 import {
@@ -84,8 +87,10 @@ export function createLandContext(
 					warnings: stack.value.warnings.map((message) => ({ level: "warning", message })),
 				});
 			},
-			prepareSubmitUpdate: async () => landCompleted(),
-			prepareRestackForSubmit: async () => landCompleted(),
+			prepareSubmitUpdate: async ({ repoRoot, branch }) =>
+				prepareSubmitUpdate({ graphite, repoRoot, branch }),
+			prepareRestackForSubmit: async ({ repoRoot, branch }) =>
+				prepareRestackForSubmit({ graphite, repoRoot, branch }),
 		},
 		github: {
 			pullRequestFacts: async ({ repoRoot, branchOrNumber }) => {
@@ -138,6 +143,66 @@ export function createLandContext(
 			classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
 		},
 	};
+}
+
+interface PrepareGraphiteMutationOptions {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly operation: Extract<
+		LandGraphiteOperation,
+		{ readonly kind: "submit-update" | "restack-upstack" }
+	>;
+	readonly failureCode: string;
+	readonly failureMessage: string;
+}
+
+async function prepareSubmitUpdate(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly branch: string;
+}): Promise<LandOutcome> {
+	return await prepareGraphiteMutation({
+		graphite: options.graphite,
+		repoRoot: options.repoRoot,
+		operation: { kind: "submit-update", branch: options.branch },
+		failureCode: "submit_update_failed",
+		failureMessage: "gt submit/update failed before any PRs were landed.",
+	});
+}
+
+async function prepareRestackForSubmit(options: {
+	readonly graphite: LandGraphiteCommandChannel;
+	readonly repoRoot: string;
+	readonly branch: string;
+}): Promise<LandOutcome> {
+	return await prepareGraphiteMutation({
+		graphite: options.graphite,
+		repoRoot: options.repoRoot,
+		operation: { kind: "restack-upstack", branch: options.branch },
+		failureCode: "submit_restack_failed",
+		failureMessage: "gt restack failed before any PRs were landed.",
+	});
+}
+
+async function prepareGraphiteMutation(
+	options: PrepareGraphiteMutationOptions,
+): Promise<LandOutcome> {
+	const result = await options.graphite.run({
+		operation: options.operation,
+		cwd: options.repoRoot,
+		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	});
+	if (result.code === 0) return landCompleted();
+
+	const commandDisplay = formatGraphiteOperation(options.operation);
+	return landOutcomeFailure({
+		type: "boundary",
+		phase: "submit-preparation",
+		source: "graphite",
+		code: options.failureCode,
+		message: `${options.failureMessage}\n${formatCommandDetails(result, commandDisplay)}`,
+		displayCommand: commandDisplay,
+	});
 }
 
 async function loadWorkingTreeStatus(

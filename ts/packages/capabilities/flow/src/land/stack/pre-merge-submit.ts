@@ -1,5 +1,5 @@
 import { collectSubmitRestackRequirements } from "../api.ts";
-import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
+import type { LandContext, LandingFailure } from "../api.ts";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
 	confirmPreMergeMaintenance,
@@ -7,17 +7,19 @@ import {
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
-import { createLandContext } from "./land-context-adapter.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
 import { formatPrSubmitRequirement } from "./pr-facts.ts";
 import { setStatus } from "./presentation.ts";
 import type { LandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
 
+export interface PreMergeSubmitMaintenanceOptions extends PreMergeMaintenanceOptions {
+	readonly landContext: LandContext;
+}
+
 export async function confirmAndSubmitRequiredPrUpdates(
-	options: PreMergeMaintenanceOptions,
+	options: PreMergeSubmitMaintenanceOptions,
 ): Promise<LandStackOutcome> {
-	const { ctx, plan, runtime } = options;
-	const graphite = runtime.graphite;
+	const { ctx, landContext, plan } = options;
 	const submitOperation = {
 		kind: "submit-update",
 		branch: plan.stack.landingTargetBranch,
@@ -52,30 +54,23 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	if (restackTarget) {
 		const restackOperation = { kind: "restack-upstack", branch: restackTarget } as const;
 		setStatus(ctx, `restacking ${restackTarget}...`);
-		const restacked = await graphite.run({
-			operation: restackOperation,
-			cwd: plan.repoRoot,
-			timeoutMs: GT_MUTATION_TIMEOUT_MS,
+		const restacked = await landContext.graphite.prepareRestackForSubmit({
+			repoRoot: plan.repoRoot,
+			branch: restackTarget,
 		});
-		if (restacked.code !== 0) {
+		if (restacked.type === "failure") {
 			return failure(
-				landStackFailure("gt restack failed before any PRs were landed.", {
-					commandDisplay: formatGraphiteOperation(restackOperation),
-					result: restacked,
+				preMergeGraphiteFailure(restacked.failure, {
 					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
 				}),
 			);
 		}
 
 		setStatus(ctx, "verifying restack...");
-		const remainingRestack = await collectSubmitRestackRequirements(
-			createLandContext(runtime.commands, { graphite }),
-			plan.repoRoot,
-			{
-				...plan.stack,
-				warnings: plan.stack.warnings.map((message) => ({ level: "warning", message })),
-			},
-		);
+		const remainingRestack = await collectSubmitRestackRequirements(landContext, plan.repoRoot, {
+			...plan.stack,
+			warnings: plan.stack.warnings.map((message) => ({ level: "warning", message })),
+		});
 		if (remainingRestack.type === "failure") {
 			return failure(toLandStackFailure(remainingRestack.failure));
 		}
@@ -90,21 +85,27 @@ export async function confirmAndSubmitRequiredPrUpdates(
 	}
 
 	setStatus(ctx, `submitting ${plan.stack.landingTargetBranch}...`);
-	const result = await graphite.run({
-		operation: submitOperation,
-		cwd: plan.repoRoot,
-		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	const result = await landContext.graphite.prepareSubmitUpdate({
+		repoRoot: plan.repoRoot,
+		branch: plan.stack.landingTargetBranch,
 	});
-	if (result.code !== 0) {
+	if (result.type === "failure") {
 		return failure(
-			landStackFailure("gt submit/update failed before any PRs were landed.", {
-				commandDisplay: formatGraphiteOperation(submitOperation),
-				result,
+			preMergeGraphiteFailure(result.failure, {
 				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
 			}),
 		);
 	}
 	return completed();
+}
+
+function preMergeGraphiteFailure(
+	landFailureValue: LandingFailure,
+	options: { readonly suggestedAction: string },
+) {
+	return landStackFailure(landFailureValue.message, {
+		suggestedAction: options.suggestedAction,
+	});
 }
 
 export function formatSubmitUpdateDetails(plan: LandingPlan): string {

@@ -7,6 +7,7 @@ import {
 	type LandStackResult,
 } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
+import { createLandContext } from "./land-context-adapter.ts";
 import { confirmAndFreeManagedSlots, residualPreMergeFailure } from "./landing-operations.ts";
 import {
 	confirmLandStackAction,
@@ -91,10 +92,12 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
 	const { runtime, ctx, plan, commandStream, preMergeConfirmation } = options;
+	const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		runtime,
 		ctx,
 		plan,
+		landContext,
 		confirmation: preMergeConfirmation,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
