@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import investigateExtension from "../src/core/investigate/extension.ts";
-import modelShortcutExtension from "../src/kit/models/shortcuts.ts";
+import modelShortcutExtension from "../src/parity/model-shortcuts.ts";
 import prExtension from "../src/core/pr/extension.ts";
 import {
 	comparePiSurfaceParity,
@@ -9,7 +9,7 @@ import {
 	type LivePiSurface,
 } from "../src/parity/check.ts";
 import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
-import { definePiSurfaceParity } from "../src/parity/extension.ts";
+import { definePiSurfaceParity } from "../src/runtime/parity-extension.ts";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 

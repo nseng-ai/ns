@@ -1,4 +1,8 @@
-import { piSurfaceKey, piSurfaceParityMatching, type PiSurfaceParity } from "./extension.ts";
+import {
+	piSurfaceKey,
+	piSurfaceParityMatching,
+	type PiSurfaceParity,
+} from "../runtime/parity-extension.ts";
 
 export interface LivePiSurface {
 	readonly kind: "command" | "tool";

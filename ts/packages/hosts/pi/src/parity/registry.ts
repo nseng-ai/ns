@@ -1,8 +1,8 @@
 import { investigateParity } from "../core/investigate/extension.ts";
-import { modelShortcutParity } from "../kit/models/shortcuts.ts";
+import { modelShortcutParity } from "./model-shortcuts.ts";
 import { prExtensionParity } from "../core/pr/extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
-import type { PiSurfaceParity } from "./extension.ts";
+import type { PiSurfaceParity } from "../runtime/parity-extension.ts";
 
 // Extracted Pi-tool packages own package-local parity metadata/tests and are
 // registered through .pi/extensions/*.ts discovery adapters. Importing them into

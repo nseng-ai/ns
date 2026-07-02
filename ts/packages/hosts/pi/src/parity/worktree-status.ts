@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "./extension.ts";
+import { definePiSurfaceParity } from "../runtime/parity-extension.ts";
 
 // The implementation lives in @sdl/pi/worktree-status. This record keeps parity
 // accounting adjacent to the Pi-owned worktree-status surface.
