@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import investigateExtension from "../src/core/investigate/extension.ts";
-import modelShortcutExtension from "../src/parity/model-shortcuts.ts";
+import modelShortcutExtension from "../src/core/model-shortcuts/extension.ts";
 import prExtension from "../src/core/pr/extension.ts";
 import {
 	comparePiSurfaceParity,
