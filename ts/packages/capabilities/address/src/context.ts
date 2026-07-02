@@ -1,4 +1,4 @@
-import { NodeCommandExecApi, runCommand } from "@sdl/exec";
+import { NodeCommandExecApi, runCommand } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { RealGithubPrFeedbackGateway } from "@sdl/github/pr-feedback";

@@ -13,7 +13,7 @@ import type {
 	GithubStatusChecks,
 } from "@sdl/address/api";
 import type { Result } from "@sdl/core/result";
-import { createDeferred } from "@sdl/test-kit";
+import { createDeferred } from "@sdl/core/test-kit";
 
 import { fetchFeedbackSnapshot, reviewsForRequest } from "../../src/core/feedback-snapshot.ts";
 import { isAutomationLikeDiscussionComment } from "../../src/core/feedback-summary.ts";

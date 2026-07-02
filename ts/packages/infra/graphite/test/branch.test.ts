@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
-import type { CommandRunner, ExecOptions, ExecResult } from "@sdl/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 const SUCCESS_RESULT = {
 	stdout: "ok\n",

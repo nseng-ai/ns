@@ -20,7 +20,7 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./presentation.ts";
-import type { ExecOptions, ExecResult } from "@sdl/exec";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";

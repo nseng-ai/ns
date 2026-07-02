@@ -1,28 +1,27 @@
 {
-  "name": "@local-pi-tools/runner-subagents",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./extension": "./src/extension.ts",
-    "./json-events": "./src/json-events.ts",
-    "./presentation": "./src/presentation.ts",
-    "./process": "./src/subagent-process.ts",
-    "./runtime": "./src/subagent-runtime.ts",
-    "./testing": "./src/testing.ts",
-    "./usage": "./src/usage.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/local-pi-tools/runner-subagents/test"
-  },
-  "dependencies": {
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/pi": "workspace:*",
-    "zod": "catalog:"
-  },
-  "sdl": {
-    "tier": "local-pi-tool"
-  }
+	"name": "@local-pi-tools/runner-subagents",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts",
+		"./json-events": "./src/json-events.ts",
+		"./presentation": "./src/presentation.ts",
+		"./process": "./src/subagent-process.ts",
+		"./runtime": "./src/subagent-runtime.ts",
+		"./testing": "./src/testing.ts",
+		"./usage": "./src/usage.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/local-pi-tools/runner-subagents/test"
+	},
+	"dependencies": {
+		"@sdl/core": "workspace:*",
+		"@sdl/pi": "workspace:*",
+		"zod": "catalog:"
+	},
+	"sdl": {
+		"tier": "local-pi-tool"
+	}
 }

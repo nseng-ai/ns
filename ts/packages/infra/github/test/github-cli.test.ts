@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions, ExecResult } from "@sdl/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@sdl/core/exec";
 import {
 	GITHUB_CLI_STARTUP_ERROR_CODE,
 	GITHUB_CLI_TIMEOUT_MS,

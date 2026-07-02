@@ -5,8 +5,8 @@ import {
 	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
 } from "@sdl/clinkr";
-import { readStdinLine } from "@sdl/cli-runtime";
-import { runCommand } from "@sdl/exec";
+import { readStdinLine } from "@sdl/core/cli-runtime";
+import { runCommand } from "@sdl/core/exec";
 
 import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
 import { PiTextGenerator } from "./sdk/pi-text-generation.ts";

@@ -7,7 +7,7 @@ import {
 	type Caps,
 	type RenderCapabilities,
 } from "@sdl/clinkr";
-import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/cli-theme";
+import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/core/cli-theme";
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 

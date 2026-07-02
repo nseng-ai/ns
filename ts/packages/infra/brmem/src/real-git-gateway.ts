@@ -2,7 +2,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { optionalEntry } from "@sdl/core/primitives";
-import { type CommandExecApi, formatCommand, type StdinCapableCommandExecApi } from "@sdl/exec";
+import {
+	type CommandExecApi,
+	formatCommand,
+	type StdinCapableCommandExecApi,
+} from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/git";
 
 import {

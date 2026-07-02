@@ -1,4 +1,4 @@
-import type { ExecResult } from "@sdl/exec";
+import type { ExecResult } from "@sdl/core/exec";
 
 import type { ObjectiveListRecord, ObjectiveListResult } from "./operations/list-objectives.ts";
 import {

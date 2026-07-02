@@ -1,5 +1,5 @@
 import type { Caps } from "@sdl/clinkr";
-import { paint } from "@sdl/cli-theme";
+import { paint } from "@sdl/core/cli-theme";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { describe, expect, it } from "vitest";
 

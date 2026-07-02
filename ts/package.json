@@ -1,69 +1,67 @@
 {
-  "name": "sdl-ts-workspace",
-  "private": true,
-  "type": "module",
-  "packageManager": "pnpm@11.8.0",
-  "engines": {
-    "node": ">=24.12.0",
-    "pnpm": ">=11.8.0"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "deps:check": "syncpack lint",
-    "deps:fix": "syncpack fix",
-    "fmt": "oxfmt 'packages/**/*.ts' '*.ts'",
-    "fmt:check": "oxfmt --check 'packages/**/*.ts' '*.ts'",
-    "lint": "oxlint .",
-    "lint:fix": "oxlint . --fix",
-    "test": "vitest run --config vitest.config.ts",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
-  },
-  "devDependencies": {
-    "@local-pi-tools/pr-feedback-watch": "workspace:*",
-    "@sdl/address": "workspace:*",
-    "@sdl/branch-context": "workspace:*",
-    "@sdl/branch-context-pi": "workspace:*",
-    "@sdl/brmem": "workspace:*",
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/ccc": "workspace:*",
-    "@sdl/ccc-pi": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/flow-pi": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/handoff-pi": "workspace:*",
-    "@sdl/kernel": "workspace:*",
-    "@sdl/objective-pi": "workspace:*",
-    "@sdl/plans": "workspace:*",
-    "@sdl/roaster": "workspace:*",
-    "@sdl/slot": "workspace:*",
-    "@sdl/test-kit": "workspace:*",
-    "@sdl/typescript-analysis": "workspace:*",
-    "@sdl/review-reinvention-scanner": "workspace:*",
-    "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
-    "@withgraphite/graphite-cli": "catalog:",
-    "jsonc-parser": "catalog:",
-    "oxfmt": "catalog:",
-    "oxlint": "catalog:",
-    "sdl-flow": "workspace:*",
-    "sdlcc": "workspace:*",
-    "syncpack": "catalog:",
-    "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@sdl/aretro": "workspace:*",
-    "@sdl/handoff": "workspace:*",
-    "@sdl/objective": "workspace:*"
-  },
-  "workspaces": [
-    "packages/*",
-    "packages/*/*",
-    "../.sdl/reviews/*/tools/*"
-  ],
-  "patchedDependencies": {
-    "@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
-  },
-  "dependencies": {
-    "@sdl/exec": "workspace:*"
-  }
+	"name": "sdl-ts-workspace",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@11.8.0",
+	"engines": {
+		"node": ">=24.12.0",
+		"pnpm": ">=11.8.0"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"deps:check": "syncpack lint",
+		"deps:fix": "syncpack fix",
+		"fmt": "oxfmt 'packages/**/*.ts' '*.ts'",
+		"fmt:check": "oxfmt --check 'packages/**/*.ts' '*.ts'",
+		"lint": "oxlint .",
+		"lint:fix": "oxlint . --fix",
+		"test": "vitest run --config vitest.config.ts",
+		"test:integration": "vitest run --config vitest.integration.config.ts",
+		"test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
+	},
+	"devDependencies": {
+		"@local-pi-tools/pr-feedback-watch": "workspace:*",
+		"@sdl/address": "workspace:*",
+		"@sdl/branch-context": "workspace:*",
+		"@sdl/branch-context-pi": "workspace:*",
+		"@sdl/brmem": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/ccc": "workspace:*",
+		"@sdl/ccc-pi": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/flow-pi": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/handoff-pi": "workspace:*",
+		"@sdl/kernel": "workspace:*",
+		"@sdl/objective-pi": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"@sdl/roaster": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"@sdl/review-reinvention-scanner": "workspace:*",
+		"@types/node": "catalog:",
+		"@typescript/native-preview": "catalog:",
+		"@withgraphite/graphite-cli": "catalog:",
+		"jsonc-parser": "catalog:",
+		"oxfmt": "catalog:",
+		"oxlint": "catalog:",
+		"sdl-flow": "workspace:*",
+		"sdlcc": "workspace:*",
+		"syncpack": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:",
+		"@sdl/aretro": "workspace:*",
+		"@sdl/handoff": "workspace:*",
+		"@sdl/objective": "workspace:*"
+	},
+	"workspaces": [
+		"packages/*",
+		"packages/*/*",
+		"../.sdl/reviews/*/tools/*"
+	],
+	"patchedDependencies": {
+		"@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
+	},
+	"dependencies": {
+		"@sdl/core": "workspace:*"
+	}
 }

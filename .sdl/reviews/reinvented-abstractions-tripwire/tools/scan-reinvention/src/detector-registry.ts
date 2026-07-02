@@ -11,7 +11,7 @@ import {
   isStringLiteralLike,
 } from "typescript";
 
-import { moduleSpecifierText, sourceLocationFields } from "@sdl/typescript-analysis";
+import { moduleSpecifierText, sourceLocationFields } from "@sdl/core/typescript-analysis";
 
 import {
   manifestRefForKind,
@@ -41,7 +41,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "subprocess",
     canonical: "runCommand / NodeCommandExecApi / CommandExecApi",
-    import: "@sdl/exec / @sdl/core/command",
+    import: "@sdl/core/exec / @sdl/core/command",
     precision: "high",
   },
   {
@@ -83,7 +83,7 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "command-failure-format",
     canonical: "formatCommandFailure / formatCommandResultFailure",
-    import: "@sdl/exec / @sdl/core/command",
+    import: "@sdl/core/exec / @sdl/core/command",
     precision: "high",
   },
   {

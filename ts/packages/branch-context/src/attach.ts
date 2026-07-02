@@ -19,7 +19,7 @@ import {
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
 import type { BrmemGateway } from "@sdl/brmem";
-import type { CommandExecApi } from "@sdl/exec";
+import type { CommandExecApi } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/git";
 import {
 	buildPlanStoreOptions,

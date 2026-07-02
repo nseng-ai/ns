@@ -6,7 +6,7 @@ import {
 	normalizeBranchSlugText,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "../src/branch-slug.ts";
+} from "../src/primitives/branch-slug.ts";
 
 describe("normalizeBranchSlugText", () => {
 	test("normalizes unicode prose to ascii kebab-case", () => {

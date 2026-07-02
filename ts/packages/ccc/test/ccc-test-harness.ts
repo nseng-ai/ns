@@ -37,7 +37,7 @@ import {
 	type ObjectiveSelectionSpec,
 } from "@sdl/objective/api";
 
-import { ScriptedQueue } from "@sdl/test-kit";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 
 export { brmemCheckJson } from "@sdl/capability-kit/brmem-cli/testing";
 

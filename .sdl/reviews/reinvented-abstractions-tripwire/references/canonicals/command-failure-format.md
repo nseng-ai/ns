@@ -2,7 +2,7 @@
 
 - Kind key: `command-failure-format`
 - Canonical: formatCommandFailure / formatCommandResultFailure
-- Import/path hints: @sdl/exec; @sdl/core/command
+- Import/path hints: @sdl/core/exec; @sdl/core/command
 - Raw-form tell: local formatCommandFailure or hand-built exit-code/stderr strings
 - Why reuse matters: central truncation, terminal-escape stripping, stdout/stderr section policy
 - Structural exemptions: tests asserting historical text; command domains with a stricter user-facing contract

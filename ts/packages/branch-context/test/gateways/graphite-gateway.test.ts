@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@sdl/exec";
-import { ScriptedQueue } from "@sdl/test-kit";
+import type { ExecResult } from "@sdl/core/exec";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 import { RealGraphiteBranchGateway } from "@sdl/graphite/branch";
-import type { CommandExecApi, ExecOptions } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 import { InMemoryGraphiteBranchGateway } from "@sdl/graphite/testing";
 
 const ROOT = "/repo";

@@ -1,26 +1,25 @@
 {
-  "name": "@sdl/worktree-status",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./extension": "./src/extension.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/worktree-status/test"
-  },
-  "dependencies": {
-    "@earendil-works/pi-tui": "catalog:",
-    "@sdl/capability-kit": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "@sdl/github": "workspace:*",
-    "@sdl/graphite": "workspace:*",
-    "@sdl/pi": "workspace:*",
-    "@sdl/test-kit": "workspace:*"
-  },
-  "sdl": {
-    "tier": "standalone-tool"
-  }
+	"name": "@sdl/worktree-status",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/worktree-status/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-tui": "catalog:",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/git": "workspace:*",
+		"@sdl/github": "workspace:*",
+		"@sdl/graphite": "workspace:*",
+		"@sdl/pi": "workspace:*"
+	},
+	"sdl": {
+		"tier": "standalone-tool"
+	}
 }

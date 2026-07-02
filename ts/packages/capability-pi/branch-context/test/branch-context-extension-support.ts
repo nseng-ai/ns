@@ -16,7 +16,7 @@ import {
 } from "@sdl/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
 import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@sdl/core/command";
-import { ScriptedQueue } from "@sdl/test-kit";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 import {
 	buildRepoPlanStoreKey,
 	buildSavedPlanContentSlugPrompt,

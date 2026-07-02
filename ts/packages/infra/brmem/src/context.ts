@@ -1,7 +1,7 @@
-import { NodeCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/git";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@sdl/clinkr";
-import { readStdin, readStdinLine } from "@sdl/cli-runtime";
+import { readStdin, readStdinLine } from "@sdl/core/cli-runtime";
 
 import type { BrmemEnvOption } from "./env.ts";
 import type { BrmemGateway } from "./gateway.ts";

@@ -1,12 +1,12 @@
 // Flow-local facade for the `sdl flow land` CLI surface.
 //
 // `land` reports typed settled outcomes at the Flow CLI edge. The generic finite block layout now
-// lives in `@sdl/cli-theme` because the repeated shape was proven across Flow and CCC; land keeps this
+// lives in `@sdl/core/cli-theme` because the repeated shape was proven across Flow and CCC; land keeps this
 // local facade because the Pi command-stream path must remain ANSI-free and domain-specific land facts
 // stay in Flow/Land-owned code.
 
 import type { Caps } from "@sdl/clinkr";
-import { bold, paint, renderResultBlock, renderResultBlockFromMessage } from "@sdl/cli-theme";
+import { bold, paint, renderResultBlock, renderResultBlockFromMessage } from "@sdl/core/cli-theme";
 import type { LandConfirmationPreview, LandResultKind } from "./types.ts";
 
 /**

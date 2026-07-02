@@ -1,4 +1,4 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
 
 import { VibechkError } from "./store.ts";
 

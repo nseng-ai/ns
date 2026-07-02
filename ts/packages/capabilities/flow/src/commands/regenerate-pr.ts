@@ -1,4 +1,4 @@
-import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/cli-theme";
+import { renderResultBlock, renderResultBlockFromMessage } from "@sdl/core/cli-theme";
 import { defineExtension, failed, ok, z, type SdlCommand, type SdlExtensionApi } from "sdl-sdk";
 
 import {

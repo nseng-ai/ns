@@ -3,7 +3,7 @@ import {
 	type AutobranchFlowOutcome,
 	type ParsedAutobranchArgs,
 } from "../autobranch/dirty-worktree.ts";
-import { renderResultBlock } from "@sdl/cli-theme";
+import { renderResultBlock } from "@sdl/core/cli-theme";
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo } from "sdl-sdk";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";

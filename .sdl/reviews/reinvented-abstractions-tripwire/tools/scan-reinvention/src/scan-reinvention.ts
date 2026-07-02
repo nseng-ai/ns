@@ -1,4 +1,4 @@
-import { parseTypeScriptSource } from "@sdl/typescript-analysis";
+import { parseTypeScriptSource } from "@sdl/core/typescript-analysis";
 
 import { isReinventionKind, runDetectors } from "./detector-registry.ts";
 import { RealScannerIo, type ScannerIo } from "./git-diff.ts";
@@ -105,7 +105,7 @@ function isProductionTypeScriptFile(path: string): boolean {
 }
 
 function isStructurallyExempt(candidate: ReinventionCandidate): boolean {
-  if (candidate.kind === "subprocess" && candidate.file.includes("ts/packages/infra/exec/src/"))
+  if (candidate.kind === "subprocess" && candidate.file.includes("ts/packages/infra/core/src/exec/"))
     return true;
   if (candidate.kind === "xdg-path" && /xdg|path-policy/u.test(candidate.file)) return true;
   return false;

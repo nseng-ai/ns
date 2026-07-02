@@ -8,7 +8,7 @@ import {
 	parseModelRef,
 	providerMatchesModelProviderFamily,
 	resolveModelRef,
-} from "../src/model-slug.ts";
+} from "../src/primitives/model-slug.ts";
 
 const ENV_VAR = "SDL_TEST_MODEL";
 

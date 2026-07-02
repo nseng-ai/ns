@@ -2,7 +2,7 @@ import {
 	createLatestCommitAutobranchFlow,
 	type LatestCommitAutobranchInput,
 } from "../autobranch/latest-commit.ts";
-import { renderResultBlock } from "@sdl/cli-theme";
+import { renderResultBlock } from "@sdl/core/cli-theme";
 import { DEFAULT_FAST_MODEL_REF, SLUG_MODEL_ENV } from "@sdl/core/model-slug";
 import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
 

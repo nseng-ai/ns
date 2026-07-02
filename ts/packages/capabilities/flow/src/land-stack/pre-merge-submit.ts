@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/exec";
+import { formatCommand } from "@sdl/core/exec";
 import { collectSubmitRestackRequirements } from "sdl-land/api";
 import { execGraphite } from "./command-exec.ts";
 import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";

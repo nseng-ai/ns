@@ -4,7 +4,7 @@ import {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
-} from "../src/runner-usage.ts";
+} from "../src/terminal/runner-usage.ts";
 
 describe("runner subagent usage parsing", () => {
 	test("extracts token and cost totals from assistant messages", () => {

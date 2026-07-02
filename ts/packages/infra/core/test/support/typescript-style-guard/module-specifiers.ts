@@ -1,7 +1,7 @@
 import type * as ts from "typescript";
 import { forEachChild, isExportDeclaration, isImportDeclaration } from "typescript";
 
-import { moduleSpecifierText } from "@sdl/typescript-analysis";
+import { moduleSpecifierText } from "@sdl/core/typescript-analysis";
 
 export function collectStaticModuleSpecifiers(sourceFile: ts.SourceFile): string[] {
 	const specifiers: string[] = [];

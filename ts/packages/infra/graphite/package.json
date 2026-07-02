@@ -1,29 +1,28 @@
 {
-  "name": "@sdl/graphite",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./metadata": "./src/metadata.ts",
-    "./status": "./src/status.ts",
-    "./branch": "./src/branch.ts",
-    "./stack": "./src/stack.ts",
-    "./testing": "./src/testing/index.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/graphite/test"
-  },
-  "dependencies": {
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "@sdl/git": "workspace:*"
-  },
-  "sdl": {
-    "tier": "capability-gateway-backend"
-  }
+	"name": "@sdl/graphite",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./metadata": "./src/metadata.ts",
+		"./status": "./src/status.ts",
+		"./branch": "./src/branch.ts",
+		"./stack": "./src/stack.ts",
+		"./testing": "./src/testing/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/graphite/test"
+	},
+	"dependencies": {
+		"@sdl/core": "workspace:*",
+		"@sdl/git": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability-gateway-backend"
+	}
 }

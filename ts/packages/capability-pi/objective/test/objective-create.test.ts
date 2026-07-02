@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withTempRepoSkill } from "@sdl/test-kit";
+import { withTempRepoSkill } from "@sdl/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, {

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 
 import { commandSucceeded, formatCommandFailure, type CommandExecApi } from "@sdl/core/command";
-import { NodeCommandExecApi } from "@sdl/exec";
+import { NodeCommandExecApi } from "@sdl/core/exec";
 
 export interface ScannerIo {
   changedFiles(diffBase: string): Promise<IoResult<readonly string[]>>;

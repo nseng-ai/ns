@@ -1,6 +1,6 @@
 import { accessSync, constants } from "node:fs";
 
-import type { ExecOptions } from "@sdl/exec";
+import type { ExecOptions } from "@sdl/core/exec";
 
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import type { ExecGateway, ExtensionContext } from "./types.ts";

@@ -4,7 +4,7 @@ import {
 	runCommand,
 	stripTerminalEscapes,
 	type CommandRunner,
-} from "@sdl/exec";
+} from "@sdl/core/exec";
 
 import type { AregGithubGateway, AregGithubSkillListResult } from "../gateways.ts";
 import { COMMAND_TIMEOUT_MS } from "./command-constants.ts";

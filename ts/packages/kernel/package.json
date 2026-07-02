@@ -1,41 +1,39 @@
 {
-  "name": "@sdl/kernel",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Emerging customer-facing Source Development Lifecycle CLI.",
-  "type": "module",
-  "exports": {
-    "./cli": "./src/cli.ts",
-    "./command-io": "./src/sdk/command-io.ts",
-    "./context": "./src/context.ts",
-    "./pi-text-generation": "./src/sdk/pi-text-generation.ts"
-  },
-  "sdl": {
-    "tier": "sdk",
-    "publicPluginApi": [],
-    "internalWorkspaceExports": [
-      "./cli",
-      "./command-io",
-      "./context",
-      "./pi-text-generation"
-    ]
-  },
-  "bin": {
-    "sdl": "./src/cli.ts"
-  },
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/kernel/test"
-  },
-  "dependencies": {
-    "@earendil-works/pi-ai": "catalog:",
-    "@earendil-works/pi-coding-agent": "catalog:",
-    "@sdl/cli-runtime": "workspace:*",
-    "@sdl/clinkr": "workspace:*",
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*",
-    "jiti": "catalog:",
-    "sdl-sdk": "workspace:*",
-    "zod": "catalog:"
-  }
+	"name": "@sdl/kernel",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
+	"type": "module",
+	"exports": {
+		"./cli": "./src/cli.ts",
+		"./command-io": "./src/sdk/command-io.ts",
+		"./context": "./src/context.ts",
+		"./pi-text-generation": "./src/sdk/pi-text-generation.ts"
+	},
+	"sdl": {
+		"tier": "sdk",
+		"publicPluginApi": [],
+		"internalWorkspaceExports": [
+			"./cli",
+			"./command-io",
+			"./context",
+			"./pi-text-generation"
+		]
+	},
+	"bin": {
+		"sdl": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/kernel/test"
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "catalog:",
+		"@earendil-works/pi-coding-agent": "catalog:",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"jiti": "catalog:",
+		"sdl-sdk": "workspace:*",
+		"zod": "catalog:"
+	}
 }

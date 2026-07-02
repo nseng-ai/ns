@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@sdl/exec";
+import { formatCommandDetails } from "@sdl/core/exec";
 
 import type { CommandResult } from "./command-result.ts";
 

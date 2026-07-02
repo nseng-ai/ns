@@ -1,4 +1,4 @@
-import { runCommand } from "@sdl/exec";
+import { runCommand } from "@sdl/core/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCliAsExecResult } from "@sdl/github/cli";
 import type { TimerScheduler } from "@sdl/core/timers";

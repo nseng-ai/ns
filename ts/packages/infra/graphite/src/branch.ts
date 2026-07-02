@@ -7,7 +7,7 @@ import {
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@sdl/exec";
+} from "@sdl/core/exec";
 
 export const GRAPHITE_COMMAND_NAME = "gt";
 

@@ -1,5 +1,5 @@
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@sdl/exec/testing";
+import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { RealVibechkWorkdirGateway } from "../../src/repository.ts";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
-import type { CommandExecApi, ExecOptions } from "@sdl/exec";
+import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
 import type { GitGateway } from "@sdl/git";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
 import {

@@ -14,7 +14,7 @@ import {
 	moduleSpecifierText,
 	parseTypeScriptSource,
 	sourceLocationFields,
-} from "@sdl/typescript-analysis";
+} from "@sdl/core/typescript-analysis";
 import { type PackageMetadata } from "./package-metadata.ts";
 import { type SourceRuleViolation } from "./source-rules.ts";
 

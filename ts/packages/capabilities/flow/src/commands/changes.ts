@@ -1,4 +1,4 @@
-import { dim, glyph, renderBufferedReport } from "@sdl/cli-theme";
+import { dim, glyph, renderBufferedReport } from "@sdl/core/cli-theme";
 import { commandIoFromSdlExtensionApi, runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@sdl/clinkr";
 import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";

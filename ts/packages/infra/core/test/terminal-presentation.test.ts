@@ -9,7 +9,7 @@ import {
 	sanitizeTerminalHyperlinkUrl,
 	terminalHyperlink,
 	truncateDisplayLine,
-} from "../src/terminal-presentation.ts";
+} from "../src/terminal/terminal-presentation.ts";
 
 describe("terminal presentation helpers", () => {
 	test("sanitizes terminal hyperlink URLs", () => {

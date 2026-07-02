@@ -1,29 +1,27 @@
 {
-  "name": "@sdl/cmux",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./command": "./src/command.ts",
-    "./gateway": "./src/gateway.ts",
-    "./focused-terminal-tab": "./src/focused-terminal-tab.ts",
-    "./pi-launch": "./src/pi-launch.ts",
-    "./types": "./src/types.ts"
-  },
-  "files": [
-    "src"
-  ],
-  "scripts": {
-    "check": "tsgo -p tsconfig.json",
-    "test": "cd ../.. && vitest run --config vitest.config.ts packages/cmux/test"
-  },
-  "dependencies": {
-    "@sdl/core": "workspace:*",
-    "@sdl/exec": "workspace:*"
-  },
-  "devDependencies": {},
-  "sdl": {
-    "tier": "capability-gateway-backend"
-  }
+	"name": "@sdl/cmux",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./command": "./src/command.ts",
+		"./gateway": "./src/gateway.ts",
+		"./focused-terminal-tab": "./src/focused-terminal-tab.ts",
+		"./pi-launch": "./src/pi-launch.ts",
+		"./types": "./src/types.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../.. && vitest run --config vitest.config.ts packages/cmux/test"
+	},
+	"dependencies": {
+		"@sdl/core": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability-gateway-backend"
+	}
 }

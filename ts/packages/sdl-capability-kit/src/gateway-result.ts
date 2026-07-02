@@ -1,4 +1,4 @@
-import { type ExecResult, tailText } from "@sdl/exec";
+import { type ExecResult, tailText } from "@sdl/core/exec";
 import { isRecord } from "@sdl/core/primitives";
 export { err, ok, resultErr, resultOk } from "@sdl/core/result";
 export type { ErrorInfo, Result, Result as GatewayResult } from "@sdl/core/result";

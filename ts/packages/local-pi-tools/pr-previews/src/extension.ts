@@ -1,6 +1,6 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { ExecOptions, ExecResult } from "@sdl/exec";
+import type { ExecOptions, ExecResult } from "@sdl/core/exec";
 import { formatZodError } from "@sdl/core/primitives";
 import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
 import { parseCliCommandArgs } from "@sdl/pi/commands/args";
@@ -17,7 +17,7 @@ import { z } from "zod";
 import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
-export type { ExecOptions, ExecResult } from "@sdl/exec";
+export type { ExecOptions, ExecResult } from "@sdl/core/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";

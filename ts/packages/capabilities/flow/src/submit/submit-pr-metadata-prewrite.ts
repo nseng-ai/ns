@@ -1,4 +1,4 @@
-import { runCommand } from "@sdl/exec";
+import { runCommand } from "@sdl/core/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/graphite/branch";
