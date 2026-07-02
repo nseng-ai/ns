@@ -93,88 +93,92 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       Evidence: the update covers every Flow Land Execution behavior in
       `flow/CONTEXT.md`'s definition; no source files changed
       (parent-verified clean tree after the investigation).
-- [~] Land Domain extraction — migrate execution onto the Land Domain Core
-  Policy: direct per slice (changed from preview 2026-07-02 by owner
-  decision — see
-  `updates/2026-07-02T181138Z-autonomous-slice-policy.md`). The map is
-  `updates/2026-07-02T174146Z-land-extraction-inventory.md` (10 slices,
-  lowest-risk-first). Execute one mapped slice at a time, in map order.
-  Progress: slice 1 (strict merge gate + PR validators) delivered
-  2026-07-02 (runner step, commit `d9ad6f18e` on
-  `flow-land-domain-strict-merge-gate`) — see
-  `updates/2026-07-02T195616Z-extraction-slice-1-merge-gate-validators.md`.
-  Residual: `pr-facts.ts` keeps delegation adapters mapping domain
-  validator outcomes via `plan-mapping.ts`; the retirement row removes
-  that crossing. Slice 2 (real `stackShape`/facts backend) delivered
-  2026-07-02 (runner step, commit `c7ff48fc5` on
-  `flow-map-slice2-facts-backend`) — see
-  `updates/2026-07-02T202105Z-extraction-slice-2-facts-backend.md`.
-  Residual: production keeps the `preloadedShape` preflight bypass for
-  upfront stack confirmation/dispatch until the round-trip retirement
-  row. Slice 3 (isolated fast-path merge via gateways) delivered
-  2026-07-02 (runner step, commit `ee486b9f0` on
-  `flow-map-slice3-isolated-fast-path-gateway`) — see
-  `updates/2026-07-02T203536Z-extraction-slice-3-isolated-fast-path.md`.
-  Slice 4 (backup refs onto `LandGitGateway`) delivered 2026-07-02
-  (runner step, commit `1df170eb6` on
-  `flow-map-slice4-backup-refs-gateway`) — see
-  `updates/2026-07-02T204810Z-extraction-slice-4-backup-refs.md`; the
-  mutation argv pins passed unchanged. Slice 5 (pre-merge submit/restack
-  through the Graphite gateway) delivered 2026-07-02 (runner step, commit
-  `e7f834fdd` on `flow-map-slice5-premerge-submit-gateway`) — see
-  `updates/2026-07-02T205626Z-extraction-slice-5-premerge-submit.md`; the
-  second mid-execution `LandContext` crossing is gone. Slice 6
-  (slot-action seam + pre-merge slot freeing) delivered 2026-07-02
-  (runner step, commit `e3a8da316` on `flow-map-slice6-slot-free-gateway`)
-  — see
-  `updates/2026-07-02T210812Z-extraction-slice-6-slot-free-seam.md`;
-  post-landing `--free` cleanup intentionally unchanged until slice 9.
-  Slice 7 (stack merge loop onto gateways) delivered 2026-07-02 (runner
-  step, commit `8f60ae783` on `flow-map-slice7-merge-loop-gateway`) — see
-  `updates/2026-07-02T211745Z-extraction-slice-7-merge-loop.md`; zero
-  gateway or assertion changes. Slice 8 (post-merge Graphite maintenance)
-  delivered 2026-07-02 (runner step, commit `b111629c0` on
-  `flow-map-slice8-graphite-maintenance-gateway`) — see
-  `updates/2026-07-02T213710Z-extraction-slice-8-graphite-maintenance.md`;
-  the five map-named methods exactly, guards as typed policy parameters,
-  all argv pins unchanged. Next: slice 9 (post-landing slot cleanup via
-  `freeSlots` + `deleteLocalBranch`).
-  Slice gate (replaces the human preview; every check must hold to
-  keep a slice):
-  - land scenario tests pass; argv assertions stay byte-for-byte for
-    MUTATION commands. Read-only fact-command argv/order may change
-    when fidelity requires it (owner decision 2026-07-02, see
-    `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`),
-    with assertions updated in the same slice;
-  - the full Definition of Progress suite is green;
-  - `sdl-flow/api` exports untouched;
-  - no behavior left orchestrated in both `land-stack/` and `land/`
-    without a roadmap note naming the slice that removes it;
-  - gateway-interface changes limited to the methods the map names for
-    that slice.
-    Stop and ask instead of proceeding when a slice needs gateway changes
-    beyond the map's named methods, the argv contract cannot be met, or
-    work would contradict a recorded decision below.
-    Decisions (settled 2026-07-02 to enable autonomous slices):
-  - Isolated fast path: remains a Flow-side shortcut but performs its
-    merge via the new `squashMergePullRequest` gateway method and gains
-    the post-merge MERGED verification it currently skips; it does NOT
-    become a domain target (CONTEXT.md vocabulary unchanged).
-  - Progress reporting: the operation-shaped command channel becomes
-    the gateway backend; per-command start/finish streaming and command
-    output are preserved unchanged.
-  - Slot freeing: the `freeSlots` gateway method keeps shelling out to
-    `sdl slot free`; only the call site moves behind the seam.
-    What: per the map, move execution behaviors to run on the Land Domain
-    Core's `LandContext` gateways, extending gateway interfaces where the
-    map says they fall short. Presentation, prompts, and command streaming
-    stay Flow-side per the Flow Land Compatibility Boundary. Never leave a
-    behavior orchestrated in both `land-stack/` and `land/` without a
-    roadmap note naming the slice that removes the duplication.
-    Evidence per slice: land scenario tests pass unchanged (argv-level
-    `pi.exec` scripting); the migrated behavior has no remaining
-    `land-stack/` orchestration copy, or the duplication is noted with its
-    removal slice.
+- [x] Land Domain extraction — migrate execution onto the Land Domain Core
+      Policy: direct per slice (changed from preview 2026-07-02 by owner
+      decision — see
+      `updates/2026-07-02T181138Z-autonomous-slice-policy.md`). The map is
+      `updates/2026-07-02T174146Z-land-extraction-inventory.md` (10 slices,
+      lowest-risk-first). Execute one mapped slice at a time, in map order.
+      Progress: slice 1 (strict merge gate + PR validators) delivered
+      2026-07-02 (runner step, commit `d9ad6f18e` on
+      `flow-land-domain-strict-merge-gate`) — see
+      `updates/2026-07-02T195616Z-extraction-slice-1-merge-gate-validators.md`.
+      Residual: `pr-facts.ts` keeps delegation adapters mapping domain
+      validator outcomes via `plan-mapping.ts`; the retirement row removes
+      that crossing. Slice 2 (real `stackShape`/facts backend) delivered
+      2026-07-02 (runner step, commit `c7ff48fc5` on
+      `flow-map-slice2-facts-backend`) — see
+      `updates/2026-07-02T202105Z-extraction-slice-2-facts-backend.md`.
+      Residual: production keeps the `preloadedShape` preflight bypass for
+      upfront stack confirmation/dispatch until the round-trip retirement
+      row. Slice 3 (isolated fast-path merge via gateways) delivered
+      2026-07-02 (runner step, commit `ee486b9f0` on
+      `flow-map-slice3-isolated-fast-path-gateway`) — see
+      `updates/2026-07-02T203536Z-extraction-slice-3-isolated-fast-path.md`.
+      Slice 4 (backup refs onto `LandGitGateway`) delivered 2026-07-02
+      (runner step, commit `1df170eb6` on
+      `flow-map-slice4-backup-refs-gateway`) — see
+      `updates/2026-07-02T204810Z-extraction-slice-4-backup-refs.md`; the
+      mutation argv pins passed unchanged. Slice 5 (pre-merge submit/restack
+      through the Graphite gateway) delivered 2026-07-02 (runner step, commit
+      `e7f834fdd` on `flow-map-slice5-premerge-submit-gateway`) — see
+      `updates/2026-07-02T205626Z-extraction-slice-5-premerge-submit.md`; the
+      second mid-execution `LandContext` crossing is gone. Slice 6
+      (slot-action seam + pre-merge slot freeing) delivered 2026-07-02
+      (runner step, commit `e3a8da316` on `flow-map-slice6-slot-free-gateway`)
+      — see
+      `updates/2026-07-02T210812Z-extraction-slice-6-slot-free-seam.md`;
+      post-landing `--free` cleanup intentionally unchanged until slice 9.
+      Slice 7 (stack merge loop onto gateways) delivered 2026-07-02 (runner
+      step, commit `8f60ae783` on `flow-map-slice7-merge-loop-gateway`) — see
+      `updates/2026-07-02T211745Z-extraction-slice-7-merge-loop.md`; zero
+      gateway or assertion changes. Slice 8 (post-merge Graphite maintenance)
+      delivered 2026-07-02 (runner step, commit `b111629c0` on
+      `flow-map-slice8-graphite-maintenance-gateway`) — see
+      `updates/2026-07-02T213710Z-extraction-slice-8-graphite-maintenance.md`;
+      the five map-named methods exactly, guards as typed policy parameters,
+      all argv pins unchanged. Slice 9 (post-landing slot cleanup) delivered
+      2026-07-02 (runner step, commit `28b9fe001` on
+      `flow-map-slice9-post-landing-slot-cleanup`) — see
+      `updates/2026-07-02T214441Z-extraction-slice-9-migration-row-complete.md`.
+      Row complete: slices 1–9 all landed; carried residuals and stale-premise
+      notes for the retirement row are listed in that update.
+      Slice gate (replaces the human preview; every check must hold to
+      keep a slice):
+      - land scenario tests pass; argv assertions stay byte-for-byte for
+      MUTATION commands. Read-only fact-command argv/order may change
+      when fidelity requires it (owner decision 2026-07-02, see
+      `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`),
+      with assertions updated in the same slice;
+      - the full Definition of Progress suite is green;
+      - `sdl-flow/api` exports untouched;
+      - no behavior left orchestrated in both `land-stack/` and `land/`
+      without a roadmap note naming the slice that removes it;
+      - gateway-interface changes limited to the methods the map names for
+      that slice.
+      Stop and ask instead of proceeding when a slice needs gateway changes
+      beyond the map's named methods, the argv contract cannot be met, or
+      work would contradict a recorded decision below.
+      Decisions (settled 2026-07-02 to enable autonomous slices):
+      - Isolated fast path: remains a Flow-side shortcut but performs its
+      merge via the new `squashMergePullRequest` gateway method and gains
+      the post-merge MERGED verification it currently skips; it does NOT
+      become a domain target (CONTEXT.md vocabulary unchanged).
+      - Progress reporting: the operation-shaped command channel becomes
+      the gateway backend; per-command start/finish streaming and command
+      output are preserved unchanged.
+      - Slot freeing: the `freeSlots` gateway method keeps shelling out to
+      `sdl slot free`; only the call site moves behind the seam.
+      What: per the map, move execution behaviors to run on the Land Domain
+      Core's `LandContext` gateways, extending gateway interfaces where the
+      map says they fall short. Presentation, prompts, and command streaming
+      stay Flow-side per the Flow Land Compatibility Boundary. Never leave a
+      behavior orchestrated in both `land-stack/` and `land/` without a
+      roadmap note naming the slice that removes the duplication.
+      Evidence per slice: land scenario tests pass unchanged (argv-level
+      `pi.exec` scripting); the migrated behavior has no remaining
+      `land-stack/` orchestration copy, or the duplication is noted with its
+      removal slice.
 - [ ] Retire the compatibility round trip (dissolves review #4)
       Policy: direct once the migration row's slices are landed.
       What: delete the `LandPlanForFlow` mirror and both `type↔kind` mappers
