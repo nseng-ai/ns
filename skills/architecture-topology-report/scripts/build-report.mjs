@@ -71,7 +71,9 @@ function getAnalysis(args) {
   return JSON.parse(out);
 }
 
-// ── 2. mechanical graph assembly: nodes (+ declared/overridden tier) and edges (+cycle) ─
+// ── 2. mechanical graph assembly: topology circles (+ declared/overridden tier)
+//        and edges (+cycle). When older graph JSON lacks circle facts, fall back
+//        to package nodes so historical reports still render.
 function assembleGraph(analysis, tierOverrides = {}) {
   const overrideEntries = Object.entries(tierOverrides || {});
   const invalidOverrides = overrideEntries.filter(([, tier]) => !Object.hasOwn(TIERS, tier));
@@ -80,35 +82,75 @@ function assembleGraph(analysis, tierOverrides = {}) {
       `Invalid spec.tiers override(s): ${invalidOverrides.map(([id, tier]) => `${id}=${tier}`).join(", ")}. Known tiers: ${Object.keys(TIERS).join(", ")}`,
     );
   }
-  const pkgs = Object.keys(analysis.packages);
-  const fanOut = new Map(pkgs.map((n) => [n, 0]));
-  const fanIn = new Map(pkgs.map((n) => [n, 0]));
-  for (const [src, deps] of Object.entries(analysis.graph)) {
+
+  const circleFacts = analysis.topologyCircles ?? Object.fromEntries(
+    Object.entries(analysis.packages).map(([id, pkg]) => [id, {
+      id,
+      packageName: id,
+      component: ".",
+      tier: pkg.tier,
+      path: pkg.path,
+      loc: pkg.loc ?? 0,
+    }]),
+  );
+  const edgeGraph = analysis.circleGraph ?? analysis.graph;
+  const cycleFacts = analysis.circleCycles ?? analysis.cycles ?? [];
+  const ids = Object.keys(circleFacts).sort();
+  const fanOut = new Map(ids.map((n) => [n, 0]));
+  const fanIn = new Map(ids.map((n) => [n, 0]));
+  for (const [src, deps] of Object.entries(edgeGraph)) {
     for (const d of deps) {
       fanOut.set(src, (fanOut.get(src) || 0) + 1);
       fanIn.set(d, (fanIn.get(d) || 0) + 1);
     }
   }
-  const scc = new Set((analysis.cycles || []).flat());
+  const scc = new Set(cycleFacts.flat());
   const warnings = [];
-  const nodes = pkgs.map((id) => {
-    const declaredTier = analysis.packages[id].tier;
-    const tier = tierOverrides[id] ?? declaredTier;
+  const nodes = ids.map((id) => {
+    const fact = circleFacts[id];
+    const declaredTier = fact.tier;
+    const tier = tierOverrides[id] ?? tierOverrides[fact.packageName] ?? declaredTier;
     if (!Object.hasOwn(TIERS, tier)) warnings.push(id);
     return {
       id,
       label: label(id),
-      loc: analysis.packages[id].loc ?? 0,
+      loc: fact.loc ?? 0,
       tier: Object.hasOwn(TIERS, tier) ? tier : FALLBACK_TIER,
+      packageName: fact.packageName,
+      packageColorKey: fact.packageName,
+      component: fact.component,
+      path: fact.path,
       fanIn: fanIn.get(id) || 0,
       fanOut: fanOut.get(id) || 0,
     };
   });
   const links = [];
-  for (const [src, deps] of Object.entries(analysis.graph)) {
+  for (const [src, deps] of Object.entries(edgeGraph)) {
     for (const t of deps) links.push({ source: src, target: t, cycle: scc.has(src) && scc.has(t) });
   }
   return { graph: { nodes, links }, warnings };
+}
+
+function packageColorsForNodes(nodes) {
+  const palette = [
+    ["#dbeafe", "#2563eb"],
+    ["#dcfce7", "#16a34a"],
+    ["#fef3c7", "#d97706"],
+    ["#fce7f3", "#db2777"],
+    ["#ede9fe", "#7c3aed"],
+    ["#ccfbf1", "#0f766e"],
+    ["#fee2e2", "#dc2626"],
+    ["#e0e7ff", "#4f46e5"],
+    ["#f3e8ff", "#9333ea"],
+    ["#ecfccb", "#65a30d"],
+    ["#cffafe", "#0891b2"],
+    ["#f1f5f9", "#64748b"],
+  ];
+  const packageNames = [...new Set(nodes.map((node) => node.packageColorKey))].sort();
+  return Object.fromEntries(packageNames.map((packageName, index) => {
+    const [fill, stroke] = palette[index % palette.length];
+    return [packageName, { fill, stroke, name: packageName }];
+  }));
 }
 
 // ── 3. tier template: dump declared manifest tiers for review/optional override. ─
@@ -125,6 +167,7 @@ function tiersTemplate(analysis) {
 function GRAPH_RENDERER() {
   const DATA = JSON.parse(document.getElementById("graphdata").textContent);
   const TIERS = window.__TIERS__;
+  const PACKAGE_COLORS = window.__PACKAGE_COLORS__;
   const svg = d3.select("#depgraph"), el = svg.node();
   let W = el.clientWidth || 900, H = 820;
   svg.attr("viewBox", [0, 0, W, H]);
@@ -186,7 +229,7 @@ function GRAPH_RENDERER() {
     .attr("stroke", (d) => d.cycle ? "#dc2626" : "#cbd5e1").attr("stroke-width", (d) => d.cycle ? 2.4 : 1)
     .attr("marker-end", (d) => d.cycle ? "url(#arrow-cy)" : "url(#arrow)");
   const nodeG = rootG.append("g").selectAll("g").data(DATA.nodes).join("g").style("cursor", "pointer").call(drag());
-  nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => TIERS[d.tier].fill).attr("stroke", (d) => TIERS[d.tier].stroke)
+  nodeG.append("circle").attr("r", (d) => d.r).attr("fill", (d) => PACKAGE_COLORS[d.packageColorKey].fill).attr("stroke", (d) => PACKAGE_COLORS[d.packageColorKey].stroke)
     .attr("stroke-width", 1.4);
   nodeG.append("text").text((d) => d.label).attr("text-anchor", "middle").attr("dy", (d) => d.r + 11)
     .attr("font-size", (d) => Math.max(9, Math.min(13, 8 + d.r / 6))).attr("fill", "#334155")
@@ -238,7 +281,7 @@ function GRAPH_RENDERER() {
     linkSel.style("opacity", (l) => lvis(l) && (l.source.id === d.id || l.target.id === d.id) ? 1 : (lvis(l) ? 0.05 : 0))
       .attr("stroke", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? "#dc2626" : "#475569") : (l.cycle ? "#dc2626" : "#cbd5e1"))
       .attr("stroke-width", (l) => (l.source.id === d.id || l.target.id === d.id) ? (l.cycle ? 2.6 : 1.8) : (l.cycle ? 2.4 : 1));
-    tip.html(`<div class="font-semibold">${d.id}</div><div class="text-slate-300">${TIERS[d.tier].name} · <span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`).classed("hidden", false);
+    tip.html(`<div class="font-semibold">${d.id}</div><div class="text-slate-300">package <span class="font-mono">${d.packageName}</span> · tier ${TIERS[d.tier].name}</div><div class="text-slate-300"><span class="font-mono">${d.loc.toLocaleString()}</span> LOC · rank ${d.depth}</div><div class="text-slate-400 mt-1">fan-out ${d.fanOut} → · fan-in ← ${d.fanIn}</div>`).classed("hidden", false);
   })
     .on("mousemove", (e) => { const b = el.getBoundingClientRect(); tip.style("left", (e.clientX - b.left + 14) + "px").style("top", (e.clientY - b.top + 10) + "px"); })
     .on("mouseout", () => { tip.classed("hidden", true); applyFilter(); });
@@ -279,18 +322,20 @@ function renderHeader(s, analysis) {
   return html`
   <header class="space-y-5">
     <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Architecture topology scorecard</p>
-    <h1 class="text-4xl font-semibold leading-tight">${esc(s.repo)} runtime package graph<br/><span class="text-slate-500 text-2xl">measured against ${esc(s.targetName)}</span></h1>
+    <h1 class="text-4xl font-semibold leading-tight">${esc(s.repo)} topology graph<br/><span class="text-slate-500 text-2xl">measured against ${esc(s.targetName)}</span></h1>
     <p class="text-slate-600 max-w-3xl leading-relaxed">${s.intro}</p>
     <div class="flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
       <span><span class="font-semibold text-slate-700">${analysis.meta.packageCount}</span> packages</span>
-      <span>edges = runtime only (<span class="font-mono text-xs">dependencies</span> + <span class="font-mono text-xs">peerDependencies</span>)</span>
+      <span><span class="font-semibold text-slate-700">${analysis.meta.topologyCircleCount ?? analysis.meta.packageCount}</span> topology circles</span>
+      <span>package edges = runtime manifests; circle edges = static TypeScript imports/exports</span>
       <span>generated ${esc(s.date)}</span>
     </div>
     <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-600 border-t border-slate-200 pt-4">
       <span class="uppercase tracking-wider text-slate-400">legend</span>
       ${Object.keys(TIERS).map(legendSwatch).join("\n      ")}
       <span class="inline-flex items-center gap-1.5"><span class="inline-block w-5 h-0.5" style="background:#dc2626"></span>cycle edge</span>
-      <span class="inline-flex items-center gap-1.5 text-slate-400">node area ∝ LOC</span>
+      <span class="inline-flex items-center gap-1.5 text-slate-400">node area ∝ circle LOC</span>
+      <span class="inline-flex items-center gap-1.5 text-slate-400">node fill = enclosing package</span>
     </div>
   </header>`;
 }
@@ -338,7 +383,7 @@ function renderGraphSection(s, graphData) {
   return html`
   <section id="actual-graph" class="space-y-4">
     <h2 class="text-2xl font-semibold">The graph as it stands</h2>
-    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "Every runtime edge, live. Node <strong>area ∝ source LOC</strong>. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
+    <p class="text-slate-600 max-w-3xl">${s.graphIntro || "Every topology-circle edge, live. Node <strong>area ∝ circle LOC</strong>; node fill identifies the enclosing package; tier lanes and filters remain architectural layer semantics. In the layered view a <span class=\"text-red-600 font-medium\">red edge points upward</span> — that is the cycle violation. Drag to pin, scroll to zoom, hover to trace, toggle tiers."}</p>
     <script type="application/json" id="graphdata">${JSON.stringify(graphData)}</script>
     <div class="flex flex-wrap items-center gap-3 mb-2">
       <div id="layout-toolbar" class="flex items-center gap-1 text-xs"></div>
@@ -463,8 +508,8 @@ function renderKeystone(s) {
 }
 
 // ── 6. assemble the page ────────────────────────────────────────────────────
-function renderHtml(s, analysis, graphData) {
-  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\n(${GRAPH_RENDERER.toString()})();`;
+function renderHtml(s, analysis, graphData, packageColors) {
+  const rendererJs = `window.__TIERS__=${JSON.stringify(TIERS)};\nwindow.__PACKAGE_COLORS__=${JSON.stringify(packageColors)};\n(${GRAPH_RENDERER.toString()})();`;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -528,6 +573,7 @@ async function main() {
   }
 
   const { graph, warnings } = assembleGraph(analysis, spec.tiers || {});
+  const packageColors = packageColorsForNodes(graph.nodes);
   if (warnings.length) {
     console.error(`warning: ${warnings.length} package(s) had no known declared/overridden tier (defaulted to "${FALLBACK_TIER}"):`);
     console.error("  " + warnings.join(", "));
@@ -537,7 +583,7 @@ async function main() {
     process.env.TMPDIR || tmpdir() || "/tmp",
     `architecture-topology-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.html`,
   );
-  writeFileSync(out, renderHtml(spec, analysis, graph));
+  writeFileSync(out, renderHtml(spec, analysis, graph, packageColors));
   console.log(out);
 
   if (args.includes("--open")) {

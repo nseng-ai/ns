@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import type { CommandRunner } from "@sdl/core/command";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
 import { ScriptedCommandRunner, step } from "@sdl/exec/testing";
-import { createManualTimerScheduler } from "@sdl/time/testing";
+import { createManualTimerScheduler } from "@sdl/core/time/testing";
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {

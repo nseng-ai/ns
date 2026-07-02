@@ -9,7 +9,7 @@ import { RealGitGateway } from "@sdl/git";
 import type { GitGateway } from "@sdl/git";
 import { formatErrorMessage, optionalEntries, optionalEntry } from "@sdl/core/primitives";
 import type { ScheduledTimer } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/time";
+import { systemTimerScheduler } from "@sdl/core/time";
 import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@sdl/pi/commands";
 import { sendCommandProgressOrNotify } from "@sdl/pi/commands/ack";
 import {

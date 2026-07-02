@@ -11,7 +11,7 @@ Rules for working under `ts/`, the pnpm workspace holding SDL's first-party Type
 
 ## Time seams
 
-Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in SDL-owned TypeScript logic. Inject/use `Clock` from `@sdl/core/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@sdl/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@sdl/time/testing`. Use `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
+Do not add raw production `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`, or wall-clock reads in SDL-owned TypeScript logic. Inject/use `Clock` from `@sdl/core/clock` for wall-clock reads and `TimerScheduler` / `ScheduledTimer` from `@sdl/core/timers` for scheduling, cancellation, and awaited delays. Concrete system adapters (`systemClock`, `systemTimerScheduler`) live in `@sdl/core/time`; manual test fakes (`createManualClock()`, `createManualTimerScheduler()`, and related harnesses) live in `@sdl/core/time/testing`. Use `unrefTimerScheduler` from `@sdl/pi/shared/timers` for Pi host background timers that must not keep the process alive. Raw timers belong in timer adapter modules or narrowly justified tests/integration smoke.
 
 ## Formatting and validation
 

@@ -20,10 +20,8 @@
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
     "@sdl/pi": "workspace:*",
-    "@sdl/time": "workspace:*",
     "zod": "catalog:"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "local-pi-tool"
   }

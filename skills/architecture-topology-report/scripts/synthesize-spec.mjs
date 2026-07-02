@@ -251,10 +251,10 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
     targetName: "raw topology inventory",
     date,
     intro:
-      `<strong>No target architecture was supplied</strong>, so this is a raw inventory of the actual runtime dependency graph extracted from `
-      + `<span class="font-mono text-sm">package.json</span> files — not a scorecard against a stated end-state. `
-      + `Readings are factual (cycles, declared-tier violations, fan shape, seams, orphans); nothing here is graded as "drift" or "on track" `
-      + `except the declared-tier violations, which the package manifests encode directly.`,
+      `<strong>No target architecture was supplied</strong>, so this is a raw inventory of the actual workspace topology: package distribution units from `
+      + `<span class="font-mono text-sm">package.json</span> files plus source topology circles discovered from <span class="font-mono text-sm">src/&lt;component&gt;/</span> directories. `
+      + `Readings are factual (package cycles, declared-tier violations, fan shape, seams, orphans); nothing here is graded as "drift" or "on track" `
+      + `except the declared-tier violations, which the package manifests encode directly. The graph visualization renders topology circles; lanes are tiers and node colors are enclosing packages.`,
 
     verdict: {
       headline: cycles.length || hard.length
@@ -294,22 +294,23 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
         + `The top fan-out package is ${mono(top.name)} (${top.count}); the fan-in spine is ${mono(spine.name)} (${spine.count}). `
         + `${plural(Object.keys(analysis.exposesApi || {}).length, "package")} expose an `
         + `<span class="font-mono text-sm">/api</span> seam${apiOnly.length ? `, ${plural(apiOnly.length, "of them")} api-only` : ""}. `
-        + `Inspect the findings below for the specific edges and members.`,
+        + `The circle overlay currently discovers ${plural(analysis.meta.topologyCircleCount ?? analysis.meta.packageCount, "topology circle")}; inspect the graph for source-component granularity such as <span class="font-mono text-sm">@sdl/core/time</span>.`, 
     },
 
     northStar: {
       rule:
         `No target model was supplied. Shown instead is the <strong>declared-tier stack</strong> as it stands — each package placed in the `
-        + `band of its manifest <span class="font-mono text-sm">sdl.tier</span>, ordered from consumers at the top down to neutral infra at the bottom.`,
+        + `band of its manifest <span class="font-mono text-sm">sdl.tier</span>, ordered from consumers at the top down to neutral infra at the bottom. `
+        + `The graph below splits packages into topology circles where source directories expose component structure; those circles inherit their enclosing package tier.`, 
       bands: tierBands(analysis),
     },
 
     graphIntro:
-      `Every runtime edge, live. Node <strong>area ∝ source LOC</strong>. `
+      `Every topology-circle edge, live. Node <strong>area ∝ circle LOC</strong>; node color = enclosing package; lanes/filters = declared tier. `
       + (cycles.length
         ? `<span class="text-red-600 font-medium">Red edges</span> mark cycle back-edges. `
         : `The graph is <strong>acyclic</strong> — no red cycle edges to draw. `)
-      + `Drag to pin, scroll to zoom, hover to trace a node's neighbours, toggle to the tier-clustered layout, toggle tiers to drop the off-axis tools.`,
+      + `Drag to pin, scroll to zoom, hover to trace a circle's neighbours, toggle to the tier-clustered layout, toggle tiers to drop the off-axis tools.`,
     graphCaption:
       `Heaviest node: ${mono(heaviestId(analysis))}. Fan-in spine: ${mono(spine.name)} (${spine.count} dependents) — `
       + `load-bearing infra. Highest fan-out: ${mono(top.name)} (${top.count}).`,
@@ -319,9 +320,9 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
     keystone: synthKeystone(analysis, hard),
 
     provenance:
-      `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges `
-      + `(${analysis.meta.packageCount} packages, ${cycles.length ? `${cycles.length} cycle(s)` : "cycles = []"}). `
-      + `No target architecture supplied — raw inventory mode. Spec synthesized by <span class="font-mono">synthesize-spec.mjs</span>.`,
+      `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges and TypeScript import/export circle edges `
+      + `(${analysis.meta.packageCount} packages, ${analysis.meta.topologyCircleCount ?? analysis.meta.packageCount} topology circles, ${cycles.length ? `${cycles.length} package cycle(s)` : "package cycles = []"}). `
+      + `No target architecture supplied — raw inventory mode. Spec synthesized by <span class="font-mono">synthesize-spec.mjs</span>.`, 
   };
 }
 

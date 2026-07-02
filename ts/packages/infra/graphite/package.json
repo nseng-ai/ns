@@ -21,10 +21,8 @@
   "dependencies": {
     "@sdl/core": "workspace:*",
     "@sdl/exec": "workspace:*",
-    "@sdl/git": "workspace:*",
-    "@sdl/time": "workspace:*"
+    "@sdl/git": "workspace:*"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "capability-gateway-backend"
   }

@@ -8,7 +8,7 @@ import {
 } from "@sdl/pi/commands/events";
 import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
 import type { Clock } from "@sdl/core/clock";
-import { systemClock } from "@sdl/time";
+import { systemClock } from "@sdl/core/time";
 import type { TimerScheduler } from "@sdl/core/timers";
 import { shutdownGraphiteMetadataWorker } from "@sdl/graphite/status";
 

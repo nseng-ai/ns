@@ -20,10 +20,8 @@
     "@sdl/graphite": "workspace:*",
     "@sdl/pi": "workspace:*",
     "@sdl/plans": "workspace:*",
-    "@sdl/test-kit": "workspace:*",
-    "@sdl/time": "workspace:*"
+    "@sdl/test-kit": "workspace:*"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "capability-pi"
   }

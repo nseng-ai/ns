@@ -6,10 +6,10 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
 import type { Clock } from "@sdl/core/clock";
-import { systemClock } from "@sdl/time";
+import { systemClock } from "@sdl/core/time";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/time";
+import { systemTimerScheduler } from "@sdl/core/time";
 import {
 	inferModelProviderFamily,
 	MODEL_PROVIDER_FAMILY_INFO,

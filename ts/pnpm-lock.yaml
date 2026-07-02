@@ -340,9 +340,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../../infra/test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../../infra/time
       sdl-land:
         specifier: workspace:*
         version: link:../land
@@ -420,9 +417,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../../infra/test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../../infra/time
 
   packages/capability-pi/ccc:
     dependencies:
@@ -486,9 +480,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../../infra/test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../../infra/time
 
   packages/capability-pi/objective:
     dependencies:
@@ -722,9 +713,6 @@ importers:
 
   packages/infra/clinkr:
     dependencies:
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../time
       commander:
         specifier: 'catalog:'
         version: 14.0.3
@@ -749,9 +737,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../time
 
   packages/infra/git:
     dependencies:
@@ -788,17 +773,8 @@ importers:
       '@sdl/git':
         specifier: workspace:*
         version: link:../git
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../time
 
   packages/infra/test-kit: {}
-
-  packages/infra/time:
-    dependencies:
-      '@sdl/core':
-        specifier: workspace:*
-        version: link:../core
 
   packages/infra/typescript-analysis:
     dependencies:
@@ -928,9 +904,6 @@ importers:
       '@sdl/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../../infra/time
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1063,9 +1036,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../infra/test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../infra/time
       sdl-sdk:
         specifier: workspace:*
         version: link:../sdl-sdk
@@ -1132,9 +1102,6 @@ importers:
       '@sdl/exec':
         specifier: workspace:*
         version: link:../../infra/exec
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../../infra/time
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1189,9 +1156,6 @@ importers:
       '@sdl/test-kit':
         specifier: workspace:*
         version: link:../infra/test-kit
-      '@sdl/time':
-        specifier: workspace:*
-        version: link:../infra/time
 
 packages:
 

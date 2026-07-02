@@ -15,7 +15,7 @@ import {
 import { readLocalBranchRefs, type LocalBranchRefReadResult } from "@sdl/git";
 import { isRecord, type ExplicitUndefined } from "@sdl/core/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
-import { systemTimerScheduler } from "@sdl/time";
+import { systemTimerScheduler } from "@sdl/core/time";
 const GRAPHITE_METADATA_UNAVAILABLE_REASONS = [
 	"missing-db",
 	"sqlite-unavailable",

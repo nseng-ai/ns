@@ -100,10 +100,12 @@
     `@sdl/core/model-slug` model-reference parsing/default helpers and new
     `@sdl/capability-kit/model-slug` process/env-backed `pi` slug derivation runner; runner
     consumers import the kit subpath, and source-search invariants confirm no runner/process command
-    construction remains in core. `clock`/`timers` concrete adapters moved to new neutral-infra package
-    `@sdl/time`; core time subpaths now contain only `Clock`, `ScheduledTimer`, `TimerScheduler`, and
-    abstract-scheduler `delay()`; concrete adapter consumers import `systemClock` and
-    `systemTimerScheduler` from `@sdl/time`; targeted and broad TS validation passed. A review-remediation
+    construction remains in core. `clock`/`timers` concrete adapters originally moved to a standalone neutral-infra package, then the
+    checkout-free distribution pilot superseded that package placement: pure contracts remain in
+    `@sdl/core/clock` and `@sdl/core/timers`, while concrete adapters now import from
+    `@sdl/core/time` and manual fakes from `@sdl/core/time/testing`; targeted and broad TS validation
+    passed for the original extraction, with the superseding distribution-pilot validation recorded in
+    the 2026-07-01 Objective update. A review-remediation
     slice corrected the brmem CLI helper placement from `@sdl/brmem/cli-runner` to
     `@sdl/capability-kit/brmem-cli` with no shim, while leaving `@sdl/brmem` itself parked; it also
     extracted pure XDG path construction to `@sdl/core/xdg-path` so kernel and Capability Kit share path

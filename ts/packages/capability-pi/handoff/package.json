@@ -18,10 +18,8 @@
     "@sdl/git": "workspace:*",
     "@sdl/handoff": "workspace:*",
     "@sdl/pi": "workspace:*",
-    "@sdl/test-kit": "workspace:*",
-    "@sdl/time": "workspace:*"
+    "@sdl/test-kit": "workspace:*"
   },
-  "devDependencies": {},
   "sdl": {
     "tier": "capability-pi"
   }

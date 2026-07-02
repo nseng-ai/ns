@@ -1,5 +1,5 @@
-import type { Clock } from "@sdl/core/clock";
-import { TimerScheduler, type ScheduledTimer } from "@sdl/core/timers";
+import type { Clock } from "../clock.ts";
+import { TimerScheduler, type ScheduledTimer } from "../timers.ts";
 
 export interface ManualClock {
 	readonly clock: Clock;

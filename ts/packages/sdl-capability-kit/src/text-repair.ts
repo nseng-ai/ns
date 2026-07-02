@@ -1,5 +1,5 @@
 import type { Clock } from "@sdl/core/clock";
-import { systemClock, systemTimerScheduler } from "@sdl/time";
+import { systemClock, systemTimerScheduler } from "@sdl/core/time";
 import type { TimerScheduler } from "@sdl/core/timers";
 
 import type { TextGenerationResult } from "./text-generation.ts";

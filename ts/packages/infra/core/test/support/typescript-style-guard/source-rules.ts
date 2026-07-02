@@ -106,7 +106,7 @@ export function collectViolations(
 
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
-	"ts/packages/infra/time/src/index.ts",
+	"ts/packages/infra/core/src/time/index.ts",
 	"ts/packages/hosts/pi/src/shared/timers.ts",
 ]);
 
