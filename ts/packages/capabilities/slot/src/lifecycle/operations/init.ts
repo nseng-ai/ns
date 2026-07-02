@@ -2,8 +2,8 @@ import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from 
 import { renderResultBlock } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
-import { initializePool } from "../../lifecycle/pool.ts";
+import type { SlotCliContext } from "../../core/context.ts";
+import { initializePool } from "../pool.ts";
 
 export const initRequestSchema = z.object({
 	size: z.coerce.number().int().optional().describe("Number of slots to create (1..99)."),

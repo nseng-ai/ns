@@ -2,8 +2,8 @@ import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from 
 import { renderResultBlock } from "@sdl/core/cli-theme";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../context.ts";
-import { claimBranch } from "../../lifecycle/claim.ts";
+import type { SlotCliContext } from "../../core/context.ts";
+import { claimBranch } from "../claim.ts";
 
 export const claimRequestSchema = z.object({
 	branchName: z.string().describe("Local branch to claim."),

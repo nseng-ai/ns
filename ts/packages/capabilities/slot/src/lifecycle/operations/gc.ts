@@ -11,15 +11,15 @@ import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/core/
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
 
-import type { RepoSlotContext, SlotCliContext } from "../context.ts";
+import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
 import {
 	outcomeFromGcPlan,
 	planGc,
 	planGcCleanup,
 	executeGcPlan,
 	type SlotGcOutcome,
-} from "../../lifecycle/gc.ts";
-import type { SlotFreeCleanupAction } from "../../lifecycle/release-cleanup.ts";
+} from "../gc.ts";
+import type { SlotFreeCleanupAction } from "../release-cleanup.ts";
 import { renderCleanupLines } from "./cleanup-rendering.ts";
 import {
 	buildSlotDestructiveResultBlock,

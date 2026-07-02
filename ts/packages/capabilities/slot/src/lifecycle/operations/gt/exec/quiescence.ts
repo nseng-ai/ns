@@ -1,10 +1,10 @@
 import { failure, negative, ok, usageError } from "@sdl/clinkr";
 import { z } from "zod";
 
-import type { SlotCliContext } from "../../../context.ts";
-import type { LocalBranchTip, WorktreeOccupancy } from "../../../gateways/repository.ts";
-import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
-import { parseJsonObject } from "../../../json.ts";
+import type { SlotCliContext } from "../../../../core/context.ts";
+import type { LocalBranchTip, WorktreeOccupancy } from "../../../../core/gateways/repository.ts";
+import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
+import { parseJsonObject } from "../../../../core/json.ts";
 import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";

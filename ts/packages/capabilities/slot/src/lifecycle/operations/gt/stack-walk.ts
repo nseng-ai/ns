@@ -4,7 +4,7 @@ import {
 	type GraphiteWalkTermination,
 } from "@sdl/capability-kit/graphite/metadata";
 
-import { deduplicateOrderedStrings } from "../../collections.ts";
+import { deduplicateOrderedStrings } from "../../../core/collections.ts";
 import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
 
 export interface StackEdge {

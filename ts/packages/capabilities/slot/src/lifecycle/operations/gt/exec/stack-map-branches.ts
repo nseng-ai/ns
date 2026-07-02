@@ -7,11 +7,11 @@ import type {
 } from "@sdl/capability-kit/graphite/metadata";
 import { z } from "zod";
 
-import { deduplicateOrderedStrings } from "../../../collections.ts";
-import type { SlotCliContext } from "../../../context.ts";
-import type { LocalBranchTip } from "../../../gateways/repository.ts";
+import { deduplicateOrderedStrings } from "../../../../core/collections.ts";
+import type { SlotCliContext } from "../../../../core/context.ts";
+import type { LocalBranchTip } from "../../../../core/gateways/repository.ts";
 import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
-import { buildSlotInventory, type SlotRecord } from "../../../inventory.ts";
+import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import {
 	collectGraphiteTopologyAncestors,
