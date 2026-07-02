@@ -61,12 +61,12 @@ describe("flow land external-call telemetry run diagnostics", () => {
 
 		expect(finish.write).toEqual({
 			type: "written",
-			path: "/xdg-state/sdl/flow/land/runs/run-1.json",
+			path: "/xdg-state/ns/flow/land/runs/run-1.json",
 		});
 		expect(gateway.writes).toHaveLength(1);
 		const write = gateway.writes[0];
 		if (write === undefined) throw new Error("expected diagnostics write");
-		expect(write.path).toBe("/xdg-state/sdl/flow/land/runs/run-1.json");
+		expect(write.path).toBe("/xdg-state/ns/flow/land/runs/run-1.json");
 		const parsed: unknown = JSON.parse(write.content);
 		expect(parsed).toEqual({
 			schemaVersion: 1,
@@ -161,7 +161,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 			[
 				"External-call telemetry: 2 calls in 2s (git: 1/500ms; github-cli: 1/1s; failures: 1).",
 				"GitHub quota estimate: GraphQL 2, REST 0, rate-limit cost 2.",
-				"Telemetry diagnostics: /home/tester/.local/state/sdl/flow/land/runs/run-2.json",
+				"Telemetry diagnostics: /home/tester/.local/state/ns/flow/land/runs/run-2.json",
 			].join("\n"),
 		);
 	});

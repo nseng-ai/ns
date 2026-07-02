@@ -67,7 +67,7 @@ Sequencing is a hard gate: telemetry before baseline, baseline before optimizati
 Assumptions:
 
 - Large-stack latency is meaningfully affected by repeated Graphite restack/refresh/delete work, repeated GitHub PR fact reads and merge verification, and per-branch local git/ref commands.
-- A shared command/API telemetry layer can be added near existing Flow land and gateway boundaries without forcing a broad instrumentation rewrite.
+- A shared command/API telemetry layer can be added near existing Flow land and gateway boundaries without forcing a broad instrumentation rewrite. (Confirmed by the first milestone: the schema, sink, and per-run collector landed at the `withCommandStreaming`/`LandStackCommandStream` seam in seven files with landing semantics unchanged.)
 - Lightweight local JSON diagnostics under XDG/state are sufficient for comparing large-stack runs and quota usage during this Objective.
 - GitHub quota can be attributed without extra API calls along a fidelity ladder, verified against the `cli/cli` and `go-gh` sources: (1) a static cost model from known `gh` command shapes (`gh pr view --json` is one GraphQL query; `gh pr merge` is one PR-finder query plus one `mergePullRequest` mutation); (2) opt-in `GH_DEBUG=api` runs, where `gh` logs response headers including `X-RateLimit-*` to stderr and `httpretty`'s default sanitizers redact the auth token; (3) direct GitHub API response headers if a direct-API path lands.
 
@@ -81,6 +81,6 @@ Risks:
 
 ## Open Questions
 
-- What exact XDG/state path and JSON schema should telemetry diagnostics use?
+- ~~What exact XDG/state path and JSON schema should telemetry diagnostics use?~~ Resolved: per-run schema v1 JSON at `$XDG_STATE_HOME/sdl/flow/land/runs/<runId>.json` (fields: `schemaVersion`, `runId`, `command`, start/finish/duration ms, `exitCode`, `totals`, `externalCalls` with minimized per-call payload). Recorded as first-milestone row evidence; revisit only if baseline work demands more fields.
 - When, if ever, should a direct GraphQL `mergePullRequest` mutation replace `gh pr merge`? Parity is already confirmed from the `cli/cli` source (see Risks), and the current per-PR sequence triple-fetches overlapping PR facts (pre-merge `gh pr view` gate, `gh pr merge`'s internal PR-finder query, post-merge `gh pr view` verification); the remaining question is whether baseline evidence justifies the migration, not whether parity is achievable.
 - Which stack sizes and repository shapes should define the representative large-stack baseline?

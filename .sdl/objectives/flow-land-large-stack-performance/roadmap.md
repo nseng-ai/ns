@@ -2,8 +2,9 @@
 
 ## Work
 
-- [ ] Add Flow land external-call telemetry for Graphite, `gh`, and GitHub API interactions.
+- [x] Add Flow land external-call telemetry for Graphite, `gh`, and GitHub API interactions.
   - First milestone. Capture timing, status, category, and call counts. Reserve an optional per-call quota field in the event schema and populate it from the static cost model of known `gh` command shapes; live quota capture (`GH_DEBUG=api` header parsing, direct-API headers) is a later fidelity level, not part of this milestone. Expose structured in-process events, concise verbose summaries, and lightweight XDG/state JSON per-run diagnostics. Evidence: targeted tests cover emitted facts, log shape, and the reserved quota field.
+  - Done via local branch evidence (`impl-flow-land-external-call-telemetry`, `flow-land-per-run-diagnostics`): event schema and sink in `ts/packages/capabilities/flow/src/land/stack/external-call-telemetry.ts` wired through `withCommandStreaming`/`LandStackCommandStream`; per-run diagnostics collector in `external-call-telemetry-run.ts` writing schema v1 JSON to `$XDG_STATE_HOME/sdl/flow/land/runs/<runId>.json` (fallback `~/.local/state/...`); `--verbose` telemetry summary in `sdl flow land`. Durable entries persist only transport/category/operation/elapsed/status/exit/quota estimate — no command strings, PR titles/bodies, or branch names. Static quota model covers Graphite and `gh`; the schema supports a `github-api` transport whose emitter wiring is deferred until a direct API path exists. Targeted Vitest plus full `just` passed on both slices.
 - [ ] Establish a measured large-stack baseline.
   - Run representative stack-landing scenarios: fakes reveal command/API counts and quota deltas via the static cost model; real large-stack runs are required for per-phase wall time. Add opt-in `GH_DEBUG=api` quota-header parsing here only if the static cost model proves insufficient. Use this evidence to order optimization work instead of guessing.
   - Policy: fake-backed measurement is direct execution; real large-stack landing runs merge actual PRs and are human-driven only — prepare the instrumentation and ask.
