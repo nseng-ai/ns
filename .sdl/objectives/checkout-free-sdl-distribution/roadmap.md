@@ -2,10 +2,16 @@
 
 ## Work
 
-- [ ] Decide the bundle strategy: single bundled artifact (esbuild/tsup) vs publishing the
+- [x] Decide the bundle strategy: single bundled artifact (esbuild/tsup) vs publishing the
   workspace graph as real npm packages vs a hybrid. Record the decision; it gates the loader
   and private-dep work.
-  - Notes: no build tooling exists today; this is a greenfield choice.
+  - Decision: copy Pi's distribution shape — publish a real npm CLI package with a `bin`
+    pointing at prebuilt `dist` JS, keep first-party runtime packages as versioned npm packages
+    where feasible, and use bundle-inline only for dependency-closure exceptions found during
+    triage. Do not make a single opaque bundle the primary design.
+  - Consequence: core SDL capability loading should resolve installed package JS, not checkout
+    source paths; jiti may remain a dev/package-extension convenience but not the runtime path
+    for bundled first-party capabilities.
 - [ ] Triage every runtime workspace dependency of `@sdl/kernel` (transitively): per package,
   decide publish vs bundle-inline vs exclude. Record the table. `@sdl/kernel` itself must
   stop being `private` (or be superseded by a published wrapper).
