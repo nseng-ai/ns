@@ -17,6 +17,7 @@ This Objective covers the design and implementation path for a reusable harness-
 - Shared implementation owns artifact catalog types, harness specs, scope/path resolution, provision-plan generation, materialization semantics, and an install manifest with per-file content hashes (stale detection after upgrades, refuse-to-clobber of locally edited files without `--force`, rename/uninstall cleanup).
 - Entry-kind breadth is decided: the model represents all three kinds from day one; the first slice provisions skills only.
 - Extension-carried artifacts are main-line scope: an SDL extension declares its bundled or companion skills statically in its package manifest (`sdl` field in `package.json`), and installing/enabling the extension provisions them through the shared subsystem — without executing extension code during ordinary discovery/help, and without the user needing to know AREG exists.
+- Reconcile is the core operation: compare declared catalogs (first-party plus installed extensions' static manifests) against the install manifest, produce a deterministic provision plan, apply it. Install/update commands are sugar over reconcile. The primary commanded hook is a `ji update` surface (inspired by `pi update`); ambient drift (for example `git pull` updating a checked-in project-local extension) is detected by a cheap fingerprint check and nudged, never silently applied; locally edited provisioned files block convergence without `--force`.
 - The subsystem has zero dependency on the third-party `npx skills` CLI: first-party and extension-carried content is provisioned as a local copy by our own planner.
 - A detailed Pup research report is kept as a deliberate Objective reference at `references/pup-skill-management-report.md`; fresh-inspection deltas (no verification/hashing/versioning/manifest/uninstall in pup's skills path, `CLAUDE_CONFIG_DIR` handling, read-only carve-out) are recorded in `updates/`.
 
@@ -62,12 +63,12 @@ Risks:
 - Installing into user-global assistant directories can be surprising or unsafe unless path preview and project-local scope are obvious; the install manifest and plan/preview surfaces are the mitigations (pup demonstrates the failure mode: unconditional overwrite, orphaned renames, silent staleness).
 - Catalog contribution by SDL extensions can become a plugin/registry system if overdesigned; the static-manifest decision keeps the first design data-only.
 - Existing `skillx`, the `@sdl/areg` CLI, `npx skills`, and repo skill conventions overlap semantically; AREG re-platforming must be coordinated with the active `migrate-areg-and-ns-skills`, `areg-typescript-port`, and `areg-ts-cli-cleanup` Objectives so it lands as one plan, not competing ones.
-- "Install an extension" is not one flow today: Pi extensions install via Pi's own `pi install`, while SDL-CLI extensions are loaded by presence under `.sdl/extensions` with no install command. The provisioning hook point needs a deliberate decision.
+- Addressed by decision (see `updates/20260702T041140Z-reconcile-primitive-and-sdl-update-hook.md`): "install an extension" is not one flow today (Pi-native install vs presence under `.sdl/extensions`), but the reconcile-primitive architecture makes convergence independent of which path an extension arrived through — commanded hooks apply, ambient detection nudges.
 
 ## Open Questions
 
 - Final package name: leading candidate `@ji/harness-artifacts`; confirm before the package lands.
 - First harness set: current lean is `pi` + `claude-code` first, with the table shape making further harnesses (cursor, codex, opencode, windsurf, gemini) pure data additions; confirm.
 - How AREG's `skills-lock.json` and the new install manifest converge on one hash/record format so `areg check`/`doctor` can verify installs made by the casual path.
-- The extension-install hook point: a unifying `ji extension install <source>` that places the extension and provisions its declared artifacts in one motion, versus per-surface hooks (Pi-native flow plus a `ji skills sync`-style follow-up).
+- Where the `ji update` command surface lives: this Objective ships the reconcile primitive; the update command is broader extension-lifecycle work and may belong to the kernel/extension-lifecycle area.
 - Whether `ji skills` needs a plan subcommand or an `install --dry-run`, per local CLI conventions.
