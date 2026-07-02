@@ -31,6 +31,37 @@
 - The local git/ref batching bottleneck class is either improved with measured evidence or parked with a documented rationale.
 - Any remaining performance ideas are listed as parked work with enough evidence for future Objectives to resume them.
 
+## Definition of Progress
+
+Progress is keepable when:
+
+- A telemetry slice adds instrumentation at the existing exec seam (`command-exec.ts` / `withCommandStreaming` and adjacent gateway boundaries) with targeted Vitest coverage, `just` passes, and landing semantics are unchanged.
+- A baseline slice records measured evidence — per-phase wall time, command/API counts, static-model quota deltas — durably on the relevant roadmap row or in a Semantic Update, in a form a later run can compare against.
+- An optimization slice reduces measured wall time or call counts on the baseline scenario with before/after evidence from the same stack shape, while every listed safety property stays intact and covered by tests.
+- A bottleneck class is parked with a documented, evidence-backed rationale; that closure counts as progress equal to an improvement.
+
+Do not keep changes that:
+
+- Weaken any Flow land safety property: strict PR/head checks, confirmation behavior, backup refs, Graphite cleanup guards, or conservative failure handling.
+- Enable `GH_DEBUG=api` always-on, or write request/response bodies (PR titles, bodies, diffs) into durable diagnostics.
+- Introduce durable metrics services, dashboards, retention machinery, or other Non-Goals.
+- Add raw wall-clock reads or timers instead of the `@sdl/core/clock` / timer seams.
+- Change landing semantics or merge primitives without the baseline evidence this Objective exists to gather.
+
+Useful evidence includes: targeted Vitest runs, before/after per-run JSON diagnostics for the same stack shape, call-count comparisons from fake-backed scenario tests, and static-model quota deltas.
+
+## Runner Policy
+
+This Objective is execution-friendly for `objective-next`, including autonomous pursuit via `/objective:autopilot <slug> [--submit]`: each iteration spawns a fresh child that runs `objective-next` for this Objective, implements one coherent slice, and leaves it uncommitted; the parent session re-checks live repo state and owns commit and submit. A human working the loop by hand follows the same boundaries.
+
+Sequencing is a hard gate: telemetry before baseline, baseline before optimization. An optimization row is not actionable until recorded baseline evidence exists for its bottleneck class.
+
+- Direct execution is allowed when: the slice is telemetry plumbing at the existing seams, fake-backed scenario measurement, documentation/evidence recording, or an optimization implementation whose bottleneck class has recorded baseline evidence. Choosing the XDG/state diagnostics path and per-run JSON schema is direct execution — record the choice as row evidence so it can be revisited.
+- Steer or ask first when: a change would alter or remove any listed safety property or user-visible confirmation behavior; a real (non-fake) large-stack landing run is wanted for wall-time baseline — real runs merge actual PRs and are human-driven only; a slice would replace `gh pr merge` with a direct GraphQL merge mutation or otherwise change merge primitives; evidence contradicts a load-bearing assumption; or validation fails for reasons outside the slice.
+- How work may change files and be left: feature branches only (never `main`/`master`), created via branch-context Graphite creation (`skills/branch-context/references/lifecycle.md`), not bare `gt create`; one coherent slice per branch and PR; under `/objective:autopilot` the child leaves work uncommitted and the parent owns commit and submit; no-submit runs avoid `gt modify`, `gt restack`, and submit/update Graphite mutations.
+- Validation before keeping or submitting work: `just` passes; targeted Vitest for touched packages; optimization slices additionally record before/after measurements on the same stack shape as roadmap row evidence.
+- What will not happen unless explicitly requested: landing/merging PRs, running `/sdl:flow:land` against real stacks, publishing or external writes beyond Graphite/GitHub PR submission, edits to other Objectives, or archive/lifecycle changes to this Objective.
+
 ## Assumptions and Risks
 
 Assumptions:
