@@ -10,7 +10,7 @@ import {
 	stripTerminalEscapes,
 	terminalHyperlink,
 	truncateDisplayLine,
-} from "../src/terminal/presentation.ts";
+} from "../src/kit/terminal/presentation.ts";
 
 describe("terminal presentation helpers", () => {
 	test("strips ANSI SGR escapes", () => {

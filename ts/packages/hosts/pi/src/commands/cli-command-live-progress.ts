@@ -1,9 +1,9 @@
 import type { ScheduledTimer } from "@sdl/core/timers";
 import { formatElapsedMs } from "@sdl/core/time-format";
 
-import { withSafePiUi, withSafePiUiValue } from "../shared/safe-ui.ts";
-import { unrefTimerScheduler } from "../shared/timers.ts";
-import { truncateDisplayLine } from "../terminal/presentation.ts";
+import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
+import { unrefTimerScheduler } from "../kit/shared/timers.ts";
+import { truncateDisplayLine } from "../kit/terminal/presentation.ts";
 import { traceCliCommand } from "./cli-command-trace.ts";
 
 const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";

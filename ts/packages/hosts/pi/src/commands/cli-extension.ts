@@ -7,12 +7,12 @@ import type { NotifyLevel } from "../runtime/tool-types.ts";
 import { LiveCommandProgress } from "./cli-command-live-progress.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
-import { withSafePiUi } from "../shared/safe-ui.ts";
+import { withSafePiUi } from "../kit/shared/safe-ui.ts";
 import {
 	customMessageText,
 	truncateDisplayLine,
 	type CustomMessageContent,
-} from "../terminal/presentation.ts";
+} from "../kit/terminal/presentation.ts";
 import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";

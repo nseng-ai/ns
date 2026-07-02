@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import modelShortcutExtension from "../src/models/shortcuts.ts";
-import type { ExtensionAPI } from "../src/models/shortcuts.ts";
+import modelShortcutExtension from "../src/kit/models/shortcuts.ts";
+import type { ExtensionAPI } from "../src/kit/models/shortcuts.ts";
 
 type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 type NotifyLevel = "info" | "warning" | "error";

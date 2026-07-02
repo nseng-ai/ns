@@ -3,7 +3,7 @@ import { dirname, join, parse, resolve } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
 import { isPathInside } from "@sdl/core/primitives";
-import type { NotifyLevel } from "../runtime/tool-types.ts";
+import type { NotifyLevel } from "../../runtime/tool-types.ts";
 
 export interface SkillCommandInfo {
 	name: string;

@@ -7,11 +7,11 @@
 		"./commands/ack": "./src/commands/ack.ts",
 		"./commands/args": "./src/commands/args.ts",
 		"./commands/events": "./src/commands/events.ts",
-		"./commands/helpers": "./src/command-helpers.ts",
+		"./commands/helpers": "./src/commands/helpers.ts",
 		"./commands/io": "./src/commands/io.ts",
-		"./grill/surfaces": "./src/grill/surfaces.ts",
-		"./models/call": "./src/models/call.ts",
-		"./models/lm-json": "./src/models/lm-json.ts",
+		"./grill/surfaces": "./src/kit/grill/surfaces.ts",
+		"./models/call": "./src/kit/models/call.ts",
+		"./models/lm-json": "./src/kit/models/lm-json.ts",
 		"./parity/check": "./src/parity/check.ts",
 		"./parity/extension": "./src/parity/extension.ts",
 		"./parity/testing": "./src/parity/testing.ts",
@@ -19,21 +19,23 @@
 		"./runtime/command-host": "./src/runtime/command-host.ts",
 		"./runtime/machine-envelope": "./src/runtime/machine-envelope.ts",
 		"./runtime/tool-types": "./src/runtime/tool-types.ts",
-		"./sessions/replacement": "./src/sessions/replacement.ts",
-		"./skills/expansion": "./src/skills/expansion.ts",
-		"./terminal/layout": "./src/terminal/layout.ts",
-		"./terminal/presentation": "./src/terminal/presentation.ts",
-		"./shared/errors": "./src/shared/errors.ts",
-		"./shared/gh-command": "./src/shared/gh-command.ts",
-		"./shared/text-lines": "./src/shared/text-lines.ts",
-		"./shared/timers": "./src/shared/timers.ts",
+		"./sessions/replacement": "./src/kit/sessions/replacement.ts",
+		"./skills/expansion": "./src/kit/skills/expansion.ts",
+		"./terminal/layout": "./src/kit/terminal/layout.ts",
+		"./terminal/presentation": "./src/kit/terminal/presentation.ts",
+		"./shared/errors": "./src/kit/shared/errors.ts",
+		"./shared/gh-command": "./src/kit/shared/gh-command.ts",
+		"./shared/text-lines": "./src/kit/shared/text-lines.ts",
+		"./shared/timers": "./src/kit/shared/timers.ts",
 		"./runtime/types": "./src/runtime/types.ts",
 		"./commands/cli-extension": "./src/commands/cli-extension.ts",
 		"./runtime/extension-types": "./src/runtime/extension-types.ts",
 		"./runtime/primitives": "./src/runtime/primitives.ts",
 		"./runtime/status": "./src/runtime/status.ts",
-		"./shared/exec-gateway": "./src/shared/exec-gateway.ts",
-		"./shared/message-delivery": "./src/shared/message-delivery.ts"
+		"./shared/exec-gateway": "./src/kit/shared/exec-gateway.ts",
+		"./shared/message-delivery": "./src/kit/shared/message-delivery.ts",
+		"./worktree-status": "./src/worktree-status/index.ts",
+		"./worktree-status/extension": "./src/worktree-status/extension.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
@@ -43,7 +45,8 @@
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"@sdl/kernel": "workspace:*",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@earendil-works/pi-tui": "catalog:"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",
@@ -56,6 +59,14 @@
 		"@earendil-works/pi-tui": "catalog:"
 	},
 	"sdl": {
-		"tier": "host"
+		"tier": "host",
+		"subpackages": [
+			"kit",
+			"commands",
+			"runtime",
+			"parity",
+			"worktree-status",
+			"core"
+		]
 	}
 }

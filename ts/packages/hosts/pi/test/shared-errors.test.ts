@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { diagnosticErrorMessage, errorMessage } from "../src/shared/errors.ts";
+import { diagnosticErrorMessage, errorMessage } from "../src/kit/shared/errors.ts";
 
 describe("shared error helpers", () => {
 	test("errorMessage keeps conservative user-facing semantics", () => {

@@ -12,7 +12,7 @@ import {
 	invokeSkillPromptTurn,
 	resolveRepoSkillPath,
 	type SkillCommandInfo,
-} from "../src/skills/expansion.ts";
+} from "../src/kit/skills/expansion.ts";
 
 function host(commands: readonly SkillCommandInfo[]): {
 	getCommands(): readonly SkillCommandInfo[];

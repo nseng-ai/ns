@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import investigateExtension from "../src/investigate/extension.ts";
-import modelShortcutExtension from "../src/models/shortcuts.ts";
-import prExtension from "../src/pr/extension.ts";
+import investigateExtension from "../src/core/investigate/extension.ts";
+import modelShortcutExtension from "../src/kit/models/shortcuts.ts";
+import prExtension from "../src/core/pr/extension.ts";
 import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
@@ -19,10 +19,9 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, prExtension);
-	// The worktree-status implementation lives in @sdl/worktree-status and is
-	// discovered through .pi/extensions/worktree-status.ts, but @sdl/pi owns the
-	// static parity registry. Include its live command shape without importing the
-	// package and creating a test-only cycle.
+	// The worktree-status implementation lives in @sdl/pi/worktree-status and is
+	// discovered through .pi/extensions/worktree-status.ts. Include its live command
+	// shape directly because the extension needs host runtime options to register.
 	pi.registerCommand("pi:worktree-status-refresh", {
 		description: "Refresh the worktree status footer",
 		handler() {},

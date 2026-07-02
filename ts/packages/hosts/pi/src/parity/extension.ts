@@ -67,7 +67,7 @@ export interface BasePiSurfaceParity {
 		| "sdl-flow/pi"
 		| "@sdl/handoff/pi"
 		| "@sdl/objective/pi"
-		| "@sdl/worktree-status";
+		| "@sdl/pi/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;
 	/** Short rationale/provenance for reviewers; not used for machine equality. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { withSafePiUi, withSafePiUiValue } from "../src/shared/safe-ui.ts";
+import { withSafePiUi, withSafePiUiValue } from "../src/kit/shared/safe-ui.ts";
 
 describe("withSafePiUi", () => {
 	test("returns ok when the UI action succeeds", () => {

@@ -4,7 +4,7 @@ import type {
 	SessionReplacementOptions,
 	SessionReplacementResult,
 	SessionUserMessageOptions,
-} from "../sessions/replacement.ts";
+} from "../kit/sessions/replacement.ts";
 import type { ThinkingLevel } from "./types.ts";
 import type { ExtensionMode, ToolContext, ToolDefinition } from "./tool-types.ts";
 

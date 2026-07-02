@@ -1,12 +1,12 @@
 import { formatZodError, type ExplicitUndefined } from "@sdl/core/primitives";
-import type { ExecResult } from "../shared/exec-gateway.ts";
-import type { ExecGateway } from "../shared/exec-gateway.ts";
+import type { ExecResult } from "../../kit/shared/exec-gateway.ts";
+import type { ExecGateway } from "../../kit/shared/exec-gateway.ts";
 import { z } from "zod";
 
-import { parseMachineEnvelopeDataWithFailureData } from "../runtime/machine-envelope.ts";
+import { parseMachineEnvelopeDataWithFailureData } from "../../runtime/machine-envelope.ts";
 
-export type { ExecOptions, ExecResult } from "../shared/exec-gateway.ts";
-export type { ExecGateway } from "../shared/exec-gateway.ts";
+export type { ExecOptions, ExecResult } from "../../kit/shared/exec-gateway.ts";
+export type { ExecGateway } from "../../kit/shared/exec-gateway.ts";
 
 export interface PrAddressRunner {
 	command: string;

@@ -1,6 +1,6 @@
-import { investigateParity } from "../investigate/extension.ts";
-import { modelShortcutParity } from "../models/shortcuts.ts";
-import { prExtensionParity } from "../pr/extension.ts";
+import { investigateParity } from "../core/investigate/extension.ts";
+import { modelShortcutParity } from "../kit/models/shortcuts.ts";
+import { prExtensionParity } from "../core/pr/extension.ts";
 import { worktreeStatusParity } from "./worktree-status.ts";
 import type { PiSurfaceParity } from "./extension.ts";
 

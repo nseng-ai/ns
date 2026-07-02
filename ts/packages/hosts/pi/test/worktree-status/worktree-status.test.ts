@@ -25,7 +25,7 @@ import {
 	type StatusTheme,
 	type WorktreeStatus,
 	type WorktreeStatusIdentity,
-} from "@sdl/worktree-status";
+} from "@sdl/pi/worktree-status";
 import type { GraphiteMetadataStatus } from "@sdl/capability-kit/graphite/status";
 
 const ROOT = "/repo";

@@ -107,7 +107,7 @@ export function collectViolations(
 const RAW_TIMER_GLOBALS = new Set(["setTimeout", "clearTimeout", "setInterval", "clearInterval"]);
 const RAW_TIMER_ADAPTER_PATHS = new Set([
 	"ts/packages/infra/core/src/time/index.ts",
-	"ts/packages/hosts/pi/src/shared/timers.ts",
+	"ts/packages/hosts/pi/src/kit/shared/timers.ts",
 ]);
 
 function isRawProductionTimerNode(node: ts.Node, path: string): boolean {

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { SkillCommandInfo } from "../src/skills/expansion.ts";
+import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;

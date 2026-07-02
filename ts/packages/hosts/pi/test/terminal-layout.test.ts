@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { clamp, fitToWidth, padRight, reconcileScroll } from "../src/terminal/layout.ts";
+import { clamp, fitToWidth, padRight, reconcileScroll } from "../src/kit/terminal/layout.ts";
 
 describe("fitToWidth", () => {
 	test("truncates then pads to the exact display width", () => {
