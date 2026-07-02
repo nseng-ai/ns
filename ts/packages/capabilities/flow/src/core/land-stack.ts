@@ -6,8 +6,8 @@ import {
 	renderCommandStreamMessage,
 	withCommandStreaming,
 	type LandLiveProgressSink,
-} from "./land-stack/command-stream.ts";
-import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "./land-stack/constants.ts";
+} from "../land-stack/command-stream.ts";
+import { COMMAND_NAME, COMMAND_STREAM_MESSAGE_TYPE } from "../land-stack/constants.ts";
 import {
 	completed,
 	failure,
@@ -15,13 +15,16 @@ import {
 	success,
 	type LandStackOutcome,
 	type LandStackResult,
-} from "./land-stack/errors.ts";
-import { buildLandingPlan } from "./land-stack/landing-plan.ts";
-import { presentLandStackFailure, type LandingSession } from "./land-stack/landing-coordination.ts";
-import type { PreMergeConfirmation } from "./land-stack/pre-merge-confirmation.ts";
-import { present, setStatus, usage } from "./land-stack/presentation.ts";
-import { executeLandingPlan } from "./land-stack/landing-plan-execution.ts";
-import { loadLandingShape } from "./land-stack/stack-facts.ts";
+} from "../land-stack/errors.ts";
+import { buildLandingPlan } from "../land-stack/landing-plan.ts";
+import {
+	presentLandStackFailure,
+	type LandingSession,
+} from "../land-stack/landing-coordination.ts";
+import type { PreMergeConfirmation } from "../land-stack/pre-merge-confirmation.ts";
+import { present, setStatus, usage } from "../land-stack/presentation.ts";
+import { executeLandingPlan } from "../land-stack/landing-plan-execution.ts";
+import { loadLandingShape } from "../land-stack/stack-facts.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
@@ -29,9 +32,9 @@ import type {
 	LandingShape,
 	LandingWarning,
 	ParsedArgs,
-} from "./land-stack/types.ts";
+} from "../land-stack/types.ts";
 
-export type { LandStackExtensionAPI } from "./land-stack/types.ts";
+export type { LandStackExtensionAPI } from "../land-stack/types.ts";
 
 export interface ExecuteStackLandingOptions {
 	io?: SdlCommandIo;

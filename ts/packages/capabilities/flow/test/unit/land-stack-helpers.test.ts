@@ -14,7 +14,7 @@ import {
 	LandStackCommandStream,
 	withCommandStreaming,
 } from "../../src/land-stack/command-stream.ts";
-import { parseArgs } from "../../src/land-stack.ts";
+import { parseArgs } from "../../src/core/land-stack.ts";
 import {
 	derivePathToTrunk,
 	deriveDescendantSubtree,

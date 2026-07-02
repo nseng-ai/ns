@@ -8,20 +8,20 @@ import {
 	LandStackCommandStream,
 	withCommandStreaming,
 	type LandLiveProgressSink,
-} from "./land-stack/command-stream.ts";
-import { completed, failure, type LandStackOutcome } from "./land-stack/errors.ts";
+} from "../land-stack/command-stream.ts";
+import { completed, failure, type LandStackOutcome } from "../land-stack/errors.ts";
 import {
 	formatFailureNotification,
 	landFailureKind,
 	notifyPrintAware,
 	presentBrief,
 	usage,
-} from "./land-stack/presentation.ts";
+} from "../land-stack/presentation.ts";
 import {
 	renderLandConfirmationDetails,
 	renderLandResultBlockFromMessage,
-} from "./land-stack/land-presentation.ts";
-import { runLandingDispatch } from "./land/landing-dispatch.ts";
+} from "../land-stack/land-presentation.ts";
+import { runLandingDispatch } from "../land/landing-dispatch.ts";
 import type { Caps } from "@sdl/clinkr";
 import type {
 	AutocompleteItem,
@@ -29,11 +29,11 @@ import type {
 	LandResultKind,
 	MessageRenderer,
 	PrintAwareLandStackCommandContext,
-} from "./land-stack/types.ts";
+} from "../land-stack/types.ts";
 
-export type { ExtensionMode, NotifyLevel, PrintOutput } from "./land-stack/types.ts";
-export type { ValidPullRequestView } from "./land/isolated-fast-path.ts";
-export { isIsolatedFastPath, parsePullRequestView } from "./land/isolated-fast-path.ts";
+export type { ExtensionMode, NotifyLevel, PrintOutput } from "../land-stack/types.ts";
+export type { ValidPullRequestView } from "../land/isolated-fast-path.ts";
+export { isIsolatedFastPath, parsePullRequestView } from "../land/isolated-fast-path.ts";
 
 export interface ExecResult {
 	stdout: string;

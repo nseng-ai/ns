@@ -1,5 +1,5 @@
 import { formatCommand } from "@sdl/core/command";
-import { collectPrSubmitRequirements } from "sdl-land/api";
+import { collectPrSubmitRequirements } from "../land/api.ts";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { exec, formatCommandDetails, shortSha } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";

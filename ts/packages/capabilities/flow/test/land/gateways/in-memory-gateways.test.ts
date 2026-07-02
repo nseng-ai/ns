@@ -8,15 +8,15 @@ import {
 	InMemoryLandWorktreeSlotFactsGateway,
 	pullRequestFacts,
 	stackSnapshot,
-} from "sdl-land/testing";
+} from "sdl-flow/land/testing";
 
-import type { LocalBranchTip, WorktreeEntry } from "sdl-land/api";
+import type { LocalBranchTip, WorktreeEntry } from "sdl-flow/land/api";
 
 const REPO_ROOT = "/repo";
 const FEATURE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const CHILD_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
-describe("sdl-land in-memory gateway fakes", () => {
+describe("sdl-flow land in-memory gateway fakes", () => {
 	test("assembles a land context from semantic constructor state", async () => {
 		const { context, git, graphite, github, worktrees } = createInMemoryLandContext({
 			git: {

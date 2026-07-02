@@ -10,6 +10,7 @@ export interface PackageManifest {
 	readonly dependencies?: unknown;
 	readonly optionalDependencies?: unknown;
 	readonly peerDependencies?: unknown;
+	readonly peerDependenciesMeta?: unknown;
 	readonly devDependencies?: unknown;
 	readonly sdl?: unknown;
 	readonly [key: string]: unknown;

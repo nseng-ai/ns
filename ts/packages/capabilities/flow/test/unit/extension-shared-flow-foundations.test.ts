@@ -81,10 +81,10 @@ describe("project extension shared flow foundations", () => {
 		for (const source of [autoslotSource, landSource, pullTrunkSource, flowPackage]) {
 			expect(source).not.toContain(cccPackageName);
 		}
-		expect(flowPackage).toContain('"./api": "./src/api.ts"');
-		expect(autoslotSource).toContain("../autoslot.ts");
-		expect(landSource).toContain("../land.ts");
-		expect(pullTrunkSource).toContain("../trunk-pull.ts");
+		expect(flowPackage).toContain('"./api": "./src/core/api.ts"');
+		expect(autoslotSource).toContain("../core/autoslot.ts");
+		expect(landSource).toContain("../core/land.ts");
+		expect(pullTrunkSource).toContain("../core/trunk-pull.ts");
 		expect(autobranchSource).not.toContain("_cwd");
 		expect(branchLatestCommitSource).not.toContain("_cwd");
 	});

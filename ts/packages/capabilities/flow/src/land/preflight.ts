@@ -141,7 +141,7 @@ export async function calculateLandingOutcome(
 		return landFailure({
 			type: "not-implemented",
 			phase: "preflight",
-			message: "sdl-land preflight planning currently supports stack landing targets only.",
+			message: "sdl-flow land preflight planning currently supports stack landing targets only.",
 		});
 	}
 

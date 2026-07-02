@@ -1,4 +1,4 @@
-import { buildStackLandingPlan } from "sdl-land/api";
+import { buildStackLandingPlan } from "../land/api.ts";
 import { failure, success, type LandStackResult } from "./errors.ts";
 import { createLandContext } from "./land-context-adapter.ts";
 import { toFlowLandingPlan, toLandStackFailure } from "./plan-mapping.ts";

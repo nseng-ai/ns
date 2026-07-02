@@ -235,11 +235,24 @@ function tierViolationForEdge(from, to) {
   const toTier = pkgs[to]?.tier;
   if (fromTier === undefined || toTier === undefined) return undefined;
   if (TIER_POLICY[fromTier]?.has(toTier)) return undefined;
+  if (isAllowedPiSubpackagePeerEdge(from, to)) return undefined;
   const debt = ALLOWED_DEBT_EDGES.get(`${from}\0${to}`);
   if (debt !== undefined) {
     return { from, to, fromTier, toTier, severity: "debt", policy: `${fromTier}-must-not-depend-on-${toTier}`, debtNote: debt };
   }
   return { from, to, fromTier, toTier, severity: "hard", policy: `${fromTier}-must-not-depend-on-${toTier}` };
+}
+
+function isAllowedPiSubpackagePeerEdge(from, to) {
+  if (to !== "@sdl/pi") return false;
+  if (pkgs[from]?.tier !== "capability") return false;
+  const manifest = manifests[from];
+  return (
+    Array.isArray(manifest?.sdl?.subpackages) &&
+    manifest.sdl.subpackages.includes("pi") &&
+    manifest?.peerDependencies?.["@sdl/pi"] !== undefined &&
+    manifest?.peerDependenciesMeta?.["@sdl/pi"]?.optional === true
+  );
 }
 
 const tierViolations = [];

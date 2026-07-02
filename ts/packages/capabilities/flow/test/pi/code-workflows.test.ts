@@ -7,7 +7,7 @@ import codeWorkflowsExtension, {
 	completeWorkflowRoute,
 	formatWorkflowMenu,
 	resolveWorkflowRoute,
-} from "../src/code-workflows.ts";
+} from "../../src/pi/code-workflows.ts";
 import type { CommandContext, CustomMessage } from "@sdl/pi/runtime/extension-types";
 
 type ExtensionAPI = Parameters<typeof codeWorkflowsExtension>[0];

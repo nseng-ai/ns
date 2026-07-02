@@ -19,15 +19,15 @@ import {
 	type LandCapabilityMetadata,
 	type LandingBoundaryFailure,
 	type StackSnapshot,
-} from "sdl-land/api";
+} from "sdl-flow/land/api";
 
 function describeLandCapability(metadata: LandCapabilityMetadata): string {
 	return `${metadata.packageName}:${metadata.capabilityId}:${metadata.tier}`;
 }
 
-describe("sdl-land/api boundary", () => {
+describe("sdl-flow/land API boundary", () => {
 	test("exposes land capability package identity through the API subpath", () => {
-		expect(describeLandCapability(LAND_CAPABILITY_METADATA)).toBe("sdl-land:land:capability");
+		expect(describeLandCapability(LAND_CAPABILITY_METADATA)).toBe("sdl-flow:land:capability");
 		expect(LAND_CAPABILITY_METADATA).toEqual({
 			capabilityId: LAND_CAPABILITY_ID,
 			packageName: LAND_PACKAGE_NAME,
@@ -179,9 +179,9 @@ interface LandPackageJson {
 }
 
 function readLandPackageJson(): LandPackageJson {
-	const raw = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+	const raw = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 	if (!isLandPackageJson(raw)) {
-		throw new Error("sdl-land package.json does not match expected test shape");
+		throw new Error("sdl-flow package.json does not match expected test shape");
 	}
 	return raw;
 }
