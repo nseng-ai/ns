@@ -2,7 +2,7 @@
 name: code-gt-restack-resolve
 disable-model-invocation: true
 description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks), escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
-model: opus
+model: sonnet
 ---
 
 # code-gt-restack-resolve
@@ -43,7 +43,7 @@ When the engine's Driver contract asks for overrides, use:
   selected scope** (an upstack branch during downstack scope, or a
   sibling/unrelated stack during any scope)
 - **Post-completion checks:** `git status` is clean; `sdl slot gt exec stack-branches --format json` answers structured topology; `gt log` / `gt ls` may be used only as visual confirmation
-- **Subagent model tier:** the strong/smart implementation tier; never the cheap/fast review tier
+- **Subagent model tier:** Claude Code uses Sonnet 5; other harnesses use their strong/smart implementation tier; never the cheap/fast review tier
 - **Escalation channel:** `return-to-parent`. A driven conflict subagent must
   not prompt the user. If escalation is required, it leaves the rebase stopped,
   returns the engine's structured escalation payload to the parent, and does
@@ -207,15 +207,17 @@ whether a merge is mechanically safe. They are implementation subagents, not
 bounded classification or review helpers, so do not route them to the
 cheap/fast model tier.
 
-When the harness supports per-dispatch model selection, always request the
-harness's configured strong/smart implementation model for these restack
-conflict subagents. Concrete examples:
+When the harness supports per-dispatch model selection, request the model below
+for these restack conflict subagents. Concrete examples:
 
+- Claude Code: launch the `Agent` conflict-resolution subagent on Sonnet 5
+  (use the Claude Code `sonnet`/Sonnet 5 selector available in the current
+  installation). Do not select Opus for this workflow.
 - OpenAI Codex-backed Pi: set `dispatch_runner_subagent.model` to
   `openai-codex/gpt-5.5:high` (or the local equivalent smart GPT-5.5 model
   pattern).
 - Anthropic-backed Pi: set `dispatch_runner_subagent.model` to
-  `claude-opus-4-8` (or the local equivalent smart Opus model pattern).
+  `claude-sonnet-5` (or the local equivalent Sonnet 5 model pattern).
 
 If per-dispatch model selection is unavailable, continue with the session's
 current model but mention that no explicit smart model could be requested. Never
