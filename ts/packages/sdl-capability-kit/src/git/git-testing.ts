@@ -47,7 +47,6 @@ export interface InMemoryGitGatewayState {
 	treeOids?: Readonly<Record<string, string | null | GitErrorInfo>>;
 	changedPaths?: Readonly<Record<string, readonly string[] | GitErrorInfo>>;
 	statusPaths?: ValueState<GitStatusPathFacts>;
-	statusPathsSequence?: readonly ValueState<GitStatusPathFacts>[];
 	stagePathsFailure?: GitErrorInfo;
 	commitSha?: string;
 	commitFailure?: GitErrorInfo;
@@ -105,7 +104,6 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly treeOids: ReadonlyMap<string, string | null | GitErrorInfo>;
 	private readonly changedPaths: ReadonlyMap<string, readonly string[] | GitErrorInfo>;
 	private readonly statusPathsState: ValueState<GitStatusPathFacts>;
-	private readonly statusPathsSequence: readonly ValueState<GitStatusPathFacts>[];
 	private readonly stagePathsFailure: GitErrorInfo | undefined;
 	private readonly commitSha: string;
 	private readonly commitFailure: GitErrorInfo | undefined;
@@ -163,10 +161,7 @@ export class InMemoryGitGateway implements GitGateway {
 				cloneChangedPathsValue(value),
 			]),
 		);
-		this.statusPathsState = cloneStatusPathsState(
-			state.statusPaths ?? { changedPaths: [], stagedPaths: [] },
-		);
-		this.statusPathsSequence = (state.statusPathsSequence ?? []).map(cloneStatusPathsState);
+		this.statusPathsState = cloneStatusPathsState(state.statusPaths ?? { changedPaths: [] });
 		this.stagePathsFailure = state.stagePathsFailure;
 		this.commitSha = state.commitSha ?? "fedcba9876543210fedcba9876543210fedcba98";
 		this.commitFailure = state.commitFailure;
@@ -405,13 +400,8 @@ export class InMemoryGitGateway implements GitGateway {
 	}
 
 	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		const callIndex = this.statusPathsLog.length;
 		this.statusPathsLog.push(callFromParams(params));
-		const state =
-			this.statusPathsSequence.length > 0
-				? (this.statusPathsSequence[Math.min(callIndex, this.statusPathsSequence.length - 1)] ??
-					this.statusPathsState)
-				: this.statusPathsState;
+		const state = this.statusPathsState;
 		if (isFailureState(state)) {
 			return {
 				ok: false,
@@ -423,7 +413,7 @@ export class InMemoryGitGateway implements GitGateway {
 		}
 		return {
 			ok: true,
-			value: { changedPaths: [...state.changedPaths], stagedPaths: [...state.stagedPaths] },
+			value: { changedPaths: [...state.changedPaths] },
 		};
 	}
 
@@ -544,7 +534,7 @@ function cloneStatusPathsState(
 	if (isFailureState(state)) {
 		return { type: "failure", ...(state.error === undefined ? {} : { error: { ...state.error } }) };
 	}
-	return { changedPaths: [...state.changedPaths], stagedPaths: [...state.stagedPaths] };
+	return { changedPaths: [...state.changedPaths] };
 }
 
 function isGitErrorInfo(value: unknown): value is GitErrorInfo {

@@ -353,18 +353,18 @@ describe("in-memory git gateway", () => {
 
 		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
 			ok: true,
-			value: { changedPaths: [], stagedPaths: [] },
+			value: { changedPaths: [] },
 		});
 		expect(git.statusPathsCalls).toEqual([{ cwd: ROOT }]);
 	});
 
 	test("returns canned status paths and supports failure state", async () => {
 		const dirty = new InMemoryGitGateway({
-			statusPaths: { changedPaths: ["a.ts"], stagedPaths: [] },
+			statusPaths: { changedPaths: ["a.ts"] },
 		});
 		expect(await dirty.statusPaths({ cwd: ROOT })).toEqual({
 			ok: true,
-			value: { changedPaths: ["a.ts"], stagedPaths: [] },
+			value: { changedPaths: ["a.ts"] },
 		});
 
 		const failing = new InMemoryGitGateway({ statusPaths: { type: "failure" } });
@@ -372,29 +372,6 @@ describe("in-memory git gateway", () => {
 			ok: false,
 			error: { code: "git_status_paths_failed" },
 		});
-	});
-
-	test("serves status paths call-by-call from a sequence, clamping to the last entry", async () => {
-		const git = new InMemoryGitGateway({
-			statusPathsSequence: [
-				{ changedPaths: [], stagedPaths: [] },
-				{ changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
-			],
-		});
-
-		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
-			ok: true,
-			value: { changedPaths: [], stagedPaths: [] },
-		});
-		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
-			ok: true,
-			value: { changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
-		});
-		expect(await git.statusPaths({ cwd: ROOT })).toEqual({
-			ok: true,
-			value: { changedPaths: ["b.ts"], stagedPaths: ["b.ts"] },
-		});
-		expect(git.statusPathsCalls).toHaveLength(3);
 	});
 
 	test("records stage and commit calls and returns configured outcomes", async () => {

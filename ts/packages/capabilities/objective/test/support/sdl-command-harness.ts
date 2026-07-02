@@ -1,4 +1,4 @@
-import { usageError, type ClinkrExit } from "@sdl/clinkr";
+import { usageError, type ClinkrExit, type ClinkrFormat } from "@sdl/clinkr";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import type { GraphiteBranchGateway } from "@sdl/capability-kit/graphite/branch";
 import type { CommandExecApi } from "@sdl/core/exec";
@@ -37,6 +37,7 @@ export interface FakeObjectiveSdlApiOptions {
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 	/** Overrides merged into every recorded `exec` result (defaults to exit 0). */
 	execResult?: Partial<ExecResult>;
+	outputFormat?: ClinkrFormat;
 }
 
 /**
@@ -56,6 +57,7 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly progress = noopSdlProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly outputFormat: ClinkrFormat;
 	readonly commandIo: SdlCommandIo;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
@@ -65,6 +67,7 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 		this.cwd = options.cwd ?? "/repo";
 		this.env = { HOME: "/home/sdl-test", ...(options.env ?? {}) };
 		this.execResult = { ...(options.execResult ?? {}) };
+		this.outputFormat = options.outputFormat ?? "human";
 		this.stdout = (text) => {
 			this.stdoutChunks.push(text);
 		};

@@ -350,7 +350,7 @@ class FakeGitGateway implements GitGateway {
 
 	async statusPaths(_params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
 		this.calls.push("statusPaths");
-		return { ok: true, value: { changedPaths: [], stagedPaths: [] } };
+		return { ok: true, value: { changedPaths: [] } };
 	}
 
 	async stagePaths(_params: GitStagePathsParams): Promise<GitOperationResult> {

@@ -1,6 +1,6 @@
 import type { ExplicitUndefined } from "@sdl/core/primitives";
 
-import type { RenderCapabilities } from "./command.ts";
+import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
 import type { SdlCommandIo, SdlProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
@@ -45,6 +45,8 @@ export interface SdlExtensionApi {
 	progress: SdlProgress;
 	/** Host terminal rendering capabilities for human output and previews. */
 	renderCapabilities: RenderCapabilities;
+	/** Host-selected command output format. Useful only for commands streaming durable output before returning. */
+	outputFormat?: ClinkrFormat;
 	/** Durable output for commands that need to stream multiple chunks before returning. */
 	stdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	/** Durable error output for commands that need to stream multiple chunks before returning. */

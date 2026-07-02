@@ -53,6 +53,7 @@ export async function createSdlObjectiveRunnerContext(
 		graphite: overrides?.graphite ?? new RealGraphiteBranchGateway(commands),
 		childSession:
 			overrides?.childSession ?? composition.createChildSessionGateway({ env: ctx.env }),
+		outputFormat: ctx.outputFormat ?? "human",
 		writeStdout: ctx.stdout ?? (() => {}),
 		writeStderr: ctx.stderr ?? (() => {}),
 		phase: (label) => {

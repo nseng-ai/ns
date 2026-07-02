@@ -31,7 +31,6 @@ export interface GateOutcome {
 	branch: string | null;
 	/** Live changed paths from the gate's own statusPaths call. */
 	changedPaths: readonly string[];
-	stagedPaths: readonly string[];
 }
 
 export interface VerifyRunnerStepOptions {
@@ -101,7 +100,6 @@ export async function verifyRunnerStep(
 
 	const status = await ctx.git.statusPaths({ cwd: ctx.repoRoot });
 	const changedPaths = status.ok ? status.value.changedPaths : [];
-	const stagedPaths = status.ok ? status.value.stagedPaths : [];
 	if (!status.ok) {
 		checks.push({
 			id: "worktree-dirty",
@@ -126,7 +124,6 @@ export async function verifyRunnerStep(
 		checks,
 		branch,
 		changedPaths,
-		stagedPaths,
 	};
 }
 

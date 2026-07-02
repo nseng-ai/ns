@@ -27,7 +27,7 @@ function gateContext(overrides: RunnerFakesOptions = {}) {
 	return contextWithRunnerFakes({
 		git: {
 			currentBranch: "feature/demo-step",
-			statusPaths: { changedPaths: ["src/a.ts"], stagedPaths: [] },
+			statusPaths: { changedPaths: ["src/a.ts"] },
 			...overrides.git,
 		},
 		...(overrides.graphite === undefined ? {} : { graphite: overrides.graphite }),
@@ -183,7 +183,7 @@ describe("verifyRunnerStep", () => {
 	});
 
 	test("fails worktree-dirty on a clean tree", async () => {
-		const ctx = gateContext({ git: { statusPaths: { changedPaths: [], stagedPaths: [] } } });
+		const ctx = gateContext({ git: { statusPaths: { changedPaths: [] } } });
 
 		const outcome = await verifyRunnerStep(ctx, {
 			mode: "default",
@@ -257,7 +257,7 @@ describe("verifyRunnerStep", () => {
 
 	test("collects all failures without short-circuiting", async () => {
 		const ctx = gateContext({
-			git: { currentBranch: "main", statusPaths: { changedPaths: [], stagedPaths: [] } },
+			git: { currentBranch: "main", statusPaths: { changedPaths: [] } },
 			execResult: { code: 2, stderr: "conflict marker" },
 		});
 

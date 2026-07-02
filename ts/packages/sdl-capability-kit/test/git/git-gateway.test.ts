@@ -507,10 +507,17 @@ describe("real git gateway", () => {
 		commands.assertDone();
 	});
 
-	test("parses status paths from porcelain v1 output", async () => {
+	test("parses status paths from NUL-delimited porcelain v1 output", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["status", "--porcelain=v1"], {
-				stdout: "M  staged.ts\n M unstaged.ts\nR  old.ts -> renamed.ts\n?? fresh.ts\n",
+			step("git", ["status", "--porcelain=v1", "-z"], {
+				stdout: [
+					"M  staged.ts",
+					" M unstaged.ts",
+					"R  renamed.ts",
+					"old.ts",
+					"?? fresh.ts",
+					"",
+				].join("\0"),
 			}),
 		]);
 		const git = new RealGitGateway(commands);
@@ -519,14 +526,13 @@ describe("real git gateway", () => {
 			ok: true,
 			value: {
 				changedPaths: ["staged.ts", "unstaged.ts", "renamed.ts", "fresh.ts"],
-				stagedPaths: ["staged.ts", "renamed.ts"],
 			},
 		});
 		commands.assertDone();
 		expect(commands.execCalls).toEqual([
 			{
 				command: "git",
-				args: ["status", "--porcelain=v1"],
+				args: ["status", "--porcelain=v1", "-z"],
 				options: { cwd: ROOT, timeout: 10_000 },
 			},
 		]);
@@ -534,8 +540,8 @@ describe("real git gateway", () => {
 
 	test("maps status command and parse failures to distinct codes", async () => {
 		const commands = new ScriptedCommands([
-			step("git", ["status", "--porcelain=v1"], { code: 2, stderr: "bad status" }),
-			step("git", ["status", "--porcelain=v1"], { stdout: "garbage-line\n" }),
+			step("git", ["status", "--porcelain=v1", "-z"], { code: 2, stderr: "bad status" }),
+			step("git", ["status", "--porcelain=v1", "-z"], { stdout: "garbage-line\0" }),
 		]);
 		const git = new RealGitGateway(commands);
 

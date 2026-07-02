@@ -45,6 +45,7 @@ export function createRealSdlCommandContext(
 		commandIo,
 		progress: noopSdlProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
+		outputFormat: "human",
 		stdout,
 		stderr,
 		exec: async (command, args, execOptions = {}) => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@sdl/clinkr";
 import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
@@ -32,10 +33,7 @@ function happyGitState(overrides: SequencedGitGatewayState = {}): SequencedGitGa
 		optionalRepoRoot: "/repo",
 		trunkBranch: "main",
 		currentBranchSequence: ["main", "feature/demo-step"],
-		statusPathsSequence: [
-			{ changedPaths: [], stagedPaths: [] },
-			{ changedPaths: ["src/a.ts"], stagedPaths: [] },
-		],
+		statusPathsSequence: [{ changedPaths: [] }, { changedPaths: ["src/a.ts"] }],
 		commitSha: "abc1234",
 		...overrides,
 	};
@@ -50,12 +48,19 @@ interface ScenarioOptions {
 	git?: SequencedGitGatewayState;
 	childScripts?: readonly FakeChildSessionScript[];
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
+	outputFormat?: "human" | "json" | "markdown";
 }
 
 interface Scenario {
 	api: FakeObjectiveSdlApi;
 	command: ReturnType<typeof createObjectiveExecRunnerStepSdlCommand>;
 	childSession: FakeChildSessionGateway;
+}
+
+function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<T>): unknown {
+	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
+	expect(stdout).not.toMatch(/^# Runner Checkpoint:/u);
+	return JSON.parse(stdout) as unknown;
 }
 
 function makeScenario(options: ScenarioOptions = {}): Scenario {
@@ -66,6 +71,7 @@ function makeScenario(options: ScenarioOptions = {}): Scenario {
 		storage: openObjectiveStorage(),
 		childSession,
 		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
+		...(options.outputFormat === undefined ? {} : { outputFormat: options.outputFormat }),
 	});
 	const command = createObjectiveExecRunnerStepSdlCommand({
 		createChildSessionGateway: () => {
@@ -158,7 +164,7 @@ describe("sdl objective exec runner-step scenarios", () => {
 				optionalRepoRoot: "/repo",
 				trunkBranch: "main",
 				currentBranch: "feature/demo-step",
-				statusPaths: { changedPaths: [], stagedPaths: [] },
+				statusPaths: { changedPaths: [] },
 			},
 		});
 
@@ -175,7 +181,7 @@ describe("sdl objective exec runner-step scenarios", () => {
 			optionalRepoRoot: "/repo",
 			trunkBranch: "main",
 			currentBranch: "feature/demo-step",
-			statusPaths: { changedPaths: ["src/a.ts"], stagedPaths: [] },
+			statusPaths: { changedPaths: ["src/a.ts"] },
 			commitSha: "rec1234",
 		};
 		const refused = makeScenario({ git: dirtyGit });
@@ -284,6 +290,79 @@ describe("sdl objective exec runner-step scenarios", () => {
 		expect(api.stdoutChunks.join("")).toContain(
 			"# Runner Checkpoint: demo-objective (verification-failed)",
 		);
+	});
+
+	test("blocked JSON mode emits one machine envelope with checkpoint data", async () => {
+		const { api, command } = makeScenario({
+			outputFormat: "json",
+			childScripts: [
+				{
+					outcome: completed(
+						childReportText({ status: "blocked", stopReason: "missing credentials" }),
+					),
+				},
+			],
+		});
+
+		const exit = await runObjectiveCommand(command, { slug: SLUG }, { api });
+		const envelope = assertJsonEnvelopeStdout(api, exit);
+
+		expect(exit.type).toBe("negative");
+		expect(envelope).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+			data: {
+				status: "blocked",
+				checkpointMarkdown: expect.stringContaining(
+					"# Runner Checkpoint: demo-objective (blocked)",
+				),
+			},
+		});
+	});
+
+	test("verification-failed JSON mode emits one machine envelope with checkpoint data", async () => {
+		const { api, command } = makeScenario({
+			outputFormat: "json",
+			git: happyGitState({ currentBranchSequence: ["main", "main"] }),
+			childScripts: [{ outcome: completed(childReportText({ branch: "main" })) }],
+		});
+
+		const exit = await runObjectiveCommand(command, { slug: SLUG }, { api });
+		const envelope = assertJsonEnvelopeStdout(api, exit);
+
+		expect(exit.type).toBe("negative");
+		expect(envelope).toMatchObject({
+			status: "negative",
+			exitCode: 1,
+			data: {
+				status: "verification-failed",
+				checkpointMarkdown: expect.stringContaining(
+					"# Runner Checkpoint: demo-objective (verification-failed)",
+				),
+			},
+		});
+	});
+
+	test("malfunction JSON mode emits one machine envelope with checkpoint data", async () => {
+		const { api, command } = makeScenario({
+			outputFormat: "json",
+			childScripts: [{ outcome: completed("I did things but forgot the report.") }],
+		});
+
+		const exit = await runObjectiveCommand(command, { slug: SLUG }, { api });
+		const envelope = assertJsonEnvelopeStdout(api, exit);
+
+		expect(exit.type).toBe("failure");
+		expect(envelope).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			data: {
+				status: "malfunction",
+				checkpointMarkdown: expect.stringContaining(
+					"# Runner Checkpoint: demo-objective (malfunction)",
+				),
+			},
+		});
 	});
 
 	test("--timeout propagates to the child dispatch in milliseconds", async () => {

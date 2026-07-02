@@ -361,9 +361,9 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
-		const run = await this.runGitExpectingSuccess(params, ["status", "--porcelain=v1"], {
+		const run = await this.runGitExpectingSuccess(params, ["status", "--porcelain=v1", "-z"], {
 			code: "git_status_paths_failed",
-			title: "git status --porcelain=v1 failed",
+			title: "git status --porcelain=v1 -z failed",
 		});
 		if (!run.ok) return run;
 		return parseGitStatusPaths(run.value.result.stdout);
