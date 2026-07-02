@@ -6,7 +6,7 @@ export {
 	resolveDispatchPromptPayloadOptions,
 	type DispatchPromptPayloadOptions,
 	type HandleCccSlotDispatchPromptOptions,
-} from "./cmux/dispatch-prompt.ts";
+} from "../cmux/dispatch-prompt.ts";
 
 // Claude plan tab
 export {
@@ -14,7 +14,7 @@ export {
 	extractLastAssistantText,
 	buildClaudePlanTabTitle,
 	buildClaudePlanLaunchCommand,
-} from "./cmux/claude-plan-tab.ts";
+} from "../cmux/claude-plan-tab.ts";
 
 // Prompt file utilities
 export {
@@ -22,13 +22,13 @@ export {
 	writeTimestampedPromptFile,
 	type PromptFileOptions,
 	type ResolvedPromptFileOptions,
-} from "./cmux/prompt-file.ts";
+} from "../cmux/prompt-file.ts";
 
 // Dispatch from trunk
 export {
 	handleCccSlotDispatchFromTrunk,
 	createTrackedBranchFromTrunkForPrompt,
-} from "./cmux/dispatch-from-trunk.ts";
+} from "../cmux/dispatch-from-trunk.ts";
 
 // Slot open branch
 export {
@@ -37,7 +37,7 @@ export {
 	extractCommandArgumentPrefix,
 	type HandleCccSlotOpenBranchOptions,
 	type CccSlotOpenBranchOptions,
-} from "./cmux/slot-open-branch.ts";
+} from "../cmux/slot-open-branch.ts";
 
 // Slot dispatch plan
 export {
@@ -45,7 +45,7 @@ export {
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 	type DispatchDestination,
-} from "./cmux/slot-dispatch-plan.ts";
+} from "../cmux/slot-dispatch-plan.ts";
 
 // Sidebar
 export {
@@ -55,7 +55,7 @@ export {
 	buildCmuxBranchStateSidebarPrompt,
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
-} from "./cmux/sidebar.ts";
+} from "../cmux/sidebar.ts";
 
 // Slot client
 export type { SlotClient } from "@sdl/slot/api";

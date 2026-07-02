@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
 
-import registerCccPiExtension from "../src/extension.ts";
+import registerCccPiExtension from "../src/pi/extension.ts";
 
 function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 	return {

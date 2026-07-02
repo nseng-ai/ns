@@ -1,6 +1,6 @@
 # @sdl/pi
 
-`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability-pi packages stacked above `@sdl/pi`; Pi-native standalone tools may live in Local Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@sdl/ccc-pi` capability-pi adapter imports both `@sdl/ccc` and neutral `@sdl/pi/...` helpers so there are no direct `@sdl/ccc` imports from `@sdl/pi/...` and no `@sdl/pi` import or declaration of `@sdl/ccc`.
+`@sdl/pi` is the unified private TypeScript workspace package for this repository's Pi runtime integration. It contains neutral Pi helper subpaths consumed by other workspace packages and the remaining host-resident project-local Pi extension implementations used by `.pi/extensions/*.ts` discovery adapters. Pi presentation for domain capabilities may instead live in capability `pi` subpackages or capability-pi packages stacked above `@sdl/pi`; Pi-native standalone tools may live in Local Pi-tool packages. Those packages consume neutral host helpers while their discovery adapters import the owning package directly. CCC (`@sdl/ccc`) remains the separate orchestration layer for repo-opinionated command-and-control workflows; the `@sdl/ccc/pi` subpackage imports CCC core APIs and neutral `@sdl/pi/...` helpers so there are no direct `@sdl/ccc` imports from `@sdl/pi/...` and no `@sdl/pi` import or declaration of `@sdl/ccc`.
 
 ## Language
 
@@ -17,7 +17,7 @@ A thin project-local extension file whose job is to register Pi commands or tool
 *Avoid*: package export, shim as implementation, generated extension, host-to-tool registry.
 
 **Engineered Pi implementation domain**:
-A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow Pi presentation now lives in `sdl-flow/pi`; Branch Context, Handoff, and Objective Pi presentation live in their own capability-pi packages.
+A tested host-resident implementation area under `ts/packages/hosts/pi/src/<domain>/` for project-local Pi behavior such as PR views, worktree status, terminal presentation, host-owned runtime helpers, and command registration helpers. Flow, CCC, Handoff, and Objective Pi presentation now live in each capability's `pi` subpackage; Branch Context still lives in its capability-pi package pending conversion.
 *Avoid*: old package boundary, leaf package, one root barrel.
 
 **Local Pi-tool package**:
@@ -33,12 +33,12 @@ An implementation module under `ts/packages/hosts/pi/src/` or another owning pac
 *Avoid*: neutral helper, package facade, public npm API.
 
 **CCC orchestration layer**:
-The private TypeScript workspace package at `ts/packages/ccc/` for repo-opinionated workflows spanning Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, source-control flows, and worktree-status observability. CCC owns orchestration policy; Pi owns neutral host helpers and runtime primitives; the **CCC Pi adapter** owns CCC-specific Pi registration and presentation.
+The private TypeScript workspace package at `ts/packages/capabilities/ccc/` for repo-opinionated workflows spanning Pi, cmux, Graphite, Objectives, handoffs, branch-context workflows, source-control flows, and worktree-status observability. CCC owns orchestration policy; Pi owns neutral host helpers and runtime primitives; the **CCC Pi subpackage** owns CCC-specific Pi registration and presentation.
 *Avoid*: Pi discovery adapter, lower capability package, public npm API.
 
-**CCC Pi adapter**:
-The `@sdl/ccc-pi` `capability-pi` package that wires CCC workflows into Pi/cmux presentation by importing `@sdl/ccc` and neutral `@sdl/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@sdl/pi` itself still must not import or declare `@sdl/ccc`.
-*Avoid*: Pi host dependency on CCC, CCC importing Pi host helpers directly, generic local Pi-tool package.
+**CCC Pi subpackage**:
+The `@sdl/ccc/pi` subpackage that wires CCC workflows into Pi/cmux presentation by importing CCC core APIs and neutral `@sdl/pi/...` helper subpaths. It is the home for CCC-specific Pi command registration, acknowledgement/progress wiring, prompt/session formatting, machine-envelope parsing, and slash-command formatting; `@sdl/pi` itself still must not import or declare `@sdl/ccc`.
+*Avoid*: Pi host dependency on CCC, non-`pi` CCC subpackages importing Pi host helpers, generic local Pi-tool package.
 
 **Pi command namespace**:
 The first segment before `:` in a repo-owned Pi slash command, chosen by workflow ownership rather than implementation file. `/pi:*` names Pi-native UI/session affordances; `/ccc:*` names command-and-control or cmux/session orchestration; `/sdl:flow:*` names SDL lifecycle mirrors; `/sdl:branch-context:*` names Pi presentation for Branch Context workflows; `/handoff:*` names durable Handoff artifact lifecycle operations.

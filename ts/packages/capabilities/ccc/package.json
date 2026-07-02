@@ -1,0 +1,55 @@
+{
+	"name": "@sdl/ccc",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"ccc": "./src/core/cli.ts"
+	},
+	"exports": {
+		".": "./src/core/index.ts",
+		"./api": "./src/core/api.ts",
+		"./autoslot": "./src/core/autoslot.ts",
+		"./cli": "./src/core/cli.ts",
+		"./land": "./src/core/land.ts",
+		"./trunk-pull": "./src/core/trunk-pull.ts",
+		"./pi": "./src/pi/index.ts",
+		"./pi/extension": "./src/pi/extension.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/ccc/test"
+	},
+	"dependencies": {
+		"@sdl/branch-context": "workspace:*",
+		"@sdl/capability-kit": "workspace:*",
+		"@sdl/clinkr": "workspace:*",
+		"@sdl/core": "workspace:*",
+		"@sdl/kernel": "workspace:*",
+		"@sdl/objective": "workspace:*",
+		"@sdl/plans": "workspace:*",
+		"@sdl/slot": "workspace:*",
+		"sdl-flow": "workspace:*",
+		"zod": "catalog:"
+	},
+	"peerDependencies": {
+		"@sdl/pi": "workspace:*"
+	},
+	"peerDependenciesMeta": {
+		"@sdl/pi": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@sdl/pi": "workspace:*"
+	},
+	"sdl": {
+		"tier": "capability",
+		"subpackages": [
+			"autobranch",
+			"cmux",
+			"core",
+			"pi"
+		]
+	}
+}

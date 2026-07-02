@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import process from "node:process";
 import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -260,11 +260,10 @@ export function defineCli<
 }
 
 function readCliPackageMetadata(metaUrl: string): CliPackageMetadata {
-	const packageJsonUrl = new URL("../package.json", metaUrl);
-	const packageJsonPath = fileURLToPath(packageJsonUrl);
+	const packageJsonPath = findNearestPackageJson(dirname(fileURLToPath(metaUrl)));
 	let rawPackageJson: unknown;
 	try {
-		rawPackageJson = JSON.parse(readFileSync(packageJsonUrl, "utf8"));
+		rawPackageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 	} catch (error) {
 		throw new Error(`Unable to read CLI package metadata from ${packageJsonPath}`, {
 			cause: error,
@@ -294,6 +293,17 @@ function readCliPackageMetadata(metaUrl: string): CliPackageMetadata {
 		binPath,
 		version: parsed.data.version,
 	};
+}
+
+function findNearestPackageJson(startDir: string): string {
+	let candidate = startDir;
+	while (true) {
+		const packageJsonPath = resolve(candidate, "package.json");
+		if (existsSync(packageJsonPath)) return packageJsonPath;
+		const parent = dirname(candidate);
+		if (parent === candidate) return resolve(startDir, "..", "package.json");
+		candidate = parent;
+	}
 }
 
 function packagePathForDisplay(packageJsonPath: string): string {

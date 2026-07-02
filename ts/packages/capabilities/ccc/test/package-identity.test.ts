@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { CCC_PACKAGE_IDENTITY } from "../src/index.ts";
+import { CCC_PACKAGE_IDENTITY } from "../src/core/index.ts";
 
 describe("CCC package identity", () => {
 	test("records the private orchestration package boundary", () => {
