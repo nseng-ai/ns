@@ -88,6 +88,18 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			}),
 		).toEqual({ type: "success", value: { stdout: "", stderr: "" } });
 		expect(
+			await context.git.snapshotBackupRefs({
+				repoRoot: REPO_ROOT,
+				branches: ["feature/land-core", "feature/child"],
+			}),
+		).toEqual({
+			type: "success",
+			value: new Map([
+				["feature/land-core", FEATURE_SHA],
+				["feature/child", CHILD_SHA],
+			]),
+		});
+		expect(
 			await context.worktrees.classifyWorktree({
 				repoRoot: REPO_ROOT,
 				path: "/repo-slot",
@@ -108,6 +120,9 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 		expect(github.pullRequestFactsCalls).toEqual([{ repoRoot: REPO_ROOT, branchOrNumber: "42" }]);
 		expect(github.squashMergePullRequestCalls).toMatchObject([
 			{ repoRoot: REPO_ROOT, pullRequest: { number: 42, headRefName: "feature/land-core" } },
+		]);
+		expect(git.snapshotBackupRefsCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branches: ["feature/land-core", "feature/child"] },
 		]);
 		expect(worktrees.classifyWorktreeCalls).toEqual([
 			{ repoRoot: REPO_ROOT, path: "/repo-slot", branch: "feature/child" },

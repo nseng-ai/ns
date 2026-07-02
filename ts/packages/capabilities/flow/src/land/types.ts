@@ -271,6 +271,10 @@ export interface LandGitGateway {
 		readonly branch: string;
 		readonly parent: string;
 	}): Promise<LandResult<boolean>>;
+	snapshotBackupRefs(request: {
+		readonly repoRoot: string;
+		readonly branches: readonly string[];
+	}): Promise<LandResult<ReadonlyMap<string, string>>>;
 }
 
 export interface WorkingTreeStatus {

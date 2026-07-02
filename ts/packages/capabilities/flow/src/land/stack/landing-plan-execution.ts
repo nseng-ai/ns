@@ -6,6 +6,7 @@ import {
 	presentLandStackFailure,
 	type LandingSession,
 } from "./landing-coordination.ts";
+import { createLandContext } from "./land-context-adapter.ts";
 import { runMergeLoop } from "./landing-operations.ts";
 import type { PreMergeConfirmation } from "./pre-merge-confirmation.ts";
 import {
@@ -61,8 +62,10 @@ export async function executeLandingPlan(
 	});
 	if (readyPlan.type === "failure") return readyPlan;
 
+	const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 	const mergeOutcome = await runMergeLoop({
 		runtime,
+		git: landContext.git,
 		ctx,
 		plan: readyPlan.value,
 		landed,

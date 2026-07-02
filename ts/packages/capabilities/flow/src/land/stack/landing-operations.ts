@@ -2,7 +2,6 @@ import { formatCommand } from "@sdl/core/command";
 import { exec } from "./command-exec.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import { GH_MERGE_TIMEOUT_MS, SLOT_TIMEOUT_MS } from "./constants.ts";
-import { writeLandBackupRefs } from "./backup-refs.ts";
 import {
 	completed,
 	failure,
@@ -22,7 +21,6 @@ import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
 	LandStackCommandContext,
-	LandStackExtensionAPI,
 	LandedPr,
 	LandingPlan,
 	LandingWarning,
@@ -44,6 +42,8 @@ import {
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
+import { toLandStackFailure } from "./plan-mapping.ts";
+import type { LandGitGateway } from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
 	return [
@@ -184,7 +184,7 @@ export function squashMergeArgs(pr: PullRequestSnapshot): string[] {
 }
 
 export interface PrepareMergeLoopStateOptions {
-	pi: LandStackExtensionAPI;
+	git: LandGitGateway;
 	repoRoot: string;
 	branches: readonly string[];
 	warnings: LandingWarning[];
@@ -193,8 +193,11 @@ export interface PrepareMergeLoopStateOptions {
 export async function prepareMergeLoopState(
 	options: PrepareMergeLoopStateOptions,
 ): Promise<LandStackResult<MergeLoopState>> {
-	const backupRefs = await writeLandBackupRefs(options.pi, options.repoRoot, [...options.branches]);
-	if (backupRefs.type === "failure") return backupRefs;
+	const backupRefs = await options.git.snapshotBackupRefs({
+		repoRoot: options.repoRoot,
+		branches: options.branches,
+	});
+	if (backupRefs.type === "failure") return failure(toLandStackFailure(backupRefs.failure));
 	return success({
 		expectedShas: new Map(backupRefs.value),
 		deletedBranches: new Set(),
@@ -205,6 +208,7 @@ export async function prepareMergeLoopState(
 
 export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	runtime: LandRuntime;
+	git: LandGitGateway;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	landed: LandedPr[];
@@ -220,7 +224,7 @@ export async function runMergeLoop(
 	let state = options.mergeState;
 	if (!state) {
 		const preparedState = await prepareMergeLoopState({
-			pi,
+			git: options.git,
 			repoRoot,
 			branches: [...stack.landingBranches, ...stack.descendantBranches],
 			warnings,

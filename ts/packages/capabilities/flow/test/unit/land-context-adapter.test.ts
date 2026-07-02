@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
+import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 
@@ -24,6 +25,14 @@ const SQUASH_MERGE_ARGS = [
 	"Merge subject",
 	"--body",
 	"Merge body",
+];
+const BACKUP_ROTATION_ARGS = [
+	"fetch",
+	"--quiet",
+	"--prune",
+	"--no-tags",
+	".",
+	`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
 ];
 
 interface ExecCall {
@@ -129,6 +138,89 @@ describe("land context adapter facts", () => {
 		).resolves.toEqual({ type: "success", value: { stdout: "merged\n", stderr: "notice\n" } });
 		expect(pi.execCalls).toEqual([
 			{ command: "gh", args: SQUASH_MERGE_ARGS, options: { cwd: ROOT, timeout: 120000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("snapshots backup refs with the existing rotate-prune-write git argv", async () => {
+		const oldRef = `${BACKUP_REF_NAMESPACE}/old`;
+		const pi = new FakePi([
+			step("git", BACKUP_ROTATION_ARGS),
+			step("git", ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE], {
+				stdout: `${oldRef}\n`,
+			}),
+			step("git", ["update-ref", "-d", oldRef]),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
+				stdout: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+			}),
+			step("git", [
+				"update-ref",
+				`${BACKUP_REF_NAMESPACE}/feature-a`,
+				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			]),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
+				stdout: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n",
+			}),
+			step("git", [
+				"update-ref",
+				`${BACKUP_REF_NAMESPACE}/feature-b`,
+				"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			]),
+		]);
+		const context = createLandContext(pi);
+
+		await expect(
+			context.git.snapshotBackupRefs({
+				repoRoot: ROOT,
+				branches: ["feature-a", "feature-b"],
+			}),
+		).resolves.toEqual({
+			type: "success",
+			value: new Map([
+				["feature-a", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+				["feature-b", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+			]),
+		});
+		expect(pi.execCalls).toEqual([
+			{ command: "git", args: BACKUP_ROTATION_ARGS, options: { cwd: ROOT, timeout: 30000 } },
+			{
+				command: "git",
+				args: ["for-each-ref", "--format=%(refname)", BACKUP_REF_NAMESPACE],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
+			{
+				command: "git",
+				args: ["update-ref", "-d", oldRef],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
+			{
+				command: "git",
+				args: [
+					"update-ref",
+					`${BACKUP_REF_NAMESPACE}/feature-a`,
+					"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
+			{
+				command: "git",
+				args: ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
+			{
+				command: "git",
+				args: [
+					"update-ref",
+					`${BACKUP_REF_NAMESPACE}/feature-b`,
+					"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				],
+				options: { cwd: ROOT, timeout: 30000 },
+			},
 		]);
 		pi.assertDone();
 	});
