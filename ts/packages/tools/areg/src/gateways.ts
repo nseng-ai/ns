@@ -133,6 +133,23 @@ export interface AregCheckPairingDirectory {
 
 export type AregSkillKindSourceType = "local" | "vendored";
 
+export type AregSkillFindRoot = "skills" | ".agents/skills" | ".claude/skills";
+export type AregSkillFindSourceType = "repo" | "vendored" | "claude";
+
+export interface AregSkillFindSkillInspection {
+	name: string;
+	root: AregSkillFindRoot;
+	sourceType: AregSkillFindSourceType;
+	rootRelativePath: AregSkillFindRoot;
+	baseRelativePath: string;
+	skillDir: AregPathState;
+	skillMd: AregTextFileState;
+}
+
+export interface AregSkillFindRootsInspection {
+	skills: readonly AregSkillFindSkillInspection[];
+}
+
 export interface AregSkillKindSkillInspection {
 	name: string;
 	sourceType: AregSkillKindSourceType;
@@ -256,6 +273,7 @@ export interface AregProjectGateway {
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
 	inspectPiSkillInventory(request: AregProjectDirRequest): Promise<AregPiSkillInventoryInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
+	inspectSkillFindRoots(request: AregProjectDirRequest): Promise<AregSkillFindRootsInspection>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
 	inspectSkillKindSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
 	inspectPairingDirectories(

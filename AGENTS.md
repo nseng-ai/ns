@@ -65,7 +65,7 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
 - Use a skill when the user names it or the task matches its description. Multiple named skills mean use all; do not carry skills across turns unless re-mentioned.
 - Read the skill's `SKILL.md` progressively; resolve relative paths from the skill directory; load only needed `references/`; prefer scripts/assets/templates over retyping large blocks.
-- For SDL first-party skills, `skills/<name>/SKILL.md` is canonical. If a repo skill is named in docs or another skill but absent from the prompt's available-skill inventory, look under `skills/<name>/SKILL.md` before treating it as unavailable.
+- For SDL first-party skills, `skills/<name>/SKILL.md` is canonical. If a repo skill is named in docs or another skill but absent from the prompt's available-skill inventory, run `areg skill find <name> --format json`; if it succeeds, read the returned preferred `SKILL.md` path. If it returns suggestions, ask/choose deliberately rather than auto-loading a fuzzy match.
 - If a named skill is missing or unreadable, say so briefly and continue with the best fallback.
 - Before creating, editing, installing, renaming, publishing skills, or touching `skills/` or `.agents/skills/`, read `docs/skill-conventions.md`.
 - Review boundary: real directories under `.agents/skills/` are vendored third-party code. Review agents ignore embedded upstream code for normal lint/type/cleanup expectations and flag only integration-boundary issues unless explicitly asked to review the vendored dependency itself.

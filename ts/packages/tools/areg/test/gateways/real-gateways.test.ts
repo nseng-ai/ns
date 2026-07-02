@@ -156,6 +156,7 @@ describe("real areg gateways", () => {
 			await mkdir(path.join(project, ".agents", "skills", "vendored", "agents"), {
 				recursive: true,
 			});
+			await mkdir(path.join(project, ".claude", "skills", "claude-only"), { recursive: true });
 			await mkdir(path.join(project, ".pi", "extensions"), { recursive: true });
 			await mkdir(
 				path.join(project, "ts", "packages", "local", "pi-tools", "src", "backing-skill-commands"),
@@ -176,6 +177,10 @@ describe("real areg gateways", () => {
 			await writeFile(
 				path.join(project, ".agents", "skills", "vendored", "agents", "openai.yaml"),
 				"policy:\n  allow_implicit_invocation: false\n",
+			);
+			await writeFile(
+				path.join(project, ".claude", "skills", "claude-only", "SKILL.md"),
+				"---\nname: claude-only\n---\n",
 			);
 			await writeFile(
 				path.join(project, ".pi", "settings.json"),
@@ -223,6 +228,10 @@ describe("real areg gateways", () => {
 				skillName: "vendored",
 				env: {},
 			});
+			const findRoots = await gateway.inspectSkillFindRoots({
+				projectDir: base.projectDir,
+				env: {},
+			});
 
 			expect(base).toMatchObject({ projectDir: project, projectPathState: { type: "directory" } });
 			expect(piArtifacts).toMatchObject({
@@ -256,6 +265,12 @@ describe("real areg gateways", () => {
 				skillMd: { type: "file", text: "---\nname: vendored\n---\n" },
 				openaiPolicy: { type: "file" },
 			});
+			expect(findRoots.skills).toMatchObject([
+				{ name: "demo", root: "skills", sourceType: "repo" },
+				{ name: "demo", root: ".agents/skills", sourceType: "vendored" },
+				{ name: "vendored", root: ".agents/skills", sourceType: "vendored" },
+				{ name: "claude-only", root: ".claude/skills", sourceType: "claude" },
+			]);
 			expect(
 				await gateway.resolveSkillKindSpec({
 					projectDir: project,

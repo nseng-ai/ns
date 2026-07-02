@@ -19,6 +19,10 @@ import type {
 	AregProjectRemoveEmptyDirRequest,
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
+	AregSkillFindRoot,
+	AregSkillFindRootsInspection,
+	AregSkillFindSkillInspection,
+	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -45,6 +49,15 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 // AREG imports only the neutral @sdl/pi/commands surface, not project-local
 // Pi extension entrypoints.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
+
+const SKILL_FIND_ROOTS = [
+	{ root: "skills", sourceType: "repo" },
+	{ root: ".agents/skills", sourceType: "vendored" },
+	{ root: ".claude/skills", sourceType: "claude" },
+] as const satisfies ReadonlyArray<{
+	root: AregSkillFindRoot;
+	sourceType: AregSkillFindSourceType;
+}>;
 
 export class RealAregProjectGateway implements AregProjectGateway {
 	private readonly git: GitGateway;
@@ -101,6 +114,13 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			claudeSkillNames: await listChildNames(path.join(request.projectDir, ".claude", "skills")),
 			skillKindNames: await listSkillKindNames(request.projectDir),
 		};
+	}
+
+	async inspectSkillFindRoots(request: {
+		projectDir: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregSkillFindRootsInspection> {
+		return { skills: await inspectSkillFindRoots(request.projectDir) };
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
@@ -378,6 +398,32 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 			return entry.isDirectory() || skillMd.type !== "missing";
 		},
 	});
+}
+
+async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
+	const skills: AregSkillFindSkillInspection[] = [];
+	for (const root of SKILL_FIND_ROOTS) {
+		const rootPath = path.join(projectDir, ...root.root.split("/"));
+		const names = await scanSkillDirectoryNames(rootPath, {
+			keepEntry: async (entry) =>
+				(entry.isDirectory() || entry.isSymbolicLink()) &&
+				(await inspectTextFile(path.join(rootPath, entry.name, "SKILL.md"))).type === "file",
+		});
+		for (const name of names) {
+			const baseRelativePath = `${root.root}/${name}`;
+			const basePath = path.join(rootPath, name);
+			skills.push({
+				name,
+				root: root.root,
+				sourceType: root.sourceType,
+				rootRelativePath: root.root,
+				baseRelativePath,
+				skillDir: await inspectPath(basePath),
+				skillMd: await inspectTextFile(path.join(basePath, "SKILL.md")),
+			});
+		}
+	}
+	return skills;
 }
 
 async function scanSkillDirectoryNames(
