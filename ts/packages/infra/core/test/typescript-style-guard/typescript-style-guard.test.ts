@@ -16,14 +16,20 @@ import {
 	BAN_PACKAGE_TIER_LAYERING,
 	BAN_RAW_PRODUCTION_TIMERS,
 	BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
+	BAN_TOPOLOGY_CIRCLE_CYCLE,
 	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	BAN_SNAKE_CASE_CLI_MACHINE_VALUE,
 	deferredExtensionCycleComponents,
+	deferredTopologyCircleCycles,
 	extensionGraphPackageNames,
+	type DeferredTopologyCircleCycle,
 	type ManifestDependencyField,
 	type PackageTier,
 } from "../support/typescript-style-guard/config.ts";
-import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
+import {
+	collectExtensionDependencyCycleViolations,
+	findCycleComponents,
+} from "../support/typescript-style-guard/dependency-graph.ts";
 import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
 import { collectLocalSpaceAdmissionViolations } from "../support/typescript-style-guard/local-space.ts";
 import {
@@ -39,9 +45,13 @@ import {
 import { collectPackageTierLayeringViolations } from "../support/typescript-style-guard/tier-layering.ts";
 import { collectSubpackageDeclarationConformanceViolations } from "../support/typescript-style-guard/subpackage-conformance.ts";
 import {
+	collectTopologyCircleCycleViolations,
+	collectTopologyCircleImportEdges,
 	collectTopologyCircleLayeringViolations,
 	discoverTopologyCircles,
 	type TopologyCircleFact,
+	type TopologyCircleImportEdge,
+	type TopologyCircleSourceFile,
 } from "../support/typescript-style-guard/topology-circles.ts";
 
 const TEST_FILE = fileURLToPath(import.meta.url);
@@ -753,12 +763,176 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 	});
 
 	test("real repo source circle edges satisfy inherited tier layering", () => {
+		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
+		const importEdges = collectTopologyCircleImportEdges({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName,
+		});
 		const violations = collectTopologyCircleLayeringViolations({
 			repoRoot: REPO_ROOT,
-			packageMetadataByName: loadPackageMetadata(REPO_ROOT),
+			packageMetadataByName,
+			importEdges,
 		});
 
 		expect(formatViolations(violations)).toBe("");
+	});
+});
+
+describe("TypeScript style guard topology-circle cycle rules", () => {
+	const cycleCircles: readonly TopologyCircleFact[] = [
+		{
+			id: "@sdl/core/alpha",
+			packageName: "@sdl/core",
+			component: "alpha",
+			tier: "neutral-infra",
+			path: "synthetic/core/src/alpha",
+		},
+		{
+			id: "@sdl/core/beta",
+			packageName: "@sdl/core",
+			component: "beta",
+			tier: "neutral-infra",
+			path: "synthetic/core/src/beta",
+		},
+		{
+			id: "@sdl/core/gamma",
+			packageName: "@sdl/core",
+			component: "gamma",
+			tier: "neutral-infra",
+			path: "synthetic/core/src/gamma",
+		},
+	];
+	const alphaBetaDeferral: DeferredTopologyCircleCycle = {
+		name: "alpha-beta",
+		packageName: "@sdl/core",
+		circles: new Set(["alpha", "beta"]),
+		reason: "synthetic test deferral",
+	};
+
+	test("rejects a two-circle import cycle with one violation per participating edge", () => {
+		const violations = collectTopologyCircleCycleViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: cycleCircles,
+			files: twoCircleCycleFiles(),
+			deferredCycles: [],
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([
+			BAN_TOPOLOGY_CIRCLE_CYCLE,
+			BAN_TOPOLOGY_CIRCLE_CYCLE,
+		]);
+		expect(formatViolations(violations)).toContain(
+			"non-deferred subpackage circle cycle in @sdl/core among alpha, beta",
+		);
+	});
+
+	test("allows a cycle fully covered by a topology-circle deferral", () => {
+		const violations = collectTopologyCircleCycleViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: cycleCircles,
+			files: twoCircleCycleFiles(),
+			deferredCycles: [alphaBetaDeferral],
+		});
+
+		expect(violations).toEqual([]);
+	});
+
+	test("rejects a larger cycle when a deferral only partially overlaps", () => {
+		const violations = collectTopologyCircleCycleViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: cycleCircles,
+			files: [
+				{
+					path: "synthetic/core/src/alpha/index.ts",
+					content: 'import { beta } from "@sdl/core/beta";\nbeta();',
+				},
+				{
+					path: "synthetic/core/src/beta/index.ts",
+					content: 'import { gamma } from "@sdl/core/gamma";\ngamma();',
+				},
+				{
+					path: "synthetic/core/src/gamma/index.ts",
+					content: 'import { alpha } from "@sdl/core/alpha";\nalpha();',
+				},
+			],
+			deferredCycles: [alphaBetaDeferral],
+		});
+
+		expect(violations).toHaveLength(3);
+		expect(formatViolations(violations)).toContain("alpha-beta");
+	});
+
+	test("allows acyclic one-way edges and same-circle self edges", () => {
+		const violations = collectTopologyCircleCycleViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName: new Map(),
+			circles: cycleCircles,
+			files: [
+				{
+					path: "synthetic/core/src/alpha/index.ts",
+					content:
+						'import { beta } from "@sdl/core/beta";\nimport { helper } from "./helper.ts";\nbeta();\nhelper();',
+				},
+				{
+					path: "synthetic/core/src/alpha/helper.ts",
+					content: "export function helper(): void {}",
+				},
+				{
+					path: "synthetic/core/src/beta/index.ts",
+					content: "export function beta(): void {}",
+				},
+			],
+			deferredCycles: [],
+		});
+
+		expect(violations).toEqual([]);
+	});
+
+	test("real repo source circle layering and cycle checks share collected import edges", () => {
+		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
+		const importEdges = collectTopologyCircleImportEdges({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName,
+		});
+		const layeringViolations = collectTopologyCircleLayeringViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName,
+			importEdges,
+		});
+		const cycleViolations = collectTopologyCircleCycleViolations({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName,
+			importEdges,
+		});
+
+		expect(formatViolations([...layeringViolations, ...cycleViolations])).toBe("");
+	});
+
+	test("topology-circle cycle deferrals exactly match currently detected cycles", () => {
+		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
+		const importEdges = collectTopologyCircleImportEdges({
+			repoRoot: REPO_ROOT,
+			packageMetadataByName,
+		});
+		const actualCycles = detectTopologyCircleCycleComponents(importEdges);
+
+		expect(
+			deferredTopologyCircleCycles
+				.map((deferredCycle) => {
+					const actualCycle = actualCycles.find(
+						(cycle) =>
+							cycle.packageName === deferredCycle.packageName &&
+							setsAreEqual(cycle.circles, deferredCycle.circles),
+					);
+					return actualCycle === undefined
+						? `${deferredCycle.name}: no matching current topology circle cycle`
+						: undefined;
+				})
+				.filter((message) => message !== undefined),
+		).toEqual([]);
 	});
 });
 
@@ -977,6 +1151,11 @@ interface SyntheticEdge {
 	readonly field?: SyntheticDependencyField;
 }
 
+interface TopologyCircleCycleComponent {
+	readonly packageName: string;
+	readonly circles: ReadonlySet<string>;
+}
+
 interface TierLayeringCase {
 	readonly name: string;
 	readonly edges?: readonly SyntheticEdge[];
@@ -1014,6 +1193,72 @@ interface SyntheticSubpackageMetadataOptions {
 	readonly packageDir: string;
 	readonly subpackages: readonly string[];
 	readonly remainder: boolean;
+}
+
+function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
+	return [
+		{
+			path: "synthetic/core/src/alpha/index.ts",
+			content: 'import { beta } from "@sdl/core/beta";\nbeta();',
+		},
+		{
+			path: "synthetic/core/src/beta/index.ts",
+			content: 'import { alpha } from "@sdl/core/alpha";\nalpha();',
+		},
+	];
+}
+
+function detectTopologyCircleCycleComponents(
+	importEdges: readonly TopologyCircleImportEdge[],
+): readonly TopologyCircleCycleComponent[] {
+	const intraPackageEdges = importEdges.filter(
+		(edge) => edge.from.packageName === edge.to.packageName && edge.from.id !== edge.to.id,
+	);
+	const edgesByPackage = new Map<string, TopologyCircleImportEdge[]>();
+	for (const edge of intraPackageEdges) {
+		const packageEdges = edgesByPackage.get(edge.from.packageName) ?? [];
+		packageEdges.push(edge);
+		edgesByPackage.set(edge.from.packageName, packageEdges);
+	}
+
+	const cycles: TopologyCircleCycleComponent[] = [];
+	for (const [packageName, packageEdges] of edgesByPackage) {
+		const circlesById = new Map<string, TopologyCircleFact>();
+		for (const edge of packageEdges) {
+			circlesById.set(edge.from.id, edge.from);
+			circlesById.set(edge.to.id, edge.to);
+		}
+		const components = findCycleComponents(
+			[...circlesById.keys()].sort(),
+			packageEdges.map((edge) => ({ from: edge.from.id, to: edge.to.id })),
+		);
+		for (const component of components) {
+			cycles.push({
+				packageName,
+				circles: new Set(
+					component.map((circleId) => requiredCircleComponent(circlesById, circleId)),
+				),
+			});
+		}
+	}
+	return cycles.sort((left, right) =>
+		`${left.packageName}\0${[...left.circles].sort().join("\0")}`.localeCompare(
+			`${right.packageName}\0${[...right.circles].sort().join("\0")}`,
+		),
+	);
+}
+
+function setsAreEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+	return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function requiredCircleComponent(
+	circlesById: ReadonlyMap<string, TopologyCircleFact>,
+	circleId: string,
+): string {
+	const circle = circlesById.get(circleId);
+	if (circle === undefined) throw new Error(`Missing topology circle ${circleId}`);
+	return circle.component;
 }
 
 function withTempRepo(run: (repoRoot: string) => void): void {

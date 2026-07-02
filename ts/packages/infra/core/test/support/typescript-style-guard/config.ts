@@ -21,6 +21,7 @@ export const BAN_EXTENSION_DEPENDENCY_CYCLE = "SDL_TS_BAN_EXTENSION_DEPENDENCY_C
 export const BAN_LOCAL_SPACE_ADMISSION = "SDL_TS_LOCAL_SPACE_ADMISSION";
 export const BAN_PACKAGE_TIER_LAYERING = "SDL_TS_PACKAGE_TIER_LAYERING";
 export const BAN_TOPOLOGY_CIRCLE_LAYERING = "SDL_TS_TOPOLOGY_CIRCLE_LAYERING";
+export const BAN_TOPOLOGY_CIRCLE_CYCLE = "SDL_TS_TOPOLOGY_CIRCLE_CYCLE";
 export const BAN_SUBPACKAGE_DECLARATION_CONFORMANCE = "SDL_TS_SUBPACKAGE_DECLARATION_CONFORMANCE";
 export const ADVISORY_OPTIONAL_UNDEFINED_PROPERTY = "SDL_TS_ADVISORY_OPTIONAL_UNDEFINED_PROPERTY";
 
@@ -122,5 +123,55 @@ export const extensionGraphPackageNames = new Set([
 ]);
 
 export const deferredExtensionCycleComponents = [];
+
+export interface DeferredTopologyCircleCycle {
+	readonly name: string;
+	readonly packageName: string;
+	readonly circles: ReadonlySet<string>;
+	readonly reason: string;
+}
+
+export const deferredTopologyCircleCycles: readonly DeferredTopologyCircleCycle[] = [
+	{
+		name: "core-primitives-terminal",
+		packageName: "@sdl/core",
+		circles: new Set(["primitives", "terminal"]),
+		reason: "stripTerminalEscapes currently lives in terminal; the fix moves it into primitives.",
+	},
+	{
+		name: "capability-kit-git-kit",
+		packageName: "@sdl/capability-kit",
+		circles: new Set(["git", "kit"]),
+		reason: "root kit exports git while tests consume kit fakes; the fix relocates both edges.",
+	},
+	{
+		name: "kernel-cli-extensions-operations",
+		packageName: "@sdl/kernel",
+		circles: new Set(["cli", "extensions", "operations"]),
+		reason:
+			"command-registry and zod issue helpers are misfiled; the fix folds operations into cli.",
+	},
+	{
+		name: "slot-core-lifecycle",
+		packageName: "@sdl/slot",
+		circles: new Set(["core", "lifecycle"]),
+		reason:
+			"core command operations currently sit above lifecycle; the fix moves them into lifecycle.",
+	},
+	{
+		name: "flow-api-core-land-submit",
+		packageName: "sdl-flow",
+		circles: new Set(["api", "core", "land", "submit"]),
+		reason:
+			"orchestrator logic in api and submit wrappers in core form a cycle; the fix relocates both.",
+	},
+	{
+		name: "pi-host-five-circle",
+		packageName: "@sdl/pi",
+		circles: new Set(["kit", "commands", "runtime", "parity", "core"]),
+		reason:
+			"bottom types and parity base are misfiled; the fix moves modules into runtime and parity.",
+	},
+];
 
 export type ManifestDependencyField = (typeof manifestDependencyFields)[number];

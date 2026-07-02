@@ -91,11 +91,11 @@ export function collectExtensionManifestWorkspaceEdges(
 	return edges;
 }
 
-export function findCycleComponents(
-	packageNames: readonly string[],
-	edges: readonly ExtensionManifestWorkspaceEdge[],
+export function findCycleComponents<TEdge extends { readonly from: string; readonly to: string }>(
+	names: readonly string[],
+	edges: readonly TEdge[],
 ): string[][] {
-	const adjacency = new Map<string, string[]>(packageNames.map((packageName) => [packageName, []]));
+	const adjacency = new Map<string, string[]>(names.map((name) => [name, []]));
 	for (const edge of edges) {
 		if (!adjacency.has(edge.from)) adjacency.set(edge.from, []);
 		if (!adjacency.has(edge.to)) adjacency.set(edge.to, []);

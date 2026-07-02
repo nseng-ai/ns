@@ -4,11 +4,15 @@ import { dirname, join, normalize, relative, resolve } from "node:path";
 import * as ts from "typescript";
 
 import {
+	BAN_TOPOLOGY_CIRCLE_CYCLE,
 	BAN_TOPOLOGY_CIRCLE_LAYERING,
 	allowedPackageTierDebtEdges,
+	deferredTopologyCircleCycles,
 	packageTierAllowedTargets,
+	type DeferredTopologyCircleCycle,
 	type PackageTier,
 } from "./config.ts";
+import { findCycleComponents } from "./dependency-graph.ts";
 import { findTypeScriptSourceFiles } from "./file-discovery.ts";
 import {
 	moduleSpecifierText,
@@ -31,14 +35,31 @@ export interface TopologyCircleSourceFile {
 	readonly content: string;
 }
 
-export interface TopologyCircleLayeringOptions {
+export interface TopologyCircleImportEdgeOptions {
 	readonly repoRoot: string;
 	readonly packageMetadataByName: ReadonlyMap<string, PackageMetadata>;
 	readonly files?: readonly TopologyCircleSourceFile[];
 	readonly circles?: readonly TopologyCircleFact[];
 }
 
-interface ImportEdge {
+export interface TopologyCircleLayeringOptions extends TopologyCircleImportEdgeOptions {
+	readonly importEdges?: readonly TopologyCircleImportEdge[];
+}
+
+export interface TopologyCircleCycleOptions extends TopologyCircleImportEdgeOptions {
+	readonly importEdges?: readonly TopologyCircleImportEdge[];
+	readonly deferredCycles?: readonly DeferredTopologyCircleCycle[];
+}
+
+export interface TopologyCircleImportEdge extends Pick<
+	SourceRuleViolation,
+	"path" | "line" | "column"
+> {
+	readonly from: TopologyCircleFact;
+	readonly to: TopologyCircleFact;
+}
+
+interface RawImportEdge {
 	readonly from: TopologyCircleFact;
 	readonly to: TopologyCircleFact;
 	readonly path: string;
@@ -80,9 +101,9 @@ export function discoverTopologyCircles(
 	return circles;
 }
 
-export function collectTopologyCircleLayeringViolations(
-	options: TopologyCircleLayeringOptions,
-): SourceRuleViolation[] {
+export function collectTopologyCircleImportEdges(
+	options: TopologyCircleImportEdgeOptions,
+): TopologyCircleImportEdge[] {
 	const circlesById =
 		options.circles === undefined
 			? discoverTopologyCircles(options.repoRoot, options.packageMetadataByName)
@@ -90,22 +111,115 @@ export function collectTopologyCircleLayeringViolations(
 	const circles = [...circlesById.values()];
 	const files =
 		options.files ?? collectProductionSourceFiles(options.repoRoot, options.packageMetadataByName);
-	const violations: SourceRuleViolation[] = [];
+	const virtualSourcePaths = new Set((options.files ?? []).map((sourceFile) => sourceFile.path));
+	const edges: TopologyCircleImportEdge[] = [];
 
 	for (const file of files) {
 		const from = circleForPath(file.path, options.repoRoot, circles);
 		if (from === undefined) continue;
 		const sourceFile = parseTypeScriptSource(file.path, file.content);
-		for (const edge of collectImportEdges({ file, sourceFile, from, circles, options })) {
-			if (edge.from.id === edge.to.id) continue;
-			if (isAllowedCircleEdge(edge.from, edge.to)) continue;
-			violations.push({
-				rule: BAN_TOPOLOGY_CIRCLE_LAYERING,
+		for (const edge of collectImportEdges({
+			file,
+			sourceFile,
+			from,
+			circles,
+			repoRoot: options.repoRoot,
+			virtualSourcePaths,
+		})) {
+			edges.push({
+				from: edge.from,
+				to: edge.to,
 				...sourceLocationFields(edge.path, edge.sourceFile, edge.node),
-				text:
-					`Topology circle dependency violates tier layering: ${edge.from.id} (${edge.from.tier}) -> ${edge.to.id} (${edge.to.tier}); ` +
-					`${edge.from.tier}-must-not-depend-on-${edge.to.tier}.`,
 			});
+		}
+	}
+
+	return edges;
+}
+
+export function collectTopologyCircleLayeringViolations(
+	options: TopologyCircleLayeringOptions,
+): SourceRuleViolation[] {
+	const importEdges = options.importEdges ?? collectTopologyCircleImportEdges(options);
+	const violations: SourceRuleViolation[] = [];
+
+	for (const edge of importEdges) {
+		if (edge.from.id === edge.to.id) continue;
+		if (isAllowedCircleEdge(edge.from, edge.to)) continue;
+		violations.push({
+			rule: BAN_TOPOLOGY_CIRCLE_LAYERING,
+			path: edge.path,
+			line: edge.line,
+			column: edge.column,
+			text:
+				`Topology circle dependency violates tier layering: ${edge.from.id} (${edge.from.tier}) -> ${edge.to.id} (${edge.to.tier}); ` +
+				`${edge.from.tier}-must-not-depend-on-${edge.to.tier}.`,
+		});
+	}
+
+	return violations;
+}
+
+export function collectTopologyCircleCycleViolations(
+	options: TopologyCircleCycleOptions,
+): SourceRuleViolation[] {
+	const deferredCycles = options.deferredCycles ?? deferredTopologyCircleCycles;
+	const importEdges = options.importEdges ?? collectTopologyCircleImportEdges(options);
+	const intraPackageEdges = importEdges.filter(
+		(edge) => edge.from.packageName === edge.to.packageName && edge.from.id !== edge.to.id,
+	);
+	const edgesByPackage = new Map<string, TopologyCircleImportEdge[]>();
+	for (const edge of intraPackageEdges) {
+		const packageEdges = edgesByPackage.get(edge.from.packageName) ?? [];
+		packageEdges.push(edge);
+		edgesByPackage.set(edge.from.packageName, packageEdges);
+	}
+
+	const violations: SourceRuleViolation[] = [];
+	for (const [packageName, packageEdges] of [...edgesByPackage.entries()].sort(([left], [right]) =>
+		left.localeCompare(right),
+	)) {
+		const circlesById = new Map<string, TopologyCircleFact>();
+		for (const edge of packageEdges) {
+			circlesById.set(edge.from.id, edge.from);
+			circlesById.set(edge.to.id, edge.to);
+		}
+		const cycleComponents = findCycleComponents(
+			[...circlesById.keys()].sort(),
+			packageEdges.map((edge) => ({ from: edge.from.id, to: edge.to.id })),
+		);
+
+		for (const component of cycleComponents) {
+			const componentIds = new Set(component);
+			const componentNames = component
+				.map((id) => requiredCircle(circlesById, id).component)
+				.sort();
+			const componentNameSet = new Set(componentNames);
+			const deferredCycle = findContainingDeferredTopologyCircleCycle(
+				packageName,
+				componentNameSet,
+				deferredCycles,
+			);
+			if (deferredCycle !== undefined) continue;
+
+			const circlesText = componentNames.join(", ");
+			const overlapText = formatDeferredTopologyCircleCycleOverlap(
+				packageName,
+				componentNameSet,
+				deferredCycles,
+			);
+			for (const edge of packageEdges) {
+				if (!componentIds.has(edge.from.id) || !componentIds.has(edge.to.id)) continue;
+				violations.push({
+					rule: BAN_TOPOLOGY_CIRCLE_CYCLE,
+					path: edge.path,
+					line: edge.line,
+					column: edge.column,
+					text:
+						`non-deferred subpackage circle cycle in ${packageName} among ${circlesText}; edge ${edge.from.id} -> ${edge.to.id} participates. ` +
+						`Break the cycle by making imports flow one way between circles, or add a deferredTopologyCircleCycles entry in config.ts${overlapText}.`,
+				});
+			}
 		}
 	}
 
@@ -137,9 +251,10 @@ function collectImportEdges(args: {
 	readonly sourceFile: ts.SourceFile;
 	readonly from: TopologyCircleFact;
 	readonly circles: readonly TopologyCircleFact[];
-	readonly options: TopologyCircleLayeringOptions;
-}): readonly ImportEdge[] {
-	const edges: ImportEdge[] = [];
+	readonly repoRoot: string;
+	readonly virtualSourcePaths: ReadonlySet<string>;
+}): readonly RawImportEdge[] {
+	const edges: RawImportEdge[] = [];
 
 	function visit(node: ts.Node): void {
 		if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -149,9 +264,9 @@ function collectImportEdges(args: {
 				const to = circleForSpecifier(
 					specifier,
 					args.file.path,
-					args.options.repoRoot,
+					args.repoRoot,
 					args.circles,
-					new Set((args.options.files ?? []).map((sourceFile) => sourceFile.path)),
+					args.virtualSourcePaths,
 				);
 				if (to !== undefined) {
 					edges.push({
@@ -260,6 +375,45 @@ function resolveSourceFile(
 			virtualPaths.has(relativeCandidate) || (existsSync(candidate) && statSync(candidate).isFile())
 		);
 	});
+}
+
+function findContainingDeferredTopologyCircleCycle(
+	packageName: string,
+	componentNames: ReadonlySet<string>,
+	deferredCycles: readonly DeferredTopologyCircleCycle[],
+): DeferredTopologyCircleCycle | undefined {
+	return deferredCycles.find(
+		(deferredCycle) =>
+			deferredCycle.packageName === packageName &&
+			[...componentNames].every((componentName) => deferredCycle.circles.has(componentName)),
+	);
+}
+
+function formatDeferredTopologyCircleCycleOverlap(
+	packageName: string,
+	componentNames: ReadonlySet<string>,
+	deferredCycles: readonly DeferredTopologyCircleCycle[],
+): string {
+	const overlappingNames = deferredCycles
+		.filter(
+			(deferredCycle) =>
+				deferredCycle.packageName === packageName &&
+				[...componentNames].some((componentName) => deferredCycle.circles.has(componentName)),
+		)
+		.map((deferredCycle) => deferredCycle.name)
+		.sort();
+	return overlappingNames.length === 0
+		? ""
+		: `; overlaps deferredTopologyCircleCycles entry/entries: ${overlappingNames.join(", ")}`;
+}
+
+function requiredCircle(
+	circlesById: ReadonlyMap<string, TopologyCircleFact>,
+	circleId: string,
+): TopologyCircleFact {
+	const circle = circlesById.get(circleId);
+	if (circle === undefined) throw new Error(`Missing topology circle ${circleId}`);
+	return circle;
 }
 
 function isCircleGuardEnabledPackage(metadata: PackageMetadata): boolean {
