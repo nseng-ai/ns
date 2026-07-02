@@ -10,8 +10,8 @@ import { flowPullTrunkCommand } from "../../src/commands/pull-trunk.ts";
 import { flowPushCommand } from "../../src/commands/push.ts";
 import { flowRegeneratePrCommand } from "../../src/commands/regenerate-pr.ts";
 import { flowSubmitCommand } from "../../src/commands/submit.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "sdl-sdk";
-import { failed } from "sdl-sdk";
+import type { SdlCommand, SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
+import { failed } from "@sdl/kernel/sdk";
 
 import {
 	ScriptedSdlTestContext,

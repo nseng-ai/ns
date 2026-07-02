@@ -133,7 +133,7 @@ Manifest command entries require `name`, `description`, and a relative POSIX-sty
 SDL extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current SDL surface.
 
 ```ts
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [
@@ -161,24 +161,24 @@ Dynamic Pi `/sdl:*` mirrors are not part of this first general extension-loading
 
 ## SDL extension API
 
-SDL extension authors import the SDK surface, including schema builder `z`, from the `sdl-sdk` package:
+SDL extension authors import the SDK surface, including schema builder `z`, from the `@sdl/kernel/sdk` subpath:
 
 ```ts
-import { defineExtension, failed, ok, z } from "sdl-sdk";
-import type { SdlExtensionApi, SdlResult } from "sdl-sdk";
+import { defineExtension, failed, ok, z } from "@sdl/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
 ```
 
-`sdl-sdk` is the SDL author SDK package and the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions. That `sdl-sdk` package is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
+`@sdl/kernel/sdk` is the SDL author SDK subpackage and the SDK layer; `@sdl/kernel` is the host/kernel container that loads extensions. That `@sdl/kernel/sdk` subpath is the public author API for SDL extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
 SDL command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal SDL implementation modules.
 
-Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `sdl-sdk` or another documented package export; do not create a package → extension dependency.
+Single-file SDL extension modules such as `.sdl/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@sdl/kernel/sdk` or another documented package export; do not create a package → extension dependency.
 
-The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.sdl/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `sdl-sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
+The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.sdl/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@sdl/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal workspace exports and Capability APIs
 
-The author SDK is no longer a `@sdl/kernel` subpath: it is the separate `sdl-sdk` package. Remaining `@sdl/kernel` subpaths are narrow `sdl.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
+The author SDK is the `@sdl/kernel/sdk` subpath. Remaining `@sdl/kernel` subpaths are narrow `sdl.internalWorkspaceExports` for SDL-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
 SDK-independent domain primitives that used to live behind `@sdl/kernel/*` internal subpaths now live as precise `@sdl/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
 
@@ -190,8 +190,8 @@ The grouped flow extension uses a conservative maturity ladder for repeated comm
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
 2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@sdl/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@sdl/capability-kit/*` subpaths unless and until a separate decision promotes them to `sdl-sdk`.
-4. **Public SDK:** a separately approved promotion into `sdl-sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
+3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. SDL-owned kernel/presentation seams stay under `@sdl/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@sdl/capability-kit/*` subpaths unless and until a separate decision promotes them to `@sdl/kernel/sdk`.
+4. **Public SDK:** a separately approved promotion into `@sdl/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
 This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `sdl-flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
 

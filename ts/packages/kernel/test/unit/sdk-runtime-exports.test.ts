@@ -1,7 +1,44 @@
 import { describe, expect, test } from "vitest";
 import { z as zod } from "zod";
 
-import * as sdk from "sdl-sdk";
+import {
+	defineExtension,
+	defineRepoLocalSdlExtensionDescriptor,
+	failed,
+	noopSdlCommandIo,
+	noopSdlProgress,
+	normalizeTextOutput,
+	ok,
+	repoLocalSdlCommandDescriptor,
+	sdlExtensionManifestCommandSchema,
+	sdlExtensionManifestSchema,
+	sdlExtensionPackageManifestSchema,
+	stripOuterCodeFence,
+	trimOuterBlankLines,
+	truncateTextHead,
+	truncateTextHeadTail,
+	z,
+	type SdlCommand,
+} from "@sdl/kernel/sdk";
+
+const runtimeExports = {
+	defineExtension,
+	defineRepoLocalSdlExtensionDescriptor,
+	failed,
+	noopSdlCommandIo,
+	noopSdlProgress,
+	normalizeTextOutput,
+	repoLocalSdlCommandDescriptor,
+	ok,
+	sdlExtensionManifestCommandSchema,
+	sdlExtensionManifestSchema,
+	sdlExtensionPackageManifestSchema,
+	stripOuterCodeFence,
+	trimOuterBlankLines,
+	truncateTextHead,
+	truncateTextHeadTail,
+	z,
+} satisfies Record<string, unknown>;
 
 const EXPECTED_RUNTIME_EXPORTS = [
 	"defineExtension",
@@ -22,29 +59,27 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"z",
 ] as const;
 
-describe("sdl-sdk runtime exports", () => {
+describe("@sdl/kernel/sdk runtime exports", () => {
 	test("exposes the intended runtime author surface", () => {
-		expect(Object.keys(sdk).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
+		expect(Object.keys(runtimeExports).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
 	});
 
 	test("provides result helpers, noop services, and the shared schema builder", () => {
-		expect(sdk.ok("done")).toEqual({ ok: true, message: "done" });
-		expect(sdk.failed("nope", 3)).toEqual({ ok: false, exitCode: 3, message: "nope" });
-		expect(() => sdk.noopSdlCommandIo.phase("working")).not.toThrow();
-		expect(() =>
-			sdk.noopSdlProgress.phase({ type: "phase-started", phaseKey: "test" }),
-		).not.toThrow();
-		expect(sdk.z).toBe(zod);
+		expect(ok("done")).toEqual({ ok: true, message: "done" });
+		expect(failed("nope", 3)).toEqual({ ok: false, exitCode: 3, message: "nope" });
+		expect(() => noopSdlCommandIo.phase("working")).not.toThrow();
+		expect(() => noopSdlProgress.phase({ type: "phase-started", phaseKey: "test" })).not.toThrow();
+		expect(z).toBe(zod);
 	});
 
 	test("defineExtension preserves the extension object at runtime", () => {
 		const extension = {};
-		expect(sdk.defineExtension(extension)).toBe(extension);
+		expect(defineExtension(extension)).toBe(extension);
 	});
 
 	test("defineRepoLocalSdlExtensionDescriptor preserves the descriptor object at runtime", () => {
 		const descriptor = { group: "example", description: "Example.", commands: [] };
-		expect(sdk.defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
+		expect(defineRepoLocalSdlExtensionDescriptor(descriptor)).toBe(descriptor);
 	});
 
 	test("repoLocalSdlCommandDescriptor keeps command name as the default leaf slug", () => {
@@ -52,11 +87,11 @@ describe("sdl-sdk runtime exports", () => {
 			name: "list",
 			summary: "List things.",
 			description: "List things.",
-			run: () => sdk.ok("done"),
-		} satisfies sdk.SdlCommand;
+			run: () => ok("done"),
+		} satisfies SdlCommand;
 
 		expect(
-			sdk.repoLocalSdlCommandDescriptor({
+			repoLocalSdlCommandDescriptor({
 				command,
 				manifestPath: ["review", "list"],
 				packageExportPrefix: "@sdl/example/commands",
@@ -74,11 +109,11 @@ describe("sdl-sdk runtime exports", () => {
 			name: "list",
 			summary: "List things.",
 			description: "List things.",
-			run: () => sdk.ok("done"),
-		} satisfies sdk.SdlCommand;
+			run: () => ok("done"),
+		} satisfies SdlCommand;
 
 		expect(
-			sdk.repoLocalSdlCommandDescriptor({
+			repoLocalSdlCommandDescriptor({
 				command,
 				manifestName: "review-list",
 				manifestPath: ["review", "list"],
@@ -94,7 +129,7 @@ describe("sdl-sdk runtime exports", () => {
 	});
 
 	test("extension manifest schemas accept permissive package manifests", () => {
-		const parsed = sdk.sdlExtensionPackageManifestSchema.parse({
+		const parsed = sdlExtensionPackageManifestSchema.parse({
 			description: "Package description.",
 			private: true,
 			sdl: {
@@ -118,7 +153,7 @@ describe("sdl-sdk runtime exports", () => {
 		expect(parsed.private).toBe(true);
 		expect(parsed.sdl?.owner).toBe("repo-local");
 		expect(parsed.sdl?.commands?.[0]).toMatchObject({ futureField: "kept" });
-		expect(sdk.sdlExtensionManifestCommandSchema.parse(parsed.sdl?.commands?.[0])).toMatchObject({
+		expect(sdlExtensionManifestCommandSchema.parse(parsed.sdl?.commands?.[0])).toMatchObject({
 			name: "changes",
 			futureField: "kept",
 		});

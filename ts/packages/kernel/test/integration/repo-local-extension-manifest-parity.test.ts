@@ -12,11 +12,11 @@ import { roasterRepoLocalSdlExtension } from "@sdl/roaster/repo-local-sdl-extens
 import type {
 	RepoLocalSdlExtensionCommandDescriptor,
 	RepoLocalSdlExtensionDescriptor,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 import {
 	discoverSdlPackageCommands,
 	type DiscoveredExtensionCommand,
-} from "../../src/extension-discovery.ts";
+} from "../../src/extensions/discovery.ts";
 
 interface NormalizedManifestCommand {
 	readonly name: string;

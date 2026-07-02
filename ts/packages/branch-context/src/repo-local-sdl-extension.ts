@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { branchContextAttachSdlCommand } from "./sdl/commands/attach.ts";
 import { branchContextCheckSdlCommand } from "./sdl/commands/check.ts";

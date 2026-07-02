@@ -1,5 +1,5 @@
 import { createSdlGitGateway } from "@sdl/capability-kit/git";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { RealObjectiveStorageGateway } from "../real-storage.ts";
 import { ObjectiveStorage } from "../storage.ts";

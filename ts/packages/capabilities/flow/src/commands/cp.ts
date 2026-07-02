@@ -1,6 +1,6 @@
-import type { SdlProgressPhaseListener } from "sdl-sdk";
+import type { SdlProgressPhaseListener } from "@sdl/kernel/sdk";
 import type { TextGenerator } from "@sdl/capability-kit/text-generation";
-import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
+import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/kernel/sdk";
 import {
 	CP_PHASES,
 	flowStreamDeps,

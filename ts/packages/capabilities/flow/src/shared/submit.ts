@@ -11,7 +11,7 @@ import {
 	type SubmitFailureTranscript,
 } from "../submit/index.ts";
 
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 export { RealGithubPrGateway, RealSubmitGateway, RealSubmitMetadataGateway, runSubmitCommand };
 export type { RunSubmitCommandOptions, SubmitCommandResult, SubmitFailureTranscript };
@@ -23,7 +23,7 @@ export interface SdlSubmitRuntime {
 	prDescription: RunSubmitCommandOptions["prDescription"];
 }
 
-/** Temporary internal migration seam; not exported from `sdl-sdk`. */
+/** Temporary internal migration seam; not exported from `@sdl/kernel/sdk`. */
 export function createSdlSubmitRuntime(ctx: SdlExtensionApi): SdlSubmitRuntime {
 	const commandRunner = createSdlCommandRunner(ctx);
 	return {

@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import type { ExecResult, SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import type { ExecResult, SdlExecOptions, SdlExtensionApi } from "@sdl/kernel/sdk";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const SHARED_GIT_HELPER_PATH = join(REPO_ROOT, "ts/packages/capabilities/flow/src/shared/git.ts");

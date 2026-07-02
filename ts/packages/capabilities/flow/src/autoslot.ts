@@ -1,6 +1,6 @@
 import type { Caps } from "@sdl/clinkr";
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,

@@ -3,7 +3,7 @@ import {
 	type SdlDomainCommandOptions,
 } from "@sdl/capability-kit/sdl-command";
 import { optionalEntry } from "@sdl/core/primitives";
-import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "sdl-sdk";
+import type { SdlCommand, SdlCommandSchema, SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { createRealBranchContextCliContext, type BranchContextCliContext } from "../operations.ts";
 

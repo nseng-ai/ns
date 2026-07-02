@@ -1,5 +1,5 @@
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo, SdlConfirmOptions } from "sdl-sdk";
+import type { SdlCommandIo, SdlConfirmOptions } from "@sdl/kernel/sdk";
 import type { ExecOutputListener } from "@sdl/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
 import { createFlowCliCommandIo } from "./cli-command-io.ts";

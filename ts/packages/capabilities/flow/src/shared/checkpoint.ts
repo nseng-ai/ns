@@ -1,6 +1,6 @@
 import { runCommand } from "@sdl/core/exec";
 import type { CommandRunner, ExecResult } from "@sdl/core/command";
-import type { SdlProgressPhaseListener } from "sdl-sdk";
+import type { SdlProgressPhaseListener } from "@sdl/kernel/sdk";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import { createSdlCommandRunner } from "@sdl/capability-kit/command-runner";
 import type { TextRepairProgressEvent } from "@sdl/capability-kit/text-repair";
@@ -9,7 +9,7 @@ import {
 	prepareCheckpointMessage,
 	type CommandResult,
 } from "@sdl/capability-kit/checkpoint-flow";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 import {
 	formatPendingWorktreeCommandDetails,
 	loadPendingWorktreeSnapshot,

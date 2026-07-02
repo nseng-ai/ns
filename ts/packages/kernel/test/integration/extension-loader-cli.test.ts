@@ -54,7 +54,7 @@ describe("SDL extension loader CLI integration", () => {
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -93,7 +93,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"cp.ts",
 			`
-import { defineExtension, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -124,7 +124,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -155,7 +155,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok, z } from "sdl-sdk";
+import { defineExtension, ok, z } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -206,7 +206,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Hello", description: "Hello", run() { return ok("hello"); } }],
 });
@@ -226,7 +226,7 @@ export default defineExtension({
 		const cwd = await createExtensionProject(
 			"hello.ts",
 			`
-import { defineExtension } from "sdl-sdk";
+import { defineExtension } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -244,7 +244,7 @@ export default defineExtension({
 		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain("Invalid SDL extension contribution extensions/hello.ts");
 		expect(run.stderr.join("")).toContain(
-			"command schema must be a Zod object schema from sdl-sdk",
+			"command schema must be a Zod object schema from @sdl/kernel/sdk",
 		);
 		expect(run.context.execCalls).toEqual([]);
 	});

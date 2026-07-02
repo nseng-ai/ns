@@ -8,7 +8,7 @@ import {
 import { createSdlCliExecAdapter, execSdlCommand } from "@sdl/capability-kit/git";
 import { formatCommandDetails, formatCommandError, type ExecResult } from "@sdl/core/command";
 import { withTemporaryFile } from "@sdl/capability-kit/temp-files";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { execFlowGit } from "./git.ts";
 

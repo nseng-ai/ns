@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { handoffCreateSdlCommand } from "./sdl/commands/create.ts";
 import { handoffDeleteSdlCommand } from "./sdl/commands/delete.ts";

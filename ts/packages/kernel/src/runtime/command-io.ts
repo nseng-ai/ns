@@ -5,7 +5,7 @@ import type {
 	SdlExtensionApi,
 	SdlNotifyLevel,
 	SdlOutputStream,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 
 export interface SdlExtensionCommandIoOptions {
 	statusKey?: string;
@@ -48,7 +48,7 @@ export interface CommandIoChannels {
 	shouldSuppress?: boolean;
 }
 
-export { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+export { noopSdlCommandIo, noopSdlProgress } from "../sdk/index.ts";
 
 export async function runWithSdlCommandIo<T>(
 	io: SdlCommandIo,

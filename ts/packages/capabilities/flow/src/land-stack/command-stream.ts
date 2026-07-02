@@ -1,5 +1,5 @@
 import { createCommandIo } from "@sdl/kernel/command-io";
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { type ExecResult, formatCommand, runNormalizedExecResult } from "@sdl/core/command";
 import { formatElapsedMs } from "@sdl/core/time-format";
 import {

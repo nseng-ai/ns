@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
-import type { TextGenerationResult } from "sdl-sdk";
+import type { TextGenerationResult } from "@sdl/kernel/sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";

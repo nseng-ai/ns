@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
-import type { SdlConfirmOptions } from "sdl-sdk";
+import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import {
 	parsePullRequestView,

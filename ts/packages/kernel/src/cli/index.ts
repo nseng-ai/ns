@@ -32,7 +32,7 @@ import {
 	type SdlCommandPath,
 } from "./command-registry.ts";
 import { createRealSdlCommandContext } from "./context.ts";
-import { createCliCommandIo, noopSdlProgress } from "./sdk/command-io.ts";
+import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	commandInfosForSelectedCommand,
@@ -44,19 +44,19 @@ import {
 	type ExtensionCommandCandidate,
 	type SelectedSdlCommandLoadResult,
 	type SdlCommandCatalog,
-} from "./extension-registry.ts";
+} from "../extensions/registry.ts";
 import type {
 	RenderCapabilities,
 	SdlCommand,
 	SdlConfirmPrompt,
 	SdlExtensionApi,
 	SdlOutputStream,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 import {
 	buildSdlCompletionScript,
 	renderSdlCompletionScriptResult,
 	sdlCompletionScriptResultSchema,
-} from "./operations/completion.ts";
+} from "../operations/completion.ts";
 import {
 	renderSdlShellInstall,
 	renderSdlShellShow,
@@ -66,7 +66,7 @@ import {
 	sdlShellInstallResultSchema,
 	sdlShellShowRequestSchema,
 	sdlShellShowResultSchema,
-} from "./operations/shell.ts";
+} from "../operations/shell.ts";
 
 export type { SdlCommandInfo } from "./command-registry.ts";
 
@@ -103,7 +103,7 @@ interface SdlCliBuildState {
 }
 
 const entry = defineCli<SdlCliContext, SdlCliDeps, SdlCliBuildState>({
-	metaUrl: import.meta.url,
+	metaUrl: new URL("../cli.ts", import.meta.url).href,
 	runtime: "typescript",
 	description: "Source Development Lifecycle tools.",
 	prepareRun: async ({ args, deps, cwd, env, stdout, stderr, io }) => {

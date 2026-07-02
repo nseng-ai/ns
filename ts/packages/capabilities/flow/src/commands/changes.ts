@@ -1,7 +1,7 @@
 import { dim, glyph, renderBufferedReport } from "@sdl/core/cli-theme";
 import { commandIoFromSdlExtensionApi, runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import { renderCapabilitiesForTerminal, type Caps } from "@sdl/clinkr";
-import { defineExtension, failed, ok, type SdlCommand } from "sdl-sdk";
+import { defineExtension, failed, ok, type SdlCommand } from "@sdl/kernel/sdk";
 import { prepareFlowChangesSummary } from "../shared/model-generation.ts";
 import {
 	CHANGES_MODEL_ENV,

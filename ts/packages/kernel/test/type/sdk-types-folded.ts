@@ -1,4 +1,4 @@
-import { defineExtension, failed, ok, z } from "sdl-sdk";
+import { defineExtension, failed, ok, z } from "@sdl/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
@@ -17,7 +17,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

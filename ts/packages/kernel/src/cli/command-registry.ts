@@ -7,7 +7,7 @@ import {
 	type SdlCommandSchema,
 	type SdlExtensionApi,
 	type SdlResult,
-} from "sdl-sdk";
+} from "../sdk/index.ts";
 
 import { classifyZodIssuePath, type ZodIssuePathRule } from "./zod-issue-path.ts";
 
@@ -241,7 +241,7 @@ const sdlExtensionCommandEntryIssueFields = [
 	{ field: "name", message: "command name must be a string" },
 	{ field: "summary", message: "command summary must be a string" },
 	{ field: "description", message: "command description must be a string" },
-	{ field: "schema", message: "command schema must be a Zod object schema from sdl-sdk" },
+	{ field: "schema", message: "command schema must be a Zod object schema from @sdl/kernel/sdk" },
 	{ field: "options", message: "command options must be an object" },
 	{ field: "completionProvider", message: "command completionProvider must be a function" },
 	{ field: "run", message: "command run must be a function" },

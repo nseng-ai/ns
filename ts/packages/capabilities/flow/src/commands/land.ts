@@ -9,7 +9,7 @@ import {
 	type SdlExtensionApi,
 	type SdlNotifyLevel,
 	type SdlProgressPhaseEvent,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 import type { Caps } from "@sdl/clinkr";
 
 import { runFlowCli } from "../shared/flow-cli-runner.ts";

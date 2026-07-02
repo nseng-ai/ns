@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import {
 	discoverExtensionsInRoot,
 	discoverSdlPackageCommands,
-} from "../../src/extension-discovery.ts";
+} from "../../src/extensions/discovery.ts";
 
 const tempDirs: string[] = [];
 

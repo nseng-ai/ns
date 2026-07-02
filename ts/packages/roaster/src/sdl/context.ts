@@ -1,5 +1,5 @@
 import { SdlCommandExecApi } from "@sdl/capability-kit/command-runner";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { createRealRoasterContext, createRoasterRuntime, type RoasterRuntime } from "../context.ts";
 

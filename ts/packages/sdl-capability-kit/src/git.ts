@@ -1,6 +1,6 @@
 import { commandSucceeded, type ExecResult } from "@sdl/core/exec";
 import { RealGitGateway, type GitGateway } from "@sdl/git";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { SdlCommandExecApi } from "./command-runner.ts";
 

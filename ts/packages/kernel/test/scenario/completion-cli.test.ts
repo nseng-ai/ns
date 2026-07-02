@@ -2,14 +2,14 @@ import { z } from "zod";
 
 import { describe, expect, test } from "vitest";
 
-import { commandKey } from "../../src/command-registry.ts";
-import type { SdlCliDeps } from "../../src/cli.ts";
+import { commandKey } from "../../src/cli/command-registry.ts";
+import type { SdlCliDeps } from "../../src/cli/index.ts";
 import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
-} from "../../src/extension-registry.ts";
+} from "../../src/extensions/registry.ts";
 import { runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
-import type { SdlCommand } from "sdl-sdk";
+import type { SdlCommand } from "@sdl/kernel/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {

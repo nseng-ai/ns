@@ -26,7 +26,7 @@ import {
 	type SdlCommand,
 	type SdlCommandSchema,
 	type SdlExtensionApi,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 
 import {
 	checkoutOptionSpecs,

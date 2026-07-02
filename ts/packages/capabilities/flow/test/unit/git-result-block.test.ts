@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { Caps, ColorDepth } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
-import type { ExecResult } from "sdl-sdk";
+import type { ExecResult } from "@sdl/kernel/sdk";
 
 import { renderGitResultBlock } from "../../src/shared/git-result-block.ts";
 

@@ -13,7 +13,7 @@ import {
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../terminal/presentation.ts";
-import type { SdlConfirmOptions } from "sdl-sdk";
+import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 

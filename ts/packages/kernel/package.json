@@ -5,14 +5,24 @@
 	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
 	"type": "module",
 	"exports": {
-		"./cli": "./src/cli.ts",
-		"./command-io": "./src/sdk/command-io.ts",
-		"./context": "./src/context.ts",
-		"./pi-text-generation": "./src/sdk/pi-text-generation.ts"
+		"./cli": "./src/cli/index.ts",
+		"./command-io": "./src/runtime/command-io.ts",
+		"./context": "./src/cli/context.ts",
+		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
+		"./sdk": "./src/sdk/index.ts"
 	},
 	"sdl": {
 		"tier": "sdk",
-		"publicPluginApi": [],
+		"subpackages": [
+			"cli",
+			"extensions",
+			"operations",
+			"runtime",
+			"sdk"
+		],
+		"publicPluginApi": [
+			"./sdk"
+		],
 		"internalWorkspaceExports": [
 			"./cli",
 			"./command-io",
@@ -21,7 +31,7 @@
 		]
 	},
 	"bin": {
-		"sdl": "./src/cli.ts"
+		"sdl": "./src/cli/index.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
@@ -33,7 +43,6 @@
 		"@sdl/clinkr": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"jiti": "catalog:",
-		"sdl-sdk": "workspace:*",
 		"zod": "catalog:"
 	}
 }

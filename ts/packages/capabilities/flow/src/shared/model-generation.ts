@@ -1,4 +1,4 @@
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import { selectCheckpointModelRef } from "./text-generation.ts";
 import { draftChangesSummary, prepareCheckpointMessage } from "./text-helpers.ts";

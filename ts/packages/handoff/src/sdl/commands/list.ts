@@ -1,4 +1,4 @@
-import { defineExtension } from "sdl-sdk";
+import { defineExtension } from "@sdl/kernel/sdk";
 
 import { handoffSdlCommand } from "../command.ts";
 import {

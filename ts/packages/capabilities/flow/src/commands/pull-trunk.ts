@@ -1,6 +1,6 @@
 import { runTrunkPullDetailed, type TrunkPullResult } from "../trunk-pull.ts";
 import { formatCommand } from "@sdl/core/command";
-import { defineExtension, failed, ok, z, type SdlCommand } from "sdl-sdk";
+import { defineExtension, failed, ok, z, type SdlCommand } from "@sdl/kernel/sdk";
 import type { Caps } from "@sdl/clinkr";
 
 import { runFlowCliOperation } from "../shared/flow-cli-runner.ts";

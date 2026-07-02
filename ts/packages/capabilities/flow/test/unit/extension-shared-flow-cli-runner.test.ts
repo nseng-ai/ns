@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/command";
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import type { SdlExecOptions, SdlExtensionApi } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import type { SdlExecOptions, SdlExtensionApi } from "@sdl/kernel/sdk";
 interface ExecCall {
 	command: string;
 	args: string[];

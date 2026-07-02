@@ -1,4 +1,7 @@
-import { defineRepoLocalSdlExtensionDescriptor, repoLocalSdlCommandDescriptor } from "sdl-sdk";
+import {
+	defineRepoLocalSdlExtensionDescriptor,
+	repoLocalSdlCommandDescriptor,
+} from "@sdl/kernel/sdk";
 
 import { aretroExecCollectEvidenceSdlCommand } from "./sdl/commands/exec-collect-evidence.ts";
 import { aretroExecReadEvidenceDetailSdlCommand } from "./sdl/commands/exec-read-evidence-detail.ts";

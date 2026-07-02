@@ -36,7 +36,7 @@
 		"@sdl/clinkr": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"@sdl/git": "workspace:*",
-		"sdl-sdk": "workspace:*",
+		"@sdl/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"sdl": {

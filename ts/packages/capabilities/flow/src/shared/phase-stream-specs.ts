@@ -1,4 +1,4 @@
-import type { SdlProgressPhaseEvent } from "sdl-sdk";
+import type { SdlProgressPhaseEvent } from "@sdl/kernel/sdk";
 import type { StatusLineItem } from "@sdl/core/cli-theme";
 
 /** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { createSdlJiti } from "../../src/sdk/module-loader.ts";
+import { createSdlJiti } from "../../src/runtime/module-loader.ts";
 
 // This intentionally proves real workspace/package import compatibility through Jiti.
 // Keep this smoke in the integration lane; default tests should cover local alias logic directly.

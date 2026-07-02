@@ -36,7 +36,7 @@ const SDL_EXPORT_IMPORTS = [
 	"@sdl/kernel/context",
 	"@sdl/capability-kit/pending-worktree",
 	"@sdl/kernel/pi-text-generation",
-	"sdl-sdk",
+	"@sdl/kernel/sdk",
 	"@sdl/capability-kit/text-generation",
 	"@sdl/capability-kit/text-repair",
 ] as const;

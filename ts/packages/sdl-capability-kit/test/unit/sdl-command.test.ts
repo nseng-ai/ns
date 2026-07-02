@@ -1,5 +1,5 @@
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import type { ClinkrDynamicCompletionRequest, SdlExtensionApi } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import type { ClinkrDynamicCompletionRequest, SdlExtensionApi } from "@sdl/kernel/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 

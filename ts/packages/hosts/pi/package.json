@@ -45,7 +45,6 @@
 		"@sdl/core": "workspace:*",
 		"@sdl/graphite": "workspace:*",
 		"@sdl/kernel": "workspace:*",
-		"sdl-sdk": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {

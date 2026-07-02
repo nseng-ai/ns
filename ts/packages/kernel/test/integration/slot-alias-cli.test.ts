@@ -11,7 +11,7 @@ describe("sdl slot CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 	});
 

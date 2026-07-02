@@ -1,5 +1,5 @@
 import type { ClinkrInteraction, ConfirmationRequest } from "@sdl/clinkr";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 export interface SdlClinkrInteractionOptions {
 	title: string;

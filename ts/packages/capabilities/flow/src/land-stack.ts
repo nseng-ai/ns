@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "sdl-sdk";
+import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import {
 	LandStackCommandStream,

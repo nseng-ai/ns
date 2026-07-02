@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 import type { ExecResult } from "@sdl/core/exec";
-import type { SdlExtensionApi } from "sdl-sdk";
+import type { SdlExtensionApi } from "@sdl/kernel/sdk";
 
 import {
 	createSdlClinkrInteraction,

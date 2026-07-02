@@ -4,7 +4,7 @@ import type {
 	SdlCommand,
 	SdlCommandSchema,
 	SdlExtensionApi,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 import type { z } from "zod";
 
 export interface SdlDomainCommandOptions<S extends SdlCommandSchema, T, TContext> {

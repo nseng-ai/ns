@@ -72,6 +72,10 @@ const ALLOWED_DEBT_EDGES = new Map([
   ["@sdl/ccc\0@sdl/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
   ["@sdl/kernel\0@sdl/slot", "SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly."],
   [
+    "@sdl/kernel\0@sdl/capability-kit",
+    "SDK-to-capability-kit CLI shell-support debt: @sdl/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
+  ],
+  [
     "@sdl/brmem\0@sdl/capability-kit",
     "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
   ],

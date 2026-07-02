@@ -1,7 +1,7 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@sdl/brmem";
 import { usageError, type ClinkrExit, type ClinkrInteraction } from "@sdl/clinkr";
 import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
 import type {
 	ExecResult,
 	SdlCommand,
@@ -10,7 +10,7 @@ import type {
 	SdlExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "sdl-sdk";
+} from "@sdl/kernel/sdk";
 
 import { HANDOFF_NAMESPACE } from "../../src/identity.ts";
 

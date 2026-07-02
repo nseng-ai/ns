@@ -5,15 +5,15 @@ import { dirname, join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "sdl-sdk";
-import { commandInfoForLoadedCommand } from "../../src/command-registry.ts";
+import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import { commandInfoForLoadedCommand } from "../../src/cli/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
 	hasExtensionErrors,
 	loadListingCommandInfos,
 	loadSdlCommandCatalog,
 	loadSelectedSdlCommand,
-} from "../../src/extension-registry.ts";
+} from "../../src/extensions/registry.ts";
 
 const tempDirs: string[] = [];
 const previousFirstPartyExtensionSetting = process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;
@@ -55,7 +55,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -415,7 +415,7 @@ describe("extension registry", () => {
 		writeFile(
 			join(workspace.cwd, ".sdl", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 
 export default defineExtension({
 	commands: [

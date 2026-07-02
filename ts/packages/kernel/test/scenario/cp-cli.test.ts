@@ -119,7 +119,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli.ts\n",
+			"runtime: typescript\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -231,7 +231,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "sdl-sdk";
+import { defineExtension, ok } from "@sdl/kernel/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });
