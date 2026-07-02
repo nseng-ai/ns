@@ -167,6 +167,20 @@ describe("sdl-flow/land API boundary", () => {
 					stackShape: async () => landSuccess(stack),
 					prepareSubmitUpdate: async () => landCompleted(),
 					prepareRestackForSubmit: async () => landCompleted(),
+					refreshBranchFromRemote: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, killed: false },
+					}),
+					deleteLocalBranch: async () => ({ type: "deleted" }),
+					restackUpstack: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, killed: false },
+					}),
+					submitUpdate: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, killed: false },
+					}),
+					branchChildren: async () => landSuccess([]),
 				},
 				github: {
 					pullRequestFacts: async () =>

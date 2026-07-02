@@ -1,9 +1,14 @@
+import type { ExecResult } from "@sdl/core/command";
+
 import type {
 	LandContext,
 	LandingBoundaryFailure,
 	LandGitGateway,
 	LandGithubPrFactsGateway,
+	LandGraphiteCommandResult,
+	LandGraphiteDeleteLocalBranchResult,
 	LandGraphiteGateway,
+	LandGraphiteRefreshBranchResult,
 	LandOutcome,
 	LandResult,
 	LandWorktreeSlotFactsGateway,
@@ -281,6 +286,9 @@ export interface InMemoryLandGraphiteGatewayState {
 	readonly stackShape?: ValueState<StackSnapshot>;
 	readonly submitUpdateResults?: Readonly<Record<string, OperationState>>;
 	readonly restackForSubmitResults?: Readonly<Record<string, OperationState>>;
+	readonly restackUpstackResults?: Readonly<Record<string, OperationState>>;
+	readonly branchChildren?: Readonly<Record<string, readonly string[]>>;
+	readonly branchChildrenFailure?: LandingBoundaryFailure;
 }
 
 export interface LandStackShapeCall extends LandRepoCall {
@@ -290,17 +298,41 @@ export interface LandStackShapeCall extends LandRepoCall {
 	readonly liveLocalBranches: readonly string[];
 }
 
+export interface LandRefreshBranchFromRemoteCall extends LandBranchCall {
+	readonly checkoutConflict: "fail" | "defer";
+}
+
+export interface LandDeleteLocalBranchCall extends LandBranchCall {
+	readonly checkedOutConflict: "fail" | "retain";
+}
+
+export interface LandSubmitUpdateCall extends LandBranchCall {
+	readonly force: boolean;
+}
+
+export interface LandBranchChildrenCall extends LandBranchCall {
+	readonly metadataDbPath: string;
+}
+
 export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly trunkState: ValueState<string>;
 	private readonly metadataDbPathState: ValueState<string>;
 	private readonly stackShapeState: ValueState<StackSnapshot>;
 	private readonly submitUpdateResults: ReadonlyMap<string, OperationState>;
 	private readonly restackForSubmitResults: ReadonlyMap<string, OperationState>;
+	private readonly restackUpstackResults: ReadonlyMap<string, OperationState>;
+	private readonly branchChildrenByBranch: ReadonlyMap<string, readonly string[]>;
+	private readonly branchChildrenFailure: LandingBoundaryFailure | undefined;
 	private readonly trunkLog: LandRepoCall[] = [];
 	private readonly metadataDbPathLog: LandRepoCall[] = [];
 	private readonly stackShapeLog: LandStackShapeCall[] = [];
 	private readonly prepareSubmitUpdateLog: LandBranchCall[] = [];
 	private readonly prepareRestackForSubmitLog: LandBranchCall[] = [];
+	private readonly refreshBranchFromRemoteLog: LandRefreshBranchFromRemoteCall[] = [];
+	private readonly deleteLocalBranchLog: LandDeleteLocalBranchCall[] = [];
+	private readonly restackUpstackLog: LandBranchCall[] = [];
+	private readonly submitUpdateLog: LandSubmitUpdateCall[] = [];
+	private readonly branchChildrenLog: LandBranchChildrenCall[] = [];
 
 	constructor(state: InMemoryLandGraphiteGatewayState = {}) {
 		this.trunkState = state.trunk ?? "main";
@@ -318,6 +350,19 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 				copyOperationState(result),
 			]),
 		);
+		this.restackUpstackResults = new Map(
+			Object.entries(state.restackUpstackResults ?? {}).map(([branch, result]) => [
+				branch,
+				copyOperationState(result),
+			]),
+		);
+		this.branchChildrenByBranch = new Map(
+			Object.entries(state.branchChildren ?? {}).map(([branch, children]) => [
+				branch,
+				[...children],
+			]),
+		);
+		this.branchChildrenFailure = copyOptionalBoundaryFailure(state.branchChildrenFailure);
 	}
 
 	get trunkCalls(): readonly LandRepoCall[] {
@@ -338,6 +383,26 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 
 	get prepareRestackForSubmitCalls(): readonly LandBranchCall[] {
 		return this.prepareRestackForSubmitLog.map(copyBranchCall);
+	}
+
+	get refreshBranchFromRemoteCalls(): readonly LandRefreshBranchFromRemoteCall[] {
+		return this.refreshBranchFromRemoteLog.map(copyRefreshBranchFromRemoteCall);
+	}
+
+	get deleteLocalBranchCalls(): readonly LandDeleteLocalBranchCall[] {
+		return this.deleteLocalBranchLog.map(copyDeleteLocalBranchCall);
+	}
+
+	get restackUpstackCalls(): readonly LandBranchCall[] {
+		return this.restackUpstackLog.map(copyBranchCall);
+	}
+
+	get submitUpdateCalls(): readonly LandSubmitUpdateCall[] {
+		return this.submitUpdateLog.map(copySubmitUpdateCall);
+	}
+
+	get branchChildrenCalls(): readonly LandBranchChildrenCall[] {
+		return this.branchChildrenLog.map(copyBranchChildrenCall);
 	}
 
 	async trunk(request: { readonly repoRoot: string }): Promise<LandResult<string>> {
@@ -400,6 +465,69 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	}): Promise<LandOutcome> {
 		this.prepareRestackForSubmitLog.push({ repoRoot: request.repoRoot, branch: request.branch });
 		return operationOutcome(this.restackForSubmitResults.get(request.branch));
+	}
+
+	async refreshBranchFromRemote(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly checkoutConflict: "fail" | "defer";
+	}): Promise<LandGraphiteRefreshBranchResult> {
+		this.refreshBranchFromRemoteLog.push({
+			repoRoot: request.repoRoot,
+			branch: request.branch,
+			checkoutConflict: request.checkoutConflict,
+		});
+		return { type: "success", result: emptyExecResult() };
+	}
+
+	async deleteLocalBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly checkedOutConflict: "fail" | "retain";
+	}): Promise<LandGraphiteDeleteLocalBranchResult> {
+		this.deleteLocalBranchLog.push({
+			repoRoot: request.repoRoot,
+			branch: request.branch,
+			checkedOutConflict: request.checkedOutConflict,
+		});
+		return { type: "deleted" };
+	}
+
+	async restackUpstack(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandGraphiteCommandResult> {
+		this.restackUpstackLog.push({ repoRoot: request.repoRoot, branch: request.branch });
+		return commandResult(this.restackUpstackResults.get(request.branch));
+	}
+
+	async submitUpdate(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly force: boolean;
+	}): Promise<LandGraphiteCommandResult> {
+		this.submitUpdateLog.push({
+			repoRoot: request.repoRoot,
+			branch: request.branch,
+			force: request.force,
+		});
+		return commandResult(this.submitUpdateResults.get(request.branch));
+	}
+
+	async branchChildren(request: {
+		readonly repoRoot: string;
+		readonly metadataDbPath: string;
+		readonly branch: string;
+	}): Promise<LandResult<readonly string[]>> {
+		this.branchChildrenLog.push({
+			repoRoot: request.repoRoot,
+			metadataDbPath: request.metadataDbPath,
+			branch: request.branch,
+		});
+		if (this.branchChildrenFailure !== undefined) {
+			return { type: "failure", failure: copyBoundaryFailure(this.branchChildrenFailure) };
+		}
+		return { type: "success", value: [...(this.branchChildrenByBranch.get(request.branch) ?? [])] };
 	}
 }
 
@@ -702,6 +830,21 @@ function operationOutcome(state: OperationState | undefined): LandOutcome {
 	};
 }
 
+function commandResult(state: OperationState | undefined): LandGraphiteCommandResult {
+	if (state === undefined || state.type === "success") {
+		return { type: "success", result: emptyExecResult() };
+	}
+	return {
+		type: "failure",
+		commandDisplay: "gt operation",
+		result: emptyExecResult(1),
+	};
+}
+
+function emptyExecResult(code = 0): ExecResult {
+	return { stdout: "", stderr: "", code, killed: false };
+}
+
 function isFailureState<T>(state: ValueState<T>): state is FailureState {
 	return typeof state === "object" && state !== null && "type" in state && state.type === "failure";
 }
@@ -860,6 +1003,36 @@ function copyStackShapeCall(call: LandStackShapeCall): LandStackShapeCall {
 		current: call.current,
 		trunk: call.trunk,
 		liveLocalBranches: [...call.liveLocalBranches],
+	};
+}
+
+function copyRefreshBranchFromRemoteCall(
+	call: LandRefreshBranchFromRemoteCall,
+): LandRefreshBranchFromRemoteCall {
+	return {
+		repoRoot: call.repoRoot,
+		branch: call.branch,
+		checkoutConflict: call.checkoutConflict,
+	};
+}
+
+function copyDeleteLocalBranchCall(call: LandDeleteLocalBranchCall): LandDeleteLocalBranchCall {
+	return {
+		repoRoot: call.repoRoot,
+		branch: call.branch,
+		checkedOutConflict: call.checkedOutConflict,
+	};
+}
+
+function copySubmitUpdateCall(call: LandSubmitUpdateCall): LandSubmitUpdateCall {
+	return { repoRoot: call.repoRoot, branch: call.branch, force: call.force };
+}
+
+function copyBranchChildrenCall(call: LandBranchChildrenCall): LandBranchChildrenCall {
+	return {
+		repoRoot: call.repoRoot,
+		metadataDbPath: call.metadataDbPath,
+		branch: call.branch,
 	};
 }
 

@@ -8,9 +8,7 @@ import {
 	shortSha,
 	type CheckedOutElsewhere,
 } from "./graphite-command-channel.ts";
-import { GT_MUTATION_TIMEOUT_MS } from "./constants.ts";
 import { landStackFailure, type LandStackFailure } from "./errors.ts";
-import { loadGraphiteTopology } from "./graphite-topology.ts";
 import {
 	formatRestackFailureMessage,
 	formatSubmitFailureMessage,
@@ -19,6 +17,7 @@ import {
 import { loadPr, validateOpenPrBasicsForLandStack } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
+import type { LandContext } from "../land/api.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
@@ -96,6 +95,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 }
 
 interface PerformGraphiteMaintenanceOptions {
+	landContext: LandContext;
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
@@ -103,6 +103,7 @@ interface PerformGraphiteMaintenanceOptions {
 }
 
 interface MaintenanceBranchContext {
+	landContext: LandContext;
 	runtime: LandRuntime;
 	repoRoot: string;
 	plan: LandingPlan;
@@ -209,32 +210,27 @@ async function refreshExpectedShaAfterRestack(
 async function submitMaintenanceBranch(
 	options: MaintenanceBranchContext,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { repoRoot, plan, prNumber, maintenanceBranch, severity } = options;
+	const { landContext, repoRoot, plan, prNumber, maintenanceBranch, severity } = options;
 	// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
 	// still be on old stack history; keep pre-merge submit/update conservative.
-	const submitOperation = {
-		kind: "submit-update",
+	const submitted = await landContext.graphite.submitUpdate({
+		repoRoot,
 		branch: maintenanceBranch,
 		force: true,
-	} as const;
-	const submitted = await options.runtime.graphite.run({
-		operation: submitOperation,
-		cwd: repoRoot,
-		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	if (submitted.code === 0) return { kind: "proceed" };
+	if (submitted.type === "success") return { kind: "proceed" };
 
 	return failOrWarn(severity, {
 		failure: landStackFailure(formatSubmitFailureMessage(prNumber, maintenanceBranch, true), {
-			commandDisplay: formatGraphiteOperation(submitOperation),
-			result: submitted,
+			commandDisplay: submitted.commandDisplay,
+			result: submitted.result,
 			failedBranch: maintenanceBranch,
 			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
 		}),
 		warning: {
 			message: formatSubmitFailureMessage(prNumber, maintenanceBranch, false),
-			commandDisplay: formatGraphiteOperation(submitOperation),
-			result: submitted,
+			commandDisplay: submitted.commandDisplay,
+			result: submitted.result,
 			suggestedAction: `Update PR for ${maintenanceBranch} manually and verify it targets ${plan.stack.trunk}.`,
 		},
 	});
@@ -243,7 +239,7 @@ async function submitMaintenanceBranch(
 export async function performGraphiteMaintenance(
 	maintenanceOptions: PerformGraphiteMaintenanceOptions,
 ): Promise<GraphiteMaintenanceOutcome> {
-	const { runtime, ctx, plan, step } = maintenanceOptions;
+	const { landContext, runtime, ctx, plan, step } = maintenanceOptions;
 	const pi = runtime.commands;
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state, options } = step;
@@ -288,42 +284,35 @@ export async function performGraphiteMaintenance(
 
 		options.commandStream?.note(`Refreshing stack through ${maintenance.branch}...`);
 		setStatus(ctx, `refreshing stack through ${maintenance.branch}...`);
-		const getOperation = {
-			kind: "get-downstack-no-checkout",
+		const refresh = await landContext.graphite.refreshBranchFromRemote({
+			repoRoot,
 			branch: maintenance.branch,
 			checkoutConflict: maintenance.kind === "optional-descendant" ? "defer" : "fail",
-		} as const;
-		const getCommandDisplay = formatGraphiteOperation(getOperation);
-		const getResult = await runtime.graphite.run({
-			operation: getOperation,
-			cwd: repoRoot,
-			timeoutMs: GT_MUTATION_TIMEOUT_MS,
 		});
-		const got = getResult.result;
-		if (got.code !== 0) {
+		if (refresh.type !== "success") {
 			if (maintenance.kind === "required-next-landing") {
 				return {
 					kind: "halt",
 					failure: graphiteRefreshFailure({
 						prNumber,
 						maintenanceBranch: maintenance.branch,
-						getCommandDisplay,
-						got,
+						getCommandDisplay: refresh.commandDisplay,
+						got: refresh.result,
 					}),
 				};
 			}
 
-			if (getResult.checkoutConflict) {
+			if (refresh.type === "checkout-conflict") {
 				options.commandStream?.note(
-					`Deferred optional descendant maintenance for ${maintenance.branch} because ${formatCheckedOutElsewhere(getResult.checkoutConflict)}.\nRun ${getCommandDisplay} manually when that worktree is free.`,
+					`Deferred optional descendant maintenance for ${maintenance.branch} because ${formatCheckedOutElsewhere(refresh)}.\nRun ${refresh.commandDisplay} manually when that worktree is free.`,
 				);
 				return {
 					kind: "skip",
 					warning: optionalDescendantRefreshDeferredWarning(
 						maintenance.branch,
 						branch,
-						getCommandDisplay,
-						getResult.checkoutConflict,
+						refresh.commandDisplay,
+						refresh,
 					),
 				};
 			}
@@ -332,9 +321,9 @@ export async function performGraphiteMaintenance(
 				kind: "skip",
 				warning: {
 					message: `All target PRs were merged, but Graphite refresh for descendant branch ${maintenance.branch} failed; local branch ${branch} cleanup and descendant restack/update were skipped.`,
-					commandDisplay: getCommandDisplay,
-					result: got,
-					suggestedAction: `Run ${getCommandDisplay} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
+					commandDisplay: refresh.commandDisplay,
+					result: refresh.result,
+					suggestedAction: `Run ${refresh.commandDisplay} manually, restack/update ${maintenance.branch}, and delete local branch ${branch} when safe.`,
 				},
 			};
 		}
@@ -350,17 +339,21 @@ export async function performGraphiteMaintenance(
 		maintenance.kind === "optional-descendant"
 			? `local branch ${branch} cleanup and descendant restack/update were`
 			: `local branch ${branch} cleanup was`;
-	const topology = await loadGraphiteTopology(pi, repoRoot, plan.metadataDbPath);
-	if (topology.type === "failure") {
+	const children = await landContext.graphite.branchChildren({
+		repoRoot,
+		metadataDbPath: plan.metadataDbPath,
+		branch,
+	});
+	if (children.type === "failure") {
 		return {
 			kind: "skip",
 			warning: {
-				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${topology.failure.message}`,
+				message: `All target PRs were merged, but the pre-delete Graphite children re-check for ${branch} failed; ${skippedScope} skipped.\n${children.failure.message}`,
 				suggestedAction: `Inspect the stack, then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
 		};
 	}
-	const childrenNow = topology.value.get(branch)?.children ?? [];
+	const childrenNow = children.value;
 	const allowedChildren = new Set(state.deletedBranches);
 	if (maintenance.kind === "required-next-landing" || maintenance.kind === "optional-descendant") {
 		allowedChildren.add(maintenance.branch);
@@ -385,17 +378,12 @@ export async function performGraphiteMaintenance(
 
 	options.commandStream?.note(`Cleaning up local branch ${branch}...`);
 	setStatus(ctx, `deleting local Graphite branch ${branch}...`);
-	const deleteOperation = {
-		kind: "delete-local-branch",
+	const deletion = await landContext.graphite.deleteLocalBranch({
+		repoRoot,
 		branch,
 		checkedOutConflict: maintenance.kind === "none" ? "retain" : "fail",
-	} as const;
-	const deletion = await runtime.graphite.run({
-		operation: deleteOperation,
-		cwd: repoRoot,
-		timeoutMs: GT_MUTATION_TIMEOUT_MS,
 	});
-	switch (deletion.kind) {
+	switch (deletion.type) {
 		case "deleted":
 			state.deletedBranches.add(branch);
 			break;
@@ -408,7 +396,7 @@ export async function performGraphiteMaintenance(
 				localBranchDeletionFailurePair({
 					branch,
 					prNumber,
-					commandDisplay: formatGraphiteOperation(deleteOperation),
+					commandDisplay: deletion.commandDisplay,
 					result: deletion.result,
 					isOptionalDescendant: maintenance.kind === "optional-descendant",
 				}),
@@ -422,30 +410,29 @@ export async function performGraphiteMaintenance(
 	}
 
 	setStatus(ctx, `restacking ${maintenance.branch}...`);
-	const restackOperation = { kind: "restack-upstack", branch: maintenance.branch } as const;
-	const restacked = await runtime.graphite.run({
-		operation: restackOperation,
-		cwd: repoRoot,
-		timeoutMs: GT_MUTATION_TIMEOUT_MS,
+	const restacked = await landContext.graphite.restackUpstack({
+		repoRoot,
+		branch: maintenance.branch,
 	});
-	if (restacked.code !== 0) {
+	if (restacked.type === "failure") {
 		return failOrWarn(severity, {
 			failure: landStackFailure(formatRestackFailureMessage(prNumber, maintenance.branch, true), {
-				commandDisplay: formatGraphiteOperation(restackOperation),
-				result: restacked,
+				commandDisplay: restacked.commandDisplay,
+				result: restacked.result,
 				failedBranch: maintenance.branch,
 				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:flow:land if appropriate.`,
 			}),
 			warning: {
 				message: formatRestackFailureMessage(prNumber, maintenance.branch, false),
-				commandDisplay: formatGraphiteOperation(restackOperation),
-				result: restacked,
+				commandDisplay: restacked.commandDisplay,
+				result: restacked.result,
 				suggestedAction: `Resolve restack failures for ${maintenance.branch}, then update that PR manually.`,
 			},
 		});
 	}
 
 	const maintenanceContext: MaintenanceBranchContext = {
+		landContext,
 		runtime,
 		repoRoot,
 		plan,

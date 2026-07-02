@@ -305,7 +305,71 @@ export interface LandGraphiteGateway {
 		readonly repoRoot: string;
 		readonly branch: string;
 	}): Promise<LandOutcome>;
+	refreshBranchFromRemote(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly checkoutConflict: "fail" | "defer";
+	}): Promise<LandGraphiteRefreshBranchResult>;
+	deleteLocalBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly checkedOutConflict: "fail" | "retain";
+	}): Promise<LandGraphiteDeleteLocalBranchResult>;
+	restackUpstack(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+	}): Promise<LandGraphiteCommandResult>;
+	submitUpdate(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly force: boolean;
+	}): Promise<LandGraphiteCommandResult>;
+	branchChildren(request: {
+		readonly repoRoot: string;
+		readonly metadataDbPath: string;
+		readonly branch: string;
+	}): Promise<LandResult<readonly string[]>>;
 }
+
+export interface LandCommandResult {
+	readonly stdout: string;
+	readonly stderr: string;
+	readonly code: number;
+	readonly killed: boolean;
+	readonly startupError?: string;
+}
+
+export type LandGraphiteCommandResult =
+	| { readonly type: "success"; readonly result: LandCommandResult }
+	| {
+			readonly type: "failure";
+			readonly commandDisplay: string;
+			readonly result: LandCommandResult;
+	  };
+
+export type LandGraphiteRefreshBranchResult =
+	| { readonly type: "success"; readonly result: LandCommandResult }
+	| {
+			readonly type: "checkout-conflict";
+			readonly branch: string;
+			readonly path: string;
+			readonly commandDisplay: string;
+			readonly result: LandCommandResult;
+	  }
+	| {
+			readonly type: "failure";
+			readonly commandDisplay: string;
+			readonly result: LandCommandResult;
+	  };
+
+export type LandGraphiteDeleteLocalBranchResult =
+	| { readonly type: "deleted" }
+	| { readonly type: "retained"; readonly branch: string; readonly path: string }
+	| {
+			readonly type: "failed";
+			readonly commandDisplay: string;
+			readonly result: LandCommandResult;
+	  };
 
 export interface SquashMergePullRequestResult {
 	readonly stdout: string;
