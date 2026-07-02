@@ -8,6 +8,10 @@ import {
 	LandStackCommandStream,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
+import type {
+	FlowLandExternalCallTelemetryEvent,
+	FlowLandExternalCallTelemetrySink,
+} from "./stack/external-call-telemetry.ts";
 import { createLandRuntime } from "./stack/land-runtime.ts";
 import { completed, failure, type LandStackOutcome } from "./stack/errors.ts";
 import {
@@ -32,6 +36,7 @@ import type {
 } from "./stack/types.ts";
 
 export type { ExtensionMode, NotifyLevel, PrintOutput } from "./stack/types.ts";
+export type { FlowLandExternalCallTelemetryEvent, FlowLandExternalCallTelemetrySink };
 export type { ValidPullRequestView } from "../land/isolated-fast-path.ts";
 export { isIsolatedFastPath, parsePullRequestView } from "../land/isolated-fast-path.ts";
 
@@ -87,6 +92,7 @@ export type LandCliConfirmPrompt = (
 interface RunLandCommandOptions {
 	progressIo?: NsCommandIo;
 	liveProgress?: LandLiveProgressSink;
+	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
 async function runLandCommand(
@@ -117,6 +123,9 @@ async function runLandCommand(
 	const commandStream = new LandStackCommandStream(progressIo ?? createLandUiCommandIo(pi, ctx), {
 		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
+		...(options.externalCallTelemetry === undefined
+			? {}
+			: { externalCallTelemetry: options.externalCallTelemetry }),
 	});
 	const runtime = createLandRuntime(pi, commandStream);
 	return await runLandingDispatch({
@@ -125,6 +134,9 @@ async function runLandCommand(
 		parsedArgs: args.value,
 		...(progressIo === undefined ? {} : { progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
+		...(options.externalCallTelemetry === undefined
+			? {}
+			: { externalCallTelemetry: options.externalCallTelemetry }),
 	});
 }
 
@@ -152,6 +164,8 @@ export interface LandCliInput {
 	progressIo?: NsCommandIo;
 	/** Optional Flow-owned structured live-progress sink for dynamic land titles. */
 	liveProgress?: LandLiveProgressSink;
+	/** Optional Flow-owned structured external-call telemetry sink. */
+	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 	/**
 	 * Resolved terminal caps for the house-style CLI result blocks (`resolveFlowStreamCaps` in the
 	 * flow wrapper). When omitted, final result blocks render as plain text — the CLI surface stays
@@ -178,6 +192,7 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 	const caps = input.caps;
 	const progressIo = input.progressIo ?? createCliCommandIo(input);
 	const liveProgress = input.liveProgress;
+	const externalCallTelemetry = input.externalCallTelemetry;
 	const outcome = await runWithNsCommandIo(
 		progressIo,
 		async () =>
@@ -209,7 +224,11 @@ export async function runLandCli(input: LandCliInput): Promise<number> {
 									renderLandConfirmationDetails(caps, details),
 							}),
 				},
-				{ progressIo, ...(liveProgress === undefined ? {} : { liveProgress }) },
+				{
+					progressIo,
+					...(liveProgress === undefined ? {} : { liveProgress }),
+					...(externalCallTelemetry === undefined ? {} : { externalCallTelemetry }),
+				},
 			),
 	);
 	return outcome.type === "failure" && outcome.failure.level === "error" ? 1 : 0;

@@ -1,6 +1,8 @@
 import { createCommandIo } from "@ns/kernel/command-io";
 import type { NsCommandIo } from "@ns/kernel/sdk";
 import { type ExecResult, formatCommand, runNormalizedExecResult } from "@ns/core/command";
+import type { Clock } from "@ns/core/clock";
+import { systemClock } from "@ns/core/time";
 import { formatElapsedMs } from "@ns/core/time-format";
 import {
 	customMessageText,
@@ -12,6 +14,10 @@ import {
 import { commandStreamOutputLines } from "./command-exec.ts";
 import { normalizeLandCommandFinish } from "./graphite-command-channel.ts";
 import { COMMAND_STREAM_MESSAGE_TYPE, STATUS_KEY } from "./constants.ts";
+import {
+	commandExternalCallTelemetryEvent,
+	type FlowLandExternalCallTelemetrySink,
+} from "./external-call-telemetry.ts";
 import type {
 	CommandStreamMessageDetails,
 	CustomMessage,
@@ -34,10 +40,12 @@ interface LandStackCommandStreamOptions {
 	shouldShowRunningCommandStatus?: boolean;
 	/** Mirror completed-command results to text-only fallback sinks. */
 	shouldMirrorFinishedCommandsToNonUi?: boolean;
-	/** Injectable clock for stable command-duration tests. */
-	nowMs?: () => number;
+	/** Injectable clock for stable command-duration and telemetry tests. */
+	clock?: Clock;
 	/** Flow-owned structured live-progress side channel. */
 	liveProgress?: LandLiveProgressSink;
+	/** Flow-owned structured external-call telemetry side channel. */
+	externalCallTelemetry?: FlowLandExternalCallTelemetrySink;
 }
 
 /**
@@ -73,24 +81,30 @@ export class LandStackCommandStream {
 	private readonly io: NsCommandIo;
 	private readonly shouldShowRunningCommandStatus: boolean;
 	private readonly shouldMirrorFinishedCommandsToNonUi: boolean;
-	private readonly nowMs: () => number;
+	private readonly clock: Clock;
 	private readonly liveProgress: LandLiveProgressSink | undefined;
-	private readonly commandStarts = new Map<string, number>();
+	private readonly externalCallTelemetry: FlowLandExternalCallTelemetrySink | undefined;
+	private readonly commandStarts = new Map<string, CommandStart>();
 
 	constructor(io: NsCommandIo, options: LandStackCommandStreamOptions = {}) {
 		this.io = io;
 		this.shouldShowRunningCommandStatus = options.shouldShowRunningCommandStatus ?? false;
 		this.shouldMirrorFinishedCommandsToNonUi = options.shouldMirrorFinishedCommandsToNonUi ?? true;
-		this.nowMs = options.nowMs ?? Date.now;
+		this.clock = options.clock ?? systemClock;
 		this.liveProgress = options.liveProgress;
+		this.externalCallTelemetry = options.externalCallTelemetry;
 	}
 
 	emitLiveProgress(event: LandLiveProgressEvent): void {
 		this.liveProgress?.(event);
 	}
 
-	start(commandDisplay: string): void {
-		this.commandStarts.set(commandDisplay, this.nowMs());
+	start(commandDisplay: string, command: string, args: readonly string[]): void {
+		this.commandStarts.set(commandDisplay, {
+			startedAtMs: this.clock.nowMs(),
+			command,
+			args: [...args],
+		});
 		// Keep active subprocess visibility transient: completed command results are
 		// emitted separately, so a long-running Graphite/GitHub command does not pin a
 		// rewritten widget above the editor while it is still pending.
@@ -102,7 +116,22 @@ export class LandStackCommandStream {
 	finish(commandDisplay: string, finish: { result: ExecResult; note?: string }): void {
 		const result = finish.result;
 		const icon = result.code === 0 ? "✓" : "✗";
-		const elapsedMs = this.takeElapsedMs(commandDisplay);
+		const commandStart = this.takeCommandStart(commandDisplay);
+		const elapsedMs =
+			commandStart === undefined
+				? undefined
+				: Math.max(0, this.clock.nowMs() - commandStart.startedAtMs);
+		if (commandStart !== undefined && elapsedMs !== undefined) {
+			this.externalCallTelemetry?.(
+				commandExternalCallTelemetryEvent({
+					command: commandStart.command,
+					args: commandStart.args,
+					commandDisplay,
+					elapsedMs,
+					result,
+				}),
+			);
+		}
 		const suffix = formatCommandFinishSuffix(result, finish.note, elapsedMs);
 		const lines = [`${icon} $ ${commandDisplay}${suffix}`];
 		if (result.code !== 0) {
@@ -129,12 +158,18 @@ export class LandStackCommandStream {
 		this.io.message(formatCommandStreamBlock("→", message), { level: "info" });
 	}
 
-	private takeElapsedMs(commandDisplay: string): number | undefined {
-		const startedAt = this.commandStarts.get(commandDisplay);
-		if (startedAt === undefined) return undefined;
+	private takeCommandStart(commandDisplay: string): CommandStart | undefined {
+		const commandStart = this.commandStarts.get(commandDisplay);
+		if (commandStart === undefined) return undefined;
 		this.commandStarts.delete(commandDisplay);
-		return Math.max(0, this.nowMs() - startedAt);
+		return commandStart;
 	}
+}
+
+interface CommandStart {
+	startedAtMs: number;
+	command: string;
+	args: readonly string[];
 }
 
 function formatCommandFinishSuffix(
@@ -158,7 +193,7 @@ export function withCommandStreaming(
 	const wrapped: LandStackExtensionAPI = {
 		async exec(command, args, options) {
 			const commandDisplay = formatCommandForDisplay(command, args);
-			commandStream.start(commandDisplay);
+			commandStream.start(commandDisplay, command, args);
 			const result = await runNormalizedExecResult(
 				async () => await pi.exec(command, args, options),
 			);
