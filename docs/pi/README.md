@@ -95,13 +95,13 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/capabilities/flow/src/pi/code-extension.ts`       | Engineered implementation                        | Aggregates Flow/Code workflow Pi presentation for `/code:gt-restack-resolve` and `/gt:squash-stack` in `sdl-flow/pi`; `@sdl/pi` does not import the extracted package.                                                                                                                                                                                                                                     |
 | `ts/packages/local-pi-tools/pr-previews/src/extension.ts`      | Local Pi-tool package                            | Registers read-only `/pr:preview-feedback` and `/pr:preview-checks` modal previews; download/editor-prefill and feedback watch behavior remain in `@sdl/pi`.                                                                                                                                                                                                                                               |
 
-| `ts/packages/ccc/src/land-stack/*` | Engineered implementation | Internal Graphite stack landing engine used by `/sdl:flow:land`; internals remain split under `land-stack/`. |
+| `ts/packages/capabilities/ccc/src/land-stack/*` | Engineered implementation | Internal Graphite stack landing engine used by `/sdl:flow:land`; internals remain split under `land-stack/`. |
 | `ts/packages/hosts/pi/src/handoff/extension.ts` | Engineered implementation | Package-tested `/handoff:create`, `/handoff:pickup`, and `/handoff:list` presentation adapters over the portable `sdl handoff ...` command face and Handoff Capability API. |
 | `ts/packages/hosts/pi/src/branch-context/extension.ts` | Engineered implementation | Branch-context Pi command/tool wiring over the `@sdl/branch-context` package. |
-| `ts/packages/ccc/src/autobranch/checkpoint.ts` / `autobranch*.ts` | Engineered implementation | Hidden `ccc exec autobranch` compatibility flow plus workflow evidence over pending-worktree, preparation, latest-commit extraction, and transaction helpers; public autobranch is `sdl flow autobranch` / `/sdl:flow:autobranch`. |
+| `ts/packages/capabilities/ccc/src/autobranch/checkpoint.ts` / `autobranch*.ts` | Engineered implementation | Hidden `ccc exec autobranch` compatibility flow plus workflow evidence over pending-worktree, preparation, latest-commit extraction, and transaction helpers; public autobranch is `sdl flow autobranch` / `/sdl:flow:autobranch`. |
 | `sdl flow submit` | SDL project-local extension command | SDK-only project-local Graphite submit command mirrored into Pi as `/sdl:flow:submit`; no `/sdl:flow:submit` or legacy submit aliases are retained. |
 | `ts/packages/local-pi-tools/runner-subagents/src/extension-api.ts` and submodules | Local Pi-tool package | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
-| `ts/packages/ccc/src/ccc.ts` and `cmux/*` | Engineered implementation | Private CCC command suite, manual caller-workspace sidebar controller, slot helpers, and workspace-opening commands that operate cmux workspaces. |
+| `ts/packages/capabilities/ccc/src/ccc.ts` and `cmux/*` | Engineered implementation | Private CCC command suite, manual caller-workspace sidebar controller, slot helpers, and workspace-opening commands that operate cmux workspaces. |
 | `ts/packages/hosts/pi/src/terminal/presentation.ts` | Engineered implementation | Shared terminal hyperlink/linkification and custom-message text helpers. |
 
 ## Resource surface policy
@@ -202,7 +202,7 @@ SDL extension discovery is currently CLI-only. Pi does not dynamically register 
 
 ## CCC workspace/sidebar pattern
 
-Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ccc exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/ccc/src/cmux/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@sdl/pi`, which delegates operational facts and presentation to `@sdl/ccc/worktree-status`.
+Manual CCC sidebar commands should target the caller cmux workspace for sidebar updates, keep cmux mutations behind deterministic `ccc exec` commands, and avoid relying on stale local cmux source checkouts. Workspace-opening commands currently do not auto-run sidebar updates. The project command suite lives behind `.pi/extensions/ccc.ts` and `ts/packages/capabilities/ccc/src/cmux/`; `.pi/extensions/worktree-status.ts` remains the project-local adapter for the automatic worktree-status renderer backed by `@sdl/pi`, which delegates operational facts and presentation to `@sdl/ccc/worktree-status`.
 
 See [CCC Workspace/Sidebar Pattern for Pi](./cmux-extension-pattern.md) and [Querying cmux Help](../cmux/help-querying.md).
 

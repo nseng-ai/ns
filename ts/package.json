@@ -27,7 +27,6 @@
 		"@sdl/brmem": "workspace:*",
 		"@sdl/capability-kit": "workspace:*",
 		"@sdl/ccc": "workspace:*",
-		"@sdl/ccc-pi": "workspace:*",
 		"@sdl/core": "workspace:*",
 		"@sdl/kernel": "workspace:*",
 		"@sdl/plans": "workspace:*",

@@ -234,6 +234,6 @@ git diff --stat <trunk>...<branch>
 
 ## Future CCC exec helper boundary
 
-If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only CCC `exec` helper under the private CCC orchestration layer, for example in `ts/packages/ccc`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.
+If repeated use makes this workflow token-heavy, slow, or brittle, push deterministic evidence collection into a read-only CCC `exec` helper under the private CCC orchestration layer, for example in `ts/packages/capabilities/ccc`. That helper should return a compact manifest of cmux workspace facts, branch facts, Objective records, Graphite evidence scope, and evidence locators. The skill should then consume that manifest and perform the LLM judgment and presentation.
 
 Do not implement that helper as part of this v1 skill-only workflow.

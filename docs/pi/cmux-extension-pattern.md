@@ -15,17 +15,17 @@ This guide captures the repo-local pattern for Pi commands that open cmux worksp
 
 Current layers:
 
-| Layer                  | Path / command                                  | Responsibility                                                         |
-| ---------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Pi discovery adapter   | `.pi/extensions/ccc.ts`                         | Thin adapter that registers the repo CCC command suite                 |
-| Engineered TS package  | `ts/packages/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules     |
-| CCC cmux modules       | `ts/packages/ccc/src/cmux/`                     | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
-| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                   | Tells the model what PR sidebar fields to generate                     |
-| Deterministic CLI      | `ccc exec cmux-workspace-summary`               | Applies title and direct description, then clears the old status pill  |
-| cmux command gateway   | `ts/packages/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
-| Scenario/package tests | `ts/packages/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
+| Layer                  | Path / command                                               | Responsibility                                                         |
+| ---------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Pi discovery adapter   | `.pi/extensions/ccc.ts`                                      | Thin adapter that registers the repo CCC command suite                 |
+| Engineered TS package  | `ts/packages/capabilities/ccc/src/ccc.ts`                    | Wires shared CCC workspace/sidebar controllers and command modules     |
+| CCC cmux modules       | `ts/packages/capabilities/ccc/src/cmux/`                     | Implements `/ccc:workspace:*` and `/ccc:sidebar:*` behavior with tests |
+| Local sidebar skill    | `skills/ccc-sidebar/SKILL.md`                                | Tells the model what PR sidebar fields to generate                     |
+| Deterministic CLI      | `ccc exec cmux-workspace-summary`                            | Applies title and direct description, then clears the old status pill  |
+| cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
+| Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@sdl/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@sdl/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc exec` command can own them.
 
@@ -48,7 +48,7 @@ The old refresh-meta command was intentionally removed and not replaced. It only
 
 ## Duplicate command troubleshooting
 
-If `/reload` shows duplicate CCC workspace/sidebar commands with numeric suffixes, the canonical project source should still be `.pi/extensions/ccc.ts` plus `ts/packages/ccc/src/cmux/`. Check only the known user-local extension directory for stale migrated files:
+If `/reload` shows duplicate CCC workspace/sidebar commands with numeric suffixes, the canonical project source should still be `.pi/extensions/ccc.ts` plus `ts/packages/capabilities/ccc/src/cmux/`. Check only the known user-local extension directory for stale migrated files:
 
 ```bash
 find /Users/schrockn/.pi/agent/extensions -maxdepth 2 \

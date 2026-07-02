@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { ExecResult } from "@sdl/core/command";
 
-import { runTrunkPullDetailed } from "../src/trunk-pull.ts";
+import { runTrunkPullDetailed } from "../src/core/trunk-pull.ts";
 
 type TrunkPullCommands = Parameters<typeof runTrunkPullDetailed>[0];
 type ExecOptions = Parameters<TrunkPullCommands["exec"]>[2];

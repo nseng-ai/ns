@@ -157,5 +157,5 @@ is mostly editing ergonomics plus op-log undo, a full replacement does not clear
 - jj workspaces: <https://jj-vcs.github.io/jj/latest/working-copy/#workspaces>
 - jj-spr (stacked PRs against GitHub): <https://github.com/jennings/jj-spr>
 - In-repo domain language: root `CONTEXT.md` / `CONTEXT-MAP.md`,
-  `ts/packages/infra/brmem/CONTEXT.md` (Branch Memory), `ts/packages/ccc/CONTEXT.md`, and
+  `ts/packages/infra/brmem/CONTEXT.md` (Branch Memory), `ts/packages/capabilities/ccc/CONTEXT.md`, and
   `ts/packages/hosts/pi/CONTEXT.md` (worktree/Pi integration).

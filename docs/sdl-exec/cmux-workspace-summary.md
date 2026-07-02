@@ -79,7 +79,7 @@ For cmux command failures, `error.command_failure` records the command argv, exi
 
 ## Test surface
 
-The command is covered through CCC TypeScript CLI scenario tests in `ts/packages/ccc/test/scenario/autobranch-cli.test.ts` and direct Objective-sidebar tests in `ts/packages/ccc/test/cmux-objective-sidebar.test.ts`.
+The command is covered through CCC TypeScript CLI scenario tests in `ts/packages/capabilities/ccc/test/scenario/autobranch-cli.test.ts` and direct Objective-sidebar tests in `ts/packages/capabilities/ccc/test/cmux-objective-sidebar.test.ts`.
 
 When extending this command, preserve tests for:
 

@@ -114,31 +114,31 @@ describe("TypeScript style guard source rules", () => {
 		{
 			name: "capability peer api import is allowed",
 			code: 'import { createHandoff } from "@sdl/handoff/api";',
-			path: "ts/packages/ccc/src/peer.ts",
+			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability private src import is rejected",
 			code: 'import { createHandoff } from "@sdl/handoff/src/create.ts";',
-			path: "ts/packages/ccc/src/peer.ts",
+			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability undeclared subpath import is rejected",
 			code: 'import { createHandoff } from "@sdl/handoff/private-helper";',
-			path: "ts/packages/ccc/src/peer.ts",
+			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability gateway backend import is allowed for capabilities",
 			code: 'import { RealGitGateway } from "@sdl/capability-kit/git";',
-			path: "ts/packages/ccc/src/peer.ts",
+			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
 			code: 'import { createSdlCliExecAdapter } from "@sdl/capability-kit/git";',
-			path: "ts/packages/ccc/src/peer.ts",
+			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{

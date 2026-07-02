@@ -20,7 +20,7 @@ import registerCccExtension, {
 	registerCccSlotDispatchPromptCommand,
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-} from "@sdl/ccc-pi";
+} from "@sdl/ccc/pi";
 import { buildSlugModelArgs } from "@sdl/capability-kit/model-slug";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import {

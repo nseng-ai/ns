@@ -23,7 +23,7 @@ import {
 } from "@sdl/plans/api";
 import { formatCommand, formatShellArg } from "@sdl/core/command";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
-import { createCccSlotClient } from "../slot-checkout.ts";
+import { createCccSlotClient } from "../core/slot-checkout.ts";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,

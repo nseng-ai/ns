@@ -10,7 +10,7 @@ import type { CommandExecApi } from "@sdl/core/command";
 import {
 	commitAutobranchCheckpointMessage,
 	prepareAutobranchCheckpointMessage,
-} from "./autobranch/checkpoint.ts";
+} from "../autobranch/checkpoint.ts";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
@@ -21,7 +21,7 @@ import {
 	cmuxWorkspaceSummaryRequestSchema,
 	cmuxWorkspaceSummaryResultSchema,
 	renderCmuxWorkspaceSummaryHuman,
-} from "./cmux/workspace-summary.ts";
+} from "../cmux/workspace-summary.ts";
 
 export const AUTOBRANCH_SUMMARY =
 	"Create a Graphite branch from dirty worktree changes or the latest unpushed commit.";
