@@ -1,5 +1,6 @@
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import { usageError } from "@sdl/clinkr";
+import { optionalEntry } from "@sdl/core/primitives";
 import { systemTimerScheduler } from "@sdl/core/time";
 import { defineExtension, type SdlCommand } from "@sdl/kernel/sdk";
 
@@ -12,7 +13,7 @@ import {
 	runnerStepResultSchema,
 	runRunnerStep,
 	type RunnerStepResult,
-} from "../../core/operations/runner-step.ts";
+} from "../../runner/step.ts";
 import { resolveGuidance } from "../../runner/guidance.ts";
 import {
 	createSdlObjectiveRunnerContext,
@@ -54,8 +55,7 @@ export function createObjectiveExecRunnerStepSdlCommand(
 					argument: "guidance",
 				});
 			}
-			const stepRequest =
-				guidance.guidance === undefined ? request : { ...request, guidance: guidance.guidance };
+			const stepRequest = { ...request, ...optionalEntry("guidance", guidance.guidance) };
 			return runRunnerStep(ctx, stepRequest);
 		},
 		renderHuman: (result) => result.checkpointMarkdown,

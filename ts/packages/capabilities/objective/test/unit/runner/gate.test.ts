@@ -50,7 +50,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(true);
+		expect(outcome.hasPassed).toBe(true);
 		expect(outcome.branch).toBe("feature/demo-step");
 		expect(outcome.changedPaths).toEqual(["src/a.ts"]);
 		expect(outcome.checks.map((check) => [check.id, check.status])).toEqual([
@@ -79,7 +79,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(true);
+		expect(outcome.hasPassed).toBe(true);
 		const byId = checkById(outcome.checks);
 		expect(byId.get("moved-off-base")?.status).toBe("skipped");
 		expect(byId.get("same-branch-as-attempt")?.status).toBe("passed");
@@ -95,7 +95,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		expect(checkById(outcome.checks).get("branch-not-trunk")?.status).toBe("failed");
 	});
 
@@ -109,7 +109,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const byId = checkById(outcome.checks);
 		expect(byId.get("moved-off-base")?.status).toBe("failed");
 		expect(byId.get("same-branch-as-attempt")?.status).toBe("skipped");
@@ -125,7 +125,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const byId = checkById(outcome.checks);
 		expect(byId.get("same-branch-as-attempt")?.status).toBe("failed");
 		expect(byId.get("moved-off-base")?.status).toBe("skipped");
@@ -141,7 +141,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		expect(checkById(outcome.checks).get("branch-matches-report")?.detail).toContain(
 			'"feature/claimed"',
 		);
@@ -157,7 +157,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const check = checkById(outcome.checks).get("graphite-tracked");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("untracked branch");
@@ -192,7 +192,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		expect(checkById(outcome.checks).get("worktree-dirty")?.detail).toContain(
 			"changed nothing is a failed slice",
 		);
@@ -209,7 +209,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const check = checkById(outcome.checks).get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
@@ -225,7 +225,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: "1111111111111111111111111111111111111111",
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const check = checkById(outcome.checks).get("head-unchanged");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("the commit is the runner's act");
@@ -241,7 +241,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: DEFAULT_HEAD,
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		expect(outcome.branch).toBeNull();
 		const byId = checkById(outcome.checks);
 		for (const id of [
@@ -268,7 +268,7 @@ describe("verifyRunnerStep", () => {
 			headAtDispatch: "1111111111111111111111111111111111111111",
 		});
 
-		expect(outcome.passed).toBe(false);
+		expect(outcome.hasPassed).toBe(false);
 		const failedIds = outcome.checks
 			.filter((check) => check.status === "failed")
 			.map((check) => check.id);

@@ -1,20 +1,21 @@
-import type {
-	GitBranchParams,
-	GitBranchPresenceResult,
-	GitCommitParams,
-	GitCurrentBranchResult,
-	GitCwdParams,
-	GitErrorInfo,
-	GitGateway,
-	GitLocalBranchTip,
-	GitOperationResult,
-	GitOptionalResult,
-	GitPathParams,
-	GitRefsPathParams,
-	GitResult,
-	GitRevisionRangePathParams,
-	GitStagePathsParams,
-	GitStatusPathFacts,
+import {
+	rejectEmptyStagePaths,
+	type GitBranchParams,
+	type GitBranchPresenceResult,
+	type GitCommitParams,
+	type GitCurrentBranchResult,
+	type GitCwdParams,
+	type GitErrorInfo,
+	type GitGateway,
+	type GitLocalBranchTip,
+	type GitOperationResult,
+	type GitOptionalResult,
+	type GitPathParams,
+	type GitRefsPathParams,
+	type GitResult,
+	type GitRevisionRangePathParams,
+	type GitStagePathsParams,
+	type GitStatusPathFacts,
 } from "./contract.ts";
 
 interface FailureState {
@@ -401,30 +402,18 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async statusPaths(params: GitCwdParams): Promise<GitResult<GitStatusPathFacts>> {
 		this.statusPathsLog.push(callFromParams(params));
-		const state = this.statusPathsState;
-		if (isFailureState(state)) {
-			return {
-				ok: false,
-				error: state.error ?? {
-					code: "git_status_paths_failed",
-					message: "Could not read git status paths.",
-				},
-			};
-		}
-		return {
-			ok: true,
-			value: { changedPaths: [...state.changedPaths] },
-		};
+		return mapValueResult(
+			this.statusPathsState,
+			(state) => ({ changedPaths: [...state.changedPaths] }),
+			"git_status_paths_failed",
+			"Could not read git status paths.",
+		);
 	}
 
 	async stagePaths(params: GitStagePathsParams): Promise<GitOperationResult> {
 		this.stagePathsLog.push({ ...callFromParams(params), paths: [...params.paths] });
-		if (params.paths.length === 0) {
-			return {
-				ok: false,
-				error: { code: "git_stage_paths_failed", message: "Refusing to stage an empty path list." },
-			};
-		}
+		const emptyPaths = rejectEmptyStagePaths(params.paths);
+		if (emptyPaths !== undefined) return emptyPaths;
 		if (this.stagePathsFailure !== undefined) {
 			return { ok: false, error: { ...this.stagePathsFailure } };
 		}
@@ -445,10 +434,19 @@ function valueResult<T>(
 	defaultCode: string,
 	defaultMessage: string,
 ): GitResult<T> {
+	return mapValueResult(state, (value) => value, defaultCode, defaultMessage);
+}
+
+function mapValueResult<T, U>(
+	state: ValueState<T>,
+	mapper: (value: T) => U,
+	defaultCode: string,
+	defaultMessage: string,
+): GitResult<U> {
 	if (isFailureState(state)) {
 		return { ok: false, error: state.error ?? { code: defaultCode, message: defaultMessage } };
 	}
-	return { ok: true, value: state };
+	return { ok: true, value: mapper(state) };
 }
 
 function optionalValueResult<T>(

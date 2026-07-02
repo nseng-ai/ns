@@ -26,6 +26,7 @@ import type {
 	GitStatusPathFacts,
 	KnownGitErrorCode,
 } from "./contract.ts";
+import { rejectEmptyStagePaths } from "./contract.ts";
 import { parseGitStatusPaths } from "./status-paths.ts";
 
 export type {
@@ -370,9 +371,8 @@ export class RealGitGateway implements GitGateway {
 	}
 
 	async stagePaths(params: GitStagePathsParams): Promise<GitOperationResult> {
-		if (params.paths.length === 0) {
-			return error("git_stage_paths_failed", "Refusing to stage an empty path list.");
-		}
+		const emptyPaths = rejectEmptyStagePaths(params.paths);
+		if (emptyPaths !== undefined) return emptyPaths;
 		const run = await this.runGitExpectingSuccess(params, ["add", "--", ...params.paths], {
 			code: "git_stage_paths_failed",
 			title: "git add failed",

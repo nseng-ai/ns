@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@sdl/clinkr";
 import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
+import { optionalEntries } from "@sdl/core/primitives";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
@@ -70,8 +71,10 @@ function makeScenario(options: ScenarioOptions = {}): Scenario {
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: openObjectiveStorage(),
 		childSession,
-		...(options.readTextFile === undefined ? {} : { readTextFile: options.readTextFile }),
-		...(options.outputFormat === undefined ? {} : { outputFormat: options.outputFormat }),
+		...optionalEntries({
+			readTextFile: options.readTextFile,
+			outputFormat: options.outputFormat,
+		}),
 	});
 	const command = createObjectiveExecRunnerStepSdlCommand({
 		createChildSessionGateway: () => {

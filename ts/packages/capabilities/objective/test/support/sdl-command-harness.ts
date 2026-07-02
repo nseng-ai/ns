@@ -1,7 +1,4 @@
 import { usageError, type ClinkrExit, type ClinkrFormat } from "@sdl/clinkr";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import type { GraphiteBranchGateway } from "@sdl/capability-kit/graphite/branch";
-import type { CommandExecApi } from "@sdl/core/exec";
 import { optionalEntries } from "@sdl/core/primitives";
 import { noopSdlProgress } from "@sdl/kernel/sdk";
 import type {
@@ -15,9 +12,7 @@ import type {
 	TextGenerationResult,
 } from "@sdl/kernel/sdk";
 
-import type { ObjectiveStorage } from "../../src/core/storage.ts";
-import type { ChildSessionGateway } from "../../src/runner/child-session.ts";
-import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
+import type { ObjectiveRunnerOverrides } from "../../src/sdl/runner-context.ts";
 
 export interface RecordedSdlExecCall {
 	command: string;
@@ -25,16 +20,9 @@ export interface RecordedSdlExecCall {
 	options: SdlExecOptions | undefined;
 }
 
-export interface FakeObjectiveSdlApiOptions {
+export interface FakeObjectiveSdlApiOptions extends ObjectiveRunnerOverrides {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
-	/** Runner-context overrides published under `extensions.objectiveRunner`. */
-	git?: GitGateway;
-	graphite?: GraphiteBranchGateway;
-	commands?: CommandExecApi;
-	storage?: ObjectiveStorage;
-	childSession?: ChildSessionGateway;
-	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 	/** Overrides merged into every recorded `exec` result (defaults to exit 0). */
 	execResult?: Partial<ExecResult>;
 	outputFormat?: ClinkrFormat;

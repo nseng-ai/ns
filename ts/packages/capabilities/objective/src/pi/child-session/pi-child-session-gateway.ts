@@ -110,10 +110,7 @@ async function runPiChildSession(
 		sessionFile = join(sessionDir, "child-session.jsonl");
 	} catch (error) {
 		closeChannel();
-		return {
-			type: "startup-failed",
-			message: `Failed to create child session directory: ${formatErrorMessage(error)}`,
-		};
+		return startupFailed("Failed to create child session directory", error);
 	}
 
 	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
@@ -127,10 +124,7 @@ async function runPiChildSession(
 		});
 	} catch (error) {
 		closeChannel();
-		return {
-			type: "startup-failed",
-			message: `Failed to spawn Pi child process: ${formatErrorMessage(error)}`,
-		};
+		return startupFailed("Failed to spawn Pi child process", error);
 	}
 
 	const timers = deps.timers ?? systemTimerScheduler;
@@ -141,15 +135,15 @@ async function runPiChildSession(
 	const parser = createPiJsonActivityParser((line) => emit({ type: "activity", line }));
 
 	return await new Promise<ChildSessionOutcome>((resolve) => {
-		let settled = false;
-		let closed = false;
-		let timedOut = false;
+		let isSettled = false;
+		let isClosed = false;
+		let isTimedOut = false;
 		let timeoutTimer: ScheduledTimer | undefined;
 		let killTimer: ScheduledTimer | undefined;
 
 		const finish = (outcome: ChildSessionOutcome) => {
-			if (settled) return;
-			settled = true;
+			if (isSettled) return;
+			isSettled = true;
 			timeoutTimer?.cancel();
 			killTimer?.cancel();
 			closeChannel();
@@ -158,10 +152,10 @@ async function runPiChildSession(
 
 		if (request.timeoutMs !== undefined) {
 			timeoutTimer = timers.setTimeout(() => {
-				timedOut = true;
+				isTimedOut = true;
 				child.kill("SIGTERM");
 				killTimer = timers.setTimeout(() => {
-					if (!closed) child.kill("SIGKILL");
+					if (!isClosed) child.kill("SIGKILL");
 				}, sigkillGraceMs);
 			}, request.timeoutMs);
 		}
@@ -177,16 +171,13 @@ async function runPiChildSession(
 		});
 
 		child.on("error", (error) => {
-			finish({
-				type: "startup-failed",
-				message: `Failed to spawn Pi child process: ${error.message}`,
-			});
+			finish(startupFailed("Failed to spawn Pi child process", error));
 		});
 
 		child.on("close", (code) => {
-			closed = true;
+			isClosed = true;
 			parser.flush();
-			if (timedOut) {
+			if (isTimedOut) {
 				finish({ type: "timed-out", stderrTail: stderrTail.toString(), sessionFile });
 				return;
 			}
@@ -216,6 +207,10 @@ function buildPiChildArgs(request: ChildSessionRequest, sessionFile: string): st
 
 async function createDefaultSessionDir(): Promise<string> {
 	return await mkdtemp(join(tmpdir(), "sdl-objective-runner-"));
+}
+
+function startupFailed(context: string, error: unknown): ChildSessionOutcome {
+	return { type: "startup-failed", message: `${context}: ${formatErrorMessage(error)}` };
 }
 
 function defaultSpawnPiChildProcess(
@@ -248,12 +243,15 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 	let finalAssistantText: string | undefined;
 	let stopReason: string | undefined;
 
-	function captureFromMessage(message: unknown, options: { finalText: boolean }): void {
+	function captureFromMessage(
+		message: unknown,
+		options: { shouldCaptureFinalText: boolean },
+	): void {
 		if (!isRecord(message) || message.role !== "assistant") return;
 		if (typeof message.stopReason === "string" && message.stopReason.length > 0) {
 			stopReason = message.stopReason;
 		}
-		if (!options.finalText) return;
+		if (!options.shouldCaptureFinalText) return;
 		const text = assistantTextFromContent(message.content);
 		if (text !== undefined) finalAssistantText = text;
 	}
@@ -269,20 +267,22 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 				return;
 			case "message_start":
 			case "message_update":
-				captureFromMessage(event.message, { finalText: false });
+				captureFromMessage(event.message, { shouldCaptureFinalText: false });
 				return;
 			case "turn_end":
-				captureFromMessage(event.message, { finalText: true });
+				captureFromMessage(event.message, { shouldCaptureFinalText: true });
 				return;
 			case "message_end": {
-				captureFromMessage(event.message, { finalText: true });
+				captureFromMessage(event.message, { shouldCaptureFinalText: true });
 				const preview = assistantActivityPreview(event.message);
 				if (preview !== undefined) emitActivity(preview);
 				return;
 			}
 			case "agent_end": {
 				if (Array.isArray(event.messages)) {
-					for (const message of event.messages) captureFromMessage(message, { finalText: true });
+					for (const message of event.messages) {
+						captureFromMessage(message, { shouldCaptureFinalText: true });
+					}
 				}
 				emitActivity(
 					stopReason === undefined ? "agent finished" : `agent finished (${stopReason})`,

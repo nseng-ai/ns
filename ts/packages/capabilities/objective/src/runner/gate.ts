@@ -1,3 +1,4 @@
+import type { GitCurrentBranchResult } from "@sdl/capability-kit/git";
 import { commandSucceeded, formatCommandDetails } from "@sdl/core/exec";
 
 import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
@@ -24,11 +25,16 @@ export interface GateCheckResult {
 	detail?: string;
 }
 
+export type GateBranchUnavailableReason =
+	| { type: "detached" }
+	| { type: "failure"; message: string };
+
 export interface GateOutcome {
-	passed: boolean;
+	hasPassed: boolean;
 	checks: readonly GateCheckResult[];
 	/** Live branch at verification, or null when it could not be determined. */
 	branch: string | null;
+	branchUnavailableReason: GateBranchUnavailableReason | null;
 	/** Live changed paths from the gate's own statusPaths call. */
 	changedPaths: readonly string[];
 }
@@ -57,13 +63,11 @@ export async function verifyRunnerStep(
 
 	const currentBranch = await ctx.git.currentBranch({ cwd: ctx.repoRoot });
 	const branch = currentBranch.type === "branch" ? currentBranch.branch : null;
-	const branchUnknownDetail =
-		currentBranch.type === "failure"
-			? `Could not determine current branch: ${currentBranch.error.message}`
-			: "HEAD is detached; the step must end on a named branch.";
+	const branchUnavailableReason = branchUnavailableReasonFrom(currentBranch);
+	const branchUnavailableDetail = formatBranchUnavailableDetail(branchUnavailableReason);
 
 	checks.push(
-		branchCheck("branch-not-trunk", branch, branchUnknownDetail, (live) =>
+		branchCheck("branch-not-trunk", branch, branchUnavailableDetail, (live) =>
 			live === ctx.trunkBranch
 				? `Current branch is trunk (${ctx.trunkBranch}); refusing to commit on trunk.`
 				: null,
@@ -71,7 +75,7 @@ export async function verifyRunnerStep(
 	);
 	if (mode === "default") {
 		checks.push(
-			branchCheck("moved-off-base", branch, branchUnknownDetail, (live) =>
+			branchCheck("moved-off-base", branch, branchUnavailableDetail, (live) =>
 				live === baseBranch
 					? `Still on the base branch ${JSON.stringify(baseBranch)}; the child must create its own implementation branch.`
 					: null,
@@ -81,7 +85,7 @@ export async function verifyRunnerStep(
 	} else {
 		checks.push(
 			{ id: "moved-off-base", status: "skipped", detail: "default-mode check" },
-			branchCheck("same-branch-as-attempt", branch, branchUnknownDetail, (live) =>
+			branchCheck("same-branch-as-attempt", branch, branchUnavailableDetail, (live) =>
 				live === baseBranch
 					? null
 					: `Recover step ended on ${JSON.stringify(live)} but the failed attempt was on ${JSON.stringify(baseBranch)}.`,
@@ -89,14 +93,14 @@ export async function verifyRunnerStep(
 		);
 	}
 	checks.push(
-		branchCheck("branch-matches-report", branch, branchUnknownDetail, (live) =>
+		branchCheck("branch-matches-report", branch, branchUnavailableDetail, (live) =>
 			live === report.branch
 				? null
 				: `Report claims branch ${JSON.stringify(report.branch)} but the live branch is ${JSON.stringify(live)}.`,
 		),
 	);
 
-	checks.push(await graphiteTrackedCheck(ctx, branch, branchUnknownDetail));
+	checks.push(await graphiteTrackedCheck(ctx, branch, branchUnavailableDetail));
 
 	const status = await ctx.git.statusPaths({ cwd: ctx.repoRoot });
 	const changedPaths = status.ok ? status.value.changedPaths : [];
@@ -120,11 +124,27 @@ export async function verifyRunnerStep(
 	checks.push(await headUnchangedCheck(ctx, headAtDispatch));
 
 	return {
-		passed: checks.every((check) => check.status !== "failed"),
+		hasPassed: checks.every((check) => check.status !== "failed"),
 		checks,
 		branch,
+		branchUnavailableReason,
 		changedPaths,
 	};
+}
+
+function branchUnavailableReasonFrom(
+	currentBranch: GitCurrentBranchResult,
+): GateBranchUnavailableReason | null {
+	if (currentBranch.type === "branch") return null;
+	if (currentBranch.type === "detached") return { type: "detached" };
+	return { type: "failure", message: currentBranch.error.message };
+}
+
+function formatBranchUnavailableDetail(reason: GateBranchUnavailableReason | null): string {
+	if (reason?.type === "failure") {
+		return `Could not determine current branch: ${reason.message}`;
+	}
+	return "HEAD is detached; the step must end on a named branch.";
 }
 
 function branchCheck(
