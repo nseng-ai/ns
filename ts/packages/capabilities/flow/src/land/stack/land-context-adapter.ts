@@ -350,6 +350,7 @@ async function freeSlots(
 		code: "slot_free_failed",
 		message: `Targeted slot cleanup failed before any PRs were landed.\n${formatCommandDetails(result, commandDisplay)}`,
 		displayCommand: commandDisplay,
+		details: { execResult: result },
 	});
 }
 

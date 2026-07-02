@@ -14,6 +14,7 @@ import type {
 } from "./stack/types.ts";
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
 import { createLandContext } from "./stack/land-context-adapter.ts";
+import type { LandContext } from "./api.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
 
@@ -52,8 +53,8 @@ export async function runLandingDispatch(
 		return completed();
 	}
 
+	const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 	if (isIsolatedFastPath(shape.value.stack)) {
-		const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 		const outcome = await runIsolatedFastPathLanding({
 			github: landContext.github,
 			ctx: options.ctx,
@@ -62,10 +63,10 @@ export async function runLandingDispatch(
 			...(progressIo === undefined ? {} : { progressIo }),
 		});
 		return await finishAfterLanding(outcome, {
-			runtime,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
+			landContext,
 		});
 	}
 
@@ -86,20 +87,20 @@ export async function runLandingDispatch(
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	return await finishAfterLanding(outcome, {
-		runtime,
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
+		landContext,
 	});
 }
 
 async function finishAfterLanding(
 	outcome: LandStackOutcome,
 	options: {
-		runtime: LandRuntime;
 		ctx: PrintAwareLandStackCommandContext;
 		args: ParsedArgs;
 		shape: LandingShape;
+		landContext: LandContext;
 	},
 ): Promise<LandStackOutcome> {
 	if (outcome.type === "failure") return outcome;
