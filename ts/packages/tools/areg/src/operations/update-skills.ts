@@ -3,7 +3,7 @@ import type { Result } from "@ji/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import type { AregGithubSkillFileResult, AregGithubSkillListResult } from "../gateways.ts";
+import type { AregErrorInfo, AregGithubSkillFileResult } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { parseInspectedLockfile, type LockfileSkill } from "./lockfile.ts";
 import { resolveProjectAgents } from "./project-agents.ts";
@@ -53,6 +53,9 @@ interface SelectedUpdate extends z.infer<typeof selectedUpdateSchema> {
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 
 type PreflightOutcome = { ok: true } | { ok: false; code: string; message: string };
+type GithubPreflightFailure =
+	| { type: "missing" | "auth-error"; message: string }
+	| { type: "error"; error: AregErrorInfo };
 
 export async function runUpdateSkills(
 	ctx: AregCliContext,
@@ -233,32 +236,15 @@ async function preflightSelectedUpdate(
 			message: "not found in skills directory before update",
 		});
 	}
-	return preflightOutcomeResult(update, normalizeSkillListPreflightError(result));
+	return preflightOutcomeResult(update, normalizeGithubPreflightFailure(result));
 }
 
 function normalizeSkillFilePreflightResult(result: AregGithubSkillFileResult): PreflightOutcome {
-	switch (result.type) {
-		case "found":
-			return { ok: true };
-		case "missing":
-		case "auth-error":
-			return {
-				ok: false,
-				code: "skill_source_preflight_failed",
-				message: result.message,
-			};
-		case "error":
-			return {
-				ok: false,
-				code: result.error.code,
-				message: result.error.message,
-			};
-	}
+	if (result.type === "found") return { ok: true };
+	return normalizeGithubPreflightFailure(result);
 }
 
-function normalizeSkillListPreflightError(
-	result: Exclude<AregGithubSkillListResult, { type: "ok" }>,
-): PreflightOutcome {
+function normalizeGithubPreflightFailure(result: GithubPreflightFailure): PreflightOutcome {
 	switch (result.type) {
 		case "missing":
 		case "auth-error":
