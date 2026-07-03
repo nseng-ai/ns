@@ -2,9 +2,12 @@
 
 ## Work
 
-- [ ] ADR: zero-kind mirrored Objective Edges with prompting-owned semantics — capture the
+- [x] ADR: zero-kind mirrored Objective Edges with prompting-owned semantics — capture the
       rejected alternatives (typed edge taxonomy, formal `to:`/`from:` directionality,
       single-sided storage) and the linter-enforced-symmetry argument that makes mirroring safe.
+      Evidence: `docs/adr/0025-zero-kind-mirrored-objective-edges.md` on branch
+      `adr-zero-kind-objective-edges` (runner step commit); open spellings (sweep CLI form,
+      blocked glyph) deliberately left to the linter and list-rendering slices.
 - [ ] Record Frontmatter parsing: a shared frontmatter reader in the `@sdl/objective` storage
       layer, with every `objective.md` reader (check heading lints, `read-objective`, `list`,
       `load-orientations`) stripping or parsing the block identically for records with and
