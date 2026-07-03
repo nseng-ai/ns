@@ -2,15 +2,15 @@
 
 ## Summary
 
-Performed the final current-source reconciliation pass for the historical `docs/cli-surface-conformance-audit.md` matrix. The audit document now carries a current-status banner explaining that it is historical evidence rather than an open remediation queue, and its remediation sequencing section is marked as completed historical guidance.
+Performed the final current-source reconciliation pass for the historical `docs/retros/cli-surface-conformance-audit.md` matrix. The audit document now carries a current-status banner explaining that it is historical evidence rather than an open remediation queue, and its remediation sequencing section is marked as completed historical guidance.
 
 Final probes used during the pass:
 
 ```bash
 git status --short
-rg "rawCommand\\(|isRawExit|branch_context_error|plans_error|snake_case|confirmation_required|skipConfirmation|skip-confirmation" ts docs/cli-surface-conformance-audit.md -n
+rg "rawCommand\\(|isRawExit|branch_context_error|plans_error|snake_case|confirmation_required|skipConfirmation|skip-confirmation" ts docs/retros/cli-surface-conformance-audit.md -n
 rg "failure\\(\\\"[a-z0-9]+_[a-z0-9_]*\\\"|errorType: \\\"[a-z0-9]+_[a-z0-9_]*\\\"|error_type|branch_context_error|plans_error" ts/packages -n
-rg "outputBounds|valueBounds|maxRuns|maxArtifactBytes|maxSessions|read-evidence-detail|collect-evidence|review log|vibechk run|rawCommand" ts/packages docs/cli-surface-conformance-audit.md -n
+rg "outputBounds|valueBounds|maxRuns|maxArtifactBytes|maxSessions|read-evidence-detail|collect-evidence|review log|vibechk run|rawCommand" ts/packages docs/retros/cli-surface-conformance-audit.md -n
 ```
 
 The remaining source `rawCommand(...)` hits are framework/extension raw paths and the intentional `vibechk run` runner passthrough; finite-result raw candidates tracked by the Objective were migrated or parked. Focused snake_case `failure(...)` / `errorType` probes found only style-guard test fixtures, not production Clinkr error values. Output-bound probes confirmed the landed Aretro and Vibechk bound metadata and the explicit Roaster review-log parking rationale.

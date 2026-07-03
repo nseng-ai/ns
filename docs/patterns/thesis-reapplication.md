@@ -7,7 +7,7 @@ output is a fresh change that accomplishes the branch's goals, built on code tha
 actually exists today.
 
 > **Reach for this only when the cheaper tools are provably dead.** If a plain
-> `git rebase` replays cleanly, rebase. If a [`gt restack`](pi/README.md) would
+> `git rebase` replays cleanly, rebase. If a [`gt restack`](../pi/README.md) would
 > replay with resolvable conflicts, use the `code-gt-restack-resolve` skill. If you
 > have a normal in-progress rebase that hit conflicts, use the
 > `code-resolve-merge-conflicts` skill. Thesis reapplication is the **third option**,

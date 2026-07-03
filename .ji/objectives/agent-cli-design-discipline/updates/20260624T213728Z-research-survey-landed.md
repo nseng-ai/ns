@@ -2,7 +2,7 @@
 
 ## Summary
 
-Added `docs/agent-era-cli-design-survey.md`, a checked-in survey mapping human-first CLI guidance from clig.dev against agent-era tool guidance from Anthropic, Speakeasy, and Agent Layer. The survey preserves contested positions instead of resolving them inline.
+Added `docs/research/agent-era-cli-design-survey.md`, a checked-in survey mapping human-first CLI guidance from clig.dev against agent-era tool guidance from Anthropic, Speakeasy, and Agent Layer. The survey preserves contested positions instead of resolving them inline.
 
 ## Objective Impact
 

@@ -211,7 +211,7 @@ tier note above.
 
 - `@sdl/graphite` carries a CONTEXT.md; it moves with the fold as
   subpackage-level context. The Graphite dependency boundary
-  (`docs/graphite-dependency-boundary.md`) is unaffected — the boundary is
+  (`docs/conventions/graphite-dependency-boundary.md`) is unaffected — the boundary is
   about runtime `gt` usage, not package location.
 
 ### @sdl/cmux — **fold → capability-kit/cmux** (6 files)

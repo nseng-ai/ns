@@ -156,7 +156,7 @@ the high-agreement changes, and parking the contested or large ones as backlog.
 
 Closed 2026-06-26. All Completion Criteria are met:
 
-- **Research survey** checked in: `docs/agent-era-cli-design-survey.md`
+- **Research survey** checked in: `docs/research/agent-era-cli-design-survey.md`
   (human-first clig.dev vs agent-era Anthropic/Speakeasy/Agent Layer, contested
   positions preserved with sources).
 - **ADRs for every contested decision**, each recording decision + dissent:

@@ -9,7 +9,7 @@ Concrete correction: `branch-context exec delete` is no longer an Area (a) `land
 Durable documents updated:
 
 - `docs/adr/0015-cli-surface-conformance-decisions.md` now states the carve-out as hidden `exec` destructive/external writes and names `branch-context exec delete` alongside the `pr-address` thread mutators.
-- `docs/cli-surface-conformance-audit.md` reclassifies `branch-context exec delete` Area (a) as conformant under ADR 0015 #2, removes it from the safety-first confirmation remediation list, and keeps human-facing `brmem delete` and `sdl shell install` as Area (a) land-now work.
+- `docs/retros/cli-surface-conformance-audit.md` reclassifies `branch-context exec delete` Area (a) as conformant under ADR 0015 #2, removes it from the safety-first confirmation remediation list, and keeps human-facing `brmem delete` and `sdl shell install` as Area (a) land-now work.
 - This Objective's `objective.md` and `roadmap.md` now distinguish human-facing confirmation remediation from hidden-`exec` no-prompt policy.
 
 ## Objective Impact

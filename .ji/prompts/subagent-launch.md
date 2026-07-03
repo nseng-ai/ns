@@ -20,7 +20,7 @@ Subagents should usually return compact prose or Markdown reports keyed by stabl
 
 JSON is appropriate at deterministic boundaries, such as agent-to-CLI and tool-to-tool calls. When a downstream CLI needs a JSON packet, the parent agent owns constructing or filling that deterministic schema from the subagent's semantic report, then validating it before acting. Use a strict structured subagent contract only when the parent deliberately invokes terminal-capture mode, typed tool parameters, or another explicit structured capture mechanism.
 
-For the broader methodology, see `docs/subagent-pushdown.md`.
+For the broader methodology, see `docs/patterns/subagent-pushdown.md`.
 
 ## Passing File Paths and Locators
 

@@ -5,7 +5,7 @@
 Recorded the six ADR-needed design calls the conformance audit surfaced as a
 single omnibus ADR, `docs/adr/0015-cli-surface-conformance-decisions.md`
 (Accepted), and reclassified every dependent row in
-`docs/cli-surface-conformance-audit.md` so none remains `ADR-needed`. This
+`docs/retros/cli-surface-conformance-audit.md` so none remains `ADR-needed`. This
 completes the first open roadmap row (the decision gate) and unblocks the area
 (a)/(d)/(c)/(b) remediation rows.
 

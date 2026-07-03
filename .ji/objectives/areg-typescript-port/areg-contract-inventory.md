@@ -12,7 +12,7 @@ Evidence inspected for this inventory:
 - Skill validation: `packages/areg/src/areg/check/**`, `packages/areg/tests/integration/test_check.py`, `packages/areg/tests/unit/test_frontmatter.py`, `packages/areg/tests/unit/test_lockfile.py`, `packages/areg/tests/unit/test_pairing.py`.
 - Curated skill update workaround: `packages/areg/src/areg/update_skills.py`, `packages/areg/tests/scenario/test_update_skills.py`.
 - Command conversion: `packages/areg/src/areg/command.py`, `packages/areg/src/areg/command_conversion.py`, `packages/areg/src/areg/invoke_only.py`, `packages/areg/tests/scenario/test_command.py`.
-- Public prose and consumers: `packages/areg/README.md`, `justfile`, `skills/skill-management/SKILL.md`, `skills/skillx/SKILL.md`, `docs/harness-skill-invocation.md`, `docs/skill-invocation-kinds.md`.
+- Public prose and consumers: `packages/areg/README.md`, `justfile`, `skills/skill-management/SKILL.md`, `skills/skillx/SKILL.md`, `docs/research/harness-skill-invocation.md`, `docs/skill-invocation-kinds.md`.
 
 ## Durable product identity
 

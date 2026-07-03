@@ -12,7 +12,7 @@ description: "Self-contained skill for auditing and tightening agent skills — 
     src: skill-audit  = the original asdl skill-audit (operational checklists)
     src: asdl         = asdl overlay / authored for this merge
   Installed as an invoke-only support skill via areg. Keep invocation artifacts
-  managed by `areg skill apply invoke-only skill-audit-improved` (see docs/skill-conventions.md).
+  managed by `areg skill apply invoke-only skill-audit-improved` (see docs/conventions/skill-conventions.md).
 -->
 
 Audit and tighten `SKILL.md` files: same **process** every run (see Vocabulary), high signal, low token cost, clear routing. Default goal: preserve behavior while deleting prompt burden.
@@ -27,7 +27,7 @@ Run the **Audit Order** top to bottom; apply the checklists as you go; name ever
 - `cli-push-down`: when the skill has shell, parsing, data gathering, or long procedural mechanics.
 - `typescript-style` + `typescript-fake-driven-testing`: when the skill carries TypeScript code or tests.
 - `dignified-python` + `pytest`: when the skill carries Python code or tests.
-- `docs/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
+- `docs/conventions/skill-conventions.md`: for invocation-kind (`areg`), frontmatter, naming, and vendoring rules.
 
 ## Audit Order
 
@@ -133,7 +133,7 @@ Report: files changed; line/token reduction if meaningful; main findings (each n
 
 A skill exists to wrangle determinism out of a stochastic system. **Predictability** — the agent taking the same *process* every run, not producing the same output — is the root virtue; every lever below serves it. Full definitions (with *Avoid* lists) are in the bundled [`GLOSSARY.md`](GLOSSARY.md); use the names below as the labels for audit findings.
 
-**Invocation.** Two modes, set by the **description**'s presence (in this repo, managed by `areg` kinds — see `docs/skill-conventions.md`):
+**Invocation.** Two modes, set by the **description**'s presence (in this repo, managed by `areg` kinds — see `docs/conventions/skill-conventions.md`):
 
 - **Model-invoked** — keeps a description, so the agent (and other skills) can fire it autonomously. Pays **context load** (the description sits in the window every turn). Choose only when the agent must reach it on its own.
 - **User-invoked** — description stripped; only the human typing its name reaches it. Zero context load, but spends human **cognitive load** (the human is the index). When user-invoked skills multiply past memory, a **router skill** names the others.
@@ -162,5 +162,5 @@ A skill exists to wrangle determinism out of a stochastic system. **Predictabili
 
 <!-- src: asdl -->
 
-- **Harness caveat.** `disable-model-invocation: true` is honored zero-ambient on Claude Code and Pi, but Codex keeps the description ambient and only blocks implicit invocation. Don't invent sidecar policy in a skill; the full per-harness mechanics live in `docs/harness-skill-invocation.md`. Invocation kind is managed by `areg` (`docs/skill-conventions.md`), not by hand-editing flags.
-- **Vendored skills.** When auditing a skill under a real directory in `.agents/skills/`, treat it as vendored: limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (`docs/skill-conventions.md`).
+- **Harness caveat.** `disable-model-invocation: true` is honored zero-ambient on Claude Code and Pi, but Codex keeps the description ambient and only blocks implicit invocation. Don't invent sidecar policy in a skill; the full per-harness mechanics live in `docs/research/harness-skill-invocation.md`. Invocation kind is managed by `areg` (`docs/conventions/skill-conventions.md`), not by hand-editing flags.
+- **Vendored skills.** When auditing a skill under a real directory in `.agents/skills/`, treat it as vendored: limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (`docs/conventions/skill-conventions.md`).

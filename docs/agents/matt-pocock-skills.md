@@ -56,7 +56,7 @@ Adapt locally when SDL needs repo-specific behavior, tool use, or workflow owner
 
 Matt Skills 1.0 uses `disable-model-invocation: true` for user-invoked wrappers such as `grill-me`, `grill-with-docs`, and `writing-great-skills`. Reusable model-invoked skills keep rich descriptions so other skills can route to them.
 
-SDL follows the same split where possible. `docs/harness-skill-invocation.md` records the harness caveat: Claude Code and Pi can suppress ambient invocation with `disable-model-invocation: true`; Codex may not make invoke-only skills truly zero-ambient through the same flag.
+SDL follows the same split where possible. `docs/research/harness-skill-invocation.md` records the harness caveat: Claude Code and Pi can suppress ambient invocation with `disable-model-invocation: true`; Codex may not make invoke-only skills truly zero-ambient through the same flag.
 
 ## Pi structured UI guidance
 

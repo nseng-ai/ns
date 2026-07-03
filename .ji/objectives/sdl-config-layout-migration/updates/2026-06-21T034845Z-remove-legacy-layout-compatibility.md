@@ -20,7 +20,7 @@ Removed active fallback/read/override surfaces:
 Updated active surfaces to match the new contract:
 
 - `.sdl/prompts/plans-write.md`
-- `docs/xdg-base-directory-spec.md`
+- `docs/research/xdg-base-directory-spec.md`
 - `docs/pi/README.md`
 - `docs/pi/branch-context-workflow.md`
 - `docs/adr/0006-branch-context.md` (current branch-context decision wording only)

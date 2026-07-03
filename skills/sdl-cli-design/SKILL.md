@@ -22,7 +22,7 @@ discipline, not a consumption guide and not a TypeScript style guide. For code
 idioms, load `typescript-style`, then `sdl-typescript` for the repo toolchain.
 Out of scope: structural/DRY cleanup of CLI code and shell completion.
 
-Decision provenance: `docs/agent-era-cli-design-survey.md`, the Clinkr gap audit
+Decision provenance: `docs/research/agent-era-cli-design-survey.md`, the Clinkr gap audit
 (`.ji/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`),
 and ADRs `docs/adr/0010`–`0015`. Exact `@sdl/clinkr` surfaces and ADR rationale
 live in `references/clinkr-api-map.md`. A command is **done only when every item

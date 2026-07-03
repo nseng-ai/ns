@@ -21,7 +21,7 @@ Evidence at HEAD:
 Corrected all four record references (1 in `objective.md`, 3 in `roadmap.md`). The
 command-backed set is still eight skills (a rename, not a membership change). Everything
 else re-verified clean: systemic #1/#2/#3 resolutions hold (grill pair, branch-context
-`lifecycle.md`/`from-plan`, `docs/skill-conventions.md` § Skill Invocation Kinds all
+`lifecycle.md`/`from-plan`, `docs/conventions/skill-conventions.md` § Skill Invocation Kinds all
 present); every other named per-skill target still exists under `skills/`; the DONE rewrites
 (`objective-stack-impl`, `objective-refresh`, `objective-update`, `handoff-create`) and the
 `python-fake-driven-testing` reference-tree merge (`quick-reference.md` gone, `workflows.md`
@@ -33,7 +33,7 @@ No change to scope, completion criteria, risks, or open questions. Only the stal
 identifier was corrected to its current name and Pi surface. The `sdl-flow-submit`
 move-to-reference work remains pending under the in-progress per-skill remediation row.
 
-Note (not rewritten): `docs/skill-conventions.md` now frames the `Command: <name>` stub as a
+Note (not rewritten): `docs/conventions/skill-conventions.md` now frames the `Command: <name>` stub as a
 legacy artifact ("current `areg skill apply` does not rewrite descriptions"), whereas the
 Objective's systemic #1 prose frames the stub as the live "rendered output" of an
 explicit-only kind. The systemic #1 work is DONE and the recorded decision/evidence remain

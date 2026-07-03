@@ -26,8 +26,8 @@ Key findings:
   should target the lighter `invoke-only`.
 - Invocation kind is **orthogonal to visibility** (`metadata.internal: true`).
 
-The taxonomy and norms are now documented in `docs/skill-conventions.md` § Skill
-Invocation Kinds, cross-linked from `docs/harness-skill-invocation.md` (shipped on branch
+The taxonomy and norms are now documented in `docs/conventions/skill-conventions.md` § Skill
+Invocation Kinds, cross-linked from `docs/research/harness-skill-invocation.md` (shipped on branch
 `branch-policy/document-areg-skill-kinds`, commit `5c25215ad`; PR #1881 covers the parent
 branch-policy work).
 

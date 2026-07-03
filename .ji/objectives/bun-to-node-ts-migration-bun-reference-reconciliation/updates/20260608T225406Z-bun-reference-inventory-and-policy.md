@@ -17,7 +17,7 @@ Remaining accepted references are classified as follows:
 
 - `AGENTS.md` is current active guidance: TypeScript workspace tests are pnpm/Vitest-backed, with direct Bun test guidance limited to out-of-scope standalone Bun projects.
 - `skills/create-bun-typescript-project/**` is deliberate standalone Bun template/product guidance.
-- `docs/internal-pr-stack-address-retrospective.md` and older Objective records are historical/provenance evidence and should not be churned merely to reduce search hits.
+- `docs/retros/internal-pr-stack-address-retrospective.md` and older Objective records are historical/provenance evidence and should not be churned merely to reduce search hits.
 - `ts/packages/pi-extensions/src/runner-subagent/subagent-process.ts` keeps `node|bun` runtime detection and a `/$bunfs/root/` guard as compatibility/safety handling, not as an active Bun requirement.
 - `.github/workflows/*` matches from the broad search were substring noise in `ubuntu-latest`, not Bun setup.
 - `docs-site/` did not contain real Bun command/setup paths in the scoped search.

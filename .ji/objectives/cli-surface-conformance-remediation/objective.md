@@ -4,7 +4,7 @@
 
 The `sdl-cli-design` standard (skill + ADRs 0010–0015) exists, and framework-enforced Clinkr gates are intended to be conformant by construction. The still-open work is the command-local discipline the framework does not fully enforce: danger-tier confirmation, output-volume bounding, stable `errorType`/structured failure data, and correct `negative(...)`/`ok(...)`/`usageError`/`failure(...)` semantics.
 
-This Objective was seeded from the point-in-time audit in `docs/cli-surface-conformance-audit.md`. That audit remains the historical matrix and starting checklist, but intervening package moves and command-surface refactors mean its file:line locators and some classifications must be re-verified against current source before implementation. The Objective should drive the matrix to ground by landing high-confidence remediations, explicitly parking contested or large items, and updating durable evidence when current code has diverged from the audit.
+This Objective was seeded from the point-in-time audit in `docs/retros/cli-surface-conformance-audit.md`. That audit remains the historical matrix and starting checklist, but intervening package moves and command-surface refactors mean its file:line locators and some classifications must be re-verified against current source before implementation. The Objective should drive the matrix to ground by landing high-confidence remediations, explicitly parking contested or large items, and updating durable evidence when current code has diverged from the audit.
 
 The four command-local areas remain:
 
@@ -15,7 +15,7 @@ The four command-local areas remain:
 
 ## Scope
 
-- The CLI packages and command leaves enumerated by `docs/cli-surface-conformance-audit.md`, re-mapped to current tracked package locations before editing. Verified current package names/locations include `@sdl/areg` under `ts/packages/tools/areg`, `@sdl/brmem` under `ts/packages/infra/brmem`, `@sdl/packagechk` under `ts/packages/tools/packagechk`, `@sdl/slot` under `ts/packages/capabilities/slot`, `@sdl/kernel` under `ts/packages/kernel`, `@sdl/address` replacing the former PR Address package, and `sdlcc` under `ts/packages/hosts/sdlcc`.
+- The CLI packages and command leaves enumerated by `docs/retros/cli-surface-conformance-audit.md`, re-mapped to current tracked package locations before editing. Verified current package names/locations include `@sdl/areg` under `ts/packages/tools/areg`, `@sdl/brmem` under `ts/packages/infra/brmem`, `@sdl/packagechk` under `ts/packages/tools/packagechk`, `@sdl/slot` under `ts/packages/capabilities/slot`, `@sdl/kernel` under `ts/packages/kernel`, `@sdl/address` replacing the former PR Address package, and `sdlcc` under `ts/packages/hosts/sdlcc`.
 - Resolving and preserving the ADR 0015 decisions that gate remediation, especially raw-exit policy, hidden `exec` write intent, miss semantics, and dotfile/user-environment danger tiers.
 - Landing high-confidence human-facing danger-tier fixes with scenario tests, using conformant references such as `handoff delete`/`gc`, `slot gc`, and `brmem put` as templates, while preserving ADR 0015's hidden-`exec` no-prompt carve-out.
 - Safety-first sequencing: area (a) danger tiers, then (d) exit semantics, then (c) `errorType`, then (b) output bounding; rebaseline individual rows when current code has already changed.
@@ -30,7 +30,7 @@ The four command-local areas remain:
 
 ## Completion Criteria
 
-- The historical conformance matrix is reconciled with current source: every surviving row in `docs/cli-surface-conformance-audit.md` is either landed, corrected, narrowed, or explicitly parked with current-path/current-symbol evidence.
+- The historical conformance matrix is reconciled with current source: every surviving row in `docs/retros/cli-surface-conformance-audit.md` is either landed, corrected, narrowed, or explicitly parked with current-path/current-symbol evidence.
 - ADR 0015 decisions remain the accepted basis for dependent rows; hidden `exec` destructive/external writes stay prompt-free unless a future ADR reverses that policy.
 - Human-facing area (a) danger-tier gaps are remediated or reclassified with scenario tests covering interactive confirm, `--yes`/`--force` bypass as applicable, and non-interactive flag-naming `usageError`.
 - Area (d) and area (c) fixes are applied or parked across the currently verified command set; generic error-collapse wrappers such as `branch-context`/`plans` are replaced only with modeled snake_case errors and useful structured data.
@@ -61,6 +61,6 @@ Risks:
 
 ## Closure
 
-Closed after the final current-source reconciliation pass. The historical audit matrix remains in `docs/cli-surface-conformance-audit.md` as point-in-time evidence with a current-status banner. The Objective's tracked remediation slices landed or parked every surviving row: Area (a) danger-tier fixes, Area (d) exit-semantics migrations, Area (c) kebab-case and modeled error-type discipline including Branch Context / Plans, and Area (b) output-bound remediation for Aretro/Vibechk with Roaster review-log parking below the ADR 0012 threshold.
+Closed after the final current-source reconciliation pass. The historical audit matrix remains in `docs/retros/cli-surface-conformance-audit.md` as point-in-time evidence with a current-status banner. The Objective's tracked remediation slices landed or parked every surviving row: Area (a) danger-tier fixes, Area (d) exit-semantics migrations, Area (c) kebab-case and modeled error-type discipline including Branch Context / Plans, and Area (b) output-bound remediation for Aretro/Vibechk with Roaster review-log parking below the ADR 0012 threshold.
 
 Final source probes found no uncommitted changes and no known non-parked implementation gap. Remaining parked items are intentionally out of this Objective's completion path: domain-small unbounded lists below the ADR 0012 threshold, the non-Clinkr `ccc land`/`land-stack` Pi surface, new conformance tooling, and structural/DRY cleanup owned by other work.

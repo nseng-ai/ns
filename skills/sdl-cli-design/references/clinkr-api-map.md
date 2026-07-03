@@ -140,7 +140,7 @@ shortcut around machine envelopes.
 
 ## Source-of-truth pointers
 
-- Survey: `docs/agent-era-cli-design-survey.md` (competing positions + sources).
+- Survey: `docs/research/agent-era-cli-design-survey.md` (competing positions + sources).
 - Gap audit:
   `.ji/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
 - ADRs: `docs/adr/0010`–`0015`.

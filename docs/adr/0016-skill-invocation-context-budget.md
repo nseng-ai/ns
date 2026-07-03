@@ -8,7 +8,7 @@ Accepted
 
 Pi and Claude Code include model-invoked skill frontmatter in the model's ambient context. The skill body remains progressively disclosed, but every `name` and `description` for an ambient skill is paid on every session. As the SDL skill set grew, specialized workflow skills, setup skills, and leaf operation skills accumulated enough frontmatter to become a measurable context cost.
 
-SDL already has an `areg`-managed invocation taxonomy in `docs/skill-conventions.md`: `normal`, `ambient-only`, `invoke-only`, and `command-backed`. The missing decision was not the mechanics of those kinds, but the policy for when a skill deserves ambient model discovery.
+SDL already has an `areg`-managed invocation taxonomy in `docs/conventions/skill-conventions.md`: `normal`, `ambient-only`, `invoke-only`, and `command-backed`. The missing decision was not the mechanics of those kinds, but the policy for when a skill deserves ambient model discovery.
 
 ## Decision
 

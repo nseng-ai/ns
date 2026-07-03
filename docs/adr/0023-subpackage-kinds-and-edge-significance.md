@@ -11,4 +11,4 @@ Every declared subpackage is one of four kinds, each with a sanctioned importer 
 
 Internal horizontal layers — `operations`, `gateways`, `commands`, `shared`, `shell` — do not earn subpackage rank and live as folders inside the kind that owns them. We explicitly rejected layers-as-subpackages: layer entries are uniform boilerplate that make per-package topology say nothing package-specific, and the load-bearing import rules attach to contract and host boundaries, not to internal layering. `core` remains legitimate only as the feature subpackage naming a package's central domain, not as a layer dump.
 
-Operational guidance (naming, checklists, consolidation mechanics) lives in `docs/subpackage-conventions.md`; canonical vocabulary lives in the root `CONTEXT.md` package-topology cluster.
+Operational guidance (naming, checklists, consolidation mechanics) lives in `docs/conventions/subpackage-conventions.md`; canonical vocabulary lives in the root `CONTEXT.md` package-topology cluster.

@@ -20,7 +20,7 @@ Classifications:
 - **Migrated package/Pi metadata**: `ts/packages/hosts/pi/src/handoff/registration.ts` parity text now names `sdl handoff create|pickup|list` and Handoff API behavior instead of a standalone CLI-over-brmem workflow.
 - **Removed standalone implementation/tests**: package bin metadata, `ts/packages/handoff/src/cli.ts`, standalone CLI scenario tests, and the standalone CLI scenario harness were removed.
 - **Removed shim/install surface**: `just install-handoff` was deleted and `install-tools` no longer installs or reports `handoff`.
-- **Retained historical/provenance mentions**: ADR/audit references such as `docs/adr/0014-clinkr-confirmation-danger-tiers.md`, `docs/cli-surface-conformance-audit.md`, and closed/older Objective records remain historical and were not rewritten as active command guidance.
+- **Retained historical/provenance mentions**: ADR/audit references such as `docs/adr/0014-clinkr-confirmation-danger-tiers.md`, `docs/retros/cli-surface-conformance-audit.md`, and closed/older Objective records remain historical and were not rewritten as active command guidance.
 - **Retained non-standalone Handoff terms**: Pi slash commands (`/handoff:*`), skills (`handoff-create`, `handoff-pickup`), namespace/key vocabulary, tests, and generic handoff artifact prose remain because they are not calls to the standalone binary.
 
 ## Standalone removal evidence

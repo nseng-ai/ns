@@ -30,7 +30,7 @@ Norms and gotchas this taxonomy makes non-obvious:
 - **Descriptions stay human-readable.** Older explicit-only experiments used `description: "Command: <name>"` stubs plus hidden comments, but current `areg skill apply` does not rewrite descriptions. A skill that remains `normal` must carry a real trigger description; a skill made `invoke-only` or `command-backed` can keep its real description because Claude Code and Pi remove it from ambient context through the managed flags.
 - **`invoke-only` vs `command-backed`.** `invoke-only` is the light, default explicit-only kind — zero ambient on Claude Code + Pi, still invocable via `/skill:name`, no extra dependency. `command-backed` additionally hides the raw `/skill:name` in Pi and routes to a namespaced Pi extension (`/ns:cmd`); `areg skill apply command-backed` only succeeds when that replacement extension already exists and verifies (see `.pi/extensions/`). Use `command-backed` only when the verified Pi replacement is the preferred user surface; otherwise use `invoke-only`.
 - **Invocation kind is orthogonal to visibility.** `metadata.internal: true` (non-public / not externally installable) is a *separate* axis from the invocation kind. A skill can be internal and `normal`, or public and `invoke-only`, etc. Do not infer one axis from the other.
-- **Codex can't go zero-ambient.** Claude Code and Pi both honor `disable-model-invocation: true` (the entry leaves the model's context); Codex keeps the description ambient and only blocks implicit invocation. The full per-harness mechanics — flags honored, ambient token cost, read roots, namespacing — live in [Harness skill/command/prompt invocation mechanics](harness-skill-invocation.md). This section is the repo's *managed taxonomy* layered on top of those mechanics.
+- **Codex can't go zero-ambient.** Claude Code and Pi both honor `disable-model-invocation: true` (the entry leaves the model's context); Codex keeps the description ambient and only blocks implicit invocation. The full per-harness mechanics — flags honored, ambient token cost, read roots, namespacing — live in [Harness skill/command/prompt invocation mechanics](../research/harness-skill-invocation.md). This section is the repo's *managed taxonomy* layered on top of those mechanics.
 
 ### Skill Invocation Decision Policy
 
@@ -62,7 +62,7 @@ When a skill body references model tiers or per-dispatch model selection, keep t
 
 ### Vendored Skill Code
 
-See [Matt Pocock Skills Upstream Adaptation Guide](agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, SDL overlays, and future upstream update checklist.
+See [Matt Pocock Skills Upstream Adaptation Guide](../agents/matt-pocock-skills.md) for the current Matt-sourced vendored skill set, SDL overlays, and future upstream update checklist.
 
 - `.agents/skills/<name>/` is either (a) a symlink back to a first-party skill at `skills/<name>/` or (b) a real directory containing vendored third-party code. Treat only real directories there as vendored; symlinked entries resolve to first-party sdl work under `skills/<name>/` and are subject to normal linting, typechecking, and review.
 - Treat `.claude/skills/*` as symlinks into `.agents/skills/`; the vendored-vs-first-party distinction follows through the chain to the underlying directory.

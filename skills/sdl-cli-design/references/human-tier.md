@@ -2,7 +2,7 @@
 
 Human output is a text UI. It may evolve freely (unlike the machine envelope),
 but it must stay honest and low-noise. Source: clig.dev, summarized in
-`docs/agent-era-cli-design-survey.md`.
+`docs/research/agent-era-cli-design-survey.md`.
 
 ## Rules
 

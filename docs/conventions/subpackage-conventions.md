@@ -33,7 +33,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 - Cross-package runtime imports target `<pkg>/api` only. Cross-package test imports may also target `<pkg>/testing`.
 - Host-surface subpaths are imported only by their host packages.
-- A feature-level `api`/`testing` module (for example `sdl-flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/platform-and-consumer.md` for the promotion-path discipline).
+- A feature-level `api`/`testing` module (for example `sdl-flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
 ## Adding or consolidating
 

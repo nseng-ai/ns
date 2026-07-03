@@ -31,7 +31,7 @@ Changes:
 - Repointed prose that still named the bare binary to `sdl objective ...`: `AGENTS.md`
   (the always-loaded `load-orientations` command and the standalone-CLI list),
   `skills/objective/SKILL.md`, `docs/objective-system.md`,
-  `docs/pi/cmux-extension-pattern.md`, and `docs/cli-surface-conformance-audit.md`.
+  `docs/pi/cmux-extension-pattern.md`, and `docs/retros/cli-surface-conformance-audit.md`.
 
 ## Objective Impact
 

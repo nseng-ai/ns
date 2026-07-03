@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-The agent-era CLI survey (`docs/agent-era-cli-design-survey.md`) lists
+The agent-era CLI survey (`docs/research/agent-era-cli-design-survey.md`) lists
 confirmation and danger tiers as an unresolved decision. clig.dev gives
 human-first guidance: confirm dangerous operations, escalate confirmation
 strength with severity, provide scriptable alternatives such as `--force` or
