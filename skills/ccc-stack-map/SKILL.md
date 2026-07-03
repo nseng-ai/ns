@@ -33,8 +33,10 @@ Use these sources in this order:
    - `git -C <cwd> symbolic-ref --short HEAD` for the checked-out branch;
    - fallback `git -C <cwd> rev-parse --short HEAD` and display detached HEAD as `DETACHED@abc123`;
    - `git -C <cwd> status --porcelain` for dirty state.
-4. Structured Graphite topology for branch facts. Prefer `ns slot gt exec stack-branches --format json` from relevant stack worktrees and use its `data.edges` parent→child list as the machine tree shape. Fall back to `gt parent --no-interactive` / `gt children --no-interactive` only when the exec helper is unavailable or incomplete.
+4. Structured Graphite topology for branch facts. Prefer `ns slot gt exec stack-branches --format json` from relevant stack worktrees (at least one non-trunk stack worktree when available) and use its `data.edges` parent→child list as the machine tree shape and `data.branches` as the non-trunk branch inventory for the selected scope. If only trunk is available, report the clear no-stack envelope rather than treating it as a failure. Fall back to `gt parent --no-interactive` / `gt children --no-interactive` only when the exec helper is unavailable or incomplete.
 5. `gt ls` only as human visual confirmation or as a visual template. Do **not** parse `gt ls`, `gt log`, or other human-facing Graphite display output as a machine source of topology facts.
+
+For ad-hoc collection, a minimal in-session snippet is acceptable; do not add a bundled executable script for the first version of this skill.
 
 ## Default overlay output
 
@@ -96,56 +98,6 @@ Put badges in the `CMUX` column for the matching Graphite branch row. Keep badge
 - `2t`, `3t`, etc.: the workspace has multiple cmux surfaces/tabs in `cmux tree --all --json`. Count surfaces for that workspace; do not count panes for this badge.
 
 If a workspace is both active and caller, prefer `◎` only when emphasizing this Pi session matters more than global focus; otherwise show both as `●◎` if the display needs to distinguish the two facts.
-
-## Read-only command recipe
-
-Run collection commands only. These commands should not mutate cmux, Git, Graphite, or files.
-
-```bash
-cmux tree --all --json
-```
-
-For each window returned by the tree:
-
-```bash
-cmux workspace list --window <window-ref> --json
-```
-
-For each workspace current directory that exists:
-
-```bash
-git -C <cwd> symbolic-ref --short HEAD || git -C <cwd> rev-parse --short HEAD
-git -C <cwd> status --porcelain
-```
-
-From at least one non-trunk stack worktree when available:
-
-```bash
-ns slot gt exec stack-branches --format json
-```
-
-Read `data.edges` as structured parent→child topology and `data.branches` as the non-trunk branch inventory for the selected scope. If only trunk is available, report the clear no-stack envelope rather than treating it as a failure.
-
-For ad-hoc collection without adding a bundled script, a minimal Python sketch is acceptable in the live session:
-
-```python
-import json
-import subprocess
-
-
-def run_json(*argv: str) -> object:
-    return json.loads(subprocess.check_output(argv, text=True))
-
-
-tree = run_json("cmux", "tree", "--all", "--json")
-for window in tree.get("windows", []):
-    window_ref = window.get("window_ref") or window.get("id") or window.get("ref")
-    if window_ref:
-        workspaces = run_json("cmux", "workspace", "list", "--window", window_ref, "--json")
-        print(window_ref, workspaces)
-```
-
-Use snippets like this only as documentation or one-off session assistance; do not add a bundled executable script for the first version of this skill.
 
 ## Rendering workflow
 
