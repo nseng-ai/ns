@@ -35,13 +35,13 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 ## Scope and method
 
 13 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
-`@sdl/slot` command group that is mounted only under `ji slot`; each leaf command
+`@ji/slot` command group that is mounted only under `ji slot`; each leaf command
 (including nested groups and hidden `exec` subgroups) was classified.
 
 **Framework-enforced gates are treated as conformant by construction** and were
 spot-verified, not re-derived: every CLI entrypoint package builds on
-`@sdl/core/cli-entry` `defineCli` (so `-h`/`--version`/`--runtime` are wired
-centrally), while the `@sdl/slot` command group is intentionally only mounted
+`@ji/core/cli-entry` `defineCli` (so `-h`/`--version`/`--runtime` are wired
+centrally), while the `@ji/slot` command group is intentionally only mounted
 under the owning `ji` entrypoint. All `exec` subgroups use `isHidden: true`, and
 the camelCase machine envelope, `0/1/2` exit codes, enveloped Zod usage errors,
 and published `--json-schema` are inherited framework behavior (ADR 0011/0013).
@@ -87,14 +87,14 @@ framework does not enforce:
 | plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                       |
 | pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                    |
 | roaster        | `ji roaster review list/ls/run/log`, `ji roaster roast list`, `ji roaster exec record-findings/publish-findings`                                                              | standalone binary removed; SDL extension command face is the active surface |
-| ji             | `shell show/install` (local; dual-mounted under `ji` and `ji slot`); mounts `@sdl/slot` group + runtime extension commands                                                    | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
-| sdlcc          | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
+| ji             | `shell show/install` (local; dual-mounted under `ji` and `ji slot`); mounts `@ji/slot` group + runtime extension commands                                                     | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
+| jicc           | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
 | slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `ji slot`; **reference** Tier 3 (`gc`)                        |
 | vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                             |
 
 `ji` umbrella note: the only commands physically defined under `ts/packages/kernel/src/`
 are `shell show`/`shell install`. All other `ji ...` commands are either the
-`@sdl/slot` group (audited under **slot**) or runtime extension contributions
+`@ji/slot` group (audited under **slot**) or runtime extension contributions
 (loaded from project/global extensions; not statically present in this repo).
 
 ## Summary table (highest-value findings, safety-first order)
@@ -114,7 +114,7 @@ are `shell show`/`shell install`. All other `ji ...` commands are either the
 | 11 | c    | kebab-case `errorType` (violates stable snake_case)                                                                                    | `areg exec skillx list/fetch` (`missing-tool`), `brmem exec resolve-prompt` (`prompt-not-found`), `objective` (all storage codes: `move-directory-failed`, etc.) | land-now-fix                                          |
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
 | 13 | c    | `failure(...)` carries message only, no structured `data` (near-universal)                                                             | most packages                                                                                                                                                    | land-now-fix                                          |
-| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `sdlcc cmux report`, `vibechk run`, `ccc exec autobranch`                                                                                    | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
+| 14 | c/d  | `rawCommand` opts out of envelope entirely (no `errorType`/`resultSchema`; true failures exit 1 not 2)                                 | `packagechk` (all), `jicc cmux report`, `vibechk run`, `ccc exec autobranch`                                                                                     | land-now-fix (ADR 0015 #1: narrow exemption; migrate) |
 | 15 | b    | Unbounded output with no completion/bound state in schema                                                                              | `aretro` (both), `vibechk runs/show/diff`, `roaster review log`; (parked: pr-address lists, handoff list/gc, brmem list, plans list, objective read-objective)   | mixed (land-now-fix / parked)                         |
 
 ## Cross-cutting themes
@@ -156,7 +156,7 @@ are `shell show`/`shell install`. All other `ji ...` commands are either the
    violations.
 
 5. **`rawCommand`/`isRawExit` packages opt out of the envelope contract.**
-   `packagechk`, `sdlcc cmux report`, `vibechk run`, and `ccc exec autobranch`
+   `packagechk`, `jicc cmux report`, `vibechk run`, and `ccc exec autobranch`
    deliberately bypass `ok/negative/failure/usageError`,
    `resultSchema`, and `--json-schema`, returning bare exit codes. Whether raw-exit
    is a sanctioned exemption from the pre-ship envelope items, or these commands
@@ -499,7 +499,7 @@ Command tree:
 - `ji shell show` — LOCAL (`cli.ts:284`; op `operations/shell.ts:30`)
 - `ji shell install` — LOCAL (`cli.ts:294`; op `operations/shell.ts:36`)
 - `ji slot shell show` / `ji slot shell install` — LOCAL (same group, dual-mounted via `cli.ts:182`)
-- `ji slot ...` group — defined in `@sdl/slot` (`slot/src/command-face.ts`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
+- `ji slot ...` group — defined in `@ji/slot` (`slot/src/command-face.ts`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
 - Dynamic extension commands — runtime-loaded from project/global extensions (`cli.ts:185-217`); no static built-ins (`command-registry.ts:51`); defined outside this package
 
 | Command                                        | Mutating? | Area | Finding                                                                                                                                            | Classification | Evidence (file:line)                                                 |
@@ -511,11 +511,11 @@ Command tree:
 | `ji shell install`                             | Yes       | c    | Shared `unsupported_shell` failure lacks structured `data`                                                                                         | land-now-fix   | `operations/shell.ts:38`; `sdl-core/src/shell-support.ts:135-140`    |
 | `ji shell install`                             | Yes       | d    | Already-installed → `ok(is_already_installed:true)` — correct                                                                                      | conformant     | `operations/shell.ts:45-49`                                          |
 | `ji shell install`                             | Yes       | b    | Single bounded result object                                                                                                                       | conformant     | `operations/shell.ts:45-49`                                          |
-| `ji slot ...` (all slot/gt commands)           | n/a       | all  | defined in `@sdl/slot`; audited under **slot**                                                                                                     | parked         | `slot/src/command-face.ts`                                           |
+| `ji slot ...` (all slot/gt commands)           | n/a       | all  | defined in `@ji/slot`; audited under **slot**                                                                                                      | parked         | `slot/src/command-face.ts`                                           |
 | dynamic extension commands                     | varies    | all  | runtime-loaded from extensions; not statically defined here                                                                                        | parked         | `cli.ts:185-217`                                                     |
 
 **ji notes:** Substantive local surface is tiny — only `shell show`/`shell install`
-(dual-mounted under `ji` and `ji slot`); the umbrella mostly composes the `@sdl/slot`
+(dual-mounted under `ji` and `ji slot`); the umbrella mostly composes the `@ji/slot`
 group and runtime extension commands. One concrete command-local gap: missing structured
 `data` on the shared `unsupported_shell` failure (e.g. `{shell, supportedShells}`). The
 danger tier of `shell install` is resolved to **Tier 2** by ADR 0015 #6 (it mutates a
@@ -526,7 +526,7 @@ by design not present in this repo. (Aside: extension-contributed commands run t
 legacy `{ok, exitCode, message}` SdlResult path, not the Clinkr envelope — a separate
 extension-SDK concern.)
 
-### sdlcc
+### jicc
 
 | Command       | Mutating?                                       | Area | Finding                                                                                                                                                                                   | Classification | Evidence (file:line)                          |
 | ------------- | ----------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------- |
@@ -535,7 +535,7 @@ extension-SDK concern.)
 | `cmux report` | Yes                                             | c    | `rawCommand`: bespoke `{ok:false, error}` JSON, no snake_case `errorType`, no `data`, no `resultSchema`/`--json-schema`                                                                   | land-now-fix   | `cli.ts:60-89`; `cmux-report.ts:134-145`      |
 | `cmux report` | Yes                                             | d    | Genuine failures (missing `CMUX_WORKSPACE_ID`/`CMUX_SURFACE_ID`, not a worktree, detached HEAD, `cmux` exit≠0) all return exit 1 (`negative`) rather than `failure`/`usageError` (exit 2) | land-now-fix   | `cli.ts:79,86`; `cmux-report.ts:44-52,95-100` |
 
-**sdlcc notes:** sdlcc is overwhelmingly a TUI app; its only conventional CLI leaf is
+**jicc notes:** jicc is overwhelmingly a TUI app; its only conventional CLI leaf is
 `cmux report`, authored as a `rawCommand` and so opting out of the Clinkr envelope,
 `resultSchema`, and `--json-schema` — (c)/(d) are gaps rather than conformant-by-
 construction. Fix shape: migrate to a schema→handler command returning `ok(...)` and
@@ -623,7 +623,7 @@ Semantic Updates record the current-source remediations and parking decisions.
 2. **Area (d), land-now:** apply a not-found→`negative` / bad-or-missing-arg→`usageError`
    / operational-error→`failure` decision table to `areg`, `aretro collect-evidence`,
    `brmem get/delete/copy`, `plans exec resolve`, `objective runner-subagent-usage`,
-   `ccc cmux-workspace-summary`, `vibechk show/diff`, `sdlcc cmux report`.
+   `ccc cmux-workspace-summary`, `vibechk show/diff`, `jicc cmux report`.
 3. **Area (c), land-now:** fix kebab-case `errorType` (`objective` storage codes, `areg
    skillx`, `brmem resolve-prompt`); replace the generic error-collapse wrappers in
    `branch-context`/`plans` with modeled errorTypes; add structured `data` where it aids
@@ -651,7 +651,7 @@ above has been updated accordingly.
    `negative`. Rows → conformant.
 5. **`brmem export`/`branch-context check` empty/absent as `ok`:** resolved by ADR 0015
    #5 — ratified as the standard. Rows → conformant.
-6. **Dotfile/external-write danger tier (`ji shell install`, `sdlcc cmux report`):**
+6. **Dotfile/external-write danger tier (`ji shell install`, `jicc cmux report`):**
    resolved by ADR 0015 #6 — user-dotfile writes are Tier 2 (`ji shell install` →
-   land-now-fix); env-keyed external metadata writes stay Tier 1 (`sdlcc cmux report`
+   land-now-fix); env-keyed external metadata writes stay Tier 1 (`jicc cmux report`
    → conformant on tier; envelope migration tracked under #1).

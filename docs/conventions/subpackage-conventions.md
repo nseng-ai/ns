@@ -14,17 +14,17 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 | ------------ | ------------------------------------------------------------------------ | --------------------------------------- |
 | API          | `api`                                                                    | any package (runtime)                   |
 | Testing      | `testing`                                                                | any package (tests only)                |
-| Host surface | `sdl`, `pi`, `repo-local-sdl-extension`                                  | the named host only                     |
+| Host surface | `ji`, `pi`, `repo-local-ji-extension`                                    | the named host only                     |
 | Feature      | open, domain-meaningful (`land-stack`, `submit`, `cmux`, `lifecycle`, …) | sibling subpackages in the same package |
 
-- **API** hosts the package's Capability API (`@sdl/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
+- **API** hosts the package's Capability API (`@ji/<cap>/api`) as a thin contract/facade. It is the only cross-package programmatic door; logic lives in features, not here.
 - **Testing** exports fakes and test kits for other packages' tests. Never imported by runtime code.
-- **Host surfaces** are thin adapters consumed by exactly one host: `sdl` by the SDL CLI kernel wiring, `pi` by the Pi host stack, `repo-local-sdl-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
+- **Host surfaces** are thin adapters consumed by exactly one host: `ji` by the SDL CLI kernel wiring, `pi` by the Pi host stack, `repo-local-ji-extension` by kernel extension loading. Per-feature entry points live inside the surface (`pi/land-stack.ts`), so surfaces stay thin and features stay host-free.
 - **Features** are the package's real domain verticals — the entries that make the topology report say something package-specific. They never import host surfaces, and their edges stay intra-package.
 
 ## Naming rules
 
-- The contract and host-surface vocabulary is **closed**: `api`, `testing`, `sdl`, `pi`, `repo-local-sdl-extension`. Do not invent synonyms.
+- The contract and host-surface vocabulary is **closed**: `api`, `testing`, `ji`, `pi`, `repo-local-ji-extension`. Do not invent synonyms.
 - Never declare internal layers as subpackages: `operations`, `gateways`, `commands`, `shared`, `shell`, `kit`. They are folders inside the kind that owns them.
 - `core` is acceptable only as the feature subpackage naming the package's central domain (when the package's namesake concept *is* the feature). It is not a home for consolidated layers.
 - Feature names must mean something in the package's domain. Prefer the term the package's `CONTEXT.md` already uses.
@@ -33,7 +33,7 @@ A subpackage exists to make a class of dependency edges visible to topology and 
 
 - Cross-package runtime imports target `<pkg>/api` only. Cross-package test imports may also target `<pkg>/testing`.
 - Host-surface subpaths are imported only by their host packages.
-- A feature-level `api`/`testing` module (for example `sdl-flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
+- A feature-level `api`/`testing` module (for example `@ji/flow/land/api`) serves sibling subpackages in the same package only. If another package wants it, route the need through the package `api` — or read the demand as a promotion signal and extract the feature into its own package (see `docs/conventions/platform-and-consumer.md` for the promotion-path discipline).
 
 ## Adding or consolidating
 

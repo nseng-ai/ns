@@ -6,8 +6,8 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ji/enriched-plan/...`), owned by `@sdl/plans` and the `enriched-plan` CLI.
-- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@sdl/branch-context` and the `branch-context` CLI. From-plan attachments use `<branch-context-slug>.md`; the legacy `plan.md` key is not a supported attached-plan key.
+- **Local plan store**: `$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ji/enriched-plan/...`), owned by `@ji/plans` and the `enriched-plan` CLI.
+- **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@ji/branch-context` and the `branch-context` CLI. From-plan attachments use `<branch-context-slug>.md`; the legacy `plan.md` key is not a supported attached-plan key.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
 

@@ -25,8 +25,15 @@
 - [ ] Vocabulary sweep: CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs —
       `ji` glossary entry with casing rule, `SDL` added to *Avoid*, compound canonical
       terms renamed.
-- [ ] Package scope sweep: `@sdl/*` and `@sdl-local/*` → `@ji/*`; rename `sdl-flow`;
-      `sdlcc` → `jicc`.
+- [x] Package scope sweep: `@sdl/*` → `@ji/*` (18 packages + the
+      `.ji/reviews` scanner), `@sdl-local/pi-tools` → `@internal/pi-tools`
+      (local-space scope preserved as `@internal/`), `sdl-flow` → `@ji/flow`,
+      `sdlcc` → `jicc`, `src/sdl/` → `src/ji/`, `./sdl*` export subpaths →
+      `./ji*`, sdl-named source files/dirs renamed
+      (`sdl-capability-kit` → `capability-kit`, `hosts/sdlcc` → `hosts/jicc`).
+      Executed via the hybrid AST-codemod + manifest-rewrite tooling in
+      `tools/pkg-scope-sweep/`; see
+      `updates/2026-07-03-package-scope-sweep-executed.md`.
 - [ ] Final, manual: rename the GitHub repo to `nseng-ai/ji`; update remotes and any
       active links.
 

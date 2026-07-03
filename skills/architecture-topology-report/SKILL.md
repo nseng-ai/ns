@@ -98,7 +98,7 @@ node <skill-dir>/scripts/extract-graph.mjs --pretty --out <tmp>/graph.json
 `--out` tees the JSON to a file as well as stdout, so step 4 can pass `--graph <tmp>/graph.json`
 and skip a second extraction — one invocation surfaces the facts *and* caches them.
 
-Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @sdl/capability-kit`,
+Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @ji/capability-kit`,
 `--api-needle api`). Override the flags for a different workspace. The script reports, over
 **runtime edges only** (`dependencies` + `peerDependencies`):
 

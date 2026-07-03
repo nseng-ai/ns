@@ -1,6 +1,6 @@
 # TypeScript Planned-Branch Recipes: Design Retrospective
 
-> Status: removed and parked. This document preserves the historical design for a possible future revival. The examples below are non-runnable after the cleanup that removed `@sdl/ts-plans` and all active `.plan.ts` planned-branch commands, tools, and CLI operations.
+> Status: removed and parked. This document preserves the historical design for a possible future revival. The examples below are non-runnable after the cleanup that removed `@ji/ts-plans` and all active `.plan.ts` planned-branch commands, tools, and CLI operations.
 
 ## What the prototype tried to add
 
@@ -10,7 +10,7 @@ The experiment deliberately scoped evaluation to trusted local Pi usage. It was 
 
 ## Historical declarative API sketch
 
-The package exposed `definePlan(input)` from `@sdl/ts-plans`.
+The package exposed `definePlan(input)` from `@ji/ts-plans`.
 
 ```ts
 interface DefinePlanInput {
@@ -31,7 +31,7 @@ interface DefinePlanPhaseInput {
 Representative historical example:
 
 ```ts
-import { definePlan } from "@sdl/ts-plans";
+import { definePlan } from "@ji/ts-plans";
 
 export default definePlan({
   title: "Preview title",
@@ -84,7 +84,7 @@ type PlanRecipeFunction = (plan: PlanRecipeRuntime) => void | Promise<void>;
 Representative historical example:
 
 ```ts
-import { planRecipe } from "@sdl/ts-plans";
+import { planRecipe } from "@ji/ts-plans";
 
 export default planRecipe({ title: "Imperative", summary: "Runtime summary" }, async (plan) => {
   plan.goal("Build the imperative plan");
@@ -163,7 +163,7 @@ Historical tests covered declarative recipes, imperative recipes, trust notices,
 
 A later unmerged prototype stack explored a saved `.plan.ts` viewer, structured inspection API, pre-save validation, and a more detailed graph UI. It sharpened several conclusions:
 
-- A useful viewer needed a structured model API, not just rendered Markdown or Mermaid. Once the UI needed outline, graph, rendered text, and source panes, `@sdl/ts-plans` had to expose stable model types and an inspection function. That turned the recipe package from a renderer into an API surface other tools could depend on.
+- A useful viewer needed a structured model API, not just rendered Markdown or Mermaid. Once the UI needed outline, graph, rendered text, and source panes, `@ji/ts-plans` had to expose stable model types and an inspection function. That turned the recipe package from a renderer into an API surface other tools could depend on.
 - Mermaid was an export format, not the interaction model. The graph-detail branch moved from a flat flow diagram toward an outline/tree with selectable nodes and a sticky detail pane because real plan text is too long for diagram boxes. Future graph work should start from an inspectable plan model plus UI-specific node identifiers, with Mermaid as an optional serialization.
 - The write tool had to evaluate the recipe before saving it. Otherwise invalid trusted code could be persisted, slugged, and later attached as if it were a valid plan. Pre-save preview validation was the right safety shape, but it made writing a plan an execution-bearing operation, not a passive file write.
 - Repeated previews made determinism and side effects more important. The viewer requested structured, text, Mermaid, and source views separately; each evaluated trusted TypeScript again unless the host cached a single inspected model. Any future revival should require recipe evaluation to be side-effect-free and deterministic, or centralize evaluation so one inspected model feeds all renderers.
@@ -175,7 +175,7 @@ A later unmerged prototype stack explored a saved `.plan.ts` viewer, structured 
 
 ## Rejected alternatives during removal
 
-- Keep `@sdl/ts-plans` as a dormant package. Rejected because dormant runtime code still creates dependency, test, and API surface.
+- Keep `@ji/ts-plans` as a dormant package. Rejected because dormant runtime code still creates dependency, test, and API surface.
 - Leave fail-fast commands or TODO stubs. Rejected because users and agents should not see unavailable workflows as active capabilities.
 - Keep generic plan-file kind abstractions. Rejected because the active planned-branch workflow is Markdown-only.
 

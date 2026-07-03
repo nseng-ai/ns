@@ -15,10 +15,10 @@ It combines the Pi runtime extension API with this repo's command-registration p
 ## Registration pattern
 
 Every repo-owned Pi slash command should acknowledge receipt synchronously before it waits for idle state or starts slow I/O.
-Use `registerCommandWithImmediateAck` from `@sdl/pi/commands/ack` at each registration site:
+Use `registerCommandWithImmediateAck` from `@ji/pi/commands/ack` at each registration site:
 
 ```ts
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
 
 export function registerExampleCommand(pi: ExampleExtensionAPI): void {
 	registerCommandWithImmediateAck({
@@ -78,7 +78,7 @@ For CCC-owned orchestration, read `ts/packages/capabilities/ccc/AGENTS.md` befor
 
 Before editing:
 
-- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@sdl/pi` engineered behavior, or `@sdl/ccc` orchestration.
+- [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@ji/pi` engineered behavior, or `@ji/ccc` orchestration.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
 - [ ] Pick a command namespace by workflow ownership, not file location (`/ji:*`, `/objective:*`, `/handoff:*`, `/ccc:*`, `/pi:*`, etc.).
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.

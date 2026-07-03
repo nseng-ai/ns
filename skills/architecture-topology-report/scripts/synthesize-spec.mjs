@@ -295,7 +295,7 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
         + `The top fan-out package is ${mono(top.name)} (${top.count}); the fan-in spine is ${mono(spine.name)} (${spine.count}). `
         + `${plural(Object.keys(analysis.exposesApi || {}).length, "package")} expose an `
         + `<span class="font-mono text-sm">/api</span> seam${apiOnly.length ? `, ${plural(apiOnly.length, "of them")} api-only` : ""}. `
-        + `The circle overlay currently discovers ${plural(analysis.meta.topologyCircleCount ?? analysis.meta.packageCount, "topology circle")}; toggle the graph's circle view for source-component granularity such as <span class="font-mono text-sm">@sdl/core/time</span>.`,
+        + `The circle overlay currently discovers ${plural(analysis.meta.topologyCircleCount ?? analysis.meta.packageCount, "topology circle")}; toggle the graph's circle view for source-component granularity such as <span class="font-mono text-sm">@ji/core/time</span>.`,
     },
 
     northStar: {

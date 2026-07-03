@@ -52,7 +52,7 @@ These kinds are observations, not recommendations.
 
 ## Component Roles
 
-- `@sdl/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
-- `@sdl/aretro` evidence aggregation turns normalized session facts into deterministic observations.
+- `@ji/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
+- `@ji/aretro` evidence aggregation turns normalized session facts into deterministic observations.
 - `ji aretro exec collect-evidence --format json` is the supported branch-facing command envelope; `ji aretro exec read-evidence-detail` reads targeted sanitized payload details.
 - `branch-retro` is the first skill consumer of that SDL command face: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.
