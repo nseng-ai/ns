@@ -18,34 +18,19 @@ import {
 	treeMarkers,
 	truncatePlain,
 } from "@ji/core/cli-theme";
-import type { GlyphName, Intent } from "@ji/core/cli-theme";
 
 import { MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 import {
+	edgeCountCell,
 	emptyMessage,
+	objectiveStatusPresentation,
 	renderSlugs,
-	type ObjectiveListRecord,
 	type ObjectiveListResult,
 } from "./list-objectives.ts";
 
 /** caps-aware truncation: ascii mode degrades the ellipsis to "..." too. */
 function clip(caps: Caps, text: string, width: number): string {
 	return truncatePlain(text, width, ellipsisFor(caps));
-}
-
-interface StatusCell {
-	intent: Intent;
-	glyphName: Extract<GlyphName, "open" | "done" | "blocked">;
-	word: string;
-}
-
-// Blocked is a sub-state of open, never a third lifecycle status: the STATUS word stays
-// "open" and only the glyph swaps to the blocked mark (warn intent), explained once by the
-// footer legend — mirroring how the outstanding-changes `x` flag is taught.
-function statusCellFor(record: ObjectiveListRecord): StatusCell {
-	if (record.status === "closed") return { intent: "success", glyphName: "done", word: "closed" };
-	if (record.isBlocked === true) return { intent: "warn", glyphName: "blocked", word: "open" };
-	return { intent: "accent", glyphName: "open", word: "open" };
 }
 
 // Relative time for the human surface ("2 hours ago" beats a raw ISO stamp). `nowMs` is injected so
@@ -119,7 +104,7 @@ export function renderObjectiveListPretty(
 	for (const record of result.records) {
 		const slugCell = padPlain(clip(caps, record.slug, slugW), slugW);
 
-		const status = statusCellFor(record);
+		const status = objectiveStatusPresentation(record);
 		const statusGlyph = glyph(caps, status.glyphName);
 		const statusColored = `${paint(caps, status.intent, statusGlyph)} ${status.word}`;
 		const statusPlain = `${statusGlyph} ${status.word}`;
@@ -130,7 +115,7 @@ export function renderObjectiveListPretty(
 		// A bare `x` warn marker in its own fixed-width column, explained once by the footer legend.
 		const flagCell = record.hasOutstandingChanges ? paint(caps, "warn", "x") : " ".repeat(flagW);
 		const dateCell = dim(padPlain(clip(caps, stamp, dateW), dateW));
-		const edgesCell = record.edgeCount === undefined ? "" : String(record.edgeCount);
+		const edgesCell = edgeCountCell(record);
 
 		lines.push(`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${edgesCell}`.trimEnd());
 

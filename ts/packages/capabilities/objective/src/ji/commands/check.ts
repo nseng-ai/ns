@@ -5,19 +5,14 @@ import { z } from "zod";
 import { objectiveSdlCommand } from "../command.ts";
 import type { ObjectiveCliContext } from "../../core/context.ts";
 import {
-	checkObjectiveInvalidSlugResultSchema,
-	checkObjectiveMissingSlugResultSchema,
-	checkObjectiveNotFoundResultSchema,
-	checkObjectiveOkResultSchema,
-	checkObjectiveFailedResultSchema,
 	checkObjectiveRequestSchema,
+	checkObjectiveResultSchema,
 	renderCheckObjective,
 	runCheckObjective,
 	type CheckObjectiveResult,
 } from "../../core/operations/check-objective.ts";
 import {
-	objectiveEdgeSweepFailedResultSchema,
-	objectiveEdgeSweepOkResultSchema,
+	objectiveEdgeSweepResultSchema,
 	renderEdgeSweep,
 	runEdgeSweep,
 	type ObjectiveEdgeSweepResult,
@@ -33,13 +28,8 @@ export const objectiveCheckCommandRequestSchema = checkObjectiveRequestSchema.ex
 });
 
 export const objectiveCheckCommandResultSchema = z.discriminatedUnion("status", [
-	checkObjectiveOkResultSchema,
-	checkObjectiveFailedResultSchema,
-	checkObjectiveMissingSlugResultSchema,
-	checkObjectiveInvalidSlugResultSchema,
-	checkObjectiveNotFoundResultSchema,
-	objectiveEdgeSweepOkResultSchema,
-	objectiveEdgeSweepFailedResultSchema,
+	...checkObjectiveResultSchema.options,
+	...objectiveEdgeSweepResultSchema.options,
 ]);
 
 type ObjectiveCheckCommandRequest = z.infer<typeof objectiveCheckCommandRequestSchema>;
