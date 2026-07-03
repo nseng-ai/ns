@@ -80,6 +80,26 @@ Safe consolidation rules:
 - `## Open Questions`
 - `## Closure` only when closed
 
+### Record Frontmatter
+
+`objective.md` may begin with optional **Record Frontmatter**: a YAML block carrying exactly two keys, `blocked` and `edges`, and nothing else (ADR 0025). Most records have no frontmatter; readers behave identically either way.
+
+```yaml
+---
+blocked: First external publish is gated on checkout-free distribution landing.
+edges:
+  - objective: checkout-free-sdl-distribution
+    annotation: Consumed as a hard dependency; must land before this ships externally.
+---
+```
+
+- **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`. The **Edge Annotation** is required on both sides and written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
+- **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean, and blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
+- **Mutation is skill-owned.** There is no public CLI mutation surface. The objective-create, objective-update, and objective-close step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit: it edits the counterpart record's frontmatter too — the one sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter.
+- **Verification**: after any frontmatter edit, run `ji objective check <slug>` (per-slug check validates that record's edges including mirror lookups) or `ji objective check --all` (repo-wide structural sweep). Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
+
+This umbrella skill remains read-only; frontmatter mutation procedures live in the step skills.
+
 Optional execution policy sections may make an Objective execution-friendly for future `objective-next` proactive execution offers after preview and confirmation. They are durable prose policy, not schema, lifecycle state, or a hidden task queue. Objectives may omit them and remain planning/recommendation-first; a user can still explicitly continue from a concrete current-session `objective-next` recommendation.
 
 `## Assumptions and Risks` captures assumptions that might be disproven and risks that need de-risking, mitigation, acceptance, or explicit follow-up. Keep it narrative and evidence-linked; do not turn it into IDs, owners, due dates, or a task database.
@@ -140,5 +160,5 @@ Before `objective-next` recommends work or offers confirmed execution, check rea
 ## Non-goals
 
 - Not a task database, workflow controller, or branch attachment system.
-- No YAML/frontmatter, UUIDs, registries, hidden state, or state machine.
+- No YAML/frontmatter beyond Record Frontmatter carrying exactly `blocked` and `edges` (the sanctioned exception; see Record Frontmatter above), and no UUIDs, registries, hidden state, or state machine.
 - V1 keeps Objective *meaning* in Markdown; CLI tooling (`ji objective list`, `ji objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.

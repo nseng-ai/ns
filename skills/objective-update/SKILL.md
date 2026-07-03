@@ -34,6 +34,7 @@ Objective records are Markdown: read/edit them directly, using `ji objective exe
 Mutation boundary:
 
 - Edit only the selected Objective's `objective.md`, `roadmap.md`, `orientation.md` (optional; only when not closing), `closed.md` when closing, and new files under `updates/`.
+- One sanctioned exception: an Objective Edge mutation is a mirrored two-file edit, so adding, removing, or rewording an edge also edits the counterpart record's `objective.md` Record Frontmatter — and nothing else in the counterpart record (see the `objective` umbrella skill's Record Frontmatter section).
 - Never move, delete, recreate, or normalize Objective slug directories during an update. The slug directory is durable identity; explicit slug migration is separate.
 - Never edit, rewrite, amend, normalize, delete, move, or recreate an existing file under `updates/`. Existing Semantic Updates are immutable historical records.
 
@@ -110,6 +111,14 @@ Compare request, evidence, and selected Objective files; update durable Markdown
 - Update `## Assumptions and Risks` when evidence changes risk knowledge: mark assumptions incorrect/revised/still active; mark risks de-risked/not de-risked/materialized/accepted/still open; add new assumptions/risks that affect scope, sequencing, confidence, or completion evidence. Preserve useful history; do not silently delete disproven assumptions or de-risked risks.
 - Edit `roadmap.md` when ordered guidance, checkbox state, status notes, completion evidence, or parked work changed.
 
+### Record Frontmatter: edges and the Blocked Sentence
+
+This skill owns edge mutation and Blocked Sentence judgment for the selected Objective (Record Frontmatter is defined in the `objective` umbrella skill; only `blocked` and `edges` keys, ever).
+
+- **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as a mirrored two-file edit: the entry in the selected record's frontmatter and the mirror entry in the counterpart's frontmatter change together, with a perspective-correct annotation on each side. At most one edge per unordered slug pair. Editing the counterpart's frontmatter is the sanctioned exception in the mutation boundary above.
+- **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated (by another objective or anything external), reword it when stale, and clear it when the gate no longer holds. This is always skill judgment — presence of the sentence is the state, the value says why, and no machine ever flips it. Blocked is a sub-state of open; it never implies or replaces closure.
+- **Verify.** After any frontmatter edit, run `ji objective check <slug>` (validates that record's edges including counterpart mirror lookups) or `ji objective check --all`; structural violations are errors and must be fixed before finishing.
+
 ### Immutable Semantic Updates
 
 Write a new Semantic Update for a distinct finding, blocker, decision, risk change, completion event, or follow-up slice that materially changes roadmap state. For maintenance-only durable edits with no new semantic information, write no update and say so explicitly. If later evidence corrects, supersedes, or contextualizes an older update, write a new update that states the newer durable meaning and, when useful, notes older updates are historical records.
@@ -138,7 +147,7 @@ Closure-ready means the Objective is not already closed; outcome is clear (`comp
 
 Do not close merely because roadmap checkboxes are all `[x]`, or from any selection hint.
 
-If closure-ready after an explicit `objective-update`, close automatically with `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md`, not `closed.md`. Do not ask for separate closure confirmation when outcome and rationale are clear.
+If closure-ready after an explicit `objective-update`, close automatically with `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md`, not `closed.md`. Inline closure includes `objective-close`'s Record Frontmatter duties: re-judge each edge counterpart's Blocked Sentence and the record's own, and run `ji objective check` after any frontmatter edit. Do not ask for separate closure confirmation when outcome and rationale are clear.
 
 If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` absent and report that closure was skipped because the Closure Gate was not clear. Do not create a duplicate Semantic Update solely for closure; create one only when closure introduces distinct semantic information beyond the normal update. Never amend an existing update for closure.
 
@@ -150,20 +159,22 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
 6. Edit `roadmap.md` if ordered guidance, checkbox state, evidence, or parked work changed.
-7. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
-8. Apply the Closure Gate.
-9. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
-10. Report per Verify.
+7. Re-judge the record's own Blocked Sentence and mutate edges (mirrored two-file edits) when evidence warrants; after any Record Frontmatter edit, run `ji objective check <slug>` or `ji objective check --all`.
+8. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
+9. Apply the Closure Gate.
+10. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
+11. Report per Verify.
 
 ## Stop / ask
 
-Stop or ask when selection is ambiguous/absent after presenting `ji objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, YAML/frontmatter, UUID, hidden metadata, or state-machine behavior; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
+Stop or ask when selection is ambiguous/absent after presenting `ji objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 For archived paths, ask whether to unarchive before updating Objective tracking. For existing update mutation, explain that updates are immutable and offer to write a new corrective update when appropriate. For unclear closure, leave the Objective open unless the user clarifies.
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.ji/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories.
+- Changed Objective files all live under exactly one `.ji/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Sole exception: mirrored edge mutations and counterpart Blocked Sentence re-judgment may change counterpart records' `objective.md` Record Frontmatter blocks, and nothing else in those records.
+- If Record Frontmatter was edited (own record or a counterpart), `ji objective check <slug>` or `ji objective check --all` was run and reports no structural errors.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.

@@ -70,10 +70,19 @@ Roadmap item quality:
 - Use only `.ji/objectives/<slug>/`. Do not create records under `docs/objectives/` or other locations.
 - Treat the slug directory as durable identity. Command/product/prose renames should update an existing Objective's title and body, not create a new slug.
 - Before creating a slug that appears to be a rename or replacement of existing work, run `ji objective list --minimal --status all --format md`; if it shows a likely existing Objective, stop and ask whether the user meant `objective-update`, a direct read with `ji objective exec read-objective <slug> --format md`, or an explicit slug migration.
-- Do not add registries, YAML/frontmatter, UUIDs, hidden attachment metadata, or state-machine behavior.
+- Do not add registries, UUIDs, hidden attachment metadata, or state-machine behavior. The only sanctioned YAML/frontmatter is Record Frontmatter carrying exactly `blocked` and `edges` (see the `objective` umbrella skill and the Record Frontmatter section below); add no other frontmatter keys.
 - If `.ji/objectives/<slug>/` exists, stop and ask whether the user meant `objective-update` or a direct read with `ji objective exec read-objective <slug> --format md`; never overwrite. Use `ji objective exec read-objective <slug> --format md` to check active records: it returns a `not_found` envelope when the slug has no active record, and otherwise emits the existing record.
 - If `.ji/objective-archive/<slug>/` exists, stop and ask whether the user wants to unarchive instead of creating a duplicate slug. Use `ji objective archive <slug> --unarchive` when unarchive is the right intent.
 - Objective records are Markdown; read and edit Markdown directly. Use `ji objective exec` for deterministic read mechanics (candidate listing, file inventory, closed-marker detection). Mutation remains direct.
+
+## Record Frontmatter: initial edges and Blocked Sentence
+
+Record Frontmatter (defined in the `objective` umbrella skill) is optional and usually absent at creation. Add it only when the interview surfaces a real fact:
+
+- **Initial edges.** When the new Objective has a durable relationship to an existing record (for example, it consumes another Objective as a hard dependency), declare the edge at creation. An edge is a mirrored two-file edit: add the `{objective: <slug>, annotation: <sentence>}` entry to the new record's frontmatter **and** add the mirror entry to the counterpart record's frontmatter — editing the counterpart's frontmatter is the sanctioned exception to creating/editing only the new record, limited strictly to that frontmatter block. Write each annotation from its own record's perspective; the two sentences should differ because perspective is the payload. At most one edge per unordered slug pair.
+- **Blocked Sentence.** Set `blocked:` only when the new record is genuinely gated at creation (by another objective, an external dependency, anything); the value must be a non-empty sentence saying why. Blocked is a sub-state of open; presence is the state.
+- Omit the frontmatter block entirely when there are no edges and no blocked state. Never add keys beyond `blocked` and `edges`.
+- After writing any frontmatter, verify with `ji objective check <new-slug>` (validates the record's edges including the counterpart mirror) or `ji objective check --all`.
 
 ## Workflow
 
@@ -90,8 +99,9 @@ Roadmap item quality:
    - Continue until shared understanding is sufficient to avoid generic or invented durable content, or until the user chooses to stop questioning and write the Objective.
 4. Create `.ji/objectives/<slug>/`, `.ji/objectives/<slug>/updates/`, `objective.md`, and `roadmap.md`.
 5. Write concise, human-readable narrative content, including a concrete `## Assumptions and Risks` section and execution-friendly sections only when requested or made relevant by the interview.
-6. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
-7. Do not create an initial update file. Do not create `closed.md`.
+6. If the interview surfaced initial edges or a genuine blocked gate, write Record Frontmatter per the section above — including the mirrored entry in each counterpart record's frontmatter — and run `ji objective check <slug>`. Otherwise write no frontmatter.
+7. If the Objective is cross-cutting — an agent doing unrelated work must obey its direction — write `orientation.md` (≈8 content lines, agent-facing) using the `orientation.md` format from the `objective` umbrella skill: `Direction`, `Getting to` (with ADR/CONTEXT pointers), `What you see now`, `Avoid`, and `Active slice: see this objective's roadmap.md`. Otherwise skip it; presence of the file is the opt-in flag. Keep lifecycle/graduation metadata in `roadmap.md`, never in `orientation.md`.
+8. Do not create an initial update file. Do not create `closed.md`.
 
 ## Stop / ask
 
@@ -108,5 +118,7 @@ Roadmap item quality:
 - If the Objective is cross-cutting, confirm `orientation.md` exists and follows the format; otherwise confirm it is absent. `orientation.md` is optional, never required.
 - If the Objective is execution-friendly, verify it against `references/execution-friendly-create.md`.
 - If the Objective is planning-only, confirm execution policy sections are absent unless the user explicitly asked to include them.
+- If Record Frontmatter was written, confirm it carries only `blocked` and/or `edges`, every declared edge has its mirror entry in the counterpart record, and `ji objective check <slug>` passes; if not written, confirm `objective.md` starts with `# <Title>` and no frontmatter fence.
+- Confirm no files outside the new Objective's directory changed, except counterpart `objective.md` frontmatter blocks touched by mirrored edge entries.
 - Confirm there is no initial file under `updates/` and no `closed.md`.
 - Summarize the created slug, first planned roadmap item, most important assumption or risk captured, and whether the Objective is planning-only or execution-friendly.

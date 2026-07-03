@@ -24,7 +24,7 @@ Gather at least:
 
 Place the optional `## Definition of Progress` and `## Runner Policy` sections after `## Completion Criteria`, using the template in the `objective` skill's execution policy reference.
 
-Use durable prose. Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
+Use durable prose. Do not add YAML/frontmatter (execution policy never lives in Record Frontmatter, whose only sanctioned keys are `blocked` and `edges`), UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 
 ## Row-level policy examples
 
