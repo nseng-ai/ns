@@ -104,10 +104,13 @@
     `PLAN-VERIFICATION-WORKSTREAM` markers owned by that workstream — editing it here
     would cross workstream boundaries. Revisit only if that workstream closes with the
     block still duplicative.
-  - `dignified-python` — rewrite; triplicated router → one trigger-keyed routing
-    section. Only the SKILL.md router collapses; the 4.5K version-file tree is left as-is
-    (version files are independent — re-audit `2026-06-20T140000`). Now `command-backed`
-    (reach reduced).
+  - `dignified-python` — **DONE (router rewrite, 2026-07-03).** 170 → 130 lines; four
+    router statements (catalog, when-to-read, conditional-loading, how-to-use recap)
+    merged into one trigger-keyed Reference Routing section; frontmatter `references`
+    byte-identical; all 13 reference files keep exactly one at-least-as-strong routing
+    entry; version-file tree untouched. Residual (recorded, deliberate): invocation
+    triggers still tri-stated across description/When-to-Use/vs-Others. See update
+    `20260703T203228Z`.
   - `python-fake-driven-testing` — SKILL.md rewrite **DROPPED as mooted (re-rank
     `20260703T194738Z`)**: the overlapping-pointer debt no longer exists — routing is
     consolidated into a single `## Reference Routing` section (111 lines).
