@@ -14,7 +14,7 @@ import {
 	type LockfileSkill,
 	type SkillsLockfile,
 } from "./lockfile.ts";
-import { derivePiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
+import { lookupPiReplacementCommand, verifyPiReplacement } from "./pi-replacement.ts";
 import { parsePiSettings } from "./pi-settings.ts";
 import {
 	expectedAgentsSkillSymlinkTarget,
@@ -160,7 +160,7 @@ export function parseSkillFrontmatterText(text: string): Result<Readonly<Record<
 	return { ok: true, value: parsed.value.fields };
 }
 
-export { derivePiReplacementCommand };
+export { lookupPiReplacementCommand };
 
 export function formatCheckReport(report: Pick<CheckReport, "issues">): string {
 	const grouped = new Map<string, CheckIssue[]>();

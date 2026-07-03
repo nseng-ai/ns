@@ -21,7 +21,7 @@ import {
 	type DoctorSkillFindingSeverity,
 } from "./doctor-skills-severity.ts";
 import { parsePiSettings } from "./pi-settings.ts";
-import { derivePiReplacementCommand } from "./pi-replacement.ts";
+import { lookupPiReplacementCommand } from "./pi-replacement.ts";
 import { collectCheckSkillInspections, collectSkillKindInspections } from "./project-inspection.ts";
 import { buildSkillKindRecords, type SkillKindRecord } from "./skill-kind-inference.ts";
 import { isAgentsSkillMirror, isClaudeSkillMirror } from "./skill-mirror-conventions.ts";
@@ -354,7 +354,7 @@ function replacementFindings(
 	}
 	for (const skill of [...excludedSkills].sort()) {
 		if (records.some((record) => record.skill === skill)) continue;
-		const surface = derivePiReplacementCommand(skill);
+		const surface = lookupPiReplacementCommand(skill);
 		findings.push(
 			replacementFinding(skill, surface, {
 				code: "excluded-skill-without-replacement",

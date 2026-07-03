@@ -553,6 +553,12 @@ importers:
       '@ji/core':
         specifier: workspace:*
         version: link:../../infra/core
+      '@ji/handoff':
+        specifier: workspace:*
+        version: link:../../capabilities/handoff
+      '@ji/objective':
+        specifier: workspace:*
+        version: link:../../capabilities/objective
       '@ji/pi':
         specifier: workspace:*
         version: link:../../hosts/pi
@@ -562,6 +568,9 @@ importers:
 
   packages/tools/areg:
     dependencies:
+      '@internal/pi-tools':
+        specifier: workspace:*
+        version: link:../../local/pi-tools
       '@ji/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit

@@ -30,6 +30,8 @@
 		"@earendil-works/pi-tui": "catalog:",
 		"@ji/capability-kit": "workspace:*",
 		"@ji/core": "workspace:*",
+		"@ji/handoff": "workspace:*",
+		"@ji/objective": "workspace:*",
 		"@ji/pi": "workspace:*",
 		"zod": "catalog:"
 	},

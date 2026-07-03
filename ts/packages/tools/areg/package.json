@@ -16,6 +16,7 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
 	},
 	"dependencies": {
+		"@internal/pi-tools": "workspace:*",
 		"@ji/capability-kit": "workspace:*",
 		"@ji/clinkr": "workspace:*",
 		"@ji/core": "workspace:*",

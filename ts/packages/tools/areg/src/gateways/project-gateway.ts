@@ -2,11 +2,11 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { formatErrorMessage } from "@ji/core/primitives";
-import { NodeCommandExecApi } from "@ji/core/exec";
+import { visibleCommandBackedReplacementSurfaces } from "@internal/pi-tools/backing-skill-commands";
 import { RealGitGateway } from "@ji/capability-kit/git";
 import type { GitGateway } from "@ji/capability-kit/git";
-import { visibleCommandBackedReplacementSurfaces } from "@ji/pi/commands";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import { formatErrorMessage } from "@ji/core/primitives";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
@@ -54,8 +54,8 @@ import { classifyResolvedSkillKindInspection } from "./skill-kind-classification
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/local/pi-tools/src/backing-skill-commands/extension.ts";
-// AREG imports only the neutral @ji/pi/commands surface, not project-local
-// Pi extension entrypoints.
+// AREG reads the composed local command-backed skill catalog without importing
+// the project-local Pi extension entrypoint.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = visibleCommandBackedReplacementSurfaces();
 
 export class RealAregProjectGateway implements AregProjectGateway {

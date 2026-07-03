@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	derivePiReplacementCommand,
+	lookupPiReplacementCommand,
 	formatReplacementLabel,
 	verifyPiReplacement,
 } from "../../src/operations/pi-replacement.ts";
@@ -22,11 +22,11 @@ describe("Pi replacement helpers", () => {
 		});
 	});
 
-	test("does not derive fallback replacements for unknown skills", () => {
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
-		expect(derivePiReplacementCommand("branch-context-impl-extra")).toBeUndefined();
-		expect(derivePiReplacementCommand("foo-bar-baz")).toBeUndefined();
-		expect(derivePiReplacementCommand("plain")).toBeUndefined();
+	test("does not invent fallback replacements for unknown skills", () => {
+		expect(lookupPiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(lookupPiReplacementCommand("branch-context-impl-extra")).toBeUndefined();
+		expect(lookupPiReplacementCommand("foo-bar-baz")).toBeUndefined();
+		expect(lookupPiReplacementCommand("plain")).toBeUndefined();
 	});
 
 	test("verifies registry replacements against the explicit surface inventory", () => {

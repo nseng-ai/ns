@@ -37,7 +37,7 @@ export type {
 	AregToolCheckResult,
 } from "./gateways.ts";
 export {
-	derivePiReplacementCommand,
+	lookupPiReplacementCommand,
 	parseLockfileData,
 	parseSkillFrontmatterText,
 } from "./operations/check.ts";

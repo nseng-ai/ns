@@ -4,7 +4,7 @@ export {
 	genericBackingSkillRegistrations,
 	specializedCommandBackedSkillRegistrations,
 	visibleCommandBackedReplacementSurfaces,
-} from "@ji/pi/commands";
+} from "./registry.ts";
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,

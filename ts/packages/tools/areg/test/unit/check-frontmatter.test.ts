@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	derivePiReplacementCommand,
+	lookupPiReplacementCommand,
 	formatCheckReport,
 	parseSkillFrontmatterText,
 } from "../../src/operations/check.ts";
@@ -111,12 +111,12 @@ describe("areg SKILL.md frontmatter transform", () => {
 
 describe("areg check Pi replacement helpers", () => {
 	test("uses registry-backed replacement surfaces", () => {
-		expect(derivePiReplacementCommand("branch-context-impl")).toBe(
+		expect(lookupPiReplacementCommand("branch-context-impl")).toBe(
 			"ji:branch-context:impl-attached-plan",
 		);
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
-		expect(derivePiReplacementCommand("custom-command")).toBeUndefined();
-		expect(derivePiReplacementCommand("nocommand")).toBeUndefined();
+		expect(lookupPiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(lookupPiReplacementCommand("custom-command")).toBeUndefined();
+		expect(lookupPiReplacementCommand("nocommand")).toBeUndefined();
 	});
 
 	test("formats grouped human failures sorted by skill", () => {
