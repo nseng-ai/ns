@@ -188,6 +188,60 @@ describe("Objective storage", () => {
 		});
 	});
 
+	test("reads the record document through the shared Record Frontmatter reader", async () => {
+		const frontmattered = [
+			"---",
+			"blocked: Gated on an upstream landing.",
+			"edges: []",
+			"---",
+			"# alpha",
+			"",
+		].join("\n");
+		const fake = new FakeObjectiveStorageGateway({
+			records: [
+				{ slug: "alpha", objectiveMd: frontmattered },
+				{ slug: "bravo", objectiveMd: "# bravo\n" },
+			],
+		});
+		const objectiveStorage = storage(fake);
+
+		await expect(
+			objectiveStorage.readObjectiveRecordDocument(activeRecordRelativePath("alpha")),
+		).resolves.toEqual({
+			type: "ok",
+			content: frontmattered,
+			document: {
+				frontmatter: {
+					type: "frontmatter",
+					frontmatter: { blocked: "Gated on an upstream landing.", edges: [] },
+				},
+				body: "# alpha\n",
+			},
+		});
+		await expect(
+			objectiveStorage.readObjectiveRecordDocument(activeRecordRelativePath("bravo")),
+		).resolves.toEqual({
+			type: "ok",
+			content: "# bravo\n",
+			document: { body: "# bravo\n" },
+		});
+	});
+
+	test("record document reads propagate missing and unreadable objective.md", async () => {
+		const fake = new FakeObjectiveStorageGateway({
+			records: [{ slug: "alpha", objectiveMd: null }, { slug: "bravo" }],
+			unreadableFiles: { ".ji/objectives/bravo/objective.md": "permission denied" },
+		});
+		const objectiveStorage = storage(fake);
+
+		await expect(
+			objectiveStorage.readObjectiveRecordDocument(activeRecordRelativePath("alpha")),
+		).resolves.toEqual({ type: "missing" });
+		await expect(
+			objectiveStorage.readObjectiveRecordDocument(activeRecordRelativePath("bravo")),
+		).resolves.toEqual({ type: "unreadable", message: "permission denied" });
+	});
+
 	test("extracts Objective slugs from active record child paths only", () => {
 		expect(objectiveSlugFromActivePath(".ji/objectives/alpha/objective.md")).toBe("alpha");
 		expect(objectiveSlugFromActivePath(".ji/objectives/alpha/updates/one.md")).toBe("alpha");

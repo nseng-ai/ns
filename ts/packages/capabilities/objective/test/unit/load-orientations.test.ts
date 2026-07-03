@@ -86,6 +86,33 @@ describe("objective load-orientations operation", () => {
 		);
 	});
 
+	test("orientation output is identical for records with and without Record Frontmatter", async () => {
+		// Orientation content passes through verbatim: a leading --- fence in
+		// orientation.md and Record Frontmatter in objective.md must never be
+		// treated as strippable content by the orientation loader.
+		const orientationMd = "---\nnot frontmatter, orientation prose\n---\nalpha direction\n";
+		const loadWithObjectiveMd = async (objectiveMd: string) =>
+			await runLoadOrientations(
+				contextWithFakeStorage({ records: [{ slug: "alpha", objectiveMd, orientationMd }] }),
+				{},
+			);
+
+		const withoutFrontmatter = await loadWithObjectiveMd("# alpha\n");
+		const withFrontmatter = await loadWithObjectiveMd(
+			"---\nblocked: Gated on an upstream landing.\nedges: []\n---\n# alpha\n",
+		);
+
+		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
+		expect(withoutFrontmatter.data.records).toEqual([
+			{
+				slug: "alpha",
+				path: ".ji/objectives/alpha/orientation.md",
+				content: orientationMd,
+			},
+		]);
+		expect(withFrontmatter).toEqual(withoutFrontmatter);
+	});
+
 	test("fails when a detected orientation file is unreadable", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [{ slug: "alpha", orientationMd: "alpha\n" }],
