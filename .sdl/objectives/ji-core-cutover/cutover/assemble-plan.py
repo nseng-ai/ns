@@ -52,6 +52,11 @@ def chunk_of(path: str) -> str:
     """Assign every work-list entry to exactly one sequential engine invocation."""
     if "/test/" in path or "/tests/" in path or path.endswith(".test.ts"):
         return "2-tests"
+    if path.startswith("ts/packages/") and "/src/" in path and path.endswith(".md"):
+        # Production-embedded prompt/instruction md (e.g. pr-stack-feedback-instructions.md)
+        # is consumed by production code and asserted by tests: it must rename BEFORE the
+        # tests chunk, not in 3-skills-docs after it (dry-run-1 desync).
+        return "1-production"
     if path.startswith(("skills/", "docs/", ".ji/", ".sdl/")) and path.endswith(".md"):
         return "3-skills-docs"
     if path.endswith((".md", "TESTING.md")) and not path.startswith("ts/packages"):

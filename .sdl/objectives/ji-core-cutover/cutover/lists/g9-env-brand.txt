@@ -97,6 +97,10 @@ ts/packages/capabilities/flow/test/unit/pr-description.test.ts
 ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts
 ts/packages/capabilities/flow/test/unit/submit.test.ts
 ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
+ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts
+ts/packages/capabilities/objective/test/unit/pi/child-session/pi-child-session-gateway.test.ts
 ts/packages/capabilities/roaster/README.md
 ts/packages/capabilities/roaster/src/gateways/review-catalog.ts
 ts/packages/capabilities/roaster/test/unit/review-definition.test.ts

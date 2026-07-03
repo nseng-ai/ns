@@ -1,7 +1,17 @@
 # Dry-run artifacts
 
 Capture area for rehearsal runs of the landing window (runbook §B). Save here, per
-run, so nothing has to be reconstructed later:
+run, so nothing has to be reconstructed later.
+
+> **Run 1 (2026-07-02) is FOLDED.** Its findings are already applied to the
+> pipeline inputs, and its reports describe the SUPERSEDED plan shape
+> (21 invariants / 8 changesets; `1-invariants.json`'s 10 FAILs were triaged —
+> 7 false positives now carved out, 3 reals fixed in fix round 2). Read
+> `1-findings.md` for rationale only, never as instructions; the current
+> contract is always `cutover-plan.json`. The next rehearsal writes `2-*` —
+> never overwrite the `1-*` files.
+
+Per-run file naming:
 
 - `<n>-chunk-<name>-report.json` — the verbatim engine return for each chunk
   invocation (summary, skips, failures, simple, complex, verify).

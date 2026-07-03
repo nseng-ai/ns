@@ -1,0 +1,1002 @@
+{
+ "summary": {
+  "simpleFilesChanged": 15,
+  "simpleTotal": 100,
+  "changesetsDone": 6,
+  "changesetsTotal": 8,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 19
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/completion.ts",
+   "note": "Line 23: commandName already set to 'ji' \u2014 no change needed"
+  },
+  {
+   "tier": "simple",
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts",
+   "note": "File contains no sdl\u2192ji rename targets; all references to the sdl CLI command are already converted to ji"
+  },
+  {
+   "tier": "simple",
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "note": "Line 220 already contains correct text 'ji slot checkout failed' (target state of file-specific note)"
+  },
+  {
+   "tier": "simple",
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "note": "All 'sdl' references in file are in DO NOT TOUCH categories: @sdl/* imports (lines 3, 9), TypeScript identifiers (lines 30, 155, 159), directory/package names (line 121)"
+  },
+  {
+   "tier": "complex",
+   "id": "cs1-workspace-globs",
+   "note": "None \u2014 the required glob edit was already present and byte-identical across all three files; no ambiguous cases encountered."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "ts/packages/kernel/src/extensions/discovery.ts:341 - 'Extension manifest contains invalid SDL metadata' is generic brand prose (not a diagnostic code named in the brief and not a literal sdl.<key> path reference); left as-is rather than guessing at a brand-prose convention outside this changeset's explicit scope."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "ts/packages/kernel/src/extensions/discovery.ts and module-loader.ts - other 'SDL command entry'/'SDL-aware'/'SDL user module' prose mentions and SDL_COMMAND_NAME_PATTERN/RULE-derived messages left untouched: they're tied to the surviving SDL_COMMAND_NAME_* identifiers or are generic brand prose outside the manifest-key/diagnostic-code scope given to this changeset."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts - left the 'missing sdl.tier'/'unknown sdl.tier'/'without sdl.remainder' assertion text and the synthetic PackageManifest object literals' `sdl:` field name unchanged: these mirror the `sdl` field still declared today in ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts (readonly sdl?: unknown) and read by tier-layering.ts/subpackage-conformance.ts, none of which are in this changeset's file list or touched by any other in-progress edit I could find; renaming only the test would desync it from that (currently unrenamed) implementation."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "Cross-changeset risk (not a file I can fix): after renaming the 27 package.json 'sdl' keys to 'ji', `pnpm run test:typescript-style-guard` now fails 2 real-repo assertions ('real repo package manifests satisfy declared tier policy through explicit debt allowlists' and 'discovers the core time pilot circle from the package manifest') because ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts (and tier-layering.ts) still read the old `sdl` key and are not in this changeset's file list \u2014 they need a companion changeset to rename their `.sdl` reads to `.ji` before the full style-guard suite is green again."
+  },
+  {
+   "tier": "complex",
+   "id": "cs3-repo-extension-discovery",
+   "note": "Left `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS` env var name unchanged in registry.ts and extension-registry.test.ts: it is not called out in this changeset's brief or in cutover-plan.json, and the same env var is also referenced by ts/packages/kernel/test/integration/flow-extension-registry.test.ts which belongs to a different changeset (cohort-tests-12) not owned by me -- renaming only my copies would desync the contract from that sibling file."
+  },
+  {
+   "tier": "complex",
+   "id": "cs3-repo-extension-discovery",
+   "note": "Left prose strings like 'SDL command', 'Run SDL command entry', diagnostic codes 'sdl_extension_contribution_import_failed', and the `describe(\"address SDL extension registration\")` / `describe(\"repo-local SDL extension manifest parity\")` test labels untouched: these are produced by or describe code in discovery.ts/loader.ts/command-registry.ts, which are owned by the cs2-manifest-key changeset (per cutover-plan.json) and are not in my file list; the brief's rename categories (CLI argv, paths, namespaces, env vars, manifest keys) do not clearly cover this generic prose, so I left it matching current production output rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cs3-repo-extension-discovery",
+   "note": "Left the `addressRepoLocalSdlExtension` / `RepoLocalSdlExtensionDescriptor` / `discoverSdlPackageCommands` import identifiers and the `sdl-extension-registry-` tmpdir prefix string unchanged: these are TS identifiers containing 'sdl' and an arbitrary internal test label, both explicitly out-of-window survivors per the brief."
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "test/unit/land-test-helpers.ts (not in this changeset's file list) still defines TOPOLOGY_COMMAND = \"sdl\", but production code (graphite-topology.ts) already emits \"ji\" for that same exec call. This pre-existing mismatch causes ~51 test failures across both of my test files (confirmed present before any of my edits, via a scoped revert/rerun); whichever changeset owns land-test-helpers.ts needs to rename that constant to \"ji\" to turn these tests green."
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "test title \"--dry-run treats descendant sdl slot checkouts...\" (land-stack-command-scenarios.test.ts) used \"sdl\" as a generic adjective for the slot feature rather than a literal CLI invocation, unlike every sibling test title in the file (\"managed slot ...\"); treated it as a CLI-name-in-prose rename to \"ji slot\" for consistency with the literal command renames elsewhere in the same file, since no plausible reading keeps it as a survivor."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-xdg-core",
+   "note": "Left the fixture value \"~/sdl-root\" (and its derived expectation \"/home/tester/sdl-root/logs\") unchanged in xdg-path.test.ts: it's an arbitrary test-fixture directory name substituted into a generic override-env test, not a CLI name/repo-state path/namespace/XDG segment/env-var name/config filename/artifact filename per the brief's rename list, so renaming it would be scope creep beyond the listed forms."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-xdg-core",
+   "note": "Left SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV constants (and their \"SDL_PAYLOAD_ROOT\"/\"SDL_PAYLOAD_SESSION_ID\" string values) untouched in aretro root.ts: the changeset brief calls out only the line-16 tmpdir segment for this file, and these env var names are also referenced by ts/packages/capabilities/aretro/test/scenario/collect-evidence.test.ts, which is outside this changeset's file list \u2014 renaming them here would silently break an out-of-window file."
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "Left the FakePi test-fixture customType literals \"sdl-command-ack\"/\"sdl-command-progress\" in sdl-extension.test.ts unrenamed: they are not real source-defined constants (grep shows no matching literal in cli-extension.ts source) and the same ad-hoc fixture string appears unchanged in several other out-of-scope test files (handoff-test-fakes.ts, code-workflows.test.ts, cli-command-extension.test.ts, just-fix.test.ts), so treating it as part of this changeset's mapped rename categories would be a guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "Did not touch ts/packages/hosts/pi/test/cli-command-extension.test.ts even though a run surfaced a pre-existing sdl-cli-command vs ji-cli-command mismatch there, because that file is not in this changeset's file list (its owning source file, cli-command-live-progress.ts, was already renamed by a separate changeset)."
+  },
+  {
+   "tier": "complex",
+   "id": "cs8-shim-tokens",
+   "note": "Left `@sdl/core/exec` import specifier on line 1 of render-cli-shim-core.ts untouched -- package scope `@sdl/*` is an explicit out-of-window survivor per the brief."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": ".github/workflows/roaster.yml",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "output=$(sdl roaster review list --ci --applicable --base-ref \"$BASE_REF\" --format json) || status=$?",
+     "after": "output=$(ji roaster review list --ci --applicable --base-ref \"$BASE_REF\" --format json) || status=$?"
+    },
+    {
+     "before": "output=$(sdl roaster review run \"$REVIEW_KEY\" \\",
+     "after": "output=$(ji roaster review run \"$REVIEW_KEY\" \\"
+    },
+    {
+     "before": "printf '%s' \"$output\" | sdl roaster exec publish-findings \\",
+     "after": "printf '%s' \"$output\" | ji roaster exec publish-findings \\"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": ".gitignore",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.pi/extensions/objective-autopilot.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs-site/lib/extensions-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "    name: \"SDL command mirrors\",",
+     "after": "    name: \"JI command mirrors\","
+    },
+    {
+     "before": "      \"Thin Pi adapters expose SDL's lifecycle commands without making agents leave the current session.\",",
+     "after": "      \"Thin Pi adapters expose JI's lifecycle commands without making agents leave the current session.\","
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/justfile",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/land.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "/**\n * Lower-level adapter used by the SDL CLI extension.",
+     "after": "/**\n * Lower-level adapter used by the JI CLI extension."
+    },
+    {
+     "before": " * rendering. This adapter must stay below that package so SDL CLI execution can",
+     "after": " * rendering. This adapter must stay below that package so JI CLI execution can"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/command-exec.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\t// /ji:flow:land reads Graphite topology through a controlled SDL flow exec command;",
+     "after": "\t// /ji:flow:land reads Graphite topology through a controlled JI flow exec command;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/constants.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/commands/push.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/fake-storage.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/objective/src/core/objective-picker.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/objective/src/core/storage.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/objective/src/pi/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\t[\"sdl\", \"SDL\"],",
+     "after": "\t[\"ji\", \"JI\"],"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/sdlcc/src/objective-tab.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/completion.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Line 23: commandName already set to 'ji' \u2014 no change needed"
+   ]
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/kernel/src/cli/index.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "message: `Unknown SDL command: ${commandDisplayName(commandInfo)}`,",
+     "after": "message: `Unknown JI command: ${commandDisplayName(commandInfo)}`,\""
+    },
+    {
+     "before": "// Keep this shell command face SDL-owned instead of resurrecting the old generic Slot",
+     "after": "// Keep this shell command face JI-owned instead of resurrecting the old generic Slot"
+    },
+    {
+     "before": "// rendered by SDL inside one managed shell integration, not extension-owned rc-file",
+     "after": "// rendered by JI inside one managed shell integration, not extension-owned rc-file"
+    },
+    {
+     "before": "//   - SDL/core owns wrapper-script generation, the parent-shell integration, and",
+     "after": "//   - JI/core owns wrapper-script generation, the parent-shell integration, and"
+    },
+    {
+     "before": "return `Skill-invoked SDL ${segments[0] ?? \"extension\"} operations.`;",
+     "after": "return `Skill-invoked JI ${segments[0] ?? \"extension\"} operations.`;"
+    },
+    {
+     "before": "return `SDL ${segments.join(\" \")} commands.`;",
+     "after": "return `JI ${segments.join(\" \")} commands.`;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/kernel/src/cli/shell.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-previews/preview-checks-command.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "File contains no sdl\u2192ji rename targets; all references to the sdl CLI command are already converted to ji"
+   ]
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/thermo-council/constants.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/thermo-council/prompt.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/architecture-topology-report/scripts/example-spec.mjs",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/architecture-topology-report/scripts/synthesize-spec.mjs",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "close review threads with `sdl address exec close-review-threads",
+     "after": "close review threads with `ji address exec close-review-threads"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not rerun /sdl:flow:land until it is resolved or aborted.",
+     "after": "do not rerun /ji:flow:land until it is resolved or aborted."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/pr-facts.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/cp.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/commands/land.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/sdl/worktree.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/submit/text-generation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const PR_DESCRIPTION_MODEL_ENV = \"SDL_DEV_PR_DESCRIPTION_MODEL\";",
+     "after": "export const PR_DESCRIPTION_MODEL_ENV = \"JI_DEV_PR_DESCRIPTION_MODEL\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/create-prompt.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/create.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/self.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before sdl handoff create succeeds.",
+     "after": "do not call it before ji handoff create succeeds."
+    },
+    {
+     "before": "After \\`sdl handoff create\\` succeeds, call",
+     "after": "After \\`ji handoff create\\` succeeds, call"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Pass a command after --, e.g. `sdl slot foreach -- git clean -fd`.",
+     "after": "Pass a command after --, e.g. `ji slot foreach -- git clean -fd`."
+    },
+    {
+     "before": "return failure(\"confirmation-required\", \"sdl slot foreach requires --yes in JSON mode.\");",
+     "after": "return failure(\"confirmation-required\", \"ji slot foreach requires --yes in JSON mode.\");"
+    },
+    {
+     "before": "`sdl slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).",
+     "after": "`ji slot foreach: command failed in ${failedCount} of ${slots.length} slot(s)."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/commands/ack.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = \"sdl-command-ack\";",
+     "after": "export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = \"ji-command-ack\";"
+    },
+    {
+     "before": "export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = \"sdl-command-progress\";",
+     "after": "export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = \"ji-command-progress\";"
+    },
+    {
+     "before": "export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = \"sdl-command-ack\";",
+     "after": "export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = \"ji-command-ack\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"sdl-cli-command-output\";",
+     "after": "export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"ji-cli-command-output\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": " * names: use `sdl:changes`, not `/sdl:flow:changes`. The unique machine key is",
+     "after": " * names: use `ji:changes`, not `/ji:flow:changes`. The unique machine key is"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Line 220 already contains correct text 'ji slot checkout failed' (target state of file-specific note)",
+    "All 'sdl' references in file are in DO NOT TOUCH categories: @sdl/* imports (lines 3, 9), TypeScript identifiers (lines 30, 155, 159), directory/package names (line 121)"
+   ]
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/infra/core/src/primitives/model-slug.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/infra/core/src/test-kit/index.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/sdl-capability-kit/src/kit/text-generation.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/tools/areg/src/operations/project-agents.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export function parseSdlAregAgents(text: string, pathLabel = \"sdl.toml\"): Result<string[]> {",
+     "after": "export function parseSdlAregAgents(text: string, pathLabel = \"ji.toml\"): Result<string[]> {"
+    },
+    {
+     "before": "\t\treturn rejectTextState({\n\t\t\tpathLabel: \"sdl.toml\",\n\t\t\tstate,\n\t\t\tdescription: \"sdl.toml\",",
+     "after": "\t\treturn rejectTextState({\n\t\t\tpathLabel: \"ji.toml\",\n\t\t\tstate,\n\t\t\tdescription: \"ji.toml\","
+    },
+    {
+     "before": "\t\treturn parseSdlAregAgents(state.text, \"sdl.toml\");",
+     "after": "\t\treturn parseSdlAregAgents(state.text, \"ji.toml\");"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/scripts/render-cli-shim.mjs",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/vitest.shared.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  }
+ ],
+ "complex": [
+  {
+   "id": "cs1-workspace-globs",
+   "files": [],
+   "changed": false,
+   "summary": "Verified all three target files already carry the byte-identical `../.ji/reviews/*/tools/*` glob (in pnpm-workspace.yaml's `packages` list, package.json's `workspaces` array, and tsconfig.json's `include` array). No edits were needed; the changeset was already applied prior to this run. All other `sdl`-bearing tokens in these files (package name `sdl-ts-workspace`, `@sdl/*` deps, `sdl-flow`, `sdlcc`) are out-of-window survivors per the brief and were left untouched.",
+   "skipped": [
+    "None \u2014 the required glob edit was already present and byte-identical across all three files; no ambiguous cases encountered."
+   ]
+  },
+  {
+   "id": "cs2-manifest-key",
+   "files": [
+    "ts/packages/kernel/src/sdk/extension-manifest.ts",
+    "ts/packages/kernel/src/extensions/discovery.ts",
+    "ts/packages/kernel/src/runtime/module-loader.ts",
+    "ts/packages/kernel/package.json",
+    ".ji/extensions/address/package.json",
+    ".ji/extensions/aretro/package.json",
+    ".ji/extensions/branch-context/package.json",
+    ".ji/extensions/flow/package.json",
+    ".ji/extensions/handoff/package.json",
+    ".ji/extensions/objective/package.json",
+    ".ji/extensions/roaster/package.json",
+    "ts/packages/capabilities/address/package.json",
+    "ts/packages/capabilities/aretro/package.json",
+    "ts/packages/capabilities/branch-context/package.json",
+    "ts/packages/capabilities/ccc/package.json",
+    "ts/packages/capabilities/flow/package.json",
+    "ts/packages/capabilities/handoff/package.json",
+    "ts/packages/capabilities/objective/package.json",
+    "ts/packages/capabilities/plans/package.json",
+    "ts/packages/capabilities/roaster/package.json",
+    "ts/packages/capabilities/slot/package.json",
+    "ts/packages/hosts/pi/package.json",
+    "ts/packages/hosts/sdlcc/package.json",
+    "ts/packages/infra/brmem/package.json",
+    "ts/packages/infra/clinkr/package.json",
+    "ts/packages/infra/core/package.json",
+    "ts/packages/local/pi-tools/package.json",
+    "ts/packages/sdl-capability-kit/package.json",
+    "ts/packages/tools/areg/package.json",
+    "ts/packages/tools/packagechk/package.json",
+    "ts/packages/tools/vibechk/package.json",
+    "skills/architecture-topology-report/scripts/extract-graph.mjs",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+    "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+    "ts/packages/kernel/test/unit/sdk-runtime-exports.test.ts",
+    "ts/packages/kernel/test/type/sdk-types-folded.ts",
+    "ts/packages/capabilities/flow/test/land/api-boundary.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the extension manifest KEY \"sdl\" -> \"ji\" everywhere it appears as the top-level package.json metadata key (27 package.json files: kernel + 7 .ji/extensions manifests + 19 ts/packages capability/host/infra/tool package.jsons), plus the kernel bin key (\"sdl\" -> \"ji\"). Updated the Zod schema field in extension-manifest.ts (sdlExtensionPackageManifestSchema.sdl -> .ji, identifiers unchanged) and discovery.ts (all manifest.sdl.* property reads -> manifest.ji.*, ManifestStructureIssueKind \"missing-sdl\" -> \"missing-ji\", zod-issue-path patterns [\"sdl\"]/[\"sdl\",\"commands\"] -> [\"ji\"]/[\"ji\",\"commands\"], diagnostic code \"extension_manifest_missing_sdl\" -> \"extension_manifest_missing_ji\", and the two diagnostic messages that literally describe the key (\"must contain an sdl object\" -> \"a ji object\", \"sdl.commands must be an array\" -> \"ji.commands must be an array\"); left commandsNotArrayDiagnostic's code, SDL_COMMAND_NAME_PATTERN/RULE-derived messages, and the generic \"invalid SDL metadata\" message untouched since they're tied to surviving identifiers/out-of-scope prose. Renamed module-loader.ts's `.sdl/extensions` repo-state path reference in a docstring to `.ji/extensions` (that directory was already physically moved). Updated extract-graph.mjs's manifest-key reads (d.sdl?.tier -> d.ji?.tier, manifest.sdl.subpackages -> manifest.ji.subpackages) and its prose/messages, and verified it runs cleanly (exit 0, no tier errors) against all the renamed package.json files. Updated kernel unit/type tests (extension-discovery.test.ts, sdk-runtime-exports.test.ts, sdk-types-folded.ts) and capabilities/flow's api-boundary.test.ts to construct/read the renamed \"ji\" key per the explicit brief guidance (leaving sdl-flow package-name tokens and all Sdl*/sdl* identifiers untouched). In typescript-style-guard.test.ts, fixed only the stale `.sdl/extensions` shard-path references (that directory no longer exists) to `.ji/extensions`; ran the full kernel unit/type suite and api-boundary.test.ts (56 tests) green, and confirmed dprint check and tsgo (kernel, flow) are clean.",
+   "skipped": [
+    "ts/packages/kernel/src/extensions/discovery.ts:341 - 'Extension manifest contains invalid SDL metadata' is generic brand prose (not a diagnostic code named in the brief and not a literal sdl.<key> path reference); left as-is rather than guessing at a brand-prose convention outside this changeset's explicit scope.",
+    "ts/packages/kernel/src/extensions/discovery.ts and module-loader.ts - other 'SDL command entry'/'SDL-aware'/'SDL user module' prose mentions and SDL_COMMAND_NAME_PATTERN/RULE-derived messages left untouched: they're tied to the surviving SDL_COMMAND_NAME_* identifiers or are generic brand prose outside the manifest-key/diagnostic-code scope given to this changeset.",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts - left the 'missing sdl.tier'/'unknown sdl.tier'/'without sdl.remainder' assertion text and the synthetic PackageManifest object literals' `sdl:` field name unchanged: these mirror the `sdl` field still declared today in ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts (readonly sdl?: unknown) and read by tier-layering.ts/subpackage-conformance.ts, none of which are in this changeset's file list or touched by any other in-progress edit I could find; renaming only the test would desync it from that (currently unrenamed) implementation.",
+    "Cross-changeset risk (not a file I can fix): after renaming the 27 package.json 'sdl' keys to 'ji', `pnpm run test:typescript-style-guard` now fails 2 real-repo assertions ('real repo package manifests satisfy declared tier policy through explicit debt allowlists' and 'discovers the core time pilot circle from the package manifest') because ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts (and tier-layering.ts) still read the old `sdl` key and are not in this changeset's file list \u2014 they need a companion changeset to rename their `.sdl` reads to `.ji` before the full style-guard suite is green again."
+   ]
+  },
+  {
+   "id": "cs3-repo-extension-discovery",
+   "files": [
+    "ts/packages/kernel/src/extensions/registry.ts",
+    "ts/packages/kernel/test/helpers/objective-extension.ts",
+    "ts/packages/kernel/test/helpers/flow-extension.ts",
+    "ts/packages/kernel/test/helpers/handoff-extension.ts",
+    "ts/packages/kernel/test/helpers/aretro-extension.ts",
+    "ts/packages/kernel/test/helpers/roaster-extension.ts",
+    "ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts",
+    "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+    "ts/packages/kernel/test/unit/extension-registry.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the project-scoped extension-discovery path segment `.sdl/extensions` to `.ji/extensions` in registry.ts (the two join() calls building the project-level extension root/label), and renamed all matching `.sdl` path literals in the five test helper files (objective/flow/handoff/aretro/roaster-extension.ts) which construct both the fileURLToPath source URL and the destination join() path \u2014 these now correctly point at the real, already-moved `.ji/extensions/<name>` tree instead of a nonexistent `.sdl/extensions/<name>` tree (avoiding ENOENT). In repo-local-extension-manifest-parity.test.ts, renamed REPO_LOCAL_EXTENSION_ROOT from `../.sdl/extensions` to `../.ji/extensions` (verified this resolves correctly relative to the vitest root at `ts/`) plus two prose strings referencing `.sdl/extensions/*` paths. In the address extension-manifest.test.ts, renamed ADDRESS_EXTENSION_ROOT to `../.ji/extensions/address` and renamed the local zod schema key `sdl:` to `ji:` (and the corresponding `manifest.sdl.commands` access to `manifest.ji.commands`), matching the manifest-key rename owned by the sibling cs2-manifest-key changeset (confirmed via cutover-plan.json that cs2 renames the `sdl` manifest key in extension-manifest.ts, discovery.ts, and every .ji/extensions/*/package.json, including address's). In extension-registry.test.ts, renamed all `.sdl` workspace/global path segments (including the `.local/share/sdl` XDG-shaped fixture path) to `.ji`, and renamed every fixture manifest object key `sdl: {...}` to `ji: {...}` for the same cross-changeset manifest-key reason.",
+   "skipped": [
+    "Left `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS` env var name unchanged in registry.ts and extension-registry.test.ts: it is not called out in this changeset's brief or in cutover-plan.json, and the same env var is also referenced by ts/packages/kernel/test/integration/flow-extension-registry.test.ts which belongs to a different changeset (cohort-tests-12) not owned by me -- renaming only my copies would desync the contract from that sibling file.",
+    "Left prose strings like 'SDL command', 'Run SDL command entry', diagnostic codes 'sdl_extension_contribution_import_failed', and the `describe(\"address SDL extension registration\")` / `describe(\"repo-local SDL extension manifest parity\")` test labels untouched: these are produced by or describe code in discovery.ts/loader.ts/command-registry.ts, which are owned by the cs2-manifest-key changeset (per cutover-plan.json) and are not in my file list; the brief's rename categories (CLI argv, paths, namespaces, env vars, manifest keys) do not clearly cover this generic prose, so I left it matching current production output rather than guessing.",
+    "Left the `addressRepoLocalSdlExtension` / `RepoLocalSdlExtensionDescriptor` / `discoverSdlPackageCommands` import identifiers and the `sdl-extension-registry-` tmpdir prefix string unchanged: these are TS identifiers containing 'sdl' and an arbitrary internal test label, both explicitly out-of-window survivors per the brief."
+   ]
+  },
+  {
+   "id": "cs4-slot-path-regex",
+   "files": [
+    "ts/packages/capabilities/flow/src/land/stack/worktrees.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the isManagedSlotPath() regex in worktrees.ts from `sdl\\/slots\\/repos\\/...` to `ji\\/slots\\/repos\\/...` (line 76), preserving match semantics exactly. Updated both paired test files to match: all `/Users/me/.local/state/sdl/slots/...` and Windows `AppData\\Local\\sdl\\slots\\...` fixture paths became `.../state/ji/slots/...` / `Local\\ji\\slots\\...` (sdl-tools package-name segments inside those paths left untouched per survivor rule); `/sdl:flow:land argument` -> `/ji:flow:land argument`; the `sdl flow land` progress-title assertions -> `ji flow land` (matches production's already-renamed BASE_LAND_TITLE); all `step(\"sdl\", [\"slot\", \"free\", ...])` / `call.command === \"sdl\"` / `\"Command: sdl slot free ...\"` exec-call fixtures and assertions -> `ji` (matches production's already-renamed `command: \"ji\"` literal in landing-operations.ts); the two TOPOLOGY-read command-stream assertions (`\u2713 $ sdl flow exec ...` / `\u2713 $ sdl flow changes`, plus the enclosing test title \"does not label unrelated sdl commands...\") -> `ji` equivalents (matches production's already-renamed literal in graphite-topology.ts). Left all `@sdl/*` import specifiers, `src/sdl/commands/land.ts` path segment, and `sdl-tools`/`sdl-typescript` name occurrences untouched as directed survivors. Verified via targeted vitest runs (before/after diff of failing-test names) that these edits introduce zero new failures and fix 3 previously-failing assertions; ran a scoped git-apply-revert/reapply experiment to confirm the remaining ~51 failing tests in these two files are caused solely by a shared out-of-scope fixture file, test/unit/land-test-helpers.ts (`TOPOLOGY_COMMAND = \"sdl\"`), which is not in this changeset's file list and was already inconsistent with already-renamed production code before any of my edits.",
+   "skipped": [
+    "test/unit/land-test-helpers.ts (not in this changeset's file list) still defines TOPOLOGY_COMMAND = \"sdl\", but production code (graphite-topology.ts) already emits \"ji\" for that same exec call. This pre-existing mismatch causes ~51 test failures across both of my test files (confirmed present before any of my edits, via a scoped revert/rerun); whichever changeset owns land-test-helpers.ts needs to rename that constant to \"ji\" to turn these tests green.",
+    "test title \"--dry-run treats descendant sdl slot checkouts...\" (land-stack-command-scenarios.test.ts) used \"sdl\" as a generic adjective for the slot feature rather than a literal CLI invocation, unlike every sibling test title in the file (\"managed slot ...\"); treated it as a CLI-name-in-prose rename to \"ji slot\" for consistency with the literal command renames elsewhere in the same file, since no plausible reading keeps it as a survivor."
+   ]
+  },
+  {
+   "id": "cs5-xdg-core",
+   "files": [
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/infra/core/test/xdg-path.test.ts",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/sdl-capability-kit/test/unit/xdg.test.ts"
+   ],
+   "changed": true,
+   "summary": "Verified the three source files in this changeset (xdg-path.ts, submit.ts, aretro root.ts) already had their sdl->ji content renames applied (the \"ji\" segment in resolveSdlXdgPath, all of submit.ts's JI_ env vars/titles/messages/tmp-prefix/cwd-fallback path, and the aretro tmpdir segment) \u2014 grepped each for residual \"sdl\" and confirmed only identifier/import survivors remain (resolveSdlXdgPath, requireSdlStatePath, SdlCommand/SdlExtensionApi, @sdl/* imports, SDL_PAYLOAD_ROOT_ENV/SDL_PAYLOAD_SESSION_ID_ENV which are used by an out-of-changeset test file and were intentionally left alone). Updated the two test files that had gone stale relative to those source renames: ts/packages/infra/core/test/xdg-path.test.ts (expected path literals sdl/enriched-plan -> ji/enriched-plan and /state/sdl/logs -> /state/ji/logs; renamed the test-local illustrative override env var names SDL_ROOT -> JI_ROOT and SDL_LOG_DIR -> JI_LOG_DIR everywhere they appear as env keys/overrideEnv/overrideEnvName/toThrow message, since they match the brief's SDL_<ANYTHING> -> JI_<ANYTHING> env-var-name rule and are not used by any other file) and ts/packages/sdl-capability-kit/test/unit/xdg.test.ts (expected path literal sdl/extensions -> ji/extensions). Ran both test files with vitest; all 10 tests pass.",
+   "skipped": [
+    "Left the fixture value \"~/sdl-root\" (and its derived expectation \"/home/tester/sdl-root/logs\") unchanged in xdg-path.test.ts: it's an arbitrary test-fixture directory name substituted into a generic override-env test, not a CLI name/repo-state path/namespace/XDG segment/env-var name/config filename/artifact filename per the brief's rename list, so renaming it would be scope creep beyond the listed forms.",
+    "Left SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV constants (and their \"SDL_PAYLOAD_ROOT\"/\"SDL_PAYLOAD_SESSION_ID\" string values) untouched in aretro root.ts: the changeset brief calls out only the line-16 tmpdir segment for this file, and these env var names are also referenced by ts/packages/capabilities/aretro/test/scenario/collect-evidence.test.ts, which is outside this changeset's file list \u2014 renaming them here would silently break an out-of-window file."
+   ]
+  },
+  {
+   "id": "cs6-pi-namespace-core",
+   "files": [
+    "ts/packages/hosts/pi/src/commands/surfaces.ts",
+    "ts/packages/capabilities/flow/src/pi/sdl-extension.ts",
+    "ts/packages/hosts/pi/src/commands/events.ts",
+    "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+    "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the three sdl->ji namespace mechanisms in this changeset: (1) surfaces.ts \u2014 KNOWN_PI_COMMAND_NAMESPACES entry \"sdl\"->\"ji\", and SPECIALIZED_SKILL_REPLACEMENTS values \"sdl:flow:autobranch\"/\"sdl:flow:cp\"/\"sdl:flow:submit\" -> \"ji:flow:*\" (the \"sdl-flow-submit\" key, a skill dir name, was left unrenamed per the brief); (2) sdl-extension.ts \u2014 piNamespace/cliName \"sdl\"/\"sdl:flow\" -> \"ji\"/\"ji:flow\", the definePiSurfaceParity surface/cli/notes template strings, and the doc comment's \"SDL CLI runner\"/\".sdl/extensions\" -> \"JI CLI runner\"/\".ji/extensions\" (matching the \"JI CLI\" capitalization convention already used elsewhere in the repo); sourcePackage \"sdl-flow/pi\" (a package name) and all TS identifiers (SdlExtensionAPI, SDL_FLOW_COMMANDS, sdlExtension, etc.) were left untouched per the out-of-window rules; (3) events.ts \u2014 PI_EXTENSION_COMMAND_FINISHED_EVENT literal \"sdl:...\" -> \"ji:...\". Updated the two associated test files (sdl-extension.test.ts, pi-command-surfaces.test.ts) to assert the new ji:flow:* names/descriptions and to add absence assertions for the now-dead sdl:flow:* namespaced names alongside the pre-existing flat sdl:* legacy names. Both test files pass under vitest. Left an unrelated pre-existing failure in ts/packages/hosts/pi/test/cli-command-extension.test.ts untouched (asserts \"sdl-cli-command\" while its source constant was already renamed to \"ji-cli-command\" by a different, already-landed changeset) since that file is outside this changeset's file list.",
+   "skipped": [
+    "Left the FakePi test-fixture customType literals \"sdl-command-ack\"/\"sdl-command-progress\" in sdl-extension.test.ts unrenamed: they are not real source-defined constants (grep shows no matching literal in cli-extension.ts source) and the same ad-hoc fixture string appears unchanged in several other out-of-scope test files (handoff-test-fakes.ts, code-workflows.test.ts, cli-command-extension.test.ts, just-fix.test.ts), so treating it as part of this changeset's mapped rename categories would be a guess.",
+    "Did not touch ts/packages/hosts/pi/test/cli-command-extension.test.ts even though a run surfaced a pre-existing sdl-cli-command vs ji-cli-command mismatch there, because that file is not in this changeset's file list (its owning source file, cli-command-live-progress.ts, was already renamed by a separate changeset)."
+   ]
+  },
+  {
+   "id": "cs8-shim-tokens",
+   "files": [],
+   "changed": false,
+   "summary": "Verified both files in the cs8-shim-tokens changeset (ts/scripts/render-cli-shim-core.ts and ts/scripts/source-cli-shim-template) already have the complete, consistent SDL->JI token rename applied: TOKEN_PREFIX is \"@@JI_\", all five tokens (@@JI_TOOL@@, @@JI_CANONICAL_CHECKOUT@@, @@JI_CLI_REL_PATH@@, @@JI_INSTALL_HINT@@, @@JI_FALLBACK_MODE@@) match in lockstep between the renderer's replacement map and the template's placeholders, the \"invalid JI_FALLBACK_MODE\" error string is renamed, and the template's brand prose (\"runs a ji TypeScript CLI\", \"ji checkout\") is renamed. No SDL remnants found via grep. No edits were necessary.",
+   "skipped": [
+    "Left `@sdl/core/exec` import specifier on line 1 of render-cli-shim-core.ts untouched -- package scope `@sdl/*` is an explicit out-of-window survivor per the brief."
+   ]
+  },
+  {
+   "id": "cs7-toml-readers",
+   "files": [
+    "ts/packages/tools/areg/src/fake-gateways.ts",
+    "ts/packages/tools/areg/src/operations/init.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed remaining literal \"sdl.toml\" strings to \"ji.toml\" across the changeset. gateways.ts (union type at line 279), mutation-policy.ts, project-gateway.ts, local-diff.ts, and review-run.ts already had ji.toml literals in place before this session started, so no edits were needed there. In init.ts, updated the five sdl.toml literals inside planSdlToml (path labels, description, writePlan targets, and the parseSdlAregAgents path arg) to ji.toml. In fake-gateways.ts, updated the file-map key \"sdl.toml\" and the matching fileState(\"sdl.toml\") lookup to \"ji.toml\" so the fake stays consistent with the real ProjectGateway's ji.toml path. Left all sdlToml/planSdlToml/parseSdlAregAgents identifiers and @sdl/* import specifiers untouched per the brief's survivor list.",
+   "skipped": []
+  }
+ ],
+ "verify": []
+}

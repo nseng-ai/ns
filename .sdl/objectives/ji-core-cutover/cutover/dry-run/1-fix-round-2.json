@@ -1,0 +1,228 @@
+{
+ "args": {
+  "brief": "# Shared refactor brief (the `brief` field of cutover-plan.json)\n\nYou are renaming the product `sdl` to `ji` in this repo. Hard cutover: no compat\ncodepaths, no fallbacks, no aliases. The repo tree you see has ALREADY had its file\nmoves done (`.sdl/` \u2192 `.ji/`, `sdl.toml` \u2192 `ji.toml`, `.pi/extensions/sdl.ts` \u2192\n`ji.ts`); your job is CONTENT edits only. Never rename, create, or delete files.\n\nRENAME these literal forms wherever they appear in your assigned file(s):\n- the CLI name: subprocess argv `\"sdl\"` \u2192 `\"ji\"`, `formatCommand(\"sdl\", \u2026)`,\n  `which sdl` probes and their error text, `sdl <command>` instruction lines in\n  prose/frontmatter/help text, `Usage: sdl`, \"\u2026 for sdl.\"\n- repo-state paths: `.sdl/<anything>` \u2192 `.ji/<anything>` (e.g. `.sdl/objectives`,\n  `.sdl/extensions`, `.sdl/reviews`, `.sdl/prompts`, `.sdl/pi/agents`, `.sdl/tmp`,\n  `.sdl/state/\u2026`)\n- namespaces and machine keys: `/sdl:` \u2192 `/ji:`, `sdl:flow:*` \u2192 `ji:flow:*`,\n  `sdl:objectives:*` \u2192 `ji:objectives:*`, `\"sdl:pi-extension-command:finished\"` \u2192\n  `\"ji:\u2026\"`, diagnostic codes `missing-sdl` / `extension_manifest_missing_sdl` \u2192\n  `missing-ji` / `extension_manifest_missing_ji`\n- XDG namespaces: `state/sdl`, `data/sdl`, `config/sdl`, `share/sdl`, `sdl/slots`\n  (also regex-escaped `sdl\\/slots`), `~/.sdl` \u2192 the same with `ji`\n- the package.json manifest KEY `\"sdl\":` \u2192 `\"ji\":` and dotted prose forms\n  `sdl.tier` / `sdl.commands` / `sdl.group` / `sdl.subpackages` \u2192 `ji.*`\n- config filename references: `sdl.toml` \u2192 `ji.toml`\n- env var names: `SDL_<ANYTHING>` \u2192 `JI_<ANYTHING>` (e.g. `SDL_CHECKPOINT_MODEL`,\n  `SDL_SLUG_MODEL`, `SDL_TS_BAN_*`, `SDL_PI_CLI_TRACE*`, justfile `SDL_TOOL` etc.)\n- sdl-brand artifact filenames in strings: `sdl-pi-cli-command-extension.jsonl` \u2192\n  `ji-pi-cli-command-extension.jsonl`\n\nDO NOT TOUCH (out-of-window survivors; later roadmap rows own them):\n- `@sdl/*` package scope and every import specifier containing it\n- TypeScript/JS identifiers containing sdl in any casing (`resolveSdlXdgPath`,\n  `sdlToml`, `sdlExtensionManifestSchema`, `SdlCommandInfo`, `buildSdlCompletionScript`, \u2026)\n- `src/sdl/` path segments, `./sdl/` and `../sdl/` relative imports,\n  `/sdl/commands` and `/sdl/extension` path fragments, `join(\u2026, \"sdl\", \u2026)` calls that\n  build src-dir paths (e.g. module-loader.ts)\n- bare `\"sdl\"` VALUES inside package.json `subpackages` arrays\n- package/dir/file NAMES: `sdl-flow`, `sdl-capability-kit`, `sdlcc`, `sdl-tools`,\n  skill directory names (`sdl-flow-submit`, `sdl-typescript`, `sdl-cli-design`,\n  `sdl-typescript-style-tripwire`), source filenames (`sdl-extension.ts`,\n  `repo-local-sdl-extension.ts`), objective slugs (`rename-sdl-to-ji`, \u2026)\n- `SPECIALIZED_SKILL_REPLACEMENTS` keys (skill dir names); only its VALUES rename\n- docs-site branding strings (`\"sdl-docs\"` site id, site titles) \u2014 branding row\n- `ts/pnpm-lock.yaml` (regenerated), `state/vibechk` (deliberate non-sdl namespace)\n- historical prose: archived objectives, `updates/` files, ADR body text (except the\n  one allowlisted ADR 0005 fallback-path line)\n\nIf an edit is ambiguous \u2014 you cannot tell a rename target from a survivor \u2014 do NOT\nguess; record it in `skipped` with the file:line and why. Prefer a surfaced judgment\ncall over a wrong edit.\n",
+  "simple": [
+   {
+    "path": "CONTEXT-MAP.md",
+    "hint": "Line 92: rename the stale CLI form `sdl slot gt` -> `ji slot gt`. Sibling entries in this file are already renamed. Touch nothing else (package scope @sdl/capability-kit/graphite on the same line is an out-of-window survivor and MUST stay)."
+   },
+   {
+    "path": "ts/packages/hosts/pi/test/pr-download-feedback.test.ts",
+    "hint": "Line 416: the asserted prompt text 'sdl address exec close-review-threads --thread-ids-json' must become 'ji address exec close-review-threads --thread-ids-json' \u2014 the source md it mirrors (pr-stack-feedback-instructions.md) now emits the ji form. Check for any other 'sdl address' assertions in the file and rename those too. Touch nothing else."
+   },
+   {
+    "path": "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+    "hint": "The support modules (package-metadata.ts, tier-layering.ts, subpackage-conformance.ts) now read the `ji` manifest key and emit ji.tier/ji.remainder messages. Sync this test: (1) line 563 'missing sdl.tier' -> 'missing ji.tier'; (2) line 568 'unknown sdl.tier' -> 'unknown ji.tier'; (3) line 976 'without sdl.remainder' -> 'without ji.remainder'; (4) mock PackageManifest object keys `sdl:` -> `ji:` at lines ~1235, ~1269, ~1376. DO NOT touch identifiers like coreMetadata.sdlSubpackages, rawSdlTier, or any .sdlTier/.sdlRemainder property names \u2014 those are TS identifier survivors. After your edits, `pnpm --dir ts run test:typescript-style-guard`-relevant assertions must expect ji.* message text."
+   },
+   {
+    "path": "ts/packages/kernel/src/extensions/loader.ts",
+    "hint": "Rename the machine diagnostic-code string literal \"sdl_extension_contribution_import_failed\" -> \"ji_extension_contribution_import_failed\". This matches the already-renamed sibling diagnostic codes (missing-sdl -> ji forms per the cutover decisions). Touch nothing else; identifiers, @sdl/ imports, and prose are survivors. Site: line ~24."
+   },
+   {
+    "path": "ts/packages/kernel/test/unit/extension-loader.test.ts",
+    "hint": "Rename the machine diagnostic-code string literal \"sdl_extension_contribution_import_failed\" -> \"ji_extension_contribution_import_failed\". This matches the already-renamed sibling diagnostic codes (missing-sdl -> ji forms per the cutover decisions). Touch nothing else; identifiers, @sdl/ imports, and prose are survivors. Site: line ~107."
+   },
+   {
+    "path": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "hint": "Rename the machine diagnostic-code string literal \"sdl_extension_contribution_import_failed\" -> \"ji_extension_contribution_import_failed\". This matches the already-renamed sibling diagnostic codes (missing-sdl -> ji forms per the cutover decisions). Touch nothing else; identifiers, @sdl/ imports, and prose are survivors. Sites: lines ~380 and ~523."
+   },
+   {
+    "path": "ts/packages/tools/areg/src/operations/project-agents.ts",
+    "hint": "Rename the machine diagnostic-code string literal \"sdl_toml_invalid\" -> \"ji_toml_invalid\" at all 4 sites (lines ~31, 40, 47, 52), consistent with the sdl.toml -> ji.toml config rename already applied in this file. Identifiers (sdlToml, parseSdlAregAgentsFromState) are survivors \u2014 leave them."
+   },
+   {
+    "path": "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts",
+    "hint": "Line 69: rename the env fixture KEY `SDL_TEST` -> `JI_TEST` (i.e. { JI_TEST: \"1\" }) and any assertion in the same test that references SDL_TEST. Env-var-shaped names are in-window even in fixtures (residual-env-vars invariant demands no SDL_ env keys). All other sdl forms in this file (SdlExtensionApi identifiers, sdl-context filename, describe titles) are survivors \u2014 leave them."
+   },
+   {
+    "path": "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts",
+    "hint": "Line 50: rename the fixture path value canonicalCheckout: \"/tmp/sdl\" -> \"/tmp/ji\" (the residual-xdg-namespace invariant pattern flags tmp/sdl paths). If the same \"/tmp/sdl\" string is asserted elsewhere in the file, rename those consistently. Touch nothing else."
+   }
+  ],
+  "complex": [],
+  "invariants": [],
+  "repoRoot": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09",
+  "model": "sonnet",
+  "complexModel": "sonnet"
+ },
+ "report": {
+  "summary": {
+   "simpleFilesChanged": 9,
+   "simpleTotal": 9,
+   "changesetsDone": 0,
+   "changesetsTotal": 0,
+   "invariantsChecked": 0,
+   "invariantsFailed": 0,
+   "skips": 4
+  },
+  "skips": [
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/loader.ts",
+    "note": "loadSdlUserModuleDefault import, SdlExtensionContributionLoadResult type, loadSdlExtensionContribution function name, and \"SDL extension contribution\" prose message \u2014 these are identifiers/prose survivors per brief, not the machine diagnostic code targeted by the file-specific note"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/tools/areg/src/operations/project-agents.ts",
+    "note": "@sdl/core/primitives and @sdl/core/result import specifiers left untouched (package scope survivor per brief)"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/tools/areg/src/operations/project-agents.ts",
+    "note": "sdlToml field name and parseSdlAregAgentsFromState function name left untouched (identifier survivor per brief and file-specific note)"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts",
+    "note": "Line 39: \"no asdl checkout found\" left untouched \u2014 this is an unrelated fixture string (asdl != sdl), not a rename target."
+   }
+  ],
+  "failures": [],
+  "simple": [
+   {
+    "file": "CONTEXT-MAP.md",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "`sdl slot gt` as the slot-owned command surface",
+      "after": "`ji slot gt` as the slot-owned command surface"
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/hosts/pi/test/pr-download-feedback.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "expect(prompt).toContain(\"sdl address exec close-review-threads --thread-ids-json\");",
+      "after": "expect(prompt).toContain(\"ji address exec close-review-threads --thread-ids-json\");"
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "expectedTextIncludes: \"missing sdl.tier\",",
+      "after": "expectedTextIncludes: \"missing ji.tier\","
+     },
+     {
+      "before": "expectedTextIncludes: \"unknown sdl.tier\",",
+      "after": "expectedTextIncludes: \"unknown ji.tier\","
+     },
+     {
+      "before": "expect(violations[0]?.text).toContain(\"without sdl.remainder\");",
+      "after": "expect(violations[0]?.text).toContain(\"without ji.remainder\");"
+     },
+     {
+      "before": "sdl: {\n\t\t\ttier: \"neutral-infra\",",
+      "after": "ji: {\n\t\t\ttier: \"neutral-infra\","
+     },
+     {
+      "before": "sdl: { tier: \"local-pi-tool\" },",
+      "after": "ji: { tier: \"local-pi-tool\" },"
+     },
+     {
+      "before": "{ sdl: { tier: rawSdlTier } }",
+      "after": "{ ji: { tier: rawSdlTier } }"
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/kernel/src/extensions/loader.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "\"sdl_extension_contribution_import_failed\"",
+      "after": "\"ji_extension_contribution_import_failed\""
+     }
+    ],
+    "skipped": [
+     "loadSdlUserModuleDefault import, SdlExtensionContributionLoadResult type, loadSdlExtensionContribution function name, and \"SDL extension contribution\" prose message \u2014 these are identifiers/prose survivors per brief, not the machine diagnostic code targeted by the file-specific note"
+    ]
+   },
+   {
+    "file": "ts/packages/kernel/test/unit/extension-loader.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "code: \"sdl_extension_contribution_import_failed\"",
+      "after": "code: \"ji_extension_contribution_import_failed\""
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "code: \"sdl_extension_contribution_import_failed\",",
+      "after": "code: \"ji_extension_contribution_import_failed\","
+     },
+     {
+      "before": "diagnostic: { code: \"sdl_extension_contribution_import_failed\", commandName: \"throws\" },",
+      "after": "diagnostic: { code: \"ji_extension_contribution_import_failed\", commandName: \"throws\" },"
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/tools/areg/src/operations/project-agents.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "code: \"sdl_toml_invalid\", (line 31, Invalid TOML message)",
+      "after": "code: \"ji_toml_invalid\""
+     },
+     {
+      "before": "code: \"sdl_toml_invalid\", (line 40, [areg] table message)",
+      "after": "code: \"ji_toml_invalid\""
+     },
+     {
+      "before": "code: \"sdl_toml_invalid\", (line 47, agents must be string array)",
+      "after": "code: \"ji_toml_invalid\""
+     },
+     {
+      "before": "code: \"sdl_toml_invalid\", (line 52, non-empty string list)",
+      "after": "code: \"ji_toml_invalid\""
+     }
+    ],
+    "skipped": [
+     "@sdl/core/primitives and @sdl/core/result import specifiers left untouched (package scope survivor per brief)",
+     "sdlToml field name and parseSdlAregAgentsFromState function name left untouched (identifier survivor per brief and file-specific note)"
+    ]
+   },
+   {
+    "file": "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "const env = { SDL_TEST: \"1\" };",
+      "after": "const env = { JI_TEST: \"1\" };"
+     }
+    ],
+    "skipped": []
+   },
+   {
+    "file": "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "canonicalCheckout: \"/tmp/sdl\",",
+      "after": "canonicalCheckout: \"/tmp/ji\","
+     }
+    ],
+    "skipped": [
+     "Line 39: \"no asdl checkout found\" left untouched \u2014 this is an unrelated fixture string (asdl != sdl), not a rename target."
+    ]
+   }
+  ],
+  "complex": [],
+  "verify": []
+ }
+}

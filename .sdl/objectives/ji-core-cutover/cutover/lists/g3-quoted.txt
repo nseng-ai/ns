@@ -22,8 +22,8 @@ ts/packages/capabilities/ccc/test/land-command.test.ts
 ts/packages/capabilities/ccc/test/land-test-helpers.ts
 ts/packages/capabilities/flow/package.json
 ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts
-ts/packages/capabilities/flow/src/land/stack/command-exec.ts
-ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts
+ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts
+ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts
 ts/packages/capabilities/flow/src/land/stack/landing-operations.ts
 ts/packages/capabilities/flow/src/pi/sdl-extension.ts
 ts/packages/capabilities/flow/src/pi/stack-squash.ts

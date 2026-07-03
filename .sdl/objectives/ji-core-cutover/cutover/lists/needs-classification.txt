@@ -32,7 +32,6 @@ ts/packages/capabilities/flow/src/land/api.ts
 ts/packages/capabilities/flow/src/land/preflight.ts
 ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts
 ts/packages/capabilities/flow/src/land/stack/land-presentation.ts
-ts/packages/capabilities/flow/src/land/stack/pr-facts.ts
 ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts
 ts/packages/capabilities/flow/src/land/stack/stack-facts.ts
 ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts
@@ -47,6 +46,7 @@ ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts
 ts/packages/capabilities/flow/src/sdl/repo-local-sdl-extension.ts
 ts/packages/capabilities/flow/src/sdl/worktree.ts
 ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts
 ts/packages/capabilities/flow/src/submit/submit-format.ts
 ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts
 ts/packages/capabilities/flow/src/submit/text-generation.ts
@@ -57,6 +57,7 @@ ts/packages/capabilities/handoff/src/pi/launch-flow.ts
 ts/packages/capabilities/handoff/src/pi/registration.ts
 ts/packages/capabilities/handoff/src/pi/self.ts
 ts/packages/capabilities/handoff/src/pi/tab.ts
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
 ts/packages/capabilities/roaster/src/commands/review-ls.ts
 ts/packages/capabilities/slot/src/core/diagnostics.ts
 ts/packages/capabilities/slot/src/core/index.ts

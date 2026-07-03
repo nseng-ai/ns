@@ -4,19 +4,19 @@
    "path": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Operative CLI instruction lines in cli: fields \u2014 line 50 \"sdl branch-context exec from-plan\" and line 89 \"sdl branch-context exec load\" \u2192 rename leading \"sdl\" to \"ji\"."
+   "hint": "Operative CLI instruction lines in cli: fields — line 50 \"sdl branch-context exec from-plan\" and line 89 \"sdl branch-context exec load\" → rename leading \"sdl\" to \"ji\"."
   },
   {
    "path": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 437 operative instruction \"2. Then run `!sdl flow submit`.\" \u2192 \"`!ji flow submit`\"."
+   "hint": "Line 437 operative instruction \"2. Then run `!sdl flow submit`.\" → \"`!ji flow submit`\"."
   },
   {
    "path": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 28 SDL_* env var VALUE \"SDL_CCC_SIDEBAR_MODEL\" \u2192 \"JI_CCC_SIDEBAR_MODEL\" (leave the const identifier SIDEBAR_MODEL_ENV alone). Line 221 prose \".sdl/objectives/<slug>\" path literal \u2192 \".ji/objectives/<slug>\"."
+   "hint": "Line 28 SDL_* env var VALUE \"SDL_CCC_SIDEBAR_MODEL\" → \"JI_CCC_SIDEBAR_MODEL\" (leave the const identifier SIDEBAR_MODEL_ENV alone). Line 221 prose \".sdl/objectives/<slug>\" path literal → \".ji/objectives/<slug>\"."
   },
   {
    "path": "ts/packages/capabilities/ccc/src/sdl/autobranch/flow.ts",
@@ -28,7 +28,7 @@
    "path": "ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 26 JSDoc example naming the copyable CLI operatively `sdl slot co <branch>` \u2192 `ji slot co <branch>`."
+   "hint": "Line 26 JSDoc example naming the copyable CLI operatively `sdl slot co <branch>` → `ji slot co <branch>`."
   },
   {
    "path": "ts/packages/capabilities/ccc/src/sdl/autoslot.ts",
@@ -64,13 +64,13 @@
    "path": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Operative CLI prose: line 118 \"sdl slot checkout --current\", line 131 \"sdl slot checkout failed\", line 147 guidance `sdl slot co ${...}` \u2192 rename \"sdl slot\" to \"ji slot\"."
+   "hint": "Operative CLI prose: line 118 \"sdl slot checkout --current\", line 131 \"sdl slot checkout failed\", line 147 guidance `sdl slot co ${...}` → rename \"sdl slot\" to \"ji slot\"."
   },
   {
    "path": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 26 JSDoc example naming the copyable CLI operatively `sdl slot co <branch>` \u2192 `ji slot co <branch>`."
+   "hint": "Line 26 JSDoc example naming the copyable CLI operatively `sdl slot co <branch>` → `ji slot co <branch>`."
   },
   {
    "path": "ts/packages/capabilities/flow/src/land/api.ts",
@@ -82,25 +82,19 @@
    "path": "ts/packages/capabilities/flow/src/land/preflight.ts",
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
-   "hint": "Line 144 message uses hyphenated package name \"sdl-flow land preflight...\" (the package sdl-flow, not the operative `sdl flow` CLI) \u2014 survivor."
+   "hint": "Line 144 message uses hyphenated package name \"sdl-flow land preflight...\" (the package sdl-flow, not the operative `sdl flow` CLI) — survivor."
   },
   {
    "path": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Every `/sdl:flow:land` namespace machine-key literal (lines 95,104,145,162,210,248,279,295,406,473,724,733) \u2192 `/ji:flow:land`. Leave gt/git command text and LAND_BACKUP_RECOVERY_HINT alone."
+   "hint": "Every `/sdl:flow:land` namespace machine-key literal (lines 95,104,145,162,210,248,279,295,406,473,724,733) → `/ji:flow:land`. Leave gt/git command text and LAND_BACKUP_RECOVERY_HINT alone."
   },
   {
    "path": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
    "hint": "Line 1 header comment names the CLI operatively: `sdl flow land` -> `ji flow land`. Leave the src/land/stack path and all identifiers untouched."
-  },
-  {
-   "path": "ts/packages/capabilities/flow/src/land/stack/pr-facts.ts",
-   "decision": "simple",
-   "reason": "has-in-window-literals",
-   "hint": "Line 139 suggestedAction: namespace key `/sdl:flow:land` -> `/ji:flow:land`."
   },
   {
    "path": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
@@ -274,19 +268,19 @@
    "path": ".claude/plans/plan-the-deletion-of-humming-tide.md",
    "decision": "skip",
    "reason": "historical-record",
-   "hint": "Historical plan record (the sole checked-in .claude/plans/ doc) describing the completed sdl-pr-address deletion. It DOES contain in-window forms \u2014 .sdl/objectives/pr-address-* path literals (:19,:130) and `sdl pr-address` command prose (:7,:10,:48,:119) \u2014 but the document is a record of past work with no runtime or instructional surface; treated as a historical record per the Non-Goals no-scrubbing stance (owner-visible call, runbook \u00a7C)."
+   "hint": "Historical plan record (the sole checked-in .claude/plans/ doc) describing the completed sdl-pr-address deletion. It DOES contain in-window forms — .sdl/objectives/pr-address-* path literals (:19,:130) and `sdl pr-address` command prose (:7,:10,:48,:119) — but the document is a record of past work with no runtime or instructional surface; treated as a historical record per the Non-Goals no-scrubbing stance (owner-visible call, runbook §C)."
   },
   {
    "path": ".pi/extensions/code-workflows.ts",
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
-   "hint": "Only match is the import specifier \"sdl-flow/pi/code-workflows-extension\" \u2014 sdl-flow is a package name (survivor)."
+   "hint": "Only match is the import specifier \"sdl-flow/pi/code-workflows-extension\" — sdl-flow is a package name (survivor)."
   },
   {
    "path": ".pi/extensions/code.ts",
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
-   "hint": "Only match is the import specifier \"sdl-flow/pi/code-extension\" \u2014 sdl-flow is a package name (survivor)."
+   "hint": "Only match is the import specifier \"sdl-flow/pi/code-extension\" — sdl-flow is a package name (survivor)."
   },
   {
    "path": "docs-site/docs/concepts/meta.json",
@@ -304,13 +298,13 @@
    "path": "docs-site/lib/geistdocs/nav.ts",
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
-   "hint": "Only match is repo: \"sdl-tools\" \u2014 repo name (survivor)."
+   "hint": "Only match is repo: \"sdl-tools\" — repo name (survivor)."
   },
   {
    "path": "docs-site/lib/geistdocs/rss.ts",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "RSS feed author name \"sdl\" and copyright 'All rights reserved, sdl' are docs-site branding strings \u2014 post-window branding sweep."
+   "hint": "RSS feed author name \"sdl\" and copyright 'All rights reserved, sdl' are docs-site branding strings — post-window branding sweep."
   },
   {
    "path": "docs-site/lib/geistdocs/site-identity.ts",
@@ -322,19 +316,19 @@
    "path": "docs-site/package.json",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "package \"name\": \"sdl-docs\" is the docs-site package/branding name \u2014 post-window branding sweep, not the in-window manifest KEY rename."
+   "hint": "package \"name\": \"sdl-docs\" is the docs-site package/branding name — post-window branding sweep, not the in-window manifest KEY rename."
   },
   {
    "path": "skills-lock.json",
    "decision": "skip",
    "reason": "only-package-or-skill-or-slug-name",
-   "hint": "All matches are skill-name keys (sdl-cli-design, sdl-flow-submit, sdl-typescript, sdl-typescript-style-tripwire) \u2014 skills-lock.json skill-name keys are survivors."
+   "hint": "All matches are skill-name keys (sdl-cli-design, sdl-flow-submit, sdl-typescript, sdl-typescript-style-tripwire) — skills-lock.json skill-name keys are survivors."
   },
   {
    "path": "skills/architecture-topology-report/scripts/example-spec.mjs",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "IN-WINDOW: line 14 and line 184 contain the path literal .sdl/objectives/sdl-extension-architecture \u2014 rename only the .sdl/ prefix to .ji/ (keep the sdl-extension-architecture objective slug). Line 18 comment prose 'declared package.json `sdl.tier` values' \u2014 rename sdl.tier to ji.tier. LEAVE survivors: line 9 repo \"sdl-tools\"; @sdl/sdl, sdl-sdk, @sdl/slot, @sdl/pi, @sdl/pr-address, @sdl/domain-primitives-transitional package scope/names; and the mermaid/graph short-name nodes 'sdl' (lines 27, 35, 143-145) which mirror the @sdl/sdl package identity, not the bin/CLI."
+   "hint": "IN-WINDOW: line 14 and line 184 contain the path literal .sdl/objectives/sdl-extension-architecture — rename only the .sdl/ prefix to .ji/ (keep the sdl-extension-architecture objective slug). Line 18 comment prose 'declared package.json `sdl.tier` values' — rename sdl.tier to ji.tier. LEAVE survivors: line 9 repo \"sdl-tools\"; @sdl/sdl, sdl-sdk, @sdl/slot, @sdl/pi, @sdl/pr-address, @sdl/domain-primitives-transitional package scope/names; and the mermaid/graph short-name nodes 'sdl' (lines 27, 35, 143-145) which mirror the @sdl/sdl package identity, not the bin/CLI."
   },
   {
    "path": "skills/architecture-topology-report/scripts/synthesize-spec.mjs",
@@ -346,25 +340,25 @@
    "path": "ts/packages/capabilities/address/src/core/download-feedback.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "IN-WINDOW: line 245 operative CLI instruction string `sdl address exec close-review-threads ...` \u2014 rename the bin `sdl ` to `ji ` (sdl address exec -> ji address exec). Leave the gh api graphql reference."
+   "hint": "IN-WINDOW: line 245 operative CLI instruction string `sdl address exec close-review-threads ...` — rename the bin `sdl ` to `ji ` (sdl address exec -> ji address exec). Leave the gh api graphql reference."
   },
   {
    "path": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "IN-WINDOW: line 228 operative CLI instruction 'Use sdl aretro exec read-evidence-detail ...' \u2014 rename bin `sdl ` to `ji ` (sdl aretro exec -> ji aretro exec)."
+   "hint": "IN-WINDOW: line 228 operative CLI instruction 'Use sdl aretro exec read-evidence-detail ...' — rename bin `sdl ` to `ji ` (sdl aretro exec -> ji aretro exec)."
   },
   {
    "path": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "IN-WINDOW: line 63 operative CLI instruction `sdl branch-context exec from-plan` \u2014 rename bin `sdl ` to `ji `. Leave the adjacent `enriched-plan exec save` (different CLI, not sdl)."
+   "hint": "IN-WINDOW: line 63 operative CLI instruction `sdl branch-context exec from-plan` — rename bin `sdl ` to `ji `. Leave the adjacent `enriched-plan exec save` (different CLI, not sdl)."
   },
   {
    "path": "ts/packages/kernel/src/extensions/command-registry.ts",
    "decision": "skip",
    "reason": "only-identifier",
-   "hint": "SDL_COMMAND_NAME_PATTERN (regex const) and SDL_COMMAND_NAME_RULE (string \"[a-z][a-z0-9-]*\") are exported TS constant identifiers, NOT env vars \u2014 their values contain no sdl brand. Line 261 sdlExtensionCommandEntryIssueFields is an identifier. All survivors."
+   "hint": "SDL_COMMAND_NAME_PATTERN (regex const) and SDL_COMMAND_NAME_RULE (string \"[a-z][a-z0-9-]*\") are exported TS constant identifiers, NOT env vars — their values contain no sdl brand. Line 261 sdlExtensionCommandEntryIssueFields is an identifier. All survivors."
   },
   {
    "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
@@ -400,7 +394,7 @@
    "path": "ts/packages/tools/areg/src/operations/project-agents.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Rename the config-filename string literals \"sdl.toml\" -> \"ji.toml\" (line 25 default pathLabel, lines 97 pathLabel + 99 description, line 102 arg). LEAVE the identifiers sdlToml (input.sdlToml), parseSdlAregAgents, and parseSdlAregAgentsFromState \u2014 those are survivors."
+   "hint": "Rename the config-filename string literals \"sdl.toml\" -> \"ji.toml\" (line 25 default pathLabel, lines 97 pathLabel + 99 description, line 102 arg) AND the machine diagnostic-code string literal \"sdl_toml_invalid\" -> \"ji_toml_invalid\" at all 4 sites (~:31,40,47,52; dry-run-1 gap). LEAVE the identifiers sdlToml (input.sdlToml), parseSdlAregAgents, and parseSdlAregAgentsFromState — those are survivors. The pre-existing parseLegacyAregJsonAgents areg.json fallback is a legacy-FORMAT feature unrelated to this cutover — do not touch it."
   },
   {
    "path": "ts/packages/tools/areg/src/operations/update-skills.ts",
@@ -413,20 +407,20 @@
    "decision": "simple",
    "reason": "has-in-window-literals",
    "hint": "In-window: error string references env-var name `SDL_FALLBACK_MODE` (line 35) -> `JI_FALLBACK_MODE`. Also rename the coupled template token contract: TOKEN_PREFIX \"@@SDL_\" (line 3) and the @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ keys (lines 40-44) -> @@JI_*@@; these placeholder tokens MUST stay byte-identical to the ones in source-cli-shim-template.",
-   "suspectedNewCoupling": "ts/scripts/source-cli-shim-template \u2014 the @@SDL_*@@ substitution tokens and TOKEN_PREFIX must be renamed in lock-step with the template placeholders it substitutes into."
+   "suspectedNewCoupling": "ts/scripts/source-cli-shim-template — the @@SDL_*@@ substitution tokens and TOKEN_PREFIX must be renamed in lock-step with the template placeholders it substitutes into."
   },
   {
    "path": "ts/scripts/render-cli-shim.mjs",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Rename the env-var NAME strings SDL_* -> JI_*: the REQUIRED_ENV_VARS array (SDL_TEMPLATE, SDL_OUTPUT, SDL_TOOL, SDL_CANONICAL_CHECKOUT, SDL_CLI_REL_PATH, SDL_INSTALL_HINT, lines 7-12), the matching envValue(\"SDL_...\") calls (lines 30,33-36,45), and process.env.SDL_FALLBACK_MODE (line 37). These env-var names are set by the external installer/justfile recipe that invokes this script \u2014 that caller must be renamed too."
+   "hint": "Rename the env-var NAME strings SDL_* -> JI_*: the REQUIRED_ENV_VARS array (SDL_TEMPLATE, SDL_OUTPUT, SDL_TOOL, SDL_CANONICAL_CHECKOUT, SDL_CLI_REL_PATH, SDL_INSTALL_HINT, lines 7-12), the matching envValue(\"SDL_...\") calls (lines 30,33-36,45), and process.env.SDL_FALLBACK_MODE (line 37). These env-var names are set by the external installer/justfile recipe that invokes this script — that caller must be renamed too."
   },
   {
    "path": "ts/scripts/source-cli-shim-template",
    "decision": "simple",
    "reason": "has-in-window-literals",
    "hint": "Rename the @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ placeholder tokens (lines 2, 11-15) -> @@JI_*@@ to match render-cli-shim-core.ts. Also the operative brand prose describing the CLI/checkout: \"runs an sdl TypeScript CLI\" (line 2), \"the caller's current sdl checkout\" (line 8), \"no sdl checkout found ... an sdl checkout\" and \"reinstall from an sdl checkout\" (lines 38, 48) -> ji.",
-   "suspectedNewCoupling": "ts/scripts/render-cli-shim-core.ts \u2014 placeholder tokens must match the replacement map keys and TOKEN_PREFIX in the renderer exactly."
+   "suspectedNewCoupling": "ts/scripts/render-cli-shim-core.ts — placeholder tokens must match the replacement map keys and TOKEN_PREFIX in the renderer exactly."
   },
   {
    "path": "ts/vitest.shared.ts",
@@ -438,114 +432,126 @@
    "path": "ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Two operative CLI instruction strings: line 104 and line 109 both contain `sdl slot checkout --current` inside error-message backticks \u2192 `ji slot checkout --current`. No survivors on these lines."
+   "hint": "Two operative CLI instruction strings: line 104 and line 109 both contain `sdl slot checkout --current` inside error-message backticks → `ji slot checkout --current`. No survivors on these lines."
   },
   {
    "path": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Operative command strings: line 52 `sdl slot foreach -- git clean -fd`, line 64 `sdl slot foreach requires --yes...`, line 92 `sdl slot foreach: command failed...` \u2192 rename each `sdl slot foreach` to `ji slot foreach`. No survivors."
+   "hint": "Operative command strings: line 52 `sdl slot foreach -- git clean -fd`, line 64 `sdl slot foreach requires --yes...`, line 92 `sdl slot foreach: command failed...` → rename each `sdl slot foreach` to `ji slot foreach`. No survivors."
   },
   {
    "path": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 62 instruction string `sdl slot free --wt ${slotName}` \u2192 `ji slot free --wt ...`. Single site."
+   "hint": "Line 62 instruction string `sdl slot free --wt ${slotName}` → `ji slot free --wt ...`. Single site."
   },
   {
    "path": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 42 instruction string `sdl slot checkout <branch>` \u2192 `ji slot checkout <branch>`. Single site."
+   "hint": "Line 42 instruction string `sdl slot checkout <branch>` → `ji slot checkout <branch>`. Single site."
   },
   {
    "path": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 2 comment: the operative CLI phrase `sdl slot ...` \u2192 `ji slot ...`. LEAVE the `src/sdl/` path segment (survivor) and the `defineCli` identifier."
+   "hint": "Line 2 comment: the operative CLI phrase `sdl slot ...` → `ji slot ...`. LEAVE the `src/sdl/` path segment (survivor) and the `defineCli` identifier."
   },
   {
    "path": "ts/packages/hosts/pi/src/commands/ack.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Brand machine-key string VALUES (identifiers stay): line 10 \"sdl-command-ack\", line 11 \"sdl-command-progress\", line 12 \"sdl-command-ack\" \u2192 ji-command-ack / ji-command-progress. These are matched by literal in tests, so they are a cross-file contract.",
-   "suspectedNewCoupling": "The literals \"sdl-command-ack\"/\"sdl-command-progress\" are hardcoded in ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts, ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts, ts/packages/capabilities/flow/test/pi/code-workflows.test.ts, ts/packages/hosts/pi/test/cli-command-extension.test.ts, ts/packages/hosts/pi/test/just-fix.test.ts \u2014 must be renamed in lockstep."
+   "hint": "Brand machine-key string VALUES (identifiers stay): line 10 \"sdl-command-ack\", line 11 \"sdl-command-progress\", line 12 \"sdl-command-ack\" → ji-command-ack / ji-command-progress. These are matched by literal in tests, so they are a cross-file contract.",
+   "suspectedNewCoupling": "The literals \"sdl-command-ack\"/\"sdl-command-progress\" are hardcoded in ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts, ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts, ts/packages/capabilities/flow/test/pi/code-workflows.test.ts, ts/packages/hosts/pi/test/cli-command-extension.test.ts, ts/packages/hosts/pi/test/just-fix.test.ts — must be renamed in lockstep."
   },
   {
    "path": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Brand machine-key string VALUES: line 9 \"sdl-cli-command\", line 10 \"sdl-cli-command-output\" \u2192 ji-cli-command / ji-cli-command-output. LEAVE the `@sdl/core/*` imports (survivor scope).",
-   "suspectedNewCoupling": "\"sdl-cli-command-output\" is duplicated in cli-extension.ts:20 (CLI_COMMAND_OUTPUT_MESSAGE_TYPE) and both literals are asserted in ts/packages/hosts/pi/test/cli-command-extension.test.ts (status keys) \u2014 rename together."
+   "hint": "Brand machine-key string VALUES: line 9 \"sdl-cli-command\", line 10 \"sdl-cli-command-output\" → ji-cli-command / ji-cli-command-output. LEAVE the `@sdl/core/*` imports (survivor scope).",
+   "suspectedNewCoupling": "\"sdl-cli-command-output\" is duplicated in cli-extension.ts:20 (CLI_COMMAND_OUTPUT_MESSAGE_TYPE) and both literals are asserted in ts/packages/hosts/pi/test/cli-command-extension.test.ts (status keys) — rename together."
   },
   {
    "path": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 20 CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"sdl-cli-command-output\" \u2192 \"ji-cli-command-output\". LEAVE all `@sdl/*` imports and the `SdlConfirmOptions` identifier (survivors).",
-   "suspectedNewCoupling": "Same \"sdl-cli-command-output\" literal lives in cli-command-live-progress.ts:10 and is asserted in ts/packages/hosts/pi/test/cli-command-extension.test.ts \u2014 rename in lockstep."
+   "hint": "Line 20 CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"sdl-cli-command-output\" → \"ji-cli-command-output\". LEAVE all `@sdl/*` imports and the `SdlConfirmOptions` identifier (survivors).",
+   "suspectedNewCoupling": "Same \"sdl-cli-command-output\" literal lives in cli-command-live-progress.ts:10 and is asserted in ts/packages/hosts/pi/test/cli-command-extension.test.ts — rename in lockstep."
   },
   {
    "path": "ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Lines 10 and 11 operative CLI instructions `sdl address exec close-review-threads ...` \u2192 `ji address exec close-review-threads ...`. No survivors."
+   "hint": "Lines 10 and 11 operative CLI instructions `sdl address exec close-review-threads ...` -> `ji address exec close-review-threads ...`. No survivors. PAIRED FILE (dry-run-1 desync): ts/packages/hosts/pi/test/pr-download-feedback.test.ts asserts this prompt text verbatim (~:416) and rides the tests chunk — this md is production-embedded and must rename in chunk 1 (assembler now routes ts/packages/**/src/**.md to 1-production) so the later test edit matches renamed source."
   },
   {
    "path": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 4 HARNESS_SESSION_ENTRY_TYPE = \"sdl-harness-session-id\" (brand machine-key customType value) \u2192 \"ji-harness-session-id\". LEAVE the `@sdl/core/*` imports and HARNESS_SESSION_ENV = \"HARNESS_SESSION_ID\" (no sdl).",
-   "suspectedNewCoupling": "\"sdl-harness-session-id\" literal is asserted in ts/packages/hosts/pi/test/harness-session.test.ts (lines 102, 123) \u2014 rename together."
+   "hint": "Line 4 HARNESS_SESSION_ENTRY_TYPE = \"sdl-harness-session-id\" (brand machine-key customType value) → \"ji-harness-session-id\". LEAVE the `@sdl/core/*` imports and HARNESS_SESSION_ENV = \"HARNESS_SESSION_ID\" (no sdl).",
+   "suspectedNewCoupling": "\"sdl-harness-session-id\" literal is asserted in ts/packages/hosts/pi/test/harness-session.test.ts (lines 102, 123) — rename together."
   },
   {
    "path": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 19 comment illustrating Pi registration machine keys: `sdl:changes` and `/sdl:flow:changes` \u2192 `ji:changes` / `/ji:flow:changes`. LEAVE line 67 sourcePackage value \"sdl-flow/pi\" (survivor package name) and every `@sdl/*` and `@sdl-local/*` scope in the union (lines 59-70)."
+   "hint": "Line 19 comment illustrating Pi registration machine keys: `sdl:changes` and `/sdl:flow:changes` → `ji:changes` / `/ji:flow:changes`. LEAVE line 67 sourcePackage value \"sdl-flow/pi\" (survivor package name) and every `@sdl/*` and `@sdl-local/*` scope in the union (lines 59-70)."
   },
   {
    "path": "ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 220 error string `sdl slot checkout failed (...)` \u2192 `ji slot checkout failed (...)`. LEAVE the `hosts/sdlcc` directory name in the path (survivor)."
+   "hint": "Line 220 error string `sdl slot checkout failed (...)` → `ji slot checkout failed (...)`. LEAVE the `hosts/sdlcc` directory name in the path (survivor)."
   },
   {
    "path": "ts/packages/infra/core/src/primitives/model-slug.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Line 42 SLUG_MODEL_ENV = \"SDL_SLUG_MODEL\" \u2014 SDL_* env var name \u2192 \"JI_SLUG_MODEL\". Keep the identifier SLUG_MODEL_ENV; only the string value changes.",
-   "suspectedNewCoupling": "The literal \"SDL_SLUG_MODEL\" is asserted directly in ts/packages/kernel/test/integration/flow-extension-cli.test.ts:137 and appears in a test title in ts/packages/sdl-capability-kit/test/unit/model-slug.test.ts:60 \u2014 update these when the env var is renamed."
+   "hint": "Line 42 SLUG_MODEL_ENV = \"SDL_SLUG_MODEL\" — SDL_* env var name → \"JI_SLUG_MODEL\". Keep the identifier SLUG_MODEL_ENV; only the string value changes.",
+   "suspectedNewCoupling": "The literal \"SDL_SLUG_MODEL\" is asserted directly in ts/packages/kernel/test/integration/flow-extension-cli.test.ts:137 and appears in a test title in ts/packages/sdl-capability-kit/test/unit/model-slug.test.ts:60 — update these when the env var is renamed."
   },
   {
    "path": "ts/packages/infra/core/src/test-kit/index.ts",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Brand-prefixed temp-dir artifact names: line 70 makeTempDir default prefix \"sdl-test-\" \u2192 \"ji-test-\"; line 75 makeHomeTempDir default prefix \".sdl-test-\" \u2192 \".ji-test-\" (home dotdir, brand-adjacent to ~/.sdl). Cosmetic ephemeral prefixes, no external contract."
+   "hint": "Brand-prefixed temp-dir artifact names: line 70 makeTempDir default prefix \"sdl-test-\" → \"ji-test-\"; line 75 makeHomeTempDir default prefix \".sdl-test-\" → \".ji-test-\" (home dotdir, brand-adjacent to ~/.sdl). Cosmetic ephemeral prefixes, no external contract."
   },
   {
    "path": "ts/packages/kernel/docs/sdk-reference.md",
    "decision": "simple",
    "reason": "has-in-window-literals",
-   "hint": "Multiple in-window sites: `.sdl/extensions/` path literals (lines 47, 94, 104, 105, 107, 313-316) \u2192 `.ji/extensions/`; command-instruction lines `sdl <name>` / `sdl flow <name>` (142, 292, 318-320 examples), `sdl --help` (162); manifest KEY `sdl` \u2014 prose refs on 307 and 327, `sdl.commands[]` on 311, and the `sdl: {` object key on 332 \u2192 `ji`/`ji.commands[]`/`ji: {`. LEAVE all identifiers (sdlExtensionManifestCommandSchema, sdlExtensionManifestSchema, sdlExtensionPackageManifestSchema on 309/325), the `@sdl/capability-kit/*` scope and `sdl-flow` package name (line 18, 312), and `internalWorkspaceExports`."
+   "hint": "Multiple in-window sites: `.sdl/extensions/` path literals (lines 47, 94, 104, 105, 107, 313-316) → `.ji/extensions/`; command-instruction lines `sdl <name>` / `sdl flow <name>` (142, 292, 318-320 examples), `sdl --help` (162); manifest KEY `sdl` — prose refs on 307 and 327, `sdl.commands[]` on 311, and the `sdl: {` object key on 332 → `ji`/`ji.commands[]`/`ji: {`. LEAVE all identifiers (sdlExtensionManifestCommandSchema, sdlExtensionManifestSchema, sdlExtensionPackageManifestSchema on 309/325), the `@sdl/capability-kit/*` scope and `sdl-flow` package name (line 18, 312), and `internalWorkspaceExports`."
   },
   {
    "path": "docs-site/app/[lang]/(home)/page.tsx",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "'sdl Documentation' page titles/metadata and hero copy (:6,:9,:14,:63,:64) \u2014 docs-site product branding, post-window branding row (consistent with the ai-assistant.ts/rss.ts/site-identity.ts skips). [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "'sdl Documentation' page titles/metadata and hero copy (:6,:9,:14,:63,:64) — docs-site product branding, post-window branding row (consistent with the ai-assistant.ts/rss.ts/site-identity.ts skips). [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
   },
   {
    "path": "docs-site/app/[lang]/extensions/page.tsx",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "'sdl extensions \u2026' description and 'sdl extension catalog' eyebrow (:32,:37) \u2014 docs-site branding copy, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "'sdl extensions …' description and 'sdl extension catalog' eyebrow (:32,:37) — docs-site branding copy, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
   },
   {
    "path": "docs-site/lib/geistdocs/og-image.tsx",
    "decision": "skip",
    "reason": "post-window-branding",
-   "hint": "fallbackTitle 'sdl Documentation' (:46) \u2014 docs-site branding, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+   "hint": "fallbackTitle 'sdl Documentation' (:46) — docs-site branding, post-window branding row. [orchestrator-applied on G10 drift rerun, matching classifier precedent]"
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "User-facing fix/bypass message prose instructing the CLI: every `sdl flow submit` instruction string (lines ~61, 132, 133, 139, 142, 154, 155, 219 and any siblings) renames to `ji flow submit`, including the `sdl flow submit --force` bypass line. No other in-window forms; identifiers and @sdl/ imports survive. [Hand-classified 2026-07-02 during dry-run-1 fold: post-restack drift file, submit-format refactor sibling.]"
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Three in-window forms: (1) the env var NAME string value at line ~32 — SDL_RUNNER_PI_BIN_ENV = \"SDL_RUNNER_PI_BIN\" renames its VALUE to \"JI_RUNNER_PI_BIN\" (the identifier SDL_RUNNER_PI_BIN_ENV survives); (2) the doc-comment mention `SDL_RUNNER_PI_BIN` at ~:66 follows the value; (3) the brand-named tmpdir prefix \"sdl-objective-runner-\" at ~:222 renames to \"ji-objective-runner-\" (owner decision 2026-07-02: brand-named prefixes rename; package-derived survive). [Hand-classified 2026-07-02 during dry-run-1 fold: post-restack drift file.]"
   }
  ]
 }

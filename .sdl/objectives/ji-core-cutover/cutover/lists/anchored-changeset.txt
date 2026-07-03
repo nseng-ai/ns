@@ -14,6 +14,8 @@ ts/packages/capabilities/aretro/src/payloads/root.ts
 ts/packages/capabilities/branch-context/package.json
 ts/packages/capabilities/ccc/package.json
 ts/packages/capabilities/flow/package.json
+ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts
+ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts
 ts/packages/capabilities/flow/src/land/stack/worktrees.ts
 ts/packages/capabilities/flow/src/pi/sdl-extension.ts
 ts/packages/capabilities/flow/src/sdl/commands/submit.ts
@@ -37,10 +39,14 @@ ts/packages/infra/brmem/package.json
 ts/packages/infra/clinkr/package.json
 ts/packages/infra/core/package.json
 ts/packages/infra/core/src/config/xdg-path.ts
+ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts
+ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts
+ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts
 ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts
 ts/packages/infra/core/test/xdg-path.test.ts
 ts/packages/kernel/package.json
 ts/packages/kernel/src/extensions/discovery.ts
+ts/packages/kernel/src/extensions/loader.ts
 ts/packages/kernel/src/extensions/registry.ts
 ts/packages/kernel/src/runtime/module-loader.ts
 ts/packages/kernel/src/sdk/extension-manifest.ts

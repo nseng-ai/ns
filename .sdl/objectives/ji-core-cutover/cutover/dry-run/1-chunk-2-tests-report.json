@@ -1,0 +1,557 @@
+{
+ "summary": {
+  "simpleFilesChanged": 3,
+  "simpleTotal": 3,
+  "changesetsDone": 16,
+  "changesetsTotal": 16,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 37
+ },
+ "skips": [
+  {
+   "tier": "complex",
+   "id": "cohort-tests-1",
+   "note": "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl docs site slot page conventions skeleton theme foundation' / slug 'sdl-docs-site-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-1",
+   "note": "attached-plan.test.ts lines 169/187/219/236: 'git@github.com:sdl/sdl-tools.git' \u2014 left unchanged; 'sdl-tools' is an explicit DO-NOT-TOUCH repo/package name survivor and the leading 'sdl' is the GitHub org segment of that same repo URL, not a standalone rename target."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-1",
+   "note": "All @sdl/* import specifiers across every file left unchanged per explicit DO-NOT-TOUCH package-scope rule."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-2",
+   "note": "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl docs site slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts:92 - mkdtemp(join(tmpdir(), \"sdl-flow-real-gt-\")) temp-dir prefix: ambiguous whether this counts as CLI/namespace branding or as a derivative of the DO-NOT-TOUCH 'sdl-flow' package name; left unchanged since sibling file submit-command.test.ts (outside this changeset) still uses an analogous unrenamed \"sdl-submit-test-\" prefix, suggesting this pattern is not in the current rename window."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-3",
+   "note": "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts:134 - git test fixture args: [\"config\", \"user.name\", \"SDL Test\"] sets a display name unrelated to any brief category (not a CLI argv, path, namespace, or env var); left unchanged as arbitrary test fixture data, not product branding."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-4",
+   "note": "submit-command.test.ts and regenerate-pr-command.test.ts: mkdtemp tmpdir prefixes 'sdl-submit-test-' and 'sdl-regenerate-pr-prompt-' (multiple lines) \u2014 pure scratch-directory naming with no functional/user-facing meaning; not covered by any RENAME bullet (not a CLI name, path, namespace, env var, or listed filename) nor explicitly excluded, so left as-is rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-4",
+   "note": "submit-command.test.ts lines ~1219-1270: fixture branch/stack names 'sdl-extension-api-followup-stack', 'add-sdl-extension-api', 'sdl-extension-api-followup/registry-refactor' embedded in scripted `gt submit` stdout/stderr and assertions \u2014 these read as captured real historical Graphite branch names (akin to the brief's 'historical prose' survivor category), not a rename target category; left untouched to avoid corrupting fixture fidelity."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-5",
+   "note": "ts/packages/capabilities/flow/test/unit/submit.test.ts lines 514,517,533: fixture branch names \"sdl-extension-api-followup-stack\" / \"add-sdl-extension-api\" (fake Graphite stdout for a hypothetical past feature) don't match any RENAME bullet (not CLI argv, path, namespace, env var, or package.json key) and read like an arbitrary historical branch-name fixture rather than a product-name reference; left untouched rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-5",
+   "note": "ts/packages/capabilities/flow/test/unit/pr-description.test.ts line 253: tmpdir prefix `sdl-dev-pr-prompt-${randomUUID()}` is an arbitrary scratch-directory name, not a repo-state path or CLI/namespace/env-var literal; left as-is (only the adjacent `.sdl/prompts` -> `.ji/prompts` structured path segment was renamed)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-5",
+   "note": "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts line 28: left the value `/tmp/sdl-cd` unchanged (only the env-var-name key `SDL_CD_DIRECTIVE_FILE` -> `JI_CD_DIRECTIVE_FILE` was renamed to match production's constant value) since the path value itself is an arbitrary local fixture string, not a namespace/path form covered by the brief."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-5",
+   "note": "@sdl/* package-scope imports across all files (e.g. @sdl/clinkr, @sdl/core, @sdl/slot/api, @sdl/capability-kit/*, @sdl/kernel/sdk, @sdl/brmem) and the relative import path ../../src/sdl/presentation/git-result-block.ts: explicit out-of-window survivors per the brief, left untouched."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-6",
+   "note": "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts:148 - test title 'SDL renderHuman uses settled caps instead of process TTY state' uses capitalized SDL as a generic product/acronym reference rather than a literal CLI-argv, path, namespace, or filename form covered by the brief's rename categories; renaming risked guessing intent on ambiguous brand prose, so left as-is and flagged instead."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-8",
+   "note": "real-pr-gateway.test.ts and api.test.ts: no edits made - all sdl-containing strings in these two files are explicit brief survivors (the 'dagster-io/sdl-tools' repo name and the @sdl/* package-scope imports in real-pr-gateway.test.ts; the SDL_CD_DIRECTIVE_FILE identifier in api.test.ts, which still matches the unrenamed export name in src/core/shell/cd-directive.ts even though that constant's string value was already changed to \"JI_CD_DIRECTIVE_FILE\")"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-8",
+   "note": "review-definition.test.ts lines 55-56: left the review directory name and `name` field value \"sdl-typescript-style-tripwire\" untouched - it is an explicitly listed survivor (skill/review directory name), only the '.sdl/' path prefix before it was renamed to '.ji/'"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-8",
+   "note": "@sdl/capability-kit, @sdl/core, @sdl/clinkr import specifiers across review-run.test.ts, review-runner-prompt.test.ts, and gt-navigation-cli.test.ts: left untouched per the explicit @sdl/* package-scope survivor rule"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-9",
+   "note": "ts/packages/capabilities/slot/test/unit/cd-directive.test.ts: all sdl occurrences (SDL_CD_DIRECTIVE_FILE import, its usages, and the '/tmp/sdl-directive' fixture strings, and the test title mentioning it) are tied to the exported identifier SDL_CD_DIRECTIVE_FILE, which is a TS/JS identifier survivor per the brief (its *value* is already 'JI_CD_DIRECTIVE_FILE' in source) - left the whole file untouched since renaming the prose without renaming the identifier would create a mismatch."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-9",
+   "note": "pr-download-feedback.test.ts line 416 ('sdl address exec close-review-threads --thread-ids-json'): left unchanged because it must match the literal prompt text still emitted by src/core/pr/pr-stack-feedback-instructions.md, which still says 'sdl address exec close-review-threads' and is outside this changeset's assigned files - renaming the test would desync it from current production output."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-9",
+   "note": "node-runtime-imports.test.ts line 78 mkdtempSync(... 'sdl-pi-extension-load-'): left unchanged - an arbitrary temp-dir label not matching any of the brief's enumerated literal forms (not a repo path, namespace, or CLI invocation); low-risk cosmetic string, treated as out of scope rather than guessed."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-10",
+   "note": "extension.test.ts lines 630/639: mkdtempSync(join(tmpdir(), \"sdl-worktree-footer-\")) - a test tmp-dir name prefix; not a CLI arg, repo-state path, namespace, env var, manifest key, or listed sdl-brand artifact filename, so left untouched as ambiguous rather than guessing it should become \"ji-worktree-footer-\"."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-10",
+   "note": "extension.test.ts line 557: Map key \"sdl-flow-changes\" (dash-joined, distinct from the /sdl:flow:changes value on the same line which WAS renamed) - reads like the survivor package name `sdl-flow` from the DO-NOT-TOUCH list rather than a namespace key, so left untouched; flagging since it's a judgment call."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-11",
+   "note": "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:200 - comment \"SDL-owned serialized CLI machine-contract enum values...\" is generic brand-adjective prose, not a match for any literal form in the brief's rename list (not argv, path, namespace, XDG, package.json key, config filename, env var, or artifact filename); left unchanged as likely owned by a branding-focused row rather than this test cohort."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-11",
+   "note": "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts and exec/unit/exec.test.ts - tmpdir prefixes (\"sdl-core-exec-\", \"sdl-exec-unit-\") and fake binary names (\"__sdl_core_missing_command_for_test__\", \"sdl-exec-test-tool\") are arbitrary internal test fixture names, not CLI argv, paths, namespaces, env vars, or manifest keys per the brief's list; left unchanged as out of the rename's scope (not ambiguous, just non-matching)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-11",
+   "note": "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts (outside this changeset) constructs mock PackageManifest fixtures using an `sdl:` object key (lines ~1235, 1269, 1376) that mirrors the field I renamed to `ji` in package-metadata.ts; the full test suite still passes today because those fixtures independently round-trip through the same (now-`ji`) field name inside that file's own test, but flagging for awareness since that file is not in my changeset and was not modified by me."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-12",
+   "note": "Bare capitalized \"SDL\" used as descriptive prose (not an instruction line, Usage: prefix, or path) in describe()/test() titles and error strings across all 5 kernel test files, e.g. \"checked-in Aretro SDL extension loading\", \"through the SDL command face\", \"SDL command entry\", \"Failed to load SDL extension contribution\", \"Invalid SDL extension contribution\" -- left untouched: confirmed by grep that the corresponding production strings in ts/packages/kernel/src/extensions/{discovery,loader,command-registry}.ts still literally emit \"SDL\" (not in any changeset I could find), so changing the test assertions would break them; the bare describe()/test() titles have no such correspondence but per the ji-naming-brief.md casing rule ('always lowercase ji, never JI') a straight case-preserving SDL->JI substitution would violate the naming convention, and rewriting the sentence is a judgment call beyond the brief's enumerated literal forms."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-12",
+   "note": "Ad-hoc tmpdir-prefix strings like \"sdl-aretro-extension-project-\", \"sdl-completion-integration-\", \"sdl-extension-project-\", \"sdl-flow-extension-project-\", \"sdl-flow-extension-registry-\", \"sdl-flow-extension-help-\", \"sdl-handoff-extension-\", \"sdl-objective-extension-project-\" -- these are arbitrary test-scratch-dir labels, not matching any of the brief's 7 enumerated RENAME categories (not a repo-state path, XDG namespace, CLI argv, env var, config filename, manifest key, or the one named artifact filename) nor listed in DO-NOT-TOUCH; left as-is rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-12",
+   "note": "describe(\"sdl completion CLI extension loader integration\") in completion-cli.test.ts -- lowercase bare-word product-name usage in a Vitest describe title, not matching any enumerated literal-form bullet; left untouched alongside the other bare-word titles for consistency rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-13",
+   "note": "Kept uppercase \"SDL\" brand-descriptive prose in several describe()/test() titles unchanged (e.g. \"empty SDL kernel CLI help and parsing\", \"Roaster SDL command face\", \"...and the SDL API\", \"...and SDL stdin\", \"invalid inferred SDL command entry name...\", \"static SDL command metadata is empty...\") because this exactly matches the pattern already established in sibling files on this branch (e.g. extension-registry.test.ts's \"one SDL extension module...\", repo-local-extension-manifest-parity.test.ts's \"repo-local SDL extension manifest parity\") where lowercase literal-CLI-name prose was renamed but uppercase brand-adjective prose was deliberately left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-13",
+   "note": "Left mkdtemp() temp-directory name prefixes like \"sdl-extension-project-\", \"sdl-roaster-extension-project-\", \"sdl-handoff-contract-\", \"sdl-shell-home-\" unchanged - confirmed by cross-checking extension-registry.test.ts on this branch, where an already-migrated file (with .sdl->.ji paths and SDL_->JI_ env vars renamed) still retains its \"sdl-extension-registry-\" mkdtemp prefix untouched, indicating these are non-functional test scaffolding names out of the rename's scope."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "ts/packages/kernel/test/unit/extension-loader.test.ts:15 \u2014 mkdtemp prefix \"sdl-extension-loader-\" is just a human-readable temp-dir label, not a CLI/path/env/manifest-key form the brief enumerates; left unchanged."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "ts/packages/kernel/test/unit/extension-loader.test.ts:107 \u2014 diagnostic code \"sdl_extension_contribution_import_failed\" still literally emitted by kernel/src/extensions/loader.ts (unrenamed, out of this changeset); renaming the test would break it against unchanged source, so left matching current behavior."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts:243,245,477 and pr-preview-feedback-view.test.ts:128 \u2014 fixture string \"sdl-typescript-style\" (a roaster review marker/label in synthetic and 'current PR 1952' captured test data) does not exactly match any real review/skill directory (only \"sdl-typescript-style-tripwire\" exists, which is an explicit DO-NOT-TOUCH survivor name); ambiguous whether this is intentionally-frozen historical PR-comment content or a stale reference, so left unchanged rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-14",
+   "note": "ts/packages/sdl-capability-kit/test/git/integration/testing-create-temp-git-repo.test.ts:6 \u2014 mkdtemp prefix \"sdl-core-testing-git-\" is a descriptive temp-dir label, same category as the extension-loader.test.ts prefix above; not covered by any enumerated rename form, left unchanged."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-15",
+   "note": "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts:69 \u2014 `const env = { SDL_TEST: \"1\" }` is an arbitrary test fixture key (the code under test just passes env through verbatim; no real product env var named SDL_TEST exists), unlike the file's other SDL_* examples which are all real defined constants \u2014 left untouched as not clearly a brand rename target."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-15",
+   "note": "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts \u2014 prose like `describe(\"SDL context adapters\")` / \"maps SDL confirm approval...\" ties directly to the protected `sdl-context.ts` module name and `SdlExtensionApi`/`createSdlClinkrInteraction` identifiers (explicit DO-NOT-TOUCH survivors); left as-is rather than guess whether prose 'SDL' mentions should follow the identifiers or the brand."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-15",
+   "note": "ts/packages/sdl-capability-kit/test/git/local-ref-reader.test.ts:44,68,77 and test/unit/temp-files.test.ts:13,30 \u2014 tmpdir/prefix strings like \"sdl-git-refs-\", \"sdl-core-temp-test-\" don't match any enumerated rename category (not a CLI arg, .sdl/ path, namespace, env var, manifest key, or artifact filename) and no analogous \"ji-*\" prefix exists anywhere else in the tree yet, so left untouched as out-of-scope arbitrary test-artifact naming rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-tests-16",
+   "note": "source-cli-shim.test.ts:50 canonicalCheckout: \"/tmp/sdl\" \u2014 arbitrary unasserted fixture path string, not a namespace/env-var/config-filename literal called out by the brief; left unrenamed rather than guess whether it was meant to evoke the product name."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/ccc/test/land-test-helpers.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const TOPOLOGY_COMMAND = \"sdl\";",
+     "after": "export const TOPOLOGY_COMMAND = \"ji\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const TOPOLOGY_COMMAND = \"sdl\";",
+     "after": "export const TOPOLOGY_COMMAND = \"ji\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/kernel/test/integration/node-runtime-cli.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "name: \"sdl Node runtime CLI entrypoint\",",
+     "after": "name: \"ji Node runtime CLI entrypoint\","
+    },
+    {
+     "before": "{ type: \"contains\", text: \"Usage: sdl\" },",
+     "after": "{ type: \"contains\", text: \"Usage: ji\" },"
+    },
+    {
+     "before": "\"runtime: typescript\\nentry_point: @sdl/kernel bin sdl -> ts/packages/kernel/src/cli/index.ts\\n\",",
+     "after": "\"runtime: typescript\\nentry_point: @sdl/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\\n\","
+    }
+   ],
+   "skipped": []
+  }
+ ],
+ "complex": [
+  {
+   "id": "cohort-tests-1",
+   "files": [
+    "ts/packages/capabilities/address/test/scenario/download-feedback.test.ts",
+    "ts/packages/capabilities/address/test/scenario/exec-schema-contract.test.ts",
+    "ts/packages/capabilities/address/test/scenario/json-schema-routes.test.ts",
+    "ts/packages/capabilities/address/test/scenario/map-branch-prs.test.ts",
+    "ts/packages/capabilities/address/test/unit/core-download-feedback.test.ts",
+    "ts/packages/capabilities/aretro/test/scenario/collect-evidence.test.ts",
+    "ts/packages/capabilities/branch-context/test/attached-plan.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-helpers.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-support.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-from-plan.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji rename brief to all 10 test-cohort files. Renamed: CLI prose (\"sdl address exec ...\" \u2192 \"ji address exec ...\", \"sdl branch-context exec from-plan\" \u2192 \"ji ...\", \"sdl flow cp\" \u2192 \"ji flow cp\"); pi command namespaces (\"sdl:branch-context:from-plan\" \u2192 \"ji:branch-context:from-plan\" x49, \"/sdl:plan:save\" \u2192 \"/ji:plan:save\", \"/sdl:plan:grill-and-save\" \u2192 \"/ji:plan:grill-and-save\", \"/sdl:flow:cp\" \u2192 \"/ji:flow:cp\"); repo-state paths (\".sdl/prompts\" \u2192 \".ji/prompts\", \"~/.sdl/enriched-plan\" \u2192 \"~/.ji/enriched-plan\"); XDG namespace (\"$XDG_STATE_HOME/sdl/...\" \u2192 \".../ji/...\"); and env var key (\"SDL_PAYLOAD_ROOT\" \u2192 \"JI_PAYLOAD_ROOT\", verified against the already-renamed source constant JI_PAYLOAD_ROOT_ENV in aretro/src/payloads/root.ts). Cross-checked every rename against the already-migrated source it exercises (download-feedback.ts, attached-plan.ts, enriched-plan-save.ts, surfaces.ts, cp.ts) to confirm direction before editing.",
+   "skipped": [
+    "branch-context-from-plan.test.ts lines 193-194: sample fixture text 'sdl docs site slot page conventions skeleton theme foundation' / slug 'sdl-docs-site-slot-page-conventions-skeleton' used only as arbitrary long-string input to exercise model-slug-repair logic, not a CLI/path/namespace/env-var reference from the brief's rename categories \u2014 left unchanged as an ambiguous non-target rather than guess.",
+    "attached-plan.test.ts lines 169/187/219/236: 'git@github.com:sdl/sdl-tools.git' \u2014 left unchanged; 'sdl-tools' is an explicit DO-NOT-TOUCH repo/package name survivor and the leading 'sdl' is the GitHub org segment of that same repo URL, not a standalone rename target.",
+    "All @sdl/* import specifiers across every file left unchanged per explicit DO-NOT-TOUCH package-scope rule."
+   ]
+  },
+  {
+   "id": "cohort-tests-2",
+   "files": [
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-gt-upstack-impl-launch.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-impl.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-upstack-impl-session.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/branch-context-write-tool.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/enriched-plan-commands.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/integration/branch-context-real-brmem.test.ts",
+    "ts/packages/capabilities/branch-context/test/pi/saved-plan-impl-current-session.test.ts",
+    "ts/packages/capabilities/ccc/test/autoslot-presentation.test.ts",
+    "ts/packages/capabilities/ccc/test/autoslot.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed sdl->ji literal forms across the 9 branch-context/ccc test files that had them: namespaced command/status keys (sdl:branch-context:*, sdl:plan:* -> ji:*), the XDG path literal $XDG_STATE_HOME/sdl/enriched-plan and ~/.sdl/enriched-plan -> ji equivalents in enriched-plan-commands.test.ts and branch-context-write-tool.test.ts, and CLI prose \"sdl slot co\"/\"sdl slot checkout\" -> \"ji slot co\"/\"ji slot checkout\" in the two ccc autoslot test files. Verified against already-renamed source (surfaces.ts command-name constants, enriched-plan-save.ts prompt text, autoslot.ts/presentation.ts guidance strings) so string literals match runtime values. Left all @sdl/* import specifiers and ../src/sdl/*.ts relative import paths untouched (out-of-window survivors per brief). Ran the full 10-file vitest slice twice; all 71 tests pass (one transient flake on a run interleaved with an unrelated git stash/pop was not reproducible).",
+   "skipped": [
+    "ts/packages/capabilities/branch-context/test/plan-content-slug.test.ts lines 152/157: fixture string \"sdl docs site slot page conventions skeleton theme foundation\" (and its derived slug) is arbitrary sample prose for slug-generation testing, not a CLI/path/namespace/env-var literal the brief enumerates as a rename target; left untouched as a self-contained fixture with no coupling to renamed source identifiers."
+   ]
+  },
+  {
+   "id": "cohort-tests-3",
+   "files": [
+    "ts/packages/capabilities/ccc/test/ccc-test-harness.ts",
+    "ts/packages/capabilities/ccc/test/ccc.test.ts",
+    "ts/packages/capabilities/ccc/test/cmux-objective-sidebar.test.ts",
+    "ts/packages/capabilities/ccc/test/land-command.test.ts",
+    "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts",
+    "ts/packages/capabilities/flow/test/pi/code-workflows.test.ts",
+    "ts/packages/capabilities/flow/test/pi/stack-squash.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief across the 10-file test cohort. Renamed: env var SDL_CCC_SIDEBAR_MODEL -> JI_CCC_SIDEBAR_MODEL; .sdl/objectives and .sdl/objective-archive path literals -> .ji/...; CLI subprocess argv \\\"sdl\\\" -> \\\"ji\\\" (objective read, slot free, stack-squash STACK_BRANCHES_ARGS, land-stack-graphite-cli metadata check); Pi command namespace \\\"sdl:flow:land\\\" -> \\\"ji:flow:land\\\" and \\\"/sdl:branch-context:impl-attached-plan\\\" -> \\\"/ji:...\\\"; prose/error-message CLI instruction lines \\\"sdl slot checkout\\\" / \\\"!sdl flow submit\\\" / \\\"$ sdl slot free --wt slot-01\\\" -> ji equivalents; git ref namespace \\\"refs/sdl/flow-land-backup(-prev)\\\" -> \\\"refs/ji/...\\\" (confirmed against already-renamed src/land/stack/constants.ts); XDG slot path literal \\\".local/state/sdl/slots/...\\\" -> \\\".local/state/ji/slots/...\\\"; machine message customType \\\"sdl-command-ack\\\" -> \\\"ji-command-ack\\\" (confirmed against already-renamed hosts/pi/src/commands/ack.ts). in-memory-gateways.test.ts, preflight.test.ts, and flow-pi-parity.test.ts required no edits: all their sdl-looking tokens are out-of-window survivors (the sdl-flow package-name import specifier/prose, @sdl/* package scope imports, the SdlConfirmOptions/sdlExtension/sdlExtensionParity identifiers, and the relative src/pi/sdl-extension.ts import path). Ran the affected Vitest suites (8 of the 10 files are executable test files under default config; the integration test is excluded by vitest config, matching pre-existing exclusion) and all 92 tests passed.",
+   "skipped": [
+    "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts:92 - mkdtemp(join(tmpdir(), \"sdl-flow-real-gt-\")) temp-dir prefix: ambiguous whether this counts as CLI/namespace branding or as a derivative of the DO-NOT-TOUCH 'sdl-flow' package name; left unchanged since sibling file submit-command.test.ts (outside this changeset) still uses an analogous unrenamed \"sdl-submit-test-\" prefix, suggesting this pattern is not in the current rename window.",
+    "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts:134 - git test fixture args: [\"config\", \"user.name\", \"SDL Test\"] sets a display name unrelated to any brief category (not a CLI argv, path, namespace, or env var); left unchanged as arbitrary test fixture data, not product branding."
+   ]
+  },
+  {
+   "id": "cohort-tests-4",
+   "files": [
+    "ts/packages/capabilities/flow/test/scenario/autobranch-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/autoslot-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/branch-latest-commit-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/changes-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/cp-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/flow-command-fakes.ts",
+    "ts/packages/capabilities/flow/test/scenario/push-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+    "ts/packages/capabilities/flow/test/scenario/submit-command.test.ts",
+    "ts/packages/capabilities/flow/test/unit/extension-shared-model-generation.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief to all 10 files in the cohort-tests-4 changeset. Renamed CLI-instruction prose (`` `sdl flow autobranch` ``, `` `sdl flow submit` ``, `` `sdl flow cp` ``, etc. -> `ji flow ...`), namespace refs (`/sdl:flow:submit` -> `/ji:flow:submit`), env var names (SDL_CHANGES_MODEL, SDL_CHECKPOINT_MODEL, SDL_DEV_CHECKPOINT_MODEL, SDL_DEV_PR_DESCRIPTION_MODEL, SDL_DEV_PR_DESCRIPTION_PROMPT, SDL_SUBMIT_FAILURE_LOG_DIR, SDL_SUBMIT_FAILURE_MODEL -> JI_*), the pr-description generator id string (`sdl-pr-description-v2` -> `ji-pr-description-v2`), one test-title phrase (\"SDL environment\" -> \"JI environment\"), and one prose comment (\"sdl-owned prompt\" -> \"ji-owned prompt\"). Every rename was verified against the corresponding already-migrated production source string (e.g. src/sdl/commands/submit.ts, push.ts, cp.ts, autobranch.ts, branch-latest-commit.ts, submit-format.ts, pr-description.ts, and sdl-capability-kit/text-generation.ts) before editing, so tests still assert what the code actually emits. Ran vitest on all 9 affected test files (submit-command.test.ts had no changed test count) \u2014 80/80 tests pass. Left untouched (per brief's DO-NOT-TOUCH list): `@sdl/*` import specifiers, `./sdl-cli-fakes.ts` relative import filename, `src/sdl/...` path segments in imports/strings, TS identifiers containing Sdl (SdlCommand, SdlExtensionApi, SdlResult, ScriptedSdlTestContext, SdlCommandIo, isSdlResult, writeSdlResultOutput), and the `sdl-tools` repo name inside two hard-coded GitHub URLs in submit-command.test.ts.",
+   "skipped": [
+    "submit-command.test.ts and regenerate-pr-command.test.ts: mkdtemp tmpdir prefixes 'sdl-submit-test-' and 'sdl-regenerate-pr-prompt-' (multiple lines) \u2014 pure scratch-directory naming with no functional/user-facing meaning; not covered by any RENAME bullet (not a CLI name, path, namespace, env var, or listed filename) nor explicitly excluded, so left as-is rather than guess.",
+    "submit-command.test.ts lines ~1219-1270: fixture branch/stack names 'sdl-extension-api-followup-stack', 'add-sdl-extension-api', 'sdl-extension-api-followup/registry-refactor' embedded in scripted `gt submit` stdout/stderr and assertions \u2014 these read as captured real historical Graphite branch names (akin to the brief's 'historical prose' survivor category), not a rename target category; left untouched to avoid corrupting fixture fidelity."
+   ]
+  },
+  {
+   "id": "cohort-tests-5",
+   "files": [
+    "ts/packages/capabilities/flow/test/unit/git-result-block.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-topology-guards.test.ts",
+    "ts/packages/capabilities/flow/test/unit/pr-description-orchestration.test.ts",
+    "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+    "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-launch-flow.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-self.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-tab.test.ts",
+    "ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji rename brief to the 10-file test cohort. Renamed: CLI instruction prose (`sdl flow submit`/`sdl flow push`/`sdl handoff create` \u2192 `ji ...`), namespace literals (`/sdl:flow:land` \u2192 `/ji:flow:land`), machine message-type keys (`sdl-command-ack`/`sdl-command-progress` \u2192 `ji-command-ack`/`ji-command-progress`), the PR-description generator id literal (`sdl-pr-description-v2` \u2192 `ji-pr-description-v2`, matching production's already-renamed `PR_DESCRIPTION_GENERATOR_VERSION` constant value), a repo-state path (`.sdl/prompts` \u2192 `.ji/prompts`), the env-var-name literal `SDL_CD_DIRECTIVE_FILE` \u2192 `JI_CD_DIRECTIVE_FILE` (matching production's already-renamed constant value), and one prose mention of \"the sdl prompt pipeline\" \u2192 \"the ji prompt pipeline\". Verified each rename against corresponding production source (which had already been cut over) before applying so test literals match runtime behavior. Ran the affected Vitest files (9 files, 115 tests) \u2014 all pass. submit.test.ts required no changes (only a survivor `@sdl/core` import and ambiguous fixture branch names, see skipped).",
+   "skipped": [
+    "ts/packages/capabilities/flow/test/unit/submit.test.ts lines 514,517,533: fixture branch names \"sdl-extension-api-followup-stack\" / \"add-sdl-extension-api\" (fake Graphite stdout for a hypothetical past feature) don't match any RENAME bullet (not CLI argv, path, namespace, env var, or package.json key) and read like an arbitrary historical branch-name fixture rather than a product-name reference; left untouched rather than guess.",
+    "ts/packages/capabilities/flow/test/unit/pr-description.test.ts line 253: tmpdir prefix `sdl-dev-pr-prompt-${randomUUID()}` is an arbitrary scratch-directory name, not a repo-state path or CLI/namespace/env-var literal; left as-is (only the adjacent `.sdl/prompts` -> `.ji/prompts` structured path segment was renamed).",
+    "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts line 28: left the value `/tmp/sdl-cd` unchanged (only the env-var-name key `SDL_CD_DIRECTIVE_FILE` -> `JI_CD_DIRECTIVE_FILE` was renamed to match production's constant value) since the path value itself is an arbitrary local fixture string, not a namespace/path form covered by the brief.",
+    "@sdl/* package-scope imports across all files (e.g. @sdl/clinkr, @sdl/core, @sdl/slot/api, @sdl/capability-kit/*, @sdl/kernel/sdk, @sdl/brmem) and the relative import path ../../src/sdl/presentation/git-result-block.ts: explicit out-of-window survivors per the brief, left untouched."
+   ]
+  },
+  {
+   "id": "cohort-tests-6",
+   "files": [
+    "ts/packages/capabilities/handoff/test/pi/handoff.test.ts",
+    "ts/packages/capabilities/objective/test/pi/objective.test.ts",
+    "ts/packages/capabilities/objective/test/unit/api.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-candidates.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts",
+    "ts/packages/capabilities/objective/test/unit/list-objectives.test.ts",
+    "ts/packages/capabilities/objective/test/unit/load-orientations.test.ts",
+    "ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts",
+    "ts/packages/capabilities/objective/test/unit/objective-picker.test.ts",
+    "ts/packages/capabilities/objective/test/unit/objective-storage.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji content rename across the 10-file test cohort: (1) rewrote every literal `.sdl/objectives` and `.sdl/objective-archive` repo-state path to `.ji/...` in expectation strings, fixture paths, and diff/status test data; (2) renamed subprocess argv CLI-name literals `step(\"sdl\", ...)` / `command: \"sdl\"` to `\"ji\"` in the pi/objective.test.ts exec-scripting harness; (3) renamed the \"sdl handoff create --slug ...\" CLI-usage instruction line (appearing twice) in handoff.test.ts to \"ji handoff create ...\". Left all `@sdl/*` package-scope imports, the `src/sdl/commands/list.ts` relative import, and the `objectiveListSdlCommand` TS identifier untouched per the survivor list.",
+   "skipped": [
+    "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts:148 - test title 'SDL renderHuman uses settled caps instead of process TTY state' uses capitalized SDL as a generic product/acronym reference rather than a literal CLI-argv, path, namespace, or filename form covered by the brief's rename categories; renaming risked guessing intent on ambiguous brand prose, so left as-is and flagged instead."
+   ]
+  },
+  {
+   "id": "cohort-tests-7",
+   "files": [
+    "ts/packages/capabilities/objective/test/unit/tracking-gate.test.ts",
+    "ts/packages/capabilities/plans/test/plan-primitives.test.ts",
+    "ts/packages/capabilities/plans/test/saved-plan-file.test.ts",
+    "ts/packages/capabilities/roaster/test/gateways/local-diff.test.ts",
+    "ts/packages/capabilities/roaster/test/gateways/review-catalog.test.ts",
+    "ts/packages/capabilities/roaster/test/gateways/review-runner.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/api.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/context.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/findings-publication.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/models.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji literal rename to all 10 test files in the cohort: `.sdl/objectives` -> `.ji/objectives` (tracking-gate.test.ts); `.sdl` legacy-root fixture dir -> `.ji` (plan-primitives.test.ts, saved-plan-file.test.ts); XDG state path segment `state/sdl` -> `state/ji` in both string-literal and join()-arg forms (saved-plan-file.test.ts); `sdl.toml` fixture filename -> `ji.toml` (local-diff.test.ts); and `.sdl/reviews` -> `.ji/reviews` across review-catalog.test.ts, review-runner.test.ts, api.test.ts, context.test.ts, findings-publication.test.ts, and models.test.ts. Left all `@sdl/*` package-scope imports and the `describe(\"@sdl/roaster/api\", ...)` string untouched per the DO-NOT-TOUCH list (out-of-window survivors).",
+   "skipped": []
+  },
+  {
+   "id": "cohort-tests-8",
+   "files": [
+    "ts/packages/capabilities/roaster/test/unit/project-config.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/record-findings.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-definition.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-log.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-run.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/review-runner-prompt.test.ts",
+    "ts/packages/capabilities/roaster/test/unit/skill-reviews.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename to the 10 test files in this cohort. Changed: config filename literal \"sdl.toml\" -> \"ji.toml\" and its error-message prefix (project-config.test.ts, review-run.test.ts); repo-state path prefix \".sdl/reviews/...\" -> \".ji/reviews/...\" while preserving the review-directory names themselves, including the survivor directory name \"sdl-typescript-style-tripwire\" (record-findings.test.ts, review-log.test.ts, review-definition.test.ts, review-run.test.ts, review-runner-prompt.test.ts, skill-reviews.test.ts); and a CLI instruction string in a scenario-test expectation, \"`sdl slot checkout <branch>`\" -> \"`ji slot checkout <branch>`\" (gt-navigation-cli.test.ts), matching the already-updated source message in lifecycle/operations/gt/up.ts. Verified each target path/string against the corresponding source (project-config.ts caller, review-run.ts's ji.toml read, skill-reviews.ts's roastReviewPathForKey, up.ts's error message) and confirmed .ji/reviews/* exists on disk with unchanged subdirectory names. Ran vitest on all 10 files afterward; all 103 tests pass.",
+   "skipped": [
+    "real-pr-gateway.test.ts and api.test.ts: no edits made - all sdl-containing strings in these two files are explicit brief survivors (the 'dagster-io/sdl-tools' repo name and the @sdl/* package-scope imports in real-pr-gateway.test.ts; the SDL_CD_DIRECTIVE_FILE identifier in api.test.ts, which still matches the unrenamed export name in src/core/shell/cd-directive.ts even though that constant's string value was already changed to \"JI_CD_DIRECTIVE_FILE\")",
+    "review-definition.test.ts lines 55-56: left the review directory name and `name` field value \"sdl-typescript-style-tripwire\" untouched - it is an explicitly listed survivor (skill/review directory name), only the '.sdl/' path prefix before it was renamed to '.ji/'",
+    "@sdl/capability-kit, @sdl/core, @sdl/clinkr import specifiers across review-run.test.ts, review-runner-prompt.test.ts, and gt-navigation-cli.test.ts: left untouched per the explicit @sdl/* package-scope survivor rule"
+   ]
+  },
+  {
+   "id": "cohort-tests-9",
+   "files": [
+    "ts/packages/capabilities/slot/test/unit/context.test.ts",
+    "ts/packages/hosts/pi/test/cli-command-extension.test.ts",
+    "ts/packages/hosts/pi/test/harness-session.test.ts",
+    "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts",
+    "ts/packages/hosts/pi/test/investigate.test.ts",
+    "ts/packages/hosts/pi/test/just-fix.test.ts",
+    "ts/packages/hosts/pi/test/parity.test.ts",
+    "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+    "ts/packages/hosts/pi/test/pr-download-feedback.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief to the 10-file test cohort. Updated literal string values that mirror already-renamed production constants: XDG state path segment \"sdl\"->\"ji\" (resolveSlotsRoot expectations), Pi command customType/status/widget keys (sdl-command-ack/progress, sdl-cli-command[-output]) -> ji-*, cli trace env vars SDL_PI_CLI_TRACE(_PATH) -> JI_PI_CLI_TRACE(_PATH) and the trace path/filename fixtures, harness-session customType sdl-harness-session-id -> ji-harness-session-id and its illustrative \"sdl address exec ...\" bash examples -> \"ji address exec ...\", Pi agent definition schema string sdl.pi-agent.v1/v2 -> ji.pi-agent.v1/v2 and .sdl/pi/agents fixture paths -> .ji/pi/agents (matching findSdlPiAgentsDir's actual .ji lookup), the discovered project extension adapter filename .pi/extensions/sdl.ts -> ji.ts (file was already moved to ji.ts), and PR feedback/stack CLI invocation fixtures command:\"sdl\" -> \"ji\" plus their \"Malformed sdl ...\" error-message assertions -> \"Malformed ji ...\". Verified with `vitest run` (all 10 files, including the integration test via vitest.integration.config.ts) and `just ts-check`, both green.",
+   "skipped": [
+    "ts/packages/capabilities/slot/test/unit/cd-directive.test.ts: all sdl occurrences (SDL_CD_DIRECTIVE_FILE import, its usages, and the '/tmp/sdl-directive' fixture strings, and the test title mentioning it) are tied to the exported identifier SDL_CD_DIRECTIVE_FILE, which is a TS/JS identifier survivor per the brief (its *value* is already 'JI_CD_DIRECTIVE_FILE' in source) - left the whole file untouched since renaming the prose without renaming the identifier would create a mismatch.",
+    "pr-download-feedback.test.ts line 416 ('sdl address exec close-review-threads --thread-ids-json'): left unchanged because it must match the literal prompt text still emitted by src/core/pr/pr-stack-feedback-instructions.md, which still says 'sdl address exec close-review-threads' and is outside this changeset's assigned files - renaming the test would desync it from current production output.",
+    "node-runtime-imports.test.ts line 78 mkdtempSync(... 'sdl-pi-extension-load-'): left unchanged - an arbitrary temp-dir label not matching any of the brief's enumerated literal forms (not a repo path, namespace, or CLI invocation); low-risk cosmetic string, treated as out of scope rather than guessed."
+   ]
+  },
+  {
+   "id": "cohort-tests-10",
+   "files": [
+    "ts/packages/hosts/pi/test/worktree-status/extension.test.ts",
+    "ts/packages/hosts/pi/test/worktree-status/refresh.test.ts",
+    "ts/packages/hosts/sdlcc/test/unit/objective-tab.test.ts",
+    "ts/packages/hosts/sdlcc/test/unit/stack-map.test.ts",
+    "ts/packages/infra/brmem/test/gateways/prompt-resolution.test.ts",
+    "ts/packages/infra/brmem/test/integration/prompt-resolution.test.ts",
+    "ts/packages/infra/brmem/test/scenario/resolve-prompt-operation.test.ts",
+    "ts/packages/infra/brmem/test/support/run-scenario.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief to the 10-file test cohort. Renamed: (1) worktree-status extension/refresh tests' `/sdl:flow:changes` and `sdl:changes`/`sdl flow changes` namespace/CLI-prose strings to `/ji:flow:changes`, `ji:changes`, `ji flow changes`; (2) sdlcc objective-tab test's `.sdl/objectives` rootPath, `command: \\\"sdl\\\"`, and the `/sdl objective list failed.../` error regex to their `ji` equivalents; (3) sdlcc stack-map test's `sdl slot gt exec ...` diagnostic strings, `command === \\\"sdl\\\"` fixture checks, and `sdl slot checkout` failure text to `ji`; (4) all four brmem test files' `.sdl/prompts` project-prompt paths and `.config/sdl/brmem/prompts` global-prompt paths to `.ji/prompts` and `.config/ji/brmem/prompts`. Verified every edit against the already-renamed source (`ji slot gt`, `.ji/objectives`, `resolveSdlXdgPath` -> `\\\"ji\\\"` segment, `runCommand(\\\"ji\\\", ...)`) so test expectations now match real runtime output. `ts/packages/hosts/sdlcc/test/unit/cli.test.ts` and `.../worktree-status/worktree-status.test.ts` needed no changes (only `@sdl/*` imports, `sdl-tools` repo name, and `sdlcc` product name, all out-of-window survivors). Ran the affected Vitest files: 113 tests pass across all 8 files with executable tests.",
+   "skipped": [
+    "extension.test.ts lines 630/639: mkdtempSync(join(tmpdir(), \"sdl-worktree-footer-\")) - a test tmp-dir name prefix; not a CLI arg, repo-state path, namespace, env var, manifest key, or listed sdl-brand artifact filename, so left untouched as ambiguous rather than guessing it should become \"ji-worktree-footer-\".",
+    "extension.test.ts line 557: Map key \"sdl-flow-changes\" (dash-joined, distinct from the /sdl:flow:changes value on the same line which WAS renamed) - reads like the survivor package name `sdl-flow` from the DO-NOT-TOUCH list rather than a namespace key, so left untouched; flagging since it's a judgment call."
+   ]
+  },
+  {
+   "id": "cohort-tests-11",
+   "files": [
+    "ts/packages/infra/clinkr/test/completion.test.ts",
+    "ts/packages/infra/core/test/cli-theme/result-block.test.ts",
+    "ts/packages/infra/core/test/model-defaults.test.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/config.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji literal rename to the 5 files in this cohort that actually contained rename-eligible forms: (1) completion.test.ts - CLI commandName fixture and expected script output changed from \\\"sdl\\\" to \\\"ji\\\" (_sdl_completion -> _ji_completion etc); (2) result-block.test.ts - CLI usage guidance example string \\\"sdl slot co demo\\\" -> \\\"ji slot co demo\\\"; (3) model-defaults.test.ts - env var name SDL_TEST_MODEL -> JI_TEST_MODEL; (4) typescript-style-guard/config.ts - twelve SDL_TS_BAN_*/SDL_TS_*/ADVISORY_* env-var-name constants renamed to JI_TS_*, plus a debt-comment prose reference \\\"the sdl shell operation\\\" -> \\\"the ji shell operation\\\"; (5) typescript-style-guard/package-metadata.ts - the PackageManifest.sdl field (mirroring the real package.json manifest key, independently confirmed already renamed to \\\"ji\\\" in on-disk package.json files) and its three `parsed.sdl` read-sites renamed to `.ji`, while keeping all sdlTier/sdlSubpackages/sdlRemainder/readSdlXxx identifiers untouched (survivors per brief). The other 5 files in the cohort (cli-entry.test.ts, package-boundary.test.ts, exec-run-command.test.ts, exec.test.ts, source-rules.ts) contained only survivor forms (@sdl/* package-scope imports, sdlcc, sdl-flow, TS identifiers containing sdl, and arbitrary test tmpdir-prefix/fixture names) and were left unmodified. Verified via `pnpm vitest run` on all affected test files, the dedicated typescript-style-guard suite (102/102 passing, confirming the manifest-key rename lines up with the on-disk package.json \\\"ji\\\" key), and `pnpm run check` (tsgo) clean.",
+   "skipped": [
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:200 - comment \"SDL-owned serialized CLI machine-contract enum values...\" is generic brand-adjective prose, not a match for any literal form in the brief's rename list (not argv, path, namespace, XDG, package.json key, config filename, env var, or artifact filename); left unchanged as likely owned by a branding-focused row rather than this test cohort.",
+    "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts and exec/unit/exec.test.ts - tmpdir prefixes (\"sdl-core-exec-\", \"sdl-exec-unit-\") and fake binary names (\"__sdl_core_missing_command_for_test__\", \"sdl-exec-test-tool\") are arbitrary internal test fixture names, not CLI argv, paths, namespaces, env vars, or manifest keys per the brief's list; left unchanged as out of the rename's scope (not ambiguous, just non-matching).",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts (outside this changeset) constructs mock PackageManifest fixtures using an `sdl:` object key (lines ~1235, 1269, 1376) that mirrors the field I renamed to `ji` in package-metadata.ts; the full test suite still passes today because those fixtures independently round-trip through the same (now-`ji`) field name inside that file's own test, but flagging for awareness since that file is not in my changeset and was not modified by me."
+   ]
+  },
+  {
+   "id": "cohort-tests-12",
+   "files": [
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts",
+    "ts/packages/kernel/test/integration/aretro-extension-cli.test.ts",
+    "ts/packages/kernel/test/integration/completion-cli.test.ts",
+    "ts/packages/kernel/test/integration/extension-loader-cli.test.ts",
+    "ts/packages/kernel/test/integration/flow-extension-cli.test.ts",
+    "ts/packages/kernel/test/integration/flow-extension-registry.test.ts",
+    "ts/packages/kernel/test/integration/handoff-extension-registry.test.ts",
+    "ts/packages/kernel/test/integration/objective-extension-cli.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji content rename to 9 of the 10 assigned files (topology-circles.ts needed zero edits: every sdl/SDL occurrence there is an identifier or `@sdl/*` package-scope survivor). Renamed: `Usage: sdl X` -> `Usage: ji X` and bare `\"sdl <subcommand>\"` instruction-line assertions in help-text checks (aretro/handoff/objective/flow-extension-cli tests); `.sdl/<path>` repo-state path literals -> `.ji/<path>` (completion-cli, extension-loader-cli, objective-extension-cli, including a git-exec-fake match string); `SDL_<NAME>` env var literals -> `JI_<NAME>` (extension-loader-cli, flow-extension-cli, flow-extension-registry \u2014 the latter's `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS` was a live functional bug since production `registry.ts` and the sibling unit test already read `JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`); and the package.json manifest-key/dotted-prose forms in the style-guard test-support files: literal `'\"sdl\"'` -> `'\"ji\"'` lookup in tier-layering.ts's `findSdlTierPosition`, `\"missing sdl.tier\"`/`\"unknown sdl.tier ...\"` diagnostic text -> `ji.tier`, and subpackage-conformance.ts's `\"declares sdl.subpackages entry ...\"` / `\"without sdl.remainder\"` diagnostic text -> `ji.subpackages`/`ji.remainder` (confirmed via package-metadata.ts that manifests already use `parsed.ji` and package.json now has `\"ji\":`, so these renames match already-migrated production reads). Left all TS identifiers (`sdlTier`, `sdlSubpackages`, `sdlRemainder`, `sdlOffset`, `loadSdlCommandCatalog`, \u2026), `@sdl/*` import specifiers/package-scope checks, and `../scenario/sdl-cli-fakes.ts` import paths untouched as explicit survivors. Ran the 7 kernel integration test files via `vitest run --config vitest.integration.config.ts` \u2014 all 32 tests pass.\n\nIMPORTANT cross-file finding for the orchestrator: renaming the tier-layering.ts/subpackage-conformance.ts diagnostic text broke `ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts` (NOT in my changeset, and not present in any chunk/skip entry in cutover-plan.json) \u2014 it still asserts the old substrings `\"missing sdl.tier\"` (line 563), `\"unknown sdl.tier\"` (line 568), and `\"without sdl.remainder\"` (line 976). Since manifests are already on the `\"ji\"` key, the rename in my files is correct and necessary; that sibling test file needs a follow-up edit (update the three expected substrings to `ji.tier`/`ji.remainder`) that is outside my assigned scope.",
+   "skipped": [
+    "Bare capitalized \"SDL\" used as descriptive prose (not an instruction line, Usage: prefix, or path) in describe()/test() titles and error strings across all 5 kernel test files, e.g. \"checked-in Aretro SDL extension loading\", \"through the SDL command face\", \"SDL command entry\", \"Failed to load SDL extension contribution\", \"Invalid SDL extension contribution\" -- left untouched: confirmed by grep that the corresponding production strings in ts/packages/kernel/src/extensions/{discovery,loader,command-registry}.ts still literally emit \"SDL\" (not in any changeset I could find), so changing the test assertions would break them; the bare describe()/test() titles have no such correspondence but per the ji-naming-brief.md casing rule ('always lowercase ji, never JI') a straight case-preserving SDL->JI substitution would violate the naming convention, and rewriting the sentence is a judgment call beyond the brief's enumerated literal forms.",
+    "Ad-hoc tmpdir-prefix strings like \"sdl-aretro-extension-project-\", \"sdl-completion-integration-\", \"sdl-extension-project-\", \"sdl-flow-extension-project-\", \"sdl-flow-extension-registry-\", \"sdl-flow-extension-help-\", \"sdl-handoff-extension-\", \"sdl-objective-extension-project-\" -- these are arbitrary test-scratch-dir labels, not matching any of the brief's 7 enumerated RENAME categories (not a repo-state path, XDG namespace, CLI argv, env var, config filename, manifest key, or the one named artifact filename) nor listed in DO-NOT-TOUCH; left as-is rather than guess.",
+    "describe(\"sdl completion CLI extension loader integration\") in completion-cli.test.ts -- lowercase bare-word product-name usage in a Vitest describe title, not matching any enumerated literal-form bullet; left untouched alongside the other bare-word titles for consistency rather than guess."
+   ]
+  },
+  {
+   "id": "cohort-tests-13",
+   "files": [
+    "ts/packages/kernel/test/integration/roaster-extension-cli.test.ts",
+    "ts/packages/kernel/test/integration/sdk-module-loader.test.ts",
+    "ts/packages/kernel/test/integration/slot-alias-cli.test.ts",
+    "ts/packages/kernel/test/scenario/changes-cli.test.ts",
+    "ts/packages/kernel/test/scenario/completion-cli.test.ts",
+    "ts/packages/kernel/test/scenario/cp-cli.test.ts",
+    "ts/packages/kernel/test/scenario/handoff-cli-contract.test.ts",
+    "ts/packages/kernel/test/scenario/regenerate-pr-cli.test.ts",
+    "ts/packages/kernel/test/scenario/roaster-extension-cli.test.ts",
+    "ts/packages/kernel/test/scenario/shell-cli.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief to all 10 kernel test files: (1) literal CLI-name occurrences (\"Usage: sdl ...\" -> \"Usage: ji ...\", \"@sdl/kernel bin sdl\" -> \"bin ji\", `'sdl' 'completion' 'exec' 'resolve'` -> `'ji' ...`, describe() titles that name the CLI/subcommand as an invocation-style prefix e.g. \"sdl slot CLI\" -> \"ji slot CLI\", \"sdl flow changes CLI availability\" -> \"ji flow changes CLI availability\", \"sdl extension discovery...\" -> \"ji extension discovery...\", \"sdl completion CLI\" -> \"ji completion CLI\", \"sdl shell CLI\" -> \"ji shell CLI\"); (2) repo-state `.sdl/<x>` path literals -> `.ji/<x>` in mkdtemp-built extension/manifest paths and in a legacy-path test title (\"legacy .sdl/commands...\" -> \"legacy .ji/commands...\"); (3) package.json manifest key `sdl: {...}` -> `ji: {...}` in test-fixture manifests; (4) env var name string literals `SDL_CHECKPOINT_MODEL`/`SDL_CHANGES_MODEL` -> `JI_CHECKPOINT_MODEL`/`JI_CHANGES_MODEL` (verified against the already-renamed text-generation.ts constants); (5) generated shell-integration wrapper assertions (`sdl() {`, `command sdl \"$@\"`, `_sdl_destination`, `_sdl_cd_directive_file`, `SDL_CD_DIRECTIVE_FILE`, marker text `# >>> sdl shell integration >>>`) -> the `ji`/`JI_` equivalents, verified against the renderCommandCdWrapperScript/shell.ts implementation which now emits `ji`. Left untouched per the DO-NOT-TOUCH list and cross-checked against sibling already-migrated test files in the repo: `@sdl/*` package-scope imports, TS/JS identifiers containing sdl in any casing (SdlCommand, SdlCliDeps, SdlExtensionApi, createSdlJiti, listSdlCommands, aretroExecCollectEvidenceSdlCommand, etc.), `/sdl/commands` and `/sdl/extension` path fragments used for src-dir module paths, mkdtemp temp-directory name prefixes (arbitrary scaffolding, e.g. \"sdl-extension-project-\", \"sdl-shell-home-\"), and uppercase \"SDL\" used as descriptive brand prose in test titles (e.g. \"empty SDL kernel CLI help and parsing\", \"Roaster SDL command face\", \"...and the SDL API\", \"invalid inferred SDL command entry name...\"), matching the precedent set by sibling files already migrated earlier in this branch. Ran the affected scenario and integration Vitest suites for all 10 files; all pass (43 scenario tests, 7 integration tests).",
+   "skipped": [
+    "Kept uppercase \"SDL\" brand-descriptive prose in several describe()/test() titles unchanged (e.g. \"empty SDL kernel CLI help and parsing\", \"Roaster SDL command face\", \"...and the SDL API\", \"...and SDL stdin\", \"invalid inferred SDL command entry name...\", \"static SDL command metadata is empty...\") because this exactly matches the pattern already established in sibling files on this branch (e.g. extension-registry.test.ts's \"one SDL extension module...\", repo-local-extension-manifest-parity.test.ts's \"repo-local SDL extension manifest parity\") where lowercase literal-CLI-name prose was renamed but uppercase brand-adjective prose was deliberately left as-is.",
+    "Left mkdtemp() temp-directory name prefixes like \"sdl-extension-project-\", \"sdl-roaster-extension-project-\", \"sdl-handoff-contract-\", \"sdl-shell-home-\" unchanged - confirmed by cross-checking extension-registry.test.ts on this branch, where an already-migrated file (with .sdl->.ji paths and SDL_->JI_ env vars renamed) still retains its \"sdl-extension-registry-\" mkdtemp prefix untouched, indicating these are non-functional test scaffolding names out of the rename's scope."
+   ]
+  },
+  {
+   "id": "cohort-tests-14",
+   "files": [
+    "ts/packages/kernel/test/scenario/submit-cli.test.ts",
+    "ts/packages/local/pi-tools/test/backing-skill-commands/backing-skill-commands.test.ts",
+    "ts/packages/local/pi-tools/test/pr-feedback-watch/pr-feedback-watch.test.ts",
+    "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts",
+    "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts",
+    "ts/packages/local/pi-tools/test/thermo-council/thermo-council.test.ts",
+    "ts/packages/sdl-capability-kit/test/git/git-gateway.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji rename brief across the 10-file test cohort, verifying each edit against the (already-renamed) production source it exercises. submit-cli.test.ts: describe title and \"Usage: sdl\"/\"Usage: sdl flow submit\" assertions \u2192 ji (matched sibling scenario tests). backing-skill-commands.test.ts: `sdl:branch-context:*`/`sdl:plan:save` surfaces and `namespace: \"sdl\"` \u2192 `ji:*`/`\"ji\"` (matched hosts/pi/src/commands/surfaces.ts). pr-feedback-watch.test.ts: `\"sdl address exec close-review-threads\"` prompt-contains assertion \u2192 `ji address exec ...` (matched feedback-watch/prompt.ts). pr-preview-commands.test.ts: `command: \"sdl\"` exec-call fixtures and the \"Malformed sdl address exec pr-review-threads\" message \u2192 `ji` (matched preview-feedback-command.ts labels/exec calls). dispatch-runner-subagent.test.ts: `.sdl/pi/agents` fixture dir and `schema: sdl.pi-agent.v1` frontmatter \u2192 `.ji/pi/agents` / `ji.pi-agent.v1` (matched hosts/pi/src/runtime/agent-definition.ts). thermo-council.test.ts: two `.sdl/reviews/thermonuclear-review/review.md` references (one in a runner-call assertion, one in a scripted `git show` exec key) \u2192 `.ji/...` (matched thermo-council/constants.ts RUBRIC_REF). git-gateway.test.ts: all 18 `.sdl/objectives` example path literals (used as generic `relativePath` test fixtures, not tied to a specific runtime constant) \u2192 `.ji/objectives`, consistent with the repo-state path rename rule. extension-loader.test.ts, pr-preview-feedback-view.test.ts, and testing-create-temp-git-repo.test.ts required no edits \u2014 all their `sdl` occurrences are package-scope imports (`@sdl/...`, `@sdl-local/...`), TS identifiers, relative filenames, or an ambiguous fixture string (see skipped), so left verbatim. Ran the full 10-file vitest slice after edits: 138/138 tests pass.",
+   "skipped": [
+    "ts/packages/kernel/test/unit/extension-loader.test.ts:15 \u2014 mkdtemp prefix \"sdl-extension-loader-\" is just a human-readable temp-dir label, not a CLI/path/env/manifest-key form the brief enumerates; left unchanged.",
+    "ts/packages/kernel/test/unit/extension-loader.test.ts:107 \u2014 diagnostic code \"sdl_extension_contribution_import_failed\" still literally emitted by kernel/src/extensions/loader.ts (unrenamed, out of this changeset); renaming the test would break it against unchanged source, so left matching current behavior.",
+    "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts:243,245,477 and pr-preview-feedback-view.test.ts:128 \u2014 fixture string \"sdl-typescript-style\" (a roaster review marker/label in synthetic and 'current PR 1952' captured test data) does not exactly match any real review/skill directory (only \"sdl-typescript-style-tripwire\" exists, which is an explicit DO-NOT-TOUCH survivor name); ambiguous whether this is intentionally-frozen historical PR-comment content or a stale reference, so left unchanged rather than guess.",
+    "ts/packages/sdl-capability-kit/test/git/integration/testing-create-temp-git-repo.test.ts:6 \u2014 mkdtemp prefix \"sdl-core-testing-git-\" is a descriptive temp-dir label, same category as the extension-loader.test.ts prefix above; not covered by any enumerated rename form, left unchanged."
+   ]
+  },
+  {
+   "id": "cohort-tests-15",
+   "files": [
+    "ts/packages/sdl-capability-kit/test/unit/checkpoint-message.test.ts",
+    "ts/packages/sdl-capability-kit/test/unit/git-testing.test.ts",
+    "ts/packages/sdl-capability-kit/test/unit/model-slug.test.ts",
+    "ts/packages/tools/areg/test/gateways/real-gateways.test.ts",
+    "ts/packages/tools/areg/test/integration/source-cli-shim-runtime.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief to the 10 assigned test files, editing content only where a literal sdl form matched a listed rename category and left the sibling implementation already matched. Edited 5 files: (1) checkpoint-message.test.ts \u2014 `.sdl/objectives/...` path in a fixture commit message -> `.ji/objectives/...`; (2) git-testing.test.ts \u2014 all 19 occurrences of `.sdl/objectives` -> `.ji/objectives`; (3) model-slug.test.ts \u2014 test description referencing env var `SDL_SLUG_MODEL` -> `JI_SLUG_MODEL` (matches `SLUG_MODEL_ENV = \\\"JI_SLUG_MODEL\\\"` in ts/packages/infra/core/src/primitives/model-slug.ts); (4) real-gateways.test.ts \u2014 expected `verifiedSurfaces` namespace strings `sdl:branch-context:from-plan`/`sdl:branch-context:impl-attached-plan`/`sdl:plan:save`/`sdl:flow:submit` -> `ji:...` (verified against ts/packages/hosts/pi/src/commands/surfaces.ts, which already emits `ji:` names) and the fixture config filename `sdl.toml` -> `ji.toml` (matches RealAregProjectGateway which already reads `ji.toml`; left the `sdlToml` object key untouched as a protected identifier); (5) source-cli-shim-runtime.test.ts \u2014 env var names `SDL_TEMPLATE/SDL_OUTPUT/SDL_TOOL/SDL_CANONICAL_CHECKOUT/SDL_CLI_REL_PATH/SDL_INSTALL_HINT` -> `JI_*`, template placeholder guard `@@SDL_` -> `@@JI_`, and product error text `\\\"areg: no sdl checkout found\\\"` -> `\\\"areg: no ji checkout found\\\"` \u2014 all verified against the already-migrated ts/scripts/render-cli-shim.mjs, render-cli-shim-core.ts, and source-cli-shim-template (which now emit JI_* env vars, @@JI_* tokens, and 'no ji checkout found'). No changes needed in the other 5 files (local-ref-reader.test.ts, github-status.test.ts, graphite status.test.ts, sdl-context.test.ts, temp-files.test.ts) \u2014 all their sdl-containing strings are protected `@sdl/*` import specifiers, the `sdl-tools` repo name, JS/TS identifiers (SdlExtensionApi, createSdlClinkrInteraction, sdlToml, etc.), the `sdl-context`/`sdl-typescript-style-tripwire` module/skill names, or unrelated legacy `asdl` guard text. Ran the full affected + control Vitest suites (9 files, 78 tests) after edits; all pass.",
+   "skipped": [
+    "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts:69 \u2014 `const env = { SDL_TEST: \"1\" }` is an arbitrary test fixture key (the code under test just passes env through verbatim; no real product env var named SDL_TEST exists), unlike the file's other SDL_* examples which are all real defined constants \u2014 left untouched as not clearly a brand rename target.",
+    "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts \u2014 prose like `describe(\"SDL context adapters\")` / \"maps SDL confirm approval...\" ties directly to the protected `sdl-context.ts` module name and `SdlExtensionApi`/`createSdlClinkrInteraction` identifiers (explicit DO-NOT-TOUCH survivors); left as-is rather than guess whether prose 'SDL' mentions should follow the identifiers or the brand.",
+    "ts/packages/sdl-capability-kit/test/git/local-ref-reader.test.ts:44,68,77 and test/unit/temp-files.test.ts:13,30 \u2014 tmpdir/prefix strings like \"sdl-git-refs-\", \"sdl-core-temp-test-\" don't match any enumerated rename category (not a CLI arg, .sdl/ path, namespace, env var, manifest key, or artifact filename) and no analogous \"ji-*\" prefix exists anywhere else in the tree yet, so left untouched as out-of-scope arbitrary test-artifact naming rather than guessing."
+   ]
+  },
+  {
+   "id": "cohort-tests-16",
+   "files": [
+    "ts/packages/tools/areg/test/scenario/init-cli.test.ts",
+    "ts/packages/tools/areg/test/scenario/skill-kind-list-show-cli.test.ts",
+    "ts/packages/tools/areg/test/scenario/update-skills-cli.test.ts",
+    "ts/packages/tools/areg/test/unit/check-frontmatter.test.ts",
+    "ts/packages/tools/areg/test/unit/init-helpers.test.ts",
+    "ts/packages/tools/areg/test/unit/pi-replacement.test.ts",
+    "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji rename brief to 7 areg test files. Renamed: config filename literal \"sdl.toml\" \u2192 \"ji.toml\" (init-cli.test.ts: 13 occurrences; update-skills-cli.test.ts error-message assertion; init-helpers.test.ts test title); Pi command namespace surfaces \"sdl:branch-context:from-plan\" / \"sdl:branch-context:impl-attached-plan(-extra)\" \u2192 \"ji:...\" (pi-replacement.test.ts, check-frontmatter.test.ts, skill-kind-list-show-cli.test.ts, matching the already-renamed BRANCH_CONTEXT_*_COMMAND_NAME constants in ts/packages/hosts/pi/src/commands/surfaces.ts); env-var/token literals in source-cli-shim.test.ts (\"@@SDL_\"\u2192\"@@JI_\", \"no sdl checkout found\"\u2192\"no ji checkout found\", \"invalid SDL_FALLBACK_MODE\"\u2192\"invalid JI_FALLBACK_MODE\"), matching the already-renamed template/render-cli-shim-core.ts source. Left untouched (per brief's DO-NOT-TOUCH list): `@sdl/*` import specifiers, `sdlToml`/`parseSdlAregAgents`/local `sdl` variable identifiers (TS identifiers containing sdl), and decoy strings \"dagster-io/asdl-tools\" / \"no asdl checkout found\" (different word, substring-collision test fixtures, not the literal \"sdl\" being renamed). Verified all 7 test files pass under vitest after edits (51/51 tests green).",
+   "skipped": [
+    "source-cli-shim.test.ts:50 canonicalCheckout: \"/tmp/sdl\" \u2014 arbitrary unasserted fixture path string, not a namespace/env-var/config-filename literal called out by the brief; left unrenamed rather than guess whether it was meant to evoke the product name."
+   ]
+  }
+ ],
+ "verify": []
+}

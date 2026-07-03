@@ -73,6 +73,7 @@ ts/packages/capabilities/objective/src/core/fake-storage.ts
 ts/packages/capabilities/objective/src/core/objective-picker.ts
 ts/packages/capabilities/objective/src/core/objective-selection-flow.ts
 ts/packages/capabilities/objective/src/core/storage.ts
+ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts
 ts/packages/capabilities/objective/test/pi/objective.test.ts
 ts/packages/capabilities/objective/test/unit/api.test.ts
 ts/packages/capabilities/objective/test/unit/list-candidates.test.ts
@@ -82,6 +83,8 @@ ts/packages/capabilities/objective/test/unit/load-orientations.test.ts
 ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts
 ts/packages/capabilities/objective/test/unit/objective-picker.test.ts
 ts/packages/capabilities/objective/test/unit/objective-storage.test.ts
+ts/packages/capabilities/objective/test/unit/runner/prompt.test.ts
+ts/packages/capabilities/objective/test/unit/runner/run-step.test.ts
 ts/packages/capabilities/objective/test/unit/tracking-gate.test.ts
 ts/packages/capabilities/plans/test/plan-primitives.test.ts
 ts/packages/capabilities/plans/test/saved-plan-file.test.ts

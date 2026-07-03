@@ -49,6 +49,11 @@ git grep -lIE 'SDL_[A-Z]|["'"'"'`]sdl-|sdl\.(tier|commands|group|subpackages|ext
 # G10: bin-facing assertion/prose strings — quoted strings STARTING "sdl ", Usage
 #      lines, and `bin sdl` chains (caught node-runtime-cli.test.ts, which G1-G9 missed)
 git grep -lIE 'Usage: sdl|["'"'"'`]sdl |bin sdl' -- . "${EXCL[@]}" | sort -u > "$OUT/g10-bin-prose.txt" || true
+# G11: snake_case sdl_* machine-code string literals (diagnostic codes, marker keys:
+#      sdl_extension_contribution_import_failed, sdl_toml_invalid, sdl_reviewer_marker)
+#      plus the HTML-comment marker "<!-- sdl-reviewer:". Added after dry-run 1:
+#      kernel/src/extensions/loader.ts escaped G1-G10 entirely via this family.
+git grep -lIE '["'"'"'`]sdl_[a-z_]+|<!-- sdl-' -- . "${EXCL[@]}" | sort -u > "$OUT/g11-snake-codes.txt" || true
 # G7: explicit allowlist (files inside excluded trees that ARE in the window)
 {
   echo "docs/adr/0005-additive-plan-vocabulary.md"
@@ -57,9 +62,12 @@ git grep -lIE 'Usage: sdl|["'"'"'`]sdl |bin sdl' -- . "${EXCL[@]}" | sort -u > "
 
 cat "$OUT"/g[0-9]*-*.txt | sort -u > "$OUT/candidates.txt"
 
-# Baselines: out-of-window survivors that must be UNCHANGED post-run
-git grep -lI -e '@sdl/' -- . ':!ts/pnpm-lock.yaml' | wc -l | tr -d ' ' > "$OUT/baseline-atsdl-filecount.txt"
-git grep -cIE 'src/sdl|/sdl/(commands|extension)' -- ts 2>/dev/null | awk -F: '{s+=$2} END {print s+0}' > "$OUT/baseline-srcsdl-occurrences.txt"
+# Baselines: out-of-window survivors that must be UNCHANGED post-run.
+# Dry-run-1 corrections: exclude the objectives trees (the pipeline's own artifacts
+# mention @sdl/ and inflated the count), and drop XDG-context '/sdl/extensions'
+# lines from the src-dir count (those are IN-window renames, not survivors).
+git grep -lI -e '@sdl/' -- . ':!ts/pnpm-lock.yaml' ":!${OBJ_ROOT}/objectives" ":!${OBJ_ROOT}/objective-archive" | wc -l | tr -d ' ' > "$OUT/baseline-atsdl-filecount.txt"
+git grep -nIE 'src/sdl|/sdl/(commands|extension)' -- ts 2>/dev/null | grep -vE '(state|data|config|share|XDG_[A-Z_]+_HOME)/sdl' | wc -l | tr -d ' ' > "$OUT/baseline-srcsdl-occurrences.txt"
 
 echo "mode=$MODE"
 for f in "$OUT"/g[0-9]*-*.txt; do printf '%-24s %s\n' "$(basename "$f")" "$(wc -l < "$f" | tr -d ' ')"; done
