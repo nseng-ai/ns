@@ -57,8 +57,12 @@ function successfulRegeneratePrResponses(): ScriptedExecResponse[] {
 			result: { stdout: "default-patch-id 0000000000000000000000000000000000000000\n" },
 		},
 		{ match: "gh pr view 123 --json commits", result: { stdout: commitsJson() } },
-		{ match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} },
+		successfulGhPrEditResponse(),
 	];
+}
+
+function successfulGhPrEditResponse(): ScriptedExecResponse {
+	return { match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} };
 }
 
 function successfulReadOnlyRegeneratePrResponses(
@@ -184,19 +188,19 @@ describe("project-local regenerate-pr extension behavior", () => {
 		);
 	});
 
-	test("missing confirmation channel renders a warn refusal and does not edit GitHub", async () => {
+	test("missing confirmation channel exits 2 and does not edit GitHub", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { exec: successfulReadOnlyRegeneratePrResponses() },
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stdout.join("")).toBe("");
 		const rawStderr = run.stderr.join("");
-		// Missing confirmation is a declined guardrail (warn), not a red subprocess failure.
+		// Missing confirmation is a usage-style guardrail (warn), not a red subprocess failure.
 		expect(rawStderr.split("\n")[0] ?? "").not.toContain(ERROR_TRUECOLOR);
 		const stderr = stripAnsi(rawStderr);
 		expect(stderr).toContain(
-			"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+			"Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
 		);
 		expect(formattedExecCalls(run.context)).not.toContainEqual(
 			expect.stringContaining("gh pr edit"),
@@ -239,7 +243,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 				},
 				exec: [
 					...successfulReadOnlyRegeneratePrResponses({ body: currentManagedBody() }),
-					{ match: /^gh pr edit 123 --title Improve PR descriptions --body-file /, result: {} },
+					successfulGhPrEditResponse(),
 				],
 			},
 		});

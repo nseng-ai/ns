@@ -12,9 +12,9 @@ import {
 	applyPreparedPrDescriptionUpdate,
 	createSdlPrDescriptionRuntime,
 	formatPromptSourceLabel,
-	preparePrDescriptionUpdate,
+	prDescriptionFingerprintPolicyForForce,
+	preparePrDescriptionUpdateForCurrentBranch,
 	type PreparedPrDescriptionUpdate,
-	type PrDescriptionFingerprintPolicy,
 	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -56,21 +56,14 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		// transcript to mine for cause markers. Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.
 		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
-		const pr = await runtime.githubPr.viewCurrentBranchPr({ cwd: ctx.cwd });
-		const fingerprintPolicy: PrDescriptionFingerprintPolicy = request.force
-			? "force"
-			: "skip-current";
-		const prepared: PrDescriptionUpdateResult = pr.ok
-			? await preparePrDescriptionUpdate({
-					cwd: ctx.cwd,
-					env: ctx.env,
-					githubPr: runtime.githubPr,
-					git: runtime.git,
-					textGenerator: ctx.textGenerator,
-					pr: pr.value,
-					fingerprintPolicy,
-				})
-			: { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
+		const prepared: PrDescriptionUpdateResult = await preparePrDescriptionUpdateForCurrentBranch({
+			cwd: ctx.cwd,
+			env: ctx.env,
+			githubPr: runtime.githubPr,
+			git: runtime.git,
+			textGenerator: ctx.textGenerator,
+			fingerprintPolicy: prDescriptionFingerprintPolicyForForce(request.force),
+		});
 		if (prepared.type === "failed") {
 			// PR lookup / diff / prompt / generation failure: the domain string already leads with a
 			// summary sentence, so route its first line to the bold headline and the rest to the body
@@ -100,17 +93,16 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		}
 
 		if (!request.force) {
-			// A missing confirmation channel is a declined guardrail, not a subprocess failure: render it
-			// as a first-class warn refusal (house-style §7.3). No `gh pr edit` runs.
+			// A missing confirmation channel is a usage error for non-interactive callers: they must
+			// pass `--force` to authorize editing GitHub without a prompt. No `gh pr edit` runs.
 			if (ctx.confirm === undefined) {
 				return failed(
 					renderResultBlock(caps, {
 						kind: "refusal",
-						headline:
-							"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+						headline: "Confirmation is unavailable; pass --force to edit GitHub non-interactively.",
 						cwd: ctx.cwd,
 					}),
-					1,
+					2,
 				);
 			}
 

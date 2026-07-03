@@ -39,6 +39,8 @@ export interface PrDescriptionUpdateOptions {
 	onProgress?: (message: string) => void;
 }
 
+export type CurrentBranchPrDescriptionUpdateOptions = Omit<PrDescriptionUpdateOptions, "pr">;
+
 export type PreparedPrDescriptionUpdate = Extract<PrDescriptionUpdateResult, { type: "prepared" }>;
 
 export type PrDescriptionUpdateResult =
@@ -62,6 +64,12 @@ export type ApplyPrDescriptionUpdateResult =
 	| { ok: true }
 	| { ok: false; reason: string; diagnostic?: ErrorInfo };
 
+export function prDescriptionFingerprintPolicyForForce(
+	shouldForce: boolean,
+): PrDescriptionFingerprintPolicy {
+	return shouldForce ? "force" : "skip-current";
+}
+
 export interface PrDescriptionOrchestrationOptions extends PrDescriptionUpdateOptions {
 	prewrittenMetadata?: PrewrittenPrMetadata;
 	shouldForce?: boolean;
@@ -73,6 +81,16 @@ export type PrDescriptionOrchestrationResult =
 	| { type: "updated"; pr: GithubPrDetails; title: string }
 	| { type: "generated"; pr: GithubPrDetails; title: string; promptSource: PromptSource }
 	| Extract<PrDescriptionUpdateResult, { type: "failed" }>;
+
+export async function preparePrDescriptionUpdateForCurrentBranch(
+	options: CurrentBranchPrDescriptionUpdateOptions,
+): Promise<PrDescriptionUpdateResult> {
+	const pr = await options.githubPr.viewCurrentBranchPr({ cwd: options.cwd });
+	if (!pr.ok) {
+		return { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
+	}
+	return preparePrDescriptionUpdate({ ...options, pr: pr.value });
+}
 
 export async function preparePrDescriptionUpdate(
 	options: PrDescriptionUpdateOptions,
@@ -196,7 +214,7 @@ export async function orchestratePrDescription(
 		textGenerator: options.textGenerator,
 		pr,
 		...(options.generation === undefined ? {} : { generation: options.generation }),
-		fingerprintPolicy: options.shouldForce === true ? "force" : "skip-current",
+		fingerprintPolicy: prDescriptionFingerprintPolicyForForce(options.shouldForce === true),
 		...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 	});
 	if (prepared.type === "failed") return prepared;

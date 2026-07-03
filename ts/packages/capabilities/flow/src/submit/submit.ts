@@ -23,6 +23,7 @@ import {
 	formatSubmitSuccessFallbackText,
 	formatSubmitSuccessText,
 } from "./submit-format.ts";
+import { formatItemCount } from "./submit-formatting.ts";
 import {
 	prepareSubmitPrMetadata,
 	type SubmitMetadataGateway,
@@ -191,10 +192,13 @@ export interface RunSubmitCommandOptions {
 export async function runSubmitCommand(
 	options: RunSubmitCommandOptions,
 ): Promise<SubmitCommandResult> {
-	const submitCommandDisplay = formatSubmitCommandDisplay({ dryRun: false, force: options.force });
+	const submitCommandDisplay = formatSubmitCommandDisplay({
+		isDryRun: false,
+		shouldForce: options.force,
+	});
 	const submitDryRunCommandDisplay = formatSubmitCommandDisplay({
-		dryRun: true,
-		force: options.force,
+		isDryRun: true,
+		shouldForce: options.force,
 	});
 	const commandParams = submitCommandParams(options);
 	emitPhase(options, { type: "phase-started", phaseKey: "preflight" });
@@ -383,10 +387,6 @@ export async function runSubmitCommand(
 
 type RestackDecision = "run" | "declined" | "unavailable";
 
-function formatItemCount(count: number, singular: string, plural: string): string {
-	return `${count} ${count === 1 ? singular : plural}`;
-}
-
 function formatDescriptionPhaseStart(prCount: number): string {
 	if (prCount === 0) return "checking PR descriptions; no PR links detected yet";
 	return `checking ${formatItemCount(prCount, "PR description", "PR descriptions")} for skip or regeneration`;
@@ -441,10 +441,13 @@ async function shouldRunRestack(
 
 	const confirmed = await options.confirmRestack(
 		formatRestackConfirmationPrompt(output, {
-			submitCommandDisplay: formatSubmitCommandDisplay({ dryRun: false, force: options.force }),
+			submitCommandDisplay: formatSubmitCommandDisplay({
+				isDryRun: false,
+				shouldForce: options.force,
+			}),
 			submitDryRunCommandDisplay: formatSubmitCommandDisplay({
-				dryRun: true,
-				force: options.force,
+				isDryRun: true,
+				shouldForce: options.force,
 			}),
 		}),
 	);
