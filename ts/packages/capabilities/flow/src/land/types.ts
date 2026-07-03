@@ -1,3 +1,5 @@
+import type { ExecResult } from "@sdl/core/command";
+
 export type LandingTarget = StackLandingTarget | IsolatedPullRequestLandingTarget;
 
 export interface StackLandingTarget {
@@ -32,7 +34,7 @@ export interface LandingCleanupMode {
 export interface LandContext {
 	readonly git: LandGitGateway;
 	readonly graphite: LandGraphiteGateway;
-	readonly github: LandGithubPrFactsGateway;
+	readonly github: LandGithubPrGateway;
 	readonly worktrees: LandWorktreeSlotFactsGateway;
 }
 
@@ -309,12 +311,12 @@ export interface LandGraphiteGateway {
 	refreshBranchFromRemote(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkoutConflict: "fail" | "defer";
+		readonly checkedOutConflictHandling: "fail" | "defer";
 	}): Promise<LandGraphiteRefreshBranchResult>;
 	deleteLocalBranch(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkedOutConflict: "fail" | "retain";
+		readonly checkedOutConflictHandling: "fail" | "retain";
 	}): Promise<LandGraphiteDeleteLocalBranchResult>;
 	restackUpstack(request: {
 		readonly repoRoot: string;
@@ -332,52 +334,37 @@ export interface LandGraphiteGateway {
 	}): Promise<LandResult<readonly string[]>>;
 }
 
-export interface LandCommandResult {
-	readonly stdout: string;
-	readonly stderr: string;
-	readonly code: number;
-	readonly killed: boolean;
-	readonly startupError?: string;
+export type LandCommandResult = ExecResult;
+
+export interface LandGraphiteRanCommand {
+	readonly commandDisplay: string;
+	readonly result: LandCommandResult;
 }
 
 export type LandGraphiteCommandResult =
 	| { readonly type: "success"; readonly result: LandCommandResult }
-	| {
-			readonly type: "failure";
-			readonly commandDisplay: string;
-			readonly result: LandCommandResult;
-	  };
+	| ({ readonly type: "failure" } & LandGraphiteRanCommand);
 
 export type LandGraphiteRefreshBranchResult =
 	| { readonly type: "success"; readonly result: LandCommandResult }
-	| {
+	| ({
 			readonly type: "checkout-conflict";
 			readonly branch: string;
 			readonly path: string;
-			readonly commandDisplay: string;
-			readonly result: LandCommandResult;
-	  }
-	| {
-			readonly type: "failure";
-			readonly commandDisplay: string;
-			readonly result: LandCommandResult;
-	  };
+	  } & LandGraphiteRanCommand)
+	| ({ readonly type: "failure" } & LandGraphiteRanCommand);
 
 export type LandGraphiteDeleteLocalBranchResult =
 	| { readonly type: "deleted" }
 	| { readonly type: "retained"; readonly branch: string; readonly path: string }
-	| {
-			readonly type: "failed";
-			readonly commandDisplay: string;
-			readonly result: LandCommandResult;
-	  };
+	| ({ readonly type: "failed" } & LandGraphiteRanCommand);
 
 export interface SquashMergePullRequestResult {
 	readonly stdout: string;
 	readonly stderr: string;
 }
 
-export interface LandGithubPrFactsGateway {
+export interface LandGithubPrGateway {
 	pullRequestFacts(request: {
 		readonly repoRoot: string;
 		readonly branchOrNumber: string;

@@ -27,7 +27,11 @@ import {
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { loadGraphiteTopology, resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
+	deleteLocalBranchOperation,
 	formatGraphiteOperation,
+	getDownstackNoCheckoutOperation,
+	restackUpstackOperation,
+	submitUpdateOperation,
 	type LandGraphiteCommandChannel,
 	type LandGraphiteOperation,
 } from "./graphite-command-channel.ts";
@@ -100,21 +104,21 @@ export function createLandContext(
 				prepareSubmitUpdate({ graphite, repoRoot, branch }),
 			prepareRestackForSubmit: async ({ repoRoot, branch }) =>
 				prepareRestackForSubmit({ graphite, repoRoot, branch }),
-			refreshBranchFromRemote: async ({ repoRoot, branch, checkoutConflict }) =>
-				refreshBranchFromRemote({ graphite, repoRoot, branch, checkoutConflict }),
-			deleteLocalBranch: async ({ repoRoot, branch, checkedOutConflict }) =>
-				deleteLocalBranch({ graphite, repoRoot, branch, checkedOutConflict }),
+			refreshBranchFromRemote: async ({ repoRoot, branch, checkedOutConflictHandling }) =>
+				refreshBranchFromRemote({ graphite, repoRoot, branch, checkedOutConflictHandling }),
+			deleteLocalBranch: async ({ repoRoot, branch, checkedOutConflictHandling }) =>
+				deleteLocalBranch({ graphite, repoRoot, branch, checkedOutConflictHandling }),
 			restackUpstack: async ({ repoRoot, branch }) =>
 				runGraphiteMutation({
 					graphite,
 					repoRoot,
-					operation: { kind: "restack-upstack", branch },
+					operation: restackUpstackOperation(branch),
 				}),
 			submitUpdate: async ({ repoRoot, branch, force }) =>
 				runGraphiteMutation({
 					graphite,
 					repoRoot,
-					operation: { kind: "submit-update", branch, force },
+					operation: submitUpdateOperation({ branch, force }),
 				}),
 			branchChildren: async ({ repoRoot, metadataDbPath, branch }) =>
 				loadBranchChildren({ pi, repoRoot, metadataDbPath, branch }),
@@ -196,13 +200,12 @@ async function refreshBranchFromRemote(options: {
 	readonly graphite: LandGraphiteCommandChannel;
 	readonly repoRoot: string;
 	readonly branch: string;
-	readonly checkoutConflict: "fail" | "defer";
+	readonly checkedOutConflictHandling: "fail" | "defer";
 }): Promise<LandGraphiteRefreshBranchResult> {
-	const operation = {
-		kind: "get-downstack-no-checkout",
+	const operation = getDownstackNoCheckoutOperation({
 		branch: options.branch,
-		checkoutConflict: options.checkoutConflict,
-	} as const;
+		checkedOutConflictHandling: options.checkedOutConflictHandling,
+	});
 	const commandDisplay = formatGraphiteOperation(operation);
 	const result = await options.graphite.run({
 		operation,
@@ -226,13 +229,12 @@ async function deleteLocalBranch(options: {
 	readonly graphite: LandGraphiteCommandChannel;
 	readonly repoRoot: string;
 	readonly branch: string;
-	readonly checkedOutConflict: "fail" | "retain";
+	readonly checkedOutConflictHandling: "fail" | "retain";
 }): Promise<LandGraphiteDeleteLocalBranchResult> {
-	const operation = {
-		kind: "delete-local-branch",
+	const operation = deleteLocalBranchOperation({
 		branch: options.branch,
-		checkedOutConflict: options.checkedOutConflict,
-	} as const;
+		checkedOutConflictHandling: options.checkedOutConflictHandling,
+	});
 	const result = await options.graphite.run({
 		operation,
 		cwd: options.repoRoot,
@@ -293,7 +295,7 @@ async function prepareSubmitUpdate(options: {
 	return await prepareGraphiteMutation({
 		graphite: options.graphite,
 		repoRoot: options.repoRoot,
-		operation: { kind: "submit-update", branch: options.branch },
+		operation: submitUpdateOperation({ branch: options.branch }),
 		failureCode: "submit_update_failed",
 		failureMessage: "gt submit/update failed before any PRs were landed.",
 	});
@@ -307,7 +309,7 @@ async function prepareRestackForSubmit(options: {
 	return await prepareGraphiteMutation({
 		graphite: options.graphite,
 		repoRoot: options.repoRoot,
-		operation: { kind: "restack-upstack", branch: options.branch },
+		operation: restackUpstackOperation(options.branch),
 		failureCode: "submit_restack_failed",
 		failureMessage: "gt restack failed before any PRs were landed.",
 	});

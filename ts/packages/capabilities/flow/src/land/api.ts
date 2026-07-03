@@ -59,7 +59,7 @@ export type {
 	LandedChunk,
 	LandedPullRequest,
 	LandGitGateway,
-	LandGithubPrFactsGateway,
+	LandGithubPrGateway,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
 	LandGraphiteGateway,

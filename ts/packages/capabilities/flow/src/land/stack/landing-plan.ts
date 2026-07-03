@@ -6,8 +6,7 @@ import {
 	type LandStackFailure,
 	type LandStackResult,
 } from "./errors.ts";
-import { createLandContext } from "./land-context-adapter.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 import type { FlowLandingPlan } from "./types.ts";
 
 export async function buildLandingPlan(
@@ -18,16 +17,12 @@ export async function buildLandingPlan(
 		landingBranchLimit?: number;
 	} = {},
 ): Promise<LandStackResult<FlowLandingPlan>> {
-	const landPlan = await buildStackLandingPlan(
-		createLandContext(runtime.commands, { graphite: runtime.graphite }),
-		cwd,
-		{
-			shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
-			...(options.landingBranchLimit === undefined
-				? {}
-				: { landingBranchLimit: options.landingBranchLimit }),
-		},
-	);
+	const landPlan = await buildStackLandingPlan(createRuntimeLandContext(runtime), cwd, {
+		shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
+		...(options.landingBranchLimit === undefined
+			? {}
+			: { landingBranchLimit: options.landingBranchLimit }),
+	});
 	if (landPlan.type === "failure") return failure(toLandStackFailure(landPlan.failure));
 
 	return { type: "success", value: toFlowLandingPlan(landPlan.value) };

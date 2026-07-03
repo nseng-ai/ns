@@ -4,7 +4,7 @@ import type {
 	LandContext,
 	LandingBoundaryFailure,
 	LandGitGateway,
-	LandGithubPrFactsGateway,
+	LandGithubPrGateway,
 	LandGraphiteCommandResult,
 	LandGraphiteDeleteLocalBranchResult,
 	LandGraphiteGateway,
@@ -299,11 +299,11 @@ export interface LandStackShapeCall extends LandRepoCall {
 }
 
 export interface LandRefreshBranchFromRemoteCall extends LandBranchCall {
-	readonly checkoutConflict: "fail" | "defer";
+	readonly checkedOutConflictHandling: "fail" | "defer";
 }
 
 export interface LandDeleteLocalBranchCall extends LandBranchCall {
-	readonly checkedOutConflict: "fail" | "retain";
+	readonly checkedOutConflictHandling: "fail" | "retain";
 }
 
 export interface LandSubmitUpdateCall extends LandBranchCall {
@@ -470,12 +470,12 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	async refreshBranchFromRemote(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkoutConflict: "fail" | "defer";
+		readonly checkedOutConflictHandling: "fail" | "defer";
 	}): Promise<LandGraphiteRefreshBranchResult> {
 		this.refreshBranchFromRemoteLog.push({
 			repoRoot: request.repoRoot,
 			branch: request.branch,
-			checkoutConflict: request.checkoutConflict,
+			checkedOutConflictHandling: request.checkedOutConflictHandling,
 		});
 		return { type: "success", result: emptyExecResult() };
 	}
@@ -483,12 +483,12 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	async deleteLocalBranch(request: {
 		readonly repoRoot: string;
 		readonly branch: string;
-		readonly checkedOutConflict: "fail" | "retain";
+		readonly checkedOutConflictHandling: "fail" | "retain";
 	}): Promise<LandGraphiteDeleteLocalBranchResult> {
 		this.deleteLocalBranchLog.push({
 			repoRoot: request.repoRoot,
 			branch: request.branch,
-			checkedOutConflict: request.checkedOutConflict,
+			checkedOutConflictHandling: request.checkedOutConflictHandling,
 		});
 		return { type: "deleted" };
 	}
@@ -531,7 +531,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	}
 }
 
-export interface InMemoryLandGithubPrFactsGatewayState {
+export interface InMemoryLandGithubPrGatewayState {
 	readonly pullRequests?: readonly PullRequestFacts[];
 	readonly failures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
@@ -545,7 +545,7 @@ export interface LandSquashMergePullRequestCall extends LandRepoCall {
 	readonly pullRequest: PullRequestFacts;
 }
 
-export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGateway {
+export class InMemoryLandGithubPrGateway implements LandGithubPrGateway {
 	private readonly pullRequests: ReadonlyMap<string, PullRequestFacts>;
 	private readonly failures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly squashMergeResults: ReadonlyMap<
@@ -555,7 +555,7 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
 	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
 
-	constructor(state: InMemoryLandGithubPrFactsGatewayState = {}) {
+	constructor(state: InMemoryLandGithubPrGatewayState = {}) {
 		const entries: [string, PullRequestFacts][] = [];
 		for (const pr of state.pullRequests ?? []) {
 			const copied = cloneData(pr);
@@ -729,7 +729,7 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 export interface InMemoryLandContextState {
 	readonly git?: InMemoryLandGitGatewayState;
 	readonly graphite?: InMemoryLandGraphiteGatewayState;
-	readonly github?: InMemoryLandGithubPrFactsGatewayState;
+	readonly github?: InMemoryLandGithubPrGatewayState;
 	readonly worktrees?: InMemoryLandWorktreeSlotFactsGatewayState;
 }
 
@@ -737,7 +737,7 @@ export interface InMemoryLandContext {
 	readonly context: LandContext;
 	readonly git: InMemoryLandGitGateway;
 	readonly graphite: InMemoryLandGraphiteGateway;
-	readonly github: InMemoryLandGithubPrFactsGateway;
+	readonly github: InMemoryLandGithubPrGateway;
 	readonly worktrees: InMemoryLandWorktreeSlotFactsGateway;
 }
 
@@ -746,7 +746,7 @@ export function createInMemoryLandContext(
 ): InMemoryLandContext {
 	const git = new InMemoryLandGitGateway(state.git);
 	const graphite = new InMemoryLandGraphiteGateway(state.graphite);
-	const github = new InMemoryLandGithubPrFactsGateway(state.github);
+	const github = new InMemoryLandGithubPrGateway(state.github);
 	const worktrees = new InMemoryLandWorktreeSlotFactsGateway(state.worktrees);
 	return {
 		context: { git, graphite, github, worktrees },

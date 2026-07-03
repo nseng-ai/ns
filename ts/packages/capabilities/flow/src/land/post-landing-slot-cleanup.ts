@@ -87,12 +87,12 @@ export async function runPostLandingSlotCleanup({
 		const deleteOperation = {
 			kind: "delete-local-branch",
 			branch: shape.stack.actualCurrentBranch,
-			checkedOutConflict: "fail",
+			checkedOutConflictHandling: "fail",
 		} as const;
 		const deletion = await landContext.graphite.deleteLocalBranch({
 			repoRoot: shape.repoRoot,
 			branch: shape.stack.actualCurrentBranch,
-			checkedOutConflict: "fail",
+			checkedOutConflictHandling: "fail",
 		});
 		if (deletion.type !== "deleted") {
 			const landFailure = landStackFailure(

@@ -10,6 +10,7 @@ import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
 	createLandGraphiteCommandChannel,
 	formatGraphiteOperation,
+	trunkOperation,
 	type LandGraphiteCommandChannel,
 } from "./graphite-command-channel.ts";
 import {
@@ -88,7 +89,7 @@ export async function loadTrunk(
 	repoRoot: string,
 	graphite: LandGraphiteCommandChannel = createLandGraphiteCommandChannel({ pi }),
 ): Promise<LandStackResult<string>> {
-	const operation = { kind: "trunk" } as const;
+	const operation = trunkOperation();
 	const result = await graphite.run({
 		operation,
 		cwd: repoRoot,

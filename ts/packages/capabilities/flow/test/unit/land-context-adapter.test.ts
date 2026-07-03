@@ -308,14 +308,14 @@ describe("land context adapter facts", () => {
 			context.graphite.refreshBranchFromRemote({
 				repoRoot: ROOT,
 				branch: "feature-b",
-				checkoutConflict: "fail",
+				checkedOutConflictHandling: "fail",
 			}),
 		).resolves.toMatchObject({ type: "success" });
 		await expect(
 			context.graphite.deleteLocalBranch({
 				repoRoot: ROOT,
 				branch: "feature-a",
-				checkedOutConflict: "retain",
+				checkedOutConflictHandling: "retain",
 			}),
 		).resolves.toEqual({ type: "retained", branch: "feature-a", path: "/repo-slot" });
 		await expect(

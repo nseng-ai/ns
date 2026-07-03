@@ -26,12 +26,22 @@ export interface ReadGraphiteBranchMetadataCommand {
 	display: string;
 }
 
+export type CheckedOutConflictHandling = "fail" | "defer" | "retain";
+
 export type LandGraphiteOperation =
 	| { kind: "trunk" }
 	| { kind: "submit-update"; branch: string; force?: boolean }
 	| { kind: "restack-upstack"; branch: string }
-	| { kind: "get-downstack-no-checkout"; branch: string; checkoutConflict?: "fail" | "defer" }
-	| { kind: "delete-local-branch"; branch: string; checkedOutConflict?: "fail" | "retain" }
+	| {
+			kind: "get-downstack-no-checkout";
+			branch: string;
+			checkedOutConflictHandling?: Extract<CheckedOutConflictHandling, "fail" | "defer">;
+	  }
+	| {
+			kind: "delete-local-branch";
+			branch: string;
+			checkedOutConflictHandling?: Extract<CheckedOutConflictHandling, "fail" | "retain">;
+	  }
 	| { kind: "untrack-local-branch"; branch: string };
 
 type FinalLocalBranchDeletionOperation = Extract<
@@ -132,6 +142,59 @@ export function createLandGraphiteCommandChannel(
 	};
 }
 
+export function trunkOperation(): Extract<LandGraphiteOperation, { kind: "trunk" }> {
+	return { kind: "trunk" };
+}
+
+export function submitUpdateOperation(input: {
+	readonly branch: string;
+	readonly force?: boolean;
+}): Extract<LandGraphiteOperation, { kind: "submit-update" }> {
+	return {
+		kind: "submit-update",
+		branch: input.branch,
+		...(input.force === undefined ? {} : { force: input.force }),
+	};
+}
+
+export function restackUpstackOperation(
+	branch: string,
+): Extract<LandGraphiteOperation, { kind: "restack-upstack" }> {
+	return { kind: "restack-upstack", branch };
+}
+
+export function getDownstackNoCheckoutOperation(input: {
+	readonly branch: string;
+	readonly checkedOutConflictHandling?: Extract<CheckedOutConflictHandling, "fail" | "defer">;
+}): Extract<LandGraphiteOperation, { kind: "get-downstack-no-checkout" }> {
+	return {
+		kind: "get-downstack-no-checkout",
+		branch: input.branch,
+		...(input.checkedOutConflictHandling === undefined
+			? {}
+			: { checkedOutConflictHandling: input.checkedOutConflictHandling }),
+	};
+}
+
+export function deleteLocalBranchOperation(input: {
+	readonly branch: string;
+	readonly checkedOutConflictHandling?: Extract<CheckedOutConflictHandling, "fail" | "retain">;
+}): Extract<LandGraphiteOperation, { kind: "delete-local-branch" }> {
+	return {
+		kind: "delete-local-branch",
+		branch: input.branch,
+		...(input.checkedOutConflictHandling === undefined
+			? {}
+			: { checkedOutConflictHandling: input.checkedOutConflictHandling }),
+	};
+}
+
+export function untrackLocalBranchOperation(
+	branch: string,
+): Extract<LandGraphiteOperation, { kind: "untrack-local-branch" }> {
+	return { kind: "untrack-local-branch", branch };
+}
+
 export function restackTargetForSubmit(plan: LandingPlan): string | undefined {
 	return plan.submitRestackRequirements[0]?.branch;
 }
@@ -213,7 +276,7 @@ type GraphiteOperationSpecs = {
 const GRAPHITE_OPERATION_SPECS = {
 	trunk: {
 		kind: "trunk",
-		buildArgs: () => ["trunk", "--no-interactive"],
+		buildArgs: (_operation) => ["trunk", "--no-interactive"],
 	},
 	"submit-update": {
 		kind: "submit-update",
@@ -261,11 +324,21 @@ const GRAPHITE_OPERATION_SPECS = {
 	},
 } satisfies GraphiteOperationSpecs;
 
-function buildGraphiteOperationArgs<TOperation extends LandGraphiteOperation>(
-	operation: TOperation,
-): string[] {
-	const spec = GRAPHITE_OPERATION_SPECS[operation.kind] as GraphiteOperationSpec<TOperation>;
-	return spec.buildArgs(operation);
+function buildGraphiteOperationArgs(operation: LandGraphiteOperation): string[] {
+	switch (operation.kind) {
+		case "trunk":
+			return GRAPHITE_OPERATION_SPECS.trunk.buildArgs(operation);
+		case "submit-update":
+			return GRAPHITE_OPERATION_SPECS["submit-update"].buildArgs(operation);
+		case "restack-upstack":
+			return GRAPHITE_OPERATION_SPECS["restack-upstack"].buildArgs(operation);
+		case "get-downstack-no-checkout":
+			return GRAPHITE_OPERATION_SPECS["get-downstack-no-checkout"].buildArgs(operation);
+		case "delete-local-branch":
+			return GRAPHITE_OPERATION_SPECS["delete-local-branch"].buildArgs(operation);
+		case "untrack-local-branch":
+			return GRAPHITE_OPERATION_SPECS["untrack-local-branch"].buildArgs(operation);
+	}
 }
 
 async function runLandGraphiteOperation<TOperation extends LandGraphiteOperation>(input: {
@@ -280,7 +353,7 @@ async function runLandGraphiteOperation<TOperation extends LandGraphiteOperation
 			pi: input.pi,
 			commandStream: input.commandStream,
 			commandOptions,
-			shouldDeferCheckoutConflict: operation.checkoutConflict === "defer",
+			shouldDeferCheckoutConflict: operation.checkedOutConflictHandling === "defer",
 		})) as LandGraphiteOperationResult<TOperation>;
 	}
 	if (operation.kind === "delete-local-branch") {
@@ -289,7 +362,7 @@ async function runLandGraphiteOperation<TOperation extends LandGraphiteOperation
 			commandStream: input.commandStream,
 			commandOptions,
 			branch: operation.branch,
-			shouldRetainCheckedOutConflict: operation.checkedOutConflict === "retain",
+			shouldRetainCheckedOutConflict: operation.checkedOutConflictHandling === "retain",
 		})) as LandGraphiteOperationResult<TOperation>;
 	}
 	return (await runStandardGraphiteOperation({

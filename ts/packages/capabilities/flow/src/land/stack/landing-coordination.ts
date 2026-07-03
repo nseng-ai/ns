@@ -7,7 +7,6 @@ import {
 	type LandStackResult,
 } from "./errors.ts";
 import { buildLandingPlan } from "./landing-plan.ts";
-import { createLandContext } from "./land-context-adapter.ts";
 import { confirmAndFreeManagedSlots, residualPreMergeFailure } from "./landing-operations.ts";
 import {
 	confirmLandStackAction,
@@ -22,7 +21,7 @@ import {
 	presentBrief,
 	setStatus,
 } from "./presentation.ts";
-import type { LandRuntime } from "./land-runtime.ts";
+import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
 import type { LandStackCommandContext, LandedPr, LandingPlan } from "./types.ts";
 
 export interface LandingSession {
@@ -57,9 +56,9 @@ async function preparePlanForMergeCore(
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
-	let landContext: ReturnType<typeof createLandContext> | undefined;
-	const getLandContext = (): ReturnType<typeof createLandContext> => {
-		landContext ??= createLandContext(runtime.commands, { graphite: runtime.graphite });
+	let landContext: ReturnType<typeof createRuntimeLandContext> | undefined;
+	const getLandContext = (): ReturnType<typeof createRuntimeLandContext> => {
+		landContext ??= createRuntimeLandContext(runtime);
 		return landContext;
 	};
 
@@ -92,7 +91,7 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
-	landContext: ReturnType<typeof createLandContext>;
+	landContext: ReturnType<typeof createRuntimeLandContext>;
 	commandStream: LandStackCommandStream;
 	preMergeConfirmation: PreMergeConfirmation;
 }
