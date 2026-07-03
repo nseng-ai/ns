@@ -1,0 +1,3 @@
+ts/packages/capabilities/slot/src/ji/extension.ts
+ts/packages/kernel/src/cli/shell.ts
+ts/packages/kernel/test/scenario/shell-cli.test.ts

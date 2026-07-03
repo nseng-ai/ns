@@ -1,0 +1,15 @@
+ts/packages/capabilities/roaster/src/gateways/local-diff.ts
+ts/packages/capabilities/roaster/src/operations/review-run.ts
+ts/packages/capabilities/roaster/test/gateways/local-diff.test.ts
+ts/packages/capabilities/roaster/test/unit/project-config.test.ts
+ts/packages/capabilities/roaster/test/unit/review-run.test.ts
+ts/packages/tools/areg/src/fake-gateways.ts
+ts/packages/tools/areg/src/gateways.ts
+ts/packages/tools/areg/src/gateways/mutation-policy.ts
+ts/packages/tools/areg/src/gateways/project-gateway.ts
+ts/packages/tools/areg/src/operations/init.ts
+ts/packages/tools/areg/src/operations/project-agents.ts
+ts/packages/tools/areg/test/gateways/real-gateways.test.ts
+ts/packages/tools/areg/test/scenario/init-cli.test.ts
+ts/packages/tools/areg/test/scenario/update-skills-cli.test.ts
+ts/packages/tools/areg/test/unit/init-helpers.test.ts

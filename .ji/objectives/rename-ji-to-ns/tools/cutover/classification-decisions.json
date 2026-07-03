@@ -1,0 +1,674 @@
+{
+ "decisions": [
+  {
+   "path": "skills/architecture-topology-report/scripts/extract-graph.mjs",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "All matches are the package.json extension-manifest KEY reads (d.ji?.tier, manifest?.ji?.subpackages, manifest.ji.subpackages) plus the @ji/kernel import + 'ji shell operation' brand prose on line 71 \u2014 all survivors owned by PR-5; nothing to rename."
+  },
+  {
+   "path": "ts/packages/capabilities/address/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Line 36 \"ji\": { is the extension-manifest KEY (PR-5 owns it). Line 7 \"./ji-command\": \"./src/ji-command.ts\" is a ji-*.ts filename export subpath survivor. Nothing in-window."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 245: rename the operative bin in the instruction string `ji address exec close-review-threads ...` \u2192 `ns address exec close-review-threads ...`. Leave the `gh api graphql`, --thread-ids-json, --body, --format json text unchanged."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/exec-operation.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Line 10 is a @ji/capability-kit import specifier (with ji-command subpath) \u2014 package-scope survivor, not renamed."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji-command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Line 1 imports from @ji/capability-kit/ji-context \u2014 @ji scope + ji-context subpath survivor; the file's own ji-command.ts name is a survivor path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-branch-pr.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is relative import from ../../ji-command.ts (ji-*.ts filename subpath) inside the src/ji/ path segment \u2014 survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-close-review-threads.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-download-feedback.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-map-branch-prs.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-open-prs.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-checks.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-details.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-discussion-comments.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-review-threads.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-reviews.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-reply-review-thread.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-resolve-review-thread.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/repo-local-ji-extension.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/aretro/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/aretro/src/ji/command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports"
+  },
+  {
+   "path": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 228: rename the operative instruction bin `ji aretro exec read-evidence-detail` -> `ns aretro exec read-evidence-detail`. Only the leading `ji` bin token changes; leave the rest of the command string intact."
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 63: rename bin in `ji branch-context exec from-plan` -> `ns branch-context exec from-plan`. Leave the adjacent `enriched-plan exec save` command unchanged (not a ji bin)."
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/src/ji/command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports"
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 50 and 89: rename bin in the cli strings `ji branch-context exec from-plan` and `ji branch-context exec load` -> `ns branch-context exec ...`. Only the leading `ji` token."
+  },
+  {
+   "path": "ts/packages/capabilities/ccc/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 437: rename bin in the copyable command `!ji flow submit` -> `!ns flow submit` (leave the leading `!` shell-escape prefix)."
+  },
+  {
+   "path": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 28: rename the env var NAME string value \"JI_CCC_SIDEBAR_MODEL\" -> \"NS_CCC_SIDEBAR_MODEL\" (keep the const identifier SIDEBAR_MODEL_ENV as-is). Line 221: rename path literal `.ji/objectives/<slug>` -> `.ns/objectives/<slug>`."
+  },
+  {
+   "path": "ts/packages/capabilities/ccc/src/ji/autoslot-presentation.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 26 JSDoc: rename the copyable command bin `ji slot co <branch>` -> `ns slot co <branch>`. Only the leading `ji` bin token; the file path segment src/ji/ stays."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename bin invocations in user-facing strings: line 118 `ji slot checkout --current`, line 131 `ji slot checkout failed`, line 147 guidance `ji slot co ${slot.target.branchName}` -> `ns slot ...`. Leave the surrounding identifiers/branchName interpolation untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 26 JSDoc example `ji slot co <branch>` -> `ns slot co <branch>` (bin rename). This same comment is duplicated in ccc/src/ji/autoslot-presentation.ts (not your file); only edit this one."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename bin command instruction strings: line 41 `ji flow branch-latest-commit`, line 87 `\\`ji flow autobranch\\``, line 99 `\\`ji flow autobranch\\``, line 103 `ji flow branch-latest-commit` -> `ns flow ...`. Note: the `src/ji/` path segment in the filename is a survivor, do not touch it."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename bin instruction strings: line 19 `ji flow autobranch`, line 50 `\\`ji flow branch-latest-commit\\``, line 60 `\\`ji flow branch-latest-commit\\``, line 65 `ji flow autobranch` -> `ns flow ...`. Leave the `src/ji/` filename path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/commands/cp.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 66 title literal `ji flow cp` -> `ns flow cp`. Leave the `src/ji/` filename path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 114 `const BASE_LAND_TITLE = \"ji flow land\"` -> `\"ns flow land\"` (rename the string value only; keep the constant identifier). Leave the `src/ji/` filename path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 9 comment path `.ji/objectives/cli-ux-north-star/house-style.md` -> `.ns/objectives/...` (`.ji/` path literal). Keep the objective slug `cli-ux-north-star` and the `src/ji/` filename segment unchanged."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename bin command references in comments: line 2 `ji flow autobranch` and `ji flow branch-latest-commit`, line 18 `\\`ji flow autobranch\\`` -> `ns flow ...`. Leave the `src/ji/` filename path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 43 tmpdir prefix literal `prefix: \"ji-extension-cp-commit-\"` -> `\"ns-extension-cp-commit-\"` (brand tmpdir prefix). Leave filename/other identifiers and the `src/ji/` path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/land/preflight.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 326 machine key `/ji:flow:land` -> `/ns:flow:land`."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename every `/ji:flow:land` machine key -> `/ns:flow:land` (lines 114, 123, 222, 285, 313, 449, 466, 604, 673, 920, 928, 929). Leave gt/Graphite prose and branch interpolations untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 1 comment `ji flow land` CLI surface -> `ns flow land` (bin rename)."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `/ji:flow:land` machine keys -> `/ns:flow:land` (lines 51, 54, 69, 86, 100). Leave gt command prose."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `/ji:flow:land` machine keys -> `/ns:flow:land` (lines 75, 82)."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 5 comment path `.ji/objectives/cli-ux-north-star/house-style.md` -> `.ns/objectives/...` (`.ji/` path literal). Keep the objective slug `cli-ux-north-star` unchanged."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/pi/index.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only match is `export { default as sdlExtension, sdlExtensionParity } from \"./ji-extension.ts\";` \u2014 ji-extension.ts is a survivor filename import subpath and sdlExtension* are identifiers."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename brand tmpdir prefix literal \"ji-dev-pr-body-\" (line 207) to \"ns-dev-pr-body-\". Nothing else in the file matches."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename every `ji flow submit` command instance in the prose strings (lines 61, 132, 133, 139, 142, 154, 155, 219) to `ns flow submit`. These are operative CLI-command instruction lines."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji flow submit` (lines 133, 147, 167, 181, 187, 189, 245, 317, 318) and `ji flow regenerate-pr` (line 57) to `ns flow ...`. Operative CLI-command references."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji flow regenerate-pr` on line 147 to `ns flow regenerate-pr`."
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/submit/text-generation.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename the JI_* env-var NAME string value \"JI_DEV_PR_DESCRIPTION_MODEL\" (line 24) to \"NS_DEV_PR_DESCRIPTION_MODEL\". Leave the TS constant identifier PR_DESCRIPTION_MODEL_ENV unchanged."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the extension-manifest KEY `\"ji\": {` (line 33) and the `\"ji\"` subpackages entry (line 38, a src/ji path-segment survivor inside the manifest block). PR-5 owns the manifest key; leave untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/ji/command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Only match is the import `} from \"@ji/capability-kit/ji-command\";` \u2014 @ji package scope survivor."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on line 204 to `ns handoff create` (operative CLI-command instruction). Leave the CLAUDE_HANDOFF_LAUNCH_TOOL_NAME identifier untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/create-prompt.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on lines 9 and 10 to `ns handoff create`. Do NOT touch the adjacent brmem `--namespace ${HANDOFF_NAMESPACE}` placeholders or `brmem check`/`brmem put` (survivor ns tokens)."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/create.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on line 28 to `ns handoff create`."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on lines 139, 140, 142 to `ns handoff create` (operative CLI instructions)."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename the `cli:` command strings `ji handoff create` (lines 27, 33), `ji handoff pickup` (line 40), `ji handoff list` (line 53) to `ns handoff ...`."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/self.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on lines 250 and 333 to `ns handoff create`. Leave HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME / DERIVE_HANDOFF_SLUG_TOOL_NAME identifiers unchanged."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename `ji handoff create` on line 148 to `ns handoff create`."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the phase-two extension-manifest KEY block `\"ji\": {` (tier/subpackages incl. the `\"ji\"` subpackage entry) plus @ji/* scope imports and ./ji/ export subpaths / ji-*.ts filenames \u2014 all survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/core/operations/check-items.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 6 doc comment references the bin command `ji objective check` \u2192 `ns objective check`. No survivors in this file to preserve."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Only match is import from `@ji/capability-kit/ji-command` (scope + ji-command subpath survivor)."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-begin.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-finish.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename the `.ji/` path literals in the header comment: `.ji/extensions/objective/package.json` (line 6) and `.ji/extensions/objective/src/commands/exec-runner-step.ts` (line 7) \u2192 `.ns/extensions/...`. Leave the `@ji/capability-kit/ji-command` import (line 9) and the `\"./sdl/commands/exec-runner-step\"` / `./ji/...` export-subpath references untouched (survivors)."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename env-var NAME string value `\"JI_RUNNER_PI_BIN\"` \u2192 `\"NS_RUNNER_PI_BIN\"` (line 36), the `JI_RUNNER_PI_BIN` mention in the comment (line 71), and the brand tmpdir prefix `\"ji-objective-runner-\"` \u2192 `\"ns-objective-runner-\"` (line 243). Leave the TS identifier `SDL_RUNNER_PI_BIN_ENV` (survivor) and `@ji/*` imports alone."
+  },
+  {
+   "path": "ts/packages/capabilities/plans/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 26)."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 35)."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 6 description string `Alias for ji roaster review list.` \u2014 bin command reference `ji roaster review list` \u2192 `ns roaster review list`."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/gateways/local-diff.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the phase-two `ji.toml` filename literal and message (lines 115, 123), owned by PR-5."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/ji/command.ts",
+   "decision": "skip",
+   "reason": "only-atji-imports",
+   "hint": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/operations/review-run.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the phase-two `ji.toml` filename literal and message (lines 290, 305)."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the phase-two extension-manifest KEY block `\"ji\": {` (tier/subpackages/commands, incl. the `\"ji\"` subpackage entry) plus @ji/* imports and ./ji/ export subpaths \u2014 all survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 12: rename env-var NAME string value `\"JI_SLOT_DIAGNOSTIC_LOG\"` \u2192 `\"NS_SLOT_DIAGNOSTIC_LOG\"`. Leave the TS identifier `SLOT_DIAGNOSTIC_LOG_ENV` (survivor) untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/ji/command-face.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 2 comment: rename the bin surface reference `ji slot ...` to `ns slot ...`. Leave the `@ji/clinkr`/`@ji/kernel` import specifiers and the `src/ji/` path segment untouched (only-atji-imports / only-src-ji-path-segment survivors)."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 104 and 109: rename bin command `ji slot checkout --current` to `ns slot checkout --current` in both user-facing message strings."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 52, 64, 92: rename `ji slot foreach ...` bin references to `ns slot foreach ...` in the guidance/failure strings."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 62: rename `ji slot free --wt ${slotName}` bin reference to `ns slot free --wt ${slotName}`."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 42: rename `ji slot checkout <branch>` bin reference to `ns slot checkout <branch>`."
+  },
+  {
+   "path": "ts/packages/capability-kit/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only matches are the phase-two manifest KEY `\"ji\": {` (line 59) and the `./ji-command`/`./ji-context` -> `./src/kit/ji-*.ts` subpath exports (only-src-ji-path-segment survivors). No in-window literals."
+  },
+  {
+   "path": "ts/packages/capability-kit/src/git/testing.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 38: rename the tmpdir prefix `ji-git-test-` to `ns-git-test-`. Leave the fake email default `ji-test@example.com` (line 53) and `@ji/core/primitives` import untouched (not enumerated surfaces / atji-import survivors)."
+  },
+  {
+   "path": "ts/packages/capability-kit/src/kit/index.ts",
+   "decision": "skip",
+   "reason": "only-src-ji-path-segment",
+   "hint": "Only matches are the `./ji-command.ts` and `./ji-context.ts` relative import subpaths (ji-*.ts filename survivors)."
+  },
+  {
+   "path": "ts/packages/capability-kit/src/kit/text-generation.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 28-32: rename the JI_* env-var NAME string values only: `JI_CHECKPOINT_MODEL`->`NS_CHECKPOINT_MODEL`, `JI_DEV_CHECKPOINT_MODEL`->`NS_DEV_CHECKPOINT_MODEL`, `JI_CHANGES_MODEL`->`NS_CHANGES_MODEL`, `JI_SUBMIT_FAILURE_MODEL`->`NS_SUBMIT_FAILURE_MODEL`. Leave the TS const identifiers (CHECKPOINT_MODEL_ENV etc.) unchanged."
+  },
+  {
+   "path": "ts/packages/hosts/command-backed-skill-registry/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 20)."
+  },
+  {
+   "path": "ts/packages/hosts/jicc/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 23); the jicc package name itself is also a phase-two survivor."
+  },
+  {
+   "path": "ts/packages/hosts/jicc/src/stack-map-effects.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 220: rename bin reference `ji slot checkout` to `ns slot checkout` in the failure message string."
+  },
+  {
+   "path": "ts/packages/hosts/pi/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 62)."
+  },
+  {
+   "path": "ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 10-11: rename bin command instruction `ji address exec close-review-threads ...` to `ns address exec close-review-threads ...` in both bullets."
+  },
+  {
+   "path": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 19 comment: rename the namespace/machine-key forms `ji:flow:changes` -> `ns:flow:changes` and `/ji:flow:changes` -> `/ns:flow:changes`. Leave the `@ji/pi` prose/imports untouched."
+  },
+  {
+   "path": "ts/packages/infra/brmem/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY `\"ji\": {` (line 24); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/infra/clinkr/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY `\"ji\": {` (line 24); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/infra/core/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY `\"ji\": {` (line 47). This is infra/core, NOT the kernel bin-key exception; PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/infra/core/src/primitives/model-slug.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 42: rename JI_* env-var NAME string value \"JI_SLUG_MODEL\" -> \"NS_SLUG_MODEL\". The const identifier SLUG_MODEL_ENV stays."
+  },
+  {
+   "path": "ts/packages/infra/core/src/test-kit/index.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename brand tmpdir prefixes: line 81 \"ji-test-\"->\"ns-test-\", line 86 \".ji-test-\"->\".ns-test-\" (home-dir prefix), line 109 \"ji-git-repo-\"->\"ns-git-repo-\". Nothing else to touch."
+  },
+  {
+   "path": "ts/packages/kernel/docs/sdk-reference.md",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename in-window: `.ji/extensions/` path literals (lines 47,94,104,105,107) and the `ji <name>`/`ji flow <name>`/`ji --help`/`ji <cmd> --help`/`ji shell completion`/`ji flow autobranch my-feature` bin-instruction and help lines (142,162,163,238,292). LEAVE the phase-two manifest-KEY prose untouched: the backticked `ji` manifest field on line 307 and dotted `ji.commands[]` on line 311 (PR-5 owns those)."
+  },
+  {
+   "path": "ts/packages/kernel/src/extensions/discovery.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Every match is a read of the phase-two manifest KEY: zod path patterns [\"ji\"]/[\"ji\",\"commands\"] and \"missing-ji\" issue kind (82,85-87), manifest.ji.commands/manifest.ji.group/manifest.ji.description reads (218,287,293,295,297,304). PR-5 owns the `ji` manifest key rename."
+  },
+  {
+   "path": "ts/packages/kernel/src/extensions/loader.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 24: rename snake code string \"ji_extension_contribution_import_failed\" -> \"ns_extension_contribution_import_failed\"."
+  },
+  {
+   "path": "ts/packages/kernel/src/runtime/module-loader.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename only the `.ji/extensions` path literal in the docstring (line 282) -> `.ns/extensions`. LEAVE the src/ji path segments join(CCC_SRC_DIR, \"ji\", ...) on lines 67-69 (only-src-ji-path-segment survivors that did not move)."
+  },
+  {
+   "path": "ts/packages/local/pi-tools/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY `\"ji\": {` (line 41); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 13: operative instruction line \u2014 rename bin in `ji address exec download-feedback` -> `ns address exec download-feedback`. The `/pr:download-feedback` slash-token stays."
+  },
+  {
+   "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Line 31: operative instruction \u2014 rename bin in `ji address exec close-review-threads ...` -> `ns address exec ...`."
+  },
+  {
+   "path": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Lines 36 and 48: operative instruction lines \u2014 rename bin `ji address exec download-feedback`/`ji address exec pr-review-threads`/`ji address exec pr-checks` -> `ns address exec ...`."
+  },
+  {
+   "path": "ts/packages/tools/areg/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY `\"ji\": {` (line 27); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/fake-gateways.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Both matches are references to the `ji.toml` file (lines 158 map key, 217 fileState lookup); ji.toml is a phase-two surface owned by PR-5."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the ji.toml file-name literal in the relativePath union (line 333); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways/mutation-policy.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is \"ji.toml\" in the allowed-paths array (line 70); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways/project-gateway.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is path.join(projectDir, \"ji.toml\") (line 74); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/operations/init.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "All matches are ji.toml file-name/path-label literals (lines 344-356); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/operations/project-agents.ts",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "All matches are ji.toml literals plus the ji_toml_invalid error code (lines 25-102); both are PR-5-owned ji.toml surfaces."
+  },
+  {
+   "path": "ts/packages/tools/packagechk/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY \"ji\": { (line 23); PR-5 owns the manifest key."
+  },
+  {
+   "path": "ts/packages/tools/vibechk/package.json",
+   "decision": "skip",
+   "reason": "phase-two-surface",
+   "hint": "Only match is the extension-manifest KEY \"ji\": { (line 24); PR-5 owns the manifest key."
+  },
+  {
+   "path": "ts/vitest.shared.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Rename the .ji/ path segment to .ns/ in the review test glob `../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts` (line 7). The `packages/*/test/...` globs on lines 5-6 have no ji token and are untouched."
+  }
+ ],
+ "missing": []
+}
