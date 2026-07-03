@@ -4,16 +4,16 @@ import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-} from "@ji/pi/commands";
+} from "@ji/core/command";
 import type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@ji/pi/commands";
+} from "@ji/core/command";
 
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@ji/pi/commands";
+} from "@ji/core/command";
 
 const COMMAND_BACKED_SKILL_REGISTRY = [
 	{
