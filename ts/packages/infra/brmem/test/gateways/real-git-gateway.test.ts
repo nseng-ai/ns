@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/exec";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 
 import { RealGitBrmemGateway, RealGitBrmemReadGateway } from "../../src/real-git-gateway.ts";
 

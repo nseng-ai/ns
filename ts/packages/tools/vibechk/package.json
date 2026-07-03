@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/vibechk",
+	"name": "@ji/vibechk",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,9 +16,9 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/vibechk/test"
 	},
 	"dependencies": {
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ji": {

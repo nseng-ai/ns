@@ -13,10 +13,10 @@ import type {
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
 	GithubStatusChecks,
-} from "@sdl/address/api";
-import type { Result } from "@sdl/core/result";
+} from "@ji/address/api";
+import type { Result } from "@ji/core/result";
 
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 
 import type { PrAddressContext } from "../../src/context.ts";
 

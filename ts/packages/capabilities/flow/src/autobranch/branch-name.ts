@@ -1,5 +1,5 @@
 import type { CommandResult } from "./shared.ts";
-import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@sdl/core/branch-slug";
+import { MAX_BRANCH_SLUG_LENGTH, trimBranchSlugToLength } from "@ji/core/branch-slug";
 
 const GIT_TIMEOUT_MS = 30_000;
 

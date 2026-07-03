@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { formatCommand, type ExecResult } from "@ji/core/command";
+import { ScriptedQueue } from "@ji/core/test-kit";
 import { shortSha } from "../../src/commit-display/index.ts";
 import { outputTail } from "../../src/land/stack/command-exec.ts";
 import {

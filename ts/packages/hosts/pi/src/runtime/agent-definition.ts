@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { splitMarkdownFrontmatter, stripLineEnding } from "@sdl/core/markdown-frontmatter";
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { findWorkspaceRootByMarkers } from "@sdl/capability-kit/workspace-root";
+import { splitMarkdownFrontmatter, stripLineEnding } from "@ji/core/markdown-frontmatter";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { findWorkspaceRootByMarkers } from "@ji/capability-kit/workspace-root";
 
 export const PI_AGENT_DEFINITION_SCHEMA = "ji.pi-agent.v1";
 

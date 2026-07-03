@@ -1,4 +1,4 @@
-// House-style human renderer for `objective list`, built on the @sdl/core/cli-theme display
+// House-style human renderer for `objective list`, built on the @ji/core/cli-theme display
 // primitives (palette / glyphs / width helpers). This is the buffered "north-star" surface from the
 // CLI UX design harness, ported onto the real Objective list result.
 //
@@ -6,7 +6,7 @@
 // (truecolor / 256 / 16 / mono) and the relative-time output are deterministic under test. The
 // `--format json` machine path keeps the raw ISO stamp; only this human surface relativizes it.
 
-import type { Caps } from "@sdl/clinkr";
+import type { Caps } from "@ji/clinkr";
 import {
 	bold,
 	dim,
@@ -17,8 +17,8 @@ import {
 	padPlain,
 	treeMarkers,
 	truncatePlain,
-} from "@sdl/core/cli-theme";
-import type { GlyphName, Intent } from "@sdl/core/cli-theme";
+} from "@ji/core/cli-theme";
+import type { GlyphName, Intent } from "@ji/core/cli-theme";
 
 import { MAX_UPDATED_BRANCH_ATTRIBUTION_WALKS } from "./list-branch-attribution.ts";
 import {

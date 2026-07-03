@@ -1,22 +1,22 @@
 {
-	"name": "@sdl/objective",
+	"name": "@ji/objective",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./sdl/commands/archive": "./src/sdl/commands/archive.ts",
-		"./sdl/commands/check": "./src/sdl/commands/check.ts",
-		"./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
-		"./sdl/commands/exec-load-orientations": "./src/sdl/commands/exec-load-orientations.ts",
-		"./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
-		"./sdl/commands/exec-runner-begin": "./src/sdl/commands/exec-runner-begin.ts",
-		"./sdl/commands/exec-runner-finish": "./src/sdl/commands/exec-runner-finish.ts",
-		"./sdl/commands/exec-runner-step": "./src/sdl/commands/exec-runner-step.ts",
-		"./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
-		"./sdl/commands/exec-tracking-gate": "./src/sdl/commands/exec-tracking-gate.ts",
-		"./sdl/commands/list": "./src/sdl/commands/list.ts",
-		"./repo-local-sdl-extension": "./src/sdl/repo-local-sdl-extension.ts",
+		"./ji/commands/archive": "./src/ji/commands/archive.ts",
+		"./ji/commands/check": "./src/ji/commands/check.ts",
+		"./ji/commands/exec-list-candidates": "./src/ji/commands/exec-list-candidates.ts",
+		"./ji/commands/exec-load-orientations": "./src/ji/commands/exec-load-orientations.ts",
+		"./ji/commands/exec-read-objective": "./src/ji/commands/exec-read-objective.ts",
+		"./ji/commands/exec-runner-begin": "./src/ji/commands/exec-runner-begin.ts",
+		"./ji/commands/exec-runner-finish": "./src/ji/commands/exec-runner-finish.ts",
+		"./ji/commands/exec-runner-step": "./src/ji/commands/exec-runner-step.ts",
+		"./ji/commands/exec-runner-subagent-usage": "./src/ji/commands/exec-runner-subagent-usage.ts",
+		"./ji/commands/exec-tracking-gate": "./src/ji/commands/exec-tracking-gate.ts",
+		"./ji/commands/list": "./src/ji/commands/list.ts",
+		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -28,11 +28,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/objective/test"
 	},
 	"dependencies": {
-		"@sdl/branch-context": "workspace:*",
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
+		"@ji/branch-context": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ji": {
@@ -41,19 +41,19 @@
 			"api",
 			"core",
 			"runner",
-			"sdl",
+			"ji",
 			"pi"
 		]
 	},
 	"peerDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@sdl/pi": {
+		"@ji/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@sdl/pi": "workspace:*"
+		"@ji/pi": "workspace:*"
 	}
 }

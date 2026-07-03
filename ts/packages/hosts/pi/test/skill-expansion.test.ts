@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { withTempGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@ji/core/test-kit";
 
 import {
 	buildFencedTextBlock,

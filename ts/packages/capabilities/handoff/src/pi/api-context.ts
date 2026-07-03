@@ -1,6 +1,6 @@
-import { RealGitBrmemReadGateway } from "@sdl/brmem";
-import { piExecApiToCommandExecApi } from "@sdl/core/command";
-import { RealGitGateway } from "@sdl/capability-kit/git";
+import { RealGitBrmemReadGateway } from "@ji/brmem";
+import { piExecApiToCommandExecApi } from "@ji/core/command";
+import { RealGitGateway } from "@ji/capability-kit/git";
 import type { HandoffReadStorageDeps } from "../api/index.ts";
 
 import type { ExtensionAPI } from "./runtime-types.ts";

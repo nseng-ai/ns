@@ -11,7 +11,7 @@ import {
   isStringLiteralLike,
 } from "typescript";
 
-import { moduleSpecifierText, sourceLocationFields } from "@sdl/core/typescript-analysis";
+import { moduleSpecifierText, sourceLocationFields } from "@ji/core/typescript-analysis";
 
 import {
   manifestRefForKind,
@@ -41,73 +41,73 @@ export const detectorMetadata: ReadonlyArray<DetectorMetadata> = [
   {
     kind: "subprocess",
     canonical: "runCommand / NodeCommandExecApi / CommandExecApi",
-    import: "@sdl/core/exec / @sdl/core/command",
+    import: "@ji/core/exec / @ji/core/command",
     precision: "high",
   },
   {
     kind: "interactive-confirm",
     canonical: "confirmInteractiveOrUsageError",
-    import: "@sdl/clinkr",
+    import: "@ji/clinkr",
     precision: "high",
   },
   {
     kind: "exact-optional-spread",
     canonical: "optionalEntry / optionalEntries",
-    import: "@sdl/core/primitives",
+    import: "@ji/core/primitives",
     precision: "medium",
   },
   {
     kind: "xdg-path",
     canonical: "requireSdlStatePath / resolveSdlXdgPath / resolveXdgHome",
-    import: "@sdl/core/xdg-path; @sdl/capability-kit/xdg",
+    import: "@ji/core/xdg-path; @ji/capability-kit/xdg",
     precision: "medium",
   },
   {
     kind: "hand-rolled-table",
     canonical: "renderTextTable / displayWidth",
-    import: "@sdl/core/text-table or package renderer helpers",
+    import: "@ji/core/text-table or package renderer helpers",
     precision: "low",
   },
   {
     kind: "raw-git",
     canonical: "GitGateway",
-    import: "@sdl/git or capability-owned GitGateway",
+    import: "@ji/git or capability-owned GitGateway",
     precision: "low",
   },
   {
     kind: "machine-envelope-literal",
     canonical: "toMachineEnvelope / usageErrorMachineEnvelope / envelopeJsonText; parseMachineEnvelopeData",
-    import: "@sdl/clinkr for builders; @sdl/core/machine-envelope for parser",
+    import: "@ji/clinkr for builders; @ji/core/machine-envelope for parser",
     precision: "medium",
   },
   {
     kind: "command-failure-format",
     canonical: "formatCommandFailure / formatCommandResultFailure",
-    import: "@sdl/core/exec / @sdl/core/command",
+    import: "@ji/core/exec / @ji/core/command",
     precision: "high",
   },
   {
     kind: "escape-regex",
     canonical: "stripTerminalEscapes",
-    import: "@sdl/core/terminal-escapes or @sdl/core/command re-export",
+    import: "@ji/core/terminal-escapes or @ji/core/command re-export",
     precision: "medium",
   },
   {
     kind: "osc8-hyperlink",
     canonical: "safeTerminalHyperlink / terminalHyperlink / sanitizeTerminalHyperlinkUrl",
-    import: "@sdl/core/terminal-presentation",
+    import: "@ji/core/terminal-presentation",
     precision: "high",
   },
   {
     kind: "manual-truncation",
     canonical: "truncateTextHeadTail / truncateTextHead / tailText",
-    import: "@sdl/core/text-truncation; @sdl/core/command",
+    import: "@ji/core/text-truncation; @ji/core/command",
     precision: "low",
   },
   {
     kind: "frontmatter-split",
     canonical: "splitMarkdownFrontmatter",
-    import: "@sdl/core/markdown-frontmatter",
+    import: "@ji/core/markdown-frontmatter",
     precision: "low",
   },
 ] as const;

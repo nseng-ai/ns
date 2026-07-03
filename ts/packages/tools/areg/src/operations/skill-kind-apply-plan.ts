@@ -1,4 +1,4 @@
-import { err, type Result } from "@sdl/core/result";
+import { err, type Result } from "@ji/core/result";
 
 import type {
 	AregSkillKindDeletePlan,

@@ -1,9 +1,9 @@
-import { runCommand } from "@sdl/core/exec";
-import type { CommandRunner, ExecResult } from "@sdl/core/command";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import type { MaybePromise } from "@sdl/core/primitives";
+import { runCommand } from "@ji/core/exec";
+import type { CommandRunner, ExecResult } from "@ji/core/command";
+import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
+import type { GitGateway } from "@ji/capability-kit/git";
+import type { MaybePromise } from "@ji/core/primitives";
 
 import { commandFailure } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";

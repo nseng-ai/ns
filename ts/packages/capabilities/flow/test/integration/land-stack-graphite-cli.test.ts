@@ -4,8 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { runCommand } from "@sdl/core/exec";
-import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/capability-kit/graphite/metadata";
+import { runCommand } from "@ji/core/exec";
+import { graphiteBranchMetadataReadonlyJsonArgs } from "@ji/capability-kit/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
 import { createRequiredCommandRunner } from "./support/run-required-command.ts";
@@ -85,7 +85,7 @@ describe("land stack real Graphite CLI integration", () => {
 });
 
 async function withTempGraphiteRepo(run: (repo: TempGraphiteRepo) => Promise<void>): Promise<void> {
-	const tempRoot = await mkdtemp(join(tmpdir(), "sdl-flow-real-gt-"));
+	const tempRoot = await mkdtemp(join(tmpdir(), "ji-flow-real-gt-"));
 	const repoRoot = join(tempRoot, "repo");
 	const home = join(tempRoot, "home");
 	const env = isolatedGraphiteEnv(home);

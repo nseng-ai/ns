@@ -1,5 +1,5 @@
-import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
-import { formatErrorMessage, formatZodError, isRecord } from "@sdl/core/primitives";
+import { splitMarkdownFrontmatter } from "@ji/core/markdown-frontmatter";
+import { formatErrorMessage, formatZodError, isRecord } from "@ji/core/primitives";
 import { parse } from "yaml";
 
 import {

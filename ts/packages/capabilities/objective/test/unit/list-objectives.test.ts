@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { buildObjectiveBranchAttribution } from "../../src/core/operations/list-branch-attribution.ts";

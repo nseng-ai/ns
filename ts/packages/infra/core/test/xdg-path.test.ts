@@ -6,7 +6,7 @@ import {
 	resolvePathOverride,
 	resolveSdlXdgPath,
 	resolveXdgHome,
-} from "@sdl/core/xdg-path";
+} from "@ji/core/xdg-path";
 
 describe("XDG path helpers", () => {
 	test("resolveXdgHome uses default HOME locations for unset and empty XDG values", () => {

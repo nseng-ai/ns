@@ -1,6 +1,6 @@
-# @sdl/brmem
+# @ji/brmem
 
-`@sdl/brmem` is the TypeScript package and public `brmem` CLI for Branch Memory: a Git-ref-backed storage primitive for small branch-scoped text context used by skills, agents, and repo-local automation without putting that context in commits, PRs, issues, or the working tree.
+`@ji/brmem` is the TypeScript package and public `brmem` CLI for Branch Memory: a Git-ref-backed storage primitive for small branch-scoped text context used by skills, agents, and repo-local automation without putting that context in commits, PRs, issues, or the working tree.
 
 ## Language
 

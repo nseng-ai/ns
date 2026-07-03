@@ -1,6 +1,6 @@
-import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
-import { optionalEntries } from "@sdl/core/primitives";
-import { renderTextTable } from "@sdl/core/text-table";
+import { failure, ok, type RenderCapabilities } from "@ji/clinkr";
+import { optionalEntries } from "@ji/core/primitives";
+import { renderTextTable } from "@ji/core/text-table";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

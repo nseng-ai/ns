@@ -1,11 +1,11 @@
-import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { formatImplBranchContextCommand } from "@sdl/pi/commands";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { formatImplBranchContextCommand } from "@ji/pi/commands";
 import {
 	handleCccSlotDispatchPlan,
 	type CccSlotDispatchPlanOptions,
 	type DispatchPlanConfig,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
 
 const WORKSPACE_COMMAND_NAME = "ccc:workspace:dispatch-plan";
 const SURFACE_COMMAND_NAME = "ccc:surface:dispatch-plan";

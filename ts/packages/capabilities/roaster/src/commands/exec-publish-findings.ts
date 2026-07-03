@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import {
 	publishFindingsRequestSchema,
@@ -7,7 +7,7 @@ import {
 	runPublishFindingsCommand,
 	type PublishFindingsRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../sdl/command.ts";
+import { roasterSdlCommand } from "../ji/command.ts";
 
 const EXEC_PUBLISH_FINDINGS_DESCRIPTION = `Publish Roaster findings to GitHub.
 

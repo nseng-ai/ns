@@ -1,7 +1,7 @@
 # Clinkr API map + ADR rationale
 
-Concrete `@sdl/clinkr` surfaces behind each `sdl-cli-design` rule, plus ADR
-rationale. Symbols are exported from `@sdl/clinkr`
+Concrete `@ji/clinkr` surfaces behind each `sdl-cli-design` rule, plus ADR
+rationale. Symbols are exported from `@ji/clinkr`
 (`ts/packages/infra/clinkr/src/index.ts`). File:line anchors in audits may drift;
 re-grep before quoting line numbers.
 

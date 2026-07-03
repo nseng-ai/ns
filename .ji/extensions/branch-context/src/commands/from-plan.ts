@@ -1,1 +1,1 @@
-export { default } from "@sdl/branch-context/sdl/commands/from-plan";
+export { default } from "@ji/branch-context/ji/commands/from-plan";

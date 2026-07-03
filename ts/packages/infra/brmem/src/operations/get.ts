@@ -1,5 +1,5 @@
-import { negative, ok } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { negative, ok } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

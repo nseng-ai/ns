@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
+import { splitMarkdownFrontmatter } from "@ji/core/markdown-frontmatter";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,

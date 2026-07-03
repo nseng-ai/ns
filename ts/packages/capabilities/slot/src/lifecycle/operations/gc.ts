@@ -6,9 +6,9 @@ import {
 	resolveRenderCapabilities,
 	type Caps,
 	type RenderCapabilities,
-} from "@sdl/clinkr";
-import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@sdl/core/cli-theme";
-import { optionalEntry } from "@sdl/core/primitives";
+} from "@ji/clinkr";
+import { cell, dim, paint, renderTable, stripAnsiWhenDisabled } from "@ji/core/cli-theme";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";

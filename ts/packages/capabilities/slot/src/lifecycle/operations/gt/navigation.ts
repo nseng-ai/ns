@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { failure, type ClinkrFailureExit, type RenderCapabilities } from "@sdl/clinkr";
+import { failure, type ClinkrFailureExit, type RenderCapabilities } from "@ji/clinkr";
 
 import type { SlotCliContext } from "../../../core/context.ts";
 import { findByBranch, buildSlotInventory } from "../../../core/inventory.ts";

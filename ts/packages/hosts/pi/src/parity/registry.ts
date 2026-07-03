@@ -6,7 +6,7 @@ import type { PiSurfaceParity } from "../runtime/parity-extension.ts";
 
 // Extracted Pi-tool packages own package-local parity metadata/tests and are
 // registered through .pi/extensions/*.ts discovery adapters. Importing them into
-// this host static registry would invert the intended tool -> @sdl/pi dependency direction.
+// this host static registry would invert the intended tool -> @ji/pi dependency direction.
 export const STATIC_PI_EXTENSION_PARITY_RECORDS = [
 	...investigateParity,
 	...modelShortcutParity,

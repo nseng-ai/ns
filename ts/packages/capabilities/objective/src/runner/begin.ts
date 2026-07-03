@@ -6,8 +6,8 @@
  */
 import { resolve } from "node:path";
 
-import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { isPathInside, optionalEntry } from "@sdl/core/primitives";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@ji/clinkr";
+import { isPathInside, optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";

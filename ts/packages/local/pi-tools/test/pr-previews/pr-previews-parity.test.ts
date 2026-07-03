@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@sdl/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@sdl/pi/parity/testing";
+} from "@ji/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
 import {
 	prPreviewsExtensionParity,
 	registerPrPreviewsExtension,

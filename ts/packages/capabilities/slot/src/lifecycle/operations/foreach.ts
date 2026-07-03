@@ -1,12 +1,12 @@
-import { commandSucceeded, formatCommand, tailText } from "@sdl/core/command";
+import { commandSucceeded, formatCommand, tailText } from "@ji/core/command";
 import {
 	failure,
 	negative,
 	ok,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
-} from "@sdl/clinkr";
-import { cell, paint, renderTable } from "@sdl/core/cli-theme";
+} from "@ji/clinkr";
+import { cell, paint, renderTable } from "@ji/core/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";

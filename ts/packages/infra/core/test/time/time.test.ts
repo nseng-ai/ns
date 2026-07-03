@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { systemClock, systemTimerScheduler } from "@sdl/core/time";
+import { systemClock, systemTimerScheduler } from "@ji/core/time";
 
 test("system clock reads wall-clock milliseconds", () => {
 	expect(typeof systemClock.nowMs()).toBe("number");

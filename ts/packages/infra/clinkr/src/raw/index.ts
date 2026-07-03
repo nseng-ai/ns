@@ -21,7 +21,7 @@ export interface RawCommandOptions<TContext, S extends z.ZodObject> {
 /**
  * Factory for raw-exit commands. Brands a raw process-exit-code handler with
  * `isRawExit: true` so callers declare raw byte/exit ownership via the
- * `@sdl/clinkr/raw` subpath. No framework bytes are emitted; all output is
+ * `@ji/clinkr/raw` subpath. No framework bytes are emitted; all output is
  * handler-owned and exit codes pass through directly.
  */
 export function rawCommand<TContext, S extends z.ZodObject>(

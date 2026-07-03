@@ -1,5 +1,5 @@
-import { optionalEntry } from "@sdl/core/primitives";
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
+import { optionalEntry } from "@ji/core/primitives";
+import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
 
 import {
 	defineFailureCatalog,

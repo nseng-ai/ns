@@ -1,6 +1,6 @@
-import type { ConfirmationResult } from "@sdl/clinkr";
-import { createScenarioClinkrInteraction } from "@sdl/clinkr/testing";
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import type { ConfirmationResult } from "@ji/clinkr";
+import { createScenarioClinkrInteraction } from "@ji/clinkr/testing";
+import { optionalEntries, optionalEntry } from "@ji/core/primitives";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 

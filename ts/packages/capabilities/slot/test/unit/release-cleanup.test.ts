@@ -1,4 +1,4 @@
-import { createFakeClinkrInteraction } from "@sdl/clinkr/testing";
+import { createFakeClinkrInteraction } from "@ji/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
@@ -7,7 +7,7 @@ import { repoContext } from "../support/run-scenario.ts";
 import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
 import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
-import { FakeGraphiteStackGateway } from "@sdl/capability-kit/graphite/testing";
+import { FakeGraphiteStackGateway } from "@ji/capability-kit/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/core/gateways/fakes/pr.ts";
 import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoSlotContext } from "../../src/core/context.ts";

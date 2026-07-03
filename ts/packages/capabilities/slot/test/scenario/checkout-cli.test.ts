@@ -1,4 +1,4 @@
-import { stripAnsi } from "@sdl/clinkr/testing";
+import { stripAnsi } from "@ji/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import {

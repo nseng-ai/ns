@@ -4,7 +4,7 @@ export { defineExtension } from "./command.ts";
 export {
 	defineRepoLocalSdlExtensionDescriptor,
 	repoLocalSdlCommandDescriptor,
-} from "./repo-local-sdl-extension.ts";
+} from "./repo-local-ji-extension.ts";
 export {
 	sdlExtensionManifestCommandSchema,
 	sdlExtensionManifestSchema,
@@ -33,7 +33,7 @@ export type {
 	RepoLocalSdlCommandDescriptorOptions,
 	RepoLocalSdlExtensionCommandDescriptor,
 	RepoLocalSdlExtensionDescriptor,
-} from "./repo-local-sdl-extension.ts";
+} from "./repo-local-ji-extension.ts";
 export type {
 	ExecResult,
 	SdlConfirmOptions,
@@ -46,12 +46,12 @@ export {
 	normalizeTextOutput,
 	stripOuterCodeFence,
 	trimOuterBlankLines,
-} from "@sdl/core/text-normalization";
-export { truncateTextHead, truncateTextHeadTail } from "@sdl/core/text-truncation";
+} from "@ji/core/text-normalization";
+export { truncateTextHead, truncateTextHeadTail } from "@ji/core/text-truncation";
 export type {
 	HeadTailTextTruncationOptions,
 	HeadTextTruncationOptions,
-} from "@sdl/core/text-truncation";
+} from "@ji/core/text-truncation";
 export { failed, ok } from "./result.ts";
 export type { SdlResult } from "./result.ts";
 export { noopSdlCommandIo, noopSdlProgress } from "./services.ts";

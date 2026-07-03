@@ -1,1 +1,1 @@
-export { default } from "@sdl/objective/sdl/commands/exec-runner-subagent-usage";
+export { default } from "@ji/objective/ji/commands/exec-runner-subagent-usage";

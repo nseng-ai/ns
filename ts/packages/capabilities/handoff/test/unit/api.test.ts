@@ -22,7 +22,7 @@ import {
 	readHandoffArtifact,
 } from "../../src/api/index.ts";
 
-describe("@sdl/handoff/api", () => {
+describe("@ji/handoff/api", () => {
 	test("exports identity helpers and schemas", () => {
 		expect(HANDOFF_NAMESPACE).toBe("handoff");
 		expect(HANDOFF_KEY_SUFFIX).toBe(".md");

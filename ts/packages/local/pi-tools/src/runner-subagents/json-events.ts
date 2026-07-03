@@ -1,8 +1,8 @@
-import type { Clock } from "@sdl/core/clock";
-import { systemClock } from "@sdl/core/time";
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { isRecord } from "@sdl/core/primitives";
-import { isThinkingLevel } from "@sdl/pi/runtime/types";
+import type { Clock } from "@ji/core/clock";
+import { systemClock } from "@ji/core/time";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { isRecord } from "@ji/core/primitives";
+import { isThinkingLevel } from "@ji/pi/runtime/types";
 import type { RunnerSubagentLaunchMetadata, RunnerSubagentProgress } from "./extension-api.ts";
 import type { RunnerSubagentActivity } from "./activity.ts";
 import {
@@ -569,7 +569,7 @@ function sanitizeLaunchMetadataText(value: string): string | undefined {
 		: sanitized.slice(0, MAX_LAUNCH_METADATA_TEXT_CHARS);
 }
 
-export { isRecord } from "@sdl/core/primitives";
+export { isRecord } from "@ji/core/primitives";
 
 function hasToolInputValue(event: JsonRecord): boolean {
 	return ["args", "arguments", "input"].some((key) =>

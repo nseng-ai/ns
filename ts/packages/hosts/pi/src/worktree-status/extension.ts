@@ -1,16 +1,16 @@
 import { basename, resolve } from "node:path";
 
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { isRecord, optionalEntry } from "@sdl/core/primitives";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { isRecord, optionalEntry } from "@ji/core/primitives";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandEventBus,
-} from "@sdl/pi/commands/events";
-import { unrefTimerScheduler } from "@sdl/pi/shared/timers";
-import type { Clock } from "@sdl/core/clock";
-import { systemClock } from "@sdl/core/time";
-import type { TimerScheduler } from "@sdl/core/timers";
-import { shutdownGraphiteMetadataWorker } from "@sdl/capability-kit/graphite/status";
+} from "@ji/pi/commands/events";
+import { unrefTimerScheduler } from "@ji/pi/shared/timers";
+import type { Clock } from "@ji/core/clock";
+import { systemClock } from "@ji/core/time";
+import type { TimerScheduler } from "@ji/core/timers";
+import { shutdownGraphiteMetadataWorker } from "@ji/capability-kit/graphite/status";
 
 import {
 	combineWorktreeStatus,

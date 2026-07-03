@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps } from "@sdl/clinkr";
-import { stripAnsi } from "@sdl/clinkr/testing";
+import type { Caps } from "@ji/clinkr";
+import { stripAnsi } from "@ji/clinkr/testing";
 
 import {
 	renderLandConfirmationDetails,

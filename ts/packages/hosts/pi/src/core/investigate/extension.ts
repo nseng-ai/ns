@@ -27,7 +27,7 @@ export const investigateParity = definePiSurfaceParity([
 		trackedGap:
 			"Claude Code has /investigate via a project skill and custom subagent, but Pi keeps /investigate in-process; there is no agent-neutral CLI surface yet.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
+		sourcePackage: "@ji/pi",
 		sourceModule: "investigate",
 		notes:
 			"Pi and Claude Code both expose /investigate, but there is no standalone non-harness command yet. Pi keeps /investigate in-process in the parent session and does not expose an out-of-process investigator subagent mode.",

@@ -1,4 +1,4 @@
-import { displayWidth } from "@sdl/core/text-table";
+import { displayWidth } from "@ji/core/text-table";
 
 import { uniqueSortedStrings } from "../sort.ts";
 import type { DoctorSkillFinding, DoctorSkillsResult } from "./doctor-skills.ts";

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./sdl-cli-fakes.ts";
+import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ji-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -149,7 +149,7 @@ function handoffCommandSource(options: {
 	return `import { appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+import { defineExtension, ok, z } from "@ji/kernel/sdk";
 
 const LOAD_LOG_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "load-log.txt");
 

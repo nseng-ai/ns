@@ -1,7 +1,7 @@
-import type { CommandExecApi } from "@sdl/core/command";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { ScriptedCommandExecApi } from "@sdl/core/exec/testing";
+import type { CommandExecApi } from "@ji/core/command";
+import type { GitGateway } from "@ji/capability-kit/git";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { ScriptedCommandExecApi } from "@ji/core/exec/testing";
 
 import type { RoasterContext } from "../../src/core/context.ts";
 import {

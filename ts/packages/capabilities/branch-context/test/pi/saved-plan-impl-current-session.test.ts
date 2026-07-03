@@ -15,7 +15,7 @@ import {
 	savedPlanEvidence,
 	sourcePlanToolResultEntry,
 } from "./branch-context-extension-support.ts";
-import type { SelectedSavedPlanFile } from "@sdl/plans/api";
+import type { SelectedSavedPlanFile } from "@ji/plans/api";
 
 describe("saved-plan current-branch implementation command", () => {
 	test("registers /ji:plan:impl-current and shows usage without mutation", async () => {

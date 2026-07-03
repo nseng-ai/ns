@@ -1,23 +1,23 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
-import { formatZodError } from "@sdl/core/primitives";
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
-import { parseCliCommandArgs } from "@sdl/pi/commands/args";
-import type { PiModelRegistryLike } from "@sdl/pi/models/call";
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import type { ExecOptions, ExecResult } from "@ji/core/exec";
+import { formatZodError } from "@ji/core/primitives";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { parseCliCommandArgs } from "@ji/pi/commands/args";
+import type { PiModelRegistryLike } from "@ji/pi/models/call";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 import type {
 	PiCommandContext,
 	PiCommandHost,
 	PiCommandRegistration,
-} from "@sdl/pi/runtime/command-host";
-import { parseMachineEnvelopeDataWithFailureData } from "@sdl/pi/runtime/machine-envelope";
+} from "@ji/pi/runtime/command-host";
+import { parseMachineEnvelopeDataWithFailureData } from "@ji/pi/runtime/machine-envelope";
 import { z } from "zod";
 
 import { createPrPreviewChecksCommand } from "./preview-checks-command.ts";
 import { createPrPreviewFeedbackCommand } from "./preview-feedback-command.ts";
 
-export type { ExecOptions, ExecResult } from "@sdl/core/exec";
+export type { ExecOptions, ExecResult } from "@ji/core/exec";
 
 export const PR_PREVIEW_FEEDBACK_COMMAND_NAME = "pr:preview-feedback";
 export const PR_PREVIEW_CHECKS_COMMAND_NAME = "pr:preview-checks";
@@ -35,7 +35,7 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 		fallback:
 			"Use ji address exec download-feedback --format json, then ji address exec pr-review-threads --pr-number <n> --format json.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl-local/pi-tools/pr-previews",
+		sourcePackage: "@internal/pi-tools/pr-previews",
 		sourceModule: "pr-previews",
 		notes:
 			"The browser modal is Pi-native TUI/session behavior; pr-address owns portable read-only feedback collection.",
@@ -47,7 +47,7 @@ export const prPreviewsExtensionParity = definePiSurfaceParity([
 		parity: "WAIVED",
 		fallback: "Use ji address exec pr-checks [--pr-number <n>] --format json.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl-local/pi-tools/pr-previews",
+		sourcePackage: "@internal/pi-tools/pr-previews",
 		sourceModule: "pr-previews",
 		notes: "Pi owns modal/session UI; pr-address owns portable check collection.",
 	},

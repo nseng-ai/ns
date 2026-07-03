@@ -1,4 +1,4 @@
-# `@sdl/packagechk`
+# `@ji/packagechk`
 
 `packagechk` checks public package registry state for prospective package names.
 

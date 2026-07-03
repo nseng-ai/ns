@@ -2,7 +2,7 @@ import {
 	type ExecResult,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@sdl/core/command";
+} from "@ji/core/command";
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	return formatCommandFailure("command failed", commandDisplay, result);

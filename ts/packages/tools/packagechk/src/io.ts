@@ -1,3 +1,3 @@
-import type { ClinkrIo } from "@sdl/clinkr";
+import type { ClinkrIo } from "@ji/clinkr";
 
 export type PackagechkIo = ClinkrIo;

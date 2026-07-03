@@ -1,4 +1,4 @@
-import { clamp } from "@sdl/pi/terminal/layout";
+import { clamp } from "@ji/pi/terminal/layout";
 
 import type { NormalizedGrillAskInput } from "./extension.ts";
 import {

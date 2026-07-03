@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
 import {
 	buildHandoffLaunchPrompt,
 	buildHandoffLaunchTool,
@@ -16,7 +16,7 @@ import type {
 	RenderComponent,
 	ToolDefinition,
 } from "./runtime-types.ts";
-import { definePiSurfaceParity } from "@sdl/pi/parity/extension";
+import { definePiSurfaceParity } from "@ji/pi/parity/extension";
 import type { InteractiveClaudeRunResult, RunInteractiveClaude } from "./interactive-claude.ts";
 
 export type {
@@ -38,7 +38,7 @@ export const claudeHandoffParity = definePiSurfaceParity([
 		fallback:
 			"Create a handoff with handoff-create, then manually launch Claude Code or another harness and pick up the saved handoff.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/handoff/pi",
+		sourcePackage: "@ji/handoff/pi",
 		sourceModule: "claude-command",
 		notes:
 			"The handoff artifact is portable; handing the terminal to Claude Code is a Pi-native interactive session primitive.",

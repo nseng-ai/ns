@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage } from "@ji/core/primitives";
 
 import type {
 	RunnerSubagentTerminalStatus,

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { addressRepoLocalSdlExtension } from "../../src/repo-local-sdl-extension.ts";
+import { addressRepoLocalSdlExtension } from "../../src/repo-local-ji-extension.ts";
 
 const addressExtensionManifestSchema = z.object({
 	ji: z.object({

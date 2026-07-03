@@ -1,4 +1,4 @@
-import { withTempGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@ji/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, {

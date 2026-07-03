@@ -4,9 +4,9 @@ import {
 	parseRunnerSubagentUsageJsonl,
 	type RuntimeRunnerSubagentUsageCostTotals,
 	type RuntimeRunnerSubagentUsageTotals,
-} from "@sdl/core/runner-usage";
+} from "@ji/core/runner-usage";
 
-import { formatErrorMessage } from "@sdl/core/primitives";
+import { formatErrorMessage } from "@ji/core/primitives";
 import type {
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageUnavailableReason,

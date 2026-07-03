@@ -11,9 +11,9 @@ import {
 	type ClinkrNegativeExit,
 	type ClinkrUsageErrorExit,
 	type RenderCapabilities,
-} from "@sdl/clinkr";
-import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
+} from "@ji/clinkr";
+import { rawCommand } from "@ji/clinkr/raw";
+import { defineCli, type CliEntrypointDeps } from "@ji/core/cli-runtime";
 import { z } from "zod";
 
 import type { ArtifactOutputBounds, LoadedBundle } from "./models.ts";

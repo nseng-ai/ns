@@ -2,8 +2,8 @@ import {
 	linkifyPrReferences,
 	prLinksFromDetails,
 	truncateDisplayLine,
-} from "@sdl/core/terminal-presentation";
-import { firstNonEmptyLine } from "@sdl/core/text-normalization";
+} from "@ji/core/terminal-presentation";
+import { firstNonEmptyLine } from "@ji/core/text-normalization";
 import { shortSha } from "../../commit-display/index.ts";
 import { commandStreamDetailsForLanded, type LandStackCommandStream } from "./command-stream.ts";
 import { formatCommandDetails } from "./command-exec.ts";

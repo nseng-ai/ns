@@ -1,0 +1,26 @@
+{
+	"name": "jicc",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"bin": {
+		"jicc": "./src/cli.ts"
+	},
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/jicc/test",
+		"start": "bun src/cli.ts",
+		"stack-map": "bun src/cli.ts"
+	},
+	"dependencies": {
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/objective": "workspace:*",
+		"@ji/slot": "workspace:*",
+		"@opentui/core": "catalog:",
+		"zod": "catalog:"
+	},
+	"ji": {
+		"tier": "host"
+	}
+}

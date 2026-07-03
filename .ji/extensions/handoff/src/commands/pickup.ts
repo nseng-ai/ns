@@ -1,1 +1,1 @@
-export { default } from "@sdl/handoff/sdl/commands/pickup";
+export { default } from "@ji/handoff/ji/commands/pickup";

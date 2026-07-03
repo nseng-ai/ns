@@ -1,5 +1,5 @@
 {
-	"name": "@sdl/pi",
+	"name": "@ji/pi",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -43,11 +43,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/pi/test"
 	},
 	"dependencies": {
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
-		"zod": "catalog:",
-		"@earendil-works/pi-tui": "catalog:"
+		"@earendil-works/pi-tui": "catalog:",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
+		"zod": "catalog:"
 	},
 	"peerDependencies": {
 		"@earendil-works/pi-ai": "*",

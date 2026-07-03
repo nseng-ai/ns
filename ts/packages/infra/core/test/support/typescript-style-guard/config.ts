@@ -68,46 +68,46 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
 	[
-		"@sdl/kernel\0@sdl/slot",
-		"SDK-to-capability CLI mount debt: @sdl/kernel still mounts Slot directly.",
+		"@ji/kernel\0@ji/slot",
+		"SDK-to-capability CLI mount debt: @ji/kernel still mounts Slot directly.",
 	],
 	[
-		"@sdl/kernel\0@sdl/capability-kit",
-		"SDK-to-capability-kit CLI shell-support debt: @sdl/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
+		"@ji/kernel\0@ji/capability-kit",
+		"SDK-to-capability-kit CLI shell-support debt: @ji/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
 	],
 	[
-		"@sdl/brmem\0@sdl/capability-kit",
+		"@ji/brmem\0@ji/capability-kit",
 		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
 	],
 	[
-		"@sdl-local/pi-tools\0@sdl/capability-kit",
+		"@internal/pi-tools\0@ji/capability-kit",
 		"Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
 	],
 ]);
 
 export const capabilityPackageNames = new Set([
-	"@sdl/aretro",
-	"@sdl/branch-context",
-	"@sdl/ccc",
-	"@sdl/handoff",
-	"@sdl/objective",
-	"@sdl/plans",
-	"@sdl/address",
-	"@sdl/slot",
-	"sdl-flow",
+	"@ji/aretro",
+	"@ji/branch-context",
+	"@ji/ccc",
+	"@ji/handoff",
+	"@ji/objective",
+	"@ji/plans",
+	"@ji/address",
+	"@ji/slot",
+	"@ji/flow",
 ]);
 
 export const neutralPeerPackageNames = new Set([
 	"/cli-runtime",
-	"@sdl/brmem",
-	"@sdl/clinkr",
-	"@sdl/capability-kit/cmux",
-	"@sdl/core",
-	"@sdl/capability-kit",
-	"@sdl/core/exec",
-	"@sdl/capability-kit/git",
-	"@sdl/capability-kit/github",
-	"@sdl/capability-kit/graphite",
+	"@ji/brmem",
+	"@ji/clinkr",
+	"@ji/capability-kit/cmux",
+	"@ji/core",
+	"@ji/capability-kit",
+	"@ji/core/exec",
+	"@ji/capability-kit/git",
+	"@ji/capability-kit/github",
+	"@ji/capability-kit/graphite",
 ]);
 
 export const manifestDependencyFields = [
@@ -118,9 +118,9 @@ export const manifestDependencyFields = [
 
 export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
-	"@sdl/pi",
-	"@sdl/kernel",
-	"sdlcc",
+	"@ji/pi",
+	"@ji/kernel",
+	"jicc",
 ]);
 
 export const deferredExtensionCycleComponents = [];

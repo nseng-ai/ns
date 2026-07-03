@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import {
 	renderReviewList,
@@ -7,11 +7,11 @@ import {
 	runReviewList,
 	type ReviewListRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../sdl/command.ts";
+import { roasterSdlCommand } from "../ji/command.ts";
 
 const REVIEW_LIST_DESCRIPTION = `List configured Roaster review definitions.
 
-This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, then delegates through the curated @sdl/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
+This SDL command adapts SDL execution context to Roaster's gateway-injected runtime, then delegates through the curated @ji/roaster/api facade. Discovery and group help read only manifest metadata; selected help loads this command for its schema and detailed description without running git, Branch Memory, model, or GitHub operations.`;
 
 export interface ReviewListCommandMetadata {
 	readonly name: string;

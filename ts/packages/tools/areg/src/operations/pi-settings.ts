@@ -1,5 +1,5 @@
-import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
-import { err, type Result } from "@sdl/core/result";
+import { formatErrorMessage, isRecord } from "@ji/core/primitives";
+import { err, type Result } from "@ji/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 import { rejectTextState, validateOptionalDirectoryState } from "./file-state.ts";

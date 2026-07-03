@@ -1,5 +1,5 @@
-import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@sdl/clinkr";
-import { renderResultBlock } from "@sdl/core/cli-theme";
+import { failure, ok, resolveRenderCapabilities, type RenderCapabilities } from "@ji/clinkr";
+import { renderResultBlock } from "@ji/core/cli-theme";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";

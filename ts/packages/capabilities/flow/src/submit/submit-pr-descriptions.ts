@@ -1,8 +1,8 @@
-import type { ErrorInfo } from "@sdl/core/result";
+import type { ErrorInfo } from "@ji/core/result";
 import {
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,
-} from "@sdl/capability-kit/gateway-result";
+} from "@ji/capability-kit/gateway-result";
 
 import { orchestratePrDescription } from "./index.ts";
 import { resolvePrDescriptionGeneration, type PrDescriptionGenerationResolution } from "./index.ts";

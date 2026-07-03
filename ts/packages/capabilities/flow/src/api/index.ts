@@ -1,4 +1,4 @@
-// Capability API (`sdl-flow/api`): the curated, in-process surface for
+// Capability API (`@ji/flow/api`): the curated, in-process surface for
 // Flow workflow consumers. CCC imports this seam for Flow-owned behavior
 // instead of importing private Flow internals directly.
 

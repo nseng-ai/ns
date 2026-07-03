@@ -1,16 +1,16 @@
-import { failure, ok } from "@sdl/clinkr";
+import { failure, ok } from "@ji/clinkr";
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopology,
 	GraphiteTopologyParseDiagnostics,
 	GraphiteWalkTermination,
-} from "@sdl/capability-kit/graphite/metadata";
+} from "@ji/capability-kit/graphite/metadata";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../../../core/collections.ts";
 import type { SlotCliContext } from "../../../../core/context.ts";
 import type { LocalBranchTip } from "../../../../core/gateways/repository.ts";
-import type { StackInfo } from "@sdl/capability-kit/graphite/stack";
+import type { StackInfo } from "@ji/capability-kit/graphite/stack";
 import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import {

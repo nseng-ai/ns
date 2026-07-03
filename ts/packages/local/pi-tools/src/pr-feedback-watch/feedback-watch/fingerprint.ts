@@ -1,6 +1,6 @@
 import type { PrFeedbackDownloadData } from "../feedback-download.ts";
-import { finiteNumberField, optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { isRecord, stringField } from "@sdl/pi/runtime/primitives";
+import { finiteNumberField, optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { isRecord, stringField } from "@ji/pi/runtime/primitives";
 
 import { TOP_LEVEL_BOT_DISCUSSION_AUTHORS } from "./constants.ts";
 import type {

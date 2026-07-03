@@ -1,7 +1,7 @@
 // Formal clinkr display import boundary: production core and non-display subpaths must stay display-free.
-// The root export (`@sdl/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
-// SDL house-style display now lives outside Clinkr in `@sdl/core/cli-theme`; Clinkr's only display-adjacent
-// production subpath is `@sdl/clinkr/stream`, the owner of `log-update`. This guard scans production
+// The root export (`@ji/clinkr`) plus `raw`, `completion`, and `testing` are non-display surfaces.
+// SDL house-style display now lives outside Clinkr in `@ji/core/cli-theme`; Clinkr's only display-adjacent
+// production subpath is `@ji/clinkr/stream`, the owner of `log-update`. This guard scans production
 // source import/export literals directly so future re-exports, side-effect imports, and lazy imports
 // cannot silently pull display bytes into non-display consumers.
 
@@ -9,7 +9,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fileForReport, literalSpecifierUsesOf, sourceFilesUnder } from "@sdl/clinkr/testing";
+import { fileForReport, literalSpecifierUsesOf, sourceFilesUnder } from "@ji/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -39,32 +39,32 @@ interface BoundaryOffender {
 
 const NON_DISPLAY_ENTRYPOINTS: readonly NonDisplayEntrypoint[] = [
 	{
-		label: "@sdl/clinkr",
+		label: "@ji/clinkr",
 		exportPath: ".",
 		packageTarget: "./src/index.ts",
 		file: resolve(SRC_DIR, "index.ts"),
 	},
 	{
-		label: "@sdl/clinkr/completion",
+		label: "@ji/clinkr/completion",
 		exportPath: "./completion",
 		packageTarget: "./src/completion.ts",
 		file: resolve(SRC_DIR, "completion.ts"),
 	},
 	{
-		label: "@sdl/clinkr/raw",
+		label: "@ji/clinkr/raw",
 		exportPath: "./raw",
 		packageTarget: "./src/raw/index.ts",
 		file: resolve(SRC_DIR, "raw/index.ts"),
 	},
 	{
-		label: "@sdl/clinkr/testing",
+		label: "@ji/clinkr/testing",
 		exportPath: "./testing",
 		packageTarget: "./src/testing/index.ts",
 		file: resolve(SRC_DIR, "testing/index.ts"),
 	},
 ];
 
-const DISPLAY_SUBPATHS = ["@sdl/core/cli-theme", "@sdl/clinkr/stream"];
+const DISPLAY_SUBPATHS = ["@ji/core/cli-theme", "@ji/clinkr/stream"];
 const DISPLAY_DIRS = [STREAM_DIR];
 const DISPLAY_DEPENDENCY_RULES: readonly DisplayDependencyRule[] = [
 	{ packageName: "log-update", ownerDir: STREAM_DIR, ownerLabel: "src/stream/**" },
@@ -207,7 +207,7 @@ function productionCliThemeImportOffenders(): readonly BoundaryOffender[] {
 	for (const file of sourceFilesUnder(SRC_DIR)) {
 		const source = readFileSync(file, "utf8");
 		for (const { specifier } of literalSpecifierUsesOf(source)) {
-			if (!isPackageOrSubpathSpecifier(specifier, "@sdl/core/cli-theme")) continue;
+			if (!isPackageOrSubpathSpecifier(specifier, "@ji/core/cli-theme")) continue;
 			offenders.push({
 				file: fileForReport(file),
 				specifier,
@@ -223,16 +223,16 @@ describe("clinkr display import boundary", () => {
 		const source = `
 			import ansis from "ansis";
 			import type { Caps } from "./caps.ts";
-			import "@sdl/core/cli-theme";
-			export { streamSink } from "@sdl/clinkr/stream";
+			import "@ji/core/cli-theme";
+			export { streamSink } from "@ji/clinkr/stream";
 			await import("log-update");
 		`;
 
 		expect(literalSpecifierUsesOf(source)).toEqual([
 			{ specifier: "ansis", kind: "static-import" },
 			{ specifier: "./caps.ts", kind: "static-import" },
-			{ specifier: "@sdl/core/cli-theme", kind: "static-import" },
-			{ specifier: "@sdl/clinkr/stream", kind: "re-export" },
+			{ specifier: "@ji/core/cli-theme", kind: "static-import" },
+			{ specifier: "@ji/clinkr/stream", kind: "re-export" },
 			{ specifier: "log-update", kind: "dynamic-import" },
 		]);
 	});

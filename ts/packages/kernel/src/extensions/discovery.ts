@@ -6,7 +6,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 	type ZodIssueLike,
-} from "@sdl/core/primitives";
+} from "@ji/core/primitives";
 import {
 	sdlExtensionManifestCommandSchema,
 	sdlExtensionPackageManifestSchema,

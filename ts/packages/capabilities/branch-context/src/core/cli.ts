@@ -1,6 +1,6 @@
-import { ClinkrGroup } from "@sdl/clinkr";
-import { defineCli } from "@sdl/core/cli-runtime";
-import { optionalEntry } from "@sdl/core/primitives";
+import { ClinkrGroup } from "@ji/clinkr";
+import { defineCli } from "@ji/core/cli-runtime";
+import { optionalEntry } from "@ji/core/primitives";
 
 import {
 	attachRequestSchema,

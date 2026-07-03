@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 
-import type { CommandExecApi, ExecOptions } from "@sdl/core/exec";
-import type { GitGateway } from "@sdl/capability-kit/git";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import type { CommandExecApi, ExecOptions } from "@ji/core/exec";
+import type { GitGateway } from "@ji/capability-kit/git";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,

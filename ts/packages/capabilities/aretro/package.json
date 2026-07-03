@@ -1,11 +1,11 @@
 {
-	"name": "@sdl/aretro",
+	"name": "@ji/aretro",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
-		"./sdl/commands/exec-collect-evidence": "./src/sdl/commands/exec-collect-evidence.ts",
-		"./sdl/commands/exec-read-evidence-detail": "./src/sdl/commands/exec-read-evidence-detail.ts",
-		"./repo-local-sdl-extension": "./src/repo-local-sdl-extension.ts"
+		"./ji/commands/exec-collect-evidence": "./src/ji/commands/exec-collect-evidence.ts",
+		"./ji/commands/exec-read-evidence-detail": "./src/ji/commands/exec-read-evidence-detail.ts",
+		"./repo-local-sdl-extension": "./src/repo-local-ji-extension.ts"
 	},
 	"files": [
 		"src"
@@ -15,10 +15,10 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/aretro/test"
 	},
 	"dependencies": {
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/clinkr": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/clinkr": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"ji": {

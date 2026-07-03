@@ -2,8 +2,8 @@ import type {
 	RunnerSubagentContext,
 	RunnerSubagentResult,
 	RunnerSubagentUpdate,
-} from "@sdl-local/pi-tools/runner-subagents";
-import { dispatchRunnerSubagent, resultDiagnostic } from "@sdl-local/pi-tools/runner-subagents";
+} from "@internal/pi-tools/runner-subagents";
+import { dispatchRunnerSubagent, resultDiagnostic } from "@internal/pi-tools/runner-subagents";
 import type { ThermoCouncilReviewerOutcome, ThermoCouncilScope } from "./contract.ts";
 import { SAFETY_NOTE } from "./constants.ts";
 import { renderReviewGuidanceBlock } from "./prompt-blocks.ts";

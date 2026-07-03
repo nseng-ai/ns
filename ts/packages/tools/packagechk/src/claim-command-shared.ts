@@ -10,7 +10,7 @@ import {
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
-} from "@sdl/clinkr";
+} from "@ji/clinkr";
 
 import { writeClaimFiles } from "./claim.ts";
 import type { PackagechkIo } from "./io.ts";

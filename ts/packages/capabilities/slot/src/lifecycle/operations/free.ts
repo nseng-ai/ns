@@ -5,8 +5,8 @@ import {
 	ok,
 	resolveRenderCapabilities,
 	type RenderCapabilities,
-} from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+} from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../core/collections.ts";

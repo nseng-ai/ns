@@ -11,12 +11,12 @@ import {
 	selectAttachedPlanKey,
 } from "../src/core/attached-plan.ts";
 import type { AttachedPlanEntry } from "../src/core/branch-memory.ts";
-import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@sdl/branch-context";
-import type { CommandExecApi } from "@sdl/core/exec";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
-import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@sdl/plans";
-import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
+import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@ji/branch-context";
+import type { CommandExecApi } from "@ji/core/exec";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@ji/plans";
+import { InMemoryBranchMemoryGateway } from "@ji/branch-context/testing";
+import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const PLAN_SLUG = "branch-scoped-plan-extension";

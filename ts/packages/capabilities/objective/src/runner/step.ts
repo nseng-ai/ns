@@ -3,8 +3,8 @@
  * orchestration. Superseded by `begin.ts` + `finish.ts` around a harness
  * subagent. Grep `ADR0024-LEGACY-DELETE` for the complete deletion checklist.
  */
-import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { failure, negative, ok, usageError, type ClinkrExit } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import {

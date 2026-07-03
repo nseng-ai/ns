@@ -1,6 +1,6 @@
-import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@sdl/pi/commands/ack";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
 import { handleCccSlotOpenBranch, type CccSlotOpenBranchOptions } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@sdl/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:open-branch";
 

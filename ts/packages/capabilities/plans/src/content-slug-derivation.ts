@@ -1,5 +1,5 @@
-import { type CommandExecApi, formatOutputSection } from "@sdl/core/exec";
-import { deriveSlugWithModel, type SlugModelEvidence } from "@sdl/capability-kit/model-slug";
+import { type CommandExecApi, formatOutputSection } from "@ji/core/exec";
+import { deriveSlugWithModel, type SlugModelEvidence } from "@ji/capability-kit/model-slug";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 
 const MAX_ERROR_CHARS = 4_000;

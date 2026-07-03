@@ -1,5 +1,5 @@
-import { FakeBrmemGateway } from "@sdl/brmem";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import { FakeBrmemGateway } from "@ji/brmem";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { HandoffStorageDeps } from "../../src/core/artifact-storage.ts";

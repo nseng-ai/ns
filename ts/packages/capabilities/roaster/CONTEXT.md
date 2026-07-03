@@ -1,4 +1,4 @@
-# @sdl/roaster Context
+# @ji/roaster Context
 
 Roaster is an SDL Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
 
@@ -24,9 +24,9 @@ Avoid: teaching the removed standalone `roaster` binary as an active compatibili
 
 ### Roaster Capability API
 
-The curated in-process consumer API exported as `@sdl/roaster/api` for packages that need Roaster behavior without shelling out.
+The curated in-process consumer API exported as `@ji/roaster/api` for packages that need Roaster behavior without shelling out.
 
-Avoid: importing private `@sdl/roaster/src/...` modules or treating the broad package root as the Capability API.
+Avoid: importing private `@ji/roaster/src/...` modules or treating the broad package root as the Capability API.
 
 ### Review definition
 

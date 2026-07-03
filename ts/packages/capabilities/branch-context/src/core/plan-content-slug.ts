@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
 
-import type { CommandExecApi } from "@sdl/core/exec";
+import type { CommandExecApi } from "@ji/core/exec";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
-} from "@sdl/plans";
+} from "@ji/plans";
 
 export type PlanContentSlugEvidence = ContentSlugEvidence;
 

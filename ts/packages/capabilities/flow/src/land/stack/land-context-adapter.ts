@@ -1,4 +1,4 @@
-import { formatCommand } from "@sdl/core/command";
+import { formatCommand } from "@ji/core/command";
 import { formatCommandForDisplay } from "./command-stream.ts";
 import {
 	landCompleted,

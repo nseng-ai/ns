@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@sdl/core/test-kit";
+import { withTempRepoSkill } from "@ji/core/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {

@@ -1,4 +1,4 @@
-import { defineExtension } from "@sdl/kernel/sdk";
+import { defineExtension } from "@ji/kernel/sdk";
 
 import { reviewRunResultSchema } from "../core/models.ts";
 import {
@@ -7,7 +7,7 @@ import {
 	runReviewByKey,
 	type ReviewRunRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../sdl/command.ts";
+import { roasterSdlCommand } from "../ji/command.ts";
 
 const REVIEW_RUN_DESCRIPTION = `Run a configured Roaster review over the current diff.
 

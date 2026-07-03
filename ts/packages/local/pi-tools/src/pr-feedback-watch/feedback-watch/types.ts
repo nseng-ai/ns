@@ -1,10 +1,10 @@
-import type { ExecOptions, ExecResult } from "@sdl/pi/shared/exec-gateway";
+import type { ExecOptions, ExecResult } from "@ji/pi/shared/exec-gateway";
 
-import type { TimerScheduler } from "@sdl/core/timers";
-import type { SendMessageOptions, SendUserMessageOptions } from "@sdl/pi/shared/message-delivery";
+import type { TimerScheduler } from "@ji/core/timers";
+import type { SendMessageOptions, SendUserMessageOptions } from "@ji/pi/shared/message-delivery";
 import type { PrAddressRunner } from "../feedback-download.ts";
 
-export type { ExecOptions, ExecResult } from "@sdl/pi/shared/exec-gateway";
+export type { ExecOptions, ExecResult } from "@ji/pi/shared/exec-gateway";
 
 interface CustomMessage {
 	customType: string;
@@ -53,7 +53,7 @@ export interface ExtensionAPI {
 	appendEntry?(customType: string, data?: unknown): void;
 }
 
-export type { ExecGateway } from "@sdl/pi/shared/exec-gateway";
+export type { ExecGateway } from "@ji/pi/shared/exec-gateway";
 
 export interface PrFeedbackWatchExtensionOptions {
 	runner?: PrAddressRunner;

@@ -1,12 +1,12 @@
-import { optionalEntry } from "@sdl/core/primitives";
-import { resultErr, resultOk } from "@sdl/core/result";
+import { optionalEntry } from "@ji/core/primitives";
+import { resultErr, resultOk } from "@ji/core/result";
 import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,
 	skillLookupDescriptorForSourceType,
 	type SkillLookupRoot,
 	type SkillLookupSourceType,
-} from "@sdl/pi/skills/lookup";
+} from "@ji/pi/skills/lookup";
 
 import { missingCheckSkillInspection } from "./gateways.ts";
 import type {

@@ -7,22 +7,22 @@
  *
  * Spawns the `pi` binary in `--mode json` print mode and parses its NDJSON
  * stdout into the runner's minimal `ChildSessionEvent` vocabulary. This module
- * deliberately has ZERO `@sdl/pi` imports: it is reachable from the jiti-loaded
- * `@sdl/objective/sdl/commands/exec-runner-step` repo-local command, and
- * `@sdl/pi` is an optional peer that must never enter that transpile graph.
+ * deliberately has ZERO `@ji/pi` imports: it is reachable from the jiti-loaded
+ * `@ji/objective/sdl/commands/exec-runner-step` repo-local command, and
+ * `@ji/pi` is an optional peer that must never enter that transpile graph.
  * Consumers must import this module by its concrete path, never via the
- * `src/pi/index.ts` barrel (the barrel re-exports `extension.ts` → `@sdl/pi`).
+ * `src/pi/index.ts` barrel (the barrel re-exports `extension.ts` → `@ji/pi`).
  */
 import { spawn } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { Clock } from "@sdl/core/clock";
-import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
-import { BoundedTextTailBuffer } from "@sdl/core/text-tail-buffer";
-import { systemClock, systemTimerScheduler } from "@sdl/core/time";
-import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
+import type { Clock } from "@ji/core/clock";
+import { formatErrorMessage, isRecord } from "@ji/core/primitives";
+import { BoundedTextTailBuffer } from "@ji/core/text-tail-buffer";
+import { systemClock, systemTimerScheduler } from "@ji/core/time";
+import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
 
 import type {
 	ChildSessionEvent,

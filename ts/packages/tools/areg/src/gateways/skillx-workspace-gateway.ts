@@ -2,8 +2,8 @@ import { lstat, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { resultErr, resultOk } from "@sdl/core/result";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { resultErr, resultOk } from "@ji/core/result";
 
 import type {
 	AregErrorInfo,

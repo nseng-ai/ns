@@ -25,7 +25,7 @@ Current layers:
 | cmux command gateway   | `ts/packages/capabilities/ccc/src/cmux/workspace-summary.ts` | Runs installed cmux CLI commands through the CCC command gateway       |
 | Scenario/package tests | `ts/packages/capabilities/ccc/test/`, `ts/.../test/`         | Cover CCC exec behavior and Pi command behavior                        |
 
-Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@sdl/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
+Project-local `.pi/extensions/*.ts` files should stay thin once behavior is durable or risky. Put reusable CCC workspace/sidebar behavior under `ts/packages/capabilities/ccc/src/cmux/` with pnpm/Vitest tests. Keep generic Pi lifecycle/footer/watch plumbing in `@ji/pi`; CCC owns repo-opinionated cmux/workspace/sidebar orchestration and operational worktree-status facts/presentation.
 
 Do not put raw cmux mutation sequences in long skill bodies when a tested `ccc exec` command can own them.
 

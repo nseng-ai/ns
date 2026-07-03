@@ -1,9 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
-import { stripAnsi } from "@sdl/clinkr/testing";
-import type { TextGenerationResult } from "@sdl/kernel/sdk";
+import { stripAnsi } from "@ji/clinkr/testing";
+import type { TextGenerationResult } from "@ji/kernel/sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
 
 // A non-tty transient line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {

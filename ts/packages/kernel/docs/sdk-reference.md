@@ -1,21 +1,21 @@
-# `@sdl/kernel/sdk` — Reference
+# `@ji/kernel/sdk` — Reference
 
-`@sdl/kernel/sdk` is the public author API for SDL extensions — the one package you import from to write an SDL extension; this document is the complete reference for its exports. `@sdl/kernel/sdk` is the SDK layer; `@sdl/kernel` is the host/kernel that loads extensions.
+`@ji/kernel/sdk` is the public author API for SDL extensions — the one package you import from to write an SDL extension; this document is the complete reference for its exports. `@ji/kernel/sdk` is the SDK layer; `@ji/kernel` is the host/kernel that loads extensions.
 
 Import the SDK's own surface from the package itself:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@sdl/kernel/sdk";
-import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
+import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 ```
 
 Command schemas are [Zod](https://zod.dev) schemas. Import the SDK's `z` export so extension modules use the same schema identity as the SDL host.
 
-Do not import SDL implementation modules (`@sdl/kernel/*`, `@sdl/core/*`, `@sdl/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
+Do not import SDL implementation modules (`@ji/kernel/*`, `@ji/core/*`, `@ji/clinkr/*`) from SDL extension authoring modules. The SDK re-exports the few lower-package types an author needs; those are documented below as first-party SDK vocabulary, with their origin noted.
 
-Capability APIs such as `@sdl/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@sdl/kernel/sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
+Capability APIs such as `@ji/<cap>/api` are consumer/provider capability surfaces above the SDK, not part of `@ji/kernel/sdk` and not general SDL extension-author API. They are for first-party capability packages that deliberately depend on each other in-process; command authors still import only this SDK unless a capability's package documentation explicitly tells them otherwise.
 
-For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@sdl/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
+For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `@ji/flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@ji/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
 
 The SDK is intentionally small. A command should own its workflow policy — prompts, validation, repair, external commands, GitHub/Graphite choreography, and confirmation boundaries — unless repeated command migrations prove a deeper kernel helper belongs in this author API. When a helper is promoted, this reference becomes the source of truth for the new public surface.
 
@@ -49,7 +49,7 @@ function defineExtension(extension: SdlExtension): SdlExtension;
 **Example.**
 
 ```ts
-import { defineExtension, ok } from "@sdl/kernel/sdk";
+import { defineExtension, ok } from "@ji/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -99,34 +99,34 @@ function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOpt
 
 Repo-local first-party extensions in this repository use this command-leaf pattern:
 
-1. The implementation package owns a `src/repo-local-sdl-extension.ts` descriptor.
+1. The implementation package owns a `src/repo-local-ji-extension.ts` descriptor.
 2. Each public command module exports its named `SdlCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
 3. `.ji/extensions/<group>/package.json` lists one manifest command entry per command leaf.
 4. `.ji/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
 
 Do not point multiple manifest command entries at a shared `.ji/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
-`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@sdl/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
+`packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@ji/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
 ```ts
-import { repoLocalSdlCommandDescriptor } from "@sdl/kernel/sdk";
+import { repoLocalSdlCommandDescriptor } from "@ji/kernel/sdk";
 
 const descriptor = repoLocalSdlCommandDescriptor({
   command: attachCommand,
   manifestPath: ["exec", "attach"],
-  packageExportPrefix: "@sdl/branch-context/sdl/commands",
+  packageExportPrefix: "@ji/branch-context/sdl/commands",
 });
 // manifestEntry: "./src/commands/attach.ts"
-// packageExport: "@sdl/branch-context/sdl/commands/attach"
+// packageExport: "@ji/branch-context/sdl/commands/attach"
 
 const routeEncodedDescriptor = repoLocalSdlCommandDescriptor({
   command: reviewListCommand,
   manifestName: "review-list",
   manifestPath: ["review", "list"],
-  packageExportPrefix: "@sdl/roaster/commands",
+  packageExportPrefix: "@ji/roaster/commands",
 });
 // manifestEntry: "./src/commands/review-list.ts"
-// packageExport: "@sdl/roaster/commands/review-list"
+// packageExport: "@ji/roaster/commands/review-list"
 ```
 
 ### `defineRepoLocalSdlExtensionDescriptor()`
@@ -171,7 +171,7 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 **Example.** Declared inline so `request` is inferred from `schema`:
 
 ```ts
-import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+import { defineExtension, ok, z } from "@ji/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -210,7 +210,7 @@ Provides dynamic completion candidates for the selected command without invoking
 **Example.** Complete local branch names for a positional argument:
 
 ```ts
-import { defineExtension, ok, z } from "@sdl/kernel/sdk";
+import { defineExtension, ok, z } from "@ji/kernel/sdk";
 
 export default defineExtension({
   commands: [
@@ -243,13 +243,13 @@ The user-facing setup, resolver behavior, supported shells, and limitations for 
 type SdlCommandSchema = z.ZodObject;
 ```
 
-The schema type a command may declare. Always a Zod object, built with `z` imported from `@sdl/kernel/sdk`.
+The schema type a command may declare. Always a Zod object, built with `z` imported from `@ji/kernel/sdk`.
 
 **Example.**
 
 ```ts
-import { z } from "@sdl/kernel/sdk";
-import type { SdlCommandSchema } from "@sdl/kernel/sdk";
+import { z } from "@ji/kernel/sdk";
+import type { SdlCommandSchema } from "@ji/kernel/sdk";
 
 const schema: SdlCommandSchema = z.object({ force: z.boolean().default(false) });
 ```
@@ -265,8 +265,8 @@ The parsed-request type derived from a command's schema — the type `run` recei
 **Example.**
 
 ```ts
-import { z } from "@sdl/kernel/sdk";
-import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
+import { z } from "@ji/kernel/sdk";
+import type { SdlCommandRequest, SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 
@@ -277,7 +277,7 @@ function runAutobranch(ctx: SdlExtensionApi, request: SdlCommandRequest<typeof s
 
 ### `PositionalSpec`
 
-*Re-exported from `@sdl/clinkr/raw`.* Assigns a schema field to a positional argument slot.
+*Re-exported from `@ji/clinkr/raw`.* Assigns a schema field to a positional argument slot.
 
 ```ts
 interface PositionalSpec {
@@ -343,7 +343,7 @@ The inferred types are exported as `SdlExtensionManifestCommand`, `SdlExtensionM
 
 ### `normalizeTextOutput()`
 
-*Re-exported from `@sdl/core/text-normalization`.* Normalizes model text before validation.
+*Re-exported from `@ji/core/text-normalization`.* Normalizes model text before validation.
 
 ```ts
 function normalizeTextOutput(output: string): string;
@@ -353,7 +353,7 @@ Converts CRLF/CR line endings to `\n`, removes outer blank lines, and strips one
 
 ### `trimOuterBlankLines()`
 
-*Re-exported from `@sdl/core/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
+*Re-exported from `@ji/core/text-normalization`.* Removes leading and trailing blank lines while preserving interior text.
 
 ```ts
 function trimOuterBlankLines(text: string): string;
@@ -361,7 +361,7 @@ function trimOuterBlankLines(text: string): string;
 
 ### `stripOuterCodeFence()`
 
-*Re-exported from `@sdl/core/text-normalization`.* Removes one outer Markdown code fence from a whole response.
+*Re-exported from `@ji/core/text-normalization`.* Removes one outer Markdown code fence from a whole response.
 
 ```ts
 function stripOuterCodeFence(text: string): string;
@@ -369,7 +369,7 @@ function stripOuterCodeFence(text: string): string;
 
 ### `truncateTextHead()`
 
-*Re-exported from `@sdl/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
+*Re-exported from `@ji/core/text-truncation`.* Keeps the head of a string inside a fixed character budget and appends a caller-defined marker.
 
 ```ts
 function truncateTextHead(options: HeadTextTruncationOptions): string;
@@ -377,7 +377,7 @@ function truncateTextHead(options: HeadTextTruncationOptions): string;
 
 ### `truncateTextHeadTail()`
 
-*Re-exported from `@sdl/core/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
+*Re-exported from `@ji/core/text-truncation`.* Keeps head and tail excerpts inside a fixed character budget and inserts a caller-defined marker.
 
 ```ts
 function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
@@ -385,7 +385,7 @@ function truncateTextHeadTail(options: HeadTailTextTruncationOptions): string;
 
 ### `HeadTextTruncationOptions` / `HeadTailTextTruncationOptions`
 
-*Re-exported from `@sdl/core/text-truncation`.* Options for the truncation helpers.
+*Re-exported from `@ji/core/text-truncation`.* Options for the truncation helpers.
 
 **Example.**
 
@@ -417,7 +417,7 @@ A discriminated union on `ok`. Construct values with `ok()` and `failed()` rathe
 **Example.**
 
 ```ts
-import type { SdlExtensionApi, SdlResult } from "@sdl/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
 
 function run(ctx: SdlExtensionApi): SdlResult {
   return ctx.env["DRY_RUN"] ? ok("would run") : ok("ran");
@@ -705,7 +705,7 @@ ctx.stdout?.(result.text);
 Command schemas are [Zod](https://zod.dev) schemas. The SDK exports the host's schema builder so single-file extensions do not need their own resolvable `zod` dependency. Its API is Zod's own — see the Zod documentation; it is not re-documented here.
 
 ```ts
-import { z } from "@sdl/kernel/sdk";
+import { z } from "@ji/kernel/sdk";
 
 const schema = z.object({ slug: z.string().optional() });
 ```

@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { formatZodError, optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import { formatZodError, optionalEntries, optionalEntry } from "@ji/core/primitives";
 
-import { loadPiAgentDefinition, type PiAgentDefinition } from "@sdl/pi/runtime/agent-definition";
-import type { ToolDefinition } from "@sdl/pi/runtime/tool-types";
+import { loadPiAgentDefinition, type PiAgentDefinition } from "@ji/pi/runtime/agent-definition";
+import type { ToolDefinition } from "@ji/pi/runtime/tool-types";
 import {
 	resultDiagnostic,
 	type RunnerSubagentLaunchMetadata,
@@ -20,12 +20,12 @@ import {
 	runnerSubagentSessionFile,
 	runnerSubagentSessionFileText,
 } from "./presentation.ts";
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult } from "@ji/core/exec";
 
 import type { CuratedRunnerSubagentContextAudit } from "./curated-context.ts";
 import { runFinalTextSubagent } from "./dispatch-preparation.ts";
 export { resultDiagnostic } from "./extension-api.ts";
-export type { ToolContext, ToolDefinition, ToolResult } from "@sdl/pi/runtime/tool-types";
+export type { ToolContext, ToolDefinition, ToolResult } from "@ji/pi/runtime/tool-types";
 
 export const DISPATCH_RUNNER_SUBAGENT_TOOL_NAME = "dispatch_runner_subagent";
 export const MAX_MODEL_VISIBLE_FINAL_TEXT_CHARS = 48_000;

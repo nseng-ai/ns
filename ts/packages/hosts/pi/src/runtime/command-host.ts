@@ -1,5 +1,5 @@
 import type { ModelInfo } from "../runtime/types.ts";
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import type { ExplicitUndefined } from "@ji/core/primitives";
 import type { NotifyLevel } from "./tool-types.ts";
 
 export interface PiCommandContext {

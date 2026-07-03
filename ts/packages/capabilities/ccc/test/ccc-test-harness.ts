@@ -6,7 +6,7 @@ import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
-} from "@sdl/plans/api";
+} from "@ji/plans/api";
 import type {
 	AgentEndContext,
 	AutocompleteProvider,
@@ -19,9 +19,9 @@ import type {
 	NotifyLevel,
 	SessionStartContext,
 	ThinkingLevel,
-} from "@sdl/capability-kit/cmux/types";
-import { parseMachineEnvelopeData } from "@sdl/core/machine-envelope";
-import { optionalEntries } from "@sdl/core/primitives";
+} from "@ji/capability-kit/cmux/types";
+import { parseMachineEnvelopeData } from "@ji/core/machine-envelope";
+import { optionalEntries } from "@ji/core/primitives";
 
 // Local test type for skill command info
 interface SkillCommandInfo {
@@ -35,11 +35,11 @@ import {
 	type ObjectiveSelectionContext,
 	type ObjectiveSelectionListLoadResult,
 	type ObjectiveSelectionSpec,
-} from "@sdl/objective/api";
+} from "@ji/objective/api";
 
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { ScriptedQueue } from "@ji/core/test-kit";
 
-export { brmemCheckJson } from "@sdl/capability-kit/brmem-cli/testing";
+export { brmemCheckJson } from "@ji/capability-kit/brmem-cli/testing";
 
 export const ROOT = "/repo";
 export const WORKTREE = "/slot/worktree";

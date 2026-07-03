@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@sdl/kernel/sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@ji/kernel/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -55,7 +55,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "@sdl/kernel/sdk";
+import { defineExtension, ok } from "@ji/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -415,7 +415,7 @@ describe("extension registry", () => {
 		writeFile(
 			join(workspace.cwd, ".ji", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "@sdl/kernel/sdk";
+import { defineExtension, ok } from "@ji/kernel/sdk";
 
 export default defineExtension({
 	commands: [

@@ -3,13 +3,13 @@ import type {
 	GitCwdParams,
 	GitResult,
 	GitStatusPathFacts,
-} from "@sdl/capability-kit/git";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@sdl/capability-kit/git/testing";
+} from "@ji/capability-kit/git";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ji/capability-kit/git/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "@sdl/capability-kit/graphite/testing";
-import type { ExecResult } from "@sdl/core/exec";
+} from "@ji/capability-kit/graphite/testing";
+import type { ExecResult } from "@ji/core/exec";
 
 import {
 	FakeObjectiveStorageGateway,

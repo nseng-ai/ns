@@ -11,12 +11,12 @@ import {
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
-} from "@sdl/clinkr";
-import { renderCompletionCandidatesNewline } from "@sdl/clinkr/completion";
-import { rawCommand } from "@sdl/clinkr/raw";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
-import { createRealSlotContext } from "@sdl/slot/api";
+} from "@ji/clinkr";
+import { renderCompletionCandidatesNewline } from "@ji/clinkr/completion";
+import { rawCommand } from "@ji/clinkr/raw";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@ji/core/cli-runtime";
+import { optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { createRealSlotContext } from "@ji/slot/api";
 
 import {
 	buildSdlCompletionScript,

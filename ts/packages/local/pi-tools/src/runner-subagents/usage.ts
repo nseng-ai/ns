@@ -2,7 +2,7 @@ export {
 	addRuntimeRunnerSubagentUsageCostTotals,
 	addRuntimeRunnerSubagentUsageTotals,
 	parseRunnerSubagentUsageJsonl,
-} from "@sdl/core/runner-usage";
+} from "@ji/core/runner-usage";
 
 export type {
 	ParseRunnerSubagentUsageJsonlResult,
@@ -10,4 +10,4 @@ export type {
 	RunnerSubagentUsageRecord,
 	RuntimeRunnerSubagentUsageCostTotals,
 	RuntimeRunnerSubagentUsageTotals,
-} from "@sdl/core/runner-usage";
+} from "@ji/core/runner-usage";

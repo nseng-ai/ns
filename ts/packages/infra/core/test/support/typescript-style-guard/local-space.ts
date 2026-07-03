@@ -5,7 +5,7 @@ import type { PackageMetadata } from "./package-metadata.ts";
 import type { SourceRuleViolation } from "./source-rules.ts";
 
 const LOCAL_SPACE_DIR = "ts/packages/local/";
-const LOCAL_SPACE_SCOPE = "@sdl-local/";
+const LOCAL_SPACE_SCOPE = "@internal/";
 
 export function collectLocalSpaceAdmissionViolations(
 	metadataByName: ReadonlyMap<string, PackageMetadata>,

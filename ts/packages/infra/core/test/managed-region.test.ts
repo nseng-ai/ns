@@ -5,7 +5,7 @@ import {
 	parseManagedRegion,
 	replaceManagedRegion,
 	replaceMalformedManagedRegionFromBegin,
-} from "@sdl/core/managed-region";
+} from "@ji/core/managed-region";
 
 describe("managed region bounds", () => {
 	test("finds valid exact marker bounds", () => {

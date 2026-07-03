@@ -7,7 +7,7 @@ import {
 	putBrmemEntryFromFile,
 	type BrmemCommandErrorInfo,
 	type BrmemPutData,
-} from "@sdl/capability-kit/brmem-cli";
+} from "@ji/capability-kit/brmem-cli";
 import {
 	commandSucceeded,
 	execApiToCommandRunner,
@@ -15,21 +15,21 @@ import {
 	formatCommandFailure,
 	formatShellArg,
 	piExecApiToCommandExecApi,
-} from "@sdl/core/command";
-import { formatErrorMessage, optionalEntry } from "@sdl/core/primitives";
-import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
+} from "@ji/core/command";
+import { formatErrorMessage, optionalEntry } from "@ji/core/primitives";
+import { runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
 import {
 	generateBranchSlug,
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
 } from "./branch-slug.ts";
-import { getPiLaunchOptions, type PiLaunchOptions } from "@sdl/capability-kit/cmux/pi-launch";
-import type { TextResult } from "@sdl/core/primitives";
+import { getPiLaunchOptions, type PiLaunchOptions } from "@ji/capability-kit/cmux/pi-launch";
+import type { TextResult } from "@ji/core/primitives";
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotCheckoutTarget, SlotClient } from "@sdl/slot/api";
-import type { CommandContext, ExtensionAPI } from "@sdl/capability-kit/cmux/types";
+import type { SlotCheckoutTarget, SlotClient } from "@ji/slot/api";
+import type { CommandContext, ExtensionAPI } from "@ji/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 const DISPATCH_PROMPT_NAMESPACE = "ccc-dispatch";

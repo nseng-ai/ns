@@ -1,1 +1,1 @@
-export { default } from "@sdl/address/sdl/commands/exec-open-prs";
+export { default } from "@ji/address/ji/commands/exec-open-prs";

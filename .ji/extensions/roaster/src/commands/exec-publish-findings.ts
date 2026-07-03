@@ -1,1 +1,1 @@
-export { default } from "@sdl/roaster/commands/exec-publish-findings";
+export { default } from "@ji/roaster/commands/exec-publish-findings";

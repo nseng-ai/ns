@@ -1,14 +1,14 @@
 import { readdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { defaultCommandResolver, runCommand } from "@sdl/core/exec";
+import { defaultCommandResolver, runCommand } from "@ji/core/exec";
 import {
 	type ExecResult,
 	formatCommand,
 	formatCommandResultFailure,
 	formatCommandStartupFailure,
-} from "@sdl/core/exec";
-import { formatErrorMessage } from "@sdl/core/primitives";
+} from "@ji/core/exec";
+import { formatErrorMessage } from "@ji/core/primitives";
 
 export interface PypiPublishGateway {
 	ensurePublishToolsAvailable(): string | null;

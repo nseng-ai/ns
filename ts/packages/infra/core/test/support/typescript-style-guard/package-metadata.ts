@@ -95,10 +95,9 @@ export function packageNameForPath(
 }
 
 export function packageNameForSpecifier(specifier: string): string | undefined {
-	if (specifier === "sdl-flow" || specifier.startsWith("sdl-flow/")) return "sdl-flow";
 	const [scope, name] = specifier.split("/");
 	if (scope === undefined || name === undefined) return undefined;
-	if (scope !== "@sdl" && scope !== "@sdl-local") return undefined;
+	if (scope !== "@ji" && scope !== "@internal") return undefined;
 	return `${scope}/${name}`;
 }
 

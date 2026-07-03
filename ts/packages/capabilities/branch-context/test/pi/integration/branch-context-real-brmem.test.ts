@@ -3,11 +3,11 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { ExecOptions, ExecResult } from "@sdl/core/command";
-import { copyExecOptionsWithout } from "@sdl/core/exec/testing";
-import { createTempGitRepo } from "@sdl/capability-kit/git/testing";
-import { createTempDirTracker } from "@sdl/core/test-kit";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { ExecOptions, ExecResult } from "@ji/core/command";
+import { copyExecOptionsWithout } from "@ji/core/exec/testing";
+import { createTempGitRepo } from "@ji/capability-kit/git/testing";
+import { createTempDirTracker } from "@ji/core/test-kit";
 import registerBranchContextExtension from "../../../src/pi/extension.ts";
 import {
 	DEFAULT_PLAN_CONTENT,

@@ -1,5 +1,5 @@
-import type { Caps } from "@sdl/clinkr";
-import { glyph, paint } from "@sdl/core/cli-theme";
+import type { Caps } from "@ji/clinkr";
+import { glyph, paint } from "@ji/core/cli-theme";
 
 import type { SlotFreeCleanupResult } from "../release-cleanup.ts";
 

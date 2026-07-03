@@ -1,4 +1,4 @@
-import type { SdlExtensionApi, SdlOutputStream } from "@sdl/kernel/sdk";
+import type { SdlExtensionApi, SdlOutputStream } from "@ji/kernel/sdk";
 
 export type FlowLiveOutput = (stream: SdlOutputStream, text: string) => void;
 

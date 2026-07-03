@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandExecApi } from "@sdl/core/exec";
-import { InMemoryGitGateway } from "@sdl/capability-kit/git/testing";
+import type { CommandExecApi } from "@ji/core/exec";
+import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	BRANCH_CONTEXT_OUTPUT_MESSAGE_TYPE,
 	resolveExistingBranchContextReuse,
-} from "@sdl/branch-context";
+} from "@ji/branch-context";
 import type { BranchContextContext } from "../src/core/context.ts";
-import { InMemoryBranchMemoryGateway } from "@sdl/branch-context/testing";
-import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
+import { InMemoryBranchMemoryGateway } from "@ji/branch-context/testing";
+import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
 
 const CWD = "/repo";
 const SESSION_BRANCH = "branch-contexts/session-target";

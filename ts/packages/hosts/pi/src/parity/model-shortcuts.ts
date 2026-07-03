@@ -10,7 +10,7 @@ export const modelShortcutParity = definePiSurfaceParity(
 		fallback:
 			"Use the target harness's own model-selection mechanism before continuing the workflow.",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@sdl/pi",
+		sourcePackage: "@ji/pi",
 		sourceModule: "model-shortcuts",
 		notes:
 			"Model shortcuts are Pi session-local conveniences rather than portable engineering workflow logic.",

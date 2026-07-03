@@ -20,7 +20,7 @@ import type {
 	GitStagePathsParams,
 	GitStatusPathFacts,
 	GitGateway,
-} from "@sdl/capability-kit/git";
+} from "@ji/capability-kit/git";
 import { describe, expect, it } from "vitest";
 
 import { RealBrmemPromptResolver } from "../../src/prompt-resolution.ts";

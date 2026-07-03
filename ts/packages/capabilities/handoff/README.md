@@ -1,8 +1,8 @@
-# @sdl/handoff
+# @ji/handoff
 
 Handoff Capability package for directed Handoff Artifacts stored in Branch Memory.
 
-`@sdl/handoff` owns the Handoff Domain Core, the curated `@sdl/handoff/api` Capability API, and SDL command leaves exposed through the portable command face:
+`@ji/handoff` owns the Handoff Domain Core, the curated `@ji/handoff/api` Capability API, and SDL command leaves exposed through the portable command face:
 
 ```text
 ji handoff list [--branch <branch>|--all] [--include-deleted]

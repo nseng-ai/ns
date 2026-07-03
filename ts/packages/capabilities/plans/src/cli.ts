@@ -2,18 +2,18 @@
 
 import { resolve } from "node:path";
 
-import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
+import { ClinkrGroup, failure, negative, ok, usageError, type ClinkrExit } from "@ji/clinkr";
 import {
 	defineCli,
 	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
-} from "@sdl/core/cli-runtime";
-import { formatErrorMessage } from "@sdl/core/primitives";
-import { NodeCommandExecApi } from "@sdl/core/exec";
-import type { CommandExecApi } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
-import type { GitGateway } from "@sdl/capability-kit/git";
+} from "@ji/core/cli-runtime";
+import { formatErrorMessage } from "@ji/core/primitives";
+import { NodeCommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi } from "@ji/core/exec";
+import { RealGitGateway } from "@ji/capability-kit/git";
+import type { GitGateway } from "@ji/capability-kit/git";
 import { z } from "zod";
 
 import {

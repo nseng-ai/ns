@@ -9,10 +9,10 @@ import {
 	usageError,
 	type ClinkrExit,
 	type ClinkrInteraction,
-} from "@sdl/clinkr";
+} from "@ji/clinkr";
 
-import { defineCli, readStdinLine, type CliEntrypointDeps } from "@sdl/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@sdl/core/primitives";
+import { defineCli, readStdinLine, type CliEntrypointDeps } from "@ji/core/cli-runtime";
+import { optionalEntries, optionalEntry } from "@ji/core/primitives";
 import { z } from "zod";
 
 import {

@@ -1,5 +1,5 @@
-import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import type { ExecResult } from "@sdl/core/command";
+import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import type { ExecResult } from "@ji/core/command";
 
 export function combinedGitCommandOutput(result: ExecResult): string {
 	return `${result.stderr}\n${result.stdout}`;

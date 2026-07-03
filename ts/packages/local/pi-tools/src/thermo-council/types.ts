@@ -1,5 +1,5 @@
-import type { ModelInfo } from "@sdl/pi/runtime/types";
-import type { RunnerSubagentPi } from "@sdl-local/pi-tools/runner-subagents";
+import type { ModelInfo } from "@ji/pi/runtime/types";
+import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
 import type {
 	FindingConfidence,
 	FindingSeverity,

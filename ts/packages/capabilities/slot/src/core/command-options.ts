@@ -1,4 +1,4 @@
-import type { OptionSpec } from "@sdl/clinkr";
+import type { OptionSpec } from "@ji/clinkr";
 
 type CommandOptionSpecs = Partial<Record<string, OptionSpec>>;
 

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@sdl/kernel/cli";
+import { listSdlCommands } from "@ji/kernel/cli";
 
-import { runCliWithFakes } from "./sdl-cli-fakes.ts";
+import { runCliWithFakes } from "./ji-cli-fakes.ts";
 
 function runUnavailableSubmitCli(args: readonly string[]) {
 	return runCliWithFakes(

@@ -1,5 +1,5 @@
 {
-	"name": "sdl-ts-workspace",
+	"name": "ji-ts-workspace",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@11.8.0",
@@ -20,32 +20,32 @@
 		"test:typescript-style-guard": "vitest run --config vitest.typescript-style-guard.config.ts"
 	},
 	"devDependencies": {
-		"@sdl-local/pi-tools": "workspace:*",
-		"@sdl/address": "workspace:*",
-		"@sdl/branch-context": "workspace:*",
-		"@sdl/brmem": "workspace:*",
-		"@sdl/capability-kit": "workspace:*",
-		"@sdl/ccc": "workspace:*",
-		"@sdl/core": "workspace:*",
-		"@sdl/kernel": "workspace:*",
-		"@sdl/plans": "workspace:*",
-		"@sdl/roaster": "workspace:*",
-		"@sdl/slot": "workspace:*",
-		"@sdl/review-reinvention-scanner": "workspace:*",
+		"@internal/pi-tools": "workspace:*",
+		"@ji/address": "workspace:*",
+		"@ji/aretro": "workspace:*",
+		"@ji/branch-context": "workspace:*",
+		"@ji/brmem": "workspace:*",
+		"@ji/capability-kit": "workspace:*",
+		"@ji/ccc": "workspace:*",
+		"@ji/core": "workspace:*",
+		"@ji/flow": "workspace:*",
+		"@ji/handoff": "workspace:*",
+		"@ji/kernel": "workspace:*",
+		"@ji/objective": "workspace:*",
+		"@ji/plans": "workspace:*",
+		"@ji/review-reinvention-scanner": "workspace:*",
+		"@ji/roaster": "workspace:*",
+		"@ji/slot": "workspace:*",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
+		"@withgraphite/graphite-cli": "catalog:",
+		"jicc": "workspace:*",
 		"jsonc-parser": "catalog:",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
-		"sdl-flow": "workspace:*",
-		"sdlcc": "workspace:*",
 		"syncpack": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "catalog:",
-		"@sdl/aretro": "workspace:*",
-		"@sdl/handoff": "workspace:*",
-		"@sdl/objective": "workspace:*",
-		"@withgraphite/graphite-cli": "catalog:"
+		"vitest": "catalog:"
 	},
 	"workspaces": [
 		"packages/*",
@@ -56,6 +56,6 @@
 		"@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
 	},
 	"dependencies": {
-		"@sdl/core": "workspace:*"
+		"@ji/core": "workspace:*"
 	}
 }

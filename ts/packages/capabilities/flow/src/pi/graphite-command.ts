@@ -3,8 +3,8 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	piExecApiToCommandExecApi,
-} from "@sdl/core/command";
-import { runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
+} from "@ji/core/command";
+import { runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
 
 export interface FlowGraphiteCommandHost {
 	exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult>;

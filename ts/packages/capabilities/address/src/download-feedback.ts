@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { negative, ok, type ClinkrExit } from "@sdl/clinkr";
-import { optionalEntry } from "@sdl/core/primitives";
+import { negative, ok, type ClinkrExit } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import { collectDownloadFeedback, type DownloadFeedbackPayload } from "./core/download-feedback.ts";
 import {
 	defineExecOperation,

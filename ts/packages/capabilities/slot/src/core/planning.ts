@@ -1,6 +1,6 @@
 import { basename } from "node:path";
 
-import { optionalEntry } from "@sdl/core/primitives";
+import { optionalEntry } from "@ji/core/primitives";
 import type { SlotRepositoryGateway, WorktreeOccupancy } from "./gateways/repository.ts";
 import {
 	buildSlotInventory,

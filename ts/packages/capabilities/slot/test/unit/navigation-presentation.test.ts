@@ -1,5 +1,5 @@
-import { stripAnsi } from "@sdl/clinkr/testing";
-import type { Caps } from "@sdl/clinkr";
+import { stripAnsi } from "@ji/clinkr/testing";
+import type { Caps } from "@ji/clinkr";
 import { describe, expect, it } from "vitest";
 
 import {

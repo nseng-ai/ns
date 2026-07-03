@@ -1,2 +1,2 @@
-export { isRecord, stringField } from "@sdl/core/primitives";
-export type { TextResult } from "@sdl/core/primitives";
+export { isRecord, stringField } from "@ji/core/primitives";
+export type { TextResult } from "@ji/core/primitives";

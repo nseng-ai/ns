@@ -1,5 +1,5 @@
-import type { ExecResult } from "@sdl/core/command";
-import { optionalEntry } from "@sdl/core/primitives";
+import type { ExecResult } from "@ji/core/command";
+import { optionalEntry } from "@ji/core/primitives";
 import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";

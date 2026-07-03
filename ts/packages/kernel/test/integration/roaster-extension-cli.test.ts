@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { installCheckedInRoasterExtension } from "../helpers/roaster-extension.ts";
-import { parseJsonOutput, runCliWithFakes } from "../scenario/sdl-cli-fakes.ts";
+import { parseJsonOutput, runCliWithFakes } from "../scenario/ji-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 

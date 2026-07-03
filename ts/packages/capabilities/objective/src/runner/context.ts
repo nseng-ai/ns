@@ -1,6 +1,6 @@
-import type { GraphiteBranchGateway } from "@sdl/capability-kit/graphite/branch";
-import type { CommandExecApi } from "@sdl/core/exec";
-import type { ClinkrFormat } from "@sdl/kernel/sdk";
+import type { GraphiteBranchGateway } from "@ji/capability-kit/graphite/branch";
+import type { CommandExecApi } from "@ji/core/exec";
+import type { ClinkrFormat } from "@ji/kernel/sdk";
 
 import type { ObjectiveCliContext } from "../core/context.ts";
 import type { ChildSessionGateway } from "./child-session.ts";

@@ -1,4 +1,4 @@
-import { failure, ok, type RenderCapabilities } from "@sdl/clinkr";
+import { failure, ok, type RenderCapabilities } from "@ji/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";

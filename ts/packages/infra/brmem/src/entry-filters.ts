@@ -1,4 +1,4 @@
-import { optionalEntries } from "@sdl/core/primitives";
+import { optionalEntries } from "@ji/core/primitives";
 
 export function keyBranchFilter(options: { key?: string; branch?: string }): {
 	key?: string;

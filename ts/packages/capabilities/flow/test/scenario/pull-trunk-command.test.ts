@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@sdl/clinkr/testing";
+import { stripAnsi } from "@ji/clinkr/testing";
 
 import { runFlowPullTrunkCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
 
 describe("flow pull-trunk command outcomes", () => {
 	test("successful fetch exits 0 on stdout with a house-style result block", async () => {

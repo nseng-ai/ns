@@ -1,1 +1,1 @@
-export { errorMessage } from "@sdl/pi/shared/errors";
+export { errorMessage } from "@ji/pi/shared/errors";

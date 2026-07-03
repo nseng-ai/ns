@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
-import { formatCommand, type ExecResult } from "@sdl/core/command";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ji/capability-kit/git";
+import { formatCommand, type ExecResult } from "@ji/core/command";
+import { ScriptedQueue } from "@ji/core/test-kit";
 import { stripAnsi } from "../../src/land/stack/graphite-command-channel.ts";
 import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
-import { formatLandProgressTitle } from "../../src/sdl/commands/land.ts";
+import { formatLandProgressTitle } from "../../src/ji/commands/land.ts";
 import type { LandLiveProgressEvent } from "../../src/land/stack/command-stream.ts";
 import { LAND_PHASES } from "../../src/phase-stream/phase-stream-specs.ts";
 import {

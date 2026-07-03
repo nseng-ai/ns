@@ -1,4 +1,4 @@
-import type { ExecOptions, ExecResult } from "@sdl/core/exec";
+import type { ExecOptions, ExecResult } from "@ji/core/exec";
 import { describe, expect, test } from "vitest";
 
 import { loadGhCommand } from "../src/kit/shared/gh-command.ts";

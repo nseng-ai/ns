@@ -1,1 +1,1 @@
-export { default } from "@sdl/aretro/sdl/commands/exec-collect-evidence";
+export { default } from "@ji/aretro/ji/commands/exec-collect-evidence";
