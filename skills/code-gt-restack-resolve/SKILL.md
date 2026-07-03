@@ -63,20 +63,14 @@ touching the same statements. Taking the incoming side silently **reverts the
 feature**; taking the base side **drops the formatting**.
 
 For this specific shape only, the resolution is deterministic — **keep the
-changes, then reformat**:
-
-1. Keep the base (HEAD / new-base) logic verbatim — the feature must survive.
-   Discard the incoming side's reverted pre-feature code; it carried no logic
-   the base lacks.
-2. Re-apply the formatting commit's actual intent by **running the project
-   formatter** (`just ts-format-fix`) over the kept code, rather than
-   hand-wrapping conflict regions.
-3. Verify with `just ts-check` and stage before `gt continue`.
-
-This is the only conflict shape the driver may resolve via "keep + reformat"
-without escalating. If a conflict mixes genuine incoming logic with the
-toolchain reflow (i.e. the incoming side is not purely formatting), it falls
-outside this rule — escalate per the normal engine policy.
+changes, then reformat**. The operative rule text lives in the TEMPORARY block
+of the **Agent prompt template** below and travels verbatim in every conflict
+subagent's prompt: keep the base (HEAD) logic verbatim, discard the reverted
+incoming code, re-apply formatting by running `just ts-format-fix` (never by
+hand-wrapping), verify via the engine gate (`just ts-check` for `ts/**`). It
+is the only auto-resolution the driver may apply without escalating; a
+conflict mixing genuine incoming logic with the toolchain reflow falls outside
+it and escalates per the normal engine policy.
 
 ## When to use
 
@@ -308,13 +302,9 @@ When the selected restack command reports there is nothing left to restack:
 - For a **full-scope** restack, run a final scoped verification from the stack
   tip after the restack completes, at least when any conflict was resolved
   mid-stack. This covers upstack branches that replayed without conflicts but
-  now sit atop resolved code. Use the same categories as the Loop verification
-  gate:
-  - `ts/**` only → `just ts-check` (optionally `just ts-test`).
-  - Python only → `just ty` + targeted `uv run pytest <affected package>`
-    (or `just test`).
-  - Mixed / uncertain → `just check`.
-  - Docs / markdown only → **no check**.
+  now sit atop resolved code. Use the engine's step-4 check table
+  (`code-resolve-merge-conflicts`, "Verify before continuing"), scoped by the
+  file types conflicted across the whole restack.
 
 ### 6. Bail-out
 
