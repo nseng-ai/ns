@@ -44,12 +44,7 @@ import {
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
 import { toLandStackFailure } from "./plan-mapping.ts";
-import type {
-	LandContext,
-	LandGitGateway,
-	LandingFailure,
-	ManagedSlotWorktree,
-} from "../api.ts";
+import type { LandContext, LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
 	return [
