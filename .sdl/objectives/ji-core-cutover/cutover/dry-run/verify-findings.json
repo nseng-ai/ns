@@ -1,0 +1,108 @@
+[
+ {
+  "severity": "should-fix",
+  "what": "The skip for .claude/plans/plan-the-deletion-of-humming-tide.md is justified with reason 'only-package-or-skill-or-slug-name' and the note asserts 'All matches are package names ... and historical .sdl/objectives/pr-address-* records', but that is factually false. The live file contains in-window forms that are NOT package/skill/slug names: (a) `.sdl/objectives/pr-address-*` PATH literals at lines 19 and 130, and (b) `sdl pr-address` COMMAND-form prose (the space-separated CLI plugin subgroup, distinct from the hyphenated package `sdl-pr-address`) at lines 7, 10, 48, and 119. Under the objective's own resolution ('everything renames to ji \u2014 no sdl-brand literal survives', inventory lines 259-262), these are rename sites. Whether the file is legitimately out-of-scope depends on it being a 'historical record', but the inventory Non-Goals enumerate only objective-archive/, updates/, and ADR history (lines 6-7, 251) \u2014 `.claude/plans/` is NOT in that list, and it is the sole file in an otherwise-active directory. The mislabeled reason code hides an unverified scope call and silently drops the `.sdl/` and `sdl <command>` occurrences.",
+  "where": ".sdl/objectives/ji-core-cutover/cutover/cutover-plan.json:1156-1158 (mirror at classification-decisions.json:274-277); evidence in .claude/plans/plan-the-deletion-of-humming-tide.md:7,10,19,48,119,130",
+  "fix": "Either (1) confirm `.claude/plans/` is covered by the historical-records Non-Goal and rewrite the skip reason to say exactly that (drop the false 'only package names' claim, and acknowledge the file's `.sdl/objectives/pr-address-*` path literals and `sdl pr-address` command-form prose as historical), or (2) if `.claude/plans/` is in-scope, promote the file to a plan entry that renames `.sdl/objectives/pr-address-*` -> `.ji/objectives/pr-address-*` and `sdl pr-address` -> `ji pr-address` at the six cited lines. Do not leave it skipped under a reason code that misdescribes its contents.",
+  "lens": "wrong skips",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "blocker",
+  "what": "cutover-inventory.md Surface 1 explicitly names `ts/packages/kernel/test/integration/node-runtime-cli.test.ts:9,14` (\"Usage: sdl\") as an in-window site, but this file is absent from every bucket of the plan: it is not a simple entry, not in any complex cohort, not in mvOnly, not in skips, and does not appear in anchors.json or classification-decisions.json. It was never even a candidate \u2014 it is missing from lists/candidates.txt, lists/auto-tests.txt, and lists/g9-env-brand.txt (only the unrelated pi-host `node-runtime-imports.test.ts` was captured). The file asserts `name: \"sdl Node runtime CLI entrypoint\"` (:4), `{ type: \"contains\", text: \"Usage: sdl\" }` (:9), and `entry_point: @sdl/kernel bin sdl -> ...` (:14). When the bin renames sdl\u2192ji (kernel/package.json + kernel/src/cli/index.ts:494 help text are both in the plan), the entrypoint prints `Usage: ji`, so this test's :9 assertion (and the :14 `bin sdl` string) fail \u2014 a red CI check inside the single atomic landing window, defeating the plan's whole atomicity guarantee.",
+  "where": "cutover-plan.json (chunk 2-tests, cohort-tests-12) omits ts/packages/kernel/test/integration/node-runtime-cli.test.ts; evidence at ts/packages/kernel/test/integration/node-runtime-cli.test.ts:9 and :14; inventory ref .sdl/objectives/rename-sdl-to-ji/cutover-inventory.md:78",
+  "fix": "Add ts/packages/kernel/test/integration/node-runtime-cli.test.ts to chunk 2-tests cohort-tests-12 (which already gathers every other kernel/test/integration/*-cli.test.ts sibling: aretro/completion/extension-loader/flow/objective/roaster-extension-cli) with an instruction to update the bin-facing assertions at :4/:9/:14 from sdl\u2192ji (leaving the @sdl/ package scope, which is out-of-window). Also fix the generator (generate-candidates.sh) so `Usage: sdl` / `bin sdl` bin-assertion strings are captured, since this file slipped through the candidate sweep entirely.",
+  "lens": "inventory completeness",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "what": "The residual-command-instructions invariant's enumerated subcommand alternation `sdl (objective|flow|roaster|handoff|slot|address|aretro|branch-context|areg|exec|init|skills|review|list|--)` omits several REAL CLI subcommands: cp, autobranch, shell, checkout, pr-address, plan. Bare-bin command invocations using these survive the whole invariant suite clean and ship a broken `sdl` call post-cutover. Confirmed live: `git grep -nIE '(^|[`$( ])sdl (objective|flow|...)' -- skills/code-checkpoint/SKILL.md skills/code-autobranch/SKILL.md` returns NOTHING (exit=1), yet those files contain command bodies `sdl cp` (code-checkpoint/SKILL.md:26,46,50) and `sdl autobranch` (code-autobranch/SKILL.md:31,37,49) that the skill instructs the agent to run; `sdl shell ...` in-scope at CONTEXT-MAP.md:66. No other invariant catches a bare `sdl <subcmd>` (no `.sdl`, no `sdl:`; skills-allowed-tools only checks `Bash(sdl` frontmatter). The frozen generator list lists/g6-cmd-lines.txt also missed them (grep for `sdl (cp|autobranch|shell)` is empty), so the plan feeding these edits shares the blind spot.",
+  "where": ".sdl/objectives/ji-core-cutover/cutover/invariants.json (residual-command-instructions, line 72); evidence skills/code-checkpoint/SKILL.md:26, skills/code-autobranch/SKILL.md:31,37, CONTEXT-MAP.md:66",
+  "fix": "Extend the alternation with cp|autobranch|shell|checkout|pr-address|plan (and any other live subcommands), OR replace the closed enumeration with the broad `sdl [a-z][a-z-]+` sweep plus judge-each, mirroring the invariant's own justfile clause. Also regenerate lists/g6-cmd-lines.txt with the widened pattern.",
+  "lens": "invariant soundness",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "what": "residual-command-instructions is a false-positive trap on historical records. Its pathspec `-- skills docs AGENTS.md CONTEXT.md CONTEXT-MAP.md justfile .github ts/TESTING.md` scans all of docs/ INCLUDING docs/adr, but unlike its five sibling residual invariants (residual-dot-sdl, residual-namespace, residual-xdg-namespace, residual-env-vars, ji-toml, which all carry `':!docs/adr'`) it does NOT exclude docs/adr. Running the pattern today yields 12 hits inside ADRs (e.g. `sdl branch-context exec` at docs/adr/0006-branch-context.md:27,33,42,43; `sdl address exec` at docs/adr/0015-cli-surface-conformance-decisions.md:62-63,139-142; docs/adr/0004:39; 0005:49). Per the inventory these are explicit Non-Goals ('Historical records untouched forever'). The invariant will therefore report 12 spurious violations, causing a false cutover failure or, worse, pushing an agent to edit frozen ADR history.",
+  "where": ".sdl/objectives/ji-core-cutover/cutover/invariants.json (residual-command-instructions, line 72)",
+  "fix": "Add `':!docs/adr'` to the pathspec (and, for parity with the other residual checks, `':!.sdl/objectives'`/`.ji/objectives`) so historical ADR command references are not flagged.",
+  "lens": "invariant soundness",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "note",
+  "what": "residual-bin-argv's completeness claim is false. It asserts 'The only legitimate exact-\"sdl\" survivors are subpackages array values in package.json files, which this pathspec excludes by construction.' But exact brand literals `name: \"sdl\"` exist in .ts files outside its `ts/**/*.ts` `ts/**/*.mjs` `.ji/extensions/**/*.ts` `.pi/**/*.ts` pathspec \u2014 docs-site/lib/geistdocs/ai-assistant.ts:11 and rss.ts:29 (the product name for the AI assistant + RSS feed) \u2014 and no other invariant covers docs-site exact-\"sdl\". `comm` of `git grep -l '\"sdl\"'` vs the pathspec confirms these two files (plus package.json and README.md) are unmatched survivors. If docs-site is inside the atomic window they ship unrenamed and unverified; if it is deliberately POST-scope the invariant's absolute survivor claim is still misleading.",
+  "where": ".sdl/objectives/ji-core-cutover/cutover/invariants.json (residual-bin-argv, line 68); evidence docs-site/lib/geistdocs/ai-assistant.ts:11, docs-site/lib/geistdocs/rss.ts:29",
+  "fix": "Either broaden the pathspec / add a docs-site brand invariant, or explicitly enumerate docs-site geistdocs `name:\"sdl\"` as an acknowledged POST-scope survivor so the 'only legitimate survivor is package.json' claim is accurate.",
+  "lens": "invariant soundness",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "what": "docs/subpackage-conventions.md is assigned to cohort-docs-3, whose only instruction is the generic 'apply the shared brief \u2026 docs cohort' \u2014 there is NO per-file hint. The file interleaves bare `sdl` HOST-SURFACE subpackage VALUES that are survivors (line 17 table cell ``sdl`, `pi`, `repo-local-sdl-extension``; line 22 '`sdl` by the SDL CLI kernel wiring \u2026 `repo-local-sdl-extension`'; line 27 closed vocabulary '`api`, `testing`, `sdl`, `pi`, `repo-local-sdl-extension`') with `sdl.subpackages` / `sdl.remainder` dotted-prose RENAME targets (lines 3, 40, 47). Ground truth confirms these bare values survive this window: flow/package.json:53 keeps `\"sdl\"` in its subpackages array and cutover-inventory.md Q4 (line 281-283) defers the `src/sdl/` convention to a later package-scope row. The brief ties the survivor rule to 'bare \"sdl\" VALUES inside package.json subpackages arrays' \u2014 an agent will not obviously map that to inline-code / table cells in prose, so it is highly likely to over-rename the host-surface `sdl` \u2192 `ji` and corrupt the documented closed vocabulary that must match the real surviving subpackage value.",
+  "where": "docs/subpackage-conventions.md:17,22,27 (survivors) vs :3,40,47 (targets); plan entry cohort-docs-3 in .sdl/objectives/ji-core-cutover/cutover/cutover-plan.json",
+  "fix": "Give docs/subpackage-conventions.md a per-file hint (promote it out of the plain docs cohort): 'RENAME only the dotted manifest-field prose `sdl.subpackages`/`sdl.remainder` \u2192 `ji.*` (lines 3,40,47). LEAVE the bare host-surface subpackage VALUE `sdl` and the closed vocabulary entries at lines 17,22,27, the file name `repo-local-sdl-extension`, the `sdl-flow` package name (line 36), and every `@sdl/*` specifier \u2014 all survivors this window (src/sdl convention renames in the later package-scope row).'",
+  "lens": "over-rename risk: could an engine agent following brief.md + its entry hint/instructions touch a SURVIVOR?",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "what": "api-boundary.test.ts is in cohort-tests-3 with only the generic 'test cohort' instruction and no per-file hint, yet it mixes survivors and targets that require the exact schema knowledge cs2-manifest-key was carved out to hold ('per-file agents cannot see the schema contract'). Survivors: `sdl-flow` package-name import/prose (lines 22,28,184) and especially line 30 `.toBe(\"sdl-flow:land:capability\")` \u2014 a colon-delimited machine string produced from LAND_PACKAGE_NAME=\"sdl-flow\" (flow/src/land/api.ts:7, a survivor) that visually resembles the `sdl:flow:*`\u2192`ji:flow:*` namespace-rename family and is a prime over-rename target. Simultaneously the manifest-key reads `packageJson.sdl.tier` (line 43), `readonly sdl:` (line 178) and `\"sdl\" in value` / `value.sdl.tier` (lines 195-199) MUST rename to `ji` to stay green once cs2 renames flow/package.json's `\"sdl\":` key (cutover-inventory.md Q1 calls this an ATOMIC set) \u2014 but the brief's own DO-NOT-TOUCH rule 'TypeScript/JS identifiers containing sdl survive' will push a brief-only agent to treat `value.sdl` as a survivor and leave it, breaking the assertion. Both an over-rename (sdl-flow) and a contract break are live.",
+  "where": "ts/packages/capabilities/flow/test/land/api-boundary.test.ts:22,28,30,184 (survivors) and :43,178,195-199 (manifest-key targets); plan entry cohort-tests-3; ground truth flow/src/land/api.ts:7 and cutover-inventory.md Q1 (line 264-270)",
+  "fix": "Move api-boundary.test.ts into (or cross-reference from) the cs2-manifest-key changeset, or attach a per-file hint: 'RENAME the manifest-key reads `.sdl.tier`/`readonly sdl:`/`\"sdl\" in value`/`value.sdl` \u2192 `ji` to match the renamed flow/package.json key (lines 43,178,195-199). LEAVE every `sdl-flow` token \u2014 import specifier `sdl-flow/land/*`, describe() prose, and the `\"sdl-flow:land:capability\"` assertion (line 30) \u2014 these are the surviving package name, NOT the `sdl:flow:*` namespace.'",
+  "lens": "over-rename risk: could an engine agent following brief.md + its entry hint/instructions touch a SURVIVOR?",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "note",
+  "what": "cohort-skills-5 carries skills/sdl-typescript/SKILL.md and skills/sdl-cli-design/SKILL.md under the generic skills class guidance ('sdl <cmd> instruction lines, /sdl:* references, .sdl/ paths; skill DIRECTORY names survive'). That guidance never restates the `@sdl/*` scope, `sdl-tools` repo name, or dotted extension-capability keys as survivors. Concretely, sdl-typescript/SKILL.md:127 references `ctx.extensions?.[\"sdl.clinkr.caps\"]` \u2014 a dotted `sdl.` string that resembles the brief's `sdl.tier`/`sdl.subpackages` dotted-prose RENAME family, but it is an extension-capability namespace key that does not appear anywhere in the source tree (grep-confirmed) and is neither in the brief's rename list nor its DO-NOT-TOUCH list. A brief-following agent is as likely to over-rename it to `ji.clinkr.caps` as to leave it, with no basis to decide and no skip prompt.",
+  "where": "skills/sdl-typescript/SKILL.md:127 (`\"sdl.clinkr.caps\"`); also @sdl/* code-block imports at :57,98,131 and `sdl-tools` at :3,10; skills/sdl-cli-design/SKILL.md:4,44 prose; plan entry cohort-skills-5",
+  "fix": "Extend the cohort-skills class guidance to explicitly list `@sdl/*` specifiers, the `sdl-tools` repo name, and non-manifest dotted keys as survivors, and add a targeted note for `sdl.clinkr.caps`: either mark it a survivor (extension-capability key, out of window) or add it to `skipped` with file:line so it surfaces as a judgment call rather than a silent guess.",
+  "lens": "over-rename risk: could an engine agent following brief.md + its entry hint/instructions touch a SURVIVOR?",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "blocker",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "\u00a7A2 invoked prepass via nonexistent repo-root-relative path cutover/prepass.sh with unresolved <this-dir> placeholder",
+  "fix": "full path + resolved arg (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "blocker",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "\u00a7B5 smoke tests call bare `ji` which is not on PATH in a throwaway worktree",
+  "fix": "export PATH with ts/node_modules/.bin (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "\u00a7A3 evidencePath documented as lists/evidence.txt, unresolvable from repoRoot",
+  "fix": "full repo-root-relative path (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "should-fix",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "\u00a7B2 reads cutover-plan.json after \u00a7B1 mvs relocate it",
+  "fix": "load plan before mvs; reference post-mv path (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "note",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "generate-candidates.sh sole-arg --post-mv form forced OUT=cutover-lists at cwd",
+  "fix": "required <output-dir> first arg; post-mv call documented (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ },
+ {
+  "severity": "note",
+  "lens": "runbook self-sufficiency (re-run)",
+  "what": "uv run may bind a parent project env",
+  "fix": "uv run --no-project (applied)",
+  "resolution": "folded into artifacts 2026-07-02"
+ }
+]

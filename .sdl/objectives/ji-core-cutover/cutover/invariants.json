@@ -1,0 +1,86 @@
+[
+  {
+    "key": "pnpm-workspace-quartet",
+    "prompt": "Verify the pnpm workspace glob quartet is internally consistent post-rename. (1) `git grep -n '\\.sdl' -- ts/pnpm-workspace.yaml ts/package.json ts/tsconfig.json ts/pnpm-lock.yaml` must be empty. (2) ts/pnpm-workspace.yaml, ts/package.json, and ts/tsconfig.json must each reference the byte-identical glob `../.ji/reviews/*/tools/*` (tsconfig has two path lines). (3) ts/pnpm-lock.yaml importers must contain `../.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention` — if the lockfile still says .sdl, the caller's `pnpm install` bracket step has not run or failed; report that explicitly. (4) `test -d .ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention` must succeed."
+  },
+  {
+    "key": "kernel-extension-discovery-root",
+    "prompt": "Verify repo-local extension discovery survived: ts/packages/kernel/src/extensions/registry.ts must join `\".ji\", \"extensions\"` at BOTH sites (~lines 121-128), `git grep -n '\\.sdl' -- ts/packages/kernel/src/extensions` must be empty, and `.ji/extensions/` must exist on disk containing the address, aretro, branch-context, flow, handoff, objective, and roaster extension packages. This failure mode is SILENT (commands vanish from the catalog, no crash) — be thorough."
+  },
+  {
+    "key": "real-extensions-test-helpers",
+    "prompt": "The five files ts/packages/kernel/test/helpers/{objective,flow,handoff,aretro,roaster}-extension.ts, ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts, and ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts build relative URLs into the REAL checked-in extensions tree. For each, extract the relative path it constructs, resolve it from the file's directory, and `test -e` the target — every resolved path must point inside `.ji/extensions` and exist (ENOENT here hard-crashes the suite). Also `git grep -n '\\.sdl' -- ts/packages/kernel/test ts/packages/capabilities/address/test` must be empty."
+  },
+  {
+    "key": "managed-slot-path-regex",
+    "prompt": "ts/packages/capabilities/flow/src/land/stack/worktrees.ts isManagedSlotPath() (~line 76) must match `ji/slots/repos/<repo>/worktrees/slot-<n>` paths: read the regex, hand-apply it to the fixture string `/Users/me/.local/state/ji/slots/repos/sdl-tools/worktrees/slot-03` (must MATCH) and `/Users/me/worktrees/slot-03` (must NOT match). `git grep -nE 'sdl(\\\\)?/slots' -- ts` must be empty. The positive/negative fixture families in flow/test/unit/land-stack-helpers.test.ts and land-stack-command-scenarios.test.ts must use state/ji/slots paths. This exact regression shipped once before (silent degradation to manual-worktree handling) — default to fail if unsure."
+  },
+  {
+    "key": "duplicate-literal-twins",
+    "prompt": "Three duplicated un-imported constants must be renamed AND byte-equal across their twin sites: (a) REPO_PR_DESCRIPTION_PROMPT_PATH in ts/packages/capabilities/flow/src/submit/pr-description.ts and ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts — both exactly \".ji/prompts/pr-description.md\"; (b) COMMAND_NAME in ts/packages/capabilities/flow/src/land/land.ts and ts/packages/capabilities/flow/src/land/stack/constants.ts — both exactly \"ji:flow:land\" (the latter feeds printed usage text; desync is silent); (c) the objective root constants in ts/packages/capabilities/objective/src/core/storage.ts (.ji/objectives, .ji/objective-archive) and their re-hardcoded copies in ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts; (d) the message-type literal in ts/packages/hosts/pi/src/commands/cli-extension.ts (CLI_COMMAND_OUTPUT_MESSAGE_TYPE) and ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts — both exactly \"ji-cli-command-output\". Fail on ANY desync, not just residual sdl."
+  },
+  {
+    "key": "style-guard-bucket",
+    "prompt": "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts (~lines 82-91) classifies extension paths into an exempt bucket: the bucket's path checks must say `.ji/extensions`, and `git grep -n '\\.sdl' -- ts/packages/infra/core/test/typescript-style-guard` must be empty. A miss here mis-buckets silently (no test failure)."
+  },
+  {
+    "key": "roaster-ci-invocations",
+    "prompt": ".github/workflows/roaster.yml must invoke `ji roaster …` at all three literal sites (review list, review run, exec publish-findings) and `git grep -nIwE 'sdl' -- .github` must return nothing that names the old CLI (repo-name mentions like sdl-tools may survive; CLI invocations may not)."
+  },
+  {
+    "key": "agents-md-chain",
+    "prompt": "The AGENTS.md onboarding chain must be internally consistent in this tree, link by link: AGENTS.md instructs `ji objective exec load-orientations` and `ji objective list`; ts/packages/kernel/package.json bin key is \"ji\"; ts/packages/kernel/src/extensions/discovery.ts reads manifest key \"ji\"; .ji/extensions/objective/package.json carries a \"ji\": {…} manifest; ts/packages/capabilities/objective/src/core/storage.ts roots are .ji/objectives and .ji/objective-archive. Name any link still sdl-shaped."
+  },
+  {
+    "key": "manifest-key-ji",
+    "prompt": "The package.json extension-manifest KEY must be fully renamed while subpackage VALUES survive: (1) `git grep -n '\"sdl\":' -- '**/package.json'` must be empty. (2) `git grep -n '\"sdl\"' -- ts/packages/kernel/src/extensions/discovery.ts ts/packages/kernel/src/sdk/extension-manifest.ts` must be empty. (3) every .ji/extensions/*/package.json carries `\"ji\": {`. (4) CRITICAL survivor check: bare \"sdl\" strings inside `subpackages` arrays in workspace package.json files name src/sdl/ directories and MUST still be present where they were before (e.g. ts/packages/capabilities/flow/package.json) — flag as a violation if any subpackages array lost its \"sdl\" entry. (5) diagnostic codes: `git grep -nE 'missing[-_]sdl' -- ts` must be empty (renamed to missing-ji / extension_manifest_missing_ji)."
+  },
+  {
+    "key": "ji-toml",
+    "prompt": "`git ls-files | grep -E '(^|/)sdl\\.toml$'` must be empty and root `ji.toml` must exist. `git grep -n 'sdl\\.toml' -- . ':!.ji/objective-archive' ':!.ji/objectives' ':!docs/adr'` must be empty — covers the areg readers (gateways.ts literal union type, mutation-policy, project-gateway, operations/init, fake-gateways) and roaster readers (gateways/local-diff.ts, operations/review-run.ts). Identifiers like sdlToml are allowed to survive (later row)."
+  },
+  {
+    "key": "no-compat-shim",
+    "prompt": "No compatibility codepath may exist. Read the current state of the six loaders — ts/packages/kernel/src/extensions/registry.ts, ts/packages/kernel/src/extensions/discovery.ts, ts/packages/capabilities/objective/src/core/storage.ts, ts/packages/infra/core/src/config/xdg-path.ts, ts/packages/hosts/pi/src/commands/surfaces.ts, and the areg config reader — and confirm each reads exactly ONE name (ji), with no `||` fallback chain, no try-old-then-new, no alias registration. `git ls-files .sdl` must be empty and `test ! -e .sdl` must succeed (no leftover dir or symlink). No package.json may declare a `sdl` bin alias. Q3's rewritten 'no legacy fallback' PROSE (pointing at ~/.ji) is legitimate and not a violation."
+  },
+  {
+    "key": "skills-allowed-tools",
+    "prompt": "`git grep -n 'Bash(sdl' -- skills` must be empty, and the seven skills that carried them (skills/{handoff-pickup,handoff-create,code-autobranch,code-checkpoint,code-just-the-stack,branch-retro,sdl-flow-submit}/SKILL.md) must now carry `Bash(ji …)` patterns in their allowed-tools frontmatter. A miss silently re-introduces permission prompts. The skills/sdl-flow-submit DIRECTORY name is a survivor — do not flag it."
+  },
+  {
+    "key": "parity-table-bundled",
+    "prompt": ".ji/objectives/cross-harness-parity/parity-table.md (explicitly allowlisted inside the otherwise-excluded objectives tree) must use /ji: command names and `ji …` CLI strings on its two former /sdl: rows, and the typed parity records in ts/packages/capabilities/flow/src/pi/sdl-extension.ts (cli:/surface: strings) must agree with it. The table's OTHER staleness (flagged 2026-06-26) is out of scope — flag only sdl-brand residue."
+  },
+  {
+    "key": "scope-untouched-baseline",
+    "prompt": "Out-of-window survivors must be untouched: run `git grep -lI '@sdl/' -- . ':!ts/pnpm-lock.yaml' | wc -l` and compare to the recorded pre-run baseline (1344 files); run `git grep -cIE 'src/sdl|/sdl/(commands|extension)' -- ts | awk -F: '{s+=$2} END {print s+0}'` and compare to baseline (149). Any decrease means an agent over-renamed the @sdl/ package scope or src/sdl/ paths — report the exact diff via `git diff --stat` inspection of suspicious files."
+  },
+  {
+    "key": "residual-dot-sdl",
+    "prompt": "`git grep -nI '\\.sdl' -- . ':!ts/pnpm-lock.yaml' ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr'` must be empty, and `git ls-files | grep -F '.sdl'` must be empty. Every match is a violation; list all."
+  },
+  {
+    "key": "residual-namespace",
+    "prompt": "`git grep -nIE '(^|[/\"`[:space:]])sdl:[a-z]' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr'` must be empty (catches /sdl:flow:*, \"sdl:flow:land\", piNamespace \"sdl:flow\", sdl:objectives:* markers, the pi event key). Also `git ls-files | grep -x '.pi/extensions/sdl.ts'` empty with .pi/extensions/ji.ts present."
+  },
+  {
+    "key": "residual-bin-argv",
+    "prompt": "`git grep -n '\"sdl\"' -- 'ts/**/*.ts' 'ts/**/*.mjs' '.ji/extensions/**/*.ts' '.pi/**/*.ts'` must be empty — every exact \"sdl\" string in TS source (argv[0] dispatches, formatCommand first args, commandName/cliName, XDG segments, TOPOLOGY_COMMAND test constants, tmpdir segments) renames this window. Known legitimate exact-\"sdl\" survivors OUTSIDE this pathspec: subpackages array values in package.json files, and docs-site/ branding strings (geistdocs name/author fields — post-window branding row); as a completeness backstop, also run `git grep -n '\"sdl\"' -- . ':!ts/pnpm-lock.yaml' ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr'` and confirm every remaining hit is one of those two survivor classes."
+  },
+  {
+    "key": "residual-command-instructions",
+    "prompt": "Broad instruction-line sweep with judge-each (a closed subcommand enumeration WILL miss live subcommands like cp, autobranch, shell, checkout, plan): run `git grep -nIE '(^|[\\`$( ])sdl ([a-z][a-z-]+|--)' -- skills docs AGENTS.md CONTEXT.md CONTEXT-MAP.md justfile .github ts/TESTING.md ':!docs/adr'` and judge EVERY hit — any line instructing/invoking the old CLI is a violation; prose where 'sdl' is a plain word followed by an ordinary English word (rare) may pass, but default to violation when unsure. Also `git grep -nw 'sdl' -- justfile` — judge each: the install-sdl recipe must be gone; sdl-tools repo/path mentions may survive."
+  },
+  {
+    "key": "residual-xdg-namespace",
+    "prompt": "`git grep -nIE '(state|data|config|share|tmp)(/|\\\\/)sdl([/\"`[:space:]]|$)|~/\\.sdl|sdl(\\\\)?/slots' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr'` must be empty — catches the enriched-plan LLM tool-contract strings and their asserting tests, the /Users/me/.local/state/sdl/slots fixture family, docs/xdg-base-directory-spec.md, and Q3's rewritten ~/.sdl prose. state/vibechk is untouched by construction (no sdl segment)."
+  },
+  {
+    "key": "residual-machine-keys",
+    "prompt": "Brand machine-key string literals must be renamed: `git grep -nE '\"sdl-(command|cli|harness|pi-cli)' -- ts .pi` must be empty (covers sdl-command-ack, sdl-command-progress, sdl-cli-command, sdl-cli-command-output, sdl-harness-session-id, sdl-pi-cli-command-extension.jsonl) and the ji-* replacements must be asserted consistently in ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts, ts/packages/capabilities/flow/test/pi/{sdl-extension,code-workflows}.test.ts, ts/packages/hosts/pi/test/{cli-command-extension,just-fix,harness-session}.test.ts. Also run the broad sweep `git grep -nE '\"sdl-' -- ts .pi` and judge every remaining hit against the survivor list (package names sdl-flow/sdl-capability-kit, repo sdl-tools, mkdtemp prefixes deriving from package names survive; anything naming the product brand does not). Shim tokens: `git grep -n '@@SDL_' -- ts` must be empty and ts/scripts/render-cli-shim-core.ts TOKEN_PREFIX must equal the placeholder prefix used in ts/scripts/source-cli-shim-template, with justfile variable names agreeing (JI_TOOL, JI_TEMPLATE, …)."
+  },
+  {
+    "key": "residual-env-vars",
+    "prompt": "`git grep -nE 'SDL_[A-Z]' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr'` must be empty — every SDL_* env var name (SDL_CHECKPOINT_MODEL, SDL_DEV_*, SDL_SLUG_MODEL, SDL_SUBMIT_FAILURE_MODEL, SDL_CCC_SIDEBAR_MODEL, SDL_PI_CLI_TRACE*, SDL_TS_BAN_* style-guard rule names, justfile SDL_TOOL/SDL_CANONICAL_CHECKOUT/SDL_CLI_REL_PATH/SDL_INSTALL_HINT/SDL_TEMPLATE/SDL_OUTPUT) renames to JI_*. Readers and writers must agree: for each JI_* env var read in ts/, confirm the corresponding setter/documentation sites (justfile, skills, docs) use the same JI_* name. Also `git grep -n '\"sdl-pi-cli' -- ts` must be empty (trace filename renamed to ji-pi-cli-command-extension.jsonl)."
+  }
+]

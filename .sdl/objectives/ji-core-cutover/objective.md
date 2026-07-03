@@ -122,6 +122,10 @@ answers are also reflected in `rename-sdl-to-ji/cutover-inventory.md`.
   source-layout convention also renames to `src/ji/`, executed in the parent's
   package-scope sweep row (it is coupled to package renames, not this window).
   Inventory ordering stands: the event key may trail POST if deferred.
-- **Workflow script placement (still open):** session-authored one-shot vs checked
-  into `.claude/workflows/`; if checked in, it is a consumer artifact and needs an
-  explicit promotion-path note per `docs/platform-and-consumer.md`.
+- **Workflow script placement — resolved (2026-07-02):** the generic
+  `.claude/workflows/refactor-swarm-workflow.js` engine is reused unmodified; all
+  cutover-specific content is a checked-in consumer instance at
+  `.sdl/objectives/ji-core-cutover/cutover/` (plan artifact, pipeline scripts,
+  runbook) with an explicit no-promotion note per `docs/platform-and-consumer.md` —
+  it archives with this Objective; pattern-promotion remains the Parked row. See
+  update `2026-07-02-cutover-pipeline-authored.md`.

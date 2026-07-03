@@ -19,15 +19,27 @@
       present-state descriptions, existing package names, Objective slugs, and
       immutable updates left for the parent's sweeps. See update
       `2026-07-02-sibling-specs-corrected-to-ji.md`.
-- [ ] Author the cutover workflow script (Claude Workflow tool): partition the ATOMIC
+- [x] Author the cutover workflow script (Claude Workflow tool): partition the ATOMIC
       list from `cutover-inventory.md` into disjoint concurrent edit agents, add an
       adversarial verify stage targeting the named silent-failure traps, and emit a
       structured report; decide script placement (session one-shot vs
       `.claude/workflows/`, per the open question).
-      The in-repo `refactor-swarm-workflow` skill is the candidate starting pattern.
-- [ ] Re-verify `cutover-inventory.md` against the repo when the landing window opens
-      (drift check since the 2026-07-02 snapshot); fold any new sites into the
-      workflow's work-list.
+      Evidence: implemented as the re-runnable pipeline in `cutover/`
+      (generator → prepass → classification → `assemble-plan.py` → validated
+      `cutover-plan.json`: 118 simple / 8 changesets / 28 cohorts / 21 invariants /
+      3 chunks) consumed by the unmodified generic `refactor-swarm-workflow` engine;
+      placement decided (consumer instance, objective-colocated, no promotion);
+      adversarial 5-lens verification ran over the artifacts. Inventory drift
+      (SDL_* env vars, shim tokens, brand machine keys) found and folded in. See
+      update `2026-07-02-cutover-pipeline-authored.md` and `cutover/cutover-runbook.md`.
+- [ ] Dry-run rehearsal of the landing window per `cutover/cutover-runbook.md` §B in
+      a throwaway worktree (user-managed); capture reports under `cutover/dry-run/`
+      and fold findings back into the pipeline inputs, regenerating the plan via
+      `assemble-plan.py`.
+- [ ] Re-verify the frozen candidate lists against the repo when the landing window
+      opens (drift check since the 2026-07-02 snapshot): re-run
+      `cutover/generate-candidates.sh` + `prepass.sh`, diff per-surface lists,
+      re-classify only the drift, re-assemble (runbook §A).
 - [ ] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
       the workflow over the ATOMIC list, `pnpm install` to regenerate lockfile/shims,
       and update the `cross-harness-parity` parity table in the same landing.
