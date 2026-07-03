@@ -1,5 +1,5 @@
 ---
-schema: ji.pi-agent.v1
+schema: ns.pi-agent.v1
 name: runner
 toolName: dispatch_runner_subagent
 label: Dispatch Forked Pi Session

@@ -5,7 +5,7 @@ import { splitMarkdownFrontmatter, stripLineEnding } from "@ji/core/markdown-fro
 import { formatErrorMessage } from "@ji/core/primitives";
 import { findWorkspaceRootByMarkers } from "@ji/capability-kit/workspace-root";
 
-export const PI_AGENT_DEFINITION_SCHEMA = "ji.pi-agent.v1";
+export const PI_AGENT_DEFINITION_SCHEMA = "ns.pi-agent.v1";
 
 export interface PiAgentDefinition {
 	schema: typeof PI_AGENT_DEFINITION_SCHEMA;

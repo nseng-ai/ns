@@ -79,7 +79,7 @@ export const extensionCatalogEntries: readonly ExtensionCatalogEntry[] = [
     category: "branch-pr",
     status: "built-in",
     commandHint: "/ns:code:checkpoint",
-    sourcePath: ".pi/extensions/ji.ts",
+    sourcePath: ".pi/extensions/ns.ts",
     docsHref: "/docs/concepts/cli-conventions",
     isFeatured: true,
   },

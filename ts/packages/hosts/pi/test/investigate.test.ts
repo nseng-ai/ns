@@ -85,7 +85,7 @@ function fakeInvestigatorDefinition(
 	overrides: { toolName?: string; body?: string } = {},
 ): PiAgentDefinition {
 	return {
-		schema: "ji.pi-agent.v1",
+		schema: "ns.pi-agent.v1",
 		name: "investigator",
 		toolName: overrides.toolName ?? INVESTIGATE_COMMAND_NAME,
 		label: "Investigator",

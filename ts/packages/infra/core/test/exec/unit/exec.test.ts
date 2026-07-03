@@ -32,20 +32,20 @@ describe("NodeCommandExecApi", () => {
 describe("defaultCommandResolver", () => {
 	test("finds executables on PATH", () => {
 		const directory = createTempDir();
-		const executable = join(directory, "ji-exec-test-tool");
+		const executable = join(directory, "ns-exec-test-tool");
 		writeFileSync(executable, "#!/bin/sh\nexit 0\n");
 		chmodSync(executable, 0o755);
 		process.env.PATH = directory;
 
-		expect(defaultCommandResolver("ji-exec-test-tool")).toBe(executable);
+		expect(defaultCommandResolver("ns-exec-test-tool")).toBe(executable);
 	});
 
 	test("returns undefined for non-executable commands", () => {
 		const directory = createTempDir();
-		writeFileSync(join(directory, "ji-exec-test-tool"), "#!/bin/sh\nexit 0\n");
+		writeFileSync(join(directory, "ns-exec-test-tool"), "#!/bin/sh\nexit 0\n");
 		process.env.PATH = directory;
 
-		expect(defaultCommandResolver("ji-exec-test-tool")).toBeUndefined();
+		expect(defaultCommandResolver("ns-exec-test-tool")).toBeUndefined();
 		expect(defaultCommandResolver("missing-tool")).toBeUndefined();
 	});
 });

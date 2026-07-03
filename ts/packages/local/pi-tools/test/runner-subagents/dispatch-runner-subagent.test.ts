@@ -223,7 +223,7 @@ function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): st
 	];
 	return [
 		"---",
-		"schema: ji.pi-agent.v1",
+		"schema: ns.pi-agent.v1",
 		"name: runner",
 		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
 		`label: ${overrides.label ?? "Dispatch Forked Pi Session"}`,
