@@ -1,5 +1,5 @@
 import { activeRecordRelativePath, isValidObjectiveSlug } from "../core/storage.ts";
-import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 
 export interface RunnerPreconditionFacts {
 	objectivePath: string;
@@ -30,7 +30,7 @@ export interface CheckRunnerPreconditionsOptions {
  * worktree requirement (dirty, on a non-trunk branch left by a failed step).
  */
 export async function checkRunnerPreconditions(
-	ctx: ObjectiveRunnerContext,
+	ctx: ObjectiveRunnerCoreContext,
 	options: CheckRunnerPreconditionsOptions,
 ): Promise<RunnerPreconditionsResult> {
 	const { slug, mode } = options;

@@ -1,6 +1,6 @@
 import { optionalEntry } from "@sdl/core/primitives";
 
-import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 
 export interface ComposeRunnerCommitMessageOptions {
 	subject: string;
@@ -37,7 +37,7 @@ export type CommitRunnerStepResult =
 
 /** Stages exactly the gate-attested changed paths, then commits them. */
 export async function commitRunnerStep(
-	ctx: ObjectiveRunnerContext,
+	ctx: ObjectiveRunnerCoreContext,
 	options: CommitRunnerStepOptions,
 ): Promise<CommitRunnerStepResult> {
 	const staged = await ctx.git.stagePaths({ cwd: ctx.repoRoot, paths: options.changedPaths });
