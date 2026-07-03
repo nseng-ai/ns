@@ -1,3 +1,32 @@
+/**
+ * End-to-end integration tests for `executeStackLanding` — the engine behind
+ * `flow land`'s stack-landing path — run against a real git repository with the
+ * external tools it shells out to (`gh`, `gt`, `sdl`) replaced by executable
+ * Node shims placed first on PATH. The shims simulate each tool's documented
+ * contract (PR views/merges, Graphite topology metadata, deletes that actually
+ * run `git branch -D`) and append every invocation to a shared JSON state file
+ * that tests read back as a command log. This exercises the real seams —
+ * subprocess spawning, argument construction, exit codes, stdout parsing, and
+ * genuine ref mutation — that in-memory gateway fakes cannot, while staying
+ * hermetic (no network, no real GitHub or Graphite).
+ *
+ * Landing a stack is destructive (irreversible squash merges plus local branch
+ * deletion), so every test here is a safety assertion:
+ * - The happy path merges bottom-up with `--match-head-commit` pinned to real
+ *   SHAs, deletes only the landed branches, preserves multi-root descendants,
+ *   and honors the crash-safe ordering merge → get → delete → restack → submit.
+ * - A failed optional descendant refresh degrades to advice: remaining roots
+ *   are still attempted, nothing is deleted or restacked as a consequence.
+ * - An in-path fork aborts before the first mutation — zero merge/get/delete/
+ *   restack/submit commands issued.
+ * - The pre-delete topology reread is consulted for real: a concurrently
+ *   appearing child skips local deletion entirely (TOCTOU protection).
+ *
+ * Boundary: the shims encode the tools' contracts, so this suite validates
+ * SDL's orchestration against those contracts; drift in real `gt`/`gh`
+ * behavior is covered by land-stack-graphite-cli.test.ts instead.
+ */
+
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
