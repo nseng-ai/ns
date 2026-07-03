@@ -175,8 +175,10 @@
     extract-contract-then-diff passed on a 75-item contract; Command-chooser/per-command
     triple-homing collapsed (chooser = pure routing table, shared rules in one
     Cross-command section, gc semantics 4 sites → 1). `areg check` OK. See update
-    `20260703T202952Z`. `objective` (126 ln at audit, now 164 after the Record
-    Frontmatter section — rewrite; still `normal`), `code-resolve-merge-conflicts`
+    `20260703T202952Z`. `objective` — **DONE (rewrite, 2026-07-03).** 164 → 156 lines;
+    frontmatter/description identical (`normal` routing unchanged); 113-item contract
+    diff passed; family routing / picker rules / Tracking Gate kept near-verbatim;
+    step-skill-referenced headings preserved. See update `20260703T203132Z`, `code-resolve-merge-conflicts`
     (safety-critical → **surgical**; now `command-backed`). `ccc-branch-triage` and
     `handoff-pickup` stay parked.
     Evidence bar for the row: per-target contract diff shows no behavioral change; no
