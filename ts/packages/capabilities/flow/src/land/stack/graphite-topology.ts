@@ -3,12 +3,10 @@ import { join } from "node:path";
 import { formatCommand } from "@sdl/core/command";
 import {
 	GRAPHITE_METADATA_DB_NAME,
-	detectGraphiteForkViolations,
 	parseGraphiteBranchMetadataRows,
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
 	type GraphiteTopology,
-	type GraphiteForkViolation,
 } from "@sdl/capability-kit/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
@@ -24,7 +22,11 @@ import type { LandStackExtensionAPI } from "./types.ts";
 
 export type { GraphiteTopology } from "@sdl/capability-kit/graphite/metadata";
 
-export type ForkViolation = GraphiteForkViolation;
+export interface ForkViolation {
+	readonly forkPoint: string;
+	readonly expectedChild: string;
+	readonly siblings: readonly { readonly branch: string; readonly subtree: readonly string[] }[];
+}
 
 export async function resolveMetadataDbPath(
 	pi: LandStackExtensionAPI,
@@ -193,17 +195,31 @@ export function detectForkViolations(
 	topology: GraphiteTopology,
 	landingPath: string[],
 ): ForkViolation[] {
-	return [...detectGraphiteForkViolations(topology, landingPath)].filter(
-		(violation) => violation.expectedChild !== undefined,
-	);
+	const violations: ForkViolation[] = [];
+	// Forks inside the landing path are unsafe because gt restack/delete would
+	// rewrite a sibling stack. Forks from the current landing tip are descendant
+	// roots, so they are allowed and handled by descendant maintenance.
+	for (let index = 0; index < landingPath.length - 1; index += 1) {
+		const forkPoint = landingPath[index];
+		const expectedChild = landingPath[index + 1];
+		if (forkPoint === undefined || expectedChild === undefined) continue;
+		const children = topology.get(forkPoint)?.children ?? [];
+		const extras = children.filter((child) => child !== expectedChild);
+		if (extras.length === 0) continue;
+		violations.push({
+			forkPoint,
+			expectedChild,
+			siblings: extras.map((branch) => ({
+				branch,
+				subtree: walkGraphiteSubtree(topology, branch).subtree,
+			})),
+		});
+	}
+	return violations;
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {
 	const lines = violations.map((violation) => {
-		if (violation.expectedChild === undefined) {
-			const childNames = violation.siblings.map((sibling) => sibling.branch);
-			return `Refusing to land: current branch ${violation.forkPoint} has ${childNames.length} children (${childNames.join(", ")}); /ji:flow:land supports at most one descendant chain target.`;
-		}
 		const siblingText = violation.siblings
 			.map((sibling) => `${sibling.branch} (subtree: ${sibling.subtree.join(" -> ")})`)
 			.join(", ");
