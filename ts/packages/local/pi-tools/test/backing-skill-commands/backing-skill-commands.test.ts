@@ -109,6 +109,7 @@ describe("registerBackingSkillCommands", () => {
 		const repo = await mkdtemp(join(tmpdir(), "backing-skill-command-"));
 		try {
 			const skillDir = join(repo, "skills", "code-workflows");
+			await mkdir(join(repo, ".git"), { recursive: true });
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				join(skillDir, "SKILL.md"),
@@ -138,6 +139,7 @@ describe("registerBackingSkillCommands", () => {
 		const repo = await mkdtemp(join(tmpdir(), "vendored-backing-skill-command-"));
 		try {
 			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
+			await mkdir(join(repo, ".git"), { recursive: true });
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				join(skillDir, "SKILL.md"),

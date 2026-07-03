@@ -7,9 +7,9 @@ import { NodeCommandExecApi } from "@sdl/core/exec";
 import { RealGitGateway } from "@sdl/capability-kit/git";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
+import { SKILL_LOOKUP_ROOT_DESCRIPTORS } from "@sdl/pi/skills/lookup";
 
 import {
-	AREG_SKILL_FIND_ROOT_DESCRIPTORS,
 	AREG_SKILL_KIND_ROOT_DESCRIPTORS,
 	skillFindDescriptorForSourceType,
 	skillKindDescriptorForSourceType,
@@ -401,7 +401,7 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 
 async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
-	for (const root of AREG_SKILL_FIND_ROOT_DESCRIPTORS) {
+	for (const root of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
 		const rootPath = toProjectPath(projectDir, root.root);
 		const names = await scanSkillDirectoryNames(rootPath, {
 			keepEntry: async (entry) =>

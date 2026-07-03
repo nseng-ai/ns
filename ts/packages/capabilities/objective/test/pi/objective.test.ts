@@ -283,6 +283,7 @@ async function withTempSkill<T>(
 	const repoDir = await mkdtemp(join(tmpdir(), `${skillName}-`));
 	const skillDir = join(repoDir, "skills", skillName);
 	const skillPath = join(skillDir, "SKILL.md");
+	await mkdir(join(repoDir, ".git"), { recursive: true });
 	await mkdir(skillDir, { recursive: true });
 	await writeFile(skillPath, markdown, "utf8");
 	try {
@@ -1332,6 +1333,7 @@ describe("objective command prompt details", () => {
 		const dir = await mkdtemp(join(tmpdir(), "objective-next-skill-"));
 		const skillDir = join(dir, "skills", "objective-next");
 		const skillPath = join(skillDir, "SKILL.md");
+		await mkdir(join(dir, ".git"), { recursive: true });
 		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			skillPath,

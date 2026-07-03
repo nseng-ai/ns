@@ -159,6 +159,7 @@ describe("just-fix extension", () => {
 		const dir = await mkdtemp(join(tmpdir(), "code-just-fix-skill-"));
 		const skillDir = join(dir, "skills", "code-just-fix");
 		const skillPath = join(skillDir, "SKILL.md");
+		await mkdir(join(dir, ".git"), { recursive: true });
 		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			skillPath,

@@ -561,6 +561,7 @@ export async function withTempSkill<T>(
 ): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
 	const skillDir = join(dir, "skills", "handoff-create");
+	await mkdir(join(dir, ".git"), { recursive: true });
 	await mkdir(skillDir, { recursive: true });
 	const skillPath = join(skillDir, "SKILL.md");
 	await writeFile(

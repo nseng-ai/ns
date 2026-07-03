@@ -225,6 +225,7 @@ describe("/pi:grill-me command", () => {
 		try {
 			const skillDir = join(dir, "skills", GRILL_UI_SKILL_NAME);
 			const skillPath = join(skillDir, "SKILL.md");
+			await mkdir(join(dir, ".git"), { recursive: true });
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,
@@ -296,6 +297,7 @@ describe("/pi:grill-with-docs command", () => {
 		try {
 			const skillDir = join(dir, "skills", GRILL_WITH_DOCS_UI_SKILL_NAME);
 			const skillPath = join(skillDir, "SKILL.md");
+			await mkdir(join(dir, ".git"), { recursive: true });
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,

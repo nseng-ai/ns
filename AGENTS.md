@@ -76,6 +76,6 @@ objective; if it does, read that objective's `objective.md` and `roadmap.md`.
 
 ## Git, Graphite, GitHub
 
-- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, read `.claude/skills/graphite/SKILL.md` and prefer `gt` over raw `git` where possible.
+- This repo uses Graphite (`gt`) as the default tool for branch and PR workflow; for branch creation, commits/amends, PR submit/update, and stack navigation/reshaping, load the `graphite` skill (if absent from available skills, resolve it with `areg skill find graphite --format json`) and prefer `gt` over raw `git` where possible.
 - Runtime package code must not depend on Graphite by default; prefer `GitGateway`. Before adding any runtime Graphite dependency, read `docs/graphite-dependency-boundary.md`. `slot gt` is the sanctioned exception.
-- For GitHub backend work via GraphQL, REST, or `gh`, read `.claude/skills/code-gh/SKILL.md`.
+- For GitHub backend work via GraphQL, REST, or `gh`, load the `code-gh` skill (if absent from available skills, resolve it with `areg skill find code-gh --format json`).
