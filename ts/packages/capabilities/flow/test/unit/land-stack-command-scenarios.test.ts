@@ -1363,6 +1363,72 @@ describe("land-stack command scenarios", () => {
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
 
+	test("optional descendant refresh failure still attempts later roots and skips unsafe deletion", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
+				shas: BRANCH_SHAS,
+			}),
+			...mergeFeatureA({ postRestackRefresh: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureBThroughVerification(),
+			guardShaStep(DESCENDANT, SHA_C),
+			step(
+				"gt",
+				[
+					"get",
+					DESCENDANT,
+					"--downstack",
+					"--no-restack",
+					"--no-checkout",
+					"--force",
+					"--no-interactive",
+				],
+				{ code: 1, stderr: "refresh failed" },
+			),
+			guardShaStep("feature-d", SHA_D),
+			step("gt", [
+				"get",
+				"feature-d",
+				"--downstack",
+				"--no-restack",
+				"--no-checkout",
+				"--force",
+				"--no-interactive",
+			]),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script);
+
+		pi.assertDone();
+		expect(
+			pi.execCalls
+				.filter((call) => call.command === "gt" && call.args[0] === "get")
+				.map((call) => call.args[1]),
+		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					call.command === "gt" && call.args[0] === "delete" && call.args[1] === "feature-b",
+			),
+		).toBe(false);
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					call.command === "gt" &&
+					call.args[0] === "restack" &&
+					[DESCENDANT, "feature-d"].includes(call.args[2] ?? ""),
+			),
+		).toBe(false);
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			"Left open; restack/update needs follow-up: feature-c, feature-d.",
+		);
+		expect(streamText).toContain(
+			"Graphite refresh for descendant branch feature-c failed; local branch feature-b cleanup and descendant restack/update were skipped.",
+		);
+		expect(streamText).not.toContain("Left open/restacked: feature-c, feature-d.");
+	});
+
 	test("rotates backup refs before pruning current stale refs and writing new snapshots", async () => {
 		const staleCurrentRef = `${BACKUP_REF_NAMESPACE}/old-branch`;
 		const script = [

@@ -7,8 +7,8 @@ import {
 	parseGraphiteBranchMetadataRows,
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
-	type GraphiteTopology,
 	type GraphiteForkViolation,
+	type GraphiteTopology,
 } from "@sdl/capability-kit/graphite/metadata";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS, SQLITE_TIMEOUT_MS } from "./constants.ts";
@@ -24,7 +24,7 @@ import type { LandStackExtensionAPI } from "./types.ts";
 
 export type { GraphiteTopology } from "@sdl/capability-kit/graphite/metadata";
 
-export type ForkViolation = GraphiteForkViolation;
+export type ForkViolation = GraphiteForkViolation & { readonly expectedChild: string };
 
 export async function resolveMetadataDbPath(
 	pi: LandStackExtensionAPI,
@@ -193,17 +193,18 @@ export function detectForkViolations(
 	topology: GraphiteTopology,
 	landingPath: string[],
 ): ForkViolation[] {
-	return [...detectGraphiteForkViolations(topology, landingPath)].filter(
-		(violation) => violation.expectedChild !== undefined,
-	);
+	// Forks inside the landing path are unsafe because gt restack/delete would
+	// rewrite a sibling stack. Forks from the current landing tip are descendant
+	// roots, so they are allowed and handled by descendant maintenance.
+	return detectGraphiteForkViolations(topology, landingPath).filter(hasExpectedChild);
+}
+
+function hasExpectedChild(violation: GraphiteForkViolation): violation is ForkViolation {
+	return violation.expectedChild !== undefined;
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {
 	const lines = violations.map((violation) => {
-		if (violation.expectedChild === undefined) {
-			const childNames = violation.siblings.map((sibling) => sibling.branch);
-			return `Refusing to land: current branch ${violation.forkPoint} has ${childNames.length} children (${childNames.join(", ")}); /ji:flow:land supports at most one descendant chain target.`;
-		}
 		const siblingText = violation.siblings
 			.map((sibling) => `${sibling.branch} (subtree: ${sibling.subtree.join(" -> ")})`)
 			.join(", ");

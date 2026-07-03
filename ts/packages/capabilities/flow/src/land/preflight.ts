@@ -489,9 +489,11 @@ export function buildDescendantMaintenancePlan(
 	descendantRootBranches: readonly string[] | undefined = undefined,
 ): DescendantMaintenancePlan {
 	if (descendantBranches.length === 0) return { type: "none", branches: [] };
+	const firstDescendantBranch = descendantBranches[0];
+	if (firstDescendantBranch === undefined) return { type: "none", branches: [] };
 	const targetBranches =
 		descendantRootBranches === undefined || descendantRootBranches.length === 0
-			? [descendantBranches[0] ?? ""]
+			? [firstDescendantBranch]
 			: [...descendantRootBranches];
 	const blockingConflicts = conflicts.filter((conflict) => conflict.type !== "current");
 	if (blockingConflicts.length > 0) {
