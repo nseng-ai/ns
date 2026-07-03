@@ -52,9 +52,14 @@
       and the 120-record `--all` sweep pass with the live frontmatter; list renders EDGES 1 on
       both records and `⊘ open (blocked)` on `ship-objectives-to-customers`. The motivating
       drift case is now machine-checked — the feature's acceptance test is met.
-- [ ] Vocabulary: root `CONTEXT.md` system terms (Objective Edge, Edge Annotation, Blocked
+- [x] Vocabulary: root `CONTEXT.md` system terms (Objective Edge, Edge Annotation, Blocked
       Sentence, Record Frontmatter, State/status-cluster line for blocked-as-substate-of-open)
       and `@sdl/objective` `CONTEXT.md` surface terms (edge linting in check, EDGES column).
+      Evidence: branch `objective-edges-vocabulary` (runner step commit); exactly the enumerated
+      terms added in each file's entry format, plus the state-cluster line; the objective-next
+      confirmed-execution reference gained the same blocked+edges clarifier as the other
+      Objective skills. Reported drift (not fixed, per repo context rules): CONTEXT-MAP.md's
+      root-context description line now lags the four new terms.
 
 ## Parked
 
