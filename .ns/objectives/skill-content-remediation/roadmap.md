@@ -69,19 +69,24 @@
   rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
-  **Sequencing caveat (2026-07-03): re-derive reach before resuming.** The recorded
-  value order predates ADR 0016; several remaining targets are now `command-backed`
-  (zero ambient), so their reach — and the queue order built on it — needs
-  re-derivation. Also re-verify each target's current content at pickup: unrelated repo
-  work (`sdl`→`ji` cutover, SDL Flow renames, Record Frontmatter docs, Address
-  migration) has been shifting line counts and, in places, the debt itself.
-  Previously recorded sequence (pre-ADR-0016): objective-family alignment slice, then
-  `objective-update` (done), then `objective-create` → ccc / niche skills last, only if
-  cheap.
+  **Queue re-ranked 2026-07-03 (post-ADR-0016 reach re-derivation; update
+  `20260703T194738Z`).** Kinds, line counts, and per-target debt re-verified against
+  ground truth. Only `brmem` and `objective` remain ambient (`normal`); all other
+  targets are `command-backed`. New order: (1) `brmem`, (2) `objective`,
+  (3) `dignified-python`, (4) `code-thermostack`, (5) `refactor-swarm`,
+  (6) `objective-create`, (7) `code-gt-restack-resolve` (surgical),
+  (8) `code-resolve-merge-conflicts` (surgical), (9) `objective-close` (surgical),
+  (10) `ccc-available-work` / `ccc-stack-map` (only if cheap). Naming caution: the
+  active `rename-ji-to-ns` objective is churning skill directory names — re-resolve
+  each target's current directory at pickup, and prefer landing content edits after
+  the rename stabilizes.
   **Dropped targets:** `branch-context-impl` (36 lines, lift 1 / risk 4 — its only
   disclosable block is a 6-trigger STOP safety contract, so disclosing it is
-  net-negative and a rewrite most likely softens the contract; leave as-is) and
-  `pr-address` (see its row below).
+  net-negative and a rewrite most likely softens the contract; leave as-is);
+  `pr-address` (see its row below); `python-fake-driven-testing` SKILL.md rewrite and
+  `sdl-flow-submit`/`ji-flow-submit` move-to-reference (both mooted — see their rows);
+  `python-fake-driven-test-layout` (pilot rationale spent — see its row); and
+  `enriched-plan-save` (deferred to the plan-verification workstream — see its row).
   Targets and their known debt / technique:
   - `objective-stack-impl` — **DONE (rewrite method, the retro-rewrite decided yes).**
     First disclosed under the prior surgical method (282→217); then re-remediated as a
@@ -93,15 +98,19 @@
     217→136; `references/final-response.md` unchanged, pointer resolves. Evidence:
     `areg check` "All skills OK"; `just dprint-check` clean. See update
     `2026-06-20T133000`.
-  - `enriched-plan-save` — rewrite; step-1 conditional sub-blocks to disclose. Note
-    (2026-07-03): unrelated work (commit `52d85e9d5`) extracted canonical refactor
-    guidance into `references/refactor-execution-strategy.md`, so the skill's shape has
-    changed since the audit — re-audit its remaining debt before rewriting.
+  - `enriched-plan-save` — **DEFERRED (re-rank `20260703T194738Z`).** The audit-era
+    debt was reshaped by the refactor-guidance extraction (commit `52d85e9d5`; now
+    100 lines), and the remaining step-1 candidate block is fenced by
+    `PLAN-VERIFICATION-WORKSTREAM` markers owned by that workstream — editing it here
+    would cross workstream boundaries. Revisit only if that workstream closes with the
+    block still duplicative.
   - `dignified-python` — rewrite; triplicated router → one trigger-keyed routing
     section. Only the SKILL.md router collapses; the 4.5K version-file tree is left as-is
     (version files are independent — re-audit `2026-06-20T140000`). Now `command-backed`
     (reach reduced).
-  - `python-fake-driven-testing` — rewrite the SKILL.md (overlapping reference pointers).
+  - `python-fake-driven-testing` — SKILL.md rewrite **DROPPED as mooted (re-rank
+    `20260703T194738Z`)**: the overlapping-pointer debt no longer exists — routing is
+    consolidated into a single `## Reference Routing` section (111 lines).
     The reference-tree merge is **DONE** separately: `quick-reference.md` was folded into
     `workflows.md`, and `SKILL.md` now routes feature/bug/quick-lookup work to the single
     file. See update `2026-06-20T181500`. Now `command-backed` (reach reduced).
@@ -136,8 +145,11 @@
     boundaries. Evidence: `git diff --check`, `areg check`, and `just dprint-check`
     passed; see update `2026-06-20T181649`. (Now 123 lines after later unrelated edits;
     kind now `command-backed` under ADR 0016.)
-  - `python-fake-driven-test-layout` — rewrite; tree drawn 3×. Lift 4 but low reach
-    (rarely-consulted scaffolding); kept ONLY as the safe, mechanical **method pilot**.
+  - `python-fake-driven-test-layout` — **PARKED to the polish tier (re-rank
+    `20260703T194738Z`)**: it was kept only as the safe mechanical method pilot, and
+    the rewrite gate has since passed on four targets, so the pilot rationale is
+    spent; the tree is now drawn once as a full block and residual repetition is
+    prose-level, with low reach (rarely-consulted scaffolding, `command-backed`).
   - `code-thermostack` — rewrite; subagent-contract triplication.
   - `code-gt-restack-resolve` — **surgical, NOT from-scratch** (rigid output contract +
     conflict-resolution stakes): remove the externally-gated TEMPORARY TS-toolchain block
@@ -149,10 +161,10 @@
     66-line primitive-surface document (`ji address exec` download/read/mutation
     primitives, kind `normal`, with a compact retired-workflow warning section). No
     remediation work remains here.
-  - `sdl-flow-submit` (renamed from `sdl-submit`; Pi surface now `ji:flow:submit` after
-    the `sdl`→`ji` cutover) — **move-to-reference**: relocate the env-var catalog to a
-    reference file. Still unstarted as of 2026-07-03 — `skills/sdl-flow-submit/` has no
-    `references/` dir and the env-var catalog sits inline in its 76-line SKILL.md.
+  - `ji-flow-submit` (renamed from `sdl-flow-submit`, earlier `sdl-submit`) —
+    move-to-reference **DROPPED as mooted (re-rank `20260703T194738Z`)**: the env-var
+    catalog has shrunk to ~8 inline lines across the Workflow prose of a 76-line
+    SKILL.md; a reference split would add indirection without saving load.
   - `objective-close` — **surgical** (already clean, lift 1).
   - `objective-create` — rewrite; body work beyond its description. Note (2026-07-03):
     recently grew via the Record Frontmatter / edge-mutation documentation (commit

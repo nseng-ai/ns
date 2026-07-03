@@ -33,8 +33,10 @@ Risks). Systemic #1/#2/#3 are complete.
 `df5d4e355`/`9cc5b1773`) re-architected skill invocation repo-wide: most explicit
 workflow skills — including many remaining queue targets — are now `command-backed`
 (zero ambient context), so the re-audit's reach rankings, which assumed ambient
-descriptions and model-routed bodies for those targets, no longer match ground truth.
-Re-rank the remaining queue before resuming it (see Open Questions).
+descriptions and model-routed bodies for those targets, no longer matched ground
+truth. The queue was re-ranked on re-derived reach the same day (update
+`20260703T194738Z`; see Open Questions) — `brmem` and `objective`, the only remaining
+ambient targets, now lead.
 
 ## Scope
 
@@ -165,12 +167,11 @@ Assumptions:
   (re-audit `2026-06-20T140000`). Reach = invocation frequency and always-loaded-ness;
   descriptions are always loaded only for ambient (`normal`) skills, bodies and
   reference trees load only on invoke, and reference-tree tokens dwarf SKILL.md tokens.
-  **Weakened 2026-07-03:** the recorded reach values predate ADR 0016; several queue
-  targets (verified: `dignified-python`, `python-fake-driven-testing`;
-  `code-resolve-merge-conflicts` likewise) are now `command-backed` with zero ambient
-  cost, so e.g. "the pftd tree loads on most Python tasks" no longer holds as stated.
-  The ranking heuristic stands; the per-target reach inputs must be re-derived before
-  the remaining queue order is trusted.
+  **Weakened 2026-07-03, then restored the same day (update `20260703T194738Z`):**
+  the recorded reach values predated ADR 0016; the reach re-derivation over the
+  remaining targets confirmed only `brmem` and `objective` are still ambient
+  (`normal`) — every other queue target is `command-backed` with zero ambient cost.
+  The ranking heuristic stands and the queue order now reflects re-derived inputs.
 
 Risks:
 
@@ -240,9 +241,12 @@ Risks:
   tree loads only on explicit invoke), but the merge itself stands either way.
   `dignified-python`'s 4.5K tree does *not* need consolidation (its version files are
   independent) — only its SKILL.md router (stated 3×) needs collapsing.
-- **Should the remaining queue be re-ranked before resuming?** The re-audit's reach
-  inputs predate ADR 0016 (many targets are no longer ambient), the skill tree has grown
-  56→70 with unaudited post-audit skills, and two targets (`branch-context-impl`,
-  `pr-address`) have already dropped off for independent reasons. A cheap reach
-  re-derivation over the remaining targets would decide whether the current order —
-  objective family first, ccc/niche last — still holds.
+- Remaining-queue re-rank — **resolved (2026-07-03, update `20260703T194738Z`).**
+  Reach was re-derived per target from current invocation kinds and file sizes, and
+  per-target debt was re-verified. The old order did not hold: only `brmem` and
+  `objective` remain ambient, so they lead the queue; confirmed-duplication rewrites
+  (`dignified-python`, `code-thermostack`, `refactor-swarm`, `objective-create`)
+  follow; surgical targets next; ccc/niche last. Four targets dropped/deferred with
+  recorded reasons: `python-fake-driven-testing` SKILL.md and `ji-flow-submit`
+  (mooted), `python-fake-driven-test-layout` (pilot rationale spent → polish tier),
+  `enriched-plan-save` (block owned by the plan-verification workstream).
