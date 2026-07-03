@@ -94,11 +94,34 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       `flow/CONTEXT.md`'s definition; no source files changed
       (parent-verified clean tree after the investigation).
 - [ ] Land Domain extraction — migrate execution onto the Land Domain Core
-      Policy: preview. Precondition satisfied 2026-07-02: the map is
+      Policy: direct per slice (changed from preview 2026-07-02 by owner
+      decision — see
+      `updates/2026-07-02T181138Z-autonomous-slice-policy.md`). The map is
       `updates/2026-07-02T174146Z-land-extraction-inventory.md` (10 slices,
-      lowest-risk-first; start at slice 1). Execute
-      one mapped slice at a time, each previewed via `objective-next` before
-      code changes.
+      lowest-risk-first). Execute one mapped slice at a time, in map order.
+      Slice gate (replaces the human preview; every check must hold to
+      keep a slice):
+      - land scenario tests pass with UNCHANGED argv assertions
+      (byte-for-byte command construction);
+      - the full Definition of Progress suite is green;
+      - `sdl-flow/api` exports untouched;
+      - no behavior left orchestrated in both `land-stack/` and `land/`
+      without a roadmap note naming the slice that removes it;
+      - gateway-interface changes limited to the methods the map names for
+      that slice.
+      Stop and ask instead of proceeding when a slice needs gateway changes
+      beyond the map's named methods, the argv contract cannot be met, or
+      work would contradict a recorded decision below.
+      Decisions (settled 2026-07-02 to enable autonomous slices):
+      - Isolated fast path: remains a Flow-side shortcut but performs its
+      merge via the new `squashMergePullRequest` gateway method and gains
+      the post-merge MERGED verification it currently skips; it does NOT
+      become a domain target (CONTEXT.md vocabulary unchanged).
+      - Progress reporting: the operation-shaped command channel becomes
+      the gateway backend; per-command start/finish streaming and command
+      output are preserved unchanged.
+      - Slot freeing: the `freeSlots` gateway method keeps shelling out to
+      `sdl slot free`; only the call site moves behind the seam.
       What: per the map, move execution behaviors to run on the Land Domain
       Core's `LandContext` gateways, extending gateway interfaces where the
       map says they fall short. Presentation, prompts, and command streaming

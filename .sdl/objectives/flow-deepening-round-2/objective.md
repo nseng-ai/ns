@@ -145,10 +145,14 @@ below.
 - Direct execution is allowed when: the selected row carries
   `Policy: direct`, its listed preconditions hold, and work proceeds one row
   at a time on a `gt`-created feature branch.
-- Steer or ask first when: the row carries `Policy: preview` (extraction
-  migration slices), the row's stated premise no longer matches the code, a
-  change would touch `sdl-flow/api`, `LandContext` gateway signatures beyond
-  the row's stated scope, or anything under `ccc/`.
+- Steer or ask first when: the row carries `Policy: preview`, the row's
+  stated premise no longer matches the code, a change would touch
+  `sdl-flow/api`, `LandContext` gateway signatures beyond the row's stated
+  scope (for migration slices: beyond the methods the inventory map names
+  for that slice), or anything under `ccc/`. The extraction migration row
+  was changed from preview to direct-per-slice on 2026-07-02 by owner
+  decision; its row-level slice gate and recorded decisions are the
+  execution boundary.
 - How work may change files and be left: code edits within
   `ts/packages/capabilities/flow` (tests included), plus this Objective's
   record files; work is left committed on its feature branch with a Semantic
@@ -179,10 +183,14 @@ below.
 
 **Risks**
 
-- **Extraction blast radius (highest).** Land is the live merge path. Mitigate
-  by the inventory-first row (no code moves), `Policy: preview` on migration
-  slices, one behavior per slice, and scenario tests scripting `pi.exec`
-  staying green throughout.
+- **Extraction blast radius (highest).** Land is the live merge path.
+  Originally mitigated by the inventory-first row plus `Policy: preview` on
+  migration slices. As of 2026-07-02 the inventory is done and the owner
+  replaced the per-slice human preview with a deterministic slice gate
+  (unchanged argv assertions, full DoP suite, map-bounded gateway changes,
+  no unrecorded dual orchestration — see the migration row). The risk is
+  accepted, not de-risked: autonomous slices trade preview latitude for
+  hard stop-and-ask triggers on anything the map did not anticipate.
 - **Compatibility-boundary drift during migration.** Until the round trip
   retires, partial migration can duplicate orchestration. The Definition of
   Progress forbids leaving duplication unrecorded.
@@ -201,9 +209,11 @@ below.
 - Does the Land Domain Core stay a `sdl-flow` subpackage after the migration,
   or graduate to its own package? Decide during the extraction; graduation is
   out of scope for this record unless a second consumer appears.
-- Channel promotion trigger: if submit's Graphite calls migrate onto the
-  channel (plausible during row 6), does the channel then justify a real
-  substitution seam and a neutral home? Revisit at that row, not before.
+- Channel promotion trigger — partially settled 2026-07-02: the migration
+  decisions make the operation-shaped channel the gateway backend
+  (preserving per-command streaming), answering the "does it back the
+  gateways" half. A neutral home / real substitution seam still waits for a
+  second consumer, per Non-Goals.
 - What does the land presentation surface (#5) look like after extraction —
   still three files split by mechanism, or does the migration collapse part of
   it for free? Re-inventory at promotion time; its parked premise is already
