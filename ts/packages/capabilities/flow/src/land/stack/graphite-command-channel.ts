@@ -26,8 +26,8 @@ export interface ReadGraphiteBranchMetadataCommand {
 	display: string;
 }
 
-export type CheckoutConflictPolicy = "fail" | "defer";
-export type CheckedOutConflictPolicy = "fail" | "retain";
+export type GetDownstackConflictHandling = "fail" | "defer";
+export type DeleteLocalBranchConflictHandling = "fail" | "retain";
 
 export type LandGraphiteOperation =
 	| { kind: "trunk" }
@@ -36,12 +36,12 @@ export type LandGraphiteOperation =
 	| {
 			kind: "get-downstack-no-checkout";
 			branch: string;
-			checkedOutConflictHandling?: CheckoutConflictPolicy;
+			checkedOutConflictHandling?: GetDownstackConflictHandling;
 	  }
 	| {
 			kind: "delete-local-branch";
 			branch: string;
-			checkedOutConflictHandling?: CheckedOutConflictPolicy;
+			checkedOutConflictHandling?: DeleteLocalBranchConflictHandling;
 	  }
 	| { kind: "untrack-local-branch"; branch: string };
 
@@ -165,7 +165,7 @@ export function restackUpstackOperation(
 
 export function getDownstackNoCheckoutOperation(input: {
 	readonly branch: string;
-	readonly checkedOutConflictHandling?: CheckoutConflictPolicy;
+	readonly checkedOutConflictHandling?: GetDownstackConflictHandling;
 }): Extract<LandGraphiteOperation, { kind: "get-downstack-no-checkout" }> {
 	return {
 		kind: "get-downstack-no-checkout",
@@ -178,7 +178,7 @@ export function getDownstackNoCheckoutOperation(input: {
 
 export function deleteLocalBranchOperation(input: {
 	readonly branch: string;
-	readonly checkedOutConflictHandling?: CheckedOutConflictPolicy;
+	readonly checkedOutConflictHandling?: DeleteLocalBranchConflictHandling;
 }): Extract<LandGraphiteOperation, { kind: "delete-local-branch" }> {
 	return {
 		kind: "delete-local-branch",
