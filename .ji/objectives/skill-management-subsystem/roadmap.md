@@ -3,7 +3,7 @@
 ## Work
 
 - [~] Establish the package and command vocabulary for the `ji` CLI.
-      Decided (see `updates/20260702T035321Z-harness-artifact-vocabulary-and-layering.md`): domain term **harness artifact** with kinds `skill`/`agent`/`extension-bundle`; user-facing command `ji skills`; verb **provision**; **harness** over "platform"; AREG re-read as Artifact Registry. Remaining: confirm the package name (leading candidate `@ji/harness-artifacts`).
+  Decided (see `updates/20260702T035321Z-harness-artifact-vocabulary-and-layering.md`): domain term **harness artifact** with kinds `skill`/`agent`/`extension-bundle`; user-facing command `ji skills`; verb **provision**; **harness** over "platform"; AREG re-read as Artifact Registry. Remaining: confirm the package name (leading candidate `@ji/harness-artifacts`).
 
 - [ ] Design the artifact model, harness path table, install manifest, and reconcile operation.
       Define artifact entries, catalog shape, the three entry kinds, harness specs with aliases and user-vs-project scope (including `CLAUDE_CONFIG_DIR` handling), deterministic provision-plan output, and the install manifest with per-file content hashes and source-version provenance. Reconcile is the core operation: declared catalogs vs install manifest → provision plan → apply; install/update commands are sugar over it. Conflict policy is LBYL: detect stale content after upgrades, refuse to clobber locally edited files without `--force`, clean up renames. Evidence should include tests for path resolution, alias normalization, plan output, reconcile behavior across drift channels, and manifest-driven conflict behavior.
