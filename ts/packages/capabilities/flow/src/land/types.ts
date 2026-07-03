@@ -130,6 +130,7 @@ export interface StackSnapshot {
 	readonly landingBranches: readonly string[];
 	readonly remainingLandingBranches: readonly string[];
 	readonly descendantBranches: readonly string[];
+	readonly descendantRootBranches?: readonly string[];
 	readonly warnings: readonly LandingWarning[];
 }
 
@@ -221,11 +222,15 @@ export interface ManualWorktreeConflict {
 
 export type DescendantMaintenancePlan =
 	| { readonly type: "none"; readonly branches: readonly [] }
-	| { readonly type: "auto"; readonly branches: readonly string[]; readonly targetBranch: string }
+	| {
+			readonly type: "auto";
+			readonly branches: readonly string[];
+			readonly targetBranches: readonly string[];
+	  }
 	| {
 			readonly type: "skipped";
 			readonly branches: readonly string[];
-			readonly targetBranch?: string;
+			readonly targetBranches: readonly string[];
 			readonly conflicts: readonly WorktreeConflict[];
 			readonly reason: string;
 	  };

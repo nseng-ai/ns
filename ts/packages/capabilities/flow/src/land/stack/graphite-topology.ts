@@ -193,7 +193,9 @@ export function detectForkViolations(
 	topology: GraphiteTopology,
 	landingPath: string[],
 ): ForkViolation[] {
-	return [...detectGraphiteForkViolations(topology, landingPath)];
+	return [...detectGraphiteForkViolations(topology, landingPath)].filter(
+		(violation) => violation.expectedChild !== undefined,
+	);
 }
 
 export function formatForkViolations(violations: ForkViolation[], trunk: string): LandStackFailure {

@@ -397,7 +397,7 @@ describe("land-stack pure helpers", () => {
 		expect(expectSuccess(deriveDescendantSubtree(topology, "feature-d"))).toEqual([]);
 	});
 
-	test("detects forks on the landing path and at the current branch but exempts trunk", () => {
+	test("detects forks on the landing path but allows multiple current descendants", () => {
 		const topology = topologyOf({
 			main: { children: ["feature-a", "other"], trunk: true },
 			"feature-a": { parent: "main", children: ["feature-b", "side"] },
@@ -415,20 +415,11 @@ describe("land-stack pure helpers", () => {
 			},
 		]);
 
-		const atCurrent = detectForkViolations(
-			topologyOf({ "feature-b": { children: ["feature-c", "feature-d"] } }),
-			["feature-b"],
-		);
-		expect(atCurrent).toEqual([
-			{
-				forkPoint: "feature-b",
-				expectedChild: undefined,
-				siblings: [
-					{ branch: "feature-c", subtree: ["feature-c"] },
-					{ branch: "feature-d", subtree: ["feature-d"] },
-				],
-			},
-		]);
+		expect(
+			detectForkViolations(topologyOf({ "feature-b": { children: ["feature-c", "feature-d"] } }), [
+				"feature-b",
+			]),
+		).toEqual([]);
 
 		expect(detectForkViolations(topology, [])).toEqual([]);
 	});
@@ -659,7 +650,7 @@ describe("land-stack pure helpers", () => {
 					kind: "managed-slot",
 				},
 			],
-			descendantMaintenance: { kind: "auto", branches: [DESCENDANT], targetBranch: DESCENDANT },
+			descendantMaintenance: { kind: "auto", branches: [DESCENDANT], targetBranches: [DESCENDANT] },
 		};
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");

@@ -1,3 +1,4 @@
+import { optionalEntry } from "@sdl/core/primitives";
 import { buildStackLandingPlan } from "../api.ts";
 import type { LandingFailure } from "../api.ts";
 import {
@@ -44,6 +45,12 @@ function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
 			landingBranches: [...plan.stack.landingBranches],
 			remainingLandingBranches: [...plan.stack.remainingLandingBranches],
 			descendantBranches: [...plan.stack.descendantBranches],
+			...optionalEntry(
+				"descendantRootBranches",
+				plan.stack.descendantRootBranches === undefined
+					? undefined
+					: [...plan.stack.descendantRootBranches],
+			),
 			warnings: plan.stack.warnings.map((warning) => warning.message),
 		},
 		branchPlans: plan.branchPlans.map((branchPlan) => ({
@@ -94,12 +101,12 @@ function toFlowDescendantMaintenance(
 ): FlowLandingPlan["descendantMaintenance"] {
 	if (plan.type === "none") return { kind: "none", branches: [] };
 	if (plan.type === "auto") {
-		return { kind: "auto", branches: [...plan.branches], targetBranch: plan.targetBranch };
+		return { kind: "auto", branches: [...plan.branches], targetBranches: [...plan.targetBranches] };
 	}
 	return {
 		kind: "skipped",
 		branches: [...plan.branches],
-		targetBranch: plan.targetBranch,
+		targetBranches: [...plan.targetBranches],
 		conflicts: plan.conflicts.map((conflict) => ({
 			branch: conflict.branch,
 			path: conflict.path,

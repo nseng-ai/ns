@@ -120,6 +120,7 @@ export interface StackSnapshot {
 	landingBranches: string[];
 	remainingLandingBranches: string[];
 	descendantBranches: string[];
+	descendantRootBranches?: string[];
 	warnings: string[];
 }
 
@@ -174,11 +175,11 @@ export interface WorktreeConflict {
 
 export type DescendantMaintenancePlan =
 	| { kind: "none"; branches: [] }
-	| { kind: "auto"; branches: string[]; targetBranch: string }
+	| { kind: "auto"; branches: string[]; targetBranches: string[] }
 	| {
 			kind: "skipped";
 			branches: string[];
-			targetBranch: string | undefined;
+			targetBranches: string[];
 			conflicts: WorktreeConflict[];
 			reason: string;
 	  };
