@@ -12,7 +12,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Extensions | ns Documentation",
-  description: "A static catalog of ns's local Pi and workflow extensions.",
+  description: "A static catalog of ns extension surfaces for Pi and workflow use.",
 };
 
 export default function ExtensionsPage() {

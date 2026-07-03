@@ -2,7 +2,9 @@
 
 ## Purpose and content boundary
 
-This is ns's published documentation site. It is a standalone Next.js App Router + Fumadocs app using `@vercel/geistdocs`.
+This is the published documentation site for ns (nonslop engineering — `nseng.ai`). It is a standalone Next.js App Router + Fumadocs app using `@vercel/geistdocs`.
+
+The site is written for the product's future name: the CLI shipping today is `ji`, mid-cutover to `ns`. Deploys stay gated until the rename lands.
 
 Published content lives under `docs-site/docs/`. The repository-root `docs/` tree is internal engineering documentation and is not published by this site.
 
@@ -73,6 +75,6 @@ The old Astro/Starlight `dist` output directory setting is no longer used. Do no
 
 ### Production URL and access settings
 
-Set `NEXT_PUBLIC_SITE_URL` when the deployed site needs a canonical production origin for metadata, feeds, sitemap, robots, and related generated URLs. Local development falls back to `http://localhost:3000`.
+Set `NEXT_PUBLIC_SITE_URL` when the deployed site needs a canonical production origin for metadata, feeds, sitemap, robots, and related generated URLs (production is `https://nseng.ai`). Local development falls back to `http://localhost:3000`.
 
 Deployment Protection / Vercel Authentication is a Vercel project setting, not a `vercel.json` setting.

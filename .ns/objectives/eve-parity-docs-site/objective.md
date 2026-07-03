@@ -12,8 +12,12 @@ Replace SDL's existing Astro/Starlight documentation site with a from-scratch
 Next.js + Fumadocs site built on Vercel's `@vercel/geistdocs` package, closely
 mimicking the `vercel/eve` documentation site (`apps/docs`). The goal is high
 visual and structural fidelity to eve's docs — its geistdocs chrome, AI-native
-machine routes, marketing home, and integrations gallery — adapted to SDL's
-product surface (the `sdl` umbrella, its CLIs, and its public skills).
+machine routes, marketing home, and integrations gallery — adapted to ns's
+product surface: the `ns` CLI (the ns kernel) plus its extension ecosystem.
+
+The site is written for the product's future name: the CLI is `ji` today and
+becomes `ns` (== nonslop; `nseng` == nonslop engineering) soon. Production site
+is `nseng.ai`. Launch stays gated behind the actual CLI rename.
 
 The current `docs-site/` (Astro + Starlight) is deleted and rebuilt. Its prior
 content and assets remain recoverable from git history and the Objective notes,
@@ -58,8 +62,8 @@ not from a staged preservation artifact.
 - The `agent{}` config block (eve keeps it in a single `geistdocs.tsx`; SDL's
   implementation lives in the `docs-site/lib/geistdocs/` config modules, chiefly
   `ai-assistant.ts`): product metadata (name/description/category/audience/
-  useCases) + literal agent `instructions` authored for SDL (point agents at
-  `/llms.mdx/...`, `/sitemap.md`, `/llms.txt`, and SDL CLI `--json`/Clinkr JSON
+  useCases) + literal agent `instructions` authored for ns (point agents at
+  `/llms.mdx/...`, `/sitemap.md`, `/llms.txt`, and ns CLI `--json`/Clinkr JSON
   envelopes for verification).
 - **md-tracking telemetry: LEFT ON** (phones home to `geistdocs.com/md-tracking`
   keyed by `siteId`). Per explicit decision to maximize eve parity.
@@ -70,9 +74,11 @@ not from a staged preservation artifact.
   CTA, OG/Twitter metadata — adapted to SDL positioning. Skips eve's
   per-feature animated visuals (`components/visuals/*`).
 - **Extensions gallery page**: included as a structural mirror of eve's
-  integrations gallery, but the SDL version catalogs extensions rather than
-  generic integrations. It should start from a docs-site-local data/config shape
-  unless a later implementation proves a shared catalog package is necessary.
+  integrations gallery, but the ns version catalogs extensions rather than
+  generic integrations. Real entries are `aretro`, `roaster`, and `pr-address`;
+  skills ship as part of extensions. It starts from a docs-site-local data/config
+  shape unless a later implementation proves a shared catalog package is
+  necessary.
 
 **Deployment & repo integration.**
 
@@ -94,10 +100,13 @@ not from a staged preservation artifact.
 - **No per-feature animated home visuals** (eve's `(home)/components/visuals/*`).
   A polished but static home is sufficient.
 - **No second language / real translations.** i18n scaffolding only.
-- **No changes to the internal `docs/` tree.** Its contents, organization, and
-  purpose are out of scope; this Objective may use the former published site
-  from git history as reference material, but does not stage or preserve the old
-  site as a migration artifact.
+- **No changes to the internal `docs/` tree, with one named exception:**
+  `docs/north-star.md` is rewritten under this Objective because it is the site's
+  copy source (owner decision). Everything else in `docs/` stays out of scope;
+  this Objective may use the former published site from git history as reference
+  material, but does not stage or preserve the old site as a migration artifact.
+  A ns successor to `docs/ji-naming-brief.md` is needed but belongs to the rename
+  initiative, not this Objective.
 - **No new shared content catalog package** (no SDL analogue of
   `@vercel/eve-catalog`) unless the extensions gallery implementation proves a
   shared source of truth is necessary.
@@ -113,12 +122,14 @@ not from a staged preservation artifact.
 - Local run renders, at minimum: the marketing home, a docs reader page with
   working sidebar + search, `/llms.txt`, `/agents.md`, and a per-page
   `/llms.mdx/<slug>`.
-- The published content corpus covers at least the sections the current site
-  covers (Get started, Concepts, Tools, Guides, Skills), restructured into the
-  geistdocs frontmatter schema + `meta.json`, with no orphaned/dead sidebar
-  entries.
-- The `agent{}` instructions block and nav/identity reflect SDL (not eve
-  placeholder text).
+- The published content corpus covers the restructured IA — Get started,
+  Concepts (ns kernel features), Extensions, Guides — in the geistdocs
+  frontmatter schema + `meta.json`, with no orphaned/dead sidebar entries.
+  (Tools and Skills as top-level sections are gone: slot/objectives/branch
+  memory are kernel features, aretro/roaster/pr-address are extension pages, and
+  skills are documented as part of their extensions.)
+- The `agent{}` instructions block and nav/identity reflect ns (not eve or
+  legacy sdl text).
 - Vercel build configuration is present and deploys remain gated until
   explicitly launched.
 
@@ -170,6 +181,11 @@ not from a staged preservation artifact.
   identity/positioning copy, and actual launch readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
+- **Future-name docs.** The site documents `ns` commands while the shipped
+  binary is `ji` (itself mid-cutover from `sdl`). Docs are deliberately
+  aspirational until the ns rename lands; the deploy gate is the mitigation, and
+  launch is sequenced behind the CLI rename. No future session should open the
+  launch gate while the documented command name does not exist.
 
 ## Open Questions
 
@@ -186,12 +202,13 @@ not from a staged preservation artifact.
   `ts/` workspace with its own lockfile. It has a local `pnpm-workspace.yaml`
   only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
   `sharp`), not to join the repo TypeScript workspace.
-- **Site identity/positioning copy** — brand casing is resolved to lowercase
-  `sdl`, and `siteId` currently carries the working value `sdl-docs`
-  (`docs-site/lib/geistdocs/site-identity.ts`); tagline, hero headline, and the
-  production URL/domain (`NEXT_PUBLIC_SITE_URL`, currently defaulting to
-  localhost) still need launch-ready decisions. eve: "The Framework for Building
-  Agents" / "Like Next.js for web apps, but for agents." sdl needs its own.
+- **Site identity/positioning copy: resolved to ns.** The product is `ns`
+  (== nonslop; `nseng` == nonslop engineering), lowercase always — this
+  supersedes the earlier "lowercase `sdl`" resolution. `siteId` is `"ns"`;
+  production domain is `nseng.ai`. No tagline workshop: hero, agent block, and
+  positioning copy derive from the rewritten `docs/north-star.md` (enemy = the
+  software factory; thesis = nonslop engineering; architecture = ns kernel +
+  extensions; "source development lifecycle" removed as language).
 - **Content file extension: resolved to `.mdx` for the migrated published
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
@@ -235,6 +252,23 @@ Decisions captured during the framing conversation:
    plus shared marketing UI primitives in `docs-site/components/marketing-ui.tsx`.
    Behavioral parity targets are unchanged; only the file shape diverges from
    eve.
+9. **ns identity (2026-07-03)** — the site is built for the product's future
+   name: `ns` == nonslop, `nseng` == nonslop engineering, lowercase always,
+   `nseng.ai`, `siteId: "ns"`. The CLI is `ji` today; "we program for the
+   future," and launch is sequenced behind the rename. Supersedes the
+   lowercase-`sdl` branding resolution.
+10. **Kernel/extensions positioning (2026-07-03)** — nothing is standalone: the
+    **ns kernel** (canonical vocabulary: the core the extensions are built on)
+    owns slots, objectives, branch memory (brmem is an internal kernel utility),
+    handoffs, and shipping; `aretro`, `roaster`, `pr-address` are extensions;
+    skills ship as part of extensions. The docs Tools and Skills sections
+    dissolve into kernel feature pages and extension pages.
+11. **Copy derives from the north star (2026-07-03)** — no tagline iteration;
+    `docs/north-star.md` is rewritten under this Objective as a deeper
+    repositioning (software factory as the enemy, per the anti-factory spine of
+    `docs/ji-naming-brief.md`; meta-harness demoted to Exhibit A; nonslop
+    engineering as the thesis), and all site copy is derived from it. Chrome
+    rebrand is not held back on content work.
 
 ## Reference: eve docs architecture (`vercel/eve` `apps/docs`)
 

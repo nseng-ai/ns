@@ -1,6 +1,6 @@
 import { Feed } from "feed";
 import { geistdocsConfig } from "@/lib/geistdocs/config";
-import { title } from "@/lib/geistdocs/site-identity";
+import { copyrightName, productName, title } from "@/lib/geistdocs/site-identity";
 import { getPageMetadata, source } from "@/lib/geistdocs/source";
 import { getSiteOrigin } from "@/lib/geistdocs/url";
 
@@ -11,7 +11,7 @@ export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Respon
     id: baseUrl,
     link: baseUrl,
     language: lang,
-    copyright: `All rights reserved ${new Date().getFullYear()}, ns`,
+    copyright: `All rights reserved ${new Date().getFullYear()}, ${copyrightName}`,
   });
 
   for (const page of source.getPages(lang)) {
@@ -26,7 +26,7 @@ export function buildRssResponse(lang = geistdocsConfig.defaultLanguage): Respon
       date: metadata.lastModified,
       author: [
         {
-          name: "ns",
+          name: productName,
         },
       ],
     });

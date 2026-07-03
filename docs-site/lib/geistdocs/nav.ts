@@ -1,3 +1,5 @@
+import { navDocsLabel } from "@/lib/geistdocs/site-identity";
+
 export const github = {
   owner: "nseng-ai",
   repo: "ns",
@@ -5,7 +7,7 @@ export const github = {
 
 export const nav = [
   {
-    label: "Docs",
+    label: navDocsLabel,
     href: "/docs",
   },
   {
