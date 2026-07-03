@@ -23,7 +23,7 @@ idioms, load `typescript-style`, then `sdl-typescript` for the repo toolchain.
 Out of scope: structural/DRY cleanup of CLI code and shell completion.
 
 Decision provenance: `docs/research/agent-era-cli-design-survey.md`, the Clinkr gap audit
-(`.ji/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`),
+(`.ns/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`),
 and ADRs `docs/adr/0010`–`0015`. Exact `@ji/clinkr` surfaces and ADR rationale
 live in `references/clinkr-api-map.md`. A command is **done only when every item
 in `references/checklist.md` passes**.
@@ -109,7 +109,7 @@ Design *to* the typed machine envelope.
   `dry-run`, `branch-context-error`). No snake_case, no aliases (ADR 0010). Model
   known external strings (GitHub/Anthropic/Pi/git wire values) as TypeScript
   literal unions and keep their exact spelling. The
-  `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard enforces this for
+  `NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard enforces this for
   `failure(...)` error types and `errorType` literals.
 - Prefer a handler-returned `usageError(...)` whose `data` names the bad/missing
   argument over throwing.
@@ -149,9 +149,9 @@ Cross-cutting rules:
 - `--dry-run` is a successful inspection: return `ok(...)` with the computed
   plan/impact, never `negative(...)`.
 
-Mirror existing conformance: `ji handoff delete` is Tier 2 (`--yes`;
+Mirror existing conformance: `ns handoff delete` is Tier 2 (`--yes`;
 its missing `-y` is a cutover exception, not a pattern for new commands);
-`ji handoff gc`, `slot gc`, `brmem put` are Tier 3 (`--force`; apply `-f`
+`ns handoff gc`, `slot gc`, `brmem put` are Tier 3 (`--force`; apply `-f`
 for new human-facing Tier 3 commands unless a steered exception says otherwise).
 
 ## Naming and exec placement

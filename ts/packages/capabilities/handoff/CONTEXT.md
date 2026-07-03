@@ -1,6 +1,6 @@
 # @ji/handoff
 
-`@ji/handoff` owns directed Handoff Artifact vocabulary, Handoff Domain Core behavior, the curated Handoff Capability API, and the portable `ji handoff ...` Command Face over Branch Memory storage.
+`@ji/handoff` owns directed Handoff Artifact vocabulary, Handoff Domain Core behavior, the curated Handoff Capability API, and the portable `ns handoff ...` Command Face over Branch Memory storage.
 
 ## Language
 
@@ -65,7 +65,7 @@ The explicit operation that previews or deletes Handoff Artifacts whose local br
 *Avoid*: automatic cleanup, archive, Objective Close.
 
 **Handoff Command Face**:
-The portable ji command surface `ji handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
+The portable ji command surface `ns handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
 *Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
 
 **Handoff Capability API**:

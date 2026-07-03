@@ -1,11 +1,11 @@
 ---
 name: pr-address
-description: "Use when downloading GitHub PR feedback or using ji address exec PR feedback primitives for agent triage, PR lookup, review-thread inspection, or confirmed review-thread reply/resolution."
+description: "Use when downloading GitHub PR feedback or using ns address exec PR feedback primitives for agent triage, PR lookup, review-thread inspection, or confirmed review-thread reply/resolution."
 ---
 
 # pr-address
 
-Address is the repo-owned PR feedback surface: LM-ready feedback download plus shared `ji address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
+Address is the repo-owned PR feedback surface: LM-ready feedback download plus shared `ns address exec` primitives for PR lookup, review inspection, and confirmed review-thread mutations. The skill slug remains `pr-address` for discoverability.
 
 ## Initial feedback download
 
@@ -17,7 +17,7 @@ Prefer the Pi commands when available:
 Manual CLI fallback:
 
 ```bash
-ji address exec download-feedback --pr-number <pr-number> --format json
+ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
 The JSON result includes a `markdown` field intended for editor/session prefill. It is triage-only: downloaded feedback alone does not authorize editing files, resolving threads, replying on GitHub, pushing, or submitting. During initial triage, propose a plan and wait for human confirmation.
@@ -44,9 +44,9 @@ Mutation primitives:
 - `resolve-review-thread --thread-id <id>`
 - `close-review-threads --thread-ids-json '{"threadIds":["<id>"]}' [--body <body>]`
 
-After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
+After the user has asked you to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed, use `ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "<BODY>" --format json` for confirmed bulk review-thread closure. Omit `--body` for resolve-only bulk closure. The same JSON payload can be provided on stdin.
 
-For one-off mutations, use `ji address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `ji address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
+For one-off mutations, use `ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json` rather than raw `gh api graphql` to resolve review threads. Use `ns address exec reply-review-thread --thread-id <THREAD_ID> --body <BODY> --format json` rather than raw GraphQL/REST to reply to review threads.
 
 ## Retired workflow
 

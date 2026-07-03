@@ -6,10 +6,10 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 
 - Prefer `enriched-plan exec resolve` for saved-plan resolution.
 - Prefer `enriched-plan list` for read-only local saved-plan store inspection across branch-key directories in the current repo.
-- Prefer `ji branch-context exec load` for attached-plan loading.
-- Prefer `ji branch-context exec list/check` for read-only branch-context entry inspection.
+- Prefer `ns branch-context exec load` for attached-plan loading.
+- Prefer `ns branch-context exec list/check` for read-only branch-context entry inspection.
 - Use `brmem list/get` read-only only when branch-context helpers are insufficient for diagnosing Branch Memory attachment state.
-- Scope filesystem inspection narrowly to the relevant repo key under `$XDG_STATE_HOME/ji/enriched-plan/` (default `$HOME/.local/state/ji/enriched-plan/`); do not perform broad home-directory traversals.
+- Scope filesystem inspection narrowly to the relevant repo key under `$XDG_STATE_HOME/ns/enriched-plan/` (default `$HOME/.local/state/ns/enriched-plan/`); do not perform broad home-directory traversals.
 - Prefer deterministic CLI helpers over manual file or Branch Memory operations when available.
 
 ## Common recovery cases
@@ -18,7 +18,7 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 - Target branch exists: stop and ask whether to choose another branch or inspect the existing branch.
 - Branch Memory entry exists: stop; do not overwrite the attached plan manually.
 - Graphite setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.
-- Missing or unexpected attached plan key: inspect the `branch-context` namespace and rerun `ji branch-context exec load <key>` only when a non-default key is explicitly intended.
+- Missing or unexpected attached plan key: inspect the `branch-context` namespace and rerun `ns branch-context exec load <key>` only when a non-default key is explicitly intended.
 - Current branch is trunk/default/detached for implementation: stop and ask for the intended implementation branch.
 - Stale plan content: report the observed mismatch and ask or adjust scope before implementing beyond the plan.
 
@@ -27,7 +27,7 @@ Use this reference for non-happy-path branch-context work. Keep diagnostics narr
 Path convention:
 
 ```text
-$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 ```
 
 For current-repo read-only inspection, prefer:
@@ -48,9 +48,9 @@ When manually inspecting saved plans:
 Inspect branch-context entries with deterministic helpers first:
 
 ```bash
-ji branch-context exec list --branch <branch> --format json
-ji branch-context exec check <key> --branch <branch> --format json
-ji branch-context exec load [<key>] --prompt-file <path> --format json
+ns branch-context exec list --branch <branch> --format json
+ns branch-context exec check <key> --branch <branch> --format json
+ns branch-context exec load [<key>] --prompt-file <path> --format json
 ```
 
 Inspect Branch Memory attachments directly only as a diagnostic fallback — not as a replacement for the create/load workflows:
@@ -101,7 +101,7 @@ If the user asks in a way that could mean either move or copy, ask which behavio
 If a CLI helper such as this exists in the future, prefer it over manual `mv`/edit operations:
 
 ```bash
-ji branch-context exec retarget-plan \
+ns branch-context exec retarget-plan \
   --plan-file <path> \
   --source-branch <branch> \
   --format json

@@ -60,7 +60,7 @@ fake-driven behavior, cheap metadata parsing/discovery that does not import modu
 command behavior through package-owned fakes.
 
 Real CLI extension discovery/import is an integration boundary. Tests that create a temporary project with
-`.ji/extensions`, invoke `runCli()`, and rely on the ji loader to scan manifests and dynamically import
+`.ns/extensions`, invoke `runCli()`, and rely on the ji loader to scan manifests and dynamically import
 extension modules through `jiti` belong in `test/integration/` unless the test is explicitly about cheap
 metadata-only discovery that does not import modules.
 
@@ -84,7 +84,7 @@ Default-path tests should prefer small fake-driven seams:
   grouped flow commands, `@ji/flow` owns direct behavior tests: import package-owned command objects
   such as `flowCpCommand`, execute them with a fake `SdlExtensionApi`, scripted command runner, scripted
   text generation, and inert temp files, then keep a small ji integration smoke proving the checked-in
-  `.ji/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
+  `.ns/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
 - Assert the same behavior contract that a real-adapter integration test preserves at the boundary.
 - Keep package scenario tests focused on user-visible CLI behavior that does not require slow external
   setup.

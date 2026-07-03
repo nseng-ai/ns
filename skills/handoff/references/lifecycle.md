@@ -49,25 +49,25 @@ Pi slash commands and CLI commands are first-class workflow surfaces over the ha
 Pi surfaces:
 
 ```text
-/ji:handoff:create <continuation focus>
-/ji:handoff:pickup [--branch <branch>] [slug|search words]
+/ns:handoff:create <continuation focus>
+/ns:handoff:pickup [--branch <branch>] [slug|search words]
 /handoff:list [--branch <branch>|--all]
 ```
 
 ji command face:
 
 ```text
-ji handoff list [--branch <branch>|--all] [--include-deleted] --format json
-ji handoff pickup [--branch <branch>] <slug>
-ji handoff create --slug <slug> [--branch <branch>] [--file <path>]
-ji handoff delete [--branch <branch>] [--yes] <slug>
-ji handoff gc [--dry-run|--force]
+ns handoff list [--branch <branch>|--all] [--include-deleted] --format json
+ns handoff pickup [--branch <branch>] <slug>
+ns handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ns handoff delete [--branch <branch>] [--yes] <slug>
+ns handoff gc [--dry-run|--force]
 brmem get|check|put|copy|delete ... --namespace handoff
 ```
 
 There is no `/handoff:delete` Pi command in the current surface; single-handoff deletion is CLI-only.
 
-`brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when an `ji handoff ...` command or Pi surface exists.
+`brmem` is the storage/recovery/admin layer. Do not make it the primary public UX when an `ns handoff ...` command or Pi surface exists.
 
 ## Branch and list scope
 

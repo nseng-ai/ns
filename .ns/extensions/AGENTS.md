@@ -2,8 +2,8 @@
 
 This directory contains repo-local SDL extension packages and, where needed for compatibility tests, direct leaf command modules.
 
-- The canonical lifecycle command package is `.ji/extensions/flow/`, whose manifest declares `ji.group = "flow"` and whose command entries live under `flow/src/commands/`.
-- First-party repo-local extension manifests use one command leaf per manifest entry: the implementation package owns `src/repo-local-sdl-extension.ts`, each public package command module default-exports `defineExtension({ commands: [thatCommand] })`, and each `.ji/extensions/<group>/src/commands/*.ts` file is only a one-line default re-export of that package command module. Do not add a shared `.ji/extensions/<group>/src/extension.ts` multiplexer for multiple first-party commands.
+- The canonical lifecycle command package is `.ns/extensions/flow/`, whose manifest declares `ji.group = "flow"` and whose command entries live under `flow/src/commands/`.
+- First-party repo-local extension manifests use one command leaf per manifest entry: the implementation package owns `src/repo-local-sdl-extension.ts`, each public package command module default-exports `defineExtension({ commands: [thatCommand] })`, and each `.ns/extensions/<group>/src/commands/*.ts` file is only a one-line default re-export of that package command module. Do not add a shared `.ns/extensions/<group>/src/extension.ts` multiplexer for multiple first-party commands.
 - Import only the public SDL extension API (`sdl-sdk`), ordinary external/runtime packages needed by the extension, and extension-owned shared helpers under the owning manifest package.
 - Do not import SDL-owned command helpers from `@sdl/kernel/*` implementation subpaths, `ts/packages/kernel/src/*`, `ts/packages/infra/core/src/*`, or other SDL implementation internals.
 - Shared extension helpers live under the owning implementation package (for example, `ts/packages/capabilities/flow/src/shared/` in the `sdl-flow` workspace package) so extension discovery does not treat helper files as commands.

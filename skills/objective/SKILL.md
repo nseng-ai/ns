@@ -1,6 +1,6 @@
 ---
 name: objective
-description: "Conceptual questions about sdl Objectives, ji objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
+description: "Conceptual questions about sdl Objectives, ns objective list, explicit Objective consolidation/subsumption guidance, and shared grounding with Objective command skills. Read-only."
 ---
 
 # objective
@@ -14,7 +14,7 @@ An Objective is a checked-in durable narrative roadmap for multi-session, multi-
 Active root:
 
 ```text
-.ji/objectives/<slug>/
+.ns/objectives/<slug>/
   objective.md
   roadmap.md
   orientation.md  # optional; open Objectives only
@@ -22,9 +22,9 @@ Active root:
   closed.md  # optional marker
 ```
 
-The archive root mirrors this layout under `.ji/objective-archive/<slug>/`; the `closed.md` marker is preserved when present. Do not use `docs/objectives/`.
+The archive root mirrors this layout under `.ns/objective-archive/<slug>/`; the `closed.md` marker is preserved when present. Do not use `docs/objectives/`.
 
-Archive state is represented by location. `ji objective archive <slug>` moves the whole record out of active discovery; `ji objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
+Archive state is represented by location. `ns objective archive <slug>` moves the whole record out of active discovery; `ns objective archive <slug> --unarchive` moves it back. Open and closed Objectives can both be archived. Archive/unarchive preserve the slug and every file in the record directory.
 
 ## Objective skill family
 
@@ -38,7 +38,7 @@ Use these step skills for explicit workflow requests:
 - `objective-refresh`: non-closing verified rebaseline for active Objective records. It may append Semantic Updates but never creates `closed.md` or `## Closure`, and never commits — it leaves edits in the worktree.
 - `objective-close`: explicit close only. It records `## Closure` and writes the Closure Marker without deleting checked-in history.
 - `objective-stack-impl`: parent orchestration for implementing one Objective as small slices or a Graphite stack. It uses Objective updates as checkpoints, but does not own the general Objective lifecycle.
-- `objective-runner-step`: parent playbook for exactly one verified runner step via `ji objective exec runner-step`, including `--recover` decisions and Runner Checkpoint interpretation. It runs one step only and never updates tracking.
+- `objective-runner-step`: parent playbook for exactly one verified runner step via `ns objective exec runner-step`, including `--recover` decisions and Runner Checkpoint interpretation. It runs one step only and never updates tracking.
 - `objective-autorun`: parent orchestration loop over repeated `objective-runner-step` invocations with a judgment checkpoint between steps. It delegates each step to the runner, routes tracking through `objective-update`, and never submits or pushes.
 - `objective-review-briefing`: read-only producer for post-merge delivered-scope review briefings. It reconstructs an Objective's delivering PR/commit/file basis and stores a review-agnostic briefing in the objective-owned `objective-review` Branch Memory namespace; it does not mutate Objective records or run a review lens.
 
@@ -96,7 +96,7 @@ edges:
 - **Objective Edges** are undirected, kind-less, mirrored connections between two Objective records. Each endpoint lists the other under `edges:` as `{objective: <slug>, annotation: <sentence>}`. The **Edge Annotation** is required on both sides and written from that record's perspective — the two sentences are deliberately different texts. Edge identity is the unordered slug pair; at most one edge between two records. Direction, causality, and relationship kind live in the prose, never the schema.
 - **Blocked Sentence**: `blocked:` is prose-valued; its presence means the record is blocked (for any reason — another objective, an external gate) and its value says why. There is no boolean, and blocked is a sub-state of open, not a lifecycle state. It is set and cleared only by skill judgment, never by machine auto-flip.
 - **Mutation is skill-owned.** There is no public CLI mutation surface. The objective-create, objective-update, and objective-close step skills own writing edges and judging Blocked Sentences. Because edges are mirrored, an edge mutation is a two-file edit: it edits the counterpart record's frontmatter too — the one sanctioned exception to one-Objective mutation boundaries, limited strictly to the counterpart's frontmatter.
-- **Verification**: after any frontmatter edit, run `ji objective check <slug>` (per-slug check validates that record's edges including mirror lookups) or `ji objective check --all` (repo-wide structural sweep). Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
+- **Verification**: after any frontmatter edit, run `ns objective check <slug>` (per-slug check validates that record's edges including mirror lookups) or `ns objective check --all` (repo-wide structural sweep). Structural violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors.
 
 This umbrella skill remains read-only; frontmatter mutation procedures live in the step skills.
 
@@ -133,25 +133,25 @@ Detailed PR evidence belongs in new Semantic Updates, and closure-relevant PR ev
 
 Optional branch names, URLs, or explicit status words may be included only when useful as evidence or breadcrumbs. Use `merged` wording only when merge state has been confirmed by PR evidence; otherwise use status-aware wording such as current PR, open PR, draft PR, or PR evidence. PR evidence is not a separate ledger, `prs.md`, machine-readable registry, schema, hidden state, or workflow driver.
 
-`orientation.md` is an optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for cross-cutting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here. Re-deriving `orientation.md` means preserving or correcting the durable `Direction`/`Getting to` lines, shrinking or removing temporary `What you see now`/`Avoid` lines as the migration lands, and keeping lifecycle/graduation metadata in `roadmap.md` rather than `orientation.md`. AGENTS.md always-loads the `orientation.md` of every active (non-`closed.md`) Objective through `ji objective exec load-orientations --format md`, so deterministic inventory and closed-marker mechanics stay in the Objective CLI and the file drops from the load set automatically on close.
+`orientation.md` is an optional, agent-facing standing rule (≈8 content lines) stating where this part of the system is going vs. what an agent sees in the code now, and what to avoid. It is present only for cross-cutting Objectives whose direction an unrelated agent must respect — presence of the file is the opt-in flag, not a list. Durable `Direction`/`Getting to` lines are positionally separate from the temporary `What you see now`/`Avoid` lines; lifecycle/graduation metadata stays in `roadmap.md`, never here. Re-deriving `orientation.md` means preserving or correcting the durable `Direction`/`Getting to` lines, shrinking or removing temporary `What you see now`/`Avoid` lines as the migration lands, and keeping lifecycle/graduation metadata in `roadmap.md` rather than `orientation.md`. AGENTS.md always-loads the `orientation.md` of every active (non-`closed.md`) Objective through `ns objective exec load-orientations --format md`, so deterministic inventory and closed-marker mechanics stay in the Objective CLI and the file drops from the load set automatically on close.
 
 `closed.md` is a minimal Closure Marker. Its existence means closed; closure meaning belongs in `objective.md`.
 
 ## Selection
 
-1. Use an explicit user-provided slug or path under `.ji/objectives/<slug>/`.
-2. If no slug or path is explicit, run `ji objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.ji/objectives/`) and ask the user to choose. Use `ji objective list --names` only for machine-readable active-slug extraction.
+1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
+2. If no slug or path is explicit, run `ns objective list --minimal --format md` to enumerate active checkout-local Objectives (`open` records in `.ns/objectives/`) and ask the user to choose. Use `ns objective list --names` only for machine-readable active-slug extraction.
 3. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 `objective-update` has one narrow exception: when the user explicitly requests an Objective update, no slug/path is explicit, and exactly one active Objective exists, it may present that Objective as the only candidate. It must ask for confirmation before continuing to repo evidence or mutation. If update intent is ambiguous or multiple active Objectives exist, ask instead.
 
-A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.ji/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
+A picker UI may use deterministic git facts to group changed active Objectives first when direct changes under `.ns/objectives/<slug>/` are present compared with repository trunk. If exactly one active Objective is the only Objective slug changed, the picker may label it as suggested. If multiple active Objectives changed, the picker may show those changed active Objectives in the first menu and offer a separate option to view the remaining active Objectives. The user must still confirm a changed Objective or choose another Objective. If the diff is unavailable, empty, or contains no changed slugs that are active Objectives, show the normal ordering with no suggestion.
 
-Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Objective selection must come from an explicit slug/path or checkout-local `ji objective list` inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
+Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata. Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
 ## Repository status
 
-Use `ji objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.ji/objectives/`, with local branch attribution included. Archived records under `.ji/objective-archive/` are physically outside active discovery. `ji objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has local branch attribution, but no Graphite branch projection, current-branch mode, detail view, or third active status. Do not treat listed branch names as Objective selection. Use `ji objective list --minimal` when you need the compact Objective/status/latest-update view without branch attribution. Use `ji objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
+Use `ns objective list` for the default checkout-local Objective status inventory, filtered to active open records in `.ns/objectives/`, with local branch attribution included. Archived records under `.ns/objective-archive/` are physically outside active discovery. `ns objective list --status all` means all statuses in the active root only, not archived records. Closed Objectives display as `✓ closed` only when included with `--status closed` or `--status all`. The default list command has local branch attribution, but no Graphite branch projection, current-branch mode, detail view, or third active status. Do not treat listed branch names as Objective selection. Use `ns objective list --minimal` when you need the compact Objective/status/latest-update view without branch attribution. Use `ns objective list --names` to emit filtered active-root slugs, one per line. It does not parse Objective prose or infer status from branches.
 
 ## Tracking Gate
 
@@ -161,4 +161,4 @@ Before `objective-next` recommends work or offers confirmed execution, check rea
 
 - Not a task database, workflow controller, or branch attachment system.
 - No YAML/frontmatter beyond Record Frontmatter carrying exactly `blocked` and `edges` (the sanctioned exception; see Record Frontmatter above), and no UUIDs, registries, hidden state, or state machine.
-- V1 keeps Objective *meaning* in Markdown; CLI tooling (`ji objective list`, `ji objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.
+- V1 keeps Objective *meaning* in Markdown; CLI tooling (`ns objective list`, `ns objective exec read-objective`) owns only deterministic facts such as record inventory, file presence, and closed-marker presence. Do not parse Markdown headings, roadmap checkboxes, execution policy, or prose meaning in CLI code.

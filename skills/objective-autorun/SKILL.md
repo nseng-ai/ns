@@ -27,14 +27,14 @@ Each iteration:
 2. **Run one step** from the branch the previous step produced (stacking is emergent; the runner holds no cross-step state), per the `objective-runner-step` contract:
 
    ```bash
-   ji objective exec runner-begin <slug> [--guidance <text|@file>] \
+   ns objective exec runner-begin <slug> [--guidance <text|@file>] \
      --report-path <scratch>/step-<n>-report.json --format json > <scratch>/step-<n>-facts.json
    ```
 
    Dispatch a subagent in this worktree with the facts' `prompt` verbatim — the harness shows its progress live, so the human watches the step as it happens. While it runs, touch nothing in the worktree. When it returns:
 
    ```bash
-   ji objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
+   ns objective exec runner-finish <slug> --facts @<scratch>/step-<n>-facts.json
    ```
 
 3. **Read the checkpoint and decide**, using the `objective-runner-step` post-checkpoint playbook verbatim: `committed` → judge the verified facts and claimed narrative, then continue or stop; `verification-failed`/`blocked` → recover (biased default: begin again with `--recover`, sharpened guidance, and a new report path), hand-fix, reset, or escalate; `stop` → honor the subagent's reason; `malfunction` → read diagnostics and check the worktree before anything else, and escalate on repetition.

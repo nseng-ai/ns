@@ -5,7 +5,7 @@ what each command actually requires at runtime — and therefore which commands 
 could adopt without the full SDL/Graphite/slots stack.
 
 > **Package vs. command dependencies.** The extension manifest
-> (`.ji/extensions/flow/`) is thin: each command is a one-line re-export of the
+> (`.ns/extensions/flow/`) is thin: each command is a one-line re-export of the
 > `sdl-flow` workspace package (`ts/packages/capabilities/flow/`). That package's
 > `package.json` declares the *union* of every command's dependencies
 > (`@sdl/graphite`, `@sdl/slot`, `@sdl/github`, …), so adopting the package pulls
@@ -49,8 +49,8 @@ the Graphite **SQLite DB** with `sqlite3`.
 3. `autobranch` / `branch-latest-commit` / `autoslot` use the model to generate the
    **branch slug**; skippable when a slug is supplied explicitly.
 4. `land`'s slot dependency is **conditional and opt-in** (`--free`). It detects
-   managed slots by path regex (`ji/slots/repos/.../worktrees/slot-*`) and shells out
-   to `ji slot free` — it does **not** import `@sdl/slot`. Land works fully without
+   managed slots by path regex (`ns/slots/repos/.../worktrees/slot-*`) and shells out
+   to `ns slot free` — it does **not** import `@sdl/slot`. Land works fully without
    slots; it just keeps the branch/worktree.
 
 ## Independence tiers

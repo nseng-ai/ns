@@ -54,7 +54,7 @@ ctx.ui.setStatus("example:run", "preparing…");
 sendCommandProgressOrNotify({ host: pi, ctx, message: "Running example command…" });
 ```
 
-`sendCommandProgressOrNotify` defaults to rendered `ji-command-progress` messages when the host supports rendered custom messages. If rendered messages are unavailable, it falls back to `ctx.ui.notify(..., "info")`. Optional `delivery` values are:
+`sendCommandProgressOrNotify` defaults to rendered `ns-command-progress` messages when the host supports rendered custom messages. If rendered messages are unavailable, it falls back to `ctx.ui.notify(..., "info")`. Optional `delivery` values are:
 
 - `"message"` — transcript/custom-message progress when possible; notify fallback otherwise. This is the default.
 - `"notify"` — notification only.
@@ -80,7 +80,7 @@ Before editing:
 
 - [ ] Identify the owning layer: `.pi/extensions/` discovery adapter, `@ji/pi` engineered behavior, or `@ji/ccc` orchestration.
 - [ ] Read the relevant package `AGENTS.md` and `CONTEXT.md` before naming new concepts.
-- [ ] Pick a command namespace by workflow ownership, not file location (`/ji:*`, `/objective:*`, `/handoff:*`, `/ccc:*`, `/pi:*`, etc.).
+- [ ] Pick a command namespace by workflow ownership, not file location (`/ns:*`, `/objective:*`, `/handoff:*`, `/ccc:*`, `/pi:*`, etc.).
 - [ ] Check for existing command names with `rg` or Pi RPC inventory; avoid duplicate public slash commands unless intentionally documented.
 
 While editing:
@@ -99,10 +99,10 @@ While editing:
 Tests and review:
 
 - [ ] Add or update package tests for durable/risky command behavior. Use fakes instead of real `git`, `gt`, `gh`, shell, or network calls.
-- [ ] Assert immediate acknowledgement where command output order matters. Minimal hosts may receive `ji-command-ack` through `ctx.ui.setStatus`; rendered hosts receive a custom message.
-- [ ] Assert that ordinary `ctx.ui.setStatus` calls remain status calls and do not create `ji-command-progress` messages.
+- [ ] Assert immediate acknowledgement where command output order matters. Minimal hosts may receive `ns-command-ack` through `ctx.ui.setStatus`; rendered hosts receive a custom message.
+- [ ] Assert that ordinary `ctx.ui.setStatus` calls remain status calls and do not create `ns-command-progress` messages.
 - [ ] Assert explicit progress helper behavior when transcript progress is part of the user-visible contract.
-- [ ] Keep tests that filter `ji-command-ack` / `ji-command-progress` deliberate; do not delete meaningful assertions just to quiet output drift.
+- [ ] Keep tests that filter `ns-command-ack` / `ns-command-progress` deliberate; do not delete meaningful assertions just to quiet output drift.
 - [ ] Run focused tests first, then repo TypeScript gates when TypeScript changed: `just ts-format-check`, `just ts-lint`, `just ts-check`, `just ts-test`; include `just ts-test-integration` for integration-lane coverage and `just ts-test-typescript-style-guard` for architectural guard coverage.
 
 Final stale-pattern check:

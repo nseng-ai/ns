@@ -76,7 +76,7 @@ with a git-native lifetime:
 | Scope                 | Lifetime              | ji mechanism                                  | Storage (derived from lifetime)                    |
 | --------------------- | --------------------- | --------------------------------------------- | -------------------------------------------------- |
 | **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                    |
-| **Goal**              | life of the objective | objective orientation + roadmap               | `.ji/objectives/<slug>`, auto-drops on `closed.md` |
+| **Goal**              | life of the objective | objective orientation + roadmap               | `.ns/objectives/<slug>`, auto-drops on `closed.md` |
 | **Branch**            | life of the branch    | brmem, branch-context                         | `refs/brmem/*`                                     |
 | **Session → session** | the handoff baton     | handoff                                       | `refs/brmem/ns/handoff/*`                          |
 | **Working / draft**   | the session           | enriched plan                                 | local scratch (XDG)                                |
@@ -86,7 +86,7 @@ committed, branch-lived context is a ref, session-draft context is local scratch
 principle, not a pile of decisions — and it explains why a draft plan correctly stays local
 rather than in git. It is the shortest-lived scope.
 
-`ji objective exec load-orientations` is the working proof: it loads exactly the *live*
+`ns objective exec load-orientations` is the working proof: it loads exactly the *live*
 goals' context, and a file **leaves the active set automatically when its objective closes**.
 That is lifecycle-scoped context management in production — goal-lifetime context that evicts
 itself on goal completion.

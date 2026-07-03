@@ -5,5 +5,5 @@ The Python root `sdl exec` surface is retired. Active skill, Pi extension, and h
 Current replacements/retirements:
 
 - cmux workspace/sidebar summary: use [`ccc exec cmux-workspace-summary`](cmux-workspace-summary.md).
-- `/ji:plan:save` Saved-plan prompt policy: resolved inside the TypeScript Pi extension from `.ji/prompts/plans-write.md` with built-in fallback.
+- `/ns:plan:save` Saved-plan prompt policy: resolved inside the TypeScript Pi extension from `.ns/prompts/plans-write.md` with built-in fallback.
 - GitHub review-thread list/resolve commands: retired with no active higher-level caller at migration time.

@@ -1,6 +1,6 @@
 # @ji/address
 
-TypeScript package for the Address Capability API and `ji address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
+TypeScript package for the Address Capability API and `ns address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
 
 The old addressing workflow engine — payload sessions, classification, planning, resolver payloads, batch mutation orchestration, checkpoints, finalization, and detail lookup — is retired and deleted from the current CLI.
 
@@ -8,8 +8,8 @@ The old addressing workflow engine — payload sessions, classification, plannin
 
 The retained foundation is:
 
-- `ji address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
-- `ji address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
+- `ns address exec download-feedback [--pr-number <number>] --format json` for Markdown triage context.
+- `ns address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.
 
@@ -29,22 +29,22 @@ ADR 0016 keeps dependency direction as `@ji/address` → `@ji/core`: lower type 
 
 ## Distribution
 
-Address operations are mounted into the repo-local ji extension command face as `ji address exec ...`; nothing is bundled or published:
+Address operations are mounted into the repo-local ji extension command face as `ns address exec ...`; nothing is bundled or published:
 
-- **Install**: `just install-tools` installs the `ji` shim.
-- **Dispatch**: inside an sdl checkout (any worktree), `ji address exec ...` loads `.ji/extensions/address` and invokes this package's operation handlers.
+- **Install**: `just install-tools` installs the `ns` shim.
+- **Dispatch**: inside an sdl checkout (any worktree), `ns address exec ...` loads `.ns/extensions/address` and invokes this package's operation handlers.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 
 ## Local usage
 
 ```bash
-ji address exec download-feedback --pr-number <pr-number> --format json
-ji address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
-ji address exec pr-checks [--pr-number <pr-number>] --format json
-ji address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
-ji address exec resolve-review-thread --thread-id <THREAD_ID> --format json
-ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "Fixed and validated." --format json
-printf '%s' '{"threadIds":["<THREAD_ID>"]}' | ji address exec close-review-threads --format json
+ns address exec download-feedback --pr-number <pr-number> --format json
+ns address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+ns address exec pr-checks [--pr-number <pr-number>] --format json
+ns address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>","<THREAD_ID>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID>"]}' | ns address exec close-review-threads --format json
 ```
 
 ## Validation

@@ -29,11 +29,11 @@ The role of an **Objective** as human-readable context and ordered work guidance
 *Avoid*: Workflow controller, state machine, task database
 
 **Active Objective Root**:
-The checked-in repository directory `.ji/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows.
+The checked-in repository directory `.ns/objectives/` that contains Objective records considered by normal Objective discovery, listing, reading, update, next-work, and close workflows.
 *Avoid*: open objectives directory, hidden local cache, archive root
 
 **Objective Archive Root**:
-The checked-in repository directory `.ji/objective-archive/` that parks Objective records outside normal active discovery without changing their slug, prose, updates, or closure marker.
+The checked-in repository directory `.ns/objective-archive/` that parks Objective records outside normal active discovery without changing their slug, prose, updates, or closure marker.
 *Avoid*: deletion, closed objective root, hidden cache
 
 **Archived Objective**:

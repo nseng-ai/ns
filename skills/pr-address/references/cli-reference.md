@@ -1,10 +1,10 @@
-# ji address exec CLI reference notes
+# ns address exec CLI reference notes
 
-`ji address exec` is the machine-readable PR feedback primitive surface: feedback download, stack plumbing, structured PR reads, and confirmed review-thread mutations.
+`ns address exec` is the machine-readable PR feedback primitive surface: feedback download, stack plumbing, structured PR reads, and confirmed review-thread mutations.
 
 ## JSON envelope
 
-All retained `ji address exec <command> --format json` helpers emit a machine envelope:
+All retained `ns address exec <command> --format json` helpers emit a machine envelope:
 
 - success: `{ "exit_code": 0, "data": ... }`
 - negative/validation: `{ "exit_code": 1, "message": ..., "data": ... }`
@@ -22,19 +22,19 @@ Use `--json-schema` before relying on a helper shape.
 ## Examples
 
 ```bash
-ji address exec download-feedback --pr-number <pr-number> --format json
-ji address exec map-branch-prs --format json
-ji address exec pr-details --pr-number <pr-number> --format json
-ji address exec branch-pr --branch <branch> --format json
-ji address exec open-prs --format json
-ji address exec pr-reviews --pr-number <pr-number> --format json
-ji address exec pr-review-threads --pr-number <pr-number> --format json
-ji address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
-ji address exec pr-discussion-comments --pr-number <pr-number> --format json
-ji address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
-ji address exec resolve-review-thread --thread-id <THREAD_ID> --format json
-ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
-printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ji address exec close-review-threads --format json
+ns address exec download-feedback --pr-number <pr-number> --format json
+ns address exec map-branch-prs --format json
+ns address exec pr-details --pr-number <pr-number> --format json
+ns address exec branch-pr --branch <branch> --format json
+ns address exec open-prs --format json
+ns address exec pr-reviews --pr-number <pr-number> --format json
+ns address exec pr-review-threads --pr-number <pr-number> --format json
+ns address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+ns address exec pr-discussion-comments --pr-number <pr-number> --format json
+ns address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ns address exec close-review-threads --format json
 ```
 
 For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.

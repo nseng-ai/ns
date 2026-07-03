@@ -7,4 +7,4 @@ This directory contains repo-local prompt policy consumed by agent workflows acr
 - Prefer native CLI commands in prompt files when a workflow has both a CLI and a harness-specific adapter.
 - Mention Pi slash commands, Claude commands, Codex commands, or other harness-specific affordances only when the prompt is explicitly about that harness runtime or UI surface.
 - If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
-- For checkpointing guidance, write `ji flow cp`; do not write `/ji:flow:cp` or the legacy `/code:cp` in durable saved-plan policy.
+- For checkpointing guidance, write `ns flow cp`; do not write `/ns:flow:cp` or the legacy `/code:cp` in durable saved-plan policy.

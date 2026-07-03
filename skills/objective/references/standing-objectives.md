@@ -25,7 +25,7 @@ Keep these axes separate:
 Standing Objectives use the normal record shape:
 
 ```text
-.ji/objectives/<slug>/
+.ns/objectives/<slug>/
   objective.md
   roadmap.md
   updates/

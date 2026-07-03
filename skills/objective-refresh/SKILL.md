@@ -21,12 +21,12 @@ Selection is mechanical — never ask a scope question:
 - **No slug, feature branch** → the union of slugs with committed or uncommitted Objective evidence:
 
   ```bash
-  git -C "$WT" diff --name-only <trunk>...HEAD -- .ji/objectives/
-  git -C "$WT" status --porcelain -- .ji/objectives/
+  git -C "$WT" diff --name-only <trunk>...HEAD -- .ns/objectives/
+  git -C "$WT" status --porcelain -- .ns/objectives/
   ```
 
   Reduce paths to slugs. Empty union → report that the branch evidences no Objective records and stop without writing.
-- **No slug, trunk** → every active open Objective from `ji objective list --names`.
+- **No slug, trunk** → every active open Objective from `ns objective list --names`.
 
 `WT` is the current working directory unless the caller names another worktree. Every git operation uses `git -C "$WT"`; never check out another branch. Stop if `HEAD` is detached (`git -C "$WT" symbolic-ref --quiet --short HEAD` fails). Trunk is `gt trunk` when available, else the repo's configured default branch; if the sources disagree, stop and ask.
 
@@ -47,13 +47,13 @@ Write invariants, in addition to the two absolutes:
 
 Per slug:
 
-1. **Read the record.** `ji objective exec read-objective <slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
+1. **Read the record.** `ns objective exec read-objective <slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
 2. **Gather evidence** over the window:
 
    ```bash
-   git -C "$WT" log --oneline <baseline>..HEAD -- .ji/objectives/<slug>/
-   git -C "$WT" diff <baseline>..HEAD -- .ji/objectives/<slug>/
-   git -C "$WT" diff -- .ji/objectives/<slug>/
+   git -C "$WT" log --oneline <baseline>..HEAD -- .ns/objectives/<slug>/
+   git -C "$WT" diff <baseline>..HEAD -- .ns/objectives/<slug>/
+   git -C "$WT" diff -- .ns/objectives/<slug>/
    ```
 
    On trunk, skip the range probes and verify against `HEAD` plus worktree state.

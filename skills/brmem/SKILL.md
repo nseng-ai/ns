@@ -1,6 +1,6 @@
 ---
 name: brmem
-description: "Branch-scoped durable memory via the `brmem` CLI: store, read, list, check, delete, or copy text context tied to a git branch, or resolve `.ji/prompts/...` or XDG global prompt plugins. Use when the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or how an agent should call `brmem`."
+description: "Branch-scoped durable memory via the `brmem` CLI: store, read, list, check, delete, or copy text context tied to a git branch, or resolve `.ns/prompts/...` or XDG global prompt plugins. Use when the user mentions brmem, Branch Memory, stashing branch-scoped notes/context, carrying scratch state across sessions, or how an agent should call `brmem`."
 allowed-tools:
   - "Bash(brmem *)"
   - "Bash(git *)"
@@ -308,9 +308,9 @@ with:
 brmem exec resolve-prompt <prompt-name> --format json
 ```
 
-Resolution checks the current repository's `.ji/prompts/<prompt-name>.md` first,
-then `$XDG_CONFIG_HOME/ji/brmem/prompts/<prompt-name>.md` (default
-`$HOME/.config/ji/brmem/prompts/<prompt-name>.md`). The JSON result gives
+Resolution checks the current repository's `.ns/prompts/<prompt-name>.md` first,
+then `$XDG_CONFIG_HOME/ns/brmem/prompts/<prompt-name>.md` (default
+`$HOME/.config/ns/brmem/prompts/<prompt-name>.md`). The JSON result gives
 `data.path` and `data.tier` (`project` or `global`). Read that file verbatim and
 follow the owning skill's rules for what the plugin is allowed to decide. If
 resolution exits `2`, surface the CLI message and abort;

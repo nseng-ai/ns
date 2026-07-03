@@ -13,7 +13,7 @@ A real gateway or helper that invokes the `gt` binary and converts command outpu
 *Avoid*: workflow policy, command surface, presentation renderer.
 
 **Graphite metadata DB**:
-Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics. Source code must not ad-hoc shell out to `sqlite3` against this database from workflow logic; route reads through code ji controls, such as `@ji/capability-kit/graphite` metadata helpers or a hidden `ji flow exec ...` operation that owns the exact query and output contract.
+Graphite's local sqlite metadata database and the schema/query/parsing helpers for branch rows, parent/child relationships, trunk markers, and child-list corruption diagnostics. Source code must not ad-hoc shell out to `sqlite3` against this database from workflow logic; route reads through code ji controls, such as `@ji/capability-kit/graphite` metadata helpers or a hidden `ns flow exec ...` operation that owns the exact query and output contract.
 *Avoid*: Git refs, Branch Memory, authoritative remote state, command-local raw sqlite query.
 
 **Graphite topology**:
@@ -21,7 +21,7 @@ The metadata-derived parent/child graph used for stack walking, fork detection, 
 *Avoid*: Graphite command output, Graphite UI stack display.
 
 **Graphite stack facts**:
-Reusable facts about stack ancestry, descendants, trunk markers, and Graphite branch relationships returned by stack adapters for consumers such as `ji slot gt` and CCC landing.
+Reusable facts about stack ancestry, descendants, trunk markers, and Graphite branch relationships returned by stack adapters for consumers such as `ns slot gt` and CCC landing.
 *Avoid*: landing policy, slot rendering, PR merge orchestration.
 
 **Passive Graphite status**:
@@ -33,5 +33,5 @@ Graphite-specific command and metadata mechanics such as branch-info reads, stac
 *Avoid*: submit/restack orchestration policy, PR metadata prewrite policy, generic PR description generation, GitHub PR gateway ownership.
 
 **Direct `gt` invocation boundary**:
-The rule that source code outside `ts/packages/infra/capability-kit/graphite/src/**` should not execute the `gt` binary directly. Other packages may display `gt` commands as remediation text or invoke higher-level CLI surfaces such as `ji slot gt exec ...` when that CLI is the explicit contract.
+The rule that source code outside `ts/packages/infra/capability-kit/graphite/src/**` should not execute the `gt` binary directly. Other packages may display `gt` commands as remediation text or invoke higher-level CLI surfaces such as `ns slot gt exec ...` when that CLI is the explicit contract.
 *Avoid*: package-local Graphite subprocess helper, hidden convenience shell-out.

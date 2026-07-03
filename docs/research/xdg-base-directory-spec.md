@@ -121,11 +121,11 @@ non-precious) over `XDG_DATA_HOME`, and keep that boundary explicit.
 
 Current ji-owned roots use these conventions:
 
-- Saved/enriched plans: `$XDG_STATE_HOME/ji/enriched-plan` (default `$HOME/.local/state/ji/enriched-plan`).
-- Slot worktree pools: `$XDG_STATE_HOME/ji/slots` (default `$HOME/.local/state/ji/slots`).
-- ji global extensions: `$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`).
-- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ji/brmem/prompts` (default `$HOME/.config/ji/brmem/prompts`).
-- Submit raw failure logs and ji Pi CLI trace logs: `$XDG_STATE_HOME/ji/...` unless their explicit ji-specific overrides are set.
+- Saved/enriched plans: `$XDG_STATE_HOME/ns/enriched-plan` (default `$HOME/.local/state/ns/enriched-plan`).
+- Slot worktree pools: `$XDG_STATE_HOME/ns/slots` (default `$HOME/.local/state/ns/slots`).
+- ji global extensions: `$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`).
+- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ns/brmem/prompts` (default `$HOME/.config/ns/brmem/prompts`).
+- Submit raw failure logs and ji Pi CLI trace logs: `$XDG_STATE_HOME/ns/...` unless their explicit ji-specific overrides are set.
 
 ## Sources
 

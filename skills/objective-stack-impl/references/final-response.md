@@ -10,13 +10,13 @@ Before the final response, use the current-session slice result list to collect 
 
 If no subagent session files are available:
 
-- do not run `ji objective exec runner-subagent-usage`;
+- do not run `ns objective exec runner-subagent-usage`;
 - state: `Runner subagent usage telemetry unavailable: no subagent sessionFile paths were returned.`
 
 If one or more subagent session files are available, run:
 
 ```bash
-ji objective exec runner-subagent-usage --format md <session-file>...
+ns objective exec runner-subagent-usage --format md <session-file>...
 ```
 
 If the command succeeds, include its Markdown output directly when compact enough. Otherwise, compactly transcribe the aggregate totals, model refs, and any non-ok per-file rows.
@@ -62,7 +62,7 @@ Use this structure, adapting details honestly to the run:
 
 ### Runner subagent usage
 
-- Include `ji objective exec runner-subagent-usage --format md ...` output, a compact transcription, or the explicit unavailable reason.
+- Include `ns objective exec runner-subagent-usage --format md ...` output, a compact transcription, or the explicit unavailable reason.
 - Keep telemetry separate from validation evidence.
 
 ### Objective tracking

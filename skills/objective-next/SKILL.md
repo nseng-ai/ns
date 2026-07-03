@@ -12,7 +12,7 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## Required shape
 
-Active root: `.ji/objectives/<slug>/`. Archived records under `.ji/objective-archive/<slug>/` are not active work candidates.
+Active root: `.ns/objectives/<slug>/`. Archived records under `.ns/objective-archive/<slug>/` are not active work candidates.
 
 - `objective.md`: `# <Title>`, `## Thesis`, `## Scope`, `## Non-Goals`, `## Completion Criteria`, `## Assumptions and Risks`, `## Open Questions`; optional execution policy; `## Closure` when closed.
 - `roadmap.md`: `# Roadmap`, `## Work`, `## Parked`; statuses `[ ]`, `[~]`, `[x]` only; semantic rows may include indented prose guidance.
@@ -20,15 +20,15 @@ Active root: `.ji/objectives/<slug>/`. Archived records under `.ji/objective-arc
 - `orientation.md`: optional, agent-facing standing rule; present only for cross-cutting Objectives.
 - `closed.md`: optional Closure Marker; existence means closed.
 
-Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `ji objective exec` for deterministic mechanics like candidate listing, file inventory, closed-marker detection, and tracking-gate git evidence.
+Objective records are Markdown; read `objective.md`, `roadmap.md`, and `updates/` directly. Use `ns objective exec` for deterministic mechanics like candidate listing, file inventory, closed-marker detection, and tracking-gate git evidence.
 
 The Objective slug directory is durable identity. Command/product/prose renames do not imply an Objective slug rename.
 
 ## Resolve the Objective
 
-1. Use an explicit user-provided slug or path under `.ji/objectives/<slug>/`.
-2. If the selected path is under `.ji/objective-archive/`, stop and ask whether to unarchive before recommending next work.
-3. If no slug or path is explicit, run `ji objective list --minimal --format md` to enumerate active checkout-local open candidates and ask the user to choose.
+1. Use an explicit user-provided slug or path under `.ns/objectives/<slug>/`.
+2. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before recommending next work.
+3. If no slug or path is explicit, run `ns objective list --minimal --format md` to enumerate active checkout-local open candidates and ask the user to choose.
 4. If no candidates exist, say so and suggest `objective-create` when appropriate.
 
 Do not auto-select from candidate count or changed/touched files. Never infer Objective ownership from branch names, PR titles, package names, roadmap keywords, or hidden attachment mechanisms. Changed-path evidence belongs only to the Tracking Gate after an Objective is selected.
@@ -38,7 +38,7 @@ Do not auto-select from candidate count or changed/touched files. Never infer Ob
 Before recommending work or offering execution, run:
 
 ```sh
-ji objective exec tracking-gate <slug> --format json
+ns objective exec tracking-gate <slug> --format json
 ```
 
 Use the JSON payload as deterministic evidence; do not hand-roll branch-base detection or shell pipelines for this gate. In particular:
@@ -46,7 +46,7 @@ Use the JSON payload as deterministic evidence; do not hand-roll branch-base det
 - `git.trunkBranch` and `git.revisionRange` are the resolved branch-diff basis.
 - `uncommitted.repository` reports whether the worktree has uncommitted changes.
 - `uncommitted.objective` reports whether the selected Objective record has uncommitted changes.
-- `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.ji/objectives/<slug>/`.
+- `branchDiff.objectiveChangedPaths` reports committed branch-diff changes under `.ns/objectives/<slug>/`.
 - `branchDiff.materialNonObjectivePaths` reports committed branch-diff changes outside that Objective record.
 - `summary.*` gives booleans/nulls for quick gate decisions.
 
@@ -54,7 +54,7 @@ Then:
 
 1. Inspect `materialNonObjectivePaths` plus uncommitted evidence for current-branch or worktree progress that plausibly advances the selected Objective.
 2. Compare with `objectiveChangedPaths` and `uncommitted.objective` to decide whether corresponding Objective tracking appears present.
-3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `ji objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
+3. If meaningful current-branch or worktree progress for the selected Objective appears clearly unrecorded, treat the `objective-next` request as update-and-continue preauthorization: run `objective-update` for the same selected slug/path, then reread Objective and rerun `ns objective exec tracking-gate <slug> --format json` before recommending work or offering execution.
 4. If meaningful progress appears likely but evidence, Objective fit, or update scope is ambiguous, ask: `Run objective-update for <slug> now, then rerun objective-next?`
 5. If the user declines or confirmation is pending, stop without a next-work recommendation or execution offer.
 6. If evidence is absent or clearly unrelated, proceed with a concise note that names the resolved diff basis (for example `master...HEAD`) and whether material non-Objective paths were present.
@@ -85,7 +85,7 @@ If any condition is missing or ambiguous, do not execute yet: reread the Objecti
 
 1. Exclude closed Objectives by default. If `closed.md` exists, stop and say it is closed.
 2. Read `objective.md`, `roadmap.md`, `orientation.md` (if present), and relevant `updates/` files.
-3. Apply the Tracking Gate by running `ji objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
+3. Apply the Tracking Gate by running `ns objective exec tracking-gate <slug> --format json`. If it finds clear unrecorded current-branch progress for the selected Objective, perform the `objective-update` workflow for this same Objective, then restart from step 2 with refreshed files/evidence and a fresh tracking-gate run. If the gate is ambiguous and the user confirms update-and-continue, do the same.
 4. Load conditional references only when their routing conditions apply.
 5. Choose the smallest coherent next semantic step grounded in the Objective narrative, roadmap, active assumptions, and risks.
 6. Form a best-effort work-left estimate: if the Objective narrative and roadmap make the remaining path clear, estimate the semantic steps remaining until Objective completion; if not, estimate the work remaining until the next discovery/decision step where additional work can be identified. Express this as step count, named slices, or coarse scope, not elapsed time.
@@ -106,7 +106,7 @@ Use this path for ordinary `objective-next` recommendations, when the user only 
 ## Stop / ask
 
 - Objective selection is ambiguous or absent.
-- The selected path is under `.ji/objective-archive/`; ask whether to unarchive before recommending next work.
+- The selected path is under `.ns/objective-archive/`; ask whether to unarchive before recommending next work.
 - The selected Objective is closed.
 - The Tracking Gate finds likely unrecorded material progress but evidence, Objective fit, or update scope is ambiguous and confirmation to run `objective-update` is pending or declined.
 - The roadmap and narrative are too stale or incomplete to recommend work safely; ask for `objective-update`.
