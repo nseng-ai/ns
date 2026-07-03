@@ -153,7 +153,11 @@
     the rewrite gate has since passed on four targets, so the pilot rationale is
     spent; the tree is now drawn once as a full block and residual repetition is
     prose-level, with low reach (rarely-consulted scaffolding, `command-backed`).
-  - `code-thermostack` — rewrite; subagent-contract triplication.
+  - `code-thermostack` — **DONE (rewrite, 2026-07-03).** Subagent contract
+    single-homed in a `## Subagent contract` section with a verbatim-carry rule; §2/§5
+    route to it. The gate caught real drift between the three prior sites (Graphite-only
+    vs any-means commit ban, write vs touch durable stores, inspect-duty single-sited)
+    and took the union. 73-item contract diff passed. See update `20260703T203334Z`.
   - `code-gt-restack-resolve` — **surgical, NOT from-scratch** (rigid output contract +
     conflict-resolution stakes): remove the externally-gated TEMPORARY TS-toolchain block
     (see Parked; verified still present 2026-07-03), then a surgical pass on the

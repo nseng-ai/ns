@@ -8,18 +8,27 @@ description: "Run Thermostack: perform a thermonuclear code-quality review of th
 
 Thermostack turns a thermonuclear maintainability review of the current Graphite stack changes into a **local-only Graphite child stack** of follow-up fixes. By default, review the diff from the **base of the stack** to the current `HEAD` (`STACK_BASE_REF...HEAD`), not the checked-out branch name against itself. The original checked-out branch is the target/original change and remains untouched; Thermostack creates approved children above it, ordered from most trunk-likely to most speculative unless a hard dependency requires an explicit inversion.
 
-Thermostack is a parent-orchestrated workflow: the main agent owns preflight, ranking, preview, Graphite and remote-safety decisions, branch creation, validation, commits, and final reporting. Use exactly one fresh review-only subagent for review collection when the harness supports subagents. After approval, implement approved fixes one reviewable branch at a time by dispatching exactly one focused implementation subagent for each approved branch when the harness supports editing subagents. Do not use parallel implementation worktrees for the fix stack.
-
 ## Safety boundaries
 
 - Require explicit user approval after the preview and before any branch, commit, or stack mutation.
 - Never submit PRs, push, land, close GitHub state, or mutate remotes.
 - Never amend the original branch. Create local child branches above the current stack tip.
-- Implementation subagents may edit only the already-created current branch. They must not create or switch branches, commit or amend with Graphite, submit PRs, push, land, close GitHub state, mutate remotes, or touch durable stores.
-- Implementation subagents must stop and report on ambiguity, unexpected files, or required scope expansion; the parent must inspect their result before validation and commit.
-- Stop at the first non-confident implementation decision or validation failure. Preserve the completed clean prefix and report pending batches.
-- Do not create or leave hidden WIP branches. Delete only an empty/no-code current branch when it is clearly safe; otherwise leave visible state and report the blocker.
+- Stop at the first non-confident implementation decision or validation failure. Preserve the completed clean prefix, leave state visible, and report the exact blocker and pending batches.
+- Do not create or leave hidden WIP branches. Local-only deletion of an empty/no-code current branch is allowed when it is clearly safe; otherwise leave visible state and report the blocker.
 - Keep persistence session-local. Thermostack itself does not store review plans in Branch Memory, roaster state, or other durable stores.
+
+## Subagent contract
+
+Thermostack is parent-orchestrated: the main agent owns preflight, ranking, preview, Graphite and remote-safety decisions, branch creation, validation, commits, and final reporting. Subagents are narrow, and this section is the single authoritative statement of their rules. Every dispatch prompt must carry the role's clause below verbatim, and the parent must inspect every subagent result before validation and commit.
+
+- **Review clause** — exactly one fresh review-only subagent collects findings. It edits nothing and returns structured findings only.
+- **Implementation clause** — exactly one focused subagent per approved branch, dispatched serially: never run implementation subagents in parallel or use multiple worktrees for a single Thermostack run. The subagent may edit only the already-created current branch. It must not create or switch branches; commit or amend by any means (Graphite or raw git); submit PRs, push, land, close GitHub state, or mutate remotes; or touch durable stores. It must stop and report on ambiguity, unexpected files, or required scope expansion.
+
+Capability and configuration:
+
+- A harness supports editing subagents when it exposes a tool or adapter that can launch a focused subagent in the current repository/worktree with normal file-editing tools and return at least final text.
+- Omit explicit model selection for implementation subagents unless the user or command supplies one.
+- Inline fallback is licensed only when the harness genuinely lacks the capability — never as a convenience in a capable harness — and must carry the workflow step's degraded label.
 
 ## 1. Preflight
 
@@ -35,12 +44,12 @@ Thermostack is a parent-orchestrated workflow: the main agent owns preflight, ra
 
 ## 2. Collect thermonuclear findings
 
-Dispatch one fresh review-only subagent when the harness supports subagents; do not use inline review as a convenience fallback in a subagent-capable harness. The reviewer must edit nothing. Use a prompt with these requirements:
+Dispatch the review subagent under the Subagent contract — its review clause travels verbatim in the prompt, along with these requirements:
 
 ```text
 Review the current stack changes only: use the diff from recorded stack base `STACK_BASE_REF` to current `HEAD` (`STACK_BASE_REF...HEAD`). Do not compare the checked-out branch name `BASE_BRANCH` to `HEAD`; that is the target branch and may equal `HEAD`. Explicitly load/read `.ns/reviews/thermonuclear-review/review.md`, then perform that thermonuclear maintainability review against the stack diff.
 
-Do not edit files. Return structured findings. For each finding include:
+For each finding include:
 - id
 - title
 - files/areas
@@ -99,9 +108,7 @@ Approval must be explicit, such as "approve Thermostack plan" or "create these b
 
 ## 5. Implement one reviewable branch at a time
 
-After approval, implement approved batches in order. The parent/orchestrator owns branch creation, subagent prompting, diff review, validation, Graphite amend, and clean-status checks. Do not run multiple implementation subagents at once or use multiple worktrees for a single Thermostack run.
-
-For this workflow, a harness supports editing subagents when it exposes a tool or adapter that can launch a focused subagent in the current repository/worktree with normal file-editing tools and return at least final text. Richer status or session metadata is useful but not required. Omit explicit model selection for implementation subagents unless the user or command supplies one.
+After approval, implement approved batches in order. The parent owns branch creation, subagent prompting, diff review, validation, Graphite amend, and clean-status checks.
 
 For each batch:
 
@@ -113,13 +120,13 @@ For each batch:
    ```
 
    If `gt create` behavior appears different from creating an empty branch on a clean worktree, re-check `gt create --help` and stop rather than improvising.
-3. If the harness supports editing subagents, dispatch exactly one implementation subagent for this branch. The prompt must include:
+3. If the harness supports editing subagents, dispatch this branch's implementation subagent under the Subagent contract. The prompt must include:
    - current branch name;
    - approved finding ids;
    - intended files/areas;
    - behavior-risk notes;
    - validation hints;
-   - hard constraints: edit only the current branch; do not create or switch branches; do not commit, amend, submit PRs, push, land, close GitHub state, mutate remotes, or write durable stores; stop and report on ambiguity, unexpected files, or required scope expansion.
+   - the implementation clause, verbatim, as hard constraints.
 4. If the harness lacks editing-subagent support, implement only the approved batch inline and label the branch in the final report as `degraded: inline implementation, no editing subagent`.
 5. Inspect the implementation result before continuing. If the harness returns machine status or session metadata, any non-final status is a stop condition until inspected. If the harness returns only final text, manually inspect the resulting diff before treating the branch as implemented.
 6. Review the diff for scope before validation. Unexpected files, scope expansion, or failed local validation is a stop condition.
@@ -132,7 +139,7 @@ For each batch:
 
 9. Confirm `git status --short` is clean before continuing to the next batch.
 
-If implementation becomes ambiguous, validation fails after reasonable local attempts, a subagent leaves an ambiguous dirty diff, or a fix requires scope outside the approved batch, stop. Preserve completed clean branches. If the current branch has no code changes and is clearly safe to remove, local-only deletion may be used; otherwise leave the state visible and report the exact blocker and pending batches.
+Ambiguous implementation, validation failure after reasonable local attempts, an ambiguous dirty subagent diff, or a fix requiring scope outside the approved batch are all stop conditions: apply the Safety boundaries stop rule.
 
 ## 6. Final report
 
