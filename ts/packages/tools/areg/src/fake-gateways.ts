@@ -14,6 +14,7 @@ import type {
 	AregCheckSkillInspection,
 	AregErrorInfo,
 	AregGithubGateway,
+	AregGithubSkillAvailabilityResult,
 	AregGithubSkillListResult,
 	AregHostGateway,
 	AregHostToolName,
@@ -490,26 +491,41 @@ export class FakeAregHostGateway implements AregHostGateway {
 	}
 }
 
-export type FakeAregGithubOperation = {
-	type: "list-skill-directory-names";
-	repo: string;
-	ref?: string;
-};
+export type FakeAregGithubOperation =
+	| {
+			type: "list-skill-directory-names";
+			repo: string;
+			ref?: string;
+	  }
+	| {
+			type: "check-skill-path";
+			repo: string;
+			skillName: string;
+			skillPath: string;
+	  };
+
+export type FakeAregGithubRepoState = readonly string[] | "missing" | "auth-error" | AregErrorInfo;
+export type FakeAregGithubSkillPathState = "available" | "missing" | "auth-error" | AregErrorInfo;
 
 export interface FakeAregGithubGatewayOptions {
-	repos?: Record<string, readonly string[] | "missing" | "auth-error" | AregErrorInfo>;
+	repos?: Record<string, FakeAregGithubRepoState>;
+	skillPaths?: Record<string, FakeAregGithubSkillPathState>;
 }
 
 export class FakeAregGithubGateway implements AregGithubGateway {
-	private readonly repos: ReadonlyMap<
-		string,
-		readonly string[] | "missing" | "auth-error" | AregErrorInfo
-	>;
+	private readonly repos: ReadonlyMap<string, FakeAregGithubRepoState>;
+	private readonly skillPaths: ReadonlyMap<string, FakeAregGithubSkillPathState>;
 	private readonly log: FakeAregGithubOperation[] = [];
 
 	constructor(options: FakeAregGithubGatewayOptions = {}) {
 		this.repos = new Map(
 			Object.entries(options.repos ?? {}).map(([repo, value]) => [repo, copyGithubState(value)]),
+		);
+		this.skillPaths = new Map(
+			Object.entries(options.skillPaths ?? {}).map(([key, value]) => [
+				key,
+				copyGithubSkillPathState(value),
+			]),
 		);
 	}
 
@@ -530,6 +546,43 @@ export class FakeAregGithubGateway implements AregGithubGateway {
 			return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
 		if (isReadonlyStringArray(state)) return { type: "ok", skillNames: [...state] };
 		return { type: "error", error: copyErrorInfo(state) };
+	}
+
+	async checkSkillPath(options: {
+		repo: string;
+		skillName: string;
+		skillPath?: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregGithubSkillAvailabilityResult> {
+		const skillPath = options.skillPath ?? `skills/${options.skillName}/SKILL.md`;
+		this.log.push({
+			type: "check-skill-path",
+			repo: options.repo,
+			skillName: options.skillName,
+			skillPath,
+		});
+		const explicitState = this.skillPaths.get(githubSkillPathKey(options.repo, skillPath));
+		if (explicitState !== undefined)
+			return githubSkillAvailabilityFromState(explicitState, options.repo);
+
+		const repoState = this.repos.get(options.repo);
+		if (repoState === "missing")
+			return { type: "missing", message: `Skill source not found: ${options.repo}` };
+		if (repoState === "auth-error")
+			return { type: "auth-error", message: `GitHub authentication failed for ${options.repo}` };
+		if (repoState !== undefined && !isReadonlyStringArray(repoState))
+			return { type: "error", error: copyErrorInfo(repoState) };
+		if (
+			repoState !== undefined &&
+			isReadonlyStringArray(repoState) &&
+			!repoState.includes(options.skillName)
+		) {
+			return {
+				type: "missing",
+				message: `Skill source path not found in ${options.repo}: ${skillPath}`,
+			};
+		}
+		return { type: "available" };
 	}
 
 	operations(): readonly FakeAregGithubOperation[] {
@@ -857,17 +910,35 @@ function copyPairingDirectory(directory: AregCheckPairingDirectory): AregCheckPa
 	};
 }
 
-function copyGithubState(
-	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
-): readonly string[] | "missing" | "auth-error" | AregErrorInfo {
+function githubSkillPathKey(repo: string, skillPath: string): string {
+	return `${repo}:${skillPath}`;
+}
+
+function githubSkillAvailabilityFromState(
+	state: FakeAregGithubSkillPathState,
+	repo: string,
+): AregGithubSkillAvailabilityResult {
+	if (state === "available") return { type: "available" };
+	if (state === "missing") return { type: "missing", message: `Skill source not found: ${repo}` };
+	if (state === "auth-error")
+		return { type: "auth-error", message: `GitHub authentication failed for ${repo}` };
+	return { type: "error", error: copyErrorInfo(state) };
+}
+
+function copyGithubState(value: FakeAregGithubRepoState): FakeAregGithubRepoState {
 	if (isReadonlyStringArray(value)) return [...value];
 	if (value === "missing" || value === "auth-error") return value;
 	return copyErrorInfo(value);
 }
 
-function isReadonlyStringArray(
-	value: readonly string[] | "missing" | "auth-error" | AregErrorInfo,
-): value is readonly string[] {
+function copyGithubSkillPathState(
+	value: FakeAregGithubSkillPathState,
+): FakeAregGithubSkillPathState {
+	if (value === "available" || value === "missing" || value === "auth-error") return value;
+	return copyErrorInfo(value);
+}
+
+function isReadonlyStringArray(value: FakeAregGithubRepoState): value is readonly string[] {
 	return Array.isArray(value);
 }
 

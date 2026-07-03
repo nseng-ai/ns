@@ -58,11 +58,12 @@ The saved-plan slug is a local filename locator, not necessarily the later branc
      the CLI, use helper Y like its siblings"), never as a bare prohibition.
    <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
    - If implementation includes same-shape edits across multiple files, choose
-     the execution mode explicitly: `ts-morph-refactor`/`ts-morph-analyze` for
-     fitting TypeScript AST work, precise edits for 1-4 files or semantic
-     docs/spec changes, and `refactor-swarm` for 5+ file-local prose-aware or
-     mixed code/docs/tests edits. Require final grep/equivalent stale-term
-     checks for name or concept changes.
+     the execution mode explicitly: `ts-morph-analyze` for TypeScript AST
+     inspection where useful, repo-supported tested codemods or focused scripts
+     with reviewable output for broad TypeScript symbol/API changes, precise
+     edits for 1-4 files or semantic docs/spec changes, and `refactor-swarm`
+     for 5+ file-local prose-aware or mixed code/docs/tests edits. Require
+     final grep/equivalent stale-term checks for name or concept changes.
    <!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
 2. Apply the freshness/staleness gate before dispatching any review.
    - Skip cold-read review for fresh same-session plans when the planner just

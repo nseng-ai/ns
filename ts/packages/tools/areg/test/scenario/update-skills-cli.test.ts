@@ -9,6 +9,7 @@ import {
 	FakeAregHostGateway,
 	FakeAregNpxSkillsGateway,
 	FakeAregProjectGateway,
+	type FakeAregGithubGatewayOptions,
 	type FakeAregProjectGatewayOptions,
 	FakeAregPromptGateway,
 	FakeAregSkillxWorkspaceGateway,
@@ -20,6 +21,7 @@ const HASH = "a".repeat(64);
 
 interface UpdateHarnessOptions {
 	project?: FakeAregProjectGatewayOptions;
+	github?: FakeAregGithubGatewayOptions;
 	npxFailures?: Readonly<Record<string, AregErrorInfo>>;
 	npxFailure?: AregErrorInfo;
 	npxMissing?: boolean;
@@ -30,6 +32,7 @@ interface UpdateRun {
 	stdout: string[];
 	stderr: string[];
 	host: FakeAregHostGateway;
+	github: FakeAregGithubGateway;
 	npxSkills: FakeAregNpxSkillsGateway;
 	projectGateway: FakeAregProjectGateway;
 }
@@ -48,9 +51,10 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		...defaultUpdateProject,
 		...options.project,
 	});
+	const githubGateway = new FakeAregGithubGateway(options.github);
 	const context: AregCliContext = {
 		host,
-		github: new FakeAregGithubGateway(),
+		github: githubGateway,
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(),
 		project: projectGateway,
 		git: new InMemoryGitGateway(),
@@ -61,15 +65,20 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 		env: { PATH: "/fake/bin" },
 	};
 	const run = runScenario(["update-skills", ...args], { context });
-	return { ...run, host, npxSkills, projectGateway };
+	return { ...run, host, github: githubGateway, npxSkills, projectGateway };
 }
 
 function lockfile(skills: Record<string, object>): object {
 	return { version: 1, skills };
 }
 
-function github(source = "owner/repo"): object {
-	return { source, sourceType: "github", computedHash: HASH };
+function github(source = "owner/repo", skillPath?: string): object {
+	return {
+		source,
+		sourceType: "github",
+		computedHash: HASH,
+		...optionalEntries({ skillPath }),
+	};
 }
 
 function local(name: string): object {
@@ -157,7 +166,7 @@ describe("areg update-skills CLI", () => {
 		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
-	test("dry-run plans updates without checking host npx or calling npx skills", async () => {
+	test("dry-run plans updates without checking host npx, GitHub availability, or calling npx skills", async () => {
 		const run = runUpdate(["--dry-run"], { npxMissing: true });
 
 		expect(await run.exit).toBe(0);
@@ -166,7 +175,101 @@ describe("areg update-skills CLI", () => {
 		);
 		expect(run.stdout.join("")).toContain("Planned: 2 skill(s). No changes made.");
 		expect(run.host.operations()).toEqual([]);
+		expect(run.github.operations()).toEqual([]);
 		expect(run.npxSkills.operations()).toEqual([]);
+	});
+
+	test("missing selected GitHub skill source fails before checking npx or mutating", async () => {
+		const run = runUpdate(["--skill", "alpha"], {
+			project: { lockfile: lockfile({ alpha: github("owner/repo", "custom/alpha/SKILL.md") }) },
+			github: { skillPaths: { "owner/repo:custom/alpha/SKILL.md": "missing" } },
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("GitHub skill source unavailable before update: alpha");
+		expect(run.stderr.join("")).toContain("alpha  <-  owner/repo (custom/alpha/SKILL.md)");
+		expect(run.github.operations()).toEqual([
+			{
+				type: "check-skill-path",
+				repo: "owner/repo",
+				skillName: "alpha",
+				skillPath: "custom/alpha/SKILL.md",
+			},
+		]);
+		expect(run.host.operations()).toEqual([]);
+		expect(run.npxSkills.operations()).toEqual([]);
+	});
+
+	test("preflight reports every unavailable selected skill before any mutation", async () => {
+		const run = runUpdate(["--format", "json"], {
+			project: {
+				lockfile: lockfile({
+					alpha: github("owner/repo", "skills/alpha/SKILL.md"),
+					beta: github("owner/repo", "skills/beta/SKILL.md"),
+					gamma: github("other/repo", "skills/gamma/SKILL.md"),
+				}),
+			},
+			github: {
+				skillPaths: {
+					"owner/repo:skills/beta/SKILL.md": "missing",
+					"other/repo:skills/gamma/SKILL.md": "missing",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.host.operations()).toEqual([]);
+		expect(run.npxSkills.operations()).toEqual([]);
+		const body = JSON.parse(run.stdout.join(""));
+		expect(body).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "skill-source-unavailable",
+			message: expect.stringContaining("beta, gamma"),
+			data: {
+				unavailableSkills: [
+					{ skill: "beta", source: "owner/repo", reason: "missing" },
+					{ skill: "gamma", source: "other/repo", reason: "missing" },
+				],
+			},
+		});
+	});
+
+	test("preflight auth and gateway failures fail cleanly before mutation", async () => {
+		const auth = runUpdate(["--skill", "alpha"], {
+			github: { repos: { "owner/repo": "auth-error" } },
+		});
+		expect(await auth.exit).toBe(2);
+		expect(auth.stderr.join("")).toContain("GitHub authentication failed for owner/repo");
+		expect(auth.host.operations()).toEqual([]);
+		expect(auth.npxSkills.operations()).toEqual([]);
+
+		const gateway = runUpdate(["--skill", "alpha", "--format", "json"], {
+			github: {
+				repos: {
+					"owner/repo": {
+						code: "gh-failed",
+						message: "network down",
+						displayCommand: "gh api repos/owner/repo/contents/skills/alpha/SKILL.md",
+					},
+				},
+			},
+		});
+		expect(await gateway.exit).toBe(2);
+		expect(gateway.npxSkills.operations()).toEqual([]);
+		expect(JSON.parse(gateway.stdout.join(""))).toMatchObject({
+			errorType: "skill-source-unavailable",
+			data: {
+				unavailableSkills: [
+					{
+						skill: "alpha",
+						reason: "gateway-error",
+						message: "network down",
+						displayCommand: "gh api repos/owner/repo/contents/skills/alpha/SKILL.md",
+					},
+				],
+			},
+		});
 	});
 
 	test("resolves agents from config precedence and explicit overrides", async () => {

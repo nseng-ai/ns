@@ -1,4 +1,5 @@
 import { failure, ok, type ClinkrExit } from "@ji/clinkr";
+import { optionalEntry } from "@ji/core/primitives";
 import type { Result } from "@ji/core/result";
 import { z } from "zod";
 
@@ -12,6 +13,7 @@ const updateStatusSchema = z.enum(["planned", "updated", "failed"]);
 const selectedUpdateSchema = z.object({
 	skill: z.string(),
 	source: z.string(),
+	skillPath: z.string().optional(),
 });
 
 const attemptedUpdateSchema = selectedUpdateSchema.extend({
@@ -45,6 +47,15 @@ export type UpdateSkillsResult = z.infer<typeof updateSkillsResultSchema>;
 type SelectedUpdate = z.infer<typeof selectedUpdateSchema>;
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 
+type UnavailableGithubSkill = {
+	skill: string;
+	source: string;
+	skillPath?: string;
+	reason: "missing" | "auth-error" | "gateway-error";
+	message: string;
+	displayCommand?: string;
+};
+
 export async function runUpdateSkills(
 	ctx: AregCliContext,
 	request: UpdateSkillsRequest,
@@ -77,6 +88,17 @@ export async function runUpdateSkills(
 	const agents = agentsResult.value;
 
 	if (!request.dryRun) {
+		const preflight = await preflightSelectedGithubUpdates(ctx, selectedUpdates);
+		if (!preflight.ok) {
+			return failure("skill-source-unavailable", formatUnavailableGithubSkills(preflight.value), {
+				projectDir: inspection.projectDir,
+				agents,
+				dryRun: false,
+				selectedUpdates,
+				unavailableSkills: preflight.value,
+			});
+		}
+
 		const npx = await ctx.host.checkTool({ tool: "npx", cwd: inspection.projectDir, env: ctx.env });
 		if (npx.type === "missing") return failure("missing-tool", npx.message);
 	}
@@ -134,9 +156,14 @@ function selectGithubUpdates(
 	skills: readonly LockfileSkill[],
 	request: UpdateSkillsRequest,
 ): Result<readonly SelectedUpdate[]> {
-	const githubEntries = new Map<string, string>();
+	const githubEntries = new Map<string, Pick<LockfileSkill, "source" | "skillPath">>();
 	for (const skill of skills) {
-		if (skill.sourceType === "github") githubEntries.set(skill.name, skill.source);
+		if (skill.sourceType === "github") {
+			githubEntries.set(skill.name, {
+				source: skill.source,
+				...optionalEntry("skillPath", skill.skillPath),
+			});
+		}
 	}
 
 	const requestedSkills = new Set(request.skill);
@@ -155,13 +182,84 @@ function selectGithubUpdates(
 	const requestedSources = new Set(request.source);
 	const updates: SelectedUpdate[] = [];
 	for (const skill of sortStrings([...githubEntries.keys()])) {
-		const source = githubEntries.get(skill);
-		if (source === undefined) continue;
+		const entry = githubEntries.get(skill);
+		if (entry === undefined) continue;
 		if (requestedSkills.size > 0 && !requestedSkills.has(skill)) continue;
-		if (requestedSources.size > 0 && !requestedSources.has(source)) continue;
-		updates.push({ skill, source });
+		if (requestedSources.size > 0 && !requestedSources.has(entry.source)) continue;
+		updates.push({
+			skill,
+			source: entry.source,
+			...optionalEntry("skillPath", entry.skillPath),
+		});
 	}
 	return { ok: true, value: updates };
+}
+
+async function preflightSelectedGithubUpdates(
+	ctx: AregCliContext,
+	selectedUpdates: readonly SelectedUpdate[],
+): Promise<{ ok: true } | { ok: false; value: readonly UnavailableGithubSkill[] }> {
+	const unavailable: UnavailableGithubSkill[] = [];
+	for (const update of selectedUpdates) {
+		const result = await ctx.github.checkSkillPath({
+			repo: update.source,
+			skillName: update.skill,
+			...optionalEntry("skillPath", update.skillPath),
+			env: ctx.env,
+		});
+		switch (result.type) {
+			case "available":
+				break;
+			case "missing":
+				unavailable.push(unavailableGithubSkill(update, "missing", result.message));
+				break;
+			case "auth-error":
+				unavailable.push(unavailableGithubSkill(update, "auth-error", result.message));
+				break;
+			case "error":
+				unavailable.push(
+					unavailableGithubSkill(
+						update,
+						"gateway-error",
+						result.error.message,
+						result.error.displayCommand,
+					),
+				);
+				break;
+		}
+	}
+	if (unavailable.length === 0) return { ok: true };
+	return { ok: false, value: unavailable };
+}
+
+function unavailableGithubSkill(
+	update: SelectedUpdate,
+	reason: UnavailableGithubSkill["reason"],
+	message: string,
+	displayCommand?: string,
+): UnavailableGithubSkill {
+	return {
+		skill: update.skill,
+		source: update.source,
+		...optionalEntry("skillPath", update.skillPath),
+		reason,
+		message,
+		...optionalEntry("displayCommand", displayCommand),
+	};
+}
+
+function formatUnavailableGithubSkills(unavailable: readonly UnavailableGithubSkill[]): string {
+	const lines = [
+		`GitHub skill source unavailable before update: ${unavailable
+			.map((skill) => skill.skill)
+			.join(", ")}`,
+	];
+	for (const skill of unavailable) {
+		const path = skill.skillPath === undefined ? "" : ` (${skill.skillPath})`;
+		lines.push(`  ${skill.skill}  <-  ${skill.source}${path}`, `    ${skill.message}`);
+		if (skill.displayCommand !== undefined) lines.push(`    command: ${skill.displayCommand}`);
+	}
+	return lines.join("\n");
 }
 
 function report(input: {

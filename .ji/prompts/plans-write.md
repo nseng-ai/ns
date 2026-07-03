@@ -49,7 +49,7 @@ Harness-neutral command guidance:
 Refactor execution strategy:
 
 - If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
-- For TypeScript symbol/API refactors, call out the `ts-morph-refactor` skill when it fits; use `ts-morph-analyze` for AST inspection before designing broad TypeScript changes.
+- For TypeScript symbol/API changes, use `ts-morph-analyze` for AST inspection where useful; use repo-supported tested codemods or a focused script with reviewable output for broad TypeScript symbol/API edits.
 - Prefer deterministic AST/codemod tooling for purely syntactic refactors when a suitable repo or installed skill tool exists.
 - For 1-4 files or semantic doc/spec changes, prefer reading affected sections and making precise edits; do not recommend opaque ad hoc `text.replace()` scripts for semantic changes.
 - For 5+ file-local edits, especially mixed code/docs/tests or prose-aware refactors, recommend `refactor-swarm`.

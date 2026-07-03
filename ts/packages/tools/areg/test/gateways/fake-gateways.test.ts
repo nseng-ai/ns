@@ -307,10 +307,14 @@ describe("areg gateway fakes", () => {
 		expect(fake.operations()).toHaveLength(2);
 	});
 
-	test("github fake copies configured skill lists and returned lists", async () => {
+	test("github fake copies configured skill lists and models path availability", async () => {
 		const skillNames = ["alpha"];
 		const github: AregGithubGateway = new FakeAregGithubGateway({
 			repos: { "owner/repo": skillNames },
+			skillPaths: {
+				"owner/repo:custom/alpha/SKILL.md": "available",
+				"owner/repo:custom/beta/SKILL.md": "missing",
+			},
 		});
 		skillNames.push("mutated-after-construction");
 
@@ -323,6 +327,25 @@ describe("areg gateway fakes", () => {
 		expect(await github.listSkillDirectoryNames({ repo: "missing/repo", env: {} })).toMatchObject({
 			type: "missing",
 		});
+		expect(
+			await github.checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				skillPath: "custom/alpha/SKILL.md",
+				env: {},
+			}),
+		).toEqual({ type: "available" });
+		expect(
+			await github.checkSkillPath({
+				repo: "owner/repo",
+				skillName: "beta",
+				skillPath: "custom/beta/SKILL.md",
+				env: {},
+			}),
+		).toMatchObject({ type: "missing" });
+		expect(
+			await github.checkSkillPath({ repo: "owner/repo", skillName: "gamma", env: {} }),
+		).toMatchObject({ type: "missing" });
 	});
 
 	test("npx skills fake copies requests and failures", async () => {

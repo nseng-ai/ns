@@ -20,7 +20,11 @@ import {
 	RealAregProjectGateway,
 	RealAregSkillxWorkspaceGateway,
 } from "../../src/real-gateways.ts";
-import { ScriptedCommandRunner, step } from "../support/scripted-command-runner.ts";
+import {
+	ScriptedCommandRunner,
+	startupErrorStep,
+	step,
+} from "../support/scripted-command-runner.ts";
 
 describe("real areg gateways", () => {
 	test("check project inspection resolves relative path, symlink targets, excludes, and prunes pairing traversal", async () => {
@@ -500,6 +504,100 @@ describe("real areg gateways", () => {
 				displayCommand: "gh api repos/owner/repo/contents/skills --jq '.[].name'",
 			},
 		});
+	});
+
+	test("github gateway checks exact skill paths and classifies availability failures", async () => {
+		const available = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/custom%20skills/alpha/SKILL.md"], {
+				stdout: "{}",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: available.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				skillPath: "custom skills/alpha/SKILL.md",
+				env: {},
+			}),
+		).toEqual({ type: "available" });
+		available.assertDone();
+
+		const defaultPath = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md"], {
+				stdout: "{}",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: defaultPath.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				env: {},
+			}),
+		).toEqual({ type: "available" });
+		defaultPath.assertDone();
+
+		const missing = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md"], {
+				exitCode: 1,
+				stderr: "HTTP 404",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: missing.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				env: {},
+			}),
+		).toMatchObject({ type: "missing" });
+
+		const auth = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md"], {
+				exitCode: 1,
+				stderr: "HTTP 401",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: auth.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				env: {},
+			}),
+		).toMatchObject({ type: "auth-error" });
+
+		const generic = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md"], {
+				exitCode: 2,
+				stderr: "network down",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: generic.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				env: {},
+			}),
+		).toMatchObject({
+			type: "error",
+			error: {
+				code: "gh-failed",
+				displayCommand: "gh api repos/owner/repo/contents/skills/alpha/SKILL.md",
+			},
+		});
+
+		const startup = new ScriptedCommandRunner([
+			startupErrorStep(
+				"gh",
+				["api", "repos/owner/repo/contents/skills/alpha/SKILL.md"],
+				"spawn gh ENOENT",
+			),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: startup.runner }).checkSkillPath({
+				repo: "owner/repo",
+				skillName: "alpha",
+				env: {},
+			}),
+		).toMatchObject({ type: "error", error: { code: "gh-startup-failed" } });
 	});
 
 	test("npx gateway builds selected-skill and install-all commands", async () => {

@@ -36,12 +36,24 @@ export type AregGithubSkillListResult =
 	| { type: "auth-error"; message: string }
 	| { type: "error"; error: AregErrorInfo };
 
+export type AregGithubSkillAvailabilityResult =
+	| { type: "available" }
+	| { type: "missing"; message: string }
+	| { type: "auth-error"; message: string }
+	| { type: "error"; error: AregErrorInfo };
+
 export interface AregGithubGateway {
 	listSkillDirectoryNames(options: {
 		repo: string;
 		ref?: string;
 		env: NodeJS.ProcessEnv;
 	}): Promise<AregGithubSkillListResult>;
+	checkSkillPath(options: {
+		repo: string;
+		skillName: string;
+		skillPath?: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregGithubSkillAvailabilityResult>;
 }
 
 export interface AregNpxSkillsAddRequest {
