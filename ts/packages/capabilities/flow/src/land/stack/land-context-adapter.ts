@@ -5,6 +5,7 @@ import type {
 	LandingFailure,
 	LandOutcome,
 	LandResult,
+	ManagedSlotWorktree,
 	WorkingTreeStatus,
 	WorktreeClassification,
 } from "../api.ts";
@@ -15,6 +16,7 @@ import {
 	GH_MERGE_TIMEOUT_MS,
 	GIT_TIMEOUT_MS,
 	GT_MUTATION_TIMEOUT_MS,
+	SLOT_TIMEOUT_MS,
 } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { resolveMetadataDbPath } from "./graphite-topology.ts";
@@ -41,6 +43,7 @@ import {
 	isManagedSlotPath,
 	loadWorktrees,
 	normalizeExistingPath,
+	slotFreeArgs,
 	slotNameFromPath,
 } from "./worktrees.ts";
 import type { LandingFailureSource } from "./plan-mapping.ts";
@@ -141,6 +144,7 @@ export function createLandContext(
 			worktrees: async ({ repoRoot }) =>
 				toLandResult(await loadWorktrees(pi, repoRoot), "worktree"),
 			classifyWorktree: async ({ repoRoot, path }) => classifyWorktree(repoRoot, path),
+			freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
 		},
 	};
 }
@@ -154,6 +158,12 @@ interface PrepareGraphiteMutationOptions {
 	>;
 	readonly failureCode: string;
 	readonly failureMessage: string;
+}
+
+interface FreeSlotsOptions {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly slots: readonly ManagedSlotWorktree[];
 }
 
 async function prepareSubmitUpdate(options: {
@@ -203,6 +213,39 @@ async function prepareGraphiteMutation(
 		message: `${options.failureMessage}\n${formatCommandDetails(result, commandDisplay)}`,
 		displayCommand: commandDisplay,
 	});
+}
+
+async function freeSlots(
+	options: FreeSlotsOptions,
+): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
+	const freeArgs = slotFreeArgs(options.slots);
+	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
+	const result = await exec({
+		pi: options.pi,
+		command: "sdl",
+		args: ["slot", ...freeArgs],
+		cwd: options.repoRoot,
+		timeoutMs: SLOT_TIMEOUT_MS,
+	});
+	if (result.code === 0) return landSuccess(options.slots.map(copyManagedSlotWorktree));
+
+	return landFailure({
+		type: "boundary",
+		phase: "submit-preparation",
+		source: "slot",
+		code: "slot_free_failed",
+		message: `Targeted slot cleanup failed before any PRs were landed.\n${formatCommandDetails(result, commandDisplay)}`,
+		displayCommand: commandDisplay,
+	});
+}
+
+function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree {
+	return {
+		type: "managed-slot",
+		branch: slot.branch,
+		path: slot.path,
+		...(slot.slotName === undefined ? {} : { slotName: slot.slotName }),
+	};
 }
 
 async function loadWorkingTreeStatus(

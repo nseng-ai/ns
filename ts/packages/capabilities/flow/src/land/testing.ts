@@ -8,6 +8,7 @@ import type {
 	LandResult,
 	LandWorktreeSlotFactsGateway,
 	LocalBranchTip,
+	ManagedSlotWorktree,
 	PullRequestFacts,
 	SquashMergePullRequestResult,
 	StackSnapshot,
@@ -507,6 +508,7 @@ export interface InMemoryLandWorktreeSlotFactsGatewayState {
 	readonly classifications?: Readonly<Record<string, WorktreeClassification>>;
 	readonly worktreesFailure?: LandingBoundaryFailure;
 	readonly classifyFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
+	readonly freeSlotsFailure?: LandingBoundaryFailure;
 }
 
 export interface LandClassifyWorktreeCall extends LandRepoCall {
@@ -514,13 +516,19 @@ export interface LandClassifyWorktreeCall extends LandRepoCall {
 	readonly branch?: string;
 }
 
+export interface LandFreeSlotsCall extends LandRepoCall {
+	readonly slots: readonly ManagedSlotWorktree[];
+}
+
 export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFactsGateway {
 	private readonly worktreeEntries: readonly WorktreeEntry[];
 	private readonly classifications: ReadonlyMap<string, WorktreeClassification>;
 	private readonly worktreesFailure: LandingBoundaryFailure | undefined;
 	private readonly classifyFailures: ReadonlyMap<string, LandingBoundaryFailure>;
+	private readonly freeSlotsFailure: LandingBoundaryFailure | undefined;
 	private readonly worktreesLog: LandRepoCall[] = [];
 	private readonly classifyWorktreeLog: LandClassifyWorktreeCall[] = [];
+	private readonly freeSlotsLog: LandFreeSlotsCall[] = [];
 
 	constructor(state: InMemoryLandWorktreeSlotFactsGatewayState = {}) {
 		this.worktreeEntries = (state.worktrees ?? []).map(copyWorktreeEntry);
@@ -531,6 +539,7 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 			]),
 		);
 		this.worktreesFailure = copyOptionalBoundaryFailure(state.worktreesFailure);
+		this.freeSlotsFailure = copyOptionalBoundaryFailure(state.freeSlotsFailure);
 		this.classifyFailures = new Map(
 			Object.entries(state.classifyFailures ?? {}).map(([path, failure]) => [
 				path,
@@ -545,6 +554,10 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 
 	get classifyWorktreeCalls(): readonly LandClassifyWorktreeCall[] {
 		return this.classifyWorktreeLog.map(copyClassifyWorktreeCall);
+	}
+
+	get freeSlotsCalls(): readonly LandFreeSlotsCall[] {
+		return this.freeSlotsLog.map(copyFreeSlotsCall);
 	}
 
 	async worktrees(request: {
@@ -574,6 +587,19 @@ export class InMemoryLandWorktreeSlotFactsGateway implements LandWorktreeSlotFac
 				this.classifications.get(request.path) ?? { type: "manual-worktree" },
 			),
 		};
+	}
+
+	async freeSlots(request: {
+		readonly repoRoot: string;
+		readonly slots: readonly ManagedSlotWorktree[];
+	}): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
+		this.freeSlotsLog.push({
+			repoRoot: request.repoRoot,
+			slots: request.slots.map(copyManagedSlotWorktree),
+		});
+		if (this.freeSlotsFailure !== undefined)
+			return { type: "failure", failure: copyBoundaryFailure(this.freeSlotsFailure) };
+		return { type: "success", value: request.slots.map(copyManagedSlotWorktree) };
 	}
 }
 
@@ -788,6 +814,15 @@ function copyWorktreeEntry(entry: WorktreeEntry): WorktreeEntry {
 	};
 }
 
+function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree {
+	return {
+		type: "managed-slot",
+		branch: slot.branch,
+		path: slot.path,
+		...(slot.slotName === undefined ? {} : { slotName: slot.slotName }),
+	};
+}
+
 function copyWorktreeClassification(
 	classification: WorktreeClassification,
 ): WorktreeClassification {
@@ -843,5 +878,12 @@ function copyClassifyWorktreeCall(call: LandClassifyWorktreeCall): LandClassifyW
 		repoRoot: call.repoRoot,
 		path: call.path,
 		...(call.branch === undefined ? {} : { branch: call.branch }),
+	};
+}
+
+function copyFreeSlotsCall(call: LandFreeSlotsCall): LandFreeSlotsCall {
+	return {
+		repoRoot: call.repoRoot,
+		slots: call.slots.map(copyManagedSlotWorktree),
 	};
 }

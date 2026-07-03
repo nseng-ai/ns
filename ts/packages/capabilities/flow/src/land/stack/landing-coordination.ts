@@ -57,11 +57,18 @@ async function preparePlanForMergeCore(
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
+	let landContext: ReturnType<typeof createLandContext> | undefined;
+	const getLandContext = (): ReturnType<typeof createLandContext> => {
+		landContext ??= createLandContext(runtime.commands, { graphite: runtime.graphite });
+		return landContext;
+	};
+
 	if (plan.managedSlotConflicts.length > 0) {
 		const slotOutcome = await confirmAndFreeManagedSlots({
 			runtime,
 			ctx,
 			plan,
+			landContext: getLandContext(),
 			confirmation: preMergeConfirmation,
 		});
 		if (slotOutcome.type === "failure") return slotOutcome;
@@ -72,6 +79,7 @@ async function preparePlanForMergeCore(
 			runtime,
 			ctx,
 			plan,
+			landContext: getLandContext(),
 			commandStream,
 			preMergeConfirmation,
 		});
@@ -84,6 +92,7 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
+	landContext: ReturnType<typeof createLandContext>;
 	commandStream: LandStackCommandStream;
 	preMergeConfirmation: PreMergeConfirmation;
 }
@@ -91,8 +100,7 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtime, ctx, plan, commandStream, preMergeConfirmation } = options;
-	const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
+	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		runtime,
 		ctx,

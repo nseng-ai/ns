@@ -10,7 +10,7 @@ import {
 	stackSnapshot,
 } from "sdl-flow/land/testing";
 
-import type { LocalBranchTip, WorktreeEntry } from "sdl-flow/land/api";
+import type { LocalBranchTip, ManagedSlotWorktree, WorktreeEntry } from "sdl-flow/land/api";
 
 const REPO_ROOT = "/repo";
 const FEATURE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -106,6 +106,15 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 				branch: "feature/child",
 			}),
 		).toEqual({ type: "success", value: { type: "managed-slot", slotName: "slot-02" } });
+		expect(
+			await context.worktrees.freeSlots({
+				repoRoot: REPO_ROOT,
+				slots: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+			}),
+		).toEqual({
+			type: "success",
+			value: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+		});
 
 		expect(git.resolveRepoRootCalls).toEqual([{ cwd: "/repo/subdir" }]);
 		expect(graphite.stackShapeCalls).toEqual([
@@ -126,6 +135,12 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 		]);
 		expect(worktrees.classifyWorktreeCalls).toEqual([
 			{ repoRoot: REPO_ROOT, path: "/repo-slot", branch: "feature/child" },
+		]);
+		expect(worktrees.freeSlotsCalls).toEqual([
+			{
+				repoRoot: REPO_ROOT,
+				slots: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+			},
 		]);
 	});
 
@@ -246,6 +261,9 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 	test("copies mutable collections on input and output", async () => {
 		const localBranches: LocalBranchTip[] = [{ name: "feature/land-core", sha: FEATURE_SHA }];
 		const worktreeEntries: WorktreeEntry[] = [{ path: "/repo-slot", branch: "feature/land-core" }];
+		const slotsToFree: ManagedSlotWorktree[] = [
+			{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" },
+		];
 		const stack = stackSnapshot({ landingBranches: ["feature/land-core"] });
 		const git = new InMemoryLandGitGateway({ localBranches });
 		const graphite = new InMemoryLandGraphiteGateway({ stackShape: stack });
@@ -258,6 +276,7 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 
 		const listedBranches = await git.listLocalBranches({ repoRoot: REPO_ROOT });
 		const listedWorktrees = await worktrees.worktrees({ repoRoot: REPO_ROOT });
+		const freedSlots = await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: slotsToFree });
 		const firstStackShape = await graphite.stackShape({
 			repoRoot: REPO_ROOT,
 			metadataDbPath: "/repo/.git/graphite.db",
@@ -274,6 +293,10 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			type: "success",
 			value: [{ path: "/repo-slot", branch: "feature/land-core" }],
 		});
+		expect(freedSlots).toEqual({
+			type: "success",
+			value: [{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" }],
+		});
 		expect(firstStackShape).toMatchObject({
 			type: "success",
 			value: { landingBranches: ["feature/land-core"] },
@@ -287,6 +310,14 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			const mutableReturnedWorktrees = listedWorktrees.value as WorktreeEntry[];
 			mutableReturnedWorktrees.push({ path: "/output-mutation" });
 		}
+		if (freedSlots.type === "success") {
+			const mutableReturnedSlots = freedSlots.value as ManagedSlotWorktree[];
+			mutableReturnedSlots.push({
+				type: "managed-slot",
+				branch: "feature/output-mutation",
+				path: "/output-mutation",
+			});
+		}
 		if (firstStackShape.type === "success") {
 			const mutableReturnedLandingBranches = firstStackShape.value.landingBranches as string[];
 			mutableReturnedLandingBranches.push("feature/output-mutation");
@@ -299,6 +330,10 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 		expect(await worktrees.worktrees({ repoRoot: REPO_ROOT })).toEqual({
 			type: "success",
 			value: [{ path: "/repo-slot", branch: "feature/land-core" }],
+		});
+		expect(await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: slotsToFree })).toEqual({
+			type: "success",
+			value: [{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" }],
 		});
 		expect(
 			await graphite.stackShape({
