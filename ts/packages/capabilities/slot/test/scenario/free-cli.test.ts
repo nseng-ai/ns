@@ -159,6 +159,23 @@ describe("slot free CLI", () => {
 		expect(declined.pr.operations()).toEqual([{ type: "get-pr-for-branch", branch: "feature/a" }]);
 	});
 
+	it("reports an unmatched branch selector instead of treating it as missing", async () => {
+		const run = runScenario(["free", "-b", "feature/missing", "--format", "json"], {
+			git: {
+				worktrees: [slotWorktree("slot-01", "feature/a")],
+				localBranches: ["master", "feature/a"],
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: {
+				freed: [],
+				skipped: ["Branch 'feature/missing' is not assigned to a managed slot; nothing to free."],
+			},
+		});
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("--all --yes closes PR then deletes local branch after detach", async () => {
 		const run = runScenario(["free", "-b", "feature/a", "--all", "--yes", "--format", "json"], {
 			git: {

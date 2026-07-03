@@ -72,7 +72,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 	if (poolSize(inventory) === 0)
 		return failure("pool-empty", "No managed slots configured. Run `slot init --size N` first.");
 	const resolved = resolveTargets(repoCtx, request, inventory);
-	if (resolved.slotNames.length === 0 && resolved.errors.length === 0)
+	if (!hasFreeTargetSelector(request))
 		return failure(
 			"missing-slot-arg",
 			"Pass one of -n/--num, -w/--wt, -b/--branch, or -c/--current to identify the slot.",
@@ -211,6 +211,12 @@ function dryRunHeadline(targetCount: number): string {
 
 function freeSuccessHeadline(targetCount: number): string {
 	return targetCount === 0 ? "No slots freed." : `Freed ${targetCount} slot(s).`;
+}
+
+function hasFreeTargetSelector(request: FreeRequest): boolean {
+	return (
+		request.num.length > 0 || request.wt.length > 0 || request.branch.length > 0 || request.current
+	);
 }
 
 function resolveTargets(
