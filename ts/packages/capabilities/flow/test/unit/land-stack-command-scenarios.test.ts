@@ -24,7 +24,16 @@ import {
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
 } from "./land-stack-backup-ref-fixtures.ts";
-import { createMergeFeatureASteps } from "./land-stack-script-fixtures.ts";
+import {
+	createChildrenRecheckStep,
+	createMergeFeatureASteps,
+	expectedSquashMergeArgs,
+	guardShaStep,
+	postRestackSubmitCheckSteps,
+	prSnapshot,
+	prStdout,
+	submitUpdateStep,
+} from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -72,6 +81,7 @@ const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
+const childrenRecheckStep = createChildrenRecheckStep(TOPOLOGY_ARGS);
 
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
@@ -230,28 +240,6 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function expectedSquashMergeArgs(options: {
-	number: number;
-	sha: string;
-	title?: string;
-	body?: string | null;
-}): string[] {
-	const title = options.title ?? `PR ${options.number}`;
-	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
-	return [
-		"pr",
-		"merge",
-		String(options.number),
-		"--squash",
-		"--match-head-commit",
-		options.sha,
-		"--subject",
-		title,
-		"--body",
-		body,
-	];
-}
-
 function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
 	ctx: LandStackCommandContext;
 	notifications: Notification[];
@@ -335,36 +323,6 @@ function messageContentText(content: SentMessage["content"]): string {
 		.join("\n");
 }
 
-function prSnapshot(overrides: {
-	number: number;
-	branch: string;
-	base: string;
-	sha: string;
-	title?: string;
-	body?: string | null;
-	state?: string;
-	isDraft?: boolean;
-	mergedAt?: string | null;
-}): PullRequestSnapshot {
-	return {
-		number: overrides.number,
-		title: overrides.title ?? `PR ${overrides.number}`,
-		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,
-		state: overrides.state ?? "OPEN",
-		isDraft: overrides.isDraft ?? false,
-		headRefName: overrides.branch,
-		baseRefName: overrides.base,
-		headRefOid: overrides.sha,
-		mergeStateStatus: "CLEAN",
-		url: `https://github.example/pull/${overrides.number}`,
-		mergedAt: overrides.mergedAt ?? null,
-	};
-}
-
-function prStdout(pr: PullRequestSnapshot): string {
-	return `${JSON.stringify(pr)}\n`;
-}
-
 function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
 	return entries
 		.map((entry) => {
@@ -439,57 +397,6 @@ function submitRestackRecheckStep(
 	const parent = options.parent ?? TRUNK;
 	return step("git", ["rev-list", "-1", `refs/heads/${parent}`, "--not", `refs/heads/${branch}`], {
 		stdout: options.stdout ?? "",
-	});
-}
-
-function guardShaStep(branch: string, sha: string): ScriptedExec {
-	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-		stdout: `${sha}\n`,
-	});
-}
-
-function postRestackSubmitCheckSteps(options: {
-	branch: string;
-	sha: string;
-	prNumber: number;
-	base: string;
-	state?: string;
-	isDraft?: boolean;
-}): ScriptedExec[] {
-	return [
-		guardShaStep(options.branch, options.sha),
-		step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: options.prNumber,
-					branch: options.branch,
-					base: options.base,
-					sha: options.sha,
-					...(options.state === undefined ? {} : { state: options.state }),
-					...(options.isDraft === undefined ? {} : { isDraft: options.isDraft }),
-				}),
-			),
-		}),
-	];
-}
-
-function submitUpdateStep(branch: string): ScriptedExec {
-	return step("gt", [
-		"submit",
-		"--branch",
-		branch,
-		"--no-stack",
-		"--update-only",
-		"--no-edit",
-		"--no-ai",
-		"--no-interactive",
-		"--force",
-	]);
-}
-
-function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
-		stdout: `${metadataDbJson([{ branch, children }])}\n`,
 	});
 }
 

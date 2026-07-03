@@ -140,13 +140,13 @@ function step(
 	return { command, args, result };
 }
 
-function guardShaStep(branch: string, sha: string): LandStackScriptedExec {
+export function guardShaStep(branch: string, sha: string): LandStackScriptedExec {
 	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
 		stdout: `${sha}\n`,
 	});
 }
 
-function submitUpdateStep(branch: string): LandStackScriptedExec {
+export function submitUpdateStep(branch: string): LandStackScriptedExec {
 	return step("gt", [
 		"submit",
 		"--branch",
@@ -160,6 +160,12 @@ function submitUpdateStep(branch: string): LandStackScriptedExec {
 	]);
 }
 
+export function createChildrenRecheckStep(
+	topologyArgs: readonly string[],
+): (branch: string, children: string[]) => LandStackScriptedExec {
+	return (branch, children) => childrenRecheckStep(topologyArgs, branch, children);
+}
+
 function childrenRecheckStep(
 	topologyArgs: readonly string[],
 	branch: string,
@@ -170,7 +176,7 @@ function childrenRecheckStep(
 	});
 }
 
-function postRestackSubmitCheckSteps(options: {
+export function postRestackSubmitCheckSteps(options: {
 	branch: string;
 	sha: string;
 	prNumber: number;
@@ -195,7 +201,7 @@ function postRestackSubmitCheckSteps(options: {
 	];
 }
 
-function prSnapshot(overrides: {
+export function prSnapshot(overrides: {
 	number: number;
 	branch: string;
 	base: string;
@@ -221,11 +227,11 @@ function prSnapshot(overrides: {
 	};
 }
 
-function prStdout(pr: PullRequestSnapshot): string {
+export function prStdout(pr: PullRequestSnapshot): string {
 	return `${JSON.stringify(pr)}\n`;
 }
 
-function expectedSquashMergeArgs(options: {
+export function expectedSquashMergeArgs(options: {
 	number: number;
 	sha: string;
 	title?: string;

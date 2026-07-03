@@ -5,12 +5,11 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { runCommand } from "@sdl/core/exec";
-import { type ExecResult, formatCommandResultFailure } from "@sdl/core/command";
 import { graphiteBranchMetadataReadonlyJsonArgs } from "@sdl/capability-kit/graphite/metadata";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI } from "../../src/land/stack/types.ts";
+import { createRequiredCommandRunner } from "./support/run-required-command.ts";
 
-const COMMAND_TIMEOUT_MS = 60_000;
 const REAL_GT_TEST_TIMEOUT_MS = 5 * 60_000;
 const TEMP_ROOT_CLEANUP_RETRIES = 5;
 const TEMP_ROOT_CLEANUP_RETRY_DELAY_MS = 100;
@@ -27,12 +26,9 @@ interface SqliteJsonOptions {
 	sql: string;
 }
 
-interface RunRequiredCommandOptions {
-	cwd: string;
-	env: NodeJS.ProcessEnv;
-	command: string;
-	args: readonly string[];
-}
+const runRequiredCommand = createRequiredCommandRunner({
+	failureContext: "Command failed while preparing real gt fixture",
+});
 
 describe("land stack real Graphite CLI integration", () => {
 	test(
@@ -207,21 +203,4 @@ function makeLandStackPi(env: NodeJS.ProcessEnv): LandStackExtensionAPI {
 			});
 		},
 	};
-}
-
-async function runRequiredCommand(options: RunRequiredCommandOptions): Promise<ExecResult> {
-	const result = await runCommand(options.command, options.args, {
-		cwd: options.cwd,
-		env: options.env,
-		timeout: COMMAND_TIMEOUT_MS,
-	});
-	if (result.code === 0 && !result.killed) return result;
-	throw new Error(
-		formatCommandResultFailure(
-			"Command failed while preparing real gt fixture",
-			options.command,
-			options.args,
-			result,
-		),
-	);
 }
