@@ -34,6 +34,7 @@ import { delimiter, join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { runCommand } from "@sdl/core/exec";
+import { optionalEntry } from "@sdl/core/primitives";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
 	LandStackCommandContext,
@@ -526,14 +527,10 @@ function buildInitialState(
 			{ branch: FEATURE_D, parent: FEATURE_B, children: [] },
 		],
 		commandLog: overrides.commandLog ?? [],
-		...(overrides.topologyReads === undefined ? {} : { topologyReads: overrides.topologyReads }),
-		...(overrides.gtGetFailures === undefined ? {} : { gtGetFailures: overrides.gtGetFailures }),
-		...(overrides.gtRestackFailures === undefined
-			? {}
-			: { gtRestackFailures: overrides.gtRestackFailures }),
-		...(overrides.canDeleteCurrentBranch === undefined
-			? {}
-			: { canDeleteCurrentBranch: overrides.canDeleteCurrentBranch }),
+		...optionalEntry("topologyReads", overrides.topologyReads),
+		...optionalEntry("gtGetFailures", overrides.gtGetFailures),
+		...optionalEntry("gtRestackFailures", overrides.gtRestackFailures),
+		...optionalEntry("canDeleteCurrentBranch", overrides.canDeleteCurrentBranch),
 	};
 }
 
@@ -700,7 +697,7 @@ if (command === "gt") {
   if (args[0] === "get") {
     const branch = args[1];
     const failure = state.gtGetFailures && state.gtGetFailures[branch];
-    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt get failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr ?? "gt get failed\\n");
     finish(0, "");
   }
   if (args[0] === "delete") {
@@ -717,7 +714,7 @@ if (command === "gt") {
   if (args[0] === "restack") {
     const branch = args[args.indexOf("--branch") + 1];
     const failure = state.gtRestackFailures && state.gtRestackFailures[branch];
-    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt restack failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr ?? "gt restack failed\\n");
     finish(0, "");
   }
   if (args[0] === "submit") {

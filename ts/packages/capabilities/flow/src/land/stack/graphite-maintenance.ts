@@ -74,10 +74,14 @@ type GraphiteMaintenanceOutcome =
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
+const CONTINUE_MAINTENANCE = Symbol("continue-maintenance");
+
 type RecordedMaintenanceAction =
-	| { kind: "proceed" }
-	| { kind: "continue" }
+	| { kind: "proceed"; warnings: readonly BranchMaintenanceWarning[] }
+	| { kind: "continue"; warnings: readonly BranchMaintenanceWarning[] }
 	| GraphiteMaintenanceHalt;
+
+type MaintenanceActionStep = typeof CONTINUE_MAINTENANCE | GraphiteMaintenanceHalt | undefined;
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
@@ -155,22 +159,40 @@ type RecordableMaintenanceOutcome =
 function recordWarningOrStop(options: {
 	readonly outcome: RecordableMaintenanceOutcome;
 	readonly branch: string;
-	readonly warnings: BranchMaintenanceWarning[];
+	readonly warnings: readonly BranchMaintenanceWarning[];
 }): RecordedMaintenanceAction {
 	const { outcome, branch, warnings } = options;
-	if (outcome === undefined) return { kind: "proceed" };
+	if (outcome === undefined) return { kind: "proceed", warnings };
 	switch (outcome.kind) {
 		case "proceed":
 		case "submit":
 		case "skip-submit":
-			return { kind: "proceed" };
+			return { kind: "proceed", warnings };
 		case "halt":
 			return outcome;
 		case "skip":
-			if (outcome.warning !== undefined) warnings.push({ branch, warning: outcome.warning });
-			return { kind: "continue" };
+			return {
+				kind: "continue",
+				warnings:
+					outcome.warning === undefined
+						? warnings
+						: [...warnings, { branch, warning: outcome.warning }],
+			};
 		default:
 			assertNever(outcome);
+	}
+}
+
+function nextMaintenanceStep(action: RecordedMaintenanceAction): MaintenanceActionStep {
+	switch (action.kind) {
+		case "proceed":
+			return undefined;
+		case "continue":
+			return CONTINUE_MAINTENANCE;
+		case "halt":
+			return action;
+		default:
+			assertNever(action);
 	}
 }
 
@@ -319,7 +341,7 @@ export async function performGraphiteMaintenance(
 		commandOptions: options,
 		maintenance,
 	};
-	const refreshFailureWarnings: BranchMaintenanceWarning[] = [];
+	let refreshFailureWarnings: readonly BranchMaintenanceWarning[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
 		const guardAction = recordWarningOrStop({
@@ -327,16 +349,22 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		if (guardAction.kind === "continue") continue;
-		if (guardAction.kind === "halt") return guardAction;
+		refreshFailureWarnings =
+			"warnings" in guardAction ? guardAction.warnings : refreshFailureWarnings;
+		const guardStep = nextMaintenanceStep(guardAction);
+		if (guardStep === CONTINUE_MAINTENANCE) continue;
+		if (guardStep !== undefined) return guardStep;
 
 		const refreshAction = recordWarningOrStop({
 			outcome: await refreshMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		if (refreshAction.kind === "continue") continue;
-		if (refreshAction.kind === "halt") return refreshAction;
+		refreshFailureWarnings =
+			"warnings" in refreshAction ? refreshAction.warnings : refreshFailureWarnings;
+		const refreshStep = nextMaintenanceStep(refreshAction);
+		if (refreshStep === CONTINUE_MAINTENANCE) continue;
+		if (refreshStep !== undefined) return refreshStep;
 	}
 
 	if (refreshFailureWarnings.length > 0) {
@@ -357,7 +385,7 @@ export async function performGraphiteMaintenance(
 	const deletion = await deleteLocalGraphiteBranchAfterLanding(operationContext);
 	if (deletion.kind !== "proceed") return deletion;
 
-	const postDeleteWarnings: BranchMaintenanceWarning[] = [];
+	let postDeleteWarnings: readonly BranchMaintenanceWarning[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
 		const restackAction = recordWarningOrStop({
@@ -365,8 +393,10 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (restackAction.kind === "continue") continue;
-		if (restackAction.kind === "halt") return restackAction;
+		postDeleteWarnings = "warnings" in restackAction ? restackAction.warnings : postDeleteWarnings;
+		const restackStep = nextMaintenanceStep(restackAction);
+		if (restackStep === CONTINUE_MAINTENANCE) continue;
+		if (restackStep !== undefined) return restackStep;
 
 		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
 		const submitCheckAction = recordWarningOrStop({
@@ -374,8 +404,11 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (submitCheckAction.kind === "continue") continue;
-		if (submitCheckAction.kind === "halt") return submitCheckAction;
+		postDeleteWarnings =
+			"warnings" in submitCheckAction ? submitCheckAction.warnings : postDeleteWarnings;
+		const submitCheckStep = nextMaintenanceStep(submitCheckAction);
+		if (submitCheckStep === CONTINUE_MAINTENANCE) continue;
+		if (submitCheckStep !== undefined) return submitCheckStep;
 
 		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
 		if (refreshExpected) return refreshExpected;
@@ -393,8 +426,11 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (submittedAction.kind === "continue") continue;
-		if (submittedAction.kind === "halt") return submittedAction;
+		postDeleteWarnings =
+			"warnings" in submittedAction ? submittedAction.warnings : postDeleteWarnings;
+		const submittedStep = nextMaintenanceStep(submittedAction);
+		if (submittedStep === CONTINUE_MAINTENANCE) continue;
+		if (submittedStep !== undefined) return submittedStep;
 	}
 
 	if (postDeleteWarnings.length > 0) {
@@ -692,80 +728,84 @@ function planGraphiteMaintenanceTargets(
 ): MaintenanceTargetPlan {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
 	if (nextLandingBranch !== undefined) {
-		return buildMaintenanceTargetPlan("required-next-landing", "fail", [nextLandingBranch]);
+		return buildMaintenanceTargetPlan("required-next-landing", [nextLandingBranch]);
 	}
 
 	if (index !== plan.stack.landingBranches.length - 1) {
-		return buildMaintenanceTargetPlan("none", "warn", []);
+		return buildMaintenanceTargetPlan("none", []);
 	}
 
 	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
 	if (nextFutureLandingBranch !== undefined) {
-		return buildMaintenanceTargetPlan("required-next-landing", "fail", [nextFutureLandingBranch]);
+		return buildMaintenanceTargetPlan("required-next-landing", [nextFutureLandingBranch]);
 	}
 
 	if (plan.descendantMaintenance.kind === "auto") {
 		return buildMaintenanceTargetPlan(
 			"optional-descendants",
-			"warn",
 			plan.descendantMaintenance.targetBranches,
 		);
 	}
 	if (plan.descendantMaintenance.kind === "skipped") {
-		return buildMaintenanceTargetPlan("skip-descendant", "warn", []);
+		return buildMaintenanceTargetPlan("skip-descendant", []);
 	}
-	return buildMaintenanceTargetPlan("none", "warn", []);
+	return buildMaintenanceTargetPlan("none", []);
+}
+
+function localCleanupOnlyScopeText(branch: string): string {
+	return `local branch ${branch} cleanup was`;
+}
+
+function localCleanupAndDescendantScopeText(branch: string): string {
+	return `local branch ${branch} cleanup and descendant restack/update were`;
 }
 
 function buildMaintenanceTargetPlan(
 	mode: MaintenanceMode,
-	severity: MaintenanceSeverity,
 	branches: readonly string[],
 ): MaintenanceTargetPlan {
 	switch (mode) {
 		case "required-next-landing":
 			return {
 				mode,
-				severity,
+				severity: "fail",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: (branch) => `local branch ${branch} cleanup was`,
+				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
 				shouldHaltOnRefreshFailure: true,
 			};
 		case "optional-descendants":
 			return {
 				mode,
-				severity,
+				severity: "warn",
 				branches,
 				refreshCheckedOutConflictHandling: "defer",
 				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: (branch) =>
-					`local branch ${branch} cleanup and descendant restack/update were`,
+				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
 				shouldHaltOnRefreshFailure: false,
 			};
 		case "none":
 			return {
 				mode,
-				severity,
+				severity: "warn",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "retain",
-				skippedScopeText: (branch) => `local branch ${branch} cleanup was`,
+				skippedScopeText: localCleanupOnlyScopeText,
 				isOptionalDescendant: false,
 				shouldHaltOnRefreshFailure: false,
 			};
 		case "skip-descendant":
 			return {
 				mode,
-				severity,
+				severity: "warn",
 				branches,
 				refreshCheckedOutConflictHandling: "fail",
 				deleteCheckedOutConflictHandling: "fail",
-				skippedScopeText: (branch) =>
-					`local branch ${branch} cleanup and descendant restack/update were`,
+				skippedScopeText: localCleanupAndDescendantScopeText,
 				isOptionalDescendant: true,
 				shouldHaltOnRefreshFailure: false,
 			};

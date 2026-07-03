@@ -17,7 +17,7 @@ import type {
 } from "../../src/land/stack/types.ts";
 import { backupRefSteps } from "./land-stack-backup-ref-fixtures.ts";
 import {
-	childrenRecheckStep,
+	createChildrenRecheckStep,
 	createMergeFeatureASteps,
 	expectedSquashMergeArgs,
 	guardShaStep,
@@ -55,6 +55,7 @@ const DB_PATH = `${GIT_COMMON_DIR}/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 
 const mergeFeatureA = createMergeFeatureASteps(TOPOLOGY_ARGS);
+const childrenRecheckStep = createChildrenRecheckStep(TOPOLOGY_ARGS);
 
 const DB_WITH_DESCENDANT = metadataDbJson([
 	{ branch: TRUNK, children: ["feature-a"], trunk: true },
@@ -455,7 +456,7 @@ function mergeFeatureAThroughDelete(
 		);
 	}
 	steps.push(
-		childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", refreshTarget ? ["feature-b"] : []),
+		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
 		step("gt", ["delete", "feature-a", "-f", "-q"]),
 	);
 	return steps;
@@ -617,7 +618,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", ["feature-b", "rogue-branch"]),
+			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -649,7 +650,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
 			...backupRefSteps(["feature-a"]),
 			...mergeSteps.slice(0, -2),
-			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", ["rogue-branch"]),
+			childrenRecheckStep("feature-a", ["rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 

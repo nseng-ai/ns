@@ -160,7 +160,13 @@ export function submitUpdateStep(branch: string): LandStackScriptedExec {
 	]);
 }
 
-export function childrenRecheckStep(
+export function createChildrenRecheckStep(
+	topologyArgs: readonly string[],
+): (branch: string, children: string[]) => LandStackScriptedExec {
+	return (branch, children) => childrenRecheckStep(topologyArgs, branch, children);
+}
+
+function childrenRecheckStep(
 	topologyArgs: readonly string[],
 	branch: string,
 	children: string[],
