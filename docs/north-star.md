@@ -1,6 +1,6 @@
-# SDL North Star
+# ji North Star
 
-This is the product north star for SDL — the destination the work points at, and the
+This is the product north star for ji — the destination the work points at, and the
 language for talking about it. It is deliberately aspirational: it states where the system
 is going, not a claim about what is finished today. Where a line is a promise we have not
 yet built, it is marked as such. Design lives in ADRs; vocabulary lives in `CONTEXT.md`;
@@ -21,13 +21,13 @@ by construction.
 
 ## The inversion: embed, don't wrap
 
-SDL goes the other way. It is a **framework and a set of embeddable building blocks** for the
+ji goes the other way. It is a **framework and a set of embeddable building blocks** for the
 source development lifecycle that you **inject into** the harnesses developers already use. A
 capability is not reached through a wrapper — it becomes part of the harness. Because
-injection adds rather than abstracts, SDL expresses the **union** of the harnesses, not their
+injection adds rather than abstracts, ji expresses the **union** of the harnesses, not their
 intersection: the best of each, in its own native idiom.
 
-> Meta-harnesses unify the surface. SDL unifies the lifecycle.
+> Meta-harnesses unify the surface. ji unifies the lifecycle.
 
 ### Injection composes; wrapping doesn't
 
@@ -36,28 +36,28 @@ over who owns the session and the surface — they collide. An injected library 
 altitude-agnostic: it rides inside whatever runs the agent, so it composes with anything
 harness-shaped, **including a wrapper**.
 
-> SDL + Claude Code works. SDL + Codex works. SDL + (a meta-harness wrapping Claude Code)
+> ji + Claude Code works. ji + Codex works. ji + (a meta-harness wrapping Claude Code)
 > works. Two meta-harnesses are a turf war.
 
-So SDL is not, fundamentally, *anti* meta-harness. From SDL's vantage a meta-harness is just
+So ji is not, fundamentally, *anti* meta-harness. From ji's vantage a meta-harness is just
 one more embedding target — another harness. The honest relationship is **orthogonal and
-subsuming**: SDL is *substrate*, a meta-harness is *orchestration*, the real harness sits in
-the middle. They stack. Even a team that fully bought the meta-harness thesis is still an SDL
-customer, because SDL adds the lifecycle and context layer beneath the agents the meta-harness
+subsuming**: ji is *substrate*, a meta-harness is *orchestration*, the real harness sits in
+the middle. They stack. Even a team that fully bought the meta-harness thesis is still a ji
+customer, because ji adds the lifecycle and context layer beneath the agents the meta-harness
 orchestrates.
 
-One precision: SDL embeds into a meta-harness at whatever fidelity that meta-harness exposes —
+One precision: ji embeds into a meta-harness at whatever fidelity that meta-harness exposes —
 which, by the intersection argument, is lower than the underlying harness offers. The better
 mechanism is to embed into the underlying agent runtime the meta-harness launches (still
 Claude Code or Codex underneath) at full fidelity, while the meta-harness orchestrates above.
 The meta-harness is a valid but lower-fidelity embedding target; direct embedding is better;
-SDL supports both. This restates *why direct embedding wins* while staying fully inclusive.
+ji supports both. This restates *why direct embedding wins* while staying fully inclusive.
 
 ## The altitude bet
 
 The thing actually shared across all your agents was never the harness — harnesses churn
 monthly. It is the **lifecycle**: the objective, the branch, the plan, the handoff, the
-commit, the PR. SDL unifies at that layer, and that layer is durable because it lives in
+commit, the PR. ji unifies at that layer, and that layer is durable because it lives in
 **git**. Bet on the substrate, not the surface.
 
 > Don't unify the harnesses. Unify the lifecycle — in git.
@@ -68,12 +68,12 @@ Context engineering is the high-order bit of agentic programming: getting the ri
 the right agent and model at the right time. The hard part is not *storing* context — it is
 *bounding* it: knowing what is in scope now and what is not.
 
-The organizing insight of SDL is that **the lifecycle already supplies the boundaries.** Every
-phase of the SDLC has a natural lifetime, and that lifetime *is* a context scope. SDL's
+The organizing insight of ji is that **the lifecycle already supplies the boundaries.** Every
+phase of the SDLC has a natural lifetime, and that lifetime *is* a context scope. ji's
 building blocks are not an arbitrary toolbox; they are the lifecycle's context scopes, each
 with a git-native lifetime:
 
-| Scope                 | Lifetime              | SDL mechanism                                 | Storage (derived from lifetime)                    |
+| Scope                 | Lifetime              | ji mechanism                                  | Storage (derived from lifetime)                    |
 | --------------------- | --------------------- | --------------------------------------------- | -------------------------------------------------- |
 | **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                    |
 | **Goal**              | life of the objective | objective orientation + roadmap               | `.ji/objectives/<slug>`, auto-drops on `closed.md` |
@@ -96,15 +96,15 @@ itself on goal completion.
 A wrapper above the harness has exactly **one** context lifetime: the session. It cannot
 express "this fact is valid for the life of this branch" or "this orientation is valid for the
 life of this goal," because it does not model branches or goals — it sits above the harness,
-not in the lifecycle. SDL has a whole spectrum of lifetimes precisely because it is built on
+not in the lifecycle. ji has a whole spectrum of lifetimes precisely because it is built on
 the git-native lifecycle.
 
-> A meta-harness manages context per session. SDL scopes context per lifecycle phase — because
+> A meta-harness manages context per session. ji scopes context per lifecycle phase — because
 > only the lifecycle knows when context is born and when it dies.
 
-And the dependency runs in SDL's favor: the more agents a meta-harness orchestrates, the more
+And the dependency runs in ji's favor: the more agents a meta-harness orchestrates, the more
 it needs a shared, scoped context substrate underneath, not less. Sharing a live session by
-URL is shallow without a durable, lifecycle-scoped memory beneath it. SDL is that memory.
+URL is shallow without a durable, lifecycle-scoped memory beneath it. ji is that memory.
 
 ## The building blocks
 
@@ -119,12 +119,11 @@ usable alone, stronger together, each anchored to a context scope:
 - **Review & govern** — roasters, PR-feedback triage, and policy expressed once and honored
   everywhere.
 
-These are the primitive building blocks of the Source Development Lifecycle — hence SDL —
-embeddable in any harness.
+These are the primitive building blocks of ji — embeddable in any harness.
 
 ## The four commitments
 
-What SDL promises to be true as it matures. Each is stated precisely so the aspiration is one
+What ji promises to be true as it matures. Each is stated precisely so the aspiration is one
 reality can actually cash.
 
 **1. Git-native durable substrate, deliberately tiered by lifetime.**
@@ -147,13 +146,13 @@ Policy is enforced at the **durable-state boundary** — git — not at a wrappe
 harness. Everything that matters has to cross git to become real, so a gate there cannot be
 routed around regardless of which harness ran. This is the structural advantage over the
 meta-harness, which governs only its own sessions. The two planes stack cleanly: a meta-harness
-gates the *session* (cost, permissions, tool calls); SDL gates *durable state* (what lands in
-git). SDL's git gate covers exactly the hole the wrapper leaves — any session that did not go
+gates the *session* (cost, permissions, tool calls); ji gates *durable state* (what lands in
+git). ji's git gate covers exactly the hole the wrapper leaves — any session that did not go
 through the wrapper still has to cross git.
 
 **4. Bring your own harness; keep the whole lifecycle.**
 Because the lifecycle lives in git, switching harnesses is free — start the next session
-anywhere and the objective, branch, memory, and handoff are already there. SDL delivers the
+anywhere and the objective, branch, memory, and handoff are already there. ji delivers the
 meta-harness's headline feature (harness portability) as a *side effect* of git-native state,
 without paying the abstraction tax to get it.
 
@@ -183,16 +182,16 @@ A meta-harness cannot even attempt the verb, because it has no scopes to assembl
 
 ## Messaging
 
-- **One-liner:** SDL scopes context to the lifecycle — repo, goal, branch, session — so the
+- **One-liner:** ji scopes context to the lifecycle — repo, goal, branch, session — so the
   right agent gets the right context at the right time, git-native.
 - **The thesis:** Context engineering is the high-order bit of agentic programming. The
-  lifecycle is where context's boundaries already live — SDL binds them.
-- **Against the enemy:** A meta-harness sees one context lifetime: the session. SDL sees the
+  lifecycle is where context's boundaries already live — ji binds them.
+- **Against the enemy:** A meta-harness sees one context lifetime: the session. ji sees the
   whole lifecycle's worth.
 - **The judo:** We think the meta-harness is the wrong primary tool — but it's also just
-  another harness to us. SDL makes it better from underneath.
+  another harness to us. ji makes it better from underneath.
 - **The wedge:** Capabilities you embed — not a harness you adopt.
-- **The verb:** Storage is solved. SDL is building the resolver — the right working set,
+- **The verb:** Storage is solved. ji is building the resolver — the right working set,
   assembled per phase, evicted on exit.
 
 ## What to claim today vs. at the destination

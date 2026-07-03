@@ -82,7 +82,7 @@ Report the destination branch, source branch, namespace, key, entry locator/ref,
 
 Only delete one explicit handoff that the user or workflow has identified. Preflight with `brmem check` unless the current command already verified it.
 
-Prefer the first-party SDL command face, which deletes one exact-slug handoff (pass the slug without `.md`):
+Prefer the first-party ji command face, which deletes one exact-slug handoff (pass the slug without `.md`):
 
 ```bash
 ji handoff delete [--branch <branch>] [--yes] <slug>

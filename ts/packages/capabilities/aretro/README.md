@@ -4,7 +4,7 @@ Deterministic branch-retrospective evidence collection for `branch-retro` and ot
 
 ## Command face
 
-Aretro is exposed through the SDL extension command face:
+Aretro is exposed through the ji extension command face:
 
 - `ji aretro exec collect-evidence` — collect compact factual session evidence in a Clinkr envelope.
 - `ji aretro exec read-evidence-detail` — read one targeted value from a sanitized payload artifact.

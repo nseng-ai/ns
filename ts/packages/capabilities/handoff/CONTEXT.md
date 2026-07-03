@@ -65,11 +65,11 @@ The explicit operation that previews or deletes Handoff Artifacts whose local br
 *Avoid*: automatic cleanup, archive, Objective Close.
 
 **Handoff Command Face**:
-The portable SDL command surface `ji handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
+The portable ji command surface `ji handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
 *Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
 
 **Handoff Capability API**:
-The curated in-process `@ji/handoff/api` surface consumed by SDL command leaves and Pi adapters for Handoff lifecycle behavior.
+The curated in-process `@ji/handoff/api` surface consumed by ji command leaves and Pi adapters for Handoff lifecycle behavior.
 *Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, raw storage recipes in consumers.
 
 **Handoff Domain Core**:

@@ -1,8 +1,12 @@
-# SDL Tools
+# ji
 
 This context captures project language for durable planning workflows in this repository.
 
 ## Language
+
+**ji**:
+The product's proper name. Always lowercase, including at sentence starts; rewrite the sentence rather than capitalizing it. It has no expansion and is pronounced "jee".
+*Avoid*: JI, Ji, SDL, Source Development Lifecycle
 
 **Objective**:
 A checked-in documentation workstream for durable multi-session, multi-branch, or multi-PR work.
@@ -100,14 +104,14 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The SDL extension stack, bottom to top: **Neutral Infra** below the SDK (`@ji/core` as the pure utility library plus other non-domain infra such as `@ji/clinkr`), the SDK (`@ji/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@ji/capability-kit/git`, `@ji/capability-kit/github`, `@ji/capability-kit/graphite`, and `@ji/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@ji/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@ji/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
+The ji extension stack, bottom to top: **Neutral Infra** below the SDK (`@ji/core` as the pure utility library plus other non-domain infra such as `@ji/clinkr`), the SDK (`@ji/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@ji/capability-kit/git`, `@ji/capability-kit/github`, `@ji/capability-kit/graphite`, and `@ji/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@ji/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@ji/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
 
 **Neutral Infra**:
 The pure floor below the SDK — **Pure Utility** libraries plus other non-domain packages/subpackages with no real-world I/O (`@ji/core`, `@ji/core/cli-theme`, `@ji/clinkr`) that depend only on other Neutral Infra. It excludes gateways: a gateway's seam, fake, and real adapter are **Kit Gateway** material owned by **Capability Kit** subpackages, not Neutral Infra. A gateway *contract* — pure interface types with no I/O — may live here as a **Pure Utility** only when it has proven broadly neutral.
 *Avoid*: neutral-infra gateway (a gateway is a Kit Gateway, never Neutral Infra)
 
 **Pure Utility**:
-A deterministic transform with no I/O and no SDL runtime knowledge. Pure utilities stay in `@ji/core` and may be imported directly by any layer.
+A deterministic transform with no I/O and no ji runtime knowledge. Pure utilities stay in `@ji/core` and may be imported directly by any layer.
 *Avoid*: gateway, host service, runtime harness
 
 **Kit Gateway**:
@@ -129,15 +133,15 @@ Program boot code that creates or wires the vended API object and is never reach
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
 **Extension**:
-The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not SDL capabilities.
-*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@ji/kernel/sdk` "SDL extension API" or "Pi runtime extension API")
+The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not ji capabilities.
+*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@ji/kernel/sdk` "ji extension API" or "Pi runtime extension API")
 
 **Capability**:
-A first-party SDL feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
+A first-party ji feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
 *Avoid*: plugin, built-in, the bare construct "extension" (the extension is the mechanism; the capability is the feature area)
 
 **First-party extension**:
-An SDL-shipped, SDL-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
+A ji-shipped, ji-owned **Extension** that implements a **Capability** (flow, objective, handoff, slot, branch-context, plans, address, roaster, aretro, and **CCC**), as opposed to a third-party extension.
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
@@ -185,7 +189,7 @@ The `testing` **Subpackage**: the cross-package test-time contract exporting fak
 *Avoid*: test folder, test utils, mocks folder
 
 **Host-surface subpackage**:
-A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ji` (the SDL Command Face), `pi` (Pi mirrors), `repo-local-ji-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ji` (the ji Command Face), `pi` (Pi mirrors), `repo-local-ji-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:

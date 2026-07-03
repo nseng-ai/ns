@@ -1,6 +1,6 @@
 # Objective System
 
-This document is the canonical operational specification for SDL objectives.
+This document is the canonical operational specification for ji objectives.
 `CONTEXT.md` defines the domain language; this file defines the markdown-only v1 mechanics.
 
 ## Purpose

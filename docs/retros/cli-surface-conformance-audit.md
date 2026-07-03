@@ -14,7 +14,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > **Casing convention superseded (ADR 0010).** This audit was written when
 > snake_case `errorType`/machine values were treated as the expected spelling and
 > kebab-case was flagged as a violation. That polarity is now **reversed**:
-> SDL-owned serialized enum-like values are **kebab-case** and JSON property names
+> ji-owned serialized enum-like values are **kebab-case** and JSON property names
 > are **camelCase**. Historical rows below that mark kebab-case as a violation or
 > snake_case as conformant reflect the old rule and are retained only as
 > point-in-time evidence — read them against the current convention. The
@@ -25,7 +25,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > map, not an open remediation queue. The `cli-surface-conformance-remediation`
 > Objective reconciled the rows against current source: danger-tier rows were
 > remediated, raw finite-result commands were migrated or explicitly parked under
-> ADR 0015, serialized SDL machine values were migrated to kebab-case with
+> ADR 0015, serialized ji machine values were migrated to kebab-case with
 > camelCase JSON property names, Branch Context / Plans generic error wrappers
 > were replaced by modeled failure types with structured recovery data, and the
 > Aretro/Vibechk output-bound rows were remediated while `roaster review log` was
@@ -86,7 +86,7 @@ framework does not enforce:
 | packagechk     | `NAME` (check), `claim-pypi`, `claim-npm`                                                                                                                                     | all `rawCommand` (raw-exit)                                                 |
 | plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                       |
 | pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                    |
-| roaster        | `ji roaster review list/ls/run/log`, `ji roaster roast list`, `ji roaster exec record-findings/publish-findings`                                                              | standalone binary removed; SDL extension command face is the active surface |
+| roaster        | `ji roaster review list/ls/run/log`, `ji roaster roast list`, `ji roaster exec record-findings/publish-findings`                                                              | standalone binary removed; ji extension command face is the active surface |
 | ji             | `shell show/install` (local; dual-mounted under `ji` and `ji slot`); mounts `@ji/slot` group + runtime extension commands                                                     | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
 | jicc           | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
 | slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `ji slot`; **reference** Tier 3 (`gc`)                        |
@@ -465,7 +465,7 @@ inconsistency — predicate lookups stay `ok`, requested-target/action misses st
 
 ### roaster
 
-Roaster's standalone binary has been removed. The active CLI audit surface is the SDL extension command face.
+Roaster's standalone binary has been removed. The active CLI audit surface is the ji extension command face.
 
 | Command                            | Mutating? | Area  | Finding                                                                    | Classification | Evidence (file:line)                           |
 | ---------------------------------- | --------- | ----- | -------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |

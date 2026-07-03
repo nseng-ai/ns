@@ -1,11 +1,11 @@
 # @ji/objective
 
-This context captures domain language for the `objective` capability package: the CLI surfaces over checked-in Objective records and the in-process Capability API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and capability-specific terms; the Objective *system* vocabulary (Objective, Active/Archive Objective Root, Objective Update/Close/Archive, Semantic Update, Closure Marker, …) stays canonical in the root [SDL Tools](../../../CONTEXT.md) context and is cited here, not redefined.
+This context captures domain language for the `objective` capability package: the CLI surfaces over checked-in Objective records and the in-process Capability API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and capability-specific terms; the Objective *system* vocabulary (Objective, Active/Archive Objective Root, Objective Update/Close/Archive, Semantic Update, Closure Marker, …) stays canonical in the root [ji](../../../CONTEXT.md) context and is cited here, not redefined.
 
 ## Language
 
 **`ji objective` command surface**:
-The public SDL-grouped Objective CLI surface — `ji objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ji/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+The public ji-grouped Objective CLI surface — `ji objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ji/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ji objective list`**:

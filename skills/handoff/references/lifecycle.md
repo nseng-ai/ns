@@ -54,7 +54,7 @@ Pi surfaces:
 /handoff:list [--branch <branch>|--all]
 ```
 
-SDL command face:
+ji command face:
 
 ```text
 ji handoff list [--branch <branch>|--all] [--include-deleted] --format json

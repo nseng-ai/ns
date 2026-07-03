@@ -1,9 +1,10 @@
 **Direction: the product is `ji`; `sdl` is the legacy name being cut over.**
 
-Getting to: one name everywhere — `ji` bin, `.ji/`, `/ji:*`, `@ji/*`, XDG `*/ji/`;
-lowercase-always `ji` in CONTEXT.md, rationale and accepted collisions in the rename ADR.
+Getting to: one name everywhere — `ji` bin, `.ji/`, `/ji:*`, `@nseng-ai/*` packages
+with `@nseng-ai/ji` as the publish target, XDG `*/ji/`; lowercase-always `ji` in
+CONTEXT.md, rationale and accepted collisions in the rename ADR.
 
-What you see now — legacy, do not copy: `sdl`/`SDL` strings throughout code, docs, and
+What you see now — legacy, do not copy: old-name strings throughout code, docs, and
 vocabulary; they are historical, not a convention to follow.
 
 Avoid: introducing new `sdl`-named surfaces, commands, packages, or vocabulary; adding

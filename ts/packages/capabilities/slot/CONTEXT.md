@@ -1,6 +1,6 @@
 # @ji/slot
 
-This context captures Slot language for the Git-worktree-backed slot pool and the boundary between Slot command usage, in-process Capability API composition, SDL-owned shell integration, and Graphite-aware slot helpers.
+This context captures Slot language for the Git-worktree-backed slot pool and the boundary between Slot command usage, in-process Capability API composition, ji-owned shell integration, and Graphite-aware slot helpers.
 
 ## Language
 
@@ -22,7 +22,7 @@ The derived view of the **Slot Pool** that tells which **Slot Records** are avai
 
 **Slot Repo Context**:
 The resolved repository facts that let Slot relate the current checkout, the main worktree, managed slot worktrees, and slot metadata for one repository.
-*Avoid*: current working directory alone, SDL host context, cmux workspace context
+*Avoid*: current working directory alone, ji host context, cmux workspace context
 
 **Slot Checkout Target**:
 The canonical result shape describing where a branch was placed or already lives, including branch name, slot/worktree path, parent-shell `cd` command, and checkout-state notes.
@@ -39,15 +39,15 @@ The rule that **Slot Capability API** checkout side effects are explicit opt-ins
 *Avoid*: hidden navigation side effect, JSON command moving the shell, treating `--no-clipboard` as a no-`cd` option
 
 **Parent-Shell Navigation**:
-A human-output command behavior where successful navigation commands can ask the installed SDL shell wrapper to move the caller's shell after the child process exits.
+A human-output command behavior where successful navigation commands can ask the installed ji shell wrapper to move the caller's shell after the child process exits.
 *Avoid*: child process `cd`, Capability API navigation, standalone Slot shell wrapper
 
 **Shell Directive**:
-A short-lived file-based signal that carries the destination path from an SDL child process to the installed SDL shell wrapper.
+A short-lived file-based signal that carries the destination path from a ji child process to the installed ji shell wrapper.
 *Avoid*: clipboard command, rc-file marker, general command output
 
 **Slot Shell Mount**:
-The compatibility `ji slot shell ...` command group that exposes the same SDL-owned parent-shell integration as `ji shell ...` from within the Slot command tree.
+The compatibility `ji slot shell ...` command group that exposes the same ji-owned parent-shell integration as `ji shell ...` from within the Slot command tree.
 *Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@ji/slot/shell-support`
 
 **Slot Graphite Command Group**:

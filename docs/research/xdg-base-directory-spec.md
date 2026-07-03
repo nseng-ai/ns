@@ -109,7 +109,7 @@ conventions are worth following:
 
 ## Relevance to this repo
 
-ASDL's design principle of **git-native storage** means durable domain state
+ji's design principle of **git-native storage** means durable domain state
 lives in branch refs, branches, and GitHub issues/PRs — explicitly **not** in
 hidden databases or ad-hoc state files. So the XDG `*_HOME` directories are not
 the home for durable project state here.
@@ -119,13 +119,13 @@ local per-machine configuration for the TypeScript CLIs, or scratch state. For
 those, prefer `XDG_CACHE_HOME` (regenerable) or `XDG_STATE_HOME` (local,
 non-precious) over `XDG_DATA_HOME`, and keep that boundary explicit.
 
-Current SDL-owned roots use these conventions:
+Current ji-owned roots use these conventions:
 
 - Saved/enriched plans: `$XDG_STATE_HOME/ji/enriched-plan` (default `$HOME/.local/state/ji/enriched-plan`).
 - Slot worktree pools: `$XDG_STATE_HOME/ji/slots` (default `$HOME/.local/state/ji/slots`).
-- SDL global extensions: `$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`).
+- ji global extensions: `$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`).
 - Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ji/brmem/prompts` (default `$HOME/.config/ji/brmem/prompts`).
-- Submit raw failure logs and SDL Pi CLI trace logs: `$XDG_STATE_HOME/ji/...` unless their explicit SDL-specific overrides are set.
+- Submit raw failure logs and ji Pi CLI trace logs: `$XDG_STATE_HOME/ji/...` unless their explicit ji-specific overrides are set.
 
 ## Sources
 

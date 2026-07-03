@@ -36,13 +36,12 @@ Accepted collisions, consciously de-risked by nothing:
   "JSON Inspector", single v0.0.0 release from March 2013). No dispute is filed — not as
   plan A, not as fallback.
 
-npm plan: packages publish under the **`@ji` scope**, registered as an npm org owned by
-the `schrockn` npm account, unifying internal workspace scope and publish scope as
-`@ji/*`. The
-CLI installs a bin named `ji` regardless of its inner package name, so users type `ji`
-either way; the published CLI's inner package name remains
-`checkout-free-sdl-distribution`'s call, since that objective owns packaging. This
-resolves the publish-name open question that objective carried.
+npm plan: packages publish under the existing **`@nseng-ai` scope**. The product CLI
+package name is `ji`, yielding the publish target `@nseng-ai/ji`; no `@ji` npm org/scope
+is claimed. The CLI installs a bin named `ji`, so users type `ji`; packaging details
+beyond the product package target remain `checkout-free-sdl-distribution`'s call, since
+that objective owns packaging. This resolves the publish-name open question that
+objective carried.
 
 The marketing narrative and the fuller naming deliberation live in
 `docs/ji-naming-brief.md`; this ADR records the verdicts.

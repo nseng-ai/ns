@@ -20,7 +20,7 @@ Out of scope:
 
 - Workspace package architecture checks.
 - TypeScript import-boundary or deep-import enforcement.
-- SDL extension dependency DAG validation.
+- ji extension dependency DAG validation.
 - Package export-map policy for local workspace packages.
 - General repository linting, formatting, or dependency governance.
 

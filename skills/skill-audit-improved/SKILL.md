@@ -1,7 +1,7 @@
 ---
 name: skill-audit-improved
 disable-model-invocation: true
-description: "Self-contained skill for auditing and tightening agent skills — bundles the writing-great-skills vocabulary with ASDL's operational audit checklists. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
+description: "Self-contained skill for auditing and tightening agent skills — bundles the writing-great-skills vocabulary with ji's operational audit checklists. Summon by name to review a SKILL.md for predictability, token cost, triggers, progressive disclosure, and CLI push-down."
 ---
 
 # skill-audit-improved
@@ -9,8 +9,8 @@ description: "Self-contained skill for auditing and tightening agent skills — 
 <!--
   LINEAGE: each section is tagged with an HTML comment naming its dominant source.
     src: pocock       = Matt Pocock's writing-great-skills (vocabulary, failure modes, leading words)
-    src: skill-audit  = the original asdl skill-audit (operational checklists)
-    src: asdl         = asdl overlay / authored for this merge
+    src: skill-audit  = the original ji skill-audit (operational checklists)
+    src: ji         = ji overlay / authored for this merge
   Installed as an invoke-only support skill via areg. Keep invocation artifacts
   managed by `areg skill apply invoke-only skill-audit-improved` (see docs/conventions/skill-conventions.md).
 -->
@@ -116,7 +116,7 @@ If pushing down, target one cohesive command returning JSON with `success`, stru
 - Don't rewrite a skill into a tutorial; prefer smaller, sharper `SKILL.md` over polished prose.
 - Add references/scripts only when the audit finds real need.
 - Edit first-party skills at `skills/<name>/` directly (`.agents/skills/<name>` is a symlink back).
-- <!-- src: asdl --> Don't replace asdl-native workflows (Branch Memory, Objective, Graphite, handoff, SDL) with upstream/generic workflow patterns without a separate product decision.
+- <!-- src: ji --> Don't replace ji-native workflows (Branch Memory, Objective, Graphite, handoff, ji) with upstream/generic workflow patterns without a separate product decision.
 - After edits, run `git diff --check`; use `wc -l` when reporting reductions.
 
 ## Final Report
@@ -160,7 +160,7 @@ A skill exists to wrangle determinism out of a stochastic system. **Predictabili
 
 ## Harness & overlay notes
 
-<!-- src: asdl -->
+<!-- src: ji -->
 
 - **Harness caveat.** `disable-model-invocation: true` is honored zero-ambient on Claude Code and Pi, but Codex keeps the description ambient and only blocks implicit invocation. Don't invent sidecar policy in a skill; the full per-harness mechanics live in `docs/research/harness-skill-invocation.md`. Invocation kind is managed by `areg` (`docs/conventions/skill-conventions.md`), not by hand-editing flags.
 - **Vendored skills.** When auditing a skill under a real directory in `.agents/skills/`, treat it as vendored: limit findings to integration-boundary issues unless the task is explicitly to modify the dependency (`docs/conventions/skill-conventions.md`).

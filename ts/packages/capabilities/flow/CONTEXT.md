@@ -5,7 +5,7 @@ This context captures Flow language for lifecycle commands, the `@ji/flow/api` c
 ## Language
 
 **Flow**:
-The SDL Capability that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, regenerate-pr, push, and land.
+The ji Capability that owns public lifecycle workflows such as changes, copy, autoslot, autobranch, submit, pull-trunk, regenerate-pr, push, and land.
 *Avoid*: CCC source-control helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:

@@ -25,9 +25,9 @@
       path, worktree slots, shell-profile `SDL_*` env vars — enumerated in
       `cutover-inventory.md` machine-migration notes), and fix up any straggler
       branches by hand.
-- [ ] Vocabulary sweep: CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs —
+- [x] Vocabulary sweep: CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs —
       `ji` glossary entry with casing rule, `SDL` added to *Avoid*, compound canonical
-      terms renamed.
+      terms renamed. Completed in update `2026-07-03-vocabulary-docs-sweep.md`.
 - [x] Package scope sweep first pass: `@sdl/*` → `@ji/*` (18 packages + the
       `.ji/reviews` scanner), `@sdl-local/pi-tools` → `@internal/pi-tools`
       (local-space scope preserved as `@internal/`), `sdl-flow` → `@ji/flow`,

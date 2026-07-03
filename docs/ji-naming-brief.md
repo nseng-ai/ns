@@ -2,7 +2,7 @@
 
 The naming story and brand rationale for **ji**, the product formerly named SDL ("Source
 Development Lifecycle"). The binding verdicts — the casing rule, the accepted collisions,
-the npm scope plan — live in [ADR 0024](adr/0024-rename-sdl-to-ji.md); this brief is the
+the npm package plan — live in [ADR 0024](adr/0024-rename-sdl-to-ji.md); this brief is the
 deliberation and the narrative, and it is the only in-repo home for the marketing story.
 
 ## The spine

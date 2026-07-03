@@ -30,7 +30,7 @@ discriminated union on `status`:
 
 Property names are camelCase; serialized enum-like **values** (`errorType` and any
 command-local `code`/`type`/`status`/`kind` discriminants) are **kebab-case** for
-SDL-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
+ji-owned contracts — e.g. `registry-check-failed`, `branch-context-error`,
 `dry-run`. No snake_case and no aliases (ADR 0010). Known external strings
 (GitHub/Anthropic/Pi/git wire values) keep their exact spelling and are modeled as
 TypeScript literal unions. `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` guards the

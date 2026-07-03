@@ -92,7 +92,7 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 
 ## Store safely
 
-Store the final artifact directly through the portable SDL command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
+Store the final artifact directly through the portable ji command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
 ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'

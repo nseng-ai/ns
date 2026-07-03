@@ -1,12 +1,12 @@
 # @ji/roaster Context
 
-Roaster is an SDL Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
+Roaster is a ji Capability for configured PR-diff reviews. Its Domain Core runs read-only checks, records structured findings, and owns guarded publication; it is not a remediation workflow.
 
 ## Glossary
 
 ### Roaster
 
-The SDL Capability that runs configured read-only PR-diff checks and emits structured findings.
+The ji Capability that runs configured read-only PR-diff checks and emits structured findings.
 
 Avoid: describing Roaster runs as remediation workflows or as agents that edit code.
 
@@ -14,9 +14,9 @@ Avoid: describing Roaster runs as remediation workflows or as agents that edit c
 
 Roaster-owned gateway-injected logic for the review catalog, local-diff review execution, review-log storage, finding schemas, and publication behavior.
 
-Avoid: putting Roaster domain behavior in the SDL kernel, Pi host, or generic infrastructure packages.
+Avoid: putting Roaster domain behavior in the ji kernel, Pi host, or generic infrastructure packages.
 
-### SDL Command Face
+### ji Command Face
 
 The canonical user-facing command surface for Roaster: `ji roaster ...`, including `ji roaster review list`, `ji roaster review run <key>`, `ji roaster review log`, `ji roaster roast list`, and hidden automation leaves under `ji roaster exec ...`.
 
