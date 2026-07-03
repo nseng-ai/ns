@@ -33,8 +33,9 @@ Risks). Systemic #1/#2/#3 are complete.
 `df5d4e355`/`9cc5b1773`) re-architected skill invocation repo-wide: most explicit
 workflow skills — including many remaining queue targets — are now `command-backed`
 (zero ambient context), so the re-audit's reach rankings, which assumed ambient
-descriptions and model-routed bodies for those targets, no longer match ground truth.
-Re-rank the remaining queue before resuming it (see Open Questions).
+descriptions and model-routed bodies for those targets, no longer matched ground
+truth. The queue was re-ranked on post-ADR-0016 reach on 2026-07-03 (update
+`20260703T201928Z`); resume it in that order.
 
 ## Scope
 
@@ -240,9 +241,12 @@ Risks:
   tree loads only on explicit invoke), but the merge itself stands either way.
   `dignified-python`'s 4.5K tree does *not* need consolidation (its version files are
   independent) — only its SKILL.md router (stated 3×) needs collapsing.
-- **Should the remaining queue be re-ranked before resuming?** The re-audit's reach
-  inputs predate ADR 0016 (many targets are no longer ambient), the skill tree has grown
-  56→70 with unaudited post-audit skills, and two targets (`branch-context-impl`,
-  `pr-address`) have already dropped off for independent reasons. A cheap reach
-  re-derivation over the remaining targets would decide whether the current order —
-  objective family first, ccc/niche last — still holds.
+- **Should the remaining queue be re-ranked before resuming?** — **resolved: yes,
+  re-ranked 2026-07-03.** Reach was re-derived from post-ADR-0016 invocation kinds
+  (only `brmem` and `objective` remain `normal`; every other target is
+  `command-backed`), and the queue now runs ambient rewrites first (`brmem`,
+  `objective`), then confirmed-duplication `command-backed` rewrites, then surgical
+  targets, then the ccc pair only if cheap. Full per-position rationale, the
+  dropped/deferred list, and the ambient-reach revisit trigger are in update
+  `20260703T201928Z` (a reconstruction — the original re-rank session's recording
+  was lost uncommitted; the rationale text survived verbatim).
