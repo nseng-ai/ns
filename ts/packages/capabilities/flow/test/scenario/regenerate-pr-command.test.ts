@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@sdl/clinkr/testing";
 
-import { formatManagedGeneratedRegion, GENERATED_BODY_MARKER } from "../../src/submit/index.ts";
+import {
+	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
+	formatManagedGeneratedRegion,
+	GENERATED_BODY_MARKER,
+	hashPrDescriptionPrompt,
+} from "../../src/submit/index.ts";
 
 import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./sdl-cli-fakes.ts";
@@ -178,6 +183,36 @@ describe("project-local regenerate-pr extension behavior", () => {
 		expect(formattedExecCalls(run.context)).not.toContainEqual(
 			expect.stringContaining("gh pr edit"),
 		);
+	});
+
+	test("already-current managed region succeeds without confirming, generating, or editing", async () => {
+		let confirmCalls = 0;
+		const currentBody = formatManagedGeneratedRegion("Existing generated body", {
+			version: "2",
+			patchId: "default-patch-id",
+			promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
+			generator: "sdl-pr-description-v2",
+		});
+		const run = runRegeneratePrWithFakes({
+			state: {
+				confirm: () => {
+					confirmCalls += 1;
+					return true;
+				},
+				exec: successfulReadOnlyRegeneratePrResponses({ body: currentBody }),
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(confirmCalls).toBe(0);
+		const stdout = stripAnsi(run.stdout.join(""));
+		expect(stdout).toContain("PR title and description are already current.");
+		expect(stdout).toContain(`PR: #123 ${PR_URL}`);
+		expect(run.stderr.join("")).toBe("");
+		expect(run.context.textGeneratorCalls).toEqual([]);
+		const calls = formattedExecCalls(run.context);
+		expect(calls).not.toContain("gh pr view 123 --json commits");
+		expect(calls).not.toContainEqual(expect.stringContaining("gh pr edit"));
 	});
 
 	test("--force remains a compatibility no-op and still asks before editing", async () => {

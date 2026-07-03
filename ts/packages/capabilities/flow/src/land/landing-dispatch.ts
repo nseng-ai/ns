@@ -1,11 +1,13 @@
 import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { executeStackLanding } from "./land-stack.ts";
-import type { LandLiveProgressSink } from "./stack/command-stream.ts";
+import type { LandLiveProgressSink, LandStackCommandStream } from "./stack/command-stream.ts";
+import type { LandRuntime } from "./stack/land-runtime.ts";
 import { completed, type LandStackOutcome } from "./stack/errors.ts";
 import { renderPlainLandConfirmationDetails } from "./stack/land-presentation.ts";
 import { presentBrief, presentFailureOutcome } from "./stack/presentation.ts";
 import { loadLandingShape } from "./stack/stack-facts.ts";
+import type { LandGraphiteCommandChannel } from "./stack/graphite-command-channel.ts";
 import type {
 	LandingShape,
 	LandConfirmationPreview,
@@ -25,16 +27,12 @@ interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
 	): Promise<ExecResult>;
 }
 
-interface LandRuntimeApis {
-	extensionApi: LandStackExtensionAPI;
-	streamedApi: LandStackExtensionAPI;
-}
-
 interface RunLandingDispatchOptions {
-	runtimeApis: LandRuntimeApis;
+	runtime: LandRuntime;
 	ctx: PrintAwareLandStackCommandContext;
 	parsedArgs: ParsedArgs;
 	progressIo?: SdlCommandIo;
+	commandStream: LandStackCommandStream;
 	liveProgress?: LandLiveProgressSink;
 }
 
@@ -42,9 +40,11 @@ export async function runLandingDispatch(
 	options: RunLandingDispatchOptions,
 ): Promise<LandStackOutcome> {
 	const progressIo = options.progressIo;
-	const { extensionApi, streamedApi } = options.runtimeApis;
-	const normalizedApi = normalizeLandExtensionApi(streamedApi);
-	const shape = await loadLandingShape(streamedApi, options.ctx.cwd);
+	const { runtime } = options;
+	const normalizedApi = normalizeLandExtensionApi(runtime.commands);
+	const shape = await loadLandingShape(runtime.commands, options.ctx.cwd, {
+		graphite: runtime.graphite,
+	});
 	if (shape.type === "failure") {
 		return presentFailureOutcome(options.ctx, shape.failure);
 	}
@@ -74,6 +74,7 @@ export async function runLandingDispatch(
 		});
 		return await finishAfterLanding(outcome, {
 			pi: normalizedApi,
+			graphite: runtime.graphite,
 			ctx: options.ctx,
 			args: options.parsedArgs,
 			shape: shape.value,
@@ -86,8 +87,9 @@ export async function runLandingDispatch(
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
 
-	const outcome = await executeStackLanding(extensionApi, options.ctx, options.parsedArgs, {
+	const outcome = await executeStackLanding(runtime.source, options.ctx, options.parsedArgs, {
 		shouldSkipMainConfirmation: true,
+		graphite: runtime.graphite,
 		...(options.parsedArgs.shouldSkipConfirmation
 			? {}
 			: { preMergeConfirmation: "already-approved" }),
@@ -96,18 +98,19 @@ export async function runLandingDispatch(
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
 	return await finishAfterLanding(outcome, {
-		pi: streamedApi,
+		pi: runtime.commands,
+		graphite: runtime.graphite,
 		ctx: options.ctx,
 		args: options.parsedArgs,
 		shape: shape.value,
 	});
 }
 
-function normalizeLandExtensionApi(streamedApi: LandStackExtensionAPI): NormalizedLandExtensionAPI {
+function normalizeLandExtensionApi(commands: LandStackExtensionAPI): NormalizedLandExtensionAPI {
 	return {
-		...streamedApi,
+		...commands,
 		exec: async (command, args, options) =>
-			normalizeExecResult(await streamedApi.exec(command, args, options)),
+			normalizeExecResult(await commands.exec(command, args, options)),
 	};
 }
 
@@ -115,6 +118,7 @@ async function finishAfterLanding(
 	outcome: LandStackOutcome,
 	options: {
 		pi: LandStackExtensionAPI;
+		graphite: LandGraphiteCommandChannel;
 		ctx: PrintAwareLandStackCommandContext;
 		args: ParsedArgs;
 		shape: LandingShape;

@@ -21,6 +21,7 @@ import {
 	presentBrief,
 	setStatus,
 } from "./presentation.ts";
+import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
@@ -36,6 +37,7 @@ export interface LandingSession {
 
 interface PreparePlanForMergeOptions {
 	runtimePi: LandStackExtensionAPI;
+	graphite: LandGraphiteCommandChannel;
 	session: LandingSession;
 	plan: LandingPlan;
 	preMergeConfirmation?: PreMergeConfirmation;
@@ -57,7 +59,7 @@ export async function preparePlanForMerge(
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtimePi, plan } = options;
+	const { runtimePi, graphite, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
 	if (plan.managedSlotConflicts.length > 0) {
@@ -73,6 +75,7 @@ async function preparePlanForMergeCore(
 	if (plan.prSubmitRequirements.length > 0) {
 		return await submitRequiredUpdatesAndRecheckPlan({
 			runtimePi,
+			graphite,
 			ctx,
 			plan,
 			commandStream,
@@ -85,6 +88,7 @@ async function preparePlanForMergeCore(
 
 interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 	runtimePi: LandStackExtensionAPI;
+	graphite: LandGraphiteCommandChannel;
 	ctx: LandStackCommandContext;
 	plan: LandingPlan;
 	commandStream: LandStackCommandStream;
@@ -94,12 +98,13 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
 ): Promise<LandStackResult<LandingPlan>> {
-	const { runtimePi, ctx, plan, commandStream, preMergeConfirmation } = options;
+	const { runtimePi, graphite, ctx, plan, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		pi: runtimePi,
 		ctx,
 		plan,
 		confirmation: preMergeConfirmation,
+		graphite,
 	});
 	if (submitOutcome.type === "failure") return submitOutcome;
 
@@ -108,6 +113,7 @@ async function submitRequiredUpdatesAndRecheckPlan(
 	const rechecked = await buildLandingPlan(runtimePi, ctx.cwd, {
 		shouldAllowSubmitRequiredState: true,
 		landingBranchLimit: plan.stack.landingBranches.length,
+		graphite,
 	});
 	if (rechecked.type === "failure") return rechecked;
 

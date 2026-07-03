@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@sdl/core/primitives";
 import { truncateText, type CommandResult, type PendingWorktreeSnapshot } from "./shared.ts";
+import type { AutobranchFlowResult } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
 	buildBranchSlugPrompt,
@@ -16,8 +17,12 @@ import {
 	DIRTY_AUTOBRANCH_WORKTREE_WARNING,
 	summarizeAutobranchCompletion,
 } from "./completion.ts";
-import { runAutobranchTransaction, type AutobranchTransactionResult } from "./dirty-transaction.ts";
+import {
+	formatAutobranchTransactionFailure,
+	runAutobranchTransaction,
+} from "./dirty-transaction.ts";
 
+export type { AutobranchFlowOutcome, AutobranchFlowResult } from "./flow-result.ts";
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 
 export {
@@ -265,19 +270,6 @@ export interface AutobranchFlowInput {
 	now?: () => number;
 }
 
-/**
- * Distinguishes a guardrail that declined to run (`refusal`, rendered warn per house-style §7.3)
- * from a real workflow failure (`failure`, rendered error). Threaded through `AutobranchFlowResult`
- * so consumers no longer flatten declined guardrails — pushed-HEAD / child-branch / root- and
- * merge-commit — into red failure blocks. Classification of each typed cause lives next to the
- * cause's `format*Failure` helper (see `latest-commit-formatting.ts`).
- */
-export type AutobranchFlowOutcome = "refusal" | "failure";
-
-export type AutobranchFlowResult =
-	| { ok: true; isClean: boolean; summary: string; warnings: string[] }
-	| { ok: false; outcome: AutobranchFlowOutcome; error: string };
-
 export async function runDirtyAutobranchFlow(
 	input: AutobranchFlowInput,
 ): Promise<AutobranchFlowResult> {
@@ -352,39 +344,4 @@ export function formatAutobranchPreparationFailure(result: AutobranchPreparation
 
 export function formatAutobranchPreparationWarning(warning: AutobranchPreparationWarning): string {
 	return `Slug model failed; using fallback branch name ${warning.fallbackSlug}.`;
-}
-
-type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
-
-export function formatAutobranchTransactionFailure(
-	result: AutobranchTransactionFailure,
-	branchName: string,
-): string {
-	if (result.kind === "stash_failed") {
-		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
-	}
-	if (result.kind === "stash_ref_missing") {
-		return [
-			`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
-			"Inspect `git stash list` before continuing.",
-			result.error,
-		].join("\n");
-	}
-	if (result.kind === "graphite_create_failed") {
-		return [
-			`Failed to create Graphite branch ${branchName}.`,
-			result.createError,
-			result.restored
-				? "Restored pending changes to the original branch."
-				: `Could not restore pending changes: ${result.restoreError}`,
-		].join("\n");
-	}
-	if (result.kind === "restore_failed_after_branch_create") {
-		return [
-			`Created branch ${branchName}, but failed to restore pending changes from the stash.`,
-			result.restoreError,
-			"Inspect `git stash list` before continuing.",
-		].join("\n");
-	}
-	return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
 }

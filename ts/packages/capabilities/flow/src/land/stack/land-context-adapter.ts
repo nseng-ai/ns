@@ -12,6 +12,10 @@ import { exec } from "./command-exec.ts";
 import { GIT_TIMEOUT_MS } from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { resolveMetadataDbPath } from "./graphite-topology.ts";
+import {
+	createLandGraphiteCommandChannel,
+	type LandGraphiteCommandChannel,
+} from "./graphite-command-channel.ts";
 import { loadPr } from "./pr-facts.ts";
 import {
 	assertLocalBranchExists,
@@ -33,7 +37,11 @@ import {
 import type { LandingFailureSource } from "./plan-mapping.ts";
 import type { LandStackFailure } from "./errors.ts";
 
-export function createLandContext(pi: LandStackExtensionAPI): LandContext {
+export function createLandContext(
+	pi: LandStackExtensionAPI,
+	options: { graphite?: LandGraphiteCommandChannel } = {},
+): LandContext {
+	const graphite = options.graphite ?? createLandGraphiteCommandChannel({ pi });
 	return {
 		git: {
 			resolveRepoRoot: async ({ cwd }) => toLandResult(await loadRepoRoot(pi, cwd), "git"),
@@ -49,11 +57,12 @@ export function createLandContext(pi: LandStackExtensionAPI): LandContext {
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
 		},
 		graphite: {
-			trunk: async ({ repoRoot }) => toLandResult(await loadTrunk(pi, repoRoot), "graphite"),
+			trunk: async ({ repoRoot }) =>
+				toLandResult(await loadTrunk(pi, repoRoot, graphite), "graphite"),
 			metadataDbPath: async ({ repoRoot }) =>
 				toLandResult(await resolveMetadataDbPath(pi, repoRoot), "graphite"),
 			stackShape: async (request) => {
-				const shape = await loadLandingShape(pi, request.repoRoot);
+				const shape = await loadLandingShape(pi, request.repoRoot, { graphite });
 				if (shape.type === "failure") return toLandResult(shape, "graphite");
 				return landSuccess({
 					...shape.value.stack,

@@ -6,9 +6,9 @@ import { createCliCommandIo } from "@sdl/kernel/command-io";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
-	withCommandStreaming,
 	type LandLiveProgressSink,
 } from "./stack/command-stream.ts";
+import { createLandRuntime } from "./stack/land-runtime.ts";
 import { completed, failure, type LandStackOutcome } from "./stack/errors.ts";
 import {
 	formatFailureNotification,
@@ -118,14 +118,12 @@ async function runLandCommand(
 		shouldShowRunningCommandStatus: progressIo !== undefined && ctx.hasUI,
 		shouldMirrorFinishedCommandsToNonUi: false,
 	});
-	const streamedApi = withCommandStreaming(pi, commandStream);
+	const runtime = createLandRuntime(pi, commandStream);
 	return await runLandingDispatch({
-		runtimeApis: {
-			extensionApi: pi,
-			streamedApi,
-		},
+		runtime,
 		ctx,
 		parsedArgs: args.value,
+		commandStream,
 		...(progressIo === undefined ? {} : { progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});

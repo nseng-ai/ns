@@ -14,7 +14,7 @@ import {
 	formatPromptSourceLabel,
 	prepareRegeneratedPrDescriptionForCurrentBranch,
 	type RegeneratedPrDescription,
-} from "../../submit/sdl-pr-description.ts";
+} from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 
 const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
@@ -72,6 +72,20 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 					cwd: ctx.cwd,
 				}),
 				prepared.exitCode ?? 1,
+			);
+		}
+
+		if (prepared.value.type === "already_current") {
+			return ok(
+				renderResultBlock(caps, {
+					kind: "success",
+					headline: "PR title and description are already current.",
+					cwd: ctx.cwd,
+					body: [
+						`PR: #${prepared.value.pr.number} ${prepared.value.pr.url}`,
+						`Prompt: ${formatPromptSourceLabel(prepared.value.promptSource)}`,
+					].join("\n"),
+				}),
 			);
 		}
 

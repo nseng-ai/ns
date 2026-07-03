@@ -1,8 +1,8 @@
 import {
 	runDirtyAutobranchFlow,
-	type AutobranchFlowOutcome,
 	type ParsedAutobranchArgs,
 } from "../../autobranch/dirty-worktree.ts";
+import type { AutobranchFlowOutcome } from "../../autobranch/flow-result.ts";
 import { renderResultBlock } from "@sdl/core/cli-theme";
 import { runWithSdlCommandIo } from "@sdl/kernel/command-io";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";

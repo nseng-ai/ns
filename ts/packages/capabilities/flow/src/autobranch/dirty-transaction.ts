@@ -152,3 +152,38 @@ async function createCheckpointCommit(
 ): Promise<{ summary: string } | { error: string }> {
 	return input.commitPreparedCheckpointMessage(input.checkpointMessage);
 }
+
+type AutobranchTransactionFailure = Extract<AutobranchTransactionResult, { ok: false }>;
+
+export function formatAutobranchTransactionFailure(
+	result: AutobranchTransactionFailure,
+	branchName: string,
+): string {
+	if (result.kind === "stash_failed") {
+		return [`Failed to stash pending changes before branch creation.`, result.error].join("\n");
+	}
+	if (result.kind === "stash_ref_missing") {
+		return [
+			`Stashed pending changes, but could not find the new stash entry for ${result.stashMessage}.`,
+			"Inspect `git stash list` before continuing.",
+			result.error,
+		].join("\n");
+	}
+	if (result.kind === "graphite_create_failed") {
+		return [
+			`Failed to create Graphite branch ${branchName}.`,
+			result.createError,
+			result.restored
+				? "Restored pending changes to the original branch."
+				: `Could not restore pending changes: ${result.restoreError}`,
+		].join("\n");
+	}
+	if (result.kind === "restore_failed_after_branch_create") {
+		return [
+			`Created branch ${branchName}, but failed to restore pending changes from the stash.`,
+			result.restoreError,
+			"Inspect `git stash list` before continuing.",
+		].join("\n");
+	}
+	return `Branch ${branchName} exists, but checkpoint commit failed. Pending changes remain on that branch.\n${result.commitError}`;
+}
