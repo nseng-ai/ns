@@ -1,5 +1,6 @@
 import type { ExecResult, PiExecResultLike } from "@sdl/core/command";
 import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
+import type { LandingShapeForStack, StackSnapshotShape } from "../types.ts";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -111,26 +112,9 @@ export interface ParsedArgs {
 	shouldStreamVerboseOutput: boolean;
 }
 
-export interface StackSnapshot {
-	trunk: string;
-	/** Actual branch checked out in this worktree when landing started. */
-	current: string;
-	actualCurrentBranch: string;
-	landingTargetBranch: string;
-	landingBranches: string[];
-	remainingLandingBranches: string[];
-	descendantBranches: string[];
-	descendantRootBranches: string[];
-	warnings: string[];
-}
+export type StackSnapshot = StackSnapshotShape<string>;
 
-export interface LandingShape {
-	repoRoot: string;
-	current: string;
-	trunk: string;
-	metadataDbPath: string;
-	stack: StackSnapshot;
-}
+export type LandingShape = LandingShapeForStack<StackSnapshot>;
 
 export interface PullRequestSnapshot {
 	number: number;

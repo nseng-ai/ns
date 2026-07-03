@@ -99,9 +99,8 @@ interface SandboxState {
 
 interface Sandbox {
 	tempRoot: string;
-	repoRoot: string;
+	git: GitFixture;
 	statePath: string;
-	env: NodeJS.ProcessEnv;
 	shas: Record<string, string>;
 }
 
@@ -163,12 +162,9 @@ describe("land stack sandbox integration", () => {
 						"Body for PR 102",
 					],
 				]);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toEqual([
-					FEATURE_A,
-					FEATURE_B,
-				]);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
-				expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
+				expect(deletedBranches(log)).toEqual([FEATURE_A, FEATURE_B]);
+				expect(deletedBranches(log)).not.toContain(FEATURE_C);
+				expect(deletedBranches(log)).not.toContain(FEATURE_D);
 				expect(commandIndex(log, "gh", ["pr", "merge", "101"])).toBeLessThan(
 					commandIndex(log, "gt", ["get", FEATURE_B]),
 				);
@@ -216,9 +212,9 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBeGreaterThan(
 						commandIndex(log, "gt", ["get", FEATURE_C]),
 					);
-					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_B);
-					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).not.toContain(FEATURE_C);
-					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).not.toContain(FEATURE_D);
+					expect(deletedBranches(log)).not.toContain(FEATURE_B);
+					expect(restackedBranches(log)).not.toContain(FEATURE_C);
+					expect(restackedBranches(log)).not.toContain(FEATURE_D);
 
 					const branches = await localBranches(sandbox);
 					expect(branches).toContain(FEATURE_B);
@@ -259,7 +255,7 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBeGreaterThan(
 						featureDRestack,
 					);
-					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
+					expect(deletedBranches(log)).toContain(FEATURE_B);
 
 					const messages = notificationText(result);
 					expect(messages).toContain(FEATURE_C);
@@ -328,7 +324,7 @@ describe("land stack sandbox integration", () => {
 						],
 						topologyReads: [
 							[
-								{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+								{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 								{ branch: FEATURE_A, parent: TRUNK, children: [] },
 							],
 						],
@@ -359,7 +355,7 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	if (parsed.type !== "success") throw new Error(parsed.failure.message);
 	const notifications: Notification[] = [];
 	const ctx: LandStackCommandContext = {
-		cwd: sandbox.repoRoot,
+		cwd: sandbox.git.repoRoot,
 		hasUI: true,
 		ui: {
 			notify(message, level) {
@@ -375,8 +371,8 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	const pi: LandStackExtensionAPI = {
 		async exec(command, args, execOptions = {}) {
 			return await runCommand(command, args, {
-				cwd: execOptions.cwd ?? sandbox.repoRoot,
-				env: sandbox.env,
+				cwd: execOptions.cwd ?? sandbox.git.repoRoot,
+				env: sandbox.git.env,
 				...(execOptions.timeout === undefined ? {} : { timeout: execOptions.timeout }),
 			});
 		},
@@ -410,7 +406,7 @@ async function withSandbox(
 		const git = { repoRoot, env } satisfies GitFixture;
 		const shas = await initializeGitStack(git, options.currentBranch);
 		await writeState(statePath, buildInitialState(shas, options.state));
-		await run({ tempRoot, repoRoot, statePath, env, shas });
+		await run({ tempRoot, git, statePath, shas });
 	} finally {
 		await rm(tempRoot, {
 			recursive: true,
@@ -425,35 +421,15 @@ async function initializeGitStack(
 	git: GitFixture,
 	currentBranch: string,
 ): Promise<Record<string, string>> {
-	await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["init", "-b", TRUNK],
-	});
-	await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["config", "user.email", "test@example.com"],
-	});
-	await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["config", "user.name", "SDL Test"],
-	});
+	await runGit(git, ["init", "-b", TRUNK]);
+	await runGit(git, ["config", "user.email", "test@example.com"]);
+	await runGit(git, ["config", "user.name", "SDL Test"]);
 	await commitFile({ git, path: "README.md", content: "initial\n", message: "initial" });
 	await createBranchWithCommit({ git, branch: FEATURE_A, startPoint: TRUNK });
 	await createBranchWithCommit({ git, branch: FEATURE_B, startPoint: FEATURE_A });
 	await createBranchWithCommit({ git, branch: FEATURE_C, startPoint: FEATURE_B });
 	await createBranchWithCommit({ git, branch: FEATURE_D, startPoint: FEATURE_B });
-	await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["checkout", currentBranch],
-	});
+	await runGit(git, ["checkout", currentBranch]);
 	return {
 		[FEATURE_A]: await revParse(git, FEATURE_A),
 		[FEATURE_B]: await revParse(git, FEATURE_B),
@@ -463,12 +439,7 @@ async function initializeGitStack(
 }
 
 async function createBranchWithCommit(options: CreateBranchWithCommitOptions): Promise<void> {
-	await runRequiredCommand({
-		cwd: options.git.repoRoot,
-		env: options.git.env,
-		command: "git",
-		args: ["checkout", "-b", options.branch, options.startPoint],
-	});
+	await runGit(options.git, ["checkout", "-b", options.branch, options.startPoint]);
 	await commitFile({
 		git: options.git,
 		path: `${options.branch}.txt`,
@@ -479,27 +450,12 @@ async function createBranchWithCommit(options: CreateBranchWithCommitOptions): P
 
 async function commitFile(options: CommitFileOptions): Promise<void> {
 	await writeFile(join(options.git.repoRoot, options.path), options.content);
-	await runRequiredCommand({
-		cwd: options.git.repoRoot,
-		env: options.git.env,
-		command: "git",
-		args: ["add", options.path],
-	});
-	await runRequiredCommand({
-		cwd: options.git.repoRoot,
-		env: options.git.env,
-		command: "git",
-		args: ["commit", "-m", options.message],
-	});
+	await runGit(options.git, ["add", options.path]);
+	await runGit(options.git, ["commit", "-m", options.message]);
 }
 
 async function revParse(git: GitFixture, ref: string): Promise<string> {
-	const result = await runRequiredCommand({
-		cwd: git.repoRoot,
-		env: git.env,
-		command: "git",
-		args: ["rev-parse", ref],
-	});
+	const result = await runGit(git, ["rev-parse", ref]);
 	return result.stdout.trim();
 }
 
@@ -570,12 +526,7 @@ function pr(options: SandboxPrOptions): SandboxPr {
 }
 
 async function localBranches(sandbox: Sandbox): Promise<string[]> {
-	const result = await runRequiredCommand({
-		cwd: sandbox.repoRoot,
-		env: sandbox.env,
-		command: "git",
-		args: ["branch", "--format=%(refname:short)"],
-	});
+	const result = await runGit(sandbox.git, ["branch", "--format=%(refname:short)"]);
 	return result.stdout
 		.split(/\r?\n/)
 		.map((line) => line.trim())
@@ -589,6 +540,18 @@ function commandArgs(
 	...prefix: string[]
 ): string[][] {
 	return log.filter((entry) => matchesCommand(entry, command, prefix)).map((entry) => entry.args);
+}
+
+function deletedBranches(log: readonly SandboxCommandLogEntry[]): string[] {
+	return commandArgs(log, "gt", "delete")
+		.map((args) => args[1])
+		.filter((branch): branch is string => branch !== undefined);
+}
+
+function restackedBranches(log: readonly SandboxCommandLogEntry[]): string[] {
+	return commandArgs(log, "gt", "restack")
+		.map((args) => args[2])
+		.filter((branch): branch is string => branch !== undefined);
 }
 
 function commandIndex(
@@ -703,7 +666,7 @@ if (command === "gt") {
   if (args[0] === "get") {
     const branch = args[1];
     const failure = state.gtGetFailures && state.gtGetFailures[branch];
-    if (failure) finish(failure.code || 1, "", failure.stderr || "gt get failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt get failed\\n");
     finish(0, "");
   }
   if (args[0] === "delete") {
@@ -720,7 +683,7 @@ if (command === "gt") {
   if (args[0] === "restack") {
     const branch = args[args.indexOf("--branch") + 1];
     const failure = state.gtRestackFailures && state.gtRestackFailures[branch];
-    if (failure) finish(failure.code || 1, "", failure.stderr || "gt restack failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt restack failed\\n");
     finish(0, "");
   }
   if (args[0] === "submit") {
@@ -748,6 +711,15 @@ interface RunRequiredCommandOptions {
 	env: NodeJS.ProcessEnv;
 	command: string;
 	args: readonly string[];
+}
+
+async function runGit(git: GitFixture, args: readonly string[]): Promise<ExecResult> {
+	return await runRequiredCommand({
+		cwd: git.repoRoot,
+		env: git.env,
+		command: "git",
+		args,
+	});
 }
 
 async function runRequiredCommand(options: RunRequiredCommandOptions): Promise<ExecResult> {

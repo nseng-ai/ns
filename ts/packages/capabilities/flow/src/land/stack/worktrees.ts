@@ -16,7 +16,7 @@ export async function detectWorktreeConflicts(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	currentBranch: string,
-	relevantBranches: string[],
+	relevantBranches: readonly string[],
 	options: DetectWorktreeConflictsOptions = {},
 ): Promise<LandStackResult<WorktreeConflict[]>> {
 	const normalizePath = options.normalizePath ?? normalizeExistingPath;

@@ -122,7 +122,7 @@ export interface LandingCleanupOutcome {
 	readonly freedSlots: readonly ManagedSlotWorktree[];
 }
 
-export interface StackSnapshot {
+export interface StackSnapshotShape<Warning> {
 	readonly trunk: string;
 	readonly current: string;
 	readonly actualCurrentBranch: string;
@@ -131,16 +131,19 @@ export interface StackSnapshot {
 	readonly remainingLandingBranches: readonly string[];
 	readonly descendantBranches: readonly string[];
 	readonly descendantRootBranches: readonly string[];
-	readonly warnings: readonly LandingWarning[];
+	readonly warnings: readonly Warning[];
 }
 
-export interface LandingShape {
+export interface LandingShapeForStack<Stack> {
 	readonly repoRoot: string;
 	readonly current: string;
 	readonly trunk: string;
 	readonly metadataDbPath: string;
-	readonly stack: StackSnapshot;
+	readonly stack: Stack;
 }
+
+export type StackSnapshot = StackSnapshotShape<LandingWarning>;
+export type LandingShape = LandingShapeForStack<StackSnapshot>;
 
 export interface LandingPlan {
 	readonly repoRoot: string;

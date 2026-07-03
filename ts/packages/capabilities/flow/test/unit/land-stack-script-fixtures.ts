@@ -30,7 +30,7 @@ export interface MergeFeatureAOptions {
 	verifyState?: string;
 	includeCleanup?: boolean;
 	refreshTarget?: string | null;
-	postRestackRefresh?: string | readonly string[] | null;
+	postRestackRefreshBranches?: readonly string[];
 	title?: string;
 	body?: string | null;
 }
@@ -121,22 +121,15 @@ function mergeFeatureA(
 			}),
 		);
 		// post-restack refresh of the next forced-refresh target (the auto-maintained
-		// descendant); skipped-maintenance scenarios pass null because there is no
+		// descendant); skipped-maintenance scenarios pass [] because there is no
 		// later gt get to guard.
-		for (const refreshBranch of postRestackRefreshBranches(options.postRestackRefresh)) {
+		const postRestackRefreshBranches = options.postRestackRefreshBranches ?? [DESCENDANT];
+		for (const refreshBranch of postRestackRefreshBranches) {
 			steps.push(guardShaStep(refreshBranch, BRANCH_SHAS[refreshBranch] ?? SHA_C));
 		}
 		steps.push(submitUpdateStep("feature-b"));
 	}
 	return steps;
-}
-
-function postRestackRefreshBranches(
-	postRestackRefresh: string | readonly string[] | null | undefined,
-): readonly string[] {
-	if (postRestackRefresh === undefined) return [DESCENDANT];
-	if (postRestackRefresh === null) return [];
-	return typeof postRestackRefresh === "string" ? [postRestackRefresh] : postRestackRefresh;
 }
 
 function step(
