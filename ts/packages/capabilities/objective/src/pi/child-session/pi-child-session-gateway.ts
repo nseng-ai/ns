@@ -16,6 +16,7 @@ import { join } from "node:path";
 
 import type { Clock } from "@sdl/core/clock";
 import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
+import { BoundedTextTailBuffer } from "@sdl/core/text-tail-buffer";
 import { systemClock, systemTimerScheduler } from "@sdl/core/time";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 
@@ -138,9 +139,10 @@ async function runPiChildSession(
 
 	const timers = deps.timers ?? systemTimerScheduler;
 	const sigkillGraceMs = deps.sigkillGraceMs ?? DEFAULT_SIGKILL_GRACE_MS;
-	const stderrTail = new BoundedTextBuffer(
-		deps.stderrTailLimitBytes ?? DEFAULT_STDERR_TAIL_LIMIT_BYTES,
-	);
+	const stderrTail = new BoundedTextTailBuffer({
+		maxBytes: deps.stderrTailLimitBytes ?? DEFAULT_STDERR_TAIL_LIMIT_BYTES,
+		omissionLabel: "stderr",
+	});
 	const parser = createPiJsonActivityParser(emitActivity);
 
 	return await new Promise<ChildSessionOutcome>((resolve) => {
@@ -183,19 +185,21 @@ async function runPiChildSession(
 			finish(startupFailed("Failed to spawn Pi child process", error));
 		});
 
-		child.on("close", (code) => {
+		child.on("close", (code, signal) => {
 			isClosed = true;
 			parser.flush();
 			if (isTimedOut) {
 				finish({ type: "timed-out", stderrTail: stderrTail.toString(), sessionFile });
 				return;
 			}
+			if (code === null) {
+				finish({ type: "signaled", signal, stderrTail: stderrTail.toString(), sessionFile });
+				return;
+			}
 			const stopReason = parser.stopReason();
 			finish({
 				type: "completed",
-				// A close without an exit code means a signal kill we did not
-				// request; surface it as a nonzero sentinel (malfunction path).
-				exitCode: code ?? -1,
+				exitCode: code,
 				finalText: parser.finalAssistantText() ?? "",
 				stderrTail: stderrTail.toString(),
 				...(stopReason === undefined ? {} : { stopReason }),
@@ -536,30 +540,4 @@ function formatElapsedSince(startMs: number, nowMs: number): string {
 
 function chunkToString(chunk: string | Uint8Array): string {
 	return typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
-}
-
-class BoundedTextBuffer {
-	private readonly limitBytes: number;
-	private value = "";
-	private omittedBytes = 0;
-
-	constructor(limitBytes: number) {
-		this.limitBytes = limitBytes;
-	}
-
-	append(chunk: string): void {
-		this.value += chunk;
-		const bytes = Buffer.byteLength(this.value, "utf8");
-		if (bytes <= this.limitBytes) return;
-
-		const encoded = Buffer.from(this.value, "utf8");
-		const tail = encoded.subarray(encoded.length - this.limitBytes);
-		this.omittedBytes += encoded.length - tail.length;
-		this.value = tail.toString("utf8");
-	}
-
-	toString(): string {
-		if (this.omittedBytes === 0) return this.value;
-		return `… ${this.omittedBytes} stderr byte(s) omitted\n${this.value}`;
-	}
 }

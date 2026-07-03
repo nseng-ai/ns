@@ -294,6 +294,30 @@ describe("runRunnerStep", () => {
 		expect(ctx.stdoutChunks.join("")).toContain("child stderr tail");
 	});
 
+	test("signaled child exit is a malfunction with signal diagnostics", async () => {
+		const ctx = contextWithRunnerFakes(
+			defaultHappyOptions({
+				childScripts: [
+					{
+						outcome: {
+							type: "signaled",
+							signal: "SIGTERM",
+							stderrTail: "child stderr tail",
+						},
+					},
+				],
+			}),
+		);
+
+		const exit = await runRunnerStep(ctx, request());
+
+		expect(exit.type).toBe("failure");
+		if (exit.type !== "failure") throw new Error("expected failure exit");
+		expect(exit.errorType).toBe("child-signaled");
+		expect(exit.message).toBe("Child session exited after signal SIGTERM.");
+		expect(ctx.stdoutChunks.join("")).toContain("child stderr tail");
+	});
+
 	test("timed-out child is a malfunction", async () => {
 		const ctx = contextWithRunnerFakes(
 			defaultHappyOptions({
