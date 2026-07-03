@@ -6,35 +6,28 @@ description: "Parallel file-local refactors across many files using a swarm of a
 
 # refactor-swarm
 
-Parallelize a refactor across many files by spawning one agent per file on the harness's cheapest fast model tier. The orchestrator identifies the files, writes a shared brief, and launches the swarm in two waves (source files first, tests second). Each agent applies the refactor to its assigned file independently. The swarm pays off when the refactor is file-local, wall time matters, and per-file judgment is cheap enough that a fast-tier model can handle it.
+Parallelize a refactor across many files: the orchestrator identifies the files, writes a shared brief, and launches one agent per file on the harness's cheapest fast model tier, in two waves (source first, tests second). A 28-file rename lands in about a minute of wall time versus 10+ minutes of sequential edits.
 
 ## When to use
 
-- **5+ files** receiving the same shape of refactor
-- **File-local decidability**: each file's refactor is decidable from that file's contents plus the orchestrator's shared brief -- no cross-file lookups required
-- **Light judgment OK**: per-file calls like "use the closest stdlib equivalent", "inline the helper only if it's used once in this file", "keep the old wrapper iff other tests still call it"
+- **5+ files** receiving the same shape of refactor. Below 5, sequential edits are simpler and have less overhead.
+- **File-local decidability**: each file's refactor is decidable from that file's contents plus the shared brief -- no cross-file lookups.
+- **Light judgment OK**: per-file calls like "use the closest stdlib equivalent", "inline the helper only if it's used once in this file", "keep the old wrapper iff other tests still call it".
 
-Examples:
-
-- Renaming an identifier, parameter, or dictionary key across source and tests
-- Inlining a trivial helper at each call site
-- Migrating a deprecated API call pattern to its replacement
-- Normalizing a logging convention across modules
-- Converting a decorator usage pattern
+Typical fits: renaming an identifier, parameter, or dictionary key across source and tests; inlining a trivial helper at each call site; migrating a deprecated API call pattern; normalizing a logging convention.
 
 ## When NOT to use
 
-- **Cross-file cascading refactors** -- edits in file A determine what needs to change in file B
-- **Judgment must be consistent across files** -- e.g., picking one new name for a concept where every caller has to agree. This skill's verification model trusts each agent to decide independently and cannot recover from per-agent divergence. If unified judgment is required, pre-decide in the orchestrator brief or don't use the swarm.
-- **Fewer than 5 files** -- sequential edits are simpler and have less overhead
-- **Deep type/behavior reasoning** -- refactors that need whole-program understanding
+- **Cross-file cascading refactors** -- edits in file A determine what needs to change in file B.
+- **Judgment that must be consistent across files** -- e.g., picking one new name for a concept where every caller has to agree. Each agent decides independently, and verification cannot recover from per-agent divergence. Pre-decide the call in the orchestrator brief, or don't use the swarm.
+- **Deep type/behavior reasoning** -- refactors that need whole-program understanding.
 
 ## Why over pure AST/codemod tooling
 
-If your project already has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, ts-morph, etc.), prefer it for purely syntactic refactors -- it is faster, deterministic, and replayable. The swarm is not trying to displace mature codemod pipelines. That said, this approach is surprisingly scalable on its own: one fast-tier agent per file, parallel waves, file-local prompts -- so the absence of a codemod toolchain is not a reason to give up on a large mechanical refactor. Reach for the swarm (even alongside an AST toolchain) when either of the following is true:
+If the project has a battle-tested AST/codemod toolchain wired in (libcst, jscodeshift, ts-morph, etc.), prefer it for purely syntactic refactors -- faster, deterministic, replayable. But the absence of one is not a reason to give up on a large mechanical refactor, and even alongside one, reach for the swarm when:
 
-- **Natural-language references must move with the code.** Docstrings, inline comments, README sections, error messages, and log lines frequently refer -- directly or indirectly -- to the symbol or concept being refactored. A codemod can only touch syntactic occurrences; an LLM agent can read the surrounding prose and update mentions like `"returns the issue_number of the PR"` or a comment that says `"# legacy retry path"` without having to enumerate every phrasing in advance.
-- **Light per-file judgment is required.** Picking the closest stdlib equivalent, deciding whether a wrapper still earns its keep, or choosing a sensible event name from local context does not fit cleanly into a pattern-match-and-replace shape.
+- **Natural-language references must move with the code.** Docstrings, inline comments, README sections, error messages, and log lines refer -- directly or indirectly -- to the symbol or concept being refactored. A codemod only touches syntactic occurrences; an agent reads the surrounding prose and updates mentions like `"returns the issue_number of the PR"` without enumerating every phrasing in advance.
+- **Light per-file judgment is required** -- calls that don't fit a pattern-match-and-replace shape.
 
 ## The pattern
 
@@ -46,14 +39,13 @@ Use `Grep` to find every file that needs the refactor:
 Grep(pattern="<anchor pattern>", output_mode="files_with_matches")
 ```
 
-Partition the results into two groups:
-
-- **Source files** (`src/` or library code)
-- **Test files** (`tests/`)
+Partition the results into **source files** (`src/` or library code) and **test files** (`tests/`).
 
 ### Step 2: Launch the source wave
 
-Launch one `Task` agent per file (or per small group of 2-3 closely related files), requesting the harness's cheapest fast model tier. On the Claude harness, for example:
+Launch one `Task` agent per file, requesting the harness's cheapest fast model tier: mechanical-to-lightly-judgment refactors don't need deeper reasoning, and the tier is cheap enough that one agent per file is sensible -- focused prompts, isolated failures, easy retries. Group tiny files 2-3 per agent only when per-agent overhead dominates the actual edit work.
+
+On the Claude harness, for example:
 
 ```python
 Task(
@@ -64,32 +56,25 @@ Task(
 )
 ```
 
-On an OpenAI Codex-backed harness (such as Pi), request the cheap fast tier per dispatch instead — for example, dispatch the runner subagent with `model: 'openai-codex/gpt-5.4-mini:minimal'`.
-
-On harnesses without a haiku-tier model or per-dispatch model selection, omit the model parameter and use the default model.
+On an OpenAI Codex-backed harness (such as Pi), request the cheap fast tier per dispatch instead -- for example, dispatch the runner subagent with `model: 'openai-codex/gpt-5.4-mini:minimal'`. On harnesses without a haiku-tier model or per-dispatch model selection, omit the model parameter and use the default model.
 
 **Launch ALL source-wave agents in a single message** so they run concurrently.
 
 ### Step 3: Collect source-wave results
 
-Review each agent's report before moving on. For each agent, confirm:
-
-- The agent reports success
-- Any "cases I skipped" notes are expected (agents are instructed to report, not guess, when they hit something the brief doesn't cover)
-
-If the source wave produced unexpected skips or errors, decide whether to patch the brief and retry, or handle those files manually. **Abort before launching the test wave** if source-wave results look off -- that is the whole point of the two-wave split.
+Review each agent's report before moving on: the agent reports success, and any "cases I skipped" notes are expected. If the source wave produced unexpected skips or errors, patch the brief and retry, or handle those files manually -- and **abort before launching the test wave**.
 
 ### Step 4: Launch the test wave
 
-Same pattern as Step 2, but for test files. All tests run in parallel within the wave.
+Same pattern as Step 2, for the test files.
 
 ### Step 5: Verify
 
 After both waves complete:
 
-1. **Literal renames**: `Grep` for the old identifier -- confirm only intentional exceptions remain
-2. **Judgment-involved refactors**: grep alone is not sufficient. Run the test suite, type checker, and linter
-3. **High-stakes changes**: read a sample of diffs before moving on
+1. **Literal renames**: `Grep` for the old identifier -- confirm only intentional exceptions remain (e.g., references to an external API's field names).
+2. **Judgment-involved refactors**: grep alone is not sufficient. Run the test suite, type checker, and linter.
+3. **High-stakes changes**: read a sample of diffs before moving on.
 
 ## Agent prompt template
 
@@ -121,7 +106,7 @@ Two subsections of the prompt matter most:
 
 ### Boundary constraints
 
-What the agent must leave alone. This is where partial refactors succeed or fail. Example:
+What the agent must leave alone -- mandatory in every prompt; this is where partial refactors succeed or fail. Example:
 
 > Do not rename occurrences inside string literals that are user-facing messages.
 
@@ -142,31 +127,11 @@ Keeping these two lists separate makes the boundary between "orchestrator decide
 | 1    | Source files (`src/`) | Refactor lands first so you have a failure checkpoint |
 | 2    | Test files (`tests/`) | Launch only after source-wave results look clean      |
 
-Within each wave, all agents run in parallel. Between waves, wait for completion and review results.
+Within each wave, all agents run in parallel; between waves, wait for completion and review results. The waves are causally independent -- both apply the same refactor to their own files -- so the split exists purely to give the orchestrator a checkpoint before touching the second half.
 
 For very large refactors (30+ files), sub-batch into groups of ~10-15 agents per message to avoid overwhelming the system.
 
-## Key design decisions
-
-- **Cheapest fast tier always.** Mechanical-to-lightly-judgment refactors do not need deeper reasoning. A fast-tier model is cheap enough that one agent per file is sensible.
-- **One agent per file.** Focused prompts, isolated failures, easy retries. Tiny files can be grouped 2-3 at a time when per-agent overhead dominates the actual edit work.
-- **Two waves for checkpointing.** Source and test waves are causally independent -- both apply the same refactor to their own files. The split exists to give the orchestrator a place to stop and inspect before touching the second half.
-- **Boundary constraints are mandatory.** Every prompt must list what not to touch, or explicitly state there are no exceptions.
-- **Consistency across parallel judgment calls is not enforced.** If every agent has to land on the same answer for a judgment call, either pre-decide in the brief or do not use the swarm.
-
-## Examples
-
-### Mechanical rename: `issue_number` → `pr_number`
-
-1. `Grep(pattern="issue_number", output_mode="files_with_matches")` finds 16 source files and 12 test files
-2. **Wave 1**: 16 fast-tier agents for source files, launched in a single message -- completes in ~25 s
-3. **Wave 2**: 12 fast-tier agents for test files -- completes in ~20 s
-4. Verify: `Grep(pattern="issue_number")` confirms only intentional external-API field references remain
-5. Run CI: tests pass, type checker clean
-
-Total wall time: ~60 s for 28 files, versus ~10+ minutes for sequential edits.
-
-### Judgment-light migration: f-string logging → structured logger
+## Example: judgment-light migration, f-string logging → structured logger
 
 Brief the agents to replace each `logging.info(f"...")` call with a `logger.info("event_name", **fields)` call. Boundary constraint: do not touch `logging.debug` or `logging.warning`. Authorized judgment: pick the `event_name` from nearby context (function name, nearest comment, or the dominant noun in the original f-string). Agents report any call they could not confidently rewrite.
 
