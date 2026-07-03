@@ -21,10 +21,10 @@ const ROOT = "/repo";
 const TRUNK = "master";
 
 const OBJECTIVE_COMMAND_NAMES = [
-	"objective:next",
-	"objective:update",
-	"objective:close",
-	"objective:stack-impl",
+	"ji:objective:next",
+	"ji:objective:update",
+	"ji:objective:close",
+	"ji:objective:stack-impl",
 ] as const;
 type ObjectiveCommandName = (typeof OBJECTIVE_COMMAND_NAMES)[number];
 type ObjectiveSkillName =
@@ -34,17 +34,18 @@ type ObjectiveSkillName =
 	| "objective-stack-impl";
 
 const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillName> = {
-	"objective:next": "objective-next",
-	"objective:update": "objective-update",
-	"objective:close": "objective-close",
-	"objective:stack-impl": "objective-stack-impl",
+	"ji:objective:next": "objective-next",
+	"ji:objective:update": "objective-update",
+	"ji:objective:close": "objective-close",
+	"ji:objective:stack-impl": "objective-stack-impl",
 };
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
-	"objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
-	"objective:update": "Run objective-update for this explicitly selected Objective slug or path:",
-	"objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
-	"objective:stack-impl":
+	"ji:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
+	"ji:objective:update":
+		"Run objective-update for this explicitly selected Objective slug or path:",
+	"ji:objective:close": "Run objective-close for this explicitly selected Objective slug or path:",
+	"ji:objective:stack-impl":
 		"Run objective-stack-impl for this explicitly selected Objective slug or path:",
 };
 
@@ -309,10 +310,10 @@ async function runObjectiveStackImpl(
 }> {
 	const pi = new FakePi(script, commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective:stack-impl");
+	const command = pi.commands.get("ji:objective:stack-impl");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("objective:stack-impl was not registered");
+		throw new Error("ji:objective:stack-impl was not registered");
 	}
 
 	const context = createContext(contextOptions);
@@ -332,7 +333,7 @@ async function runObjectiveNext(
 }> {
 	const pi = new FakePi(script);
 	objectiveExtension(pi);
-	const command = pi.commands.get("objective:next");
+	const command = pi.commands.get("ji:objective:next");
 	expect(command).toBeDefined();
 	const context = createContext(contextOptions);
 	await command?.handler(args, context.ctx);
@@ -599,13 +600,13 @@ test("does not register removed Objective commands", () => {
 	expect(pi.commands.has("objective:current")).toBe(false);
 });
 
-describe("objective:stack-impl command", () => {
+describe("ji:objective:stack-impl command", () => {
 	test("registers the skill-backed wrapper command", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		expect(pi.commands.has("objective:stack-impl")).toBe(true);
+		expect(pi.commands.has("ji:objective:stack-impl")).toBe(true);
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
@@ -630,7 +631,7 @@ describe("objective:stack-impl command", () => {
 				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
 			);
 			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-			expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
+			expect(result.pi.sentUserMessages[0]?.startsWith("/ji:objective:stack-impl")).toBe(false);
 			expect(result.notifications).toContainEqual({
 				message: "Invoking objective-stack-impl for bravo.",
 				level: "info",
@@ -749,7 +750,7 @@ describe("objective:stack-impl command", () => {
 
 		result.pi.assertDone();
 		expect(result.notifications).toEqual([
-			{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
+			{ message: "No active Objectives. Create one with /ji:objective:create.", level: "info" },
 		]);
 		expect(result.selections).toEqual([]);
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -1078,8 +1079,8 @@ describe("objective picker suggestion", () => {
 		expect(result.pi.sentUserMessages).toEqual([]);
 	});
 
-	test("objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
-		const result = await runObjectiveCommand("objective:close", "", [
+	test("ji:objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
+		const result = await runObjectiveCommand("ji:objective:close", "", [
 			listStep(["alpha", "bravo", "charlie"]),
 			diffStep("M\t.ji/objectives/bravo/objective.md\n"),
 			statusStep(""),
@@ -1117,8 +1118,8 @@ describe("objective command shared selection policy", () => {
 		}
 	});
 
-	test("objective:next completions return fast active Objective slug candidates", async () => {
-		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+	test("ji:objective:next completions return fast active Objective slug candidates", async () => {
+		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
 			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], {
 				stdout: objectiveCandidatesFromRecords([
 					{ slug: "alpha", status: "open" },
@@ -1143,7 +1144,7 @@ describe("objective command shared selection policy", () => {
 		const pi = new FakePi([candidateStep(["alpha", "bravo"])]);
 		objectiveExtension(pi);
 		await pi.emitSessionStart(createContext().ctx);
-		const command = pi.commands.get("objective:next");
+		const command = pi.commands.get("ji:objective:next");
 
 		const allItems = await command?.getArgumentCompletions?.("");
 		const filteredItems = await command?.getArgumentCompletions?.("br");
@@ -1155,7 +1156,7 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions reject unsupported multi-arg input without loading candidates", async () => {
-		const { pi, items } = await objectiveCommandCompletions("objective:next", "alpha bravo", []);
+		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "alpha bravo", []);
 
 		pi.assertDone();
 		expect(items).toBeNull();
@@ -1163,7 +1164,7 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions fail quietly for candidate command failures", async () => {
-		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
 			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], {
 				code: 1,
 				stderr: "failed",
@@ -1177,7 +1178,7 @@ describe("objective command shared selection policy", () => {
 	});
 
 	test("slug completions fail quietly for malformed objective candidate JSON", async () => {
-		const { pi, items } = await objectiveCommandCompletions("objective:next", "", [
+		const { pi, items } = await objectiveCommandCompletions("ji:objective:next", "", [
 			step("ji", ["objective", "exec", "list-candidates", "--format", "json"], { stdout: "{" }),
 		]);
 
@@ -1243,7 +1244,10 @@ describe("objective command shared selection policy", () => {
 				expect(result.pi.execCalls).toHaveLength(0);
 				expectNoObjectiveListExec(result);
 				expect(result.notifications).toEqual([
-					{ message: "No active Objectives. Create one with /objective:create.", level: "info" },
+					{
+						message: "No active Objectives. Create one with /ji:objective:create.",
+						level: "info",
+					},
 				]);
 				expect(result.selections).toEqual([]);
 				expect(result.pi.sentUserMessages).toEqual([]);
@@ -1315,9 +1319,13 @@ Use the selected Objective.
 				prefix: "objective-next-skill-",
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
-				const result = await runObjectiveCommand("objective:next", "bravo", [], { cwd: repoDir }, [
-					skillCommandInfo("objective-next", skillPath, skillDir),
-				]);
+				const result = await runObjectiveCommand(
+					"ji:objective:next",
+					"bravo",
+					[],
+					{ cwd: repoDir },
+					[skillCommandInfo("objective-next", skillPath, skillDir)],
+				);
 
 				result.pi.assertDone();
 				const prompt = result.pi.sentUserMessages[0] ?? "";
@@ -1337,8 +1345,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("objective:next fallback prompt requires a work-left estimate", async () => {
-		const result = await runObjectiveCommand("objective:next", "bravo");
+	test("ji:objective:next fallback prompt requires a work-left estimate", async () => {
+		const result = await runObjectiveCommand("ji:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("include a best-effort work-left estimate");
@@ -1347,8 +1355,8 @@ Use the selected Objective.
 		expect(result.pi.sentUserMessages[0]).toContain("until the next discovery or decision step");
 	});
 
-	test("objective:next prompt preauthorizes clear tracking-gate updates", async () => {
-		const result = await runObjectiveCommand("objective:next", "bravo");
+	test("ji:objective:next prompt preauthorizes clear tracking-gate updates", async () => {
+		const result = await runObjectiveCommand("ji:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1363,7 +1371,7 @@ Use the selected Objective.
 	});
 
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("objective:update", "bravo");
+		const result = await runObjectiveCommand("ji:objective:update", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1371,8 +1379,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("objective:close fallback and prompt include closure confirmation guidance", async () => {
-		const result = await runObjectiveCommand("objective:close", "bravo");
+	test("ji:objective:close fallback and prompt include closure confirmation guidance", async () => {
+		const result = await runObjectiveCommand("ji:objective:close", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1389,8 +1397,8 @@ Use the selected Objective.
 		);
 	});
 
-	test("objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("objective:next", "bravo");
+	test("ji:objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
+		const result = await runObjectiveCommand("ji:objective:next", "bravo");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");

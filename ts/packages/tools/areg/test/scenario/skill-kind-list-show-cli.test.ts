@@ -64,16 +64,16 @@ describe("areg skill list/show CLI", () => {
 	test("list reports clean and diagnostic inferred kinds in human output", async () => {
 		const run = runScenario(["skill", "list"], {
 			project: {
-				piSettings: { skills: ["-skills/command-skill", "-skills/broken"] },
-				replacementSurfaces: ["command:skill"],
+				piSettings: { skills: ["-skills/code-workflows", "-skills/broken"] },
+				replacementSurfaces: ["code:workflows"],
 				localSkills: [
 					skill("normal", BASE_SKILL),
 					skill("invoke", INVOKE_ONLY_SKILL, {
 						openaiPolicy: "policy:\n  allow_implicit_invocation: false\n",
 					}),
 					skill(
-						"command-skill",
-						"---\nname: command-skill\ndisable-model-invocation: true\n---\n",
+						"code-workflows",
+						"---\nname: code-workflows\ndisable-model-invocation: true\n---\n",
 						{ openaiPolicy: "policy:\n  allow_implicit_invocation: false\n" },
 					),
 					skill("ambient", AMBIENT_ONLY_SKILL),
@@ -94,7 +94,7 @@ describe("areg skill list/show CLI", () => {
 		expect(output).toMatch(
 			/^ambient\s+ambient-only\s+enabled\s+partial\s+n\/a\s+.*ambient-only disables Claude native direct invocation/mu,
 		);
-		expect(output).toMatch(/^command-skill\s+command-backed\s+disabled\s+partial\s+enabled$/mu);
+		expect(output).toMatch(/^code-workflows\s+command-backed\s+disabled\s+partial\s+enabled$/mu);
 		expect(output).toMatch(/^invoke\s+invoke-only\s+disabled\s+enabled\s+n\/a$/mu);
 		expect(output).toMatch(/^normal\s+normal\s+enabled\s+enabled\s+n\/a$/mu);
 		expect(output).toMatch(
@@ -138,8 +138,7 @@ describe("areg skill list/show CLI", () => {
 					},
 					replacement: {
 						verified: false,
-						surface: "demo:skill",
-						label: "replacement-missing:demo:skill",
+						label: "replacement-missing",
 						advice: expect.stringContaining("Skill 'demo-skill' would hide /skill:demo-skill"),
 					},
 					notes: [],
@@ -159,8 +158,7 @@ describe("areg skill list/show CLI", () => {
 					},
 					replacement: {
 						verified: false,
-						surface: "vendored:skill",
-						label: "replacement-missing:vendored:skill",
+						label: "replacement-missing",
 						advice: expect.stringContaining(
 							"Skill 'vendored-skill' would hide /skill:vendored-skill",
 						),

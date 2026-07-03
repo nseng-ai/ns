@@ -1,14 +1,14 @@
 ---
-name: sdl-flow-cp
+name: ji-flow-cp
 disable-model-invocation: true
-description: "Command: sdl-flow-cp"
+description: "Command: ji-flow-cp"
 allowed-tools:
   - "Bash(ji flow cp*)"
 metadata:
   internal: true
 ---
 
-# sdl-flow-cp
+# ji-flow-cp
 
 Create a quick checkpoint commit for the current git diff by delegating to the shared `ji flow cp` CLI. This is the cross-harness path for `/ji:flow:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
 

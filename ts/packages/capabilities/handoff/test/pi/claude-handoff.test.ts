@@ -222,7 +222,7 @@ describe("claude handoff command", () => {
 		expect(runClaude.invocations[0]?.prompt).toContain(`Branch: ${BRANCH}`);
 		expect(runClaude.invocations[0]?.prompt).toContain("Entry: fix-auth-flow.md");
 		expect(runClaude.invocations[0]?.prompt).toContain(
-			`/handoff:pickup --branch ${BRANCH} fix-auth-flow`,
+			`/ji:handoff:pickup --branch ${BRANCH} fix-auth-flow`,
 		);
 		expect(runClaude.invocations[0]?.prompt).toContain("Do not create a new handoff");
 		expect(runClaude.invocations[0]?.name).toBe("[from-pi] handoff: fix-auth-flow");
@@ -370,7 +370,7 @@ describe("claude handoff command", () => {
 		expect(createPrompt).toContain("```text\ncontinue work\n```");
 		expect(createPrompt).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
 		expect(createPrompt).toContain(
-			`\`\`\`text\n/handoff:pickup --branch ${BRANCH} <returned-slug>\n\`\`\``,
+			`\`\`\`text\n/ji:handoff:pickup --branch ${BRANCH} <returned-slug>\n\`\`\``,
 		);
 
 		const pickupPrompt = buildClaudePickupPrompt(BRANCH, "continue-work");

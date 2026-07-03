@@ -1,21 +1,23 @@
 ---
-name: sdl-flow-branch-latest-commit
+name: ji-flow-branch-latest-commit
 disable-model-invocation: true
 description: "Move the latest eligible commit to a new Graphite branch by delegating to `ji flow branch-latest-commit`."
 allowed-tools:
   - "Bash(ji flow branch-latest-commit*)"
   - "Bash(git status*)"
+references:
+  - ../ji-flow-autobranch/references/autobranch-family-boundaries
 metadata:
   internal: true
 ---
 
-# sdl-flow-branch-latest-commit
+# ji-flow-branch-latest-commit
 
 Move the latest eligible unpushed commit on a clean worktree to a new Graphite child branch by delegating to the public `ji flow branch-latest-commit` CLI. This is the cross-harness skill path corresponding to Pi `/ji:flow:branch-latest-commit`; do not recreate the recovery branch, reset, Graphite, or verification sequence by hand.
 
 ## When to use
 
-Use only when the user explicitly asks to extract, split, or move the latest unpushed commit to its own branch and the worktree is clean. For pending dirty worktree changes, use `sdl-flow-autobranch` / `ji flow autobranch` instead. This mutates Git/Graphite state: recovery branches, resets, and commits may be created or moved.
+Use only when the user explicitly asks to extract, split, or move the latest unpushed commit to its own branch and the worktree is clean. For pending dirty worktree changes, use `ji-flow-autobranch` / `ji flow autobranch` instead. This mutates Git/Graphite state: recovery branches, resets, and commits may be created or moved.
 
 ## Workflow
 
@@ -47,7 +49,6 @@ If `ji flow branch-latest-commit` fails, surface its output and stop. Do not man
 
 ## Boundaries
 
-- Graphite/`gt` is part of this command contract.
-- This does not submit, land, restack, or create plain git branches.
-- Pi may add notification/status UX, but the public command boundary is `ji flow branch-latest-commit` / `/ji:flow:branch-latest-commit`.
-- Hidden `ccc exec autobranch` remains available for internal compatibility; do not use it as the public/cross-harness path.
+Shared family boundaries live in `../ji-flow-autobranch/references/autobranch-family-boundaries.md`.
+
+Command-specific public boundary: this skill delegates only to `ji flow branch-latest-commit`, mirrored in Pi as `/ji:flow:branch-latest-commit`.

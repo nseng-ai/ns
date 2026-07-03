@@ -2,13 +2,13 @@ import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { withTempRepoSkill } from "@ji/core/test-kit";
-import { genericCommandStyleSkillNames } from "@ji/pi/commands";
+import { genericBackingSkillRegistrations } from "@ji/pi/commands";
 
 import {
 	derivePiReplacementCommand,
 	genericBackingSkillCommandSpecs,
 	registerBackingSkillCommands,
-	SPECIALIZED_PI_COMMAND_SURFACES,
+	specializedCommandBackedSkillRegistrations,
 	type BackingSkillCommandContext,
 } from "../../src/backing-skill-commands/extension.ts";
 
@@ -51,38 +51,52 @@ function commandContext(cwd: string): BackingSkillCommandContext & {
 
 describe("derivePiReplacementCommand", () => {
 	test.each([
-		["objective-create", "objective:create"],
-		["objective-stack-impl", "objective:stack-impl"],
-		["branch-context-from-plan", "ji:branch-context:from-plan"],
-		["branch-context-impl", "ji:branch-context:impl-attached-plan"],
-		["enriched-plan-save", "ji:plan:save"],
-		["pi-grill-with-docs-ui", "pi:grill-with-docs"],
-		["foo-bar-baz", "foo:bar-baz"],
-	])("derives %s as /%s", (skillName, surface) => {
+		["objective-refresh", "ji:objective:refresh"],
+		["objective-review-briefing", "ji:objective:review-briefing"],
+		["branch-retro", "branch:retro"],
+		["code-workflows", "code:workflows"],
+		["pytest", "python:pytest"],
+		["skillx", "skill:x"],
+		["sdl-cli-design", "ji:cli:design"],
+		["sdl-typescript-style-tripwire", "ji:typescript:style-tripwire"],
+	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
 	});
 
-	test("parses specialized and derived command metadata from the command surface", () => {
-		expect(derivePiReplacementCommand("branch-context-from-plan")).toEqual({
-			surface: "ji:branch-context:from-plan",
-			skillName: "branch-context-from-plan",
+	test("parses generic command metadata from the explicit command surface", () => {
+		expect(derivePiReplacementCommand("code-workflows")).toEqual({
+			surface: "code:workflows",
+			skillName: "code-workflows",
+			namespace: "code",
+			command: "workflows",
+		});
+		expect(derivePiReplacementCommand("objective-refresh")).toEqual({
+			surface: "ji:objective:refresh",
+			skillName: "objective-refresh",
 			namespace: "ji",
-			command: "branch-context:from-plan",
+			command: "objective:refresh",
 		});
-		expect(derivePiReplacementCommand("objective-stack-impl")).toEqual({
-			surface: "objective:stack-impl",
-			skillName: "objective-stack-impl",
-			namespace: "objective",
-			command: "stack-impl",
-		});
+	});
+
+	test("does not derive specialized or unknown command metadata", () => {
+		expect(derivePiReplacementCommand("objective-create")).toBeUndefined();
+		expect(derivePiReplacementCommand("branch-context-from-plan")).toBeUndefined();
+		expect(derivePiReplacementCommand("foo-bar-baz")).toBeUndefined();
 	});
 });
 
 describe("genericBackingSkillCommandSpecs", () => {
-	test("skips specialized surfaces but keeps ordinary derived commands", () => {
-		const surfaces = genericBackingSkillCommandSpecs().map((spec) => spec.surface);
+	test("keeps generic backing skill rows and skips specialized command rows", () => {
+		const specs = genericBackingSkillCommandSpecs();
+		const surfaces = specs.map((spec) => spec.surface);
+		const specializedSurfaces = new Set(
+			specializedCommandBackedSkillRegistrations().map((registration) => registration.surface),
+		);
 
 		expect(surfaces).toContain("code:workflows");
+		expect(surfaces).toContain("ji:objective:refresh");
+		expect(surfaces).toContain("python:pytest");
+		expect(surfaces).toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");
 		expect(surfaces).not.toContain("code:gh");
@@ -90,15 +104,15 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).not.toContain("typescript:style");
 		expect(surfaces).not.toContain("grill:me");
 		expect(surfaces).not.toContain("grill:with-docs");
-		expect(surfaces).not.toContain("objective:close");
-		expect(surfaces).not.toContain("objective:create");
+		expect(surfaces).not.toContain("ji:objective:close");
+		expect(surfaces).not.toContain("ji:objective:create");
 		expect(surfaces).not.toContain("objective:current");
 		expect(surfaces).not.toContain("code:gt-restack-resolve");
-		expect(genericBackingSkillCommandSpecs().map((spec) => spec.skillName)).toEqual(
-			genericCommandStyleSkillNames(),
+		expect(specs.map((spec) => spec.skillName)).toEqual(
+			genericBackingSkillRegistrations().map((registration) => registration.skillName),
 		);
 		for (const surface of surfaces) {
-			expect(SPECIALIZED_PI_COMMAND_SURFACES.has(surface)).toBe(false);
+			expect(specializedSurfaces.has(surface)).toBe(false);
 		}
 	});
 });

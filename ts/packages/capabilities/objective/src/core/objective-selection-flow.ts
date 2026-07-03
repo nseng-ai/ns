@@ -346,7 +346,7 @@ export async function chooseActiveObjectiveSlug(
 	const objectiveList = objectiveListResult.list;
 	if (objectiveList.records.length === 0) {
 		if (hasPicker) {
-			ctx.ui.notify("No active Objectives. Create one with /objective:create.", "info");
+			ctx.ui.notify("No active Objectives. Create one with /ji:objective:create.", "info");
 		}
 		return undefined;
 	}

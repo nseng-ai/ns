@@ -386,7 +386,7 @@ function checkSkillInvocationKind(options: CheckSkillInvocationKindOptions): Che
 	if (record.artifacts.isPiExcluded && !record.replacement.verified) {
 		const expected =
 			record.replacement.surface === undefined
-				? "a derived command"
+				? "a registered command-backed replacement"
 				: `/${record.replacement.surface}`;
 		issues.push(
 			issue(

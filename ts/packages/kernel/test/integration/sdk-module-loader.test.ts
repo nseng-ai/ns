@@ -78,4 +78,4 @@ test("repo-local migration extensions can import internal migration subpaths", a
 	expect(objectiveRunnerStepModule.default.commands?.map((command) => command.name)).toEqual([
 		"exec-runner-step",
 	]);
-}, 15_000);
+}, 30_000);

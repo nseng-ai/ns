@@ -225,13 +225,13 @@ describe("areg check CLI", () => {
 	test("reports missing Pi exclusion for command-backed skill-kind facts", async () => {
 		const run = runScenario(["check"], {
 			project: project({
-				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
-				replacementSurfaces: ["custom:command"],
+				lockfile: { version: 1, skills: { "code-workflows": localEntry("code-workflows") } },
+				replacementSurfaces: ["code:workflows"],
 				checkSkills: [
-					localSkill("custom-command", {
+					localSkill("code-workflows", {
 						localSkillMd: {
 							type: "file",
-							text: "---\nname: custom-command\ndisable-model-invocation: true\n---\n",
+							text: "---\nname: code-workflows\ndisable-model-invocation: true\n---\n",
 						},
 						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
 					}),
@@ -241,7 +241,7 @@ describe("areg check CLI", () => {
 
 		expect(await run.exit).toBe(1);
 		expect(run.stderr.join("")).toContain(
-			".pi/settings.json missing -skills/custom-command for command-backed skill",
+			".pi/settings.json missing -skills/code-workflows for command-backed skill",
 		);
 	});
 
@@ -332,6 +332,27 @@ describe("areg check CLI", () => {
 	test("reports missing Pi replacement for excluded command-backed skills", async () => {
 		const run = runScenario(["check"], {
 			project: project({
+				lockfile: { version: 1, skills: { "code-workflows": localEntry("code-workflows") } },
+				piSettings: { skills: ["-skills/code-workflows"] },
+				checkSkills: [
+					localSkill("code-workflows", {
+						localSkillMd: {
+							type: "file",
+							text: "---\nname: code-workflows\ndisable-model-invocation: true\n---\n",
+						},
+						openaiPolicy: { type: "file", text: "policy:\n  allow_implicit_invocation: false\n" },
+					}),
+				],
+			}),
+		});
+
+		expect(await run.exit).toBe(1);
+		expect(run.stderr.join("")).toContain("expected /code:workflows");
+	});
+
+	test("reports missing registry row for excluded command-backed skill", async () => {
+		const run = runScenario(["check"], {
+			project: project({
 				lockfile: { version: 1, skills: { "custom-command": localEntry("custom-command") } },
 				piSettings: { skills: ["-skills/custom-command"] },
 				checkSkills: [
@@ -347,7 +368,9 @@ describe("areg check CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(run.stderr.join("")).toContain("expected /custom:command");
+		expect(run.stderr.join("")).toContain(
+			"Pi skill is excluded but no verified replacement command exists; expected a registered command-backed replacement",
+		);
 	});
 
 	test("reports orphan, dangling, and AGENTS/CLAUDE pairing failures", async () => {
