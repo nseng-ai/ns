@@ -127,7 +127,7 @@ function configureSlotCommands<TContext extends SlotCliContext>(root: ClinkrGrou
 	});
 	root.command({
 		name: "goto",
-		description: "Print/copy a cd command for an assigned slot.",
+		description: "Print/copy a cd command for a slot worktree.",
 		schema: gotoRequestSchema,
 		options: gotoOptionSpecs,
 		resultSchema: gotoResultSchema,

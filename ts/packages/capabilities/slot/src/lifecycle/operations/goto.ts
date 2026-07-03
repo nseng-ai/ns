@@ -16,7 +16,7 @@ export const gotoRequestSchema = z.object({
 
 export const gotoResultSchema = z.object({
 	slotName: z.string(),
-	branchName: z.string(),
+	branchName: z.string().nullable(),
 	operation: z.string().nullable(),
 	worktreePath: z.string(),
 	cdCommand: z.string(),
@@ -54,13 +54,20 @@ export async function runGoto(ctx: SlotCliContext, request: GotoRequest) {
 		return failure("missing-slot-arg", "Pass one of -n/--num or -w/--wt to identify the slot.");
 	}
 	const record = findBySlot(inventory, slotName);
-	if (record === null || record.branch === null)
-		return negative(`${slotName} is not currently assigned. Run \`slot list\` to see the pool.`);
-	if (!(await repoCtx.git.pathExists(record.path)))
+	if (record === null)
+		return negative(
+			`${slotName} is not in the managed slot pool. Run \`slot list\` to see the pool.`,
+		);
+	if (!(await repoCtx.git.pathExists(record.path))) {
+		const hint =
+			record.branch === null
+				? "Run `slot list` to inspect the pool."
+				: `Run \`ns slot free --wt ${slotName}\` to clear the stale assignment.`;
 		return failure(
 			"worktree-missing",
-			`Worktree for ${slotName} is missing at ${record.path}. Run \`ns slot free --wt ${slotName}\` to clear the stale assignment.`,
+			`Worktree for ${slotName} is missing at ${record.path}. ${hint}`,
 		);
+	}
 	const navigation = await prepareNavigation(repoCtx, record.path, {
 		shouldCopyClipboard: request.clipboard,
 		shouldWriteCdDirective: repoCtx.shouldWriteCdDirective,
@@ -78,11 +85,9 @@ export function renderGoto(
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const operationSuffix = result.operation === null ? "" : ` (${result.operation} in progress)`;
-	return renderSlotNavigationSuccess(
-		{
-			...result,
-			headline: `${result.slotName} -> ${result.branchName}${operationSuffix}`,
-		},
-		caps,
-	);
+	const headline =
+		result.branchName === null
+			? `${result.slotName}${operationSuffix === "" ? " (available)" : operationSuffix}`
+			: `${result.slotName} -> ${result.branchName}${operationSuffix}`;
+	return renderSlotNavigationSuccess({ ...result, headline }, caps);
 }
