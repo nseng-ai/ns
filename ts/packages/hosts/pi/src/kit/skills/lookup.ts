@@ -66,7 +66,6 @@ export interface MissingSkillLookup {
 
 export interface FailedSkillLookup {
 	type: "error";
-	code: "skill-path-outside-project" | "skill-file-symlink" | "skill-file-resolve-failed";
 	message: string;
 	path: string;
 }
@@ -130,10 +129,18 @@ export function buildSkillLookupSearchedRoots(
 	});
 }
 
+function defaultStatPath(path: string): Promise<SkillLookupPathStat> {
+	return lstat(path);
+}
+
+function defaultRealpathPath(path: string): Promise<string> {
+	return realpath(path);
+}
+
 export async function resolveSkillLookupProjectRoot(
 	options: ResolveSkillLookupProjectRootOptions,
 ): Promise<string> {
-	const statPath = options.statPath ?? ((path: string) => lstat(path));
+	const statPath = options.statPath ?? defaultStatPath;
 	let current = resolve(options.cwd);
 	const root = parse(current).root;
 
@@ -149,8 +156,8 @@ export async function resolveSkillLookupProjectRoot(
 export async function resolveExactSkillLookup(
 	options: ResolveExactSkillLookupOptions,
 ): Promise<SkillLookupResult> {
-	const statPath = options.statPath ?? ((path: string) => lstat(path));
-	const realpathPath = options.realpathPath ?? ((path: string) => realpath(path));
+	const statPath = options.statPath ?? defaultStatPath;
+	const realpathPath = options.realpathPath ?? defaultRealpathPath;
 	const projectDir = resolve(options.projectDir);
 	const realProjectDir = await realpathPath(projectDir);
 	const searchedRoots = buildSkillLookupSearchedRoots(projectDir, options.skillName);
@@ -164,7 +171,6 @@ export async function resolveExactSkillLookup(
 		if (!isPathInside(projectDir, normalizedSkillFilePath)) {
 			return {
 				type: "error",
-				code: "skill-path-outside-project",
 				message: `Backing skill path ${skillFilePath} resolves outside repository root ${projectDir}.`,
 				path: skillFilePath,
 			};
@@ -177,7 +183,6 @@ export async function resolveExactSkillLookup(
 		if (skillStat.isSymbolicLink()) {
 			return {
 				type: "error",
-				code: "skill-file-symlink",
 				message: `Refusing to read symlinked backing skill at ${skillFilePath}.`,
 				path: skillFilePath,
 			};
@@ -189,7 +194,6 @@ export async function resolveExactSkillLookup(
 		} catch (error) {
 			return {
 				type: "error",
-				code: "skill-file-resolve-failed",
 				message: `Could not resolve backing skill path ${skillFilePath}: ${formatUnknownError(error)}`,
 				path: skillFilePath,
 			};
@@ -197,7 +201,6 @@ export async function resolveExactSkillLookup(
 		if (!isPathInside(realProjectDir, realSkillFilePath)) {
 			return {
 				type: "error",
-				code: "skill-path-outside-project",
 				message: `Backing skill path ${skillFilePath} resolves outside repository root ${projectDir}.`,
 				path: skillFilePath,
 			};

@@ -157,9 +157,10 @@ export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions)
 	});
 	if (lookup.type === "found") return lookup.skillFilePath;
 	if (lookup.type === "error") throw new Error(lookup.message);
-	throw new Error(
-		`Could not find skills/${options.skillName}/SKILL.md, .agents/skills/${options.skillName}/SKILL.md, or .claude/skills/${options.skillName}/SKILL.md from ${options.cwd}.`,
-	);
+	const searchedRelativePaths = lookup.searchedRoots
+		.map((root) => root.searchedRelativePath)
+		.join(", ");
+	throw new Error(`Could not find ${searchedRelativePaths} from ${options.cwd}.`);
 }
 
 export async function expandRepoSkillBlock(
