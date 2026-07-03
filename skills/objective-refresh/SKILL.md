@@ -1,201 +1,98 @@
 ---
 name: objective-refresh
 disable-model-invocation: true
-description: "Refresh active Objective records without closure. Use for a single Objective rebaseline, this branch's Objective tracking, explicit trunk non-closing refresh, repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out. For user-directed updates use objective-update; to explicitly close an Objective use objective-close."
+description: "Verified rebaseline of active Objective records — refreshes what the current branch or trunk evidences; never closes, never commits."
 ---
 
 # objective-refresh
 
-Refresh active Objective records without closure. Use/read the `objective` umbrella skill first for shared Objective vocabulary, storage, status semantics, and safety rules.
+Rebaseline active Objective records against ground truth. Read the `objective` umbrella skill first for shared vocabulary, storage layout, required headings, and Semantic Update rules; this skill does not restate them.
 
-A refresh verifies material claims, updates stale durable Objective prose/roadmap only when meaningful, may append Semantic Updates, and never closes Objectives. For a user-directed update that may create `closed.md`, use `objective-update` instead.
+Two absolutes govern every run:
 
-## Route scope
+- **Never close.** No `closed.md`, no `## Closure`. An Objective that looks finished is reported `closure-ready`, not closed; closing belongs to `objective-update` / `objective-close`.
+- **Never commit.** No `git commit`, no staging. Edits stay uncommitted in the worktree and the report says what changed; the user decides how to land it.
 
-Choose exactly one non-closing scope before gathering mutable evidence:
+## Select targets
 
-- Explicit Objective slug/path, "refresh this Objective", or "rebaseline one Objective" -> use the one-objective workflow in this file.
-- "Refresh this branch's Objectives", "bring branch Objective tracking up to date", current branch Objective refresh, or explicit trunk named-slug non-closing refresh -> read `references/branch-scope.md`, then return to this file for each selected slug's authoring and verification.
-- "Refresh all Objectives", repo-wide Objective refresh, bedtime Objective refresh, or Graphite/topology fan-out -> read `references/repo-scope.md`; it routes safe targets through `references/branch-scope.md` and then this file's one-objective workflow.
-- Ambiguous refresh scope -> ask the user to choose one-objective, branch/context, or repo scope. Do not infer scope from branch name, PR title, roadmap text, hidden attachments, or candidate count.
+Selection is mechanical — never ask a scope question:
 
-Scope ownership:
+- **Explicit slug(s) or path(s)** → refresh exactly those. Stop if one is archived unless the user explicitly asked for archive work. On a feature branch, a named slug with no branch evidence is reported `not-owned` rather than silently rebaselined against trunk state — unless the user clearly asked for a trunk-style rebaseline of that slug.
+- **No slug, feature branch** → the union of slugs with committed or uncommitted Objective evidence:
 
-- `references/branch-scope.md` owns branch/context discovery, ownership filtering, dirty-skip behavior, aggregate commit behavior, and final branch report.
-- `references/repo-scope.md` owns repo/Graphite topology inventory, target grouping, staleness filtering, degrade cases, and fan-out.
-- This file owns per-slug authoring, claim verification, durable Objective edits, Semantic Update creation, no-closure invariants, and one-objective final response/verify details.
+  ```bash
+  git -C "$WT" diff --name-only <trunk>...HEAD -- .ji/objectives/
+  git -C "$WT" status --porcelain -- .ji/objectives/
+  ```
 
-## Refresh model
+  Reduce paths to slugs. Empty union → report that the branch evidences no Objective records and stop without writing.
+- **No slug, trunk** → every active open Objective from `ji objective list --names`.
 
-Ask: for this target context, what should the Objective record truthfully say as durable ground truth?
+`WT` is the current working directory unless the caller names another worktree. Every git operation uses `git -C "$WT"`; never check out another branch. Stop if `HEAD` is detached (`git -C "$WT" symbolic-ref --quiet --short HEAD` fails). Trunk is `gt trunk` when available, else the repo's configured default branch; if the sources disagree, stop and ask.
 
-The authoring move is a **from-scratch refresh**, not paragraph patching. Read the current Objective text as evidence, extract its core meaning and progress, verify that extracted contract against current ground truth, then rewrite `objective.md` and `roadmap.md` cleanly from that verified contract. Extract first, rewrite second, then diff the rewrite against the extracted contract so no meaning silently falls out.
+**Baseline.** On a feature branch the baseline is `git -C "$WT" merge-base <trunk> HEAD` and the evidence window is `<baseline>..HEAD` plus uncommitted worktree state; a slug is also in scope when the user points at branch changes that contradict its claims. On trunk there is no baseline — verify against `HEAD`. There are no refresh commits and no commit-message markers anywhere: due-ness is content-level, so a record that already matches its verified contract yields no write.
 
-On feature branches, branch/context or repo scope may frame the target as "if this branch landed now". On trunk/default branch, the target is an explicit non-closing rebaseline for named Objective records. Use `objective-update`'s landed-state writing semantics as the content model, but do not run the Closure Gate, do not create `closed.md`, and do not add `## Closure`.
+## Refresh loop
 
-Do not require the target to be a branch tip. The target may be current checkout `HEAD`, a branch/ref in a materialized worktree, or a branch/repo-scope supplied context. What matters is that the worktree/ref, trunk/base, and baseline are explicit enough to gather deterministic evidence.
+Process one slug at a time. The authoring move is a from-scratch rewrite driven by a **contract** — extract, verify, rewrite, diff — never paragraph patching. Frame each slug as: on a feature branch, "if this branch landed now, what should this record say on trunk?"; on trunk, "what should this record say about landed ground truth?". Use `objective-update`'s landed-state writing semantics as the content model.
 
-Process exactly one active Objective slug/path and exactly one target context at a time. Standalone one-objective mode may default the target context to current checkout `HEAD` only when the checkout is on a real branch:
+Uncommitted Objective edits are input, not a stop: worktree content, committed plus uncommitted, is the current record. Note which slugs were already dirty, for the report.
 
-```bash
-git -C "$WT" symbolic-ref --quiet --short HEAD
-```
+Write invariants, in addition to the two absolutes:
 
-If no slug/path is explicit in standalone one-objective mode, run `ji objective list --minimal --format md` and ask the user to choose one. Do not auto-select from branch name, PR title, roadmap text, changed files, hidden attachments, or candidate count.
+- Edit only the selected Objective directories.
+- Never edit, move, delete, normalize, or recreate an existing file under `updates/`.
+- Never move, delete, rename, or recreate an Objective slug directory.
+- Never edit archived Objectives unless explicitly asked.
 
-Branch/context and repo scopes must supply the one-objective workflow with:
+Per slug:
 
-```text
-WT=<worktree path>
-slug=<active Objective slug>
-branch_or_ref=<current branch/ref/HEAD>
-trunk_or_base=<trunk/base ref>
-baseline=<baseline sha/ref, or instructions to derive it>
-selection_basis=<feature-owned|trunk-explicit|orchestrated-owned>
-commit_mode=<standalone|aggregate-by-caller>
-```
+1. **Read the record.** `ji objective exec read-objective <slug> --format md` for deterministic inventory and closed-marker state; read `objective.md`, `roadmap.md`, and recent `updates/` as source material.
+2. **Gather evidence** over the window:
 
-Stop if the selected Objective is archived unless the user explicitly asks for archive work. Stop or ask if target context is not explicit enough to verify claims without guessing.
+   ```bash
+   git -C "$WT" log --oneline <baseline>..HEAD -- .ji/objectives/<slug>/
+   git -C "$WT" diff <baseline>..HEAD -- .ji/objectives/<slug>/
+   git -C "$WT" diff -- .ji/objectives/<slug>/
+   ```
+
+   On trunk, skip the range probes and verify against `HEAD` plus worktree state.
+3. **Extract the contract**: durable purpose, boundaries, completion criteria, assumptions/risks, open questions; progress (done, active, parked, closure-adjacent, remaining roadmap shape); every material claim by category; and stale or suspect text that must not be carried forward as fact.
+4. **Verify the contract** claim by claim, per Verify claims below.
+5. **Classify**: `verified` (contract supported, or weakened into assumptions/open questions), `stale-rebaselined` (a false claim was corrected, parked, or narrowed), or `skipped-unverified` (important claims remain unverifiable and unsafe to rewrite without the user).
+6. **Rewrite `objective.md` from scratch** when the verified contract changes durable narrative, scope, criteria, assumptions/risks, or open questions, or shows existing prose stale. Never preserve old wording by inertia.
+7. **Rewrite `roadmap.md` from scratch** when active work shape changes: ordered guidance, checkbox state (`[ ]`, `[~]`, `[x]` only), row notes, completion evidence, parked work.
+8. **Contract-diff.** Compare the rewrite against the extracted contract line by line: every verified purpose, boundary, progress fact, roadmap item, assumption, open question, and parked item is present or intentionally omitted with a stated reason, and the umbrella's required headings survive. Dropped or softened meaning is a bug — fix it before moving on.
+9. **Re-derive `orientation.md`** when one exists, per the umbrella's re-derivation rule; add one when the verified contract shows the Objective became cross-cutting. Never drop one.
+10. **Append at most one timestamped Semantic Update** when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, or rebaseline — carrying the decisive evidence and the provenance breadcrumb:
+
+    ```text
+    Provenance: objective-refresh basis target=<target-sha-or-ref> from=<merge-base-or-trunk-HEAD>
+    ```
+
+    No meaningful durable change, or a contract you cannot trust? No filler: leave the slug unchanged and report `skipped-ambiguous` / `skipped-unverified`.
 
 ## Verify claims
 
-Be aggressively skeptical. Presume every material Objective claim is false until verified against current ground truth.
+Verification is forensic: presume every material claim false until evidence proves it.
 
-Material claims include source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, Objective slugs, status words, scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, and roadmap row rationale. Status words include "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", and "deferred".
+Material claims: source paths, symbols, commands, packages, workflows, PRs, branches, tests, docs, ADRs, Objective slugs, status words, scope boundaries, non-goals, dependencies, risks, assumptions, completion evidence, roadmap rationale. Status words include "exists", "gone", "current", "already", "now", "still", "remaining", "implemented", "deleted", "covered", "tested", "passing", "legacy", "core", "salvaged", "owned", and "deferred".
 
-Objective PR evidence bullets and closure PR summaries are material claims. Verify PR numbers, review/CI status, and merge-state wording before carrying them forward or writing them as refreshed durable prose. Use `merged` wording only when PR evidence confirms merge state; if merge state cannot be verified cheaply, weaken to status-neutral PR evidence, an explicit current/open status, an assumption/open question, or `skipped-unverified` rather than asserting a merge.
+Match each claim to a probe:
 
-For every material claim that the refresh writes, carries forward from the old record, or relies on while extracting the refreshed contract, collect evidence first. Evidence may be repository probes (`test -e`, `find`, `rg`, `git grep`, `git diff`, `git log`), deterministic CLI inventory (`ji objective exec read-objective`, package help/schema output), or PR/CI evidence when the claim is about PR/CI state. Negative claims need scoped absence evidence; "no X" requires a scoped search showing X is absent.
+- paths/files: `git -C "$WT" ls-files`, `test -e`, or `find` scoped to the claimed directory;
+- symbols/commands/types: `rg --fixed-strings` or a narrow regex, `--help`/schema output;
+- negative claims ("deleted", "no X"): scoped absence evidence — a search showing X is gone;
+- "implemented"/"covered"/"tested": source plus test probes; run targeted tests only when the claim depends on passing behavior;
+- PR/CI/review state: `gh`/Graphite evidence;
+- ownership/deferral: git diff/log/Objective evidence that the named owner or deferred target exists.
 
-If a claim cannot be verified cheaply, do not leave it as fact. Convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or report `skipped-unverified`. If verified evidence contradicts the Objective, correct the extracted contract before rewriting and add a Semantic Update explaining the correction. Never add a Semantic Update that vouches for unverified draft prose.
+PR evidence is a material claim: verify numbers, review/CI status, and merge state before carrying it forward. Write `merged` only when merge state is confirmed; otherwise weaken to status-neutral wording. Keep PR bullets to material Objective PRs per the umbrella convention; do not normalize unrelated historical PR mentions just to satisfy it.
 
-## Derive baseline and due-ness
+A claim that cannot be verified cheaply never stays as fact: convert it to an explicit assumption/open question with the missing-evidence scope, park or narrow the roadmap item, or classify the slug `skipped-unverified`. When evidence contradicts the record, correct the contract before rewriting and say so in the Semantic Update. Never let a Semantic Update vouch for unverified prose.
 
-For feature-owned or orchestrated-owned branch contexts, prefer the most recent refresh commit for the slug. Recognize both the current prefix and the legacy branch-refresh prefix so older branches remain idempotent:
+## Report
 
-```bash
-git -C "$WT" log -n1 --format=%H --grep='\[objective-refresh\].*<slug>' -- .ji/objectives/<slug>/
-git -C "$WT" log -n1 --format=%H --grep='\[objective-branch-refresh\].*<slug>' -- .ji/objectives/<slug>/
-```
+Return a compact report: worktree, branch, trunk, target SHA; per slug — baseline, action (`wrote`, `noop`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`), key claims verified/corrected/still-assumed, files edited and new Semantic Update filenames; slugs that were already dirty; confirmation that both absolutes and all write invariants held.
 
-`[objective-branch-refresh]` is legacy read compatibility only; all new refresh commits use `[objective-refresh]`.
-
-If no matching refresh commit exists for a feature-owned context, use the merge base with trunk/base:
-
-```bash
-git -C "$WT" merge-base <trunk-or-base> HEAD
-```
-
-A feature-owned refresh is due iff the Objective directory changed since the baseline:
-
-```bash
-git -C "$WT" diff --quiet <baseline>..HEAD -- .ji/objectives/<slug>/
-```
-
-For trunk-explicit contexts, the explicit active slug is due for claim verification. Use the last matching refresh commit when present; otherwise use the most recent commit that touched the Objective directory, or `HEAD` if the directory exists only at `HEAD` and record that there is no prior Objective-history baseline. Trunk due-ness means "perform claim verification and write only if ground truth makes durable prose stale," not "force a commit."
-
-The Semantic Update provenance line is a human/debug breadcrumb, not the deduplication key:
-
-```text
-Provenance: objective-refresh basis target=<target-sha-or-ref> from=<baseline-sha-or-ref>
-```
-
-Do not stamp a post-commit Objective tree SHA into the update file; the update file would be part of the tree being identified.
-
-## Write one Objective safely
-
-Before editing one Objective directory, verify it is clean:
-
-```bash
-git -C "$WT" status --porcelain -- .ji/objectives/<slug>/
-```
-
-- Standalone one-objective or branch/context mode: if the selected Objective directory is dirty, stop and report the dirty slug unless the user explicitly asks to incorporate those local edits.
-- Orchestrated repo/target mode: skip the slug, write nothing for it, and include a degrade reason in the report.
-
-Always enforce these invariants:
-
-- Edit only selected Objective directories for the chosen scope.
-- Never edit, rewrite, move, delete, normalize, or recreate an existing file under `updates/`.
-- Never move, delete, rename, or recreate Objective slug directories.
-- Never edit archived Objectives unless the user explicitly asks for archive work.
-- Never create `closed.md` and never add `## Closure`.
-
-If a selected Objective appears to require closure rather than refresh, report it as closure-ready/needs `objective-update`; do not close it.
-
-For each due, clean slug, run a full refresh loop:
-
-1. **Read the old record as source material.** Use `ji objective exec read-objective <slug> --format md` when available for deterministic inventory and closed-marker state, then focus on `objective.md`, `roadmap.md`, and recent `updates/` only when needed for context.
-2. **Gather target evidence** from the baseline to the target `HEAD`/ref:
-
-   ```bash
-   git -C "$WT" log --oneline <baseline>..<target> -- .ji/objectives/<slug>/
-   git -C "$WT" diff --stat <baseline>..<target> -- .ji/objectives/<slug>/
-   git -C "$WT" diff --name-status <baseline>..<target> -- .ji/objectives/<slug>/
-   git -C "$WT" diff <baseline>..<target> -- .ji/objectives/<slug>/objective.md .ji/objectives/<slug>/roadmap.md
-   ```
-
-   Use `HEAD` for `<target>` when operating in the current checkout.
-3. **Extract the refresh contract before editing.** From the old record plus target evidence, write a brief in-session extraction with:
-   - core meaning: the Objective's durable purpose, scope boundaries, completion criteria, assumptions/risks, and open questions;
-   - progress: completed work, active work, parked/deferred work, closure-adjacent evidence, and remaining roadmap shape;
-   - material claims by category: paths/files, symbols/APIs, commands/CLI surface, tests/evidence, status words, boundaries/non-goals, risks/assumptions, and roadmap rationale;
-   - stale or suspect text from the old record that must not be carried forward as fact.
-4. **Verify the extracted contract** against current ground truth. Use targeted probes rather than vibes:
-   - paths/files: `git -C "$WT" ls-files -- <path>`, `test -e`, or `find` scoped to the claimed directory;
-   - symbols/commands/types: `rg --fixed-strings`, `rg` with a narrow regex, package `--help`, or schema/help output;
-   - "deleted"/"absent"/"no longer": scoped `rg/find/git ls-files` evidence for absence;
-   - "implemented"/"covered"/"tested": source plus test probes, and run targeted tests only when the claim depends on passing behavior;
-   - PR/CI/review state: `gh`/Graphite evidence when the claim names PR/CI state;
-   - ownership or deferral: git diff/log/Objective evidence showing the named owner or deferred target exists.
-5. **Classify the slug before writing:**
-   - `verified`: the extracted contract is supported or has been weakened into assumptions/open questions.
-   - `stale-rebaselined`: at least one old-record claim was false and the extracted contract corrects/parks/narrows it.
-   - `skipped-unverified`: important claims remain unverifiable or contradictory and you cannot safely rewrite them without user input.
-6. **Rewrite from scratch when a write is warranted.** Do not patch paragraphs or preserve old wording by inertia. Re-author `objective.md` from the verified contract when the target context changes durable narrative, scope, completion criteria, assumptions/risks, open questions, closure-adjacent caveats, or when verification shows existing prose is stale. Do not add `## Closure`.
-7. **Rewrite `roadmap.md` from scratch when active work shape changes.** Reconstruct ordered guidance, checkbox state, row notes, completion evidence, and parked work from the verified progress contract. Use only `[ ]`, `[~]`, and `[x]`.
-8. **Contract-diff the rewrite before saving as done.** Compare the rewritten files against the extracted contract line by line. Every verified purpose, boundary, progress fact, roadmap item, assumption/open question, and parked/deferred item must be present or intentionally omitted with a reason. If the rewrite drops or softens meaning, fix it before finalizing.
-9. **Re-derive `orientation.md` from the verified contract when one exists.** If the slug has an `orientation.md`, rewrite it from the verified contract using the umbrella `objective` skill's orientation re-derivation rule. If the verified contract shows the Objective has become cross-cutting and it lacks one, add `orientation.md` using the umbrella format. Never close, so never drop an `orientation.md` here; the existing `git add .ji/objectives/<slug>/` stages it.
-10. Add one new timestamped Semantic Update under `updates/` when the refresh records a meaningful finding, decision, blocker, risk change, completion event, plan change, follow-up, or ground-truth rebaseline. Include the provenance line above and summarize the decisive extraction + verification evidence. If the update writes new Objective PR evidence, use the shared bullet convention, limit it to material Objective PRs, and do not broadly backfill unrelated historical PR mentions.
-11. If old records mention PRs inconsistently, do not normalize unrelated history merely to satisfy the convention. Preserve, weaken, correct, or summarize only PR evidence that is material to the selected refresh target and can be verified or clearly labeled.
-12. If the due-check says a refresh is due but you cannot identify a meaningful durable change, or cannot verify the extracted Objective contract well enough to trust it, do not invent filler. Report `skipped-ambiguous` or `skipped-unverified` and leave the slug unchanged unless you can safely narrow/park false claims.
-
-## Commit and report
-
-Standalone one-objective mode creates one self-identifying commit when there are edits:
-
-```bash
-git -C "$WT" add .ji/objectives/<slug>/
-git -C "$WT" commit -m "[objective-refresh] refresh <slug>"
-```
-
-Branch/context and repo fan-out scopes create at most one aggregate commit per target context when there are edits. Use `[objective-refresh]` for all new aggregate commits:
-
-```text
-[objective-refresh] refresh Objectives
-[objective-refresh] refresh pr-address-ts-hardening on trunk
-```
-
-Do not commit when no slug produced a meaningful edit.
-
-Return a compact report with:
-
-1. Scope, worktree(s), branch/ref or `HEAD`, trunk/base, target SHA/ref, and baseline per processed slug.
-2. Per-slug action: `wrote`, `noop-baseline`, `skipped-dirty`, `skipped-ambiguous`, `skipped-unverified`, `closure-ready`, `not-owned`, `trunk-explicit-noop`, `deferred-proposal`, `routed`, or `note+flag` as applicable.
-3. Claim verification summary: key claims verified, key claims corrected/parked/narrowed, and any claims still treated as assumptions/open questions.
-4. Durable files edited and any new Semantic Update filenames.
-5. Confirmation that no existing Semantic Updates were edited, no Objective slug directories were moved/deleted/recreated, and no Objective was closed.
-6. Whether a clean rerun should be a no-op for refreshed targets.
-
-## Verify
-
-- New update files, if any, are timestamped and live under the matching Objective's `updates/` directory.
-- No existing file under `updates/` changed.
-- Required Objective headings remain present in edited files.
-- Every material claim in the extracted contract and rewritten Objective prose has supporting evidence, has been weakened to an assumption/open question, or caused `skipped-unverified`.
-- Negative claims have scoped absence evidence.
-- New Semantic Updates include the decisive verification/rebaseline evidence when they correct stale Objective prose.
-- No `closed.md` was created and no `## Closure` was added.
-- If `orientation.md` was re-derived or added, it follows the format and reflects the verified contract; no `orientation.md` was dropped (refresh never closes).
-- New commits, if any, use `[objective-refresh]`; legacy `[objective-branch-refresh]` appears only in baseline lookup compatibility.
-- A rerun with no additional Objective changes produces no commit.
+Done when an immediate rerun would modify nothing — every refreshed record already matches its verified contract.
