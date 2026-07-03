@@ -1,5 +1,4 @@
 export {
-	COMMAND_BACKED_SKILL_REGISTRY,
 	commandBackedSkillRegistrations,
 	commandBackedSkillSurface,
 	genericBackingSkillRegistrations,

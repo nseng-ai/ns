@@ -23,7 +23,7 @@ describe("Pi replacement helpers", () => {
 	});
 
 	test("does not derive fallback replacements for unknown skills", () => {
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("sdl:objective:stack-impl");
+		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
 		expect(derivePiReplacementCommand("branch-context-impl-extra")).toBeUndefined();
 		expect(derivePiReplacementCommand("foo-bar-baz")).toBeUndefined();
 		expect(derivePiReplacementCommand("plain")).toBeUndefined();

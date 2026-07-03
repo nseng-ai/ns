@@ -114,7 +114,7 @@ describe("areg check Pi replacement helpers", () => {
 		expect(derivePiReplacementCommand("branch-context-impl")).toBe(
 			"ji:branch-context:impl-attached-plan",
 		);
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("sdl:objective:stack-impl");
+		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
 		expect(derivePiReplacementCommand("custom-command")).toBeUndefined();
 		expect(derivePiReplacementCommand("nocommand")).toBeUndefined();
 	});

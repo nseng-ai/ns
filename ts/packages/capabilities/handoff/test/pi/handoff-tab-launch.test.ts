@@ -14,7 +14,7 @@ import {
 const BRANCH = "feature/handoff";
 const SLUG = "finish-widget";
 const KEY = `${SLUG}.md`;
-const PICKUP_COMMAND = `/sdl:handoff:pickup --branch ${BRANCH} ${SLUG}`;
+const PICKUP_COMMAND = `/ji:handoff:pickup --branch ${BRANCH} ${SLUG}`;
 const STATUS_KEY = "handoff-tab";
 
 function params(): { branch: string; slug: string; key: string; pickupCommand: string } {
@@ -67,7 +67,7 @@ function sendStep(command: string, options: CmuxLocationOptions = {}): ScriptedE
 describe("handoff-tab launch orchestration", () => {
 	test("launches a focused pickup tab", async () => {
 		const command =
-			"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'";
+			"pi --provider anthropic --model claude-sonnet-4-5 --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
@@ -117,7 +117,7 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("accepts surface_ref and workspace_ref output from cmux new-surface", async () => {
 		const command =
-			"pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'";
+			"pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceRefStep(),
@@ -149,7 +149,7 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("reports manual recovery when rename fails after surface creation", async () => {
 		const command =
-			"pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'";
+			"pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
@@ -197,7 +197,7 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("reports manual recovery when sending the launch command fails", async () => {
 		const command =
-			"pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'";
+			"pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),
@@ -249,7 +249,7 @@ describe("handoff-tab launch orchestration", () => {
 
 	test("preserves provider, model, and explicit thinking options in the generated Pi command", async () => {
 		const command =
-			"pi --provider openai-codex --model gpt-5.4-mini --thinking high '/sdl:handoff:pickup --branch feature/handoff finish-widget'";
+			"pi --provider openai-codex --model gpt-5.4-mini --thinking high '/ji:handoff:pickup --branch feature/handoff finish-widget'";
 		const pi = new FakePi([
 			cmuxIdentifyStep(),
 			cmuxCreateSurfaceStep(),

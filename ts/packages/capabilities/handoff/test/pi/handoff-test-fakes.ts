@@ -485,8 +485,8 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 
 export async function runCommand(
 	commandName:
-		| "sdl:handoff:create"
-		| "sdl:handoff:pickup"
+		| "ji:handoff:create"
+		| "ji:handoff:pickup"
 		| "handoff:list"
 		| "ccc:handoff-tab"
 		| "handoff:self",

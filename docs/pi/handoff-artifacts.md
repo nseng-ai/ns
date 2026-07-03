@@ -138,8 +138,8 @@ Pi picker/card UIs may enrich this with previews and copyable pickup commands, b
 Project-local Pi commands:
 
 ```text
-/sdl:handoff:create <continuation focus>
-/sdl:handoff:pickup [--branch <branch>] [semantic-slug|search words]
+/ji:handoff:create <continuation focus>
+/ji:handoff:pickup [--branch <branch>] [semantic-slug|search words]
 /handoff:list [--branch <branch> | --all]
 ```
 
@@ -158,8 +158,8 @@ There is currently no `/handoff:delete` Pi command. Single-handoff deletion is a
 Examples:
 
 ```text
-/sdl:handoff:create address review feedback after test cleanup
-/sdl:handoff:pickup address-review-feedback
+/ji:handoff:create address review feedback after test cleanup
+/ji:handoff:pickup address-review-feedback
 /handoff:list
 /handoff:list --all
 ```
@@ -171,7 +171,7 @@ Portable first-party skills:
 
 There are no `handoff-save` or `handoff-load` skill aliases; those names are rejected handoff terminology, not compatibility entrypoints.
 
-`/sdl:handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
+`/ji:handoff:create` requires a meaningful continuation focus. If the user omits it, the command asks:
 
 ```text
 What should the future session continue from this handoff?

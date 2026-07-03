@@ -41,8 +41,8 @@ describe("handoff-tab extension", () => {
 			"ccc:handoff-tab",
 			"handoff:list",
 			"handoff:self",
-			"sdl:handoff:create",
-			"sdl:handoff:pickup",
+			"ji:handoff:create",
+			"ji:handoff:pickup",
 		]);
 		expect([...pi.tools.keys()]).toEqual([
 			"derive_handoff_slug_from_content",
@@ -62,8 +62,8 @@ describe("handoff-tab extension", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"handoff:list",
-			"sdl:handoff:create",
-			"sdl:handoff:pickup",
+			"ji:handoff:create",
+			"ji:handoff:pickup",
 		]);
 		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
 		expect([...pi.tools.keys()]).toEqual([]);
@@ -111,7 +111,7 @@ describe("handoff-tab extension", () => {
 			expect(prompt).toContain(
 				"After `ji handoff create` succeeds, call handoff_tab_launch with `branch` set",
 			);
-			expect(prompt).toContain(`/sdl:handoff:pickup --branch ${BRANCH} <returned-slug>`);
+			expect(prompt).toContain(`/ji:handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		});
 	});
 
@@ -303,7 +303,7 @@ describe("handoff-tab extension", () => {
 				"--window",
 				"window-1",
 				"--",
-				"pi --provider anthropic --model claude-sonnet --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'\n",
+				"pi --provider anthropic --model claude-sonnet --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'\n",
 			]),
 		]);
 		handoffExtension(pi);
@@ -328,7 +328,7 @@ describe("handoff-tab extension", () => {
 		expect(result.isError).toBeUndefined();
 		expect(result.content[0]?.text).toContain("Opened handoff pickup tab.");
 		expect(result.content[0]?.text).toContain(
-			"Command: pi --provider anthropic --model claude-sonnet --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'",
+			"Command: pi --provider anthropic --model claude-sonnet --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'",
 		);
 		expect(result.details).toEqual({
 			type: "launched",
@@ -338,7 +338,7 @@ describe("handoff-tab extension", () => {
 			surfaceId: "surface-1",
 			workspaceId: "workspace-1",
 			command:
-				"pi --provider anthropic --model claude-sonnet --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'",
+				"pi --provider anthropic --model claude-sonnet --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'",
 		});
 		expect(updates).toHaveLength(5);
 		expect(context.statuses).toEqual([
@@ -377,7 +377,7 @@ describe("handoff-tab extension", () => {
 				"--window",
 				"window-1",
 				"--",
-				"pi --provider anthropic --model claude-sonnet --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'\n",
+				"pi --provider anthropic --model claude-sonnet --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'\n",
 			]),
 		]);
 		handoffExtension(pi);
@@ -408,7 +408,7 @@ describe("handoff-tab extension", () => {
 			surfaceId: "surface:1",
 			workspaceId: "workspace:1",
 			command:
-				"pi --provider anthropic --model claude-sonnet --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'",
+				"pi --provider anthropic --model claude-sonnet --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'",
 		});
 	});
 
@@ -524,7 +524,7 @@ describe("handoff-tab extension", () => {
 		expect(result.content[0]?.text).toContain("rename failed");
 		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
 		expect(result.content[0]?.text).toContain(
-			"Manual recovery: run pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'",
+			"Manual recovery: run pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'",
 		);
 	});
 
@@ -555,7 +555,7 @@ describe("handoff-tab extension", () => {
 					"--window",
 					"window-1",
 					"--",
-					"pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'\n",
+					"pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'\n",
 				],
 				{
 					code: 2,
@@ -595,7 +595,7 @@ describe("handoff-tab extension", () => {
 		expect(result.content[0]?.text).toContain("send failed");
 		expect(result.content[0]?.text).toContain("Created cmux surface: surface-1");
 		expect(result.content[0]?.text).toContain(
-			"Manual recovery: run pi --thinking medium '/sdl:handoff:pickup --branch feature/handoff finish-widget'",
+			"Manual recovery: run pi --thinking medium '/ji:handoff:pickup --branch feature/handoff finish-widget'",
 		);
 	});
 
@@ -663,6 +663,6 @@ describe("handoff-tab pure helpers", () => {
 			"After `ji handoff create` succeeds, call handoff_tab_launch with `branch` set",
 		);
 		expect(prompt).toContain("`slug` set to the slug returned by derive_handoff_slug_from_content");
-		expect(prompt).toContain(`/sdl:handoff:pickup --branch ${BRANCH} <returned-slug>`);
+		expect(prompt).toContain(`/ji:handoff:pickup --branch ${BRANCH} <returned-slug>`);
 	});
 });

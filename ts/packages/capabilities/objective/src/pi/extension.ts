@@ -439,7 +439,7 @@ export const objectiveParity = definePiSurfaceParity([
 				surface: spec.commandName,
 				workflow: spec.description,
 				parity: "FULL",
-				cli: `sdl objective ${spec.commandName.slice("sdl:objective:".length)}`,
+				cli: `ji objective ${spec.cliSubcommand}`,
 				skill: spec.skillName,
 				ownerObjective: "cross-harness-parity",
 				sourcePackage: "@ji/objective/pi",

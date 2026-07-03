@@ -51,14 +51,14 @@ function commandContext(cwd: string): BackingSkillCommandContext & {
 
 describe("derivePiReplacementCommand", () => {
 	test.each([
-		["objective-refresh", "sdl:objective:refresh"],
-		["objective-review-briefing", "sdl:objective:review-briefing"],
+		["objective-refresh", "ji:objective:refresh"],
+		["objective-review-briefing", "ji:objective:review-briefing"],
 		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
 		["pytest", "python:pytest"],
 		["skillx", "skill:x"],
-		["sdl-cli-design", "sdl:cli:design"],
-		["sdl-typescript-style-tripwire", "sdl:typescript:style-tripwire"],
+		["sdl-cli-design", "ji:cli:design"],
+		["sdl-typescript-style-tripwire", "ji:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
 	});
@@ -71,9 +71,9 @@ describe("derivePiReplacementCommand", () => {
 			command: "workflows",
 		});
 		expect(derivePiReplacementCommand("objective-refresh")).toEqual({
-			surface: "sdl:objective:refresh",
+			surface: "ji:objective:refresh",
 			skillName: "objective-refresh",
-			namespace: "sdl",
+			namespace: "ji",
 			command: "objective:refresh",
 		});
 	});
@@ -94,7 +94,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		);
 
 		expect(surfaces).toContain("code:workflows");
-		expect(surfaces).toContain("sdl:objective:refresh");
+		expect(surfaces).toContain("ji:objective:refresh");
 		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
@@ -104,8 +104,8 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).not.toContain("typescript:style");
 		expect(surfaces).not.toContain("grill:me");
 		expect(surfaces).not.toContain("grill:with-docs");
-		expect(surfaces).not.toContain("sdl:objective:close");
-		expect(surfaces).not.toContain("sdl:objective:create");
+		expect(surfaces).not.toContain("ji:objective:close");
+		expect(surfaces).not.toContain("ji:objective:create");
 		expect(surfaces).not.toContain("objective:current");
 		expect(surfaces).not.toContain("code:gt-restack-resolve");
 		expect(specs.map((spec) => spec.skillName)).toEqual(

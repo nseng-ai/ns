@@ -19,7 +19,7 @@ export interface CommandBackedSkillRegistration {
 	kind: CommandBackedSkillRegistrationKind;
 }
 
-export const COMMAND_BACKED_SKILL_REGISTRY = [
+const COMMAND_BACKED_SKILL_REGISTRY = [
 	{
 		skillName: "branch-context-from-plan",
 		surface: BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
@@ -95,32 +95,34 @@ export const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "fdt:refactor-mock-to-fake",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "handoff-create", surface: "sdl:handoff:create", kind: "specialized-command" },
-	{ skillName: "handoff-pickup", surface: "sdl:handoff:pickup", kind: "specialized-command" },
+	// Capability Pi subpackages peer-depend on @sdl/pi; importing their constants here would
+	// create a manifest cycle, so these capability-owned surfaces stay as registry contract rows.
+	{ skillName: "handoff-create", surface: "ji:handoff:create", kind: "specialized-command" },
+	{ skillName: "handoff-pickup", surface: "ji:handoff:pickup", kind: "specialized-command" },
 	{
 		skillName: "improve-codebase-architecture",
 		surface: "improve:codebase-architecture",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "objective-close", surface: "sdl:objective:close", kind: "specialized-command" },
-	{ skillName: "objective-create", surface: "sdl:objective:create", kind: "specialized-command" },
-	{ skillName: "objective-next", surface: "sdl:objective:next", kind: "specialized-command" },
+	{ skillName: "objective-close", surface: "ji:objective:close", kind: "specialized-command" },
+	{ skillName: "objective-create", surface: "ji:objective:create", kind: "specialized-command" },
+	{ skillName: "objective-next", surface: "ji:objective:next", kind: "specialized-command" },
 	{
 		skillName: "objective-refresh",
-		surface: "sdl:objective:refresh",
+		surface: "ji:objective:refresh",
 		kind: "generic-backing-skill",
 	},
 	{
 		skillName: "objective-review-briefing",
-		surface: "sdl:objective:review-briefing",
+		surface: "ji:objective:review-briefing",
 		kind: "generic-backing-skill",
 	},
 	{
 		skillName: "objective-stack-impl",
-		surface: "sdl:objective:stack-impl",
+		surface: "ji:objective:stack-impl",
 		kind: "specialized-command",
 	},
-	{ skillName: "objective-update", surface: "sdl:objective:update", kind: "specialized-command" },
+	{ skillName: "objective-update", surface: "ji:objective:update", kind: "specialized-command" },
 	{ skillName: "pi-grill-ui", surface: "pi:grill-me", kind: "specialized-command" },
 	{
 		skillName: "pi-grill-with-docs-ui",
@@ -159,18 +161,18 @@ export const COMMAND_BACKED_SKILL_REGISTRY = [
 		surface: "roast:thermonuclear-review",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "sdl-cli-design", surface: "sdl:cli:design", kind: "generic-backing-skill" },
-	{ skillName: "sdl-flow-autobranch", surface: "ji:flow:autobranch", kind: "specialized-command" },
+	{ skillName: "sdl-cli-design", surface: "ji:cli:design", kind: "generic-backing-skill" },
+	{ skillName: "ji-flow-autobranch", surface: "ji:flow:autobranch", kind: "specialized-command" },
 	{
-		skillName: "sdl-flow-branch-latest-commit",
+		skillName: "ji-flow-branch-latest-commit",
 		surface: "ji:flow:branch-latest-commit",
 		kind: "specialized-command",
 	},
-	{ skillName: "sdl-flow-cp", surface: "ji:flow:cp", kind: "specialized-command" },
-	{ skillName: "sdl-flow-submit", surface: "ji:flow:submit", kind: "specialized-command" },
+	{ skillName: "ji-flow-cp", surface: "ji:flow:cp", kind: "specialized-command" },
+	{ skillName: "ji-flow-submit", surface: "ji:flow:submit", kind: "specialized-command" },
 	{
 		skillName: "sdl-typescript-style-tripwire",
-		surface: "sdl:typescript:style-tripwire",
+		surface: "ji:typescript:style-tripwire",
 		kind: "generic-backing-skill",
 	},
 	{ skillName: "setup-dprint", surface: "setup:dprint", kind: "generic-backing-skill" },
@@ -209,16 +211,18 @@ export function commandBackedSkillSurface(skillName: string): string | undefined
 		?.surface;
 }
 
+function registrationsOfKind(
+	kind: CommandBackedSkillRegistrationKind,
+): readonly CommandBackedSkillRegistration[] {
+	return COMMAND_BACKED_SKILL_REGISTRY.filter((registration) => registration.kind === kind);
+}
+
 export function genericBackingSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
-	return COMMAND_BACKED_SKILL_REGISTRY.filter(
-		(registration) => registration.kind === "generic-backing-skill",
-	);
+	return registrationsOfKind("generic-backing-skill");
 }
 
 export function specializedCommandBackedSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
-	return COMMAND_BACKED_SKILL_REGISTRY.filter(
-		(registration) => registration.kind === "specialized-command",
-	);
+	return registrationsOfKind("specialized-command");
 }
 
 export function visibleCommandBackedReplacementSurfaces(): string[] {

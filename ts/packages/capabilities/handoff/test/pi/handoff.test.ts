@@ -79,8 +79,8 @@ describe("handoff extension", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"handoff:list",
-			"sdl:handoff:create",
-			"sdl:handoff:pickup",
+			"ji:handoff:create",
+			"ji:handoff:pickup",
 		]);
 		expect(pi.commands.has("ccc:handoff-tab")).toBe(false);
 		expect(pi.commands.has("handoff:load")).toBe(false);
@@ -88,10 +88,10 @@ describe("handoff extension", () => {
 		expect(pi.commands.has("brmem-pickup-handoff")).toBe(false);
 		expect([...pi.renderers.keys()]).toEqual([HANDOFF_LIST_MESSAGE_TYPE]);
 		expect([...pi.tools.keys()]).toEqual([]);
-		expect(pi.commands.get("sdl:handoff:create")?.description).toBe(
+		expect(pi.commands.get("ji:handoff:create")?.description).toBe(
 			"Create a directed handoff artifact for a future continuation.",
 		);
-		expect(pi.commands.get("sdl:handoff:pickup")?.description).toBe(
+		expect(pi.commands.get("ji:handoff:pickup")?.description).toBe(
 			"Pick up a handoff by slug, selector, or picker.",
 		);
 		expect(pi.commands.get("handoff:list")?.description).toBe(
@@ -102,7 +102,7 @@ describe("handoff extension", () => {
 	test("create command expands the handoff-create skill when available", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
 			const result = await runCommand(
-				"sdl:handoff:create",
+				"ji:handoff:create",
 				"resume extension frontend work",
 				[],
 				{ cwd: repoDir },
@@ -124,7 +124,7 @@ describe("handoff extension", () => {
 	});
 
 	test("create fallback uses the handoff namespace and semantic slug key", async () => {
-		const result = await runCommand("sdl:handoff:create", "handoff focus");
+		const result = await runCommand("ji:handoff:create", "handoff focus");
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
@@ -150,7 +150,7 @@ describe("handoff extension", () => {
 	});
 
 	test("create with no args prompts for focus and continues when supplied", async () => {
-		const result = await runCommand("sdl:handoff:create", "", [], {
+		const result = await runCommand("ji:handoff:create", "", [], {
 			inputResponse: "continue the list command",
 		});
 
@@ -166,7 +166,7 @@ describe("handoff extension", () => {
 	});
 
 	test("create with no args and cancelled input stops without create prompt", async () => {
-		const result = await runCommand("sdl:handoff:create", "");
+		const result = await runCommand("ji:handoff:create", "");
 
 		result.pi.assertDone();
 		expect(result.inputs).toHaveLength(1);
@@ -177,7 +177,7 @@ describe("handoff extension", () => {
 	});
 
 	test("create with no input UI asks the assistant to request focus without creating", async () => {
-		const result = await runCommand("sdl:handoff:create", "", [], {
+		const result = await runCommand("ji:handoff:create", "", [], {
 			hasUI: false,
 			inputUnavailable: true,
 		});
@@ -191,7 +191,7 @@ describe("handoff extension", () => {
 
 	test("pickup command picks up an explicit slug from the current branch", async () => {
 		const artifact = "# Handoff: Continue tests\n\n## Next Steps\n\nRun the tests.";
-		const result = await runCommand("sdl:handoff:pickup", "continue-tests", [
+		const result = await runCommand("ji:handoff:pickup", "continue-tests", [
 			branchStep(),
 			...listStep(BRANCH, ["continue-tests.md"]),
 			branchPresenceStep(BRANCH),
@@ -229,7 +229,7 @@ describe("handoff extension", () => {
 	});
 
 	test("pickup command uses an explicit branch and key without reading current branch", async () => {
-		const result = await runCommand("sdl:handoff:pickup", "--branch other/branch foo.md", [
+		const result = await runCommand("ji:handoff:pickup", "--branch other/branch foo.md", [
 			...listStep("other/branch", ["foo.md"]),
 			branchPresenceStep("other/branch"),
 			...listStep("other/branch", ["foo.md"]),
@@ -250,7 +250,7 @@ describe("handoff extension", () => {
 
 	test("pickup command opens a picker with slug and preview labels", async () => {
 		const result = await runCommand(
-			"sdl:handoff:pickup",
+			"ji:handoff:pickup",
 			"",
 			[
 				branchStep(),
@@ -281,7 +281,7 @@ describe("handoff extension", () => {
 
 	test("pickup command asks for a slug when multiple handoffs exist without picker UI", async () => {
 		const result = await runCommand(
-			"sdl:handoff:pickup",
+			"ji:handoff:pickup",
 			"",
 			[branchStep(), ...listStep(BRANCH, ["alpha.md", "bravo.md"]), branchPresenceStep(BRANCH)],
 			{ hasUI: false },
@@ -330,7 +330,7 @@ describe("handoff extension", () => {
 		const message = result.pi.sentMessages[0];
 		expect(message).toEqual({
 			customType: HANDOFF_LIST_MESSAGE_TYPE,
-			content: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /sdl:handoff:pickup address-review-feedback`,
+			content: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /ji:handoff:pickup address-review-feedback`,
 			display: true,
 			details: {
 				mode: "branch",
@@ -353,7 +353,7 @@ describe("handoff extension", () => {
 		expect(rendered).toContain(`Handoffs on ${BRANCH}`);
 		expect(rendered).toContain("address-review-feedback");
 		expect(rendered).toContain("Address review feedback");
-		expect(rendered).toContain("/sdl:handoff:pickup address-review-feedback");
+		expect(rendered).toContain("/ji:handoff:pickup address-review-feedback");
 		expect(rendered).not.toContain("address-review-feedback.md");
 		expect(rendered).not.toContain("Slug | Preview");
 	});
@@ -394,9 +394,9 @@ describe("handoff extension", () => {
 		const rendered = renderMessageText(message);
 		expect(rendered).toContain("Handoffs across branches");
 		expect(rendered).toContain("feat/a\n  1. alpha");
-		expect(rendered).toContain("→ /sdl:handoff:pickup --branch feat/a alpha");
+		expect(rendered).toContain("→ /ji:handoff:pickup --branch feat/a alpha");
 		expect(rendered).toContain("feat/b\n  2. bravo");
-		expect(rendered).toContain("→ /sdl:handoff:pickup --branch feat/b bravo");
+		expect(rendered).toContain("→ /ji:handoff:pickup --branch feat/b bravo");
 		expect(rendered).not.toContain("Branch | Slug | Preview");
 		expect(rendered).not.toContain("alpha.md");
 	});
@@ -426,7 +426,7 @@ describe("handoff extension", () => {
 		expect(result.pi.sentMessages).toEqual([]);
 		expect(result.notifications).toEqual([
 			{
-				message: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /sdl:handoff:pickup address-review-feedback`,
+				message: `Handoffs on ${BRANCH}\n\n  1. address-review-feedback\n     Address review feedback\n     → /ji:handoff:pickup address-review-feedback`,
 				level: "info",
 			},
 		]);
@@ -567,12 +567,12 @@ describe("handoff pure helpers", () => {
 			items: [item],
 		};
 
-		expect(formatHandoffPickupCommand(item, "branch")).toBe("/sdl:handoff:pickup ship-docs");
+		expect(formatHandoffPickupCommand(item, "branch")).toBe("/ji:handoff:pickup ship-docs");
 		expect(formatHandoffPickupCommand(item, "all-branches")).toBe(
-			"/sdl:handoff:pickup --branch feature/docs ship-docs",
+			"/ji:handoff:pickup --branch feature/docs ship-docs",
 		);
 		expect(formatHandoffListPlain(details)).toBe(
-			"Handoffs on feature/docs\n\n  1. ship-docs\n     Ship the docs update\n     → /sdl:handoff:pickup ship-docs",
+			"Handoffs on feature/docs\n\n  1. ship-docs\n     Ship the docs update\n     → /ji:handoff:pickup ship-docs",
 		);
 		expect(formatHandoffListPlain(details)).not.toContain("ship-docs.md");
 	});
@@ -675,7 +675,7 @@ describe("handoff pure helpers", () => {
 			"<accent>feat/a</accent>",
 			"<dim>  1. </dim><accent><bold>alpha</bold></accent>",
 			"     Alpha work",
-			"<muted>     → /sdl:handoff:pickup --branch feat/a alpha</muted>",
+			"<muted>     → /ji:handoff:pickup --branch feat/a alpha</muted>",
 		]);
 	});
 });

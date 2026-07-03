@@ -1,5 +1,5 @@
-export const CREATE_HANDOFF_COMMAND_NAME = "sdl:handoff:create";
-export const PICKUP_HANDOFF_COMMAND_NAME = "sdl:handoff:pickup";
+export const CREATE_HANDOFF_COMMAND_NAME = "ji:handoff:create";
+export const PICKUP_HANDOFF_COMMAND_NAME = "ji:handoff:pickup";
 export const LIST_HANDOFF_COMMAND_NAME = "handoff:list";
 export const HANDOFF_TAB_COMMAND_NAME = "ccc:handoff-tab";
 export const HANDOFF_SELF_COMMAND_NAME = "handoff:self";

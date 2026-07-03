@@ -6,6 +6,7 @@ import {
 	type LivePiSurface,
 } from "@ji/pi/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
+import { objectiveCommandSpecs } from "../../src/api/index.ts";
 import objectiveExtension, { objectiveParity } from "../../src/pi/extension.ts";
 
 async function collectObjectivePiSurfaces(): Promise<LivePiSurface[]> {
@@ -34,5 +35,16 @@ describe("Objective Pi extension parity metadata", () => {
 			staleMetadata: [],
 			duplicateMetadataKeys: [],
 		});
+	});
+
+	test("derives CLI parity text from explicit Objective CLI subcommands", () => {
+		for (const spec of objectiveCommandSpecs) {
+			expect(objectiveParity).toContainEqual(
+				expect.objectContaining({
+					surface: spec.commandName,
+					cli: `ji objective ${spec.cliSubcommand}`,
+				}),
+			);
+		}
 	});
 });

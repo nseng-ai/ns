@@ -1,10 +1,10 @@
 {
   "packages": [],
   "skills": [
-    "-skills/sdl-flow-submit",
+    "-skills/ji-flow-submit",
     "-skills/code-workflows",
     "-skills/changelog-update",
-    "-skills/sdl-flow-cp",
+    "-skills/ji-flow-cp",
     "-skills/code-just-fix",
     "-skills/create-bun-typescript-project",
     "-skills/create-python-dev-cli",
@@ -23,8 +23,8 @@
     "-skills/pi-grill-ui",
     "-skills/pi-grill-with-docs-ui",
     "-skills/branch-retro",
-    "-skills/sdl-flow-autobranch",
-    "-skills/sdl-flow-branch-latest-commit",
+    "-skills/ji-flow-autobranch",
+    "-skills/ji-flow-branch-latest-commit",
     "-skills/context-bundle-analysis",
     "-skills/refactor-swarm",
     "-skills/python-fake-driven-test-layout",

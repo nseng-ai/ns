@@ -16,19 +16,19 @@ describe("Pi command surfaces", () => {
 			BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 		);
 		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
-		expect(commandBackedSkillSurface("objective-close")).toBe("sdl:objective:close");
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("sdl:objective:stack-impl");
-		expect(commandBackedSkillSurface("objective-refresh")).toBe("sdl:objective:refresh");
-		expect(commandBackedSkillSurface("handoff-create")).toBe("sdl:handoff:create");
-		expect(commandBackedSkillSurface("handoff-pickup")).toBe("sdl:handoff:pickup");
-		expect(commandBackedSkillSurface("sdl-flow-branch-latest-commit")).toBe(
+		expect(commandBackedSkillSurface("objective-close")).toBe("ji:objective:close");
+		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-refresh")).toBe("ji:objective:refresh");
+		expect(commandBackedSkillSurface("handoff-create")).toBe("ji:handoff:create");
+		expect(commandBackedSkillSurface("handoff-pickup")).toBe("ji:handoff:pickup");
+		expect(commandBackedSkillSurface("ji-flow-branch-latest-commit")).toBe(
 			"ji:flow:branch-latest-commit",
 		);
-		expect(commandBackedSkillSurface("sdl-flow-cp")).toBe("ji:flow:cp");
-		expect(commandBackedSkillSurface("sdl-flow-submit")).toBe("ji:flow:submit");
-		expect(commandBackedSkillSurface("sdl-cli-design")).toBe("sdl:cli:design");
+		expect(commandBackedSkillSurface("ji-flow-cp")).toBe("ji:flow:cp");
+		expect(commandBackedSkillSurface("ji-flow-submit")).toBe("ji:flow:submit");
+		expect(commandBackedSkillSurface("sdl-cli-design")).toBe("ji:cli:design");
 		expect(commandBackedSkillSurface("sdl-typescript-style-tripwire")).toBe(
-			"sdl:typescript:style-tripwire",
+			"ji:typescript:style-tripwire",
 		);
 		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
 		expect(commandBackedSkillSurface("skillx")).toBe("skill:x");
@@ -89,11 +89,11 @@ describe("Pi command surfaces", () => {
 				"objective-close",
 				"objective-stack-impl",
 				"pi-grill-ui",
-				"sdl-flow-autobranch",
+				"ji-flow-autobranch",
 			]),
 		);
-		expect(specializedSurfaces).toContain("sdl:objective:close");
-		expect(specializedSurfaces).toContain("sdl:handoff:create");
+		expect(specializedSurfaces).toContain("ji:objective:close");
+		expect(specializedSurfaces).toContain("ji:handoff:create");
 		expect(specializedSurfaces).toContain("pi:grill-me");
 		expect(specializedSurfaces).not.toContain("code:workflows");
 	});
@@ -103,9 +103,9 @@ describe("Pi command surfaces", () => {
 
 		expect(new Set(surfaces).size).toBe(surfaces.length);
 		expect(surfaces).toContain("code:workflows");
-		expect(surfaces).toContain("sdl:objective:close");
-		expect(surfaces).toContain("sdl:objective:refresh");
-		expect(surfaces).toContain("sdl:handoff:create");
+		expect(surfaces).toContain("ji:objective:close");
+		expect(surfaces).toContain("ji:objective:refresh");
+		expect(surfaces).toContain("ji:handoff:create");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).toContain("setup:dprint");

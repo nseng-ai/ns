@@ -1,5 +1,7 @@
 import { commandBackedSkillSurface } from "@ji/pi/commands";
 
+export { commandBackedSkillSurface as derivePiReplacementCommand } from "@ji/pi/commands";
+
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];
 }
@@ -9,15 +11,11 @@ export interface PiReplacementVerification {
 	surface?: string;
 }
 
-export function derivePiReplacementCommand(skillName: string): string | undefined {
-	return commandBackedSkillSurface(skillName);
-}
-
 export function verifyPiReplacement(
 	skillName: string,
 	facts: PiReplacementFacts,
 ): PiReplacementVerification {
-	const surface = derivePiReplacementCommand(skillName);
+	const surface = commandBackedSkillSurface(skillName);
 	if (surface === undefined) return { verified: false };
 	return { verified: facts.verifiedSurfaces.includes(surface), surface };
 }

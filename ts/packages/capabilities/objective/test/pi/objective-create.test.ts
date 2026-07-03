@@ -103,10 +103,10 @@ async function runObjectiveCreate(
 }> {
 	const pi = new FakePi(commandInfos);
 	objectiveExtension(pi);
-	const command = pi.commands.get("sdl:objective:create");
+	const command = pi.commands.get("ji:objective:create");
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error("sdl:objective:create was not registered");
+		throw new Error("ji:objective:create was not registered");
 	}
 
 	const context = createContext(cwd);
@@ -114,13 +114,13 @@ async function runObjectiveCreate(
 	return { pi, ...context };
 }
 
-describe("sdl:objective:create command", () => {
+describe("ji:objective:create command", () => {
 	test("registers a typeahead-friendly wrapper for objective-create", () => {
 		const pi = new FakePi();
 
 		objectiveExtension(pi);
 
-		const command = pi.commands.get("sdl:objective:create");
+		const command = pi.commands.get("ji:objective:create");
 		expect(command).toBeDefined();
 		expect(command?.argumentHint).toBe("[objective-slug-title-or-context]");
 		expect(command?.description).toContain("objective-create");

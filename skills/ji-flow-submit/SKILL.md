@@ -1,14 +1,14 @@
 ---
-name: sdl-flow-submit
+name: ji-flow-submit
 disable-model-invocation: true
-description: "Command: sdl-flow-submit"
+description: "Command: ji-flow-submit"
 allowed-tools:
   - "Bash(ji flow submit*)"
 metadata:
   internal: true
 ---
 
-# sdl-flow-submit
+# ji-flow-submit
 
 Submit or update the current Graphite stack by delegating to the repo-local `ji flow submit` command. This is the cross-harness path for `/ji:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
