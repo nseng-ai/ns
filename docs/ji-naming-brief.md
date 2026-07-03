@@ -1,5 +1,7 @@
 # ji naming brief
 
+> Superseded 2026-07-03 by [docs/ns-naming-brief.md](ns-naming-brief.md) and [ADR 0026](adr/0026-rename-ji-to-ns.md); the historical narrative below is preserved verbatim.
+
 The naming story and brand rationale for **ji**, the product formerly named SDL ("Source
 Development Lifecycle"). The binding verdicts — the casing rule, the accepted collisions,
 the npm package plan — live in [ADR 0024](adr/0024-rename-sdl-to-ji.md); this brief is the
