@@ -1338,7 +1338,7 @@ describe("land-stack command scenarios", () => {
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
 				shas: BRANCH_SHAS,
 			}),
-			...mergeFeatureA({ postRestackRefresh: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureA({ postRestackRefreshBranches: [DESCENDANT, "feature-d"] }),
 			...mergeFeatureBWithForkedDescendants(),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1369,7 +1369,7 @@ describe("land-stack command scenarios", () => {
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
 				shas: BRANCH_SHAS,
 			}),
-			...mergeFeatureA({ postRestackRefresh: [DESCENDANT, "feature-d"] }),
+			...mergeFeatureA({ postRestackRefreshBranches: [DESCENDANT, "feature-d"] }),
 			...mergeFeatureBThroughVerification(),
 			guardShaStep(DESCENDANT, SHA_C),
 			step(
@@ -1512,7 +1512,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefresh: null }),
+			...mergeFeatureA({ postRestackRefreshBranches: [] }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1572,7 +1572,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefresh: null }),
+			...mergeFeatureA({ postRestackRefreshBranches: [] }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script);
@@ -1623,7 +1623,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefresh: null }),
+			...mergeFeatureA({ postRestackRefreshBranches: [] }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, {
@@ -1663,7 +1663,7 @@ describe("land-stack command scenarios", () => {
 				]),
 			}),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT]),
-			...mergeFeatureA({ postRestackRefresh: null }),
+			...mergeFeatureA({ postRestackRefreshBranches: [] }),
 			...mergeFeatureBThroughVerification(),
 		];
 		const { pi } = await captureConsole(() => runLandStack("--yes", script, { hasUI: false }));
