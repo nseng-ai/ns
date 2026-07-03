@@ -16,6 +16,8 @@ export interface FakeObjectiveRecordOptions {
 	orientationMd?: string | null;
 	updates?: Readonly<Record<string, string>>;
 	isClosed?: boolean;
+	/** Place the record under `.sdl/objective-archive` instead of the active root. */
+	isArchived?: boolean;
 }
 
 export interface FakeObjectiveStorageGatewayOptions {
@@ -155,7 +157,10 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	}
 
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
-		const root = `.ji/objectives/${record.slug}`;
+		const root =
+			record.isArchived === true
+				? `.ji/objective-archive/${record.slug}`
+				: `.ji/objectives/${record.slug}`;
 		this.addDirectory(root);
 		if (record.objectiveMd !== null)
 			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);

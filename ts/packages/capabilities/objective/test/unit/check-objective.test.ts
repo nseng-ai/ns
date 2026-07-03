@@ -38,8 +38,22 @@ const FRONTMATTER = [
 	"",
 ].join("\n");
 
+const MIRROR_COUNTERPART = {
+	slug: "checkout-free-sdl-distribution",
+	objectiveMd: [
+		"---",
+		"edges:",
+		"  - objective: alpha",
+		"    annotation: Must land before alpha ships externally.",
+		"---",
+		"",
+		COMPLETE_OBJECTIVE_MD,
+	].join("\n"),
+	roadmapMd: ROADMAP_MD,
+};
+
 describe("objective check with Record Frontmatter", () => {
-	test("record with frontmatter checks identically to the same record without it", async () => {
+	test("record with mirrored frontmatter checks identically to the same record without it", async () => {
 		const withoutFrontmatter = await runCheckObjective(
 			contextWithFakeStorage({
 				records: [{ slug: "alpha", objectiveMd: COMPLETE_OBJECTIVE_MD, roadmapMd: ROADMAP_MD }],
@@ -54,6 +68,7 @@ describe("objective check with Record Frontmatter", () => {
 						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
 						roadmapMd: ROADMAP_MD,
 					},
+					MIRROR_COUNTERPART,
 				],
 			}),
 			{ slug: "alpha" },
@@ -81,6 +96,7 @@ describe("objective check with Record Frontmatter", () => {
 						objectiveMd: `${FRONTMATTER}${objectiveMdMissingThesis}`,
 						roadmapMd: ROADMAP_MD,
 					},
+					MIRROR_COUNTERPART,
 				],
 			}),
 			{ slug: "alpha" },
@@ -91,7 +107,7 @@ describe("objective check with Record Frontmatter", () => {
 		expect(withFrontmatter).toEqual(withoutFrontmatter);
 	});
 
-	test("malformed frontmatter keeps heading lints evaluating on the full content", async () => {
+	test("malformed frontmatter is an error while heading lints still evaluate the full content", async () => {
 		const unclosedFence = `---\nblocked: never closed\n\n${COMPLETE_OBJECTIVE_MD}`;
 		const exit = await runCheckObjective(
 			contextWithFakeStorage({
@@ -100,9 +116,15 @@ describe("objective check with Record Frontmatter", () => {
 			{ slug: "alpha" },
 		);
 
-		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("ok");
-		expect(exit.data.errorCount).toBe(0);
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		if (exit.data?.status !== "failed") throw new Error("expected failed result");
+		expect(exit.data.errorCount).toBe(1);
+		const failing = exit.data.checks.filter((check) => !check.isPassed);
+		expect(failing).toHaveLength(1);
+		expect(failing[0]?.label).toBe("objective.md Record Frontmatter parses");
+		const headingChecks = exit.data.checks.filter((check) => check.label.includes("##"));
+		expect(headingChecks.length).toBeGreaterThan(0);
+		expect(headingChecks.every((check) => check.isPassed)).toBe(true);
 	});
 
 	test("closure heading lint for closed records reads the frontmatter-stripped body", async () => {
@@ -115,6 +137,52 @@ describe("objective check with Record Frontmatter", () => {
 						roadmapMd: ROADMAP_MD,
 						isClosed: true,
 					},
+					MIRROR_COUNTERPART,
+				],
+			}),
+			{ slug: "alpha" },
+		);
+
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		if (exit.data.status !== "ok") throw new Error("expected ok result");
+		const closureCheck = exit.data.checks.find((check) =>
+			check.label.includes("## Closure for closed Objective"),
+		);
+		expect(closureCheck?.isPassed).toBe(true);
+	});
+
+	test("per-slug check reports a dangling edge endpoint as an error", async () => {
+		const exit = await runCheckObjective(
+			contextWithFakeStorage({
+				records: [
+					{
+						slug: "alpha",
+						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
+						roadmapMd: ROADMAP_MD,
+					},
+				],
+			}),
+			{ slug: "alpha" },
+		);
+
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		if (exit.data?.status !== "failed") throw new Error("expected failed result");
+		const failing = exit.data.checks.filter((check) => !check.isPassed);
+		expect(failing.map((check) => check.label)).toEqual([
+			"objective.md edge checkout-free-sdl-distribution endpoint exists",
+		]);
+	});
+
+	test("per-slug mirror lookup resolves an archived counterpart", async () => {
+		const exit = await runCheckObjective(
+			contextWithFakeStorage({
+				records: [
+					{
+						slug: "alpha",
+						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
+						roadmapMd: ROADMAP_MD,
+					},
+					{ ...MIRROR_COUNTERPART, isClosed: true, isArchived: true },
 				],
 			}),
 			{ slug: "alpha" },
@@ -122,10 +190,82 @@ describe("objective check with Record Frontmatter", () => {
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
 		expect(exit.data.status).toBe("ok");
-		const closureCheck = exit.data.checks.find((check) =>
-			check.label.includes("## Closure for closed Objective"),
+		expect(exit.data.errorCount).toBe(0);
+	});
+});
+
+describe("objective check --all edge sweep", () => {
+	test("rejects a slug combined with --all", async () => {
+		const exit = await runCheckObjective(
+			contextWithFakeStorage({
+				records: [{ slug: "alpha", objectiveMd: COMPLETE_OBJECTIVE_MD, roadmapMd: ROADMAP_MD }],
+			}),
+			{ slug: "alpha", all: true },
 		);
-		expect(closureCheck?.isPassed).toBe(true);
+
+		expect(exit.type).toBe("usageError");
+	});
+
+	test("sweep passes on mirrored records and records without frontmatter", async () => {
+		const exit = await runCheckObjective(
+			contextWithFakeStorage({
+				records: [
+					{
+						slug: "alpha",
+						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
+						roadmapMd: ROADMAP_MD,
+					},
+					MIRROR_COUNTERPART,
+					{ slug: "plain", objectiveMd: COMPLETE_OBJECTIVE_MD, roadmapMd: ROADMAP_MD },
+				],
+			}),
+			{ all: true },
+		);
+
+		if (exit.type !== "ok") throw new Error("expected ok exit");
+		expect(exit.data.status).toBe("sweep-ok");
+		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
+		expect(exit.data.recordCount).toBe(3);
+		expect(exit.data.violations).toEqual([]);
+	});
+
+	test("sweep covers archived records and aggregates violations", async () => {
+		const exit = await runCheckObjective(
+			contextWithFakeStorage({
+				records: [
+					{
+						slug: "alpha",
+						objectiveMd: `${FRONTMATTER}${COMPLETE_OBJECTIVE_MD}`,
+						roadmapMd: ROADMAP_MD,
+					},
+					{
+						slug: "archived-dangler",
+						objectiveMd: [
+							"---",
+							"edges:",
+							"  - objective: no-such-record",
+							"    annotation: Points nowhere.",
+							"---",
+							"",
+							COMPLETE_OBJECTIVE_MD,
+						].join("\n"),
+						roadmapMd: ROADMAP_MD,
+						isClosed: true,
+						isArchived: true,
+					},
+				],
+			}),
+			{ all: true },
+		);
+
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.data?.status).toBe("sweep-failed");
+		if (exit.data?.status !== "sweep-failed") throw new Error("expected sweep-failed result");
+		expect(exit.data.recordCount).toBe(2);
+		expect(exit.data.violations.map((item) => item.label)).toEqual([
+			"objective.md edge checkout-free-sdl-distribution endpoint exists",
+			"objective.md edge no-such-record endpoint exists",
+		]);
 	});
 });
 

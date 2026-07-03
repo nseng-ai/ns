@@ -4,7 +4,7 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-check: dprint-check ts-deps-check ts-format-check ts-lint ts-check js-test
+check: dprint-check ts-deps-check ts-format-check ts-lint ts-check js-test objective-check
 
 ci: check
 
@@ -119,6 +119,10 @@ _remove-stale-branch-context-bin:
 
 areg-check: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts check --path {{justfile_directory()}}
+
+# Repo-wide Objective edge/blocked structural sweep (Record Frontmatter linter).
+objective-check: ts-install
+    node {{justfile_directory()}}/ts/packages/kernel/src/cli/index.ts objective check --all
 
 refresh-skills: ts-install
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}

@@ -10,7 +10,7 @@
 			},
 			{
 				"name": "check",
-				"description": "Check one Objective record for required files and Markdown headings.",
+				"description": "Check one Objective record, or sweep all record edges with --all.",
 				"entry": "./src/commands/check.ts"
 			},
 			{

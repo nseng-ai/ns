@@ -130,8 +130,10 @@ Risks:
 
 ## Open Questions
 
-- Exact CLI spelling of the repo-wide sweep (`sdl objective check --all`, default no-slug
-  behavior, or a hidden `exec` helper for CI).
+- ~~Exact CLI spelling of the repo-wide sweep~~ Resolved by the linter slice:
+  `sdl objective check --all` (short `-a`), scoped to edge/blocked structural lint only —
+  a full-check sweep cannot gate CI while 41/120 legacy records fail old update-heading
+  lints; no-slug behavior is unchanged.
 - Glyph and styling for the blocked STATUS indicator in `sdl objective list`.
 - Whether any consumer needs frontmatter awareness beyond stripping (for example,
   `load-orientations` or Pi presentation surfaces).
