@@ -33,6 +33,7 @@ export interface InMemoryLandGitGatewayState {
 	readonly listLocalBranchesFailure?: LandingBoundaryFailure;
 	readonly localBranchExistsFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
 	readonly localBranchShaFailures?: Readonly<Record<string, LandingBoundaryFailure>>;
+	readonly snapshotBackupRefsFailure?: LandingBoundaryFailure;
 }
 
 export interface LandRepoRootCall {
@@ -51,6 +52,10 @@ export interface LandBranchContainsParentCall extends LandBranchCall {
 	readonly parent: string;
 }
 
+export interface LandSnapshotBackupRefsCall extends LandRepoCall {
+	readonly branches: readonly string[];
+}
+
 export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly repoRootState: ValueState<string>;
 	private readonly currentBranchState: ValueState<string>;
@@ -61,6 +66,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly listLocalBranchesFailure: LandingBoundaryFailure | undefined;
 	private readonly localBranchExistsFailures: ReadonlyMap<string, LandingBoundaryFailure>;
 	private readonly localBranchShaFailures: ReadonlyMap<string, LandingBoundaryFailure>;
+	private readonly snapshotBackupRefsFailure: LandingBoundaryFailure | undefined;
 	private readonly resolveRepoRootLog: LandRepoRootCall[] = [];
 	private readonly currentBranchLog: LandRepoCall[] = [];
 	private readonly workingTreeStatusLog: LandRepoCall[] = [];
@@ -68,6 +74,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 	private readonly localBranchShaLog: LandBranchCall[] = [];
 	private readonly listLocalBranchesLog: LandRepoCall[] = [];
 	private readonly branchContainsParentLog: LandBranchContainsParentCall[] = [];
+	private readonly snapshotBackupRefsLog: LandSnapshotBackupRefsCall[] = [];
 
 	constructor(state: InMemoryLandGitGatewayState = {}) {
 		this.repoRootState = state.repoRoot ?? "/repo";
@@ -89,6 +96,7 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 				copyBoundaryFailure(failure),
 			]),
 		);
+		this.snapshotBackupRefsFailure = copyOptionalBoundaryFailure(state.snapshotBackupRefsFailure);
 	}
 
 	get resolveRepoRootCalls(): readonly LandRepoRootCall[] {
@@ -117,6 +125,10 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 
 	get branchContainsParentCalls(): readonly LandBranchContainsParentCall[] {
 		return this.branchContainsParentLog.map(copyBranchContainsParentCall);
+	}
+
+	get snapshotBackupRefsCalls(): readonly LandSnapshotBackupRefsCall[] {
+		return this.snapshotBackupRefsLog.map(copySnapshotBackupRefsCall);
 	}
 
 	async resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>> {
@@ -228,6 +240,37 @@ export class InMemoryLandGitGateway implements LandGitGateway {
 				this.branchContainsParents.get(branchPairKey(request.branch, request.parent)) ??
 				this.shouldDefaultBranchContainParent,
 		};
+	}
+
+	async snapshotBackupRefs(request: {
+		readonly repoRoot: string;
+		readonly branches: readonly string[];
+	}): Promise<LandResult<ReadonlyMap<string, string>>> {
+		this.snapshotBackupRefsLog.push({
+			repoRoot: request.repoRoot,
+			branches: [...request.branches],
+		});
+		if (this.snapshotBackupRefsFailure !== undefined) {
+			return { type: "failure", failure: copyBoundaryFailure(this.snapshotBackupRefsFailure) };
+		}
+
+		const shas = new Map<string, string>();
+		for (const branch of request.branches) {
+			const sha = this.branches.get(branch);
+			if (sha === undefined) {
+				return {
+					type: "failure",
+					failure: boundaryFailure({
+						source: "git",
+						phase: "merge",
+						code: "backup_ref_snapshot_branch_failed",
+						message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.`,
+					}),
+				};
+			}
+			shas.set(branch, sha);
+		}
+		return { type: "success", value: shas };
 	}
 }
 
@@ -769,6 +812,10 @@ function copyBranchContainsParentCall(
 	call: LandBranchContainsParentCall,
 ): LandBranchContainsParentCall {
 	return { repoRoot: call.repoRoot, branch: call.branch, parent: call.parent };
+}
+
+function copySnapshotBackupRefsCall(call: LandSnapshotBackupRefsCall): LandSnapshotBackupRefsCall {
+	return { repoRoot: call.repoRoot, branches: [...call.branches] };
 }
 
 function copyStackShapeCall(call: LandStackShapeCall): LandStackShapeCall {

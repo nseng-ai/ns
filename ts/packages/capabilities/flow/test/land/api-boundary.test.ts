@@ -159,6 +159,7 @@ describe("sdl-flow/land API boundary", () => {
 					localBranchSha: async () => landSuccess("aaaaaaaa"),
 					listLocalBranches: async () => landSuccess([]),
 					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
+					snapshotBackupRefs: async () => landSuccess(new Map()),
 				},
 				graphite: {
 					trunk: async () => landSuccess("main"),

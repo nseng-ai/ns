@@ -9,7 +9,12 @@ import type {
 	WorktreeClassification,
 } from "../api.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
-import { GH_MERGE_TIMEOUT_MS, GIT_TIMEOUT_MS } from "./constants.ts";
+import {
+	BACKUP_REF_NAMESPACE,
+	BACKUP_REF_PREV_NAMESPACE,
+	GH_MERGE_TIMEOUT_MS,
+	GIT_TIMEOUT_MS,
+} from "./constants.ts";
 import { failure, landStackFailure, success, type LandStackResult } from "./errors.ts";
 import { resolveMetadataDbPath } from "./graphite-topology.ts";
 import {
@@ -56,6 +61,8 @@ export function createLandContext(
 			listLocalBranches: async ({ repoRoot }) => loadLocalBranches(pi, repoRoot),
 			branchContainsParent: async ({ repoRoot, branch, parent }) =>
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
+			snapshotBackupRefs: async ({ repoRoot, branches }) =>
+				snapshotBackupRefs({ pi, repoRoot, branches }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
@@ -188,6 +195,147 @@ async function loadBranchContainsParent(
 	options: LoadBranchContainsParentOptions,
 ): Promise<LandResult<boolean>> {
 	return toLandResult(await inspectBranchContainsParent(options), "git");
+}
+
+interface SnapshotBackupRefsOptions {
+	readonly pi: LandStackExtensionAPI;
+	readonly repoRoot: string;
+	readonly branches: readonly string[];
+}
+
+async function snapshotBackupRefs(
+	options: SnapshotBackupRefsOptions,
+): Promise<LandResult<ReadonlyMap<string, string>>> {
+	const rotate = await rotateBackupRefsToPrevious(options);
+	if (rotate !== undefined) return landFailure(rotate);
+
+	const pruneCurrent = await pruneBackupNamespace({
+		...options,
+		namespace: BACKUP_REF_NAMESPACE,
+		description: "current pre-land backup refs",
+	});
+	if (pruneCurrent !== undefined) return landFailure(pruneCurrent);
+
+	const shas = new Map<string, string>();
+	for (const branch of options.branches) {
+		const sha = await loadLocalSha(options.pi, options.repoRoot, branch);
+		if (sha.type === "failure") {
+			return landFailure({
+				type: "boundary",
+				phase: "merge",
+				source: "git",
+				code: "backup_ref_snapshot_branch_failed",
+				message: `Could not snapshot local branch ${branch} for pre-land backup refs; no PRs were landed.\n${sha.failure.message}`,
+			});
+		}
+		const ref = `${BACKUP_REF_NAMESPACE}/${branch}`;
+		const args = ["update-ref", ref, sha.value];
+		const updated = await exec({
+			pi: options.pi,
+			command: "git",
+			args,
+			cwd: options.repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
+		if (updated.code !== 0) {
+			const commandDisplay = formatCommand("git", args);
+			return landFailure({
+				type: "boundary",
+				phase: "merge",
+				source: "git",
+				code: "backup_ref_write_failed",
+				message: `Could not write pre-land backup ref ${ref}; no PRs were landed.\n${formatCommandDetails(updated, commandDisplay)}`,
+				displayCommand: commandDisplay,
+			});
+		}
+		shas.set(branch, sha.value);
+	}
+	return landSuccess(shas);
+}
+
+async function rotateBackupRefsToPrevious(
+	options: SnapshotBackupRefsOptions,
+): Promise<LandingFailure | undefined> {
+	const args = [
+		"fetch",
+		"--quiet",
+		"--prune",
+		"--no-tags",
+		".",
+		`+${BACKUP_REF_NAMESPACE}/*:${BACKUP_REF_PREV_NAMESPACE}/*`,
+	];
+	const rotated = await exec({
+		pi: options.pi,
+		command: "git",
+		args,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
+	if (rotated.code === 0) return undefined;
+
+	const commandDisplay = formatCommand("git", args);
+	return {
+		type: "boundary",
+		phase: "merge",
+		source: "git",
+		code: "backup_ref_rotation_failed",
+		message: `Could not rotate current pre-land backup refs to previous; no PRs were landed.\n${formatCommandDetails(rotated, commandDisplay)}`,
+		displayCommand: commandDisplay,
+	};
+}
+
+interface PruneBackupNamespaceOptions extends SnapshotBackupRefsOptions {
+	readonly namespace: string;
+	readonly description: string;
+}
+
+async function pruneBackupNamespace(
+	options: PruneBackupNamespaceOptions,
+): Promise<LandingFailure | undefined> {
+	const listArgs = ["for-each-ref", "--format=%(refname)", options.namespace];
+	const refs = await exec({
+		pi: options.pi,
+		command: "git",
+		args: listArgs,
+		cwd: options.repoRoot,
+		timeoutMs: GIT_TIMEOUT_MS,
+	});
+	if (refs.code !== 0) {
+		const commandDisplay = formatCommand("git", listArgs);
+		return {
+			type: "boundary",
+			phase: "merge",
+			source: "git",
+			code: "backup_ref_prune_list_failed",
+			message: `Could not list ${options.description} for pruning; no PRs were landed.\n${formatCommandDetails(refs, commandDisplay)}`,
+			displayCommand: commandDisplay,
+		};
+	}
+	for (const ref of refs.stdout
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean)) {
+		const deleteArgs = ["update-ref", "-d", ref];
+		const deleted = await exec({
+			pi: options.pi,
+			command: "git",
+			args: deleteArgs,
+			cwd: options.repoRoot,
+			timeoutMs: GIT_TIMEOUT_MS,
+		});
+		if (deleted.code !== 0) {
+			const commandDisplay = formatCommand("git", deleteArgs);
+			return {
+				type: "boundary",
+				phase: "merge",
+				source: "git",
+				code: "backup_ref_delete_failed",
+				message: `Could not delete ${options.description} ${ref}; no PRs were landed.\n${formatCommandDetails(deleted, commandDisplay)}`,
+				displayCommand: commandDisplay,
+			};
+		}
+	}
+	return undefined;
 }
 
 async function inspectBranchContainsParent(
