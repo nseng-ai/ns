@@ -1,4 +1,7 @@
-import { SKILL_LOOKUP_ROOT_DESCRIPTORS } from "@sdl/pi/skills/lookup";
+import {
+	SKILL_LOOKUP_ROOT_DESCRIPTORS,
+	skillLookupDescriptorForSourceType,
+} from "@sdl/pi/skills/lookup";
 import type {
 	SkillLookupRoot,
 	SkillLookupRootDescriptor,
@@ -151,10 +154,10 @@ export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = SKILL_LOOKUP_ROOT_DESCRIPTORS.fi
 export function skillKindDescriptorForSourceType(
 	sourceType: AregSkillKindSourceType,
 ): AregSkillKindRootDescriptor {
-	const descriptor = AREG_SKILL_KIND_ROOT_DESCRIPTORS.find(
-		(candidate) => candidate.sourceType === sourceType,
-	);
-	if (descriptor === undefined) throw new Error(`Unknown skill-kind source type: ${sourceType}`);
+	const descriptor = skillLookupDescriptorForSourceType(sourceType);
+	if (descriptor.sourceType !== "repo" && descriptor.sourceType !== "vendored") {
+		throw new Error(`Unknown skill-kind source type: ${sourceType}`);
+	}
 	return descriptor;
 }
 

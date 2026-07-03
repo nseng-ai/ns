@@ -267,7 +267,6 @@ describe("real areg gateways", () => {
 			});
 			expect(findRoots.skills).toMatchObject([
 				{ name: "demo", root: "skills", sourceType: "repo" },
-				{ name: "demo", root: ".agents/skills", sourceType: "vendored" },
 				{ name: "vendored", root: ".agents/skills", sourceType: "vendored" },
 				{ name: "claude-only", root: ".claude/skills", sourceType: "claude" },
 			]);

@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@sdl/core/test-kit";
-
 import {
 	buildHandoffLaunchRequest,
 	runHandoffCreateCommand,
@@ -14,7 +12,7 @@ import {
 	branchStep,
 	createContext,
 	skillCommandInfo,
-	HANDOFF_CREATE_SKILL_MARKDOWN,
+	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
 
 const START_MESSAGES = {
@@ -48,37 +46,30 @@ describe("handoff launch flow helpers", () => {
 	});
 
 	test("runHandoffCreateCommand prepares and sends the standard launch prompt", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "handoff-create",
-				markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
-				prefix: "handoff-create-skill-",
-			},
-			async ({ skillPath, repoDir }) => {
-				const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
-				const context = createContext({ cwd: repoDir });
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			const context = createContext({ cwd: repoDir });
 
-				await runHandoffCreateCommand(pi, "  finish the widget  ", context.ctx, {
-					statusKey: "handoff:test",
-					promptCopy: PROMPT_COPY,
-					startMessages: START_MESSAGES,
-				});
+			await runHandoffCreateCommand(pi, "  finish the widget  ", context.ctx, {
+				statusKey: "handoff:test",
+				promptCopy: PROMPT_COPY,
+				startMessages: START_MESSAGES,
+			});
 
-				pi.assertDone();
-				expect(context.waitForIdleCalls()).toBe(1);
-				expect(context.notifications).toEqual([
-					{ message: "Starting test handoff flow…", level: "info" },
-				]);
-				expect(pi.sentUserMessages).toHaveLength(1);
-				const prompt = pi.sentUserMessages[0] ?? "";
-				expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
-				expect(prompt).toContain("This is a /handoff:test request.");
-				expect(prompt).toContain("finish the widget");
-				expect(prompt).toContain(`- Branch: ${BRANCH}`);
-				expect(prompt).toContain("After `sdl handoff create` succeeds, call handoff_test_launch");
-				expect(prompt).toContain(`test launch ${BRANCH}`);
-			},
-		);
+			pi.assertDone();
+			expect(context.waitForIdleCalls()).toBe(1);
+			expect(context.notifications).toEqual([
+				{ message: "Starting test handoff flow…", level: "info" },
+			]);
+			expect(pi.sentUserMessages).toHaveLength(1);
+			const prompt = pi.sentUserMessages[0] ?? "";
+			expect(prompt).toContain(`<skill name="handoff-create" location="${skillPath}">`);
+			expect(prompt).toContain("This is a /handoff:test request.");
+			expect(prompt).toContain("finish the widget");
+			expect(prompt).toContain(`- Branch: ${BRANCH}`);
+			expect(prompt).toContain("After `sdl handoff create` succeeds, call handoff_test_launch");
+			expect(prompt).toContain(`test launch ${BRANCH}`);
+		});
 	});
 
 	test("createHandoffStartMessage formats skill fallback states", () => {

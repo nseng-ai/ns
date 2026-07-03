@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { ScriptedQueue, withTempRepoSkill } from "@sdl/core/test-kit";
+import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@sdl/core/test-kit";
 import type {
 	ObjectiveClient,
 	ObjectiveListResult,
@@ -260,6 +260,17 @@ hidden-frontmatter-token: do-not-include
 
 Use the selected Objective.
 `;
+
+function withStackImplSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Promise<T> {
+	return withTempRepoSkill(
+		{
+			skillName: "objective-stack-impl",
+			markdown: STACK_SKILL_MARKDOWN,
+			prefix: "objective-stack-impl-",
+		},
+		callback,
+	);
+}
 
 function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
 	return {
@@ -598,40 +609,33 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-stack-impl",
-				markdown: STACK_SKILL_MARKDOWN,
-				prefix: "objective-stack-impl-",
-			},
-			async ({ skillPath, skillDir }) => {
-				const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
-					skillCommandInfo("objective-stack-impl", skillPath, skillDir),
-				]);
+		await withStackImplSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveStackImpl("  bravo  ", [], {}, [
+				skillCommandInfo("objective-stack-impl", skillPath, skillDir),
+			]);
 
-				result.pi.assertDone();
-				expect(result.pi.execCalls).toEqual([]);
-				expect(result.selections).toEqual([]);
-				expect(result.waitForIdleCalls()).toBe(1);
-				expect(result.pi.sentUserMessages).toHaveLength(1);
-				expect(result.pi.sentUserMessages[0]).toContain(
-					`<skill name="objective-stack-impl" location="${skillPath}">`,
-				);
-				expect(result.pi.sentUserMessages[0]).toContain(
-					"# Test Objective Stack Skill\n\nUse the selected Objective.",
-				);
-				expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
-				expect(result.pi.sentUserMessages[0]).toContain(
-					"Run objective-stack-impl for this explicitly selected Objective slug or path:",
-				);
-				expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-				expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
-				expect(result.notifications).toContainEqual({
-					message: "Invoking objective-stack-impl for bravo.",
-					level: "info",
-				});
-			},
-		);
+			result.pi.assertDone();
+			expect(result.pi.execCalls).toEqual([]);
+			expect(result.selections).toEqual([]);
+			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.pi.sentUserMessages).toHaveLength(1);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				`<skill name="objective-stack-impl" location="${skillPath}">`,
+			);
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"# Test Objective Stack Skill\n\nUse the selected Objective.",
+			);
+			expect(result.pi.sentUserMessages[0]).not.toContain("hidden-frontmatter-token");
+			expect(result.pi.sentUserMessages[0]).toContain(
+				"Run objective-stack-impl for this explicitly selected Objective slug or path:",
+			);
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+			expect(result.pi.sentUserMessages[0]?.startsWith("/objective:stack-impl")).toBe(false);
+			expect(result.notifications).toContainEqual({
+				message: "Invoking objective-stack-impl for bravo.",
+				level: "info",
+			});
+		});
 	});
 
 	test("explicit slug falls back when the portable skill is unavailable", async () => {
@@ -650,101 +654,80 @@ describe("objective:stack-impl command", () => {
 	});
 
 	test("empty args load active candidates with objective list json and git evidence", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-stack-impl",
-				markdown: STACK_SKILL_MARKDOWN,
-				prefix: "objective-stack-impl-",
-			},
-			async ({ skillPath, skillDir }) => {
-				const result = await runObjectiveStackImpl(
-					"",
-					[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-					{},
-					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-				);
+		await withStackImplSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+				{},
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+			);
 
-				result.pi.assertDone();
-				expectNoObjectiveListExec(result);
-				expect(result.pi.execCalls[0]).toEqual({
-					command: "git",
-					args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
-					options: { cwd: ROOT, timeout: 30_000 },
-				});
-				expect(result.pi.execCalls[1]).toEqual({
-					command: "git",
-					args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
-					options: { cwd: ROOT, timeout: 30_000 },
-				});
-				expect(result.waitForIdleCalls()).toBe(2);
-				expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
-			},
-		);
+			result.pi.assertDone();
+			expectNoObjectiveListExec(result);
+			expect(result.pi.execCalls[0]).toEqual({
+				command: "git",
+				args: ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"],
+				options: { cwd: ROOT, timeout: 30_000 },
+			});
+			expect(result.pi.execCalls[1]).toEqual({
+				command: "git",
+				args: ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"],
+				options: { cwd: ROOT, timeout: 30_000 },
+			});
+			expect(result.waitForIdleCalls()).toBe(2);
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nalpha\n```");
+		});
 	});
 
 	test("changed Objective grouping matches objective-next", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-stack-impl",
-				markdown: STACK_SKILL_MARKDOWN,
-				prefix: "objective-stack-impl-",
-			},
-			async ({ skillPath, skillDir }) => {
-				const result = await runObjectiveStackImpl(
-					"",
-					[
-						listStep(["alpha", "bravo", "charlie"]),
-						diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
-						statusStep(""),
-					],
-					{},
-					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-				);
+		await withStackImplSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[
+					listStep(["alpha", "bravo", "charlie"]),
+					diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
+					statusStep(""),
+				],
+				{},
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+			);
 
-				result.pi.assertDone();
-				expect(result.selections[0]).toEqual({
-					title:
-						"Select an active Objective for stack implementation (only Objective changed vs master)",
-					items: [
-						"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
-						"View other active Objectives…",
-					],
-				});
-				expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
-			},
-		);
+			result.pi.assertDone();
+			expect(result.selections[0]).toEqual({
+				title:
+					"Select an active Objective for stack implementation (only Objective changed vs master)",
+				items: [
+					"bravo — suggested: only Objective changed vs master — open — latest update 2026-01-02T00:00:00Z",
+					"View other active Objectives…",
+				],
+			});
+			expect(result.pi.sentUserMessages[0]).toContain("```text\nbravo\n```");
+		});
 	});
 
 	test("View other active Objectives opens a second picker and sends the selected other slug", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-stack-impl",
-				markdown: STACK_SKILL_MARKDOWN,
-				prefix: "objective-stack-impl-",
-			},
-			async ({ skillPath, skillDir }) => {
-				const result = await runObjectiveStackImpl(
-					"",
-					[
-						listStep(["alpha", "bravo", "charlie"]),
-						diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
-						statusStep(""),
-					],
-					{ selectIndices: [1, 1] },
-					[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
-				);
+		await withStackImplSkill(async ({ skillPath, skillDir }) => {
+			const result = await runObjectiveStackImpl(
+				"",
+				[
+					listStep(["alpha", "bravo", "charlie"]),
+					diffStep("M\t.sdl/objectives/bravo/objective.md\n"),
+					statusStep(""),
+				],
+				{ selectIndices: [1, 1] },
+				[skillCommandInfo("objective-stack-impl", skillPath, skillDir)],
+			);
 
-				result.pi.assertDone();
-				expect(result.selections[1]).toEqual({
-					title: "Select an active Objective for stack implementation (other active Objectives)",
-					items: [
-						"alpha — open — latest update 2026-01-01T00:00:00Z",
-						"charlie — open — latest update 2026-01-03T00:00:00Z",
-					],
-				});
-				expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
-			},
-		);
+			result.pi.assertDone();
+			expect(result.selections[1]).toEqual({
+				title: "Select an active Objective for stack implementation (other active Objectives)",
+				items: [
+					"alpha — open — latest update 2026-01-01T00:00:00Z",
+					"charlie — open — latest update 2026-01-03T00:00:00Z",
+				],
+			});
+			expect(result.pi.sentUserMessages[0]).toContain("```text\ncharlie\n```");
+		});
 	});
 
 	test("picker cancellation sends no prompt", async () => {

@@ -11,6 +11,7 @@ import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForSourceType,
+	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
 } from "@sdl/pi/skills/lookup";
 
@@ -32,6 +33,7 @@ import type {
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
 	AregSkillKindSkillInspection,
+	AregTextFileState,
 } from "../gateways.ts";
 import { sortStrings } from "../sort.ts";
 import { errorInfo } from "./errors.ts";
@@ -339,8 +341,12 @@ async function inspectCheckSkill(
 		projectDir,
 		skillLookupBaseRelativePath(vendoredDescriptor.root, name),
 	);
-	const localSkillMd = await inspectTextFile(path.join(repoBase, "SKILL.md"));
-	const remoteSkillMd = await inspectTextFile(path.join(vendoredBase, "SKILL.md"));
+	const localSkillMd = await inspectTextFile(
+		toProjectPath(projectDir, skillLookupFileRelativePath(repoDescriptor.root, name)),
+	);
+	const remoteSkillMd = await inspectTextFile(
+		toProjectPath(projectDir, skillLookupFileRelativePath(vendoredDescriptor.root, name)),
+	);
 	const policyRoot = localSkillMd.type === "file" ? repoDescriptor.root : vendoredDescriptor.root;
 	return {
 		name,
@@ -364,7 +370,9 @@ async function listPiRepoFallbackSkillNames(projectDir: string): Promise<string[
 	return collectSortedUniqueNames(
 		await Promise.all(
 			AREG_SKILL_KIND_ROOT_DESCRIPTORS.map((descriptor) =>
-				listSkillsWithSkillMd(toProjectPath(projectDir, descriptor.root)),
+				listSkillsWithSkillMd(toProjectPath(projectDir, descriptor.root), {
+					includeSymlinks: descriptor.sourceType !== "vendored",
+				}),
 			),
 		),
 	);
@@ -389,74 +397,98 @@ function collectSortedUniqueNames(namesByRoot: readonly (readonly string[])[]): 
 async function listFirstPartySkillKindNames(projectDir: string): Promise<string[]> {
 	const descriptor = skillKindDescriptorForSourceType("repo");
 	const skillsRoot = toProjectPath(projectDir, descriptor.root);
-	return await scanSkillDirectoryNames(skillsRoot, {
-		keepEntry: async (entry) => {
-			const skillMd = await inspectPath(path.join(skillsRoot, entry.name, "SKILL.md"));
-			return entry.isDirectory() || entry.isSymbolicLink() || skillMd.type !== "missing";
-		},
-	});
+	return (
+		await scanSkillRootEntries(skillsRoot, {
+			includeSymlinks: true,
+			keepEntry: (entry) =>
+				entry.dirent.isDirectory() ||
+				entry.dirent.isSymbolicLink() ||
+				entry.skillMd.type !== "missing",
+		})
+	).map((entry) => entry.name);
 }
 
-async function listSkillsWithSkillMd(root: string): Promise<string[]> {
-	return await scanSkillDirectoryNames(root, {
-		keepEntry: async (entry) =>
-			(await inspectTextFile(path.join(root, entry.name, "SKILL.md"))).type === "file",
-	});
+async function listSkillsWithSkillMd(
+	root: string,
+	options: ScanSkillRootOptions,
+): Promise<string[]> {
+	return (
+		await scanSkillRootEntries(root, {
+			...options,
+			keepEntry: (entry) => entry.skillMd.type === "file",
+		})
+	).map((entry) => entry.name);
 }
 
 async function listVendoredSkillKindNames(projectDir: string): Promise<string[]> {
 	const descriptor = skillKindDescriptorForSourceType("vendored");
 	const agentsRoot = toProjectPath(projectDir, descriptor.root);
-	return await scanSkillDirectoryNames(agentsRoot, {
-		keepEntry: async (entry) => {
-			if (entry.isSymbolicLink()) return false;
-			const skillMd = await inspectPath(path.join(agentsRoot, entry.name, "SKILL.md"));
-			return entry.isDirectory() || skillMd.type !== "missing";
-		},
-	});
+	return (
+		await scanSkillRootEntries(agentsRoot, {
+			includeSymlinks: false,
+			keepEntry: (entry) => entry.dirent.isDirectory() || entry.skillMd.type !== "missing",
+		})
+	).map((entry) => entry.name);
 }
 
 async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
 	const skills: AregSkillFindSkillInspection[] = [];
 	for (const root of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
 		const rootPath = toProjectPath(projectDir, root.root);
-		const names = await scanSkillDirectoryNames(rootPath, {
-			keepEntry: async (entry) =>
-				(entry.isDirectory() || entry.isSymbolicLink()) &&
-				(await inspectTextFile(path.join(rootPath, entry.name, "SKILL.md"))).type === "file",
+		const entries = await scanSkillRootEntries(rootPath, {
+			includeSymlinks: root.sourceType !== "vendored",
+			keepEntry: (entry) =>
+				(entry.dirent.isDirectory() || entry.dirent.isSymbolicLink()) &&
+				entry.skillMd.type === "file",
 		});
-		for (const name of names) {
-			const baseRelativePath = skillLookupBaseRelativePath(root.root, name);
-			const basePath = path.join(rootPath, name);
+		for (const entry of entries) {
+			const baseRelativePath = skillLookupBaseRelativePath(root.root, entry.name);
+			const basePath = path.join(rootPath, entry.name);
 			skills.push({
-				name,
+				name: entry.name,
 				root: root.root,
 				sourceType: root.sourceType,
 				baseRelativePath,
 				skillDir: await inspectPath(basePath),
-				skillMd: await inspectTextFile(path.join(basePath, "SKILL.md")),
+				skillMd: entry.skillMd,
 			});
 		}
 	}
 	return skills;
 }
 
-async function scanSkillDirectoryNames(
+interface ScanSkillRootOptions {
+	includeSymlinks: boolean;
+}
+
+interface ScannedSkillRootEntry {
+	name: string;
+	dirent: Dirent;
+	skillMd: AregTextFileState;
+}
+
+async function scanSkillRootEntries(
 	root: string,
-	options: {
-		keepEntry: (entry: Dirent) => Promise<boolean>;
+	options: ScanSkillRootOptions & {
+		keepEntry: (entry: ScannedSkillRootEntry) => boolean;
 	},
-): Promise<string[]> {
+): Promise<ScannedSkillRootEntry[]> {
 	try {
 		const rootInfo = await lstat(root);
 		if (!rootInfo.isDirectory()) return [];
-		const entries = await readdir(root, { withFileTypes: true });
-		const names: string[] = [];
-		for (const entry of entries) {
-			if (entry.name === ".DS_Store") continue;
-			if (await options.keepEntry(entry)) names.push(entry.name);
+		const dirents = await readdir(root, { withFileTypes: true });
+		const entries: ScannedSkillRootEntry[] = [];
+		for (const dirent of dirents) {
+			if (dirent.name === ".DS_Store") continue;
+			if (!options.includeSymlinks && dirent.isSymbolicLink()) continue;
+			const entry = {
+				name: dirent.name,
+				dirent,
+				skillMd: await inspectTextFile(path.join(root, dirent.name, "SKILL.md")),
+			};
+			if (options.keepEntry(entry)) entries.push(entry);
 		}
-		return names;
+		return entries;
 	} catch {
 		// Skill root inventory is best-effort: absent or unreadable roots behave like empty
 		// roots so diagnostics can continue from the remaining registry sources.
@@ -474,7 +506,9 @@ async function inspectSkillKindSkill(
 		skillLookupBaseRelativePath(repoDescriptor.root, name),
 	);
 	const repoDir = await inspectPath(repoBase);
-	const repoSkillMd = await inspectTextFile(path.join(repoBase, "SKILL.md"));
+	const repoSkillMd = await inspectTextFile(
+		toProjectPath(projectDir, skillLookupFileRelativePath(repoDescriptor.root, name)),
+	);
 	if (repoDir.type !== "missing" || repoSkillMd.type !== "missing") {
 		return {
 			name,
@@ -495,7 +529,9 @@ async function inspectSkillKindSkill(
 		sourceType: vendoredDescriptor.sourceType,
 		baseRelativePath: skillLookupBaseRelativePath(vendoredDescriptor.root, name),
 		skillDir: await inspectPath(vendoredBase),
-		skillMd: await inspectTextFile(path.join(vendoredBase, "SKILL.md")),
+		skillMd: await inspectTextFile(
+			toProjectPath(projectDir, skillLookupFileRelativePath(vendoredDescriptor.root, name)),
+		),
 		openaiPolicy: await inspectTextFile(path.join(vendoredBase, "agents", "openai.yaml")),
 	};
 }

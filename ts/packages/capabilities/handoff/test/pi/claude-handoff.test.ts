@@ -1,7 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@sdl/core/test-kit";
-
 import {
 	CLAUDE_HANDOFF_COMMAND_NAME,
 	CLAUDE_HANDOFF_LAUNCH_TOOL_NAME,
@@ -25,7 +23,7 @@ import {
 	getRegisteredTool,
 	skillCommandInfo,
 	step,
-	HANDOFF_CREATE_SKILL_MARKDOWN,
+	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
 
 interface FakeRunClaude {
@@ -92,41 +90,34 @@ describe("claude handoff command", () => {
 	});
 
 	test("command prompts the current Pi session to create the handoff before launching Claude", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "handoff-create",
-				markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
-				prefix: "handoff-create-skill-",
-			},
-			async ({ skillPath, repoDir }) => {
-				const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
-				registerTestCommand(pi);
-				const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
-				const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
+		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
+			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			registerTestCommand(pi);
+			const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
-				await command.handler("handoff the auth work", context.ctx);
+			await command.handler("handoff the auth work", context.ctx);
 
-				pi.assertDone();
-				expect(context.waitForIdleCalls()).toBe(1);
-				expect(context.tuiEvents).toEqual([]);
-				expect(context.notifications).toEqual([
-					{ message: "Starting Claude handoff create workflow…", level: "info" },
-				]);
-				expect(pi.sentUserMessages).toHaveLength(1);
-				expect(pi.sentUserMessages[0]).toContain(
-					`<skill name="handoff-create" location="${skillPath}">`,
-				);
-				expect(pi.sentUserMessages[0]).toContain(
-					"Create a directed handoff artifact for the current Pi session before launching Claude Code",
-				);
-				expect(pi.sentUserMessages[0]).toContain("```text\nhandoff the auth work\n```");
-				expect(pi.sentUserMessages[0]).toContain(`--branch ${BRANCH}`);
-				expect(pi.sentUserMessages[0]).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
-				expect(pi.sentUserMessages[0]).toContain(
-					"Do not call claude_handoff_launch before the handoff is saved successfully.",
-				);
-			},
-		);
+			pi.assertDone();
+			expect(context.waitForIdleCalls()).toBe(1);
+			expect(context.tuiEvents).toEqual([]);
+			expect(context.notifications).toEqual([
+				{ message: "Starting Claude handoff create workflow…", level: "info" },
+			]);
+			expect(pi.sentUserMessages).toHaveLength(1);
+			expect(pi.sentUserMessages[0]).toContain(
+				`<skill name="handoff-create" location="${skillPath}">`,
+			);
+			expect(pi.sentUserMessages[0]).toContain(
+				"Create a directed handoff artifact for the current Pi session before launching Claude Code",
+			);
+			expect(pi.sentUserMessages[0]).toContain("```text\nhandoff the auth work\n```");
+			expect(pi.sentUserMessages[0]).toContain(`--branch ${BRANCH}`);
+			expect(pi.sentUserMessages[0]).toContain(CLAUDE_HANDOFF_LAUNCH_TOOL_NAME);
+			expect(pi.sentUserMessages[0]).toContain(
+				"Do not call claude_handoff_launch before the handoff is saved successfully.",
+			);
+		});
 	});
 
 	test("command prompts for focus when args are empty", async () => {

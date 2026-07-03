@@ -1,5 +1,5 @@
 import { encodeBranchName } from "@sdl/brmem";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { ScriptedQueue, withTempRepoSkill, type TempRepoSkill } from "@sdl/core/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
@@ -553,6 +553,19 @@ function listEntriesSteps(entries: Array<{ key: string; branch: string }>): Scri
 }
 
 export const HANDOFF_CREATE_SKILL_MARKDOWN = `---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`;
+
+export function withHandoffCreateSkill<T>(
+	callback: (skill: TempRepoSkill) => Promise<T>,
+): Promise<T> {
+	return withTempRepoSkill(
+		{
+			skillName: "handoff-create",
+			markdown: HANDOFF_CREATE_SKILL_MARKDOWN,
+			prefix: "handoff-create-skill-",
+		},
+		callback,
+	);
+}
 
 export function skillCommandInfo(skillPath: string): CommandInfo {
 	return {
