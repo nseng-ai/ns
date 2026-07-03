@@ -10,6 +10,7 @@ import {
 	BAN_AS_UNKNOWN_AS,
 	BAN_CAPABILITY_PRIVATE_PEER_IMPORT,
 	BAN_EMPTY_INTERFACE_EXTENDS,
+	BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
 	BAN_EXTENSION_DEPENDENCY_CYCLE,
 	BAN_IMPORT_ALIAS_FOR_FIRST_PARTY,
 	BAN_LOCAL_SPACE_ADMISSION,
@@ -27,9 +28,11 @@ import {
 	type PackageTier,
 } from "../support/typescript-style-guard/config.ts";
 import { collectExtensionDependencyCycleViolations } from "../support/typescript-style-guard/dependency-graph.ts";
+import { collectExportsSubpackageConformanceViolations } from "../support/typescript-style-guard/exports-subpackage-conformance.ts";
 import { findTypeScriptSourceFiles } from "../support/typescript-style-guard/file-discovery.ts";
 import { collectLocalSpaceAdmissionViolations } from "../support/typescript-style-guard/local-space.ts";
 import {
+	collectExportSubpaths,
 	loadPackageMetadata,
 	type PackageManifest,
 	type PackageMetadata,
@@ -1026,6 +1029,97 @@ describe("TypeScript style guard subpackage declaration conformance", () => {
 	});
 });
 
+describe("TypeScript style guard exports subpackage conformance", () => {
+	test("rejects an exports target that escapes declared subpackages", () => {
+		const metadataByName = buildSyntheticSubpackageMetadata({
+			packageDir: "synthetic/core",
+			subpackages: ["api", "sdl"],
+			remainder: false,
+			exports: {
+				"./api": "./src/api/index.ts",
+				"./leak": "./src/operations/leak.ts",
+			},
+		});
+
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: metadataByName,
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([
+			BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
+		]);
+		expect(violations[0]?.path).toBe("synthetic/core/package.json");
+		expect(violations[0]?.text).toContain("./src/operations/leak.ts");
+	});
+
+	test("rejects an escaping string leaf inside a conditions object", () => {
+		const metadataByName = buildSyntheticSubpackageMetadata({
+			packageDir: "synthetic/core",
+			subpackages: ["api"],
+			remainder: false,
+			exports: {
+				"./x": {
+					types: "./src/api/x.d.ts",
+					import: "./src/shared/x.ts",
+				},
+			},
+		});
+
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: metadataByName,
+		});
+
+		expect(violations.map((violation) => violation.rule)).toEqual([
+			BAN_EXPORTS_SUBPACKAGE_CONFORMANCE,
+		]);
+		expect(violations[0]?.text).toContain("./src/shared/x.ts");
+	});
+
+	test("allows targets that all resolve inside declared subpackages", () => {
+		const metadataByName = buildSyntheticSubpackageMetadata({
+			packageDir: "synthetic/core",
+			subpackages: ["api", "sdl", "land"],
+			remainder: false,
+			exports: {
+				"./api": "./src/api/index.ts",
+				"./commands/land": "./src/sdl/commands/land.ts",
+				"./land/api": "./src/land/api.ts",
+			},
+		});
+
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: metadataByName,
+		});
+
+		expect(violations).toEqual([]);
+	});
+
+	test("allows escaping targets when a remainder is declared", () => {
+		const metadataByName = buildSyntheticSubpackageMetadata({
+			packageDir: "synthetic/core",
+			subpackages: ["api"],
+			remainder: true,
+			exports: {
+				"./leak": "./src/operations/leak.ts",
+			},
+		});
+
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: metadataByName,
+		});
+
+		expect(violations).toEqual([]);
+	});
+
+	test("real repo exports maps resolve inside declared subpackages", () => {
+		const violations = collectExportsSubpackageConformanceViolations({
+			packageMetadataByName: loadPackageMetadata(REPO_ROOT),
+		});
+
+		expect(formatViolations(violations)).toBe("");
+	});
+});
+
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
 		"@sdl/branch-context",
@@ -1185,6 +1279,7 @@ interface SyntheticSubpackageMetadataOptions {
 	readonly packageDir: string;
 	readonly subpackages: readonly string[];
 	readonly remainder: boolean;
+	readonly exports?: Record<string, unknown>;
 }
 
 function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
@@ -1237,6 +1332,7 @@ function buildSyntheticSubpackageMetadata(
 			subpackages: options.subpackages,
 			...(options.remainder ? { remainder: true } : {}),
 		},
+		...(options.exports === undefined ? {} : { exports: options.exports }),
 	};
 	return new Map([
 		[
@@ -1251,7 +1347,8 @@ function buildSyntheticSubpackageMetadata(
 				rawSdlTier: "neutral-infra",
 				sdlSubpackages: options.subpackages,
 				sdlRemainder: options.remainder,
-				exportSubpaths: new Set(["."]),
+				exportSubpaths:
+					options.exports === undefined ? new Set(["."]) : collectExportSubpaths(options.exports),
 			},
 		],
 	]);
