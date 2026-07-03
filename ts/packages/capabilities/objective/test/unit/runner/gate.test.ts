@@ -63,6 +63,7 @@ describe("verifyRunnerStep", () => {
 			["worktree-dirty", "passed"],
 			["head-unchanged", "passed"],
 			["index-clean", "passed"],
+			["stage-candidate", "passed"],
 			["diff-check", "passed"],
 		]);
 		expect(ctx.execCalls).toEqual([
@@ -218,6 +219,7 @@ describe("verifyRunnerStep", () => {
 		expect(outcome.hasPassed).toBe(false);
 		const byId = checkById(outcome.checks);
 		expect(byId.get("index-clean")?.status).toBe("failed");
+		expect(byId.get("stage-candidate")?.status).toBe("skipped");
 		expect(byId.get("diff-check")?.status).toBe("skipped");
 		expect(ctx.git.stagePathsCalls).toEqual([]);
 	});
@@ -233,8 +235,37 @@ describe("verifyRunnerStep", () => {
 		});
 
 		expect(outcome.hasPassed).toBe(false);
-		expect(checkById(outcome.checks).get("diff-check")?.status).toBe("skipped");
+		const byId = checkById(outcome.checks);
+		expect(byId.get("stage-candidate")?.status).toBe("skipped");
+		expect(byId.get("diff-check")?.status).toBe("skipped");
 		expect(ctx.git.stagePathsCalls).toEqual([]);
+		expect(ctx.execCalls).toEqual([
+			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
+		]);
+	});
+
+	test("fails stage-candidate and skips cached diff when staging fails", async () => {
+		const ctx = gateContext({
+			git: {
+				stagePathsFailure: {
+					code: "git_stage_paths_failed",
+					message: "index locked",
+				},
+			},
+		});
+
+		const outcome = await verifyRunnerStep(ctx, {
+			mode: "default",
+			report: report(),
+			baseBranch: "main",
+			headAtDispatch: DEFAULT_HEAD,
+		});
+
+		expect(outcome.hasPassed).toBe(false);
+		const byId = checkById(outcome.checks);
+		expect(byId.get("stage-candidate")?.status).toBe("failed");
+		expect(byId.get("stage-candidate")?.detail).toContain("index locked");
+		expect(byId.get("diff-check")?.status).toBe("skipped");
 		expect(ctx.execCalls).toEqual([
 			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
 		]);
@@ -253,7 +284,9 @@ describe("verifyRunnerStep", () => {
 		});
 
 		expect(outcome.hasPassed).toBe(false);
-		const check = checkById(outcome.checks).get("diff-check");
+		const byId = checkById(outcome.checks);
+		expect(byId.get("stage-candidate")?.status).toBe("passed");
+		const check = byId.get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
 		expect(ctx.execCalls).toEqual([
@@ -281,7 +314,9 @@ describe("verifyRunnerStep", () => {
 		});
 
 		expect(outcome.hasPassed).toBe(false);
-		const check = checkById(outcome.checks).get("diff-check");
+		const byId = checkById(outcome.checks);
+		expect(byId.get("stage-candidate")?.status).toBe("passed");
+		const check = byId.get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
 		expect(check?.detail).toContain("Best-effort unstage failed");
@@ -357,7 +392,9 @@ describe("verifyRunnerStep", () => {
 			"worktree-dirty",
 			"head-unchanged",
 		]);
-		expect(checkById(outcome.checks).get("diff-check")?.status).toBe("skipped");
+		const byId = checkById(outcome.checks);
+		expect(byId.get("stage-candidate")?.status).toBe("skipped");
+		expect(byId.get("diff-check")?.status).toBe("skipped");
 		expect(ctx.git.stagePathsCalls).toEqual([]);
 	});
 });

@@ -1,5 +1,6 @@
 import type { GitCurrentBranchResult } from "@ns/capability-kit/git";
 import { commandSucceeded, formatCommandDetails } from "@ns/core/exec";
+import { z } from "zod";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 import type { RunnerReport } from "./report.ts";
@@ -13,6 +14,7 @@ export const GATE_CHECK_IDS = [
 	"worktree-dirty",
 	"head-unchanged",
 	"index-clean",
+	"stage-candidate",
 	"diff-check",
 ] as const;
 export type GateCheckId = (typeof GATE_CHECK_IDS)[number];
@@ -25,6 +27,12 @@ export interface GateCheckResult {
 	status: GateCheckStatus;
 	detail?: string;
 }
+
+export const gateCheckResultSchema = z.object({
+	id: z.enum(GATE_CHECK_IDS),
+	status: z.enum(GATE_CHECK_STATUSES),
+	detail: z.string().optional(),
+});
 
 export type GateBranchUnavailableReason =
 	| { type: "detached" }
@@ -128,13 +136,11 @@ export async function verifyRunnerStep(
 	checks.push(await indexCleanCheck(ctx));
 
 	if (checks.some((check) => check.status === "failed")) {
-		checks.push({
-			id: "diff-check",
-			status: "skipped",
-			detail: "pre-candidate check failed; not staging commit candidate.",
-		});
+		checks.push(
+			...candidateChecksSkipped("pre-candidate check failed; not staging commit candidate."),
+		);
 	} else {
-		checks.push(await stageCandidateAndDiffCheck(ctx, changedPaths));
+		checks.push(...(await stageCandidateAndDiffCheck(ctx, changedPaths)));
 	}
 
 	return {
@@ -211,31 +217,53 @@ async function indexCleanCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateChe
 	};
 }
 
+function candidateChecksSkipped(detail: string): GateCheckResult[] {
+	return [
+		{ id: "stage-candidate", status: "skipped", detail },
+		{ id: "diff-check", status: "skipped", detail },
+	];
+}
+
 async function stageCandidateAndDiffCheck(
 	ctx: ObjectiveRunnerCoreContext,
 	changedPaths: readonly string[],
-): Promise<GateCheckResult> {
+): Promise<GateCheckResult[]> {
 	const staged = await ctx.git.stagePaths({ cwd: ctx.repoRoot, paths: changedPaths });
 	if (!staged.ok) {
-		return {
-			id: "diff-check",
-			status: "failed",
-			detail: `Could not stage runner commit candidate: ${staged.error.message}`,
-		};
+		return [
+			{
+				id: "stage-candidate",
+				status: "failed",
+				detail: `Could not stage runner commit candidate: ${staged.error.message}`,
+			},
+			{
+				id: "diff-check",
+				status: "skipped",
+				detail: "stage-candidate failed; cached diff check not run.",
+			},
+		];
 	}
 	const result = await ctx.commands.exec("git", ["diff", "--cached", "--check"], {
 		cwd: ctx.repoRoot,
 	});
-	if (commandSucceeded(result)) return { id: "diff-check", status: "passed" };
+	if (commandSucceeded(result)) {
+		return [
+			{ id: "stage-candidate", status: "passed" },
+			{ id: "diff-check", status: "passed" },
+		];
+	}
 	const diffCheckDetail = `git diff --cached --check failed: ${formatCommandDetails(result)}`;
 	const reset = await ctx.commands.exec("git", ["reset", "--"], { cwd: ctx.repoRoot });
-	return {
-		id: "diff-check",
-		status: "failed",
-		detail: commandSucceeded(reset)
-			? diffCheckDetail
-			: `${diffCheckDetail}\nBest-effort unstage failed: ${formatCommandDetails(reset)}`,
-	};
+	return [
+		{ id: "stage-candidate", status: "passed" },
+		{
+			id: "diff-check",
+			status: "failed",
+			detail: commandSucceeded(reset)
+				? diffCheckDetail
+				: `${diffCheckDetail}\nBest-effort unstage failed: ${formatCommandDetails(reset)}`,
+		},
+	];
 }
 
 async function headUnchangedCheck(

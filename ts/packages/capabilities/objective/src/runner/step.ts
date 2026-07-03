@@ -15,8 +15,7 @@ import {
 import { commitRunnerStep } from "./commit.ts";
 import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
 import {
-	GATE_CHECK_IDS,
-	GATE_CHECK_STATUSES,
+	gateCheckResultSchema,
 	verifyRunnerStep,
 	type GateBranchUnavailableReason,
 } from "./gate.ts";
@@ -43,12 +42,6 @@ export const runnerStepRequestSchema = z.object({
 		),
 	model: z.string().optional().describe("Model override for the child session."),
 	timeout: z.number().int().positive().default(3600).describe("Child session timeout in seconds."),
-});
-
-export const gateCheckResultSchema = z.object({
-	id: z.enum(GATE_CHECK_IDS),
-	status: z.enum(GATE_CHECK_STATUSES),
-	detail: z.string().optional(),
 });
 
 const runnerStepStatusSchema = z.enum([

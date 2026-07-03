@@ -12,7 +12,9 @@
  * problem so a report-integrity malfunction checkpoint can list them all.
  */
 import {
+	buildRunnerReport,
 	isRunnerReportStatus,
+	requiresCommitSubject,
 	RUNNER_REPORT_SECTION_TITLES,
 	RUNNER_REPORT_STATUSES,
 	type ParseRunnerReportResult,
@@ -57,10 +59,10 @@ export function parseRunnerReport(finalText: string): ParseRunnerReportResult {
 	if (branch === undefined) return { type: "invalid", problems };
 	return {
 		type: "ok",
-		report: {
+		report: buildRunnerReport({
 			status,
 			branch,
-			roadmapItems: [...header.roadmapItems],
+			roadmapItems: header.roadmapItems,
 			...(header.commitSubject === undefined ? {} : { commitSubject: header.commitSubject }),
 			...(header.commitBody.length === 0 ? {} : { commitBody: header.commitBody.join("\n") }),
 			...(header.stopReason === undefined ? {} : { stopReason: header.stopReason }),
@@ -71,7 +73,7 @@ export function parseRunnerReport(finalText: string): ParseRunnerReportResult {
 				followUps: sections.get("Follow-Ups") ?? "",
 				validation: sections.get("Validation") ?? "",
 			},
-		},
+		}),
 	};
 }
 
@@ -156,7 +158,12 @@ function headerProblems(header: ParsedReportHeader): string[] {
 	if (header.roadmapItems.length === 0) {
 		problems.push("Missing or empty required header list `roadmapItems`.");
 	}
-	if (header.status === "ready-for-parent-commit" && header.commitSubject === undefined) {
+	if (
+		header.status !== undefined &&
+		isRunnerReportStatus(header.status) &&
+		requiresCommitSubject(header.status) &&
+		header.commitSubject === undefined
+	) {
 		problems.push(
 			"Missing required header field `commitSubject` (required when status is ready-for-parent-commit).",
 		);

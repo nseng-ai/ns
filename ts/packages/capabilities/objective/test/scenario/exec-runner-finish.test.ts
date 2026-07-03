@@ -325,9 +325,9 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		if (exit.type !== "failure") throw new Error("expected failure exit");
 		expect(exit.errorType).toBe("report-integrity");
 		const stdout = api.stdoutChunks.join("");
-		expect(stdout).toContain("`status`");
-		expect(stdout).toContain("`branch`");
-		expect(stdout).toContain("`sections.summary`");
+		expect(stdout).toContain("status");
+		expect(stdout).toContain("branch");
+		expect(stdout).toContain("sections.summary");
 	});
 
 	test("commit failure is a malfunction after a passing gate", async () => {

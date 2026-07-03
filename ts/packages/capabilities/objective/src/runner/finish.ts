@@ -23,9 +23,9 @@ import {
 } from "./checkpoint.ts";
 import { commitRunnerStep } from "./commit.ts";
 import type { ObjectiveRunnerCoreContext } from "./context.ts";
+import { resolveAtPrefixedValue } from "./guidance.ts";
 import {
-	GATE_CHECK_IDS,
-	GATE_CHECK_STATUSES,
+	gateCheckResultSchema,
 	verifyRunnerStep,
 	type GateBranchUnavailableReason,
 } from "./gate.ts";
@@ -73,12 +73,6 @@ const factsInputSchema = z.union([
 
 export type RunnerStepFacts = z.infer<typeof runnerStepFactsSchema>;
 
-export const finishGateCheckResultSchema = z.object({
-	id: z.enum(GATE_CHECK_IDS),
-	status: z.enum(GATE_CHECK_STATUSES),
-	detail: z.string().optional(),
-});
-
 const runnerFinishStatusSchema = z.enum([
 	"committed",
 	"stop",
@@ -95,7 +89,7 @@ export const runnerFinishResultSchema = z.object({
 	branch: z.string(),
 	commitSha: z.string().nullable(),
 	changedPaths: z.array(z.string()),
-	gateChecks: z.array(finishGateCheckResultSchema),
+	gateChecks: z.array(gateCheckResultSchema),
 	stopReason: z.string().nullable(),
 	diagnostics: z.array(z.string()),
 	checkpointMarkdown: z.string(),
@@ -129,8 +123,12 @@ export async function runRunnerFinish(
 	}
 
 	ctx.phase("validating-inputs");
-	const factsText = await resolveValueOrFile(ctx, request.facts);
-	if (factsText.type === "error") {
+	const factsText = await resolveAtPrefixedValue({
+		cwd: ctx.cwd,
+		value: request.facts,
+		readTextFile: ctx.readTextFile,
+	});
+	if (factsText.type === "unreadable-file") {
 		return usageError(`Could not read facts file ${factsText.path}: ${factsText.message}`, {
 			argument: "facts",
 		});
@@ -185,7 +183,6 @@ export async function runRunnerFinish(
 	};
 
 	const reportSource = request.report ?? `@${facts.reportPath}`;
-	let reportText: string;
 	if (reportSource.startsWith("@")) {
 		const reportPath = resolve(ctx.cwd, reportSource.slice(1));
 		if (isPathInside(ctx.repoRoot, reportPath)) {
@@ -194,19 +191,20 @@ export async function runRunnerFinish(
 				{ argument: "report" },
 			);
 		}
-		const read = await ctx.readTextFile(reportPath);
-		if (read.type === "error") {
-			return emitMalfunction(
-				"report-missing",
-				`Could not read the subagent report at ${reportPath}: ${read.message}`,
-			);
-		}
-		reportText = read.content;
-	} else {
-		reportText = reportSource;
+	}
+	const reportText = await resolveAtPrefixedValue({
+		cwd: ctx.cwd,
+		value: reportSource,
+		readTextFile: ctx.readTextFile,
+	});
+	if (reportText.type === "unreadable-file") {
+		return emitMalfunction(
+			"report-missing",
+			`Could not read the subagent report at ${reportText.path}: ${reportText.message}`,
+		);
 	}
 
-	const parsed = parseRunnerReportJson(reportText);
+	const parsed = parseRunnerReportJson(reportText.content);
 	if (parsed.type === "missing") {
 		return emitMalfunction("report-integrity", "Subagent report is empty.");
 	}
@@ -299,22 +297,6 @@ export async function runRunnerFinish(
 			narrative,
 		),
 	);
-}
-
-type ValueOrFileResult =
-	| { type: "ok"; content: string }
-	| { type: "error"; path: string; message: string };
-
-/** `@`-prefixed values are file paths resolved against cwd; otherwise inline. */
-async function resolveValueOrFile(
-	ctx: ObjectiveRunnerCoreContext,
-	value: string,
-): Promise<ValueOrFileResult> {
-	if (!value.startsWith("@")) return { type: "ok", content: value };
-	const path = resolve(ctx.cwd, value.slice(1));
-	const read = await ctx.readTextFile(path);
-	if (read.type === "error") return { type: "error", path, message: read.message };
-	return { type: "ok", content: read.content };
 }
 
 function buildResult(facts: CheckpointFacts, checkpointMarkdown: string): RunnerFinishResult {

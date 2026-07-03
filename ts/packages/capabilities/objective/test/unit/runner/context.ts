@@ -11,6 +11,7 @@ import {
 } from "@ns/capability-kit/graphite/testing";
 import type { ExecResult } from "@ns/core/exec";
 
+import { nextFromSequence } from "../../support/sequence.ts";
 import {
 	FakeObjectiveStorageGateway,
 	type FakeObjectiveStorageGatewayOptions,
@@ -103,14 +104,6 @@ export class SequencedGitGateway extends InMemoryGitGateway {
 		}
 		return { ok: true, value: { changedPaths: [...state.changedPaths] } };
 	}
-}
-
-function nextFromSequence<T>(
-	sequence: readonly T[],
-	index: number,
-): { value: T | undefined; nextIndex: number } {
-	if (sequence.length === 0) return { value: undefined, nextIndex: index };
-	return { value: sequence[Math.min(index, sequence.length - 1)], nextIndex: index + 1 };
 }
 
 function cloneStatusPathsState(
