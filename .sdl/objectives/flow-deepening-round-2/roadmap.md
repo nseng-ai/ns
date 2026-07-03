@@ -1,47 +1,158 @@
 # Roadmap
 
-Candidate numbers refer to the review at `architecture-review.html` in this
-directory.
+Candidate numbers refer to the 2026-07-01 review at `architecture-review.html`
+(diagrams need a browser; each row below is self-contained for execution).
+Restructured 2026-07-02 — see
+`updates/2026-07-02T150856Z-depth-audit-and-restructure.md` for why rows
+changed. All paths are relative to `ts/packages/capabilities/flow/` unless
+stated. Validation baseline for every row: the Definition of Progress suite in
+`objective.md`.
 
 ## Work
 
 - [x] Collapse the Graphite command channel (review #1)
-      One deep channel module owns streamed-vs-raw, normalization, and gt
-      arg-building; `graphite-maintenance.ts` and the land pipeline call it, and
-      the `pi` triplet stops threading through the land options bags. Land as its
-      own reviewable slice given the live-path blast radius.
-      Evidence: land scenario + integration tests pass driving a scripted channel
-      instead of the outermost `pi.exec`.
+      Delivered 2026-07-01: wrapper cluster (`command-exec.ts`,
+      `graphite-command-args.ts`) collapsed into
+      `src/land-stack/graphite-command-channel.ts`; `pi` triplet removed via
+      `land-runtime.ts`; normalization single-layer; special cases named.
+      Evidence correction (2026-07-02 depth audit): scenario tests script
+      `pi.exec` (`test/unit/land-stack-command-scenarios.test.ts`) — that is
+      the canonical seam; no scripted-channel adapter exists or is planned.
+      Interface depth deferred to the operation-shaping row below.
 - [x] Give each autobranch failure one home (review #2)
-      Co-locate each failure's verdict + message with its union arm in one
-      catalog; unify the `dirty-*` and `latest-commit-*` flows onto one
-      prepare→transact→catalog shape; move `AutobranchFlowOutcome` /
-      `AutobranchFlowResult` out of `dirty-worktree.ts`.
-      Evidence: autobranch unit + scenario tests pass.
+      Delivered 2026-07-01: shared result types moved to
+      `src/autobranch/flow-result.ts`; classify/format switches co-located
+      with their arms; central formatting file deleted.
+      Evidence correction (2026-07-02 depth audit): co-location landed, but
+      adding a failure is still three edit sites (arm, classify case, format
+      case). The one-edit-site catalog is folded into the submit/catalog row
+      below.
 - [x] Unify the PR-description update path and close the fingerprint overwrite bug (review #3)
-      Fold `prepareRegeneratedPrDescription` and `orchestratePrDescription` into
-      one update module that takes the managed-region fingerprint policy; delete
-      the `shared/pr-description.ts` duplicate.
-      Evidence: a test shows the regenerate path now skips an already-current
-      body; existing pr-description + submit scenario tests pass.
+      Delivered 2026-07-01 as specified: one update module
+      (`src/submit/pr-description-orchestration.ts`), duplicate deleted,
+      regenerate skips an already-current body with a scenario regression.
+      Residual: `--force` semantics, next rows.
+- [ ] Operation-shape the Graphite command channel
+      Policy: direct.
+      What: the channel owns operations, not argv. Fold the seven exported
+      arg-builders (`graphiteTrunkArgs`, `graphiteSubmitUpdateArgs`,
+      `graphiteRestackForSubmitArgs`, `graphiteRestackUpstackArgs`,
+      `graphiteGetDownstackNoCheckoutArgs`, `graphiteDeleteLocalBranchArgs`,
+      plus `formatGraphiteCommand` display pairing) into operation specs on
+      `LandGraphiteCommandChannel`. Remove `runRaw` from the interface — it
+      has zero callers outside `src/land-stack/graphite-command-channel.ts`.
+      Absorb the `maintenance.kind === "optional-descendant"` method selection
+      (`src/land-stack/graphite-maintenance.ts:295`) into the spec so callers
+      stop choosing channel methods. Reconcile `deleteFinalLocalBranch` with
+      the spec shape (bespoke method and generic runner currently coexist).
+      Callers to update: `graphite-maintenance.ts` (~lines 220, 295, 396,
+      436), `land-runtime.ts`, and any `landing-operations.ts` /
+      `pre-merge-submit.ts` sites found by grepping the builder names.
+      Do not: add a scripted-channel adapter; change `sdl-flow/api`.
+      Evidence: grep shows zero `runRaw` and zero arg-builder exports
+      consumed outside the channel; land scenario tests still pass scripting
+      `pi.exec` with unchanged argv assertions; a new-mutation example in a
+      unit test needs only a spec entry.
+- [ ] Give `regenerate-pr --force` full force semantics (decided 2026-07-02)
+      Policy: direct.
+      What: `--force`/`-f` regenerates even when the fingerprint is current
+      AND skips the confirmation prompt — matching land's `--force`
+      (`src/core/land-stack.ts:145`,
+      `src/land/post-landing-slot-cleanup.ts:52`). Wire
+      `src/commands/regenerate-pr.ts:67` to pass
+      `fingerprintPolicy: request.force ? "force" : "skip-current"`
+      (`PrDescriptionFingerprintPolicy`,
+      `src/submit/pr-description-orchestration.ts:28`) and suppress the
+      confirmation step when forced. Delete the no-op doc sentence
+      (`regenerate-pr.ts:28`) and the no-op notice branch (`:168-181`).
+      Precondition: read the confirmation danger-tier conventions (closed
+      `clinkr-confirmation-danger-tiers` Objective record) and follow them for
+      the bypass wiring; if they forbid bypassing this prompt, stop and ask —
+      that contradicts this row's premise.
+      Evidence: scenario tests in
+      `test/scenario/regenerate-pr-command.test.ts` cover: force on a current
+      body regenerates without prompting; default on a current body still
+      no-ops; default on a stale body still prompts.
+- [ ] Delete the forwarder shims (review #6)
+      Policy: direct.
+      What: inline five single-purpose rename/re-export files into their
+      callers: `src/shared/git.ts` (5 lines), `src/shared/text-helpers.ts`
+      (9), `src/shared/checkpoint-message.ts` (2), `src/submit/format.ts` (3),
+      `src/autobranch/short-sha.ts` (3). Keep `src/shared/text-generation.ts`
+      (many consumers — a real naming seam).
+      `src/land-stack/graphite-metadata-command.ts` is NOT a pure shim (two
+      source consumers plus `test/unit/land-test-helpers.ts`): fold it into
+      the channel, preferably while operation-shaping.
+      Evidence: the five files are gone; `just ts-check` and the flow test
+      suite pass; no re-export replaces them.
+- [ ] Land Domain extraction — inventory (no code moves)
+      Policy: direct.
+      What: produce the migration map. Enumerate every behavior in
+      `flow/CONTEXT.md`'s "Flow Land Execution" definition (command
+      presentation, stack-mode orchestration, prompts, merge execution,
+      Graphite maintenance, cleanup) and locate its implementation under
+      `src/land-stack/` and `src/land/`. For each: which Land Gateway Set
+      seam covers it (`src/land/types.ts` — `LandGitGateway:254`,
+      `LandGraphiteGateway:286`, `LandGithubPrFactsGateway:306`,
+      `LandWorktreeSlotFactsGateway:313`), what is missing from those
+      gateways, and which behaviors are presentation (stay Flow-side) vs
+      execution (migrate). Output: a Semantic Update containing the map and a
+      proposed slice decomposition for the migration row, sized one behavior
+      per slice.
+      Evidence: the update exists; it covers every Flow Land Execution
+      behavior; no source files changed.
+- [ ] Land Domain extraction — migrate execution onto the Land Domain Core
+      Policy: preview. Precondition: the inventory row's map exists; execute
+      one mapped slice at a time, each previewed via `objective-next` before
+      code changes.
+      What: per the map, move execution behaviors to run on the Land Domain
+      Core's `LandContext` gateways, extending gateway interfaces where the
+      map says they fall short. Presentation, prompts, and command streaming
+      stay Flow-side per the Flow Land Compatibility Boundary. Never leave a
+      behavior orchestrated in both `land-stack/` and `land/` without a
+      roadmap note naming the slice that removes the duplication.
+      Evidence per slice: land scenario tests pass unchanged (argv-level
+      `pi.exec` scripting); the migrated behavior has no remaining
+      `land-stack/` orchestration copy, or the duplication is noted with its
+      removal slice.
+- [ ] Retire the compatibility round trip (dissolves review #4)
+      Policy: direct once the migration row's slices are landed.
+      What: delete the `LandPlanForFlow` mirror and both `type↔kind` mappers
+      in `src/land-stack/plan-mapping.ts`; collapse the duplicate
+      operation-label heuristics to one; Flow crosses into `sdl-flow/land` at
+      exactly one adapter module (the documented Flow Stack Preflight
+      Adapter). Round-trip files today: `plan-mapping.ts` (167),
+      `landing-plan.ts` (46), `land-context-adapter.ts` (247),
+      `pre-merge-submit.ts` (167).
+      Guard: `sdl-flow/api` exports unchanged; nothing under `ccc/` imports
+      Flow land internals.
+      Evidence: grep shows zero `LandPlanForFlow` references; one label
+      heuristic; land scenario + integration tests pass.
+- [ ] De-leak the submit gateway and build the shared failure catalog (review #7 + autobranch residual)
+      Policy: direct. Independent of the extraction; may interleave.
+      What: move Graphite-stderr classification (`detectRestackNeeded`,
+      `detectTrunkOutOfDate`, and the other regex classifiers in
+      `src/submit/submit.ts`, 969 lines) behind `SubmitGateway` so the
+      interface returns domain results; co-locate each failure shape with its
+      message so branches stop bouncing `submit.ts` ⇄ `submit-format.ts`
+      (489 lines, 15 `format*FailureOutput` functions). Establish one
+      per-failure catalog idiom — entry = arm + verdict + message, exhaustive
+      by type — and apply it to the autobranch switches too
+      (`src/autobranch/latest-commit-transaction.ts:328` classify, `:345`
+      format, plus the `dirty-transaction.ts` twins), completing the
+      one-edit-site goal the co-location slice deferred.
+      Evidence: submit orchestration unit-testable without stderr fixtures;
+      no Graphite stderr taxonomy in `SubmitGateway`'s interface types;
+      adding a failure in submit or autobranch is demonstrably one edit site
+      (a unit test adds one catalog entry and nothing else).
 
 ## Parked
 
-- [ ] Collapse the sdl-land round trip (review #4, Worth exploring)
-      Six representations of "the stack" with duplicated `type↔kind` mappers and
-      operation-label heuristics. Parked: touches the **Flow Land Compatibility
-      Boundary** / **Flow Stack Preflight Adapter** — sequence with any land
-      extraction, not against it.
-- [ ] Unify the land presentation surface (review #5, Worth exploring)
-      One outcome is formatted, re-wrapped, and mirrored across `presentation.ts`,
-      `land-presentation.ts`, and `command-stream.ts`, split by rendering
-      mechanism rather than by outcome. Unblocked by review #1.
-- [ ] Delete the forwarder shims (review #6, Worth exploring)
-      Inline six single-purpose rename/re-export files (`shared/git.ts`,
-      `text-helpers.ts`, `checkpoint-message.ts`, `submit/format.ts`,
-      `autobranch/short-sha.ts`, `land-stack/graphite-metadata-command.ts`); keep
-      only many-consumer naming seams.
-- [ ] De-leak the submit gateway (review #7, Worth exploring)
-      Move Graphite-stderr classification behind `SubmitGateway` so it returns
-      domain results; co-locate each failure shape with its message so branches
-      stop bouncing `submit.ts` ⇄ `submit-format.ts`.
+- [ ] Unify the land presentation surface (review #5)
+      Parked behind the extraction: migration changes its inputs, and doing it
+      first means doing it twice. Premise correction (2026-07-02): the
+      original three-file inventory (`presentation.ts` 519,
+      `land-presentation.ts` 132, `command-stream.ts` 250) predates the
+      channel absorbing Graphite start/finish streaming — re-inventory before
+      starting. Closure gate: this row must be promoted, re-scoped, or
+      explicitly dropped with rationale before the Objective closes.
