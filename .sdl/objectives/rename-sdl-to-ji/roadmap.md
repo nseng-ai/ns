@@ -10,10 +10,13 @@
       plan), the naming brief (`docs/ji-naming-brief.md`), and the re-record of
       `checkout-free-sdl-distribution`'s publish-name open question as resolved by this
       Objective.
-- [ ] Core cutover in one landing window: `sdl` bin → `ji`, `.sdl/` → `.ji/`,
-      `/sdl:*` → `/ji:*`, XDG `*/sdl/` → `*/ji/`, kernel/tooling paths, and the
-      `cross-harness-parity` table update.
-      Evidence: `just` passes; `ji objective list` and `ji objective exec
+- [~] Core cutover in one landing window: `sdl` bin → `ji`, `.sdl/` → `.ji/`,
+  `/sdl:*` → `/ji:*`, XDG `*/sdl/` → `*/ji/`, kernel/tooling paths, and the
+  `cross-harness-parity` table update.
+  Tracked in the dedicated Objective `ji-core-cutover` (surface inventory:
+  `cutover-inventory.md` in this record); this row completes when that
+  Objective closes.
+  Evidence: `just` passes; `ji objective list` and `ji objective exec
   load-orientations` work; no compat codepath introduced.
 - [ ] Write and execute the manual machine migration checklist (XDG `mv`s, checkout
       path, worktree slots), and fix up any straggler branches by hand.
