@@ -39,7 +39,6 @@ export interface SkillLookupPathStat {
 
 export interface SkillLookupIo {
 	statPath?: (path: string) => Promise<SkillLookupPathStat>;
-	realpathPath?: (path: string) => Promise<string>;
 }
 
 export interface SkillLookupSearchedRoot {
@@ -108,10 +107,8 @@ export function skillLookupFileRelativePath(root: SkillLookupRoot, skillName: st
 }
 
 export function skillLookupIoOptions(options: SkillLookupIo): SkillLookupIo {
-	return {
-		...(options.statPath === undefined ? {} : { statPath: options.statPath }),
-		...(options.realpathPath === undefined ? {} : { realpathPath: options.realpathPath }),
-	};
+	if (options.statPath === undefined) return {};
+	return { statPath: options.statPath };
 }
 
 export function buildSkillLookupSearchedRoots(
@@ -137,6 +134,20 @@ function defaultRealpathPath(path: string): Promise<string> {
 	return realpath(path);
 }
 
+function containmentErrorOrUndefined(options: {
+	base: string;
+	target: string;
+	skillFilePath: string;
+	projectDir: string;
+}): FailedSkillLookup | undefined {
+	if (isPathInside(options.base, options.target)) return undefined;
+	return {
+		type: "error",
+		message: `Backing skill path ${options.skillFilePath} resolves outside repository root ${options.projectDir}.`,
+		path: options.skillFilePath,
+	};
+}
+
 export async function resolveSkillLookupProjectRoot(
 	options: ResolveSkillLookupProjectRootOptions,
 ): Promise<string> {
@@ -157,9 +168,8 @@ export async function resolveExactSkillLookup(
 	options: ResolveExactSkillLookupOptions,
 ): Promise<SkillLookupResult> {
 	const statPath = options.statPath ?? defaultStatPath;
-	const realpathPath = options.realpathPath ?? defaultRealpathPath;
 	const projectDir = resolve(options.projectDir);
-	const realProjectDir = await realpathPath(projectDir);
+	const realProjectDir = await defaultRealpathPath(projectDir);
 	const searchedRoots = buildSkillLookupSearchedRoots(projectDir, options.skillName);
 
 	for (const descriptor of SKILL_LOOKUP_ROOT_DESCRIPTORS) {
@@ -168,13 +178,13 @@ export async function resolveExactSkillLookup(
 		const basePath = join(projectDir, descriptor.root, options.skillName);
 		const skillFilePath = join(basePath, "SKILL.md");
 		const normalizedSkillFilePath = resolve(skillFilePath);
-		if (!isPathInside(projectDir, normalizedSkillFilePath)) {
-			return {
-				type: "error",
-				message: `Backing skill path ${skillFilePath} resolves outside repository root ${projectDir}.`,
-				path: skillFilePath,
-			};
-		}
+		const normalizedContainmentError = containmentErrorOrUndefined({
+			base: projectDir,
+			target: normalizedSkillFilePath,
+			skillFilePath,
+			projectDir,
+		});
+		if (normalizedContainmentError !== undefined) return normalizedContainmentError;
 
 		const skillStat = await statPathOrUndefined(statPath, skillFilePath);
 		if (skillStat === undefined || (!skillStat.isFile() && !skillStat.isSymbolicLink())) {
@@ -190,7 +200,7 @@ export async function resolveExactSkillLookup(
 
 		let realSkillFilePath: string;
 		try {
-			realSkillFilePath = await realpathPath(skillFilePath);
+			realSkillFilePath = await defaultRealpathPath(skillFilePath);
 		} catch (error) {
 			return {
 				type: "error",
@@ -198,13 +208,13 @@ export async function resolveExactSkillLookup(
 				path: skillFilePath,
 			};
 		}
-		if (!isPathInside(realProjectDir, realSkillFilePath)) {
-			return {
-				type: "error",
-				message: `Backing skill path ${skillFilePath} resolves outside repository root ${projectDir}.`,
-				path: skillFilePath,
-			};
-		}
+		const realContainmentError = containmentErrorOrUndefined({
+			base: realProjectDir,
+			target: realSkillFilePath,
+			skillFilePath,
+			projectDir,
+		});
+		if (realContainmentError !== undefined) return realContainmentError;
 
 		return {
 			type: "found",
