@@ -21,7 +21,7 @@ describe("FakeReviewCatalogGateway", () => {
 
 		expect(catalog).toEqual({
 			type: "ok",
-			value: { reviewsDir: "/repo/.sdl/reviews", keys: ["python"] },
+			value: { reviewsDir: "/repo/.ji/reviews", keys: ["python"] },
 		});
 		expect(source.type).toBe("ok");
 		if (source.type === "ok") expect(source.value.source).toContain("Python");
@@ -41,23 +41,23 @@ describe("FakeReviewCatalogGateway", () => {
 describe("RealReviewCatalogGateway", () => {
 	test("discovers direct review folders in stable order", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-"));
-		await mkdir(join(repoRoot, ".sdl", "reviews", "typescript-style", "references"), {
+		await mkdir(join(repoRoot, ".ji", "reviews", "typescript-style", "references"), {
 			recursive: true,
 		});
-		await mkdir(join(repoRoot, ".sdl", "reviews", "python"), { recursive: true });
-		await mkdir(join(repoRoot, ".sdl", "reviews", "assets-only"), { recursive: true });
+		await mkdir(join(repoRoot, ".ji", "reviews", "python"), { recursive: true });
+		await mkdir(join(repoRoot, ".ji", "reviews", "assets-only"), { recursive: true });
 		await writeFile(
-			join(repoRoot, ".sdl", "reviews", "typescript-style", "review.md"),
+			join(repoRoot, ".ji", "reviews", "typescript-style", "review.md"),
 			"ts",
 			"utf8",
 		);
-		await writeFile(join(repoRoot, ".sdl", "reviews", "python", "review.md"), "py", "utf8");
+		await writeFile(join(repoRoot, ".ji", "reviews", "python", "review.md"), "py", "utf8");
 		await writeFile(
-			join(repoRoot, ".sdl", "reviews", "typescript-style", "references", "canonical.md"),
+			join(repoRoot, ".ji", "reviews", "typescript-style", "references", "canonical.md"),
 			"not a review",
 			"utf8",
 		);
-		await writeFile(join(repoRoot, ".sdl", "reviews", "README.md"), "ignored", "utf8");
+		await writeFile(join(repoRoot, ".ji", "reviews", "README.md"), "ignored", "utf8");
 		const gateway = new RealReviewCatalogGateway({
 			gitGateway: new InMemoryGitGateway({ repoRoot }),
 		});
@@ -67,7 +67,7 @@ describe("RealReviewCatalogGateway", () => {
 		expect(result).toEqual({
 			type: "ok",
 			value: {
-				reviewsDir: join(repoRoot, ".sdl", "reviews"),
+				reviewsDir: join(repoRoot, ".ji", "reviews"),
 				keys: ["python", "typescript-style"],
 			},
 		});
@@ -75,9 +75,9 @@ describe("RealReviewCatalogGateway", () => {
 
 	test("loads source for a valid key", async () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-review-catalog-load-"));
-		await mkdir(join(repoRoot, ".sdl", "reviews", "typescript-style"), { recursive: true });
+		await mkdir(join(repoRoot, ".ji", "reviews", "typescript-style"), { recursive: true });
 		await writeFile(
-			join(repoRoot, ".sdl", "reviews", "typescript-style", "review.md"),
+			join(repoRoot, ".ji", "reviews", "typescript-style", "review.md"),
 			"review source",
 			"utf8",
 		);
@@ -118,7 +118,7 @@ describe("RealReviewCatalogGateway", () => {
 		expect(catalog.type).toBe("error");
 		if (catalog.type === "error") expect(catalog.error.type).toBe("reviews-dir-missing");
 
-		await mkdir(join(repoRoot, ".sdl", "reviews"), { recursive: true });
+		await mkdir(join(repoRoot, ".ji", "reviews"), { recursive: true });
 		const source = await gateway.loadReviewSource({ cwd: repoRoot, key: "missing" });
 		expect(source.type).toBe("error");
 		if (source.type === "error") expect(source.error.type).toBe("review-definition-not-found");

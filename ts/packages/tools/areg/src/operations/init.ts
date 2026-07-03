@@ -341,19 +341,19 @@ function planSdlToml(
 	agents: readonly string[],
 ): Result<AregInitTextWritePlan> {
 	if (state.type === "missing")
-		return { ok: true, value: writePlan("sdl.toml", renderAregSection(agents), "sdl.toml") };
+		return { ok: true, value: writePlan("ji.toml", renderAregSection(agents), "ji.toml") };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "sdl.toml",
+			pathLabel: "ji.toml",
 			state,
-			description: "sdl.toml",
+			description: "ji.toml",
 			action: "manage it",
 		});
-	const parsed = parseSdlAregAgents(state.text, "sdl.toml");
+	const parsed = parseSdlAregAgents(state.text, "ji.toml");
 	if (!parsed.ok) return parsed;
 	return {
 		ok: true,
-		value: writePlan("sdl.toml", replaceOrAppendAregSection(state.text, agents), "sdl.toml"),
+		value: writePlan("ji.toml", replaceOrAppendAregSection(state.text, agents), "ji.toml"),
 	};
 }
 

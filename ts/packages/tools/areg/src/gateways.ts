@@ -318,7 +318,7 @@ export interface AregProjectGateway {
 }
 
 export interface AregInitTextWritePlan {
-	relativePath: "sdl.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
+	relativePath: "ji.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
 	content: string;
 	description: string;
 	createParent: boolean;

@@ -22,11 +22,11 @@ describe("sdl shell CLI", () => {
 		const run = runScenario(["shell", "show", "--shell", "zsh"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("SDL_CD_DIRECTIVE_FILE");
-		expect(output).toContain('command sdl "$@"');
-		expect(output).toContain('IFS= read -r _sdl_destination < "$_sdl_cd_directive_file" || true');
-		expect(output).toContain('cd -- "$_sdl_destination"');
-		expect(output).toContain('rm -f "$_sdl_cd_directive_file"');
+		expect(output).toContain("JI_CD_DIRECTIVE_FILE");
+		expect(output).toContain('command ji "$@"');
+		expect(output).toContain('IFS= read -r _ji_destination < "$_ji_cd_directive_file" || true');
+		expect(output).toContain('cd -- "$_ji_destination"');
+		expect(output).toContain('rm -f "$_ji_cd_directive_file"');
 	});
 
 	it("installs idempotently without disturbing unrelated rc content", async () => {
@@ -44,8 +44,8 @@ describe("sdl shell CLI", () => {
 		);
 		expect(await second.exit).toBe(0);
 		const rc = await readFile(join(home, ".zshrc"), "utf8");
-		expect(rc).toMatch(/^existing\n\n# >>> sdl shell integration >>>/);
-		expect(rc).toContain("SDL_CD_DIRECTIVE_FILE");
+		expect(rc).toMatch(/^existing\n\n# >>> ji shell integration >>>/);
+		expect(rc).toContain("JI_CD_DIRECTIVE_FILE");
 		expect(rc).toContain(sdlShellIntegrationEndMarker);
 		expect(countOccurrences(rc, sdlShellIntegrationBeginMarker)).toBe(1);
 		expect(second.stdout.join("")).toContain('"isAlreadyInstalled": true');
@@ -85,7 +85,7 @@ function runScenario(
 }
 
 async function makeHome(): Promise<string> {
-	const home = await mkdtemp(join(tmpdir(), "sdl-shell-home-"));
+	const home = await mkdtemp(join(tmpdir(), "ji-shell-home-"));
 	tempHomes.push(home);
 	return home;
 }

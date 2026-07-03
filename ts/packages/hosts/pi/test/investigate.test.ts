@@ -85,14 +85,14 @@ function fakeInvestigatorDefinition(
 	overrides: { toolName?: string; body?: string } = {},
 ): PiAgentDefinition {
 	return {
-		schema: "sdl.pi-agent.v1",
+		schema: "ji.pi-agent.v1",
 		name: "investigator",
 		toolName: overrides.toolName ?? INVESTIGATE_COMMAND_NAME,
 		label: "Investigator",
 		description: "Run a fixture investigation.",
 		promptGuidelines: [],
 		body: overrides.body ?? DEFAULT_INVESTIGATOR_BODY,
-		filePath: "/fixture/.sdl/pi/agents/investigator.md",
+		filePath: "/fixture/.ji/pi/agents/investigator.md",
 	};
 }
 

@@ -1,5 +1,5 @@
 {
-	"sdl": {
+	"ji": {
 		"description": "Collect branch retrospective evidence for agents.",
 		"group": "aretro",
 		"commands": [

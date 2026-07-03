@@ -1,5 +1,5 @@
 {
-	"sdl": {
+	"ji": {
 		"description": "Inspect and maintain SDL Objective records.",
 		"group": "objective",
 		"commands": [

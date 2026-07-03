@@ -23,7 +23,7 @@
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "standalone-tool"
 	}
 }

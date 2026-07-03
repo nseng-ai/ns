@@ -13,7 +13,7 @@ export interface PackageManifest {
 	readonly peerDependencies?: unknown;
 	readonly peerDependenciesMeta?: unknown;
 	readonly devDependencies?: unknown;
-	readonly sdl?: unknown;
+	readonly ji?: unknown;
 	readonly [key: string]: unknown;
 }
 
@@ -37,7 +37,7 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		const manifestContent = readFileSync(packageJsonPath, "utf8");
 		const parsed: unknown = JSON.parse(manifestContent);
 		if (!isPackageManifest(parsed)) continue;
-		const rawSdlTier = readRawSdlTier(parsed.sdl);
+		const rawSdlTier = readRawSdlTier(parsed.ji);
 		metadataByName.set(parsed.name, {
 			name: parsed.name,
 			packageDir: relative(repoRoot, packageDir),
@@ -46,8 +46,8 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 			manifestContent,
 			sdlTier: parsePackageTier(rawSdlTier),
 			rawSdlTier,
-			sdlSubpackages: readSdlSubpackages(parsed.sdl),
-			sdlRemainder: readSdlRemainder(parsed.sdl),
+			sdlSubpackages: readSdlSubpackages(parsed.ji),
+			sdlRemainder: readSdlRemainder(parsed.ji),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}

@@ -13,7 +13,7 @@ import {
 const tempDirs: string[] = [];
 
 async function createTempDir(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-extension-discovery-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-extension-discovery-"));
 	tempDirs.push(directory);
 	return directory;
 }
@@ -40,7 +40,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "package-ext", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					commands: [{ name: "custom", description: "Custom command.", entry: "./src/index.ts" }],
 				},
 			}),
@@ -81,11 +81,11 @@ describe("extension discovery", () => {
 	test("malformed package manifests produce structured diagnostics", async () => {
 		const root = await createTempDir();
 		writeFile(join(root, "bad-json", "package.json"), "{ nope");
-		writeFile(join(root, "missing-sdl", "package.json"), JSON.stringify({ name: "missing" }));
+		writeFile(join(root, "missing-ji", "package.json"), JSON.stringify({ name: "missing" }));
 		writeFile(
 			join(root, "bad-entries", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					commands: [
 						"not-object",
 						{ name: "Bad", description: "Bad.", entry: "./missing.ts" },
@@ -111,7 +111,7 @@ describe("extension discovery", () => {
 			"extension_manifest_command_description_missing",
 			"extension_manifest_entry_missing",
 			"extension_manifest_parse_failed",
-			"extension_manifest_missing_sdl",
+			"extension_manifest_missing_ji",
 		]);
 	});
 
@@ -120,7 +120,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "bad-group", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					group: "Bad",
 					commands: [{ name: "hello", description: "Hello.", entry: "./src/hello.ts" }],
 				},
@@ -143,7 +143,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "handoff", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					group: "handoff",
 					commands: [{ name: "list", description: "List handoffs.", entry: "./src/list.ts" }],
 				},
@@ -169,7 +169,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "roaster", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					group: "roaster",
 					commands: [
 						{
@@ -212,7 +212,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "handoff", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					group: "handoff",
 					commands: [
 						{
@@ -242,7 +242,7 @@ describe("extension discovery", () => {
 		const root = await createTempDir();
 		writeFile(
 			join(root, "bad", "package.json"),
-			JSON.stringify({ sdl: { extensions: ["./src/index.ts"] } }),
+			JSON.stringify({ ji: { extensions: ["./src/index.ts"] } }),
 		);
 
 		const result = discoverExtensionsInRoot(root);
@@ -256,23 +256,23 @@ describe("extension discovery", () => {
 		const root = await createTempDir();
 		writeFile(
 			join(root, "bad-commands", "package.json"),
-			JSON.stringify({ sdl: { commands: "./src/index.ts" } }),
+			JSON.stringify({ ji: { commands: "./src/index.ts" } }),
 		);
-		writeFile(join(root, "bad-sdl", "package.json"), JSON.stringify({ sdl: "commands" }));
+		writeFile(join(root, "bad-sdl", "package.json"), JSON.stringify({ ji: "commands" }));
 
 		const result = discoverExtensionsInRoot(root);
 
 		expect(result.commands).toEqual([]);
 		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
 			"extension_manifest_commands_not_array",
-			"extension_manifest_missing_sdl",
+			"extension_manifest_missing_ji",
 		]);
 	});
 
 	test("bulk SDL package discovery suppresses manifest structure diagnostics", async () => {
 		const root = await createTempDir();
 		const packageDir = join(root, "ordinary-package");
-		writeFile(join(packageDir, "package.json"), JSON.stringify({ sdl: "commands" }));
+		writeFile(join(packageDir, "package.json"), JSON.stringify({ ji: "commands" }));
 
 		const result = discoverSdlPackageCommands(root, packageDir);
 
@@ -285,7 +285,7 @@ describe("extension discovery", () => {
 			join(root, "flow", "package.json"),
 			JSON.stringify({
 				private: true,
-				sdl: {
+				ji: {
 					group: "flow",
 					owner: "repo-local",
 					commands: [
@@ -312,7 +312,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({
-				sdl: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] },
+				ji: { commands: [{ name: "hello", description: "Hello.", entry: "./missing.ts" }] },
 			}),
 		);
 
@@ -330,7 +330,7 @@ describe("extension discovery", () => {
 		writeFile(
 			join(root, "bad", "package.json"),
 			JSON.stringify({
-				sdl: {
+				ji: {
 					commands: [
 						{
 							name: "hello",

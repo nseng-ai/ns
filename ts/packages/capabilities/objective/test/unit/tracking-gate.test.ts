@@ -19,7 +19,7 @@ describe("objective tracking-gate operation", () => {
 				dirtyPaths: ["."],
 				changedPaths: {
 					"master...HEAD|.": [
-						".sdl/objectives/flow-cleanup/roadmap.md",
+						".ji/objectives/flow-cleanup/roadmap.md",
 						"ts/packages/capabilities/objective/src/core/operations/tracking-gate.ts",
 					],
 				},
@@ -32,8 +32,8 @@ describe("objective tracking-gate operation", () => {
 			type: "ok",
 			data: {
 				slug: "flow-cleanup",
-				objectivePath: ".sdl/objectives/flow-cleanup",
-				rootPath: ".sdl/objectives",
+				objectivePath: ".ji/objectives/flow-cleanup",
+				rootPath: ".ji/objectives",
 				objective: { exists: true, closed: false },
 				git: {
 					repoRoot: "/repo",
@@ -48,11 +48,11 @@ describe("objective tracking-gate operation", () => {
 				branchDiff: {
 					status: "ok",
 					changedPaths: [
-						".sdl/objectives/flow-cleanup/roadmap.md",
+						".ji/objectives/flow-cleanup/roadmap.md",
 						"ts/packages/capabilities/objective/src/core/operations/tracking-gate.ts",
 					],
 					changedPathCount: 2,
-					objectiveChangedPaths: [".sdl/objectives/flow-cleanup/roadmap.md"],
+					objectiveChangedPaths: [".ji/objectives/flow-cleanup/roadmap.md"],
 					objectiveChangedPathCount: 1,
 					materialNonObjectivePaths: [
 						"ts/packages/capabilities/objective/src/core/operations/tracking-gate.ts",
@@ -78,7 +78,7 @@ describe("objective tracking-gate operation", () => {
 			{
 				currentBranch: "feature/flow-cleanup",
 				trunkBranch: "master",
-				changedPaths: { "master...HEAD|.": [".sdl/objectives/flow-cleanup/roadmap.md"] },
+				changedPaths: { "master...HEAD|.": [".ji/objectives/flow-cleanup/roadmap.md"] },
 			},
 		);
 		const exit = await runTrackingGate(ctx, { slug: "flow-cleanup" });

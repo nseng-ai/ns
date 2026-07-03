@@ -169,7 +169,7 @@ async function loadDownstackBranches(
 	ctx: FlowCommandContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "failure"; message: string }> {
 	const result = await pi.exec(
-		"sdl",
+		"ji",
 		["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 		{
 			cwd: ctx.cwd,
@@ -187,14 +187,14 @@ async function loadDownstackBranches(
 	if (parsedJson.type === "failure") {
 		return {
 			type: "failure",
-			message: `Could not parse sdl slot gt exec stack-branches JSON: ${parsedJson.message}`,
+			message: `Could not parse ji slot gt exec stack-branches JSON: ${parsedJson.message}`,
 		};
 	}
 	const envelope = stackBranchesEnvelopeSchema.safeParse(parsedJson.value);
 	if (!envelope.success) {
 		return {
 			type: "failure",
-			message: `Unexpected sdl slot gt exec stack-branches JSON shape: ${envelope.error.message}`,
+			message: `Unexpected ji slot gt exec stack-branches JSON shape: ${envelope.error.message}`,
 		};
 	}
 	if (envelope.data.status !== "ok" || envelope.data.data === undefined) {
@@ -202,7 +202,7 @@ async function loadDownstackBranches(
 			type: "failure",
 			message:
 				envelope.data.message ??
-				`sdl slot gt exec stack-branches failed with status ${envelope.data.status}`,
+				`ji slot gt exec stack-branches failed with status ${envelope.data.status}`,
 		};
 	}
 	return { type: "ok", branches: envelope.data.data.branches };

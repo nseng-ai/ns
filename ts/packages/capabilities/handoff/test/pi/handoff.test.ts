@@ -130,7 +130,7 @@ describe("handoff extension", () => {
 		expect(result.pi.sentUserMessages[0]).toContain("Storage contract:");
 		expect(result.pi.sentUserMessages[0]).toContain("Namespace: `handoff`");
 		expect(result.pi.sentUserMessages[0]).toContain(
-			"sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
+			"ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
 		);
 		expect(result.pi.sentUserMessages[0]).toContain("Branch Memory recovery path");
 		expect(result.pi.sentUserMessages[0]).toContain("do not create a temporary artifact file");
@@ -539,7 +539,7 @@ describe("handoff pure helpers", () => {
 		expect(prompt).toContain("Storage contract:");
 		expect(prompt).toContain("ship the frontend command");
 		expect(prompt).toContain(
-			"sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
+			"ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
 		);
 		expect(prompt).toContain("refuses existing artifacts by default");
 		expect(prompt).toContain("HANDOFF_EOF");

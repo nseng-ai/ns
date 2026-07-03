@@ -39,7 +39,7 @@
 		"@sdl/slot": "workspace:*",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"tier": "capability",
 		"subpackages": [
 			"api",

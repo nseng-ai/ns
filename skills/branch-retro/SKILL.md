@@ -1,14 +1,14 @@
 ---
 name: branch-retro
 disable-model-invocation: true
-description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret Aretro evidence. Collects deterministic evidence with `sdl aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
+description: "Use when the user asks for a branch/session retrospective, wants to know what would have made branch work faster/smaller/higher quality, or asks to run/interpret Aretro evidence. Collects deterministic evidence with `ji aretro exec collect-evidence` and turns it into semantic recommendations without editing files unless requested."
 allowed-tools:
-  - "Bash(sdl aretro exec collect-evidence*)"
-  - "Bash(sdl aretro exec read-evidence-detail*)"
+  - "Bash(ji aretro exec collect-evidence*)"
+  - "Bash(ji aretro exec read-evidence-detail*)"
   - "Bash(git status*)"
   - "Bash(git branch*)"
   - "Bash(git rev-parse*)"
-  - "Bash(command -v sdl*)"
+  - "Bash(command -v ji*)"
   - "Read"
 ---
 
@@ -17,7 +17,7 @@ allowed-tools:
 # branch-retro
 
 Produce a compact retrospective for a branch or session set. The skill collects
-factual evidence with `sdl aretro`, then uses model judgment to write source-backed
+factual evidence with `ji aretro`, then uses model judgment to write source-backed
 findings and actionable recommendations. Default mode is read-only.
 
 ## When to use
@@ -31,14 +31,14 @@ then ask for confirmation and scope before editing anything.
 
 ## How Aretro is invoked
 
-The command boundary is `sdl aretro exec collect-evidence` for compact evidence and
-`sdl aretro exec read-evidence-detail` for targeted payload detail reads. The
+The command boundary is `ji aretro exec collect-evidence` for compact evidence and
+`ji aretro exec read-evidence-detail` for targeted payload detail reads. The
 standalone `aretro` command and the old skill-local `aretro-run` source runner are
 retired.
 
 ## Preflight
 
-1. Verify `command -v sdl` succeeds in an SDL checkout with the Aretro extension
+1. Verify `command -v ji` succeeds in an SDL checkout with the Aretro extension
    available.
 2. Resolve the repository root with `git rev-parse --show-toplevel`.
 3. Resolve the branch with `git branch --show-current`, unless the user supplied
@@ -46,7 +46,7 @@ retired.
 4. Choose one safe payload session id for this invocation, using only lowercase
    letters, digits, dots, underscores, and hyphens. Examples:
    `aretro-20260604t120000z-a1` or `aretro-branch-retro-a1`.
-5. If `sdl` is unavailable, not in a git repository, or the branch is detached and
+5. If `ji` is unavailable, not in a git repository, or the branch is detached and
    the user did not provide one, stop and report the prerequisite failure. Ask for
    `--repo` and `--branch` when needed.
 
@@ -55,7 +55,7 @@ retired.
 Run payload mode by default:
 
 ```bash
-sdl aretro exec collect-evidence \
+ji aretro exec collect-evidence \
   --repo <repo-root> \
   --branch <branch> \
   --max-sessions 20 \
@@ -81,7 +81,7 @@ When compact evidence is insufficient to make or validate a recommendation, read
 one targeted detail value from the payload artifact:
 
 ```bash
-sdl aretro exec read-evidence-detail \
+ji aretro exec read-evidence-detail \
   --payload-path <payload-reference.payload_path> \
   --json-pointer <detail-pointer-under-/data> \
   --format json

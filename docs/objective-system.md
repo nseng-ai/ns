@@ -14,19 +14,19 @@ An Objective is not a workflow controller, state machine, hidden agent store, or
 Active Objective records live under the checked-in active root:
 
 ```text
-.sdl/objectives/
+.ji/objectives/
 ```
 
 Archived Objective records live under the checked-in archive root:
 
 ```text
-.sdl/objective-archive/
+.ji/objective-archive/
 ```
 
 Each objective is keyed by its directory slug. Active records use this shape:
 
 ```text
-.sdl/objectives/<slug>/
+.ji/objectives/<slug>/
   objective.md
   roadmap.md
   orientation.md   # optional; cross-cutting active Objectives only
@@ -34,19 +34,19 @@ Each objective is keyed by its directory slug. Active records use this shape:
   closed.md        # optional; existence means closed
 ```
 
-Archived records preserve the same internal shape under `.sdl/objective-archive/<slug>/`.
+Archived records preserve the same internal shape under `.ji/objective-archive/<slug>/`.
 
 Rules:
 
-- `.sdl/objectives/` and `.sdl/objective-archive/` are first-class repository content and should be committed.
+- `.ji/objectives/` and `.ji/objective-archive/` are first-class repository content and should be committed.
 - The `<slug>` directory name is the stable objective identity in either root.
 - The markdown title may change without changing objective identity.
 - Command, product, branch, package, and prose renames do not imply Objective slug renames.
-- Moving `.sdl/objectives/<old>/` to `.sdl/objectives/<new>/` or `.sdl/objective-archive/<old>/` to `.sdl/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
-- Moving `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/` is Objective archive, not slug migration.
+- Moving `.ji/objectives/<old>/` to `.ji/objectives/<new>/` or `.ji/objective-archive/<old>/` to `.ji/objective-archive/<new>/` is an explicit Objective slug migration and should stop normal Objective workflows until a user chooses the canonical identity.
+- Moving `.ji/objectives/<slug>/` to `.ji/objective-archive/<slug>/` is Objective archive, not slug migration.
 - Open/closed state and active/archived location are orthogonal: `closed.md` records closure state; root location controls whether normal active workflows discover the record.
 - Do not add YAML frontmatter, UUIDs, registries, or hidden attachment metadata.
-- V1 starts fresh from `.sdl/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
+- V1 starts fresh from `.ji/objectives/`; `docs/objectives/` is not a canonical root and has no compatibility behavior.
 
 ## Documentation Surfaces
 
@@ -127,7 +127,7 @@ Do not add task IDs, owners, priority fields, due dates, lifecycle metadata, or 
 
 ### `orientation.md`
 
-`orientation.md` is an optional agent-facing standing rule for cross-cutting active Objectives whose direction unrelated agents must respect. Presence of a direct `.sdl/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.sdl/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
+`orientation.md` is an optional agent-facing standing rule for cross-cutting active Objectives whose direction unrelated agents must respect. Presence of a direct `.ji/objectives/<slug>/orientation.md` file is the opt-in flag; there is no separate registry. Direct `.ji/objectives/<slug>/closed.md` removes the orientation from the always-load set automatically. The file should keep durable `Direction` / `Getting to` guidance separate from temporary `What you see now` / `Avoid` guidance and leave lifecycle/graduation metadata in `roadmap.md`.
 
 ### `updates/`
 
@@ -175,79 +175,79 @@ Rules:
 
 When an operation needs an existing active objective, resolve it in this order:
 
-1. Use an explicit user-provided slug or path under `.sdl/objectives/<slug>/`.
-2. If the user-provided path is under `.sdl/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
-3. If no slug or path is explicit, list candidate objective directories under `.sdl/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
+1. Use an explicit user-provided slug or path under `.ji/objectives/<slug>/`.
+2. If the user-provided path is under `.ji/objective-archive/<slug>/`, stop and ask whether to unarchive before running active Objective workflows.
+3. If no slug or path is explicit, list candidate objective directories under `.ji/objectives/` and ask the user to choose. Use the operation's state filter when it has one, such as active objectives for active-objective workflows.
 4. If no candidates exist, report that no objectives exist and suggest `objective-create` when appropriate.
 
 Archived slugs remain reserved Objective identities. Do not silently create a new active Objective with the same slug as an archived record; ask whether to unarchive, inspect, or choose a different slug.
 
 Operation-specific exception: when no slug or path is explicit, the user explicitly requested an Objective update, and the active-objective listing returns exactly one candidate, `objective-update` may present that objective as the only candidate. It must ask a short confirmation question before continuing to repo evidence or mutation. If update intent is ambiguous, ask a one-line invocation confirmation first. If multiple active objectives exist, still present the options and ask the user to choose.
 
-Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.sdl/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
+Non-binding picker grouping exception: when a UI picker has already listed active objectives, it may use deterministic git facts to group changed active objectives first when direct changes under `.ji/objectives/<slug>/` are present compared with the repository trunk. If exactly one active objective is the only objective slug changed, the picker may label it as suggested. If multiple active objectives changed, the picker may show those changed active objectives in the first menu and offer a separate option to view the remaining active objectives. The user must still confirm a changed objective or choose another objective. If the diff is unavailable, empty, or contains no changed slugs that are active objectives, the picker should show the normal ordering with no suggestion.
 
 Do not silently auto-select from candidate count or changed/touched files. Never infer objective ownership from branch names, PR titles, package names, roadmap keywords, or other hidden attachment mechanisms. Changed-path, branch, stack, or PR evidence may be used only by operation-specific checks after an objective is selected.
 
 ## Operations
 
-V1 keeps Objective meaning in Markdown. Small CLI surfaces (`sdl objective list`, `sdl objective archive`, `sdl objective exec read-objective`, `sdl objective exec load-orientations`, and `sdl objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
+V1 keeps Objective meaning in Markdown. Small CLI surfaces (`ji objective list`, `ji objective archive`, `ji objective exec read-objective`, `ji objective exec load-orientations`, and `ji objective exec runner-subagent-usage`) ship deterministic mechanics that the skills delegate to. Narrative mutations remain direct Markdown edits; archive/unarchive is a shipped directory-move mutation that does not edit Objective prose.
 
-### `sdl objective list`
+### `ji objective list`
 
 Lists Objective records in the current checkout.
 
 Contract:
 
-- Read active Objective records only from `.sdl/objectives/` in the current working tree; archived records under `.sdl/objective-archive/` are excluded even when `--status all` is passed.
-- Report checkout-local status from the active record: direct `.sdl/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
-- Do not treat nested files such as `.sdl/objectives/<slug>/updates/closed.md` as closure markers.
+- Read active Objective records only from `.ji/objectives/` in the current working tree; archived records under `.ji/objective-archive/` are excluded even when `--status all` is passed.
+- Report checkout-local status from the active record: direct `.ji/objectives/<slug>/closed.md` means `closed`; an Objective record without direct `closed.md` means `open`.
+- Do not treat nested files such as `.ji/objectives/<slug>/updates/closed.md` as closure markers.
 - Default to active/open Objective records. Closed records are included only with `--status closed` or `--status all`.
 - Provide a `--status {all,active,open,closed}` filter. The default is `active`.
 - Provide a `--names` flag that emits Objective slugs only, one per line after the status filter is applied.
 - Include local non-trunk branch attribution by default for the listed checkout-local Objective records. `--names` remains slug-only.
 - Provide a `--minimal` flag that hides local branch attribution and shows the compact Objective/status/latest-update list.
-- Compute `latest_update_iso` from the newest committed update touching `.sdl/objectives/<slug>/` when available; otherwise report `null`.
-- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.sdl/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
-- By default, report local branches whose net `.sdl/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.sdl/objectives/`.
-- Branch attribution first prefilters all local non-trunk branches by `.sdl/objectives` tree changes, then limits expensive path walks to the newest 50 changed local branches. If that limit is hit, JSON sets `data.updated_branches_truncated` to true and human/Markdown output notes that older updated branches may be omitted.
+- Compute `latest_update_iso` from the newest committed update touching `.ji/objectives/<slug>/` when available; otherwise report `null`.
+- Prefix the human and Markdown latest-update cell with `(x)` when the checkout has staged, unstaged, or untracked changes under `.ji/objectives/<slug>/`. A dirty record with no committed update renders `(x) —`.
+- By default, report local branches whose net `.ji/objectives` tree differs from trunk and whose `trunk..branch` Objective-path changes touch the listed slug. This is a local-branch update summary, not Graphite stack projection; it ignores branch-only Objective records absent from the current checkout and archived records outside `.ji/objectives/`.
+- Branch attribution first prefilters all local non-trunk branches by `.ji/objectives` tree changes, then limits expensive path walks to the newest 50 changed local branches. If that limit is hit, JSON sets `data.updated_branches_truncated` to true and human/Markdown output notes that older updated branches may be omitted.
 - Emit machine JSON as a Clinkr envelope whose `data` contains `trunk_branch`, `root_path`, `status_filter`, `names_only`, and `records`. Each record contains `slug`, `status`, and `latest_update_iso`; JSON remains raw and does not expose formatted latest-update text or dirty state. By default, `data.updated_branches_included` is true and each record contains an `updated_branches` array. With `--minimal` or `--names`, branch-attribution fields are omitted.
 - Do not parse Markdown prose, summarize Objective bodies, choose a canonical branch, or depend on Graphite.
 - The shipped command has no Graphite branch projection, third active status, current-branch mode, or detail view.
 
 Shipped CLI:
 
-- Run `sdl objective list` for the default active/open Objective inventory with local branch attribution.
-- Run `sdl objective list --format md` for markdown output with local branch attribution.
-- Run `sdl objective list --format json` for the machine envelope with local branch attribution.
-- Run `sdl objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
-- Run `sdl objective list --status all` to include open and closed active-root Objective records.
-- Run `sdl objective list --status closed` for closed active-root Objective records.
-- Run `sdl objective list --status all --format md` for a Markdown table with local branch attribution.
-- Run `sdl objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
-- Run `sdl objective list --names` to print active slugs, one per line.
+- Run `ji objective list` for the default active/open Objective inventory with local branch attribution.
+- Run `ji objective list --format md` for markdown output with local branch attribution.
+- Run `ji objective list --format json` for the machine envelope with local branch attribution.
+- Run `ji objective list --minimal` for the compact active/open Objective inventory without local branch attribution.
+- Run `ji objective list --status all` to include open and closed active-root Objective records.
+- Run `ji objective list --status closed` for closed active-root Objective records.
+- Run `ji objective list --status all --format md` for a Markdown table with local branch attribution.
+- Run `ji objective list --minimal --status closed --format json` for machine-readable closed records without branch attribution.
+- Run `ji objective list --names` to print active slugs, one per line.
 
-### `sdl objective exec load-orientations`
+### `ji objective exec load-orientations`
 
 Loads active Objective orientation files for agent onboarding.
 
 Contract:
 
-- Read active Objective records only from `.sdl/objectives/` in the current working tree.
+- Read active Objective records only from `.ji/objectives/` in the current working tree.
 - Include only open records with a direct `orientation.md` file.
 - Exclude records with direct `closed.md`; closure automatically removes them from the load set.
-- Exclude archived records under `.sdl/objective-archive/`.
+- Exclude archived records under `.ji/objective-archive/`.
 - Sort deterministically by slug.
 - Do not parse Objective prose or orientation Markdown; emit headers and raw file contents.
-- Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .sdl/objectives/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
+- Markdown/default output is suitable for AGENTS.md onboarding: each record renders as `### .ji/objectives/<slug>/orientation.md` followed by the raw file content with trailing newlines normalized.
 - JSON emits a Clinkr envelope whose `data` contains `rootPath`, `records`, and `recordCount`. Each record contains `slug`, `path`, and `content`.
 - A missing active orientation set is `ok` with an empty `records` array.
 - An unreadable detected orientation file fails the command rather than silently skipping a rule file.
 
 Shipped CLI:
 
-- Run `sdl objective exec load-orientations` for default Markdown-compatible output.
-- Run `sdl objective exec load-orientations --format md` for explicit Markdown output.
-- Run `sdl objective exec load-orientations --format json` for the machine envelope.
+- Run `ji objective exec load-orientations` for default Markdown-compatible output.
+- Run `ji objective exec load-orientations --format md` for explicit Markdown output.
+- Run `ji objective exec load-orientations --format json` for the machine envelope.
 
 ### `objective-create`
 
@@ -256,7 +256,7 @@ Creates a new objective.
 Contract:
 
 - Require an explicit slug or explicit user confirmation of an LM-proposed slug.
-- Create `.sdl/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
+- Create `.ji/objectives/<slug>/` with `objective.md`, `roadmap.md`, and `updates/`.
 - Write LM-authored initial content using the standardized required headings, including a concrete `## Assumptions and Risks` section.
 - Default to planning-only unless the user explicitly asks for execution-friendly/runner/autonomous behavior or the interview exposes execution policy as a real branch point.
 - For planning-only Objectives, omit `## Definition of Progress` and `## Runner Policy` unless the user explicitly asks for them.
@@ -279,7 +279,7 @@ User interview:
 
 Shipped CLI:
 
-- Active-root duplicate detection: `sdl objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
+- Active-root duplicate detection: `ji objective exec read-objective <slug>` returns a `not_found` envelope when the slug has no active-root record, and otherwise emits the existing active record. Archived records should still be checked before reusing a slug.
 
 Future CLI pushdown candidates:
 
@@ -301,8 +301,8 @@ Contract:
 
 Shipped CLI:
 
-- Candidate objective listing: `sdl objective list` (active root only).
-- Closed-marker detection and structured inventory: `sdl objective list` (per-record) and `sdl objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
+- Candidate objective listing: `ji objective list` (active root only).
+- Closed-marker detection and structured inventory: `ji objective list` (per-record) and `ji objective exec read-objective <slug>` (active-root per-record raw Markdown plus closed state and missing-file notes).
 
 ### `objective-next`
 
@@ -328,7 +328,7 @@ Contract:
 
 Shipped CLI:
 
-- Active candidate filtering: `sdl objective list` lists active-root open candidates by default; `sdl objective list --status all` reports active-root closed records too.
+- Active candidate filtering: `ji objective list` lists active-root open candidates by default; `ji objective list --status all` reports active-root closed records too.
 
 Future CLI pushdown candidates:
 
@@ -369,7 +369,7 @@ Contract:
 - Update `objective.md` with `## Closure` context, including remaining assumptions, risks, caveats, and follow-ups when relevant.
 - Write `closed.md` as an existence-only Closure Marker.
 - Leave the objective directory in its current root.
-- Do not delete the objective or archive it implicitly; use `sdl objective archive` separately when the user wants the record outside active discovery.
+- Do not delete the objective or archive it implicitly; use `ji objective archive` separately when the user wants the record outside active discovery.
 - Do not create a reopen mechanism in v1.
 
 Future CLI pushdown candidates:
@@ -378,14 +378,14 @@ Future CLI pushdown candidates:
 - Refusal when already closed unless the user asks to amend closure context.
 - Verification that `objective.md` contains a `## Closure` section.
 
-### `sdl objective archive`
+### `ji objective archive`
 
 Moves an Objective record between active and archived roots without editing Objective Markdown.
 
 Contract:
 
-- `sdl objective archive <slug>` moves `.sdl/objectives/<slug>/` to `.sdl/objective-archive/<slug>/`.
-- `sdl objective archive <slug> --unarchive` moves `.sdl/objective-archive/<slug>/` back to `.sdl/objectives/<slug>/`.
+- `ji objective archive <slug>` moves `.ji/objectives/<slug>/` to `.ji/objective-archive/<slug>/`.
+- `ji objective archive <slug> --unarchive` moves `.ji/objective-archive/<slug>/` back to `.ji/objectives/<slug>/`.
 - Preserve the slug and all files, including `closed.md` when present.
 - Refuse invalid slugs, missing source directories, non-directory sources, and existing destinations.
 - Do not infer closure from archive state and do not infer archive state from closure.
@@ -393,10 +393,10 @@ Contract:
 
 Shipped CLI:
 
-- Run `sdl objective archive <slug>` to remove a record from normal active discovery.
-- Run `sdl objective archive <slug> --unarchive` to make an archived record active again.
+- Run `ji objective archive <slug>` to remove a record from normal active discovery.
+- Run `ji objective archive <slug> --unarchive` to make an archived record active again.
 
-### `sdl objective exec runner-subagent-usage`
+### `ji objective exec runner-subagent-usage`
 
 Summarizes Pi runner-subagent JSONL session files for Objective stack digest workflows.
 
@@ -414,7 +414,7 @@ Markdown-only v1 behavior:
 
 - Inspect current uncommitted changes and branch diff when available.
 - Look for material non-objective changes that plausibly advance the selected objective.
-- Look for corresponding changes under `.sdl/objectives/<slug>/`.
+- Look for corresponding changes under `.ji/objectives/<slug>/`.
 - If material objective progress appears clearly unrecorded for the same selected objective, block next-work recommendation, perform the explicit `objective-update` workflow, reread the objective and repo evidence, and then continue `objective-next`.
 - If material progress appears likely but evidence, objective fit, or update scope is ambiguous, ask whether to run `objective-update` for the same selected objective.
 - If ambiguous-case confirmation is pending or declined, stop without a next-work recommendation.
@@ -436,12 +436,12 @@ Future CLI tooling should own deterministic mechanics and facts, not objective m
 
 Good CLI responsibilities:
 
-- Validate slugs and paths. *(partially shipped: `sdl objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
-- List candidate objectives from checkout-local active-root records. *(shipped: `sdl objective list`.)*
-- Detect closed markers. *(shipped for active-root records: `sdl objective list`, `sdl objective exec read-objective`, and `sdl objective exec load-orientations` use direct `closed.md` presence.)*
-- Load active Objective orientation files for agent onboarding. *(shipped: `sdl objective exec load-orientations`.)*
-- Move Objective records between active and archived roots without editing prose. *(shipped: `sdl objective archive`.)*
-- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `sdl objective exec runner-subagent-usage`.)*
+- Validate slugs and paths. *(partially shipped: `ji objective exec read-objective` rejects empty, `.`, `..`, and slash-bearing slugs.)*
+- List candidate objectives from checkout-local active-root records. *(shipped: `ji objective list`.)*
+- Detect closed markers. *(shipped for active-root records: `ji objective list`, `ji objective exec read-objective`, and `ji objective exec load-orientations` use direct `closed.md` presence.)*
+- Load active Objective orientation files for agent onboarding. *(shipped: `ji objective exec load-orientations`.)*
+- Move Objective records between active and archived roots without editing prose. *(shipped: `ji objective archive`.)*
+- Summarize runner-subagent session usage for Objective stack digestion. *(shipped: `ji objective exec runner-subagent-usage`.)*
 - Scaffold required files and headings. *(future.)*
 - Detect missing `## Assumptions and Risks` sections. *(future.)*
 - Generate timestamped update filenames. *(future.)*

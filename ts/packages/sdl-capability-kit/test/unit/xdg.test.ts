@@ -27,7 +27,7 @@ describe("XDG capability-kit helpers", () => {
 				env: { HOME: "/home/tester" },
 				segments: ["extensions"],
 			}),
-		).toEqual({ ok: true, value: "/home/tester/.local/share/sdl/extensions" });
+		).toEqual({ ok: true, value: "/home/tester/.local/share/ji/extensions" });
 	});
 
 	test("private directory creation uses 0700 for new directories and leaves existing permissions", async () => {

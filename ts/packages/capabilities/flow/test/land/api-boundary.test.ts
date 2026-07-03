@@ -45,7 +45,7 @@ describe("sdl-flow/land API boundary", () => {
 
 		expect(LAND_PACKAGE_NAME).toBe(packageJson.name);
 		expect(LAND_CAPABILITY_METADATA.packageName).toBe(packageJson.name);
-		expect(LAND_CAPABILITY_METADATA.tier).toBe(packageJson.sdl.tier);
+		expect(LAND_CAPABILITY_METADATA.tier).toBe(packageJson.ji.tier);
 		expect(LAND_CAPABILITY_ID).toBe("land");
 	});
 
@@ -215,7 +215,7 @@ describe("sdl-flow/land API boundary", () => {
 
 interface LandPackageJson {
 	readonly name: string;
-	readonly sdl: { readonly tier: "capability" };
+	readonly ji: { readonly tier: "capability" };
 }
 
 function readLandPackageJson(): LandPackageJson {
@@ -232,10 +232,10 @@ function isLandPackageJson(value: unknown): value is LandPackageJson {
 		value !== null &&
 		"name" in value &&
 		typeof value.name === "string" &&
-		"sdl" in value &&
-		typeof value.sdl === "object" &&
-		value.sdl !== null &&
-		"tier" in value.sdl &&
-		value.sdl.tier === "capability"
+		"ji" in value &&
+		typeof value.ji === "object" &&
+		value.ji !== null &&
+		"tier" in value.ji &&
+		value.ji.tier === "capability"
 	);
 }

@@ -194,7 +194,7 @@ describe("project-local submit extension", () => {
 			]),
 		);
 		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("sdl flow submit");
+		expect(settled).toContain("ji flow submit");
 		expect(settled).toContain("checkpoint complete");
 		expect(settled).toContain("ready to submit");
 		expect(settled).toContain("metadata prepared");
@@ -581,7 +581,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("gt submit exited 0, but the current branch still has no PR.");
 		expect(error).toContain("Submitted stack without PR URL");
 		expect(error).toContain(
-			"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+			"`ji flow submit` checkpoints outstanding worktree changes before submitting.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
@@ -610,9 +610,9 @@ describe("project-local submit extension", () => {
 	});
 
 	test("checkpoint failure aborts before Graphite submit", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -635,7 +635,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("Checkpoint before submit failed. Submission was not attempted.");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"sdl flow submit failed, and the failure could not be interpreted automatically.",
+			"ji flow submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("submit failure interpretation unavailable");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
@@ -703,10 +703,10 @@ describe("project-local submit extension", () => {
 	});
 
 	test("remotely updated branch dry-run failure explains what changed outside Graphite", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -756,9 +756,9 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(
 			"Remote-only commits on origin/add-preflight-detect-and-skip-empty-branches (not in local HEAD):\n  - abc123 remote checkpoint",
 		);
-		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.");
+		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `ji flow submit`.");
 		expect(error).toContain(
-			"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+			"Bypass: `ji flow submit --force` skips Graphite's remote-update check.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("Problem: Branch");
@@ -799,7 +799,7 @@ describe("project-local submit extension", () => {
 			"Branch handoff-capability/stack-feedback-remediation (PR #2257, merged); trunk master.",
 		);
 		expect(error).toContain(
-			"Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `sdl flow submit`.",
+			"Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `ji flow submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1. Submission was not attempted.");
@@ -810,10 +810,10 @@ describe("project-local submit extension", () => {
 	});
 
 	test("merged PR missing from trunk final submit preflight gives deterministic guidance", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -857,7 +857,7 @@ describe("project-local submit extension", () => {
 			"Branch shared-import-scanner-test-helpers (PR #2289, merged); trunk master.",
 		);
 		expect(error).toContain(
-			"Fix: ensure master contains the merged PR's commits, or reparent shared-import-scanner-test-helpers onto a trunk that already contains them, then rerun `sdl flow submit`.",
+			"Fix: ensure master contains the merged PR's commits, or reparent shared-import-scanner-test-helpers onto a trunk that already contains them, then rerun `ji flow submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1");
@@ -871,11 +871,11 @@ describe("project-local submit extension", () => {
 	});
 
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		const run = runWithFakes({
 			env: {
-				SDL_SUBMIT_FAILURE_LOG_DIR: logRoot,
-				SDL_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
+				JI_SUBMIT_FAILURE_LOG_DIR: logRoot,
+				JI_SUBMIT_FAILURE_MODEL: "openai-codex/submit-summary",
 			},
 			state: {
 				exec: [
@@ -923,9 +923,9 @@ describe("project-local submit extension", () => {
 	});
 
 	test("unknown dry-run failure falls back to original stderr when model generation fails", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -944,7 +944,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("raw stderr");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"sdl flow submit failed, and the failure could not be interpreted automatically.",
+			"ji flow submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("model unavailable");
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -1041,9 +1041,9 @@ describe("project-local submit extension", () => {
 	});
 
 	test("readiness recheck failure is deterministic and skips model summarization", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1071,7 +1071,7 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(1);
 		const error = run.stderr.join("");
 		expect(error).toContain(
-			"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+			"Graphite still needs a restack after `ji flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
 		);
 		expect(error).toContain("Fix: run `gt restack --downstack` manually");
 		expect(error).toContain("Raw log:");
@@ -1085,10 +1085,10 @@ describe("project-local submit extension", () => {
 	});
 
 	test("empty-branch dry-run warning stops during preflight before metadata or submit", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1131,10 +1131,10 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 	});
 
 	test("empty branch dry-run with no-op PRs stops before metadata or submit", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		tempDirs.push(logRoot);
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1189,9 +1189,9 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 	});
 
 	test("empty-branch post-submit failure uses model-primary output and raw log path", async () => {
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: [
 					...cleanCheckpointResponses(),
@@ -1273,12 +1273,12 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 
 	test("description metadata read failure preserves structured diagnostics", async () => {
 		vi.useFakeTimers();
-		const logRoot = await mkdtemp(join(tmpdir(), "sdl-submit-test-"));
+		const logRoot = await mkdtemp(join(tmpdir(), "ji-submit-test-"));
 		tempDirs.push(logRoot);
 		const ghStderr = "GraphQL: Could not resolve to a PullRequest with the number of 123\n";
 		const viewCommand = "gh pr view 123 --json number,url,title,body,headRefName,baseRefName";
 		const run = runWithFakes({
-			env: { SDL_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			env: { JI_SUBMIT_FAILURE_LOG_DIR: logRoot },
 			state: {
 				exec: successfulSubmitResponses().flatMap((response) =>
 					response.match === viewCommand

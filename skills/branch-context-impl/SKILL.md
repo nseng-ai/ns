@@ -1,7 +1,7 @@
 ---
 name: branch-context-impl
 disable-model-invocation: true
-description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/sdl:branch-context:impl-attached-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
+description: Use when a user explicitly wants to implement from an attached branch-context plan on the current branch — "implement the branch context", "load the attached branch-context plan", "continue from the branch context plan" — or to continue a Pi `/ji:branch-context:impl-attached-plan` handoff. Part of the branch-context skill family; see the `branch-context` umbrella for the shared lifecycle and safety contract.
 ---
 
 # branch-context-impl
@@ -13,7 +13,7 @@ Load the attached plan from Branch Memory and implement from it as the source of
 ```bash
 prompt_dir=$(mktemp -d "${TMPDIR:-/tmp}/branch-context-impl.XXXXXXXX")
 prompt_file="$prompt_dir/prompt.md"
-sdl branch-context exec load [key] --prompt-file "$prompt_file" --format json
+ji branch-context exec load [key] --prompt-file "$prompt_file" --format json
 ```
 
 Reads the current branch by default and auto-selects the attached plan only when Branch Memory namespace `branch-context` has exactly one supported named Markdown entry. If multiple supported entries exist, pass an explicit key. If the current branch has no attached branch-context entry and no explicit key was requested, it falls back to the current session's saved plan evidence or the latest `.md` file in the current repo/source-branch local plan store. An optional argument is treated as an exact attached Branch Memory key selector. Legacy `plan.md` entries are unsupported; reattach under a named Markdown key such as `<slug>.md` before loading. JSON output uses the standard Clinkr envelope; bounded metadata lives under `data`, including `data.implementationPromptFile` when `--prompt-file` is passed. Do not use `--include-content` or `--include-prompt` during normal agent operation; those flags can exceed harness stdout limits on large plans.
@@ -32,6 +32,6 @@ Reads the current branch by default and auto-selects the attached plan only when
 
 ## Recovery
 
-- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/sdl:branch-context:from-plan` first.
+- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/ji:branch-context:from-plan` first.
 - Missing, unexpected, or ambiguous attached plan key: inspect `brmem list --namespace branch-context --branch <branch>` and rerun `load <key>` only when the user explicitly chooses the key.
 - Current branch is trunk/default/detached: stop and ask for the intended implementation branch.

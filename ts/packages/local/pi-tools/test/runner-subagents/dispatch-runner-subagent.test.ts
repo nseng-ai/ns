@@ -210,7 +210,7 @@ function createRunnerDefinitionRoot(overrides: RunnerDefinitionOverrides = {}): 
 }
 
 function writeRunnerDefinition(root: string, overrides: RunnerDefinitionOverrides = {}): void {
-	const agentsDir = join(root, ".sdl", "pi", "agents");
+	const agentsDir = join(root, ".ji", "pi", "agents");
 	mkdirSync(agentsDir, { recursive: true });
 	writeFileSync(join(agentsDir, "runner.md"), runnerDefinitionMarkdown(overrides), "utf8");
 }
@@ -223,7 +223,7 @@ function runnerDefinitionMarkdown(overrides: RunnerDefinitionOverrides = {}): st
 	];
 	return [
 		"---",
-		"schema: sdl.pi-agent.v1",
+		"schema: ji.pi-agent.v1",
 		"name: runner",
 		`toolName: ${overrides.toolName ?? DISPATCH_RUNNER_SUBAGENT_TOOL_NAME}`,
 		`label: ${overrides.label ?? "Dispatch Forked Pi Session"}`,

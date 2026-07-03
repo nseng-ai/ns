@@ -409,7 +409,7 @@ describe("thermo council extension", () => {
 				`read,${SUBMIT_THERMO_COUNCIL_REVIEW_TOOL},${BLOCK_THERMO_COUNCIL_REVIEW_TOOL}`,
 			);
 			expect(call.args).toContain("--extension");
-			expect(call.args.join("\n")).toContain(".sdl/reviews/thermonuclear-review/review.md");
+			expect(call.args.join("\n")).toContain(".ji/reviews/thermonuclear-review/review.md");
 		}
 		const finalSynthesisCall = pi.runnerCalls[3];
 		expect(finalSynthesisCall?.args).toContain("--no-tools");
@@ -1129,6 +1129,6 @@ function successfulScopeExecResults(): Map<
 			"git diff --no-ext-diff base-sha...HEAD",
 			{ stdout: "diff --git a/src/file.ts b/src/file.ts\n" },
 		],
-		["git show HEAD:.sdl/reviews/thermonuclear-review/review.md", { stdout: "Review strictly.\n" }],
+		["git show HEAD:.ji/reviews/thermonuclear-review/review.md", { stdout: "Review strictly.\n" }],
 	]);
 }

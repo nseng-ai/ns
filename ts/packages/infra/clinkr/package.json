@@ -21,7 +21,7 @@
     "log-update": "catalog:",
     "zod": "catalog:"
   },
-  "sdl": {
+  "ji": {
     "tier": "neutral-infra"
   }
 }

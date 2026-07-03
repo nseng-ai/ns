@@ -554,7 +554,7 @@ describe("worktree status extension registration and rendering", () => {
 				return new Map([
 					...statuses,
 					["worktree-status", "[gt] future format that should be ignored\n[gh] stale text"],
-					["sdl-flow-changes", "/sdl:flow:changes running CLI command (23s)"],
+					["ji-flow-changes", "/ji:flow:changes running CLI command (23s)"],
 				]);
 			},
 		});
@@ -566,7 +566,7 @@ describe("worktree status extension registration and rendering", () => {
 		expect(footerLines[1]).toBe("[brmem] (pb-plan: handoffs-graphite-footer-lines.md)");
 		expect(footerLines[2]).toBe("[gh] no PR · refreshed 0s ago");
 		expect(footerLines[3]).toContain("18.2%/272k (auto)");
-		expect(footerLines.at(-1)).toBe("/sdl:flow:changes running CLI command (23s)");
+		expect(footerLines.at(-1)).toBe("/ji:flow:changes running CLI command (23s)");
 		expect(footerLines).not.toContain("[gt] future format that should be ignored");
 		expect(footerLines).not.toContain("[gh] stale text");
 		await pi.sessionShutdown?.();
@@ -627,7 +627,7 @@ interface LinkedWorktreeFixture {
 }
 
 function createRootCheckoutFixture(): LinkedWorktreeFixture {
-	const tempRoot = mkdtempSync(join(tmpdir(), "sdl-worktree-footer-"));
+	const tempRoot = mkdtempSync(join(tmpdir(), "ji-worktree-footer-"));
 	const worktreeRoot = join(tempRoot, "sdl-tools");
 	const gitDir = join(worktreeRoot, ".git");
 	mkdirSync(gitDir, { recursive: true });
@@ -636,7 +636,7 @@ function createRootCheckoutFixture(): LinkedWorktreeFixture {
 }
 
 function createLinkedWorktreeFixture(worktreeName: string): LinkedWorktreeFixture {
-	const tempRoot = mkdtempSync(join(tmpdir(), "sdl-worktree-footer-"));
+	const tempRoot = mkdtempSync(join(tmpdir(), "ji-worktree-footer-"));
 	const repoRoot = join(tempRoot, "sdl-tools");
 	const commonGitDir = join(repoRoot, ".git");
 	const gitDir = join(commonGitDir, "worktrees", worktreeName);

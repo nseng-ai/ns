@@ -22,7 +22,7 @@
 		"@sdl/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
-	"sdl": {
+	"ji": {
 		"description": "Manage the SDL worktree slot pool.",
 		"tier": "capability",
 		"subpackages": [

@@ -8,8 +8,8 @@ Start here before broad documentation searches. This directory collects cross-pa
 - `docs/`: cross-package design docs, system behavior, and contributor-facing documentation topology.
 - `ts/packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<name>/SKILL.md`: user-facing agent procedure. Public skills should describe CLI operations and avoid implementation internals.
-- `.sdl/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
-- `.sdl/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
+- `.ji/objectives/<slug>/`: durable Objective narrative, roadmap, updates, and closure.
+- `.ji/prompts/`: checked-in reusable prompt assets consumed by repo tooling or skills; this is distinct from Pi `.pi/prompts` slash prompt templates.
 - `docs/adr/`: durable architecture decision records. Accepted ADRs are historical records; update mutable guidance for tooling drift, or add a superseding/refining ADR for a new architectural decision.
 
 ## Index
@@ -29,7 +29,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, SDL-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Package extraction refactors](package-extraction-refactors.md): checklist for moving code into a new package while preserving dependency direction, public import boundaries, tests, docs, and validation evidence.
-- [Roaster package README](../ts/packages/roaster/README.md): how to configure `.sdl/reviews/<key>/review.md`, run Roaster locally, and understand CI discovery/execution.
+- [Roaster package README](../ts/packages/roaster/README.md): how to configure `.ji/reviews/<key>/review.md`, run Roaster locally, and understand CI discovery/execution.
 - [Roaster and `@pierre/diffs`](roaster-pierre-diffs.md): the roaster diff-parser integration boundary, Pierre APIs used, APIs deliberately not used, and accepted semantic changes from delegating to Pierre.
 - [XDG Base Directory Specification](xdg-base-directory-spec.md): where programs read/write config, data, state, cache, and runtime files; the env-var defaults and rules; and how the standard relates to ASDL's git-native storage principle.
 

@@ -47,7 +47,7 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.waitCount).toBe(1);
 		expect(pi.execCalls).toEqual([
 			{
-				command: "sdl",
+				command: "ji",
 				args: ["objective", "exec", "read-objective", slug, "--format", "json"],
 				options: { cwd: repoRoot, timeout: 30_000 },
 			},
@@ -100,11 +100,11 @@ describe("cmux Objective sidebar", () => {
 
 		await pi.commands
 			.get("ccc:sidebar:objective-summary")
-			?.handler(`.sdl/objectives/${slug}/objective.md`, ctx);
+			?.handler(`.ji/objectives/${slug}/objective.md`, ctx);
 
 		pi.assertDone();
 		expect(pi.execCalls[0]).toMatchObject({
-			command: "sdl",
+			command: "ji",
 			args: ["objective", "exec", "read-objective", slug, "--format", "json"],
 		});
 		expect(pi.sentUserMessages).toEqual([]);
@@ -144,9 +144,9 @@ describe("cmux Objective sidebar", () => {
 			},
 		]);
 		expect(pi.execCalls.map((call) => [call.command, call.args])).toEqual([
-			["git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".sdl/objectives"]],
-			["git", ["status", "--porcelain=v1", "-z", "--", ".sdl/objectives"]],
-			["sdl", ["objective", "exec", "read-objective", slug, "--format", "json"]],
+			["git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".ji/objectives"]],
+			["git", ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"]],
+			["ji", ["objective", "exec", "read-objective", slug, "--format", "json"]],
 			["git", ["branch", "--show-current"]],
 			[
 				"ccc",
@@ -177,7 +177,7 @@ describe("cmux Objective sidebar", () => {
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective", slug, "charlie-objective"]),
-				objectiveDiffStep(`M\t.sdl/objectives/${slug}/objective.md\n`),
+				objectiveDiffStep(`M\t.ji/objectives/${slug}/objective.md\n`),
 				objectiveStatusStep(""),
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
@@ -226,7 +226,7 @@ describe("cmux Objective sidebar", () => {
 		const pi = new FakePi({
 			script: [
 				objectiveListStep(["alpha-objective", "bravo-objective", slug]),
-				objectiveDiffStep("M\t.sdl/objectives/bravo-objective/objective.md\n"),
+				objectiveDiffStep("M\t.ji/objectives/bravo-objective/objective.md\n"),
 				objectiveStatusStep(""),
 				objectiveReadStep(slug),
 				gitCurrentBranchStep(),
@@ -321,7 +321,7 @@ describe("cmux Objective sidebar", () => {
 		const slug = "ghost-objective";
 		const pi = new FakePi({
 			script: [
-				step("sdl", ["objective", "exec", "read-objective", slug, "--format", "json"], {
+				step("ji", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 					code: 1,
 					stdout: JSON.stringify({
 						exitCode: 1,
@@ -349,7 +349,7 @@ describe("cmux Objective sidebar", () => {
 		const slug = "requested-objective";
 		const pi = new FakePi({
 			script: [
-				step("sdl", ["objective", "exec", "read-objective", slug, "--format", "json"], {
+				step("ji", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 					stdout: JSON.stringify({ exitCode: 0, data: { status: "ok", slug: "other-objective" } }),
 				}),
 			],
@@ -419,17 +419,17 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			type: "valid",
 			slug: "cmux-objective",
 		});
-		expect(resolveObjectiveSelector(".sdl/objectives/cmux-objective/objective.md", cwd)).toEqual({
+		expect(resolveObjectiveSelector(".ji/objectives/cmux-objective/objective.md", cwd)).toEqual({
 			type: "valid",
 			slug: "cmux-objective",
 		});
-		expect(resolveObjectiveSelector(".sdl/objectives/cmux-objective", cwd)).toEqual({
+		expect(resolveObjectiveSelector(".ji/objectives/cmux-objective", cwd)).toEqual({
 			type: "valid",
 			slug: "cmux-objective",
 		});
-		expect(
-			resolveObjectiveSelector("/repo/.sdl/objectives/cmux-objective/roadmap.md", cwd),
-		).toEqual({ type: "valid", slug: "cmux-objective" });
+		expect(resolveObjectiveSelector("/repo/.ji/objectives/cmux-objective/roadmap.md", cwd)).toEqual(
+			{ type: "valid", slug: "cmux-objective" },
+		);
 	});
 
 	test("resolveObjectiveSelector rejects ambiguous or inactive selectors", () => {
@@ -438,7 +438,7 @@ describe("cmux Objective sidebar deterministic helpers", () => {
 			"foo/bar",
 			".",
 			"..",
-			".sdl/objective-archive/old/objective.md",
+			".ji/objective-archive/old/objective.md",
 			"/tmp/outside/objective.md",
 		]) {
 			expect(resolveObjectiveSelector(selector, cwd).type).toBe("invalid");

@@ -25,35 +25,35 @@ describe("Objective storage", () => {
 		expect(isValidObjectiveSlug("alpha")).toBe(true);
 		expect(isValidObjectiveSlug("objective-archive-move-command")).toBe(true);
 		expect(isValidObjectiveSlug("foo.bar")).toBe(true);
-		for (const slug of ["", ".", "..", "foo/bar", ".sdl/objectives/foo", "foo\\bar"]) {
+		for (const slug of ["", ".", "..", "foo/bar", ".ji/objectives/foo", "foo\\bar"]) {
 			expect(isValidObjectiveSlug(slug)).toBe(false);
 		}
 	});
 
 	test("constructs checked-in storage paths", () => {
-		expect(activeRootRelativePath()).toBe(".sdl/objectives");
-		expect(activeRecordRelativePath("alpha")).toBe(".sdl/objectives/alpha");
-		expect(archiveRootRelativePath()).toBe(".sdl/objective-archive");
-		expect(archivedRecordRelativePath("alpha")).toBe(".sdl/objective-archive/alpha");
-		expect(archiveSourceRelativePath("alpha", "archive")).toBe(".sdl/objectives/alpha");
-		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(".sdl/objective-archive/alpha");
-		expect(archiveSourceRelativePath("alpha", "unarchive")).toBe(".sdl/objective-archive/alpha");
-		expect(archiveDestinationRelativePath("alpha", "unarchive")).toBe(".sdl/objectives/alpha");
-		expect(archiveEmptySourceRelativePath("archive")).toBe(".sdl/objectives");
-		expect(archiveEmptyDestinationRelativePath("archive")).toBe(".sdl/objective-archive");
+		expect(activeRootRelativePath()).toBe(".ji/objectives");
+		expect(activeRecordRelativePath("alpha")).toBe(".ji/objectives/alpha");
+		expect(archiveRootRelativePath()).toBe(".ji/objective-archive");
+		expect(archivedRecordRelativePath("alpha")).toBe(".ji/objective-archive/alpha");
+		expect(archiveSourceRelativePath("alpha", "archive")).toBe(".ji/objectives/alpha");
+		expect(archiveDestinationRelativePath("alpha", "archive")).toBe(".ji/objective-archive/alpha");
+		expect(archiveSourceRelativePath("alpha", "unarchive")).toBe(".ji/objective-archive/alpha");
+		expect(archiveDestinationRelativePath("alpha", "unarchive")).toBe(".ji/objectives/alpha");
+		expect(archiveEmptySourceRelativePath("archive")).toBe(".ji/objectives");
+		expect(archiveEmptyDestinationRelativePath("archive")).toBe(".ji/objective-archive");
 	});
 
 	test("checkout inventory includes direct child directories sorted and detects direct closed marker", async () => {
 		const fake = new FakeObjectiveStorageGateway({
 			directories: [
-				".sdl/objectives/zeta",
-				".sdl/objectives/alpha",
-				".sdl/objective-archive/archived",
+				".ji/objectives/zeta",
+				".ji/objectives/alpha",
+				".ji/objective-archive/archived",
 			],
 			files: {
-				".sdl/objectives/alpha/closed.md": "closed\n",
-				".sdl/objectives/zeta/updates/closed.md": "not a marker\n",
-				".sdl/objectives/.gitkeep": "",
+				".ji/objectives/alpha/closed.md": "closed\n",
+				".ji/objectives/zeta/updates/closed.md": "not a marker\n",
+				".ji/objectives/.gitkeep": "",
 			},
 		});
 
@@ -75,7 +75,7 @@ describe("Objective storage", () => {
 		});
 		await expect(
 			storage(
-				new FakeObjectiveStorageGateway({ files: { ".sdl/objectives": "not a directory\n" } }),
+				new FakeObjectiveStorageGateway({ files: { ".ji/objectives": "not a directory\n" } }),
 			).checkoutInventory(),
 		).resolves.toEqual({
 			ok: true,
@@ -112,8 +112,8 @@ describe("Objective storage", () => {
 		await expect(objectiveStorage.listUpdateFiles(recordPath)).resolves.toEqual({
 			ok: true,
 			value: [
-				{ name: "alpha.md", path: ".sdl/objectives/alpha/updates/alpha.md" },
-				{ name: "zeta.md", path: ".sdl/objectives/alpha/updates/zeta.md" },
+				{ name: "alpha.md", path: ".ji/objectives/alpha/updates/alpha.md" },
+				{ name: "zeta.md", path: ".ji/objectives/alpha/updates/zeta.md" },
 			],
 		});
 	});
@@ -147,19 +147,19 @@ describe("Objective storage", () => {
 			ok: true,
 			value: undefined,
 		});
-		await expect(fake.pathKind(".sdl/objectives/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".ji/objectives/alpha")).resolves.toEqual({
 			ok: true,
 			value: "missing",
 		});
-		await expect(fake.pathKind(".sdl/objective-archive")).resolves.toEqual({
+		await expect(fake.pathKind(".ji/objective-archive")).resolves.toEqual({
 			ok: true,
 			value: "directory",
 		});
-		await expect(fake.pathKind(".sdl/objective-archive/alpha")).resolves.toEqual({
+		await expect(fake.pathKind(".ji/objective-archive/alpha")).resolves.toEqual({
 			ok: true,
 			value: "directory",
 		});
-		await expect(fake.readTextFile(".sdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".ji/objective-archive/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "# alpha\n",
 		});
@@ -169,8 +169,8 @@ describe("Objective storage", () => {
 		const fake = new FakeObjectiveStorageGateway({
 			records: [{ slug: "alpha" }],
 			files: {
-				".sdl/objectives/alpha/objective.md": "active sentinel\n",
-				".sdl/objective-archive/alpha/objective.md": "archived sentinel\n",
+				".ji/objectives/alpha/objective.md": "active sentinel\n",
+				".ji/objective-archive/alpha/objective.md": "archived sentinel\n",
 			},
 		});
 		const objectiveStorage = storage(fake);
@@ -178,25 +178,25 @@ describe("Objective storage", () => {
 		const moved = await objectiveStorage.moveRecord(objectiveStorage.movePaths("alpha", "archive"));
 
 		expect(moved.ok).toBe(false);
-		await expect(fake.readTextFile(".sdl/objectives/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".ji/objectives/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "active sentinel\n",
 		});
-		await expect(fake.readTextFile(".sdl/objective-archive/alpha/objective.md")).resolves.toEqual({
+		await expect(fake.readTextFile(".ji/objective-archive/alpha/objective.md")).resolves.toEqual({
 			type: "ok",
 			content: "archived sentinel\n",
 		});
 	});
 
 	test("extracts Objective slugs from active record child paths only", () => {
-		expect(objectiveSlugFromActivePath(".sdl/objectives/alpha/objective.md")).toBe("alpha");
-		expect(objectiveSlugFromActivePath(".sdl/objectives/alpha/updates/one.md")).toBe("alpha");
+		expect(objectiveSlugFromActivePath(".ji/objectives/alpha/objective.md")).toBe("alpha");
+		expect(objectiveSlugFromActivePath(".ji/objectives/alpha/updates/one.md")).toBe("alpha");
 		for (const path of [
-			".sdl/objectives",
-			".sdl/objectives/alpha",
-			".sdl/objectives/../objective.md",
-			".sdl/objectives//objective.md",
-			".sdl/objective-archive/alpha/objective.md",
+			".ji/objectives",
+			".ji/objectives/alpha",
+			".ji/objectives/../objective.md",
+			".ji/objectives//objective.md",
+			".ji/objective-archive/alpha/objective.md",
 			"README.md",
 		]) {
 			expect(objectiveSlugFromActivePath(path)).toBeNull();

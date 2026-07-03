@@ -6,8 +6,8 @@ import { unrefTimerScheduler } from "../kit/shared/timers.ts";
 import { truncateDisplayLine } from "../kit/terminal/presentation.ts";
 import { traceCliCommand } from "./cli-command-trace.ts";
 
-const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
-const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
+const LIVE_PROGRESS_STATUS_ID = "ji-cli-command";
+const LIVE_PROGRESS_WIDGET_ID = "ji-cli-command-output";
 const LIVE_PROGRESS_INTERVAL_MS = 1_000;
 const LIVE_PROGRESS_MAX_LINES = 8;
 const LIVE_PROGRESS_WIDGET_OUTPUT_LINES = 1;

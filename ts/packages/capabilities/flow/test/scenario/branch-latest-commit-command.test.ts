@@ -54,8 +54,8 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("`sdl flow branch-latest-commit` requires a clean worktree");
-		expect(stderr).toContain("Use `sdl flow autobranch`");
+		expect(stderr).toContain("`ji flow branch-latest-commit` requires a clean worktree");
+		expect(stderr).toContain("Use `ji flow autobranch`");
 		// The dirty porcelain status is the actionable detail, surfaced under the stdout label.
 		expect(stderr).toContain("M src/app.ts");
 		expect(stderr).toContain("Cwd: /work");

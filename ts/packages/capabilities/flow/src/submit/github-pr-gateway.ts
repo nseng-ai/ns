@@ -204,7 +204,7 @@ export class RealGithubPrGateway implements GithubPrGateway {
 		body: string;
 	}): Promise<GatewayResult<void>> {
 		return await withTemporaryFile(
-			{ prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
+			{ prefix: "ji-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
 			async (bodyPath) => {
 				const args = [
 					"pr",

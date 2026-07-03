@@ -1,5 +1,5 @@
 {
-	"sdl": {
+	"ji": {
 		"description": "Create and load branch-scoped implementation context.",
 		"group": "branch-context",
 		"commands": [

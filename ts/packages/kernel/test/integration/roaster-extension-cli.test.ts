@@ -22,7 +22,7 @@ describe("checked-in Roaster SDL extension loading", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: sdl roaster review list");
+		expect(help).toContain("Usage: ji roaster review list");
 		expect(help).toContain("--applicable");
 		expect(help).toContain("--ci");
 		expect(help).toContain("--base-ref");
@@ -38,7 +38,7 @@ describe("checked-in Roaster SDL extension loading", () => {
 
 		expect(await groupHelp.exit).toBe(0);
 		const help = groupHelp.stdout.join("");
-		expect(help).toContain("Usage: sdl roaster review");
+		expect(help).toContain("Usage: ji roaster review");
 		expect(help).toContain("list");
 		expect(help).toContain("ls");
 		expect(help).toContain("log");
@@ -57,7 +57,7 @@ describe("checked-in Roaster SDL extension loading", () => {
 });
 
 async function createRoasterProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-roaster-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-roaster-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInRoasterExtension(directory);
 	return directory;

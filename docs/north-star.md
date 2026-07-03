@@ -73,20 +73,20 @@ phase of the SDLC has a natural lifetime, and that lifetime *is* a context scope
 building blocks are not an arbitrary toolbox; they are the lifecycle's context scopes, each
 with a git-native lifetime:
 
-| Scope                 | Lifetime              | SDL mechanism                                 | Storage (derived from lifetime)                     |
-| --------------------- | --------------------- | --------------------------------------------- | --------------------------------------------------- |
-| **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                     |
-| **Goal**              | life of the objective | objective orientation + roadmap               | `.sdl/objectives/<slug>`, auto-drops on `closed.md` |
-| **Branch**            | life of the branch    | brmem, branch-context                         | `refs/brmem/*`                                      |
-| **Session → session** | the handoff baton     | handoff                                       | `refs/brmem/ns/handoff/*`                           |
-| **Working / draft**   | the session           | enriched plan                                 | local scratch (XDG)                                 |
+| Scope                 | Lifetime              | SDL mechanism                                 | Storage (derived from lifetime)                    |
+| --------------------- | --------------------- | --------------------------------------------- | -------------------------------------------------- |
+| **Repo**              | permanent             | `AGENTS.md` / `CONTEXT.md` / `CONTEXT-MAP.md` | committed files                                    |
+| **Goal**              | life of the objective | objective orientation + roadmap               | `.ji/objectives/<slug>`, auto-drops on `closed.md` |
+| **Branch**            | life of the branch    | brmem, branch-context                         | `refs/brmem/*`                                     |
+| **Session → session** | the handoff baton     | handoff                                       | `refs/brmem/ns/handoff/*`                          |
+| **Working / draft**   | the session           | enriched plan                                 | local scratch (XDG)                                |
 
 The storage substrate is **derived from the context's lifetime**: permanent context is
 committed, branch-lived context is a ref, session-draft context is local scratch. That is a
 principle, not a pile of decisions — and it explains why a draft plan correctly stays local
 rather than in git. It is the shortest-lived scope.
 
-`sdl objective exec load-orientations` is the working proof: it loads exactly the *live*
+`ji objective exec load-orientations` is the working proof: it loads exactly the *live*
 goals' context, and a file **leaves the active set automatically when its objective closes**.
 That is lifecycle-scoped context management in production — goal-lifetime context that evicts
 itself on goal completion.

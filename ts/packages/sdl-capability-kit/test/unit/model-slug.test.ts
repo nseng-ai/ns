@@ -57,7 +57,7 @@ describe("deriveSlugWithModel", () => {
 		expect(calls[0]?.args).toEqual(buildSlugModelArgs("slug prompt"));
 	});
 
-	test("resolves an SDL_SLUG_MODEL override and reports it in evidence", async () => {
+	test("resolves an JI_SLUG_MODEL override and reports it in evidence", async () => {
 		const calls: ExecCall[] = [];
 		const result = await deriveSlugWithModel({
 			cwd: "/repo",

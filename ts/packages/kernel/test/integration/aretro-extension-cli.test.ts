@@ -26,7 +26,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 		const rootHelp = runWithRealAretroExtension({ args: ["aretro", "--help"], cwd });
 		expect(await rootHelp.exit).toBe(0);
 		const rootOutput = rootHelp.stdout.join("");
-		expect(rootOutput).toContain("Usage: sdl aretro");
+		expect(rootOutput).toContain("Usage: ji aretro");
 		expect(rootOutput).not.toContain("collect-evidence");
 		expect(rootOutput).not.toContain("read-evidence-detail");
 
@@ -36,7 +36,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 		});
 		expect(await collectHelp.exit).toBe(0);
 		const collectOutput = collectHelp.stdout.join("");
-		expect(collectOutput).toContain("Usage: sdl aretro exec collect-evidence");
+		expect(collectOutput).toContain("Usage: ji aretro exec collect-evidence");
 		expect(collectOutput).toContain("--repo");
 		expect(collectOutput).toContain("--branch");
 		expect(collectOutput).toContain("--session-root");
@@ -46,7 +46,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 			cwd,
 		});
 		expect(await detailHelp.exit).toBe(0);
-		expect(detailHelp.stdout.join("")).toContain("Usage: sdl aretro exec read-evidence-detail");
+		expect(detailHelp.stdout.join("")).toContain("Usage: ji aretro exec read-evidence-detail");
 	});
 
 	test("publishes schema and runs collect-evidence through the SDL command face", async () => {
@@ -90,7 +90,7 @@ describe("checked-in Aretro SDL extension loading", () => {
 });
 
 async function createAretroProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-aretro-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-aretro-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInAretroExtension(directory);
 	return directory;

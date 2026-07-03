@@ -104,7 +104,7 @@ export async function loadSdlCommandCatalog(
 		label: string;
 		candidates: readonly ExtensionCommandCandidate[];
 	}> = [{ level: "built-in", label: "built-in", candidates: builtInCandidates }];
-	if (env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS !== "1") {
+	if (env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS !== "1") {
 		const firstPartyCandidates = loadFirstPartyCandidates();
 		diagnostics.push(...firstPartyCandidates.diagnostics);
 		orderedSources.push({
@@ -120,12 +120,12 @@ export async function loadSdlCommandCatalog(
 	}
 	const projectCandidates = loadRootCandidates({
 		level: "project",
-		rootDir: join(options.cwd, ".sdl", "extensions"),
+		rootDir: join(options.cwd, ".ji", "extensions"),
 	});
 	diagnostics.push(...projectCandidates.diagnostics);
 	orderedSources.push({
 		level: "project",
-		label: join(options.cwd, ".sdl", "extensions"),
+		label: join(options.cwd, ".ji", "extensions"),
 		candidates: projectCandidates.candidates,
 	});
 

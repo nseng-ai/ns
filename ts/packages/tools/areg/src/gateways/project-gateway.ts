@@ -71,7 +71,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			projectDir,
 			projectPathState: await inspectPath(projectDir),
 			lockfile: await inspectTextFile(path.join(projectDir, "skills-lock.json")),
-			sdlToml: await inspectTextFile(path.join(projectDir, "sdl.toml")),
+			sdlToml: await inspectTextFile(path.join(projectDir, "ji.toml")),
 			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
 		};
 	}

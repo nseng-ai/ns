@@ -9,7 +9,7 @@ The SDL Capability that owns public lifecycle workflows such as changes, copy, a
 *Avoid*: CCC source-control helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:
-The user- and agent-facing `sdl flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
+The user- and agent-facing `ji flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
 *Avoid*: land domain core, CCC adapter, standalone land command surface
 
 **Flow Capability API**:
@@ -65,7 +65,7 @@ The Flow ownership boundary for submit, PR description regeneration, Graphite su
 *Avoid*: neutral Graphite domain, CCC submit owner, land-domain behavior
 
 **Flow Autobranch Boundary**:
-The Flow ownership boundary for public `sdl flow autobranch` behavior and the compatibility path consumed by CCC through **Flow Capability API**.
+The Flow ownership boundary for public `ji flow autobranch` behavior and the compatibility path consumed by CCC through **Flow Capability API**.
 *Avoid*: CCC public command owner, plain branch helper, Graphite primitive
 
 **Flow API Narrowing Candidate**:

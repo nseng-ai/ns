@@ -1,0 +1,624 @@
+{
+ "summary": {
+  "simpleFilesChanged": 23,
+  "simpleTotal": 24,
+  "changesetsDone": 0,
+  "changesetsTotal": 0,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 33
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+   "note": "Left addressRepoLocalSdlExtension import/identifier, repo-local-sdl-extension.ts import path, and describe(\"address SDL extension registration\") label untouched \u2014 TS identifiers/prose survivors per brief, outside the file-specific note's scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/test/land-command.test.ts",
+   "note": "Lines 3-7,16: @sdl/* import specifiers and SdlConfirmOptions type name are out-of-window survivors per brief, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/test/land-command.test.ts",
+   "note": "Line 43: prose mention of sdl-flow package name is a survivor package name, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Line 5 `@sdl/capability-kit/git` import specifier - left untouched, @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+   "note": "Line 7 `@sdl/clinkr` import specifier \u2014 out-of-window survivor (package scope), untouched per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+   "note": "Line 17 `./sdl-cli-fakes.ts` relative import path \u2014 out-of-window survivor (relative import), untouched per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+   "note": "Line 24 \"sdl-owned prompt\" \u2014 brand prose, deferred to branding row per brief, untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+   "note": "Line 29 prose \"through the sdl prompt pipeline\" left untouched per file-specific note (brand prose, out-of-window survivor)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+   "note": "Line ~253 tmpdir prefix `ji-dev-pr-prompt-` already uses ji; left as-is per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "Function name findSdlPiAgentsDir left unchanged - TS identifier containing sdl, explicitly out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "@sdl/core and @sdl/capability-kit import specifiers left unchanged - package scope survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "docs/pi/runner-subagent-helper.md",
+   "note": "Line 40 already read `ji.pi-agent.v1` when I read the file \u2014 no edit needed. In fact the entire file already had all .sdl paths and the schema value renamed to ji (this predates my task, visible in `git diff` against HEAD); confirmed via grep that no `sdl` substring remains in the file."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/parity.test.ts",
+   "note": "Line 13: `@sdl/pi/parity/testing` import specifier \u2014 out-of-window survivor (@sdl/* package scope), not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/parity.test.ts",
+   "note": "Line 22: `@sdl/pi/worktree-status` prose reference \u2014 out-of-window survivor (@sdl/* package scope), not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/parity.test.ts",
+   "note": "Lines 106,127,153,163: `sourcePackage: \"@sdl/pi\"` fixture values \u2014 out-of-window survivor (@sdl/* package scope), not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+   "note": "Line 65 - regex /expected sdl\\.pi-agent\\.v1/ matches the error string thrown by agent-definition.ts (a different, unassigned file); not among the 8 enumerated lines in the file-specific note, and I cannot confirm without editing the source file whether that message was renamed, so left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+   "note": "Line 62 - schema: \"sdl.pi-agent.v2\" is a deliberate wrong-version test value, not the sdl.pi-agent.v1 literal the note targets; left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+   "note": "Line 9 findSdlPiAgentsDir import identifier and mkdtempSync \"pi-agent-definition-\" prefix - explicit survivors per file-specific note; left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "All @sdl/* import specifiers (e.g. @sdl/clinkr, @sdl/core/primitives, @sdl/capability-kit/sdl-command, @sdl/kernel/sdk) left untouched \u2014 out-of-window survivor per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "Identifiers containing Sdl/sdl in any casing (createSdlDomainCommand, SdlDomainCommandOptions, SdlCommand, SdlCommandSchema, SdlExtensionApi, SlotSdlCommandOptions, slotCommand, sdlShellShowRequestSchema, sdlShellInstallRequestSchema, sdlShellShowResultSchema, sdlShellInstallResultSchema, createSlotExtensionContext, completeCheckoutBranches param types, renderSdlShellWrapperScript, runSdlShellShow, runSdlShellInstall, renderSdlShellShow, renderSdlShellInstall) left untouched \u2014 out-of-window survivor identifiers per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "File path 'src/sdl/extension.ts' itself not renamed \u2014 brief says no file renames and src/sdl/ path segments are explicit survivors."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/test/scenario/shell-cli.test.ts",
+   "note": "Line 20 describe(\"sdl shell CLI\", ...) label is brand prose deferred to the branding row per brief, not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/test/scenario/shell-cli.test.ts",
+   "note": "Lines 10-11 sdlShellIntegrationBeginMarker/sdlShellIntegrationEndMarker identifiers contain 'sdl' but are TS identifiers, explicitly listed as out-of-window survivors in the brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/preflight.ts",
+   "note": "Line 143: \"sdl-flow land preflight planning...\" left as-is \u2014 sdl-flow is a survivor package name, not a rename target"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+   "note": "Line 61/62/63/65 \"Run SDL command entry '...'\" prose strings: brand prose, out-of-window (branding row) per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+   "note": "discoverSdlPackageCommands import/usage (lines 10, 277): TS identifier containing sdl, out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "CONTEXT-MAP.md",
+   "note": "Line 72's `sdl address exec ...` / `@sdl/address/api` occurrence left untouched \u2014 brief for line 72 named only the bare backticked `sdl` in the bridging list, not this second sdl address exec mention; treated as intentionally out of window for this file-specific instruction."
+  },
+  {
+   "tier": "simple",
+   "file": "CONTEXT-MAP.md",
+   "note": "Lines 25, 65, 67, 73, 74 contain 'SDL command face'/'SDL extension API'/'SDL commands' prose and package.json-adjacent SDL brand mentions not in the assigned line list (19,20,22,29,30,31,64,66,69,72,97) \u2014 left verbatim as brand prose per DO NOT TOUCH guidance."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "note": "Line 110 `.ji/reviews/${key}/review.md` already uses .ji (no .sdl remnant) \u2014 was already migrated by prior file-move commit, no edit needed"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "note": "@sdl/core/primitives import on line 10 left untouched \u2014 out-of-window survivor per brief (bare @sdl/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/sdl-capability-kit/src/git/testing.ts",
+   "note": "Line 54 default user.name \"SDL Test\" left untouched \u2014 brand prose used as a git author display name, not one of the enumerated literal forms; note only called out the email default"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/sdl-capability-kit/src/git/testing.ts",
+   "note": "Line 6 import \"@sdl/core/primitives\" left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "All other sdl-brand/identifier occurrences (@sdl/* specifiers, .ji/objectives/sdl-extension-architecture, sdl-tools, sdl-sdk, sdl\u2192slot prose, 'SDL Extension Architecture' target name) are out-of-window survivors or brand prose per the brief; left verbatim per the file-specific note limiting edits to line 90 only."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl: z.object({",
+     "after": "ji: z.object({"
+    },
+    {
+     "before": "manifest.sdl.commands",
+     "after": "manifest.ji.commands"
+    }
+   ],
+   "skipped": [
+    "Left addressRepoLocalSdlExtension import/identifier, repo-local-sdl-extension.ts import path, and describe(\"address SDL extension registration\") label untouched \u2014 TS identifiers/prose survivors per brief, outside the file-specific note's scope"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const BACKUP_REF_NAMESPACE = \"refs/sdl/flow-land-backup\";\nexport const BACKUP_REF_PREV_NAMESPACE = \"refs/sdl/flow-land-backup-prev\";",
+     "after": "export const BACKUP_REF_NAMESPACE = \"refs/ji/flow-land-backup\";\nexport const BACKUP_REF_PREV_NAMESPACE = \"refs/ji/flow-land-backup-prev\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/test/land-command.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "refs/sdl/flow-land-backup\";\nconst FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = \"refs/sdl/flow-land-backup-prev",
+     "after": "refs/ji/flow-land-backup\";\nconst FLOW_LAND_BACKUP_PREV_REF_NAMESPACE = \"refs/ji/flow-land-backup-prev"
+    }
+   ],
+   "skipped": [
+    "Lines 3-7,16: @sdl/* import specifiers and SdlConfirmOptions type name are out-of-window survivors per brief, left untouched",
+    "Line 43: prose mention of sdl-flow package name is a survivor package name, left untouched"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"<!-- generated-by: sdl-dev pr-description v1 -->\"",
+     "after": "\"<!-- generated-by: ji-dev pr-description v1 -->\""
+    },
+    {
+     "before": "\"<!-- sdl-pr-description:begin\"",
+     "after": "\"<!-- ji-pr-description:begin\""
+    },
+    {
+     "before": "\"<!-- sdl-pr-description:end -->\"",
+     "after": "\"<!-- ji-pr-description:end -->\""
+    },
+    {
+     "before": "\"sdl-pr-description-v2\"",
+     "after": "\"ji-pr-description-v2\""
+    }
+   ],
+   "skipped": [
+    "Line 5 `@sdl/capability-kit/git` import specifier - left untouched, @sdl/* package scope is an out-of-window survivor per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 106)",
+     "after": "generator: \"ji-pr-description-v2\","
+    },
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 264)",
+     "after": "generator: \"ji-pr-description-v2\","
+    }
+   ],
+   "skipped": [
+    "Line 7 `@sdl/clinkr` import specifier \u2014 out-of-window survivor (package scope), untouched per brief",
+    "Line 17 `./sdl-cli-fakes.ts` relative import path \u2014 out-of-window survivor (relative import), untouched per brief",
+    "Line 24 \"sdl-owned prompt\" \u2014 brand prose, deferred to branding row per brief, untouched"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/test/unit/pr-description-orchestration.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 142)",
+     "after": "generator: \"ji-pr-description-v2\","
+    },
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 203)",
+     "after": "generator: \"ji-pr-description-v2\","
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 76)",
+     "after": "generator: \"ji-pr-description-v2\","
+    },
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 101)",
+     "after": "generator: \"ji-pr-description-v2\","
+    },
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 114)",
+     "after": "generator: \"ji-pr-description-v2\","
+    },
+    {
+     "before": "generator: \"sdl-pr-description-v2\", (line 128)",
+     "after": "generator: \"ji-pr-description-v2\","
+    }
+   ],
+   "skipped": [
+    "Line 29 prose \"through the sdl prompt pipeline\" left untouched per file-specific note (brand prose, out-of-window survivor)",
+    "Line ~253 tmpdir prefix `ji-dev-pr-prompt-` already uses ji; left as-is per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const PI_AGENT_DEFINITION_SCHEMA = \"sdl.pi-agent.v1\";",
+     "after": "export const PI_AGENT_DEFINITION_SCHEMA = \"ji.pi-agent.v1\";"
+    }
+   ],
+   "skipped": [
+    "Function name findSdlPiAgentsDir left unchanged - TS identifier containing sdl, explicitly out-of-window survivor per brief",
+    "@sdl/core and @sdl/capability-kit import specifiers left unchanged - package scope survivor per brief"
+   ]
+  },
+  {
+   "file": ".ji/pi/agents/investigator.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: sdl.pi-agent.v1",
+     "after": "schema: ji.pi-agent.v1"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": ".ji/pi/agents/runner.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: sdl.pi-agent.v1",
+     "after": "schema: ji.pi-agent.v1"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "docs/pi/runner-subagent-helper.md",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Line 40 already read `ji.pi-agent.v1` when I read the file \u2014 no edit needed. In fact the entire file already had all .sdl paths and the schema value renamed to ji (this predates my task, visible in `git diff` against HEAD); confirmed via grep that no `sdl` substring remains in the file."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/test/investigate.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: \"sdl.pi-agent.v1\",",
+     "after": "schema: \"ji.pi-agent.v1\","
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/test/parity.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: \"sdl.pi-agent.v1\",",
+     "after": "schema: \"ji.pi-agent.v1\","
+    }
+   ],
+   "skipped": [
+    "Line 13: `@sdl/pi/parity/testing` import specifier \u2014 out-of-window survivor (@sdl/* package scope), not touched",
+    "Line 22: `@sdl/pi/worktree-status` prose reference \u2014 out-of-window survivor (@sdl/* package scope), not touched",
+    "Lines 106,127,153,163: `sourcePackage: \"@sdl/pi\"` fixture values \u2014 out-of-window survivor (@sdl/* package scope), not touched"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: \"sdl.pi-agent.v1\",",
+     "after": "schema: \"ji.pi-agent.v1\","
+    },
+    {
+     "before": "parsePiAgentDefinitionMarkdown(\"schema: sdl.pi-agent.v1\\n---\\nBody\", \"/agent.md\")",
+     "after": "parsePiAgentDefinitionMarkdown(\"schema: ji.pi-agent.v1\\n---\\nBody\", \"/agent.md\")"
+    },
+    {
+     "before": "parsePiAgentDefinitionMarkdown(\"---\\nschema: sdl.pi-agent.v1\\nBody\", \"/agent.md\")",
+     "after": "parsePiAgentDefinitionMarkdown(\"---\\nschema: ji.pi-agent.v1\\nBody\", \"/agent.md\")"
+    },
+    {
+     "before": "\"\\n---\\nschema: sdl.pi-agent.v1\\n---\\nBody\"",
+     "after": "\"\\n---\\nschema: ji.pi-agent.v1\\n---\\nBody\""
+    },
+    {
+     "before": "\"--- \\nschema: sdl.pi-agent.v1\\n---\\nBody\"",
+     "after": "\"--- \\nschema: ji.pi-agent.v1\\n---\\nBody\""
+    },
+    {
+     "before": "\"---\\nschema: sdl.pi-agent.v1\\n--- \\nBody\"",
+     "after": "\"---\\nschema: ji.pi-agent.v1\\n--- \\nBody\""
+    },
+    {
+     "before": "\"schema: sdl.pi-agent.v1\",",
+     "after": "\"schema: ji.pi-agent.v1\","
+    },
+    {
+     "before": "`schema: ${options.schema ?? \"sdl.pi-agent.v1\"}`,",
+     "after": "`schema: ${options.schema ?? \"ji.pi-agent.v1\"}`,"
+    }
+   ],
+   "skipped": [
+    "Line 65 - regex /expected sdl\\.pi-agent\\.v1/ matches the error string thrown by agent-definition.ts (a different, unassigned file); not among the 8 enumerated lines in the file-specific note, and I cannot confirm without editing the source file whether that message was renamed, so left untouched.",
+    "Line 62 - schema: \"sdl.pi-agent.v2\" is a deliberate wrong-version test value, not the sdl.pi-agent.v1 literal the note targets; left untouched.",
+    "Line 9 findSdlPiAgentsDir import identifier and mkdtempSync \"pi-agent-definition-\" prefix - explicit survivors per file-specific note; left untouched."
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: sdl.pi-agent.v1",
+     "after": "schema: ji.pi-agent.v1"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/shell.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "# >>> sdl shell integration >>>",
+     "after": "# >>> ji shell integration >>>"
+    },
+    {
+     "before": "# <<< sdl shell integration <<<",
+     "after": "# <<< ji shell integration <<<"
+    },
+    {
+     "before": "Installing sdl shell integration requires --yes when non-interactive.",
+     "after": "Installing ji shell integration requires --yes when non-interactive."
+    },
+    {
+     "before": "Install sdl shell integration for ${selected.shell} in ${rcPath}?",
+     "after": "Install ji shell integration for ${selected.shell} in ${rcPath}?"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"# >>> sdl shell integration >>>\" / \"# <<< sdl shell integration <<<\"",
+     "after": "\"# >>> ji shell integration >>>\" / \"# <<< ji shell integration <<<\" (identifier names sdlShellIntegrationBeginMarker/sdlShellIntegrationEndMarker kept as-is)"
+    },
+    {
+     "before": "message: \"Installing sdl shell integration requires --yes when non-interactive.\"",
+     "after": "message: \"Installing ji shell integration requires --yes when non-interactive.\""
+    },
+    {
+     "before": "\"Install sdl shell integration?\", `Install sdl shell integration for ${selected.shell} in ${rcPath}?`",
+     "after": "\"Install ji shell integration?\", `Install ji shell integration for ${selected.shell} in ${rcPath}?`"
+    },
+    {
+     "before": "`Cancelled sdl shell integration install for ...`; `sdl shell integration already installed in ...`; `Installed sdl shell integration for ...`",
+     "after": "`Cancelled ji shell integration install for ...`; `ji shell integration already installed in ...`; `Installed ji shell integration for ...`"
+    }
+   ],
+   "skipped": [
+    "All @sdl/* import specifiers (e.g. @sdl/clinkr, @sdl/core/primitives, @sdl/capability-kit/sdl-command, @sdl/kernel/sdk) left untouched \u2014 out-of-window survivor per brief.",
+    "Identifiers containing Sdl/sdl in any casing (createSdlDomainCommand, SdlDomainCommandOptions, SdlCommand, SdlCommandSchema, SdlExtensionApi, SlotSdlCommandOptions, slotCommand, sdlShellShowRequestSchema, sdlShellInstallRequestSchema, sdlShellShowResultSchema, sdlShellInstallResultSchema, createSlotExtensionContext, completeCheckoutBranches param types, renderSdlShellWrapperScript, runSdlShellShow, runSdlShellInstall, renderSdlShellShow, renderSdlShellInstall) left untouched \u2014 out-of-window survivor identifiers per brief.",
+    "File path 'src/sdl/extension.ts' itself not renamed \u2014 brief says no file renames and src/sdl/ path segments are explicit survivors."
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/test/scenario/shell-cli.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "expect(rc).toMatch(/^existing\\n\\n# >>> sdl shell integration >>>/);",
+     "after": "expect(rc).toMatch(/^existing\\n\\n# >>> ji shell integration >>>/);"
+    }
+   ],
+   "skipped": [
+    "Line 20 describe(\"sdl shell CLI\", ...) label is brand prose deferred to the branding row per brief, not touched",
+    "Lines 10-11 sdlShellIntegrationBeginMarker/sdlShellIntegrationEndMarker identifiers contain 'sdl' but are TS identifiers, explicitly listed as out-of-window survivors in the brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/preflight.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun /sdl:flow:land.",
+     "after": "rerun /ji:flow:land."
+    }
+   ],
+   "skipped": [
+    "Line 143: \"sdl-flow land preflight planning...\" left as-is \u2014 sdl-flow is a survivor package name, not a rename target"
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "writeFile(join(root, \"missing-sdl\", \"package.json\"), JSON.stringify({ name: \"missing\" }));",
+     "after": "writeFile(join(root, \"missing-ji\", \"package.json\"), JSON.stringify({ name: \"missing\" }));"
+    }
+   ],
+   "skipped": [
+    "Line 61/62/63/65 \"Run SDL command entry '...'\" prose strings: brand prose, out-of-window (branding row) per brief",
+    "discoverSdlPackageCommands import/usage (lines 10, 277): TS identifier containing sdl, out-of-window survivor per brief"
+   ]
+  },
+  {
+   "file": "CONTEXT-MAP.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`sdl.tier` and enforced by the TypeScript style guard",
+     "after": "`ji.tier` and enforced by the TypeScript style guard"
+    },
+    {
+     "before": "the `sdl handoff ...` Command Face, the `@sdl/handoff/api`",
+     "after": "the `ji handoff ...` Command Face, the `@sdl/handoff/api`"
+    },
+    {
+     "before": "residue around `sdl address exec ...` / `@sdl/address/api`, runner-subagent",
+     "after": "residue around `ji address exec ...` / `@sdl/address/api`, runner-subagent"
+    },
+    {
+     "before": "the canonical `sdl objective` command surface (`archive`/`check`/`list`), hidden `sdl objective exec` skill/agent fact helpers, checkout-local `sdl objective list` behavior",
+     "after": "the canonical `ji objective` command surface (`archive`/`check`/`list`), hidden `ji objective exec` skill/agent fact helpers, checkout-local `ji objective list` behavior"
+    },
+    {
+     "before": "the `sdl slot ...` command surface, the `@sdl/slot/api` Capability API, checkout side-effect policy, SDL-owned parent-shell navigation/shell mounts, and `sdl slot gt` command helpers",
+     "after": "the `ji slot ...` command surface, the `@sdl/slot/api` Capability API, checkout side-effect policy, SDL-owned parent-shell navigation/shell mounts, and `ji slot gt` command helpers"
+    },
+    {
+     "before": "the `sdl flow ...` command face, `sdl-flow/api` compatibility boundary",
+     "after": "the `ji flow ...` command face, `sdl-flow/api` compatibility boundary"
+    },
+    {
+     "before": "through the `sdl handoff ...` Command Face while presenting a user-facing handoff inventory",
+     "after": "through the `ji handoff ...` Command Face while presenting a user-facing handoff inventory"
+    },
+    {
+     "before": "the `sdl slot gt` command surface ... SDL owns `sdl shell ...` and the compatibility `sdl slot shell ...` mount",
+     "after": "the `ji slot gt` command surface ... SDL owns `ji shell ...` and the compatibility `ji slot shell ...` mount"
+    },
+    {
+     "before": "through the `sdl aretro exec ...` command face",
+     "after": "through the `ji aretro exec ...` command face"
+    },
+    {
+     "before": "runtime CLI bridging over `sdl`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`",
+     "after": "runtime CLI bridging over `ji`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`"
+    },
+    {
+     "before": "is now machine-declared (`sdl.tier`) rather than inferred",
+     "after": "is now machine-declared (`ji.tier`) rather than inferred"
+    }
+   ],
+   "skipped": [
+    "Line 72's `sdl address exec ...` / `@sdl/address/api` occurrence left untouched \u2014 brief for line 72 named only the bare backticked `sdl` in the bridging list, not this second sdl address exec mention; treated as intentionally out of window for this file-specific instruction.",
+    "Lines 25, 65, 67, 73, 74 contain 'SDL command face'/'SDL extension API'/'SDL commands' prose and package.json-adjacent SDL brand mentions not in the assigned line list (19,20,22,29,30,31,64,66,69,72,97) \u2014 left verbatim as brand prose per DO NOT TOUCH guidance."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "[\"sdl\", \"SDL\"],\n\t[\"typescript\", \"TypeScript\"],",
+     "after": "[\"sdl\", \"SDL\"],\n\t[\"ji\", \"JI\"],\n\t[\"typescript\", \"TypeScript\"],"
+    }
+   ],
+   "skipped": [
+    "Line 110 `.ji/reviews/${key}/review.md` already uses .ji (no .sdl remnant) \u2014 was already migrated by prior file-move commit, no edit needed",
+    "@sdl/core/primitives import on line 10 left untouched \u2014 out-of-window survivor per brief (bare @sdl/* package scope)"
+   ]
+  },
+  {
+   "file": "ts/packages/sdl-capability-kit/src/git/testing.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "options.prefix ?? \"sdl-git-test-\"",
+     "after": "options.prefix ?? \"ji-git-test-\""
+    },
+    {
+     "before": "options.userEmail ?? \"sdl-test@example.com\"",
+     "after": "options.userEmail ?? \"ji-test@example.com\""
+    }
+   ],
+   "skipped": [
+    "Line 54 default user.name \"SDL Test\" left untouched \u2014 brand prose used as a git author display name, not one of the enumerated literal forms; note only called out the email default",
+    "Line 6 import \"@sdl/core/primitives\" left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor"
+   ]
+  },
+  {
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT",
+     "after": "JI_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT"
+    }
+   ],
+   "skipped": [
+    "All other sdl-brand/identifier occurrences (@sdl/* specifiers, .ji/objectives/sdl-extension-architecture, sdl-tools, sdl-sdk, sdl\u2192slot prose, 'SDL Extension Architecture' target name) are out-of-window survivors or brand prose per the brief; left verbatim per the file-specific note limiting edits to line 90 only."
+   ]
+  }
+ ],
+ "complex": [],
+ "verify": []
+}

@@ -27,9 +27,9 @@ describe("checked-in flow SDL extension loading", () => {
 
 		const help = runWithRealFlowExtension({ args: ["flow", "cp", "--help"], cwd });
 		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: sdl flow cp");
+		expect(help.stdout.join("")).toContain("Usage: ji flow cp");
 		expect(help.stdout.join("")).toContain("--dry-run");
-		expect(help.stdout.join("")).toContain("SDL_CHECKPOINT_MODEL");
+		expect(help.stdout.join("")).toContain("JI_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "cp", "--json-schema"], cwd });
@@ -65,9 +65,9 @@ describe("checked-in flow SDL extension loading", () => {
 		const help = runWithRealFlowExtension({ args: ["flow", "changes", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow changes");
+		expect(output).toContain("Usage: ji flow changes");
 		expect(output).toContain("read-only git commands");
-		expect(output).toContain("SDL_CHANGES_MODEL");
+		expect(output).toContain("JI_CHANGES_MODEL");
 		expect(output).toContain("PI_DRAFT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
@@ -82,11 +82,11 @@ describe("checked-in flow SDL extension loading", () => {
 		const help = runWithRealFlowExtension({ args: ["flow", "push", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow push");
+		expect(output).toContain("Usage: ji flow push");
 		expect(output).toContain("plain git push");
 		expect(output).toContain("clean worktree");
 		expect(output).toContain("Graphite-tracked PR branches");
-		expect(output).toContain("sdl flow submit");
+		expect(output).toContain("ji flow submit");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "push", "--json-schema"], cwd });
@@ -103,12 +103,12 @@ describe("checked-in flow SDL extension loading", () => {
 		});
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow branch-latest-commit");
+		expect(output).toContain("Usage: ji flow branch-latest-commit");
 		expect(output).toContain("--slug");
 		expect(output).toContain("clean worktree");
 		expect(output).toContain("latest eligible unpushed single-parent commit");
 		expect(output).toContain("does not push, publish, submit, or update PRs");
-		expect(output).toContain("sdl flow autobranch");
+		expect(output).toContain("ji flow autobranch");
 		expect(output).not.toContain("stashes pending changes");
 		expect(help.stderr.join("")).toBe("");
 
@@ -128,15 +128,15 @@ describe("checked-in flow SDL extension loading", () => {
 		const help = runWithRealFlowExtension({ args: ["flow", "autobranch", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow autobranch");
+		expect(output).toContain("Usage: ji flow autobranch");
 		expect(output).toContain("--slug");
 		expect(output).toContain("gt create");
 		expect(output).toContain("dirty worktree changes");
-		expect(output).toContain("sdl flow branch-latest-commit");
+		expect(output).toContain("ji flow branch-latest-commit");
 		expect(output).not.toContain(["eligible unpushed", "non-merge commit"].join(" "));
-		expect(output).toContain("SDL_SLUG_MODEL");
-		expect(output).toContain("SDL_CHECKPOINT_MODEL");
-		expect(output).toContain("SDL_DEV_CHECKPOINT_MODEL");
+		expect(output).toContain("JI_SLUG_MODEL");
+		expect(output).toContain("JI_CHECKPOINT_MODEL");
+		expect(output).toContain("JI_DEV_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "autobranch", "--json-schema"], cwd });
@@ -162,11 +162,11 @@ describe("checked-in flow SDL extension loading", () => {
 		const help = runWithRealFlowExtension({ args: ["flow", "regenerate-pr", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow regenerate-pr");
+		expect(output).toContain("Usage: ji flow regenerate-pr");
 		expect(output).toContain("Regenerate the current branch PR title");
 		expect(output).toContain("--force");
-		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_PROMPT");
+		expect(output).toContain("JI_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).toContain("JI_DEV_PR_DESCRIPTION_PROMPT");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({
@@ -183,12 +183,12 @@ describe("checked-in flow SDL extension loading", () => {
 
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl flow submit");
+		expect(output).toContain("Usage: ji flow submit");
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
-		expect(output).toContain("SDL_DEV_PR_DESCRIPTION_MODEL");
-		expect(output).toContain("SDL_SUBMIT_FAILURE_LOG_DIR");
+		expect(output).toContain("JI_DEV_PR_DESCRIPTION_MODEL");
+		expect(output).toContain("JI_SUBMIT_FAILURE_LOG_DIR");
 		expect(help.stderr.join("")).toBe("");
 	});
 
@@ -214,7 +214,7 @@ describe("checked-in flow SDL extension loading", () => {
 			run.liveOutput.some(
 				(entry) =>
 					entry.stream === "stderr" &&
-					entry.text.includes("sdl flow submit") &&
+					entry.text.includes("ji flow submit") &&
 					entry.text.includes("Descriptions"),
 			),
 		).toBe(true);
@@ -225,7 +225,7 @@ describe("checked-in flow SDL extension loading", () => {
 });
 
 async function createFlowProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-flow-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-flow-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInFlowExtension(directory);
 	return directory;

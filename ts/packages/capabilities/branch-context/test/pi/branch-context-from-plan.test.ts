@@ -28,10 +28,10 @@ import {
 } from "./branch-context-extension-support.ts";
 
 describe("branch-context-from-plan", () => {
-	test("sdl:branch-context:from-plan help displays usage without mutation", async () => {
+	test("ji:branch-context:from-plan help displays usage without mutation", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler("--help", context.ctx);
@@ -42,7 +42,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(CREATE_BRANCH_CONTEXT_USAGE);
 	});
 
-	test("sdl:branch-context:from-plan dry-run resolves latest local plan store without mutating", async () => {
+	test("ji:branch-context:from-plan dry-run resolves latest local plan store without mutating", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -54,7 +54,7 @@ describe("branch-context-from-plan", () => {
 			planSlugStep(savedPlanFileContent(PLAN_KEY)),
 		]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler("--dry-run", context.ctx);
@@ -77,12 +77,12 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${PLAN_KEY}`);
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 		expect(context.statuses.at(-1)).toEqual({
-			key: "sdl:branch-context:from-plan",
+			key: "ji:branch-context:from-plan",
 			value: undefined,
 		});
 	});
 
-	test("sdl:branch-context:from-plan dry-run prefers session-created plan over newer disk mtime", async () => {
+	test("ji:branch-context:from-plan dry-run prefers session-created plan over newer disk mtime", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -99,7 +99,7 @@ describe("branch-context-from-plan", () => {
 			planSlugStep(savedPlanFileContent(sessionKey), contentSlug),
 		]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(
@@ -121,7 +121,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`${newerDiskSlug}.md`);
 	});
 
-	test("sdl:branch-context:from-plan explicit path wins over session evidence", async () => {
+	test("ji:branch-context:from-plan explicit path wins over session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -137,7 +137,7 @@ describe("branch-context-from-plan", () => {
 		const explicitPath = await writePlanStoreFile(directoryPath, explicitKey, 1_800_000_000_000);
 		const pi = new FakePi([planSlugStep(savedPlanFileContent(explicitKey), contentSlug)]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(
@@ -160,7 +160,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
 	});
 
-	test("sdl:branch-context:from-plan explicit path dry-run uses a content-derived slug instead of the filename", async () => {
+	test("ji:branch-context:from-plan explicit path dry-run uses a content-derived slug instead of the filename", async () => {
 		const savedPlanStem = "where-would-we-host-mossy-lampson";
 		const contentSlug = "add-docs-portal-site";
 		const content = "# Add Docs Portal Site\n\nBuild the docs portal and deploy it.\n";
@@ -169,7 +169,7 @@ describe("branch-context-from-plan", () => {
 		for (const rawPath of [filePath, `@${filePath}`]) {
 			const pi = new FakePi([planSlugStep(content, contentSlug)]);
 			registerBranchContextExtension(pi);
-			const command = pi.commands.get("sdl:branch-context:from-plan");
+			const command = pi.commands.get("ji:branch-context:from-plan");
 
 			await command?.handler(`--dry-run ${rawPath}`, createContext().ctx);
 
@@ -188,7 +188,7 @@ describe("branch-context-from-plan", () => {
 		}
 	});
 
-	test("sdl:branch-context:from-plan dry-run repairs overlong model slug output", async () => {
+	test("ji:branch-context:from-plan dry-run repairs overlong model slug output", async () => {
 		const filePath = await makeNamedPlanFile();
 		const rawOutput = "sdl docs site slot page conventions skeleton theme foundation\n";
 		const repairedSlug = "sdl-docs-site-slot-page-conventions-skeleton";
@@ -196,7 +196,7 @@ describe("branch-context-from-plan", () => {
 			planSlugStep(DEFAULT_PLAN_CONTENT, repairedSlug, { stdout: rawOutput }),
 		]);
 		registerBranchContextExtension(pi);
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
 
@@ -208,7 +208,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${repairedSlug}.md`);
 	});
 
-	test("sdl:branch-context:from-plan ignores missing session file and falls back to disk latest", async () => {
+	test("ji:branch-context:from-plan ignores missing session file and falls back to disk latest", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -227,7 +227,7 @@ describe("branch-context-from-plan", () => {
 			planSlugStep(savedPlanFileContent(diskKey), diskSlug),
 		]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(
@@ -246,7 +246,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain("Saved plan from current session:");
 	});
 
-	test("sdl:branch-context:from-plan rejects wrong repo or branch session evidence", async () => {
+	test("ji:branch-context:from-plan rejects wrong repo or branch session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -263,7 +263,7 @@ describe("branch-context-from-plan", () => {
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)],
 		});
@@ -286,13 +286,13 @@ describe("branch-context-from-plan", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("sdl:branch-context:from-plan rejects outside-plan-store session evidence", async () => {
+	test("ji:branch-context:from-plan rejects outside-plan-store session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const outsidePath = await makeNamedPlanFile(`${PLAN_KEY}`);
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(
@@ -316,7 +316,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("sdl:branch-context:from-plan rejects wrong branch key even when source branch matches", async () => {
+	test("ji:branch-context:from-plan rejects wrong branch key even when source branch matches", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -332,7 +332,7 @@ describe("branch-context-from-plan", () => {
 		};
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(wrongBranchKeyEvidence)],
 		});
@@ -350,7 +350,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("sdl:branch-context:from-plan rejects basename and slug mismatch in session evidence", async () => {
+	test("ji:branch-context:from-plan rejects basename and slug mismatch in session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -366,7 +366,7 @@ describe("branch-context-from-plan", () => {
 		});
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [sourcePlanToolResultEntry(mismatchEvidence)],
 		});
@@ -384,7 +384,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.execCalls.some((call) => call.command === "brmem")).toBe(false);
 	});
 
-	test("sdl:branch-context:from-plan ignores stale cancellation output while using tool result evidence", async () => {
+	test("ji:branch-context:from-plan ignores stale cancellation output while using tool result evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
@@ -401,7 +401,7 @@ describe("branch-context-from-plan", () => {
 			planSlugStep(savedPlanFileContent(sessionKey), contentSlug),
 		]);
 		registerBranchContextExtension(pi, { planStoreRoot });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
 				sourcePlanToolResultEntry(
@@ -424,13 +424,13 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).not.toContain(`Path: ${stalePath}`);
 	});
 
-	test("sdl:branch-context:from-plan creates without interactive confirmation", async () => {
+	test("ji:branch-context:from-plan creates without interactive confirmation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)], events);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
@@ -447,7 +447,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch: ${PLAN_SLUG}`);
 	});
 
-	test("sdl:branch-context:from-plan surfaces target branch collision without prompting", async () => {
+	test("ji:branch-context:from-plan surfaces target branch collision without prompting", async () => {
 		const filePath = await makeNamedPlanFile();
 		const events: string[] = [];
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)], events);
@@ -457,7 +457,7 @@ describe("branch-context-from-plan", () => {
 			},
 		});
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext(events, { confirm: async () => false });
 
 		await command?.handler(filePath, context.ctx);
@@ -471,13 +471,13 @@ describe("branch-context-from-plan", () => {
 		);
 	});
 
-	test("sdl:branch-context:from-plan --yes creates a plain-git branch context using the content slug when the filename differs", async () => {
+	test("ji:branch-context:from-plan --yes creates a plain-git branch context using the content slug when the filename differs", async () => {
 		const savedPlanStem = "where-would-we-host-mossy-lampson";
 		const filePath = await makeNamedPlanFile(`${savedPlanStem}.md`);
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes`, context.ctx);
@@ -497,12 +497,12 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
-	test("sdl:branch-context:from-plan --graphite uses Graphite branch creation", async () => {
+	test("ji:branch-context:from-plan --graphite uses Graphite branch creation", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 		const context = createContext();
 
 		await command?.handler(`${filePath} --yes --graphite`, context.ctx);
@@ -516,7 +516,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("sdl:branch-context:from-plan extension options default to Graphite without a branch prefix", async () => {
+	test("ji:branch-context:from-plan extension options default to Graphite without a branch prefix", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
@@ -524,7 +524,7 @@ describe("branch-context-from-plan", () => {
 			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -535,7 +535,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("sdl:branch-context:from-plan --plain-git override keeps the slug branch under the Graphite default", async () => {
+	test("ji:branch-context:from-plan --plain-git override keeps the slug branch under the Graphite default", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes();
@@ -543,7 +543,7 @@ describe("branch-context-from-plan", () => {
 			branchContextDefaultCreation: "graphite",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes --plain-git`, createContext().ctx);
 
@@ -553,7 +553,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: plain-git");
 	});
 
-	test("sdl:branch-context:from-plan branchContextPrefix remains opt-in", async () => {
+	test("ji:branch-context:from-plan branchContextPrefix remains opt-in", async () => {
 		const filePath = await makeNamedPlanFile();
 		const prefixedBranch = `branch-contexts/${PLAN_SLUG}`;
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
@@ -563,7 +563,7 @@ describe("branch-context-from-plan", () => {
 			branchContextPrefix: "branch-contexts/",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -577,7 +577,7 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 	});
 
-	test("sdl:branch-context:from-plan passes explicit target branch while keeping key from slug", async () => {
+	test("ji:branch-context:from-plan passes explicit target branch while keeping key from slug", async () => {
 		const filePath = await makeNamedPlanFile();
 		const branch = "branch-contexts/custom-target";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
@@ -586,7 +586,7 @@ describe("branch-context-from-plan", () => {
 			branchContextPrefix: "branch-contexts/",
 			branchContextOperations: fakes.operations,
 		});
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes --branch ${branch}`, createContext().ctx);
 
@@ -596,12 +596,12 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Key: ${PLAN_KEY}`);
 	});
 
-	test("sdl:branch-context:from-plan accepts invalid filename stems up to model slug generation", async () => {
+	test("ji:branch-context:from-plan accepts invalid filename stems up to model slug generation", async () => {
 		const filePath = await makeNamedPlanFile("bad.md");
 		const contentSlug = "add-docs-portal-site";
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT, contentSlug)]);
 		registerBranchContextExtension(pi);
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --dry-run`, createContext().ctx);
 
@@ -613,13 +613,13 @@ describe("branch-context-from-plan", () => {
 		expect(pi.sentMessages[0]?.content).toContain(`Branch Memory key: ${contentSlug}.md`);
 	});
 
-	test("sdl:branch-context:from-plan fails when model slug generation fails without fallback", async () => {
+	test("ji:branch-context:from-plan fails when model slug generation fails without fallback", async () => {
 		const filePath = await makeNamedPlanFile("where-would-we-host-mossy-lampson.md");
 		const pi = new FakePi([
 			planSlugStep(DEFAULT_PLAN_CONTENT, PLAN_SLUG, { code: 1, stderr: "model unavailable" }),
 		]);
 		registerBranchContextExtension(pi);
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 
@@ -646,10 +646,10 @@ describe("branch-context-from-plan", () => {
 		);
 	});
 
-	test("sdl:branch-context:from-plan rejects relative explicit paths before primitive mutation", async () => {
+	test("ji:branch-context:from-plan rejects relative explicit paths before primitive mutation", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler("relative-source-plan.md --yes", createContext().ctx);
 
@@ -659,7 +659,7 @@ describe("branch-context-from-plan", () => {
 		);
 	});
 
-	test("sdl:branch-context:from-plan surfaces operation failures without retrying", async () => {
+	test("ji:branch-context:from-plan surfaces operation failures without retrying", async () => {
 		const filePath = await makeNamedPlanFile();
 		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
 		const fakes = createBranchContextOperationFakes({
@@ -668,7 +668,7 @@ describe("branch-context-from-plan", () => {
 			},
 		});
 		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const command = pi.commands.get("sdl:branch-context:from-plan");
+		const command = pi.commands.get("ji:branch-context:from-plan");
 
 		await command?.handler(`${filePath} --yes`, createContext().ctx);
 

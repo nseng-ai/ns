@@ -121,11 +121,11 @@ non-precious) over `XDG_DATA_HOME`, and keep that boundary explicit.
 
 Current SDL-owned roots use these conventions:
 
-- Saved/enriched plans: `$XDG_STATE_HOME/sdl/enriched-plan` (default `$HOME/.local/state/sdl/enriched-plan`).
-- Slot worktree pools: `$XDG_STATE_HOME/sdl/slots` (default `$HOME/.local/state/sdl/slots`).
-- SDL global extensions: `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`).
-- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/sdl/brmem/prompts` (default `$HOME/.config/sdl/brmem/prompts`).
-- Submit raw failure logs and SDL Pi CLI trace logs: `$XDG_STATE_HOME/sdl/...` unless their explicit SDL-specific overrides are set.
+- Saved/enriched plans: `$XDG_STATE_HOME/ji/enriched-plan` (default `$HOME/.local/state/ji/enriched-plan`).
+- Slot worktree pools: `$XDG_STATE_HOME/ji/slots` (default `$HOME/.local/state/ji/slots`).
+- SDL global extensions: `$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`).
+- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ji/brmem/prompts` (default `$HOME/.config/ji/brmem/prompts`).
+- Submit raw failure logs and SDL Pi CLI trace logs: `$XDG_STATE_HOME/ji/...` unless their explicit SDL-specific overrides are set.
 
 ## Sources
 

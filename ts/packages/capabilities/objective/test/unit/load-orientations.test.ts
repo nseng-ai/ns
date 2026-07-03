@@ -21,9 +21,9 @@ describe("objective load-orientations operation", () => {
 				{ slug: "charlie" },
 				{ slug: "delta", orientationMd: "delta direction" },
 			],
-			directories: [".sdl/objective-archive/archived"],
+			directories: [".ji/objective-archive/archived"],
 			files: {
-				".sdl/objective-archive/archived/orientation.md": "archived direction\n",
+				".ji/objective-archive/archived/orientation.md": "archived direction\n",
 			},
 		});
 
@@ -32,16 +32,16 @@ describe("objective load-orientations operation", () => {
 		expect(exit).toEqual({
 			type: "ok",
 			data: {
-				rootPath: ".sdl/objectives",
+				rootPath: ".ji/objectives",
 				records: [
 					{
 						slug: "alpha",
-						path: ".sdl/objectives/alpha/orientation.md",
+						path: ".ji/objectives/alpha/orientation.md",
 						content: "alpha direction\n",
 					},
 					{
 						slug: "delta",
-						path: ".sdl/objectives/delta/orientation.md",
+						path: ".ji/objectives/delta/orientation.md",
 						content: "delta direction",
 					},
 				],
@@ -77,10 +77,10 @@ describe("objective load-orientations operation", () => {
 
 		expect(renderLoadOrientationsMarkdown(exit.data)).toBe(
 			[
-				"### .sdl/objectives/alpha/orientation.md",
+				"### .ji/objectives/alpha/orientation.md",
 				"alpha content",
 				"",
-				"### .sdl/objectives/charlie/orientation.md",
+				"### .ji/objectives/charlie/orientation.md",
 				"charlie content",
 			].join("\n"),
 		);
@@ -89,7 +89,7 @@ describe("objective load-orientations operation", () => {
 	test("fails when a detected orientation file is unreadable", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [{ slug: "alpha", orientationMd: "alpha\n" }],
-			unreadableFiles: { ".sdl/objectives/alpha/orientation.md": "permission denied" },
+			unreadableFiles: { ".ji/objectives/alpha/orientation.md": "permission denied" },
 		});
 
 		const exit = await runLoadOrientations(ctx, {});
@@ -97,7 +97,7 @@ describe("objective load-orientations operation", () => {
 		expect(exit).toEqual({
 			type: "failure",
 			errorType: "orientation-unreadable",
-			message: "Unable to read .sdl/objectives/alpha/orientation.md: permission denied",
+			message: "Unable to read .ji/objectives/alpha/orientation.md: permission denied",
 		});
 	});
 });

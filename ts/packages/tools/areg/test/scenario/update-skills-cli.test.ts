@@ -189,7 +189,7 @@ describe("areg update-skills CLI", () => {
 		const invalidConfig = runUpdate([], { project: { sdlToml: "[areg]\nagents = [1]\n" } });
 		expect(await invalidConfig.exit).toBe(2);
 		expect(invalidConfig.stderr.join("")).toContain(
-			"sdl.toml [areg].agents must be a non-empty string list",
+			"ji.toml [areg].agents must be a non-empty string list",
 		);
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 

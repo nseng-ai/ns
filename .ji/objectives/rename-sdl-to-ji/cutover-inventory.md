@@ -220,6 +220,18 @@ Non-Goals.
   `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`, `SDL_RUNNER_PI_BIN` (added by the
   Objective Runner decomposition). Any exported in owner shell profiles must be
   renamed as part of this checklist.
+- **Shell rc-file sentinel blocks stop being recognized** (found during the real
+  landing, 2026-07-03): the installed shell-integration block is delimited by
+  `# >>> sdl shell integration >>>` / `# <<< sdl shell integration <<<`; the
+  markers renamed to `ji shell integration` in-window, so `ji slot shell install`
+  will not see an existing sdl-marked block. Checklist: remove the old sdl block
+  from rc files (or accept a stale sdl wrapper alongside the new ji one).
+- **Pre-cutover flow-land backup refs become invisible** (real landing,
+  2026-07-03): `refs/sdl/flow-land-backup{,-prev}/<branch>` renamed to
+  `refs/ji/...`; recovery hints only mention the ji namespace now. Existing
+  backups under `refs/sdl/` on owner machines remain in git but must be restored
+  manually (`git update-ref refs/heads/<branch> refs/sdl/flow-land-backup/<branch>`)
+  or deleted as part of this checklist.
 
 ## Cross-objective coupling
 

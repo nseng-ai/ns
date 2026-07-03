@@ -40,7 +40,7 @@ describe("RealLocalDiffGateway", () => {
 		const repoRoot = await mkdtemp(join(tmpdir(), "roaster-local-diff-"));
 		await mkdir(repoRoot, { recursive: true });
 		await writeFile(
-			join(repoRoot, "sdl.toml"),
+			join(repoRoot, "ji.toml"),
 			'[roaster.diff]\nexclude = [".agents/skills/**/*.py"]\n',
 			"utf8",
 		);

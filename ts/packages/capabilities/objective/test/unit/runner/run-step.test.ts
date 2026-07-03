@@ -94,7 +94,7 @@ describe("runRunnerStep", () => {
 		expect(dispatch?.cwd).toBe("/repo");
 		expect(dispatch?.timeoutMs).toBe(3_600_000);
 		expect(dispatch?.prompt).toContain("Objective: demo-objective");
-		expect(dispatch?.prompt).toContain("Objective record: .sdl/objectives/demo-objective");
+		expect(dispatch?.prompt).toContain("Objective record: .ji/objectives/demo-objective");
 	});
 
 	test("happy recover-mode step repairs in place and adds the recover trailer", async () => {

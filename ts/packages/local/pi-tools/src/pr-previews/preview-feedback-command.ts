@@ -213,7 +213,7 @@ async function loadPreviewFeedbackTarget(
 		runtime: options.runtime,
 		ctx: options.ctx,
 		args: ["address", "exec", "download-feedback", ...options.args, "--format", "json"],
-		label: "sdl address exec download-feedback",
+		label: "ji address exec download-feedback",
 		schema: previewDownloadFeedbackDataSchema,
 		allowFailureData: true,
 	});
@@ -234,7 +234,7 @@ async function loadPreviewReviewThreads(
 			"--format",
 			"json",
 		],
-		label: `sdl address exec pr-review-threads #${options.prNumber}`,
+		label: `ji address exec pr-review-threads #${options.prNumber}`,
 		schema: previewReviewThreadsDataSchema,
 	});
 }
@@ -242,7 +242,7 @@ async function loadPreviewReviewThreads(
 async function execPrAddressWithSchema<T>(
 	options: ExecPrAddressWithSchemaOptions<T>,
 ): Promise<CommandResult<T>> {
-	const result = await options.runtime.pi.exec("sdl", options.args, {
+	const result = await options.runtime.pi.exec("ji", options.args, {
 		cwd: options.ctx.cwd,
 		timeout: options.runtime.commandTimeoutMs,
 	});

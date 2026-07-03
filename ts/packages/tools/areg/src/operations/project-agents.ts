@@ -22,13 +22,13 @@ export function resolveProjectAgents(input: {
 	return { ok: true, value: [...DEFAULT_AGENTS] };
 }
 
-export function parseSdlAregAgents(text: string, pathLabel = "sdl.toml"): Result<string[]> {
+export function parseSdlAregAgents(text: string, pathLabel = "ji.toml"): Result<string[]> {
 	let data: unknown;
 	try {
 		data = parse(text);
 	} catch (error) {
 		return err({
-			code: "sdl_toml_invalid",
+			code: "ji_toml_invalid",
 			message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
 		});
 	}
@@ -37,19 +37,19 @@ export function parseSdlAregAgents(text: string, pathLabel = "sdl.toml"): Result
 	if (areg === undefined) return { ok: true, value: [] };
 	if (!isRecord(areg))
 		return err({
-			code: "sdl_toml_invalid",
+			code: "ji_toml_invalid",
 			message: `[areg] in ${pathLabel} must be a TOML table.`,
 		});
 	const agents = areg.agents;
 	if (agents === undefined) return { ok: true, value: [] };
 	if (!Array.isArray(agents))
 		return err({
-			code: "sdl_toml_invalid",
+			code: "ji_toml_invalid",
 			message: `${pathLabel} [areg].agents must be a string array.`,
 		});
 	if (agents.length === 0) return { ok: true, value: [] };
 	return validateNonEmptyStringList(agents, {
-		code: "sdl_toml_invalid",
+		code: "ji_toml_invalid",
 		message: `${pathLabel} [areg].agents must be a non-empty string list.`,
 	});
 }
@@ -94,12 +94,12 @@ function parseSdlAregAgentsFromState(state: AregTextFileState): Result<string[]>
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "sdl.toml",
+			pathLabel: "ji.toml",
 			state,
-			description: "sdl.toml",
+			description: "ji.toml",
 			action: "manage it",
 		});
-	return parseSdlAregAgents(state.text, "sdl.toml");
+	return parseSdlAregAgents(state.text, "ji.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {

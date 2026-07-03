@@ -321,7 +321,7 @@ export function validateStrictMergeGate(input: {
 				message: `PR #${input.pr.number} targets ${input.pr.baseRefName}, expected ${input.trunk}; restack/submit it first.`,
 				failedBranch: input.branch,
 				failedPrNumber: input.pr.number,
-				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
+				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /ji:flow:land.`,
 			}),
 		);
 	}

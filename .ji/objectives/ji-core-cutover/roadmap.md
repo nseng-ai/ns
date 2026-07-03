@@ -47,7 +47,7 @@
       baselines re-derived; production src/**.md now routes to chunk 1. All
       amendments folded and plan regenerated (121 simple / 9 changesets /
       29 cohorts). See update `2026-07-02-dry-run-1-findings-folded.md`.
-- [ ] Re-verify the frozen candidate lists against the repo when the landing window
+- [x] Re-verify the frozen candidate lists against the repo when the landing window
       opens (drift check since the 2026-07-02 snapshot): re-run
       `cutover/generate-candidates.sh` + `prepass.sh`, diff per-surface lists,
       re-classify only the drift, re-assemble (runbook §A).
@@ -67,15 +67,35 @@
       paths verified to exist pre-mv. See update
       `2026-07-02-objective-runner-drift-absorbed.md`. Row stays open for
       the SAME-DAY re-run at the real landing window.
-- [ ] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
+      Closed at the real landing: the owner WAIVED the same-day re-run
+      (ruling 2026-07-02, recorded in runbook §C and commit `fa9f55601`); the
+      2026-07-02 post-drift §A pass stood as the plan snapshot, and the landing's
+      scope-untouched baselines matched it exactly (949 `@sdl/` files /
+      158 src-dir survivor lines).
+- [x] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
       the workflow over the ATOMIC list, `pnpm install` to regenerate lockfile/shims,
       and update the `cross-harness-parity` parity table in the same landing.
       Evidence: `just` passes; `ji objective list` and `ji objective exec
       load-orientations` work; no compat codepath introduced; every ATOMIC item
       addressed or explicitly re-bucketed.
-- [ ] Record landing evidence in the parent `rename-sdl-to-ji` (its cutover row
+      Evidence recorded 2026-07-03: real landing executed on `ji-cutover/landing`
+      (B1 mv bracket `ff190fa70` + engine window this commit) — 3 chunks
+      (~183 agents, 0 failures), 2 fix rounds (budget exactly consumed), `just`
+      green (3994/3994 tests, baseline count matched), all §B5 smoke tests pass,
+      parity-table rows 38/51 updated in-window, no compat codepath. Every
+      work-list item addressed; 266 skips triaged (survivor-confirmed or
+      fix-listed); 5 plan-gap brand machine literals found and renamed. Artifacts:
+      `cutover/landing/*`; see update `2026-07-03-real-landing-executed.md`.
+- [x] Record landing evidence in the parent `rename-sdl-to-ji` (its cutover row
       completes against this Objective) and hand remaining rename work (machine
       migration, sweeps, repo rename) back to the parent.
+      Evidence: parent's `cutover-inventory.md` machine-migration notes gained the
+      two landing-discovered items (rc-file `sdl shell integration` sentinel
+      blocks; `refs/sdl/flow-land-backup{,-prev}` backup refs) alongside the
+      standing `SDL_*` shell-profile env-var item; the parent's core-cutover row
+      stays `[~]` until this Objective closes (owner's call). Machine migration,
+      vocabulary sweep, package-scope sweep, and the repo rename remain parent
+      rows, untouched by this window.
 
 ## Parked
 

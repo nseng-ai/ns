@@ -3,11 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const FLOW_EXTENSION_SOURCE = fileURLToPath(
-	new URL("../../../../../.sdl/extensions/flow", import.meta.url),
+	new URL("../../../../../.ji/extensions/flow", import.meta.url),
 );
 
 export function installCheckedInFlowExtension(projectRoot: string): void {
-	const destination = join(projectRoot, ".sdl", "extensions", "flow");
+	const destination = join(projectRoot, ".ji", "extensions", "flow");
 	mkdirSync(dirname(destination), { recursive: true });
 	cpSync(FLOW_EXTENSION_SOURCE, destination, { recursive: true });
 }

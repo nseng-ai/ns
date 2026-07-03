@@ -7,7 +7,7 @@ The public model is:
 - **Create a handoff** when pausing or transferring focused work.
 - **Pick up a handoff** when selecting an existing artifact, including when the user asks to resume from it.
 - **List handoffs** when choosing which handoff to pick up.
-- **Delete a handoff** when explicitly removing one artifact by exact slug through the portable `sdl handoff delete` command.
+- **Delete a handoff** when explicitly removing one artifact by exact slug through the portable `ji handoff delete` command.
 - Continue the recorded work only after pickup has presented a summary and the user asks to proceed.
 
 Branch Memory may store the artifact, but Branch Memory namespaces, keys, refs, and commits are technical locators. They should not be the default user model.
@@ -103,7 +103,7 @@ Good pickup copy:
 Picked up handoff `address-review-feedback` from branch `feature/review`.
 ```
 
-The `sdl handoff list` command's normal output should show compact handoff inventory tables with slug and recency:
+The `ji handoff list` command's normal output should show compact handoff inventory tables with slug and recency:
 
 ```text
 Handoffs on feature/review
@@ -121,7 +121,7 @@ Branch          State   Handoff                    Updated
 feature/review  active  address-review-feedback    2h ago
 ```
 
-When the user opts into deleted-branch recovery with `sdl handoff list --all --include-deleted`, include deleted local branches and keep their state visible:
+When the user opts into deleted-branch recovery with `ji handoff list --all --include-deleted`, include deleted local branches and keep their state visible:
 
 ```text
 Handoffs across branches
@@ -131,7 +131,7 @@ feature/review  active   address-review-feedback    2h ago
 feature/docs    deleted  document-handoff-surface   5d ago
 ```
 
-Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `sdl handoff list --format markdown` emits a pipe table; `sdl handoff list --format json` includes exact `updatedAt` timestamps, the selected `includeDeleted` filter, and `branchState` values for agents and scripts.
+Pi picker/card UIs may enrich this with previews and copyable pickup commands, but normal list output should not expose storage keys, namespaces, refs, or `brmem` commands. Optional technical locators belong only in expanded/diagnostic output, JSON output for automation, or recovery documentation. `ji handoff list --format markdown` emits a pipe table; `ji handoff list --format json` includes exact `updatedAt` timestamps, the selected `includeDeleted` filter, and `branchState` values for agents and scripts.
 
 ## Current commands and skills
 
@@ -146,14 +146,14 @@ Project-local Pi commands:
 Portable SDL command face:
 
 ```text
-sdl handoff list [--branch <branch>|--all] [--include-deleted]
-sdl handoff pickup [--branch <branch>] <slug>
-sdl handoff create --slug <slug> [--branch <branch>] [--file <path>]
-sdl handoff delete [--branch <branch>] [--yes] <slug>
-sdl handoff gc [--dry-run|--force]
+ji handoff list [--branch <branch>|--all] [--include-deleted]
+ji handoff pickup [--branch <branch>] <slug>
+ji handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ji handoff delete [--branch <branch>] [--yes] <slug>
+ji handoff gc [--dry-run|--force]
 ```
 
-There is currently no `/handoff:delete` Pi command. Single-handoff deletion is available through `sdl handoff delete`. `sdl handoff delete` accepts the exact handoff slug without `.md`; `sdl handoff delete alpha.md` is rejected so deletion cannot silently reinterpret storage keys as user-facing slugs.
+There is currently no `/handoff:delete` Pi command. Single-handoff deletion is available through `ji handoff delete`. `ji handoff delete` accepts the exact handoff slug without `.md`; `ji handoff delete alpha.md` is rejected so deletion cannot silently reinterpret storage keys as user-facing slugs.
 
 Examples:
 
@@ -194,19 +194,19 @@ Low-level `brmem` operations remain valid for debugging, recovery, and non-Pi ha
 Useful recovery commands:
 
 ```text
-sdl handoff list --branch <branch>
-sdl handoff list --all
-sdl handoff list --all --format json
-sdl handoff list --all --include-deleted
-sdl handoff list --all --include-deleted --format json
-sdl handoff pickup <semantic-slug> --branch <branch> --format json
-sdl handoff delete [--branch <branch>] [--yes] <semantic-slug>
-sdl handoff gc --dry-run
+ji handoff list --branch <branch>
+ji handoff list --all
+ji handoff list --all --format json
+ji handoff list --all --include-deleted
+ji handoff list --all --include-deleted --format json
+ji handoff pickup <semantic-slug> --branch <branch> --format json
+ji handoff delete [--branch <branch>] [--yes] <semantic-slug>
+ji handoff gc --dry-run
 brmem get <semantic-slug>.md --namespace handoff --branch <branch>
 ```
 
-`sdl handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--yes` to skip the confirmation prompt.
+`ji handoff delete` removes exactly one handoff from the target branch by exact slug. Pass `--branch <branch>` to remove a handoff from a non-current or locally deleted branch; pass `--yes` to skip the confirmation prompt.
 
-`sdl handoff gc` deletes handoffs whose local branch no longer exists. Use `sdl handoff gc --dry-run` to preview candidates and `sdl handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
+`ji handoff gc` deletes handoffs whose local branch no longer exists. Use `ji handoff gc --dry-run` to preview candidates and `ji handoff gc --force` to delete without prompting. Garbage collection deletes handoff entries only; it does not delete git branches, remote branches, Graphite state, or non-handoff Branch Memory entries.
 
 Normal handoff commands read only the `handoff` namespace. Older design notes may mention previous names only as historical context; they are not normal fallback storage.

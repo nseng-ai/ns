@@ -37,7 +37,7 @@ The CCC-owned Pi slash commands users invoke with the `ccc` prefix, such as `/cc
 *Avoid*: `/cmux:*` compatibility alias, cmux CLI command, generic Pi extension command.
 
 **Stable non-`ccc` orchestration surface**:
-A public Pi command whose user-facing namespace remains outside `ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/objective:stack-impl` or `/sdl:flow:land`. Autobranch is now public SDL lifecycle surface `sdl flow autobranch` / `/sdl:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
+A public Pi command whose user-facing namespace remains outside `ccc` while CCC may compose repo-opinionated behavior through lower Capability APIs, such as `/objective:stack-impl` or `/ji:flow:land`. Autobranch is now public SDL lifecycle surface `ji flow autobranch` / `/ji:flow:autobranch`, with `ccc exec autobranch` retained as hidden internal compatibility over Flow-owned behavior.
 *Avoid*: compatibility alias, evidence that namespace alone determines domain ownership, old `/code:*` lifecycle alias.
 
 **Objective stack implementation orchestration**:
@@ -45,11 +45,11 @@ The CCC-owned launch/orchestration path behind public `/objective:stack-impl`: a
 *Avoid*: Objective store, Objective CLI semantics, normal Objective update workflow, new `/ccc:*` alias for stack implementation.
 
 **Autobranch compatibility flow**:
-The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public SDL lifecycle boundary is `sdl flow autobranch` / `/sdl:flow:autobranch`.
-*Avoid*: public Pi registration adapter, current `/sdl:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
+The hidden CCC `ccc exec autobranch` wrapper retained for internal compatibility, consuming Flow-owned autobranch behavior through the Flow Capability API while adapting CCC CLI dependencies and checkpoint-message helpers. The public SDL lifecycle boundary is `ji flow autobranch` / `/ji:flow:autobranch`.
+*Avoid*: public Pi registration adapter, current `/ji:flow:autobranch` surface, checkpoint primitive owner, plain branch creation helper, old `/code:autobranch` alias.
 
 **Flow land consumption**:
-The CCC composition path behind public unified `/sdl:flow:land`, consuming Flow-owned land behavior through `sdl-flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
+The CCC composition path behind public unified `/ji:flow:land`, consuming Flow-owned land behavior through `sdl-flow/api` for strict Graphite stack-shape discovery, isolated single-PR squash merging into `gt trunk`, stack-mode PR metadata validation/update prompts, managed landing-slot cleanup, bottom-to-current squash merges, and post-merge Graphite refresh/delete/restack/submit maintenance.
 *Avoid*: Pi registration adapter, separate stack landing command, Flow land internals owner, general GitHub lifecycle owner, lower Graphite/GitHub gateway, old `/code:land` alias.
 
 **Portable command progress**:

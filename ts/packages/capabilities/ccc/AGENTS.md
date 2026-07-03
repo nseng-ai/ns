@@ -4,7 +4,7 @@
 
 CCC owns orchestration that is often invoked from both SDL CLI commands and Pi slash-command mirrors. When adding or fixing human-facing progress for those workflows, prefer the SDK `SdlCommandIo` service and kernel command-I/O adapter instead of inventing a command-local progress sink or relying only on Pi status.
 
-Use this pattern when a workflow can run through `sdl ...` and `/sdl:...` or another Pi mirror:
+Use this pattern when a workflow can run through `ji ...` and `/ji:...` or another Pi mirror:
 
 - Thread an `SdlCommandIo` (usually named `progressIo` or `io`) through lower orchestration code that owns the long-running phases.
 - Emit intermediate, non-contractual progress with `io.phase(...)`.

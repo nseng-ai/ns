@@ -44,7 +44,7 @@ function defineExtension(extension: SdlExtension): SdlExtension;
 **Notes.**
 
 - Use as the module's default export: `export default defineExtension({ ... })`.
-- Single-file extensions under `.sdl/extensions/` are leaf modules. Workspace packages must never import from them.
+- Single-file extensions under `.ji/extensions/` are leaf modules. Workspace packages must never import from them.
 
 **Example.**
 
@@ -91,7 +91,7 @@ export default defineExtension({});
 
 ### `repoLocalSdlCommandDescriptor()`
 
-Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.sdl/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
+Builds a descriptor for a checked-in `.ji/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.ji/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
 
 ```ts
 function repoLocalSdlCommandDescriptor(options: RepoLocalSdlCommandDescriptorOptions): RepoLocalSdlExtensionCommandDescriptor;
@@ -101,10 +101,10 @@ Repo-local first-party extensions in this repository use this command-leaf patte
 
 1. The implementation package owns a `src/repo-local-sdl-extension.ts` descriptor.
 2. Each public command module exports its named `SdlCommand` and a default `defineExtension({ commands: [thatCommand] })` wrapper.
-3. `.sdl/extensions/<group>/package.json` lists one manifest command entry per command leaf.
-4. `.sdl/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
+3. `.ji/extensions/<group>/package.json` lists one manifest command entry per command leaf.
+4. `.ji/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
 
-Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
+Do not point multiple manifest command entries at a shared `.ji/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
 
 `packageExportPrefix` is joined with the manifest command name. The name defaults to `command.name`, so nested user-facing routes such as `path: ["exec", "attach"]` can still point at `./src/commands/attach.ts` and `@sdl/branch-context/sdl/commands/attach`. Pass `manifestName` only when the checked-in leaf filename and package export intentionally encode more than `command.name`, such as Roaster's route-encoded `review-list` leaf.
 
@@ -139,7 +139,7 @@ Declares the package-owned descriptor that parity tests compare against a checke
 
 ### `SdlCommand`
 
-One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `sdl <name>`; manifest-grouped packages can present the same flat command name under a group such as `sdl flow <name>`.
+One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `ji <name>`; manifest-grouped packages can present the same flat command name under a group such as `ji flow <name>`.
 
 ```ts
 interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
@@ -159,8 +159,8 @@ interface SdlCommand<S extends SdlCommandSchema = z.ZodObject, T = unknown> {
 **Fields.**
 
 - `name` — the flat command name. Must match `[a-z][a-z0-9-]*`: no nested groups, slashes, colons, spaces, or uppercase.
-- `summary` — required one-line text shown in `sdl --help`.
-- `description` — full help text shown in `sdl <cmd> --help`.
+- `summary` — required one-line text shown in `ji --help`.
+- `description` — full help text shown in `ji <cmd> --help`.
 - `schema?` — a Zod object schema (`SdlCommandSchema`) describing the command's options. Omit for a command with no parsed arguments.
 - `positionals?` — maps schema field names to positional slots (`PositionalSpec`). Only keys present in the schema are valid.
 - `resultSchema?` — opt into Clinkr-rendered command execution by declaring the successful data schema. Rendered commands get `--format human|json|markdown|md` and publish the schema through `--json-schema`.
@@ -289,7 +289,7 @@ interface PositionalSpec {
 
 - `position` — the zero-based positional index this field reads from.
 
-**Example.** Map the `slug` option to the first positional, so `sdl flow autobranch my-feature` fills it:
+**Example.** Map the `slug` option to the first positional, so `ji flow autobranch my-feature` fills it:
 
 ```ts
 {
@@ -304,11 +304,11 @@ interface PositionalSpec {
 
 ## Extension manifest schemas
 
-SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `sdl`, and command-entry fields are accepted and preserved.
+SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved.
 
 ### `sdlExtensionManifestCommandSchema`
 
-Validates one known `sdl.commands[]` entry shape.
+Validates one known `ji.commands[]` entry shape.
 
 ```ts
 const command = sdlExtensionManifestCommandSchema.parse({
@@ -324,12 +324,12 @@ Known fields are `name?`, `path?`, `group?`, `description?`, `fullDescription?`,
 
 ### `sdlExtensionManifestSchema` / `sdlExtensionPackageManifestSchema`
 
-Validate the known `sdl` object and package-level manifest wrapper.
+Validate the known `ji` object and package-level manifest wrapper.
 
 ```ts
 const manifest = sdlExtensionPackageManifestSchema.parse({
   description: "Flow command package.",
-  sdl: {
+  ji: {
     group: "flow",
     description: "Flow commands.",
     commands: [{ name: "changes", description: "Show changes.", entry: "./src/changes.ts" }],

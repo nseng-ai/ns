@@ -97,7 +97,7 @@ Write the confirmed findings into the Objective record as durable source
 material, one file per cluster, with an index:
 
 ```text
-.sdl/objectives/<slug>/
+.ji/objectives/<slug>/
   references/
     README.md          # index: how the sweep ran, severity legend, cluster table
     <cluster>.md        # one per package/area; findings grouped by sub-package
@@ -184,7 +184,7 @@ supported runner for a remediation autoobjective is the Objective Runner step
 workflow (ADR 0022): each step is one invocation of
 
 ```text
-sdl objective exec runner-step <slug> [--guidance <text|@file>] [--model <m>] [--timeout <seconds>]
+ji objective exec runner-step <slug> [--guidance <text|@file>] [--model <m>] [--timeout <seconds>]
 ```
 
 driven by a judging parent — the `objective-autorun` skill is the entry point
@@ -241,7 +241,7 @@ stale finding is **disposed** by that iteration, not blindly fixed.
 playbook end to end:
 
 ```text
-.sdl/objectives/code-smell-roaster-remediation/
+.ji/objectives/code-smell-roaster-remediation/
   objective.md     # scope = 162 findings; no-behavior-change non-goal;
                    #   Definition of Progress + Runner Policy (submit, never land)
   roadmap.md       # 21 cluster rows, severity splits, cross-Objective overlap flags
@@ -260,6 +260,6 @@ Read it alongside this doc when authoring the next one.
   and operations.
 - `skills/objective-create/references/execution-friendly-create.md` — the
   agent-facing interview/template guidance for the policy sections.
-- `.sdl/objectives/eliminate-redundant-optional-undefined/autonomous-objective-lessons.md`
+- `.ji/objectives/eliminate-redundant-optional-undefined/autonomous-objective-lessons.md`
   — lessons from the *standing* (maintain-forever) autoobjective variant; useful
   contrast when your backlog has no natural exhaustion point.

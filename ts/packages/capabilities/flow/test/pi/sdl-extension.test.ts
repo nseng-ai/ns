@@ -43,16 +43,16 @@ class FakePi implements SdlExtensionAPI {
 	}
 
 	registerMessageRenderer(customType: string, renderer: unknown): void {
-		if (customType === "sdl-command-ack") return;
+		if (customType === "ji-command-ack") return;
 		this.messageRenderers.set(customType, renderer);
 	}
 
 	readonly sendMessage = (message: CustomMessage): void => {
-		if (message.customType === "sdl-command-ack") {
+		if (message.customType === "ji-command-ack") {
 			this.ackMessages.push(message);
 			return;
 		}
-		if (message.customType === "sdl-command-progress") {
+		if (message.customType === "ji-command-progress") {
 			this.progressMessages.push(message);
 			return;
 		}
@@ -93,7 +93,7 @@ describe("sdl Pi extension", () => {
 
 		sdlExtension(pi);
 
-		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `sdl:flow:${name}`));
+		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ji:flow:${name}`));
 		for (const oldName of [
 			"sdl:changes",
 			"sdl:cp",
@@ -108,15 +108,15 @@ describe("sdl Pi extension", () => {
 		]) {
 			expect(pi.commands.has(oldName)).toBe(false);
 		}
-		expect(pi.commands.get("sdl:flow:cp")?.description).toBe(
-			"sdl flow cp: Create a checkpoint commit for the current diff.",
+		expect(pi.commands.get("ji:flow:cp")?.description).toBe(
+			"ji flow cp: Create a checkpoint commit for the current diff.",
 		);
-		expect(pi.commands.get("sdl:flow:branch-latest-commit")?.description).toBe(
-			"sdl flow branch-latest-commit: Move the latest eligible commit to a new Graphite child branch.",
+		expect(pi.commands.get("ji:flow:branch-latest-commit")?.description).toBe(
+			"ji flow branch-latest-commit: Move the latest eligible commit to a new Graphite child branch.",
 		);
-		expect(pi.commands.get("sdl:flow:autoslot")?.description).toContain("managed slot worktree");
-		expect(pi.commands.get("sdl:flow:land")?.description).toBe(
-			"sdl flow land: Land the current PR or Graphite stack into trunk.",
+		expect(pi.commands.get("ji:flow:autoslot")?.description).toContain("managed slot worktree");
+		expect(pi.commands.get("ji:flow:land")?.description).toBe(
+			"ji flow land: Land the current PR or Graphite stack into trunk.",
 		);
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
@@ -133,7 +133,7 @@ describe("sdl Pi extension", () => {
 				},
 			});
 
-			await commandFor(pi, `sdl:flow:${commandName}`).handler("", createContext("/work"));
+			await commandFor(pi, `ji:flow:${commandName}`).handler("", createContext("/work"));
 
 			expect(runCliCalls).toEqual([["flow", commandName]]);
 			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);

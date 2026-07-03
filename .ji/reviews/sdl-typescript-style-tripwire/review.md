@@ -4,7 +4,7 @@
 # especially `core-rules.md`, `checklist.md`, and
 # `references/review-taste-and-process.md`) with the project overlay
 # (`skills/sdl-typescript/SKILL.md`). It is intentionally not a generic
-# TypeScript review; use `.sdl/reviews/sdl-typescript-style-tripwire.md` when reviewing this
+# TypeScript review; use `.ji/reviews/sdl-typescript-style-tripwire.md` when reviewing this
 # repo's TypeScript diffs.
 #
 # Regeneration instructions: when either source skill changes, refresh this file
@@ -13,7 +13,7 @@
 # to the NOT ACTIVE Tier B comment, preserve the frontmatter schema accepted by
 # Roaster, and then run:
 #
-#   dprint check .sdl/reviews/sdl-typescript-style-tripwire.md
+#   dprint check .ji/reviews/sdl-typescript-style-tripwire.md
 #   pnpm --dir ts exec vitest run packages/roaster/test/unit/review-definition.test.ts
 description: |
   SDL TypeScript style Tripwire: enforce sdl's TypeScript style guide and

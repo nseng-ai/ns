@@ -1,6 +1,6 @@
 import { formatShellArg } from "@sdl/core/exec";
 
-const TOKEN_PREFIX = "@@SDL_";
+const TOKEN_PREFIX = "@@JI_";
 
 export const FALLBACK_MODES = ["literal", "script-checkout"] as const;
 export type FallbackMode = (typeof FALLBACK_MODES)[number];
@@ -32,16 +32,16 @@ export function renderCliShim(request: RenderCliShimRequest): RenderCliShimResul
 	const fallbackMode = request.fallbackMode ?? "literal";
 	if (!isFallbackMode(fallbackMode)) {
 		return failure(
-			`invalid SDL_FALLBACK_MODE '${fallbackMode}'; expected one of: ${FALLBACK_MODES.join(", ")}`,
+			`invalid JI_FALLBACK_MODE '${fallbackMode}'; expected one of: ${FALLBACK_MODES.join(", ")}`,
 		);
 	}
 
 	const replacements = new Map([
-		["@@SDL_TOOL@@", formatShellArg(request.tool)],
-		["@@SDL_CANONICAL_CHECKOUT@@", formatShellArg(request.canonicalCheckout)],
-		["@@SDL_CLI_REL_PATH@@", formatShellArg(request.cliRelPath)],
-		["@@SDL_INSTALL_HINT@@", formatShellArg(request.installHint)],
-		["@@SDL_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
+		["@@JI_TOOL@@", formatShellArg(request.tool)],
+		["@@JI_CANONICAL_CHECKOUT@@", formatShellArg(request.canonicalCheckout)],
+		["@@JI_CLI_REL_PATH@@", formatShellArg(request.cliRelPath)],
+		["@@JI_INSTALL_HINT@@", formatShellArg(request.installHint)],
+		["@@JI_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
 	]);
 
 	let rendered = request.template;

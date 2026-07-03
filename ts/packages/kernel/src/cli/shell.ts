@@ -14,8 +14,8 @@ import {
 
 import type { SdlCliContext } from "./context.ts";
 
-export const sdlShellIntegrationBeginMarker = "# >>> sdl shell integration >>>";
-export const sdlShellIntegrationEndMarker = "# <<< sdl shell integration <<<";
+export const sdlShellIntegrationBeginMarker = "# >>> ji shell integration >>>";
+export const sdlShellIntegrationEndMarker = "# <<< ji shell integration <<<";
 
 export const sdlShellShowRequestSchema = markerSurfaceShowRequestSchema;
 export const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
@@ -43,13 +43,13 @@ export async function runSdlShellInstall(ctx: SdlCliContext, request: SdlShellIn
 	const rcPath = rcPathForShell(selected.shell, ctx.env);
 	if (!request.yes) {
 		const gate = requireInteractiveOrUsageError(ctx.interaction, {
-			message: "Installing sdl shell integration requires --yes when non-interactive.",
+			message: "Installing ji shell integration requires --yes when non-interactive.",
 			missingFlag: "--yes",
 			howToSupply: "Pass --yes (or -y) to update the shell rc file without prompting.",
 		});
 		if (gate) return gate;
 		const confirmed = await ctx.interaction.confirm({
-			message: `Install sdl shell integration for ${selected.shell} in ${rcPath}?`,
+			message: `Install ji shell integration for ${selected.shell} in ${rcPath}?`,
 			defaultAnswer: "no",
 		});
 		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
@@ -82,12 +82,12 @@ export function renderSdlShellShow(result: SdlShellShowResult): string {
 
 export function renderSdlShellInstall(result: SdlShellInstallResult): string {
 	if (result.cancelled)
-		return `Cancelled sdl shell integration install for ${result.shell} in ${result.rcPath}`;
+		return `Cancelled ji shell integration install for ${result.shell} in ${result.rcPath}`;
 	if (result.isAlreadyInstalled)
-		return `sdl shell integration already installed in ${result.rcPath}`;
-	return `Installed sdl shell integration for ${result.shell} in ${result.rcPath}`;
+		return `ji shell integration already installed in ${result.rcPath}`;
+	return `Installed ji shell integration for ${result.shell} in ${result.rcPath}`;
 }
 
 export function renderSdlShellWrapperScript(): string {
-	return renderCommandCdWrapperScript({ commandName: "sdl" });
+	return renderCommandCdWrapperScript({ commandName: "ji" });
 }

@@ -58,7 +58,7 @@ const submitPreflightFailureCatalog = defineFailureCatalog<
 			[
 				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 				"",
-				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
+				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ji flow submit`.",
 			].join("\n"),
 	},
 	merged_pr_not_in_trunk: {
@@ -129,17 +129,17 @@ function formatEmptyBranchFailure(branchName: string | undefined): string {
 		return [
 			"The submit stack contains an empty branch, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.",
 			"",
-			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
-			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
+			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ji flow submit`.",
+			"Otherwise, commit real changes to it, then rerun `ji flow submit`.",
 		].join("\n");
 	}
 	return [
 		`Branch ${branchName} is empty, so Graphite will not submit it (GitHub rejects empty PRs). Nothing was submitted.`,
 		"",
-		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
+		`If ${branchName} has no remaining work, delete it, then rerun \`ji flow submit\`:`,
 		`    gt delete ${branchName} -f -q`,
 		"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
-		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
+		`Otherwise, commit real changes to ${branchName}, then rerun \`ji flow submit\`.`,
 	].join("\n");
 }
 
@@ -151,8 +151,8 @@ function formatRemoteUpdatedOutsideGraphitePreflight(input: {
 	return [
 		`${subject} is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.`,
 		formatRemoteSyncDetails(input.remoteSync),
-		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
-		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+		"Fix:    run `gt sync` (or `gt get`), then rerun `ji flow submit`.",
+		"Bypass: `ji flow submit --force` skips Graphite's remote-update check.",
 	].join("\n");
 }
 
@@ -216,7 +216,7 @@ function formatMergedPrNotInTrunk(output: SubmitFailureOutput): string {
 		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
 		identityLine,
 		"",
-		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
+		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`ji flow submit\`.`,
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");

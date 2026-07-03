@@ -287,7 +287,7 @@ export async function loadProjectConfigFromContext(
 		};
 	}
 
-	const path = join(repoRoot.value, "sdl.toml");
+	const path = join(repoRoot.value, "ji.toml");
 	let source: string;
 	try {
 		source = await readFile(path, "utf8");
@@ -302,7 +302,7 @@ export async function loadProjectConfigFromContext(
 			type: "error",
 			error: {
 				type: "project-config-invalid",
-				message: `Failed to read sdl.toml: ${formatErrorMessage(caught)}`,
+				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
 			},
 		};
 	}

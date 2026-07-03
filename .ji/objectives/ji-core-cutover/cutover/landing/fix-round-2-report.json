@@ -1,0 +1,51 @@
+{
+ "summary": {
+  "simpleFilesChanged": 2,
+  "simpleTotal": 2,
+  "changesetsDone": 0,
+  "changesetsTotal": 0,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 1
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": "CONTEXT-MAP.md",
+   "note": "Rest of file left untouched per file-specific note restricting edits to line 72 only, even though other lines contain sdl.tier/@sdl/kernel/etc. text that would otherwise be candidates under the general brief"
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": "CONTEXT-MAP.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Address portable collection and mutation behavior (`sdl address exec ...` / `@sdl/address/api`)",
+     "after": "Address portable collection and mutation behavior (`ji address exec ...` / `@sdl/address/api`)"
+    }
+   ],
+   "skipped": [
+    "Rest of file left untouched per file-specific note restricting edits to line 72 only, even though other lines contain sdl.tier/@sdl/kernel/etc. text that would otherwise be candidates under the general brief"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "schema: \"sdl.pi-agent.v2\"",
+     "after": "schema: \"ji.pi-agent.v2\""
+    },
+    {
+     "before": "/expected sdl\\.pi-agent\\.v1/",
+     "after": "/expected ji\\.pi-agent\\.v1/"
+    }
+   ],
+   "skipped": []
+  }
+ ],
+ "complex": [],
+ "verify": []
+}

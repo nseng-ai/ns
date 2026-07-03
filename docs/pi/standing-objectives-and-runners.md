@@ -81,7 +81,7 @@ The useful transplant is not “make Objectives into programs.” It is:
 Standing Objectives and execution-friendly Objectives remain normal Objective records:
 
 ```text
-.sdl/objectives/<slug>/
+.ji/objectives/<slug>/
   objective.md
   roadmap.md
   updates/

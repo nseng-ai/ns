@@ -1,15 +1,15 @@
-# sdl CLI-Surface Conformance Audit (against `sdl-cli-design`)
+# ji CLI-Surface Conformance Audit (against `sdl-cli-design`)
 
 ## Purpose
 
-This is a point-in-time conformance audit of the entire sdl CLI surface against
+This is a point-in-time conformance audit of the entire ji CLI surface against
 the `sdl-cli-design` standard (`skills/sdl-cli-design/SKILL.md`, ADRs
 `docs/adr/0010`–`0014`). It produces a classified, per-command findings matrix
 that a remediation sweep can execute from, and is intended to seed the planned
 "apply sdl-cli-design standards across the CLI surface" Objective.
 
 It is an evidence map, not an ADR and not a remediation. It mirrors the format of
-`.sdl/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
+`.ji/objectives/agent-cli-design-discipline/references/clinkr-agent-era-gap-audit.md`.
 
 > **Casing convention superseded (ADR 0010).** This audit was written when
 > snake_case `errorType`/machine values were treated as the expected spelling and
@@ -19,7 +19,7 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 > snake_case as conformant reflect the old rule and are retained only as
 > point-in-time evidence — read them against the current convention. The
 > kebab-case migration has since been applied across the CLI surface and is
-> enforced by the `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard.
+> enforced by the `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` style guard.
 >
 > **Current status note (2026-06-29):** this audit is now a historical evidence
 > map, not an open remediation queue. The `cli-surface-conformance-remediation`
@@ -35,14 +35,14 @@ It is an evidence map, not an ADR and not a remediation. It mirrors the format o
 ## Scope and method
 
 13 CLI entrypoint packages were enumerated (`ts/packages/*/src/cli.ts`), plus the
-`@sdl/slot` command group that is mounted only under `sdl slot`; each leaf command
+`@sdl/slot` command group that is mounted only under `ji slot`; each leaf command
 (including nested groups and hidden `exec` subgroups) was classified.
 
 **Framework-enforced gates are treated as conformant by construction** and were
 spot-verified, not re-derived: every CLI entrypoint package builds on
 `@sdl/core/cli-entry` `defineCli` (so `-h`/`--version`/`--runtime` are wired
 centrally), while the `@sdl/slot` command group is intentionally only mounted
-under the owning `sdl` entrypoint. All `exec` subgroups use `isHidden: true`, and
+under the owning `ji` entrypoint. All `exec` subgroups use `isHidden: true`, and
 the camelCase machine envelope, `0/1/2` exit codes, enveloped Zod usage errors,
 and published `--json-schema` are inherited framework behavior (ADR 0011/0013).
 
@@ -86,14 +86,14 @@ framework does not enforce:
 | packagechk     | `NAME` (check), `claim-pypi`, `claim-npm`                                                                                                                                     | all `rawCommand` (raw-exit)                                                 |
 | plans          | `list`, `exec save/resolve`                                                                                                                                                   | generic error wrapper                                                       |
 | pr-address     | `exec pr-details/branch-pr/open-prs/pr-reviews/pr-review-threads/pr-discussion-comments/pr-checks/reply-review-thread/resolve-review-thread/download-feedback/map-branch-prs` | only external mutators in repo are the two thread writes                    |
-| roaster        | `sdl roaster review list/ls/run/log`, `sdl roaster roast list`, `sdl roaster exec record-findings/publish-findings`                                                           | standalone binary removed; SDL extension command face is the active surface |
-| sdl            | `shell show/install` (local; dual-mounted under `sdl` and `sdl slot`); mounts `@sdl/slot` group + runtime extension commands                                                  | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
+| roaster        | `ji roaster review list/ls/run/log`, `ji roaster roast list`, `ji roaster exec record-findings/publish-findings`                                                              | standalone binary removed; SDL extension command face is the active surface |
+| ji             | `shell show/install` (local; dual-mounted under `ji` and `ji slot`); mounts `@sdl/slot` group + runtime extension commands                                                    | umbrella; no static built-ins (`builtInCommandDefinitions = {}`)            |
 | sdlcc          | `cmux report`                                                                                                                                                                 | TUI app; `cmux report` is `rawCommand`                                      |
-| slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `sdl slot`; **reference** Tier 3 (`gc`)                       |
+| slot group     | `list/ls`, `checkout/co`, `goto`, `claim`, `free`, `gc`, `init`, `resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`                               | mounted under `ji slot`; **reference** Tier 3 (`gc`)                        |
 | vibechk        | `runs`, `show`, `diff`, `run`                                                                                                                                                 | `run` is raw-exit; no failure envelope anywhere                             |
 
-`sdl` umbrella note: the only commands physically defined under `ts/packages/kernel/src/`
-are `shell show`/`shell install`. All other `sdl ...` commands are either the
+`ji` umbrella note: the only commands physically defined under `ts/packages/kernel/src/`
+are `shell show`/`shell install`. All other `ji ...` commands are either the
 `@sdl/slot` group (audited under **slot**) or runtime extension contributions
 (loaded from project/global extensions; not statically present in this repo).
 
@@ -101,15 +101,15 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
 
 | #  | Area | Finding                                                                                                                                | Command(s)                                                                                                                                                       | Classification                                        |
 | -- | ---- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| 1  | a    | Human-facing Tier 2 destructive/user-environment write lacks `--yes` / TTY-gated confirmation                                          | `brmem delete`, `sdl shell install`                                                                                                                              | land-now-fix                                          |
+| 1  | a    | Human-facing Tier 2 destructive/user-environment write lacks `--yes` / TTY-gated confirmation                                          | `brmem delete`, `ji shell install`                                                                                                                               | land-now-fix                                          |
 | 2  | a    | Confirm prompt not `isInteractive()`-gated; can hang / silently decline non-interactively                                              | `areg init`, `areg skill apply`, `packagechk claim-pypi/claim-npm`                                                                                               | land-now-fix                                          |
 | 3  | a    | Confirm gate keys on output-format proxy not `isInteractive()`; `failure("confirmation_required")` instead of flag-naming `usageError` | `slot free --all`                                                                                                                                                | land-now-fix                                          |
 | 4  | a    | Wrong confirm verb: `--skip-confirmation` instead of `--yes`/`-y` (Tier 2/3 publish)                                                   | `packagechk claim-pypi/claim-npm`                                                                                                                                | land-now-fix                                          |
 | 5  | a    | Single-PR land fast path merges to trunk with no confirmation while stack paths confirm                                                | `ccc land` (Pi surface)                                                                                                                                          | conformant (ADR 0015 #3: intentional)                 |
-| 6  | a    | Hidden `exec` destructive/external write with no confirm flag; agent/script-only required args are sufficient intent                   | `sdl branch-context exec delete`, `sdl address exec reply-review-thread`, `sdl address exec resolve-review-thread`                                               | conformant (ADR 0015 #2: args suffice)                |
-| 7  | d    | Operational/IO mutation failures returned as `negative` (exit 1) where `failure` (exit 2) is correct                                   | `areg init`, `areg skill apply`, `sdl aretro exec collect-evidence`, `ccc exec cmux-workspace-summary`                                                           | land-now-fix                                          |
+| 6  | a    | Hidden `exec` destructive/external write with no confirm flag; agent/script-only required args are sufficient intent                   | `ji branch-context exec delete`, `ji address exec reply-review-thread`, `ji address exec resolve-review-thread`                                                  | conformant (ADR 0015 #2: args suffice)                |
+| 7  | d    | Operational/IO mutation failures returned as `negative` (exit 1) where `failure` (exit 2) is correct                                   | `areg init`, `areg skill apply`, `ji aretro exec collect-evidence`, `ccc exec cmux-workspace-summary`                                                            | land-now-fix                                          |
 | 8  | d    | Real not-found / no-match returned as `failure` (exit 2) where `negative` (exit 1) is correct                                          | `brmem get/delete/copy`, `plans exec resolve`                                                                                                                    | land-now-fix                                          |
-| 9  | d    | Missing required input returned as `negative`/`failure` where `usageError` is correct                                                  | `sdl objective exec runner-subagent-usage`, `ccc exec cmux-workspace-summary`                                                                                    | land-now-fix                                          |
+| 9  | d    | Missing required input returned as `negative`/`failure` where `usageError` is correct                                                  | `ji objective exec runner-subagent-usage`, `ccc exec cmux-workspace-summary`                                                                                     | land-now-fix                                          |
 | 10 | d    | Query-miss (`ok(found:false)`) vs action-miss (`negative`) inconsistency across commands                                               | `pr-address` (pr-details/branch-pr/pr-checks vs download-feedback/map-branch-prs)                                                                                | conformant (ADR 0015 #4: predicate vs action)         |
 | 11 | c    | kebab-case `errorType` (violates stable snake_case)                                                                                    | `areg exec skillx list/fetch` (`missing-tool`), `brmem exec resolve-prompt` (`prompt-not-found`), `objective` (all storage codes: `move-directory-failed`, etc.) | land-now-fix                                          |
 | 12 | c    | All errors collapse to one generic `errorType` (`branch_context_error`/`plans_error`) via wrapper; modeled detail lost, no `data`      | `branch-context` (all), `plans` (all)                                                                                                                            | land-now-fix                                          |
@@ -128,7 +128,7 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
 
 2. **Danger-tier gaps cluster in human-facing command surfaces.** The live gaps are
    (i) human-facing Tier 2 destructive/user-environment writes with *no*
-   confirmation at all (`brmem delete`, `sdl shell install`), and (ii) commands
+   confirmation at all (`brmem delete`, `ji shell install`), and (ii) commands
    that *do* confirm but gate on the wrong signal — a private
    prompt gateway (`areg`, `packagechk`) or an output-format proxy (`slot free`) —
    instead of `isInteractive()`, so they can hang or silently decline
@@ -173,7 +173,7 @@ are `shell show`/`shell install`. All other `sdl ...` commands are either the
    transcripts/diffs), and `roaster review log` (accumulates per branch).
 
 7. **`ccc land`/`land-stack` are not Clinkr CLI commands.** They are a Pi
-   slash-command surface (`/sdl:flow:land`) on a bespoke `LandStackResult`
+   slash-command surface (`/ji:flow:land`) on a bespoke `LandStackResult`
    framework, so most envelope/`errorType`/`negative` rubric items there are
    framework-mismatched (parked). The one substantive carry-over is the single-PR
    fast-path auto-merge danger inconsistency (#5 above).
@@ -214,16 +214,16 @@ failures through `negative` where ADR 0014 calls for `failure`. Two concrete keb
 
 ### aretro
 
-| Command                                | Mutating?           | Area | Finding                                                                                                                                                                                       | Classification   | Evidence (file:line)                                                  |
-| -------------------------------------- | ------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `sdl aretro exec collect-evidence`     | Yes (payload write) | a    | Tier 1 create-only payload artifact; no prompts                                                                                                                                               | conformant       | `operations/collect-evidence.ts:89`                                   |
-| `sdl aretro exec collect-evidence`     | Yes                 | b    | `sessions` bounded by `maxSessions` (default 20) echoed as `query.max_sessions`, but schema exposes no completion/truncation/"more available" state                                           | land-now-fix     | `operations/collect-evidence.ts:41,202`; `contracts.ts:122-135`       |
-| `sdl aretro exec collect-evidence`     | Yes                 | c    | No `failure(...)`; all error paths route through `negative(...)` (error codes in `data.error.code` are snake_case)                                                                            | conformant (N/A) | `operations/collect-evidence.ts:237`                                  |
-| `sdl aretro exec collect-evidence`     | Yes                 | d    | Operational/IO errors (`payload_write_failed`) and precondition errors (`not_a_git_repo`, `detached_head`) all `negative` instead of `failure`/`usageError`; empty-no-sessions correctly `ok` | land-now-fix     | `operations/collect-evidence.ts:70,100,166,173,184,237`; ok at `:128` |
-| `sdl aretro exec read-evidence-detail` | No                  | a    | Tier 0 read-only pointer deref; no prompts                                                                                                                                                    | conformant       | `operations/read-evidence-detail.ts:23-53`                            |
-| `sdl aretro exec read-evidence-detail` | No                  | b    | `value: z.unknown()` can deref an arbitrarily large subtree; no size/completion bound in schema                                                                                               | land-now-fix     | `operations/read-evidence-detail.ts:15-19,48-52`                      |
-| `sdl aretro exec read-evidence-detail` | No                  | c    | `failure(...)` uses stable snake_case errorTypes but passes no structured `data`                                                                                                              | land-now-fix     | `operations/read-evidence-detail.ts:29,126-132`                       |
-| `sdl aretro exec read-evidence-detail` | No                  | d    | Pointer/path not-found surfaces as `failure(payload_lookup_failed)` — defensible as input/precondition error                                                                                  | conformant       | `operations/read-evidence-detail.ts:29,128`                           |
+| Command                               | Mutating?           | Area | Finding                                                                                                                                                                                       | Classification   | Evidence (file:line)                                                  |
+| ------------------------------------- | ------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| `ji aretro exec collect-evidence`     | Yes (payload write) | a    | Tier 1 create-only payload artifact; no prompts                                                                                                                                               | conformant       | `operations/collect-evidence.ts:89`                                   |
+| `ji aretro exec collect-evidence`     | Yes                 | b    | `sessions` bounded by `maxSessions` (default 20) echoed as `query.max_sessions`, but schema exposes no completion/truncation/"more available" state                                           | land-now-fix     | `operations/collect-evidence.ts:41,202`; `contracts.ts:122-135`       |
+| `ji aretro exec collect-evidence`     | Yes                 | c    | No `failure(...)`; all error paths route through `negative(...)` (error codes in `data.error.code` are snake_case)                                                                            | conformant (N/A) | `operations/collect-evidence.ts:237`                                  |
+| `ji aretro exec collect-evidence`     | Yes                 | d    | Operational/IO errors (`payload_write_failed`) and precondition errors (`not_a_git_repo`, `detached_head`) all `negative` instead of `failure`/`usageError`; empty-no-sessions correctly `ok` | land-now-fix     | `operations/collect-evidence.ts:70,100,166,173,184,237`; ok at `:128` |
+| `ji aretro exec read-evidence-detail` | No                  | a    | Tier 0 read-only pointer deref; no prompts                                                                                                                                                    | conformant       | `operations/read-evidence-detail.ts:23-53`                            |
+| `ji aretro exec read-evidence-detail` | No                  | b    | `value: z.unknown()` can deref an arbitrarily large subtree; no size/completion bound in schema                                                                                               | land-now-fix     | `operations/read-evidence-detail.ts:15-19,48-52`                      |
+| `ji aretro exec read-evidence-detail` | No                  | c    | `failure(...)` uses stable snake_case errorTypes but passes no structured `data`                                                                                                              | land-now-fix     | `operations/read-evidence-detail.ts:29,126-132`                       |
+| `ji aretro exec read-evidence-detail` | No                  | d    | Pointer/path not-found surfaces as `failure(payload_lookup_failed)` — defensible as input/precondition error                                                                                  | conformant       | `operations/read-evidence-detail.ts:29,128`                           |
 
 **aretro notes:** Biggest gap is `collect-evidence`'s blanket `negative(...)` for genuine
 operational failures (payload-store IO, underlying git errors) which should be `failure`
@@ -308,7 +308,7 @@ the ADR 0014 reference, and `copy`/`export` gate overwrite behind an explicit fl
 | `exec autobranch`                                                             | Yes                                                      | b    | Single bounded summary + warnings                                                                                                                                                                                             | conformant               | `cli.ts:156-160`                                                                                     |
 | `exec autobranch`                                                             | Yes                                                      | c    | `rawCommand`: raw exit 1 + plain stderr on error, no envelope/`resultSchema`/`errorType`; failure uses exit 1 (negative range) not 2                                                                                          | land-now-fix             | `cli.ts:92-102,152-155`                                                                              |
 | `exec autobranch`                                                             | Yes                                                      | d    | rawCommand: no `ok/negative/failure`; error→1, success→0; no shell-visible negative concept                                                                                                                                   | conformant (N/A)         | `cli.ts:152-160`                                                                                     |
-| `land` / `land-stack` (Pi `/sdl:flow:land`)                                   | Yes (squash-merge to trunk, `gt delete -f`, frees slots) | a    | Tier 3 high blast radius. Stack/chunked paths confirm, gate on `ctx.hasUI`, fail fast naming `--yes`. Single-PR fast path merges to trunk with NO confirmation — ratified intentional by ADR 0015 #3 (Pi surface, not Clinkr) | conformant (ADR 0015 #3) | `land.ts:171-176,336-399` (merge `:368`); confirm `land.ts:287-304`; `land-stack.ts:198-214,312-340` |
+| `land` / `land-stack` (Pi `/ji:flow:land`)                                    | Yes (squash-merge to trunk, `gt delete -f`, frees slots) | a    | Tier 3 high blast radius. Stack/chunked paths confirm, gate on `ctx.hasUI`, fail fast naming `--yes`. Single-PR fast path merges to trunk with NO confirmation — ratified intentional by ADR 0015 #3 (Pi surface, not Clinkr) | conformant (ADR 0015 #3) | `land.ts:171-176,336-399` (merge `:368`); confirm `land.ts:287-304`; `land-stack.ts:198-214,312-340` |
 | `land` / `land-stack` (Pi)                                                    | Yes                                                      | b    | Failures embed full ExecResult stdout/stderr + full plan; Pi-rendered, no machine result schema                                                                                                                               | parked                   | `errors.ts:13-22`; `land-stack/presentation.ts`                                                      |
 | `land` / `land-stack` (Pi)                                                    | Yes                                                      | c    | Single coarse `errorType` (`land_stack_failure`); category only in free-text message; not a Clinkr `failure`                                                                                                                  | parked                   | `errors.ts:13-44`; `landing-operations.ts:445-484`                                                   |
 | `land` / `land-stack` (Pi)                                                    | Yes                                                      | d    | No `negative` concept; "nothing to do" → exit 0; cancellation modeled inconsistently; separate framework                                                                                                                      | parked                   | `land.ts:162-169,260,307-318`                                                                        |
@@ -467,55 +467,55 @@ inconsistency — predicate lookups stay `ok`, requested-target/action misses st
 
 Roaster's standalone binary has been removed. The active CLI audit surface is the SDL extension command face.
 
-| Command                             | Mutating? | Area  | Finding                                                                    | Classification | Evidence (file:line)                           |
-| ----------------------------------- | --------- | ----- | -------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |
-| `sdl roaster review list`           | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog             | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
-| `sdl roaster review ls`             | No        | all   | Tier 0 read-only alias                                                     | conformant     | `commands/review-ls.ts`                        |
-| `sdl roaster review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive       | conformant     | `commands/review-run.ts`; `review-run.ts`      |
-| `sdl roaster review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema         | conformant     | `cli-operations.ts`; `models.ts`               |
-| `sdl roaster review run`            | Yes       | c     | snake_case errorType via `failureFromRoaster`; no structured `data`        | land-now-fix   | `cli-operations.ts`                            |
-| `sdl roaster review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct            | conformant     | `cli-operations.ts`                            |
-| `sdl roaster review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch    | land-now-fix   | `cli-operations.ts`                            |
-| `sdl roaster review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                           | conformant     | `cli-operations.ts`                            |
-| `sdl roaster roast list`            | No        | all   | Tier 0 read-only; finite catalog, `count`                                  | conformant     | `commands/roast-list.ts`; `cli-operations.ts`  |
-| `sdl roaster exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                    | conformant     | `commands/exec-record-findings.ts`             |
-| `sdl roaster exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                 | land-now-fix   | `cli-operations.ts`                            |
-| `sdl roaster exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                  | conformant     | `cli-operations.ts`                            |
-| `sdl roaster exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive          | conformant     | `commands/exec-publish-findings.ts`            |
-| `sdl roaster exec publish-findings` | Yes       | c/d   | Enveloped command with result schema and failure envelope; no raw-exit gap | conformant     | `commands/exec-publish-findings.ts`            |
+| Command                            | Mutating? | Area  | Finding                                                                    | Classification | Evidence (file:line)                           |
+| ---------------------------------- | --------- | ----- | -------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |
+| `ji roaster review list`           | No        | all   | Tier 0 read-only; `ok` always, `count` exposed, finite catalog             | conformant     | `commands/review-list.ts`; `cli-operations.ts` |
+| `ji roaster review ls`             | No        | all   | Tier 0 read-only alias                                                     | conformant     | `commands/review-ls.ts`                        |
+| `ji roaster review run`            | Yes       | a     | Tier 1 additive Branch Memory log write; no confirm; non-interactive       | conformant     | `commands/review-run.ts`; `review-run.ts`      |
+| `ji roaster review run`            | Yes       | b     | findings + `inputCoverage` (omitted/cap state) + `count` in schema         | conformant     | `cli-operations.ts`; `models.ts`               |
+| `ji roaster review run`            | Yes       | c     | snake_case errorType via `failureFromRoaster`; no structured `data`        | land-now-fix   | `cli-operations.ts`                            |
+| `ji roaster review run`            | Yes       | d     | `negative` for `completed_log_failed` partial success — correct            | conformant     | `cli-operations.ts`                            |
+| `ji roaster review log`            | No        | b     | `ok`+`count` but no continuation/bound state; entries accrue per branch    | land-now-fix   | `cli-operations.ts`                            |
+| `ji roaster review log`            | No        | a/c/d | Tier 0; empty→`ok` correct; snake_case errorType                           | conformant     | `cli-operations.ts`                            |
+| `ji roaster roast list`            | No        | all   | Tier 0 read-only; finite catalog, `count`                                  | conformant     | `commands/roast-list.ts`; `cli-operations.ts`  |
+| `ji roaster exec record-findings`  | Yes       | a     | Tier 1 additive log write; reads stdin; non-interactive                    | conformant     | `commands/exec-record-findings.ts`             |
+| `ji roaster exec record-findings`  | Yes       | c     | snake_case errorType; no structured `data`                                 | land-now-fix   | `cli-operations.ts`                            |
+| `ji roaster exec record-findings`  | Yes       | d     | `negative` for log-write-failed partial success — correct                  | conformant     | `cli-operations.ts`                            |
+| `ji roaster exec publish-findings` | Yes       | a     | Tier 1 additive/idempotent GitHub PR comments; CI non-interactive          | conformant     | `commands/exec-publish-findings.ts`            |
+| `ji roaster exec publish-findings` | Yes       | c/d   | Enveloped command with result schema and failure envelope; no raw-exit gap | conformant     | `commands/exec-publish-findings.ts`            |
 
 **roaster notes:** Largely conformant: clean Tier-1-only danger profile (no destructive
 flows, no prompt-hang surface), disciplined snake_case `errorType`, semantically correct
 `negative` for partial-success log-write failures, good input-coverage bounding on review
-runs, and an enveloped `sdl roaster exec publish-findings` publication leaf. The former
+runs, and an enveloped `ji roaster exec publish-findings` publication leaf. The former
 standalone raw-exit publication exception was resolved by removing the standalone binary.
 Remaining Roaster follow-ups: attach structured `data` to remaining `failure(...)` calls;
 consider bound/continuation state for `review log`.
 
-### sdl
+### ji
 
 Command tree:
 
-- `sdl shell show` — LOCAL (`cli.ts:284`; op `operations/shell.ts:30`)
-- `sdl shell install` — LOCAL (`cli.ts:294`; op `operations/shell.ts:36`)
-- `sdl slot shell show` / `sdl slot shell install` — LOCAL (same group, dual-mounted via `cli.ts:182`)
-- `sdl slot ...` group — defined in `@sdl/slot` (`slot/src/command-face.ts`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
+- `ji shell show` — LOCAL (`cli.ts:284`; op `operations/shell.ts:30`)
+- `ji shell install` — LOCAL (`cli.ts:294`; op `operations/shell.ts:36`)
+- `ji slot shell show` / `ji slot shell install` — LOCAL (same group, dual-mounted via `cli.ts:182`)
+- `ji slot ...` group — defined in `@sdl/slot` (`slot/src/command-face.ts`); audited under **slot**: `list/ls/checkout/co/goto/claim/free/gc/init/resize`, `gt up/down/free-stack`, `gt exec stack-branches/stack-map-branches`
 - Dynamic extension commands — runtime-loaded from project/global extensions (`cli.ts:185-217`); no static built-ins (`command-registry.ts:51`); defined outside this package
 
-| Command                                          | Mutating? | Area | Finding                                                                                                                                            | Classification | Evidence (file:line)                                                 |
-| ------------------------------------------------ | --------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------- |
-| `sdl shell show` (= `sdl slot shell show`)       | No        | a    | Tier 0 read-only; resolves shell + renders script                                                                                                  | conformant     | `operations/shell.ts:30-34`                                          |
-| `sdl shell show`                                 | No        | c    | `failure("unsupported_shell", msg)` snake_case but no structured `data`                                                                            | land-now-fix   | `operations/shell.ts:32`; `sdl-core/src/shell-support.ts:135-140`    |
-| `sdl shell show`                                 | No        | b/d  | Fixed bounded script; no negative path needed                                                                                                      | conformant     | `operations/shell.ts:33`                                             |
-| `sdl shell install` (= `sdl slot shell install`) | Yes       | a    | Writes a managed marker block to a user dotfile outside the repo → **Tier 2** (ADR 0015 #6); needs `--yes`/`-y` + `requireInteractiveOrUsageError` | land-now-fix   | `operations/shell.ts:36-50`; `sdl-core/src/shell-support.ts:114-129` |
-| `sdl shell install`                              | Yes       | c    | Shared `unsupported_shell` failure lacks structured `data`                                                                                         | land-now-fix   | `operations/shell.ts:38`; `sdl-core/src/shell-support.ts:135-140`    |
-| `sdl shell install`                              | Yes       | d    | Already-installed → `ok(is_already_installed:true)` — correct                                                                                      | conformant     | `operations/shell.ts:45-49`                                          |
-| `sdl shell install`                              | Yes       | b    | Single bounded result object                                                                                                                       | conformant     | `operations/shell.ts:45-49`                                          |
-| `sdl slot ...` (all slot/gt commands)            | n/a       | all  | defined in `@sdl/slot`; audited under **slot**                                                                                                     | parked         | `slot/src/command-face.ts`                                           |
-| dynamic extension commands                       | varies    | all  | runtime-loaded from extensions; not statically defined here                                                                                        | parked         | `cli.ts:185-217`                                                     |
+| Command                                        | Mutating? | Area | Finding                                                                                                                                            | Classification | Evidence (file:line)                                                 |
+| ---------------------------------------------- | --------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------- |
+| `ji shell show` (= `ji slot shell show`)       | No        | a    | Tier 0 read-only; resolves shell + renders script                                                                                                  | conformant     | `operations/shell.ts:30-34`                                          |
+| `ji shell show`                                | No        | c    | `failure("unsupported_shell", msg)` snake_case but no structured `data`                                                                            | land-now-fix   | `operations/shell.ts:32`; `sdl-core/src/shell-support.ts:135-140`    |
+| `ji shell show`                                | No        | b/d  | Fixed bounded script; no negative path needed                                                                                                      | conformant     | `operations/shell.ts:33`                                             |
+| `ji shell install` (= `ji slot shell install`) | Yes       | a    | Writes a managed marker block to a user dotfile outside the repo → **Tier 2** (ADR 0015 #6); needs `--yes`/`-y` + `requireInteractiveOrUsageError` | land-now-fix   | `operations/shell.ts:36-50`; `sdl-core/src/shell-support.ts:114-129` |
+| `ji shell install`                             | Yes       | c    | Shared `unsupported_shell` failure lacks structured `data`                                                                                         | land-now-fix   | `operations/shell.ts:38`; `sdl-core/src/shell-support.ts:135-140`    |
+| `ji shell install`                             | Yes       | d    | Already-installed → `ok(is_already_installed:true)` — correct                                                                                      | conformant     | `operations/shell.ts:45-49`                                          |
+| `ji shell install`                             | Yes       | b    | Single bounded result object                                                                                                                       | conformant     | `operations/shell.ts:45-49`                                          |
+| `ji slot ...` (all slot/gt commands)           | n/a       | all  | defined in `@sdl/slot`; audited under **slot**                                                                                                     | parked         | `slot/src/command-face.ts`                                           |
+| dynamic extension commands                     | varies    | all  | runtime-loaded from extensions; not statically defined here                                                                                        | parked         | `cli.ts:185-217`                                                     |
 
-**sdl notes:** Substantive local surface is tiny — only `shell show`/`shell install`
-(dual-mounted under `sdl` and `sdl slot`); the umbrella mostly composes the `@sdl/slot`
+**ji notes:** Substantive local surface is tiny — only `shell show`/`shell install`
+(dual-mounted under `ji` and `ji slot`); the umbrella mostly composes the `@sdl/slot`
 group and runtime extension commands. One concrete command-local gap: missing structured
 `data` on the shared `unsupported_shell` failure (e.g. `{shell, supportedShells}`). The
 danger tier of `shell install` is resolved to **Tier 2** by ADR 0015 #6 (it mutates a
@@ -612,7 +612,7 @@ The list below is retained as the original execution plan; the Objective's 2026-
 Semantic Updates record the current-source remediations and parking decisions.
 
 1. **Area (a), land-now (safety):** add `--yes`/`-y` + `requireInteractiveOrUsageError`
-   gating to human-facing `brmem delete` and `sdl shell install` (Tier 2 per ADR
+   gating to human-facing `brmem delete` and `ji shell install` (Tier 2 per ADR
    0015 #6 for the dotfile write); re-gate `areg init`, `areg skill apply`,
    `packagechk claim-pypi/claim-npm`, and `slot free --all` onto
    `isInteractive()`/`requireInteractiveOrUsageError`; rename packagechk's
@@ -637,7 +637,7 @@ The six contested design calls this audit surfaced are now resolved by
 `docs/adr/0015-cli-surface-conformance-decisions.md`. Each row's classification
 above has been updated accordingly.
 
-1. **Agent-only `exec` destructive/external writes (`sdl branch-context exec delete`,
+1. **Agent-only `exec` destructive/external writes (`ji branch-context exec delete`,
    pr-address `reply`/`resolve-review-thread`):** resolved by ADR 0015 #2 — the
    required operation arguments are sufficient intent on the agent-only hidden
    `exec` surface; no added confirm flag. Rows → conformant.
@@ -651,7 +651,7 @@ above has been updated accordingly.
    `negative`. Rows → conformant.
 5. **`brmem export`/`branch-context check` empty/absent as `ok`:** resolved by ADR 0015
    #5 — ratified as the standard. Rows → conformant.
-6. **Dotfile/external-write danger tier (`sdl shell install`, `sdlcc cmux report`):**
-   resolved by ADR 0015 #6 — user-dotfile writes are Tier 2 (`sdl shell install` →
+6. **Dotfile/external-write danger tier (`ji shell install`, `sdlcc cmux report`):**
+   resolved by ADR 0015 #6 — user-dotfile writes are Tier 2 (`ji shell install` →
    land-now-fix); env-keyed external metadata writes stay Tier 1 (`sdlcc cmux report`
    → conformant on tier; envelope migration tracked under #1).

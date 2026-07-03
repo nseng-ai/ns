@@ -1,5 +1,5 @@
 ---
-schema: sdl.pi-agent.v1
+schema: ji.pi-agent.v1
 name: investigator
 toolName: investigate
 label: Investigator

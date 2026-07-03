@@ -10,7 +10,7 @@ describe("temporary file helpers", () => {
 		let pathAfterCallback = "";
 
 		const text = await withTemporaryFile(
-			{ prefix: "sdl-core-temp-test-", filename: "body.md", contents: "body\n" },
+			{ prefix: "ji-core-temp-test-", filename: "body.md", contents: "body\n" },
 			async (path) => {
 				pathAfterCallback = path;
 				return await readFile(path, "utf8");
@@ -26,14 +26,11 @@ describe("temporary file helpers", () => {
 		let pathAfterCallback = "";
 
 		await expect(
-			withTemporaryJsonFile(
-				{ prefix: "sdl-core-json-test-", value: { ok: true } },
-				async (path) => {
-					pathAfterCallback = path;
-					expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ ok: true });
-					throw new Error("callback failed");
-				},
-			),
+			withTemporaryJsonFile({ prefix: "ji-core-json-test-", value: { ok: true } }, async (path) => {
+				pathAfterCallback = path;
+				expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ ok: true });
+				throw new Error("callback failed");
+			}),
 		).rejects.toThrow("callback failed");
 		await expect(stat(pathAfterCallback)).rejects.toMatchObject({ code: "ENOENT" });
 	});

@@ -58,13 +58,13 @@ describe("XDG path helpers", () => {
 				env: { HOME: "/home/tester" },
 				segments: ["enriched-plan"],
 			}),
-		).toEqual({ ok: true, value: "/home/tester/.local/state/sdl/enriched-plan" });
+		).toEqual({ ok: true, value: "/home/tester/.local/state/ji/enriched-plan" });
 		expect(
 			resolveSdlXdgPath({
 				kind: "state",
-				env: { HOME: "/home/tester", SDL_ROOT: "~/sdl-root" },
+				env: { HOME: "/home/tester", JI_ROOT: "~/sdl-root" },
 				segments: ["logs"],
-				overrideEnv: "SDL_ROOT",
+				overrideEnv: "JI_ROOT",
 			}),
 		).toEqual({ ok: true, value: "/home/tester/sdl-root/logs" });
 	});
@@ -78,18 +78,18 @@ describe("XDG path helpers", () => {
 					segments: ["enriched-plan"],
 				}),
 			),
-		).toBe("/home/tester/.local/state/sdl/enriched-plan");
+		).toBe("/home/tester/.local/state/ji/enriched-plan");
 		expect(() =>
 			requireXdgPath(resolveSdlXdgPath({ kind: "state", env: {}, segments: ["logs"] })),
 		).toThrow("HOME environment variable is not set");
 	});
 
 	test("resolvePathOverride rejects relative overrides after optional tilde expansion", () => {
-		expect(resolvePathOverride({ env: { SDL_ROOT: "relative/root" }, name: "SDL_ROOT" })).toEqual({
+		expect(resolvePathOverride({ env: { JI_ROOT: "relative/root" }, name: "JI_ROOT" })).toEqual({
 			ok: false,
 			error: expect.objectContaining({ code: "override-not-absolute" }),
 		});
-		expect(resolvePathOverride({ env: { SDL_ROOT: "" }, name: "SDL_ROOT" })).toEqual({
+		expect(resolvePathOverride({ env: { JI_ROOT: "" }, name: "JI_ROOT" })).toEqual({
 			ok: true,
 			value: undefined,
 		});
@@ -98,24 +98,24 @@ describe("XDG path helpers", () => {
 	test("requireSdlStatePath treats overrides as complete paths and falls back to SDL state", () => {
 		expect(
 			requireSdlStatePath({
-				env: { HOME: "/home/tester", SDL_LOG_DIR: "~/logs" },
-				overrideEnvName: "SDL_LOG_DIR",
+				env: { HOME: "/home/tester", JI_LOG_DIR: "~/logs" },
+				overrideEnvName: "JI_LOG_DIR",
 				segments: ["logs"],
 			}),
 		).toBe("/home/tester/logs");
 		expect(
 			requireSdlStatePath({
 				env: { HOME: "/home/tester", XDG_STATE_HOME: "/state" },
-				overrideEnvName: "SDL_LOG_DIR",
+				overrideEnvName: "JI_LOG_DIR",
 				segments: ["logs"],
 			}),
-		).toBe("/state/sdl/logs");
+		).toBe("/state/ji/logs");
 		expect(() =>
 			requireSdlStatePath({
-				env: { HOME: "/home/tester", SDL_LOG_DIR: "relative/logs" },
-				overrideEnvName: "SDL_LOG_DIR",
+				env: { HOME: "/home/tester", JI_LOG_DIR: "relative/logs" },
+				overrideEnvName: "JI_LOG_DIR",
 				segments: ["logs"],
 			}),
-		).toThrow("SDL_LOG_DIR must be an absolute path");
+		).toThrow("JI_LOG_DIR must be an absolute path");
 	});
 });

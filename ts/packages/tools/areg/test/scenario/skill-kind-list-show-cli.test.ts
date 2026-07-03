@@ -175,7 +175,7 @@ describe("areg skill list/show CLI", () => {
 		const run = runScenario(["skill", "show", "branch-context-from-plan"], {
 			project: {
 				piSettings: { skills: ["-skills/branch-context-from-plan"] },
-				replacementSurfaces: ["sdl:branch-context:from-plan"],
+				replacementSurfaces: ["ji:branch-context:from-plan"],
 				localSkills: [
 					skill(
 						"branch-context-from-plan",
@@ -201,7 +201,7 @@ describe("areg skill list/show CLI", () => {
 				"- agents/openai.yaml: present",
 				"- user-invocable:false: absent",
 				"- Pi skill exclusion: present",
-				"- Pi replacement: replacement-verified:sdl:branch-context:from-plan",
+				"- Pi replacement: replacement-verified:ji:branch-context:from-plan",
 			].join("\n"),
 		);
 	});

@@ -31,7 +31,7 @@
     "packages/*/test/**/*.ts",
     "packages/*/*/src/**/*.ts",
     "packages/*/*/test/**/*.ts",
-    "../.sdl/reviews/*/tools/*/src/**/*.ts",
-    "../.sdl/reviews/*/tools/*/test/**/*.ts"
+    "../.ji/reviews/*/tools/*/src/**/*.ts",
+    "../.ji/reviews/*/tools/*/test/**/*.ts"
   ]
 }

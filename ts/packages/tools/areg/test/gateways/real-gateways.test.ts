@@ -241,10 +241,10 @@ describe("real areg gateways", () => {
 					verifiedSurfaces: expect.arrayContaining([
 						"objective:next",
 						"code:just-fix",
-						"sdl:branch-context:from-plan",
-						"sdl:branch-context:impl-attached-plan",
-						"sdl:plan:save",
-						"sdl:flow:submit",
+						"ji:branch-context:from-plan",
+						"ji:branch-context:impl-attached-plan",
+						"ji:plan:save",
+						"ji:flow:submit",
 					]),
 				},
 			});
@@ -395,7 +395,7 @@ describe("real areg gateways", () => {
 				path.join(project, "skills-lock.json"),
 				JSON.stringify({ version: 1, skills: {} }),
 			);
-			await writeFile(path.join(project, "sdl.toml"), '[areg]\nagents = ["codex"]\n');
+			await writeFile(path.join(project, "ji.toml"), '[areg]\nagents = ["codex"]\n');
 
 			const result = await new RealAregProjectGateway().inspectProjectBase({
 				cwd: root,

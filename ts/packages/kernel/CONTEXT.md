@@ -1,6 +1,6 @@
 # @sdl/kernel
 
-`@sdl/kernel` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL. Generic extension commands may appear as `sdl <name>`, while this repository's current grouped flow lifecycle commands appear as `sdl flow <name>` with static Pi mirrors at `/sdl:flow:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
+`@sdl/kernel` uses SDL to mean **Source Development Lifecycle**, not Software Development Lifecycle. It owns the public command boundary for software-development-lifecycle workflows that have migrated into SDL. Generic extension commands may appear as `ji <name>`, while this repository's current grouped flow lifecycle commands appear as `ji flow <name>` with static Pi mirrors at `/ji:flow:<name>`. Project-specific SDL behavior is allowed when it belongs to that lifecycle, and authors use only the public SDL extension API.
 
 ## Language
 
@@ -13,7 +13,7 @@ The expanded meaning of `sdl`: the user-facing CLI for source-control and softwa
 *Avoid*: Software Development Lifecycle as the expansion of SDL in this package, Source Data Language, generic script runner, synonym for all SDL tools.
 
 **SDL command surface**:
-The user-facing invocation pair for a migrated lifecycle command. Generic SDL extension commands may be `sdl <name>` with optional `/sdl:<name>` mirrors; the current project-local flow commands are grouped as `sdl flow <name>` with static `/sdl:flow:<name>` Pi mirrors.
+The user-facing invocation pair for a migrated lifecycle command. Generic SDL extension commands may be `ji <name>` with optional `/ji:<name>` mirrors; the current project-local flow commands are grouped as `ji flow <name>` with static `/ji:flow:<name>` Pi mirrors.
 *Avoid*: `sdl-dev` command for migrated workflows, `/code:*` target namespace, compatibility alias.
 
 **SDL kernel**:
@@ -25,7 +25,7 @@ Repo-local or global lifecycle behavior exposed through SDL because it belongs t
 *Avoid*: Pi runtime extension, reason to stay outside SDL, hidden task, factory registration side effect, command-required or single-command-only model.
 
 **Project-local SDL extension**:
-A checked-in repository extension under `<repo>/.sdl/extensions` that contributes lifecycle behavior for that checkout. It can restore familiar repository command surfaces, including grouped surfaces such as `sdl flow <name>` and capability command faces such as `sdl address exec ...`, without implying the command is built into every SDL installation.
+A checked-in repository extension under `<repo>/.ji/extensions` that contributes lifecycle behavior for that checkout. It can restore familiar repository command surfaces, including grouped surfaces such as `ji flow <name>` and capability command faces such as `ji address exec ...`, without implying the command is built into every SDL installation.
 *Avoid*: default SDL command, universal command, compatibility alias, bundled first-party extension, package implementation module.
 
 **Future bundled SDL extension**:
@@ -33,15 +33,15 @@ A possible first-party extension distribution form for reusable SDL workflows af
 *Avoid*: current project-local extension, privileged built-in, excuse to skip SDK boundary design, automatic destination for repo-specific workflow policy.
 
 **Single-file SDL extension**:
-A direct `.sdl/extensions/<name>.ts` or `.sdl/extensions/<name>.js` authoring module. It is a leaf extension surface: it may import the public SDL extension API, but workspace packages must not import from it. Reusable behavior proven inside a single-file extension must move or be copied into a package-owned module before packages can depend on it.
+A direct `.ji/extensions/<name>.ts` or `.ji/extensions/<name>.js` authoring module. It is a leaf extension surface: it may import the public SDL extension API, but workspace packages must not import from it. Reusable behavior proven inside a single-file extension must move or be copied into a package-owned module before packages can depend on it.
 *Avoid*: shared package module, helper library, internal migration export, public SDK source.
 
 **SDL command entry**:
-A command contribution inside an SDL extension's `commands` array. It names and implements one command entry; when the owning manifest declares a group such as `flow`, the user-facing CLI surface is grouped as `sdl flow <name>`.
+A command contribution inside an SDL extension's `commands` array. It names and implements one command entry; when the owning manifest declares a group such as `flow`, the user-facing CLI surface is grouped as `ji flow <name>`.
 *Avoid*: SDL extension itself, YAML command spec, nested task database, arbitrary internal import, Pi extension command.
 
 **SDL extension discovery**:
-The side-effect-light SDL CLI step that scans built-in command definitions plus `.sdl/extensions` direct entries, directory indexes, and JSON manifest descriptors to build the command catalog without importing external SDL extension modules.
+The side-effect-light SDL CLI step that scans built-in command definitions plus `.ji/extensions` direct entries, directory indexes, and JSON manifest descriptors to build the command catalog without importing external SDL extension modules.
 *Avoid*: eager module loading for help, recursive command crawling, hidden task registry, factory execution during discovery.
 
 **Selected SDL extension loading**:
@@ -49,12 +49,12 @@ The SDL CLI step that imports and validates exactly one external SDL extension c
 *Avoid*: loading all extension code to discover command names, partial registration state from failed modules, bricking static help/version/runtime for unrelated malformed entries.
 
 **CLI-only dynamic SDL extension loading**:
-The current boundary for dynamically discovered SDL extensions: CLI commands can be registered from `.sdl/extensions` as flat entries or manifest-grouped entries, while exact dynamic Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
+The current boundary for dynamically discovered SDL extensions: CLI commands can be registered from `.ji/extensions` as flat entries or manifest-grouped entries, while exact dynamic Pi mirrors remain deferred until Pi has a registration-time cwd/discovery design or a different command model.
 *Avoid*: accidental dynamic Pi mirror registration, assuming invocation-time `ctx.cwd` can create new exact Pi command names.
 
 **Flat first-pass command name**:
 A single-segment SDL command name such as `submit`, `changes`, `autobranch`, `autoslot`, `land`, or `push`. The first pass avoids nested command groups.
-*Avoid*: `sdl pr regen`, `sdl slot auto`, command taxonomy churn.
+*Avoid*: `ji pr regen`, `ji slot auto`, command taxonomy churn.
 
 **SDL extension API**:
 The concrete `@sdl/kernel/sdk` subpath used by SDL extension authors — the live instance that fills the Public author API slot today. `@sdl/kernel/sdk` is the SDK layer; `@sdl/kernel` is the host/kernel container that loads extensions. It exposes the SDL extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file SDL extensions should use this API rather than SDL implementation modules; packages must never depend on single-file extensions.
@@ -65,11 +65,11 @@ The abstract slot — the stable module specifier we promise to point SDL extens
 *Avoid*: synonym for `@sdl/kernel/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
 
 **Command-first SDK promotion rule**:
-The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.sdl/extensions/` when that keeps project-local authoring readable; promotion to `@sdl/kernel/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
+The evidence rule for moving behavior into the SDL extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.ji/extensions/` when that keeps project-local authoring readable; promotion to `@sdl/kernel/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@sdl/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `sdl.internalWorkspaceExports`.
+An `@sdl/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `ji.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
@@ -81,19 +81,19 @@ A helper owned by the grouped project-local flow implementation package under `t
 *Avoid*: public SDK helper, package-owned primitive, bundled extension API, workspace dependency target.
 
 **Default SDL command**:
-A built-in SDL command implementation used when no global or project SDL command entry overrides it. The grouped flow cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; lifecycle commands are restored in this repo by the grouped project-local extension package at `.sdl/extensions/flow/`, not as universal built-ins.
+A built-in SDL command implementation used when no global or project SDL command entry overrides it. The grouped flow cutover intentionally leaves the SDL kernel with no repository workflow domain defaults; lifecycle commands are restored in this repo by the grouped project-local extension package at `.ji/extensions/flow/`, not as universal built-ins.
 *Avoid*: project override, mandatory plugin, external command entry, assuming a repository workflow command is built in.
 
 **Project override**:
-A repo-local `.sdl/extensions` command entry or manifest descriptor that replaces a default or global command by contributing the same command key at project precedence. Grouped command keys use `group/name`, for example `flow/cp`.
+A repo-local `.ji/extensions` command entry or manifest descriptor that replaces a default or global command by contributing the same command key at project precedence. Grouped command keys use `group/name`, for example `flow/cp`.
 *Avoid*: compatibility alias, wrapper around old command name, global user plugin.
 
 **SDL Pi mirror**:
-A Pi command that delegates to corresponding SDL CLI behavior. Lifecycle mirrors now use `/sdl:flow:<name>` over `sdl flow <name>` for `changes`, `cp`, `autobranch`, `autoslot`, `submit`, `regenerate-pr`, `push`, `land`, and `pull-trunk`; old flat `/sdl:<name>`, `/sdl:code:<name>`, and `/code:*` lifecycle aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
-*Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/sdl:*` registration, advertising mirrors for unavailable SDL commands.
+A Pi command that delegates to corresponding SDL CLI behavior. Lifecycle mirrors now use `/ji:flow:<name>` over `ji flow <name>` for `changes`, `cp`, `autobranch`, `autoslot`, `submit`, `regenerate-pr`, `push`, `land`, and `pull-trunk`; old flat `/ji:<name>`, `/ji:code:<name>`, and `/code:*` lifecycle aliases are not restored. The mirror is an adapter over SDL, not a separate implementation.
+*Avoid*: parallel Pi implementation, `/code:*` replacement wrapper without SDL, independent behavior fork, dynamic arbitrary `/ji:*` registration, advertising mirrors for unavailable SDL commands.
 
 **Hard cutover**:
-The migration policy that deletes old top-level `sdl <name>`, flat `/sdl:<name>`, `/sdl:code:<name>`, `sdl-dev <name>`, and `/code:<name>` surfaces when a lifecycle command moves into the grouped SDL flow family, unless a documented exception is approved first.
+The migration policy that deletes old top-level `ji <name>`, flat `/ji:<name>`, `/ji:code:<name>`, `sdl-dev <name>`, and `/code:<name>` surfaces when a lifecycle command moves into the grouped SDL flow family, unless a documented exception is approved first.
 *Avoid*: long-lived compatibility alias, temporary old name, autocomplete convenience alias.
 
 **Lower orchestration owner**:

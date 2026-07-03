@@ -65,13 +65,11 @@ describe("cd directive", () => {
 		const filesystem = new FakeDirectiveFilesystem();
 		await expect(
 			writeCdDirectiveIfActive("/worktree/path", {
-				env: { [SDL_CD_DIRECTIVE_FILE]: "/tmp/sdl-directive" },
+				env: { [SDL_CD_DIRECTIVE_FILE]: "/tmp/ji-directive" },
 				filesystem,
 			}),
-		).resolves.toEqual({ status: "written", path: "/tmp/sdl-directive" });
-		expect(filesystem.writes()).toEqual([
-			{ path: "/tmp/sdl-directive", content: "/worktree/path" },
-		]);
+		).resolves.toEqual({ status: "written", path: "/tmp/ji-directive" });
+		expect(filesystem.writes()).toEqual([{ path: "/tmp/ji-directive", content: "/worktree/path" }]);
 	});
 });
 

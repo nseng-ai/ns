@@ -154,7 +154,7 @@ describe("slot gt navigation CLI", () => {
 		expect(parseJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message:
-				"Multiple upstack branches for 'feature/current': feature/a, feature/b. Run `sdl slot checkout <branch>` for the branch you want.",
+				"Multiple upstack branches for 'feature/current': feature/a, feature/b. Run `ji slot checkout <branch>` for the branch you want.",
 		});
 	});
 });

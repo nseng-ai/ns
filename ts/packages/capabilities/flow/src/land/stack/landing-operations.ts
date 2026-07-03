@@ -55,12 +55,12 @@ function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): str
 export function residualPreMergeFailure(plan: FlowLandingPlan): LandStackFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
-			suggestedAction: `Run ${formatCommand("sdl", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /sdl:flow:land.`,
+			suggestedAction: `Run ${formatCommand("ji", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ji:flow:land.`,
 		});
 	}
 	if (plan.prSubmitRequirements.length > 0) {
 		return landStackFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /sdl:flow:land.`,
+			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /ji:flow:land.`,
 		});
 	}
 	return undefined;
@@ -76,7 +76,7 @@ export async function confirmAndFreeManagedSlots(
 	const { runtime, ctx, landContext, plan } = options;
 	const pi = runtime.commands;
 	const freeArgs = slotFreeArgs(plan.managedSlotConflicts);
-	const commandDisplay = formatCommand("sdl", ["slot", ...freeArgs]);
+	const commandDisplay = formatCommand("ji", ["slot", ...freeArgs]);
 	const details = [
 		"Run targeted slot cleanup? This detaches/frees managed slots for landing branches only.",
 		"",
@@ -93,7 +93,7 @@ export async function confirmAndFreeManagedSlots(
 		nonInteractiveMessage: [
 			"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 			details,
-			`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /sdl:flow:land --yes.`,
+			`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /ji:flow:land --yes.`,
 		].join("\n"),
 	});
 	if (confirmationOutcome.type === "failure") return confirmationOutcome;
@@ -120,13 +120,13 @@ export async function confirmAndFreeManagedSlots(
 		return failure(
 			landStackFailure(
 				[
-					"sdl slot free completed, but landing branches are still checked out in other worktrees.",
+					"ji slot free completed, but landing branches are still checked out in other worktrees.",
 					...remaining.map((conflict) => `- ${formatConflict(conflict)}`),
 					"No PRs were landed.",
 				].join("\n"),
 				{
 					suggestedAction:
-						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /sdl:flow:land.",
+						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /ji:flow:land.",
 				},
 			),
 		);
@@ -147,7 +147,7 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 function preMergeSlotFailure(landFailureValue: LandingFailure): LandStackFailure {
 	return landStackFailure(landFailureValue.message, {
 		suggestedAction:
-			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:flow:land.",
+			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ji:flow:land.",
 	});
 }
 
@@ -166,7 +166,7 @@ function stackMergeRejectedFailure(
 				}),
 		failedBranch: branch,
 		failedPr: pr.number,
-		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.`,
+		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /ji:flow:land from the desired branch.`,
 	});
 }
 

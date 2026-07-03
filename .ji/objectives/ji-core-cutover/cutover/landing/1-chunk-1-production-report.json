@@ -1,0 +1,2865 @@
+{
+ "summary": {
+  "simpleFilesChanged": 94,
+  "simpleTotal": 103,
+  "changesetsDone": 9,
+  "changesetsTotal": 9,
+  "invariantsChecked": 0,
+  "invariantsFailed": 0,
+  "skips": 174
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": ".github/workflows/roaster.yml",
+   "note": "File already had all three `sdl roaster ...` invocations (lines 59, 123, 132) renamed to `ji roaster ...` in uncommitted working-tree changes prior to this agent running; verified via git diff HEAD and confirmed no other sdl/ji literals remain in the file requiring changes."
+  },
+  {
+   "tier": "simple",
+   "file": ".gitignore",
+   "note": "Line 40 already reads \".ji/tmp\" \u2014 the target rename was already applied prior to this pass; no edit needed."
+  },
+  {
+   "tier": "simple",
+   "file": ".pi/extensions/objective-autopilot.ts",
+   "note": "File already contains .ji/objectives/ at lines 353-354 and 750 (the only .sdl literals noted); grep for \"sdl\" (case-insensitive) across the whole file found zero matches, confirming no other rename targets exist. File was already migrated by a prior pass."
+  },
+  {
+   "tier": "simple",
+   "file": "docs-site/lib/extensions-catalog.ts",
+   "note": "Lines 81-82 (commandHint \"/ji:code:checkpoint\" and sourcePath \".pi/extensions/ji.ts\") and line 94 (commandHint \"/ji:branch-context:impl-attached-plan\") were already renamed in the working tree before I started (visible in `git diff HEAD`), matching the brief exactly \u2014 no further edit needed there."
+  },
+  {
+   "tier": "simple",
+   "file": "docs-site/lib/extensions-catalog.ts",
+   "note": "Line 74 slug \"sdl-command-mirrors\", line 75 name \"SDL command mirrors\", and line 78 details prose \"SDL's lifecycle commands\" left untouched: these are brand PROSE / a hand-curated display slug, not one of the enumerated literal RENAME forms (no `/sdl:` namespace, no `.sdl/` path, no `sdl_` machine code, no env var, no filename). The file-specific note limits scope to the command hints and says not to reconcile other pre-existing drift, and the brief defers bare/uppercase SDL product-name prose to the branding row."
+  },
+  {
+   "tier": "simple",
+   "file": "justfile",
+   "note": "Left the 5 occurrences of \"inside an sdl checkout\" prose (lines 65,72,77,84,91) unchanged \u2014 brief's DO NOT TOUCH list explicitly cites \"an sdl checkout\" as deferred brand prose, not an in-window rename target."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts",
+   "note": "No skips: the file already contains the required .ji renames (XDG contract strings, .ji/prompts paths, no-legacy-fallback sentence); remaining `sdl` occurrences are all @sdl/* import specifiers and the sdlPath local identifier, which are explicit DO-NOT-TOUCH survivors per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "note": "Lines 15-17 (.ji/objectives, .ji/objective-archive roots) and line 102 (command: \"ji\") already reflect the target rename in the current file content -- no edit needed there."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "note": "Remaining `sdl` occurrences (lines 3, 7, 8, 9) are all `@sdl/*` import specifiers, an explicit out-of-window survivor per the brief -- left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "note": "File already had all required renames applied as uncommitted working-tree changes prior to this task (formatCommand argv \"sdl\"->\"ji\" at what is now line 382, and /sdl:plan:save -> /ji:plan:save message strings at lines 245-246 and 483) \u2014 no further edits made."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "note": "All remaining `sdl` occurrences in the file are @sdl/* import specifiers and out-of-window survivor identifiers per the brief's DO NOT TOUCH list; left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/land.ts",
+   "note": "Lines 1,2,5,25 (@sdl/kernel, @sdl/core, @sdl/clinkr imports) and Sdl-prefixed type identifiers (SdlCommandIo, SdlConfirmOptions) \u2014 package scope and TS identifiers are explicit DO NOT TOUCH survivors, not edited."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/land.ts",
+   "note": "Line 68 COMMAND_NAME already equals \"ji:flow:land\" (matches stack/constants.ts per file-specific note) \u2014 no edit required."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+   "note": "Line 1 `@sdl/core/command` import specifier left untouched \u2014 `@sdl/*` package scope is an explicit DO NOT TOUCH survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/constants.ts",
+   "note": "Lines 13-14: BACKUP_REF_NAMESPACE/BACKUP_REF_PREV_NAMESPACE use \"refs/sdl/flow-land-backup(-prev)\" \u2014 a git ref namespace, not explicitly listed under the brief's RENAME examples (sdl:flow:* colon-namespaces, XDG state/data/config/share dirs, sdl/slots) nor under DO NOT TOUCH. Renaming would change the on-disk git ref names backup/restore logic reads and writes, which is a functional/compat concern beyond a pure content rename; left untouched pending an explicit ruling."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+   "note": "Left `@sdl/core/command` and `@sdl/capability-kit/graphite/metadata` import specifiers untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+   "note": "Line 1 `import { formatCommand } from \"@sdl/core/command\"` left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "note": "Line 21 sourcePackage: \"sdl-flow/pi\" \u2014 sdl-flow is a survivor package name per the brief, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "note": "@sdl/core/command, @sdl/pi/commands/helpers, @sdl/pi/commands/ack, @sdl/pi/parity/extension import specifiers \u2014 @sdl/* package scope is an explicit out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/push.ts",
+   "note": "Left @sdl/* import specifiers (lines 1,2,3,9) untouched \u2014 explicit out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/push.ts",
+   "note": "Left SdlCommand/SdlExtensionApi/execSdlGit/readSdlGitPorcelainStatus identifiers untouched \u2014 TS identifiers containing sdl are explicit survivors per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
+   "note": "Line 29/31/48/181 \"SDL-managed\" brand prose (PR description region name) \u2014 left untouched per brief's DO-NOT-TOUCH brand-prose list; not a literal RENAME-list form"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
+   "note": "@sdl/* import specifiers (lines 1-3, 11) and Sdl*-prefixed TS identifiers (SdlCommand, SdlExtensionApi, createSdlClinkrInteraction, createSdlPrDescriptionRuntime) \u2014 out-of-window survivors per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
+   "note": "File path segment src/sdl/commands/ \u2014 out-of-window survivor path segment, not renamed (file moves are out of scope for this task anyway)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Line 27 GENERATED_BODY_MARKER = \"<!-- generated-by: sdl-dev pr-description v1 -->\": \"sdl-dev\" is a compound brand token not in any RENAME rule (not a path, not SDL_ENV, not /sdl: namespace, not the explicitly-authorized sdl-reviewer marker); left as brand prose pending branding row."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Lines 28-29 MANAGED_BODY_BEGIN_MARKER/MANAGED_BODY_END_MARKER = \"<!-- sdl-pr-description:begin/end -->\": structurally similar to the sdl-reviewer PR-comment marker but not named in the brief's explicit owner-decision rename; renaming would change what's recognized in already-generated PR bodies without an equivalent owner ruling, so left as-is and flagged as an open judgment call."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Line 30 PR_DESCRIPTION_GENERATOR_VERSION = \"sdl-pr-description-v2\": same brand-token ambiguity as the markers above; not covered by an explicit RENAME rule, left unchanged."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "note": "Line 5 `@sdl/capability-kit/git` and other `@sdl/*` imports (lines 10,11,12,13,14,15): explicitly out-of-window per DO NOT TOUCH (package scope survivor), left unchanged."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+   "note": "Line 1: `import type { ExecResult } from \"@sdl/core/exec\";` \u2014 @sdl/* package scope is an out-of-window survivor per brief, left untouched."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "note": "`@sdl/*` import specifiers (lines 1,8,9,10,11,12,32,37,43,45,46) \u2014 package scope, explicit out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "note": "sourcePackage: \"@sdl/objective/pi\" values (lines 417, 430, 445) \u2014 @sdl/* package scope survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "note": "Line 10: `@sdl/core/primitives` import specifier \u2014 DO NOT TOUCH per brief (@sdl/* package scope survivor)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "note": "Line 43: ACRONYMS map entry [\"sdl\", \"SDL\"] used to humanize key words into title-case prose \u2014 this is brand PROSE (deferred to branding row), not one of the enumerated literal RENAME forms; skipped as out-of-window"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "note": "Kept identifier name SDL_DIRNAME unchanged (TS identifier containing 'sdl' is a DO NOT TOUCH survivor per brief; only its string value renamed)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "note": "@sdl/core and @sdl/capability-kit import specifiers left untouched (explicit @sdl/* package scope survivor)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "Lines 107-108 shell-integration marker comments (\"# >>> sdl shell integration >>>\" / \"# <<< ... <<<\") - free-text rc-file sentinel markers, not a listed machine-key/namespace pattern; left untouched since brief limits in-window edits to enumerated literal forms and defers general brand prose"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "Lines 183, 191, 192, 225, 227, 228 - user-facing confirm/log message prose (\"Install sdl shell integration...\", \"sdl shell integration already installed...\") - explicitly deferred to branding row per DO NOT TOUCH list (\"user-facing message prose\")"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "note": "@sdl/* import specifiers and all Sdl-cased TS identifiers (SdlCommand, SdlDomainCommandOptions, createSdlDomainCommand, SdlExtensionApi, etc.) - explicit survivors per DO NOT TOUCH list"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+   "note": "Line 4/16: `requireSdlStatePath` import and call from @sdl/capability-kit/xdg left untouched \u2014 it's a survivor TS identifier (DO NOT TOUCH list) and the @sdl/* package scope is out-of-window; its internal state/sdl path resolution lives in the capability-kit package, not this file"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "note": "Line 6 `@sdl/core/primitives` import specifier: package scope survivor, do not touch per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "note": "Lines 70, 82 `sourcePackage: \"@sdl/pi\"`: @sdl/* package scope value, survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+   "note": "Left `@sdl/core/primitives` import specifier untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "Line 8: PI_AGENT_DEFINITION_SCHEMA = \"sdl.pi-agent.v1\" \u2014 dotted schema-version string not in the brief's enumerated dotted-prose rename list (sdl.tier/sdl.commands/sdl.group/sdl.subpackages); left untouched as ambiguous."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "note": "Function name findSdlPiAgentsDir \u2014 TS identifier containing sdl, explicitly a survivor per brief's DO NOT TOUCH list."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts",
+   "note": "Lines 1-2: `@sdl/core/machine-envelope` and `@sdl/core/primitives` import specifiers left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts",
+   "note": "Lines 198 and 523: `\"sdlcc stack map\"` title strings left untouched \u2014 sdlcc is a survivor package/dir name, confirmed by the file-specific note for this file."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts",
+   "note": "Line 238 argv \"sdl\" renamed to \"ji\" despite the file-specific note mentioning line 238 \u2014 interpreted the note as disambiguating that the nearby 'sdlcc' package name (title strings) survives, not that this argv literal survives; this argv invokes the sdl CLI subprocess exactly as described by the brief's first bullet ('subprocess argv \"sdl\" -> \"ji\"') and is consistent with the parallel prose renames at lines 200/244/291/297 describing the same command."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "note": "Line 44 prose \"a sdl checkout\" \u2014 brand prose form explicitly listed in DO NOT TOUCH list, deferred to branding row"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "note": "Line 3 `@sdl/clinkr` import specifier \u2014 package scope survivor, explicitly DO NOT TOUCH"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/completion.ts",
+   "note": "Left @sdl/clinkr/completion import specifier untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/completion.ts",
+   "note": "Left sdlCompletionShells, sdlCompletionScriptResultSchema, SdlCompletionScriptResult, renderSdlCompletionScriptResult, buildSdlCompletionScript identifiers untouched \u2014 TS identifiers containing sdl in any casing are out-of-window survivors per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "note": "Line 619-627 groupDescription() builds user-facing strings like `SDL ${segments.join(\" \")} commands.` and `Skill-invoked SDL ${segments[0]} operations.` \u2014 uppercase brand prose, explicitly deferred to the branding row per brief's DO NOT TOUCH list; left as-is."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "note": "Line 252 `Unknown SDL command: ...` error message \u2014 brand prose matching the brief's explicit DO NOT TOUCH example set (e.g. 'Invalid SDL command candidate\u2026'); left as-is."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "note": "Lines 540-551 block comment ('Keep this shell command face SDL-owned...', 'SDL/core owns wrapper-script generation...') \u2014 uppercase brand prose describing the product, not a literal CLI invocation form; left as-is."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "note": "All @sdl/clinkr, @sdl/core, @sdl/slot import specifiers (lines 14-19) \u2014 explicit DO NOT TOUCH survivor package scope."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "note": "All SdlCliContext/SdlCliDeps/SdlCommandInfo/etc. TypeScript identifiers throughout the file \u2014 explicit DO NOT TOUCH survivor identifiers."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/shell.ts",
+   "note": "Lines 17-18: sdlShellIntegrationBeginMarker/EndMarker constant values '# >>> sdl shell integration >>>' / '# <<< sdl shell integration <<<' \u2014 same 'sdl shell integration' phrase as the renamed install strings, but these lines fall outside the assigned edit window (79-92) per the file-specific note; left unchanged rather than guess whether the plan intentionally excluded them."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/shell.ts",
+   "note": "Lines 46 and 52: prose messages 'Installing sdl shell integration requires --yes...' and 'Install sdl shell integration for ${selected.shell} in ${rcPath}?' \u2014 identical phrase to the renamed lines 85/87/88 but outside the flagged 79-92 window; left unchanged for the same reason."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/src/cli/shell.ts",
+   "note": "All Sdl-prefixed identifiers (sdlShellIntegrationBeginMarker, SdlCliContext, sdlShellShowRequestSchema, runSdlShellShow, renderSdlShellWrapperScript, etc.) and the @sdl/clinkr and @sdl/capability-kit import specifiers were left untouched \u2014 they match the DO-NOT-TOUCH survivor categories (TS/JS identifiers containing sdl, @sdl/* package scope)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "note": "Left `pathSdl` local variable name unchanged \u2014 TS identifiers containing 'sdl' are explicit out-of-window survivors per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "note": "Left `@sdl/core/primitives`, `@sdl/core/timers`, `@sdl/pi/shared/timers` import specifiers unchanged \u2014 @sdl/* package scope is an explicit out-of-window survivor."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+   "note": "Line 40 sourcePackage: \"@sdl-local/pi-tools/thermo-council\" \u2014 left as-is; @sdl-local is a package scope like @sdl/*, not explicitly listed as a rename target or a named survivor, so treated as out-of-window to avoid guessing."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+   "note": "Line 1 import \"@sdl/pi/parity/extension\" \u2014 explicitly listed as DO NOT TOUCH (@sdl/* package scope), left verbatim."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "Left @sdl/sdl, sdl-sdk, @sdl/slot, @sdl/pi, @sdl/pr-address, @sdl/domain-primitives-transitional package names untouched \u2014 out-of-window survivor package scope per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "Left mermaid short-name nodes 'sdl' (lines 27, 35, 143-145) untouched \u2014 mirrors @sdl/sdl package identity per file-specific note, not the CLI bin."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "Left repo name \"sdl-tools\" (line 9) untouched \u2014 survivor repo/package name."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "Left bare/uppercase brand prose \"SDL\" (e.g. \"the SDL Extension Architecture target\", \"SDL kernel\") untouched \u2014 deferred to branding row per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "note": "Left objective slug sdl-extension-architecture (within the .ji/objectives/ path) untouched \u2014 slugs are out-of-window survivors."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "note": "line 1: `@sdl/capability-kit/git` import specifier \u2014 out-of-window survivor (package scope), not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "note": "line 245: left `gh api graphql` reference untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+   "note": "Line 1 `@sdl/clinkr` import specifier \u2014 survivor package scope per brief (@sdl/* out-of-window), left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "note": "All `@sdl/*` import specifiers (@sdl/core/primitives, @sdl/core/exec, @sdl/capability-kit/git, @sdl/plans) left untouched \u2014 out-of-window package scope survivor per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "note": "`@sdl/pi/commands` and `@sdl/pi/parity/extension` import specifiers, and `sourcePackage: \"@sdl/branch-context/pi\"` values \u2014 all are @sdl/* package-scope survivors, out of window per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "note": "Lines 10,18,19,20,27,28,31,32: `@sdl/*` import specifiers \u2014 explicitly out-of-window survivors per brief (package scope not renamed)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
+   "note": "Line 12 `SdlCommandIo` identifier reference in JSDoc left untouched \u2014 it's a survivor TS identifier (out-of-window), not a literal CLI/namespace form."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
+   "note": "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 survivor package scope."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
+   "note": "File path `src/sdl/...` itself not renamed \u2014 file moves are out of scope for this content-only edit."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "note": "@sdl/clinkr, @sdl/kernel/command-io, @sdl/slot/api import specifiers \u2014 @sdl/* package scope is an out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "note": "SdlCommandIo type name and runWithSdlCommandIo function name \u2014 sdl-cased TS identifiers are out-of-window survivors"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "note": "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "note": "`SdlCommandIo` identifier in JSDoc comment left untouched \u2014 TS identifiers containing sdl are out-of-window survivors per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "note": "The file-specific note's line numbers (95,104,145,162,210,248,279,295,406,473,724,733) did not match this file's actual layout (633 lines total); instead I located and replaced all 13 actual occurrences of the literal '/sdl:flow:land' machine-key namespace string via grep, which matches the note's stated count of instances."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "note": "@sdl/core/command import specifier on line 1 left untouched (out-of-window survivor per brief)."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "note": "LAND_BACKUP_RECOVERY_HINT left untouched as instructed."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "note": "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+   "note": "Left all `gt restack`/`gt submit`/`gt restack + submit/update` command-name strings untouched per file-specific note."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "note": "git symbolic-ref command text and args left untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "note": "Line 9 `SdlProgressPhaseEvent` and line 25 `SdlExtensionApi` - TS identifiers containing sdl, out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "note": "Line 12-13 `@sdl/kernel/sdk`, `@sdl/*` import specifiers - explicit out-of-window survivor (package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "note": "Line 3-4, 9, 12 prose 'STREAMING shape', 'flow \u2192 clinkr', and general SDL brand prose not present as literal forms; no bare 'SDL' brand prose found requiring action here"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts",
+   "note": "Left @sdl/core and @sdl/kernel import specifiers, SdlCommand type identifier, and src/sdl path segment untouched \u2014 these are explicit out-of-window survivors per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/cp.ts",
+   "note": "Left @sdl/kernel/sdk, @sdl/capability-kit imports untouched \u2014 @sdl/* package scope is an out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/cp.ts",
+   "note": "Left createSdlCheckpointRuntime, SdlCommand, SdlProgressPhaseListener identifiers untouched \u2014 TS identifiers containing sdl are survivors"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/cp.ts",
+   "note": "Left the file's own src/sdl/ path segment untouched per file-specific note and brief's survivor list"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/land.ts",
+   "note": "Import identifiers from @sdl/kernel/command-io and @sdl/kernel/sdk, and types SdlCommand/SdlCommandIo/SdlExtensionApi/SdlNotifyLevel/SdlProgressPhaseEvent left untouched \u2014 @sdl/* package scope and TS identifiers containing sdl are out-of-window survivors per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/land.ts",
+   "note": "File path segment src/sdl/commands/ left untouched \u2014 src/sdl/ path segments are explicitly out-of-window survivors."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts",
+   "note": "Import specifiers @sdl/clinkr, @sdl/core/cli-theme, @sdl/kernel/sdk left as-is: @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts",
+   "note": "File path segment src/sdl/presentation left as-is: src/sdl/ path segments are explicitly a survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts",
+   "note": "Header comment prose 'the caps-aware git/Graphite subprocess' etc. and 'sdl-tools' style brand prose not present; no other sdl-form literals found needing rename"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts",
+   "note": "Line 10: `@sdl/clinkr` import specifier \u2014 out-of-window survivor (package scope), left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts",
+   "note": "File path `src/sdl/presentation/...` \u2014 left untouched per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "note": "@sdl/core/primitives and @sdl/core/terminal-escapes import specifiers left untouched (out-of-window survivors per brief)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "note": "Left `@sdl/core/terminal-escapes` import (line 1) untouched: @sdl/* package scope is an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "note": "The file has 344 lines total, not matching the brief's cited line numbers (up to 463/464) \u2014 likely from a different file version/line numbering; found and renamed all 10 actual `sdl flow submit`/`sdl flow regenerate-pr` occurrences present in this file by content search instead."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "note": "Lines 1 and 5: `@sdl/core/result` and `@sdl/capability-kit/gateway-result` import specifiers left untouched \u2014 brief explicitly lists `@sdl/*` package scope as an out-of-window survivor."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "note": "Line 41 sourcePackage: \"@sdl/handoff/pi\" \u2014 @sdl/* package scope, out-of-window survivor, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "note": "Lines 1, 19 imports from \"@sdl/pi/...\" \u2014 @sdl/* package scope, out-of-window survivor, left untouched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/create.ts",
+   "note": "Line 3: `@sdl/pi/skills/expansion` import specifier left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "note": "@sdl/pi/... import specifiers (lines 1-2) left untouched: @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "note": "sourcePackage: \"@sdl/handoff/pi\" values (lines 30,43,56,68,82) left untouched: same @sdl/* survivor rule"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/self.ts",
+   "note": "Lines 1-2 @sdl/core/primitives and @sdl/core/timers import specifiers: out-of-window @sdl/* package scope survivor, not touched"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "note": "Line 6: `@sdl/core/primitives` import specifier - out-of-window survivor (package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "note": "Line 8: `@sdl/capability-kit/cmux/focused-terminal-tab` import specifier - survivor package scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "note": "Line 9: `@sdl/pi/runtime/primitives` import specifier - survivor package scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+   "note": "Left @sdl/pi, @sdl/core/*, @sdl/objective/sdl/commands/exec-runner-step import specifiers and header-comment mentions untouched \u2014 @sdl/* package scope and src/sdl/ path segments are explicit out-of-window survivors per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+   "note": "\"./sdl/commands/exec-runner-step\" exports-subpath literal (line ~4) left untouched per file-specific note - survivor src/sdl layout"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+   "note": "All @sdl/* import specifiers (createSdlDomainCommand, @sdl/clinkr, @sdl/core/primitives, @sdl/core/time, @sdl/kernel/sdk) left untouched - out-of-window survivor scope"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+   "note": "SdlCommand type identifier left untouched - identifier survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "note": "Line 1 `@sdl/kernel/sdk` import specifier left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "note": "Line 2/10 `@sdl/core/...` import specifiers left untouched \u2014 out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "note": "SLOT_DIAGNOSTIC_LOG_ENV identifier kept as-is per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+   "note": "Line 4: `@sdl/core/primitives` import specifier left untouched \u2014 out-of-window survivor (@sdl/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+   "note": "Identifier `SDL_CD_DIRECTIVE_FILE` kept as-is per file-specific note (survivor identifier for index.ts re-export and line-36 env read)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "note": "Lines 1, 8: `@sdl/core` and `@sdl/clinkr` import specifiers left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "note": "Line 1 import from \"@sdl/clinkr\" left untouched \u2014 it's the @sdl/* package scope, an explicit out-of-window survivor per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "note": "Line 1 `@sdl/clinkr` import specifier left untouched \u2014 it's a package scope survivor per brief's DO NOT TOUCH list"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "note": "`@sdl/kernel` import specifier (line 4) \u2014 out-of-window survivor per brief (@sdl/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "note": "`@sdl/clinkr` import specifier (line 5) \u2014 out-of-window survivor per brief (@sdl/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "note": "`defineCli` identifier (line 2) \u2014 explicitly told to leave"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "note": "file path `src/sdl/command-face.ts` \u2014 survivor path segment, explicitly told to leave"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+   "note": "Left `@sdl/core/timers` and `@sdl/core/time-format` imports (lines 1-2) untouched \u2014 survivor @sdl scope per brief and file-specific note."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "note": "@sdl/core/primitives and @sdl/kernel/sdk import specifiers left untouched (survivor package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "note": "SdlConfirmOptions type identifier left untouched (survivor identifier per file-specific note)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "note": "Line 1-2 @sdl/core/* imports left untouched per file-specific note (survivor package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "note": "Line 5 HARNESS_SESSION_ENV = \"HARNESS_SESSION_ID\" left untouched per file-specific note (no sdl in it)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "note": "Line 3 `@sdl/core/exec` import specifier \u2014 out-of-window survivor (`@sdl/*` package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "note": "Line 9 `@sdl/slot/api` import specifier \u2014 out-of-window survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "note": "Line 121 `sdlcc cmux workspace` prose and line 155/159 `buildSdlccCmuxReportBootstrapCommand` \u2014 survivor package/host name `sdlcc`, not a rename target"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "note": "Line 1 import \"@sdl/pi/parity/extension\" \u2014 @sdl/* package scope is an explicit DO NOT TOUCH survivor"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "note": "Line 15 sourcePackage \"@sdl-local/pi-tools/pr-feedback-watch\" \u2014 not in the enumerated rename list; @sdl-local scope/package name not covered by brief, left untouched as ambiguous"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "note": "@sdl/core, @sdl/pi import specifiers left untouched - out-of-window package scope survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "note": "sourcePackage: \"@sdl-local/pi-tools/pr-previews\" left untouched - package scope/name survivor, not a RENAME-list form"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/sdl-capability-kit/src/kit/text-generation.ts",
+   "note": "Line 1 import specifier \"@sdl/core/model-slug\" left unchanged - @sdl/* package scope is an out-of-window survivor per brief"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/sdl-capability-kit/src/kit/text-generation.ts",
+   "note": "LEGACY_CHANGES_MODEL_ENV value \"PI_DRAFT_MODEL\" left unchanged - not an SDL_* env var name"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/scripts/render-cli-shim.mjs",
+   "note": "Did not touch envValue() function name, main() function, or the import of render-cli-shim-core.ts \u2014 none contain SDL/sdl literal forms needing rename"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/scripts/render-cli-shim.mjs",
+   "note": "Did not touch the console.error message text 'render-cli-shim.mjs: missing required environment variables' since it references the joined variable names dynamically, not a literal SDL string"
+  },
+  {
+   "tier": "complex",
+   "id": "cs1-workspace-globs",
+   "note": "Package name \"sdl-ts-workspace\" (package.json) \u2014 survivor package/dir name, not in the RENAME list"
+  },
+  {
+   "tier": "complex",
+   "id": "cs1-workspace-globs",
+   "note": "@sdl/* devDependency scopes and @sdl-local/pi-tools \u2014 @sdl/* package scope is explicitly DO NOT TOUCH"
+  },
+  {
+   "tier": "complex",
+   "id": "cs1-workspace-globs",
+   "note": "sdl-flow and sdlcc workspace deps \u2014 survivor package names"
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "COORDINATION RISK (file outside my changeset, not touched): ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts line 9/27 defines its own inline `sdl: z.object(...)` schema and reads `manifest.sdl.commands` against .ji/extensions/address/package.json, whose key I renamed to `ji`. That test will now fail its Zod parse until its owning changeset renames the inline schema key and read to `ji`. No other external reader of the schema field exists."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "discovery.ts message 'Extension manifest must contain an sdl object' left verbatim: bare 'sdl' prose, not a dotted/enumerated in-window form (owner-deferred brand prose); not asserted by tests."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "discovery.ts message 'Extension manifest contains invalid SDL metadata' left: explicitly on the DO NOT TOUCH list."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "buildCommand prose 'Run SDL command entry ...' (and its test assertions) left: uppercase-SDL brand prose deferred to the branding row."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "Test fixture directory names 'missing-sdl'/'bad-sdl' in extension-discovery.test.ts left: descriptive scratch-dir names, not enumerated brand forms, no behavioral effect."
+  },
+  {
+   "tier": "complex",
+   "id": "cs2-manifest-key",
+   "note": "extract-graph.mjs ALLOWED_DEBT_EDGES: @sdl/* package names and the debt-note prose 'the sdl shell operation' left as survivors/deferred prose (only manifest-key reads and sdl.tier/sdl.subpackages dotted forms renamed)."
+  },
+  {
+   "tier": "complex",
+   "id": "cs3-repo-extension-discovery",
+   "note": "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts: left the zod schema's `sdl: z.object(...)` field name and `manifest.sdl.commands` access as-is. This test parses the real .ji/extensions/address/package.json manifest, which still has a literal `\"sdl\":` key on disk (verified) \u2014 that manifest-content file is not in this changeset's file list, so renaming the schema key here would desync the test from the file until whichever changeset owns .ji/extensions/*/package.json content lands its own \"sdl\"\u2192\"ji\" manifest-key rename."
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "helpers:553 legacy `/Users/me/.slots/repos/sdl-tools/...` kept: `.slots` is not the `sdl/slots` XDG form and `sdl-tools` is a survivor dir name; this is the negative fixture proving isManagedSlotPath returns false"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "helpers:554,556 kept the `repos/sdl-tools` stem while renaming the `state/sdl/slots`->`state/ji/slots` prefix \u2014 `sdl-tools` is a survivor package/dir name"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "helpers:562-563,589,592 `sdl-tools` left verbatim \u2014 survivor package/dir name"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "helpers:743 test() label 'unrelated sdl commands' left verbatim \u2014 describe/test label brand prose, deferred to branding row"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "scenarios:8 import `../../src/sdl/commands/land.ts` left verbatim \u2014 src/sdl path segment survivor"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "scenarios:1177 test() label 'descendant sdl slot checkouts' left verbatim \u2014 test label brand prose"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "scenarios:1860 `skills/sdl-typescript/SKILL.md` left verbatim \u2014 skill directory name survivor"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "All `@sdl/*` import specifiers left verbatim \u2014 package scope survivor"
+  },
+  {
+   "tier": "complex",
+   "id": "cs4-slot-path-regex",
+   "note": "Did not rename TOPOLOGY_COMMAND in land-test-helpers.ts (outside changeset); line 739 assertion assumes its owner renames that constant to 'ji', which the runtime already requires"
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-xdg-core",
+   "note": "xdg-path.test.ts:65,69 override-fixture VALUE '~/sdl-root' and its expected resolved path '/home/tester/sdl-root/logs': left verbatim. It is arbitrary test path DATA (the override branch never joins the 'sdl' XDG segment), not one of the enumerated brand forms; the env-var NAME holding it was renamed to JI_ROOT and the test still passes."
+  },
+  {
+   "tier": "complex",
+   "id": "cs5-xdg-core",
+   "note": "Deferred brand-prose test labels kept verbatim per owner 2026-07-02 branding-row deferral: xdg-path.test.ts:54 'SDL-owned paths' and :98 'SDL state'."
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "describe()/test() brand-prose labels in sdl-extension.test.ts ('sdl Pi extension', 'SDL lifecycle mirrors', 'routes sdl flow ... to the SDL CLI') left verbatim \u2014 deferred to the branding row per brief"
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "Absence-assertion legacy literals (sdl:changes, sdl:cp, sdl:code:* ...) in sdl-extension.test.ts kept as tombstones; did NOT add new sdl:flow:* absence entries since the exact-set toEqual(ji:flow:*) already excludes them and the brief said old-name literals STAY"
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "SDL brand prose in sdl-extension.ts doc comment ('the SDL CLI runner', 'temporary SDL extension project') left verbatim \u2014 brand-prose row"
+  },
+  {
+   "tier": "complex",
+   "id": "cs6-pi-namespace-core",
+   "note": "Survivor forms untouched: @sdl/* scope + import specifiers, ../sdl/ relative import, Sdl* / sdlExtension / SDL_FLOW_COMMANDS JS identifiers, sdl-flow(/pi) package name, sdl-extension source filename, SPECIALIZED_SKILL_REPLACEMENTS skill-dir KEYS"
+  },
+  {
+   "tier": "complex",
+   "id": "cs8-shim-tokens",
+   "note": "ts/scripts/source-cli-shim-template lines 8, 38, 48: left the other 'sdl checkout' brand-prose phrases (comment + two echo error strings) untouched \u2014 the brief explicitly lists 'an sdl checkout' as a deferred brand-prose example, and the changeset instructions called out only the single phrase 'runs an sdl TypeScript CLI' for renaming, not these."
+  },
+  {
+   "tier": "complex",
+   "id": "cs8-shim-tokens",
+   "note": "render-cli-shim-core.ts line 1: left the `@sdl/core/exec` import specifier untouched \u2014 it's the out-of-window `@sdl/*` package scope survivor per the brief's DO NOT TOUCH list."
+  },
+  {
+   "tier": "complex",
+   "id": "cs9-graphite-command-channel",
+   "note": "graphite-command-channel.ts:233 'avoid labeling unrelated sdl invocations just because the binary matches.' \u2014 left as-is: lowercase 'sdl' used as prose/adjective referring to the general concept of sdl invocations, not a literal CLI-name/path/namespace form; treated as branding-row survivor prose per the brief's 'an sdl checkout' example, and not called out in the changeset's explicit rename list (which only named the /sdl:flow:land namespace on the line above)."
+  }
+ ],
+ "failures": [],
+ "simple": [
+  {
+   "file": ".github/workflows/roaster.yml",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "File already had all three `sdl roaster ...` invocations (lines 59, 123, 132) renamed to `ji roaster ...` in uncommitted working-tree changes prior to this agent running; verified via git diff HEAD and confirmed no other sdl/ji literals remain in the file requiring changes."
+   ]
+  },
+  {
+   "file": ".gitignore",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Line 40 already reads \".ji/tmp\" \u2014 the target rename was already applied prior to this pass; no edit needed."
+   ]
+  },
+  {
+   "file": ".pi/extensions/objective-autopilot.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "File already contains .ji/objectives/ at lines 353-354 and 750 (the only .sdl literals noted); grep for \"sdl\" (case-insensitive) across the whole file found zero matches, confirming no other rename targets exist. File was already migrated by a prior pass."
+   ]
+  },
+  {
+   "file": "docs-site/lib/extensions-catalog.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Lines 81-82 (commandHint \"/ji:code:checkpoint\" and sourcePath \".pi/extensions/ji.ts\") and line 94 (commandHint \"/ji:branch-context:impl-attached-plan\") were already renamed in the working tree before I started (visible in `git diff HEAD`), matching the brief exactly \u2014 no further edit needed there.",
+    "Line 74 slug \"sdl-command-mirrors\", line 75 name \"SDL command mirrors\", and line 78 details prose \"SDL's lifecycle commands\" left untouched: these are brand PROSE / a hand-curated display slug, not one of the enumerated literal RENAME forms (no `/sdl:` namespace, no `.sdl/` path, no `sdl_` machine code, no env var, no filename). The file-specific note limits scope to the command hints and says not to reconcile other pre-existing drift, and the brief defers bare/uppercase SDL product-name prose to the branding row."
+   ]
+  },
+  {
+   "file": "justfile",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "install-sdl: (_install-ts-shim \"sdl\" \"ts/packages/kernel/src/cli/index.ts\" \"just install-sdl or just install-tools\")\n    rm -f \".venv/bin/sdl\"\n    @echo \"removed stale project venv sdl script if present\"",
+     "after": "install-ji: (_install-ts-shim \"ji\" \"ts/packages/kernel/src/cli/index.ts\" \"just install-ji or just install-tools\")\n    rm -f \".venv/bin/ji\"\n    @echo \"removed stale project venv ji script if present\""
+    },
+    {
+     "before": "# Install the sdl shim to ~/.local/bin so `sdl` on PATH runs the",
+     "after": "# Install the ji shim to ~/.local/bin so `ji` on PATH runs the"
+    },
+    {
+     "before": "SDL_TOOL=... SDL_CANONICAL_CHECKOUT=... SDL_CLI_REL_PATH=... SDL_INSTALL_HINT=... SDL_TEMPLATE=... SDL_OUTPUT=...",
+     "after": "JI_TOOL=... JI_CANONICAL_CHECKOUT=... JI_CLI_REL_PATH=... JI_INSTALL_HINT=... JI_TEMPLATE=... JI_OUTPUT=..."
+    },
+    {
+     "before": "@echo \"branch-context standalone binary is retired; use: sdl branch-context ...\" >&2",
+     "after": "@echo \"branch-context standalone binary is retired; use: ji branch-context ...\" >&2"
+    },
+    {
+     "before": "install-tools: _remove-stale-branch-context-bin install-sdl install-brmem ...\n    @echo \"installed: sdl, brmem, areg, vibechk, and packagechk ...; branch-context is available via sdl branch-context\"",
+     "after": "install-tools: _remove-stale-branch-context-bin install-ji install-brmem ...\n    @echo \"installed: ji, brmem, areg, vibechk, and packagechk ...; branch-context is available via ji branch-context\""
+    }
+   ],
+   "skipped": [
+    "Left the 5 occurrences of \"inside an sdl checkout\" prose (lines 65,72,77,84,91) unchanged \u2014 brief's DO NOT TOUCH list explicitly cites \"an sdl checkout\" as deferred brand prose, not an in-window rename target."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/address/src/core/feedback-summary.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "No skips: the file already contains the required .ji renames (XDG contract strings, .ji/prompts paths, no-legacy-fallback sentence); remaining `sdl` occurrences are all @sdl/* import specifiers and the sdlPath local identifier, which are explicit DO-NOT-TOUCH survivors per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Lines 15-17 (.ji/objectives, .ji/objective-archive roots) and line 102 (command: \"ji\") already reflect the target rename in the current file content -- no edit needed there.",
+    "Remaining `sdl` occurrences (lines 3, 7, 8, 9) are all `@sdl/*` import specifiers, an explicit out-of-window survivor per the brief -- left untouched."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "File already had all required renames applied as uncommitted working-tree changes prior to this task (formatCommand argv \"sdl\"->\"ji\" at what is now line 382, and /sdl:plan:save -> /ji:plan:save message strings at lines 245-246 and 483) \u2014 no further edits made.",
+    "All remaining `sdl` occurrences in the file are @sdl/* import specifiers and out-of-window survivor identifiers per the brief's DO NOT TOUCH list; left untouched."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/land.ts",
+   "changed": false,
+   "replacements": [],
+   "skipped": [
+    "Lines 1,2,5,25 (@sdl/kernel, @sdl/core, @sdl/clinkr imports) and Sdl-prefixed type identifiers (SdlCommandIo, SdlConfirmOptions) \u2014 package scope and TS identifiers are explicit DO NOT TOUCH survivors, not edited.",
+    "Line 68 COMMAND_NAME already equals \"ji:flow:land\" (matches stack/constants.ts per file-specific note) \u2014 no edit required."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "formatCommand(\"sdl\", [\"slot\", \"free\", \"--wt\", slotName])",
+     "after": "formatCommand(\"ji\", [\"slot\", \"free\", \"--wt\", slotName])"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@sdl/core/command` import specifier left untouched \u2014 `@sdl/*` package scope is an explicit DO NOT TOUCH survivor per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const COMMAND_NAME = \"sdl:flow:land\";",
+     "after": "export const COMMAND_NAME = \"ji:flow:land\";"
+    }
+   ],
+   "skipped": [
+    "Lines 13-14: BACKUP_REF_NAMESPACE/BACKUP_REF_PREV_NAMESPACE use \"refs/sdl/flow-land-backup(-prev)\" \u2014 a git ref namespace, not explicitly listed under the brief's RENAME examples (sdl:flow:* colon-namespaces, XDG state/data/config/share dirs, sdl/slots) nor under DO NOT TOUCH. Renaming would change the on-disk git ref names backup/restore logic reads and writes, which is a functional/compat concern beyond a pure content rename; left untouched pending an explicit ruling."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`sdl flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`",
+     "after": "`ji flow exec returned unparsable JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`"
+    },
+    {
+     "before": "`sdl flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`",
+     "after": "`ji flow exec returned non-array JSON for the Graphite metadata DB at ${dbPath}; refusing to land.`"
+    },
+    {
+     "before": "rerun /sdl:flow:land.` (suggestedAction in derivePathToTrunk)",
+     "after": "rerun /ji:flow:land."
+    },
+    {
+     "before": "/sdl:flow:land supports at most one descendant chain target.",
+     "after": "/ji:flow:land supports at most one descendant chain target."
+    },
+    {
+     "before": "rerun /sdl:flow:land.` (suggestedAction in formatForkViolations)",
+     "after": "rerun /ji:flow:land."
+    }
+   ],
+   "skipped": [
+    "Left `@sdl/core/command` and `@sdl/capability-kit/graphite/metadata` import specifiers untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "formatCommand(\"sdl\", [\"slot\", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /sdl:flow:land.",
+     "after": "formatCommand(\"ji\", [\"slot\", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ji:flow:land."
+    },
+    {
+     "before": "manually, inspect PR heads, and rerun /sdl:flow:land.",
+     "after": "manually, inspect PR heads, and rerun /ji:flow:land."
+    },
+    {
+     "before": "const commandDisplay = formatCommand(\"sdl\", [\"slot\", ...freeArgs]);",
+     "after": "const commandDisplay = formatCommand(\"ji\", [\"slot\", ...freeArgs]);"
+    },
+    {
+     "before": "then rerun /sdl:flow:land --yes.",
+     "after": "then rerun /ji:flow:land --yes."
+    },
+    {
+     "before": "\"sdl slot free completed, but landing branches are still checked out in other worktrees.\"",
+     "after": "\"ji slot free completed, but landing branches are still checked out in other worktrees.\""
+    },
+    {
+     "before": "checkouts manually, then rerun /sdl:flow:land.",
+     "after": "checkouts manually, then rerun /ji:flow:land."
+    },
+    {
+     "before": "worktrees manually, then rerun /sdl:flow:land.",
+     "after": "worktrees manually, then rerun /ji:flow:land."
+    },
+    {
+     "before": "resolve the merge rejection, then rerun /sdl:flow:land from the desired branch.",
+     "after": "resolve the merge rejection, then rerun /ji:flow:land from the desired branch."
+    }
+   ],
+   "skipped": [
+    "Line 1 `import { formatCommand } from \"@sdl/core/command\"` left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "pi.exec(\"sdl\", [\"slot\", \"gt\", \"exec\", \"stack-branches\"...",
+     "after": "pi.exec(\"ji\", [\"slot\", \"gt\", \"exec\", \"stack-branches\"..."
+    },
+    {
+     "before": "`Could not parse sdl slot gt exec stack-branches JSON: ...`",
+     "after": "`Could not parse ji slot gt exec stack-branches JSON: ...`"
+    },
+    {
+     "before": "`Unexpected sdl slot gt exec stack-branches JSON shape: ...`",
+     "after": "`Unexpected ji slot gt exec stack-branches JSON shape: ...`"
+    },
+    {
+     "before": "`sdl slot gt exec stack-branches failed with status ...`",
+     "after": "`ji slot gt exec stack-branches failed with status ...`"
+    }
+   ],
+   "skipped": [
+    "Line 21 sourcePackage: \"sdl-flow/pi\" \u2014 sdl-flow is a survivor package name per the brief, left untouched",
+    "@sdl/core/command, @sdl/pi/commands/helpers, @sdl/pi/commands/ack, @sdl/pi/parity/extension import specifiers \u2014 @sdl/* package scope is an explicit out-of-window survivor"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/push.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl flow submit runs fail ... Use `sdl flow submit` / `/sdl:flow:submit`",
+     "after": "ji flow submit runs fail ... Use `ji flow submit` / `/ji:flow:submit`"
+    },
+    {
+     "before": "headline: \"Could not inspect the worktree status. `sdl flow push` did not run `git push`.\"",
+     "after": "headline: \"Could not inspect the worktree status. `ji flow push` did not run `git push`.\""
+    },
+    {
+     "before": "\"Inspect the Git output, fix the repository state, or use `sdl flow submit` / `/sdl:flow:submit` ...\"",
+     "after": "\"Inspect the Git output, fix the repository state, or use `ji flow submit` / `/ji:flow:submit` ...\""
+    },
+    {
+     "before": "headline: \"`sdl flow push` requires a clean worktree and did not run `git push`.\"",
+     "after": "headline: \"`ji flow push` requires a clean worktree and did not run `git push`.\""
+    },
+    {
+     "before": "\"Commit or stash outstanding changes first, or use `sdl flow submit` / `/sdl:flow:submit` ...\"",
+     "after": "\"Commit or stash outstanding changes first, or use `ji flow submit` / `/ji:flow:submit` ...\""
+    },
+    {
+     "before": "\"For Graphite-tracked PR branches, prefer `sdl flow submit`; ...\"",
+     "after": "\"For Graphite-tracked PR branches, prefer `ji flow submit`; ...\""
+    },
+    {
+     "before": "\"...use `sdl flow submit` / `/sdl:flow:submit` for Graphite-tracked PR branches.\"",
+     "after": "\"...use `ji flow submit` / `/ji:flow:submit` for Graphite-tracked PR branches.\""
+    }
+   ],
+   "skipped": [
+    "Left @sdl/* import specifiers (lines 1,2,3,9) untouched \u2014 explicit out-of-window survivor per brief",
+    "Left SdlCommand/SdlExtensionApi/execSdlGit/readSdlGitPorcelainStatus identifiers untouched \u2014 TS identifiers containing sdl are explicit survivors per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const PR_DESCRIPTION_MODEL_ENV = \"SDL_DEV_PR_DESCRIPTION_MODEL\";\nconst PR_DESCRIPTION_PROMPT_ENV = \"SDL_DEV_PR_DESCRIPTION_PROMPT\";\nconst REPO_PR_DESCRIPTION_PROMPT_PATH = \".sdl/prompts/pr-description.md\";",
+     "after": "const PR_DESCRIPTION_MODEL_ENV = \"JI_DEV_PR_DESCRIPTION_MODEL\";\nconst PR_DESCRIPTION_PROMPT_ENV = \"JI_DEV_PR_DESCRIPTION_PROMPT\";\nconst REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\";"
+    },
+    {
+     "before": "Spec: `.sdl/objectives/cli-ux-north-star/house-style.md`.",
+     "after": "Spec: `.ji/objectives/cli-ux-north-star/house-style.md`."
+    }
+   ],
+   "skipped": [
+    "Line 29/31/48/181 \"SDL-managed\" brand prose (PR description region name) \u2014 left untouched per brief's DO-NOT-TOUCH brand-prose list; not a literal RENAME-list form",
+    "@sdl/* import specifiers (lines 1-3, 11) and Sdl*-prefixed TS identifiers (SdlCommand, SdlExtensionApi, createSdlClinkrInteraction, createSdlPrDescriptionRuntime) \u2014 out-of-window survivors per brief",
+    "File path segment src/sdl/commands/ \u2014 out-of-window survivor path segment, not renamed (file moves are out of scope for this task anyway)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const PR_DESCRIPTION_PROMPT_ENV = \"SDL_DEV_PR_DESCRIPTION_PROMPT\";",
+     "after": "export const PR_DESCRIPTION_PROMPT_ENV = \"JI_DEV_PR_DESCRIPTION_PROMPT\";"
+    },
+    {
+     "before": "export const REPO_PR_DESCRIPTION_PROMPT_PATH = \".sdl/prompts/pr-description.md\";",
+     "after": "export const REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\";"
+    }
+   ],
+   "skipped": [
+    "Line 27 GENERATED_BODY_MARKER = \"<!-- generated-by: sdl-dev pr-description v1 -->\": \"sdl-dev\" is a compound brand token not in any RENAME rule (not a path, not SDL_ENV, not /sdl: namespace, not the explicitly-authorized sdl-reviewer marker); left as brand prose pending branding row.",
+    "Lines 28-29 MANAGED_BODY_BEGIN_MARKER/MANAGED_BODY_END_MARKER = \"<!-- sdl-pr-description:begin/end -->\": structurally similar to the sdl-reviewer PR-comment marker but not named in the brief's explicit owner-decision rename; renaming would change what's recognized in already-generated PR bodies without an equivalent owner ruling, so left as-is and flagged as an open judgment call.",
+    "Line 30 PR_DESCRIPTION_GENERATOR_VERSION = \"sdl-pr-description-v2\": same brand-token ambiguity as the markers above; not covered by an explicit RENAME rule, left unchanged.",
+    "Line 5 `@sdl/capability-kit/git` and other `@sdl/*` imports (lines 10,11,12,13,14,15): explicitly out-of-window per DO NOT TOUCH (package scope survivor), left unchanged."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/fake-storage.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const root = `.sdl/objectives/${record.slug}`;",
+     "after": "const root = `.ji/objectives/${record.slug}`;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/objective-picker.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "parts[0] !== \".sdl\"",
+     "after": "parts[0] !== \".ji\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"--\", \".sdl/objectives\"]  (in objectiveDiffChangedSlugs, line 217)",
+     "after": "\"--\", \".ji/objectives\"]"
+    },
+    {
+     "before": "\"--\", \".sdl/objectives\"]  (in objectiveStatusChangedSlugs, line 238)",
+     "after": "\"--\", \".ji/objectives\"]"
+    }
+   ],
+   "skipped": [
+    "Line 1: `import type { ExecResult } from \"@sdl/core/exec\";` \u2014 @sdl/* package scope is an out-of-window survivor per brief, left untouched."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/core/storage.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "ACTIVE_OBJECTIVE_ROOT = \".sdl/objectives\";\nexport const OBJECTIVE_ARCHIVE_ROOT = \".sdl/objective-archive\";",
+     "after": "ACTIVE_OBJECTIVE_ROOT = \".ji/objectives\";\nexport const OBJECTIVE_ARCHIVE_ROOT = \".ji/objective-archive\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/pi/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "pi.exec(\"sdl\", [...ACTIVE_OBJECTIVE_CANDIDATES_ARGS], ...)",
+     "after": "pi.exec(\"ji\", [...ACTIVE_OBJECTIVE_CANDIDATES_ARGS], ...)"
+    },
+    {
+     "before": "cli: \"sdl objective list\",",
+     "after": "cli: \"ji objective list\","
+    },
+    {
+     "before": "cli: \"sdl objective exec read-objective plus direct Objective Markdown creation\",",
+     "after": "cli: \"ji objective exec read-objective plus direct Objective Markdown creation\","
+    },
+    {
+     "before": "cli: `sdl objective ${spec.commandName.slice(\"objective:\".length)}`,",
+     "after": "cli: `ji objective ${spec.commandName.slice(\"objective:\".length)}`,"
+    }
+   ],
+   "skipped": [
+    "`@sdl/*` import specifiers (lines 1,8,9,10,11,12,32,37,43,45,46) \u2014 package scope, explicit out-of-window survivor per brief",
+    "sourcePackage: \"@sdl/objective/pi\" values (lines 417, 430, 445) \u2014 @sdl/* package scope survivor"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "return `.sdl/reviews/${key}/review.md`;",
+     "after": "return `.ji/reviews/${key}/review.md`;"
+    }
+   ],
+   "skipped": [
+    "Line 10: `@sdl/core/primitives` import specifier \u2014 DO NOT TOUCH per brief (@sdl/* package scope survivor)",
+    "Line 43: ACRONYMS map entry [\"sdl\", \"SDL\"] used to humanize key words into title-case prose \u2014 this is brand PROSE (deferred to branding row), not one of the enumerated literal RENAME forms; skipped as out-of-window"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const SDL_DIRNAME = \".sdl\";",
+     "after": "const SDL_DIRNAME = \".ji\";"
+    },
+    {
+     "before": "options.reviewsDir ?? \"/repo/.sdl/reviews\"",
+     "after": "options.reviewsDir ?? \"/repo/.ji/reviews\""
+    }
+   ],
+   "skipped": [
+    "Kept identifier name SDL_DIRNAME unchanged (TS identifier containing 'sdl' is a DO NOT TOUCH survivor per brief; only its string value renamed)",
+    "@sdl/core and @sdl/capability-kit import specifiers left untouched (explicit @sdl/* package scope survivor)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/sdl/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "renderCommandCdWrapperScript({ commandName: \"sdl\" })",
+     "after": "renderCommandCdWrapperScript({ commandName: \"ji\" })"
+    }
+   ],
+   "skipped": [
+    "Lines 107-108 shell-integration marker comments (\"# >>> sdl shell integration >>>\" / \"# <<< ... <<<\") - free-text rc-file sentinel markers, not a listed machine-key/namespace pattern; left untouched since brief limits in-window edits to enumerated literal forms and defers general brand prose",
+    "Lines 183, 191, 192, 225, 227, 228 - user-facing confirm/log message prose (\"Install sdl shell integration...\", \"sdl shell integration already installed...\") - explicitly deferred to branding row per DO NOT TOUCH list (\"user-facing message prose\")",
+    "@sdl/* import specifiers and all Sdl-cased TS identifiers (SdlCommand, SdlDomainCommandOptions, createSdlDomainCommand, SdlExtensionApi, etc.) - explicit survivors per DO NOT TOUCH list"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "SDL_PI_CLI_TRACE\", \"SDL_PI_CLI_TRACE_OUTPUT\", \"SDL_PI_CLI_TRACE_PATH\"",
+     "after": "JI_PI_CLI_TRACE\", \"JI_PI_CLI_TRACE_OUTPUT\", \"JI_PI_CLI_TRACE_PATH\""
+    },
+    {
+     "before": "DEFAULT_TRACE_FILENAME = \"sdl-pi-cli-command-extension.jsonl\"",
+     "after": "DEFAULT_TRACE_FILENAME = \"ji-pi-cli-command-extension.jsonl\""
+    }
+   ],
+   "skipped": [
+    "Line 4/16: `requireSdlStatePath` import and call from @sdl/capability-kit/xdg left untouched \u2014 it's a survivor TS identifier (DO NOT TOUCH list) and the @sdl/* package scope is out-of-window; its internal state/sdl path resolution lives in the capability-kit package, not this file"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"sdl address exec download-feedback\",",
+     "after": "cli: \"ji address exec download-feedback\","
+    },
+    {
+     "before": "cli: \"sdl slot gt exec stack-branches --downstack + sdl address exec map-branch-prs + sdl address exec download-feedback\",",
+     "after": "cli: \"ji slot gt exec stack-branches --downstack + ji address exec map-branch-prs + ji address exec download-feedback\","
+    },
+    {
+     "before": "pi.exec(\"sdl\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...])",
+     "after": "pi.exec(\"ji\", [\"slot\", \"gt\", \"exec\", \"stack-branches\", ...])"
+    },
+    {
+     "before": "label: \"sdl slot gt exec stack-branches\",",
+     "after": "label: \"ji slot gt exec stack-branches\","
+    },
+    {
+     "before": "pi.exec(\"sdl\", [\"address\", \"exec\", \"map-branch-prs\", ...])",
+     "after": "pi.exec(\"ji\", [\"address\", \"exec\", \"map-branch-prs\", ...])"
+    },
+    {
+     "before": "label: \"sdl address exec map-branch-prs\",",
+     "after": "label: \"ji address exec map-branch-prs\","
+    }
+   ],
+   "skipped": [
+    "Line 6 `@sdl/core/primitives` import specifier: package scope survivor, do not touch per brief",
+    "Lines 70, 82 `sourcePackage: \"@sdl/pi\"`: @sdl/* package scope value, survivor per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "{ command: \"sdl\", baseArgs: [\"address\"] }",
+     "after": "{ command: \"ji\", baseArgs: [\"address\"] }"
+    },
+    {
+     "before": "label: \"sdl address exec download-feedback JSON\",",
+     "after": "label: \"ji address exec download-feedback JSON\","
+    }
+   ],
+   "skipped": [
+    "Left `@sdl/core/primitives` import specifier untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "markers: [join(\".sdl\", \"pi\", \"agents\")]",
+     "after": "markers: [join(\".ji\", \"pi\", \"agents\")]"
+    },
+    {
+     "before": "return join(root, \".sdl\", \"pi\", \"agents\");",
+     "after": "return join(root, \".ji\", \"pi\", \"agents\");"
+    },
+    {
+     "before": "throw new Error(`Could not find .sdl/pi/agents while walking up from ${cwd}.`);",
+     "after": "throw new Error(`Could not find .ji/pi/agents while walking up from ${cwd}.`);"
+    }
+   ],
+   "skipped": [
+    "Line 8: PI_AGENT_DEFINITION_SCHEMA = \"sdl.pi-agent.v1\" \u2014 dotted schema-version string not in the brief's enumerated dotted-prose rename list (sdl.tier/sdl.commands/sdl.group/sdl.subpackages); left untouched as ambiguous.",
+    "Function name findSdlPiAgentsDir \u2014 TS identifier containing sdl, explicitly a survivor per brief's DO NOT TOUCH list."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/sdlcc/src/objective-tab.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "deps.runCommand(\"sdl\", args, {",
+     "after": "deps.runCommand(\"ji\", args, {"
+    },
+    {
+     "before": "formatInlineCommandFailure(\"sdl objective list\", result)",
+     "after": "formatInlineCommandFailure(\"ji objective list\", result)"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Loaded from `sdl slot gt exec stack-map-branches --format json`.\",",
+     "after": "\"Loaded from `ji slot gt exec stack-map-branches --format json`.\","
+    },
+    {
+     "before": "const result = await runCommand(\n\t\t\"sdl\",\n\t\t[\"slot\", \"gt\", \"exec\", \"stack-map-branches\", \"--format\", \"json\"],",
+     "after": "const result = await runCommand(\n\t\t\"ji\",\n\t\t[\"slot\", \"gt\", \"exec\", \"stack-map-branches\", \"--format\", \"json\"],"
+    },
+    {
+     "before": "\"sdl slot gt exec stack-map-branches JSON\",",
+     "after": "\"ji slot gt exec stack-map-branches JSON\","
+    },
+    {
+     "before": "message: \"sdl slot gt stack-map data was not an object.\"",
+     "after": "message: \"ji slot gt stack-map data was not an object.\""
+    },
+    {
+     "before": "\"sdl slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.\",",
+     "after": "\"ji slot gt stack-map data was missing branches/trunk/current/edges/slots/warnings.\","
+    }
+   ],
+   "skipped": [
+    "Lines 1-2: `@sdl/core/machine-envelope` and `@sdl/core/primitives` import specifiers left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief.",
+    "Lines 198 and 523: `\"sdlcc stack map\"` title strings left untouched \u2014 sdlcc is a survivor package/dir name, confirmed by the file-specific note for this file.",
+    "Line 238 argv \"sdl\" renamed to \"ji\" despite the file-specific note mentioning line 238 \u2014 interpreted the note as disambiguating that the nearby 'sdlcc' package name (title strings) survives, not that this argv literal survives; this argv invokes the sdl CLI subprocess exactly as described by the brief's first bullet ('subprocess argv \"sdl\" -> \"ji\"') and is consistent with the parallel prose renames at lines 200/244/291/297 describing the same command."
+   ]
+  },
+  {
+   "file": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "join(repoRoot.value, \".sdl\", \"prompts\", `${request.name}.md`)",
+     "after": "join(repoRoot.value, \".ji\", \"prompts\", `${request.name}.md`)"
+    }
+   ],
+   "skipped": [
+    "Line 44 prose \"a sdl checkout\" \u2014 brand prose form explicitly listed in DO NOT TOUCH list, deferred to branding row",
+    "Line 3 `@sdl/clinkr` import specifier \u2014 package scope survivor, explicitly DO NOT TOUCH"
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/completion.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "commandName: \"sdl\",",
+     "after": "commandName: \"ji\","
+    }
+   ],
+   "skipped": [
+    "Left @sdl/clinkr/completion import specifier untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief",
+    "Left sdlCompletionShells, sdlCompletionScriptResultSchema, SdlCompletionScriptResult, renderSdlCompletionScriptResult, buildSdlCompletionScript identifiers untouched \u2014 TS identifiers containing sdl in any casing are out-of-window survivors per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/index.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "mounted as hidden `sdl <group> exec <name>`",
+     "after": "mounted as hidden `ji <group> exec <name>`"
+    },
+    {
+     "before": "Print ${shell} completion setup for sdl.",
+     "after": "Print ${shell} completion setup for ji."
+    }
+   ],
+   "skipped": [
+    "Line 619-627 groupDescription() builds user-facing strings like `SDL ${segments.join(\" \")} commands.` and `Skill-invoked SDL ${segments[0]} operations.` \u2014 uppercase brand prose, explicitly deferred to the branding row per brief's DO NOT TOUCH list; left as-is.",
+    "Line 252 `Unknown SDL command: ...` error message \u2014 brand prose matching the brief's explicit DO NOT TOUCH example set (e.g. 'Invalid SDL command candidate\u2026'); left as-is.",
+    "Lines 540-551 block comment ('Keep this shell command face SDL-owned...', 'SDL/core owns wrapper-script generation...') \u2014 uppercase brand prose describing the product, not a literal CLI invocation form; left as-is.",
+    "All @sdl/clinkr, @sdl/core, @sdl/slot import specifiers (lines 14-19) \u2014 explicit DO NOT TOUCH survivor package scope.",
+    "All SdlCliContext/SdlCliDeps/SdlCommandInfo/etc. TypeScript identifiers throughout the file \u2014 explicit DO NOT TOUCH survivor identifiers."
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/src/cli/shell.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "return `Cancelled sdl shell integration install for ${result.shell} in ${result.rcPath}`;",
+     "after": "return `Cancelled ji shell integration install for ${result.shell} in ${result.rcPath}`;"
+    },
+    {
+     "before": "return `sdl shell integration already installed in ${result.rcPath}`;",
+     "after": "return `ji shell integration already installed in ${result.rcPath}`;"
+    },
+    {
+     "before": "return `Installed sdl shell integration for ${result.shell} in ${result.rcPath}`;",
+     "after": "return `Installed ji shell integration for ${result.shell} in ${result.rcPath}`;"
+    },
+    {
+     "before": "return renderCommandCdWrapperScript({ commandName: \"sdl\" });",
+     "after": "return renderCommandCdWrapperScript({ commandName: \"ji\" });"
+    }
+   ],
+   "skipped": [
+    "Lines 17-18: sdlShellIntegrationBeginMarker/EndMarker constant values '# >>> sdl shell integration >>>' / '# <<< sdl shell integration <<<' \u2014 same 'sdl shell integration' phrase as the renamed install strings, but these lines fall outside the assigned edit window (79-92) per the file-specific note; left unchanged rather than guess whether the plan intentionally excluded them.",
+    "Lines 46 and 52: prose messages 'Installing sdl shell integration requires --yes...' and 'Install sdl shell integration for ${selected.shell} in ${rcPath}?' \u2014 identical phrase to the renamed lines 85/87/88 but outside the flagged 79-92 window; left unchanged for the same reason.",
+    "All Sdl-prefixed identifiers (sdlShellIntegrationBeginMarker, SdlCliContext, sdlShellShowRequestSchema, runSdlShellShow, renderSdlShellWrapperScript, etc.) and the @sdl/clinkr and @sdl/capability-kit import specifiers were left untouched \u2014 they match the DO-NOT-TOUCH survivor categories (TS/JS identifiers containing sdl, @sdl/* package scope)."
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "this.pi.exec(\"which\", [\"sdl\"], {",
+     "after": "this.pi.exec(\"which\", [\"ji\"], {"
+    },
+    {
+     "before": "this.runner = { command: \"sdl\", baseArgs: [\"address\"] };",
+     "after": "this.runner = { command: \"ji\", baseArgs: [\"address\"] };"
+    },
+    {
+     "before": "message: \"Could not find sdl. Expected `sdl` on PATH (installed with `just install-tools`).\",",
+     "after": "message: \"Could not find ji. Expected `ji` on PATH (installed with `just install-tools`).\","
+    }
+   ],
+   "skipped": [
+    "Left `pathSdl` local variable name unchanged \u2014 TS identifiers containing 'sdl' are explicit out-of-window survivors per the brief.",
+    "Left `@sdl/core/primitives`, `@sdl/core/timers`, `@sdl/pi/shared/timers` import specifiers unchanged \u2014 @sdl/* package scope is an explicit out-of-window survivor."
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/preview-checks-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"sdl\",\n\t\t[\"address\", \"exec\", \"pr-checks\", ...options.args, \"--format\", \"json\"],",
+     "after": "\"ji\",\n\t\t[\"address\", \"exec\", \"pr-checks\", ...options.args, \"--format\", \"json\"],"
+    },
+    {
+     "before": "label: \"sdl address exec pr-checks\",",
+     "after": "label: \"ji address exec pr-checks\","
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "label: \"sdl address exec download-feedback\",",
+     "after": "label: \"ji address exec download-feedback\","
+    },
+    {
+     "before": "label: `sdl address exec pr-review-threads #${options.prNumber}`,",
+     "after": "label: `ji address exec pr-review-threads #${options.prNumber}`,"
+    },
+    {
+     "before": "options.runtime.pi.exec(\"sdl\", options.args, {",
+     "after": "options.runtime.pi.exec(\"ji\", options.args, {"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "HEAD:.sdl/reviews/thermonuclear-review/review.md",
+     "after": "HEAD:.ji/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Non-Pi agents should run the portable thermonuclear review rubric directly from .sdl/reviews/thermonuclear-review/review.md",
+     "after": "Non-Pi agents should run the portable thermonuclear review rubric directly from .ji/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": [
+    "Line 40 sourcePackage: \"@sdl-local/pi-tools/thermo-council\" \u2014 left as-is; @sdl-local is a package scope like @sdl/*, not explicitly listed as a rename target or a named survivor, so treated as out-of-window to avoid guessing.",
+    "Line 1 import \"@sdl/pi/parity/extension\" \u2014 explicitly listed as DO NOT TOUCH (@sdl/* package scope), left verbatim."
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/thermo-council/prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "## Canonical Rubric: .sdl/reviews/thermonuclear-review/review.md",
+     "after": "## Canonical Rubric: .ji/reviews/thermonuclear-review/review.md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "skills/architecture-topology-report/scripts/example-spec.mjs",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "end-state in <span class=\"font-mono text-sm\">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 \u00b7 0012 \u00b7 0016).",
+     "after": "end-state in <span class=\"font-mono text-sm\">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 \u00b7 0012 \u00b7 0016)."
+    },
+    {
+     "before": "// Tier lanes come from declared package.json `sdl.tier` values.",
+     "after": "// Tier lanes come from declared package.json `ji.tier` values."
+    },
+    {
+     "before": "target invariants read from <span class=\"font-mono\">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).",
+     "after": "target invariants read from <span class=\"font-mono\">.ji/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016)."
+    }
+   ],
+   "skipped": [
+    "Left @sdl/sdl, sdl-sdk, @sdl/slot, @sdl/pi, @sdl/pr-address, @sdl/domain-primitives-transitional package names untouched \u2014 out-of-window survivor package scope per brief.",
+    "Left mermaid short-name nodes 'sdl' (lines 27, 35, 143-145) untouched \u2014 mirrors @sdl/sdl package identity per file-specific note, not the CLI bin.",
+    "Left repo name \"sdl-tools\" (line 9) untouched \u2014 survivor repo/package name.",
+    "Left bare/uppercase brand prose \"SDL\" (e.g. \"the SDL Extension Architecture target\", \"SDL kernel\") untouched \u2014 deferred to branding row per brief.",
+    "Left objective slug sdl-extension-architecture (within the .ji/objectives/ path) untouched \u2014 slugs are out-of-window survivors."
+   ]
+  },
+  {
+   "file": "skills/architecture-topology-report/scripts/synthesize-spec.mjs",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl.tier</span> for each package",
+     "after": "ji.tier</span> for each package"
+    },
+    {
+     "before": "sub: \"declared sdl.tier policy\"",
+     "after": "sub: \"declared ji.tier policy\""
+    },
+    {
+     "before": "sdl.tier</span>, ordered from consumers",
+     "after": "ji.tier</span>, ordered from consumers"
+    },
+    {
+     "before": "mono(\"sdl.tier\")",
+     "after": "mono(\"ji.tier\")"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "close review threads with `sdl address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json`",
+     "after": "close review threads with `ji address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json`"
+    }
+   ],
+   "skipped": [
+    "line 1: `@sdl/capability-kit/git` import specifier \u2014 out-of-window survivor (package scope), not touched",
+    "line 245: left `gh api graphql` reference untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use sdl aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer>",
+     "after": "Use ji aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer>"
+    }
+   ],
+   "skipped": [
+    "Line 1 `@sdl/clinkr` import specifier \u2014 survivor package scope per brief (@sdl/* out-of-window), left untouched"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "attach it with `sdl branch-context exec from-plan`,",
+     "after": "attach it with `ji branch-context exec from-plan`,"
+    }
+   ],
+   "skipped": [
+    "All `@sdl/*` import specifiers (@sdl/core/primitives, @sdl/core/exec, @sdl/capability-kit/git, @sdl/plans) left untouched \u2014 out-of-window package scope survivor per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"sdl branch-context exec from-plan\",",
+     "after": "cli: \"ji branch-context exec from-plan\","
+    },
+    {
+     "before": "cli: \"sdl branch-context exec load\",",
+     "after": "cli: \"ji branch-context exec load\","
+    }
+   ],
+   "skipped": [
+    "`@sdl/pi/commands` and `@sdl/pi/parity/extension` import specifiers, and `sourcePackage: \"@sdl/branch-context/pi\"` values \u2014 all are @sdl/* package-scope survivors, out of window per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"2. Then run `!sdl flow submit`.\",",
+     "after": "\"2. Then run `!ji flow submit`.\","
+    }
+   ],
+   "skipped": [
+    "Lines 10,18,19,20,27,28,31,32: `@sdl/*` import specifiers \u2014 explicitly out-of-window survivors per brief (package scope not renamed)."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const SIDEBAR_MODEL_ENV = \"SDL_CCC_SIDEBAR_MODEL\";",
+     "after": "const SIDEBAR_MODEL_ENV = \"JI_CCC_SIDEBAR_MODEL\";"
+    },
+    {
+     "before": "\"Pass an Objective slug or .sdl/objectives/<slug> path.\"",
+     "after": "\"Pass an Objective slug or .ji/objectives/<slug> path.\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "the copyable `sdl slot co <branch>`",
+     "after": "the copyable `ji slot co <branch>`"
+    }
+   ],
+   "skipped": [
+    "Line 12 `SdlCommandIo` identifier reference in JSDoc left untouched \u2014 it's a survivor TS identifier (out-of-window), not a literal CLI/namespace form.",
+    "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 survivor package scope.",
+    "File path `src/sdl/...` itself not renamed \u2014 file moves are out of scope for this content-only edit."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`sdl slot checkout --current` requires a clean worktree.",
+     "after": "`ji slot checkout --current` requires a clean worktree."
+    },
+    {
+     "before": "but sdl slot checkout failed.",
+     "after": "but ji slot checkout failed."
+    },
+    {
+     "before": "guidance: `sdl slot co ${slot.target.branchName}`,",
+     "after": "guidance: `ji slot co ${slot.target.branchName}`,"
+    }
+   ],
+   "skipped": [
+    "@sdl/clinkr, @sdl/kernel/command-io, @sdl/slot/api import specifiers \u2014 @sdl/* package scope is an out-of-window survivor",
+    "SdlCommandIo type name and runWithSdlCommandIo function name \u2014 sdl-cased TS identifiers are out-of-window survivors"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "the copyable `sdl slot co <branch>`",
+     "after": "the copyable `ji slot co <branch>`"
+    }
+   ],
+   "skipped": [
+    "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief",
+    "`SdlCommandIo` identifier in JSDoc comment left untouched \u2014 TS identifiers containing sdl are out-of-window survivors per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun /sdl:flow:land",
+     "after": "rerun /ji:flow:land"
+    },
+    {
+     "before": "do not rerun /sdl:flow:land until it is resolved",
+     "after": "do not rerun /ji:flow:land until it is resolved"
+    }
+   ],
+   "skipped": [
+    "The file-specific note's line numbers (95,104,145,162,210,248,279,295,406,473,724,733) did not match this file's actual layout (633 lines total); instead I located and replaced all 13 actual occurrences of the literal '/sdl:flow:land' machine-key namespace string via grep, which matches the note's stated count of instances.",
+    "@sdl/core/command import specifier on line 1 left untouched (out-of-window survivor per brief).",
+    "LAND_BACKUP_RECOVERY_HINT left untouched as instructed."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "// Flow-local facade for the `sdl flow land` CLI surface.",
+     "after": "// Flow-local facade for the `ji flow land` CLI surface."
+    }
+   ],
+   "skipped": [
+    "`@sdl/clinkr` and `@sdl/core/cli-theme` import specifiers left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "then rerun /sdl:flow:land --yes.` (nonInteractiveMessage)",
+     "after": "then rerun /ji:flow:land --yes."
+    },
+    {
+     "before": "then rerun /sdl:flow:land --yes.` (nonInteractiveFailureOptions.suggestedAction)",
+     "after": "then rerun /ji:flow:land --yes."
+    },
+    {
+     "before": "then rerun /sdl:flow:land.` (restack failure suggestedAction)",
+     "after": "then rerun /ji:flow:land."
+    },
+    {
+     "before": "restack the stack, then rerun /sdl:flow:land.\" (remaining restack requirements suggestedAction)",
+     "after": "restack the stack, then rerun /ji:flow:land."
+    },
+    {
+     "before": "then rerun /sdl:flow:land.` (submit failure suggestedAction)",
+     "after": "then rerun /ji:flow:land."
+    }
+   ],
+   "skipped": [
+    "Left all `gt restack`/`gt submit`/`gt restack + submit/update` command-name strings untouched per file-specific note."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "check out a branch before running /sdl:flow:land.",
+     "after": "check out a branch before running /ji:flow:land."
+    },
+    {
+     "before": "Could not resolve current branch before running /sdl:flow:land.",
+     "after": "Could not resolve current branch before running /ji:flow:land."
+    }
+   ],
+   "skipped": [
+    "git symbolic-ref command text and args left untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`.sdl/objectives/cli-ux-north-star/house-style.md`",
+     "after": "`.ji/objectives/cli-ux-north-star/house-style.md`"
+    }
+   ],
+   "skipped": [
+    "Line 9 `SdlProgressPhaseEvent` and line 25 `SdlExtensionApi` - TS identifiers containing sdl, out-of-window survivor",
+    "Line 12-13 `@sdl/kernel/sdk`, `@sdl/*` import specifiers - explicit out-of-window survivor (package scope)",
+    "Line 3-4, 9, 12 prose 'STREAMING shape', 'flow \u2192 clinkr', and general SDL brand prose not present as literal forms; no bare 'SDL' brand prose found requiring action here"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit",
+     "after": "use `ji flow branch-latest-commit` to move the latest eligible unpushed commit"
+    },
+    {
+     "before": "commandLabel: \"`sdl flow autobranch`\",",
+     "after": "commandLabel: \"`ji flow autobranch`\","
+    },
+    {
+     "before": "headline: \"`sdl flow autobranch` requires pending worktree changes and did not run.\",",
+     "after": "headline: \"`ji flow autobranch` requires pending worktree changes and did not run.\","
+    },
+    {
+     "before": "\"Use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.\"",
+     "after": "\"Use `ji flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use \\`sdl flow autobranch\\` instead when pending dirty worktree changes should be moved to a new branch.",
+     "after": "Use \\`ji flow autobranch\\` instead when pending dirty worktree changes should be moved to a new branch."
+    },
+    {
+     "before": "commandLabel: \"`sdl flow branch-latest-commit`\",",
+     "after": "commandLabel: \"`ji flow branch-latest-commit`\","
+    },
+    {
+     "before": "headline: \"`sdl flow branch-latest-commit` requires a clean worktree and did not run.\",",
+     "after": "headline: \"`ji flow branch-latest-commit` requires a clean worktree and did not run.\","
+    },
+    {
+     "before": "\"Use `sdl flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.\",",
+     "after": "\"Use `ji flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.\","
+    }
+   ],
+   "skipped": [
+    "Left @sdl/core and @sdl/kernel import specifiers, SdlCommand type identifier, and src/sdl path segment untouched \u2014 these are explicit out-of-window survivors per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/cp.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "title: \"sdl flow cp\",",
+     "after": "title: \"ji flow cp\","
+    }
+   ],
+   "skipped": [
+    "Left @sdl/kernel/sdk, @sdl/capability-kit imports untouched \u2014 @sdl/* package scope is an out-of-window survivor",
+    "Left createSdlCheckpointRuntime, SdlCommand, SdlProgressPhaseListener identifiers untouched \u2014 TS identifiers containing sdl are survivors",
+    "Left the file's own src/sdl/ path segment untouched per file-specific note and brief's survivor list"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/commands/land.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const BASE_LAND_TITLE = \"sdl flow land\";",
+     "after": "const BASE_LAND_TITLE = \"ji flow land\";"
+    }
+   ],
+   "skipped": [
+    "Import identifiers from @sdl/kernel/command-io and @sdl/kernel/sdk, and types SdlCommand/SdlCommandIo/SdlExtensionApi/SdlNotifyLevel/SdlProgressPhaseEvent left untouched \u2014 @sdl/* package scope and TS identifiers containing sdl are out-of-window survivors per brief.",
+    "File path segment src/sdl/commands/ left untouched \u2014 src/sdl/ path segments are explicitly out-of-window survivors."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`.sdl/objectives/cli-ux-north-star/house-style.md`",
+     "after": "`.ji/objectives/cli-ux-north-star/house-style.md`"
+    }
+   ],
+   "skipped": [
+    "Import specifiers @sdl/clinkr, @sdl/core/cli-theme, @sdl/kernel/sdk left as-is: @sdl/* package scope is an out-of-window survivor per brief",
+    "File path segment src/sdl/presentation left as-is: src/sdl/ path segments are explicitly a survivor per brief",
+    "Header comment prose 'the caps-aware git/Graphite subprocess' etc. and 'sdl-tools' style brand prose not present; no other sdl-form literals found needing rename"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`sdl flow autobranch` and `sdl flow branch-latest-commit` both load",
+     "after": "`ji flow autobranch` and `ji flow branch-latest-commit` both load"
+    },
+    {
+     "before": "e.g. \"`sdl flow autobranch`\".",
+     "after": "e.g. \"`ji flow autobranch`\"."
+    }
+   ],
+   "skipped": [
+    "Line 10: `@sdl/clinkr` import specifier \u2014 out-of-window survivor (package scope), left untouched",
+    "File path `src/sdl/presentation/...` \u2014 left untouched per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/sdl/worktree.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "prefix: \"sdl-extension-cp-commit-\"",
+     "after": "prefix: \"ji-extension-cp-commit-\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "prefix: \"sdl-dev-pr-body-\"",
+     "after": "prefix: \"ji-dev-pr-body-\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "rerun `sdl flow submit`. (trunk_out_of_date fix line)",
+     "after": "rerun `ji flow submit`."
+    },
+    {
+     "before": "delete it ... rerun `sdl flow submit`. / commit real changes ... rerun `sdl flow submit`. (formatEmptyBranchFailure, no branchName)",
+     "after": "both renamed to `ji flow submit`."
+    },
+    {
+     "before": "rerun `sdl flow submit`: / rerun `sdl flow submit`. (formatEmptyBranchFailure, with branchName)",
+     "after": "both renamed to `ji flow submit`."
+    },
+    {
+     "before": "Fix: run `gt sync` ... rerun `sdl flow submit`. / Bypass: `sdl flow submit --force` ...",
+     "after": "both renamed to `ji flow submit` / `ji flow submit --force`."
+    },
+    {
+     "before": "reparent ... rerun `sdl flow submit`. (formatMergedPrNotInTrunk)",
+     "after": "rerun `ji flow submit`."
+    }
+   ],
+   "skipped": [
+    "@sdl/core/primitives and @sdl/core/terminal-escapes import specifiers left untouched (out-of-window survivors per brief)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Checkout a branch and run `sdl flow regenerate-pr` if needed.",
+     "after": "Checkout a branch and run `ji flow regenerate-pr` if needed."
+    },
+    {
+     "before": "resolve any conflicts, then rerun `sdl flow submit`.  (line 133)",
+     "after": "resolve any conflicts, then rerun `ji flow submit`."
+    },
+    {
+     "before": "If confirmed, sdl flow submit will run:",
+     "after": "If confirmed, ji flow submit will run:"
+    },
+    {
+     "before": "resolve any conflicts, then rerun `sdl flow submit`.  (line 167)",
+     "after": "resolve any conflicts, then rerun `ji flow submit`."
+    },
+    {
+     "before": "continue or abort the rebase, then rerun `sdl flow submit`.",
+     "after": "continue or abort the rebase, then rerun `ji flow submit`."
+    },
+    {
+     "before": "Graphite still needs a restack after `sdl flow submit` already ran ...",
+     "after": "Graphite still needs a restack after `ji flow submit` already ran ..."
+    },
+    {
+     "before": "verify with `${submitDryRunCommandDisplay}`, then rerun `sdl flow submit`.",
+     "after": "verify with `${submitDryRunCommandDisplay}`, then rerun `ji flow submit`."
+    },
+    {
+     "before": "rerun sdl flow submit after resolving the Graphite failure.",
+     "after": "rerun ji flow submit after resolving the Graphite failure."
+    },
+    {
+     "before": "`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+     "after": "`ji flow submit` checkpoints outstanding worktree changes before submitting."
+    },
+    {
+     "before": "rerun `sdl flow submit` after resolving the reported issue.",
+     "after": "rerun `ji flow submit` after resolving the reported issue."
+    }
+   ],
+   "skipped": [
+    "Left `@sdl/core/terminal-escapes` import (line 1) untouched: @sdl/* package scope is an explicit out-of-window survivor per the brief.",
+    "The file has 344 lines total, not matching the brief's cited line numbers (up to 463/464) \u2014 likely from a different file version/line numbering; found and renamed all 10 actual `sdl flow submit`/`sdl flow regenerate-pr` occurrences present in this file by content search instead."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Checkout the branch and run `sdl flow regenerate-pr` to regenerate its PR description.",
+     "after": "Checkout the branch and run `ji flow regenerate-pr` to regenerate its PR description."
+    }
+   ],
+   "skipped": [
+    "Lines 1 and 5: `@sdl/core/result` and `@sdl/capability-kit/gateway-result` import specifiers left untouched \u2014 brief explicitly lists `@sdl/*` package scope as an out-of-window survivor."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/flow/src/submit/text-generation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "PR_DESCRIPTION_MODEL_ENV = \"SDL_DEV_PR_DESCRIPTION_MODEL\"",
+     "after": "PR_DESCRIPTION_MODEL_ENV = \"JI_DEV_PR_DESCRIPTION_MODEL\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before sdl handoff create succeeds.",
+     "after": "do not call it before ji handoff create succeeds."
+    }
+   ],
+   "skipped": [
+    "Line 41 sourcePackage: \"@sdl/handoff/pi\" \u2014 @sdl/* package scope, out-of-window survivor, left untouched",
+    "Lines 1, 19 imports from \"@sdl/pi/...\" \u2014 @sdl/* package scope, out-of-window survivor, left untouched"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/create-prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Store final Markdown with \\`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin\\`;",
+     "after": "Store final Markdown with \\`ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin\\`;"
+    },
+    {
+     "before": "If \\`sdl handoff create\\` is unavailable, the Branch Memory recovery path is",
+     "after": "If \\`ji handoff create\\` is unavailable, the Branch Memory recovery path is"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/create.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'",
+     "after": "ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'"
+    }
+   ],
+   "skipped": [
+    "Line 3: `@sdl/pi/skills/expansion` import specifier left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "with \\`sdl handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\\`",
+     "after": "with \\`ji handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\\`"
+    },
+    {
+     "before": "If \\`sdl handoff create\\` reports an existing artifact",
+     "after": "If \\`ji handoff create\\` reports an existing artifact"
+    },
+    {
+     "before": "After \\`sdl handoff create\\` succeeds, call ${copy.toolName}",
+     "after": "After \\`ji handoff create\\` succeeds, call ${copy.toolName}"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "cli: \"sdl handoff create\",",
+     "after": "cli: \"ji handoff create\","
+    },
+    {
+     "before": "stored through `sdl handoff create` after model confirmation.",
+     "after": "stored through `ji handoff create` after model confirmation."
+    },
+    {
+     "before": "cli: \"sdl handoff pickup\",",
+     "after": "cli: \"ji handoff pickup\","
+    },
+    {
+     "before": "cli: \"sdl handoff list\",",
+     "after": "cli: \"ji handoff list\","
+    }
+   ],
+   "skipped": [
+    "@sdl/pi/... import specifiers (lines 1-2) left untouched: @sdl/* package scope is an out-of-window survivor per brief",
+    "sourcePackage: \"@sdl/handoff/pi\" values (lines 30,43,56,68,82) left untouched: same @sdl/* survivor rule"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/self.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before sdl handoff create succeeds.",
+     "after": "do not call it before ji handoff create succeeds."
+    },
+    {
+     "before": "toolCallInstruction: `After \\`sdl handoff create\\` succeeds, call ...`",
+     "after": "toolCallInstruction: `After \\`ji handoff create\\` succeeds, call ...`"
+    }
+   ],
+   "skipped": [
+    "Lines 1-2 @sdl/core/primitives and @sdl/core/timers import specifiers: out-of-window @sdl/* package scope survivor, not touched"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "do not call it before sdl handoff create succeeds.",
+     "after": "do not call it before ji handoff create succeeds."
+    }
+   ],
+   "skipped": [
+    "Line 6: `@sdl/core/primitives` import specifier - out-of-window survivor (package scope)",
+    "Line 8: `@sdl/capability-kit/cmux/focused-terminal-tab` import specifier - survivor package scope",
+    "Line 9: `@sdl/pi/runtime/primitives` import specifier - survivor package scope"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SDL_RUNNER_PI_BIN_ENV = \"SDL_RUNNER_PI_BIN\";",
+     "after": "export const SDL_RUNNER_PI_BIN_ENV = \"JI_RUNNER_PI_BIN\";"
+    },
+    {
+     "before": "/** Host environment; `SDL_RUNNER_PI_BIN` overrides the `pi` binary. */",
+     "after": "/** Host environment; `JI_RUNNER_PI_BIN` overrides the `pi` binary. */"
+    },
+    {
+     "before": "return await mkdtemp(join(tmpdir(), \"sdl-objective-runner-\"));",
+     "after": "return await mkdtemp(join(tmpdir(), \"ji-objective-runner-\"));"
+    }
+   ],
+   "skipped": [
+    "Left @sdl/pi, @sdl/core/*, @sdl/objective/sdl/commands/exec-runner-step import specifiers and header-comment mentions untouched \u2014 @sdl/* package scope and src/sdl/ path segments are explicit out-of-window survivors per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": ".sdl/extensions/objective/package.json ... .sdl/extensions/objective/src/commands/exec-runner-step.ts",
+     "after": ".ji/extensions/objective/package.json ... .ji/extensions/objective/src/commands/exec-runner-step.ts"
+    }
+   ],
+   "skipped": [
+    "\"./sdl/commands/exec-runner-step\" exports-subpath literal (line ~4) left untouched per file-specific note - survivor src/sdl layout",
+    "All @sdl/* import specifiers (createSdlDomainCommand, @sdl/clinkr, @sdl/core/primitives, @sdl/core/time, @sdl/kernel/sdk) left untouched - out-of-window survivor scope",
+    "SdlCommand type identifier left untouched - identifier survivor"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Alias for sdl roaster review list.",
+     "after": "Alias for ji roaster review list."
+    }
+   ],
+   "skipped": [
+    "Line 1 `@sdl/kernel/sdk` import specifier left untouched \u2014 @sdl/* package scope is an out-of-window survivor per brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "SDL_SLOT_DIAGNOSTIC_LOG",
+     "after": "JI_SLOT_DIAGNOSTIC_LOG"
+    }
+   ],
+   "skipped": [
+    "Line 2/10 `@sdl/core/...` import specifiers left untouched \u2014 out-of-window survivor per brief",
+    "SLOT_DIAGNOSTIC_LOG_ENV identifier kept as-is per file-specific note"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SDL_CD_DIRECTIVE_FILE = \"SDL_CD_DIRECTIVE_FILE\";",
+     "after": "export const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\";"
+    }
+   ],
+   "skipped": [
+    "Line 4: `@sdl/core/primitives` import specifier left untouched \u2014 out-of-window survivor (@sdl/* package scope)",
+    "Identifier `SDL_CD_DIRECTIVE_FILE` kept as-is per file-specific note (survivor identifier for index.ts re-export and line-36 env read)"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "running \\`sdl slot checkout --current\\`.\\` (line 104, detached-head error)",
+     "after": "running \\`ji slot checkout --current\\`.\\`"
+    },
+    {
+     "before": "running \\`sdl slot checkout --current\\`.\\` (line 109, dirty-worktree error)",
+     "after": "running \\`ji slot checkout --current\\`.\\`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Pass a command after --, e.g. `sdl slot foreach -- git clean -fd`.",
+     "after": "Pass a command after --, e.g. `ji slot foreach -- git clean -fd`."
+    },
+    {
+     "before": "\"sdl slot foreach requires --yes in JSON mode.\"",
+     "after": "\"ji slot foreach requires --yes in JSON mode.\""
+    },
+    {
+     "before": "`sdl slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`",
+     "after": "`ji slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`"
+    }
+   ],
+   "skipped": [
+    "Lines 1, 8: `@sdl/core` and `@sdl/clinkr` import specifiers left untouched \u2014 @sdl/* package scope is an explicit out-of-window survivor per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Run \\`sdl slot free --wt ${slotName}\\` to clear the stale assignment.",
+     "after": "Run \\`ji slot free --wt ${slotName}\\` to clear the stale assignment."
+    }
+   ],
+   "skipped": [
+    "Line 1 import from \"@sdl/clinkr\" left untouched \u2014 it's the @sdl/* package scope, an explicit out-of-window survivor per the brief."
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Run `sdl slot checkout <branch>` for the branch you want.",
+     "after": "Run `ji slot checkout <branch>` for the branch you want."
+    }
+   ],
+   "skipped": [
+    "Line 1 `@sdl/clinkr` import specifier left untouched \u2014 it's a package scope survivor per brief's DO NOT TOUCH list"
+   ]
+  },
+  {
+   "file": "ts/packages/capabilities/slot/src/sdl/command-face.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "The supported user-facing surface is `sdl slot ...`,",
+     "after": "The supported user-facing surface is `ji slot ...`,"
+    }
+   ],
+   "skipped": [
+    "`@sdl/kernel` import specifier (line 4) \u2014 out-of-window survivor per brief (@sdl/* package scope)",
+    "`@sdl/clinkr` import specifier (line 5) \u2014 out-of-window survivor per brief (@sdl/* package scope)",
+    "`defineCli` identifier (line 2) \u2014 explicitly told to leave",
+    "file path `src/sdl/command-face.ts` \u2014 survivor path segment, explicitly told to leave"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/ack.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"sdl-command-ack\" (line 10)",
+     "after": "\"ji-command-ack\""
+    },
+    {
+     "before": "\"sdl-command-progress\" (line 11)",
+     "after": "\"ji-command-progress\""
+    },
+    {
+     "before": "\"sdl-command-ack\" (line 12)",
+     "after": "\"ji-command-ack\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const LIVE_PROGRESS_STATUS_ID = \"sdl-cli-command\";\nconst LIVE_PROGRESS_WIDGET_ID = \"sdl-cli-command-output\";",
+     "after": "const LIVE_PROGRESS_STATUS_ID = \"ji-cli-command\";\nconst LIVE_PROGRESS_WIDGET_ID = \"ji-cli-command-output\";"
+    }
+   ],
+   "skipped": [
+    "Left `@sdl/core/timers` and `@sdl/core/time-format` imports (lines 1-2) untouched \u2014 survivor @sdl scope per brief and file-specific note."
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"sdl-cli-command-output\"",
+     "after": "CLI_COMMAND_OUTPUT_MESSAGE_TYPE = \"ji-cli-command-output\""
+    }
+   ],
+   "skipped": [
+    "@sdl/core/primitives and @sdl/kernel/sdk import specifiers left untouched (survivor package scope)",
+    "SdlConfirmOptions type identifier left untouched (survivor identifier per file-specific note)"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json",
+     "after": "ji address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --format json"
+    },
+    {
+     "before": "sdl address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --body <BODY> --format json",
+     "after": "ji address exec close-review-threads --thread-ids-json '{\"threadIds\":[\"<THREAD_ID>\"]}' --body <BODY> --format json"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "const HARNESS_SESSION_ENTRY_TYPE = \"sdl-harness-session-id\";",
+     "after": "const HARNESS_SESSION_ENTRY_TYPE = \"ji-harness-session-id\";"
+    }
+   ],
+   "skipped": [
+    "Line 1-2 @sdl/core/* imports left untouched per file-specific note (survivor package scope)",
+    "Line 5 HARNESS_SESSION_ENV = \"HARNESS_SESSION_ID\" left untouched per file-specific note (no sdl in it)"
+   ]
+  },
+  {
+   "file": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "use `sdl:changes`, not `/sdl:flow:changes`",
+     "after": "use `ji:changes`, not `/ji:flow:changes`"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/hosts/sdlcc/src/stack-map-effects.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl slot checkout failed (${failure.errorType}): ${failure.message}",
+     "after": "ji slot checkout failed (${failure.errorType}): ${failure.message}"
+    }
+   ],
+   "skipped": [
+    "Line 3 `@sdl/core/exec` import specifier \u2014 out-of-window survivor (`@sdl/*` package scope)",
+    "Line 9 `@sdl/slot/api` import specifier \u2014 out-of-window survivor",
+    "Line 121 `sdlcc cmux workspace` prose and line 155/159 `buildSdlccCmuxReportBootstrapCommand` \u2014 survivor package/host name `sdlcc`, not a rename target"
+   ]
+  },
+  {
+   "file": "ts/packages/infra/core/src/primitives/model-slug.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export const SLUG_MODEL_ENV = \"SDL_SLUG_MODEL\";",
+     "after": "export const SLUG_MODEL_ENV = \"JI_SLUG_MODEL\";"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/infra/core/src/test-kit/index.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "async makeTempDir(prefix = \"sdl-test-\"): Promise<string> {",
+     "after": "async makeTempDir(prefix = \"ji-test-\"): Promise<string> {"
+    },
+    {
+     "before": "async makeHomeTempDir(prefix = \".sdl-test-\"): Promise<string> {",
+     "after": "async makeHomeTempDir(prefix = \".ji-test-\"): Promise<string> {"
+    },
+    {
+     "before": "options.prefix ?? \"sdl-git-repo-\"",
+     "after": "options.prefix ?? \"ji-git-repo-\""
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use /pr:download-feedback or sdl address exec download-feedback manually",
+     "after": "Use /pr:download-feedback or ji address exec download-feedback manually"
+    }
+   ],
+   "skipped": [
+    "Line 1 import \"@sdl/pi/parity/extension\" \u2014 @sdl/* package scope is an explicit DO NOT TOUCH survivor",
+    "Line 15 sourcePackage \"@sdl-local/pi-tools/pr-feedback-watch\" \u2014 not in the enumerated rename list; @sdl-local scope/package name not covered by brief, left untouched as ambiguous"
+   ]
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`sdl address exec close-review-threads --thread-ids-json",
+     "after": "`ji address exec close-review-threads --thread-ids-json"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Use sdl address exec download-feedback --format json, then sdl address exec pr-review-threads --pr-number <n> --format json.",
+     "after": "Use ji address exec download-feedback --format json, then ji address exec pr-review-threads --pr-number <n> --format json."
+    },
+    {
+     "before": "fallback: \"Use sdl address exec pr-checks [--pr-number <n>] --format json.\"",
+     "after": "fallback: \"Use ji address exec pr-checks [--pr-number <n>] --format json.\""
+    }
+   ],
+   "skipped": [
+    "@sdl/core, @sdl/pi import specifiers left untouched - out-of-window package scope survivor per brief",
+    "sourcePackage: \"@sdl-local/pi-tools/pr-previews\" left untouched - package scope/name survivor, not a RENAME-list form"
+   ]
+  },
+  {
+   "file": "ts/packages/sdl-capability-kit/src/kit/text-generation.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "CHECKPOINT_MODEL_ENV = \"SDL_CHECKPOINT_MODEL\"",
+     "after": "CHECKPOINT_MODEL_ENV = \"JI_CHECKPOINT_MODEL\""
+    },
+    {
+     "before": "LEGACY_CHECKPOINT_MODEL_ENV = \"SDL_DEV_CHECKPOINT_MODEL\"",
+     "after": "LEGACY_CHECKPOINT_MODEL_ENV = \"JI_DEV_CHECKPOINT_MODEL\""
+    },
+    {
+     "before": "CHANGES_MODEL_ENV = \"SDL_CHANGES_MODEL\"",
+     "after": "CHANGES_MODEL_ENV = \"JI_CHANGES_MODEL\""
+    },
+    {
+     "before": "SUBMIT_FAILURE_MODEL_ENV = \"SDL_SUBMIT_FAILURE_MODEL\"",
+     "after": "SUBMIT_FAILURE_MODEL_ENV = \"JI_SUBMIT_FAILURE_MODEL\""
+    }
+   ],
+   "skipped": [
+    "Line 1 import specifier \"@sdl/core/model-slug\" left unchanged - @sdl/* package scope is an out-of-window survivor per brief",
+    "LEGACY_CHANGES_MODEL_ENV value \"PI_DRAFT_MODEL\" left unchanged - not an SDL_* env var name"
+   ]
+  },
+  {
+   "file": "ts/packages/tools/areg/src/operations/project-agents.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "export function parseSdlAregAgents(text: string, pathLabel = \"sdl.toml\")",
+     "after": "export function parseSdlAregAgents(text: string, pathLabel = \"ji.toml\")"
+    },
+    {
+     "before": "code: \"sdl_toml_invalid\" (4 sites: TOML parse error, [areg] table check, [areg].agents array check, non-empty string list check)",
+     "after": "code: \"ji_toml_invalid\" (all 4 sites)"
+    },
+    {
+     "before": "pathLabel: \"sdl.toml\", description: \"sdl.toml\" in rejectTextState call",
+     "after": "pathLabel: \"ji.toml\", description: \"ji.toml\""
+    },
+    {
+     "before": "return parseSdlAregAgents(state.text, \"sdl.toml\");",
+     "after": "return parseSdlAregAgents(state.text, \"ji.toml\");"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "ts/scripts/render-cli-shim.mjs",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"SDL_TEMPLATE\", \"SDL_OUTPUT\", \"SDL_TOOL\", \"SDL_CANONICAL_CHECKOUT\", \"SDL_CLI_REL_PATH\", \"SDL_INSTALL_HINT\"",
+     "after": "\"JI_TEMPLATE\", \"JI_OUTPUT\", \"JI_TOOL\", \"JI_CANONICAL_CHECKOUT\", \"JI_CLI_REL_PATH\", \"JI_INSTALL_HINT\""
+    },
+    {
+     "before": "envValue(\"SDL_TEMPLATE\")",
+     "after": "envValue(\"JI_TEMPLATE\")"
+    },
+    {
+     "before": "tool: envValue(\"SDL_TOOL\")",
+     "after": "tool: envValue(\"JI_TOOL\")"
+    },
+    {
+     "before": "canonicalCheckout: envValue(\"SDL_CANONICAL_CHECKOUT\")",
+     "after": "canonicalCheckout: envValue(\"JI_CANONICAL_CHECKOUT\")"
+    },
+    {
+     "before": "cliRelPath: envValue(\"SDL_CLI_REL_PATH\")",
+     "after": "cliRelPath: envValue(\"JI_CLI_REL_PATH\")"
+    },
+    {
+     "before": "installHint: envValue(\"SDL_INSTALL_HINT\")",
+     "after": "installHint: envValue(\"JI_INSTALL_HINT\")"
+    },
+    {
+     "before": "fallbackMode: process.env.SDL_FALLBACK_MODE",
+     "after": "fallbackMode: process.env.JI_FALLBACK_MODE"
+    },
+    {
+     "before": "writeFile(envValue(\"SDL_OUTPUT\"), ...)",
+     "after": "writeFile(envValue(\"JI_OUTPUT\"), ...)"
+    }
+   ],
+   "skipped": [
+    "Did not touch envValue() function name, main() function, or the import of render-cli-shim-core.ts \u2014 none contain SDL/sdl literal forms needing rename",
+    "Did not touch the console.error message text 'render-cli-shim.mjs: missing required environment variables' since it references the joined variable names dynamically, not a literal SDL string"
+   ]
+  },
+  {
+   "file": "ts/vitest.shared.ts",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`../.sdl/reviews/*/tools/*/test/${testPath}**/*.test.ts`,",
+     "after": "`../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts`,"
+    }
+   ],
+   "skipped": []
+  }
+ ],
+ "complex": [
+  {
+   "id": "cs1-workspace-globs",
+   "files": [
+    "ts/pnpm-workspace.yaml",
+    "ts/package.json",
+    "ts/tsconfig.json"
+   ],
+   "changed": true,
+   "summary": "Renamed the repo-state review-tools workspace glob from .sdl to .ji in all three build configs, keeping the form byte-identical across them: pnpm-workspace.yaml (`../.sdl/reviews/*/tools/*` \u2192 `../.ji/reviews/*/tools/*`), package.json workspaces array (same), and tsconfig.json include (both `/src/**/*.ts` and `/test/**/*.ts` variants). Left all out-of-window survivors untouched: `@sdl/*` package scope deps, `@sdl-local/pi-tools`, `sdl-flow`, `sdlcc`, and the `sdl-ts-workspace` package name.",
+   "skipped": [
+    "Package name \"sdl-ts-workspace\" (package.json) \u2014 survivor package/dir name, not in the RENAME list",
+    "@sdl/* devDependency scopes and @sdl-local/pi-tools \u2014 @sdl/* package scope is explicitly DO NOT TOUCH",
+    "sdl-flow and sdlcc workspace deps \u2014 survivor package names"
+   ]
+  },
+  {
+   "id": "cs2-manifest-key",
+   "changed": true,
+   "summary": "Renamed the extension-manifest KEY \"sdl\"\u2192\"ji\" through the whole cs2 semantic unit. In the kernel: schema field `sdl:`\u2192`ji:` in sdlExtensionPackageManifestSchema (extension-manifest.ts); discovery.ts manifest reads `manifest.sdl.*`\u2192`manifest.ji.*`, ZodIssue path patterns `[\"sdl\"]`/`[\"sdl\",\"commands\"]`\u2192`[\"ji\"]`/`[\"ji\",\"commands\"]`, diagnostic kind `missing-sdl`\u2192`missing-ji`, code `extension_manifest_missing_sdl`\u2192`extension_manifest_missing_ji`, and dotted message `sdl.commands`\u2192`ji.commands`; loader.ts snake_case code `sdl_extension_contribution_import_failed`\u2192`ji_extension_contribution_import_failed`; module-loader.ts JSDoc `.sdl/extensions`\u2192`.ji/extensions`. kernel/package.json manifest key + bin `\"sdl\"`\u2192`\"ji\"`. All 21 ts/packages manifests and 7 .ji/extensions manifests: top-level key `\"sdl\":`\u2192`\"ji\":` (subpackages \"sdl\" VALUES, src/sdl paths, @sdl/* scope, sdl-flow all preserved). Style-guard semantic unit: package-metadata.ts field `readonly sdl?:`\u2192`ji?:` and `parsed.sdl`\u2192`parsed.ji` reads; tier-layering.ts prose `sdl.tier`\u2192`ji.tier` and manifest-content search `'\"sdl\"'`\u2192`'\"ji\"'`; subpackage-conformance.ts prose `sdl.subpackages`/`sdl.remainder`\u2192`ji.*`; the test's expectedTextIncludes, mock `sdl:` manifest keys, `.sdl/extensions` source shard\u2192`.ji/extensions`, and mkdtemp prefix\u2192`ji-` all updated. Kernel tests (extension-discovery mock keys+codes, sdk-runtime-exports schema input, sdk-types-folded literal). api-boundary.test.ts manifest-key reads `.sdl.tier`/`readonly sdl:`/`\"sdl\" in value`/`value.sdl`\u2192ji (all sdl-flow tokens incl. \"sdl-flow:land:capability\" left). extract-graph.mjs `d.sdl?.tier`/`manifest.sdl.subpackages` reads and `sdl.tier`/`sdl.subpackages` prose\u2192ji. Validated: kernel unit tests, flow api-boundary, full style-guard suite (102), kernel tsgo typecheck all green.",
+   "files": [
+    "ts/packages/kernel/src/sdk/extension-manifest.ts",
+    "ts/packages/kernel/src/extensions/discovery.ts",
+    "ts/packages/kernel/src/extensions/loader.ts",
+    "ts/packages/kernel/src/runtime/module-loader.ts",
+    "ts/packages/kernel/package.json",
+    ".ji/extensions/address/package.json",
+    ".ji/extensions/aretro/package.json",
+    ".ji/extensions/branch-context/package.json",
+    ".ji/extensions/flow/package.json",
+    ".ji/extensions/handoff/package.json",
+    ".ji/extensions/objective/package.json",
+    ".ji/extensions/roaster/package.json",
+    "ts/packages/capabilities/address/package.json",
+    "ts/packages/capabilities/aretro/package.json",
+    "ts/packages/capabilities/branch-context/package.json",
+    "ts/packages/capabilities/ccc/package.json",
+    "ts/packages/capabilities/flow/package.json",
+    "ts/packages/capabilities/handoff/package.json",
+    "ts/packages/capabilities/objective/package.json",
+    "ts/packages/capabilities/plans/package.json",
+    "ts/packages/capabilities/roaster/package.json",
+    "ts/packages/capabilities/slot/package.json",
+    "ts/packages/hosts/pi/package.json",
+    "ts/packages/hosts/sdlcc/package.json",
+    "ts/packages/infra/brmem/package.json",
+    "ts/packages/infra/clinkr/package.json",
+    "ts/packages/infra/core/package.json",
+    "ts/packages/local/pi-tools/package.json",
+    "ts/packages/sdl-capability-kit/package.json",
+    "ts/packages/tools/areg/package.json",
+    "ts/packages/tools/packagechk/package.json",
+    "ts/packages/tools/vibechk/package.json",
+    "skills/architecture-topology-report/scripts/extract-graph.mjs",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts",
+    "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+    "ts/packages/kernel/test/unit/sdk-runtime-exports.test.ts",
+    "ts/packages/kernel/test/type/sdk-types-folded.ts",
+    "ts/packages/capabilities/flow/test/land/api-boundary.test.ts"
+   ],
+   "skipped": [
+    "COORDINATION RISK (file outside my changeset, not touched): ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts line 9/27 defines its own inline `sdl: z.object(...)` schema and reads `manifest.sdl.commands` against .ji/extensions/address/package.json, whose key I renamed to `ji`. That test will now fail its Zod parse until its owning changeset renames the inline schema key and read to `ji`. No other external reader of the schema field exists.",
+    "discovery.ts message 'Extension manifest must contain an sdl object' left verbatim: bare 'sdl' prose, not a dotted/enumerated in-window form (owner-deferred brand prose); not asserted by tests.",
+    "discovery.ts message 'Extension manifest contains invalid SDL metadata' left: explicitly on the DO NOT TOUCH list.",
+    "buildCommand prose 'Run SDL command entry ...' (and its test assertions) left: uppercase-SDL brand prose deferred to the branding row.",
+    "Test fixture directory names 'missing-sdl'/'bad-sdl' in extension-discovery.test.ts left: descriptive scratch-dir names, not enumerated brand forms, no behavioral effect.",
+    "extract-graph.mjs ALLOWED_DEBT_EDGES: @sdl/* package names and the debt-note prose 'the sdl shell operation' left as survivors/deferred prose (only manifest-key reads and sdl.tier/sdl.subpackages dotted forms renamed)."
+   ]
+  },
+  {
+   "id": "cs3-repo-extension-discovery",
+   "files": [
+    "ts/packages/kernel/src/extensions/registry.ts",
+    "ts/packages/kernel/test/helpers/objective-extension.ts",
+    "ts/packages/kernel/test/helpers/flow-extension.ts",
+    "ts/packages/kernel/test/helpers/handoff-extension.ts",
+    "ts/packages/kernel/test/helpers/aretro-extension.ts",
+    "ts/packages/kernel/test/helpers/roaster-extension.ts",
+    "ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts",
+    "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+    "ts/packages/kernel/test/unit/extension-registry.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed sdl\u2192ji content across the repo-extension-discovery changeset: registry.ts's project extension root `.sdl/extensions`\u2192`.ji/extensions` (two sites) and the `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`\u2192`JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS` env var read (left the XDG `resolveSdlXdgPath` call and TS identifiers like SDL_COMMAND_NAME_PATTERN untouched \u2014 survivor scope owned elsewhere). Updated the five checked-in-extension test helpers (objective/flow/handoff/aretro/roaster) to source and install from `.ji/extensions/<name>` instead of `.sdl/extensions/<name>`. Updated repo-local-extension-manifest-parity.test.ts's `REPO_LOCAL_EXTENSION_ROOT` and its two doc/error-message mentions of `.sdl/extensions` to `.ji/extensions` (left @sdl/* imports, RepoLocalSdlExtension* identifiers, and sdl-flow package name untouched \u2014 survivors). Updated address's extension-manifest.test.ts `ADDRESS_EXTENSION_ROOT` path to `.ji/extensions/address` (left the zod schema's `sdl:` field key and `manifest.sdl.commands` access untouched \u2014 they parse the real .ji/extensions/address/package.json manifest file, whose content-level \"sdl\" key is out of this changeset's file list). Rewrote extension-registry.test.ts: the `sdl-extension-registry-` tmpdir prefix \u2192 `ji-extension-registry-`; every `.sdl`/`.local/share/sdl` fixture path (project, global, legacy-global, manifest) \u2192 `.ji`/`.local/share/ji`; every `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS` env reference (6 sites) \u2192 `JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`; all 7 unquoted `sdl: {` manifest-fixture object keys \u2192 `ji: {`; both `sdl_extension_contribution_import_failed` diagnostic-code expectations \u2192 `ji_extension_contribution_import_failed`. Left `@sdl/kernel/sdk` import specifiers and `noopSdlCommandIo`/`noopSdlProgress` identifiers untouched (survivors).",
+   "skipped": [
+    "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts: left the zod schema's `sdl: z.object(...)` field name and `manifest.sdl.commands` access as-is. This test parses the real .ji/extensions/address/package.json manifest, which still has a literal `\"sdl\":` key on disk (verified) \u2014 that manifest-content file is not in this changeset's file list, so renaming the schema key here would desync the test from the file until whichever changeset owns .ji/extensions/*/package.json content lands its own \"sdl\"\u2192\"ji\" manifest-key rename."
+   ]
+  },
+  {
+   "id": "cs4-slot-path-regex",
+   "files": [
+    "ts/packages/capabilities/flow/src/land/stack/worktrees.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts",
+    "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed all in-window sdl->ji forms across the slot-path regex and its paired test fixtures, keeping match semantics. worktrees.ts:76 regex `sdl\\/slots`->`ji\\/slots`. land-stack-helpers.test.ts: `/sdl:flow:land`->`/ji:flow:land`; `.local/state/sdl/slots` fixtures (incl. the `sdl-tools`-repo and Windows `Local\\\\sdl\\\\slots` variants) ->`.../ji/slots`; TOPOLOGY display assertion `sdl flow exec ...`->`ji flow exec ...`; scripted argv+display `sdl flow changes`->`ji flow changes`. land-stack-command-scenarios.test.ts: progress-title `sdl flow land`->`ji flow land` (matches source BASE_LAND_TITLE already = \"ji flow land\"); all `.local/state/sdl/slots` slot-01/slot-07 fixtures ->`.../ji/slots`; every `step(\"sdl\", [\"slot\",\"free\",...])`, `call.command === \"sdl\"` slot check, and `Command: sdl slot free`->`ji` (matches runtime freeSlots which execs command \"ji\"). Verified against renamed runtime (graphite-command-channel command:\"ji\" topology reads, post-landing-slot-cleanup/land-context-adapter formatCommand(\"ji\",...)).",
+   "skipped": [
+    "helpers:553 legacy `/Users/me/.slots/repos/sdl-tools/...` kept: `.slots` is not the `sdl/slots` XDG form and `sdl-tools` is a survivor dir name; this is the negative fixture proving isManagedSlotPath returns false",
+    "helpers:554,556 kept the `repos/sdl-tools` stem while renaming the `state/sdl/slots`->`state/ji/slots` prefix \u2014 `sdl-tools` is a survivor package/dir name",
+    "helpers:562-563,589,592 `sdl-tools` left verbatim \u2014 survivor package/dir name",
+    "helpers:743 test() label 'unrelated sdl commands' left verbatim \u2014 describe/test label brand prose, deferred to branding row",
+    "scenarios:8 import `../../src/sdl/commands/land.ts` left verbatim \u2014 src/sdl path segment survivor",
+    "scenarios:1177 test() label 'descendant sdl slot checkouts' left verbatim \u2014 test label brand prose",
+    "scenarios:1860 `skills/sdl-typescript/SKILL.md` left verbatim \u2014 skill directory name survivor",
+    "All `@sdl/*` import specifiers left verbatim \u2014 package scope survivor",
+    "Did not rename TOPOLOGY_COMMAND in land-test-helpers.ts (outside changeset); line 739 assertion assumes its owner renames that constant to 'ji', which the runtime already requires"
+   ]
+  },
+  {
+   "id": "cs5-xdg-core",
+   "changed": true,
+   "files": [
+    "ts/packages/infra/core/src/config/xdg-path.ts",
+    "ts/packages/capabilities/flow/src/sdl/commands/submit.ts",
+    "ts/packages/capabilities/aretro/src/payloads/root.ts",
+    "ts/packages/infra/core/test/xdg-path.test.ts",
+    "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts"
+   ],
+   "summary": "Landed the XDG-core segment rename and its hand-rolled bypasses as one unit. xdg-path.ts:67 canonical XDG segment \"sdl\"->\"ji\" (identifier resolveSdlXdgPath preserved). submit.ts (wholly owned): its hand-rolled XDG fallback now uses \"ji\"/\".ji\" (XDG_STATE_HOME, HOME/.local/state, and cwd .sdl->.ji at lines ~305-311); SUBMIT_FAILURE_LOG_DIR_ENV value and all description env-var NAMES SDL_*->JI_*; the mkdtemp prefix \"sdl-submit-failure-\"->\"ji-submit-failure-\"; and every \"sdl flow submit\" CLI-command reference (phase title, failure message, model prompt, raw-log headers)->\"ji flow submit\". aretro root.ts: SDL_PAYLOAD_ROOT_ENV/SDL_PAYLOAD_SESSION_ID_ENV string VALUES ->\"JI_PAYLOAD_ROOT\"/\"JI_PAYLOAD_SESSION_ID\" (identifiers preserved) and tmpdir segment \"sdl\"->\"ji\". Both test files updated to the new \"ji\" XDG segment in path assertions; xdg-path.test.ts also renamed test env-var fixture keys SDL_ROOT->JI_ROOT and SDL_LOG_DIR->JI_LOG_DIR (with the matching override-not-absolute error assertion). Survivors left verbatim: @sdl/* import scope, Sdl* TS identifiers, src/sdl/ and sdl-runtime.ts path segments, SDL_PAYLOAD_*_ENV constant identifiers, and the survivor-package mkdtemp stem sdl-capability-kit-xdg-.",
+   "skipped": [
+    "xdg-path.test.ts:65,69 override-fixture VALUE '~/sdl-root' and its expected resolved path '/home/tester/sdl-root/logs': left verbatim. It is arbitrary test path DATA (the override branch never joins the 'sdl' XDG segment), not one of the enumerated brand forms; the env-var NAME holding it was renamed to JI_ROOT and the test still passes.",
+    "Deferred brand-prose test labels kept verbatim per owner 2026-07-02 branding-row deferral: xdg-path.test.ts:54 'SDL-owned paths' and :98 'SDL state'."
+   ]
+  },
+  {
+   "id": "cs6-pi-namespace-core",
+   "changed": true,
+   "files": [
+    "ts/packages/hosts/pi/src/commands/surfaces.ts",
+    "ts/packages/capabilities/flow/src/pi/sdl-extension.ts",
+    "ts/packages/hosts/pi/src/commands/events.ts",
+    "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+    "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
+   ],
+   "summary": "Renamed the sdl\u2192ji Pi namespace across three mechanisms plus their tests. surfaces.ts: 6 exported command-name constants (sdl:branch-context:* and sdl:plan:*) \u2192 ji:*, KNOWN_PI_COMMAND_NAMESPACES entry \"sdl\"\u2192\"ji\", and SPECIALIZED_SKILL_REPLACEMENTS VALUES sdl:flow:autobranch/cp/submit \u2192 ji:flow:* (KEYS like \"sdl-cli-design\"/\"sdl-flow-submit\" left as skill-dir survivors). flow/src/pi/sdl-extension.ts: parity surface: `ji:flow:*` and cli:/notes CLI form `ji ...`, the `.sdl/extensions` comment path \u2192 `.ji/extensions`, cliName \"sdl\"\u2192\"ji\", piNamespace \"sdl:flow\"\u2192\"ji:flow\" (SdlCommandInfo/SdlExtensionAPI/sdlExtension/SDL_FLOW_COMMANDS identifiers, @sdl scope, ../sdl/ import, sdl-flow/pi package name, sdl-extension filename all preserved). events.ts: PI_EXTENSION_COMMAND_FINISHED_EVENT value \u2192 \"ji:pi-extension-command:finished\". sdl-extension.test.ts: FakePi customType machine keys sdl-command-ack/progress \u2192 ji-*, positive registered-key set and command lookups \u2192 ji:flow:*, description-prefix expectations \u2192 \"ji flow ...:\" (verified against cli-extension.ts formatting); absence-loop old-name literals kept verbatim as tombstones. pi-command-surfaces.test.ts: two literal derivePiReplacementSurface expectations sdl:flow:cp/submit \u2192 ji:flow:* to mirror the renamed replacement VALUES.",
+   "skipped": [
+    "describe()/test() brand-prose labels in sdl-extension.test.ts ('sdl Pi extension', 'SDL lifecycle mirrors', 'routes sdl flow ... to the SDL CLI') left verbatim \u2014 deferred to the branding row per brief",
+    "Absence-assertion legacy literals (sdl:changes, sdl:cp, sdl:code:* ...) in sdl-extension.test.ts kept as tombstones; did NOT add new sdl:flow:* absence entries since the exact-set toEqual(ji:flow:*) already excludes them and the brief said old-name literals STAY",
+    "SDL brand prose in sdl-extension.ts doc comment ('the SDL CLI runner', 'temporary SDL extension project') left verbatim \u2014 brand-prose row",
+    "Survivor forms untouched: @sdl/* scope + import specifiers, ../sdl/ relative import, Sdl* / sdlExtension / SDL_FLOW_COMMANDS JS identifiers, sdl-flow(/pi) package name, sdl-extension source filename, SPECIALIZED_SKILL_REPLACEMENTS skill-dir KEYS"
+   ]
+  },
+  {
+   "id": "cs8-shim-tokens",
+   "files": [
+    "ts/scripts/render-cli-shim-core.ts",
+    "ts/scripts/source-cli-shim-template"
+   ],
+   "changed": true,
+   "summary": "Renamed the @@SDL_*@@ shim substitution tokens to @@JI_*@@ in lockstep across the renderer (TOKEN_PREFIX and the replacements Map keys: @@JI_TOOL@@, @@JI_CANONICAL_CHECKOUT@@, @@JI_CLI_REL_PATH@@, @@JI_INSTALL_HINT@@, @@JI_FALLBACK_MODE@@) and the shim template's placeholder usages and variable assignments. Renamed the SDL_FALLBACK_MODE env-var error string to JI_FALLBACK_MODE. Renamed the explicitly-called-out template brand prose \"runs an sdl TypeScript CLI\" to \"runs a ji TypeScript CLI\" (with the token @@JI_TOOL@@ in that same comment line).",
+   "skipped": [
+    "ts/scripts/source-cli-shim-template lines 8, 38, 48: left the other 'sdl checkout' brand-prose phrases (comment + two echo error strings) untouched \u2014 the brief explicitly lists 'an sdl checkout' as a deferred brand-prose example, and the changeset instructions called out only the single phrase 'runs an sdl TypeScript CLI' for renaming, not these.",
+    "render-cli-shim-core.ts line 1: left the `@sdl/core/exec` import specifier untouched \u2014 it's the out-of-window `@sdl/*` package scope survivor per the brief's DO NOT TOUCH list."
+   ]
+  },
+  {
+   "id": "cs9-graphite-command-channel",
+   "files": [
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed the shared `command: \"sdl\"` typed-literal contract to `command: \"ji\"` in graphite-command-channel.ts (interface field, the returned ReadGraphiteBranchMetadataCommand object incl. its formatCommand(\"sdl\", args) call, and the `command === \"sdl\"` guard), and renamed the `/sdl:flow:land` namespace reference in the adjacent comment to `/ji:flow:land`. In land-context-adapter.ts, renamed the matching consumer sites in freeSlots: formatCommand(\"sdl\", [\"slot\", ...]) and the exec `command: \"sdl\"` both became \"ji\". Both files edited together so the typed contract and its consumer stay in sync.",
+   "skipped": [
+    "graphite-command-channel.ts:233 'avoid labeling unrelated sdl invocations just because the binary matches.' \u2014 left as-is: lowercase 'sdl' used as prose/adjective referring to the general concept of sdl invocations, not a literal CLI-name/path/namespace form; treated as branding-row survivor prose per the brief's 'an sdl checkout' example, and not called out in the changeset's explicit rename list (which only named the /sdl:flow:land namespace on the line above)."
+   ]
+  },
+  {
+   "id": "cs7-toml-readers",
+   "files": [
+    "ts/packages/capabilities/roaster/src/gateways/local-diff.ts",
+    "ts/packages/capabilities/roaster/src/operations/review-run.ts",
+    "ts/packages/tools/areg/src/gateways.ts",
+    "ts/packages/tools/areg/src/gateways/mutation-policy.ts",
+    "ts/packages/tools/areg/src/gateways/project-gateway.ts",
+    "ts/packages/tools/areg/src/operations/init.ts",
+    "ts/packages/tools/areg/src/fake-gateways.ts"
+   ],
+   "changed": true,
+   "summary": "Renamed every \"sdl.toml\" filename string literal to \"ji.toml\" across the 7 changeset files, including the AregInitTextWritePlan.relativePath union type (gateways.ts), the mutation-policy allowlist, project-gateway's inspection path.join call, all filename/pathLabel/description literals and the parseSdlAregAgents filename arg in init.ts's planSdlToml, the fake gateway's file-map key and default inspectProjectBase fileState lookup, and the config-read paths/error messages in roaster's local-diff.ts and review-run.ts. All `sdlToml` identifiers (field names, local var `sdl`, function name `planSdlToml`) were left untouched per the brief since they are survivor TS identifiers, not the filename literal. Verified with `pnpm --dir ts run check` (tsgo) \u2014 no errors.",
+   "skipped": []
+  }
+ ],
+ "verify": []
+}

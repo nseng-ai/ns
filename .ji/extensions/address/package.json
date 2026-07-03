@@ -1,5 +1,5 @@
 {
-	"sdl": {
+	"ji": {
 		"description": "Inspect and address GitHub pull request feedback.",
 		"group": "address",
 		"commands": [

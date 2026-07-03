@@ -6,7 +6,7 @@
 //
 // Reference renderer for the FINITE result-block shape in the consolidated house style; the
 // normative rules (intent→glyph mapping, success-concise / failure-detailed tiers, refusal kind,
-// transcript handling) live in `.sdl/objectives/cli-ux-north-star/house-style.md`.
+// transcript handling) live in `.ji/objectives/cli-ux-north-star/house-style.md`.
 //
 // Three-tier styling (house-style sign-off):
 //   - headline: bold + intent-painted, with a leading status glyph;

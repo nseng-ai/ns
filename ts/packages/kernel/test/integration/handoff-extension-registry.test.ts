@@ -25,7 +25,7 @@ describe("checked-in handoff SDL extension registry", () => {
 		const help = runHandoffCli({ args: ["handoff", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: sdl handoff");
+		expect(output).toContain("Usage: ji handoff");
 		for (const leaf of HANDOFF_LEAVES) expect(output).toContain(leaf);
 		expect(help.stderr.join("")).toBe("");
 
@@ -37,7 +37,7 @@ describe("checked-in handoff SDL extension registry", () => {
 });
 
 async function createHandoffProject(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "sdl-handoff-extension-"));
+	const directory = await mkdtemp(join(tmpdir(), "ji-handoff-extension-"));
 	tempDirs.push(directory);
 	installCheckedInHandoffExtension(directory);
 	return directory;

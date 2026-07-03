@@ -11,7 +11,7 @@ const tempDirs: string[] = [];
 const originalPath = process.env.PATH;
 
 function createTempDir(): string {
-	const directory = mkdtempSync(join(tmpdir(), "sdl-exec-unit-"));
+	const directory = mkdtempSync(join(tmpdir(), "ji-exec-unit-"));
 	tempDirs.push(directory);
 	return directory;
 }
@@ -32,20 +32,20 @@ describe("NodeCommandExecApi", () => {
 describe("defaultCommandResolver", () => {
 	test("finds executables on PATH", () => {
 		const directory = createTempDir();
-		const executable = join(directory, "sdl-exec-test-tool");
+		const executable = join(directory, "ji-exec-test-tool");
 		writeFileSync(executable, "#!/bin/sh\nexit 0\n");
 		chmodSync(executable, 0o755);
 		process.env.PATH = directory;
 
-		expect(defaultCommandResolver("sdl-exec-test-tool")).toBe(executable);
+		expect(defaultCommandResolver("ji-exec-test-tool")).toBe(executable);
 	});
 
 	test("returns undefined for non-executable commands", () => {
 		const directory = createTempDir();
-		writeFileSync(join(directory, "sdl-exec-test-tool"), "#!/bin/sh\nexit 0\n");
+		writeFileSync(join(directory, "ji-exec-test-tool"), "#!/bin/sh\nexit 0\n");
 		process.env.PATH = directory;
 
-		expect(defaultCommandResolver("sdl-exec-test-tool")).toBeUndefined();
+		expect(defaultCommandResolver("ji-exec-test-tool")).toBeUndefined();
 		expect(defaultCommandResolver("missing-tool")).toBeUndefined();
 	});
 });

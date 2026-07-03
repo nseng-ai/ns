@@ -28,7 +28,7 @@ The resolved repository facts that let Slot relate the current checkout, the mai
 The canonical result shape describing where a branch was placed or already lives, including branch name, slot/worktree path, parent-shell `cd` command, and checkout-state notes.
 *Avoid*: CCC checkout DTO, parsed CLI JSON, display text
 
-The `sdl slot ...` command surface — the user- and agent-facing commands mounted as `sdl slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
+The `ji slot ...` command surface — the user- and agent-facing commands mounted as `ji slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
 **Slot Capability API**:
 The curated `@sdl/slot/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.
@@ -47,13 +47,13 @@ A short-lived file-based signal that carries the destination path from an SDL ch
 *Avoid*: clipboard command, rc-file marker, general command output
 
 **Slot Shell Mount**:
-The compatibility `sdl slot shell ...` command group that exposes the same SDL-owned parent-shell integration as `sdl shell ...` from within the Slot command tree.
+The compatibility `ji slot shell ...` command group that exposes the same SDL-owned parent-shell integration as `ji shell ...` from within the Slot command tree.
 *Avoid*: Slot-owned shell installer, separate `slot()` wrapper, `@sdl/slot/shell-support`
 
 **Slot Graphite Command Group**:
-The `sdl slot gt ...` command surface for Graphite-aware Slot navigation, stack release, and hidden skill/agent helpers.
+The `ji slot gt ...` command surface for Graphite-aware Slot navigation, stack release, and hidden skill/agent helpers.
 *Avoid*: Graphite support package, Slot Capability API by default, CCC landing policy
 
 **Slot Graphite Exec Helper**:
-A hidden command-face helper under `sdl slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot Capability API** until an in-process consumer proves the need.
+A hidden command-face helper under `ji slot gt exec ...` that emits structured Graphite/Slot facts for skills or agents while staying outside the **Slot Capability API** until an in-process consumer proves the need.
 *Avoid*: public human command, Capability API promotion, parsing `gt` display output

@@ -46,7 +46,7 @@ const manifestCommand: SdlExtensionManifestCommand = {
 const manifest: SdlExtensionManifest = { group: "flow", commands: [manifestCommand] };
 const packageManifest: SdlExtensionPackageManifest = {
 	description: "Flow commands.",
-	sdl: manifest,
+	ji: manifest,
 };
 
 // @ts-expect-error name is required by the command schema output

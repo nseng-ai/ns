@@ -196,13 +196,13 @@ Repair the failed just run.
 				]);
 				expect(pi.messages).toEqual([
 					{
-						customType: "sdl-command-progress",
+						customType: "ji-command-progress",
 						content: "→ Running `just`…",
 						display: true,
 					},
 				]);
-				expect(pi.renderers.has("sdl-command-ack")).toBe(false);
-				expect(pi.renderers.has("sdl-command-progress")).toBe(true);
+				expect(pi.renderers.has("ji-command-ack")).toBe(false);
+				expect(pi.renderers.has("ji-command-progress")).toBe(true);
 				expect(context.notifications).toEqual([
 					{ message: "`just` failed; invoking code-just-fix.", level: "warning" },
 				]);

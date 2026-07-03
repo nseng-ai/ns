@@ -1,15 +1,15 @@
-export const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "sdl:branch-context:from-plan";
+export const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ji:branch-context:from-plan";
 export const BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME =
-	"sdl:branch-context:upstack-impl-from-plan";
-export const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "sdl:branch-context:impl-attached-plan";
+	"ji:branch-context:upstack-impl-from-plan";
+export const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ji:branch-context:impl-attached-plan";
 
 export function formatImplBranchContextCommand(key: string): string {
 	return `/${IMPL_BRANCH_CONTEXT_COMMAND_NAME} ${key}`;
 }
 
-export const WRITE_PLAN_COMMAND_NAME = "sdl:plan:save";
-export const WRITE_GRILLED_PLAN_COMMAND_NAME = "sdl:plan:grill-and-save";
-export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "sdl:plan:impl-current";
+export const WRITE_PLAN_COMMAND_NAME = "ji:plan:save";
+export const WRITE_GRILLED_PLAN_COMMAND_NAME = "ji:plan:grill-and-save";
+export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "ji:plan:impl-current";
 
 export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"branch-context",
@@ -30,7 +30,7 @@ export const KNOWN_PI_COMMAND_NAMESPACES = [
 	"dev",
 	"cli",
 	"pr",
-	"sdl",
+	"ji",
 	"pi",
 	"stack",
 ] as const;
@@ -113,12 +113,12 @@ export const SPECIALIZED_SKILL_REPLACEMENTS = {
 	"objective-update": "objective:update",
 	"pi-grill-ui": "pi:grill-me",
 	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"code-autobranch": "sdl:flow:autobranch",
-	"code-checkpoint": "sdl:flow:cp",
+	"code-autobranch": "ji:flow:autobranch",
+	"code-checkpoint": "ji:flow:cp",
 	"code-gt-restack-resolve": "code:gt-restack-resolve",
 	"code-just-fix": "code:just-fix",
-	"code-submit": "sdl:flow:submit",
-	"sdl-flow-submit": "sdl:flow:submit",
+	"code-submit": "ji:flow:submit",
+	"sdl-flow-submit": "ji:flow:submit",
 	"ccc-sidebar": "ccc:sidebar:pr-summary",
 	pytest: "python:pytest",
 	skillx: "skill:x",

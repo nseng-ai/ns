@@ -362,9 +362,9 @@ describe("/pr:preview-feedback", () => {
 		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
-			{ command: "sdl", args: ["address", "exec", "download-feedback", "--format", "json"] },
+			{ command: "ji", args: ["address", "exec", "download-feedback", "--format", "json"] },
 			{
-				command: "sdl",
+				command: "ji",
 				args: ["address", "exec", "pr-review-threads", "--pr-number", "456", "--format", "json"],
 			},
 		]);
@@ -392,11 +392,11 @@ describe("/pr:preview-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "sdl",
+				command: "ji",
 				args: ["address", "exec", "download-feedback", "--pr-number", "123", "--format", "json"],
 			},
 			{
-				command: "sdl",
+				command: "ji",
 				args: ["address", "exec", "pr-review-threads", "--pr-number", "789", "--format", "json"],
 			},
 		]);
@@ -424,7 +424,7 @@ describe("/pr:preview-feedback", () => {
 		const ctx = await runPreviewCommand({ pi });
 
 		expect(pi.calls).toEqual([
-			{ command: "sdl", args: ["address", "exec", "download-feedback", "--format", "json"] },
+			{ command: "ji", args: ["address", "exec", "download-feedback", "--format", "json"] },
 		]);
 		expect(ctx.customCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
@@ -444,7 +444,7 @@ describe("/pr:preview-feedback", () => {
 		expect(ctx.customCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"Malformed sdl address exec pr-review-threads #456",
+			"Malformed ji address exec pr-review-threads #456",
 		);
 		expect(ctx.notifications.at(-1)?.message).toContain("boom");
 	});
