@@ -32,7 +32,7 @@ async function lint(
 	const result = await objectiveEdgeLintChecks({
 		storage,
 		slug,
-		recordRelativePath: `.sdl/objectives/${slug}`,
+		recordRelativePath: `.ji/objectives/${slug}`,
 		document: splitObjectiveRecordDocument(content),
 	});
 	if (!result.ok) throw new Error(result.error.message);
@@ -182,7 +182,7 @@ describe("sweepObjectiveEdgeLint", () => {
 		expect(result.value.recordCount).toBe(4);
 		expect(labels(result.value.violations)).toEqual(["objective.md edge ghost endpoint exists"]);
 		expect(result.value.violations[0]?.path).toBe(
-			".sdl/objective-archive/archived-dangler/objective.md",
+			".ji/objective-archive/archived-dangler/objective.md",
 		);
 	});
 
