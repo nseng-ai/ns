@@ -5,7 +5,7 @@ import type { RunnerSubagentTerminalToolDefinition } from "@internal/pi-tools/ru
 export const SUBMIT_THERMO_COUNCIL_REVIEW_TOOL = "submit_thermo_council_review";
 export const BLOCK_THERMO_COUNCIL_REVIEW_TOOL = "block_thermo_council_review";
 
-export type ThermoCouncilSeatId = "anthropic-opus" | "openai-high" | "gemini-high";
+export type ThermoCouncilSeatId = "anthropic-fable" | "openai-high" | "gemini-high";
 export type ThermoCouncilSeatStatus = "completed" | "blocked" | "failed";
 export type FindingConfidence = "trunk-likely" | "likely" | "uncertain" | "speculative";
 export type FindingSeverity = "critical" | "high" | "medium" | "low";

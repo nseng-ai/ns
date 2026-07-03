@@ -34,8 +34,8 @@ export function uniqueStrings(values: readonly string[]): readonly string[] {
 
 function reviewerSeatPrefix(seat: ThermoCouncilSeatConfig): string {
 	switch (seat.id) {
-		case "anthropic-opus":
-			return "opus";
+		case "anthropic-fable":
+			return "fable";
 		case "openai-high":
 			return "openai";
 		case "gemini-high":
