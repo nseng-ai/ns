@@ -1,0 +1,453 @@
+### skills/architecture-topology-report/scripts/extract-graph.mjs
+skills/architecture-topology-report/scripts/extract-graph.mjs:71:    "SDK-to-capability-kit CLI shell-support debt: @ji/kernel still reuses Capability Kit shell wrappers for the ji shell operation.",
+skills/architecture-topology-report/scripts/extract-graph.mjs:158:  const tier = d.ji?.tier;
+skills/architecture-topology-report/scripts/extract-graph.mjs:260:    Array.isArray(manifest?.ji?.subpackages) &&
+skills/architecture-topology-report/scripts/extract-graph.mjs:261:    manifest.ji.subpackages.includes("pi") &&
+skills/architecture-topology-report/scripts/extract-graph.mjs:318:  const value = manifest?.ji?.subpackages;
+
+### ts/packages/capabilities/address/package.json
+ts/packages/capabilities/address/package.json:7:		"./ji-command": "./src/ji-command.ts",
+ts/packages/capabilities/address/package.json:36:	"ji": {
+
+### ts/packages/capabilities/address/src/core/download-feedback.ts
+ts/packages/capabilities/address/src/core/download-feedback.ts:245:		'If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, close review threads with `ji address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --format json`; include `--body <BODY>` when a reply is useful. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql` for those mutations.',
+
+### ts/packages/capabilities/address/src/exec-operation.ts
+ts/packages/capabilities/address/src/exec-operation.ts:10:import { createSdlDomainCommand } from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/address/src/ji-command.ts
+ts/packages/capabilities/address/src/ji-command.ts:1:import { createSdlCwdEnvStdinContext } from "@ji/capability-kit/ji-context";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-branch-pr.ts
+ts/packages/capabilities/address/src/ji/commands/exec-branch-pr.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-close-review-threads.ts
+ts/packages/capabilities/address/src/ji/commands/exec-close-review-threads.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-download-feedback.ts
+ts/packages/capabilities/address/src/ji/commands/exec-download-feedback.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-map-branch-prs.ts
+ts/packages/capabilities/address/src/ji/commands/exec-map-branch-prs.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-open-prs.ts
+ts/packages/capabilities/address/src/ji/commands/exec-open-prs.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-pr-checks.ts
+ts/packages/capabilities/address/src/ji/commands/exec-pr-checks.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-pr-details.ts
+ts/packages/capabilities/address/src/ji/commands/exec-pr-details.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-pr-discussion-comments.ts
+ts/packages/capabilities/address/src/ji/commands/exec-pr-discussion-comments.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-pr-review-threads.ts
+ts/packages/capabilities/address/src/ji/commands/exec-pr-review-threads.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-pr-reviews.ts
+ts/packages/capabilities/address/src/ji/commands/exec-pr-reviews.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-reply-review-thread.ts
+ts/packages/capabilities/address/src/ji/commands/exec-reply-review-thread.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/ji/commands/exec-resolve-review-thread.ts
+ts/packages/capabilities/address/src/ji/commands/exec-resolve-review-thread.ts:1:import { prAddressSdlExtension } from "../../ji-command.ts";
+
+### ts/packages/capabilities/address/src/repo-local-ji-extension.ts
+ts/packages/capabilities/address/src/repo-local-ji-extension.ts:7:import { prAddressSdlCommand } from "./ji-command.ts";
+
+### ts/packages/capabilities/aretro/package.json
+ts/packages/capabilities/aretro/package.json:24:	"ji": {
+
+### ts/packages/capabilities/aretro/src/ji/command.ts
+ts/packages/capabilities/aretro/src/ji/command.ts:4:} from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/aretro/src/operations/collect-evidence.ts
+ts/packages/capabilities/aretro/src/operations/collect-evidence.ts:228:				"Use ji aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+
+### ts/packages/capabilities/branch-context/package.json
+ts/packages/capabilities/branch-context/package.json:47:	"ji": {
+ts/packages/capabilities/branch-context/package.json:53:			"ji",
+
+### ts/packages/capabilities/branch-context/src/core/attached-plan.ts
+ts/packages/capabilities/branch-context/src/core/attached-plan.ts:63:				"Create a saved plan with `enriched-plan exec save`, attach it with `ji branch-context exec from-plan`,",
+
+### ts/packages/capabilities/branch-context/src/ji/command.ts
+ts/packages/capabilities/branch-context/src/ji/command.ts:4:} from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/branch-context/src/pi/extension.ts
+ts/packages/capabilities/branch-context/src/pi/extension.ts:50:		cli: "ji branch-context exec from-plan",
+ts/packages/capabilities/branch-context/src/pi/extension.ts:89:		cli: "ji branch-context exec load",
+
+### ts/packages/capabilities/ccc/package.json
+ts/packages/capabilities/ccc/package.json:46:	"ji": {
+ts/packages/capabilities/ccc/package.json:51:			"ji",
+
+### ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts
+ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts:437:		"2. Then run `!ji flow submit`.",
+
+### ts/packages/capabilities/ccc/src/cmux/sidebar.ts
+ts/packages/capabilities/ccc/src/cmux/sidebar.ts:28:const SIDEBAR_MODEL_ENV = "JI_CCC_SIDEBAR_MODEL";
+ts/packages/capabilities/ccc/src/cmux/sidebar.ts:221:		notify(ctx, "Pass an Objective slug or .ji/objectives/<slug> path.", "warning");
+
+### ts/packages/capabilities/ccc/src/ji/autoslot-presentation.ts
+ts/packages/capabilities/ccc/src/ji/autoslot-presentation.ts:26:	/** Optional normal-weight "what to do next" line (e.g. the copyable `ji slot co <branch>`). */
+
+### ts/packages/capabilities/flow/package.json
+ts/packages/capabilities/flow/package.json:28:		"./pi/sdl-extension": "./src/pi/ji-extension.ts"
+ts/packages/capabilities/flow/package.json:42:	"ji": {
+ts/packages/capabilities/flow/package.json:54:			"ji",
+
+### ts/packages/capabilities/flow/src/autoslot/autoslot.ts
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:118:				body: "The worktree is not clean; `ji slot checkout --current` requires a clean worktree.",
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:131:				headline: `Autoslot created ${branchName}, but ji slot checkout failed.`,
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:147:			guidance: `ji slot co ${slot.target.branchName}`,
+
+### ts/packages/capabilities/flow/src/autoslot/presentation.ts
+ts/packages/capabilities/flow/src/autoslot/presentation.ts:26:	/** Optional normal-weight "what to do next" line (e.g. the copyable `ji slot co <branch>`). */
+
+### ts/packages/capabilities/flow/src/ji/commands/autobranch.ts
+ts/packages/capabilities/flow/src/ji/commands/autobranch.ts:41:If the worktree is clean, use \`ji flow branch-latest-commit\` to move the latest eligible unpushed commit to a new Graphite child branch.
+ts/packages/capabilities/flow/src/ji/commands/autobranch.ts:87:						commandLabel: "`ji flow autobranch`",
+ts/packages/capabilities/flow/src/ji/commands/autobranch.ts:99:						headline: "`ji flow autobranch` requires pending worktree changes and did not run.",
+ts/packages/capabilities/flow/src/ji/commands/autobranch.ts:103:							"Use `ji flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+
+### ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts
+ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts:19:Use \`ji flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
+ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts:50:					commandLabel: "`ji flow branch-latest-commit`",
+ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts:60:					headline: "`ji flow branch-latest-commit` requires a clean worktree and did not run.",
+ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts:65:						"Use `ji flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+
+### ts/packages/capabilities/flow/src/ji/commands/cp.ts
+ts/packages/capabilities/flow/src/ji/commands/cp.ts:66:			title: "ji flow cp",
+
+### ts/packages/capabilities/flow/src/ji/commands/land.ts
+ts/packages/capabilities/flow/src/ji/commands/land.ts:114:const BASE_LAND_TITLE = "ji flow land";
+
+### ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts
+ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts:9:// transcript handling) live in `.ji/objectives/cli-ux-north-star/house-style.md`.
+
+### ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts
+ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts:2:// failure block. `ji flow autobranch` and `ji flow branch-latest-commit` both load the same
+ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts:18:	/** Command name shown in the headline, e.g. "`ji flow autobranch`". */
+
+### ts/packages/capabilities/flow/src/ji/worktree.ts
+ts/packages/capabilities/flow/src/ji/worktree.ts:43:		{ prefix: "ji-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
+
+### ts/packages/capabilities/flow/src/land/preflight.ts
+ts/packages/capabilities/flow/src/land/preflight.ts:326:				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /ji:flow:land.`,
+
+### ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:114:				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ji:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:123:		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ji:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:222:					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ji:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:239:					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ji:flow:land if needed.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:285:						suggestedAction: `Inspect local branch ${refreshTarget}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:313:			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ji:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:449:					suggestedAction: `Inspect local branch ${maintenanceBranch}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:466:			suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:604:				suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /ji:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:673:			suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ji:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:920:			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ji:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:928:	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /ji:flow:land until it is resolved or aborted.`;
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:929:	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /ji:flow:land.`;
+
+### ts/packages/capabilities/flow/src/land/stack/land-presentation.ts
+ts/packages/capabilities/flow/src/land/stack/land-presentation.ts:1:// Flow-local facade for the `ji flow land` CLI surface.
+
+### ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:51:			`No PRs were landed. Run ${manualCommandText} manually, then rerun /ji:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:54:			suggestedAction: `Run ${manualCommandText} manually, then rerun /ji:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:69:					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ji:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:86:						"Free or detach the holding worktrees, restack the stack, then rerun /ji:flow:land.",
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:100:				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ji:flow:land.`,
+
+### ts/packages/capabilities/flow/src/land/stack/stack-facts.ts
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:75:				`Detached HEAD; check out a branch before running /ji:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:82:			landStackFailure("Could not resolve current branch before running /ji:flow:land."),
+
+### ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts
+ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts:5:// in `.ji/objectives/cli-ux-north-star/house-style.md`.
+
+### ts/packages/capabilities/flow/src/pi/index.ts
+ts/packages/capabilities/flow/src/pi/index.ts:3:export { default as sdlExtension, sdlExtensionParity } from "./ji-extension.ts";
+
+### ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts
+ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts:207:			{ prefix: "ji-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
+
+### ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:61:				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:132:			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:133:			"Otherwise, commit real changes to it, then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:139:		`If ${branchName} has no remaining work, delete it, then rerun \`ji flow submit\`:`,
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:142:		`Otherwise, commit real changes to ${branchName}, then rerun \`ji flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:154:		"Fix:    run `gt sync` (or `gt get`), then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:155:		"Bypass: `ji flow submit --force` skips Graphite's remote-update check.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:219:		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`ji flow submit\`.`,
+
+### ts/packages/capabilities/flow/src/submit/submit-format.ts
+ts/packages/capabilities/flow/src/submit/submit-format.ts:57:		"PR descriptions were not generated. Checkout a branch and run `ji flow regenerate-pr` if needed.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:133:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:147:			"If confirmed, ji flow submit will run:",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:167:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:181:		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `ji flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:187:		"Graphite still needs a restack after `ji flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:189:		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`ji flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:245:					"Local PR metadata commit messages were prepared before submit; rerun ji flow submit after resolving the Graphite failure.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:317:		"`ji flow submit` checkpoints outstanding worktree changes before submitting.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:318:		"If the branch still has no PR, inspect the Graphite output above and rerun `ji flow submit` after resolving the reported issue.",
+
+### ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts
+ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts:147:		"Checkout the branch and run `ji flow regenerate-pr` to regenerate its PR description.",
+
+### ts/packages/capabilities/flow/src/submit/text-generation.ts
+ts/packages/capabilities/flow/src/submit/text-generation.ts:24:export const PR_DESCRIPTION_MODEL_ENV = "JI_DEV_PR_DESCRIPTION_MODEL";
+
+### ts/packages/capabilities/handoff/package.json
+ts/packages/capabilities/handoff/package.json:33:	"ji": {
+ts/packages/capabilities/handoff/package.json:38:			"ji",
+
+### ts/packages/capabilities/handoff/src/ji/command.ts
+ts/packages/capabilities/handoff/src/ji/command.ts:4:} from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/handoff/src/pi/claude-command.ts
+ts/packages/capabilities/handoff/src/pi/claude-command.ts:204:			`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} verifies the handoff exists before launching Claude; do not call it before ji handoff create succeeds.`,
+
+### ts/packages/capabilities/handoff/src/pi/create-prompt.ts
+ts/packages/capabilities/handoff/src/pi/create-prompt.ts:9:- Store final Markdown with \`ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
+ts/packages/capabilities/handoff/src/pi/create-prompt.ts:10:- If \`ji handoff create\` is unavailable, the Branch Memory recovery path is \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\` followed by \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`.
+
+### ts/packages/capabilities/handoff/src/pi/create.ts
+ts/packages/capabilities/handoff/src/pi/create.ts:28:	`ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+
+### ts/packages/capabilities/handoff/src/pi/launch-flow.ts
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:139:		`Store the exact final Markdown content through /dev/stdin with \`ji handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:140:		`If \`ji handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:142:			`After \`ji handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+
+### ts/packages/capabilities/handoff/src/pi/registration.ts
+ts/packages/capabilities/handoff/src/pi/registration.ts:27:		cli: "ji handoff create",
+ts/packages/capabilities/handoff/src/pi/registration.ts:33:			"Pi command expands the portable handoff-create skill; the final artifact is stored through `ji handoff create` after model confirmation.",
+ts/packages/capabilities/handoff/src/pi/registration.ts:40:		cli: "ji handoff pickup",
+ts/packages/capabilities/handoff/src/pi/registration.ts:53:		cli: "ji handoff list",
+
+### ts/packages/capabilities/handoff/src/pi/self.ts
+ts/packages/capabilities/handoff/src/pi/self.ts:250:				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before ji handoff create succeeds.`,
+ts/packages/capabilities/handoff/src/pi/self.ts:333:		toolCallInstruction: `After \`ji handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
+
+### ts/packages/capabilities/handoff/src/pi/tab.ts
+ts/packages/capabilities/handoff/src/pi/tab.ts:148:			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before ji handoff create succeeds.`,
+
+### ts/packages/capabilities/objective/package.json
+ts/packages/capabilities/objective/package.json:39:	"ji": {
+ts/packages/capabilities/objective/package.json:45:			"ji",
+
+### ts/packages/capabilities/objective/src/core/operations/check-items.ts
+ts/packages/capabilities/objective/src/core/operations/check-items.ts:6: * Shared check-item shape for `ji objective check`: the per-record file and
+
+### ts/packages/capabilities/objective/src/ji/command.ts
+ts/packages/capabilities/objective/src/ji/command.ts:4:} from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/objective/src/ji/commands/exec-runner-begin.ts
+ts/packages/capabilities/objective/src/ji/commands/exec-runner-begin.ts:1:import { createSdlDomainCommand } from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/objective/src/ji/commands/exec-runner-finish.ts
+ts/packages/capabilities/objective/src/ji/commands/exec-runner-finish.ts:1:import { createSdlDomainCommand } from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts
+ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts:6: * `.ji/extensions/objective/package.json`, and the stub
+ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts:7: * `.ji/extensions/objective/src/commands/exec-runner-step.ts`.
+ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts:9:import { createSdlDomainCommand } from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:36:export const SDL_RUNNER_PI_BIN_ENV = "JI_RUNNER_PI_BIN";
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:71:	/** Host environment; `JI_RUNNER_PI_BIN` overrides the `pi` binary. */
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:243:	return await mkdtemp(join(tmpdir(), "ji-objective-runner-"));
+
+### ts/packages/capabilities/plans/package.json
+ts/packages/capabilities/plans/package.json:26:	"ji": {
+
+### ts/packages/capabilities/roaster/package.json
+ts/packages/capabilities/roaster/package.json:35:	"ji": {
+
+### ts/packages/capabilities/roaster/src/commands/review-ls.ts
+ts/packages/capabilities/roaster/src/commands/review-ls.ts:6:const REVIEW_LS_DESCRIPTION = `Alias for ji roaster review list.`;
+
+### ts/packages/capabilities/roaster/src/gateways/local-diff.ts
+ts/packages/capabilities/roaster/src/gateways/local-diff.ts:115:		const path = join(repoRoot, "ji.toml");
+ts/packages/capabilities/roaster/src/gateways/local-diff.ts:123:				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
+
+### ts/packages/capabilities/roaster/src/ji/command.ts
+ts/packages/capabilities/roaster/src/ji/command.ts:4:} from "@ji/capability-kit/ji-command";
+
+### ts/packages/capabilities/roaster/src/operations/review-run.ts
+ts/packages/capabilities/roaster/src/operations/review-run.ts:290:	const path = join(repoRoot.value, "ji.toml");
+ts/packages/capabilities/roaster/src/operations/review-run.ts:305:				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
+
+### ts/packages/capabilities/slot/package.json
+ts/packages/capabilities/slot/package.json:25:	"ji": {
+ts/packages/capabilities/slot/package.json:32:			"ji"
+
+### ts/packages/capabilities/slot/src/core/diagnostics.ts
+ts/packages/capabilities/slot/src/core/diagnostics.ts:12:export const SLOT_DIAGNOSTIC_LOG_ENV = "JI_SLOT_DIAGNOSTIC_LOG";
+
+### ts/packages/capabilities/slot/src/ji/command-face.ts
+ts/packages/capabilities/slot/src/ji/command-face.ts:2:// `defineCli` entrypoint. The supported user-facing surface is `ji slot ...`,
+
+### ts/packages/capabilities/slot/src/lifecycle/checkout.ts
+ts/packages/capabilities/slot/src/lifecycle/checkout.ts:104:			`HEAD at ${currentPlan.cwd} is detached. Check out a branch before running \`ji slot checkout --current\`.`,
+ts/packages/capabilities/slot/src/lifecycle/checkout.ts:109:			`Current worktree at ${currentPlan.cwd} has uncommitted changes. Commit or stash before running \`ji slot checkout --current\`.`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:52:			"Pass a command after --, e.g. `ji slot foreach -- git clean -fd`.",
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:64:			return failure("confirmation-required", "ji slot foreach requires --yes in JSON mode.");
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:92:			`ji slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts:62:			`Worktree for ${slotName} is missing at ${record.path}. Run \`ji slot free --wt ${slotName}\` to clear the stale assignment.`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts:42:			`Multiple upstack branches for '${resolved.currentBranch}': ${children.branches.join(", ")}. Run \`ji slot checkout <branch>\` for the branch you want.`,
+
+### ts/packages/capability-kit/package.json
+ts/packages/capability-kit/package.json:21:		"./ji-command": "./src/kit/ji-command.ts",
+ts/packages/capability-kit/package.json:22:		"./ji-context": "./src/kit/ji-context.ts",
+ts/packages/capability-kit/package.json:59:	"ji": {
+
+### ts/packages/capability-kit/src/git/testing.ts
+ts/packages/capability-kit/src/git/testing.ts:38:	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "ji-git-test-"));
+ts/packages/capability-kit/src/git/testing.ts:53:	runGit(["config", "user.email", options.userEmail ?? "ji-test@example.com"]);
+
+### ts/packages/capability-kit/src/kit/index.ts
+ts/packages/capability-kit/src/kit/index.ts:19:export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./ji-command.ts";
+ts/packages/capability-kit/src/kit/index.ts:26:} from "./ji-context.ts";
+
+### ts/packages/capability-kit/src/kit/text-generation.ts
+ts/packages/capability-kit/src/kit/text-generation.ts:28:export const CHECKPOINT_MODEL_ENV = "JI_CHECKPOINT_MODEL";
+ts/packages/capability-kit/src/kit/text-generation.ts:29:export const LEGACY_CHECKPOINT_MODEL_ENV = "JI_DEV_CHECKPOINT_MODEL";
+ts/packages/capability-kit/src/kit/text-generation.ts:30:export const CHANGES_MODEL_ENV = "JI_CHANGES_MODEL";
+ts/packages/capability-kit/src/kit/text-generation.ts:32:export const SUBMIT_FAILURE_MODEL_ENV = "JI_SUBMIT_FAILURE_MODEL";
+
+### ts/packages/hosts/command-backed-skill-registry/package.json
+ts/packages/hosts/command-backed-skill-registry/package.json:20:	"ji": {
+
+### ts/packages/hosts/jicc/package.json
+ts/packages/hosts/jicc/package.json:23:	"ji": {
+
+### ts/packages/hosts/jicc/src/stack-map-effects.ts
+ts/packages/hosts/jicc/src/stack-map-effects.ts:220:	return `ji slot checkout failed (${failure.errorType}): ${failure.message}`;
+
+### ts/packages/hosts/pi/package.json
+ts/packages/hosts/pi/package.json:62:	"ji": {
+
+### ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md
+ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md:10:- After implementation and validation, close all confirmed automation review threads stack-wide with `ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>"]}' --format json` unless the user instructs otherwise.
+ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md:11:- Use `ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>"]}' --body <BODY> --format json` for bulk review-thread replies after validation; single-thread `reply-review-thread` and `resolve-review-thread` remain available for one-offs.
+
+### ts/packages/hosts/pi/src/runtime/parity-extension.ts
+ts/packages/hosts/pi/src/runtime/parity-extension.ts:19: * names: use `ji:flow:changes`, not `/ji:flow:changes`. The unique machine key is
+
+### ts/packages/infra/brmem/package.json
+ts/packages/infra/brmem/package.json:24:	"ji": {
+
+### ts/packages/infra/clinkr/package.json
+ts/packages/infra/clinkr/package.json:24:	"ji": {
+
+### ts/packages/infra/core/package.json
+ts/packages/infra/core/package.json:47:	"ji": {
+
+### ts/packages/infra/core/src/primitives/model-slug.ts
+ts/packages/infra/core/src/primitives/model-slug.ts:42:export const SLUG_MODEL_ENV = "JI_SLUG_MODEL";
+
+### ts/packages/infra/core/src/test-kit/index.ts
+ts/packages/infra/core/src/test-kit/index.ts:81:		async makeTempDir(prefix = "ji-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:86:		async makeHomeTempDir(prefix = ".ji-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:109:	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "ji-git-repo-")));
+
+### ts/packages/kernel/docs/sdk-reference.md
+ts/packages/kernel/docs/sdk-reference.md:47:- Single-file extensions under `.ji/extensions/` are leaf modules. Workspace packages must never import from them.
+ts/packages/kernel/docs/sdk-reference.md:94:Builds a descriptor for a checked-in `.ji/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.ji/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
+ts/packages/kernel/docs/sdk-reference.md:104:3. `.ji/extensions/<group>/package.json` lists one manifest command entry per command leaf.
+ts/packages/kernel/docs/sdk-reference.md:105:4. `.ji/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
+ts/packages/kernel/docs/sdk-reference.md:107:Do not point multiple manifest command entries at a shared `.ji/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
+ts/packages/kernel/docs/sdk-reference.md:142:One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `ji <name>`; manifest-grouped packages can present the same flat command name under a group such as `ji flow <name>`.
+ts/packages/kernel/docs/sdk-reference.md:162:- `summary` — required one-line text shown in `ji --help`.
+ts/packages/kernel/docs/sdk-reference.md:163:- `description` — full help text shown in `ji <cmd> --help`.
+ts/packages/kernel/docs/sdk-reference.md:238:The user-facing setup, resolver behavior, supported shells, and limitations for ji shell completion are documented in [`../README.md`](../README.md) under "Shell completion".
+ts/packages/kernel/docs/sdk-reference.md:292:**Example.** Map the `slug` option to the first positional, so `ji flow autobranch my-feature` fills it:
+
+### ts/packages/kernel/src/extensions/discovery.ts
+ts/packages/kernel/src/extensions/discovery.ts:86:	{ pattern: ["ji"], match: "exact", value: "missing-ji" },
+ts/packages/kernel/src/extensions/discovery.ts:87:	{ pattern: ["ji", "commands"], match: "prefix", value: "commands-not-array" },
+ts/packages/kernel/src/extensions/discovery.ts:218:	if (resolution.manifest.ji?.commands === undefined) return { commands: [], diagnostics: [] };
+ts/packages/kernel/src/extensions/discovery.ts:287:	if (manifest.ji === undefined) {
+ts/packages/kernel/src/extensions/discovery.ts:293:	const packageGroup = readNonEmptyString(manifest.ji.group);
+ts/packages/kernel/src/extensions/discovery.ts:295:		readNonEmptyString(manifest.ji.description) ?? readNonEmptyString(manifest.description);
+ts/packages/kernel/src/extensions/discovery.ts:297:		group: manifest.ji.group,
+ts/packages/kernel/src/extensions/discovery.ts:304:	const entries = manifest.ji.commands;
+
+### ts/packages/kernel/src/extensions/loader.ts
+ts/packages/kernel/src/extensions/loader.ts:24:				"ji_extension_contribution_import_failed",
+
+### ts/packages/kernel/src/runtime/module-loader.ts
+ts/packages/kernel/src/runtime/module-loader.ts:67:const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "ji", "autoslot.ts");
+ts/packages/kernel/src/runtime/module-loader.ts:68:const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "ji", "land.ts");
+ts/packages/kernel/src/runtime/module-loader.ts:69:const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "ji", "trunk-pull.ts");
+ts/packages/kernel/src/runtime/module-loader.ts:282: * `.ji/extensions`.
+
+### ts/packages/local/pi-tools/package.json
+ts/packages/local/pi-tools/package.json:41:	"ji": {
+
+### ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts
+ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts:13:			"Use /pr:download-feedback or ji address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
+
+### ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts
+ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts:31:		'- For straightforward fixes: edit the minimal files and run appropriate validation. If validation passes, you must close every addressed review thread and, when useful, reply with a concise summary using `ji address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --body <BODY> --format json`; omit `--body` for resolve-only closure. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql`.',
+
+### ts/packages/local/pi-tools/src/pr-previews/extension.ts
+ts/packages/local/pi-tools/src/pr-previews/extension.ts:36:			"Use ji address exec download-feedback --format json, then ji address exec pr-review-threads --pr-number <n> --format json.",
+ts/packages/local/pi-tools/src/pr-previews/extension.ts:48:		fallback: "Use ji address exec pr-checks [--pr-number <n>] --format json.",
+
+### ts/packages/tools/areg/package.json
+ts/packages/tools/areg/package.json:27:	"ji": {
+
+### ts/packages/tools/areg/src/fake-gateways.ts
+ts/packages/tools/areg/src/fake-gateways.ts:158:			["ji.toml", normalizeTextFileState(options.sdlToml ?? { type: "missing" })],
+ts/packages/tools/areg/src/fake-gateways.ts:217:			sdlToml: this.fileState("ji.toml"),
+
+### ts/packages/tools/areg/src/gateways.ts
+ts/packages/tools/areg/src/gateways.ts:333:	relativePath: "ji.toml" | "AGENTS.md" | "CLAUDE.md" | ".claude/settings.local.json";
+
+### ts/packages/tools/areg/src/gateways/mutation-policy.ts
+ts/packages/tools/areg/src/gateways/mutation-policy.ts:70:	return ["ji.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
+
+### ts/packages/tools/areg/src/gateways/project-gateway.ts
+ts/packages/tools/areg/src/gateways/project-gateway.ts:74:			sdlToml: await inspectTextFile(path.join(projectDir, "ji.toml")),
+
+### ts/packages/tools/areg/src/operations/init.ts
+ts/packages/tools/areg/src/operations/init.ts:344:		return { ok: true, value: writePlan("ji.toml", renderAregSection(agents), "ji.toml") };
+ts/packages/tools/areg/src/operations/init.ts:347:			pathLabel: "ji.toml",
+ts/packages/tools/areg/src/operations/init.ts:349:			description: "ji.toml",
+ts/packages/tools/areg/src/operations/init.ts:352:	const parsed = parseSdlAregAgents(state.text, "ji.toml");
+ts/packages/tools/areg/src/operations/init.ts:356:		value: writePlan("ji.toml", replaceOrAppendAregSection(state.text, agents), "ji.toml"),
+
+### ts/packages/tools/areg/src/operations/project-agents.ts
+ts/packages/tools/areg/src/operations/project-agents.ts:25:export function parseSdlAregAgents(text: string, pathLabel = "ji.toml"): Result<string[]> {
+ts/packages/tools/areg/src/operations/project-agents.ts:31:			code: "ji_toml_invalid",
+ts/packages/tools/areg/src/operations/project-agents.ts:40:			code: "ji_toml_invalid",
+ts/packages/tools/areg/src/operations/project-agents.ts:47:			code: "ji_toml_invalid",
+ts/packages/tools/areg/src/operations/project-agents.ts:52:		code: "ji_toml_invalid",
+ts/packages/tools/areg/src/operations/project-agents.ts:97:			pathLabel: "ji.toml",
+ts/packages/tools/areg/src/operations/project-agents.ts:99:			description: "ji.toml",
+ts/packages/tools/areg/src/operations/project-agents.ts:102:	return parseSdlAregAgents(state.text, "ji.toml");
+
+### ts/packages/tools/packagechk/package.json
+ts/packages/tools/packagechk/package.json:23:	"ji": {
+
+### ts/packages/tools/vibechk/package.json
+ts/packages/tools/vibechk/package.json:24:	"ji": {
+
+### ts/vitest.shared.ts
+ts/vitest.shared.ts:7:		`../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
+

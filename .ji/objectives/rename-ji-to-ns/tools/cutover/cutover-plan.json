@@ -1,0 +1,1437 @@
+{
+ "comment": "Locked args content for refactor-swarm-workflow, chunked into sequential invocations. All paths are POST-MV (.ns/\u2026, .pi/extensions/ns.ts, skills/ns-flow-*; ji.toml does NOT move this window). Invoke each chunk as Workflow({name:'refactor-swarm-workflow', args:{brief, simple, complex, invariants, repoRoot, model:'sonnet', complexModel:'sonnet'}}) \u2014 invariants ONLY on the final chunk (empty engine runs skip invariants).",
+ "brief": "# Shared refactor brief (the `brief` field of cutover-plan.json)\n\nYou are renaming the product `ji` to `ns` in this repo. Hard cutover: no compat\ncodepaths, no fallbacks, no aliases. `ns` is always lowercase as the product name\n(never `NS` or `Ns` in prose; `NS_*` env vars are ordinary env-var uppercase, not\nbrand casing). The repo tree you see has ALREADY had its file moves done (`.ji/` \u2192\n`.ns/`, `.pi/extensions/ji.ts` \u2192 `ns.ts`, the four `skills/ji-flow-*` dirs \u2192\n`skills/ns-flow-*`); your job is CONTENT edits only. Never rename, create, or\ndelete files. There is NO `ji.toml` move \u2014 that file and everything about it is a\nlater phase.\n\n## ANCHORED FORMS ONLY \u2014 the cardinal rule\n\nNEVER perform a bare `ji` \u2192 `ns` substitution. `ji` appears inside survivor tokens\n(`@ji/`, `src/ji/`, `jicc`, `ji-command.ts`, `ji.toml`, objective slugs) and `ns`\nalready appears in this repo with unrelated meanings. You may ONLY rename the\nanchored literal forms enumerated below, exactly where the anchor matches:\n\n- the CLI name: subprocess argv `\"ji\"` \u2192 `\"ns\"`, `formatCommand(\"ji\", \u2026)`,\n  `which ji` probes and their error text, `commandName: \"ji\"`, typed literals\n  `command: \"ji\"`, `ji <subcommand>` instruction lines in prose/frontmatter/help\n  text (live subcommands: address, aretro, branch-context, flow, handoff,\n  objective, roaster, slot, shell, completion), `Usage: ji`, `bin ji` chains,\n  backticked `` `ji \u2026` `` command examples\n- repo-state paths: `.ji/<anything>` \u2192 `.ns/<anything>` (e.g. `.ji/objectives`,\n  `.ji/extensions`, `.ji/reviews`, `.ji/prompts`, `.ji/pi/agents`, `.ji/tmp`,\n  `.ji/state/\u2026`), the `.ji-workspace-ready.stamp` name, and bare `\".ji\"` /\n  `\".ns\"`-bound segment literals like `parts[0] !== \".ji\"`\n- namespaces and machine keys: `/ji:` \u2192 `/ns:`, `ji:flow:*` \u2192 `ns:flow:*`,\n  `ji:objective:*` (including the TEMPLATE form `` `ji:objective:${\u2026}` ``),\n  `ji:handoff:*`, `ji:plan:*`, `ji:branch-context:*`, `ji:cli:*`,\n  `ji:typescript:*`, `\"ji:pi-extension-command:finished\"` \u2192 `\"ns:\u2026\"`\n- XDG namespaces: `state/ji`, `data/ji`, `config/ji`, `share/ji`, `tmp/ji`,\n  `ji/slots` (also regex-escaped `ji\\/slots`), `~/.ji` \u2192 the same with `ns`\n- env var NAMES: `JI_<ANYTHING>` \u2192 `NS_<ANYTHING>` (e.g. `JI_CHECKPOINT_MODEL`,\n  `JI_SLUG_MODEL`, `JI_TS_BAN_*`, `JI_PI_CLI_TRACE*`,\n  `JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`, `JI_CD_DIRECTIVE_FILE`, justfile\n  `JI_TOOL` etc.). This covers every POSITION an env var NAME appears in: string\n  values held in survivor-named constants (`SDL_PAYLOAD_ROOT_ENV =\n  \"JI_PAYLOAD_ROOT\"` \u2014 the stale identifier stays, the VALUE renames to\n  `\"NS_PAYLOAD_ROOT\"`), `env.JI_*` / `process.env.JI_*` reads, and env-object\n  fixture KEYS in tests (`{ JI_TEST: \"1\" }` \u2192 `{ NS_TEST: \"1\" }`)\n- the git ref namespace: `refs/ji/\u2026` \u2192 `refs/ns/\u2026`\n- the shell-integration sentinels: `# >>> ji shell integration >>>` /\n  `# <<< ji shell integration <<<` \u2192 ns forms, plus \"ji shell integration\"\n  install/README prose\n- brand artifact filenames in strings: `ji-pi-cli-command-extension.jsonl` \u2192\n  `ns-pi-cli-command-extension.jsonl`\n- brand machine keys: `ji-command-ack`, `ji-command-progress`, `ji-cli-command`,\n  `ji-cli-command-output`, `ji-harness-session-id` \u2192 `ns-*`\n- snake_case machine codes: `ji_extension_contribution_import_failed` \u2192 `ns_\u2026`,\n  `ji_reviewer_marker` \u2192 `ns_reviewer_marker` (EXCEPTION: `ji_toml_invalid` is\n  phase-two \u2014 see DO NOT TOUCH)\n- PR-comment/body markers: `<!-- ji-reviewer:` \u2192 `<!-- ns-reviewer:`,\n  `<!-- ji-pr-description:begin/end` \u2192 `<!-- ns-\u2026`, generator version\n  `ji-pr-description-v2` \u2192 `ns-pr-description-v2` (owner precedent 2026-07-02:\n  hard rename; pre-cutover GitHub PR comments/bodies stop being recognized \u2014\n  accepted)\n- brand-named tmpdir/mkdtemp prefixes and brand fixture paths in tests:\n  `\"ji-extension-project-\"` \u2192 `\"ns-\u2026\"`, `\"/tmp/ji\"` \u2192 `\"/tmp/ns\"`,\n  `\"/tmp/ji-directive\"` \u2192 `\"/tmp/ns-directive\"`\n- references to the four MOVED skill dirs: `skills/ji-flow-autobranch`,\n  `skills/ji-flow-branch-latest-commit`, `skills/ji-flow-cp`,\n  `skills/ji-flow-submit` and their bare skill names (`ji-flow-cp`, \u2026) \u2192\n  `ns-flow-*` (these dirs were renamed in the bracket; prose/registry references\n  must follow)\n- live brand prose in the ROOT onboarding docs only where a changeset instruction\n  says so (AGENTS.md, CLAUDE.md, README.md titles) \u2014 elsewhere brand prose defers\n  (see DO NOT TOUCH)\n\n## DO NOT TOUCH \u2014 phase-two surfaces (PR-5 owns these; baselines assert they are byte-identical)\n\n- `@ji/*` package scope and every import specifier containing it\n- `src/ji/` path segments, `./ji/` and `../ji/` relative imports, `/ji/commands`\n  and `/ji/extension` path fragments, `join(\u2026, \"ji\", \u2026)` calls that build src-dir\n  paths\n- `ji-*.ts` / `ji-*.mjs` FILENAMES and the import subpaths that reference them\n  (`../../submit/ji-runtime.ts`, `./pi/sdl-extension` export keys, \u2026)\n- the package.json extension-manifest KEY `\"ji\": {` in ALL manifests (including\n  `.ns/extensions/*/package.json`), the schema/reads of that key (`manifest.ji`,\n  `readonly ji?:`, `value.ji`, `\"ji\" in value`), and dotted manifest prose\n  `ji.tier` / `ji.commands` / `ji.group` / `ji.subpackages` / `ji.remainder`\n  \u2014 EXCEPTION: the kernel BIN key `\"ji\": \"./src/cli/index.ts\"` renames (it is the\n  installed bin name, not the manifest key; see the kernel/package.json entry)\n- `ji.toml` (the file, every reference to it, and the `ji_toml_invalid` code)\n- `jicc` (package name, dir name, bin, prose)\n- TypeScript/JS identifiers containing ji or sdl in any casing\n  (`resolveSdlXdgPath`, `sdlShellIntegrationBeginMarker`, `SDL_DIRNAME`,\n  `sdlExtension`, `jiToml`-style identifiers, \u2026) \u2014 ONE exception, decided in cs2:\n  `SDL_CD_DIRECTIVE_FILE` \u2192 `NS_CD_DIRECTIVE_FILE`\n\n## DO NOT TOUCH \u2014 the ns collision register (frozen 2026-07-03, verbatim)\n\nPre-existing non-brand `ns` tokens. Never rename, \"normalize\", or brand-case\nthem; never \"fix\" them to something else:\n\n- `ts/packages/infra/brmem/src/ref-layout.ts:9` \u2014 `export const BRMEM_NS_SEGMENT\n  = \"ns\";` This is brmem's **namespace** ref segment: named Namespace Entries live\n  under `refs/brmem/ns/<namespace>/<branch>`. Renaming it corrupts every existing\n  brmem ref on every machine. Also lines 155, 183, 219 (segment interpolation,\n  parse dispatch, prefix enumeration).\n- `skills/brmem/SKILL.md:75, 78, 82, 94, 283` \u2014 `--namespace <ns>` CLI option\n  placeholders in the brmem skill. `<ns>` abbreviates \"namespace\", not the\n  product.\n- `.ns/objectives/migrate-areg-and-ns-skills/` \u2014 closed Objective slug.\n  Historical: `ns-*` was the skill prefix of the owner's old `nonslop` repo.\n  Slugs are durable identity; never rename.\n- Regex artifacts \u2014 ordinary identifiers that merely contain the byte sequence\n  `NS_` (`PLANS_ERROR_TYPE`, `PI_EXTENSIONS_PACKAGE_ROOT`,\n  `PI_EXTENSIONS_WORKSPACE_IMPORTS`, `TOKENS_COLUMN_WIDTH`,\n  `MIN_TURNS_FOR_SEGMENTATION`, `DEFAULT_RUNS_LIMIT`, `RUNS_TABLE_COLUMNS`,\n  `RUNS_DIR_NAME`). Not `ns` tokens at all; do not touch.\n\nBecause `ns` is an extremely common token, verification greps hunt LEFTOVER JI\nONLY \u2014 if you find yourself searching for `ns` to check your work, stop.\n\n## DO NOT TOUCH \u2014 history and identity survivors\n\n- historical prose: closed objectives, `.ns/objectives/**` record trees,\n  `updates/` files, ADR body text (all of `docs/adr/`), migration evidence,\n  `docs/ji-naming-brief.md` (superseded record \u2014 body stays verbatim). Historical\n  FACTS in live docs stay verbatim too: retired feature names and past-tense\n  narration (\"the sdl\u2192ji rename\", \"was previously `ji`\") keep their old names\n- ALL `sdl` historical mentions everywhere (two renames old; the branding row\n  owns any live-doc SDL prose; sdl-named skill dirs like `sdl-typescript`,\n  `sdl-cli-design`, `sdl-flow-submit`\u2026 did NOT move this window)\n- objective slugs: `rename-sdl-to-ji`, `ji-core-cutover`, `rename-ji-to-ns`,\n  `migrate-areg-and-ns-skills`, \u2026 (durable identity, even in live prose)\n- brand PROSE outside the root onboarding docs: bare \"ji\"/\"SDL\" as a product name\n  in sentences, doc/section titles, describe()/test() labels, and user-facing\n  message prose defers to the branding row; only the literal FORMS enumerated in\n  the RENAME list are in-window\n- deliberate ABSENCE assertions: test code asserting old `ji:*` / `sdl:*` names\n  are GONE keeps its old-name literals \u2014 they prove renames happened\n- `ts/pnpm-lock.yaml` (regenerated by the bracket, never hand-edited)\n\nIf an edit is ambiguous \u2014 you cannot tell a rename target from a survivor \u2014 do\nNOT guess; record it in `skipped` with the file:line and why. Prefer a surfaced\njudgment call over a wrong edit.\n",
+ "model": "sonnet",
+ "complexModel": "sonnet",
+ "chunks": [
+  {
+   "name": "1-production",
+   "simple": [
+    {
+     "path": ".gitignore",
+     "hint": ".ji/tmp \u2192 .ns/tmp (:40)"
+    },
+    {
+     "path": ".pi/extensions/objective-autopilot.ts",
+     "hint": ".ji literals :353,354,750 + `ji flow submit`/`ji branch-context` instruction prose :252,490 + argv command: \"ji\" :949 \u2192 ns forms"
+    },
+    {
+     "path": "docs-site/lib/extensions-catalog.ts",
+     "hint": "hand-curated command hints /ji:code:checkpoint :81 and /ji:branch-context:impl-attached-plan :94 \u2192 /ns:* \u2014 rename only, do NOT reconcile pre-existing drift"
+    },
+    {
+     "path": "ts/packages/capabilities/address/src/core/feedback-summary.ts",
+     "hint": "PR-comment marker \"<!-- ji-reviewer:\" and map key \"ji_reviewer_marker\" :5 \u2192 ns forms (owner precedent 2026-07-02: hard rename; pre-cutover GitHub PR comments stop being recognized as reviewer feedback \u2014 accepted)"
+    },
+    {
+     "path": "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts",
+     "hint": "LLM-facing contract strings $XDG_STATE_HOME/ji/enriched-plan :95,292-298 \u2192 \u2026/ns/\u2026 + .ji safety-assertion literals :210-215,247 \u2192 .ns + keep the no-legacy-fallback sentence pointed at the NEW path (~/.local/state/ns/\u2026) with no compat language"
+    },
+    {
+     "path": "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts",
+     "hint": "TWIN C': re-hardcoded roots :15-17 AND argv `command: \"ji\"` :102 AND .ji/objectives message strings :74-281"
+    },
+    {
+     "path": "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts",
+     "hint": "argv formatCommand(\"ji\", \u2026) :382 + /ji:plan:save message strings :245,246,483 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/push.ts",
+     "hint": "`ji flow submit|push` prose + /ji:flow:submit strings :22,69-112 \u2192 ns forms; the ../../submit/ji-runtime.ts import :18 is a phase-two FILENAME survivor"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts",
+     "hint": "TWIN A': same REPO_PR_DESCRIPTION_PROMPT_PATH constant :26, keep byte-equal; JI_DEV_PR_DESCRIPTION_MODEL/PROMPT :24-25 \u2192 NS_*; the .ji/objectives/cli-ux-north-star comment :58 \u2192 .ns (path moved); usage text mentioning the env vars"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/land.ts",
+     "hint": "TWIN B: COMMAND_NAME \"ji:flow:land\" :68 \u2192 \"ns:flow:land\", byte-equal with cs7's stack/constants.ts:1"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts",
+     "hint": "argv formatCommand(\"ji\", [\"slot\", \u2026]) :81,130,148 \u2192 \"ns\""
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts",
+     "hint": "`ji flow exec` error prose :77,89 + /ji:flow:land strings :168,214 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts",
+     "hint": "argv :58,79 + `ji slot free` prose :123 + /ji:flow:land rerun strings :58-169 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/pi/stack-squash.ts",
+     "hint": "argv \"ji\" :172 + `ji slot gt exec stack-branches` message prose :190-205 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/pr-description.ts",
+     "hint": "TWIN A: REPO_PR_DESCRIPTION_PROMPT_PATH \".ji/prompts/pr-description.md\" :26 \u2192 \".ns/\u2026\" \u2014 must stay byte-equal with regenerate-pr.ts twin; also JI_DEV_PR_DESCRIPTION_PROMPT :25 \u2192 NS_*, the managed-body markers \"<!-- ji-pr-description:begin/end\" :28-29 \u2192 \"<!-- ns-\u2026\" and generator version \"ji-pr-description-v2\" :30 \u2192 \"ns-pr-description-v2\" (owner precedent 2026-07-02: marker hard-rename accepted; pre-cutover PR bodies stop being recognized as managed)"
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/core/fake-storage.ts",
+     "hint": "doc-comment .ji/objective-archive :21 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/core/objective-picker.ts",
+     "hint": "parts[0] !== \".ji\" literal :169 \u2192 \".ns\""
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts",
+     "hint": "raw .ji/objectives pathspec literals :217,238 + /ji:objective:create notify string :349 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/core/storage.ts",
+     "hint": "TWIN C: ACTIVE_OBJECTIVE_ROOT \".ji/objectives\" :10 + OBJECTIVE_ARCHIVE_ROOT \".ji/objective-archive\" :11 \u2192 .ns roots \u2014 byte-equal with ccc objective-sidebar.ts re-hardcoded copies"
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/pi/extension.ts",
+     "hint": "argv \"ji\" :268 + cli: \"ji objective \u2026\" parity strings :414,427,442 \u2192 ns forms"
+    },
+    {
+     "path": "ts/packages/capabilities/roaster/src/core/skill-reviews.ts",
+     "hint": "brand-casing pair [\"ji\", \"JI\"] :44 \u2192 [\"ns\", \"NS\"] + .ji/reviews template :111 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts",
+     "hint": "SDL_DIRNAME value \".ji\" :12 \u2192 \".ns\" (the stale SDL_DIRNAME identifier STAYS) + fake default \"/repo/.ji/reviews\" :138 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/hosts/jicc/src/objective-tab.ts",
+     "hint": "runCommand(\"ji\", \u2026) :44 + failure label \"ji objective list\" :49 \u2192 ns"
+    },
+    {
+     "path": "ts/packages/hosts/jicc/src/stack-map-model-loader.ts",
+     "hint": "argv \"ji\" :238 + `ji slot gt \u2026` prose :200,244,291,296 \u2192 ns (the jicc package/dir name is a phase-two survivor)"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/commands/ack.ts",
+     "hint": "machine keys \"ji-command-ack\" :10,12 and \"ji-command-progress\" :11 \u2192 ns-*; asserting fakes/tests ride chunk 2 and must match"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts",
+     "hint": "TWIN D': LIVE_PROGRESS_WIDGET_ID \"ji-cli-command-output\" :10 (byte-equal with cli-extension.ts) + LIVE_PROGRESS_STATUS_ID \"ji-cli-command\" :9 \u2192 ns-*"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/commands/cli-command-trace.ts",
+     "hint": "env NAMES \"JI_PI_CLI_TRACE\"/\"_OUTPUT\"/\"_PATH\" :7-9 \u2192 NS_* and trace filename \"ji-pi-cli-command-extension.jsonl\" :10 \u2192 ns-\u2026"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/commands/cli-extension.ts",
+     "hint": "TWIN D: CLI_COMMAND_OUTPUT_MESSAGE_TYPE \"ji-cli-command-output\" :20 \u2192 \"ns-cli-command-output\", byte-equal with cli-command-live-progress.ts"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/core/pr/extension.ts",
+     "hint": "cli parity strings :68,80 + argv :306,333 + labels :314,338 \u2192 ns"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/core/pr/feedback-download.ts",
+     "hint": "runner command \"ji\" :80 + label prose :129 \u2192 ns"
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/kit/sessions/harness-session.ts",
+     "hint": "HARNESS_SESSION_ENTRY_TYPE \"ji-harness-session-id\" :4 \u2192 \"ns-harness-session-id\""
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/runtime/agent-definition.ts",
+     "hint": ".ji/pi/agents markers + error prose :47,51,63 \u2192 .ns (fails loudly)"
+    },
+    {
+     "path": "ts/packages/infra/brmem/src/operations/resolve-prompt.ts",
+     "hint": "join(repoRoot, \".ji\", \"prompts\", \u2026) :24 \u2192 \".ns\" (brmem's refs/brmem/ns/ segment lives elsewhere and is a COLLISION-REGISTER survivor \u2014 do not conflate)"
+    },
+    {
+     "path": "ts/packages/kernel/package.json",
+     "hint": "MIXED \u2014 rename ONLY the bin key :33 `\"ji\": \"./src/cli/index.ts\"` \u2192 `\"ns\": \u2026` (the installed bin name); the extension-manifest KEY `\"ji\": {` at :14 is a PHASE-TWO survivor \u2014 DO NOT touch it"
+    },
+    {
+     "path": "ts/packages/kernel/src/cli/index.ts",
+     "hint": "one backticked comment `ji <group> exec <name>` :473 \u2192 `ns <group> exec <name>`; nothing else in-window (usage text derives from commandName)"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts",
+     "hint": "which-probe exec(\"which\", [\"ji\"]) :576 + runner command \"ji\" :582 (+ adjacent error prose) \u2192 ns; the stale pathSdl identifier STAYS"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-previews/preview-checks-command.ts",
+     "hint": "argv \"ji\" :173 + label :181 \u2192 ns"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts",
+     "hint": "labels :216,237 + exec(\"ji\", \u2026) :245 \u2192 ns"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/thermo-council/constants.ts",
+     "hint": "RUBRIC_REF \"HEAD:.ji/reviews/\u2026\" :7 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/thermo-council/extension.ts",
+     "hint": ".ji/reviews prose :38 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/thermo-council/prompt.ts",
+     "hint": ".ji/reviews rubric line :39 \u2192 .ns"
+    },
+    {
+     "path": "ts/packages/capabilities/address/src/core/download-feedback.ts",
+     "hint": "Line 245: rename the operative bin in the instruction string `ji address exec close-review-threads ...` \u2192 `ns address exec close-review-threads ...`. Leave the `gh api graphql`, --thread-ids-json, --body, --format json text unchanged."
+    },
+    {
+     "path": "ts/packages/capabilities/aretro/src/operations/collect-evidence.ts",
+     "hint": "Line 228: rename the operative instruction bin `ji aretro exec read-evidence-detail` -> `ns aretro exec read-evidence-detail`. Only the leading `ji` bin token changes; leave the rest of the command string intact."
+    },
+    {
+     "path": "ts/packages/capabilities/branch-context/src/core/attached-plan.ts",
+     "hint": "Line 63: rename bin in `ji branch-context exec from-plan` -> `ns branch-context exec from-plan`. Leave the adjacent `enriched-plan exec save` command unchanged (not a ji bin)."
+    },
+    {
+     "path": "ts/packages/capabilities/branch-context/src/pi/extension.ts",
+     "hint": "Lines 50 and 89: rename bin in the cli strings `ji branch-context exec from-plan` and `ji branch-context exec load` -> `ns branch-context exec ...`. Only the leading `ji` token."
+    },
+    {
+     "path": "ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts",
+     "hint": "Line 437: rename bin in the copyable command `!ji flow submit` -> `!ns flow submit` (leave the leading `!` shell-escape prefix)."
+    },
+    {
+     "path": "ts/packages/capabilities/ccc/src/cmux/sidebar.ts",
+     "hint": "Line 28: rename the env var NAME string value \"JI_CCC_SIDEBAR_MODEL\" -> \"NS_CCC_SIDEBAR_MODEL\" (keep the const identifier SIDEBAR_MODEL_ENV as-is). Line 221: rename path literal `.ji/objectives/<slug>` -> `.ns/objectives/<slug>`."
+    },
+    {
+     "path": "ts/packages/capabilities/ccc/src/ji/autoslot-presentation.ts",
+     "hint": "Line 26 JSDoc: rename the copyable command bin `ji slot co <branch>` -> `ns slot co <branch>`. Only the leading `ji` bin token; the file path segment src/ji/ stays."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/autoslot/autoslot.ts",
+     "hint": "Rename bin invocations in user-facing strings: line 118 `ji slot checkout --current`, line 131 `ji slot checkout failed`, line 147 guidance `ji slot co ${slot.target.branchName}` -> `ns slot ...`. Leave the surrounding identifiers/branchName interpolation untouched."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/autoslot/presentation.ts",
+     "hint": "Line 26 JSDoc example `ji slot co <branch>` -> `ns slot co <branch>` (bin rename). This same comment is duplicated in ccc/src/ji/autoslot-presentation.ts (not your file); only edit this one."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/autobranch.ts",
+     "hint": "Rename bin command instruction strings: line 41 `ji flow branch-latest-commit`, line 87 `\\`ji flow autobranch\\``, line 99 `\\`ji flow autobranch\\``, line 103 `ji flow branch-latest-commit` -> `ns flow ...`. Note: the `src/ji/` path segment in the filename is a survivor, do not touch it."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/branch-latest-commit.ts",
+     "hint": "Rename bin instruction strings: line 19 `ji flow autobranch`, line 50 `\\`ji flow branch-latest-commit\\``, line 60 `\\`ji flow branch-latest-commit\\``, line 65 `ji flow autobranch` -> `ns flow ...`. Leave the `src/ji/` filename path segment."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/cp.ts",
+     "hint": "Line 66 title literal `ji flow cp` -> `ns flow cp`. Leave the `src/ji/` filename path segment."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/commands/land.ts",
+     "hint": "Line 114 `const BASE_LAND_TITLE = \"ji flow land\"` -> `\"ns flow land\"` (rename the string value only; keep the constant identifier). Leave the `src/ji/` filename path segment."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/presentation/git-result-block.ts",
+     "hint": "Line 9 comment path `.ji/objectives/cli-ux-north-star/house-style.md` -> `.ns/objectives/...` (`.ji/` path literal). Keep the objective slug `cli-ux-north-star` and the `src/ji/` filename segment unchanged."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/presentation/pending-worktree-result.ts",
+     "hint": "Rename bin command references in comments: line 2 `ji flow autobranch` and `ji flow branch-latest-commit`, line 18 `\\`ji flow autobranch\\`` -> `ns flow ...`. Leave the `src/ji/` filename path segment."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/ji/worktree.ts",
+     "hint": "Line 43 tmpdir prefix literal `prefix: \"ji-extension-cp-commit-\"` -> `\"ns-extension-cp-commit-\"` (brand tmpdir prefix). Leave filename/other identifiers and the `src/ji/` path segment."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/preflight.ts",
+     "hint": "Line 326 machine key `/ji:flow:land` -> `/ns:flow:land`."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts",
+     "hint": "Rename every `/ji:flow:land` machine key -> `/ns:flow:land` (lines 114, 123, 222, 285, 313, 449, 466, 604, 673, 920, 928, 929). Leave gt/Graphite prose and branch interpolations untouched."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/land-presentation.ts",
+     "hint": "Line 1 comment `ji flow land` CLI surface -> `ns flow land` (bin rename)."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts",
+     "hint": "Rename `/ji:flow:land` machine keys -> `/ns:flow:land` (lines 51, 54, 69, 86, 100). Leave gt command prose."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/land/stack/stack-facts.ts",
+     "hint": "Rename `/ji:flow:land` machine keys -> `/ns:flow:land` (lines 75, 82)."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts",
+     "hint": "Line 5 comment path `.ji/objectives/cli-ux-north-star/house-style.md` -> `.ns/objectives/...` (`.ji/` path literal). Keep the objective slug `cli-ux-north-star` unchanged."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts",
+     "hint": "Rename brand tmpdir prefix literal \"ji-dev-pr-body-\" (line 207) to \"ns-dev-pr-body-\". Nothing else in the file matches."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts",
+     "hint": "Rename every `ji flow submit` command instance in the prose strings (lines 61, 132, 133, 139, 142, 154, 155, 219) to `ns flow submit`. These are operative CLI-command instruction lines."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/submit-format.ts",
+     "hint": "Rename `ji flow submit` (lines 133, 147, 167, 181, 187, 189, 245, 317, 318) and `ji flow regenerate-pr` (line 57) to `ns flow ...`. Operative CLI-command references."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts",
+     "hint": "Rename `ji flow regenerate-pr` on line 147 to `ns flow regenerate-pr`."
+    },
+    {
+     "path": "ts/packages/capabilities/flow/src/submit/text-generation.ts",
+     "hint": "Rename the JI_* env-var NAME string value \"JI_DEV_PR_DESCRIPTION_MODEL\" (line 24) to \"NS_DEV_PR_DESCRIPTION_MODEL\". Leave the TS constant identifier PR_DESCRIPTION_MODEL_ENV unchanged."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/claude-command.ts",
+     "hint": "Rename `ji handoff create` on line 204 to `ns handoff create` (operative CLI-command instruction). Leave the CLAUDE_HANDOFF_LAUNCH_TOOL_NAME identifier untouched."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/create-prompt.ts",
+     "hint": "Rename `ji handoff create` on lines 9 and 10 to `ns handoff create`. Do NOT touch the adjacent brmem `--namespace ${HANDOFF_NAMESPACE}` placeholders or `brmem check`/`brmem put` (survivor ns tokens)."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/create.ts",
+     "hint": "Rename `ji handoff create` on line 28 to `ns handoff create`."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/launch-flow.ts",
+     "hint": "Rename `ji handoff create` on lines 139, 140, 142 to `ns handoff create` (operative CLI instructions)."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/registration.ts",
+     "hint": "Rename the `cli:` command strings `ji handoff create` (lines 27, 33), `ji handoff pickup` (line 40), `ji handoff list` (line 53) to `ns handoff ...`."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/self.ts",
+     "hint": "Rename `ji handoff create` on lines 250 and 333 to `ns handoff create`. Leave HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME / DERIVE_HANDOFF_SLUG_TOOL_NAME identifiers unchanged."
+    },
+    {
+     "path": "ts/packages/capabilities/handoff/src/pi/tab.ts",
+     "hint": "Rename `ji handoff create` on line 148 to `ns handoff create`."
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/core/operations/check-items.ts",
+     "hint": "Line 6 doc comment references the bin command `ji objective check` \u2192 `ns objective check`. No survivors in this file to preserve."
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-step.ts",
+     "hint": "Rename the `.ji/` path literals in the header comment: `.ji/extensions/objective/package.json` (line 6) and `.ji/extensions/objective/src/commands/exec-runner-step.ts` (line 7) \u2192 `.ns/extensions/...`. Leave the `@ji/capability-kit/ji-command` import (line 9) and the `\"./sdl/commands/exec-runner-step\"` / `./ji/...` export-subpath references untouched (survivors)."
+    },
+    {
+     "path": "ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts",
+     "hint": "Rename env-var NAME string value `\"JI_RUNNER_PI_BIN\"` \u2192 `\"NS_RUNNER_PI_BIN\"` (line 36), the `JI_RUNNER_PI_BIN` mention in the comment (line 71), and the brand tmpdir prefix `\"ji-objective-runner-\"` \u2192 `\"ns-objective-runner-\"` (line 243). Leave the TS identifier `SDL_RUNNER_PI_BIN_ENV` (survivor) and `@ji/*` imports alone."
+    },
+    {
+     "path": "ts/packages/capabilities/roaster/src/commands/review-ls.ts",
+     "hint": "Line 6 description string `Alias for ji roaster review list.` \u2014 bin command reference `ji roaster review list` \u2192 `ns roaster review list`."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/core/diagnostics.ts",
+     "hint": "Line 12: rename env-var NAME string value `\"JI_SLOT_DIAGNOSTIC_LOG\"` \u2192 `\"NS_SLOT_DIAGNOSTIC_LOG\"`. Leave the TS identifier `SLOT_DIAGNOSTIC_LOG_ENV` (survivor) untouched."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/ji/command-face.ts",
+     "hint": "Line 2 comment: rename the bin surface reference `ji slot ...` to `ns slot ...`. Leave the `@ji/clinkr`/`@ji/kernel` import specifiers and the `src/ji/` path segment untouched (only-atji-imports / only-src-ji-path-segment survivors)."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/lifecycle/checkout.ts",
+     "hint": "Lines 104 and 109: rename bin command `ji slot checkout --current` to `ns slot checkout --current` in both user-facing message strings."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts",
+     "hint": "Lines 52, 64, 92: rename `ji slot foreach ...` bin references to `ns slot foreach ...` in the guidance/failure strings."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts",
+     "hint": "Line 62: rename `ji slot free --wt ${slotName}` bin reference to `ns slot free --wt ${slotName}`."
+    },
+    {
+     "path": "ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts",
+     "hint": "Line 42: rename `ji slot checkout <branch>` bin reference to `ns slot checkout <branch>`."
+    },
+    {
+     "path": "ts/packages/capability-kit/src/git/testing.ts",
+     "hint": "Line 38: rename the tmpdir prefix `ji-git-test-` to `ns-git-test-`. Leave the fake email default `ji-test@example.com` (line 53) and `@ji/core/primitives` import untouched (not enumerated surfaces / atji-import survivors)."
+    },
+    {
+     "path": "ts/packages/capability-kit/src/kit/text-generation.ts",
+     "hint": "Lines 28-32: rename the JI_* env-var NAME string values only: `JI_CHECKPOINT_MODEL`->`NS_CHECKPOINT_MODEL`, `JI_DEV_CHECKPOINT_MODEL`->`NS_DEV_CHECKPOINT_MODEL`, `JI_CHANGES_MODEL`->`NS_CHANGES_MODEL`, `JI_SUBMIT_FAILURE_MODEL`->`NS_SUBMIT_FAILURE_MODEL`. Leave the TS const identifiers (CHECKPOINT_MODEL_ENV etc.) unchanged."
+    },
+    {
+     "path": "ts/packages/hosts/jicc/src/stack-map-effects.ts",
+     "hint": "Line 220: rename bin reference `ji slot checkout` to `ns slot checkout` in the failure message string."
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
+     "hint": "Lines 10-11: rename bin command instruction `ji address exec close-review-threads ...` to `ns address exec close-review-threads ...` in both bullets."
+    },
+    {
+     "path": "ts/packages/hosts/pi/src/runtime/parity-extension.ts",
+     "hint": "Line 19 comment: rename the namespace/machine-key forms `ji:flow:changes` -> `ns:flow:changes` and `/ji:flow:changes` -> `/ns:flow:changes`. Leave the `@ji/pi` prose/imports untouched."
+    },
+    {
+     "path": "ts/packages/infra/core/src/primitives/model-slug.ts",
+     "hint": "Line 42: rename JI_* env-var NAME string value \"JI_SLUG_MODEL\" -> \"NS_SLUG_MODEL\". The const identifier SLUG_MODEL_ENV stays."
+    },
+    {
+     "path": "ts/packages/infra/core/src/test-kit/index.ts",
+     "hint": "Rename brand tmpdir prefixes: line 81 \"ji-test-\"->\"ns-test-\", line 86 \".ji-test-\"->\".ns-test-\" (home-dir prefix), line 109 \"ji-git-repo-\"->\"ns-git-repo-\". Nothing else to touch."
+    },
+    {
+     "path": "ts/packages/kernel/src/extensions/loader.ts",
+     "hint": "Line 24: rename snake code string \"ji_extension_contribution_import_failed\" -> \"ns_extension_contribution_import_failed\"."
+    },
+    {
+     "path": "ts/packages/kernel/src/runtime/module-loader.ts",
+     "hint": "Rename only the `.ji/extensions` path literal in the docstring (line 282) -> `.ns/extensions`. LEAVE the src/ji path segments join(CCC_SRC_DIR, \"ji\", ...) on lines 67-69 (only-src-ji-path-segment survivors that did not move)."
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts",
+     "hint": "Line 13: operative instruction line \u2014 rename bin in `ji address exec download-feedback` -> `ns address exec download-feedback`. The `/pr:download-feedback` slash-token stays."
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts",
+     "hint": "Line 31: operative instruction \u2014 rename bin in `ji address exec close-review-threads ...` -> `ns address exec ...`."
+    },
+    {
+     "path": "ts/packages/local/pi-tools/src/pr-previews/extension.ts",
+     "hint": "Lines 36 and 48: operative instruction lines \u2014 rename bin `ji address exec download-feedback`/`ji address exec pr-review-threads`/`ji address exec pr-checks` -> `ns address exec ...`."
+    },
+    {
+     "path": "ts/vitest.shared.ts",
+     "hint": "Rename the .ji/ path segment to .ns/ in the review test glob `../.ji/reviews/*/tools/*/test/${testPath}**/*.test.ts` (line 7). The `packages/*/test/...` globs on lines 5-6 have no ji token and are untouched."
+    }
+   ],
+   "complex": [
+    {
+     "id": "cs1-workspace-globs",
+     "files": [
+      "ts/pnpm-workspace.yaml",
+      "ts/package.json",
+      "ts/tsconfig.json"
+     ],
+     "instructions": "Hard build breaker: the three configs must carry the byte-identical ../.ns/reviews/*/tools/* glob or pnpm install/tsgo fail. Lockfile excluded (regenerates).\n\nts/pnpm-workspace.yaml:4, ts/package.json:53 (workspaces array), ts/tsconfig.json:34-35 (two include lines) all carry `../.ji/reviews/*/tools/*` forms \u2192 `../.ns/reviews/*/tools/*`. Nothing else in these files renames this window: the package.json \"ji\": { manifest key (if present here) and any @ji/* references are phase-two survivors.",
+     "model": "opus"
+    },
+    {
+     "id": "cs2-shell-cd-directive",
+     "files": [
+      "ts/packages/kernel/src/cli/shell.ts",
+      "ts/packages/kernel/src/cli/completion.ts",
+      "ts/packages/capabilities/slot/src/ji/extension.ts",
+      "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts",
+      "ts/packages/capabilities/slot/src/core/index.ts",
+      "ts/packages/kernel/test/scenario/shell-cli.test.ts",
+      "ts/packages/kernel/test/integration/slot-alias-cli.test.ts",
+      "ts/packages/capabilities/slot/test/unit/cd-directive.test.ts",
+      "ts/packages/capabilities/slot/test/unit/api.test.ts"
+     ],
+     "instructions": "THE named trap: the shell wrapper derives its cd-directive env var from commandName (`${commandName.toUpperCase()}_CD_DIRECTIVE_FILE` in capability-kit/src/kit/shell-support.ts:44 \u2014 parameterized, NOT in this changeset, no literal to edit) while the slot-side reader HARDCODES the var name. Wrapper says NS_, reader says JI_ \u21d2 silent cd-directive split-brain (slot checkout stops moving the parent shell, no crash). One agent owns every hardcoded side plus both zshrc sentinel duplicates and all asserting tests.\n\nkernel/src/cli/shell.ts: sentinel markers :17-18 \"# >>> ji shell integration >>>\"/\"# <<< ji shell integration <<<\" \u2192 ns forms (the marker-holding identifiers sdlShellIntegrationBeginMarker/End are STALE sdl-era identifiers \u2014 leave the identifiers, rename only the string values), install prose :46,52,85-88, commandName: \"ji\" \u2192 \"ns\" :92. completion.ts:22 commandName: \"ji\" \u2192 \"ns\". slot/src/ji/extension.ts re-hardcodes the SAME markers :107-108 (must stay byte-equal with kernel's), wrapper commandName :159, install prose :183-228. cd-directive.ts:6 SLOT_CD_DIRECTIVE_FILE stays; :7 `export const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\"` \u2192 `export const NS_CD_DIRECTIVE_FILE = \"NS_CD_DIRECTIVE_FILE\"` \u2014 owner-decided exception to the identifier-survivor rule: this identifier is two renames stale, rename it too, and update BOTH importers in this changeset: slot/src/core/index.ts:10 (re-export) and the test imports in api.test.ts:9,102,128 and cd-directive.test.ts:5,68 (fixture value /tmp/ji-directive \u2192 /tmp/ns-directive :68-72). Tests: shell-cli.test.ts:25,48 and slot-alias-cli.test.ts:39 assert the wrapper text contains JI_CD_DIRECTIVE_FILE \u2192 NS_CD_DIRECTIVE_FILE (plus any `ji()` wrapper-name and marker assertions in those files). Do NOT touch SLOT_CD_DIRECTIVE_FILE anywhere, and do NOT rename identifiers other than the one cd-directive exception.",
+     "model": "opus"
+    },
+    {
+     "id": "cs3-repo-extension-discovery",
+     "files": [
+      "ts/packages/kernel/src/extensions/registry.ts",
+      "ts/packages/kernel/test/helpers/objective-extension.ts",
+      "ts/packages/kernel/test/helpers/flow-extension.ts",
+      "ts/packages/kernel/test/helpers/handoff-extension.ts",
+      "ts/packages/kernel/test/helpers/aretro-extension.ts",
+      "ts/packages/kernel/test/helpers/roaster-extension.ts",
+      "ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts",
+      "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+      "ts/packages/kernel/test/unit/extension-registry.test.ts"
+     ],
+     "instructions": "Silent-failure trap (registry scans .ji/extensions; miss = every repo-local command vanishes) + tests traversing the REAL post-mv .ns/extensions tree via relative URLs (ENOENT on split landing). One agent verifies resolution against the moved tree once.\n\nregistry.ts:123,128 join(cwd, \".ji\", \"extensions\") \u2192 \".ns\"; env var JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS \u2192 NS_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS at registry.ts:107 AND every process.env reference in extension-registry.test.ts (:19,72,77,80,102,\u2026). extension-registry.test.ts fixtures: .ji workspace paths (:33,41,46), XDG data-dir fixtures. DO NOT TOUCH: the \"ji\": { manifest KEY in any fixture package.json content the tests write, and any `manifest.ji` property reads \u2014 the manifest key is a PHASE-TWO surface; only .ji PATHS and JI_* env NAMES rename here.",
+     "model": "sonnet"
+    },
+    {
+     "id": "cs4-xdg-and-slot-paths",
+     "files": [
+      "ts/packages/infra/core/src/config/xdg-path.ts",
+      "ts/packages/capabilities/flow/src/ji/commands/submit.ts",
+      "ts/packages/capabilities/flow/src/land/stack/worktrees.ts",
+      "ts/packages/capabilities/aretro/src/payloads/root.ts",
+      "ts/packages/infra/core/test/xdg-path.test.ts",
+      "ts/packages/capability-kit/test/unit/xdg.test.ts",
+      "ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts",
+      "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts"
+     ],
+     "instructions": "The canonical XDG segment, its known hand-rolled bypasses, and the managed-slot-path regex (a prior REAL silent regression: degradation to manual-worktree handling) must land as one semantic unit so no bypass survives on the old segment. Owns the regex's positive/negative fixture families (keep match semantics, not letter-swap).\n\nxdg-path.ts:67 the \"ji\" segment \u2192 \"ns\" (the stale identifier resolveSdlXdgPath at :58 STAYS \u2014 fan-out is 8 files/19 sites, deferred to PR-6; recorded decision). submit.ts is wholly owned here: hand-rolled XDG fallback + `.ji/state/submit-failure-logs` cwd fallback :303-311, JI_SUBMIT_FAILURE_* env names, /ji:flow: message strings \u2014 rename all its ji content EXCEPT the `../../submit/ji-runtime.ts` relative import at :18 (ji-*.ts FILENAMES are phase-two survivors). worktrees.ts:76 regex `(?:^|\\/)ji\\/slots\\/repos\\/\u2026` \u2192 ns\\/slots (keep the escaping and match semantics; @ji/* imports at :4-5 survive). aretro root.ts: tmpdir segment join(baseTempDir, \"ji\") \u2192 \"ns\" :16 AND env var NAME string values :11-12 \"JI_PAYLOAD_ROOT\"\u2192\"NS_PAYLOAD_ROOT\", \"JI_PAYLOAD_SESSION_ID\"\u2192\"NS_PAYLOAD_SESSION_ID\" (the stale SDL_PAYLOAD_*_ENV identifiers holding them STAY). Tests: xdg-path.test.ts :61,81,112 state/ji fixtures \u2192 state/ns; capability-kit xdg.test.ts:30 share/ji/extensions \u2192 share/ns (its @ji/capability-kit import :13 survives); land-stack-helpers.test.ts and land-stack-command-scenarios.test.ts /Users/me/.local/state/ji/slots fixture families and TOPOLOGY assertions all rename.",
+     "model": "opus"
+    },
+    {
+     "id": "cs5-pi-namespace-core",
+     "files": [
+      "ts/packages/infra/core/src/primitives/command.ts",
+      "ts/packages/capabilities/objective/src/core/objective-command-specs.ts",
+      "ts/packages/capabilities/handoff/src/pi/command-constants.ts",
+      "ts/packages/hosts/command-backed-skill-registry/src/index.ts",
+      "ts/packages/capabilities/flow/src/pi/ji-extension.ts",
+      "ts/packages/hosts/pi/src/commands/events.ts",
+      "ts/packages/capabilities/flow/test/pi/ji-extension.test.ts",
+      "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
+     ],
+     "instructions": "The /ji:* Pi command namespace is built from exported constants, a TEMPLATE-LITERAL type (`ji:objective:${sub}` \u2014 grep-invisible after the template renames), and the mixed command-backed-skill-registry where ji-prefixed surfaces sit NEXT to survivor skill names. Piecemeal edits desync the publicly-exported name set from its asserting tests.\n\ncommand.ts:101-107 six constants ji:branch-context:*/ji:plan:* \u2192 ns:*. objective-command-specs.ts: TEMPLATED prefix \u2014 type `ji:objective:${ObjectiveCliSubcommand}` :4, literal type :6, constant :28, template interpolation :31 \u2192 ns:objective:*. handoff command-constants.ts:1-2 ji:handoff:create/pickup \u2192 ns:*. command-backed-skill-registry/src/index.ts is MIXED \u2014 enumerate: surface values \"ji:objective:refresh\" :103, \"ji:objective:review-briefing\" :108, \"ji:cli:design\" :149, \"ji:flow:autobranch\" :150, \"ji:flow:branch-latest-commit\" :153, \"ji:flow:cp\" :156, \"ji:flow:submit\" :157, \"ji:typescript:style-tripwire\" :160 ALL rename to ns:*; skillName values \"ji-flow-autobranch\"/\"ji-flow-branch-latest-commit\"/\"ji-flow-cp\"/\"ji-flow-submit\" :150-157 rename to ns-flow-* (their dirs are mv'd this window \u2014 must agree with skills-lock.json/cs10); skillName \"sdl-cli-design\" :149 and other sdl-*/non-brand skill names are SURVIVORS (skill dirs not moved this window). flow/src/pi/ji-extension.ts: piNamespace \"ji:flow\" :76 and surface template `ji:flow:${command.name}` :52 \u2192 ns:flow (the FILENAME ji-extension.ts and its package.json export subpath ./pi/sdl-extension are phase-two survivors \u2014 content only). events.ts:1 \"ji:pi-extension-command:finished\" \u2192 \"ns:\u2026\". Tests: ji-extension.test.ts exact-set assertions :96-136 \u2192 ns:flow:*; if it carries absence-assertion tombstones for older names, those old-name literals STAY. pi-command-surfaces.test.ts :13-16,23 constant-value assertions \u2192 ns:*.",
+     "model": "opus"
+    },
+    {
+     "id": "cs6-justfile-shim",
+     "files": [
+      "justfile",
+      "ts/scripts/render-cli-shim-core.ts",
+      "ts/scripts/source-cli-shim-template",
+      "ts/scripts/render-cli-shim.mjs",
+      "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts",
+      "ts/packages/tools/areg/test/integration/source-cli-shim-runtime.test.ts"
+     ],
+     "instructions": "The @@JI_*@@ substitution tokens in the shim template and the TOKEN_PREFIX/replacement-map keys in the renderer are a semantic pair whose desync fails SILENTLY at install time (shim rendering runs outside the just gate). The justfile variable ASSIGNMENTS feed the same template and must agree in the same edit.\n\nrender-cli-shim-core.ts: TOKEN_PREFIX \"@@JI_\" \u2192 \"@@NS_\" :3 and every token :40-44 (@@JI_TOOL@@, @@JI_CANONICAL_CHECKOUT@@, @@JI_CLI_REL_PATH@@, @@JI_INSTALL_HINT@@, @@JI_FALLBACK_MODE@@) in LOCKSTEP with source-cli-shim-template :2,11-15; template brand prose ('runs a ji TypeScript CLI') renames. justfile: install-ji recipe :119-124 \u2192 install-ns (recipe name, its `_install-ts-shim \"ji\" \u2026` args, venv cleanup echo), env var assignments :155-160 JI_TOOL/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_TEMPLATE/JI_OUTPUT \u2192 NS_*, the `.ji-workspace-ready.stamp` name :45 and `.ji/reviews` freshness probe :50 \u2192 .ns forms, retired-bin echo `ji branch-context` :165-168, install-tools recipe list + echo :195-196, and every `ji <cmd>` example line. JI_FALLBACK_MODE env read inside the renderer renames with the tokens. Coupling ruling 2026-07-03 (from classification round): render-cli-shim.mjs REQUIRED_ENV_VARS (JI_TEMPLATE/JI_OUTPUT/JI_TOOL/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_FALLBACK_MODE) and the two areg source-cli-shim tests assert the same JI_* names the justfile sets - all renamed together in this changeset.",
+     "model": "opus"
+    },
+    {
+     "id": "cs7-backup-refs",
+     "files": [
+      "ts/packages/capabilities/flow/src/land/stack/constants.ts",
+      "ts/packages/capabilities/ccc/test/land-command.test.ts"
+     ],
+     "instructions": "NEW surface this window: the refs/ji/* git-ref namespace (flow-land backup refs). The constants and the test fixtures asserting ref strings must move together or land-backup tests fail confusingly; the refs themselves migrate on machines via migrate.sh, so no code fallback exists.\n\nconstants.ts:13-14 BACKUP_REF_NAMESPACE \"refs/ji/flow-land-backup\" and BACKUP_REF_PREV_NAMESPACE \"refs/ji/flow-land-backup-prev\" \u2192 refs/ns/*. constants.ts:1 also holds TWIN B' COMMAND_NAME \"ji:flow:land\" \u2192 \"ns:flow:land\" \u2014 this changeset owns the whole file; the twin copy in flow/src/land/land.ts:68 is a separate simple entry and MUST stay byte-equal (duplicate-literal invariant enforces). ccc/test/land-command.test.ts: every refs/ji fixture string \u2192 refs/ns, plus its other in-window ji literals (TOPOLOGY strings, argv) \u2014 one owner per file.",
+     "model": "sonnet"
+    },
+    {
+     "id": "cs8-repo-identity",
+     "files": [
+      "docs-site/lib/geistdocs/nav.ts",
+      "CLAUDE.md",
+      "README.md",
+      "skills/architecture-topology-report/scripts/example-spec.mjs"
+     ],
+     "instructions": "Repo-identity strings that carry NO ji token (sdl-era leftovers never swept by the previous cutover \u2014 pattern-blind, entered via the G7 allowlist) plus the one identity file that does. Grouped so a single agent applies the ADR-0026 identity verdict (repo = nseng-ai/ns) coherently.\n\nnav.ts:3 repo: \"sdl-tools\" \u2192 \"ns\" (plan-locked). The owner field :2 says \"dagster-io\" while origin is github.com/nseng-ai/ns \u2014 pre-existing drift; orchestrator ruling 2026-07-03: fix BOTH fields (owner \u2192 \"nseng-ai\", repo \u2192 \"ns\") so the identity pair matches origin. dagster-io URLs in test fixtures elsewhere remain inert survivors. CLAUDE.md:1 title \"# SDL\" \u2192 \"# ns\" (product name is always-lowercase; keep the rest verbatim). README.md:1 \"# sdl\" \u2192 \"# ns\". example-spec.mjs: repo: \"sdl-tools\" \u2192 \"ns\" :9 and the .ji/objectives path :14 \u2192 .ns; DO NOT TOUCH ji.tier :18 (manifest-key dotted prose \u2014 phase-two), any @ji/* strings :39-75, or the historical 'SDL' narration; this is a checked-in validated example \u2014 rename only the identity + path literals.",
+     "model": "sonnet"
+    },
+    {
+     "id": "cs9-agents-chain",
+     "files": [
+      "AGENTS.md",
+      ".github/workflows/roaster.yml"
+     ],
+     "instructions": "The AGENTS.md onboarding chain and the CI workflow are the two operative surfaces every fresh agent/CI run executes FIRST post-landing; a miss strands every future session on day one. One agent walks the chain end-to-end.\n\nAGENTS.md: every operative `ji \u2026` command line (`ji objective exec load-orientations --format md` :32, `objective list` prose, `areg skill find` lines mentioning ji skills), `.ji/*` paths (:25 and others), `/ji:*` namespace mentions (:5), and prose introducing ji as the product name (\"# ji Agent Instructions\" :1, \"What ji is\" :3, \"ji is private\u2026\" :13) \u2192 ns forms. This is the LIVE root doc, not history: rename brand prose here (unlike test/message prose elsewhere). DO NOT invent new content; do not touch @ji/* or historical mentions of sdl. roaster.yml: 3 literal `ji roaster \u2026` invocations :59,123,132 \u2192 `ns roaster \u2026`; PATH shim self-heals via pnpm install.",
+     "model": "opus"
+    },
+    {
+     "id": "cs10-skills-lock-pi-settings",
+     "files": [
+      "skills-lock.json",
+      ".pi/settings.json"
+     ],
+     "instructions": "The 4 skills/ji-flow-* dir mvs (caller bracket) leave skills-lock.json entry KEYS + source paths and .pi/settings.json -skills/ entries pointing at dead paths; areg check and Pi skill filtering degrade silently. Anchored WITH the mv so one agent reconciles both registries against the moved tree.\n\nskills-lock.json: the four entries keyed ji-flow-autobranch/-branch-latest-commit/-cp/-submit (~:329-347): rename KEY and \"source\": \"skills/ji-flow-*\" \u2192 ns-flow-* forms; keep computedHash values VERBATIM (precedent: commit 6d51a05b1 carried hashes unchanged across a rename; local hashes are install-time snapshots and areg check validates format only \u2014 the runbook's regeneration step recaptures them post-edit if the owner opts in). DO NOT touch any other entry (sdl-* skill keys are survivors). .pi/settings.json: \"-skills/ji-flow-submit\" :4, \"-skills/ji-flow-cp\" :7, \"-skills/ji-flow-autobranch\" :26, \"-skills/ji-flow-branch-latest-commit\" :27 \u2192 -skills/ns-flow-*. Must agree with cs5's skillName values in command-backed-skill-registry.",
+     "model": "sonnet"
+    },
+    {
+     "id": "cs11-graphite-command-channel",
+     "files": [
+      "ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts",
+      "ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts"
+     ],
+     "instructions": "graphite-command-channel.ts declares a literal `command: \"ji\"` union-type contract that land-context-adapter.ts assigns into \u2014 the typed-literal pair must rename in one edit or typecheck noise splits across agents (sdl\u2192ji cs9 precedent).\n\ngraphite-command-channel.ts: the `command: \"ji\"` type literal :24, the returned `{ command: \"ji\", \u2026, display: formatCommand(\"ji\", args) }` :221, the `command === \"ji\"` guard :234, and the /ji:flow:land comment namespace :232 \u2192 ns forms; land-context-adapter.ts: formatCommand(\"ji\", [\"slot\", \u2026]) :349 and `command: \"ji\"` :352 in the same edit. The stale 'controlled SDL flow exec command' comment prose :232 is branding-row survivor prose \u2014 leave it.",
+     "model": "sonnet"
+    }
+   ]
+  },
+  {
+   "name": "2-tests",
+   "simple": [
+    {
+     "path": "ts/packages/capabilities/ccc/test/land-test-helpers.ts",
+     "hint": "TOPOLOGY_COMMAND = \"ji\" :4 \u2192 \"ns\""
+    },
+    {
+     "path": "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts",
+     "hint": "TOPOLOGY_COMMAND = \"ji\" :4 \u2192 \"ns\""
+    }
+   ],
+   "complex": [
+    {
+     "id": "cohort-tests-1",
+     "files": [
+      "ts/packages/capabilities/address/test/scenario/download-feedback.test.ts",
+      "ts/packages/capabilities/address/test/scenario/exec-schema-contract.test.ts",
+      "ts/packages/capabilities/address/test/scenario/json-schema-routes.test.ts",
+      "ts/packages/capabilities/address/test/scenario/map-branch-prs.test.ts",
+      "ts/packages/capabilities/address/test/unit/core-download-feedback.test.ts",
+      "ts/packages/capabilities/aretro/test/scenario/collect-evidence.test.ts",
+      "ts/packages/capabilities/branch-context/test/attached-plan.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-helpers.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-extension-support.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-from-plan.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-2",
+     "files": [
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-gt-upstack-impl-launch.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-impl.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-upstack-impl-session.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/branch-context-write-tool.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/enriched-plan-commands.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/integration/branch-context-real-brmem.test.ts",
+      "ts/packages/capabilities/branch-context/test/pi/saved-plan-impl-current-session.test.ts",
+      "ts/packages/capabilities/ccc/test/autoslot-presentation.test.ts",
+      "ts/packages/capabilities/ccc/test/autoslot.test.ts",
+      "ts/packages/capabilities/ccc/test/ccc-test-harness.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-3",
+     "files": [
+      "ts/packages/capabilities/ccc/test/ccc.test.ts",
+      "ts/packages/capabilities/ccc/test/cmux-objective-sidebar.test.ts",
+      "ts/packages/capabilities/flow/test/integration/land-stack-graphite-cli.test.ts",
+      "ts/packages/capabilities/flow/test/integration/land-stack-sandbox.test.ts",
+      "ts/packages/capabilities/flow/test/land/api-boundary.test.ts",
+      "ts/packages/capabilities/flow/test/pi/code-workflows.test.ts",
+      "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts",
+      "ts/packages/capabilities/flow/test/pi/stack-squash.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/autobranch-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/autoslot-command.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-4",
+     "files": [
+      "ts/packages/capabilities/flow/test/scenario/branch-latest-commit-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/changes-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/cp-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/exec-read-graphite-branch-metadata-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/flow-command-fakes.ts",
+      "ts/packages/capabilities/flow/test/scenario/pull-trunk-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/push-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/regenerate-pr-command.test.ts",
+      "ts/packages/capabilities/flow/test/scenario/submit-command.test.ts",
+      "ts/packages/capabilities/flow/test/unit/extension-shared-flow-foundations.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-5",
+     "files": [
+      "ts/packages/capabilities/flow/test/unit/extension-shared-model-generation.test.ts",
+      "ts/packages/capabilities/flow/test/unit/git-result-block.test.ts",
+      "ts/packages/capabilities/flow/test/unit/land-stack-topology-guards.test.ts",
+      "ts/packages/capabilities/flow/test/unit/pr-description-orchestration.test.ts",
+      "ts/packages/capabilities/flow/test/unit/pr-description.test.ts",
+      "ts/packages/capabilities/flow/test/unit/slot-checkout.test.ts",
+      "ts/packages/capabilities/flow/test/unit/submit.test.ts",
+      "ts/packages/capabilities/handoff/test/pi/claude-handoff.test.ts",
+      "ts/packages/capabilities/handoff/test/pi/handoff-launch-flow.test.ts",
+      "ts/packages/capabilities/handoff/test/pi/handoff-self.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-6",
+     "files": [
+      "ts/packages/capabilities/handoff/test/pi/handoff-tab-launch.test.ts",
+      "ts/packages/capabilities/handoff/test/pi/handoff-tab.test.ts",
+      "ts/packages/capabilities/handoff/test/pi/handoff-test-fakes.ts",
+      "ts/packages/capabilities/handoff/test/pi/handoff.test.ts",
+      "ts/packages/capabilities/objective/test/integration/runner-finish-git.test.ts",
+      "ts/packages/capabilities/objective/test/integration/runner-step-git.test.ts",
+      "ts/packages/capabilities/objective/test/pi/objective-create.test.ts",
+      "ts/packages/capabilities/objective/test/pi/objective-pi-parity.test.ts",
+      "ts/packages/capabilities/objective/test/pi/objective.test.ts",
+      "ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-7",
+     "files": [
+      "ts/packages/capabilities/objective/test/scenario/exec-runner-finish.test.ts",
+      "ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts",
+      "ts/packages/capabilities/objective/test/unit/api.test.ts",
+      "ts/packages/capabilities/objective/test/unit/edge-lint.test.ts",
+      "ts/packages/capabilities/objective/test/unit/list-candidates.test.ts",
+      "ts/packages/capabilities/objective/test/unit/list-objectives-pretty.test.ts",
+      "ts/packages/capabilities/objective/test/unit/list-objectives.test.ts",
+      "ts/packages/capabilities/objective/test/unit/load-orientations.test.ts",
+      "ts/packages/capabilities/objective/test/unit/objective-list-json.test.ts",
+      "ts/packages/capabilities/objective/test/unit/objective-picker.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-8",
+     "files": [
+      "ts/packages/capabilities/objective/test/unit/objective-storage.test.ts",
+      "ts/packages/capabilities/objective/test/unit/pi/child-session/pi-child-session-gateway.test.ts",
+      "ts/packages/capabilities/objective/test/unit/runner/prompt.test.ts",
+      "ts/packages/capabilities/objective/test/unit/runner/run-step.test.ts",
+      "ts/packages/capabilities/objective/test/unit/tracking-gate.test.ts",
+      "ts/packages/capabilities/plans/test/plan-primitives.test.ts",
+      "ts/packages/capabilities/plans/test/saved-plan-file.test.ts",
+      "ts/packages/capabilities/roaster/test/gateways/local-diff.test.ts",
+      "ts/packages/capabilities/roaster/test/gateways/review-catalog.test.ts",
+      "ts/packages/capabilities/roaster/test/gateways/review-runner.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-9",
+     "files": [
+      "ts/packages/capabilities/roaster/test/unit/api.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/context.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/diff-parsing.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/findings-publication.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/models.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/project-config.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/record-findings.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/review-definition.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/review-log.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/review-run.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-10",
+     "files": [
+      "ts/packages/capabilities/roaster/test/unit/review-runner-prompt.test.ts",
+      "ts/packages/capabilities/roaster/test/unit/skill-reviews.test.ts",
+      "ts/packages/capabilities/slot/test/scenario/gt-navigation-cli.test.ts",
+      "ts/packages/capabilities/slot/test/unit/context.test.ts",
+      "ts/packages/capability-kit/test/git/git-gateway.test.ts",
+      "ts/packages/capability-kit/test/git/integration/testing-create-temp-git-repo.test.ts",
+      "ts/packages/capability-kit/test/git/local-ref-reader.test.ts",
+      "ts/packages/capability-kit/test/unit/checkpoint-message.test.ts",
+      "ts/packages/capability-kit/test/unit/git-testing.test.ts",
+      "ts/packages/capability-kit/test/unit/ji-command.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-11",
+     "files": [
+      "ts/packages/capability-kit/test/unit/ji-context.test.ts",
+      "ts/packages/capability-kit/test/unit/model-slug.test.ts",
+      "ts/packages/capability-kit/test/unit/temp-files.test.ts",
+      "ts/packages/hosts/jicc/test/unit/cli.test.ts",
+      "ts/packages/hosts/jicc/test/unit/objective-tab.test.ts",
+      "ts/packages/hosts/jicc/test/unit/stack-map.test.ts",
+      "ts/packages/hosts/pi/test/cli-command-extension.test.ts",
+      "ts/packages/hosts/pi/test/harness-session.test.ts",
+      "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts",
+      "ts/packages/hosts/pi/test/investigate.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-12",
+     "files": [
+      "ts/packages/hosts/pi/test/just-fix.test.ts",
+      "ts/packages/hosts/pi/test/parity.test.ts",
+      "ts/packages/hosts/pi/test/pi-agent-definition.test.ts",
+      "ts/packages/hosts/pi/test/pr-download-feedback.test.ts",
+      "ts/packages/hosts/pi/test/worktree-status/extension.test.ts",
+      "ts/packages/hosts/pi/test/worktree-status/refresh.test.ts",
+      "ts/packages/infra/brmem/test/gateways/prompt-resolution.test.ts",
+      "ts/packages/infra/brmem/test/integration/prompt-resolution.test.ts",
+      "ts/packages/infra/brmem/test/scenario/resolve-prompt-operation.test.ts",
+      "ts/packages/infra/brmem/test/support/run-scenario.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-13",
+     "files": [
+      "ts/packages/infra/clinkr/test/completion.test.ts",
+      "ts/packages/infra/core/test/cli-runtime/cli-entry.test.ts",
+      "ts/packages/infra/core/test/cli-theme/result-block.test.ts",
+      "ts/packages/infra/core/test/exec/integration/exec-run-command.test.ts",
+      "ts/packages/infra/core/test/exec/unit/exec.test.ts",
+      "ts/packages/infra/core/test/model-defaults.test.ts",
+      "ts/packages/infra/core/test/support/typescript-style-guard/config.ts",
+      "ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts",
+      "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts",
+      "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-14",
+     "files": [
+      "ts/packages/kernel/test/integration/aretro-extension-cli.test.ts",
+      "ts/packages/kernel/test/integration/completion-cli.test.ts",
+      "ts/packages/kernel/test/integration/extension-loader-cli.test.ts",
+      "ts/packages/kernel/test/integration/flow-extension-cli.test.ts",
+      "ts/packages/kernel/test/integration/flow-extension-registry.test.ts",
+      "ts/packages/kernel/test/integration/handoff-extension-registry.test.ts",
+      "ts/packages/kernel/test/integration/node-runtime-cli.test.ts",
+      "ts/packages/kernel/test/integration/objective-extension-cli.test.ts",
+      "ts/packages/kernel/test/integration/roaster-extension-cli.test.ts",
+      "ts/packages/kernel/test/integration/sdk-module-loader.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-15",
+     "files": [
+      "ts/packages/kernel/test/scenario/changes-cli.test.ts",
+      "ts/packages/kernel/test/scenario/completion-cli.test.ts",
+      "ts/packages/kernel/test/scenario/cp-cli.test.ts",
+      "ts/packages/kernel/test/scenario/extension-options-cli.test.ts",
+      "ts/packages/kernel/test/scenario/handoff-cli-contract.test.ts",
+      "ts/packages/kernel/test/scenario/regenerate-pr-cli.test.ts",
+      "ts/packages/kernel/test/scenario/roaster-extension-cli.test.ts",
+      "ts/packages/kernel/test/scenario/submit-cli.test.ts",
+      "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+      "ts/packages/kernel/test/unit/extension-loader.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-16",
+     "files": [
+      "ts/packages/kernel/test/unit/sdk-runtime-exports.test.ts",
+      "ts/packages/local/pi-tools/test/backing-skill-commands/backing-skill-commands.test.ts",
+      "ts/packages/local/pi-tools/test/pr-feedback-watch/pr-feedback-watch.test.ts",
+      "ts/packages/local/pi-tools/test/pr-previews/pr-preview-commands.test.ts",
+      "ts/packages/local/pi-tools/test/runner-subagents/dispatch-runner-subagent.test.ts",
+      "ts/packages/local/pi-tools/test/thermo-council/thermo-council.test.ts",
+      "ts/packages/tools/areg/test/gateways/real-gateways.test.ts",
+      "ts/packages/tools/areg/test/scenario/doctor-skills-cli.test.ts",
+      "ts/packages/tools/areg/test/scenario/init-cli.test.ts",
+      "ts/packages/tools/areg/test/scenario/skill-kind-list-show-cli.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    },
+    {
+     "id": "cohort-tests-17",
+     "files": [
+      "ts/packages/tools/areg/test/scenario/update-skills-cli.test.ts",
+      "ts/packages/tools/areg/test/unit/check-frontmatter.test.ts",
+      "ts/packages/tools/areg/test/unit/init-helpers.test.ts",
+      "ts/packages/tools/areg/test/unit/pi-replacement.test.ts"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, test cohort unless anchored to a changeset"
+    }
+   ]
+  },
+  {
+   "name": "3-skills-docs",
+   "simple": [
+    {
+     "path": ".ns/objectives/cross-harness-parity/parity-table.md",
+     "hint": "ALLOWLISTED objectives file: rename /ji: rows and `ji \u2026` cli strings only; table is independently stale \u2014 do NOT fix drift"
+    },
+    {
+     "path": "docs/pi/branch-context-workflow.md",
+     "hint": "~37 ji hits: /ji:* command names, ~/.local/state/ji paths, `ji branch-context` CLI lines \u2192 ns; keep the no-legacy-fallback prose sentence, pointed at the ns path"
+    },
+    {
+     "path": "docs/research/xdg-base-directory-spec.md",
+     "hint": "canonical enumeration of XDG roots \u2014 every state|data|config/ji root \u2192 ns (5 hits); NOTE: this doc moved from docs/ since the sdl\u2192ji window (was docs/xdg-base-directory-spec.md)"
+    },
+    {
+     "path": "skills/branch-retro/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools frontmatter + prose \u2192 Bash(ns \u2026)"
+    },
+    {
+     "path": "skills/code-just-the-stack/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools frontmatter + prose \u2192 Bash(ns \u2026)"
+    },
+    {
+     "path": "skills/handoff-create/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools frontmatter + prose \u2192 Bash(ns \u2026)"
+    },
+    {
+     "path": "skills/handoff-pickup/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools frontmatter + prose \u2192 Bash(ns \u2026)"
+    },
+    {
+     "path": "skills/ns-flow-autobranch/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools + `ji flow autobranch` prose \u2192 ns forms; dir mv'd by bracket"
+    },
+    {
+     "path": "skills/ns-flow-branch-latest-commit/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools + `ji flow branch-latest-commit` prose \u2192 ns forms; dir mv'd by bracket"
+    },
+    {
+     "path": "skills/ns-flow-cp/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools + `ji flow cp` prose \u2192 ns forms; dir mv'd by bracket"
+    },
+    {
+     "path": "skills/ns-flow-submit/SKILL.md",
+     "hint": "Bash(ji \u2026) allowed-tools + `ji flow submit` prose + /ji:flow:submit \u2192 ns forms; the DIRECTORY renames via the caller mv bracket (post-mv path skills/ns-flow-submit)"
+    },
+    {
+     "path": "ts/packages/kernel/docs/sdk-reference.md",
+     "hint": "Rename in-window: `.ji/extensions/` path literals (lines 47,94,104,105,107) and the `ji <name>`/`ji flow <name>`/`ji --help`/`ji <cmd> --help`/`ji shell completion`/`ji flow autobranch my-feature` bin-instruction and help lines (142,162,163,238,292). LEAVE the phase-two manifest-KEY prose untouched: the backticked `ji` manifest field on line 307 and dotted `ji.commands[]` on line 311 (PR-5 owns those)."
+    }
+   ],
+   "complex": [
+    {
+     "id": "cohort-skills-1",
+     "files": [
+      "skills/branch-context-from-plan/SKILL.md",
+      "skills/branch-context-impl/SKILL.md",
+      "skills/branch-context/references/diagnostics-admin.md",
+      "skills/branch-context/references/lifecycle.md",
+      "skills/branch-context/SKILL.md",
+      "skills/brmem/SKILL.md",
+      "skills/ccc-available-work/SKILL.md",
+      "skills/ccc-branch-triage/SKILL.md",
+      "skills/ccc-stack-map/references/display-and-code-sketch.md",
+      "skills/ccc-stack-map/SKILL.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, skills cohort \u2014 `ji <cmd>` instruction lines, /ns-bound /ji:* references, .ji/ paths, JI_* env var names, Bash(ji \u2026) allowed-tools, and skills/ji-flow-* dir references (those dirs mv this window \u2192 ns-flow-*) all rename; SURVIVORS: @ji/* specifiers, src/ji/ path segments, ji-*.ts filenames and ./ji-* import subpaths, the \"ji\" manifest key and dotted ji.<field> prose (ji.tier, ji.subpackages \u2014 phase-two), ji.toml, jicc, non-ji-flow skill DIRECTORY names (sdl-typescript, sdl-cli-design, \u2026), objective slugs (rename-sdl-to-ji, ji-core-cutover, migrate-areg-and-ns-skills), all historical sdl mentions, and every pre-existing non-brand ns token (collision register). Edit only skills/ (.agents/skills and .claude/skills are symlinks)"
+    },
+    {
+     "id": "cohort-skills-2",
+     "files": [
+      "skills/code-gh/SKILL.md",
+      "skills/code-gt-restack-resolve/SKILL.md",
+      "skills/code-thermostack/SKILL.md",
+      "skills/code-workflows/references/delete-stack.md",
+      "skills/code-workflows/references/parity-review.md",
+      "skills/dignified-python-tripwire/SKILL.md",
+      "skills/enriched-plan-save/SKILL.md",
+      "skills/handoff/references/diagnostics-admin.md",
+      "skills/handoff/references/lifecycle.md",
+      "skills/handoff/SKILL.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, skills cohort \u2014 `ji <cmd>` instruction lines, /ns-bound /ji:* references, .ji/ paths, JI_* env var names, Bash(ji \u2026) allowed-tools, and skills/ji-flow-* dir references (those dirs mv this window \u2192 ns-flow-*) all rename; SURVIVORS: @ji/* specifiers, src/ji/ path segments, ji-*.ts filenames and ./ji-* import subpaths, the \"ji\" manifest key and dotted ji.<field> prose (ji.tier, ji.subpackages \u2014 phase-two), ji.toml, jicc, non-ji-flow skill DIRECTORY names (sdl-typescript, sdl-cli-design, \u2026), objective slugs (rename-sdl-to-ji, ji-core-cutover, migrate-areg-and-ns-skills), all historical sdl mentions, and every pre-existing non-brand ns token (collision register). Edit only skills/ (.agents/skills and .claude/skills are symlinks)"
+    },
+    {
+     "id": "cohort-skills-3",
+     "files": [
+      "skills/ns-flow-autobranch/references/autobranch-family-boundaries.md",
+      "skills/objective-autorun/SKILL.md",
+      "skills/objective-close/SKILL.md",
+      "skills/objective-create/SKILL.md",
+      "skills/objective-next/SKILL.md",
+      "skills/objective-refresh/SKILL.md",
+      "skills/objective-review-briefing/SKILL.md",
+      "skills/objective-runner-step/SKILL.md",
+      "skills/objective-stack-impl/references/final-response.md",
+      "skills/objective-stack-impl/SKILL.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, skills cohort \u2014 `ji <cmd>` instruction lines, /ns-bound /ji:* references, .ji/ paths, JI_* env var names, Bash(ji \u2026) allowed-tools, and skills/ji-flow-* dir references (those dirs mv this window \u2192 ns-flow-*) all rename; SURVIVORS: @ji/* specifiers, src/ji/ path segments, ji-*.ts filenames and ./ji-* import subpaths, the \"ji\" manifest key and dotted ji.<field> prose (ji.tier, ji.subpackages \u2014 phase-two), ji.toml, jicc, non-ji-flow skill DIRECTORY names (sdl-typescript, sdl-cli-design, \u2026), objective slugs (rename-sdl-to-ji, ji-core-cutover, migrate-areg-and-ns-skills), all historical sdl mentions, and every pre-existing non-brand ns token (collision register). Edit only skills/ (.agents/skills and .claude/skills are symlinks)"
+    },
+    {
+     "id": "cohort-skills-4",
+     "files": [
+      "skills/objective-update/SKILL.md",
+      "skills/objective/references/standing-objectives.md",
+      "skills/objective/SKILL.md",
+      "skills/pr-address/references/cli-collection.md",
+      "skills/pr-address/references/cli-reference.md",
+      "skills/pr-address/SKILL.md",
+      "skills/reinvented-abstractions-tripwire/SKILL.md",
+      "skills/roast-dry-but-not-too-dry/SKILL.md",
+      "skills/roast-improve-codebase-architecture/SKILL.md",
+      "skills/roast-thermonuclear-review/SKILL.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, skills cohort \u2014 `ji <cmd>` instruction lines, /ns-bound /ji:* references, .ji/ paths, JI_* env var names, Bash(ji \u2026) allowed-tools, and skills/ji-flow-* dir references (those dirs mv this window \u2192 ns-flow-*) all rename; SURVIVORS: @ji/* specifiers, src/ji/ path segments, ji-*.ts filenames and ./ji-* import subpaths, the \"ji\" manifest key and dotted ji.<field> prose (ji.tier, ji.subpackages \u2014 phase-two), ji.toml, jicc, non-ji-flow skill DIRECTORY names (sdl-typescript, sdl-cli-design, \u2026), objective slugs (rename-sdl-to-ji, ji-core-cutover, migrate-areg-and-ns-skills), all historical sdl mentions, and every pre-existing non-brand ns token (collision register). Edit only skills/ (.agents/skills and .claude/skills are symlinks)"
+    },
+    {
+     "id": "cohort-skills-5",
+     "files": [
+      "skills/sdl-cli-design/references/agent-exec-tier.md",
+      "skills/sdl-cli-design/references/clinkr-api-map.md",
+      "skills/sdl-cli-design/references/danger-tiers.md",
+      "skills/sdl-cli-design/SKILL.md",
+      "skills/sdl-typescript-style-tripwire/SKILL.md",
+      "skills/sdl-typescript/SKILL.md",
+      "skills/skill-audit-improved/SKILL.md",
+      "skills/typescript-style/checklist.md",
+      "skills/typescript-style/core-rules.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, skills cohort \u2014 `ji <cmd>` instruction lines, /ns-bound /ji:* references, .ji/ paths, JI_* env var names, Bash(ji \u2026) allowed-tools, and skills/ji-flow-* dir references (those dirs mv this window \u2192 ns-flow-*) all rename; SURVIVORS: @ji/* specifiers, src/ji/ path segments, ji-*.ts filenames and ./ji-* import subpaths, the \"ji\" manifest key and dotted ji.<field> prose (ji.tier, ji.subpackages \u2014 phase-two), ji.toml, jicc, non-ji-flow skill DIRECTORY names (sdl-typescript, sdl-cli-design, \u2026), objective slugs (rename-sdl-to-ji, ji-core-cutover, migrate-areg-and-ns-skills), all historical sdl mentions, and every pre-existing non-brand ns token (collision register). Edit only skills/ (.agents/skills and .claude/skills are symlinks)"
+    },
+    {
+     "id": "cohort-docs-1",
+     "files": [
+      ".ns/extensions/AGENTS.md",
+      ".ns/prompts/AGENTS.md",
+      ".ns/reviews/README.md",
+      "CONTEXT-MAP.md",
+      "CONTEXT.md",
+      "docs/aretro.md",
+      "docs/conventions/platform-and-consumer.md",
+      "docs/conventions/skill-conventions.md",
+      "docs/conventions/subpackage-conventions.md",
+      "docs/north-star.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, docs cohort (docs/adr excluded wholesale this window; docs/ji-naming-brief.md excluded \u2014 superseded record stays verbatim)"
+    },
+    {
+     "id": "cohort-docs-2",
+     "files": [
+      "docs/objective-system.md",
+      "docs/patterns/planning-uncertain-features.md",
+      "docs/patterns/thesis-reapplication.md",
+      "docs/pi/authoring-remediation-autoobjectives.md",
+      "docs/pi/cmux-extension-pattern.md",
+      "docs/pi/extension-command-checklist.md",
+      "docs/pi/handoff-artifacts.md",
+      "docs/pi/README.md",
+      "docs/pi/runner-subagent-helper.md",
+      "docs/pi/standing-objectives-and-runners.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, docs cohort (docs/adr excluded wholesale this window; docs/ji-naming-brief.md excluded \u2014 superseded record stays verbatim)"
+    },
+    {
+     "id": "cohort-docs-3",
+     "files": [
+      "docs/README.md",
+      "docs/retros/cli-surface-conformance-audit.md",
+      "docs/sdl-exec/README.md",
+      "ts/packages/capabilities/address/README.md",
+      "ts/packages/capabilities/aretro/README.md",
+      "ts/packages/capabilities/branch-context/CONTEXT.md",
+      "ts/packages/capabilities/branch-context/README.md",
+      "ts/packages/capabilities/ccc/AGENTS.md",
+      "ts/packages/capabilities/ccc/CONTEXT.md",
+      "ts/packages/capabilities/flow/CONTEXT.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, docs cohort (docs/adr excluded wholesale this window; docs/ji-naming-brief.md excluded \u2014 superseded record stays verbatim)"
+    },
+    {
+     "id": "cohort-docs-4",
+     "files": [
+      "ts/packages/capabilities/handoff/CONTEXT.md",
+      "ts/packages/capabilities/handoff/README.md",
+      "ts/packages/capabilities/objective/CONTEXT.md",
+      "ts/packages/capabilities/plans/CONTEXT.md",
+      "ts/packages/capabilities/roaster/CONTEXT.md",
+      "ts/packages/capabilities/roaster/README.md",
+      "ts/packages/capabilities/slot/CONTEXT.md",
+      "ts/packages/capabilities/slot/README.md",
+      "ts/packages/capability-kit/src/graphite/CONTEXT.md",
+      "ts/packages/hosts/jicc/README.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, docs cohort (docs/adr excluded wholesale this window; docs/ji-naming-brief.md excluded \u2014 superseded record stays verbatim)"
+    },
+    {
+     "id": "cohort-docs-5",
+     "files": [
+      "ts/packages/hosts/pi/CONTEXT.md",
+      "ts/packages/kernel/CONTEXT.md",
+      "ts/packages/kernel/README.md",
+      "ts/TESTING.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, docs cohort (docs/adr excluded wholesale this window; docs/ji-naming-brief.md excluded \u2014 superseded record stays verbatim)"
+    },
+    {
+     "id": "cohort-dottree-1",
+     "files": [
+      ".ns/extensions/address/package.json",
+      ".ns/extensions/aretro/package.json",
+      ".ns/extensions/branch-context/package.json",
+      ".ns/extensions/flow/docs/dependencies.md",
+      ".ns/extensions/flow/package.json",
+      ".ns/extensions/handoff/package.json",
+      ".ns/extensions/objective/package.json",
+      ".ns/extensions/roaster/package.json",
+      ".ns/prompts/plans-write.md",
+      ".ns/reviews/code-smell-roaster/review.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, dot-tree cohort \u2014 operative files that move wholesale via git mv .ji .ns; their CONTENT edits (paths, command names, /ji: namespaces) happen post-mv; the \"ji\" manifest KEY in .ji/extensions/*/package.json is a PHASE-TWO survivor (unlike last window), and @ji/ imports in scan-reinvention tool sources STAY"
+    },
+    {
+     "id": "cohort-dottree-2",
+     "files": [
+      ".ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/package.json",
+      ".ns/reviews/sdl-typescript-style-tripwire/review.md"
+     ],
+     "instructions": "Homogeneous cohort \u2014 apply the shared brief to each listed file independently. Class guidance: simple, dot-tree cohort \u2014 operative files that move wholesale via git mv .ji .ns; their CONTENT edits (paths, command names, /ji: namespaces) happen post-mv; the \"ji\" manifest KEY in .ji/extensions/*/package.json is a PHASE-TWO survivor (unlike last window), and @ji/ imports in scan-reinvention tool sources STAY"
+    }
+   ]
+  }
+ ],
+ "invariants": [
+  {
+   "key": "pnpm-workspace-quartet",
+   "prompt": "Verify the pnpm workspace glob quartet is internally consistent post-rename. (1) `git grep -n '\\.ji' -- ts/pnpm-workspace.yaml ts/package.json ts/tsconfig.json ts/pnpm-lock.yaml` must be empty. (2) ts/pnpm-workspace.yaml, ts/package.json, and ts/tsconfig.json must each reference the byte-identical glob `../.ns/reviews/*/tools/*` (tsconfig has two path lines). (3) ts/pnpm-lock.yaml importers must contain `../.ns/reviews/` importer paths \u2014 if the lockfile still says .ji, the caller's `rm -rf ts/node_modules && pnpm install` bracket step has not run or failed; report that explicitly. (4) `test -d .ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention` must succeed."
+  },
+  {
+   "key": "kernel-extension-discovery-root",
+   "prompt": "Verify repo-local extension discovery survived: ts/packages/kernel/src/extensions/registry.ts must join `\".ns\", \"extensions\"` at BOTH sites (~lines 123-128), `git grep -n '\\.ji' -- ts/packages/kernel/src/extensions` must be empty, and `.ns/extensions/` must exist on disk containing the address, aretro, branch-context, flow, handoff, objective, and roaster extension packages. This failure mode is SILENT (commands vanish from the catalog, no crash) \u2014 be thorough."
+  },
+  {
+   "key": "real-extensions-test-helpers",
+   "prompt": "The five files ts/packages/kernel/test/helpers/{objective,flow,handoff,aretro,roaster}-extension.ts, ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts, and ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts build relative URLs into the REAL checked-in extensions tree. For each, extract the relative path it constructs, resolve it from the file's directory, and `test -e` the target \u2014 every resolved path must point inside `.ns/extensions` and exist (ENOENT here hard-crashes the suite). Also `git grep -n '\\.ji([^A-Za-z]|$)' -- ts/packages/kernel/test ts/packages/capabilities/address/test` must be empty EXCEPT `manifest.ji`-style property reads of the phase-two manifest key (see residual-dot-ji's carve-out)."
+  },
+  {
+   "key": "managed-slot-path-regex",
+   "prompt": "ts/packages/capabilities/flow/src/land/stack/worktrees.ts isManagedSlotPath() (~line 76) must match `ns/slots/repos/<repo>/worktrees/slot-<n>` paths: read the regex, hand-apply it to the fixture string `/Users/me/.local/state/ns/slots/repos/sdl-tools/worktrees/slot-03` (must MATCH) and `/Users/me/worktrees/slot-03` (must NOT match). `git grep -nE 'ji(\\\\)?/slots' -- ts` must be empty. The positive/negative fixture families in flow/test/unit/land-stack-helpers.test.ts and land-stack-command-scenarios.test.ts must use state/ns/slots paths. This exact regression shipped once before (silent degradation to manual-worktree handling) \u2014 default to fail if unsure."
+  },
+  {
+   "key": "cd-directive-split-brain",
+   "prompt": "THE named trap of this cutover. The shell wrapper DERIVES its cd-directive env var: ts/packages/capability-kit/src/kit/shell-support.ts (~:44) computes `${options.commandName.toUpperCase()}_CD_DIRECTIVE_FILE`, so a wrapper installed with commandName \"ns\" exports NS_CD_DIRECTIVE_FILE. The slot-side reader HARDCODES the name: ts/packages/capabilities/slot/src/core/shell/cd-directive.ts (~:7) must export a constant whose STRING VALUE is exactly \"NS_CD_DIRECTIVE_FILE\" (the exporting identifier must be NS_CD_DIRECTIVE_FILE \u2014 the one sanctioned identifier rename; its importers slot/src/core/index.ts, slot/test/unit/api.test.ts, slot/test/unit/cd-directive.test.ts must compile against the new name). Verify commandName is \"ns\" at kernel/src/cli/shell.ts (~:92), kernel/src/cli/completion.ts (~:22), and slot/src/ji/extension.ts (~:159). `git grep -n 'JI_CD_DIRECTIVE_FILE' -- ts` must be empty. kernel/test/scenario/shell-cli.test.ts and kernel/test/integration/slot-alias-cli.test.ts must assert the wrapper text contains NS_CD_DIRECTIVE_FILE. A desync here fails SILENTLY: slot checkout stops moving the parent shell, no crash."
+  },
+  {
+   "key": "shell-sentinel-consistency",
+   "prompt": "The zshrc sentinel markers are re-hardcoded in two places and both installers must emit byte-identical blocks: ts/packages/kernel/src/cli/shell.ts (~:17-18) and ts/packages/capabilities/slot/src/ji/extension.ts (~:107-108) must BOTH define begin marker exactly `# >>> ns shell integration >>>` and end marker exactly `# <<< ns shell integration <<<`. `git grep -n 'ji shell integration' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` must be empty (READMEs and install prose renamed too). Fail on ANY byte difference between the two marker pairs, not just residual ji. (The machine-migration script deletes the OLD ji-marker block from zshrc files \u2014 the new installer cannot find old markers by design; that is migrate.sh's job, not code's.)"
+  },
+  {
+   "key": "refs-namespace",
+   "prompt": "The flow-land backup ref namespace must be fully on refs/ns: ts/packages/capabilities/flow/src/land/stack/constants.ts (~:13-14) must define BACKUP_REF_NAMESPACE \"refs/ns/flow-land-backup\" and BACKUP_REF_PREV_NAMESPACE \"refs/ns/flow-land-backup-prev\", and `git grep -n 'refs/ji' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` must be empty (covers the ccc land-command.test.ts fixtures). Live refs/ji/* refs on machines migrate via tools/machine-migration/migrate.sh \u2014 no code fallback may exist."
+  },
+  {
+   "key": "duplicate-literal-twins",
+   "prompt": "Four duplicated un-imported constants must be renamed AND byte-equal across their twin sites: (a) REPO_PR_DESCRIPTION_PROMPT_PATH in ts/packages/capabilities/flow/src/submit/pr-description.ts and ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts \u2014 both exactly \".ns/prompts/pr-description.md\"; (b) COMMAND_NAME in ts/packages/capabilities/flow/src/land/land.ts and ts/packages/capabilities/flow/src/land/stack/constants.ts \u2014 both exactly \"ns:flow:land\" (the latter feeds printed usage text; desync is silent); (c) the objective root constants in ts/packages/capabilities/objective/src/core/storage.ts (.ns/objectives, .ns/objective-archive) and their re-hardcoded copies in ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts (~:15-17); (d) the message-type literal in ts/packages/hosts/pi/src/commands/cli-extension.ts (CLI_COMMAND_OUTPUT_MESSAGE_TYPE) and ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts (LIVE_PROGRESS_WIDGET_ID) \u2014 both exactly \"ns-cli-command-output\". Fail on ANY desync, not just residual ji."
+  },
+  {
+   "key": "pi-namespace-core",
+   "prompt": "The Pi command namespace must be coherently ns across constants, template types, and the skill registry: ts/packages/infra/core/src/primitives/command.ts (~:101-107) six constants all ns:branch-context:*/ns:plan:*; ts/packages/capabilities/objective/src/core/objective-command-specs.ts TEMPLATE type `ns:objective:${\u2026}` (:4) plus literal type (:6), constant (:28), and interpolation (:31); ts/packages/capabilities/handoff/src/pi/command-constants.ts ns:handoff:create/pickup; ts/packages/capabilities/flow/src/pi/ji-extension.ts piNamespace \"ns:flow\" (~:76) and surface template `ns:flow:${command.name}` (~:52); ts/packages/hosts/pi/src/commands/events.ts \"ns:pi-extension-command:finished\"; ts/packages/hosts/command-backed-skill-registry/src/index.ts every surface value ns:* AND every skillName that pointed at a moved dir now ns-flow-* while \"sdl-cli-design\"-style survivor skillNames are UNCHANGED. Asserting tests must agree: flow/test/pi/ji-extension.test.ts exact-set assertions, hosts/pi/test/commands/pi-command-surfaces.test.ts constant-value assertions. Absence-assertion tombstones carrying old names are NOT violations."
+  },
+  {
+   "key": "skill-dir-integrity",
+   "prompt": "The four moved skill dirs must be structurally whole: (1) skills/ns-flow-autobranch, skills/ns-flow-branch-latest-commit, skills/ns-flow-cp, skills/ns-flow-submit all exist and `git ls-files 'skills/ji-flow-*'` is empty. (2) BOTH symlink layers exist and RESOLVE: .agents/skills/ns-flow-* \u2192 ../../skills/ns-flow-* AND .claude/skills/ns-flow-* \u2192 ../../.agents/skills/ns-flow-* (the .claude layer chains through .agents \u2014 verified in-tree 2026-07-03, a layer the plan text missed); `find .agents/skills .claude/skills -type l ! -exec test -e {} \\; -print` must output nothing (dangling symlinks after a dir mv are the known failure), and no ji-flow-* symlink remains in either layer. (3) skills-lock.json carries entries KEYED ns-flow-* with \"source\": \"skills/ns-flow-*\" and NO ji-flow-* keys or sources. (4) .pi/settings.json carries -skills/ns-flow-* entries and no -skills/ji-flow-*. (5) command-backed-skill-registry/src/index.ts skillName values agree with the lockfile keys. (6) No OTHER skill dir moved: `git ls-files 'skills/sdl-*' | head -1` must still return content (sdl-named skill dirs stayed)."
+  },
+  {
+   "key": "manifest-key-untouched",
+   "prompt": "PHASE-TWO INPUT PROTECTION (roles inverted vs the sdl\u2192ji hop): the package.json extension-manifest KEY \"ji\" must be COMPLETELY untouched this window. (1) `git grep -lE '\"ji\": \\{' -- '**/package.json' | wc -l` must equal cutover-plan.json .baselines.manifestKeyFileCount (29 at authoring). (2) ts/packages/kernel/src/sdk/extension-manifest.ts and ts/packages/kernel/src/extensions/discovery.ts must still read the \"ji\" key \u2014 `git grep -n '\"ji\"' -- ts/packages/kernel/src/sdk/extension-manifest.ts ts/packages/kernel/src/extensions/discovery.ts` must be NON-empty; flag any rename to \"ns\" there as an over-reach violation. (3) EXCEPTION that must have happened: ts/packages/kernel/package.json bin key is `\"ns\": \"./src/cli/index.ts\"` (the bin line renames; the `\"ji\": {` manifest block at ~:14 stays). (4) Every .ns/extensions/*/package.json still carries `\"ji\": {`."
+  },
+  {
+   "key": "roaster-ci-invocations",
+   "prompt": ".github/workflows/roaster.yml must invoke `ns roaster \u2026` at all three literal sites (~:59,123,132 \u2014 review list, review run, exec publish-findings) and `git grep -nIwE 'ji' -- .github` must return nothing that names the old CLI (historical mentions in comments may survive if plainly past-tense; CLI invocations may not)."
+  },
+  {
+   "key": "agents-md-chain",
+   "prompt": "The AGENTS.md onboarding chain must be internally consistent in this tree, link by link, ACCOUNTING for the phase split: AGENTS.md instructs `ns objective exec load-orientations` and `objective list`; ts/packages/kernel/package.json BIN key is \"ns\"; discovery still reads manifest key \"ji\" (phase-two \u2014 NOT a violation); .ns/extensions/objective/package.json carries a `\"ji\": {\u2026}` manifest (phase-two survivor); ts/packages/capabilities/objective/src/core/storage.ts roots are .ns/objectives and .ns/objective-archive. The chain works because discovery keys off the MANIFEST key (unchanged) while the BIN and paths renamed. Name any link still ji-shaped that is not the manifest key."
+  },
+  {
+   "key": "no-compat-shim",
+   "prompt": "No ji\u2192ns compatibility codepath may exist. Read the current state of the loaders \u2014 ts/packages/kernel/src/extensions/registry.ts, ts/packages/capabilities/objective/src/core/storage.ts, ts/packages/infra/core/src/config/xdg-path.ts, ts/packages/capabilities/slot/src/core/shell/cd-directive.ts, ts/packages/infra/brmem/src/operations/resolve-prompt.ts \u2014 and confirm each reads exactly ONE name (ns), with no `||` fallback chain, no try-old-then-new dual ji/ns read, no alias registration. SCOPE: only ji\u2194ns duality is a violation; PRE-EXISTING legacy features unrelated to this rename are NOT violations. `git ls-files .ji` must be empty and `test ! -e .ji` must succeed (no leftover dir or symlink). No package.json may declare a `ji` bin alias (`git grep -nE '\"ji\": \"\\./' -- '**/package.json'` empty). The wrapper script must define an `ns()` function and no `ji()` function. Rewritten 'no legacy fallback' PROSE pointing at the ns path is legitimate and not a violation."
+  },
+  {
+   "key": "skills-allowed-tools",
+   "prompt": "`git grep -n 'Bash(ji' -- skills` must be empty, and the eight skills that carried them (skills/{handoff-pickup,handoff-create,branch-retro,code-just-the-stack}/SKILL.md plus the four moved skills/ns-flow-{autobranch,branch-latest-commit,cp,submit}/SKILL.md) must now carry `Bash(ns \u2026)` patterns in their allowed-tools frontmatter. A miss silently re-introduces permission prompts. skills/brmem/SKILL.md's `--namespace <ns>` placeholders are collision-register survivors \u2014 not evidence of anything."
+  },
+  {
+   "key": "parity-table-bundled",
+   "prompt": ".ns/objectives/cross-harness-parity/parity-table.md (explicitly allowlisted inside the otherwise-excluded objectives tree) must use /ns: command names and `ns \u2026` CLI strings on its former /ji: rows, and the typed parity records in ts/packages/capabilities/flow/src/pi/ji-extension.ts (cli:/surface: strings) must agree with it. The table's OTHER staleness is out of scope \u2014 flag only ji-brand residue."
+  },
+  {
+   "key": "scope-untouched-baselines",
+   "prompt": "Phase-two input must be byte-untouched. Recompute all four survivor baselines with patterns matching generate-candidates.sh BYTE-FOR-BYTE and compare to cutover-plan.json .baselines: (1) `git grep -lI '@ji/' -- . ':!ts/pnpm-lock.yaml' ':!.ns/objectives' ':!.ns/objective-archive' | wc -l` == .atJiFileCount; (2) `git grep -nIE 'src/ji|/ji/(commands|extension)' -- ts | grep -vE '(state|data|config|share|XDG_[A-Z_]+_HOME)/ji' | wc -l` == .srcJiOccurrences; (3) `git ls-files | grep -cE '(^|/)ji\\.toml$'` == .jiTomlFileCount (and root ji.toml content is UNCHANGED: `git diff --stat -- ji.toml` empty); (4) `git grep -lE '\"ji\": \\{' -- '**/package.json' | wc -l` == .manifestKeyFileCount. Any decrease means an agent over-renamed the @ji/ scope, src/ji/ paths, ji.toml references, or the manifest key \u2014 report the exact diff via `git diff --stat` inspection of suspicious files. Any INCREASE means a stale-habit regression."
+  },
+  {
+   "key": "residual-dot-ji",
+   "prompt": "`git grep -nIE '\\.ji([^A-Za-z]|$)' -- . ':!ts/pnpm-lock.yaml' ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` must be empty EXCEPT property/field reads of the PHASE-TWO manifest key \u2014 `manifest.ji`, `parsed.ji`, `value.ji`, `.ji.tier`-style member access on a manifest object (survivors this window, they read the untouched \"ji\" package.json key). Every other match \u2014 path literals, .ji/ prose, `\".ji\"` segments \u2014 is a violation; list all. Also `git ls-files | grep -F '.ji'` must be empty (no tracked path contains a .ji component)."
+  },
+  {
+   "key": "residual-namespace",
+   "prompt": "`git grep -nIE '(^|[/\"`[:space:]])ji:[a-z]' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` must be empty (catches /ji:flow:*, \"ji:flow:land\", piNamespace \"ji:flow\", ji:objective templates, the pi event key) \u2014 EXCEPT deliberate absence-assertion tombstones: old ji:*/sdl:* name literals inside negative assertions (`expect(pi.commands.has(\u2026)).toBe(false)`-style) prove the rename happened and are NOT violations. Also `git ls-files | grep -x '.pi/extensions/ji.ts'` empty with .pi/extensions/ns.ts present."
+  },
+  {
+   "key": "residual-bin-argv",
+   "prompt": "`git grep -n '\"ji\"' -- 'ts/**/*.ts' 'ts/**/*.mjs' '.ns/extensions/**/*.ts' '.pi/**/*.ts'` must be empty of CLI-name uses \u2014 argv[0] dispatches, formatCommand first args, commandName/cliName, typed `command: \"ji\"` literals, XDG segments, TOPOLOGY_COMMAND constants, tmpdir segments all renamed this window \u2014 EXCEPT (a) the PHASE-TWO manifest-key family: `\"ji\"` as a package.json manifest KEY in test fixtures/mock manifests (`ji: {` blocks, `\"ji\" in value` guards, subpackage VALUES naming src/ji dirs) and (b) `join(\u2026, \"ji\", \u2026)` calls building src/ji source-dir paths (kernel module-loader style). Judge each remaining hit by position; when a quoted \"ji\" is the SEGMENT of a runtime path or a process argv it is a violation. As a completeness backstop also run `git grep -n '\"ji\"' -- . ':!ts/pnpm-lock.yaml' ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` and confirm every remaining hit is a phase-two survivor class."
+  },
+  {
+   "key": "residual-command-instructions",
+   "prompt": "Broad instruction-line sweep with judge-each (a closed subcommand enumeration WILL miss subcommands): run `git grep -nIE '(^|[\\`$( ])ji ([a-z][a-z-]+|--)' -- skills docs AGENTS.md CONTEXT.md CONTEXT-MAP.md justfile .github ts/TESTING.md '.ns/extensions' '.ns/reviews' '.ns/prompts' '.ns/pi' ':!docs/adr' ':!docs/ji-naming-brief.md'` and judge EVERY hit \u2014 any line instructing/invoking the old CLI is a violation; prose where 'ji' is a plain historical word (\"the sdl\u2192ji rename landed\") may pass, but default to violation when unsure. Also `git grep -nw 'ji' -- justfile` \u2014 judge each: the install-ji recipe and JI_* vars must be gone; historical comments may survive."
+  },
+  {
+   "key": "residual-xdg-namespace",
+   "prompt": "`git grep -nIE '(state|data|config|share|tmp)(/|\\\\/)ji([/\"`[:space:]-]|$)|~/\\.ji|ji(\\\\)?/slots' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` must be empty \u2014 catches the enriched-plan LLM tool-contract strings and their asserting tests, the /Users/me/.local/state/ji/slots fixture family, docs/research/xdg-base-directory-spec.md, the aretro tmpdir segment, and rewritten ~/.ji prose. state/vibechk is untouched by construction (non-brand namespace)."
+  },
+  {
+   "key": "residual-machine-keys",
+   "prompt": "Brand machine-key string literals must be renamed: `git grep -nE '\"ji-(command-ack|command-progress|cli-command|harness-session|pi-cli-command|pr-description)' -- ts .pi` must be empty (covers ji-command-ack, ji-command-progress, ji-cli-command, ji-cli-command-output, ji-harness-session-id, ji-pi-cli-command-extension.jsonl, ji-pr-description-v2) and the ns-* replacements must be asserted consistently in the fakes/tests that mirror them. Marker check: `git grep -n '<!-- ji-' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr'` must be empty (ji-reviewer and ji-pr-description markers renamed). Then run the broad sweep `git grep -nE '[\"'\"'\"'\\`/]ji-' -- ts .pi skills docs justfile .github` and judge every remaining hit against the survivor list: ji-*.ts FILENAMES and their import subpaths (ji-command.ts, ji-context.ts, ji-runtime.ts, ji-extension.ts, repo-local-ji-extension.ts, \u2026) are PHASE-TWO survivors; objective slugs (ji-core-cutover, rename-ji-to-ns) survive; anything naming the product brand in a runtime string must be ns-. Shim tokens: `git grep -n '@@JI_' -- ts justfile` must be empty and ts/scripts/render-cli-shim-core.ts TOKEN_PREFIX must equal the placeholder prefix used in ts/scripts/source-cli-shim-template, with justfile variable names agreeing (NS_TOOL, NS_TEMPLATE, \u2026)."
+  },
+  {
+   "key": "residual-snake-codes",
+   "prompt": "`git grep -nE '[\"'\"'\"'\\`]ji_[a-z_]+' -- . ':!ts/pnpm-lock.yaml' ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md' ':!.claude/plans'` must be empty EXCEPT `ji_toml_invalid` (phase-two: it names the ji.toml config family and renames with it in PR-5). ji_extension_contribution_import_failed \u2192 ns_\u2026 and ji_reviewer_marker \u2192 ns_reviewer_marker must be renamed. TS identifiers with ji_ prefixes are not string literals and do not match the quote-anchored pattern."
+  },
+  {
+   "key": "residual-env-vars",
+   "prompt": "Run `git grep -nE 'JI_[A-Z]' -- . ':!.ns/objectives' ':!.ns/objective-archive' ':!*/updates/*' ':!docs/adr' ':!docs/ji-naming-brief.md'` and judge each hit by POSITION: a hit is a VIOLATION when the JI_ token is an env-var NAME \u2014 inside a string literal (\"JI_PAYLOAD_ROOT\"), an env read (env.JI_*, process.env.JI_*), an env-object fixture key ({ JI_TEST: \"1\" }), a shim token (@@JI_*@@), or a docs/skills/justfile mention of setting/reading the variable. Every env var NAME (JI_CHECKPOINT_MODEL, JI_CHANGES_MODEL, JI_DEV_*, JI_SLUG_MODEL, JI_SUBMIT_FAILURE_*, JI_CCC_SIDEBAR_MODEL, JI_PI_CLI_TRACE*, JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS, JI_PAYLOAD_ROOT, JI_PAYLOAD_SESSION_ID, JI_CD_DIRECTIVE_FILE, JI_LOG_DIR, JI_PATH_DIFF, JI_ROOT, JI_RUNNER_PI_BIN, JI_SLOT_DIAGNOSTIC_LOG, JI_TEST, JI_TEST_MODEL, JI_TS_BAN_*/JI_TS_ADVISORY_*/JI_TS_EXPORTS_* style-guard rule names, justfile JI_TOOL/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_TEMPLATE/JI_OUTPUT/JI_FALLBACK_MODE) renames to NS_*. There are no known JI_-prefixed TypeScript IDENTIFIERS (the stale identifier layer is SDL_-prefixed and survives), so expect near-zero legitimate hits; anything found is almost certainly a violation. Readers and writers must agree: for each NS_* env var read in ts/, confirm the corresponding setter/documentation sites (justfile, skills, docs) use the same NS_* name. Also `git grep -n '\"ji-pi-cli' -- ts` must be empty (trace filename renamed)."
+  }
+ ],
+ "baselines": {
+  "atJiFileCount": 962,
+  "srcJiOccurrences": 143,
+  "jiTomlFileCount": 1,
+  "manifestKeyFileCount": 29
+ },
+ "skips": [
+  {
+   "path": "skills/architecture-topology-report/scripts/extract-graph.mjs",
+   "reason": "phase-two-surface",
+   "note": "All matches are the package.json extension-manifest KEY reads (d.ji?.tier, manifest?.ji?.subpackages, manifest.ji.subpackages) plus the @ji/kernel import + 'ji shell operation' brand prose on line 71 \u2014 all survivors owned by PR-5; nothing to rename."
+  },
+  {
+   "path": "ts/packages/capabilities/address/package.json",
+   "reason": "phase-two-surface",
+   "note": "Line 36 \"ji\": { is the extension-manifest KEY (PR-5 owns it). Line 7 \"./ji-command\": \"./src/ji-command.ts\" is a ji-*.ts filename export subpath survivor. Nothing in-window."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/exec-operation.ts",
+   "reason": "only-atji-imports",
+   "note": "Line 10 is a @ji/capability-kit import specifier (with ji-command subpath) \u2014 package-scope survivor, not renamed."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji-command.ts",
+   "reason": "only-atji-imports",
+   "note": "Line 1 imports from @ji/capability-kit/ji-context \u2014 @ji scope + ji-context subpath survivor; the file's own ji-command.ts name is a survivor path segment."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-branch-pr.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is relative import from ../../ji-command.ts (ji-*.ts filename subpath) inside the src/ji/ path segment \u2014 survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-close-review-threads.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-download-feedback.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-map-branch-prs.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-open-prs.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-checks.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-details.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-discussion-comments.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-review-threads.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-pr-reviews.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is import from ../../ji-command.ts inside src/ji/ \u2014 filename/path survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-reply-review-thread.ts",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/ji/commands/exec-resolve-review-thread.ts",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/address/src/repo-local-ji-extension.ts",
+   "reason": "only-src-ji-path-segment"
+  },
+  {
+   "path": "ts/packages/capabilities/aretro/package.json",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/aretro/src/ji/command.ts",
+   "reason": "only-atji-imports"
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/package.json",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/branch-context/src/ji/command.ts",
+   "reason": "only-atji-imports"
+  },
+  {
+   "path": "ts/packages/capabilities/ccc/package.json",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/flow/package.json",
+   "reason": "phase-two-surface"
+  },
+  {
+   "path": "ts/packages/capabilities/flow/src/pi/index.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only match is `export { default as sdlExtension, sdlExtensionParity } from \"./ji-extension.ts\";` \u2014 ji-extension.ts is a survivor filename import subpath and sdlExtension* are identifiers."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the extension-manifest KEY `\"ji\": {` (line 33) and the `\"ji\"` subpackages entry (line 38, a src/ji path-segment survivor inside the manifest block). PR-5 owns the manifest key; leave untouched."
+  },
+  {
+   "path": "ts/packages/capabilities/handoff/src/ji/command.ts",
+   "reason": "only-atji-imports",
+   "note": "Only match is the import `} from \"@ji/capability-kit/ji-command\";` \u2014 @ji package scope survivor."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the phase-two extension-manifest KEY block `\"ji\": {` (tier/subpackages incl. the `\"ji\"` subpackage entry) plus @ji/* scope imports and ./ji/ export subpaths / ji-*.ts filenames \u2014 all survivors."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/command.ts",
+   "reason": "only-atji-imports",
+   "note": "Only match is import from `@ji/capability-kit/ji-command` (scope + ji-command subpath survivor)."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-begin.ts",
+   "reason": "only-atji-imports",
+   "note": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/ji/commands/exec-runner-finish.ts",
+   "reason": "only-atji-imports",
+   "note": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/plans/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 26)."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 35)."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/gateways/local-diff.ts",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the phase-two `ji.toml` filename literal and message (lines 115, 123), owned by PR-5."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/ji/command.ts",
+   "reason": "only-atji-imports",
+   "note": "Only match is import from `@ji/capability-kit/ji-command`."
+  },
+  {
+   "path": "ts/packages/capabilities/roaster/src/operations/review-run.ts",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the phase-two `ji.toml` filename literal and message (lines 290, 305)."
+  },
+  {
+   "path": "ts/packages/capabilities/slot/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the phase-two extension-manifest KEY block `\"ji\": {` (tier/subpackages/commands, incl. the `\"ji\"` subpackage entry) plus @ji/* imports and ./ji/ export subpaths \u2014 all survivors."
+  },
+  {
+   "path": "ts/packages/capability-kit/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only matches are the phase-two manifest KEY `\"ji\": {` (line 59) and the `./ji-command`/`./ji-context` -> `./src/kit/ji-*.ts` subpath exports (only-src-ji-path-segment survivors). No in-window literals."
+  },
+  {
+   "path": "ts/packages/capability-kit/src/kit/index.ts",
+   "reason": "only-src-ji-path-segment",
+   "note": "Only matches are the `./ji-command.ts` and `./ji-context.ts` relative import subpaths (ji-*.ts filename survivors)."
+  },
+  {
+   "path": "ts/packages/hosts/command-backed-skill-registry/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 20)."
+  },
+  {
+   "path": "ts/packages/hosts/jicc/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 23); the jicc package name itself is also a phase-two survivor."
+  },
+  {
+   "path": "ts/packages/hosts/pi/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the phase-two extension-manifest KEY `\"ji\": {` (line 62)."
+  },
+  {
+   "path": "ts/packages/infra/brmem/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY `\"ji\": {` (line 24); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/infra/clinkr/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY `\"ji\": {` (line 24); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/infra/core/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY `\"ji\": {` (line 47). This is infra/core, NOT the kernel bin-key exception; PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/kernel/src/extensions/discovery.ts",
+   "reason": "phase-two-surface",
+   "note": "Every match is a read of the phase-two manifest KEY: zod path patterns [\"ji\"]/[\"ji\",\"commands\"] and \"missing-ji\" issue kind (82,85-87), manifest.ji.commands/manifest.ji.group/manifest.ji.description reads (218,287,293,295,297,304). PR-5 owns the `ji` manifest key rename."
+  },
+  {
+   "path": "ts/packages/local/pi-tools/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY `\"ji\": {` (line 41); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/tools/areg/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY `\"ji\": {` (line 27); PR-5 owns it."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/fake-gateways.ts",
+   "reason": "phase-two-surface",
+   "note": "Both matches are references to the `ji.toml` file (lines 158 map key, 217 fileState lookup); ji.toml is a phase-two surface owned by PR-5."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways.ts",
+   "reason": "phase-two-surface",
+   "note": "Only match is the ji.toml file-name literal in the relativePath union (line 333); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways/mutation-policy.ts",
+   "reason": "phase-two-surface",
+   "note": "Only match is \"ji.toml\" in the allowed-paths array (line 70); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/gateways/project-gateway.ts",
+   "reason": "phase-two-surface",
+   "note": "Only match is path.join(projectDir, \"ji.toml\") (line 74); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/operations/init.ts",
+   "reason": "phase-two-surface",
+   "note": "All matches are ji.toml file-name/path-label literals (lines 344-356); PR-5 owns ji.toml."
+  },
+  {
+   "path": "ts/packages/tools/areg/src/operations/project-agents.ts",
+   "reason": "phase-two-surface",
+   "note": "All matches are ji.toml literals plus the ji_toml_invalid error code (lines 25-102); both are PR-5-owned ji.toml surfaces."
+  },
+  {
+   "path": "ts/packages/tools/packagechk/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY \"ji\": { (line 23); PR-5 owns the manifest key."
+  },
+  {
+   "path": "ts/packages/tools/vibechk/package.json",
+   "reason": "phase-two-surface",
+   "note": "Only match is the extension-manifest KEY \"ji\": { (line 24); PR-5 owns the manifest key."
+  }
+ ],
+ "mvOnly": {
+  "comment": "Caller-owned git mv targets. Tree/dir moves are bracketed by the orchestrator; engine agents NEVER rename files. .pi/extensions/ji.ts content is all phase-two survivors (an @ji/flow import + the ./pi/sdl-extension subpath + a stale sdlExtension identifier) \u2014 mv only, no content edit. The four skill DIRS move in the bracket but their SKILL.md contents ARE edited (skills cohort / simple anchors, post-mv paths); they are listed here for the bracket inventory, and prepass filters them out of file-level subtraction.",
+  ".ji": "git mv \u2192 .ns (tree move, wholesale)",
+  ".pi/extensions/ji.ts": "git mv \u2192 .pi/extensions/ns.ts; content survives verbatim",
+  "skills/ji-flow-autobranch": "git mv \u2192 skills/ns-flow-autobranch; then rm + recreate BOTH tracked symlink layers: .agents/skills/ns-flow-autobranch \u2192 ../../skills/ns-flow-autobranch AND .claude/skills/ns-flow-autobranch \u2192 ../../.agents/skills/ns-flow-autobranch (the .claude layer chains through .agents; verified in-tree \u2014 the plan text named only .agents)",
+  "skills/ji-flow-branch-latest-commit": "git mv \u2192 skills/ns-flow-branch-latest-commit; both symlink layers recreated",
+  "skills/ji-flow-cp": "git mv \u2192 skills/ns-flow-cp; both symlink layers recreated",
+  "skills/ji-flow-submit": "git mv \u2192 skills/ns-flow-submit; both symlink layers recreated"
+ }
+}

@@ -1,0 +1,15 @@
+.ji/extensions/address/package.json
+.ji/extensions/AGENTS.md
+.ji/extensions/aretro/package.json
+.ji/extensions/branch-context/package.json
+.ji/extensions/flow/docs/dependencies.md
+.ji/extensions/flow/package.json
+.ji/extensions/handoff/package.json
+.ji/extensions/objective/package.json
+.ji/extensions/roaster/package.json
+.ji/prompts/AGENTS.md
+.ji/prompts/plans-write.md
+.ji/reviews/code-smell-roaster/review.md
+.ji/reviews/README.md
+.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/package.json
+.ji/reviews/sdl-typescript-style-tripwire/review.md
