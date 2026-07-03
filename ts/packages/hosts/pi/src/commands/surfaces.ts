@@ -18,3 +18,10 @@ export interface CommandBackedSkillRegistration {
 	surface: string;
 	kind: CommandBackedSkillRegistrationKind;
 }
+
+export function specializedCommandBackedSkill(
+	skillName: string,
+	surface: string,
+): CommandBackedSkillRegistration {
+	return { skillName, surface, kind: "specialized-command" };
+}

@@ -1,0 +1,22 @@
+{
+	"name": "@ji/command-backed-skill-registry",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "tsgo -p tsconfig.json",
+		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/command-backed-skill-registry/test"
+	},
+	"dependencies": {
+		"@ji/handoff": "workspace:*",
+		"@ji/objective": "workspace:*"
+	},
+	"ji": {
+		"tier": "host"
+	}
+}

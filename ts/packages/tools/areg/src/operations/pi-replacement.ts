@@ -1,4 +1,6 @@
-import { commandBackedSkillSurface } from "@internal/pi-tools/backing-skill-commands";
+import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
+
+export { commandBackedSkillSurface as lookupPiReplacementCommand } from "@ji/command-backed-skill-registry";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];
@@ -9,15 +11,11 @@ export interface PiReplacementVerification {
 	surface?: string;
 }
 
-export function lookupPiReplacementCommand(skillName: string): string | undefined {
-	return commandBackedSkillSurface(skillName);
-}
-
 export function verifyPiReplacement(
 	skillName: string,
 	facts: PiReplacementFacts,
 ): PiReplacementVerification {
-	const surface = lookupPiReplacementCommand(skillName);
+	const surface = commandBackedSkillSurface(skillName);
 	if (surface === undefined) return { verified: false };
 	return { verified: facts.verifiedSurfaces.includes(surface), surface };
 }

@@ -2,9 +2,9 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { visibleCommandBackedReplacementSurfaces } from "@internal/pi-tools/backing-skill-commands";
 import { RealGitGateway } from "@ji/capability-kit/git";
 import type { GitGateway } from "@ji/capability-kit/git";
+import { visibleCommandBackedReplacementSurfaces } from "@ji/command-backed-skill-registry";
 import { NodeCommandExecApi } from "@ji/core/exec";
 import { formatErrorMessage } from "@ji/core/primitives";
 import {
@@ -54,7 +54,7 @@ import { classifyResolvedSkillKindInspection } from "./skill-kind-classification
 const PI_GENERIC_REPLACEMENT_ADAPTER_RELATIVE_PATH = ".pi/extensions/backing-skill-commands.ts";
 const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/local/pi-tools/src/backing-skill-commands/extension.ts";
-// AREG reads the composed local command-backed skill catalog without importing
+// AREG reads the composed command-backed skill catalog without importing
 // the project-local Pi extension entrypoint.
 const AREG_VISIBLE_REPLACEMENT_SURFACES = visibleCommandBackedReplacementSurfaces();
 
