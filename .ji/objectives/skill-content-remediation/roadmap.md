@@ -69,15 +69,23 @@
   rewrite, then diff the new `SKILL.md` against that contract line-by-line; `areg check`
   "All skills OK"; every disclosed pointer resolves. Edit the real `skills/` source only
   (never a symlinked copy).
-  **Sequencing caveat (2026-07-03): re-derive reach before resuming.** The recorded
-  value order predates ADR 0016; several remaining targets are now `command-backed`
-  (zero ambient), so their reach — and the queue order built on it — needs
-  re-derivation. Also re-verify each target's current content at pickup: unrelated repo
-  work (`sdl`→`ji` cutover, SDL Flow renames, Record Frontmatter docs, Address
-  migration) has been shifting line counts and, in places, the debt itself.
-  Previously recorded sequence (pre-ADR-0016): objective-family alignment slice, then
-  `objective-update` (done), then `objective-create` → ccc / niche skills last, only if
-  cheap.
+  **Re-ranked 2026-07-03 (post-ADR-0016 reach re-derivation; update
+  `20260703T201928Z`):** (1) `brmem` rewrite, (2) `objective` rewrite,
+  (3) `dignified-python` rewrite (SKILL.md router only), (4) `code-thermostack`
+  rewrite, (5) `refactor-swarm` rewrite, (6) `objective-create` rewrite,
+  (7) `code-gt-restack-resolve` surgical, (8) `code-resolve-merge-conflicts` surgical,
+  (9) `objective-close` surgical/record-clean, (10) `ccc-available-work` /
+  `ccc-stack-map` (only if cheap).
+  Order rationale: ambient reach first — `brmem` and `objective` are the only
+  remaining `normal` skills, whose descriptions load in every session and whose
+  bodies load on ambient routing, while every `command-backed` target costs tokens
+  only on explicit invoke — then confirmed-duplication rewrites by lift ×
+  invoke-frequency, then surgical targets by stakes (risk caps their method, not
+  their position), cmux-niche last only if cheap; per-position reasoning and the
+  ambient-reach revisit trigger are in update `20260703T201928Z`.
+  Re-verify each target's current content at pickup: unrelated repo work (`sdl`→`ji`
+  cutover, SDL Flow renames, Record Frontmatter docs, Address migration) has been
+  shifting line counts and, in places, the debt itself.
   **Dropped targets:** `branch-context-impl` (36 lines, lift 1 / risk 4 — its only
   disclosable block is a 6-trigger STOP safety contract, so disclosing it is
   net-negative and a rewrite most likely softens the contract; leave as-is) and
