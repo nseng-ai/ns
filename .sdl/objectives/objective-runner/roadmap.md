@@ -16,15 +16,18 @@
       Evidence: `pi-child-session-gateway` fake-process unit coverage exercises prefixed activity, pointer-first behavior, summaries/previews, block-preview de-dupe, and unchanged stderr passthrough/final-text capture.
 - [ ] Add the small real-git integration-lane test: verify → stage → commit → trailers against a temp repo with a scripted child.
 - [ ] Write the parent playbook skill: interpreting Runner Checkpoints (verified vs claimed zones), choosing `--recover` vs reset vs hand-fix, and when a checkpoint warrants a Semantic Update via `objective-update`.
+- [x] Decompose the step into Pi-free bookends per ADR 0024: `sdl objective exec runner-begin` (LBYL preconditions, report-path hygiene, step facts + subagent prompt) and `sdl objective exec runner-finish` (fail-closed facts/report validation, unchanged gate, runner-owned commit, two-zone checkpoint), with the implementation session moved to a parent-dispatched harness subagent and the child report moved to a JSON file outside the worktree.
+      Evidence: scenario suites `exec-runner-begin.test.ts` / `exec-runner-finish.test.ts`; real-git `runner-finish-git.test.ts` (begin → simulated subagent → finish → trailers, double-finish → deterministic verification-failed, parent-moved-HEAD); read-only CLI bench drills (missing/corrupt report malfunctions, stale-report and in-repo report-path refusals) against this repo.
+- [x] Rewrite the parent skills to the decomposed flow: `objective-runner-step` (begin → dispatch subagent → finish playbook, "finish is terminal", touch-nothing-between-bookends rule) and `objective-autorun` (loop over begin→finish cycles with harness-native subagent visibility). No skill flow references the legacy blocking command.
 - [x] Ship the `objective-autorun` parent orchestration wrapper skill: the Claude Code entry point that drives repeated `runner-step` invocations with a judgment checkpoint between every step.
       Parent-judgment iteration per ADR 0022 — distinct from the parked batch/multi-step mode, which is a lower-agency machine loop. The skill defers per-step mechanics to `objective-runner-step`, routes tracking through `objective-update`, and never submits or pushes.
       Evidence: `skills/objective-autorun/SKILL.md` shipped invoke-only with umbrella-family registration.
-- [ ] Dogfood `runner-step` on a real Objective, including at least one `--recover` cycle if a failure occurs naturally or can be provoked cheaply; record findings as Semantic Updates here, especially any evidence bearing on the parked automatic-supervisor question.
-- [ ] Delete the frozen `.pi/extensions/objective-autopilot.ts` (final slice, only after dogfooding mileage).
+- [ ] Dogfood the decomposed begin→finish flow on a real Objective, including at least one `--recover` cycle if a failure occurs naturally or can be provoked cheaply; record findings as Semantic Updates here, especially any evidence bearing on the parked automatic-supervisor question.
+- [ ] Delete the legacy machinery after dogfooding mileage (final slice, ADR 0024): `exec-runner-step`, `ChildSessionGateway` + fake + event channel, the Pi child-session adapter, marker-block report parsing, and the frozen `.pi/extensions/objective-autopilot.ts`. `exec-runner-subagent-usage` stays.
 
 ## Parked
 
 - Pi command wrapper over `runner-step` (additive presentation; cross-harness parity says CLI + skill land first).
 - Automatic LM recovery supervisor — reintroduction only as explicit, evidence-gated policy per ADR 0022, driven by dogfooding notes from this Objective.
 - Batch/multi-step mode (explicit lower-agency behavior if it ever returns; out of scope for the durable design).
-- Non-Pi child adapters (Claude Code headless or other process models) — the `ChildSessionGateway` seam makes these pure adapter swaps when a concrete need appears.
+- Non-Pi child adapters (Claude Code headless or other process models) — resolved differently by ADR 0024: dispatch left the CLI entirely, so no adapter tier is needed; the `ChildSessionGateway` seam is deleted with the legacy command.
