@@ -6,6 +6,16 @@ export {
 } from "./fake-storage.ts";
 export { RealObjectiveStorageGateway } from "./real-storage.ts";
 export {
+	objectiveRecordEdgeSchema,
+	objectiveRecordFrontmatterParseSchema,
+	objectiveRecordFrontmatterSchema,
+	splitObjectiveRecordDocument,
+	type ObjectiveRecordDocument,
+	type ObjectiveRecordEdge,
+	type ObjectiveRecordFrontmatter,
+	type ObjectiveRecordFrontmatterParse,
+} from "./record-frontmatter.ts";
+export {
 	ACTIVE_OBJECTIVE_ROOT,
 	OBJECTIVE_ARCHIVE_ROOT,
 	ObjectiveStorage,
@@ -26,6 +36,7 @@ export {
 	type ObjectiveCheckoutRecord,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
+	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveRecordMovePaths,
 	type ObjectiveRecordStatus,
 	type ObjectiveStorageGateway,

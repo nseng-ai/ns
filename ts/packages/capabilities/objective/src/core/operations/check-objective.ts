@@ -19,6 +19,7 @@ import {
 	renderFilePresence,
 	type ObjectiveFiles,
 	type ObjectiveMarkdownReadResult,
+	type ObjectiveRecordDocumentReadResult,
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
@@ -211,7 +212,7 @@ async function checkObjective(
 	const updates = await storage.listUpdateFiles(relativePath);
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
 
-	const objectiveMd = await storage.readMarkdownFile(`${relativePath}/objective.md`);
+	const objectiveMd = await storage.readObjectiveRecordDocument(relativePath);
 	const roadmapMd = await storage.readMarkdownFile(`${relativePath}/roadmap.md`);
 	const updateChecks = files.value.updatesDir
 		? await Promise.all(
@@ -326,7 +327,7 @@ function filePresenceChecks(relativePath: string, files: ObjectiveFiles): Object
 
 function objectiveMarkdownChecks(options: {
 	path: string;
-	read: ObjectiveMarkdownReadResult;
+	read: ObjectiveRecordDocumentReadResult;
 	hasClosedMarker: boolean;
 }): ObjectiveCheckItem[] {
 	const read = options.read;
@@ -338,7 +339,10 @@ function objectiveMarkdownChecks(options: {
 	});
 	if (read.type !== "ok") return readableChecks;
 
-	const hasClosureHeading = hasExactHeading(read.content, "## Closure");
+	// Heading lints run on the frontmatter-stripped body so a Record Frontmatter
+	// fence or its YAML lines are never treated as record content (ADR 0025).
+	const body = read.document.body;
+	const hasClosureHeading = hasExactHeading(body, "## Closure");
 	const closureCheck = options.hasClosedMarker
 		? checkItem({
 				path: options.path,
@@ -362,7 +366,7 @@ function objectiveMarkdownChecks(options: {
 			headingCheck({
 				path: options.path,
 				displayPath: "objective.md",
-				content: read.content,
+				content: body,
 				heading,
 				severity: "error",
 			}),

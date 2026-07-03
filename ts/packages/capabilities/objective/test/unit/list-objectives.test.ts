@@ -1,13 +1,17 @@
 import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
+import type { ObjectiveCliContext } from "../../src/core/context.ts";
+import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { buildObjectiveBranchAttribution } from "../../src/core/operations/list-branch-attribution.ts";
 import {
 	latestUpdateIsoFromUpdateNames,
 	matchesStatusFilter,
 	type ObjectiveListResult,
 	renderObjectiveListHuman,
+	runListObjectives,
 } from "../../src/core/operations/list-objectives.ts";
+import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
@@ -148,6 +152,39 @@ describe("objective list helpers", () => {
 			"master...feat/newer",
 			"master...feat/older",
 		]);
+	});
+
+	test("list results are identical for records with and without Record Frontmatter", async () => {
+		const listWithObjectiveMd = async (objectiveMd: string) => {
+			const ctx: ObjectiveCliContext = {
+				cwd: "/repo",
+				env: { PATH: "/fake/bin" },
+				repoRoot: "/repo",
+				trunkBranch: "master",
+				storage: new ObjectiveStorage(
+					new FakeObjectiveStorageGateway({
+						records: [
+							{
+								slug: "alpha",
+								objectiveMd,
+								updates: { "2026-06-15T223520Z-progress.md": "# Progress\n" },
+							},
+						],
+					}),
+				),
+				git: new InMemoryGitGateway(),
+			};
+			return await runListObjectives(ctx, { names: false, status: "active", minimal: true });
+		};
+
+		const withoutFrontmatter = await listWithObjectiveMd("# alpha\n\n## Thesis\n");
+		const withFrontmatter = await listWithObjectiveMd(
+			"---\nblocked: Gated on an upstream landing.\nedges: []\n---\n# alpha\n\n## Thesis\n",
+		);
+
+		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
+		expect(withoutFrontmatter.data.records.map((record) => record.slug)).toEqual(["alpha"]);
+		expect(withFrontmatter).toEqual(withoutFrontmatter);
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {

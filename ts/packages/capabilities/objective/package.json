@@ -33,6 +33,7 @@
 		"@ji/clinkr": "workspace:*",
 		"@ji/core": "workspace:*",
 		"@ji/kernel": "workspace:*",
+		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
 	"ji": {

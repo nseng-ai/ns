@@ -2,6 +2,10 @@ import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";
+import {
+	objectiveRecordFrontmatterParseSchema,
+	type ObjectiveRecordFrontmatterParse,
+} from "../record-frontmatter.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
@@ -47,6 +51,10 @@ export const readObjectiveNonOkResultSchema = z.discriminatedUnion("status", [
 
 export const readObjectiveOkResultSchema = readObjectiveBaseResultSchema.extend({
 	status: z.literal("ok"),
+	// Record Frontmatter parse of objective.md via the shared reader (ADR 0025).
+	// Omitted when the record has no frontmatter (or objective.md is unreadable/missing),
+	// so records without frontmatter keep today's output exactly.
+	recordFrontmatter: objectiveRecordFrontmatterParseSchema.optional(),
 	markdownFiles: z.object({
 		objectiveMd: objectiveMarkdownReadResultSchema,
 		roadmapMd: objectiveMarkdownReadResultSchema,
@@ -82,6 +90,8 @@ export interface ReadObjectiveOkResult extends ReadObjectiveBaseResult {
 	slug: string;
 	path: string;
 	exists: true;
+	/** Omitted when objective.md carries no Record Frontmatter or cannot be read. */
+	recordFrontmatter?: ObjectiveRecordFrontmatterParse;
 	markdownFiles: ReadObjectiveMarkdownFiles;
 }
 
@@ -183,12 +193,19 @@ export async function readObjectiveRecord(
 		updates: [...updates.value],
 		updateCount: updates.value.length,
 	};
+	const objectiveDocument = await storage.readObjectiveRecordDocument(relativePath);
+	const recordFrontmatter =
+		objectiveDocument.type === "ok" ? objectiveDocument.document.frontmatter : undefined;
 	return {
 		type: "ok",
 		value: {
 			...facts,
+			...(recordFrontmatter === undefined ? {} : { recordFrontmatter }),
 			markdownFiles: {
-				objectiveMd: await storage.readMarkdownFile(`${relativePath}/objective.md`),
+				objectiveMd:
+					objectiveDocument.type === "ok"
+						? { type: "ok", content: objectiveDocument.content }
+						: objectiveDocument,
 				roadmapMd: await storage.readMarkdownFile(`${relativePath}/roadmap.md`),
 				updates: await Promise.all(
 					updates.value.map(async (update) => ({

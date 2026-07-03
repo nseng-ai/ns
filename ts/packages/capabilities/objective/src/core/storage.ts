@@ -2,6 +2,11 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import {
+	splitObjectiveRecordDocument,
+	type ObjectiveRecordDocument,
+} from "./record-frontmatter.ts";
+
 export const ACTIVE_OBJECTIVE_ROOT = ".ji/objectives";
 export const OBJECTIVE_ARCHIVE_ROOT = ".ji/objective-archive";
 
@@ -65,6 +70,11 @@ export type ObjectiveStorageResult<T> =
 export type ObjectiveMarkdownReadResult =
 	| { type: "missing" }
 	| { type: "ok"; content: string }
+	| { type: "unreadable"; message: string };
+
+export type ObjectiveRecordDocumentReadResult =
+	| { type: "missing" }
+	| { type: "ok"; content: string; document: ObjectiveRecordDocument }
 	| { type: "unreadable"; message: string };
 
 export interface ObjectiveStorageGateway {
@@ -186,6 +196,25 @@ export class ObjectiveStorage {
 
 	async readMarkdownFile(relativePath: string): Promise<ObjectiveMarkdownReadResult> {
 		return await this.gateway.readTextFile(relativePath);
+	}
+
+	/**
+	 * Read a record's `objective.md` through the shared Record Frontmatter reader
+	 * (ADR 0025). Every `objective.md` reader must consume this instead of the raw
+	 * Markdown read so frontmatter is stripped or parsed identically everywhere:
+	 * `content` is the verbatim file, `document.body` is the content with any
+	 * well-delimited frontmatter block removed.
+	 */
+	async readObjectiveRecordDocument(
+		recordRelativePath: string,
+	): Promise<ObjectiveRecordDocumentReadResult> {
+		const read = await this.gateway.readTextFile(posixJoin(recordRelativePath, "objective.md"));
+		if (read.type !== "ok") return read;
+		return {
+			type: "ok",
+			content: read.content,
+			document: splitObjectiveRecordDocument(read.content),
+		};
 	}
 
 	movePaths(slug: string, direction: ObjectiveArchiveDirection): ObjectiveRecordMovePaths {
