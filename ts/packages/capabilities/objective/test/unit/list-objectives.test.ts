@@ -77,7 +77,7 @@ describe("renderObjectiveListHuman", () => {
 	test("markdown table carries the edges column blank-when-zero and the blocked open sub-state", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".sdl/objectives",
+			rootPath: ".ji/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			records: [
