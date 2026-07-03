@@ -2,13 +2,15 @@
 
 ## Thesis
 
-A full-codebase, multi-agent run of `.sdl/reviews/code-smell-roaster.md` (the
-Fowler-style code-smell-only roaster review) against all 849 production
-TypeScript/TSX source files in this repo found 162 adversarially-verified code
-smells: 92 Duplicated Code, 16 Repeated Switches, 15 Data Clumps, 13 Divergent
-Change, 10 Speculative Generality, 5 Primitive Obsession, 4 Middle Man, 4
-Shotgun Surgery, 2 Message Chains, 1 Mysterious Name. This Objective tracks
-remediating that backlog as small, validated, package-scoped refactors.
+A full-codebase, multi-agent run of the Fowler-style code-smell-only roaster
+review (now `.ji/reviews/code-smell-roaster/review.md`; located at
+`.sdl/reviews/code-smell-roaster.md` when the sweep ran) against all 849
+production TypeScript/TSX source files in this repo found 162
+adversarially-verified code smells: 92 Duplicated Code, 16 Repeated Switches,
+15 Data Clumps, 13 Divergent Change, 10 Speculative Generality, 5 Primitive
+Obsession, 4 Middle Man, 4 Shotgun Surgery, 2 Message Chains, 1 Mysterious
+Name. This Objective tracks remediating that backlog as small, validated,
+package-scoped refactors.
 
 The full original findings — file:line evidence, roast, and a concrete
 smallest-fix per finding — are preserved under `references/` (start at
@@ -16,7 +18,10 @@ smallest-fix per finding — are preserved under `references/` (start at
 precedent `ts-cli-core-structural-cleanup` Objective, the reference files are
 source material rather than current truth: re-verify paths, line numbers, and
 that a smell is still present before implementing a row, since the repo moves
-between the sweep and pickup.
+between the sweep and pickup. This is now mandatory rather than cautionary:
+the July 2026 workspace reorganization (see Assumptions and Risks) moved or
+merged most of the packages the references name, so every remaining reference
+path must be re-mapped to its post-reorg location at pickup.
 
 This Objective is execution-friendly: a runner may pick a cluster, fix it, and
 submit a PR without asking each time, under the Runner Policy below. It is the
@@ -33,9 +38,11 @@ In scope:
 - Resolving each finding's smell using its documented smallest-fix (or an
   equivalent or better refactor discovered at implementation time), without
   changing observable behavior.
-- Re-verifying each finding against current code before acting on it, and
-  recording whatever is actually found (smell confirmed / already gone /
-  description stale) rather than assuming the reference file is current truth.
+- Re-verifying each finding against current code before acting on it —
+  including re-mapping its pre-reorg reference path to the file's post-reorg
+  location — and recording whatever is actually found (smell confirmed /
+  already gone / description stale) rather than assuming the reference file is
+  current truth.
 - Slicing remediation work by package/area cluster (matching the 21
   `references/*.md` files), since that is how the smells were found and how
   ownership is easiest to reason about; large clusters (`infra`,
@@ -124,7 +131,7 @@ The supported autonomous runner is `/objective:autopilot <slug> [--submit]`:
 each iteration spawns a fresh child Pi that runs `objective-next` for *this*
 Objective, implements one coherent slice, and leaves it **uncommitted**; the
 parent session then re-checks live repo state and owns commit and submit
-(`--submit` opens the PR via `sdl flow submit --no-restack`, never restacking
+(`--submit` opens the PR via `ji flow submit --no-restack`, never restacking
 and never landing). A human working the loop by hand follows the same steps
 below.
 
@@ -141,8 +148,8 @@ below.
 - **How work may change files and be left:** local edits and commits on a
   feature branch (never on `main`/`master`) created via the repo's
   **branch-context Graphite creation** path per the autoobjective branch policy
-  (`sdl branch-context exec from-plan --branch-creation graphite`, or
-  `/sdl:branch-context:from-plan --graphite`) — not bare `gt create`. See
+  (`ji branch-context exec from-plan --branch-creation graphite`, or
+  `/ji:branch-context:from-plan --graphite`) — not bare `gt create`. See
   `skills/branch-context/references/lifecycle.md`. Small, reversible, locally
   validated steps are fine while exploring a cluster, but
   the submitted PR should be one coherent, review-substantive unit — usually
@@ -160,7 +167,8 @@ Default runner loop:
 
 1. Pick one open (no-disposition) `references/<area>.md` cluster from
    `roadmap.md`.
-2. Re-verify each finding in the cluster against current code; note any that
+2. Re-verify each finding in the cluster against current code, re-mapping its
+   pre-reorg reference path to the post-reorg package layout; note any that
    are already stale (file moved, smell already gone, description outdated).
 3. Fix what's still real per the Definition of Progress; dispose or route
    anything that no longer applies or belongs elsewhere.
@@ -170,7 +178,7 @@ Default runner loop:
    finding that turned out stale, or an overlap with another Objective), or
    policy refinements — not a per-commit changelog.
 7. Create the branch-context implementation branch, commit the slice, and
-   submit the cluster's PR (`sdl flow submit --no-restack`); do not land it.
+   submit the cluster's PR (`ji flow submit --no-restack`); do not land it.
    Under `/objective:autopilot` the parent owns commit and submit while the
    child leaves the slice uncommitted.
 
@@ -182,34 +190,54 @@ Assumptions:
   findings) makes the 162 confirmed findings reasonably trustworthy, but not
   infallible — a single verifier pass can still miss a misjudged smell or
   inaccurate evidence, so re-verification at pickup is required, not optional.
-- Package ownership may have shifted since the sweep (extension-architecture
-  migration is ongoing per `ts-cli-core-structural-cleanup`); cluster-to-
-  package mapping in `references/` should be treated as a starting point.
+- Cluster-to-package mapping in `references/` is pre-reorg and must be
+  re-mapped, not merely double-checked. The July 2026 workspace consolidation
+  regrouped `ts/packages/` into `infra/{brmem,clinkr,core}`,
+  `capabilities/*`, `capability-kit`, `hosts/{pi,jicc}`, `kernel`,
+  `local/pi-tools`, and `tools/*`: the former standalone `exec`,
+  `cli-runtime`, `cli-theme`, `time`, and `test-kit` packages now live under
+  `infra/core/src/*`; `git`, `github`, `graphite`, and `cmux` now live under
+  `capability-kit/src/*`; the `@local-pi-tools/*` sub-packages were
+  consolidated into one `@internal/pi-tools` package at
+  `ts/packages/local/pi-tools`; the `sdlcc` host was renamed `jicc`;
+  `worktree-status` moved into `hosts/pi/src/worktree-status`; and
+  `capabilities/land` was absorbed into `capabilities/flow/src/land`. The
+  first-party CLI was also renamed `sdl` → `ji` and the repo state root
+  `.sdl` → `.ji`. Landed fixes from this Objective survived the reorg (their
+  helpers re-verified present on 2026-07-03, a few under new names — see
+  `roadmap.md`), but every remaining reference path needs the same re-mapping.
 - Existing or focused tests per touched package are a sufficient behavior-
   parity net for refactors of this shape (extract-helper, collapse-switch,
   bundle-data-clump), consistent with the precedent Objectives.
 - Most of the 162 findings are independent, package-local refactors safe to
   parallelize across PRs; a minority (large Divergent Change god-files such as
-  `local-pi-tools/thermo-council/orchestrator.ts` or
-  `local-pi-tools/pr-feedback-watch/controller.ts`) are larger design
-  decisions better split across multiple slices within their cluster.
+  `local/pi-tools/src/thermo-council/orchestrator.ts` or
+  `local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts`) are
+  larger design decisions better split across multiple slices within their
+  cluster.
 
 Risks:
 
-- **Ownership overlap risk:** several `infra` and `capabilities` findings
-  (e.g., `RealGitGateway`/`RealGithubPrGateway` method-wrapping duplication,
-  Flow land-stack presentation-failure duplication) sit close to open
+- **Ownership overlap risk:** several remaining `infra` and `capabilities`
+  findings (e.g., the Flow land-stack presentation-failure duplication, now
+  under `capabilities/flow/src/land`) sit close to open
   `ts-cli-core-structural-cleanup` rows. Fixing the same shape in both
   Objectives would waste effort or conflict; check that Objective's open
-  roadmap rows before implementing an `infra`/`capabilities` cluster.
+  roadmap rows before implementing an `infra`/`capabilities` cluster. (The
+  `RealGitGateway`/GitHub gateway sub-slices flagged earlier were fixed here
+  in the completed git/github sub-slices without conflict.)
 - **Cross-package duplication is undercounted** by construction (each
   reviewer agent saw only its own partition), so this backlog is a floor, not
   a ceiling, on Duplicated Code in the repo.
-- **Large god-file findings** (Divergent Change in `thermo-council/
-  orchestrator.ts`, `pr-feedback-watch/controller.ts`, `grill/extension.ts`,
-  `hosts/pi/commands/cli-extension.ts`, `infra/graphite/status.ts`) are
-  higher-risk to split without behavior regressions; treat these as their own
-  slice with extra validation rather than folding into a larger cluster PR.
+- **Large god-file findings** are higher-risk to split without behavior
+  regressions; treat these as their own slice with extra validation rather
+  than folding into a larger cluster PR. Two have already been split this way
+  (`backing-skill-commands` `extension.ts` and `hosts/pi`
+  `commands/cli-extension.ts` — see `roadmap.md`). Still pending, at their
+  post-reorg paths: `local/pi-tools/src/thermo-council/orchestrator.ts`
+  (~620 lines), `local/pi-tools/src/pr-feedback-watch/feedback-watch/
+  controller.ts` (~820 lines), `local/pi-tools/src/grill/extension.ts`
+  (~550 lines), and `capability-kit/src/graphite/status.ts`.
 - **Mechanical extraction risk:** "extract a shared helper" fixes can
   introduce a real but non-obvious behavior difference (e.g., differing error
   wrapping) if applied too mechanically; each fix needs the validation step,
@@ -217,11 +245,16 @@ Risks:
 
 ## Open Questions
 
-- Whether the large Divergent Change god-file findings should get their own
-  dedicated roadmap rows split out of their parent cluster once a runner
-  starts implementing that cluster (deferred to pickup time rather than
-  decided up front).
-- Whether any `infra`/`capabilities` findings should be disposed as routed to
-  `ts-cli-core-structural-cleanup` before any implementation starts, versus
-  deciding row-by-row at pickup — left to the first runner session to resolve
-  with evidence.
+- Whether the remaining large Divergent Change god-file findings
+  (`thermo-council/orchestrator.ts`, `pr-feedback-watch/feedback-watch/
+  controller.ts`, `grill/extension.ts`, `graphite/status.ts`) should get their
+  own dedicated roadmap rows split out of their parent cluster once a runner
+  starts implementing that cluster. Practice so far (backing-skill-commands
+  `extension.ts`, hosts/pi `cli-extension.ts`) has been a dedicated sub-slice
+  per god-file within the parent row; deciding row splits stays deferred to
+  pickup time.
+- Whether any remaining `infra`/`capabilities` findings should be disposed as
+  routed to `ts-cli-core-structural-cleanup` before implementation, versus
+  deciding row-by-row at pickup. Practice so far has been row-by-row: the
+  completed infra git/github sub-slices were fixed here with no routed
+  dispositions recorded yet.

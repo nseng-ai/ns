@@ -4,9 +4,11 @@
 
 This Objective is the single open standing record for autonomous follow-up work on redundant optional `undefined` in TypeScript declarations.
 
-It continues from the closed `.sdl/objectives/normalize-optional-undefined-boundaries` Objective. The closed Objective established the semantic process: inventory before editing, normalize loose inputs at boundaries, preserve compatibility surfaces deliberately, avoid regex-driven sweeps, and summarize before/after counts and rationale for every slice.
+It continues from the closed `.ji/objectives/normalize-optional-undefined-boundaries` Objective. The closed Objective established the semantic process: inventory before editing, normalize loose inputs at boundaries, preserve compatibility surfaces deliberately, avoid regex-driven sweeps, and summarize before/after counts and rationale for every slice.
 
-The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective should operate like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make a review-substantive coherent improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
+The standing goal is to continuously reduce semantically redundant `?: T | undefined` where a runner can make and validate a local semantic claim. It is not a blanket zero-count campaign. The Objective operates like a long-running cleanup/research loop: repeatedly inventory candidates, classify their semantics, make a review-substantive coherent improvement, validate it, record reusable findings, and continue in later sessions without requiring human steering for ordinary local slices.
+
+The first full campaign pass completed on 2026-07-01: the repo-wide raw optional-undefined count reached zero by classifying every remaining candidate as either a plain omission-only optional or a typed `ExplicitUndefined<Reason, T>` compatibility contract (defined in `ts/packages/infra/core/src/primitives/primitives.ts` with a named reason vocabulary, for example `public-api-compatibility` on the kernel SDK surfaces). The standing loop now watches for reintroduced raw candidates and classifies or removes them; it does not revisit already-classified groups without new evidence.
 
 ## Scope
 
@@ -15,17 +17,17 @@ In scope:
 - Keep one open Objective for redundant optional-undefined follow-up work.
 - Autonomously pursue small, coherent cleanup slices across SDL TypeScript when the runner can justify that present-key `undefined` has no domain, compatibility, input, or external-conformance meaning.
 - Use the closed normalization Objective as precedent and process source.
-- For each cleanup slice, classify candidates before editing and remove explicit `undefined` only when present-key `undefined` has no domain, compatibility, input, or external-conformance meaning.
+- For each cleanup slice, classify candidates before editing and remove explicit `undefined` only when present-key `undefined` has no domain, compatibility, input, or external-conformance meaning; when explicit `undefined` is compatibility-significant, record it as a typed `ExplicitUndefined` contract with a precise reason instead of leaving raw, unclassified debt.
 - Normalize producers/builders/parsers before narrowing internal result, diagnostic, presentation, or durable-record shapes.
 - Preserve `null` where it carries external or domain meaning while dropping only redundant explicit `undefined` when justified.
 - Record before/after repo-wide counts and scoped counts, fields changed, semantic claims, preserved/deferred categories, validation evidence, and reusable classification findings when progress is kept.
-- Continue to treat the already-submitted packagechk / GitHub PR feedback / pr-feedback-watch / preview-checks / worktree-status stack as current evidence and seed inventory, while allowing later autonomous slices elsewhere in the TypeScript workspace when they satisfy this Objective's policy.
+- Treat the merged 2026-06-30 seed stack (PR #2420, PR #2423, PR #2428, PR #2429 — packagechk / GitHub PR feedback / pr-feedback-watch / preview-checks / worktree-status) as historical precedent and delivered evidence; new slices start from a fresh metric inventory rather than that seed list.
 
 ## Non-Goals
 
 - Do not reopen the closed `normalize-optional-undefined-boundaries` Objective; it remains historical precedent.
 - Do not create competing open Objectives for the same optional-undefined follow-up.
-- Do not adopt a hard repo-wide ban, checked-in allowlist, CI guard, or zero-count target in this Objective unless a human explicitly approves that as a new scope decision.
+- Do not adopt a hard repo-wide ban, checked-in allowlist, CI guard, or zero-count target in this Objective unless a human explicitly approves that as a new scope decision. The raw count reaching zero is a measurement milestone, not approval for enforcement.
 - Do not perform broad package-wide or repo-wide mechanical rewrites just to reduce grep counts.
 - Do not tighten public SDK/kernel, CLI option, dependency bag, external payload mirror, environment/process, Zod input, or fixture/fake-builder surfaces unless a separate normalized internal type or explicit semantic claim justifies it.
 - Do not collapse meaningful `null`, omission, and explicit-undefined distinctions accidentally.
@@ -42,6 +44,7 @@ Closure should summarize the final known candidate landscape, delivered cleanup 
 Progress is keepable when it improves the semantic optional-undefined model by doing one or more of:
 
 - Removing `| undefined` from optional properties where present-key `undefined` has no domain, compatibility, input, or external-conformance meaning.
+- Converting compatibility-significant raw `?: T | undefined` into typed `ExplicitUndefined<Reason, T>` contracts with a precise named reason, so remaining explicit-undefined surfaces are auditable rather than hidden.
 - Normalizing producers, builders, parsers, or adapters so internal result/presentation/diagnostic/durable shapes can honestly use omission-only optional properties.
 - Splitting loose external/input/compatibility surfaces from stricter internal types.
 - Classifying candidates into remove / preserve / defer categories with rationale future agents can reuse.
@@ -57,14 +60,16 @@ Do not keep changes that:
 - Reduce grep counts by mechanical rewrite alone.
 - Mix unrelated cleanup domains into the same slice only because they share the same syntax.
 
-The Objective's primary measurement function has two per-slice metrics:
+The Objective's measurement instrument is the checked-in script `tools/measure-objective.mjs` in this record (run from the repo root as `node .ji/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [scope ...]`). It reports four metrics per scope:
 
-1. **Typed optional-undefined property count**: scoped before/after count of declarations such as `foo?: T | undefined`. This should generally trend monotonically down across kept cleanup slices, except for deliberate preserves or newly justified compatibility/input surfaces.
-2. **Undefined-normalization/check count**: scoped before/after count of omission-building or explicit-undefined adapter code, such as `...(request.key === undefined ? {} : { key: request.key })` and equivalent `if (value !== undefined)` construction guards. This metric may fluctuate: it can rise when a slice first normalizes producers/builders before narrowing upstream request objects, and should later fall as omission-only contracts move up the stack. Interpret it by boundary location rather than as a monotonic target.
+1. **Raw optional-undefined properties (net debt)**: unclassified `foo?: T | undefined` declarations. This is the primary metric. It reached zero repo-wide on 2026-07-01 and should stay at or near zero; nonzero readings are reintroductions to classify or remove.
+2. **Typed explicit-undefined contracts**: `ExplicitUndefined<Reason, T>` usages. These are deliberate, audited surfaces, not debt; converting raw debt into a typed contract is progress even though this count rises.
+3. **Legacy preserve markers**: stale preserve annotations from the earlier campaign. Should remain zero.
+4. **Undefined-normalization/check lines**: omission-building or explicit-undefined adapter code such as `...(request.key === undefined ? {} : { key: request.key })` and `if (value !== undefined)` construction guards. This metric fluctuates: it can rise when a slice first normalizes producers/builders before narrowing upstream request objects, and should later fall as omission-only contracts move up the stack. Interpret it by boundary location, not as a monotonic target. It also drifts with unrelated repo growth.
 
 Every kept Objective update and submitted Objective PR should display both before/after repo-wide counts and before/after scoped counts in its update/PR description, along with the measurement scopes and any important classification caveats. Repo-wide counts are mandatory even for narrow slices so the standing Objective always reports visible total remaining debt; scoped counts explain the local slice. These counts are the Objective's visible progress scorecard, not a replacement for semantic review.
 
-Useful evidence includes the two repo-wide and scoped before/after metrics, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
+Useful evidence includes the repo-wide and scoped before/after metrics, a short list of changed fields, construction-path evidence showing absent fields are omitted, preserved/deferred category notes, and relevant TypeScript validation results.
 
 ## Runner Policy
 
@@ -74,16 +79,16 @@ Direct local execution is allowed when the runner can select a coherent, review-
 
 Execution granularity and review granularity are different. Autopilot may make small, reversible, locally validated edits or checkpoints while exploring a semantic boundary. PR granularity should usually be coarser: aggregate those steps into one coherent, review-substantive unit that a reviewer can understand as a single semantic claim.
 
-Slice sizing should now bias coarser than the early narrow follow-up slices. Avoid both extremes: do not run broad repo-wide syntactic sweeps, but also do not spend a PR on a trivial file or tiny helper cluster when nearby candidates form one semantic package/subsystem cluster. Prefer package/subsystem-level PR slices such as all safe internal `worktree-status` omission-only option/result/helper fields, a cohesive `pr-previews` internal command/model/view cleanup, a `pr-feedback-watch` internal model/rendering/API-helper cleanup, or a GitHub PR feedback parser/fingerprint/internal-diagnostic cleanup. As a default minimum, keep inventorying/classifying and include adjacent safe candidates until the proposed PR has at least 10 substantive edit sites / touched lines attributable to the optional-undefined cleanup. A smaller PR is acceptable only when the semantic boundary is genuinely exhausted, the change is independently review-substantive, or nearby candidates have been explicitly classified as unsafe/unrelated. Do not batch unrelated optional-undefined edits just to make the PR bigger.
+Slice sizing biases coarser than the early narrow follow-up slices. Avoid both extremes: do not run broad repo-wide syntactic sweeps, but also do not spend a PR on a trivial file or tiny helper cluster when nearby candidates form one semantic package/subsystem cluster. As a default minimum, keep inventorying/classifying and include adjacent safe candidates until the proposed PR has at least 10 substantive edit sites / touched lines attributable to the optional-undefined cleanup. A smaller PR is acceptable only when the semantic boundary is genuinely exhausted, the change is independently review-substantive, or nearby candidates have been explicitly classified as unsafe/unrelated. Do not batch unrelated optional-undefined edits just to make the PR bigger. In the post-zero phase, a slice may legitimately be small when the entire reintroduced inventory is small; record the exhaustion evidence rather than padding.
 
 Default runner loop:
 
-1. Recompute or narrow an inventory of `?: ... | undefined` candidates.
-2. Classify candidates before editing: remove now, preserve, or defer.
+1. Re-run the metric inventory with `tools/measure-objective.mjs` to find current raw candidates; do not revisit already-classified groups without new evidence.
+2. Classify candidates before editing: remove now, convert to a typed `ExplicitUndefined` contract, preserve, or defer.
 3. Pick a review-substantive coherent safe slice, biased toward a package/subsystem cluster of internal result/diagnostic/presentation/durable shapes and nearby producers/builders/parsers rather than the narrowest single-file edit.
 4. Normalize construction or boundary code before narrowing types.
 5. Run relevant TypeScript validation before keeping work.
-6. Measure both repo-wide (`ts`) and scoped before/after counts for both typed optional-undefined properties and undefined-normalization/check code.
+6. Measure both repo-wide (`ts`) and scoped before/after counts with the measurement tool.
 7. Record a Semantic Update only for kept progress, reusable classification findings, changed assumptions, validation evidence, metric-policy changes, or roadmap/policy changes; kept cleanup updates must include the repo-wide before/after scorecard as well as the scoped scorecard.
 8. When PR submission is authorized, encode both repo-wide and scoped before/after metrics and their scopes in the PR description.
 9. Leave local edits uncommitted unless the user explicitly asks for commit/PR workflow, then continue in a later invocation.
@@ -98,8 +103,9 @@ Assumptions:
 
 - The closed normalization Objective's conservative process remains the right default for this repository.
 - A long-running autonomous loop can make useful incremental progress if each slice remains small, semantic, validated, and evidence-recorded.
-- Some remaining candidates are legitimate option/input/deps/config or external mirror surfaces and should remain until a local semantic claim is available.
+- Remaining explicit-undefined surfaces are either typed `ExplicitUndefined` contracts with named reasons or new reintroductions; raw candidates found by the tool are presumed unclassified debt until a runner classifies them.
 - Qualitative semantic classification is more important than maximizing raw grep-count reduction.
+- The measurement tool's patterns keep matching the repo's declaration style; large TypeScript refactors (package moves, renames) shift the auxiliary counts without changing the semantic model.
 
 Risks:
 
@@ -108,8 +114,10 @@ Risks:
 - Editing interfaces before producers can push `exactOptionalPropertyTypes` fallout across unrelated callsites.
 - Null-sensitive cases can lose meaning if `null`, omission, and explicit `undefined` are collapsed without tracing consumers.
 - Autonomous pursuit can drift into syntactic churn unless each slice records the semantic claim and stop/ask decisions.
+- Without periodic re-inventory, reintroduced raw candidates accumulate silently; the loop's value in the post-zero phase depends on actually re-running the measurement.
 
 ## Open Questions
 
 - Whether any future objective should separately pursue a hard guard/allowlist policy. That is explicitly outside this Objective unless approved as a new scope decision.
 - Whether repeated autonomous slices reveal a small number of recurring preserved categories that should be documented in repo TypeScript guidance.
+- Whether the reason vocabulary of `ExplicitUndefined` should stay in `ts/packages/infra/core` or graduate into shared TypeScript guidance as it stabilizes.

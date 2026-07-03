@@ -12,13 +12,13 @@
       Make the `ji` CLI able to list, path, and provision (with deterministic preview) at least one SDL-owned skill through the shared subsystem, with zero `npx skills` dependency.
 
 - [ ] Extension-carried artifact provisioning (pulled forward from parked).
-      An SDL extension declares bundled or companion skills statically in its package manifest (`sdl` field in `package.json`); installing/enabling the extension provisions them through the shared subsystem with no extension code executed during discovery. Hook point decided (see `updates/20260702T041140Z-reconcile-primitive-and-sdl-update-hook.md`): reconcile is the primitive; a `ji update` surface is the primary commanded hook (applies, reported); a cheap load-time/invocation-time fingerprint check backstops ambient drift such as `git pull` on checked-in project-local extensions (detects and nudges, never silently writes).
+      An SDL extension declares bundled or companion skills statically in its package manifest (the `ji` field in `package.json`, parsed by `@ji/kernel` extension discovery); installing/enabling the extension provisions them through the shared subsystem with no extension code executed during discovery. Hook point decided (see `updates/20260702T041140Z-reconcile-primitive-and-sdl-update-hook.md`): reconcile is the primitive; a `ji update` surface is the primary commanded hook (applies, reported); a cheap load-time/invocation-time fingerprint check backstops ambient drift such as `git pull` on checked-in project-local extensions (detects and nudges, never silently writes).
 
 - [ ] Re-platform AREG onto the shared core as the proving second consumer.
-      Replace AREG's `npx skills` materialization path with the shared provisioner and converge `skills-lock.json` with the install manifest on one hash/record format so `areg check`/`doctor` can verify casual-path installs. Coordinate with the active `migrate-areg-and-ns-skills`, `areg-typescript-port`, and `areg-ts-cli-cleanup` Objectives before implementation.
+      Replace AREG's `npx skills` materialization path with the shared provisioner and converge `skills-lock.json` with the install manifest on one hash/record format so `areg check`/`doctor` can verify casual-path installs. The prior AREG migration Objectives (`migrate-areg-and-ns-skills`, `areg-typescript-port`, `areg-ts-cli-cleanup`) have closed; plan against the landed `@ji/areg` implementation (`ts/packages/tools/areg`, including its `npx-skills` gateway and lockfile/check operations) rather than a moving port.
 
 - [ ] Reconcile with existing skill workflows, docs, and vocabulary.
-      Compare the new subsystem against `skillx`, the `@sdl/areg` CLI, `npx skills`, repo skill conventions, and harness skill-invocation docs so the new CLI behavior is additive. Includes the bare-"artifact" collision cleanup: handoff artifact and consumer artifact stay owned by their domains; AREG's "managed artifacts" overlay sense is renamed (e.g. "kind overlays").
+      Compare the new subsystem against `skillx`, the `@ji/areg` CLI, `npx skills`, repo skill conventions, and harness skill-invocation docs so the new CLI behavior is additive. Includes the bare-"artifact" collision cleanup: handoff artifact and consumer artifact stay owned by their domains; AREG's "managed artifacts" overlay sense is renamed (e.g. "kind overlays").
 
 ## Parked
 

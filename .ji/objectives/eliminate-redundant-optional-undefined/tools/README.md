@@ -5,14 +5,14 @@ Temporary Objective-owned tooling for measuring the `eliminate-redundant-optiona
 ## Command
 
 ```sh
-node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [scope ...]
+node .ji/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs [scope ...]
 ```
 
 Scopes default to `ts`. Pass one or more files/directories to measure a PR slice, for example:
 
 ```sh
-node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs ts/packages/branch-context
-node .sdl/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs --json ts/packages/branch-context
+node .ji/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs ts/packages/capabilities/branch-context
+node .ji/objectives/eliminate-redundant-optional-undefined/tools/measure-objective.mjs --json ts/packages/capabilities/branch-context
 ```
 
 ## Metrics
@@ -26,10 +26,10 @@ The tool reports these Objective metrics:
 
 ## Explicit undefined contracts
 
-Permanent support for explicit present-key `undefined` is encoded in the type system with `ExplicitUndefined<Reason, T>` from `@sdl/core/primitives`:
+Permanent support for explicit present-key `undefined` is encoded in the type system with `ExplicitUndefined<Reason, T>` from `@ji/core/primitives`:
 
 ```ts
-import type { ExplicitUndefined } from "@sdl/core/primitives";
+import type { ExplicitUndefined } from "@ji/core/primitives";
 
 readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 readonly env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
@@ -46,6 +46,7 @@ Allowed reasons are:
 - `"key-event"` — terminal key-event payload fields mirroring upstream event shapes.
 - `"null-tolerant-input"` — tolerant input fields that accept `null` and `undefined` interchangeably.
 - `"overload-selector"` — overload/input selectors where explicit `undefined` is part of the authoring contract.
+- `"public-api-compatibility"` — public SDK/kernel API fields where explicit-`undefined` assignability is a compatibility contract.
 
 The old marker-comment convention is retired. Do not add new marker comments; migrate any remaining legacy marker to a typed `ExplicitUndefined<Reason, T>` contract. If a specific field needs extra rationale, add an ordinary domain comment without the retired marker string.
 

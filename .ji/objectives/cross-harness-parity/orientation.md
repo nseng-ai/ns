@@ -1,12 +1,14 @@
 **Direction: workflows get CLI + skill parity; Pi is additive, never canonical.**
 
-Getting to: stack landing, cmux dispatch, and command summaries are reachable as
-CLI + skill first; a living parity table prevents Pi-only gaps.
+Getting to: every workflow is reachable as a shared CLI (the `ji` kernel +
+capability pattern) with skill or typed-metadata coverage; a living parity
+table prevents Pi-only gaps.
 
-What you see now — legacy, do not copy: workflows trapped in Pi only; a parity
-table that drifts after renames/relocations.
+What you see now — legacy, do not copy: cmux dispatch trapped in Pi-only
+`/ccc:workspace:*` commands; a parity table two renames stale; flow commands
+without wrapper skills.
 
 Avoid: treating Pi mirrors as the canonical home; duplicating orchestration;
-landing a new workflow Pi-first.
+landing a new workflow Pi-first or without parity metadata.
 
 Active slice: see this objective's roadmap.md.
