@@ -129,3 +129,23 @@ answers are also reflected in `rename-sdl-to-ji/cutover-inventory.md`.
   runbook) with an explicit no-promotion note per `docs/platform-and-consumer.md` —
   it archives with this Objective; pattern-promotion remains the Parked row. See
   update `2026-07-02-cutover-pipeline-authored.md`.
+
+## Closure
+
+Closed as completed on 2026-07-03. The atomic core cutover landed on
+`ji-cutover/landing`: the repo state root moved to `.ji/`, `ji` became the only
+CLI invocation surface for the cutover scope, Pi command names moved to `/ji:*`, XDG
+references moved to the `ji` namespace, the parity table updated in-window, and no
+compatibility codepath was introduced.
+
+Key evidence is recorded in `updates/2026-07-03-real-landing-executed.md`: B1's mv
+bracket (`ff190fa70`), the three-engine-chunk landing run (~183 agents, 0 failures),
+two fix rounds, `just` green with 3994/3994 tests, all §B5 smoke tests passing
+(`ji --help`, old shim gone, `ji objective list`, and
+`ji objective exec load-orientations`), exact scope-untouched baselines, and landing
+artifacts under `cutover/landing/`.
+
+The parent `rename-sdl-to-ji` Objective now owns the remaining rename work: manual
+machine migration, vocabulary sweep, package scope sweep, `@ji` npm scope claim, and
+the final GitHub repo rename. The parked workflow-generalization idea remains only a
+future promotion candidate if a reusable platform capability is later desired.
