@@ -9,9 +9,7 @@ import { formatCommandDetails } from "./command-exec.ts";
 import { COMMAND_NAME, STATUS_KEY } from "./constants.ts";
 import { emptyResult, failure, type LandStackFailure, type LandStackOutcome } from "./errors.ts";
 import {
-	formatGraphiteCommand,
-	graphiteRestackForSubmitArgs,
-	graphiteSubmitUpdateArgs,
+	formatGraphiteOperation,
 	restackTargetForSubmit,
 	shortSha,
 } from "./graphite-command-channel.ts";
@@ -96,11 +94,11 @@ export function formatPlan(plan: LandingPlan): string {
 		}
 		if (restackTarget) {
 			lines.push(
-				`  Command: ${formatGraphiteCommand(graphiteRestackForSubmitArgs(restackTarget))}`,
+				`  Command: ${formatGraphiteOperation({ kind: "restack-upstack", branch: restackTarget })}`,
 			);
 		}
 		lines.push(
-			`  Command: ${formatGraphiteCommand(graphiteSubmitUpdateArgs(stack.landingTargetBranch))}`,
+			`  Command: ${formatGraphiteOperation({ kind: "submit-update", branch: stack.landingTargetBranch })}`,
 		);
 	} else {
 		lines.push("No pre-merge PR submit/update is required.");

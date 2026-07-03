@@ -9,7 +9,8 @@ results, per-failure catalogs where one failure is one edit site.
 
 What you see now: `land-stack/` still orchestrates execution beside `land/`,
 crossing via mirror types and dual mappers in `plan-mapping.ts`; the channel
-interface is still argv-shaped; `regenerate-pr --force` is still a no-op.
+is operation-shaped as of 2026-07-02 (specs own argv; no `runRaw`);
+`regenerate-pr --force` is still a no-op.
 Avoid: adding wrappers, mirror types, or mappers at the compatibility
 boundary; consolidating or polishing the round trip (it gets deleted, not
 improved); designing tests against a scripted channel adapter — scripted

@@ -32,27 +32,21 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       (`src/submit/pr-description-orchestration.ts`), duplicate deleted,
       regenerate skips an already-current body with a scenario regression.
       Residual: `--force` semantics, next rows.
-- [ ] Operation-shape the Graphite command channel
-      Policy: direct.
-      What: the channel owns operations, not argv. Fold the seven exported
-      arg-builders (`graphiteTrunkArgs`, `graphiteSubmitUpdateArgs`,
-      `graphiteRestackForSubmitArgs`, `graphiteRestackUpstackArgs`,
-      `graphiteGetDownstackNoCheckoutArgs`, `graphiteDeleteLocalBranchArgs`,
-      plus `formatGraphiteCommand` display pairing) into operation specs on
-      `LandGraphiteCommandChannel`. Remove `runRaw` from the interface — it
-      has zero callers outside `src/land-stack/graphite-command-channel.ts`.
-      Absorb the `maintenance.kind === "optional-descendant"` method selection
-      (`src/land-stack/graphite-maintenance.ts:295`) into the spec so callers
-      stop choosing channel methods. Reconcile `deleteFinalLocalBranch` with
-      the spec shape (bespoke method and generic runner currently coexist).
-      Callers to update: `graphite-maintenance.ts` (~lines 220, 295, 396,
-      436), `land-runtime.ts`, and any `landing-operations.ts` /
-      `pre-merge-submit.ts` sites found by grepping the builder names.
-      Do not: add a scripted-channel adapter; change `sdl-flow/api`.
-      Evidence: grep shows zero `runRaw` and zero arg-builder exports
-      consumed outside the channel; land scenario tests still pass scripting
-      `pi.exec` with unchanged argv assertions; a new-mutation example in a
-      unit test needs only a spec entry.
+- [x] Operation-shape the Graphite command channel
+      Delivered 2026-07-02 (runner step, commit `2163da469` on
+      `flow-operation-shaped-graphite-channel`): the channel owns operation
+      specs; the seven exported arg-builders and `formatGraphiteCommand`
+      pairing are folded in; `runRaw` removed from the interface; the
+      `maintenance.kind === "optional-descendant"` method selection absorbed;
+      `deleteFinalLocalBranch` reconciled with the spec shape;
+      `graphite-metadata-command.ts` deleted into the channel (the shims
+      row's fold-in, done here as planned).
+      Evidence: grep shows zero `runRaw` and zero arg-builder references in
+      flow src/test; land scenario tests pass with unchanged `pi.exec` argv
+      assertions (`land-stack-command-scenarios.test.ts` untouched); a unit
+      test demonstrates a new mutation needs only a spec entry; full DoP
+      suite reported green by the step, independently re-verified via flow
+      package tests (47 files / 419 tests) and `just ts-check`.
 - [ ] Give `regenerate-pr --force` full force semantics (decided 2026-07-02)
       Policy: direct.
       What: `--force`/`-f` regenerates even when the fingerprint is current
@@ -80,9 +74,9 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       (9), `src/shared/checkpoint-message.ts` (2), `src/submit/format.ts` (3),
       `src/autobranch/short-sha.ts` (3). Keep `src/shared/text-generation.ts`
       (many consumers — a real naming seam).
-      `src/land-stack/graphite-metadata-command.ts` is NOT a pure shim (two
-      source consumers plus `test/unit/land-test-helpers.ts`): fold it into
-      the channel, preferably while operation-shaping.
+      `src/land-stack/graphite-metadata-command.ts` is already absorbed —
+      the operation-shaping row deleted it into the channel on 2026-07-02;
+      only the five forwarder files remain for this row.
       Evidence: the five files are gone; `just ts-check` and the flow test
       suite pass; no re-export replaces them.
 - [ ] Land Domain extraction — inventory (no code moves)
