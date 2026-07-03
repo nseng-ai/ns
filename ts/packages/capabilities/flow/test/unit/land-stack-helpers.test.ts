@@ -627,6 +627,7 @@ describe("land-stack pure helpers", () => {
 				landingBranches: ["feature-a", CURRENT],
 				remainingLandingBranches: [],
 				descendantBranches: [DESCENDANT],
+				descendantRootBranches: [DESCENDANT],
 				warnings: ["off-column branch ignored"],
 			},
 			branchPlans: [

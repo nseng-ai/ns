@@ -1,4 +1,3 @@
-import { optionalEntry } from "@sdl/core/primitives";
 import { buildStackLandingPlan } from "../api.ts";
 import type { LandingFailure } from "../api.ts";
 import {
@@ -45,12 +44,7 @@ function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
 			landingBranches: [...plan.stack.landingBranches],
 			remainingLandingBranches: [...plan.stack.remainingLandingBranches],
 			descendantBranches: [...plan.stack.descendantBranches],
-			...optionalEntry(
-				"descendantRootBranches",
-				plan.stack.descendantRootBranches === undefined
-					? undefined
-					: [...plan.stack.descendantRootBranches],
-			),
+			descendantRootBranches: [...plan.stack.descendantRootBranches],
 			warnings: plan.stack.warnings.map((warning) => warning.message),
 		},
 		branchPlans: plan.branchPlans.map((branchPlan) => ({

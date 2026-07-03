@@ -92,6 +92,7 @@ describe("sdl-flow/land API boundary", () => {
 			landingBranches: ["feature/a", "feature/b"],
 			remainingLandingBranches: [],
 			descendantBranches: ["feature/c"],
+			descendantRootBranches: ["feature/c"],
 			warnings: [],
 		};
 
@@ -147,6 +148,7 @@ describe("sdl-flow/land API boundary", () => {
 			landingBranches: ["feature/a", "feature/b"],
 			remainingLandingBranches: [],
 			descendantBranches: [],
+			descendantRootBranches: [],
 			warnings: [],
 		};
 		const result = await collectSubmitRestackRequirements(

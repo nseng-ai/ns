@@ -120,7 +120,7 @@ export interface StackSnapshot {
 	landingBranches: string[];
 	remainingLandingBranches: string[];
 	descendantBranches: string[];
-	descendantRootBranches?: string[];
+	descendantRootBranches: string[];
 	warnings: string[];
 }
 
