@@ -16,7 +16,7 @@ import {
 	formatSubmitFailureMessage,
 	setStatus,
 } from "./presentation.ts";
-import { loadPr, validateOpenPrBasics } from "./pr-facts.ts";
+import { loadPr, validateOpenPrBasicsForLandStack } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
@@ -175,7 +175,7 @@ function isPrMetadataCurrentForMaintenance(options: {
 	localSha: string;
 	trunk: string;
 }): boolean {
-	const basics = validateOpenPrBasics(options);
+	const basics = validateOpenPrBasicsForLandStack(options);
 	return basics.type === "success" && options.pr.baseRefName === options.trunk;
 }
 

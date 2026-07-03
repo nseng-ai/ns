@@ -306,6 +306,29 @@ export function validateInitialPrPreflight(
 	return landCompleted();
 }
 
+export function validateStrictMergeGate(input: {
+	readonly branch: string;
+	readonly localSha: string;
+	readonly pr: PullRequestFacts;
+	readonly trunk: string;
+}): LandOutcome {
+	const basics = validateOpenPrBasics(input);
+	if (basics.type === "failure") return basics;
+	if (input.pr.baseRefName !== input.trunk) {
+		return landOutcomeFailure(
+			domainFailure({
+				phase: "merge",
+				reason: "pull-request-base-mismatch",
+				message: `PR #${input.pr.number} targets ${input.pr.baseRefName}, expected ${input.trunk}; restack/submit it first.`,
+				failedBranch: input.branch,
+				failedPrNumber: input.pr.number,
+				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
+			}),
+		);
+	}
+	return landCompleted();
+}
+
 export function validateOpenPrBasics(input: {
 	readonly branch: string;
 	readonly localSha: string;

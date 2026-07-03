@@ -17,7 +17,7 @@ import {
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
-import { loadPr, validateStrictMergeGate } from "./pr-facts.ts";
+import { loadPr, validateStrictMergeGateForLandStack } from "./pr-facts.ts";
 import { assertCleanRepo, loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
@@ -236,7 +236,7 @@ export async function runMergeLoop(
 		const pr = await loadPr(pi, repoRoot, branch);
 		if (pr.type === "failure") return pr;
 		const currentPr = pr.value;
-		const mergeGate = validateStrictMergeGate({
+		const mergeGate = validateStrictMergeGateForLandStack({
 			branch,
 			localSha: localSha.value,
 			pr: currentPr,

@@ -15,6 +15,7 @@ import {
 	landingParentEdges,
 	landSuccess,
 	scopeStackSnapshot,
+	validateStrictMergeGate,
 	type BranchLandingPlan,
 	type LandCapabilityMetadata,
 	type LandingBoundaryFailure,
@@ -23,6 +24,10 @@ import {
 
 function describeLandCapability(metadata: LandCapabilityMetadata): string {
 	return `${metadata.packageName}:${metadata.capabilityId}:${metadata.tier}`;
+}
+
+function raiseMissingBranchPlan(): never {
+	throw new Error("Expected test branch plan.");
 }
 
 describe("sdl-flow/land API boundary", () => {
@@ -112,6 +117,24 @@ describe("sdl-flow/land API boundary", () => {
 			landingBranches: ["feature/a"],
 			remainingLandingBranches: ["feature/b"],
 			warnings: [],
+		});
+		const branchPlan = branchPlans[0] ?? raiseMissingBranchPlan();
+		expect(
+			validateStrictMergeGate({
+				branch: branchPlan.branch,
+				localSha: branchPlan.pr.headRefOid,
+				pr: branchPlan.pr,
+				trunk: "main",
+			}),
+		).toMatchObject({
+			type: "failure",
+			failure: {
+				type: "domain",
+				phase: "merge",
+				reason: "pull-request-base-mismatch",
+				failedBranch: "feature/a",
+				failedPrNumber: 101,
+			},
 		});
 	});
 

@@ -23,7 +23,7 @@ import {
 	detectForkViolations,
 	type GraphiteTopology,
 } from "../../src/land/stack/graphite-topology.ts";
-import { validateInitialPrPreflight, validateOpenPrBasics } from "../../src/land/stack/pr-facts.ts";
+import { validateOpenPrBasicsForLandStack } from "../../src/land/stack/pr-facts.ts";
 import {
 	formatFailure,
 	formatPlan,
@@ -31,7 +31,6 @@ import {
 } from "../../src/land/stack/presentation.ts";
 import { detectInProgressOperation } from "../../src/land/stack/stack-facts.ts";
 import type {
-	BranchPlan,
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandedPr,
@@ -889,32 +888,28 @@ describe("land-stack pure helpers", () => {
 		).toBe("Landed 1 PR: #101 feature-a.");
 	});
 
-	test("validates PR preflight invariants", () => {
-		const validBottom: BranchPlan = {
-			branch: "feature-a",
-			localSha: SHA_A,
-			pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
-		};
-		expect(validateInitialPrPreflight([validBottom], TRUNK).type).toBe("success");
+	test("validates PR live re-check invariants", () => {
 		expect(shortSha(SHA_A)).toBe("aaaaaaa");
-
-		const wrongBase = {
-			...validBottom,
-			pr: prSnapshot({ number: 101, branch: "feature-a", base: "not-main", sha: SHA_A }),
-		};
-		expect(expectFailure(validateInitialPrPreflight([wrongBase], TRUNK)).message).toContain(
-			"expected main",
-		);
-
-		const draft = {
-			...validBottom,
-			pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A, isDraft: true }),
-		};
-		expect(expectFailure(validateInitialPrPreflight([draft], TRUNK)).message).toContain("draft");
 
 		expect(
 			expectFailure(
-				validateOpenPrBasics({
+				validateOpenPrBasicsForLandStack({
+					branch: "feature-a",
+					localSha: SHA_A,
+					pr: prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_A,
+						isDraft: true,
+					}),
+				}),
+			).message,
+		).toContain("draft");
+
+		expect(
+			expectFailure(
+				validateOpenPrBasicsForLandStack({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({
@@ -929,7 +924,7 @@ describe("land-stack pure helpers", () => {
 		).toContain("CLOSED");
 		expect(
 			expectFailure(
-				validateOpenPrBasics({
+				validateOpenPrBasicsForLandStack({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({ number: 101, branch: "wrong-head", base: TRUNK, sha: SHA_A }),
@@ -938,7 +933,7 @@ describe("land-stack pure helpers", () => {
 		).toContain("head branch is wrong-head");
 		expect(
 			expectFailure(
-				validateOpenPrBasics({
+				validateOpenPrBasicsForLandStack({
 					branch: "feature-a",
 					localSha: SHA_A,
 					pr: prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_B }),
