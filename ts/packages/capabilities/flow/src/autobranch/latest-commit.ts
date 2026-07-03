@@ -1,4 +1,4 @@
-import { shortSha } from "../commit-display.ts";
+import { shortSha } from "../commit-display/index.ts";
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";

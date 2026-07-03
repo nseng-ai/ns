@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
 import { ScriptedQueue } from "@sdl/core/test-kit";
-import { shortSha } from "../../src/commit-display.ts";
+import { shortSha } from "../../src/commit-display/index.ts";
 import { BACKUP_REF_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import {

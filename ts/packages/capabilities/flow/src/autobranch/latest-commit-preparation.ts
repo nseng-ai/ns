@@ -1,4 +1,4 @@
-import { shortSha } from "../commit-display.ts";
+import { shortSha } from "../commit-display/index.ts";
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";

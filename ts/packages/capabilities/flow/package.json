@@ -47,6 +47,7 @@
 			"autoslot",
 			"changes",
 			"checkpoint",
+			"commit-display",
 			"land",
 			"phase-stream",
 			"pi",

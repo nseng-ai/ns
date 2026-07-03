@@ -1,4 +1,4 @@
-import { shortSha } from "../commit-display.ts";
+import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
 	BranchLandingPlan,

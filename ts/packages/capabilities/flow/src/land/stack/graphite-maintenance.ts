@@ -1,5 +1,5 @@
 import type { ExecResult } from "@sdl/core/command";
-import { shortSha } from "../../commit-display.ts";
+import { shortSha } from "../../commit-display/index.ts";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/git-operation-output.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "./backup-refs.ts";
 import type { LandStackCommandStream } from "./command-stream.ts";
