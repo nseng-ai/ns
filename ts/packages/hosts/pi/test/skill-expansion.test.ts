@@ -1,9 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { markGitRepo } from "@sdl/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
 
 import {
 	buildFencedTextBlock,
@@ -268,163 +267,150 @@ Do next work.
 
 describe("repo skill expansion", () => {
 	test("walks up from cwd and expands skills/<name>/SKILL.md directly", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "repo-skill-expansion-"));
-		try {
-			await markGitRepo(repo);
-			const skillDir = join(repo, "skills", "objective-create");
-			const nestedCwd = join(repo, "packages", "example");
-			await mkdir(skillDir, { recursive: true });
-			await mkdir(nestedCwd, { recursive: true });
-			await writeFile(
-				join(skillDir, "SKILL.md"),
-				"---\nname: objective-create\n---\n\n# Objective Create\n",
-				"utf8",
-			);
-
-			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "objective-create" })).toBe(
-				join(skillDir, "SKILL.md"),
-			);
-			const expanded = await expandRepoSkillBlock({
-				cwd: nestedCwd,
+		await withTempRepoSkill(
+			{
 				skillName: "objective-create",
-			});
-			expect(expanded.block).toContain("# Objective Create");
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
+				prefix: "repo-skill-expansion-",
+			},
+			async ({ repoDir, skillDir, skillPath }) => {
+				const nestedCwd = join(repoDir, "packages", "example");
+				await mkdir(nestedCwd, { recursive: true });
+
+				expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "objective-create" })).toBe(
+					skillPath,
+				);
+				const expanded = await expandRepoSkillBlock({
+					cwd: nestedCwd,
+					skillName: "objective-create",
+				});
+				expect(expanded.block).toContain(`References are relative to ${skillDir}.`);
+				expect(expanded.block).toContain("# Objective Create");
+			},
+		);
 	});
 
 	test("falls back to vendored .agents/skills/<name>/SKILL.md backing skills", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "repo-vendored-skill-expansion-"));
-		try {
-			await markGitRepo(repo);
-			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
-			const nestedCwd = join(repo, "packages", "example");
-			await mkdir(skillDir, { recursive: true });
-			await mkdir(nestedCwd, { recursive: true });
-			await writeFile(
-				join(skillDir, "SKILL.md"),
-				"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
-				"utf8",
-			);
-
-			expect(
-				await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "improve-codebase-architecture" }),
-			).toBe(join(skillDir, "SKILL.md"));
-			const expanded = await expandRepoSkillBlock({
-				cwd: nestedCwd,
+		await withTempRepoSkill(
+			{
 				skillName: "improve-codebase-architecture",
-			});
-			expect(expanded.block).toContain("# Improve Codebase Architecture");
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+				markdown:
+					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
+				prefix: "repo-vendored-skill-expansion-",
+				skillRoot: join(".agents", "skills"),
+			},
+			async ({ repoDir, skillPath }) => {
+				const nestedCwd = join(repoDir, "packages", "example");
+				await mkdir(nestedCwd, { recursive: true });
+
+				expect(
+					await resolveRepoSkillPath({
+						cwd: nestedCwd,
+						skillName: "improve-codebase-architecture",
+					}),
+				).toBe(skillPath);
+				const expanded = await expandRepoSkillBlock({
+					cwd: nestedCwd,
+					skillName: "improve-codebase-architecture",
+				});
+				expect(expanded.block).toContain("# Improve Codebase Architecture");
+			},
+		);
 	});
 
 	test("uses shared skill lookup precedence across repo, vendored, and Claude roots", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "repo-skill-precedence-"));
-		try {
-			await markGitRepo(repo);
-			const nestedCwd = join(repo, "packages", "example");
+		await withTempGitRepo({ prefix: "repo-skill-precedence-" }, async ({ repoDir }) => {
+			const nestedCwd = join(repoDir, "packages", "example");
 			await mkdir(nestedCwd, { recursive: true });
 			for (const root of ["skills", join(".agents", "skills"), join(".claude", "skills")]) {
-				const skillDir = join(repo, root, "shared");
+				const skillDir = join(repoDir, root, "shared");
 				await mkdir(skillDir, { recursive: true });
 				await writeFile(join(skillDir, "SKILL.md"), `# ${root}\n`, "utf8");
 			}
 
 			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "shared" })).toBe(
-				join(repo, "skills", "shared", "SKILL.md"),
+				join(repoDir, "skills", "shared", "SKILL.md"),
 			);
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("falls back to Claude-root .claude/skills/<name>/SKILL.md backing skills", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "repo-claude-skill-expansion-"));
-		try {
-			await markGitRepo(repo);
-			const skillDir = join(repo, ".claude", "skills", "code-gh");
-			const nestedCwd = join(repo, "packages", "example");
-			await mkdir(skillDir, { recursive: true });
-			await mkdir(nestedCwd, { recursive: true });
-			await writeFile(join(skillDir, "SKILL.md"), "---\nname: code-gh\n---\n\n# Code GH\n", "utf8");
-
-			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "code-gh" })).toBe(
-				join(skillDir, "SKILL.md"),
-			);
-			const expanded = await expandRepoSkillBlock({
-				cwd: nestedCwd,
+		await withTempRepoSkill(
+			{
 				skillName: "code-gh",
-			});
-			expect(expanded.block).toContain("# Code GH");
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+				markdown: "---\nname: code-gh\n---\n\n# Code GH\n",
+				prefix: "repo-claude-skill-expansion-",
+				skillRoot: join(".claude", "skills"),
+			},
+			async ({ repoDir, skillPath }) => {
+				const nestedCwd = join(repoDir, "packages", "example");
+				await mkdir(nestedCwd, { recursive: true });
+
+				expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "code-gh" })).toBe(
+					skillPath,
+				);
+				const expanded = await expandRepoSkillBlock({
+					cwd: nestedCwd,
+					skillName: "code-gh",
+				});
+				expect(expanded.block).toContain("# Code GH");
+			},
+		);
 	});
 
 	test("bounds repo skill lookup to the containing Git root", async () => {
-		const workspace = await mkdtemp(join(tmpdir(), "repo-skill-git-root-"));
-		try {
-			const repo = join(workspace, "repo");
-			const parentSkillDir = join(workspace, "skills", "parent-only");
-			const nestedCwd = join(repo, "packages", "example");
-			await markGitRepo(repo);
-			await mkdir(parentSkillDir, { recursive: true });
-			await mkdir(nestedCwd, { recursive: true });
-			await writeFile(join(parentSkillDir, "SKILL.md"), "# Parent\n", "utf8");
+		await withTempGitRepo(
+			{ prefix: "repo-skill-git-root-", repoName: "repo" },
+			async ({ repoDir, tempDir }) => {
+				const parentSkillDir = join(tempDir, "skills", "parent-only");
+				const nestedCwd = join(repoDir, "packages", "example");
+				await mkdir(parentSkillDir, { recursive: true });
+				await mkdir(nestedCwd, { recursive: true });
+				await writeFile(join(parentSkillDir, "SKILL.md"), "# Parent\n", "utf8");
 
-			await expect(
-				resolveRepoSkillPath({ cwd: nestedCwd, skillName: "parent-only" }),
-			).rejects.toThrow("Could not find skills/parent-only/SKILL.md");
-		} finally {
-			await rm(workspace, { recursive: true, force: true });
-		}
+				await expect(
+					resolveRepoSkillPath({ cwd: nestedCwd, skillName: "parent-only" }),
+				).rejects.toThrow("Could not find skills/parent-only/SKILL.md");
+			},
+		);
 	});
 
 	test("allows symlinked skill directories but rejects directly symlinked SKILL.md files", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "repo-skill-symlink-"));
-		try {
-			await markGitRepo(repo);
-			const symlinkTargetDir = join(repo, "skill-targets", "linked");
-			const vendoredRoot = join(repo, ".agents", "skills");
-			const directSymlinkDir = join(repo, "skills", "direct-link");
+		await withTempGitRepo({ prefix: "repo-skill-symlink-" }, async ({ repoDir }) => {
+			const symlinkTargetDir = join(repoDir, "skill-targets", "linked");
+			const vendoredRoot = join(repoDir, ".agents", "skills");
+			const directSymlinkDir = join(repoDir, "skills", "direct-link");
 			await mkdir(symlinkTargetDir, { recursive: true });
 			await mkdir(vendoredRoot, { recursive: true });
 			await mkdir(directSymlinkDir, { recursive: true });
 			await writeFile(join(symlinkTargetDir, "SKILL.md"), "# Linked\n", "utf8");
-			await writeFile(join(repo, "direct-target.md"), "# Direct\n", "utf8");
+			await writeFile(join(repoDir, "direct-target.md"), "# Direct\n", "utf8");
 			await symlink(join("..", "..", "skill-targets", "linked"), join(vendoredRoot, "linked"));
 			await symlink(join("..", "..", "direct-target.md"), join(directSymlinkDir, "SKILL.md"));
 
-			expect(await resolveRepoSkillPath({ cwd: repo, skillName: "linked" })).toBe(
+			expect(await resolveRepoSkillPath({ cwd: repoDir, skillName: "linked" })).toBe(
 				join(vendoredRoot, "linked", "SKILL.md"),
 			);
-			await expect(resolveRepoSkillPath({ cwd: repo, skillName: "direct-link" })).rejects.toThrow(
-				"Refusing to read symlinked backing skill",
-			);
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+			await expect(
+				resolveRepoSkillPath({ cwd: repoDir, skillName: "direct-link" }),
+			).rejects.toThrow("Refusing to read symlinked backing skill");
+		});
 	});
 
 	test("rejects traversal to sibling paths when resolving repo skills", async () => {
-		const workspace = await mkdtemp(join(tmpdir(), "repo-skill-containment-"));
-		try {
-			const repo = join(workspace, "repo");
-			await markGitRepo(repo);
-			const siblingSkillDir = join(workspace, "repo-other", "outside");
-			await mkdir(join(repo, "skills"), { recursive: true });
-			await mkdir(siblingSkillDir, { recursive: true });
-			await writeFile(join(siblingSkillDir, "SKILL.md"), "# Outside\n", "utf8");
+		await withTempGitRepo(
+			{ prefix: "repo-skill-containment-", repoName: "repo" },
+			async ({ repoDir, tempDir }) => {
+				const siblingSkillDir = join(tempDir, "repo-other", "outside");
+				await mkdir(join(repoDir, "skills"), { recursive: true });
+				await mkdir(siblingSkillDir, { recursive: true });
+				await writeFile(join(siblingSkillDir, "SKILL.md"), "# Outside\n", "utf8");
 
-			await expect(
-				resolveRepoSkillPath({ cwd: repo, skillName: "../../repo-other/outside" }),
-			).rejects.toThrow("resolves outside repository root");
-		} finally {
-			await rm(workspace, { recursive: true, force: true });
-		}
+				await expect(
+					resolveRepoSkillPath({ cwd: repoDir, skillName: "../../repo-other/outside" }),
+				).rejects.toThrow("resolves outside repository root");
+			},
+		);
 	});
 
 	test("builds fences longer than embedded backticks", () => {
@@ -491,34 +477,36 @@ References are relative to /repo/skills/objective-create.
 
 describe("invokeSkillPromptTurn", () => {
 	test("waits, expands the skill, notifies, and sends the built prompt", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "skill-prompt-turn-"));
-		const skillPath = join(dir, "SKILL.md");
-		await writeFile(skillPath, "---\nname: objective-create\n---\n\n# Objective Create\n", "utf8");
-		try {
-			const testHost = promptTurnHost([skillCommand("objective-create", skillPath, dir)]);
-			const context = promptTurnContext();
-
-			await invokeSkillPromptTurn({
-				host: testHost,
-				ctx: context.ctx,
+		await withTempRepoSkill(
+			{
 				skillName: "objective-create",
-				successMessage: (skill) => `Starting ${skill.name}`,
-				fallbackMessage: "missing skill",
-				buildPrompt: (skillBlock) => `prompt:\n${skillBlock ?? "fallback"}`,
-			});
+				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
+				prefix: "skill-prompt-turn-",
+			},
+			async ({ skillDir, skillPath }) => {
+				const testHost = promptTurnHost([skillCommand("objective-create", skillPath, skillDir)]);
+				const context = promptTurnContext();
 
-			expect(context.waits()).toBe(1);
-			expect(context.notifications).toEqual([
-				{ message: "Starting objective-create", level: "info" },
-			]);
-			expect(testHost.sentUserMessages).toHaveLength(1);
-			expect(testHost.sentUserMessages[0]).toContain(
-				`<skill name="objective-create" location="${skillPath}">`,
-			);
-			expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
+				await invokeSkillPromptTurn({
+					host: testHost,
+					ctx: context.ctx,
+					skillName: "objective-create",
+					successMessage: (skill) => `Starting ${skill.name}`,
+					fallbackMessage: "missing skill",
+					buildPrompt: (skillBlock) => `prompt:\n${skillBlock ?? "fallback"}`,
+				});
+
+				expect(context.waits()).toBe(1);
+				expect(context.notifications).toEqual([
+					{ message: "Starting objective-create", level: "info" },
+				]);
+				expect(testHost.sentUserMessages).toHaveLength(1);
+				expect(testHost.sentUserMessages[0]).toContain(
+					`<skill name="objective-create" location="${skillPath}">`,
+				);
+				expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
+			},
+		);
 	});
 
 	test("uses the fallback prompt and warning when the skill is unavailable", async () => {

@@ -1,9 +1,7 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { markGitRepo } from "@sdl/core/test-kit";
+import { withTempRepoSkill } from "@sdl/core/test-kit";
 import { genericCommandStyleSkillNames } from "@sdl/pi/commands";
 
 import {
@@ -107,61 +105,53 @@ describe("genericBackingSkillCommandSpecs", () => {
 
 describe("registerBackingSkillCommands", () => {
 	test("registers generic commands that read repo-local backing skills", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "backing-skill-command-"));
-		try {
-			const skillDir = join(repo, "skills", "code-workflows");
-			await markGitRepo(repo);
-			await mkdir(skillDir, { recursive: true });
-			await writeFile(
-				join(skillDir, "SKILL.md"),
-				"---\nname: code-workflows\n---\n\n# Code Workflows\n",
-				"utf8",
-			);
+		await withTempRepoSkill(
+			{
+				skillName: "code-workflows",
+				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
+				prefix: "backing-skill-command-",
+			},
+			async ({ repoDir, skillPath }) => {
+				const host = new FakeBackingSkillHost();
+				registerBackingSkillCommands(host);
+				const command = host.commands.get("code:workflows");
+				expect(command).toBeDefined();
 
-			const host = new FakeBackingSkillHost();
-			registerBackingSkillCommands(host);
-			const command = host.commands.get("code:workflows");
-			expect(command).toBeDefined();
+				await command?.handler("fix ```this``` please", commandContext(repoDir));
 
-			await command?.handler("fix ```this``` please", commandContext(repo));
-
-			expect(host.sentMessages).toHaveLength(1);
-			expect(host.sentMessages[0]).toContain(
-				`<skill name="code-workflows" location="${join(skillDir, "SKILL.md")}">`,
-			);
-			expect(host.sentMessages[0]).toContain("# Code Workflows");
-			expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+				expect(host.sentMessages).toHaveLength(1);
+				expect(host.sentMessages[0]).toContain(
+					`<skill name="code-workflows" location="${skillPath}">`,
+				);
+				expect(host.sentMessages[0]).toContain("# Code Workflows");
+				expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
+			},
+		);
 	});
 
 	test("generic commands can read vendored backing skills from .agents/skills", async () => {
-		const repo = await mkdtemp(join(tmpdir(), "vendored-backing-skill-command-"));
-		try {
-			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
-			await markGitRepo(repo);
-			await mkdir(skillDir, { recursive: true });
-			await writeFile(
-				join(skillDir, "SKILL.md"),
-				"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
-				"utf8",
-			);
+		await withTempRepoSkill(
+			{
+				skillName: "improve-codebase-architecture",
+				markdown:
+					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
+				prefix: "vendored-backing-skill-command-",
+				skillRoot: join(".agents", "skills"),
+			},
+			async ({ repoDir, skillPath }) => {
+				const host = new FakeBackingSkillHost();
+				registerBackingSkillCommands(host);
+				const command = host.commands.get("improve:codebase-architecture");
+				expect(command).toBeDefined();
 
-			const host = new FakeBackingSkillHost();
-			registerBackingSkillCommands(host);
-			const command = host.commands.get("improve:codebase-architecture");
-			expect(command).toBeDefined();
+				await command?.handler("", commandContext(repoDir));
 
-			await command?.handler("", commandContext(repo));
-
-			expect(host.sentMessages).toHaveLength(1);
-			expect(host.sentMessages[0]).toContain(
-				`<skill name="improve-codebase-architecture" location="${join(skillDir, "SKILL.md")}">`,
-			);
-			expect(host.sentMessages[0]).toContain("# Improve Codebase Architecture");
-		} finally {
-			await rm(repo, { recursive: true, force: true });
-		}
+				expect(host.sentMessages).toHaveLength(1);
+				expect(host.sentMessages[0]).toContain(
+					`<skill name="improve-codebase-architecture" location="${skillPath}">`,
+				);
+				expect(host.sentMessages[0]).toContain("# Improve Codebase Architecture");
+			},
+		);
 	});
 });

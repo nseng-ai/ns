@@ -1,7 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { markGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
+import { withTempGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, {
@@ -187,9 +184,7 @@ describe("objective:create command", () => {
 	});
 
 	test("missing objective-create backing skill notifies an error and sends no prompt", async () => {
-		const repoDir = await mkdtemp(join(tmpdir(), "objective-create-missing-repo-"));
-		try {
-			await markGitRepo(repoDir);
+		await withTempGitRepo({ prefix: "objective-create-missing-repo-" }, async ({ repoDir }) => {
 			const result = await runObjectiveCreate("create alpha", [], repoDir);
 
 			expect(result.waitForIdleCalls()).toBe(1);
@@ -203,9 +198,7 @@ describe("objective:create command", () => {
 				"Could not find skills/objective-create/SKILL.md",
 			);
 			expect(result.notifications[0]?.message).toContain(repoDir);
-		} finally {
-			await rm(repoDir, { recursive: true, force: true });
-		}
+		});
 	});
 
 	test("objective-create initial request fence grows beyond embedded backticks", async () => {

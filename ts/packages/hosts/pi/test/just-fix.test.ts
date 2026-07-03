@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 
-import { markGitRepo } from "@sdl/core/test-kit";
+import { withTempRepoSkill } from "@sdl/core/test-kit";
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 
@@ -158,14 +155,10 @@ async function loadJustFixExtension(): Promise<JustFixExtension> {
 
 describe("just-fix extension", () => {
 	test("runs just and invokes code-just-fix with the expanded skill block on failure", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "code-just-fix-skill-"));
-		const skillDir = join(dir, "skills", "code-just-fix");
-		const skillPath = join(skillDir, "SKILL.md");
-		await markGitRepo(dir);
-		await mkdir(skillDir, { recursive: true });
-		await writeFile(
-			skillPath,
-			`---
+		await withTempRepoSkill(
+			{
+				skillName: "code-just-fix",
+				markdown: `---
 name: code-just-fix
 hidden-frontmatter-token: do-not-include
 ---
@@ -174,57 +167,57 @@ hidden-frontmatter-token: do-not-include
 
 Repair the failed just run.
 `,
-			"utf8",
+				prefix: "code-just-fix-skill-",
+			},
+			async ({ repoDir, skillDir, skillPath }) => {
+				const pi = new FakePi(
+					execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }),
+					[skillCommandInfo(skillPath, skillDir)],
+				);
+				const justFixExtension = await loadJustFixExtension();
+				justFixExtension(pi);
+				const command = pi.commands.get("just");
+				expect(command).toBeDefined();
+				if (!command) {
+					throw new Error("just command was not registered");
+				}
+
+				const context = createContext(repoDir);
+				await command.handler("", context.ctx);
+
+				expect(context.waitForIdleCalls()).toBe(1);
+				expect(pi.execCalls).toEqual([
+					{ command: "just", args: [], options: { cwd: repoDir, timeout: JUST_TIMEOUT_MS } },
+				]);
+				// The generic command ack is suppressed by default; just owns its status.
+				expect(context.statuses).toEqual([
+					{ key: "just", value: "running just…" },
+					{ key: "just", value: undefined },
+				]);
+				expect(pi.messages).toEqual([
+					{
+						customType: "sdl-command-progress",
+						content: "→ Running `just`…",
+						display: true,
+					},
+				]);
+				expect(pi.renderers.has("sdl-command-ack")).toBe(false);
+				expect(pi.renderers.has("sdl-command-progress")).toBe(true);
+				expect(context.notifications).toEqual([
+					{ message: "`just` failed; invoking code-just-fix.", level: "warning" },
+				]);
+
+				const prompt = pi.sentUserMessages[0] ?? "";
+				expect(prompt).toContain(`<skill name="code-just-fix" location="${skillPath}">`);
+				expect(prompt).toContain(`References are relative to ${skillDir}.`);
+				expect(prompt).toContain("# Internal Code Just Fix\n\nRepair the failed just run.");
+				expect(prompt).not.toContain("hidden-frontmatter-token");
+				expect(prompt).toContain(
+					`\`just\` has already been run in ${repoDir} and failed (exit code 1).`,
+				);
+				expect(prompt).toContain("stdout:\nunit failed");
+				expect(prompt).toContain("stderr:\nlint failed");
+			},
 		);
-
-		try {
-			const pi = new FakePi(
-				execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }),
-				[skillCommandInfo(skillPath, skillDir)],
-			);
-			const justFixExtension = await loadJustFixExtension();
-			justFixExtension(pi);
-			const command = pi.commands.get("just");
-			expect(command).toBeDefined();
-			if (!command) {
-				throw new Error("just command was not registered");
-			}
-
-			const context = createContext(dir);
-			await command.handler("", context.ctx);
-
-			expect(context.waitForIdleCalls()).toBe(1);
-			expect(pi.execCalls).toEqual([
-				{ command: "just", args: [], options: { cwd: dir, timeout: JUST_TIMEOUT_MS } },
-			]);
-			// The generic command ack is suppressed by default; just owns its status.
-			expect(context.statuses).toEqual([
-				{ key: "just", value: "running just…" },
-				{ key: "just", value: undefined },
-			]);
-			expect(pi.messages).toEqual([
-				{
-					customType: "sdl-command-progress",
-					content: "→ Running `just`…",
-					display: true,
-				},
-			]);
-			expect(pi.renderers.has("sdl-command-ack")).toBe(false);
-			expect(pi.renderers.has("sdl-command-progress")).toBe(true);
-			expect(context.notifications).toEqual([
-				{ message: "`just` failed; invoking code-just-fix.", level: "warning" },
-			]);
-
-			const prompt = pi.sentUserMessages[0] ?? "";
-			expect(prompt).toContain(`<skill name="code-just-fix" location="${skillPath}">`);
-			expect(prompt).toContain(`References are relative to ${skillDir}.`);
-			expect(prompt).toContain("# Internal Code Just Fix\n\nRepair the failed just run.");
-			expect(prompt).not.toContain("hidden-frontmatter-token");
-			expect(prompt).toContain(`\`just\` has already been run in ${dir} and failed (exit code 1).`);
-			expect(prompt).toContain("stdout:\nunit failed");
-			expect(prompt).toContain("stderr:\nlint failed");
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
 	});
 });

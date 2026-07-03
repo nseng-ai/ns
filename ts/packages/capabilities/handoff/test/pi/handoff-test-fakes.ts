@@ -1,9 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { encodeBranchName } from "@sdl/brmem";
-import { markGitRepo, ScriptedQueue } from "@sdl/core/test-kit";
+import { ScriptedQueue } from "@sdl/core/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
@@ -556,25 +552,7 @@ function listEntriesSteps(entries: Array<{ key: string; branch: string }>): Scri
 	];
 }
 
-export async function withTempSkill<T>(
-	callback: (skillPath: string, repoDir: string) => Promise<T>,
-): Promise<T> {
-	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
-	const skillDir = join(dir, "skills", "handoff-create");
-	await markGitRepo(dir);
-	await mkdir(skillDir, { recursive: true });
-	const skillPath = join(skillDir, "SKILL.md");
-	await writeFile(
-		skillPath,
-		`---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`,
-		"utf8",
-	);
-	try {
-		return await callback(skillPath, dir);
-	} finally {
-		await rm(dir, { recursive: true, force: true });
-	}
-}
+export const HANDOFF_CREATE_SKILL_MARKDOWN = `---\nname: handoff-create\ndescription: Test skill\n---\n\n# handoff-create\n\nCreate a handoff from the skill body.`;
 
 export function skillCommandInfo(skillPath: string): CommandInfo {
 	return {

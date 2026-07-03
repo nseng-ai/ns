@@ -1,10 +1,6 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 
-import { markGitRepo } from "@sdl/core/test-kit";
+import { withTempRepoSkill } from "@sdl/core/test-kit";
 
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {
@@ -223,31 +219,25 @@ describe("/pi:grill-me command", () => {
 	});
 
 	test("expands the pi-grill-ui skill when available", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "pi-grill-ui-test-"));
-		try {
-			const skillDir = join(dir, "skills", GRILL_UI_SKILL_NAME);
-			const skillPath = join(skillDir, "SKILL.md");
-			await markGitRepo(dir);
-			await mkdir(skillDir, { recursive: true });
-			await writeFile(
-				skillPath,
-				`---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
-				"utf8",
-			);
+		await withTempRepoSkill(
+			{
+				skillName: GRILL_UI_SKILL_NAME,
+				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
+				prefix: "pi-grill-ui-test-",
+			},
+			async ({ repoDir, skillPath }) => {
+				const { pi, command } = register();
 
-			const { pi, command } = register();
+				await command.handler("Target design", commandContext({ cwd: repoDir, hasUI: false }));
 
-			await command.handler("Target design", commandContext({ cwd: dir, hasUI: false }));
-
-			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain(
-				`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`,
-			);
-			expect(pi.sentUserMessages[0]).toContain("Backend skill body from test.");
-			expect(pi.sentUserMessages[0]).toContain("Target design");
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
+				expect(pi.sentUserMessages).toHaveLength(1);
+				expect(pi.sentUserMessages[0]).toContain(
+					`<skill name="${GRILL_UI_SKILL_NAME}" location="${skillPath}">`,
+				);
+				expect(pi.sentUserMessages[0]).toContain("Backend skill body from test.");
+				expect(pi.sentUserMessages[0]).toContain("Target design");
+			},
+		);
 	});
 
 	test("without args uses the editor when UI is available", async () => {
@@ -295,31 +285,28 @@ describe("/pi:grill-with-docs command", () => {
 	});
 
 	test("expands the pi-grill-with-docs-ui skill when available", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "pi-grill-with-docs-ui-test-"));
-		try {
-			const skillDir = join(dir, "skills", GRILL_WITH_DOCS_UI_SKILL_NAME);
-			const skillPath = join(skillDir, "SKILL.md");
-			await markGitRepo(dir);
-			await mkdir(skillDir, { recursive: true });
-			await writeFile(
-				skillPath,
-				`---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
-				"utf8",
-			);
+		await withTempRepoSkill(
+			{
+				skillName: GRILL_WITH_DOCS_UI_SKILL_NAME,
+				markdown: `---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
+				prefix: "pi-grill-with-docs-ui-test-",
+			},
+			async ({ repoDir, skillPath }) => {
+				const { pi, docsCommand } = register();
 
-			const { pi, docsCommand } = register();
+				await docsCommand.handler(
+					"Target docs design",
+					commandContext({ cwd: repoDir, hasUI: false }),
+				);
 
-			await docsCommand.handler("Target docs design", commandContext({ cwd: dir, hasUI: false }));
-
-			expect(pi.sentUserMessages).toHaveLength(1);
-			expect(pi.sentUserMessages[0]).toContain(
-				`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`,
-			);
-			expect(pi.sentUserMessages[0]).toContain("Docs-aware backend skill body from test.");
-			expect(pi.sentUserMessages[0]).toContain("Target docs design");
-		} finally {
-			await rm(dir, { recursive: true, force: true });
-		}
+				expect(pi.sentUserMessages).toHaveLength(1);
+				expect(pi.sentUserMessages[0]).toContain(
+					`<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}" location="${skillPath}">`,
+				);
+				expect(pi.sentUserMessages[0]).toContain("Docs-aware backend skill body from test.");
+				expect(pi.sentUserMessages[0]).toContain("Target docs design");
+			},
+		);
 	});
 
 	test("without args uses the docs-aware editor title when UI is available", async () => {
