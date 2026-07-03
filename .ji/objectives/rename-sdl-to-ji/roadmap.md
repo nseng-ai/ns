@@ -25,6 +25,13 @@
       path, worktree slots, shell-profile `SDL_*` env vars — enumerated in
       `cutover-inventory.md` machine-migration notes), and fix up any straggler
       branches by hand.
+      Partial evidence recorded 2026-07-03: no migration is needed for global extension
+      data, brmem prompt config, or current-process `SDL_*`/`JI_*` environment variables
+      on the investigated owner machine. The old `.zshrc` `sdl shell integration` block
+      and `sdl completion zsh` line were replaced with their `ji` equivalents; `zsh -n`
+      passed afterward. Old `refs/sdl/flow-land-backup*` refs were migrated into the
+      corresponding `refs/ji/flow-land-backup*` namespace with no collisions, leaving no
+      `refs/sdl/flow-land-backup*` refs behind.
 - [x] Vocabulary sweep: CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs —
       `ji` glossary entry with casing rule, `SDL` added to *Avoid*, compound canonical
       terms renamed. Completed in update `2026-07-03-vocabulary-docs-sweep.md`.
