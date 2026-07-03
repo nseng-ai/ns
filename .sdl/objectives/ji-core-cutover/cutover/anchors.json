@@ -1,0 +1,202 @@
+{
+  "comment": "Anchor table for the sdl→ji cutover plan. Paths are PRE-MV (as in the current tree); synthesis rewrites .sdl/→.ji/, sdl.toml→ji.toml, .pi/extensions/sdl.ts→ji.ts to post-mv form. Changeset membership is FIXED here — classifiers never assign changesets.",
+  "changesets": {
+    "cs1-workspace-globs": {
+      "why": "Hard build breaker: the three configs must carry the byte-identical ../.ji/reviews/*/tools/* glob or pnpm install/tsgo fail. Lockfile excluded (regenerates).",
+      "files": ["ts/pnpm-workspace.yaml", "ts/package.json", "ts/tsconfig.json"],
+      "model": "opus"
+    },
+    "cs2-manifest-key": {
+      "why": "The \"sdl\" manifest key renames through a typed Zod schema + diagnostic codes; per-file agents cannot see the schema contract. Owns the kernel bin key (kernel/package.json is a member anyway) and the style-guard path bucket (one owner per file).",
+      "files": [
+        "ts/packages/kernel/src/sdk/extension-manifest.ts",
+        "ts/packages/kernel/src/extensions/discovery.ts",
+        "ts/packages/kernel/src/runtime/module-loader.ts",
+        "ts/packages/kernel/package.json",
+        ".sdl/extensions/address/package.json",
+        ".sdl/extensions/aretro/package.json",
+        ".sdl/extensions/branch-context/package.json",
+        ".sdl/extensions/flow/package.json",
+        ".sdl/extensions/handoff/package.json",
+        ".sdl/extensions/objective/package.json",
+        ".sdl/extensions/roaster/package.json",
+        "ts/packages/capabilities/address/package.json",
+        "ts/packages/capabilities/aretro/package.json",
+        "ts/packages/capabilities/branch-context/package.json",
+        "ts/packages/capabilities/ccc/package.json",
+        "ts/packages/capabilities/flow/package.json",
+        "ts/packages/capabilities/handoff/package.json",
+        "ts/packages/capabilities/objective/package.json",
+        "ts/packages/capabilities/plans/package.json",
+        "ts/packages/capabilities/roaster/package.json",
+        "ts/packages/capabilities/slot/package.json",
+        "ts/packages/hosts/pi/package.json",
+        "ts/packages/hosts/sdlcc/package.json",
+        "ts/packages/infra/brmem/package.json",
+        "ts/packages/infra/clinkr/package.json",
+        "ts/packages/infra/core/package.json",
+        "ts/packages/local/pi-tools/package.json",
+        "ts/packages/sdl-capability-kit/package.json",
+        "ts/packages/tools/areg/package.json",
+        "ts/packages/tools/packagechk/package.json",
+        "ts/packages/tools/vibechk/package.json",
+        "skills/architecture-topology-report/scripts/extract-graph.mjs",
+        "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+        "ts/packages/kernel/test/unit/extension-discovery.test.ts",
+        "ts/packages/kernel/test/unit/sdk-runtime-exports.test.ts",
+        "ts/packages/kernel/test/type/sdk-types-folded.ts",
+        "ts/packages/capabilities/flow/test/land/api-boundary.test.ts"
+      ],
+      "model": "opus",
+      "notes": "Rename the KEY \"sdl\"→\"ji\" (incl. sdl.tier) and diagnostic codes missing-sdl/extension_manifest_missing_sdl→ji variants (decided: everything is ji). Do NOT rename: schema/type identifiers (sdlExtensionManifestSchema etc. — later package-scope row), bare \"sdl\" VALUES in subpackages arrays (they name src/sdl/ dirs — later row), module-loader.ts src/sdl join literals, @sdl/* imports. kernel/package.json bin {\"sdl\"}→{\"ji\"}. api-boundary.test.ts: RENAME the manifest-key reads `.sdl.tier`, `readonly sdl:`, `\"sdl\" in value`, `value.sdl` to ji forms (they read the renamed key, NOT identifiers); LEAVE every sdl-flow token including the `\"sdl-flow:land:capability\"` assertion — that string derives from the surviving PACKAGE name, not the sdl:flow namespace."
+    },
+    "cs3-repo-extension-discovery": {
+      "why": "Silent-failure trap (registry scans .sdl/extensions; miss = every repo-local command vanishes) + tests traversing the REAL post-mv .ji/extensions tree via relative URLs (ENOENT on split landing). One agent verifies resolution against the moved tree once.",
+      "files": [
+        "ts/packages/kernel/src/extensions/registry.ts",
+        "ts/packages/kernel/test/helpers/objective-extension.ts",
+        "ts/packages/kernel/test/helpers/flow-extension.ts",
+        "ts/packages/kernel/test/helpers/handoff-extension.ts",
+        "ts/packages/kernel/test/helpers/aretro-extension.ts",
+        "ts/packages/kernel/test/helpers/roaster-extension.ts",
+        "ts/packages/kernel/test/integration/repo-local-extension-manifest-parity.test.ts",
+        "ts/packages/capabilities/address/test/scenario/extension-manifest.test.ts",
+        "ts/packages/kernel/test/unit/extension-registry.test.ts"
+      ],
+      "model": "sonnet",
+      "notes": "registry.ts:123,128 join(cwd, \".sdl\", \"extensions\")→\".ji\"; also the XDG data/sdl/extensions global root via resolveSdlXdgPath is CS5's constant — registry only carries path segments here. extension-registry.test.ts fixtures: .sdl workspace paths, .local/share/sdl, unquoted sdl:{ manifest keys — all rename."
+    },
+    "cs4-slot-path-regex": {
+      "why": "Highest-risk silent failure (prior real regression): isManagedSlotPath() regex + its positive/negative fixture families are a semantic pair — keep match semantics, not letter-swap. Owns ALL renames in its test files (one owner per file).",
+      "files": [
+        "ts/packages/capabilities/flow/src/land/stack/worktrees.ts",
+        "ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts",
+        "ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts"
+      ],
+      "model": "opus",
+      "notes": "worktrees.ts:74-76 sdl\\/slots→ji\\/slots. Test files also contain \"sdl:flow:land\" strings, /Users/me/.local/state/sdl/slots fixtures, TOPOLOGY assertions — this changeset renames all of them."
+    },
+    "cs5-xdg-core": {
+      "why": "The canonical XDG segment and its known hand-rolled bypasses must land as one semantic unit so no bypass survives on the old segment. Third bypass (worktrees.ts regex) is cs4 — cross-referenced.",
+      "files": [
+        "ts/packages/infra/core/src/config/xdg-path.ts",
+        "ts/packages/capabilities/flow/src/sdl/commands/submit.ts",
+        "ts/packages/capabilities/aretro/src/payloads/root.ts",
+        "ts/packages/infra/core/test/xdg-path.test.ts",
+        "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts"
+      ],
+      "model": "opus",
+      "notes": "xdg-path.ts:67 \"sdl\" segment→\"ji\" (identifier resolveSdlXdgPath STAYS); submit.ts:300-311 hand-rolled XDG + .sdl/state/submit-failure-logs cwd fallback + its /sdl:flow: message strings at :18-108 belong to the push.ts simple entry NOT here — submit.ts is wholly owned HERE, rename all its sdl content; aretro root.ts:16 tmpdir segment \"sdl\"→\"ji\" (Q4)."
+    },
+    "cs6-pi-namespace-core": {
+      "why": "Three namespace mechanisms with no shared source of truth, publicly exported constants, and a test asserting the exact name set + absence of legacy aliases (semantic, not literal). SPECIALIZED_SKILL_REPLACEMENTS KEYS are skill dir names — do not rename keys, only values.",
+      "files": [
+        "ts/packages/hosts/pi/src/commands/surfaces.ts",
+        "ts/packages/capabilities/flow/src/pi/sdl-extension.ts",
+        "ts/packages/hosts/pi/src/commands/events.ts",
+        "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+        "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
+      ],
+      "model": "opus",
+      "notes": "piNamespace \"sdl:flow\"→\"ji:flow\"; surfaces.ts 6 constants + KNOWN_PI_COMMAND_NAMESPACES \"sdl\"→\"ji\" + replacement VALUES sdl:flow:*→ji:flow:*; events.ts \"sdl:pi-extension-command:finished\"→\"ji:…\" (Q4); sdl-extension.ts parity cli:/surface: template strings too; test intended post-state: exact set /ji:flow:*, absence assertions now mean the sdl:* names are the dead legacy — assert absence of sdl:flow:* names. Filenames (sdl-extension.ts) do NOT rename."
+    },
+    "cs8-shim-tokens": {
+      "why": "The @@SDL_*@@ substitution tokens in the shim template and the TOKEN_PREFIX/replacement-map keys in the renderer are a semantic pair whose desync fails SILENTLY at install time (shim rendering runs outside the just gate). Promoted from classification suspectedNewCoupling.",
+      "files": [
+        "ts/scripts/render-cli-shim-core.ts",
+        "ts/scripts/source-cli-shim-template"
+      ],
+      "model": "sonnet",
+      "notes": "Rename TOKEN_PREFIX \"@@SDL_\"→\"@@JI_\" and every @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ token in BOTH files in lockstep; the SDL_FALLBACK_MODE env-var error string too; template brand prose ('runs an sdl TypeScript CLI') renames; the justfile SDL_* variable ASSIGNMENTS that feed this template are a separate simple entry (justfile) — the names must agree: JI_TOOL, JI_CANONICAL_CHECKOUT, JI_CLI_REL_PATH, JI_INSTALL_HINT, JI_TEMPLATE, JI_OUTPUT, JI_FALLBACK_MODE."
+    },
+    "cs7-toml-readers": {
+      "why": "areg gateways.ts:279 declares a literal UNION TYPE \"sdl.toml\" that propagates through every assignment site; piecemeal change = typecheck noise per-file agents can't resolve.",
+      "files": [
+        "ts/packages/capabilities/roaster/src/gateways/local-diff.ts",
+        "ts/packages/capabilities/roaster/src/operations/review-run.ts",
+        "ts/packages/tools/areg/src/gateways.ts",
+        "ts/packages/tools/areg/src/gateways/mutation-policy.ts",
+        "ts/packages/tools/areg/src/gateways/project-gateway.ts",
+        "ts/packages/tools/areg/src/operations/init.ts",
+        "ts/packages/tools/areg/src/fake-gateways.ts"
+      ],
+      "model": "sonnet",
+      "notes": "sdl.toml→ji.toml everywhere incl. the union type; identifiers sdlToml STAY. areg/roaster test fixtures asserting sdl.toml content are simple-tier (brief-decidable)."
+    }
+  },
+  "simpleAnchors": {
+    ".gitignore": ".sdl/tmp → .ji/tmp",
+    "justfile": "install-sdl recipe → install-ji and its ji invocation; _install-ts-shim machinery is parameterized — pass \"ji\", do not edit the shim template; retired-bin echo text; any `sdl <cmd>` example lines",
+    ".github/workflows/roaster.yml": "3 literal `sdl roaster …` invocations at ~:59,123-126,132 → `ji roaster …`; PATH shim self-heals via pnpm install",
+    "AGENTS.md": "operative command lines (sdl objective exec load-orientations, objective list, .sdl/ paths at ~:5,25,32,43)",
+    "CONTEXT.md": ".sdl path mentions at ~:24,28",
+    "CONTEXT-MAP.md": "/sdl:* namespace mentions at ~:42,73,75",
+    "ts/packages/kernel/src/cli/completion.ts": "commandName: \"sdl\" → \"ji\"",
+    "ts/packages/kernel/src/cli/shell.ts": "wrapper + install strings :79-92",
+    "ts/packages/kernel/src/cli/index.ts": "help text :494 Usage: sdl",
+    "ts/packages/capabilities/slot/src/sdl/extension.ts": "duplicate shell wrapper :159; argv literals",
+    "ts/packages/capabilities/flow/src/submit/pr-description.ts": "TWIN A: REPO_PR_DESCRIPTION_PROMPT_PATH \".sdl/prompts/pr-description.md\"→\".ji/…\" — must stay byte-equal with regenerate-pr.ts twin",
+    "ts/packages/capabilities/flow/src/sdl/commands/regenerate-pr.ts": "TWIN A': same constant, keep byte-equal",
+    "ts/packages/capabilities/flow/src/land/land.ts": "TWIN B: COMMAND_NAME \"sdl:flow:land\"→\"ji:flow:land\", byte-equal with stack/constants.ts",
+    "ts/packages/capabilities/flow/src/land/stack/constants.ts": "TWIN B': same value (feeds printed usage text)",
+    "ts/packages/capabilities/objective/src/core/storage.ts": "TWIN C: .sdl/objectives + .sdl/objective-archive roots — byte-equal with ccc objective-sidebar.ts re-hardcoded copies",
+    "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts": "TWIN C': re-hardcoded roots :15-17 AND argv dispatches :99-105",
+    "ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts": "argv :382 + /sdl: namespace message strings :245,246,483",
+    "ts/packages/capabilities/flow/src/sdl/commands/push.ts": "/sdl:flow message strings :18,70,84,108",
+    "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts": "argv dispatches :72-138",
+    "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts": "argv :59-100",
+    "ts/packages/capabilities/flow/src/land/stack/command-exec.ts": "argv :88",
+    "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts": "argv + formatCommand :57-91",
+    "ts/packages/capabilities/flow/src/pi/stack-squash.ts": "argv :172",
+    "ts/packages/capabilities/objective/src/pi/extension.ts": "argv :266-270",
+    "ts/packages/hosts/pi/src/core/pr/feedback-download.ts": "argv :80",
+    "ts/packages/hosts/pi/src/core/pr/extension.ts": "argv :297,321",
+    "ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/controller.ts": "argv + which-sdl PATH probe + error message :576-586",
+    "ts/packages/local/pi-tools/src/pr-previews/preview-feedback-command.ts": "argv :245",
+    "ts/packages/local/pi-tools/src/pr-previews/preview-checks-command.ts": "argv :173",
+    "ts/packages/hosts/sdlcc/src/stack-map-model-loader.ts": "argv :238 (sdlcc package/dir name survives)",
+    "ts/packages/hosts/sdlcc/src/objective-tab.ts": "argv :44",
+    "ts/packages/capabilities/objective/src/core/objective-selection-flow.ts": "raw .sdl/objectives literals :217,238",
+    "ts/packages/capabilities/objective/src/core/objective-picker.ts": "raw literal :169",
+    "ts/packages/capabilities/objective/src/core/fake-storage.ts": "raw literal :158",
+    "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts": ".sdl/reviews :12,138",
+    "ts/packages/capabilities/roaster/src/core/skill-reviews.ts": ".sdl/reviews :110 + argv",
+    "ts/packages/local/pi-tools/src/thermo-council/constants.ts": ".sdl/reviews :7",
+    "ts/packages/local/pi-tools/src/thermo-council/prompt.ts": ".sdl/reviews :39",
+    "ts/packages/local/pi-tools/src/thermo-council/extension.ts": ".sdl/reviews :38",
+    "ts/packages/infra/brmem/src/operations/resolve-prompt.ts": ".sdl/prompts :24",
+    "ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts": "LLM-facing contract strings $XDG_STATE_HOME/sdl/enriched-plan :99,296-302 + .sdl/prompts :214-251 + Q3: keep the no-legacy-fallback sentence pointed at ~/.ji/…",
+    "ts/packages/hosts/pi/src/runtime/agent-definition.ts": ".sdl/pi/agents :47,51,63 (fails loudly)",
+    "ts/packages/hosts/pi/src/commands/cli-command-trace.ts": "XDG state/sdl trace-log path :16",
+    ".pi/extensions/objective-autopilot.ts": ".sdl literals :353,354,750",
+    "docs-site/lib/extensions-catalog.ts": "hand-curated command hints :81,94 — rename only, do NOT reconcile pre-existing drift",
+    "ts/packages/capabilities/ccc/test/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"sdl\" :4",
+    "ts/packages/capabilities/flow/test/unit/land-test-helpers.ts": "TOPOLOGY_COMMAND = \"sdl\" :4",
+    "docs/xdg-base-directory-spec.md": "canonical enumeration of ALL XDG roots :110-129 — every root gets ji",
+    "docs/pi/branch-context-workflow.md": "~25 /sdl: occurrences + Q3 no-legacy-fallback prose :9,46,49 → ~/.ji, keep the no-fallback sentence",
+    "docs/adr/0005-additive-plan-vocabulary.md": "ALLOWLISTED ADR (Q3 live site): rewrite the legacy-fallback path prose only; do not otherwise modernize the ADR",
+    ".sdl/objectives/cross-harness-parity/parity-table.md": "ALLOWLISTED objectives file: rename the two /sdl: rows (:38,51) and `sdl …` cli strings only; table is independently stale — do NOT fix drift",
+    "skills/handoff-pickup/SKILL.md": "Bash(sdl …) allowed-tools frontmatter + prose",
+    "skills/handoff-create/SKILL.md": "Bash(sdl …) allowed-tools frontmatter + prose",
+    "skills/code-autobranch/SKILL.md": "allowed-tools + STALE flat name /sdl:autobranch → /ji:flow:autobranch",
+    "skills/code-checkpoint/SKILL.md": "allowed-tools + STALE flat name /sdl:cp → /ji:flow:cp",
+    "skills/code-just-the-stack/SKILL.md": "Bash(sdl …) allowed-tools frontmatter + prose",
+    "skills/branch-retro/SKILL.md": "Bash(sdl …) allowed-tools frontmatter + prose",
+    "skills/sdl-flow-submit/SKILL.md": "Bash(sdl …) allowed-tools + prose; the DIRECTORY name sdl-flow-submit survives this window",
+    "docs/subpackage-conventions.md": "RENAME only the dotted manifest-field prose sdl.subpackages / sdl.remainder → ji.* (~lines 3,40,47). LEAVE the bare host-surface subpackage VALUE `sdl` and the closed-vocabulary entries (~lines 17,22,27), the filename repo-local-sdl-extension, the sdl-flow package name, and every @sdl/* specifier — the src/sdl convention renames in the later package-scope row, so the documented value must keep matching reality",
+    "ts/packages/kernel/test/integration/node-runtime-cli.test.ts": "bin-facing assertions: test name \"sdl Node runtime CLI entrypoint\" (:4), contains-text \"Usage: sdl\" (:9), and the `bin sdl ->` chain prose (:14) all rename sdl→ji; the @sdl/kernel package scope in the same lines SURVIVES"
+  },
+  "mvOnly": {
+    "comment": "Caller-owned git mv targets whose CONTENT needs no edit (all-survivor content). Not in the engine work-list; the runbook brackets own them.",
+    ".pi/extensions/sdl.ts": "git mv → .pi/extensions/ji.ts; content is sdl-flow package import + sdl-extension filename + sdlExtension identifier — all survivors",
+    ".sdl": "git mv → .ji (tree move, wholesale)",
+    "sdl.toml": "git mv → ji.toml"
+  },
+  "pathRules": {
+    "skills/**/*.md": "simple, skills cohort — sdl <cmd> instruction lines, /sdl:* references, .sdl/ paths, SDL_* env var names, and dotted manifest-field prose sdl.<field> (tier, commands, subpackages, clinkr.caps, …) all rename; SURVIVORS: skill DIRECTORY names (sdl-typescript, sdl-cli-design, sdl-flow-submit, …), @sdl/* specifiers, the sdl-tools repo name, src/sdl/ path segments, package names (sdl-flow, sdl-capability-kit, sdlcc); edit only skills/ (.agents/skills and .claude/skills are symlinks)",
+    "docs/**": "simple, docs cohort (docs/adr excluded except allowlist)",
+    "**/CONTEXT.md, **/README.md, **/AGENTS.md, **/TESTING.md": "simple, docs cohort",
+    ".sdl/extensions/**, .sdl/reviews/**, .sdl/prompts/**, .sdl/pi/**": "simple, dot-tree cohort — operative files that move wholesale via git mv; their CONTENT edits (paths, command names) happen post-mv; @sdl/ imports in scan-reinvention tool sources STAY",
+    "ts/**/test/**": "simple, test cohort unless anchored to a changeset"
+  }
+}

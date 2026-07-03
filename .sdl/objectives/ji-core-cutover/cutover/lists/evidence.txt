@@ -1,0 +1,396 @@
+### .claude/plans/plan-the-deletion-of-humming-tide.md
+.claude/plans/plan-the-deletion-of-humming-tide.md:7:- **Python** — `packages/sdl-pr-address/` (import `sdl_pr_address`), the original implementation. Standalone console script `pr-address-py`, plus an `sdl pr-address` plugin subgroup.
+.claude/plans/plan-the-deletion-of-humming-tide.md:10:The TS port is complete: all 19 `exec` operations run in TypeScript. The Python package now survives only as (a) a source of golden test fixtures the TS tests load, and (b) the target of a "legacy bridge" the TS CLI falls back to for a few invalid-flag click error messages and the unused `sdl pr-address` plugin. Every skill, collector, and doc that actually *runs* pr-address invokes the TS `pr-address` binary, not the Python one.
+.claude/plans/plan-the-deletion-of-humming-tide.md:14:**Key exploration finding — there is no transitively-exclusive shared code to delete.** Everything `sdl-pr-address` imports from `sdl-core` (`clinkr`, `gh`, `git`, `payloads`, `plugin`) is heavily used by other packages (sdl-slots, aretro, sdl-handoff, sdl-objectives, brmem, roaster, etc.). Nothing in `sdl-core` becomes dead. `roaster` is independent (pr-address never imports it). So the deletable Python surface is the `sdl-pr-address` package itself — the rest of the work is removing references and retiring the now-orphaned TS bridge.
+.claude/plans/plan-the-deletion-of-humming-tide.md:19:2. **Reference cleanup → fix stale mentions too.** Repoint AGENTS.md canonical examples, drop the CONTEXT-MAP planned entry, and fix stale Python-specific mentions in skills / docs-site install instruction / TS README. **Keep** the docs-site tool pages (they describe the surviving TS tool) and **keep** the historical `.sdl/objectives/pr-address-*` records.
+.claude/plans/plan-the-deletion-of-humming-tide.md:48:- **Delete the directory** `packages/sdl-pr-address/` in full (src, tests — golden already moved in Phase A, `README.md`, `docs/development.md`, `pyproject.toml`). This removes the `pr-address-py` console script and the `sdl pr-address` plugin entry point.
+.claude/plans/plan-the-deletion-of-humming-tide.md:56:- **`pyproject.toml`** (root) — remove every `sdl-pr-address` / `sdl_pr_address` entry:
+.claude/plans/plan-the-deletion-of-humming-tide.md:58:  - `[tool.uv.sources]` → `sdl-pr-address = { workspace = true }`
+.claude/plans/plan-the-deletion-of-humming-tide.md:59:  - `[project.optional-dependencies] plugins` → `"sdl-pr-address"`
+.claude/plans/plan-the-deletion-of-humming-tide.md:60:  - `[dependency-groups] dev` → `"sdl-pr-address"`
+.claude/plans/plan-the-deletion-of-humming-tide.md:118:- **`CONTEXT-MAP.md`** — remove the planned `packages/sdl-pr-address/CONTEXT.md` bullet (~line 30) and the `sdl-pr-address → sdl-core...` relationship line (~line 60).
+.claude/plans/plan-the-deletion-of-humming-tide.md:119:- **`skills/pr-address/SKILL.md`** and **`skills/pr-address/references/cli-reference.md`** — remove the now-false statements that the `sdl pr-address` plugin / legacy Python path still exists (SKILL.md ~lines 73–74; cli-reference legacy-compat note). The skill keeps invoking the TS `pr-address` binary, so no functional change. `skills/stack-address/` invokes TS `pr-address` and needs no change.
+.claude/plans/plan-the-deletion-of-humming-tide.md:127:- **`sdl-core`** and all its `clinkr`/`gh`/`git`/`payloads`/`plugin` modules — shared infrastructure, used everywhere. Nothing is pr-address-exclusive.
+.claude/plans/plan-the-deletion-of-humming-tide.md:130:- **docs-site tool pages** and **`.sdl/objectives/pr-address-*`** — kept (live TS-tool docs; historical objective records).
+.claude/plans/plan-the-deletion-of-humming-tide.md:131:- **Published `sdl-pr-address==0.1.1` on PyPI** — independent of the deleted source; remains available as a manual rollback if the README keeps that note.
+
+### .pi/extensions/code-workflows.ts
+.pi/extensions/code-workflows.ts:3:const codeWorkflowsExtension = await importTypeScriptWorkspaceDefault("sdl-flow/pi/code-workflows-extension");
+
+### .pi/extensions/code.ts
+.pi/extensions/code.ts:3:const codeExtension = await importTypeScriptWorkspaceDefault("sdl-flow/pi/code-extension");
+
+### docs-site/app/[lang]/(home)/page.tsx
+docs-site/app/[lang]/(home)/page.tsx:6:  title: "sdl Documentation",
+docs-site/app/[lang]/(home)/page.tsx:9:    title: "sdl Documentation",
+docs-site/app/[lang]/(home)/page.tsx:14:    title: "sdl Documentation",
+docs-site/app/[lang]/(home)/page.tsx:63:        description="sdl lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+docs-site/app/[lang]/(home)/page.tsx:64:        eyebrow="sdl Documentation"
+
+### docs-site/app/[lang]/extensions/page.tsx
+docs-site/app/[lang]/extensions/page.tsx:32:        description="sdl extensions wire planning, branch context, PR feedback, and runtime visibility into Pi so agent sessions can continue work with the right controls already in reach."
+docs-site/app/[lang]/extensions/page.tsx:37:            eyebrow="sdl extension catalog"
+
+### docs-site/docs/concepts/meta.json
+docs-site/docs/concepts/meta.json:3:  "pages": ["sdl-umbrella", "cli-conventions", "objectives"]
+
+### docs-site/lib/geistdocs/ai-assistant.ts
+docs-site/lib/geistdocs/ai-assistant.ts:11:    name: "sdl",
+
+### docs-site/lib/geistdocs/nav.ts
+docs-site/lib/geistdocs/nav.ts:3:  repo: "sdl-tools",
+
+### docs-site/lib/geistdocs/og-image.tsx
+docs-site/lib/geistdocs/og-image.tsx:46:    fallbackTitle: "sdl Documentation",
+
+### docs-site/lib/geistdocs/rss.ts
+docs-site/lib/geistdocs/rss.ts:29:          name: "sdl",
+
+### docs-site/lib/geistdocs/site-identity.ts
+docs-site/lib/geistdocs/site-identity.ts:1:export const title = "sdl Documentation";
+docs-site/lib/geistdocs/site-identity.ts:13:export const siteId: string | undefined = "sdl-docs";
+
+### docs-site/package.json
+docs-site/package.json:2:  "name": "sdl-docs",
+
+### skills-lock.json
+skills-lock.json:324:    "sdl-cli-design": {
+skills-lock.json:329:    "sdl-flow-submit": {
+skills-lock.json:334:    "sdl-typescript": {
+skills-lock.json:339:    "sdl-typescript-style-tripwire": {
+
+### skills/architecture-topology-report/scripts/example-spec.mjs
+skills/architecture-topology-report/scripts/example-spec.mjs:9:  repo: "sdl-tools",
+skills/architecture-topology-report/scripts/example-spec.mjs:14:     end-state in <span class="font-mono text-sm">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 · 0012 · 0016).
+skills/architecture-topology-report/scripts/example-spec.mjs:18:  // Tier lanes come from declared package.json `sdl.tier` values. Node color is the tier in
+skills/architecture-topology-report/scripts/example-spec.mjs:57:        packages: ["@sdl/sdl", "sdl-sdk"], note: "extension kernel/host + the thin author API of host primitives — must not import a capability" },
+skills/architecture-topology-report/scripts/example-spec.mjs:90:      evidence: `6 capabilities ship <span class="font-mono text-xs">/api</span> (<span class="font-mono text-xs">pr-address, slot, plans, branch-context, handoff, objective</span>); guarded by <span class="font-mono text-xs">SDL_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT</span>.` },
+skills/architecture-topology-report/scripts/example-spec.mjs:145:  sdl --> T
+skills/architecture-topology-report/scripts/example-spec.mjs:184:    `Structural facts extracted deterministically from <span class="font-mono">package.json</span> runtime edges (33 packages, cycles = []); target invariants read from <span class="font-mono">.sdl/objectives/sdl-extension-architecture</span> (ADR 0009 / 0012 / 0016).`,
+
+### skills/architecture-topology-report/scripts/synthesize-spec.mjs
+skills/architecture-topology-report/scripts/synthesize-spec.mjs:109:      `The package manifests declare an <span class="font-mono text-sm">sdl.tier</span> for each package and a policy for which tiers may depend on which. `
+skills/architecture-topology-report/scripts/synthesize-spec.mjs:275:          sub: "declared sdl.tier policy",
+skills/architecture-topology-report/scripts/synthesize-spec.mjs:304:        + `band of its manifest <span class="font-mono text-sm">sdl.tier</span>, ordered from consumers at the top down to neutral infra at the bottom. `
+skills/architecture-topology-report/scripts/synthesize-spec.mjs:357:        : `every runtime edge respects the declared ${mono("sdl.tier")} policy.`,
+
+### ts/packages/capabilities/address/src/core/download-feedback.ts
+ts/packages/capabilities/address/src/core/download-feedback.ts:245:		'If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, close review threads with `sdl address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --format json`; include `--body <BODY>` when a reply is useful. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql` for those mutations.',
+
+### ts/packages/capabilities/aretro/src/operations/collect-evidence.ts
+ts/packages/capabilities/aretro/src/operations/collect-evidence.ts:228:				"Use sdl aretro exec read-evidence-detail --payload-path <path> --json-pointer <pointer> with the narrowest useful /data/... pointer.",
+
+### ts/packages/capabilities/branch-context/src/core/attached-plan.ts
+ts/packages/capabilities/branch-context/src/core/attached-plan.ts:63:				"Create a saved plan with `enriched-plan exec save`, attach it with `sdl branch-context exec from-plan`,",
+
+### ts/packages/capabilities/branch-context/src/pi/extension.ts
+ts/packages/capabilities/branch-context/src/pi/extension.ts:50:		cli: "sdl branch-context exec from-plan",
+ts/packages/capabilities/branch-context/src/pi/extension.ts:89:		cli: "sdl branch-context exec load",
+
+### ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts
+ts/packages/capabilities/ccc/src/cmux/dispatch-prompt.ts:437:		"2. Then run `!sdl flow submit`.",
+
+### ts/packages/capabilities/ccc/src/cmux/sidebar.ts
+ts/packages/capabilities/ccc/src/cmux/sidebar.ts:28:const SIDEBAR_MODEL_ENV = "SDL_CCC_SIDEBAR_MODEL";
+ts/packages/capabilities/ccc/src/cmux/sidebar.ts:221:		notify(ctx, "Pass an Objective slug or .sdl/objectives/<slug> path.", "warning");
+
+### ts/packages/capabilities/ccc/src/sdl/autobranch/flow.ts
+ts/packages/capabilities/ccc/src/sdl/autobranch/flow.ts:6:} from "sdl-flow/api";
+ts/packages/capabilities/ccc/src/sdl/autobranch/flow.ts:7:import { createFlowAutobranchCheckpointFlow } from "sdl-flow/api";
+
+### ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts
+ts/packages/capabilities/ccc/src/sdl/autoslot-presentation.ts:26:	/** Optional normal-weight "what to do next" line (e.g. the copyable `sdl slot co <branch>`). */
+
+### ts/packages/capabilities/ccc/src/sdl/autoslot.ts
+ts/packages/capabilities/ccc/src/sdl/autoslot.ts:1:export type { AutoslotCliInput, AutoslotFlowInput } from "sdl-flow/api";
+ts/packages/capabilities/ccc/src/sdl/autoslot.ts:2:export { createAutoslotFlow, runAutoslotCli } from "sdl-flow/api";
+
+### ts/packages/capabilities/ccc/src/sdl/cli.ts
+ts/packages/capabilities/ccc/src/sdl/cli.ts:18:} from "sdl-flow/api";
+
+### ts/packages/capabilities/ccc/src/sdl/land.ts
+ts/packages/capabilities/ccc/src/sdl/land.ts:11:} from "sdl-flow/api";
+ts/packages/capabilities/ccc/src/sdl/land.ts:12:export { parsePullRequestView, registerLandCommand, runLandCli } from "sdl-flow/api";
+
+### ts/packages/capabilities/ccc/src/sdl/trunk-pull.ts
+ts/packages/capabilities/ccc/src/sdl/trunk-pull.ts:1:export type { TrunkPullOutcome, TrunkPullResult } from "sdl-flow/api";
+ts/packages/capabilities/ccc/src/sdl/trunk-pull.ts:2:export { runTrunkPullDetailed } from "sdl-flow/api";
+
+### ts/packages/capabilities/flow/src/api/index.ts
+ts/packages/capabilities/flow/src/api/index.ts:1:// Capability API (`sdl-flow/api`): the curated, in-process surface for
+
+### ts/packages/capabilities/flow/src/autoslot/autoslot.ts
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:118:				body: "The worktree is not clean; `sdl slot checkout --current` requires a clean worktree.",
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:131:				headline: `Autoslot created ${branchName}, but sdl slot checkout failed.`,
+ts/packages/capabilities/flow/src/autoslot/autoslot.ts:147:			guidance: `sdl slot co ${slot.target.branchName}`,
+
+### ts/packages/capabilities/flow/src/autoslot/presentation.ts
+ts/packages/capabilities/flow/src/autoslot/presentation.ts:26:	/** Optional normal-weight "what to do next" line (e.g. the copyable `sdl slot co <branch>`). */
+
+### ts/packages/capabilities/flow/src/land/api.ts
+ts/packages/capabilities/flow/src/land/api.ts:7:export const LAND_PACKAGE_NAME = "sdl-flow";
+
+### ts/packages/capabilities/flow/src/land/preflight.ts
+ts/packages/capabilities/flow/src/land/preflight.ts:144:			message: "sdl-flow land preflight planning currently supports stack landing targets only.",
+
+### ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:95:				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:104:		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:145:					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:162:					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:210:					suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:248:			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:279:						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:295:					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:406:					suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /sdl:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:473:				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:724:			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:732:	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /sdl:flow:land until it is resolved or aborted.`;
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:733:	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /sdl:flow:land.`;
+
+### ts/packages/capabilities/flow/src/land/stack/land-presentation.ts
+ts/packages/capabilities/flow/src/land/stack/land-presentation.ts:1:// Flow-local facade for the `sdl flow land` CLI surface.
+
+### ts/packages/capabilities/flow/src/land/stack/pr-facts.ts
+ts/packages/capabilities/flow/src/land/stack/pr-facts.ts:139:					suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
+
+### ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:43:			`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:46:			suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:64:					suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:85:						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:flow:land.",
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:102:				suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
+
+### ts/packages/capabilities/flow/src/land/stack/stack-facts.ts
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:68:				`Detached HEAD; check out a branch before running /sdl:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:75:			landStackFailure("Could not resolve current branch before running /sdl:flow:land."),
+
+### ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts
+ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts:5:// in `.sdl/objectives/cli-ux-north-star/house-style.md`.
+
+### ts/packages/capabilities/flow/src/pi/code-workflows.ts
+ts/packages/capabilities/flow/src/pi/code-workflows.ts:29:		sourcePackage: "sdl-flow/pi",
+ts/packages/capabilities/flow/src/pi/code-workflows.ts:42:		sourcePackage: "sdl-flow/pi",
+
+### ts/packages/capabilities/flow/src/pi/smart-restack.ts
+ts/packages/capabilities/flow/src/pi/smart-restack.ts:27:		sourcePackage: "sdl-flow/pi",
+
+### ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts
+ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts:41:If the worktree is clean, use \`sdl flow branch-latest-commit\` to move the latest eligible unpushed commit to a new Graphite child branch.
+ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts:87:						commandLabel: "`sdl flow autobranch`",
+ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts:99:						headline: "`sdl flow autobranch` requires pending worktree changes and did not run.",
+ts/packages/capabilities/flow/src/sdl/commands/autobranch.ts:103:							"Use `sdl flow branch-latest-commit` to move the latest eligible unpushed commit to a new Graphite child branch.",
+
+### ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts
+ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts:19:Use \`sdl flow autobranch\` instead when pending dirty worktree changes should be moved to a new branch.
+ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts:50:					commandLabel: "`sdl flow branch-latest-commit`",
+ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts:60:					headline: "`sdl flow branch-latest-commit` requires a clean worktree and did not run.",
+ts/packages/capabilities/flow/src/sdl/commands/branch-latest-commit.ts:65:						"Use `sdl flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+
+### ts/packages/capabilities/flow/src/sdl/commands/cp.ts
+ts/packages/capabilities/flow/src/sdl/commands/cp.ts:66:			title: "sdl flow cp",
+
+### ts/packages/capabilities/flow/src/sdl/commands/land.ts
+ts/packages/capabilities/flow/src/sdl/commands/land.ts:114:const BASE_LAND_TITLE = "sdl flow land";
+
+### ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts
+ts/packages/capabilities/flow/src/sdl/presentation/git-result-block.ts:9:// transcript handling) live in `.sdl/objectives/cli-ux-north-star/house-style.md`.
+
+### ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts
+ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts:2:// failure block. `sdl flow autobranch` and `sdl flow branch-latest-commit` both load the same
+ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts:18:	/** Command name shown in the headline, e.g. "`sdl flow autobranch`". */
+
+### ts/packages/capabilities/flow/src/sdl/repo-local-sdl-extension.ts
+ts/packages/capabilities/flow/src/sdl/repo-local-sdl-extension.ts:36:			packageExportPrefix: "sdl-flow/commands",
+
+### ts/packages/capabilities/flow/src/sdl/worktree.ts
+ts/packages/capabilities/flow/src/sdl/worktree.ts:43:		{ prefix: "sdl-extension-cp-commit-", filename: "message.txt", contents: `${message}\n` },
+
+### ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts
+ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts:207:			{ prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
+
+### ts/packages/capabilities/flow/src/submit/submit-format.ts
+ts/packages/capabilities/flow/src/submit/submit-format.ts:49:		"PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:130:			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:131:			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:137:		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:140:		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:148:		"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:164:		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:178:		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:179:		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:263:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:277:			"If confirmed, sdl flow submit will run:",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:297:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:311:		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:317:		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:319:		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`sdl flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:375:					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:463:		"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:464:		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue.",
+
+### ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts
+ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts:147:		"Checkout the branch and run `sdl flow regenerate-pr` to regenerate its PR description.",
+
+### ts/packages/capabilities/flow/src/submit/text-generation.ts
+ts/packages/capabilities/flow/src/submit/text-generation.ts:24:export const PR_DESCRIPTION_MODEL_ENV = "SDL_DEV_PR_DESCRIPTION_MODEL";
+
+### ts/packages/capabilities/handoff/src/pi/claude-command.ts
+ts/packages/capabilities/handoff/src/pi/claude-command.ts:204:			`${CLAUDE_HANDOFF_LAUNCH_TOOL_NAME} verifies the handoff exists before launching Claude; do not call it before sdl handoff create succeeds.`,
+
+### ts/packages/capabilities/handoff/src/pi/create-prompt.ts
+ts/packages/capabilities/handoff/src/pi/create-prompt.ts:9:- Store final Markdown with \`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin\`; do not create a temporary artifact file.
+ts/packages/capabilities/handoff/src/pi/create-prompt.ts:10:- If \`sdl handoff create\` is unavailable, the Branch Memory recovery path is \`brmem check <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch>\` followed by \`brmem put <semantic-slug>${HANDOFF_KEY_SUFFIX} --namespace ${HANDOFF_NAMESPACE} --branch <branch> --file /dev/stdin\`.
+
+### ts/packages/capabilities/handoff/src/pi/create.ts
+ts/packages/capabilities/handoff/src/pi/create.ts:28:	`sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+
+### ts/packages/capabilities/handoff/src/pi/launch-flow.ts
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:139:		`Store the exact final Markdown content through /dev/stdin with \`sdl handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:140:		`If \`sdl handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
+ts/packages/capabilities/handoff/src/pi/launch-flow.ts:142:			`After \`sdl handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+
+### ts/packages/capabilities/handoff/src/pi/registration.ts
+ts/packages/capabilities/handoff/src/pi/registration.ts:27:		cli: "sdl handoff create",
+ts/packages/capabilities/handoff/src/pi/registration.ts:33:			"Pi command expands the portable handoff-create skill; the final artifact is stored through `sdl handoff create` after model confirmation.",
+ts/packages/capabilities/handoff/src/pi/registration.ts:40:		cli: "sdl handoff pickup",
+ts/packages/capabilities/handoff/src/pi/registration.ts:53:		cli: "sdl handoff list",
+
+### ts/packages/capabilities/handoff/src/pi/self.ts
+ts/packages/capabilities/handoff/src/pi/self.ts:250:				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before sdl handoff create succeeds.`,
+ts/packages/capabilities/handoff/src/pi/self.ts:333:		toolCallInstruction: `After \`sdl handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
+
+### ts/packages/capabilities/handoff/src/pi/tab.ts
+ts/packages/capabilities/handoff/src/pi/tab.ts:148:			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before sdl handoff create succeeds.`,
+
+### ts/packages/capabilities/roaster/src/commands/review-ls.ts
+ts/packages/capabilities/roaster/src/commands/review-ls.ts:6:const REVIEW_LS_DESCRIPTION = `Alias for sdl roaster review list.`;
+
+### ts/packages/capabilities/slot/src/core/diagnostics.ts
+ts/packages/capabilities/slot/src/core/diagnostics.ts:12:export const SLOT_DIAGNOSTIC_LOG_ENV = "SDL_SLOT_DIAGNOSTIC_LOG";
+
+### ts/packages/capabilities/slot/src/core/index.ts
+ts/packages/capabilities/slot/src/core/index.ts:10:	SDL_CD_DIRECTIVE_FILE,
+
+### ts/packages/capabilities/slot/src/core/shell/cd-directive.ts
+ts/packages/capabilities/slot/src/core/shell/cd-directive.ts:7:export const SDL_CD_DIRECTIVE_FILE = "SDL_CD_DIRECTIVE_FILE";
+ts/packages/capabilities/slot/src/core/shell/cd-directive.ts:36:	const path = env[SLOT_CD_DIRECTIVE_FILE] ?? env[SDL_CD_DIRECTIVE_FILE];
+
+### ts/packages/capabilities/slot/src/lifecycle/checkout.ts
+ts/packages/capabilities/slot/src/lifecycle/checkout.ts:104:			`HEAD at ${currentPlan.cwd} is detached. Check out a branch before running \`sdl slot checkout --current\`.`,
+ts/packages/capabilities/slot/src/lifecycle/checkout.ts:109:			`Current worktree at ${currentPlan.cwd} has uncommitted changes. Commit or stash before running \`sdl slot checkout --current\`.`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:52:			"Pass a command after --, e.g. `sdl slot foreach -- git clean -fd`.",
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:64:			return failure("confirmation-required", "sdl slot foreach requires --yes in JSON mode.");
+ts/packages/capabilities/slot/src/lifecycle/operations/foreach.ts:92:			`sdl slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/goto.ts:62:			`Worktree for ${slotName} is missing at ${record.path}. Run \`sdl slot free --wt ${slotName}\` to clear the stale assignment.`,
+
+### ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts
+ts/packages/capabilities/slot/src/lifecycle/operations/gt/up.ts:42:			`Multiple upstack branches for '${resolved.currentBranch}': ${children.branches.join(", ")}. Run \`sdl slot checkout <branch>\` for the branch you want.`,
+
+### ts/packages/capabilities/slot/src/sdl/command-face.ts
+ts/packages/capabilities/slot/src/sdl/command-face.ts:2:// `defineCli` entrypoint. The supported user-facing surface is `sdl slot ...`,
+
+### ts/packages/hosts/pi/src/commands/ack.ts
+ts/packages/hosts/pi/src/commands/ack.ts:10:export const IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE = "sdl-command-ack";
+ts/packages/hosts/pi/src/commands/ack.ts:11:export const IMMEDIATE_COMMAND_PROGRESS_MESSAGE_TYPE = "sdl-command-progress";
+ts/packages/hosts/pi/src/commands/ack.ts:12:export const IMMEDIATE_COMMAND_ACK_STATUS_KEY = "sdl-command-ack";
+
+### ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts
+ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts:9:const LIVE_PROGRESS_STATUS_ID = "sdl-cli-command";
+ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts:10:const LIVE_PROGRESS_WIDGET_ID = "sdl-cli-command-output";
+
+### ts/packages/hosts/pi/src/commands/cli-extension.ts
+ts/packages/hosts/pi/src/commands/cli-extension.ts:20:export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "sdl-cli-command-output";
+
+### ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md
+ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md:10:- After implementation and validation, close all confirmed automation review threads stack-wide with `sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>"]}' --format json` unless the user instructs otherwise.
+ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md:11:- Use `sdl address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID>"]}' --body <BODY> --format json` for bulk review-thread replies after validation; single-thread `reply-review-thread` and `resolve-review-thread` remain available for one-offs.
+
+### ts/packages/hosts/pi/src/kit/sessions/harness-session.ts
+ts/packages/hosts/pi/src/kit/sessions/harness-session.ts:4:const HARNESS_SESSION_ENTRY_TYPE = "sdl-harness-session-id";
+
+### ts/packages/hosts/pi/src/runtime/parity-extension.ts
+ts/packages/hosts/pi/src/runtime/parity-extension.ts:19: * names: use `sdl:changes`, not `/sdl:flow:changes`. The unique machine key is
+ts/packages/hosts/pi/src/runtime/parity-extension.ts:67:		| "sdl-flow/pi"
+
+### ts/packages/hosts/sdlcc/src/stack-map-effects.ts
+ts/packages/hosts/sdlcc/src/stack-map-effects.ts:220:	return `sdl slot checkout failed (${failure.errorType}): ${failure.message}`;
+
+### ts/packages/infra/core/src/primitives/model-slug.ts
+ts/packages/infra/core/src/primitives/model-slug.ts:42:export const SLUG_MODEL_ENV = "SDL_SLUG_MODEL";
+
+### ts/packages/infra/core/src/test-kit/index.ts
+ts/packages/infra/core/src/test-kit/index.ts:70:		async makeTempDir(prefix = "sdl-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:75:		async makeHomeTempDir(prefix = ".sdl-test-"): Promise<string> {
+
+### ts/packages/kernel/docs/sdk-reference.md
+ts/packages/kernel/docs/sdk-reference.md:18:For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@sdl/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.
+ts/packages/kernel/docs/sdk-reference.md:47:- Single-file extensions under `.sdl/extensions/` are leaf modules. Workspace packages must never import from them.
+ts/packages/kernel/docs/sdk-reference.md:94:Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.sdl/extensions/*/package.json` manifests remain hand-authored because repo-local discovery must read JSON without executing TypeScript; these descriptors are the package-owned parity oracle that integration tests compare against those static manifests and shims until generation is introduced.
+ts/packages/kernel/docs/sdk-reference.md:104:3. `.sdl/extensions/<group>/package.json` lists one manifest command entry per command leaf.
+ts/packages/kernel/docs/sdk-reference.md:105:4. `.sdl/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.
+ts/packages/kernel/docs/sdk-reference.md:107:Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer for first-party repo-local commands. Per-command leaves let discovery validate each manifest route against the package-owned command export and keep shim files mechanically checkable.
+ts/packages/kernel/docs/sdk-reference.md:142:One flat command contribution inside an extension's `commands` array. Direct extension entries appear as `sdl <name>`; manifest-grouped packages can present the same flat command name under a group such as `sdl flow <name>`.
+ts/packages/kernel/docs/sdk-reference.md:162:- `summary` — required one-line text shown in `sdl --help`.
+ts/packages/kernel/docs/sdk-reference.md:163:- `description` — full help text shown in `sdl <cmd> --help`.
+ts/packages/kernel/docs/sdk-reference.md:292:**Example.** Map the `slug` option to the first positional, so `sdl flow autobranch my-feature` fills it:
+ts/packages/kernel/docs/sdk-reference.md:311:Validates one known `sdl.commands[]` entry shape.
+ts/packages/kernel/docs/sdk-reference.md:332:  sdl: {
+
+### ts/packages/kernel/src/extensions/command-registry.ts
+ts/packages/kernel/src/extensions/command-registry.ts:54:export const SDL_COMMAND_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
+ts/packages/kernel/src/extensions/command-registry.ts:55:export const SDL_COMMAND_NAME_RULE = "[a-z][a-z0-9-]*";
+ts/packages/kernel/src/extensions/command-registry.ts:261:	...sdlExtensionCommandEntryIssueFields.map(
+
+### ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts
+ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/constants.ts:13:			"Use /pr:download-feedback or sdl address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
+
+### ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts
+ts/packages/local/pi-tools/src/pr-feedback-watch/feedback-watch/prompt.ts:31:		'- For straightforward fixes: edit the minimal files and run appropriate validation. If validation passes, you must close every addressed review thread and, when useful, reply with a concise summary using `sdl address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --body <BODY> --format json`; omit `--body` for resolve-only closure. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql`.',
+
+### ts/packages/local/pi-tools/src/pr-previews/extension.ts
+ts/packages/local/pi-tools/src/pr-previews/extension.ts:36:			"Use sdl address exec download-feedback --format json, then sdl address exec pr-review-threads --pr-number <n> --format json.",
+ts/packages/local/pi-tools/src/pr-previews/extension.ts:48:		fallback: "Use sdl address exec pr-checks [--pr-number <n>] --format json.",
+
+### ts/packages/sdl-capability-kit/src/git/testing.ts
+ts/packages/sdl-capability-kit/src/git/testing.ts:38:	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "sdl-git-test-"));
+ts/packages/sdl-capability-kit/src/git/testing.ts:53:	runGit(["config", "user.email", options.userEmail ?? "sdl-test@example.com"]);
+
+### ts/packages/sdl-capability-kit/src/kit/text-generation.ts
+ts/packages/sdl-capability-kit/src/kit/text-generation.ts:28:export const CHECKPOINT_MODEL_ENV = "SDL_CHECKPOINT_MODEL";
+ts/packages/sdl-capability-kit/src/kit/text-generation.ts:29:export const LEGACY_CHECKPOINT_MODEL_ENV = "SDL_DEV_CHECKPOINT_MODEL";
+ts/packages/sdl-capability-kit/src/kit/text-generation.ts:30:export const CHANGES_MODEL_ENV = "SDL_CHANGES_MODEL";
+ts/packages/sdl-capability-kit/src/kit/text-generation.ts:32:export const SUBMIT_FAILURE_MODEL_ENV = "SDL_SUBMIT_FAILURE_MODEL";
+
+### ts/packages/tools/areg/src/operations/project-agents.ts
+ts/packages/tools/areg/src/operations/project-agents.ts:16:	const sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);
+ts/packages/tools/areg/src/operations/project-agents.ts:25:export function parseSdlAregAgents(text: string, pathLabel = "sdl.toml"): Result<string[]> {
+ts/packages/tools/areg/src/operations/project-agents.ts:97:			pathLabel: "sdl.toml",
+ts/packages/tools/areg/src/operations/project-agents.ts:99:			description: "sdl.toml",
+ts/packages/tools/areg/src/operations/project-agents.ts:102:	return parseSdlAregAgents(state.text, "sdl.toml");
+
+### ts/packages/tools/areg/src/operations/update-skills.ts
+ts/packages/tools/areg/src/operations/update-skills.ts:73:		sdlToml: inspection.sdlToml,
+
+### ts/scripts/render-cli-shim.mjs
+ts/scripts/render-cli-shim.mjs:7:	"SDL_TEMPLATE",
+ts/scripts/render-cli-shim.mjs:8:	"SDL_OUTPUT",
+ts/scripts/render-cli-shim.mjs:9:	"SDL_TOOL",
+ts/scripts/render-cli-shim.mjs:10:	"SDL_CANONICAL_CHECKOUT",
+ts/scripts/render-cli-shim.mjs:11:	"SDL_CLI_REL_PATH",
+ts/scripts/render-cli-shim.mjs:12:	"SDL_INSTALL_HINT",
+ts/scripts/render-cli-shim.mjs:30:	const templatePath = envValue("SDL_TEMPLATE");
+ts/scripts/render-cli-shim.mjs:33:		tool: envValue("SDL_TOOL"),
+ts/scripts/render-cli-shim.mjs:34:		canonicalCheckout: envValue("SDL_CANONICAL_CHECKOUT"),
+ts/scripts/render-cli-shim.mjs:35:		cliRelPath: envValue("SDL_CLI_REL_PATH"),
+ts/scripts/render-cli-shim.mjs:36:		installHint: envValue("SDL_INSTALL_HINT"),
+ts/scripts/render-cli-shim.mjs:37:		fallbackMode: process.env.SDL_FALLBACK_MODE,
+ts/scripts/render-cli-shim.mjs:45:	await writeFile(envValue("SDL_OUTPUT"), result.rendered, "utf8");
+
+### ts/vitest.shared.ts
+ts/vitest.shared.ts:7:		`../.sdl/reviews/*/tools/*/test/${testPath}**/*.test.ts`,
+
