@@ -27,7 +27,10 @@ export const updateSkillsRequestSchema = z.object({
 		.default([])
 		.describe("Only update skills whose lockfile source matches; repeatable."),
 	agent: z.array(z.string()).default([]).describe("Agent directory to populate; repeatable."),
-	dryRun: z.boolean().default(false).describe("Print planned updates without calling npx."),
+	dryRun: z
+		.boolean()
+		.default(false)
+		.describe("Print planned updates without source preflight or npx calls."),
 });
 
 export const updateSkillsResultSchema = z.object({
@@ -42,7 +45,12 @@ export const updateSkillsResultSchema = z.object({
 
 export type UpdateSkillsRequest = z.infer<typeof updateSkillsRequestSchema>;
 export type UpdateSkillsResult = z.infer<typeof updateSkillsResultSchema>;
-type SelectedUpdate = z.infer<typeof selectedUpdateSchema>;
+interface SelectedUpdate {
+	skill: string;
+	source: string;
+	skillPath?: string;
+}
+
 type AttemptedUpdate = z.infer<typeof attemptedUpdateSchema>;
 
 export async function runUpdateSkills(
@@ -77,6 +85,10 @@ export async function runUpdateSkills(
 	const agents = agentsResult.value;
 
 	if (!request.dryRun) {
+		const gh = await ctx.host.checkTool({ tool: "gh", cwd: inspection.projectDir, env: ctx.env });
+		if (gh.type === "missing") return failure("missing-tool", gh.message);
+		const preflight = await preflightSelectedUpdates(ctx, selectedUpdates);
+		if (!preflight.ok) return failure("skill-source-preflight-failed", preflight.error.message);
 		const npx = await ctx.host.checkTool({ tool: "npx", cwd: inspection.projectDir, env: ctx.env });
 		if (npx.type === "missing") return failure("missing-tool", npx.message);
 	}
@@ -84,7 +96,7 @@ export async function runUpdateSkills(
 	const attemptedUpdates: AttemptedUpdate[] = [];
 	for (const update of selectedUpdates) {
 		if (request.dryRun) {
-			attemptedUpdates.push({ ...update, status: "planned" });
+			attemptedUpdates.push({ ...publicSelectedUpdate(update), status: "planned" });
 			continue;
 		}
 		const result = await ctx.npxSkills.addSkills({
@@ -95,10 +107,14 @@ export async function runUpdateSkills(
 			env: ctx.env,
 		});
 		if (result.type === "ok") {
-			attemptedUpdates.push({ ...update, status: "updated" });
+			attemptedUpdates.push({ ...publicSelectedUpdate(update), status: "updated" });
 			continue;
 		}
-		attemptedUpdates.push({ ...update, status: "failed", error: result.error.message });
+		attemptedUpdates.push({
+			...publicSelectedUpdate(update),
+			status: "failed",
+			error: result.error.message,
+		});
 	}
 
 	const finalReport = report({
@@ -134,9 +150,14 @@ function selectGithubUpdates(
 	skills: readonly LockfileSkill[],
 	request: UpdateSkillsRequest,
 ): Result<readonly SelectedUpdate[]> {
-	const githubEntries = new Map<string, string>();
+	const githubEntries = new Map<string, { source: string; skillPath?: string }>();
 	for (const skill of skills) {
-		if (skill.sourceType === "github") githubEntries.set(skill.name, skill.source);
+		if (skill.sourceType === "github") {
+			githubEntries.set(skill.name, {
+				source: skill.source,
+				...(skill.skillPath === undefined ? {} : { skillPath: skill.skillPath }),
+			});
+		}
 	}
 
 	const requestedSkills = new Set(request.skill);
@@ -155,13 +176,91 @@ function selectGithubUpdates(
 	const requestedSources = new Set(request.source);
 	const updates: SelectedUpdate[] = [];
 	for (const skill of sortStrings([...githubEntries.keys()])) {
-		const source = githubEntries.get(skill);
-		if (source === undefined) continue;
+		const entry = githubEntries.get(skill);
+		if (entry === undefined) continue;
 		if (requestedSkills.size > 0 && !requestedSkills.has(skill)) continue;
-		if (requestedSources.size > 0 && !requestedSources.has(source)) continue;
-		updates.push({ skill, source });
+		if (requestedSources.size > 0 && !requestedSources.has(entry.source)) continue;
+		updates.push({
+			skill,
+			source: entry.source,
+			...(entry.skillPath === undefined ? {} : { skillPath: entry.skillPath }),
+		});
 	}
 	return { ok: true, value: updates };
+}
+
+async function preflightSelectedUpdates(
+	ctx: AregCliContext,
+	selectedUpdates: readonly SelectedUpdate[],
+): Promise<Result<undefined>> {
+	const failures: string[] = [];
+	for (const update of selectedUpdates) {
+		const result = await preflightSelectedUpdate(ctx, update);
+		if (!result.ok) failures.push(result.error.message);
+	}
+	if (failures.length === 0) return { ok: true, value: undefined };
+	return {
+		ok: false,
+		error: {
+			code: "skill_source_preflight_failed",
+			message: `Source preflight failed before updating skills:\n${failures
+				.map((message) => `  - ${message}`)
+				.join("\n")}`,
+		},
+	};
+}
+
+async function preflightSelectedUpdate(
+	ctx: AregCliContext,
+	update: SelectedUpdate,
+): Promise<Result<undefined>> {
+	if (update.skillPath !== undefined) {
+		const result = await ctx.github.checkSkillFile({
+			repo: update.source,
+			path: update.skillPath,
+			env: ctx.env,
+		});
+		return githubPreflightResult(update, result);
+	}
+
+	const result = await ctx.github.listSkillDirectoryNames({ repo: update.source, env: ctx.env });
+	if (result.type === "ok") {
+		if (result.skillNames.includes(update.skill)) return { ok: true, value: undefined };
+		return {
+			ok: false,
+			error: {
+				code: "skill_source_preflight_failed",
+				message: `${update.skill} was not found in ${update.source}/skills before update`,
+			},
+		};
+	}
+	return githubPreflightResult(update, result);
+}
+
+function githubPreflightResult(
+	update: SelectedUpdate,
+	result:
+		| Awaited<ReturnType<AregCliContext["github"]["checkSkillFile"]>>
+		| Awaited<ReturnType<AregCliContext["github"]["listSkillDirectoryNames"]>>,
+): Result<undefined> {
+	if (result.type === "found") return { ok: true, value: undefined };
+	if (result.type === "ok") return { ok: true, value: undefined };
+	if (result.type === "error") {
+		return {
+			ok: false,
+			error: {
+				code: result.error.code,
+				message: `${update.skill} from ${update.source}: ${result.error.message}`,
+			},
+		};
+	}
+	return {
+		ok: false,
+		error: {
+			code: "skill_source_preflight_failed",
+			message: `${update.skill} from ${update.source}: ${result.message}`,
+		},
+	};
 }
 
 function report(input: {
@@ -178,10 +277,14 @@ function report(input: {
 		projectDir: input.projectDir,
 		agents: [...input.agents],
 		dryRun: input.dryRun,
-		selectedUpdates: input.selectedUpdates.map((update) => ({ ...update })),
+		selectedUpdates: input.selectedUpdates.map(publicSelectedUpdate),
 		attemptedUpdates: input.attemptedUpdates.map((update) => ({ ...update })),
 		failureCount: failures.length,
 	};
+}
+
+function publicSelectedUpdate(update: SelectedUpdate): z.infer<typeof selectedUpdateSchema> {
+	return { skill: update.skill, source: update.source };
 }
 
 function emptyReport(projectDir: string, dryRun: boolean, isOk: boolean): UpdateSkillsResult {

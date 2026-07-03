@@ -234,9 +234,12 @@ areg update-skills --source <owner>/<repo>
 If `areg` is only available from the checkout, use the TypeScript source CLI:
 `node ts/packages/areg/src/cli.ts update-skills --path . ...`.
 
-The updater walks `skills-lock.json` and calls `npx skills add <source> --skill
-<name>` once per GitHub-sourced entry. Local skills (`sourceType: "local"`) are
-skipped because they are edited in place.
+The updater walks `skills-lock.json`, preflights every selected GitHub-sourced
+skill file, then calls `npx skills add <source> --skill <name>` once per selected
+entry. Local skills (`sourceType: "local"`) are skipped because they are edited
+in place. The preflight prevents a known-bad source selection from causing a
+partial update; it does not sandbox or roll back `npx skills` mutations after
+they begin.
 
 Invocation-kind metadata is a local overlay managed by `areg skill apply`, not by
 `npx skills`. `areg` manages first-party skills under `skills/<name>/` and

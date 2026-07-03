@@ -138,7 +138,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Do not include secrets");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(prompt).toContain("Refactor execution strategy");
-		expect(prompt).toContain("`ts-morph-refactor`");
+		expect(prompt).toContain("deterministic AST/codemod tooling");
+		expect(prompt).toContain("`ts-morph-analyze`");
 		expect(prompt).toContain("`text.replace()`");
 		expect(prompt).toContain("`refactor-swarm`");
 		expect(prompt).toContain("stale-terminology check");
@@ -180,7 +181,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("ji flow cp");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`ts-morph-refactor`");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("deterministic AST/codemod tooling");
+		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`ts-morph-analyze`");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`text.replace()`");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("`refactor-swarm`");
 		expect(checkedInContent).toContain("Refactor execution strategy:");
@@ -261,7 +263,8 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
 		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(prompt).toContain("`ts-morph-refactor`");
+		expect(prompt).toContain("deterministic AST/codemod tooling");
+		expect(prompt).toContain("`ts-morph-analyze`");
 		expect(prompt).toContain("`refactor-swarm`");
 		expect(prompt).toContain("precise edits for 1-4 files");
 		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance

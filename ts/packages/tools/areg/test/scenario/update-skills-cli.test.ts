@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 import type { AregCliContext } from "../../src/context.ts";
 import {
 	FakeAregGithubGateway,
+	type FakeAregGithubGatewayOptions,
 	FakeAregHostGateway,
 	FakeAregNpxSkillsGateway,
 	FakeAregProjectGateway,
@@ -23,6 +24,8 @@ interface UpdateHarnessOptions {
 	npxFailures?: Readonly<Record<string, AregErrorInfo>>;
 	npxFailure?: AregErrorInfo;
 	npxMissing?: boolean;
+	ghMissing?: boolean;
+	github?: FakeAregGithubGatewayOptions;
 }
 
 interface UpdateRun {
@@ -36,7 +39,10 @@ interface UpdateRun {
 
 function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}): UpdateRun {
 	const host = new FakeAregHostGateway({
-		tools: { npx: options.npxMissing === true ? null : "/fake/bin/npx" },
+		tools: {
+			gh: options.ghMissing === true ? null : "/fake/bin/gh",
+			npx: options.npxMissing === true ? null : "/fake/bin/npx",
+		},
 	});
 	const npxSkills = new FakeAregNpxSkillsGateway({
 		...optionalEntries({ failure: options.npxFailure, failures: options.npxFailures }),
@@ -50,7 +56,7 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 	});
 	const context: AregCliContext = {
 		host,
-		github: new FakeAregGithubGateway(),
+		github: new FakeAregGithubGateway(options.github),
 		skillxWorkspace: new FakeAregSkillxWorkspaceGateway(),
 		project: projectGateway,
 		git: new InMemoryGitGateway(),
@@ -65,11 +71,27 @@ function runUpdate(args: readonly string[], options: UpdateHarnessOptions = {}):
 }
 
 function lockfile(skills: Record<string, object>): object {
-	return { version: 1, skills };
+	return {
+		version: 1,
+		skills: Object.fromEntries(
+			Object.entries(skills).map(([name, skill]) => [name, withDefaultSkillPath(name, skill)]),
+		),
+	};
 }
 
-function github(source = "owner/repo"): object {
-	return { source, sourceType: "github", computedHash: HASH };
+function github(source = "owner/repo", skillPath?: string): object {
+	return {
+		source,
+		sourceType: "github",
+		computedHash: HASH,
+		...(skillPath === undefined ? {} : { skillPath }),
+	};
+}
+
+function withDefaultSkillPath(name: string, skill: object): object {
+	if (!("sourceType" in skill) || skill.sourceType !== "github" || "skillPath" in skill)
+		return skill;
+	return { ...skill, skillPath: `skills/${name}/SKILL.md` };
 }
 
 function local(name: string): object {
@@ -157,8 +179,8 @@ describe("areg update-skills CLI", () => {
 		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
-	test("dry-run plans updates without checking host npx or calling npx skills", async () => {
-		const run = runUpdate(["--dry-run"], { npxMissing: true });
+	test("dry-run plans updates without checking host tools, source preflight, or calling npx skills", async () => {
+		const run = runUpdate(["--dry-run"], { npxMissing: true, ghMissing: true });
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain(
@@ -166,6 +188,34 @@ describe("areg update-skills CLI", () => {
 		);
 		expect(run.stdout.join("")).toContain("Planned: 2 skill(s). No changes made.");
 		expect(run.host.operations()).toEqual([]);
+		expect(run.npxSkills.operations()).toEqual([]);
+	});
+
+	test("preflights every selected source before the first npx update call", async () => {
+		const run = runUpdate([], {
+			github: {
+				files: {
+					"other/repo:skills/beta/SKILL.md": "missing",
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("Source preflight failed before updating skills");
+		expect(run.stderr.join("")).toContain("beta from other/repo");
+		expect(run.host.operations()).toEqual([{ type: "check-tool", tool: "gh", cwd: "/repo" }]);
+		expect(run.projectGateway.operations()).toEqual([
+			{ type: "inspect-project-base", cwd: "/repo", projectPath: "." },
+		]);
+		expect(run.npxSkills.operations()).toEqual([]);
+	});
+
+	test("missing gh fails before source preflight and npx checks", async () => {
+		const run = runUpdate([], { ghMissing: true, npxMissing: true });
+
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("Required host tool is missing: gh");
+		expect(run.host.operations()).toEqual([{ type: "check-tool", tool: "gh", cwd: "/repo" }]);
 		expect(run.npxSkills.operations()).toEqual([]);
 	});
 
