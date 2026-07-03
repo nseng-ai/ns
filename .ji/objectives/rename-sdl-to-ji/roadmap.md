@@ -23,8 +23,8 @@
       in-window.
 - [ ] Write and execute the manual machine migration checklist (XDG `mv`s, checkout
       path, worktree slots, shell-profile `SDL_*` env vars — enumerated in
-      `cutover-inventory.md` machine-migration notes), and fix up any straggler
-      branches by hand.
+      `cutover-inventory.md` machine-migration notes; the runner env var is now
+      `JI_RUNNER_PI_BIN` in code), and fix up any straggler branches by hand.
       Partial evidence recorded 2026-07-03: no migration is needed for global extension
       data, brmem prompt config, or current-process `SDL_*`/`JI_*` environment variables
       on the investigated owner machine. The old `.zshrc` `sdl shell integration` block
@@ -44,11 +44,15 @@
       Executed via the hybrid AST-codemod + manifest-rewrite tooling in
       `tools/pkg-scope-sweep/`; see
       `updates/2026-07-03-package-scope-sweep-executed.md`.
+      Verified landed on trunk 2026-07-03: workspace root `ji-ts-workspace`,
+      `@ji/kernel` bin `ji`, zero `@sdl/` matches under `ts/`; leftover
+      `hosts/sdlcc/` and `packages/sdl-capability-kit/` dirs are untracked
+      `node_modules` residue only.
 - [ ] Package scope correction for the npm target: `@ji/*` → `@nseng-ai/*`, keep the
       externally published package target at `@nseng-ai/ji`, and ensure local-only
       packages remain outside the publish scope.
 - [ ] Final, manual: rename the GitHub repo to `nseng-ai/ji`; update remotes and any
-      active links.
+      active links. Still pending: `origin` is `nseng-ai/sdl-tools` as of 2026-07-03.
 
 ## Parked
 

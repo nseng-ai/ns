@@ -2,14 +2,15 @@
 
 ## Thesis
 
-The 56 first-party skills under `skills/` carry systematic content debt. A
-writing-great-skills audit ranked every skill by remediation impact and found the
-dominant failure mode is **duplication** — a contract (a command sequence, a
-directory tree, an output template, a safety rule) restated verbatim or near-verbatim
-in two to four places, usually via a trailing `Anti-patterns` / `command recipe` /
-`Workflow` / `Verify` section that reprints rules already stated above. The secondary
-mode is **oversized always-loaded blocks**: large reference material sitting inline in
-`SKILL.md` that only one branch reaches and should be disclosed behind a pointer.
+A 2026-06 writing-great-skills audit of the then-56 first-party skills under `skills/`
+found systematic content debt. The dominant failure mode is **duplication** — a contract
+(a command sequence, a directory tree, an output template, a safety rule) restated
+verbatim or near-verbatim in two to four places, usually via a trailing `Anti-patterns` /
+`command recipe` / `Workflow` / `Verify` section that reprints rules already stated
+above. The secondary mode is **oversized always-loaded blocks**: large reference material
+sitting inline in `SKILL.md` that only one branch reaches and should be disclosed behind
+a pointer. (The tree has since grown to 70 first-party skill directories; post-audit
+additions are outside the audit's scope.)
 
 This Objective drives the high-yield fixes only: three cross-cutting **systemic**
 findings, plus per-skill remediation of every skill the audit scored **5 or higher**.
@@ -25,49 +26,75 @@ and ranks targets by **value = lift × reach × stakes − risk**. Safety-critic
 rigid-output-contract skills take the **surgical** path, never from-scratch; other
 targets take prune-to-stub or move-to-reference. Behavior preservation is not an
 intention but an operational gate — **extract-contract-then-diff** (see Assumptions and
-Risks). Systemic #1/#2/#3 are already complete and unaffected.
+Risks). Systemic #1/#2/#3 are complete.
+
+**Post-audit ground shift (rebaselined 2026-07-03):** ADR 0016
+(`docs/adr/0016-skill-invocation-context-budget.md`, landed 2026-06-26 via commits
+`df5d4e355`/`9cc5b1773`) re-architected skill invocation repo-wide: most explicit
+workflow skills — including many remaining queue targets — are now `command-backed`
+(zero ambient context), so the re-audit's reach rankings, which assumed ambient
+descriptions and model-routed bodies for those targets, no longer match ground truth.
+Re-rank the remaining queue before resuming it (see Open Questions).
 
 ## Scope
 
-- **Three systemic findings:**
+- **Three systemic findings (all resolved):**
   1. `Command: X` stub descriptions — set the correct areg invocation *kind* per skill.
      (Reframed: invocation is governed by areg's four kinds — `normal` / `ambient-only` /
      `invoke-only` / `command-backed` — applied via `areg skill apply` and enforced by
      `areg check`, not a hand-edited `disable-model-invocation` flag. The `Command: X` +
-     commented-description frontmatter is the *rendered output* of an explicit-only kind,
-     so a skill that is kind `normal` but shows that stub is misconfigured — "listed but
-     unroutable.") Two streams: write real descriptions for incomplete `normal` skills,
-     and reconcile deliberately-explicit skills to `invoke-only` (no verified Pi
-     replacement) or `command-backed` (a verified Pi replacement exists — membership in
-     `COMMAND_STYLE_LOCAL_SKILLS` + the `real-gateways.ts` allowlist, which auto-generates
-     a backing command; a skill with one *cannot* be `invoke-only`). Affects `sdl-flow-submit`,
+     commented-description frontmatter was the *rendered output* of an explicit-only
+     kind, so a skill that is kind `normal` but shows that stub is misconfigured —
+     "listed but unroutable.") Affected `sdl-flow-submit` (renamed from `sdl-submit`),
      `objective-close`, `objective-create`, `code-workflows`, `changelog-update`,
-     `code-checkpoint`, `code-just-fix`, and the `setup-*` / `create-*` family
-     (`code-autobranch` already carries a real `normal` description). **Resolved/applied:**
-     objective-family → `normal`; `setup-*` → `invoke-only`; eight verified-replacement
-     skills → `command-backed`. `command-backed` is exemplified, not just supported (this
-     supersedes the earlier "unexemplified" framing). Taxonomy documented in
-     `docs/conventions/skill-conventions.md` § Skill Invocation Kinds.
-  2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicates a ~95%
-     byte-identical shared core that has already drifted — single-source it.
-  3. Branch-creation precedence policy is duplicated across
+     `sdl-flow-cp` (renamed from `code-checkpoint`, commit `6d51a05b1`), `code-just-fix`,
+     and the `setup-*` / `create-*` family (`sdl-flow-autobranch`, renamed from
+     `code-autobranch`, already carried a real `normal` description at the time).
+     **Resolution as applied (2026-06-19/20):** objective-family → `normal` (real trigger
+     descriptions written); `setup-*` → `invoke-only`; eight verified-replacement skills
+     → `command-backed`. **Since superseded in its specifics** by the ADR 0016 repo-wide
+     re-architecture: `setup-*` and most explicit workflows (including most of the
+     objective family, the grill pair, and `skill-audit-improved`) are now
+     `command-backed`; ambient routers/standards (`objective`, `brmem`, `pr-address`)
+     remain `normal`; `COMMAND_STYLE_LOCAL_SKILLS`
+     (`ts/packages/hosts/pi/src/commands/surfaces.ts`) now spans ~60 skills, and
+     verified-replacement enforcement lives in areg itself (`areg skill apply
+     command-backed` succeeds only when the replacement Pi extension verifies) — the
+     earlier "`real-gateways.ts` allowlist" framing no longer matches the code. The
+     systemic deliverable itself — no listed-but-unroutable stub; kinds registry-managed
+     and enforced — **holds**: `areg check` reports "All skills OK" (verified
+     2026-07-03). The real descriptions written for the objective family survived the
+     kind changes; residual `Command: <name>` stubs (e.g. `setup-graphite`,
+     `sdl-flow-submit`) sit only on explicit-only skills where the description is not
+     ambient, and `docs/conventions/skill-conventions.md` § Skill Invocation Kinds now
+     documents the stub as a legacy artifact (current `areg skill apply` does not
+     rewrite descriptions).
+  2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicated a shared core
+     that had already drifted — single-source it. (Resolved via reconcile-in-place; the
+     "~95% byte-identical" framing was corrected — the truly shared core is 3 short
+     paragraphs and `pi-grill-with-docs-ui` is a superset, not a twin. Still holding as
+     of 2026-07-03.)
+  3. Branch-creation precedence policy was duplicated across
      `branch-context-from-plan/SKILL.md` and `branch-context/references/lifecycle.md`,
      and already drifting — single-home it. (Resolved: implementation confirmed the
-     policy had **2** full copies, not the "triplicated" 3 originally recorded — only
-     these two files restated the full precedence list.)
+     policy had **2** full copies, not the "triplicated" 3 originally recorded. Still
+     holding as of 2026-07-03: the precedence list resolves only in `lifecycle.md`.)
 - **Per-skill remediation of the high-value targets**, with the technique chosen by the
   (lift × risk) quadrant and the order set by value (reach), not raw lift (re-audit
-  `2026-06-20T140000`): from-scratch rewrite against `writing-great-skills` for
-  high-lift/low-risk targets (behavior preserved; duplication collapse and disclosure
-  fall out of the rewrite); **surgical** for safety-critical / rigid-output-contract
-  skills; prune-to-stub or move-to-reference for the rest. Top targets:
-  `objective-stack-impl`, `dignified-python`, `refactor-swarm`, `ccc-available-work`,
-  `enriched-plan-save`, `python-fake-driven-testing`, `objective-refresh`,
-  `objective-update`, `code-gt-restack-resolve`, `python-fake-driven-test-layout`,
-  `handoff-create`, `ccc-stack-map`, `code-thermostack`, `pr-address`, plus the new
-  clarity/sprawl elevation candidates `brmem`, `objective`, and
-  `code-resolve-merge-conflicts`. `branch-context-impl` **dropped off** (lift 1 / risk 4;
-  its only disclosable block is a 6-trigger STOP safety contract — leave as-is).
+  `2026-06-20T140000`; reach values now need re-derivation post-ADR-0016): from-scratch
+  rewrite against `writing-great-skills` for high-lift/low-risk targets (behavior
+  preserved; duplication collapse and disclosure fall out of the rewrite); **surgical**
+  for safety-critical / rigid-output-contract skills; prune-to-stub or move-to-reference
+  for the rest. Top targets: `objective-stack-impl`, `dignified-python`,
+  `refactor-swarm`, `ccc-available-work`, `enriched-plan-save`,
+  `python-fake-driven-testing`, `objective-refresh`, `objective-update`,
+  `code-gt-restack-resolve`, `python-fake-driven-test-layout`, `handoff-create`,
+  `ccc-stack-map`, `code-thermostack`, plus the clarity/sprawl elevation candidates
+  `brmem`, `objective`, and `code-resolve-merge-conflicts`. Two targets have dropped
+  off: `branch-context-impl` (lift 1 / risk 4; its only disclosable block is a 6-trigger
+  STOP safety contract — leave as-is) and `pr-address` (superseded: the 2026-06-28
+  Address Capability migration reworked it into a live primitive-surface skill; the
+  "retired-workflow tombstone" it was slated to become no longer describes it).
 - **Source of truth:** edit the real files under `skills/` only. The
   `skills/` → `.agents/skills/` → `.claude/skills/` symlink chain means every edit
   lands in one place; never edit a symlinked copy.
@@ -78,10 +105,12 @@ Risks). Systemic #1/#2/#3 are already complete and unaffected.
   repetition or a synonym-trigger description each; fix opportunistically when already
   in the file, not as tracked work.
 - Not editing vendored third-party skills under `.agents/skills/` real directories
-  (`writing-great-skills`, `skill-creator`, `grilling`, `grill-me`, `grill-with-docs`,
-  `improve`, `improve-codebase-architecture`, `codebase-design`, `domain-modeling`,
-  `fdt-refactor-mock-to-fake`, `graphite`, `opentui`,
-  `thermo-nuclear-code-quality-review`, `ts-morph-*`) — these are upstream code.
+  (e.g. `writing-great-skills`, `skill-creator`, `grilling`, `grill-me`,
+  `grill-with-docs`, `improve-codebase-architecture`, `codebase-design`,
+  `domain-modeling`, `fdt-refactor-mock-to-fake`, `graphite`, `opentui`,
+  `thermo-nuclear-code-quality-review`, `ts-morph-analyze`) — these are upstream code.
+  (Membership shifts over time: `improve` and `ts-morph-refactor` have since been
+  removed from the vendored set.)
 - Not the `skill-management-subsystem` Objective's install/list/path/catalog tooling.
   This Objective is about skill *content*, that one is about the management *subsystem*.
 - No new production/remediation target skills and no change to what any existing skill
@@ -97,8 +126,9 @@ The Objective can close when:
   decided and applied across the stub-description skills; the grill core is
   single-sourced with the drifted wording reconciled; the branch-creation policy lives
   in exactly one home.
-- Every first-party skill scoring ≥5 in the audit is either remediated or explicitly
-  deferred with a recorded reason.
+- Every first-party skill scoring ≥5 in the 2026-06 audit is either remediated or
+  explicitly deferred/dropped with a recorded reason. (The audit universe is that
+  snapshot; post-audit skills are out of scope.)
 - No verbatim-duplicated contract and no already-drifting paired copy remains among the
   ≥5 skills.
 - Evidence: each edited skill still loads (frontmatter valid, references resolvable),
@@ -111,12 +141,12 @@ Assumptions:
 - The audit's impact scoring is roughly correct and `≥5` is the right cut line for
   bespoke per-skill surgery. (Could be disproven if a parked score-3 skill turns out to
   cost more than estimated once touched.)
-- The `Command: X` stub is a deliberate token-saving convention, not a bug, so systemic
-  #1 is a per-skill policy *decision*, not a blanket description revert. (Refined: the
-  stub is the *rendered output* of an areg explicit-only invocation kind, managed by
-  `areg skill apply` — so the per-skill decision is which of the four kinds applies, and
-  the application is mechanical/registry-driven, not a freehand frontmatter edit. A
-  `normal` skill showing the stub is simply misconfigured.)
+- The `Command: X` stub was a deliberate token-saving convention, not a bug, so systemic
+  #1 was a per-skill policy *decision*, not a blanket description revert. (Refined
+  twice: first, the stub is the rendered output of an areg explicit-only invocation
+  kind, managed by `areg skill apply`; then the taxonomy doc reframed the stub itself as
+  a legacy artifact — current `areg skill apply` does not rewrite descriptions, and
+  explicit-only skills may keep real descriptions since they are not ambient.)
 - Disclosing an oversized inline block to a reference reduces always-loaded cost without
   hurting reliability, *provided* the pointer wording names the concrete situation that
   should reach it. (Exercised on `objective-stack-impl`: the two end-of-run sections
@@ -128,35 +158,34 @@ Assumptions:
 - A behavior-preserving from-scratch rewrite (against `writing-great-skills`) yields
   better clarity and LM-friendliness than surgical verbatim-move + recap-deletion, at
   acceptable risk, *because* the rewrite is gated by extract-contract-then-diff.
-  (**Exercised once, holding:** the first rewrite — `objective-stack-impl` — cut SKILL.md
-  217→136 lines with the contract preserved, collapsing a 4× "no hidden state"
-  restatement and introducing leading words `parent`/`slice`/`verify-independently`. One
-  data point, not yet a trend across the remaining targets.)
+  (**Exercised, holding:** the first rewrite — `objective-stack-impl` — cut SKILL.md
+  217→136 lines with the contract preserved; the gate then passed on `handoff-create`,
+  `objective-refresh`, and `objective-update` as well.)
 - Remediation value is **value = lift × reach × stakes − risk**, not lift alone
   (re-audit `2026-06-20T140000`). Reach = invocation frequency and always-loaded-ness;
-  descriptions are always loaded, bodies and reference trees load only on invoke, and
-  reference-tree tokens dwarf SKILL.md tokens — so a high-lift SKILL.md change on a
-  rarely-invoked skill is low value. This is why the highest-value action is the
-  `python-fake-driven-testing` reference-tree merge rather than any single rewrite, and
-  why `python-fake-driven-test-layout` (lift 4, low reach) is kept only as the method
-  pilot. Not yet validated against outcomes — it is a ranking heuristic, not a measured
-  result.
+  descriptions are always loaded only for ambient (`normal`) skills, bodies and
+  reference trees load only on invoke, and reference-tree tokens dwarf SKILL.md tokens.
+  **Weakened 2026-07-03:** the recorded reach values predate ADR 0016; several queue
+  targets (verified: `dignified-python`, `python-fake-driven-testing`;
+  `code-resolve-merge-conflicts` likewise) are now `command-backed` with zero ambient
+  cost, so e.g. "the pftd tree loads on most Python tasks" no longer holds as stated.
+  The ranking heuristic stands; the per-target reach inputs must be re-derived before
+  the remaining queue order is trusted.
 
 Risks:
 
-- The grill pair's self-contained-fallback constraint blocks a runtime pointer, so
-  single-sourcing needs a build/install-time mechanism that may not exist yet. De-risk
-  the mechanism before committing to an approach; the fallback is the reason the copies
-  exist. (Resolved: no build/install-time mechanism was needed. The shared core turned
-  out to be only 3 short paragraphs, so the chosen mechanism is reconcile-in-place with
-  no drift guard — both files stay self-contained. Accepted residual risk: re-drift can
-  recur silently since there is no guard; deemed acceptable given the tiny surface.)
-- Editing descriptions (systemic #1) is the highest-risk surface: it changes whether and
-  how skills auto-trigger and whether other skills can reach them. A wrong call degrades
-  routing silently. (Partially materialized and mechanically caught: an initial
-  mis-classification of eight backed skills as `invoke-only` was flagged immediately by
-  `areg check` and corrected to `command-backed`. `areg check` enforcement substantially
-  de-risks silent routing regressions.)
+- The grill pair's self-contained-fallback constraint blocked a runtime pointer, so
+  single-sourcing needed a build/install-time mechanism that might not exist. (Resolved:
+  no mechanism was needed — the true shared core is only 3 short paragraphs, reconciled
+  in place with both files self-contained. Accepted residual risk: re-drift can recur
+  silently since there is no guard; deemed acceptable given the tiny surface. Spot-check
+  2026-07-03: shared blocks still consistent.)
+- Editing descriptions (systemic #1) was the highest-risk surface: it changes whether
+  and how skills auto-trigger. (Partially materialized and mechanically caught: an
+  initial mis-classification of eight backed skills as `invoke-only` was flagged
+  immediately by `areg check` and corrected. This surface has since been absorbed by the
+  ADR 0016 repo-wide policy; `areg check` enforcement continues to de-risk silent
+  routing regressions.)
 - Edits must respect the symlink layout; editing a `.claude/skills/` or
   `.agents/skills/` symlinked path instead of the real `skills/` source would be a
   no-op or worse.
@@ -168,11 +197,9 @@ Risks:
   ordered steps, stop/ask conditions, output shapes, safety rules, CLI invocations);
   after rewriting, diff the new `SKILL.md` against that contract line-by-line, then run
   `areg check` and verify every disclosed-reference pointer resolves. A rewrite that
-  cannot be shown to preserve the contract does not ship. (**Gate exercised once on
-  `objective-stack-impl`:** the contract-diff confirmed every item present, `areg check`
-  "All skills OK", pointer resolves — no drift detected. The gate has not yet had to
-  *catch* a drop, so its catch-power is still unproven; passing once is not the same as
-  having rejected a bad rewrite.)
+  cannot be shown to preserve the contract does not ship. (The gate has passed on four
+  rewrites; it has not yet had to *catch* a drop, so its catch-power is still unproven —
+  passing is not the same as having rejected a bad rewrite.)
 - For safety-critical and rigid-output-contract skills, a from-scratch rewrite is
   unacceptably likely to silently soften a stop-condition or safety rule even with the
   gate, so these take the **surgical** path, never from-scratch (re-audit
@@ -180,30 +207,42 @@ Risks:
   `objective-close`. `branch-context-impl` is the limiting case — disclosing its sole
   block (a 6-trigger STOP safety contract) is net-negative, so it is dropped entirely.
 - The `skill-audit-improved` support-skill branch surfaced a boundary/invocation risk:
-  adding a new first-party skill while documenting it as the audit entry point contradicts
-  the original "no new skills" boundary unless it is deliberately treated as a support
-  exception. **Resolved as a support-skill exception:** the skill is registered in
-  `skills-lock.json`, installed through the symlink chain, reconciled as `invoke-only`
-  via `areg skill apply`, and its body no longer calls itself an inert comparison
-  artifact. Evidence: `areg skill show skill-audit-improved` reports kind `invoke-only`,
-  and `areg check` reports "All skills OK" (update `2026-06-20T174032`).
+  adding a new first-party skill while documenting it as the audit entry point
+  contradicts the original "no new skills" boundary unless it is deliberately treated as
+  a support exception. **Resolved as a support-skill exception:** the skill is registered
+  in `skills-lock.json`, installed through the symlink chain, and its body no longer
+  calls itself an inert comparison artifact (update `2026-06-20T174032`). Its kind was
+  applied as `invoke-only` then; the ADR 0016 re-architecture has since moved it to
+  `command-backed`. Evidence re-verified 2026-07-03: lock entry present,
+  `agents/openai.yaml` present, `areg check` "All skills OK".
+- Unrelated repo work keeps touching the target skills — the `sdl`→`ji` cutover, the
+  SDL Flow skill renames, the Record Frontmatter documentation, the ADR 0016 kind
+  sweeps, the Address migration, the refactor-guidance extraction — so recorded line
+  counts and per-target debt snapshots go stale quickly. Re-verify a target's current
+  content and debt at pickup time; recorded counts (e.g. `objective-refresh` 182,
+  `objective-update` 160, `brmem` 296, `objective` 126) are historical, not current.
 
 ## Open Questions
 
-- Systemic #1 — **resolved.** The per-skill kind assignment was classified, signed off,
-  and applied: objective-family → `normal`; `setup-*` → `invoke-only`; eight
-  verified-replacement skills → `command-backed`. The classification axis is "has a
-  verified Pi replacement?", and `areg check` enforces the wiring. See update
-  `2026-06-19T202008`.
+- Systemic #1 — **resolved** (2026-06-19/20), with its specific kind assignments later
+  superseded by the ADR 0016 repo-wide re-architecture; see Scope. The durable
+  deliverable (kinds registry-managed via `areg skill apply`, enforced by `areg check`,
+  no listed-but-unroutable stubs) holds. See update `2026-06-19T202008`.
 - For the grill pair — **resolved.** Mechanism chosen: **reconcile-only, no drift
   guard.** Neither candidate (install-time generation, or a copy guarded by a drift
   lint) was warranted: the true shared core is only 3 short paragraphs, so the copies
-  were reconciled in place and both files kept self-contained. The "~95% byte-identical"
-  framing was corrected — `pi-grill-with-docs-ui` is a superset, not a twin. See
-  roadmap Systemic #2 and update `2026-06-19T210500`.
-- `python-fake-driven-testing` reference tree — **resolved: merge.** The re-audit
-  (update `2026-06-20T140000`) found this the highest-value single action in the whole
-  Objective: merge `references/quick-reference.md` + `workflows.md` (~200 lines off a
-  6.4K-line tree that loads on most Python tasks). It is a separate workstream from any
-  SKILL.md rewrite. `dignified-python`'s 4.5K tree does *not* need consolidation (its
-  version files are independent) — only its SKILL.md router (stated 3×) needs collapsing.
+  were reconciled in place and both files kept self-contained. See roadmap Systemic #2
+  and update `2026-06-19T210500`.
+- `python-fake-driven-testing` reference tree — **resolved: merge** (done, holding).
+  The re-audit (update `2026-06-20T140000`) called this the highest-value single action
+  in the Objective on the strength of its reach ("loads on most Python tasks"); that
+  reach rationale is now weaker post-ADR-0016 (the skill is `command-backed`, so the
+  tree loads only on explicit invoke), but the merge itself stands either way.
+  `dignified-python`'s 4.5K tree does *not* need consolidation (its version files are
+  independent) — only its SKILL.md router (stated 3×) needs collapsing.
+- **Should the remaining queue be re-ranked before resuming?** The re-audit's reach
+  inputs predate ADR 0016 (many targets are no longer ambient), the skill tree has grown
+  56→70 with unaudited post-audit skills, and two targets (`branch-context-impl`,
+  `pr-address`) have already dropped off for independent reasons. A cheap reach
+  re-derivation over the remaining targets would decide whether the current order —
+  objective family first, ccc/niche last — still holds.

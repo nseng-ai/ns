@@ -1,5 +1,9 @@
 # Roadmap
 
+All work rows complete; the landing reached master as squash commit `d6184e4c4`
+(2026-07-03). The Objective is closure-ready; closing and the parent-row handback
+belong to `objective-close`.
+
 ## Work
 
 - [x] Resolve Q1–Q4 with the owner and record the decisions here and in
@@ -8,8 +12,7 @@
       `"ji"`, `ji.toml`, legacy-fallback prose rewritten to `~/.ji/…`, all small-fry
       literals; `src/sdl/` → `src/ji/` delegated to the parent's package-scope sweep).
       Recorded in `objective.md` Open Questions and the cutover inventory; see update
-      `2026-07-02-q1-q4-resolved-everything-is-ji.md`. The workflow-script-placement
-      question remains open on the workflow-authoring row.
+      `2026-07-02-q1-q4-resolved-everything-is-ji.md`.
 - [x] Correct operative spec text in `ship-objectives-to-customers` (unbuilt `sdl init`
       scaffolding) and `skill-management-subsystem` (`sdl skills` surface design) so no
       new sdl-named surface gets built pre-cutover.
@@ -22,8 +25,7 @@
 - [x] Author the cutover workflow script (Claude Workflow tool): partition the ATOMIC
       list from `cutover-inventory.md` into disjoint concurrent edit agents, add an
       adversarial verify stage targeting the named silent-failure traps, and emit a
-      structured report; decide script placement (session one-shot vs
-      `.claude/workflows/`, per the open question).
+      structured report; decide script placement.
       Evidence: implemented as the re-runnable pipeline in `cutover/`
       (generator → prepass → classification → `assemble-plan.py` → validated
       `cutover-plan.json`: 118 simple / 8 changesets / 28 cohorts / 21 invariants /
@@ -59,18 +61,18 @@
       2026-07-02 (post objective-runner begin/finish decomposition, ADR
       0024-objective-runner-begin-finish-decomposition): 4 new candidates — 3 runner
       test files auto-bucketed to chunk-2 cohorts, `exec-runner-step.ts`
-      hand-classified simple (doc-comment `.sdl/extensions/` paths; file is
+      hand-classified simple (doc-comment `.sdl/extensions/` paths; file was
       ADR0024-LEGACY-DELETE but live at the window); 2 stale simple decisions pruned
       (the shim pair, covered by cs8 since the fold); plan re-assembled green —
       122 simple / 9 changesets / 30 cohorts / 28 skips / 22 invariants, baselines
       re-frozen at 949 `@sdl/` files / 158 src-dir survivor lines; all 476 work-list
       paths verified to exist pre-mv. See update
-      `2026-07-02-objective-runner-drift-absorbed.md`. Row stays open for
-      the SAME-DAY re-run at the real landing window.
+      `2026-07-02-objective-runner-drift-absorbed.md`.
       Closed at the real landing: the owner WAIVED the same-day re-run
-      (ruling 2026-07-02, recorded in runbook §C and commit `fa9f55601`); the
-      2026-07-02 post-drift §A pass stood as the plan snapshot, and the landing's
-      scope-untouched baselines matched it exactly (949 `@sdl/` files /
+      (ruling 2026-07-02, recorded in runbook §C; the waiver commit SHA quoted in
+      landing-time notes was a pre-squash branch SHA, superseded by the master squash
+      `d6184e4c4`); the 2026-07-02 post-drift §A pass stood as the plan snapshot, and
+      the landing's scope-untouched baselines matched it exactly (949 `@sdl/` files /
       158 src-dir survivor lines).
 - [x] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
       the workflow over the ATOMIC list, `pnpm install` to regenerate lockfile/shims,
@@ -78,27 +80,33 @@
       Evidence: `just` passes; `ji objective list` and `ji objective exec
       load-orientations` work; no compat codepath introduced; every ATOMIC item
       addressed or explicitly re-bucketed.
-      Evidence recorded 2026-07-03: real landing executed on `ji-cutover/landing`
-      (B1 mv bracket `ff190fa70` + engine window this commit) — 3 chunks
-      (~183 agents, 0 failures), 2 fix rounds (budget exactly consumed), `just`
-      green (3994/3994 tests, baseline count matched), all §B5 smoke tests pass,
-      parity-table rows 38/51 updated in-window, no compat codepath. Every
+      Evidence recorded 2026-07-03: real landing executed on `ji-cutover/landing` —
+      3 chunks (~183 agents, 0 failures), 2 fix rounds (budget exactly consumed),
+      `just` green (3994/3994 tests, baseline count matched), all §B5 smoke tests
+      pass, parity-table rows 38/51 updated in-window, no compat codepath. Every
       work-list item addressed; 266 skips triaged (survivor-confirmed or
       fix-listed); 5 plan-gap brand machine literals found and renamed. Artifacts:
       `cutover/landing/*`; see update `2026-07-03-real-landing-executed.md`.
+      Landed on trunk: the whole window (B1 mv bracket + engine edits + evidence)
+      reached master as the single squash commit `d6184e4c4`; the branch-local SHAs
+      in landing-time notes (`ff190fa70` and the engine commit) are superseded by it.
+      Verified against master 2026-07-03: `"ji"` bin/manifest keys, `.ji/` root,
+      `ji.toml`, `.pi/extensions/ji.ts`, zero `/sdl:` parity rows, and the smoke
+      command surface all check out live.
 - [x] Record landing evidence in the parent `rename-sdl-to-ji` (its cutover row
       completes against this Objective) and hand remaining rename work (machine
       migration, sweeps, repo rename) back to the parent.
       Evidence: parent's `cutover-inventory.md` machine-migration notes gained the
       two landing-discovered items (rc-file `sdl shell integration` sentinel
       blocks; `refs/sdl/flow-land-backup{,-prev}` backup refs) alongside the
-      standing `SDL_*` shell-profile env-var item; the parent's core-cutover row
-      stays `[~]` until this Objective closes (owner's call). Machine migration,
-      vocabulary sweep, package-scope sweep, and the repo rename remain parent
-      rows, untouched by this window.
+      standing `SDL_*` shell-profile env-var item — verified present in the parent's
+      inventory on master; the parent's core-cutover row is `[~]` and stays so until
+      this Objective closes (owner's call). Machine migration, vocabulary sweep,
+      package-scope sweep, and the repo rename remain parent rows, untouched by this
+      window.
 
 ## Parked
 
 - Generalizing the cutover workflow into a reusable platform capability — only if the
   script proves reusable beyond this landing; needs an explicit promotion path per
-  `docs/platform-and-consumer.md`.
+  `docs/conventions/platform-and-consumer.md`.

@@ -49,10 +49,12 @@ not from a staged preservation artifact.
   (per-page Markdown), `/agents.md` (agent instructions), `/sitemap.md`,
   `/og/<slug>`, `/rss.xml`, `robots`, `sitemap.ts`. Every page fetchable as
   raw `.md`/`.mdx`.
-- The `agent{}` config block in `geistdocs.tsx`: product metadata
-  (name/description/category/audience/useCases) + literal agent `instructions`
-  authored for SDL (point agents at `/llms.mdx/...`, `/sitemap.md`, `/llms.txt`,
-  and SDL CLI `--json`/Clinkr JSON envelopes for verification).
+- The `agent{}` config block (eve keeps it in a single `geistdocs.tsx`; SDL's
+  implementation lives in the `docs-site/lib/geistdocs/` config modules, chiefly
+  `ai-assistant.ts`): product metadata (name/description/category/audience/
+  useCases) + literal agent `instructions` authored for SDL (point agents at
+  `/llms.mdx/...`, `/sitemap.md`, `/llms.txt`, and SDL CLI `--json`/Clinkr JSON
+  envelopes for verification).
 - **md-tracking telemetry: LEFT ON** (phones home to `geistdocs.com/md-tracking`
   keyed by `siteId`). Per explicit decision to maximize eve parity.
 - **i18n scaffolding: KEPT** — eve's `app/[lang]` route structure and
@@ -119,12 +121,13 @@ not from a staged preservation artifact.
 **Assumptions**
 
 - `@vercel/geistdocs` is usable by a non-Vercel-owned, standalone repo project
-  (it is public on npm and eve consumes it as a normal dependency). Initial
-  local evidence supports this: a standalone `docs-site/` skeleton installs and
-  builds with `@vercel/geistdocs` 1.7.3, the migrated corpus builds, and the
-  machine-readable routes validate against the published corpus. Deeper feature
-  parity still needs validation as search, marketing home, integrations, and
-  launch wiring are added.
+  (it is public on npm and eve consumes it as a normal dependency). Local
+  evidence now covers the full in-scope feature set: the standalone `docs-site/`
+  builds with `@vercel/geistdocs` 1.7.3 including search, the marketing home
+  structure, the extensions gallery, the machine routes, and the gated Vercel
+  wiring (`just docs-check` re-verified green on trunk, 2026-07-03). What
+  remains unvalidated is an actual Vercel deploy once the launch gate is
+  removed.
 - The former curated Starlight content (`docs-site/src/content/docs/**`) was
   recoverable from git history and useful as reference material for the published
   corpus port. The migrated corpus now lives under `docs-site/docs/**` as `.mdx`
@@ -132,7 +135,7 @@ not from a staged preservation artifact.
   The page prose is currently intentionally stubbed with TODO/Lorum ipsum
   placeholders so incomplete launch content is obvious.
 - A standalone (non-workspace) Next.js app coexists fine alongside the `ts/`
-  pnpm workspace, as the current standalone Astro app already does.
+  pnpm workspace, as the prior standalone Astro app did.
 - Keeping md-tracking on (an external call to `geistdocs.com`) is acceptable
   despite SDL's "composability / no hidden coupling" principle, because it is an
   explicit, owner-approved parity decision.
@@ -153,11 +156,12 @@ not from a staged preservation artifact.
   future shared source becomes useful after the docs site matures.
 - **Loss of working site during migration.** Deleting the Astro app before the
   Next.js app reaches parity leaves SDL without full published-site parity
-  mid-stream. Mitigation is now stronger: the replacement Next.js/geistdocs app
-  builds locally with the Get started / Concepts / Tools / Guides / Skills IA and
-  exposes the AI-native/machine-readable routes. Remaining risk is feature
-  parity for search, marketing home, integrations, launch readiness, and
-  replacing the intentional TODO/Lorum ipsum page stubs with publishable copy.
+  mid-stream. This risk has narrowed substantially: the replacement app now
+  builds with the Get started / Concepts / Tools / Guides / Skills IA, search,
+  the marketing home structure, the extensions gallery, the AI-native machine
+  routes, and gated Vercel wiring. Remaining exposure is content, not
+  structure: the intentional TODO/Lorum ipsum page stubs, launch-level
+  identity/positioning copy, and actual launch readiness.
 - **md-tracking telemetry** sends page-fetch events off-repo to a third party.
   Owner-approved, but record it as a known external dependency.
 
@@ -165,10 +169,10 @@ not from a staged preservation artifact.
 
 - **Content directory location: resolved to `docs-site/docs/`.** eve uses root
   `docs/` + `apps/docs`, but SDL's root `docs/` remains internal engineering
-  documentation. The standalone app now points `source.config.ts` at
+  documentation. The standalone app points `source.config.ts` at
   `docs-site/docs/`, keeping published content inside the app boundary.
 - **Extensions gallery content: resolved to extensions.** The former
-  integrations/gallery open question is now implemented as an extensions gallery
+  integrations/gallery open question is implemented as an extensions gallery
   backed by `docs-site/lib/extensions-catalog.ts`. Do not spend this Objective
   slice on generic tools, public skills, or broad integration taxonomy unless
   needed to explain extension entries.
@@ -177,9 +181,11 @@ not from a staged preservation artifact.
   only for pnpm build-script supply-chain policy (`allowBuilds` for `esbuild` and
   `sharp`), not to join the repo TypeScript workspace.
 - **Site identity/positioning copy** — brand casing is resolved to lowercase
-  `sdl`; tagline, hero headline, `siteId`, and production URL/domain still need
-  launch-ready decisions. eve: "The Framework for Building Agents" / "Like
-  Next.js for web apps, but for agents." sdl needs its own.
+  `sdl`, and `siteId` currently carries the working value `sdl-docs`
+  (`docs-site/lib/geistdocs/site-identity.ts`); tagline, hero headline, and the
+  production URL/domain (`NEXT_PUBLIC_SITE_URL`, currently defaulting to
+  localhost) still need launch-ready decisions. eve: "The Framework for Building
+  Agents" / "Like Next.js for web apps, but for agents." sdl needs its own.
 - **Content file extension: resolved to `.mdx` for the migrated published
   corpus.** The current port uses `.mdx` for all Get started / Concepts / Tools /
   Guides / Skills pages. The `source.config.ts` niceties already include mermaid,
@@ -215,6 +221,14 @@ Decisions captured during the framing conversation:
    the app remains standalone outside `ts/`, Vercel deploys stay gated, and
    TypeScript is pinned to stable `6.0.3` because Next's TypeScript detector did
    not accept the prerelease `7.0.1-rc` pin in this standalone app.
+8. **Config module split (post-slice refactor)** — SDL's Geistdocs identity/
+   config no longer mirrors eve's single `geistdocs.tsx` file. It is factored
+   into `docs-site/lib/geistdocs/` modules (`config.tsx`, `source.ts`,
+   `site-identity.ts`, `ai-assistant.ts`, `brand.tsx`, `nav.ts`, `fonts.ts`,
+   `machine-routes.ts`, `md-tracking.ts`, `og-image.tsx`, `rss.ts`, `url.ts`),
+   plus shared marketing UI primitives in `docs-site/components/marketing-ui.tsx`.
+   Behavioral parity targets are unchanged; only the file shape diverges from
+   eve.
 
 ## Reference: eve docs architecture (`vercel/eve` `apps/docs`)
 
@@ -265,9 +279,9 @@ Investigated at `~/code/githubs/vercel/eve` (origin `github.com/vercel/eve`).
   in a single root `AGENTS.md`, `CONTRIBUTING.md`, `README.md`, and per-package
   `README.md`/`CHANGELOG.md`. (This is why SDL keeps internal `docs/` separate.)
 
-## Reference: existing SDL docs-site (to be deleted)
+## Reference: prior SDL docs-site (deleted; recoverable from git history)
 
-At `docs-site/` today — Astro 6 + Starlight (`@astrojs/starlight` 0.39.2),
+The deleted site was Astro 6 + Starlight (`@astrojs/starlight` 0.39.2),
 package `sdl-docs`, standalone (own `pnpm-lock.yaml`, outside `ts/`), Vercel-
 wired with deploys disabled via `ignoreCommand: "exit 0"`.
 

@@ -4,16 +4,18 @@
 
 The product renames from SDL ("Source Development Lifecycle") to **ji** — a proper name
 with no expansion, always lowercase (never `JI`, `Ji`, or an acronym). Decided July 2026;
-the naming rationale, rejected alternatives, and accepted collisions live in a dedicated
-ADR, with the full naming brief checked into `docs/`.
+the naming rationale, rejected alternatives, and accepted collisions live in ADR 0024,
+with the full naming brief checked into `docs/`.
 
-Timing is the forcing function: three in-flight objectives
+Timing was the forcing function: three in-flight objectives
 (`checkout-free-sdl-distribution`, `ship-objectives-to-customers`, `eve-parity-docs-site`)
-are about to freeze the name into published npm packages, customer repos, and docs-site
-URLs. Renaming now is a find-replace plus a manual machine migration; renaming after any
-of them lands is a published-package and customer-state migration. This Objective is
-therefore a **hard dependency of the first external publish**: it owns the publish-name
-question that `checkout-free-sdl-distribution` currently carries as open.
+were about to freeze the name into published npm packages, customer repos, and docs-site
+URLs — all three remain open and unlanded. Renaming pre-publish is a find-replace plus a
+manual machine migration; renaming after any of them lands is a published-package and
+customer-state migration. This Objective is therefore a **hard dependency of the first
+external publish**: it owns the publish-name question that
+`checkout-free-sdl-distribution` formerly carried as open (re-recorded there as resolved
+by this Objective on 2026-07-02).
 
 The transition is a **hard cutover** with zero compatibility codepaths — no `sdl` alias
 bin, no `.sdl/` read-fallback, no legacy XDG fallback. This is safe because the consumer
@@ -25,8 +27,9 @@ compat-deletion stance the closed `sdl-config-layout-migration` objective establ
 - **Core brand surface, one landing window:** `sdl` bin → `ji`; Pi namespace `/sdl:*` →
   `/ji:*`; repo state dir `.sdl/` → `.ji/` (records move wholesale; prose is not
   scrubbed); XDG namespaces `$XDG_{STATE,CONFIG,DATA}_HOME/sdl/` → `.../ji/`; kernel and
-  tooling paths (`sdl objective`, `load-orientations`, extension manifests) move in the
-  same landing so nothing breaks between commits.
+  tooling paths (`ji objective`, `load-orientations`, extension manifests) move in the
+  same landing so nothing breaks between commits. Tracked in the dedicated child
+  Objective `ji-core-cutover`.
 - **Workspace scopes:** `@sdl/*` and `@sdl-local/*` → `@nseng-ai/*` equivalents, plus
   the externally published package target `@nseng-ai/ji`, and the unscoped stragglers
   `sdl-flow` and `sdlcc`; `sdlcc` renames mechanically to `jicc`.
@@ -88,7 +91,7 @@ Assumptions:
 
 - The consumer population is exactly this repo plus the owner's machines; no external
   consumer exists yet. This is what makes the hard cutover safe. If an external consumer
-  appears before cutover, revisit the no-compat stance.
+  appears before cutover completes, revisit the no-compat stance.
 - GitHub redirects the old repo slug for clones, remotes, and links.
 - The existing `nseng-ai` npm org/scope is the publish namespace, and package name `ji`
   is available/owned there for the external package target `@nseng-ai/ji`; no `@ji` org
@@ -97,17 +100,28 @@ Assumptions:
 Risks:
 
 - **In-flight branches and worktree slots** created pre-cutover carry `.sdl/` trees and
-  old paths; they will hit rename-shaped conflicts on restack. Accepted: land the
-  cutover when the stack is shallow and fix stragglers by hand.
-- **The `.sdl/` → `.ji/` move and the tooling that reads it must land together** —
-  objective CLI paths, `load-orientations`, extension manifests, parity tests. A split
-  landing breaks every agent's onboarding commands.
+  old paths; they hit rename-shaped conflicts on restack. Accepted: the cutover landed
+  when the stack was shallow; remaining stragglers are fixed by hand under the
+  machine-migration roadmap row.
+- **The old root can regress post-cutover.** Proven live: the Objective Edges initiative
+  created `.sdl/objectives/objective-edges/` on trunk on 2026-07-03 (commit `463ed7541`,
+  still tracked at HEAD) — a live, open Objective record under the retired `.sdl/` root,
+  invisible to `ji objective list`. Agents and tooling with stale path habits can
+  reintroduce `.sdl/` at any time until the vocabulary sweep retires the old name from
+  active docs and skills.
 - **Brand adjacency risks are accepted, not de-risked:** Jujutsu (`jj`) is one keystroke
   away in the same git-tooling space; a nontrivial population binds `ji` as a zoxide
   alias. Both are recorded in the ADR as consciously accepted.
-- **`cross-harness-parity`'s parity table** references `/sdl:*` names and will drift the
-  moment the namespace renames; coordinate the table update into the cutover landing.
+
+Retired risks (evidence at 2026-07-03 trunk refresh): the `.sdl/` → `.ji/` move and its
+reader tooling landed together on master (`[cutover B1]` commit `d6184e4c4` and
+successors) — `ji objective list`, `ji objective exec read-objective`, and
+`load-orientations` all work; and `cross-harness-parity`'s `parity-table.md` already uses
+`/ji:*` names, so the anticipated parity-table drift never materialized as a live gap.
 
 ## Open Questions
 
-None currently.
+- Who owns moving the stray `.sdl/objectives/objective-edges/` record to
+  `.ji/objectives/`: the `ji-core-cutover` child (as residual cutover cleanup) or the
+  Objective Edges initiative that created it? This record only flags the regression; the
+  fix crosses Objective boundaries and needs routing.

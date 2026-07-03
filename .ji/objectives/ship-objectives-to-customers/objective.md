@@ -1,25 +1,25 @@
 ---
-blocked: First external publish is gated on the checkout-free-sdl-distribution hard dependency landing — a customer cannot install `sdl` from npm and run it checkout-free until it does.
+blocked: First external publish is gated on the checkout-free-sdl-distribution hard dependency landing — a customer cannot install `ji` from npm and run it checkout-free until it does.
 edges:
   - objective: checkout-free-sdl-distribution
-    annotation: Consumed as a hard dependency; checkout-free npm distribution of `sdl` must land before objectives ship externally.
+    annotation: Consumed as a hard dependency; checkout-free npm distribution of `ji` must land before objectives ship externally.
 ---
 
 # Ship Objectives to Customers
 
 ## Thesis
 
-The Objective capability is the first SDL feature we ship to external customers. Today it is only usable inside this repo checkout: it is delivered as the `sdl objective` CLI plus a family of skills plus a Pi extension, all run from source, and the accepted distribution model for every SDL CLI (including `sdl` itself) is a run-from-source shim that requires a repo checkout and `ts/node_modules`.
+The Objective capability is the first SDL feature we ship to external customers. Today it is only usable inside this repo checkout: it is delivered as the `ji objective` CLI plus a family of skills plus a Pi extension, all run from source, and the accepted distribution model for every SDL CLI (including `ji` itself) is a run-from-source shim that requires a repo checkout and `ts/node_modules`.
 
 Shipping Objectives externally means a customer with no SDL checkout and no dev toolchain can: install the `ji` CLI from npm, get the objective skills into whichever harness they use (Claude Code, Codex, or Pi), bootstrap their own repo so their agents actually reach for objectives, and follow real documentation — with no standalone objective binary.
 
-**Naming (ADR 0024, `rename-sdl-to-ji`):** the shipped customer surface is the `ji` CLI. Every surface this Objective builds is ji-named — `ji init`, `ji skills`, `ji objective …`, `.ji/objectives/`, `ji.toml`, `ji:objectives:*` block markers, the `@ji/init` package. Prose below says `ji` even though the repo's current binary is still `sdl` until the `ji-core-cutover` landing; build no new sdl-named surface. Existing package names (`@sdl/kernel`, `@sdl/objective`, `@sdl/core`) keep their current spelling here until the parent's package-scope sweep renames them.
+**Naming (ADR 0024, `rename-sdl-to-ji`):** the shipped customer surface is the `ji` CLI, and the core cutover has landed — the repo's binary is now `ji`, consumer dirs are `.ji/` (`.ji/objectives/`, `.ji/extensions/`), config is `ji.toml`, and the package-scope sweep renamed the packages this Objective touches to `@ji/kernel` (`ts/packages/kernel`), `@ji/objective` (`ts/packages/capabilities/objective`), and `@ji/core` (`ts/packages/infra/core`). All new surface this Objective builds stays ji-named — `ji init`, `ji skills`, `ji objective …`, `ji:objectives:*` block markers, the `@ji/init` package. The rename changed names only: the CLI is still run-from-source (the kernel bin points at raw `src/cli/index.ts`), so the checkout-free gap is unchanged.
 
-This Objective owns the end-to-end customer onboarding thread and the currently-unowned long pole (checkout-free npm distribution of `sdl`). It depends on in-flight work for skill bundling (`skill-management-subsystem`), the documentation site (`eve-parity-docs-site`), and cross-harness reachability (`cross-harness-parity`).
+This Objective owns the end-to-end customer onboarding thread. The long pole (checkout-free npm distribution of `ji`) was split into the dedicated `checkout-free-sdl-distribution` Objective (decided 2026-07-01) and is consumed here as a hard dependency. This Objective also depends on in-flight work for skill bundling (`skill-management-subsystem`), the documentation site (`eve-parity-docs-site`), and cross-harness reachability (`cross-harness-parity`).
 
 ## Scope
 
-- **npm distribution of the `sdl` CLI (the long pole).** Make `@sdl/kernel` and its required runtime workspace dependencies publishable (drop `private`), resolve the source-path module loader so `@sdl/objective` and its hidden `exec` surface are bundled, produce a checkout-free bundle (no `ts/node_modules` precondition), and publish a versioned package to npm. This was deferred capability-by-capability "to the umbrella Objective," which closed (`port-asdl-toolkit-to-typescript`) without doing it, on the recorded rationale that no real external consumer existed yet. This Objective is that consumer. **Split into the dedicated `checkout-free-sdl-distribution` Objective** (decided 2026-07-01); consumed here as a hard dependency, since checkout-free `sdl` benefits every capability, not just objectives.
+- **npm distribution of the `ji` CLI (the long pole).** Make `@ji/kernel` and its required runtime workspace dependencies publishable (`@ji/kernel` is still `"private": true` and the workspace has no build/publish config), replace the source-path module loader (`ts/packages/kernel/src/runtime/module-loader.ts` resolves `@ji/...` aliases to on-disk `.ts` source paths) so `@ji/objective` and its hidden `exec` surface are bundled, produce a checkout-free bundle (no `ts/node_modules` precondition), and publish a versioned package to npm. This was deferred capability-by-capability "to the umbrella Objective," which closed (`port-asdl-toolkit-to-typescript`) without doing it, on the recorded rationale that no real external consumer existed yet. This Objective is that consumer. **Owned by the dedicated `checkout-free-sdl-distribution` Objective** (split decided 2026-07-01); consumed here as a hard dependency, since checkout-free `ji` benefits every capability, not just objectives.
 - **Skill delivery to the customer's harness.** Objective skills bundled into the npm package and installable into the correct per-harness roots (`.claude/skills/` for Claude Code; `.agents/skills/` for Codex and Pi) via `skill-management-subsystem`'s Pup-inspired `ji skills` list/path/install surface. Shipping CLI and skills together also resolves the CLI↔skill bidirectional dependency.
 - **Customer-repo bootstrap / activation.** A first-party path that materializes skills for the harnesses present in a repo, injects a minimal, portable, harness-neutral objective instruction block into `AGENTS.md` (with the `CLAUDE.md → @AGENTS.md` import for Claude Code), creates `.ji/objectives/`, and verifies git posture. Activation has two independent requirements: the capability materialized where each harness looks, and the agents instructed to use it.
 - **Onboarding documentation content.** Real (non-placeholder) concept and quickstart content for objectives in `docs-site` (installation, quickstart, concepts/objectives, tools/objective). The docs-site shell and stack are owned by `eve-parity-docs-site`; this Objective owns the objective-specific content and its publication gating.
@@ -55,8 +55,8 @@ Assumptions:
 
 Risks:
 
-- The checkout-free npm bundle is the long pole and is currently unowned. Every prior capability accepted the run-from-source shim and deferred publishing, so the publishability work (dropping `private`, resolving workspace deps, producing a real bundle) may be larger than it looks. Not de-risked.
-- Objective may carry hidden checkout / `ts/node_modules` assumptions: the CLI loads `@sdl/objective` by source path via the kernel module loader, and the skills depend on a hidden `exec` surface. A checkout-free bundle must include the objective package and that surface. Not de-risked.
+- The checkout-free npm bundle is the long pole. Its owner (`checkout-free-sdl-distribution`) has decided its bundle strategy but the substantive publishing work (un-`private`-ing `@ji/kernel` and deps, replacing the source-path loader, producing a real bundle) has not started. Every prior capability accepted the run-from-source shim and deferred publishing, so the work may be larger than it looks. Not de-risked; external shipping stalls until it lands.
+- Objective may carry hidden checkout / `ts/node_modules` assumptions: the CLI loads `@ji/objective` by source path via the kernel module loader, and the skills depend on a hidden `exec` surface. A checkout-free bundle must include the objective package and that surface. Not de-risked.
 - Writing into a customer's `AGENTS.md` risks clobbering their content; needs a safe managed-block design. Mitigable.
 - Codex cannot make explicit-only skills zero-ambient, so objective skills always cost context on Codex. Acceptable, but must be documented.
 - Coordinating across three in-flight dependency Objectives risks sequencing stalls; mitigate by treating them as dependencies with explicit interface expectations rather than blocking work.
@@ -82,7 +82,7 @@ Resolved 2026-07-01 in a design grilling session (full record:
 Derived design (first build slice, see the update for full rationale): skill delivery
 depends on `skill-management-subsystem`'s copy-into-harness-roots slice (not areg's symlink
 model); `ji init` lives in a new `@ji/init` capability package reusing
-`@sdl/core/managed-region`; `--harness` is explicit/required (no sniffed default); git
+`@ji/core/managed-region`; `--harness` is explicit/required (no sniffed default); git
 posture is verify-and-write, never commit; the skill step is a faked `SkillMaterializer`
 gateway until the bundle lands.
 
