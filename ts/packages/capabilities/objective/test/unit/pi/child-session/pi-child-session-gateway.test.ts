@@ -244,6 +244,71 @@ describe("createPiChildSessionGateway", () => {
 		]);
 	});
 
+	test("emits heartbeats with aggregate counters while the child is alive and stops after close", async () => {
+		const harness = createManualTimerHarness();
+		const { deps, calls } = createFakePiGateway({ clock: harness.clock, timers: harness.timers });
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolName: "bash", args: { command: "just" } }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_end", toolName: "bash", isError: true, result: "boom" }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolName: "read", args: { path: "a.ts" } }),
+		);
+
+		harness.advanceMs(30_000);
+		harness.advanceMs(30_000);
+		call.process.close(0);
+		await handle.outcome;
+		harness.advanceMs(120_000);
+
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{ type: "activity", line: "[+0s] turn 1 started" },
+			{ type: "activity", line: "[+0s] tool bash: just" },
+			{ type: "activity", line: "[+0s] tool bash failed: boom" },
+			{ type: "activity", line: "[+0s] tool read: a.ts" },
+			{
+				type: "activity",
+				line: "[+30s] still running — turn 1, 2 tool calls (1 failed), last: tool read: a.ts (30s ago)",
+			},
+			{
+				type: "activity",
+				line: "[+1m0s] still running — turn 1, 2 tool calls (1 failed), last: tool read: a.ts (1m0s ago)",
+			},
+		]);
+	});
+
+	test("a heartbeat before any child activity reports no turns and no activity", async () => {
+		const harness = createManualTimerHarness();
+		const { deps, calls } = createFakePiGateway({
+			clock: harness.clock,
+			timers: harness.timers,
+			heartbeatIntervalMs: 10_000,
+		});
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		harness.advanceMs(10_000);
+		call.process.close(0);
+		await handle.outcome;
+
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{
+				type: "activity",
+				line: "[+10s] still running — no turns yet, 0 tool calls, no activity yet",
+			},
+		]);
+	});
+
 	test("summarizes tool-start arguments without dumping large payloads", async () => {
 		const manualClock = createManualClock(0);
 		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });

@@ -33,6 +33,7 @@ export const SDL_RUNNER_PI_BIN_ENV = "SDL_RUNNER_PI_BIN";
 
 const DEFAULT_STDERR_TAIL_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_SIGKILL_GRACE_MS = 10_000;
+const DEFAULT_HEARTBEAT_INTERVAL_MS = 30_000;
 const ACTIVITY_PREVIEW_CHARS = 120;
 
 export interface PiChildSpawnOptions {
@@ -72,6 +73,8 @@ export interface PiChildSessionGatewayDependencies {
 	createSessionDir?: () => Promise<string>;
 	stderrTailLimitBytes?: number;
 	sigkillGraceMs?: number;
+	/** Cadence of the `still running` summary line while the child is alive. */
+	heartbeatIntervalMs?: number;
 }
 
 /**
@@ -108,8 +111,15 @@ async function runPiChildSession(
 	};
 	const clock = deps.clock ?? systemClock;
 	const startMs = clock.nowMs();
-	const emitActivity = (line: string) => {
+	const emitElapsedLine = (line: string) => {
 		emit({ type: "activity", line: `${formatElapsedSince(startMs, clock.nowMs())} ${line}` });
+	};
+	// Heartbeats read this but do not update it: `last:` must always name real
+	// child activity, never a prior heartbeat.
+	let lastActivity: { line: string; atMs: number } | undefined;
+	const emitActivity = (line: string) => {
+		lastActivity = { line, atMs: clock.nowMs() };
+		emitElapsedLine(line);
 	};
 
 	let sessionFile: string;
@@ -121,7 +131,9 @@ async function runPiChildSession(
 		return startupFailed("Failed to create child session directory", error);
 	}
 
-	emitActivity(`child session: ${sessionFile}`);
+	// Elapsed-prefixed but deliberately not `lastActivity`: heartbeats should
+	// report "no activity yet" until the child itself produces something.
+	emitElapsedLine(`child session: ${sessionFile}`);
 
 	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
 	const spawnPiChildProcess = deps.spawn ?? defaultSpawnPiChildProcess;
@@ -152,11 +164,16 @@ async function runPiChildSession(
 		let timeoutTimer: ScheduledTimer | undefined;
 		let killTimer: ScheduledTimer | undefined;
 
+		const heartbeatTimer = timers.setInterval(() => {
+			emitElapsedLine(renderHeartbeatLine(parser.stats(), lastActivity, clock.nowMs()));
+		}, deps.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS);
+
 		const finish = (outcome: ChildSessionOutcome) => {
 			if (isSettled) return;
 			isSettled = true;
 			timeoutTimer?.cancel();
 			killTimer?.cancel();
+			heartbeatTimer.cancel();
 			closeChannel();
 			resolve(outcome);
 		};
@@ -234,12 +251,20 @@ function defaultSpawnPiChildProcess(
 	return spawn(command, args, options);
 }
 
+interface PiSessionActivityStats {
+	turnCount: number;
+	toolCallCount: number;
+	toolFailureCount: number;
+}
+
 interface PiJsonActivityParser {
 	pushChunk(chunk: string | Uint8Array): void;
 	/** Processes any trailing unterminated line; call once on process close. */
 	flush(): void;
 	finalAssistantText(): string | undefined;
 	stopReason(): string | undefined;
+	/** Running aggregate over salient events; feeds the heartbeat line. */
+	stats(): PiSessionActivityStats;
 }
 
 /**
@@ -253,6 +278,8 @@ interface PiJsonActivityParser {
 function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJsonActivityParser {
 	let buffer = "";
 	let turnCount = 0;
+	let toolCallCount = 0;
+	let toolFailureCount = 0;
 	let finalAssistantText: string | undefined;
 	let stopReason: string | undefined;
 	let currentMessageHadBlockPreview = false;
@@ -337,6 +364,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 			}
 			case "tool_execution_start":
 				if (typeof event.toolName === "string") {
+					toolCallCount += 1;
 					const summary = toolArgumentSummary(event.args);
 					emitActivity(
 						summary === undefined
@@ -348,6 +376,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 			case "tool_execution_end":
 				if (typeof event.toolName === "string") {
 					if (event.isError === true) {
+						toolFailureCount += 1;
 						const preview = toolFailurePreview(event.result);
 						emitActivity(
 							preview === undefined
@@ -393,6 +422,7 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 		},
 		finalAssistantText: () => finalAssistantText,
 		stopReason: () => stopReason,
+		stats: () => ({ turnCount, toolCallCount, toolFailureCount }),
 	};
 }
 
@@ -525,17 +555,40 @@ function inlinePreview(text: string): string | undefined {
 		: normalized;
 }
 
+/**
+ * Renders the periodic liveness summary: aggregate progress counters plus the
+ * age of the most recent real activity line, so a tailing observer can tell a
+ * quietly working child (fresh `last:`) from a stuck one (aging `last:`).
+ */
+function renderHeartbeatLine(
+	stats: PiSessionActivityStats,
+	lastActivity: { line: string; atMs: number } | undefined,
+	nowMs: number,
+): string {
+	const turnPart = stats.turnCount === 0 ? "no turns yet" : `turn ${stats.turnCount}`;
+	const failurePart = stats.toolFailureCount === 0 ? "" : ` (${stats.toolFailureCount} failed)`;
+	const lastPart =
+		lastActivity === undefined
+			? "no activity yet"
+			: `last: ${lastActivity.line} (${formatDuration(nowMs - lastActivity.atMs)} ago)`;
+	return `still running — ${turnPart}, ${stats.toolCallCount} tool calls${failurePart}, ${lastPart}`;
+}
+
 function formatElapsedSince(startMs: number, nowMs: number): string {
-	const elapsedSeconds = Math.max(0, Math.floor((nowMs - startMs) / 1_000));
-	if (elapsedSeconds < 60) return `[+${elapsedSeconds}s]`;
-	if (elapsedSeconds < 3_600) {
-		const minutes = Math.floor(elapsedSeconds / 60);
-		const seconds = elapsedSeconds % 60;
-		return `[+${minutes}m${seconds}s]`;
+	return `[+${formatDuration(nowMs - startMs)}]`;
+}
+
+function formatDuration(durationMs: number): string {
+	const totalSeconds = Math.max(0, Math.floor(durationMs / 1_000));
+	if (totalSeconds < 60) return `${totalSeconds}s`;
+	if (totalSeconds < 3_600) {
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes}m${seconds}s`;
 	}
-	const hours = Math.floor(elapsedSeconds / 3_600);
-	const minutes = Math.floor((elapsedSeconds % 3_600) / 60);
-	return `[+${hours}h${minutes.toString().padStart(2, "0")}m]`;
+	const hours = Math.floor(totalSeconds / 3_600);
+	const minutes = Math.floor((totalSeconds % 3_600) / 60);
+	return `${hours}h${minutes.toString().padStart(2, "0")}m`;
 }
 
 function chunkToString(chunk: string | Uint8Array): string {
