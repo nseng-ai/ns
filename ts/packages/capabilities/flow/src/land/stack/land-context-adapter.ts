@@ -137,6 +137,7 @@ export function createLandContext(
 					code: "squash_merge_failed",
 					message,
 					displayCommand: commandDisplay,
+					details: { execResult: result },
 				});
 			},
 		},
