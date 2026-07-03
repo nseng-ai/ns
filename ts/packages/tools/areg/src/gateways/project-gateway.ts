@@ -8,6 +8,12 @@ import { RealGitGateway } from "@sdl/capability-kit/git";
 import type { GitGateway } from "@sdl/capability-kit/git";
 import { deriveVisiblePiReplacementSurfaces } from "@sdl/pi/commands";
 
+import {
+	AREG_SKILL_FIND_ROOT_DESCRIPTORS,
+	AREG_SKILL_KIND_ROOT_DESCRIPTORS,
+	skillFindDescriptorForSourceType,
+	skillKindDescriptorForSourceType,
+} from "../gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -19,6 +25,9 @@ import type {
 	AregProjectRemoveEmptyDirRequest,
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
+	AregSkillFindRootsInspection,
+	AregSkillFindSkillInspection,
+	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -33,6 +42,7 @@ import {
 	isNodeErrorCode,
 	resolveAllowedWriteTarget,
 	resolveExistingDirectory,
+	toProjectPath,
 	validateSkillKindDeleteTarget,
 	validateSkillKindRemoveDirTarget,
 	validateWriteTarget,
@@ -96,11 +106,18 @@ export class RealAregProjectGateway implements AregProjectGateway {
 
 	async inspectSkillNameInventory(request: { projectDir: string; env: NodeJS.ProcessEnv }) {
 		return {
-			skillsDirectoryNames: await listChildNames(path.join(request.projectDir, "skills")),
-			agentsSkillNames: await listChildNames(path.join(request.projectDir, ".agents", "skills")),
-			claudeSkillNames: await listChildNames(path.join(request.projectDir, ".claude", "skills")),
+			skillsDirectoryNames: await listChildNamesForSourceType(request.projectDir, "repo"),
+			agentsSkillNames: await listChildNamesForSourceType(request.projectDir, "vendored"),
+			claudeSkillNames: await listChildNamesForSourceType(request.projectDir, "claude"),
 			skillKindNames: await listSkillKindNames(request.projectDir),
 		};
+	}
+
+	async inspectSkillFindRoots(request: {
+		projectDir: string;
+		env: NodeJS.ProcessEnv;
+	}): Promise<AregSkillFindRootsInspection> {
+		return { skills: await inspectSkillFindRoots(request.projectDir) };
 	}
 
 	async inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection> {
@@ -311,49 +328,50 @@ async function inspectCheckSkill(
 	projectDir: string,
 	name: string,
 ): Promise<AregCheckSkillInspection> {
-	const localSkillMd = await inspectTextFile(path.join(projectDir, "skills", name, "SKILL.md"));
-	const remoteSkillMd = await inspectTextFile(
-		path.join(projectDir, ".agents", "skills", name, "SKILL.md"),
-	);
+	const repoDescriptor = skillFindDescriptorForSourceType("repo");
+	const vendoredDescriptor = skillFindDescriptorForSourceType("vendored");
+	const claudeDescriptor = skillFindDescriptorForSourceType("claude");
+	const repoBase = toProjectPath(projectDir, `${repoDescriptor.root}/${name}`);
+	const vendoredBase = toProjectPath(projectDir, `${vendoredDescriptor.root}/${name}`);
+	const localSkillMd = await inspectTextFile(path.join(repoBase, "SKILL.md"));
+	const remoteSkillMd = await inspectTextFile(path.join(vendoredBase, "SKILL.md"));
+	const policyRoot = localSkillMd.type === "file" ? repoDescriptor.root : vendoredDescriptor.root;
 	return {
 		name,
-		skillsPath: await inspectPath(path.join(projectDir, "skills", name)),
-		agentsPath: await inspectPath(path.join(projectDir, ".agents", "skills", name)),
-		claudePath: await inspectPath(path.join(projectDir, ".claude", "skills", name)),
+		skillsPath: await inspectPath(repoBase),
+		agentsPath: await inspectPath(vendoredBase),
+		claudePath: await inspectPath(toProjectPath(projectDir, `${claudeDescriptor.root}/${name}`)),
 		localSkillMd,
 		remoteSkillMd,
 		openaiPolicy: await inspectTextFile(
-			path.join(
-				projectDir,
-				localSkillMd.type === "file" ? "skills" : ".agents/skills",
-				name,
-				"agents",
-				"openai.yaml",
-			),
+			toProjectPath(projectDir, `${policyRoot}/${name}/agents/openai.yaml`),
 		),
 	};
 }
 
 async function listPiRepoFallbackSkillNames(projectDir: string): Promise<string[]> {
-	return sortStrings([
-		...new Set([
-			...(await listSkillsWithSkillMd(path.join(projectDir, "skills"))),
-			...(await listSkillsWithSkillMd(path.join(projectDir, ".agents", "skills"))),
-		]),
-	]);
+	const names = await Promise.all(
+		AREG_SKILL_KIND_ROOT_DESCRIPTORS.map((descriptor) =>
+			listSkillsWithSkillMd(toProjectPath(projectDir, descriptor.root)),
+		),
+	);
+	return sortStrings([...new Set(names.flat())]);
 }
 
 async function listSkillKindNames(projectDir: string): Promise<string[]> {
-	return sortStrings([
-		...new Set([
-			...(await listFirstPartySkillKindNames(projectDir)),
-			...(await listVendoredSkillKindNames(projectDir)),
-		]),
-	]);
+	const names = await Promise.all(
+		AREG_SKILL_KIND_ROOT_DESCRIPTORS.map((descriptor) =>
+			descriptor.sourceType === "repo"
+				? listFirstPartySkillKindNames(projectDir)
+				: listVendoredSkillKindNames(projectDir),
+		),
+	);
+	return sortStrings([...new Set(names.flat())]);
 }
 
 async function listFirstPartySkillKindNames(projectDir: string): Promise<string[]> {
-	const skillsRoot = path.join(projectDir, "skills");
+	const descriptor = skillKindDescriptorForSourceType("repo");
+	const skillsRoot = toProjectPath(projectDir, descriptor.root);
 	return await scanSkillDirectoryNames(skillsRoot, {
 		keepEntry: async (entry) => {
 			const skillMd = await inspectPath(path.join(skillsRoot, entry.name, "SKILL.md"));
@@ -370,7 +388,8 @@ async function listSkillsWithSkillMd(root: string): Promise<string[]> {
 }
 
 async function listVendoredSkillKindNames(projectDir: string): Promise<string[]> {
-	const agentsRoot = path.join(projectDir, ".agents", "skills");
+	const descriptor = skillKindDescriptorForSourceType("vendored");
+	const agentsRoot = toProjectPath(projectDir, descriptor.root);
 	return await scanSkillDirectoryNames(agentsRoot, {
 		keepEntry: async (entry) => {
 			if (entry.isSymbolicLink()) return false;
@@ -378,6 +397,31 @@ async function listVendoredSkillKindNames(projectDir: string): Promise<string[]>
 			return entry.isDirectory() || skillMd.type !== "missing";
 		},
 	});
+}
+
+async function inspectSkillFindRoots(projectDir: string): Promise<AregSkillFindSkillInspection[]> {
+	const skills: AregSkillFindSkillInspection[] = [];
+	for (const root of AREG_SKILL_FIND_ROOT_DESCRIPTORS) {
+		const rootPath = toProjectPath(projectDir, root.root);
+		const names = await scanSkillDirectoryNames(rootPath, {
+			keepEntry: async (entry) =>
+				(entry.isDirectory() || entry.isSymbolicLink()) &&
+				(await inspectTextFile(path.join(rootPath, entry.name, "SKILL.md"))).type === "file",
+		});
+		for (const name of names) {
+			const baseRelativePath = `${root.root}/${name}`;
+			const basePath = path.join(rootPath, name);
+			skills.push({
+				name,
+				root: root.root,
+				sourceType: root.sourceType,
+				baseRelativePath,
+				skillDir: await inspectPath(basePath),
+				skillMd: await inspectTextFile(path.join(basePath, "SKILL.md")),
+			});
+		}
+	}
+	return skills;
 }
 
 async function scanSkillDirectoryNames(
@@ -407,24 +451,26 @@ async function inspectSkillKindSkill(
 	projectDir: string,
 	name: string,
 ): Promise<AregSkillKindSkillInspection> {
-	const localBase = path.join(projectDir, "skills", name);
-	const localDir = await inspectPath(localBase);
-	const localSkillMd = await inspectTextFile(path.join(localBase, "SKILL.md"));
-	if (localDir.type !== "missing" || localSkillMd.type !== "missing") {
+	const repoDescriptor = skillKindDescriptorForSourceType("repo");
+	const repoBase = toProjectPath(projectDir, `${repoDescriptor.root}/${name}`);
+	const repoDir = await inspectPath(repoBase);
+	const repoSkillMd = await inspectTextFile(path.join(repoBase, "SKILL.md"));
+	if (repoDir.type !== "missing" || repoSkillMd.type !== "missing") {
 		return {
 			name,
-			sourceType: "local",
-			baseRelativePath: `skills/${name}`,
-			skillDir: localDir,
-			skillMd: localSkillMd,
-			openaiPolicy: await inspectTextFile(path.join(localBase, "agents", "openai.yaml")),
+			sourceType: repoDescriptor.sourceType,
+			baseRelativePath: `${repoDescriptor.root}/${name}`,
+			skillDir: repoDir,
+			skillMd: repoSkillMd,
+			openaiPolicy: await inspectTextFile(path.join(repoBase, "agents", "openai.yaml")),
 		};
 	}
-	const vendoredBase = path.join(projectDir, ".agents", "skills", name);
+	const vendoredDescriptor = skillKindDescriptorForSourceType("vendored");
+	const vendoredBase = toProjectPath(projectDir, `${vendoredDescriptor.root}/${name}`);
 	return {
 		name,
-		sourceType: "vendored",
-		baseRelativePath: `.agents/skills/${name}`,
+		sourceType: vendoredDescriptor.sourceType,
+		baseRelativePath: `${vendoredDescriptor.root}/${name}`,
 		skillDir: await inspectPath(vendoredBase),
 		skillMd: await inspectTextFile(path.join(vendoredBase, "SKILL.md")),
 		openaiPolicy: await inspectTextFile(path.join(vendoredBase, "agents", "openai.yaml")),
@@ -481,7 +527,9 @@ function classifyCanonicalSkillPath(
 	projectDir: string,
 	candidate: string,
 ): AregSkillKindResolveResult {
-	const roots = [path.join(projectDir, "skills"), path.join(projectDir, ".agents", "skills")];
+	const roots = AREG_SKILL_KIND_ROOT_DESCRIPTORS.map((descriptor) =>
+		toProjectPath(projectDir, descriptor.root),
+	);
 	for (const root of roots) {
 		const classified = classifySkillPathUnderRoot(root, candidate);
 		if (classified.type === "ok" || classified.error.code === "skill-kind-nested-spec")
@@ -491,7 +539,7 @@ function classifyCanonicalSkillPath(
 		type: "error",
 		error: errorInfo(
 			"skill-kind-outside-managed-skills",
-			`Skill path is outside skills/ and .agents/skills/: ${candidate}`,
+			`Skill path is outside ${AREG_SKILL_KIND_ROOT_DESCRIPTORS.map((descriptor) => descriptor.root).join(" and ")}: ${candidate}`,
 		),
 	};
 }
@@ -546,6 +594,14 @@ async function inspectReplacementSurfaces(
 	return {
 		verifiedSurfaces: hasAdapter && hasPackageModule ? [...AREG_VISIBLE_REPLACEMENT_SURFACES] : [],
 	};
+}
+
+async function listChildNamesForSourceType(
+	projectDir: string,
+	sourceType: AregSkillFindSourceType,
+): Promise<string[]> {
+	const descriptor = skillFindDescriptorForSourceType(sourceType);
+	return await listChildNames(toProjectPath(projectDir, descriptor.root));
 }
 
 async function listChildNames(directory: string): Promise<string[]> {

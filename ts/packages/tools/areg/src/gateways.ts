@@ -131,7 +131,88 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string;
 }
 
-export type AregSkillKindSourceType = "local" | "vendored";
+export const AREG_SKILL_FIND_ROOT_DESCRIPTORS = [
+	{ root: "skills", sourceType: "repo" },
+	{ root: ".agents/skills", sourceType: "vendored" },
+	{ root: ".claude/skills", sourceType: "claude" },
+] as const satisfies ReadonlyArray<{ root: string; sourceType: string }>;
+
+export type AregSkillFindRootDescriptor = (typeof AREG_SKILL_FIND_ROOT_DESCRIPTORS)[number];
+export type AregSkillFindRoot = AregSkillFindRootDescriptor["root"];
+export type AregSkillFindSourceType = AregSkillFindRootDescriptor["sourceType"];
+export type AregSkillKindSourceType = Extract<AregSkillFindSourceType, "repo" | "vendored">;
+export type AregSkillKindRootDescriptor = Extract<
+	AregSkillFindRootDescriptor,
+	{ sourceType: AregSkillKindSourceType }
+>;
+
+export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.filter(
+	(descriptor): descriptor is AregSkillKindRootDescriptor =>
+		descriptor.sourceType === "repo" || descriptor.sourceType === "vendored",
+);
+
+export const AREG_SKILL_FIND_ROOTS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
+	(descriptor): AregSkillFindRoot => descriptor.root,
+) as [AregSkillFindRoot, ...AregSkillFindRoot[]];
+export const AREG_SKILL_FIND_SOURCE_TYPES = AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
+	(descriptor): AregSkillFindSourceType => descriptor.sourceType,
+) as [AregSkillFindSourceType, ...AregSkillFindSourceType[]];
+
+const AREG_SKILL_FIND_DESCRIPTOR_BY_ROOT = new Map<AregSkillFindRoot, AregSkillFindRootDescriptor>(
+	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor) => [descriptor.root, descriptor] as const),
+);
+const AREG_SKILL_FIND_DESCRIPTOR_BY_SOURCE_TYPE = new Map<
+	AregSkillFindSourceType,
+	AregSkillFindRootDescriptor
+>(
+	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
+		(descriptor) => [descriptor.sourceType, descriptor] as const,
+	),
+);
+const AREG_SKILL_FIND_ROOT_RANKS = new Map<AregSkillFindRoot, number>(
+	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor, index) => [descriptor.root, index] as const),
+);
+
+export function skillFindDescriptorForRoot(root: AregSkillFindRoot): AregSkillFindRootDescriptor {
+	const descriptor = AREG_SKILL_FIND_DESCRIPTOR_BY_ROOT.get(root);
+	if (descriptor === undefined) throw new Error(`Unknown skill-find root: ${root}`);
+	return descriptor;
+}
+
+export function skillFindDescriptorForSourceType(
+	sourceType: AregSkillFindSourceType,
+): AregSkillFindRootDescriptor {
+	const descriptor = AREG_SKILL_FIND_DESCRIPTOR_BY_SOURCE_TYPE.get(sourceType);
+	if (descriptor === undefined) throw new Error(`Unknown skill-find source type: ${sourceType}`);
+	return descriptor;
+}
+
+export function skillKindDescriptorForSourceType(
+	sourceType: AregSkillKindSourceType,
+): AregSkillKindRootDescriptor {
+	const descriptor = AREG_SKILL_KIND_ROOT_DESCRIPTORS.find(
+		(candidate) => candidate.sourceType === sourceType,
+	);
+	if (descriptor === undefined) throw new Error(`Unknown skill-kind source type: ${sourceType}`);
+	return descriptor;
+}
+
+export function skillFindRootRank(root: AregSkillFindRoot): number {
+	return AREG_SKILL_FIND_ROOT_RANKS.get(root) ?? AREG_SKILL_FIND_ROOT_DESCRIPTORS.length;
+}
+
+export interface AregSkillFindSkillInspection {
+	name: string;
+	root: AregSkillFindRoot;
+	sourceType: AregSkillFindSourceType;
+	baseRelativePath: string;
+	skillDir: AregPathState;
+	skillMd: AregTextFileState;
+}
+
+export interface AregSkillFindRootsInspection {
+	skills: readonly AregSkillFindSkillInspection[];
+}
 
 export interface AregSkillKindSkillInspection {
 	name: string;
@@ -256,6 +337,7 @@ export interface AregProjectGateway {
 	inspectPiArtifacts(request: AregProjectDirRequest): Promise<AregPiArtifactsInspection>;
 	inspectPiSkillInventory(request: AregProjectDirRequest): Promise<AregPiSkillInventoryInspection>;
 	inspectSkillNameInventory(request: AregProjectDirRequest): Promise<AregSkillNameInventory>;
+	inspectSkillFindRoots(request: AregProjectDirRequest): Promise<AregSkillFindRootsInspection>;
 	inspectCheckSkill(request: AregSkillInspectionRequest): Promise<AregCheckSkillInspection>;
 	inspectSkillKindSkill(request: AregSkillInspectionRequest): Promise<AregSkillKindSkillInspection>;
 	inspectPairingDirectories(

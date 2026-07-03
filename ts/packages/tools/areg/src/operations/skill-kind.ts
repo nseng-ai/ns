@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { AregCliContext } from "../context.ts";
 import { isPathStateError } from "./file-state.ts";
 import { inspectSkillKindProject } from "./project-inspection.ts";
+import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
 import {
 	applyProjectMutationPlan,
 	PROJECT_MUTATION_OPERATION_STATUSES,
@@ -31,6 +32,12 @@ import {
 	toApplyResult,
 	type SkillKindApplyPlan,
 } from "./skill-kind-apply-plan.ts";
+import {
+	renderSkillFind,
+	runSkillFind,
+	skillFindRequestSchema,
+	skillFindResultSchema,
+} from "./skill-find.ts";
 import {
 	buildSkillKindRecords,
 	INFERRED_SKILL_INVOCATION_KINDS,
@@ -153,6 +160,15 @@ export function buildSkillGroup(): ClinkrGroup<AregCliContext> {
 	const skillGroup = new ClinkrGroup<AregCliContext>({
 		name: "skill",
 		description: "Inspect and reconcile installed skill invocation metadata.",
+	});
+	skillGroup.command({
+		name: "find",
+		description: "Find a managed skill by exact name.",
+		schema: skillFindRequestSchema,
+		positionals: { skill: { position: 0 } },
+		resultSchema: skillFindResultSchema,
+		handler: runSkillFind,
+		renderHuman: renderSkillFind,
 	});
 	skillGroup.command({
 		name: "list",
@@ -412,39 +428,19 @@ async function inspectResolvedProject(
 	| { type: "ok"; value: ResolvedProjectInspection }
 	| { type: "error"; message: string; projectDir: string }
 > {
-	const targetInspection = await inspectSkillKindProject(ctx, requestPath);
-	if (targetInspection.projectPathState.type === "missing")
-		return {
-			type: "error",
-			message: `Target ${targetInspection.projectDir} does not exist.`,
-			projectDir: targetInspection.projectDir,
-		};
-	if (targetInspection.projectPathState.type !== "directory")
-		return {
-			type: "error",
-			message: `${targetInspection.projectDir} is not a directory.`,
-			projectDir: targetInspection.projectDir,
-		};
-	const repoRoot = await ctx.git.optionalRepoRoot({ cwd: targetInspection.projectDir });
-	if (repoRoot.type === "error")
-		return {
-			type: "error",
-			message: repoRoot.error.message,
-			projectDir: targetInspection.projectDir,
-		};
-	if (repoRoot.type === "missing")
-		return {
-			type: "error",
-			message: `No Git root found containing ${targetInspection.projectDir}.`,
-			projectDir: targetInspection.projectDir,
-		};
-	if (repoRoot.value === targetInspection.projectDir)
+	const resolved = await inspectResolvedProjectGitRoot(ctx, requestPath, inspectSkillKindProject);
+	if (resolved.type === "error") return resolved;
+	if (resolved.projectDir === resolved.targetInspection.projectDir) {
 		return {
 			type: "ok",
-			value: { projectDir: targetInspection.projectDir, inspection: targetInspection },
+			value: {
+				projectDir: resolved.targetInspection.projectDir,
+				inspection: resolved.targetInspection,
+			},
 		};
-	const rootInspection = await inspectSkillKindProject(ctx, repoRoot.value);
-	return { type: "ok", value: { projectDir: repoRoot.value, inspection: rootInspection } };
+	}
+	const rootInspection = await inspectSkillKindProject(ctx, resolved.projectDir);
+	return { type: "ok", value: { projectDir: resolved.projectDir, inspection: rootInspection } };
 }
 
 function toSkillKindRecordResult(record: SkillKindRecord): SkillKindRecordResult {

@@ -36,13 +36,14 @@ describe("areg CLI shape", () => {
 		expect(help).not.toContain("skillx");
 	});
 
-	test("skill help exposes flattened list show and apply commands", async () => {
+	test("skill help exposes flattened find list show and apply commands", async () => {
 		const run = runScenario(["skill", "--help"]);
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr.join("")).toBe("");
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: areg skill");
+		expect(help).toContain("find");
 		expect(help).toContain("list");
 		expect(help).toContain("show");
 		expect(help).toContain("apply");

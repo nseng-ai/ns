@@ -64,12 +64,20 @@ describe("areg gateway fakes", () => {
 			env: {},
 		});
 		expect(secondInventory.skillsDirectoryNames).toEqual(["demo"]);
+		const findRoots = await fake.inspectSkillFindRoots({ projectDir: base.projectDir, env: {} });
+		expect(findRoots.skills).toEqual([]);
+		(findRoots.skills as unknown[]).push({});
+		expect(
+			(await fake.inspectSkillFindRoots({ projectDir: base.projectDir, env: {} })).skills,
+		).toEqual([]);
 		expect((fake as FakeAregProjectGateway).operations()).toEqual([
 			{ type: "inspect-project-base", cwd: "/work", projectPath: "." },
 			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
 			{ type: "inspect-pi-skill-inventory", projectDir: "/repo" },
 			{ type: "inspect-pi-skill-inventory", projectDir: "/repo" },
 			{ type: "inspect-skill-name-inventory", projectDir: "/repo" },
+			{ type: "inspect-skill-find-roots", projectDir: "/repo" },
+			{ type: "inspect-skill-find-roots", projectDir: "/repo" },
 		]);
 	});
 
@@ -168,7 +176,13 @@ describe("areg gateway fakes", () => {
 			skillName: "demo",
 			env: {},
 		});
+		const afterFind = await project.inspectSkillFindRoots({ projectDir: "/repo", env: {} });
 		expect(afterApply.skillMd).toMatchObject({
+			type: "file",
+			text: expect.stringContaining("disable-model-invocation: true"),
+		});
+		expect(afterFind.skills).toHaveLength(1);
+		expect(afterFind.skills[0]?.skillMd).toMatchObject({
 			type: "file",
 			text: expect.stringContaining("disable-model-invocation: true"),
 		});
