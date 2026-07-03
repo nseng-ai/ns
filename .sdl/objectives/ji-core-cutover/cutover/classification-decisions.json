@@ -403,24 +403,10 @@
    "hint": "Line 73 `sdlToml: inspection.sdlToml` is a typed property identifier (paired with project-agents.ts input.sdlToml), not a literal. Survivor; no in-window literal in this file."
   },
   {
-   "path": "ts/scripts/render-cli-shim-core.ts",
-   "decision": "simple",
-   "reason": "has-in-window-literals",
-   "hint": "In-window: error string references env-var name `SDL_FALLBACK_MODE` (line 35) -> `JI_FALLBACK_MODE`. Also rename the coupled template token contract: TOKEN_PREFIX \"@@SDL_\" (line 3) and the @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ keys (lines 40-44) -> @@JI_*@@; these placeholder tokens MUST stay byte-identical to the ones in source-cli-shim-template.",
-   "suspectedNewCoupling": "ts/scripts/source-cli-shim-template — the @@SDL_*@@ substitution tokens and TOKEN_PREFIX must be renamed in lock-step with the template placeholders it substitutes into."
-  },
-  {
    "path": "ts/scripts/render-cli-shim.mjs",
    "decision": "simple",
    "reason": "has-in-window-literals",
    "hint": "Rename the env-var NAME strings SDL_* -> JI_*: the REQUIRED_ENV_VARS array (SDL_TEMPLATE, SDL_OUTPUT, SDL_TOOL, SDL_CANONICAL_CHECKOUT, SDL_CLI_REL_PATH, SDL_INSTALL_HINT, lines 7-12), the matching envValue(\"SDL_...\") calls (lines 30,33-36,45), and process.env.SDL_FALLBACK_MODE (line 37). These env-var names are set by the external installer/justfile recipe that invokes this script — that caller must be renamed too."
-  },
-  {
-   "path": "ts/scripts/source-cli-shim-template",
-   "decision": "simple",
-   "reason": "has-in-window-literals",
-   "hint": "Rename the @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ placeholder tokens (lines 2, 11-15) -> @@JI_*@@ to match render-cli-shim-core.ts. Also the operative brand prose describing the CLI/checkout: \"runs an sdl TypeScript CLI\" (line 2), \"the caller's current sdl checkout\" (line 8), \"no sdl checkout found ... an sdl checkout\" and \"reinstall from an sdl checkout\" (lines 38, 48) -> ji.",
-   "suspectedNewCoupling": "ts/scripts/render-cli-shim-core.ts — placeholder tokens must match the replacement map keys and TOKEN_PREFIX in the renderer exactly."
   },
   {
    "path": "ts/vitest.shared.ts",
@@ -552,6 +538,12 @@
    "decision": "simple",
    "reason": "has-in-window-literals",
    "hint": "Three in-window forms: (1) the env var NAME string value at line ~32 — SDL_RUNNER_PI_BIN_ENV = \"SDL_RUNNER_PI_BIN\" renames its VALUE to \"JI_RUNNER_PI_BIN\" (the identifier SDL_RUNNER_PI_BIN_ENV survives); (2) the doc-comment mention `SDL_RUNNER_PI_BIN` at ~:66 follows the value; (3) the brand-named tmpdir prefix \"sdl-objective-runner-\" at ~:222 renames to \"ji-objective-runner-\" (owner decision 2026-07-02: brand-named prefixes rename; package-derived survive). [Hand-classified 2026-07-02 during dry-run-1 fold: post-restack drift file.]"
+  },
+  {
+   "path": "ts/packages/capabilities/objective/src/sdl/commands/exec-runner-step.ts",
+   "decision": "simple",
+   "reason": "has-in-window-literals",
+   "hint": "Doc-comment path prose only: lines 6-7 `.sdl/extensions/objective/package.json` and `.sdl/extensions/objective/src/commands/exec-runner-step.ts` -> `.ji/extensions/...`. Leave the `\"./sdl/commands/exec-runner-step\"` exports-subpath literal (src/sdl layout is a survivor), all `@sdl/*` imports, and identifiers untouched. File is marked ADR0024-LEGACY-DELETE (objective-runner decomposition) but is live at the window."
   }
  ]
 }

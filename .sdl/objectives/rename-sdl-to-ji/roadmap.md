@@ -19,7 +19,9 @@
   Evidence: `just` passes; `ji objective list` and `ji objective exec
   load-orientations` work; no compat codepath introduced.
 - [ ] Write and execute the manual machine migration checklist (XDG `mv`s, checkout
-      path, worktree slots), and fix up any straggler branches by hand.
+      path, worktree slots, shell-profile `SDL_*` env vars — enumerated in
+      `cutover-inventory.md` machine-migration notes), and fix up any straggler
+      branches by hand.
 - [ ] Vocabulary sweep: CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs —
       `ji` glossary entry with casing rule, `SDL` added to *Avoid*, compound canonical
       terms renamed.

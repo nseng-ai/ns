@@ -43,7 +43,6 @@ skills/handoff-pickup/SKILL.md
 skills/handoff/references/diagnostics-admin.md
 skills/handoff/references/lifecycle.md
 skills/handoff/SKILL.md
-skills/objective-autorun/SKILL.md
 skills/objective-close/SKILL.md
 skills/objective-create/SKILL.md
 skills/objective-next/SKILL.md
@@ -127,6 +126,8 @@ ts/packages/capabilities/handoff/test/pi/handoff-tab.test.ts
 ts/packages/capabilities/handoff/test/pi/handoff.test.ts
 ts/packages/capabilities/objective/CONTEXT.md
 ts/packages/capabilities/objective/src/pi/extension.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-begin.test.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-finish.test.ts
 ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts
 ts/packages/capabilities/roaster/CONTEXT.md
 ts/packages/capabilities/roaster/README.md

@@ -6,6 +6,16 @@ This is the planning artifact for the "core cutover in one landing window" roadm
 Excludes historical records (`objective-archive/`, `updates/`, ADR history) per the
 Non-Goals.
 
+> **Snapshot status (2026-07-02, post-compilation):** the operational source of truth
+> for the edit list is now the child Objective's pipeline
+> (`ji-core-cutover/cutover/` — generator, frozen lists, `cutover-plan.json`), which
+> re-derives this surface deterministically. Two drift waves since compilation are
+> absorbed there: the flow land/submit refactor (typed Graphite command channel →
+> cs9; retired `command-exec.ts`) and the Objective Runner begin/finish decomposition
+> (3 new runner test files, `exec-runner-step.ts`, `SDL_RUNNER_PI_BIN`,
+> `sdl-objective-runner-` tmpdir prefix). This document remains the narrative
+> evidence base; counts below are as-compiled.
+
 ## Executive summary
 
 - ~705 in-scope literal `.sdl` occurrences repo-wide; ~154 `sdl <command>` instruction
@@ -16,7 +26,7 @@ Non-Goals.
   these names from one config value. Every code site, skill, doc, and test-assertion
   string needs its own edit, landed atomically.
 - One hard build-breaker, several silent-failure traps, and four open design questions
-  (below) that should be answered before the landing window opens.
+  (below; all four resolved by the owner 2026-07-02 — everything renames to ji).
 
 ## Hardest atomicity points (break-the-build or silent failure)
 
@@ -203,6 +213,13 @@ Non-Goals.
   `state/sdl/pi-cli-command-extension` (diagnostics).
 - Out of sweep: `state/vibechk` (sibling, unchanged), `~/.pi/agent/…` (Pi-owned,
   explicitly excluded per sdl-config-layout-migration).
+- **Shell-profile `SDL_*` env vars stop working at the landing** (found during
+  pipeline authoring; the in-repo names all rename to `JI_*` in-window):
+  `SDL_CHECKPOINT_MODEL`, `SDL_DEV_*`, `SDL_SLUG_MODEL`, `SDL_SUBMIT_FAILURE_MODEL`,
+  `SDL_CCC_SIDEBAR_MODEL`, `SDL_PI_CLI_TRACE*`,
+  `SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS`, `SDL_RUNNER_PI_BIN` (added by the
+  Objective Runner decomposition). Any exported in owner shell profiles must be
+  renamed as part of this checklist.
 
 ## Cross-objective coupling
 

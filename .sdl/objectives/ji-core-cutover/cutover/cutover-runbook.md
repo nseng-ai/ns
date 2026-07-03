@@ -67,8 +67,11 @@ Steps 3–4 only need re-running for files that drifted.
 
 ## B. Landing window (identical for dry-run and real landing)
 
-**Preconditions:** clean tree; baseline `pnpm install` + `just` green; for the REAL
-landing: the decision-records stack has landed to trunk and step A was re-run same-day.
+**Preconditions:** clean tree; baseline `pnpm install` + `just` green. (Owner rulings
+2026-07-02 for the real landing: trunk-landing of the decision-records stack is NOT
+required — the landing branch stacks on top of the decision-records stack and the
+whole stack lands together; and the same-day §A re-run was waived — the 2026-07-02
+post-drift §A pass stands as the plan snapshot.)
 
 **For a dry-run:** do everything below in a throwaway worktree + branch, then delete
 both. Nothing merges from a dry-run except findings folded back into these artifacts.
@@ -222,6 +225,13 @@ to the parent `rename-sdl-to-ji`.
   subcommand enumeration to a broad judge-each sweep with `:!docs/adr`; runbook
   paths/PATH-setup/plan-load-ordering corrected; prepass now subtracts mv-only
   files. Findings archive: `dry-run/verify-findings.json`.
+- **Trunk precondition dropped (2026-07-02, owner)**: the real landing does NOT wait
+  for the decision-records stack to merge to master. The landing branch is created
+  stacked on top of `update-objective-runner-drift` (the top of the decision-records
+  stack) and the whole stack lands together via Graphite.
+- **§A re-run waived for the real landing (2026-07-02, owner)**: no fresh drift
+  check at the window; the same-day post-drift-absorption §A pass (122 simple /
+  9 changesets / 30 cohorts / 22 invariants, all paths verified pre-mv) stands.
 - **Dry-run 1 (2026-07-02)**: full §B rehearsal executed green in worktree slot-09
   (findings: `dry-run/1-findings.md`; gate/smoke evidence: `dry-run/1-gate.txt`).
   Owner rulings on the four surfaced calls: (a) brand PROSE ("SDL kernel", message
