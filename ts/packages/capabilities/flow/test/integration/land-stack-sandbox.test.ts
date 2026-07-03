@@ -86,6 +86,8 @@ interface SandboxState {
 	topologyReads?: SandboxTopologyRow[][];
 	commandLog: SandboxCommandLogEntry[];
 	gtGetFailures?: Record<string, { code: number; stderr: string }>;
+	gtRestackFailures?: Record<string, { code: number; stderr: string }>;
+	allowDeletingCurrentBranch?: boolean;
 }
 
 interface Sandbox {
@@ -202,6 +204,50 @@ describe("land stack sandbox integration", () => {
 					).toContain(
 						"gt get feature-c --downstack --no-restack --no-checkout --force --no-interactive",
 					);
+				},
+			);
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
+		"continues later optional descendant roots after one post-delete restack warning",
+		async () => {
+			await withSandbox(
+				{
+					currentBranch: FEATURE_B,
+					state: {
+						allowDeletingCurrentBranch: true,
+						gtRestackFailures: {
+							[FEATURE_C]: { code: 1, stderr: "restack failed\n" },
+						},
+					},
+				},
+				async (sandbox) => {
+					const result = await executeSandboxLanding(sandbox);
+
+					expect(result.outcome.type).toBe("success");
+					const log = await readCommandLog(sandbox);
+					const featureCRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]);
+					const featureDRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_D]);
+					expect(featureCRestack).toBeGreaterThanOrEqual(0);
+					expect(featureDRestack).toBeGreaterThan(featureCRestack);
+					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBe(-1);
+					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBeGreaterThan(
+						featureDRestack,
+					);
+					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
+
+					const notificationText = result.notifications
+						.map((notification) => notification.message)
+						.join("\n");
+					expect(notificationText).toContain(FEATURE_C);
+					expect(notificationText).not.toContain(`descendant branch ${FEATURE_D} was left`);
+
+					const branches = await localBranches(sandbox);
+					expect(branches).not.toContain(FEATURE_B);
+					expect(branches).toContain(FEATURE_C);
+					expect(branches).toContain(FEATURE_D);
 				},
 			);
 		},
@@ -446,6 +492,12 @@ function buildInitialState(
 		commandLog: overrides.commandLog ?? [],
 		...(overrides.topologyReads === undefined ? {} : { topologyReads: overrides.topologyReads }),
 		...(overrides.gtGetFailures === undefined ? {} : { gtGetFailures: overrides.gtGetFailures }),
+		...(overrides.gtRestackFailures === undefined
+			? {}
+			: { gtRestackFailures: overrides.gtRestackFailures }),
+		...(overrides.allowDeletingCurrentBranch === undefined
+			? {}
+			: { allowDeletingCurrentBranch: overrides.allowDeletingCurrentBranch }),
 	};
 }
 
@@ -605,12 +657,20 @@ if (command === "gt") {
   if (args[0] === "delete") {
     const branch = args[1];
     if (currentBranch() === branch) {
-      finish(1, "", "fatal: '" + branch + "' is already checked out at '" + process.cwd() + "'\\n");
+      if (!state.allowDeletingCurrentBranch) {
+        finish(1, "", "fatal: '" + branch + "' is already checked out at '" + process.cwd() + "'\\n");
+      }
+      git(["checkout", "main"]);
     }
     const result = git(["branch", "-D", branch]);
     finish(result.status || 0, result.stdout || "", result.stderr || "");
   }
-  if (args[0] === "restack") finish(0, "");
+  if (args[0] === "restack") {
+    const branch = args[args.indexOf("--branch") + 1];
+    const failure = state.gtRestackFailures && state.gtRestackFailures[branch];
+    if (failure) finish(failure.code || 1, "", failure.stderr || "gt restack failed\\n");
+    finish(0, "");
+  }
   if (args[0] === "submit") {
     const branch = args[args.indexOf("--branch") + 1];
     const pr = prByBranchOrNumber(branch);

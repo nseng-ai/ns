@@ -1,4 +1,3 @@
-import { optionalEntry } from "@sdl/core/primitives";
 import { shortSha } from "../commit-display/index.ts";
 import { landCompleted, landFailure, landSuccess, landOutcomeFailure } from "./results.ts";
 import type {
@@ -198,10 +197,7 @@ export function scopeStackSnapshot(
 		landingTargetBranch,
 		landingBranches: boundedLandingBranches,
 		remainingLandingBranches,
-		...optionalEntry(
-			"descendantRootBranches",
-			stack.descendantRootBranches === undefined ? undefined : [...stack.descendantRootBranches],
-		),
+		descendantRootBranches: [...stack.descendantRootBranches],
 		warnings: stack.warnings.map(copyWarning),
 	};
 }
@@ -486,15 +482,10 @@ async function classifyConflict(
 export function buildDescendantMaintenancePlan(
 	descendantBranches: readonly string[],
 	conflicts: readonly WorktreeConflict[],
-	descendantRootBranches: readonly string[] | undefined = undefined,
+	descendantRootBranches: readonly string[],
 ): DescendantMaintenancePlan {
 	if (descendantBranches.length === 0) return { type: "none", branches: [] };
-	const firstDescendantBranch = descendantBranches[0];
-	if (firstDescendantBranch === undefined) return { type: "none", branches: [] };
-	const targetBranches =
-		descendantRootBranches === undefined || descendantRootBranches.length === 0
-			? [firstDescendantBranch]
-			: [...descendantRootBranches];
+	const targetBranches = [...descendantRootBranches];
 	const blockingConflicts = conflicts.filter((conflict) => conflict.type !== "current");
 	if (blockingConflicts.length > 0) {
 		return {
