@@ -29,6 +29,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
 		"@ji/capability-kit": "workspace:*",
+		"@ji/command-backed-skill-registry": "workspace:*",
 		"@ji/core": "workspace:*",
 		"@ji/pi": "workspace:*",
 		"zod": "catalog:"

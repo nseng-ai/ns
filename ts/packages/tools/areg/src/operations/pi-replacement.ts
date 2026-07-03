@@ -1,6 +1,4 @@
-import { commandBackedSkillSurface } from "@ji/pi/commands";
-
-export { commandBackedSkillSurface as derivePiReplacementCommand } from "@ji/pi/commands";
+import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];

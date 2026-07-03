@@ -1,3 +1,4 @@
+export { objectiveCommandBackedSkillRegistrations } from "./command-backed-skills.ts";
 export { default, objectiveParity } from "./extension.ts";
 export {
 	VIEW_OTHER_OBJECTIVES_CHOICE,

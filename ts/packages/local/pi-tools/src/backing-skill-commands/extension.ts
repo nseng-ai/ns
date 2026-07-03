@@ -4,11 +4,11 @@ export {
 	genericBackingSkillRegistrations,
 	specializedCommandBackedSkillRegistrations,
 	visibleCommandBackedReplacementSurfaces,
-} from "@ji/pi/commands";
+} from "@ji/command-backed-skill-registry";
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@ji/pi/commands";
+} from "@ji/command-backed-skill-registry";
 
 export { backingSkillCommandsParity } from "./parity.ts";
 export { derivePiReplacementCommand, genericBackingSkillCommandSpecs } from "./specs.ts";

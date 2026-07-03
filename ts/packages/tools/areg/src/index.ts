@@ -36,11 +36,7 @@ export type {
 	AregTextFileState,
 	AregToolCheckResult,
 } from "./gateways.ts";
-export {
-	derivePiReplacementCommand,
-	parseLockfileData,
-	parseSkillFrontmatterText,
-} from "./operations/check.ts";
+export { parseLockfileData, parseSkillFrontmatterText } from "./operations/check.ts";
 export { parseSkillInput } from "./operations/skillx.ts";
 export {
 	buildNpxSkillsAddArgs,

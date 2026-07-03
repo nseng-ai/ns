@@ -18,6 +18,7 @@
 	"dependencies": {
 		"@ji/capability-kit": "workspace:*",
 		"@ji/clinkr": "workspace:*",
+		"@ji/command-backed-skill-registry": "workspace:*",
 		"@ji/core": "workspace:*",
 		"@ji/pi": "workspace:*",
 		"smol-toml": "catalog:",

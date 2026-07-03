@@ -1,10 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import {
-	derivePiReplacementCommand,
-	formatCheckReport,
-	parseSkillFrontmatterText,
-} from "../../src/operations/check.ts";
+import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
+
+import { formatCheckReport, parseSkillFrontmatterText } from "../../src/operations/check.ts";
 import { transformSkillFrontmatter } from "../../src/operations/frontmatter.ts";
 
 describe("areg check frontmatter parser", () => {
@@ -111,12 +109,12 @@ describe("areg SKILL.md frontmatter transform", () => {
 
 describe("areg check Pi replacement helpers", () => {
 	test("uses registry-backed replacement surfaces", () => {
-		expect(derivePiReplacementCommand("branch-context-impl")).toBe(
+		expect(commandBackedSkillSurface("branch-context-impl")).toBe(
 			"ji:branch-context:impl-attached-plan",
 		);
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("ji:objective:stack-impl");
-		expect(derivePiReplacementCommand("custom-command")).toBeUndefined();
-		expect(derivePiReplacementCommand("nocommand")).toBeUndefined();
+		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(commandBackedSkillSurface("custom-command")).toBeUndefined();
+		expect(commandBackedSkillSurface("nocommand")).toBeUndefined();
 	});
 
 	test("formats grouped human failures sorted by skill", () => {

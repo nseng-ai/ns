@@ -430,6 +430,18 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
 
+  packages/hosts/command-backed-skill-registry:
+    dependencies:
+      '@ji/core':
+        specifier: workspace:*
+        version: link:../../infra/core
+      '@ji/handoff':
+        specifier: workspace:*
+        version: link:../../capabilities/handoff
+      '@ji/objective':
+        specifier: workspace:*
+        version: link:../../capabilities/objective
+
   packages/hosts/jicc:
     dependencies:
       '@ji/clinkr':
@@ -550,6 +562,9 @@ importers:
       '@ji/capability-kit':
         specifier: workspace:*
         version: link:../../capability-kit
+      '@ji/command-backed-skill-registry':
+        specifier: workspace:*
+        version: link:../../hosts/command-backed-skill-registry
       '@ji/core':
         specifier: workspace:*
         version: link:../../infra/core
@@ -568,6 +583,9 @@ importers:
       '@ji/clinkr':
         specifier: workspace:*
         version: link:../../infra/clinkr
+      '@ji/command-backed-skill-registry':
+        specifier: workspace:*
+        version: link:../../hosts/command-backed-skill-registry
       '@ji/core':
         specifier: workspace:*
         version: link:../../infra/core
