@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import type { Caps } from "@sdl/clinkr";
 import { stripAnsi } from "@sdl/clinkr/testing";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
 import type { SdlConfirmOptions } from "@sdl/kernel/sdk";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import {
@@ -33,11 +34,7 @@ const GIT_ROOT_ARGS = ["rev-parse", "--show-toplevel"];
 const GIT_CURRENT_ARGS = ["symbolic-ref", "--short", "HEAD"];
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"];
 const GIT_COMMON_DIR_ARGS = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
-const GIT_FOR_EACH_REF_ARGS = [
-	"for-each-ref",
-	"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-	"refs/heads",
-];
+const GIT_FOR_EACH_REF_ARGS = [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS];
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
 const SHA_CURRENT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -237,6 +234,16 @@ function graphiteShapeSteps(dbRows: string): ScriptedExec[] {
 	return graphiteShapeStepsForRoot(ROOT, dbRows);
 }
 
+function formatLiveBranchTips(branches: readonly string[]): string {
+	if (branches.length === 0) return "";
+	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
+}
+
+function formatLiveBranchTip(branch: string): string {
+	if (branch.includes("\t")) return branch;
+	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+}
+
 function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[] {
 	const liveBranches = metadataBranchNames(dbRows);
 	return [
@@ -248,7 +255,7 @@ function graphiteShapeStepsForRoot(root: string, dbRows: string): ScriptedExec[]
 			stdout: `${dbRows}\n`,
 		}),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
-			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+			stdout: formatLiveBranchTips(liveBranches),
 		}),
 	];
 }
@@ -261,7 +268,7 @@ function domainGraphiteShapeSteps(dbRows: string): ScriptedExec[] {
 		step("gt", GT_TRUNK_ARGS, { stdout: `${TRUNK}\n` }),
 		step("git", GIT_COMMON_DIR_ARGS, { stdout: `${ROOT}/.git\n` }),
 		step("git", GIT_FOR_EACH_REF_ARGS, {
-			stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+			stdout: formatLiveBranchTips(liveBranches),
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];

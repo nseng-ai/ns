@@ -22,7 +22,7 @@ import type { LandContext } from "../api.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
-	LandingPlan,
+	FlowLandingPlan,
 	LandingWarning,
 	MergeLoopState,
 	PullRequestSnapshot,
@@ -99,7 +99,7 @@ interface PerformGraphiteMaintenanceOptions {
 	landContext: LandContext;
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	step: GraphiteMaintenanceStep;
 }
 
@@ -107,7 +107,7 @@ interface MaintenanceBranchContext {
 	landContext: LandContext;
 	runtime: LandRuntime;
 	repoRoot: string;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	prNumber: number;
 	maintenanceBranch: string;
 	severity: MaintenanceSeverity;
@@ -487,7 +487,7 @@ function formatCheckedOutElsewhere(checkoutConflict: CheckedOutElsewhere): strin
 	return `${checkoutConflict.branch} is checked out at ${checkoutConflict.path}`;
 }
 
-function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphiteMaintenance {
+function nextGraphiteMaintenance(plan: FlowLandingPlan, index: number): NextGraphiteMaintenance {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
 	if (nextLandingBranch) {
 		return { kind: "required-next-landing", branch: nextLandingBranch };
@@ -512,7 +512,7 @@ function nextGraphiteMaintenance(plan: LandingPlan, index: number): NextGraphite
 }
 
 function nextForcedRefreshBranchAfterMaintaining(
-	plan: LandingPlan,
+	plan: FlowLandingPlan,
 	maintainedBranch: string,
 ): string | undefined {
 	const futureRefreshOrder = [
@@ -527,7 +527,10 @@ function nextForcedRefreshBranchAfterMaintaining(
 	return futureRefreshOrder[maintainedIndex + 1];
 }
 
-function skippedDescendantMaintenanceWarning(plan: LandingPlan, branch: string): LandingWarning {
+function skippedDescendantMaintenanceWarning(
+	plan: FlowLandingPlan,
+	branch: string,
+): LandingWarning {
 	const maintenance = plan.descendantMaintenance;
 	if (maintenance.kind !== "skipped") {
 		return {

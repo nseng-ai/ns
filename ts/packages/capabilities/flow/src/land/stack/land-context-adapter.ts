@@ -409,9 +409,20 @@ async function loadLocalBranches(
 ): Promise<LandResult<readonly { readonly name: string; readonly sha: string }[]>> {
 	const branches = await loadLiveLocalBranchTips(pi, repoRoot);
 	if (branches.type === "failure") return toLandResult(branches, "git", "repo-discovery");
-	return landSuccess(
-		branches.value.map((branch) => ({ name: branch.name, sha: branch.headSha ?? "" })),
-	);
+	const tips: Array<{ readonly name: string; readonly sha: string }> = [];
+	for (const branch of branches.value) {
+		if (branch.headSha == null) {
+			return landFailure({
+				type: "boundary",
+				phase: "repo-discovery",
+				source: "git",
+				code: "local_branch_tip_sha_missing",
+				message: `Could not resolve local branch SHA for ${branch.name}; refusing to inspect stack shape with an unknown branch tip.`,
+			});
+		}
+		tips.push({ name: branch.name, sha: branch.headSha });
+	}
+	return landSuccess(tips);
 }
 
 interface LoadBranchContainsParentOptions {

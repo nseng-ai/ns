@@ -7,7 +7,7 @@ import {
 } from "@sdl/core/command";
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@sdl/capability-kit/graphite/branch";
-import type { CommandStreamFinish, LandStackExtensionAPI, LandingPlan } from "./types.ts";
+import type { CommandStreamFinish, LandStackExtensionAPI, FlowLandingPlan } from "./types.ts";
 
 const READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX = [
 	"flow",
@@ -195,7 +195,7 @@ export function untrackLocalBranchOperation(
 	return { kind: "untrack-local-branch", branch };
 }
 
-export function restackTargetForSubmit(plan: LandingPlan): string | undefined {
+export function restackTargetForSubmit(plan: FlowLandingPlan): string | undefined {
 	return plan.submitRestackRequirements[0]?.branch;
 }
 

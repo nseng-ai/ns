@@ -199,8 +199,6 @@ export interface FlowLandingPlan {
 	descendantMaintenance: DescendantMaintenancePlan;
 }
 
-export type LandingPlan = FlowLandingPlan;
-
 export interface LandedPr {
 	branch: string;
 	number: number;

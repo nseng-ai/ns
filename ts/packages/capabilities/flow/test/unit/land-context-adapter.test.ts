@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
@@ -10,11 +11,7 @@ import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-help
 const ROOT = "/repo";
 const DB_PATH = `${ROOT}/.git/.graphite_metadata.db`;
 const TOPOLOGY_ARGS = topologyArgs(DB_PATH);
-const FOR_EACH_REF_ARGS = [
-	"for-each-ref",
-	"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-	"refs/heads",
-];
+const FOR_EACH_REF_ARGS = [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS];
 const SQUASH_MERGE_ARGS = [
 	"pr",
 	"merge",

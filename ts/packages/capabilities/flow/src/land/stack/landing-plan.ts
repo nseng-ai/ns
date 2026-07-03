@@ -3,11 +3,12 @@ import type { LandingFailure } from "../api.ts";
 import {
 	failure,
 	landStackFailure,
+	success,
 	type LandStackFailure,
 	type LandStackResult,
 } from "./errors.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
-import type { FlowLandingPlan } from "./types.ts";
+import type { FlowLandingPlan, PrSubmitRequirement } from "./types.ts";
 
 export async function buildLandingPlan(
 	runtime: LandRuntime,
@@ -25,7 +26,7 @@ export async function buildLandingPlan(
 	});
 	if (landPlan.type === "failure") return failure(toLandStackFailure(landPlan.failure));
 
-	return { type: "success", value: toFlowLandingPlan(landPlan.value) };
+	return success(toFlowLandingPlan(landPlan.value));
 }
 
 type StackLandingPlanResult = Awaited<ReturnType<typeof buildStackLandingPlan>>;
@@ -146,12 +147,8 @@ function landStackFailureOptionsForDomainFailure(
 	};
 }
 
-export function formatPrSubmitRequirement(requirement: RestacklessPrSubmitRequirement): string {
+export function formatPrSubmitRequirement(
+	requirement: Pick<PrSubmitRequirement, "branch" | "prNumber" | "reasons">,
+): string {
 	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
 }
-
-type RestacklessPrSubmitRequirement = {
-	readonly branch: string;
-	readonly prNumber: number;
-	readonly reasons: readonly string[];
-};

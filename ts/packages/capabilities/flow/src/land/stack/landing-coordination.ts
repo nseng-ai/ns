@@ -22,7 +22,7 @@ import {
 	setStatus,
 } from "./presentation.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
-import type { LandStackCommandContext, LandedPr, LandingPlan } from "./types.ts";
+import type { LandStackCommandContext, LandedPr, FlowLandingPlan } from "./types.ts";
 
 export interface LandingSession {
 	ctx: LandStackCommandContext;
@@ -33,13 +33,13 @@ export interface LandingSession {
 interface PreparePlanForMergeOptions {
 	runtime: LandRuntime;
 	session: LandingSession;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	preMergeConfirmation?: PreMergeConfirmation;
 }
 
 export async function preparePlanForMerge(
 	options: PreparePlanForMergeOptions,
-): Promise<LandStackResult<LandingPlan>> {
+): Promise<LandStackResult<FlowLandingPlan>> {
 	const result = await preparePlanForMergeCore(options);
 	if (result.type === "failure") {
 		presentLandStackFailure({
@@ -52,7 +52,7 @@ export async function preparePlanForMerge(
 
 async function preparePlanForMergeCore(
 	options: PreparePlanForMergeOptions,
-): Promise<LandStackResult<LandingPlan>> {
+): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, plan } = options;
 	const { ctx, commandStream } = options.session;
 	const preMergeConfirmation = options.preMergeConfirmation ?? "prompt";
@@ -90,7 +90,7 @@ async function preparePlanForMergeCore(
 interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 	runtime: LandRuntime;
 	ctx: LandStackCommandContext;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	landContext: ReturnType<typeof createRuntimeLandContext>;
 	commandStream: LandStackCommandStream;
 	preMergeConfirmation: PreMergeConfirmation;
@@ -98,7 +98,7 @@ interface SubmitRequiredUpdatesAndRecheckPlanOptions {
 
 async function submitRequiredUpdatesAndRecheckPlan(
 	options: SubmitRequiredUpdatesAndRecheckPlanOptions,
-): Promise<LandStackResult<LandingPlan>> {
+): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
 		runtime,
@@ -151,7 +151,7 @@ export async function confirmMainLanding(
 	});
 }
 
-export function formatPreparingLandingMilestone(plan: LandingPlan): string {
+export function formatPreparingLandingMilestone(plan: FlowLandingPlan): string {
 	return `Preparing to land ${plan.stack.landingBranches.length} PR${plan.stack.landingBranches.length === 1 ? "" : "s"} through ${plan.stack.landingTargetBranch}...`;
 }
 

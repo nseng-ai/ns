@@ -35,7 +35,7 @@ import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	LandedPr,
-	LandingPlan,
+	FlowLandingPlan,
 	NotifyLevel,
 	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
@@ -625,7 +625,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("formats plans and failures", () => {
-		const plan: LandingPlan = {
+		const plan: FlowLandingPlan = {
 			repoRoot: ROOT,
 			metadataDbPath: DB_PATH,
 			stack: {
@@ -668,7 +668,7 @@ describe("land-stack pure helpers", () => {
 		expect(formatted).toContain(
 			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
 		);
-		const planWithSubmit: LandingPlan = {
+		const planWithSubmit: FlowLandingPlan = {
 			...plan,
 			prSubmitRequirements: [
 				{

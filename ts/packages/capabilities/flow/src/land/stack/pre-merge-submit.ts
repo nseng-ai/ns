@@ -9,7 +9,7 @@ import {
 import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
 import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
 import { setStatus } from "./presentation.ts";
-import type { LandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
+import type { FlowLandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
 
 export interface PreMergeSubmitMaintenanceOptions extends PreMergeMaintenanceOptions {
 	readonly landContext: LandContext;
@@ -107,7 +107,7 @@ function preMergeGraphiteFailure(
 	});
 }
 
-export function formatSubmitUpdateDetails(plan: LandingPlan): string {
+export function formatSubmitUpdateDetails(plan: FlowLandingPlan): string {
 	const submitOperation = {
 		kind: "submit-update",
 		branch: plan.stack.landingTargetBranch,

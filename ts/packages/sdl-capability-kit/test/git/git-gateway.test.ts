@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@sdl/core/exec";
-import { RealGitGateway } from "@sdl/capability-kit/git";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS, RealGitGateway } from "@sdl/capability-kit/git";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 
 const ROOT = "/repo";
@@ -406,18 +406,10 @@ describe("real git gateway", () => {
 			step("git", ["status", "--porcelain", "--", ".sdl/objectives"], {
 				stdout: " M .sdl/objectives/a/objective.md\n",
 			}),
-			step(
-				"git",
-				[
-					"for-each-ref",
-					"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-					"refs/heads",
-				],
-				{
-					stdout:
-						"feature/a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\t2026-06-15T12:00:00+00:00\nfeature/b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t\n\n",
-				},
-			),
+			step("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], {
+				stdout:
+					"feature/a\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\t2026-06-15T12:00:00+00:00\nfeature/b\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\t\n\n",
+			}),
 			step("git", ["rev-parse", "refs/heads/main:.sdl/objectives"], { stdout: "tree-main\n" }),
 			step("git", ["rev-parse", "refs/heads/feature:.sdl/objectives"], {
 				stderr: "fatal: path '.sdl/objectives' does not exist in 'refs/heads/feature'",
@@ -488,15 +480,7 @@ describe("real git gateway", () => {
 				code: 2,
 				stderr: "bad status",
 			}),
-			errorStep(
-				"git",
-				[
-					"for-each-ref",
-					"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-					"refs/heads",
-				],
-				new Error("spawn ENOENT"),
-			),
+			errorStep("git", [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS], new Error("spawn ENOENT")),
 			step("git", ["rev-parse", "HEAD:.sdl/objectives"], { code: 2, stderr: "unexpected" }),
 			step("git", ["diff", "--name-only", "main..feature", "--", ".sdl/objectives"], {
 				killed: true,

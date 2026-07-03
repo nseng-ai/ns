@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { formatCommand, type ExecResult } from "@sdl/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@sdl/capability-kit/git";
 import { ScriptedQueue } from "@sdl/core/test-kit";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
@@ -117,12 +118,18 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
+function formatLiveBranchTips(branches: readonly string[]): string {
+	if (branches.length === 0) return "";
+	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
+}
+
+function formatLiveBranchTip(branch: string): string {
+	if (branch.includes("\t")) return branch;
+	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+}
+
 describe("loadStackSnapshot reconciles Graphite metadata against live local refs", () => {
-	const FOR_EACH_REF_ARGS = [
-		"for-each-ref",
-		"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-		"refs/heads",
-	];
+	const FOR_EACH_REF_ARGS = [...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS];
 
 	async function loadSnapshot(
 		dbRows: string,
@@ -132,7 +139,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		const pi = new FakePi([
 			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 			step("git", FOR_EACH_REF_ARGS, {
-				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+				stdout: formatLiveBranchTips(liveBranches),
 			}),
 		]);
 		const result = await loadStackSnapshot({
