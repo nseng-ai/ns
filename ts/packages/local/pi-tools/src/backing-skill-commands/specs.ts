@@ -1,4 +1,4 @@
-import { genericBackingSkillRegistrations } from "./registry.ts";
+import { genericBackingSkillRegistrations } from "@ji/command-backed-skill-registry";
 
 export interface DerivedPiCommand {
 	surface: string;

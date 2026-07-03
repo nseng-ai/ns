@@ -1,8 +1,8 @@
-import { specializedCommandBackedSkill } from "@ji/pi/commands";
+import { specializedCommandBackedSkillsFromSpecs } from "@ji/pi/commands";
 
 import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 
-export const handoffCommandBackedSkillRegistrations = [
-	specializedCommandBackedSkill("handoff-create", CREATE_HANDOFF_COMMAND_NAME),
-	specializedCommandBackedSkill("handoff-pickup", PICKUP_HANDOFF_COMMAND_NAME),
-] as const;
+export const handoffCommandBackedSkillRegistrations = specializedCommandBackedSkillsFromSpecs([
+	{ skillName: "handoff-create", commandName: CREATE_HANDOFF_COMMAND_NAME },
+	{ skillName: "handoff-pickup", commandName: PICKUP_HANDOFF_COMMAND_NAME },
+]);

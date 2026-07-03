@@ -14,7 +14,8 @@
 	},
 	"dependencies": {
 		"@ji/handoff": "workspace:*",
-		"@ji/objective": "workspace:*"
+		"@ji/objective": "workspace:*",
+		"@ji/pi": "workspace:*"
 	},
 	"ji": {
 		"tier": "host"

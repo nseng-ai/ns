@@ -2,6 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@ji/handoff/pi";
 import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ji/objective/api";
+import {
+	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+	WRITE_PLAN_COMMAND_NAME,
+} from "@ji/pi/commands";
 
 import {
 	commandBackedSkillRegistrations,
@@ -24,6 +29,14 @@ describe("command-backed skill registry", () => {
 	test("uses Handoff provider-owned command constants", () => {
 		expect(commandBackedSkillSurface("handoff-create")).toBe(CREATE_HANDOFF_COMMAND_NAME);
 		expect(commandBackedSkillSurface("handoff-pickup")).toBe(PICKUP_HANDOFF_COMMAND_NAME);
+	});
+
+	test("uses Pi-owned command constants", () => {
+		expect(commandBackedSkillSurface("branch-context-from-plan")).toBe(
+			BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+		);
+		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
+		expect(commandBackedSkillSurface("enriched-plan-save")).toBe(WRITE_PLAN_COMMAND_NAME);
 	});
 
 	test("uses Objective provider-owned command specs", () => {

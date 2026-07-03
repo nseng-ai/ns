@@ -1,23 +1,29 @@
 import { handoffCommandBackedSkillRegistrations } from "@ji/handoff/pi";
 import { objectiveCommandBackedSkillRegistrations } from "@ji/objective/pi";
+import {
+	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+	WRITE_PLAN_COMMAND_NAME,
+} from "@ji/pi/commands";
+import type {
+	CommandBackedSkillRegistration,
+	CommandBackedSkillRegistrationKind,
+} from "@ji/pi/commands";
 
-export type CommandBackedSkillRegistrationKind = "generic-backing-skill" | "specialized-command";
-
-export interface CommandBackedSkillRegistration {
-	skillName: string;
-	surface: string;
-	kind: CommandBackedSkillRegistrationKind;
-}
+export type {
+	CommandBackedSkillRegistration,
+	CommandBackedSkillRegistrationKind,
+} from "@ji/pi/commands";
 
 const COMMAND_BACKED_SKILL_REGISTRY = [
 	{
 		skillName: "branch-context-from-plan",
-		surface: "ji:branch-context:from-plan",
+		surface: BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 		kind: "specialized-command",
 	},
 	{
 		skillName: "branch-context-impl",
-		surface: "ji:branch-context:impl-attached-plan",
+		surface: IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 		kind: "specialized-command",
 	},
 	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
@@ -77,7 +83,7 @@ const COMMAND_BACKED_SKILL_REGISTRY = [
 	},
 	{
 		skillName: "enriched-plan-save",
-		surface: "ji:plan:save",
+		surface: WRITE_PLAN_COMMAND_NAME,
 		kind: "specialized-command",
 	},
 	{

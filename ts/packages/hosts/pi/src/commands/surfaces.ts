@@ -25,3 +25,14 @@ export function specializedCommandBackedSkill(
 ): CommandBackedSkillRegistration {
 	return { skillName, surface, kind: "specialized-command" };
 }
+
+export interface SpecializedCommandBackedSkillSpec {
+	skillName: string;
+	commandName: string;
+}
+
+export function specializedCommandBackedSkillsFromSpecs(
+	specs: readonly SpecializedCommandBackedSkillSpec[],
+): readonly CommandBackedSkillRegistration[] {
+	return specs.map((spec) => specializedCommandBackedSkill(spec.skillName, spec.commandName));
+}

@@ -438,6 +438,9 @@ importers:
       '@ji/objective':
         specifier: workspace:*
         version: link:../../capabilities/objective
+      '@ji/pi':
+        specifier: workspace:*
+        version: link:../pi
 
   packages/hosts/jicc:
     dependencies:
