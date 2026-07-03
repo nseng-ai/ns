@@ -11,8 +11,9 @@ export const GATE_CHECK_IDS = [
 	"branch-matches-report",
 	"graphite-tracked",
 	"worktree-dirty",
-	"diff-check",
 	"head-unchanged",
+	"index-clean",
+	"diff-check",
 ] as const;
 export type GateCheckId = (typeof GATE_CHECK_IDS)[number];
 
@@ -49,10 +50,13 @@ export interface VerifyRunnerStepOptions {
 /**
  * Deterministic verification gate for a `ready-for-parent-commit` report.
  *
- * Runs every check and collects all failures (no short-circuit) so a failure
+ * Runs every pre-candidate check and collects all failures so a failure
  * checkpoint carries the complete per-check picture; infrastructure errors
  * surface as failed checks with the error as detail. The mode-inapplicable
- * branch check is represented explicitly as skipped.
+ * branch check is represented explicitly as skipped. When verification passes,
+ * the gate leaves the exact runner commit candidate staged for commit. If the
+ * gate fails at or after candidate staging, the index may contain the staged
+ * candidate for recovery/inspection.
  */
 export async function verifyRunnerStep(
 	ctx: ObjectiveRunnerCoreContext,
@@ -120,8 +124,18 @@ export async function verifyRunnerStep(
 		checks.push({ id: "worktree-dirty", status: "passed" });
 	}
 
-	checks.push(await diffCheck(ctx));
 	checks.push(await headUnchangedCheck(ctx, headAtDispatch));
+	checks.push(await indexCleanCheck(ctx));
+
+	if (checks.some((check) => check.status === "failed")) {
+		checks.push({
+			id: "diff-check",
+			status: "skipped",
+			detail: "pre-candidate check failed; not staging commit candidate.",
+		});
+	} else {
+		checks.push(await stageCandidateAndDiffCheck(ctx, changedPaths));
+	}
 
 	return {
 		hasPassed: checks.every((check) => check.status !== "failed"),
@@ -177,13 +191,46 @@ async function graphiteTrackedCheck(
 	return { id: "graphite-tracked", status: "passed" };
 }
 
-async function diffCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateCheckResult> {
-	const result = await ctx.commands.exec("git", ["diff", "--check"], { cwd: ctx.repoRoot });
+async function indexCleanCheck(ctx: ObjectiveRunnerCoreContext): Promise<GateCheckResult> {
+	const result = await ctx.commands.exec("git", ["diff", "--cached", "--quiet", "--exit-code"], {
+		cwd: ctx.repoRoot,
+	});
+	if (commandSucceeded(result)) return { id: "index-clean", status: "passed" };
+	if (result.code === 1 && !result.killed) {
+		return {
+			id: "index-clean",
+			status: "failed",
+			detail:
+				"Index already has staged changes; unstage them before runner-finish because the runner owns staging.",
+		};
+	}
+	return {
+		id: "index-clean",
+		status: "failed",
+		detail: `git diff --cached --quiet --exit-code failed: ${formatCommandDetails(result)}`,
+	};
+}
+
+async function stageCandidateAndDiffCheck(
+	ctx: ObjectiveRunnerCoreContext,
+	changedPaths: readonly string[],
+): Promise<GateCheckResult> {
+	const staged = await ctx.git.stagePaths({ cwd: ctx.repoRoot, paths: changedPaths });
+	if (!staged.ok) {
+		return {
+			id: "diff-check",
+			status: "failed",
+			detail: `Could not stage runner commit candidate: ${staged.error.message}`,
+		};
+	}
+	const result = await ctx.commands.exec("git", ["diff", "--cached", "--check"], {
+		cwd: ctx.repoRoot,
+	});
 	if (commandSucceeded(result)) return { id: "diff-check", status: "passed" };
 	return {
 		id: "diff-check",
 		status: "failed",
-		detail: `git diff --check failed: ${formatCommandDetails(result)}`,
+		detail: `git diff --cached --check failed: ${formatCommandDetails(result)}`,
 	};
 }
 

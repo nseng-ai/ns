@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@sdl/clinkr";
 import { InMemoryGraphiteBranchGateway } from "@sdl/capability-kit/graphite/testing";
 import { optionalEntries } from "@sdl/core/primitives";
+import type { ExecResult } from "@sdl/kernel/sdk";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
@@ -65,23 +66,31 @@ function gateHappyGitState(overrides: SequencedGitGatewayState = {}): SequencedG
 interface ScenarioOptions {
 	git?: SequencedGitGatewayState;
 	files?: Record<string, string>;
+	execResults?: readonly Partial<ExecResult>[];
 	outputFormat?: "human" | "json" | "markdown";
 }
 
-function makeApi(options: ScenarioOptions = {}): FakeObjectiveSdlApi {
+interface ScenarioApi extends FakeObjectiveSdlApi {
+	runnerGit: SequencedGitGateway;
+}
+
+function makeApi(options: ScenarioOptions = {}): ScenarioApi {
 	const files = options.files ?? { [REPORT_PATH]: JSON.stringify(reportObject()) };
+	const runnerGit = new SequencedGitGateway(options.git ?? gateHappyGitState());
 	const readTextFile = async (path: string): Promise<RunnerTextFileReadResult> => {
 		const content = files[path];
 		if (content === undefined) return { type: "error", message: `ENOENT: no such file ${path}` };
 		return { type: "ok", content };
 	};
-	return new FakeObjectiveSdlApi({
-		git: new SequencedGitGateway(options.git ?? gateHappyGitState()),
+	const api = new FakeObjectiveSdlApi({
+		git: runnerGit,
 		graphite: new InMemoryGraphiteBranchGateway({}),
 		storage: new ObjectiveStorage(new FakeObjectiveStorageGateway({ records: [{ slug: SLUG }] })),
 		readTextFile,
+		...(options.execResults === undefined ? {} : { execResults: options.execResults }),
 		...optionalEntries({ outputFormat: options.outputFormat }),
 	});
+	return Object.assign(api, { runnerGit });
 }
 
 function assertJsonEnvelopeStdout<T>(api: FakeObjectiveSdlApi, exit: ClinkrExit<T>): unknown {
@@ -120,8 +129,11 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		);
 		expect(exit.data.checkpointMarkdown).not.toContain("- usage:");
 		expect(api.phases).toEqual(["validating-inputs", "verifying", "committing"]);
-		// git diff --check flows through the real exec seam.
-		expect(api.execCalls.some((call) => call.args.join(" ").includes("diff --check"))).toBe(true);
+		expect(api.execCalls.map((call) => call.args)).toEqual([
+			["diff", "--cached", "--quiet", "--exit-code"],
+			["diff", "--cached", "--check"],
+		]);
+		expect(api.runnerGit.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		// ok exits leave stdout to the renderers.
 		expect(api.stdoutChunks).toEqual([]);
 	});
@@ -236,6 +248,44 @@ describe("sdl objective exec runner-finish scenarios", () => {
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
 		expect(exit.message).toContain("head-unchanged");
+		expect(api.runnerGit.stagePathsCalls).toEqual([]);
+	});
+
+	test("pre-existing staged changes fail index-clean and are not committed", async () => {
+		const api = makeApi({ execResults: [{ code: 1 }] });
+
+		const exit = await runObjectiveCommand(
+			objectiveExecRunnerFinishSdlCommand,
+			{ slug: SLUG, facts: factsEnvelopeText() },
+			{ api },
+		);
+
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.data?.status).toBe("verification-failed");
+		const indexClean = exit.data?.gateChecks.find((check) => check.id === "index-clean");
+		expect(indexClean?.status).toBe("failed");
+		expect(api.runnerGit.stagePathsCalls).toEqual([]);
+		expect(api.runnerGit.commitCalls).toEqual([]);
+	});
+
+	test("cached diff failure is a verification failure and is not committed", async () => {
+		const api = makeApi({ execResults: [{}, { code: 2, stderr: "trailing whitespace" }] });
+
+		const exit = await runObjectiveCommand(
+			objectiveExecRunnerFinishSdlCommand,
+			{ slug: SLUG, facts: factsEnvelopeText() },
+			{ api },
+		);
+
+		expect(exit.type).toBe("negative");
+		if (exit.type !== "negative") throw new Error("expected negative exit");
+		expect(exit.data?.status).toBe("verification-failed");
+		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
+		expect(diffCheck?.status).toBe("failed");
+		expect(diffCheck?.detail).toContain("trailing whitespace");
+		expect(api.runnerGit.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
+		expect(api.runnerGit.commitCalls).toEqual([]);
 	});
 
 	test("missing report file is a report-missing malfunction with checkpoint diagnostics", async () => {

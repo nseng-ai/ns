@@ -25,6 +25,8 @@ export interface FakeObjectiveSdlApiOptions extends ObjectiveRunnerOverrides {
 	env?: Record<string, string | undefined>;
 	/** Overrides merged into every recorded `exec` result (defaults to exit 0). */
 	execResult?: Partial<ExecResult>;
+	/** Per-call `exec` result overrides; the last value repeats once exhausted. */
+	execResults?: readonly Partial<ExecResult>[];
 	outputFormat?: ClinkrFormat;
 }
 
@@ -50,11 +52,14 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	private readonly execResult: Partial<ExecResult>;
+	private readonly execResults: readonly Partial<ExecResult>[];
+	private execResultIndex = 0;
 
 	constructor(options: FakeObjectiveSdlApiOptions = {}) {
 		this.cwd = options.cwd ?? "/repo";
 		this.env = { HOME: "/home/sdl-test", ...(options.env ?? {}) };
 		this.execResult = { ...(options.execResult ?? {}) };
+		this.execResults = (options.execResults ?? []).map((result) => ({ ...result }));
 		this.outputFormat = options.outputFormat ?? "human";
 		this.stdout = (text) => {
 			this.stdoutChunks.push(text);
@@ -80,13 +85,23 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 				// reads a childSession override.
 				childSession: options.childSession,
 				readTextFile: options.readTextFile,
+				filePresence: options.filePresence,
 			}),
 		};
 	}
 
 	async exec(command: string, args: string[], options?: SdlExecOptions): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
-		return { stdout: "", stderr: "", code: 0, killed: false, ...this.execResult };
+		const sequenced = nextFromSequence(this.execResults, this.execResultIndex);
+		this.execResultIndex = sequenced.nextIndex;
+		return {
+			stdout: "",
+			stderr: "",
+			code: 0,
+			killed: false,
+			...this.execResult,
+			...sequenced.value,
+		};
 	}
 
 	readonly textGenerator = {
@@ -134,4 +149,12 @@ function isClinkrExit<T>(value: unknown): value is ClinkrExit<T> {
 	if (typeof value !== "object" || value === null) return false;
 	const type = (value as { type?: unknown }).type;
 	return type === "ok" || type === "negative" || type === "failure" || type === "usageError";
+}
+
+function nextFromSequence<T>(
+	sequence: readonly T[],
+	index: number,
+): { value: T | undefined; nextIndex: number } {
+	if (sequence.length === 0) return { value: undefined, nextIndex: index };
+	return { value: sequence[Math.min(index, sequence.length - 1)], nextIndex: index + 1 };
 }

@@ -82,6 +82,9 @@ function createIntegrationRunnerContext(
 		async readTextFile(path) {
 			return { type: "error", message: `guidance files are not used in this test: ${path}` };
 		},
+		async filePresence() {
+			return { type: "missing" };
+		},
 		stdoutChunks,
 	};
 }

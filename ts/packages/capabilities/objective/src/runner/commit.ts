@@ -27,22 +27,17 @@ export interface CommitRunnerStepOptions {
 	mode: RunnerStepMode;
 	subject: string;
 	body?: string;
-	/** Live changed paths attested by the gate's statusPaths call. */
-	changedPaths: readonly string[];
 }
 
 export type CommitRunnerStepResult =
 	| { type: "ok"; commitSha: string; message: string }
 	| { type: "error"; code: string; message: string };
 
-/** Stages exactly the gate-attested changed paths, then commits them. */
+/** Commits the candidate prepared by the runner gate. */
 export async function commitRunnerStep(
 	ctx: ObjectiveRunnerCoreContext,
 	options: CommitRunnerStepOptions,
 ): Promise<CommitRunnerStepResult> {
-	const staged = await ctx.git.stagePaths({ cwd: ctx.repoRoot, paths: options.changedPaths });
-	if (!staged.ok) return { type: "error", code: staged.error.code, message: staged.error.message };
-
 	const message = composeRunnerCommitMessage({
 		subject: options.subject,
 		...optionalEntry("body", options.body),

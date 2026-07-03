@@ -250,11 +250,9 @@ describe("sdl objective exec runner-step scenarios", () => {
 			"verifying",
 			"committing",
 		]);
-		// `git diff --check` runs through the real SdlCommandExecApi wiring.
-		expect(api.execCalls.map((call) => [call.command, ...call.args])).toContainEqual([
-			"git",
-			"diff",
-			"--check",
+		expect(api.execCalls.map((call) => [call.command, ...call.args])).toEqual([
+			["git", "diff", "--cached", "--quiet", "--exit-code"],
+			["git", "diff", "--cached", "--check"],
 		]);
 	});
 

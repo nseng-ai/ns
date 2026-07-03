@@ -76,11 +76,18 @@ export async function runRunnerBegin(
 			{ argument: "report-path" },
 		);
 	}
-	const existing = await ctx.readTextFile(reportPath);
-	if (existing.type === "ok") {
+	const presence = await ctx.filePresence(reportPath);
+	if (presence.type === "present") {
 		return usageError(
 			`Report file ${reportPath} already exists; every attempt (including --recover re-dispatch) requires a fresh report path.`,
 			{ argument: "report-path" },
+		);
+	}
+	if (presence.type === "error") {
+		return failure(
+			"report-path-presence-failed",
+			`Could not determine whether report path ${reportPath} already exists: ${presence.message}`,
+			{ argument: "report-path", reportPath },
 		);
 	}
 

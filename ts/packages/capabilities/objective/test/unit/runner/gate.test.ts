@@ -32,6 +32,7 @@ function gateContext(overrides: RunnerFakesOptions = {}) {
 		},
 		...(overrides.graphite === undefined ? {} : { graphite: overrides.graphite }),
 		...(overrides.execResult === undefined ? {} : { execResult: overrides.execResult }),
+		...(overrides.execResults === undefined ? {} : { execResults: overrides.execResults }),
 	});
 }
 
@@ -60,10 +61,15 @@ describe("verifyRunnerStep", () => {
 			["branch-matches-report", "passed"],
 			["graphite-tracked", "passed"],
 			["worktree-dirty", "passed"],
-			["diff-check", "passed"],
 			["head-unchanged", "passed"],
+			["index-clean", "passed"],
+			["diff-check", "passed"],
 		]);
-		expect(ctx.execCalls).toEqual([{ command: "git", args: ["diff", "--check"] }]);
+		expect(ctx.execCalls).toEqual([
+			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
+			{ command: "git", args: ["diff", "--cached", "--check"] },
+		]);
+		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 		expect(ctx.graphite.checkBranchTrackedCalls).toEqual([
 			{ cwd: "/repo", branch: "feature/demo-step" },
 		]);
@@ -199,8 +205,45 @@ describe("verifyRunnerStep", () => {
 		expect(outcome.changedPaths).toEqual([]);
 	});
 
-	test("fails diff-check when git diff --check exits nonzero", async () => {
-		const ctx = gateContext({ execResult: { code: 2, stderr: "trailing whitespace" } });
+	test("fails index-clean and does not stage when the child pre-staged changes", async () => {
+		const ctx = gateContext({ execResults: [{ code: 1 }] });
+
+		const outcome = await verifyRunnerStep(ctx, {
+			mode: "default",
+			report: report(),
+			baseBranch: "main",
+			headAtDispatch: DEFAULT_HEAD,
+		});
+
+		expect(outcome.hasPassed).toBe(false);
+		const byId = checkById(outcome.checks);
+		expect(byId.get("index-clean")?.status).toBe("failed");
+		expect(byId.get("diff-check")?.status).toBe("skipped");
+		expect(ctx.git.stagePathsCalls).toEqual([]);
+	});
+
+	test("precondition failure skips staging and cached diff", async () => {
+		const ctx = gateContext({ git: { currentBranch: "main" } });
+
+		const outcome = await verifyRunnerStep(ctx, {
+			mode: "default",
+			report: report({ branch: "main" }),
+			baseBranch: "feature/other",
+			headAtDispatch: DEFAULT_HEAD,
+		});
+
+		expect(outcome.hasPassed).toBe(false);
+		expect(checkById(outcome.checks).get("diff-check")?.status).toBe("skipped");
+		expect(ctx.git.stagePathsCalls).toEqual([]);
+		expect(ctx.execCalls).toEqual([
+			{ command: "git", args: ["diff", "--cached", "--quiet", "--exit-code"] },
+		]);
+	});
+
+	test("fails diff-check when git diff --cached --check exits nonzero", async () => {
+		const ctx = gateContext({
+			execResults: [{}, { code: 2, stderr: "trailing whitespace" }],
+		});
 
 		const outcome = await verifyRunnerStep(ctx, {
 			mode: "default",
@@ -213,6 +256,7 @@ describe("verifyRunnerStep", () => {
 		const check = checkById(outcome.checks).get("diff-check");
 		expect(check?.status).toBe("failed");
 		expect(check?.detail).toContain("trailing whitespace");
+		expect(ctx.git.stagePathsCalls).toEqual([{ cwd: "/repo", paths: ["src/a.ts"] }]);
 	});
 
 	test("fails head-unchanged when HEAD moved since dispatch", async () => {
@@ -255,10 +299,9 @@ describe("verifyRunnerStep", () => {
 		}
 	});
 
-	test("collects all failures without short-circuiting", async () => {
+	test("collects all pre-candidate failures before skipping candidate staging", async () => {
 		const ctx = gateContext({
 			git: { currentBranch: "main", statusPaths: { changedPaths: [] } },
-			execResult: { code: 2, stderr: "conflict marker" },
 		});
 
 		const outcome = await verifyRunnerStep(ctx, {
@@ -277,8 +320,9 @@ describe("verifyRunnerStep", () => {
 			"moved-off-base",
 			"branch-matches-report",
 			"worktree-dirty",
-			"diff-check",
 			"head-unchanged",
 		]);
+		expect(checkById(outcome.checks).get("diff-check")?.status).toBe("skipped");
+		expect(ctx.git.stagePathsCalls).toEqual([]);
 	});
 });
