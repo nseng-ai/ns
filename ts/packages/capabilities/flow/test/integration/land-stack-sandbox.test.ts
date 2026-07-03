@@ -99,9 +99,8 @@ interface SandboxState {
 
 interface Sandbox {
 	tempRoot: string;
-	repoRoot: string;
+	git: GitFixture;
 	statePath: string;
-	env: NodeJS.ProcessEnv;
 	shas: Record<string, string>;
 }
 
@@ -328,7 +327,7 @@ describe("land stack sandbox integration", () => {
 						],
 						topologyReads: [
 							[
-								{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+								{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 								{ branch: FEATURE_A, parent: TRUNK, children: [] },
 							],
 						],
@@ -359,7 +358,7 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	if (parsed.type !== "success") throw new Error(parsed.failure.message);
 	const notifications: Notification[] = [];
 	const ctx: LandStackCommandContext = {
-		cwd: sandbox.repoRoot,
+		cwd: sandbox.git.repoRoot,
 		hasUI: true,
 		ui: {
 			notify(message, level) {
@@ -375,8 +374,8 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	const pi: LandStackExtensionAPI = {
 		async exec(command, args, execOptions = {}) {
 			return await runCommand(command, args, {
-				cwd: execOptions.cwd ?? sandbox.repoRoot,
-				env: sandbox.env,
+				cwd: execOptions.cwd ?? sandbox.git.repoRoot,
+				env: sandbox.git.env,
 				...(execOptions.timeout === undefined ? {} : { timeout: execOptions.timeout }),
 			});
 		},
@@ -410,7 +409,7 @@ async function withSandbox(
 		const git = { repoRoot, env } satisfies GitFixture;
 		const shas = await initializeGitStack(git, options.currentBranch);
 		await writeState(statePath, buildInitialState(shas, options.state));
-		await run({ tempRoot, repoRoot, statePath, env, shas });
+		await run({ tempRoot, git, statePath, shas });
 	} finally {
 		await rm(tempRoot, {
 			recursive: true,
@@ -571,8 +570,8 @@ function pr(options: SandboxPrOptions): SandboxPr {
 
 async function localBranches(sandbox: Sandbox): Promise<string[]> {
 	const result = await runRequiredCommand({
-		cwd: sandbox.repoRoot,
-		env: sandbox.env,
+		cwd: sandbox.git.repoRoot,
+		env: sandbox.git.env,
 		command: "git",
 		args: ["branch", "--format=%(refname:short)"],
 	});
@@ -703,7 +702,7 @@ if (command === "gt") {
   if (args[0] === "get") {
     const branch = args[1];
     const failure = state.gtGetFailures && state.gtGetFailures[branch];
-    if (failure) finish(failure.code || 1, "", failure.stderr || "gt get failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt get failed\\n");
     finish(0, "");
   }
   if (args[0] === "delete") {
@@ -720,7 +719,7 @@ if (command === "gt") {
   if (args[0] === "restack") {
     const branch = args[args.indexOf("--branch") + 1];
     const failure = state.gtRestackFailures && state.gtRestackFailures[branch];
-    if (failure) finish(failure.code || 1, "", failure.stderr || "gt restack failed\\n");
+    if (failure) finish(failure.code ?? 1, "", failure.stderr || "gt restack failed\\n");
     finish(0, "");
   }
   if (args[0] === "submit") {
