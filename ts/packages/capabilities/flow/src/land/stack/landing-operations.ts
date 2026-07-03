@@ -19,7 +19,7 @@ import type { LandRuntime } from "./land-runtime.ts";
 import type {
 	LandStackCommandContext,
 	LandedPr,
-	LandingPlan,
+	FlowLandingPlan,
 	LandingWarning,
 	MergeLoopState,
 	PullRequestSnapshot,
@@ -52,7 +52,7 @@ function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): str
 	].join("\n");
 }
 
-export function residualPreMergeFailure(plan: LandingPlan): LandStackFailure | undefined {
+export function residualPreMergeFailure(plan: FlowLandingPlan): LandStackFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landStackFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
 			suggestedAction: `Run ${formatCommand("sdl", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /sdl:flow:land.`,
@@ -103,8 +103,7 @@ export async function confirmAndFreeManagedSlots(
 		repoRoot: plan.repoRoot,
 		slots: plan.managedSlotConflicts.map(toManagedSlotWorktree),
 	});
-	if (result.type === "failure")
-		return failure(preMergeSlotFailure(result.failure, commandDisplay));
+	if (result.type === "failure") return failure(preMergeSlotFailure(result.failure));
 
 	setStatus(ctx, "rechecking landing worktrees...");
 	const cleanRepo = await assertCleanRepo(pi, plan.repoRoot);
@@ -145,12 +144,8 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 	};
 }
 
-function preMergeSlotFailure(
-	landFailureValue: LandingFailure,
-	commandDisplay: string,
-): LandStackFailure {
+function preMergeSlotFailure(landFailureValue: LandingFailure): LandStackFailure {
 	return landStackFailure(landFailureValue.message, {
-		commandDisplay,
 		suggestedAction:
 			"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /sdl:flow:land.",
 	});
@@ -213,7 +208,7 @@ export interface RunMergeLoopOptions extends GraphiteMaintenanceOptions {
 	runtime: LandRuntime;
 	landContext: LandContext;
 	ctx: LandStackCommandContext;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	landed: LandedPr[];
 	warnings: LandingWarning[];
 }

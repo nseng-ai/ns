@@ -19,7 +19,7 @@ import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
 	LandedPr,
-	LandingPlan,
+	FlowLandingPlan,
 	LandingWarning,
 	LandResultKind,
 	NotifyLevel,
@@ -30,7 +30,7 @@ import { formatConflict, formatSlotConflict } from "./worktrees.ts";
 
 const MAX_NOTIFICATION_CHARS = 160;
 
-export function formatPlan(plan: LandingPlan): string {
+export function formatPlan(plan: FlowLandingPlan): string {
 	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
 	const lines: string[] = [];
 

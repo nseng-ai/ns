@@ -330,6 +330,16 @@ function metadataBranchNames(dbRows: string): string[] {
 		.filter((name): name is string => typeof name === "string");
 }
 
+function formatLiveBranchTips(branches: readonly string[]): string {
+	if (branches.length === 0) return "";
+	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
+}
+
+function formatLiveBranchTip(branch: string): string {
+	if (branch.includes("\t")) return branch;
+	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+}
+
 function repoIntro(
 	options: {
 		current?: string;
@@ -355,7 +365,7 @@ function repoIntro(
 				"refs/heads",
 			],
 			{
-				stdout: liveBranches.length > 0 ? `${liveBranches.join("\n")}\n` : "",
+				stdout: formatLiveBranchTips(liveBranches),
 			},
 		),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),

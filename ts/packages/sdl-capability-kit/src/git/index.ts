@@ -60,6 +60,15 @@ export {
 
 const GIT_TIMEOUT_MS = 10_000;
 
+export const GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_FORMAT =
+	"%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)";
+
+export const GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS = [
+	"for-each-ref",
+	`--format=${GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_FORMAT}`,
+	"refs/heads",
+] as const;
+
 interface CommandRun {
 	result: ExecResult;
 	displayCommand: string;
@@ -297,11 +306,7 @@ export class RealGitGateway implements GitGateway {
 	): Promise<GitResult<readonly GitLocalBranchTip[]>> {
 		const run = await this.runGitExpectingSuccess(
 			params,
-			[
-				"for-each-ref",
-				"--format=%(refname:short)%09%(objectname)%09%(committerdate:iso-strict)",
-				"refs/heads",
-			],
+			[...GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS],
 			{
 				code: "git_branch_tips_failed",
 				title: "git local branch tip listing failed",

@@ -15,7 +15,7 @@ import {
 	presentLandingSuccess,
 } from "./presentation.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./land-runtime.ts";
-import type { LandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
+import type { FlowLandingPlan, LandingWarning, ParsedArgs } from "./types.ts";
 
 interface ExecuteLandingPlanOptions {
 	runtime: LandRuntime;
@@ -25,7 +25,7 @@ interface ExecuteLandingPlanOptions {
 		preMergeConfirmation?: PreMergeConfirmation;
 	};
 	session: LandingSession;
-	plan: LandingPlan;
+	plan: FlowLandingPlan;
 	warnings: LandingWarning[];
 }
 
