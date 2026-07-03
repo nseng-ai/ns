@@ -1,4 +1,4 @@
-import type { ObjectiveRecordDocument } from "../record-frontmatter.ts";
+import type { ObjectiveRecordDocument, ObjectiveRecordFrontmatter } from "../record-frontmatter.ts";
 import {
 	activeRecordRelativePath,
 	archivedRecordRelativePath,
@@ -6,7 +6,11 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveStorageResult,
 } from "../storage.ts";
-import type { ObjectiveCheckItem } from "./check-items.ts";
+import {
+	objectiveMdExistsCheck,
+	objectiveMdReadableCheck,
+	type ObjectiveCheckItem,
+} from "./check-items.ts";
 
 /**
  * Edge and Blocked Sentence structural linter (ADR 0025). Every violation is an
@@ -31,17 +35,17 @@ export async function objectiveEdgeLintChecks(
 	options: ObjectiveEdgeLintOptions,
 ): Promise<ObjectiveStorageResult<readonly ObjectiveCheckItem[]>> {
 	const path = `${options.recordRelativePath}/objective.md`;
-	const parse = options.document.frontmatter;
-	if (parse === undefined) return { ok: true, value: [] };
-	if (parse.type === "malformed") {
+	const frontmatterState = classifyRecordFrontmatter(options.document);
+	if (frontmatterState.type === "absent") return { ok: true, value: [] };
+	if (frontmatterState.type === "malformed") {
 		return {
 			ok: true,
-			value: [violation(path, "objective.md Record Frontmatter parses", parse.message)],
+			value: [violation(path, "objective.md Record Frontmatter parses", frontmatterState.message)],
 		};
 	}
 
 	const violations: ObjectiveCheckItem[] = [];
-	const frontmatter = parse.frontmatter;
+	const frontmatter = frontmatterState.frontmatter;
 	if (frontmatter.blocked !== null && frontmatter.blocked.trim() === "") {
 		violations.push(
 			violation(
@@ -96,7 +100,12 @@ export async function objectiveEdgeLintChecks(
 		}
 		seenEndpoints.add(endpoint);
 
-		const mirror = await mirrorViolation(options.storage, options.slug, path, endpoint);
+		const mirror = await mirrorViolation({
+			storage: options.storage,
+			slug: options.slug,
+			path,
+			endpoint,
+		});
 		if (!mirror.ok) return mirror;
 		if (mirror.value !== null) violations.push(mirror.value);
 	}
@@ -134,20 +143,15 @@ export async function sweepObjectiveEdgeLint(
 	const violations: ObjectiveCheckItem[] = [];
 	for (const target of targets) {
 		const read = await storage.readObjectiveRecordDocument(target.recordRelativePath);
+		const path = `${target.recordRelativePath}/objective.md`;
 		if (read.type === "missing") {
 			violations.push(
-				violation(`${target.recordRelativePath}/objective.md`, "objective.md exists", "missing"),
+				objectiveMdExistsCheck({ recordRelativePath: target.recordRelativePath, isPresent: false }),
 			);
 			continue;
 		}
 		if (read.type === "unreadable") {
-			violations.push(
-				violation(
-					`${target.recordRelativePath}/objective.md`,
-					"objective.md is readable Markdown",
-					read.message,
-				),
-			);
+			violations.push(objectiveMdReadableCheck({ path, read }));
 			continue;
 		}
 		const lint = await objectiveEdgeLintChecks({
@@ -162,13 +166,18 @@ export async function sweepObjectiveEdgeLint(
 	return { ok: true, value: { recordCount: targets.length, violations } };
 }
 
+interface MirrorViolationOptions {
+	storage: ObjectiveStorage;
+	slug: string;
+	path: string;
+	endpoint: string;
+}
+
 async function mirrorViolation(
-	storage: ObjectiveStorage,
-	slug: string,
-	path: string,
-	endpoint: string,
+	options: MirrorViolationOptions,
 ): Promise<ObjectiveStorageResult<ObjectiveCheckItem | null>> {
-	const counterpartPath = await resolveCounterpartRecordPath(storage, endpoint);
+	const { storage, slug, path, endpoint } = options;
+	const counterpartPath = await storage.resolveRecordRelativePath(endpoint);
 	if (!counterpartPath.ok) return counterpartPath;
 	if (counterpartPath.value === null) {
 		return {
@@ -196,20 +205,22 @@ async function mirrorViolation(
 			),
 		};
 	}
-	const counterpartParse = counterpart.document.frontmatter;
-	if (counterpartParse === undefined) {
+	const counterpartFrontmatter = classifyRecordFrontmatter(counterpart.document);
+	if (counterpartFrontmatter.type === "absent") {
 		return {
 			ok: true,
 			value: violation(path, label, "counterpart has no Record Frontmatter"),
 		};
 	}
-	if (counterpartParse.type === "malformed") {
+	if (counterpartFrontmatter.type === "malformed") {
 		return {
 			ok: true,
 			value: violation(path, label, "counterpart Record Frontmatter is malformed"),
 		};
 	}
-	const hasMirror = counterpartParse.frontmatter.edges.some((edge) => edge.objective === slug);
+	const hasMirror = counterpartFrontmatter.frontmatter.edges.some(
+		(edge) => edge.objective === slug,
+	);
 	if (!hasMirror) {
 		return {
 			ok: true,
@@ -219,17 +230,18 @@ async function mirrorViolation(
 	return { ok: true, value: null };
 }
 
-async function resolveCounterpartRecordPath(
-	storage: ObjectiveStorage,
-	slug: string,
-): Promise<ObjectiveStorageResult<string | null>> {
-	const active = await storage.activeRecordExists(slug);
-	if (!active.ok) return active;
-	if (active.value) return { ok: true, value: activeRecordRelativePath(slug) };
-	const archived = await storage.archivedRecordExists(slug);
-	if (!archived.ok) return archived;
-	if (archived.value) return { ok: true, value: archivedRecordRelativePath(slug) };
-	return { ok: true, value: null };
+type RecordFrontmatterClassification =
+	| { type: "absent" }
+	| { type: "malformed"; message: string }
+	| { type: "parsed"; frontmatter: ObjectiveRecordFrontmatter };
+
+function classifyRecordFrontmatter(
+	document: ObjectiveRecordDocument,
+): RecordFrontmatterClassification {
+	const parse = document.frontmatter;
+	if (parse === undefined) return { type: "absent" };
+	if (parse.type === "malformed") return { type: "malformed", message: parse.message };
+	return { type: "parsed", frontmatter: parse.frontmatter };
 }
 
 function violation(path: string, label: string, detail: string): ObjectiveCheckItem {

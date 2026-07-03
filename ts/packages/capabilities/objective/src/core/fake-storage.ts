@@ -1,12 +1,14 @@
 import { dirname } from "node:path";
 
-import type {
-	ObjectiveDirectoryEntry,
-	ObjectiveMarkdownReadResult,
-	ObjectivePathKind,
-	ObjectiveStorageError,
-	ObjectiveStorageGateway,
-	ObjectiveStorageResult,
+import {
+	activeRecordRelativePath,
+	archivedRecordRelativePath,
+	type ObjectiveDirectoryEntry,
+	type ObjectiveMarkdownReadResult,
+	type ObjectivePathKind,
+	type ObjectiveStorageError,
+	type ObjectiveStorageGateway,
+	type ObjectiveStorageResult,
 } from "./storage.ts";
 
 export interface FakeObjectiveRecordOptions {
@@ -16,7 +18,7 @@ export interface FakeObjectiveRecordOptions {
 	orientationMd?: string | null;
 	updates?: Readonly<Record<string, string>>;
 	isClosed?: boolean;
-	/** Place the record under `.sdl/objective-archive` instead of the active root. */
+	/** Place the record under `.ji/objective-archive` instead of the active root. */
 	isArchived?: boolean;
 }
 
@@ -159,8 +161,8 @@ export class FakeObjectiveStorageGateway implements ObjectiveStorageGateway {
 	addObjectiveRecord(record: FakeObjectiveRecordOptions): void {
 		const root =
 			record.isArchived === true
-				? `.ji/objective-archive/${record.slug}`
-				: `.ji/objectives/${record.slug}`;
+				? archivedRecordRelativePath(record.slug)
+				: activeRecordRelativePath(record.slug);
 		this.addDirectory(root);
 		if (record.objectiveMd !== null)
 			this.addFile(`${root}/objective.md`, record.objectiveMd ?? `# ${record.slug}\n`);
