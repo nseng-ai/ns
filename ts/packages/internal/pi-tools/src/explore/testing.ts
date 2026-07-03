@@ -12,7 +12,11 @@ import type {
 	RunnerSubagentProgress,
 	RunnerSubagentResult,
 } from "../runner-subagents/extension-api.ts";
-import { EXPLORE_TOOL_NAME, EXPLORER_AGENT_NAME } from "./contract.ts";
+import {
+	EXPLORE_TOOL_NAME,
+	EXPLORER_AGENT_NAME,
+	EXPLORER_SCOUT_SECTION_HEADERS,
+} from "./contract.ts";
 import type { DispatchSubagentFn } from "./dispatch.ts";
 
 export {
@@ -36,10 +40,7 @@ export function makeExplorerAgentDefinition(
 		body: [
 			"You are a fake explorer.",
 			"",
-			"## Files Retrieved",
-			"## Key Code",
-			"## Architecture",
-			"## Start Here",
+			...EXPLORER_SCOUT_SECTION_HEADERS,
 			"",
 			"## Delegated exploration",
 			"",

@@ -1,7 +1,10 @@
 export {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
+	RUNNER_SUBAGENT_TRANSIENT_FAILURE_STATUSES,
+	createRunnerSubagentCancelledResult,
 	defaultRunnerSubagentLaunchMetadata,
 	dispatchRunnerSubagent,
+	isRunnerSubagentTransientFailureResult,
 	resultDiagnostic,
 	runnerSubagentPrimaryActivityPreview,
 } from "./extension-api.ts";
@@ -30,11 +33,13 @@ export type {
 	RunnerSubagentTerminalCapture,
 	RunnerSubagentTerminalStatus,
 	RunnerSubagentTerminalToolDefinition,
+	RunnerSubagentTransientFailureStatus,
 	RunnerSubagentUpdate,
 	RunnerSubagentUsageMetadata,
 	RunnerSubagentUsageTotals,
 	RunnerSubagentUsageUnavailableReason,
 	TypeBoxLikeSchema,
+	CreateRunnerSubagentCancelledResultOptions,
 } from "./extension-api.ts";
 export {
 	assistantTextFromContent,

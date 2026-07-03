@@ -16,7 +16,7 @@
       ranges, `## Key Code`, `## Architecture`, `## Start Here`), cheap-model default
       with dispatch-time auth fallback and runtime failover, read-only tool allowlist
       with no `bash`/`edit`/`write`.
-      Evidence: `.sdl/pi/agents/explorer.md` plus `@sdl-local/pi-tools/explore`
+      Evidence: `.ji/pi/agents/explorer.md` plus `@internal/pi-tools/explore`
       (`contract.ts` allowlist `read,grep,find,ls`; `model-policy.ts` haiku default
       with AuthStorage dispatch-time probe; `dispatch.ts` single-retry runtime
       failover on `error`/`protocol-error`), 12 fake-driven tests, and a real
