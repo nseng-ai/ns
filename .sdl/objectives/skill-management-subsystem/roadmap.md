@@ -2,23 +2,23 @@
 
 ## Work
 
-- [ ] Establish the package and command vocabulary for the `sdl` CLI.
+- [ ] Establish the package and command vocabulary for the `ji` CLI.
       Decide the reusable package name, public CLI command names, and whether user-facing prose says skills, resources, or agent resources.
 
 - [ ] Design the first resource model and platform path table.
       Define resource entries, catalog shape, supported entry kinds, platform aliases, user-vs-project scope, and deterministic install-plan output. Evidence should include tests for path resolution and alias normalization.
 
-- [ ] Implement the `sdl` CLI catalog steel thread.
-      Make the `sdl` CLI able to list, path, and install/plan at least one SDL-owned assistant resource through the shared subsystem.
+- [ ] Implement the `ji` CLI catalog steel thread.
+      Make the `ji` CLI able to list, path, and install/plan at least one SDL-owned assistant resource through the shared subsystem.
 
 - [ ] Prove subsystem reuse with a second consumer.
-      Make a second first-party consumer (for example a host CLI such as `ccc`/`sdlcc`, or an SDL extension) list/path/install through the same shared subsystem instead of duplicating platform logic, validating that the abstraction is genuinely reusable.
+      Make a second first-party consumer (for example a host CLI such as `ccc`/`jicc`, or an SDL extension) list/path/install through the same shared subsystem instead of duplicating platform logic, validating that the abstraction is genuinely reusable.
 
 - [ ] Decide and implement first-slice entry-kind breadth.
       Either support skills, agents, and extension bundles together, or implement skills first and record a concrete follow-up boundary for agent/subagent Markdown and Pi extension bundles.
 
 - [ ] De-risk extension reuse without implementing a marketplace.
-      Document or prototype how an SDL extension could contribute a catalog without eager execution during discovery/help, then split any remaining extension work if it is larger than the core `sdl` slice.
+      Document or prototype how an SDL extension could contribute a catalog without eager execution during discovery/help, then split any remaining extension work if it is larger than the core `ji` slice.
 
 - [ ] Reconcile with existing skill workflows and docs.
       Compare the new subsystem against `skillx`, the `@sdl/areg` agent registry CLI, `npx skills`, repo skill conventions, and harness skill-invocation docs so the new CLI behavior is additive and not a conflicting second workflow.

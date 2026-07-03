@@ -100,20 +100,28 @@ Risks:
 
 ## Open Questions
 
-- **Q1 — package.json manifest key:** does `"sdl": {group, commands, tier, subpackages}`
-  rename to `"ji"`? Touches `kernel/src/extensions/discovery.ts`, every
-  `.sdl/extensions/*/package.json`, workspace package.json `sdl.tier` fields, the
-  areg/style-guard readers, and the topology-report script. Either answer works; it
-  must be consistent in one commit.
-- **Q2 — `sdl.toml`:** rename to `ji.toml` (it is brand-named) or leave (it is areg's
-  config, and areg is not renamed)?
-- **Q3 — legacy-fallback prose:** the live "no legacy `~/.sdl/enriched-plan` fallback"
-  strings (production text, three test assertions, docs, ADR 0005): rewrite to
-  `~/.ji/…`, generalize, or retire the sentence?
-- **Q4 — small-fry brand literals:** aretro tmpdir segment, the internal
-  `"sdl:pi-extension-command:finished"` event key, the `.pi/extensions/sdl.ts`
-  filename, the `src/sdl/` source-layout convention (likely the package-scope sweep's
-  problem — but name the decision).
-- **Workflow script placement:** session-authored one-shot vs checked into
-  `.claude/workflows/`; if checked in, it is a consumer artifact and needs an explicit
-  promotion-path note per `docs/platform-and-consumer.md`.
+Q1–Q4 were resolved by the owner on 2026-07-02: **everything renames to ji** — no
+sdl-brand literal survives the rename anywhere. Recorded per question below; the
+answers are also reflected in `rename-sdl-to-ji/cutover-inventory.md`.
+
+- **Q1 — resolved:** the package.json `"sdl": {group, commands, tier, subpackages}`
+  manifest key renames to `"ji"` (including `sdl.tier` fields).
+  `kernel/src/extensions/discovery.ts`, every `.sdl/extensions/*/package.json`, the
+  areg/style-guard readers, and the topology-report script all agree in one ATOMIC
+  commit.
+- **Q2 — resolved:** `sdl.toml` renames to `ji.toml`. It is brand-named; areg staying
+  un-renamed does not exempt its config filename. The areg/roaster readers update in
+  the same landing.
+- **Q3 — resolved:** rewrite the live "no legacy `~/.sdl/enriched-plan` fallback"
+  strings to `~/.ji/…` — keep the no-fallback sentence, pointed at the ji path
+  (production text, the three test assertions, and the docs sites the inventory
+  enumerates).
+- **Q4 — resolved:** all small-fry brand literals become ji: the aretro tmpdir
+  segment, the internal event key (`"ji:pi-extension-command:finished"`), and the
+  `.pi/extensions/sdl.ts` → `.pi/extensions/ji.ts` filename. The `src/sdl/`
+  source-layout convention also renames to `src/ji/`, executed in the parent's
+  package-scope sweep row (it is coupled to package renames, not this window).
+  Inventory ordering stands: the event key may trail POST if deferred.
+- **Workflow script placement (still open):** session-authored one-shot vs checked
+  into `.claude/workflows/`; if checked in, it is a consumer artifact and needs an
+  explicit promotion-path note per `docs/platform-and-consumer.md`.

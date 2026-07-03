@@ -2,15 +2,17 @@
 
 ## Thesis
 
-SDL needs a Pup-inspired agent-resource management subsystem that can list, locate, preview, and install bundled assistant resources for the first-party `sdl` CLI first, while remaining reusable by other first-party CLIs and SDL extensions later.
+SDL needs a Pup-inspired agent-resource management subsystem that can list, locate, preview, and install bundled assistant resources for the first-party `ji` CLI first, while remaining reusable by other first-party CLIs and SDL extensions later.
 
 The first successful slice should be boring, static, and testable: a resource catalog, coding-agent platform install-path data, deterministic install plans, and CLI surfaces that make bundled SDL skills visible and installable without each package reimplementing harness-specific filesystem logic.
 
+**Naming (ADR 0024, `rename-sdl-to-ji`):** the surface this Objective designs is ji-named — the `ji` CLI and a `ji skills`-shaped command family; any new package name is `@ji/*`-scoped. Prose says `ji` even though the repo's current binary is still `sdl` until the `ji-core-cutover` landing; build no new sdl-named surface. Existing package names (`@sdl/areg`) keep their current spelling here until the parent's package-scope sweep.
+
 ## Scope
 
-This Objective covers the design and implementation path for a reusable skill-management / agent-resource subsystem inspired by DataDog/pup. The initial product target is explicitly the first-party `sdl` CLI:
+This Objective covers the design and implementation path for a reusable skill-management / agent-resource subsystem inspired by DataDog/pup. The initial product target is explicitly the first-party `ji` CLI:
 
-- The `sdl` CLI can expose and install SDL-owned assistant resources.
+- The `ji` CLI can expose and install SDL-owned assistant resources.
 - Shared implementation owns resource catalog types, platform specs, scope/path resolution, install-plan generation, and materialization semantics.
 - The first scope should support skills from day one and intentionally decide whether agents and Pi extension bundles ship in the same first slice or remain parked.
 - Public CLI behavior should include at least list, path, and install/plan operations analogous to Pup's `skills list`, `skills path`, and `skills install`.
@@ -22,7 +24,7 @@ This Objective covers the design and implementation path for a reusable skill-ma
 - No marketplace, remote registry, update resolver, semantic version solver, or dependency graph in the first slice.
 - No automatic mutation of vendored third-party skill directories beyond explicit install commands.
 - No hidden database or local cache for durable resource definitions.
-- No attempt to solve every harness-specific agent/subagent/package format before the core `sdl` CLI steel thread works.
+- No attempt to solve every harness-specific agent/subagent/package format before the core `ji` CLI steel thread works.
 - No long-lived compatibility alias plan until the CLI command names and package boundary are deliberately chosen.
 - No requirement that SDL extensions contribute catalogs in the first implementation slice, only that the core abstractions do not block that later.
 
@@ -31,7 +33,7 @@ This Objective covers the design and implementation path for a reusable skill-ma
 The Objective can close when:
 
 - A canonical package/module boundary exists for reusable agent-resource catalog and install-planning logic.
-- The `sdl` CLI surface can list available built-in resources, show where they would install for supported platforms/scopes, and install or deterministically preview installation.
+- The `ji` CLI surface can list available built-in resources, show where they would install for supported platforms/scopes, and install or deterministically preview installation.
 - The first supported platform set and path table are documented and tested.
 - Resource entries have enough type information to represent at least skills, and a decision is recorded for agents and extension bundles.
 - The system has tests for platform alias resolution, scope/path resolution, install plan output, collision/error behavior, and at least one first-party SDL resource catalog.
@@ -57,8 +59,8 @@ Risks:
 
 ## Open Questions
 
-- What is the canonical package name: `@sdl/agent-resources`, `@sdl/assistant-resources`, `@sdl/skill-management`, or something else?
-- Should the public command say `skills`, `resources`, or `agent-resources` for the `sdl` CLI?
+- What is the canonical package name: `@ji/agent-resources`, `@ji/assistant-resources`, `@ji/skill-management`, or something else?
+- Should the public command say `skills`, `resources`, or `agent-resources` for the `ji` CLI?
 - Does the first slice include only skills, or also agent/subagent Markdown and Pi extension bundles?
-- How should the shared subsystem be consumed by a second first-party CLI (for example a host CLI such as `ccc`/`sdlcc`) or an SDL extension to prove reuse beyond the `sdl` CLI?
+- How should the shared subsystem be consumed by a second first-party CLI (for example a host CLI such as `ccc`/`jicc`) or an SDL extension to prove reuse beyond the `ji` CLI?
 - Which platform set is mandatory for the first release: Pi, Claude Code, Codex, Cursor, opencode, Gemini, Windsurf, or a smaller SDL-supported subset?
