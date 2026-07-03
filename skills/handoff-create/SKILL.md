@@ -5,7 +5,7 @@ description: "Create a directed handoff artifact for a future continuation. Use 
 allowed-tools:
   - "Bash(git branch *)"
   - "Bash(git status *)"
-  - "Bash(ji handoff *)"
+  - "Bash(ns handoff *)"
   - "Bash(brmem *)"
 ---
 
@@ -92,17 +92,17 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 
 ## Store safely
 
-Store the final artifact directly through the portable ji command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
+Store the final artifact directly through the portable ns command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF
 ```
 
-`ji handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
+`ns handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
 
-Raw `brmem` is recovery-only. If `ji handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with `brmem check <semantic-slug>.md --namespace handoff --branch <branch>`, then use `brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin` only after preserving the same collision safety.
+Raw `brmem` is recovery-only. If `ns handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with `brmem check <semantic-slug>.md --namespace handoff --branch <branch>`, then use `brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin` only after preserving the same collision safety.
 
 ## Report and route follow-up
 

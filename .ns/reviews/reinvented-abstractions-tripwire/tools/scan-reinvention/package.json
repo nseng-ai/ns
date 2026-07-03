@@ -9,7 +9,7 @@
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"scan": "node --experimental-strip-types src/cli.ts",
-		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
+		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
 	},
 	"dependencies": {
 		"@ji/core": "workspace:*",

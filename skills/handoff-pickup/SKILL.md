@@ -4,7 +4,7 @@ disable-model-invocation: true
 description: "Pick up, choose, or list handoff artifacts, present a handoff summary, and wait for user direction. Use when the user says pick up handoff, resume handoff, continue from handoff, choose a handoff, or list handoffs; use brmem only as storage/recovery machinery."
 allowed-tools:
   - "Bash(git branch *)"
-  - "Bash(ji handoff *)"
+  - "Bash(ns handoff *)"
   - "Bash(brmem *)"
 ---
 
@@ -41,30 +41,30 @@ Stop if the repo is in detached HEAD and the user did not provide a branch. If t
 Current branch:
 
 ```bash
-ji handoff list --format json
+ns handoff list --format json
 ```
 
 Explicit branch:
 
 ```bash
-ji handoff list --branch <branch> --format json
+ns handoff list --branch <branch> --format json
 ```
 
 All active local branches:
 
 ```bash
-ji handoff list --all --format json
+ns handoff list --all --format json
 ```
 
 All branch states, including deleted local branches:
 
 ```bash
-ji handoff list --all --include-deleted --format json
+ns handoff list --all --include-deleted --format json
 ```
 
 Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks for deleted or stale branch handoffs.
 
-The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/ji:handoff:pickup <slug>` or `/ji:handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/ns:handoff:pickup <slug>` or `/ns:handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 
@@ -84,7 +84,7 @@ or, when using `--include-deleted`:
 No handoffs found across branches.
 ```
 
-For explicit removal of one stale or unneeded handoff, use `ji handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `ji handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
+For explicit removal of one stale or unneeded handoff, use `ns handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `ns handoff gc` for bulk cleanup of handoffs on deleted local branches. Use raw `brmem delete` only for storage diagnostics/recovery.
 
 ## Select the handoff
 
@@ -119,7 +119,7 @@ Which handoff should I pick up?
 Read the selected artifact through the portable command face:
 
 ```bash
-ji handoff pickup <semantic-slug> --branch <branch> --format json
+ns handoff pickup <semantic-slug> --branch <branch> --format json
 ```
 
 Use the JSON envelope's `data.content` as active context for summarization, with `data.branch`, `data.slug`, `data.key`, `data.entryLocator`, and `data.summary` as technical evidence. Present a concise handoff summary, then stop and wait for the user's explicit instruction before running commands, editing files, or continuing implementation. Use raw `brmem get <semantic-slug>.md --namespace handoff --branch <branch>` only for storage diagnostics/recovery.

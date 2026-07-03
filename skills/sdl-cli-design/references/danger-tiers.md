@@ -35,7 +35,7 @@ flags with these distinct meanings.
 - **User-environment writes outside the repo are Tier 2** (ADR 0015 #6). Writing
   dotfiles, shell config, or external tool state mutates the user's environment
   beyond the project, so gate it with `--yes`/`-y` + `requireInteractiveOrUsageError`
-  (e.g. `ji shell install`). An explicit user-requested output path
+  (e.g. `ns shell install`). An explicit user-requested output path
   (`--output <path>`) stays Tier 1, and reversible external metadata keyed by
   caller-supplied IDs (not a user dotfile) stays Tier 1.
 
@@ -43,9 +43,9 @@ flags with these distinct meanings.
 
 From the `clinkr-confirmation-danger-tiers` subobjective (ADR 0014 conformance):
 
-- `ji handoff delete` — Tier 2, `--yes`; its missing `-y` is a cutover
+- `ns handoff delete` — Tier 2, `--yes`; its missing `-y` is a cutover
   exception, not a pattern for new commands.
-- `ji handoff gc`, `slot gc` — Tier 3, `--force`; apply `-f` for new
+- `ns handoff gc`, `slot gc` — Tier 3, `--force`; apply `-f` for new
   human-facing Tier 3 commands unless a steered exception says otherwise.
 - These examples fail fast non-interactively with `usageError` data naming the flag.
 - `brmem put` remains a `failure(...)` precondition override; dry-runs remain

@@ -5,11 +5,11 @@ Handoff Capability package for directed Handoff Artifacts stored in Branch Memor
 `@ji/handoff` owns the Handoff Domain Core, the curated `@ji/handoff/api` Capability API, and ji command leaves exposed through the portable command face:
 
 ```text
-ji handoff list [--branch <branch>|--all] [--include-deleted]
-ji handoff pickup [--branch <branch>] <slug>
-ji handoff create --slug <slug> [--branch <branch>] [--file <path>]
-ji handoff delete [--branch <branch>] [--yes] <slug>
-ji handoff gc [--dry-run|--force]
+ns handoff list [--branch <branch>|--all] [--include-deleted]
+ns handoff pickup [--branch <branch>] <slug>
+ns handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ns handoff delete [--branch <branch>] [--yes] <slug>
+ns handoff gc [--dry-run|--force]
 ```
 
 Pi commands and skills remain presentation/authoring adapters over this capability; Branch Memory details are technical storage evidence, not the default user model.

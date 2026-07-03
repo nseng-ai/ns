@@ -72,7 +72,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 6. Enrich with structured Graphite facts only where available. In v1, Graphite evidence is current-stack/worktree-scoped: run this from the current checkout and from open cmux worktree directories when useful:
 
    ```bash
-   ji slot gt exec stack-branches --format json
+   ns slot gt exec stack-branches --format json
    ```
 
    Do not claim complete Graphite topology for every local branch unless a future deterministic helper provides it. Never parse `gt ls`, `gt log`, or other human-facing Graphite display output for machine facts. If Graphite evidence is unavailable, say so.
@@ -80,7 +80,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 7. Read open Active Objectives:
 
    ```bash
-   ji objective list --format json
+   ns objective list --format json
    ```
 
    Use `data.records[].updatedBranches` as deterministic branch↔Objective evidence.
@@ -88,7 +88,7 @@ Use a quick pass first, then deepen only where relevance is ambiguous or the sho
 8. When Objective JSON is insufficient for semantic linking, read selected Objective prose:
 
    ```bash
-   ji objective exec read-objective <slug> --format md
+   ns objective exec read-objective <slug> --format md
    ```
 
    Use this only for read-only evidence; do not edit Objective files.
@@ -214,19 +214,19 @@ From the current repo checkout:
 gt trunk || true
 git symbolic-ref --short refs/remotes/origin/HEAD | sed 's#^origin/##' || true
 git for-each-ref --sort=-committerdate --format='%(refname:short)%09%(objectname:short)%09%(committerdate:iso8601)%09%(upstream:short)' refs/heads
-ji objective list --format json
+ns objective list --format json
 ```
 
 When useful from current or open worktree directories:
 
 ```bash
-ji slot gt exec stack-branches --format json
+ns slot gt exec stack-branches --format json
 ```
 
 For selected Objectives or shortlist branches only:
 
 ```bash
-ji objective exec read-objective <slug> --format md
+ns objective exec read-objective <slug> --format md
 gh pr list --head <branch> --state all --json number,state,title,url,isDraft,updatedAt,closedAt,mergedAt,mergeStateStatus
 git log --oneline <trunk>..<branch>
 git diff --stat <trunk>...<branch>

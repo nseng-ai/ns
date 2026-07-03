@@ -1,6 +1,6 @@
 # Branch Retrospective Evidence
 
-`ji aretro` collects compact, factual observations from local agent session logs so the `branch-retro` skill or another language-model workflow can write human-facing guidance for a branch. The standalone `aretro` command is retired; use `ji aretro exec ...`.
+`ns aretro` collects compact, factual observations from local agent session logs so the `branch-retro` skill or another language-model workflow can write human-facing guidance for a branch. The standalone `aretro` command is retired; use `ns aretro exec ...`.
 
 ## Boundary
 
@@ -54,5 +54,5 @@ These kinds are observations, not recommendations.
 
 - `@ji/aretro` package-local session adapters parse harness-specific logs into normalized session facts without retaining raw transcript content.
 - `@ji/aretro` evidence aggregation turns normalized session facts into deterministic observations.
-- `ji aretro exec collect-evidence --format json` is the supported branch-facing command envelope; `ji aretro exec read-evidence-detail` reads targeted sanitized payload details.
+- `ns aretro exec collect-evidence --format json` is the supported branch-facing command envelope; `ns aretro exec read-evidence-detail` reads targeted sanitized payload details.
 - `branch-retro` is the first skill consumer of that ji command face: it consumes the JSON envelope, applies semantic judgment, weighs cost, drift, and discoverability, and writes the final retrospective recommendations.

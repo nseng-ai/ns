@@ -1,16 +1,16 @@
 ---
-name: ji-flow-cp
+name: ns-flow-cp
 disable-model-invocation: true
-description: "Command: ji-flow-cp"
+description: "Command: ns-flow-cp"
 allowed-tools:
-  - "Bash(ji flow cp*)"
+  - "Bash(ns flow cp*)"
 metadata:
   internal: true
 ---
 
-# ji-flow-cp
+# ns-flow-cp
 
-Create a quick checkpoint commit for the current git diff by delegating to the shared `ji flow cp` CLI. This is the cross-harness path for `/ji:flow:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
+Create a quick checkpoint commit for the current git diff by delegating to the shared `ns flow cp` CLI. This is the cross-harness path for `/ns:flow:cp`; do not reimplement checkpointing with ad-hoc `git add` / `git commit` logic in the skill.
 
 ## When to use
 
@@ -23,7 +23,7 @@ Do **not** use for milestone commits, PR-ready commits, or anything that should 
 Run:
 
 ```bash
-ji flow cp
+ns flow cp
 ```
 
 The CLI owns the deterministic behavior:
@@ -38,15 +38,15 @@ The CLI owns the deterministic behavior:
 
 Text generation is controlled by the CLI environment:
 
-- `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
-- `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset.
+- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
 
 ## Failure handling
 
-If `ji flow cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
+If `ns flow cp` fails, surface its stderr/stdout and stop. Do not retry by hand, do not amend, and do not bypass hooks.
 
 ## Rules
 
-- Never hand-roll the checkpoint commit when `ji flow cp` is available.
+- Never hand-roll the checkpoint commit when `ns flow cp` is available.
 - Never run `git commit --amend` or `git commit --no-verify` for this workflow.
 - Do not add Co-Authored-By trailers to checkpoint commits unless the user explicitly asks for a hand-authored commit instead.

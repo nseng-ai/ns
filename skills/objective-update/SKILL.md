@@ -20,7 +20,7 @@ If the user only asks about the skill or pastes it with no clear update intent, 
 
 ## Objective record invariants
 
-Active records live at `.ji/objectives/<slug>/`. Archived records under `.ji/objective-archive/<slug>/` are not active update candidates.
+Active records live at `.ns/objectives/<slug>/`. Archived records under `.ns/objective-archive/<slug>/` are not active update candidates.
 
 Required shape:
 
@@ -29,7 +29,7 @@ Required shape:
 - `updates/<timestamp>-<slug>.md`: `# <Update Title>`, `## Summary`, `## Objective Impact`, `## Follow-Ups`.
 - `closed.md`: minimal Closure Marker; existence means closed, but closure meaning belongs in `objective.md` under `## Closure`.
 
-Objective records are Markdown: read/edit them directly, using `ji objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
+Objective records are Markdown: read/edit them directly, using `ns objective exec` only for deterministic reads such as candidate listing, inventory, and closed-marker detection.
 
 Mutation boundary:
 
@@ -41,9 +41,9 @@ Mutation boundary:
 ## Select exactly one Objective
 
 1. Resolve ambiguous invocation intent first.
-2. Use an explicit user-provided slug/path under `.ji/objectives/<slug>/` when present.
-3. If the selected path is under `.ji/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
-4. Otherwise run `ji objective list --minimal --format md` immediately.
+2. Use an explicit user-provided slug/path under `.ns/objectives/<slug>/` when present.
+3. If the selected path is under `.ns/objective-archive/`, stop and ask whether to unarchive before updating Objective tracking.
+4. Otherwise run `ns objective list --minimal --format md` immediately.
 5. If exactly one active Objective exists and update intent is explicit, ask before evidence or mutation: `Only one active Objective exists: <slug>. Run objective-update for this Objective?`
 6. If multiple active Objectives exist, present the command output and ask for one slug/path; do not ask a generic question before showing options.
 7. If none exist, say so and suggest `objective-create` when appropriate.
@@ -62,7 +62,7 @@ Write the selected Objective as if the current git changes or current-branch PR 
 
 ## Read and collect evidence after selection
 
-First run `ji objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; v1 has no reopen workflow.
+First run `ns objective exec read-objective <slug> --format md` to confirm path, state, inventory, raw Markdown, and closed-marker presence. If `closed.md` exists, stop unless the user explicitly asked to amend the closed record; v1 has no reopen workflow.
 
 For large Objectives, use the inventory/closed-state output, then focus on `objective.md`, `roadmap.md`, and recent updates only when needed. Do not spend context on old updates unless they materially affect the current change; old updates are historical evidence, not editable targets.
 
@@ -82,7 +82,7 @@ Collect fail-soft repo evidence:
    git log --oneline --decorate -5
    ```
 
-3. Base discovery: prefer `gt parent --no-interactive`; else use `baseRefName` from `gh pr view` when current-branch PR evidence is available; else use plain-git default/trunk best effort. Do not parse human-facing `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` output for machine topology decisions; use `gt parent --no-interactive`, `ji slot gt exec stack-branches`, or JSON/plumbing surfaces for topology.
+3. Base discovery: prefer `gt parent --no-interactive`; else use `baseRefName` from `gh pr view` when current-branch PR evidence is available; else use plain-git default/trunk best effort. Do not parse human-facing `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` output for machine topology decisions; use `gt parent --no-interactive`, `ns slot gt exec stack-branches`, or JSON/plumbing surfaces for topology.
 4. Local branch evidence when base is known:
 
    ```bash
@@ -99,7 +99,7 @@ Collect fail-soft repo evidence:
 
 Do not require PR evidence when local committed branch evidence is sufficient. For stacked Graphite branches, prefer the Graphite parent as base so lower-stack changes are excluded. If base discovery fails, inspect recent commits and uncommitted status; ask only if evidence remains insufficient.
 
-Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.ji/objectives/<other-slug>/` directory, or existing local changes already do so without an explicit slug-migration request.
+Use working-tree and branch `name-status` evidence as a path-integrity check. Stop before editing if the update would add, delete, move, or recreate a sibling `.ns/objectives/<other-slug>/` directory, or existing local changes already do so without an explicit slug-migration request.
 
 Update only when selected Objective content clearly matches the request and evidence. If evidence is ambiguous, unrelated, or maps to multiple roadmap rows, ask instead of writing. In durable Objective files, avoid temporal absence statements unless material; prefer stable evidence wording such as local branch diff, PR corroboration, or PR evidence not required.
 
@@ -117,7 +117,7 @@ This skill owns edge mutation and Blocked Sentence judgment for the selected Obj
 
 - **Edges.** When evidence shows a durable inter-objective relationship appeared, changed meaning, or dissolved, add, reword, or remove the edge as a mirrored two-file edit: the entry in the selected record's frontmatter and the mirror entry in the counterpart's frontmatter change together, with a perspective-correct annotation on each side. At most one edge per unordered slug pair. Editing the counterpart's frontmatter is the sanctioned exception in the mutation boundary above.
 - **Re-judge the record's own Blocked Sentence on every update.** Compare the current `blocked:` sentence (or its absence) against the evidence: set it when the record is now gated (by another objective or anything external), reword it when stale, and clear it when the gate no longer holds. This is always skill judgment — presence of the sentence is the state, the value says why, and no machine ever flips it. Blocked is a sub-state of open; it never implies or replaces closure.
-- **Verify.** After any frontmatter edit, run `ji objective check <slug>` (validates that record's edges including counterpart mirror lookups) or `ji objective check --all`; structural violations are errors and must be fixed before finishing.
+- **Verify.** After any frontmatter edit, run `ns objective check <slug>` (validates that record's edges including counterpart mirror lookups) or `ns objective check --all`; structural violations are errors and must be fixed before finishing.
 
 ### Immutable Semantic Updates
 
@@ -147,19 +147,19 @@ Closure-ready means the Objective is not already closed; outcome is clear (`comp
 
 Do not close merely because roadmap checkboxes are all `[x]`, or from any selection hint.
 
-If closure-ready after an explicit `objective-update`, close automatically with `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md`, not `closed.md`. Inline closure includes `objective-close`'s Record Frontmatter duties: re-judge each edge counterpart's Blocked Sentence and the record's own, and run `ji objective check` after any frontmatter edit. Do not ask for separate closure confirmation when outcome and rationale are clear.
+If closure-ready after an explicit `objective-update`, close automatically with `objective-close` semantics inline: add/update `## Closure` in `objective.md`, write minimal `closed.md`, keep the Objective directory in place, and put closure meaning in `objective.md`, not `closed.md`. Inline closure includes `objective-close`'s Record Frontmatter duties: re-judge each edge counterpart's Blocked Sentence and the record's own, and run `ns objective check` after any frontmatter edit. Do not ask for separate closure confirmation when outcome and rationale are clear.
 
 If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` absent and report that closure was skipped because the Closure Gate was not clear. Do not create a duplicate Semantic Update solely for closure; create one only when closure introduces distinct semantic information beyond the normal update. Never amend an existing update for closure.
 
 ## Workflow
 
 1. Resolve exactly one active Objective.
-2. Run `ji objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
+2. Run `ns objective exec read-objective <slug> --format md`; stop if closed unless explicit amend-closed-record intent is present.
 3. Collect post-selection repo evidence and perform the path-integrity check.
 4. Compare request, evidence, and Objective files to identify durable tracking changes.
 5. Edit `objective.md` if narrative, boundaries, criteria, assumptions, risks, open questions, or closure-adjacent context changed.
 6. Edit `roadmap.md` if ordered guidance, checkbox state, evidence, or parked work changed.
-7. Re-judge the record's own Blocked Sentence and mutate edges (mirrored two-file edits) when evidence warrants; after any Record Frontmatter edit, run `ji objective check <slug>` or `ji objective check --all`.
+7. Re-judge the record's own Blocked Sentence and mutate edges (mirrored two-file edits) when evidence warrants; after any Record Frontmatter edit, run `ns objective check <slug>` or `ns objective check --all`.
 8. Create a new Semantic Update only when semantically warranted; otherwise say no update was written.
 9. Apply the Closure Gate.
 10. If not closing and `orientation.md` exists, re-derive it against the now-current state using the umbrella `objective` skill's orientation re-derivation rule. If the Objective has become cross-cutting and lacks one, add `orientation.md` using the umbrella format. Do not author or re-derive `orientation.md` when closing — `closed.md` drops it from the load set.
@@ -167,14 +167,14 @@ If closure readiness, outcome, or rationale is ambiguous, leave `closed.md` abse
 
 ## Stop / ask
 
-Stop or ask when selection is ambiguous/absent after presenting `ji objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
+Stop or ask when selection is ambiguous/absent after presenting `ns objective list --minimal --format md`; the selected path is archived; update intent is still ambiguous; only-open confirmation is pending; the request would update multiple Objectives; the selected Objective is closed without amend intent; closure outcome/rationale is unclear; slug-directory mutation would occur; an existing Semantic Update would be modified; the user asks for ceremonial status ping, branch changelog, registry, UUID, hidden metadata, state-machine behavior, or YAML/frontmatter beyond Record Frontmatter's sanctioned `blocked` and `edges` keys; or information is insufficient for accurate durable narrative, assumptions/risks, or Semantic Update content.
 
 For archived paths, ask whether to unarchive before updating Objective tracking. For existing update mutation, explain that updates are immutable and offer to write a new corrective update when appropriate. For unclear closure, leave the Objective open unless the user clarifies.
 
 ## Verify
 
-- Changed Objective files all live under exactly one `.ji/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Sole exception: mirrored edge mutations and counterpart Blocked Sentence re-judgment may change counterpart records' `objective.md` Record Frontmatter blocks, and nothing else in those records.
-- If Record Frontmatter was edited (own record or a counterpart), `ji objective check <slug>` or `ji objective check --all` was run and reports no structural errors.
+- Changed Objective files all live under exactly one `.ns/objectives/<slug>/` directory, with no added, deleted, moved, or recreated sibling Objective slug directories. Sole exception: mirrored edge mutations and counterpart Blocked Sentence re-judgment may change counterpart records' `objective.md` Record Frontmatter blocks, and nothing else in those records.
+- If Record Frontmatter was edited (own record or a counterpart), `ns objective check <slug>` or `ns objective check --all` was run and reports no structural errors.
 - New update file, if any, has a timestamped, human-readable filename under that Objective's `updates/` directory.
 - No existing file under the selected Objective's `updates/` directory was edited, deleted, moved, normalized, or recreated.
 - Required headings remain present in edited durable files, including `## Assumptions and Risks`.

@@ -27,4 +27,4 @@ Load on demand; navigate the big files with the grep patterns shown.
 - For standard `gh` questions, load `references/gh.md` before answering from memory.
 - Use GraphQL only when porcelain (`gh pr`, `gh issue`, …) can't express the task; Projects V2 and Discussions have no porcelain or REST path — see `references/graphql.md`.
 - Rate limits differ by backend: REST 5,000 req/hr · GraphQL 5,000 points/hr · Search 30 req/min. Check `gh api rate_limit --jq '.resources'`; details in `references/api-backend-audit.md`.
-- In this Graphite-backed repo, do not use generic `git push` / `gh pr create` examples to publish or update Graphite-tracked PR branches. Use `ji flow submit` or `gt submit --no-interactive` so Graphite metadata stays synchronized.
+- In this Graphite-backed repo, do not use generic `git push` / `gh pr create` examples to publish or update Graphite-tracked PR branches. Use `ns flow submit` or `gt submit --no-interactive` so Graphite metadata stays synchronized.

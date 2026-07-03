@@ -1,6 +1,6 @@
 # Address command collection
 
-Address provides LM-ready feedback download plus shared PR feedback primitives through `ji address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
+Address provides LM-ready feedback download plus shared PR feedback primitives through `ns address exec ...`. The old addressing workflow engine is retired; the current primitive commands are not retired.
 
 ## Download / stack plumbing
 
@@ -9,13 +9,13 @@ Address provides LM-ready feedback download plus shared PR feedback primitives t
 Download one PR's current feedback as Markdown for agent triage.
 
 ```bash
-ji address exec download-feedback --pr-number <pr-number> --format json
+ns address exec download-feedback --pr-number <pr-number> --format json
 ```
 
 If the current branch has an open PR, callers may omit `--pr-number`:
 
 ```bash
-ji address exec download-feedback --format json
+ns address exec download-feedback --format json
 ```
 
 The result includes `markdown` for editor/session prefill plus target/count metadata. The Markdown is initial triage context only: it does not start an addressing run, authorize edits, or mutate GitHub.
@@ -25,8 +25,8 @@ The result includes `markdown` for editor/session prefill plus target/count meta
 `/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. `map-branch-prs` maps structured branch lists to PRs before download:
 
 ```bash
-ji slot gt exec stack-branches --format json \
-  | ji address exec map-branch-prs --format json
+ns slot gt exec stack-branches --format json \
+  | ns address exec map-branch-prs --format json
 ```
 
 The stack command should then call `download-feedback` once per discovered PR. Do not route stack feedback through the retired stack-address or payload-session workflows.
@@ -36,13 +36,13 @@ The stack command should then call `download-feedback` once per discovered PR. D
 Use these when an agent needs structured current PR state instead of parsing downloaded Markdown:
 
 ```bash
-ji address exec pr-details --pr-number <pr-number> --format json
-ji address exec branch-pr --branch <branch> --format json
-ji address exec open-prs --format json
-ji address exec pr-reviews --pr-number <pr-number> --format json
-ji address exec pr-review-threads --pr-number <pr-number> --format json
-ji address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
-ji address exec pr-discussion-comments --pr-number <pr-number> --format json
+ns address exec pr-details --pr-number <pr-number> --format json
+ns address exec branch-pr --branch <branch> --format json
+ns address exec open-prs --format json
+ns address exec pr-reviews --pr-number <pr-number> --format json
+ns address exec pr-review-threads --pr-number <pr-number> --format json
+ns address exec pr-review-threads --pr-number <pr-number> --include-resolved --format json
+ns address exec pr-discussion-comments --pr-number <pr-number> --format json
 ```
 
 ## Mutation primitives
@@ -50,10 +50,10 @@ ji address exec pr-discussion-comments --pr-number <pr-number> --format json
 Replies and resolutions are GitHub mutations. Use them only after the human has asked the agent to address feedback, current repo state has been inspected, the fix is implemented or verified, and appropriate validation has passed.
 
 ```bash
-ji address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
-ji address exec resolve-review-thread --thread-id <THREAD_ID> --format json
-ji address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
-printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ji address exec close-review-threads --format json
+ns address exec reply-review-thread --thread-id <THREAD_ID> --body "Fixed in <commit/branch>." --format json
+ns address exec resolve-review-thread --thread-id <THREAD_ID> --format json
+ns address exec close-review-threads --thread-ids-json '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' --body "Fixed and validated." --format json
+printf '%s' '{"threadIds":["<THREAD_ID_1>","<THREAD_ID_2>"]}' | ns address exec close-review-threads --format json
 ```
 
 For multiple confirmed thread IDs, use `close-review-threads` rather than shell loops or raw GraphQL. Omit `--body` for resolve-only bulk closure.

@@ -7,7 +7,7 @@
 The stack map reads branch graph data from the sanctioned hidden command:
 
 ```bash
-ji slot gt exec stack-map-branches --format json
+ns slot gt exec stack-map-branches --format json
 ```
 
 That command owns Graphite metadata-store parsing on the Python side and returns selected branch rows, graph edges, assigned slot rows, and warnings. `jicc` separately reads cmux tab inventory with `cmux tree --json --all` and overlays tabs only when there is strong branch evidence.
@@ -47,7 +47,7 @@ Scope and query compose: a branch is a match only when it satisfies the branch-n
 
 Selected-branch `c` behavior:
 
-- zero strong cmux tab matches: run `ji slot checkout <branch> --format json --no-clipboard` if needed, then `cmux new-workspace --name <branch> --description <text> --cwd <worktreePath> --command "bun <jicc source cli.ts> cmux report || true; exec ${SHELL:-/bin/zsh} -l"`;
+- zero strong cmux tab matches: run `ns slot checkout <branch> --format json --no-clipboard` if needed, then `cmux new-workspace --name <branch> --description <text> --cwd <worktreePath> --command "bun <jicc source cli.ts> cmux report || true; exec ${SHELL:-/bin/zsh} -l"`;
 - one strong match: focus that surface with `cmux rpc surface.focus`;
 - two or more strong matches: show a tab chooser with every matching tab plus a final “Open new cmux tab/workspace anyway” option. `Esc` cancels the chooser; `q` quits the TUI.
 

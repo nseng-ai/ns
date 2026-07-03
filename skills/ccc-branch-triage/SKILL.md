@@ -70,7 +70,7 @@ Collect facts in this order:
    ```bash
    gt --cwd <worktree> parent --no-interactive
    gt --cwd <worktree> children --no-interactive
-   ji slot gt exec stack-branches --format json
+   ns slot gt exec stack-branches --format json
    ```
 
    Run structured stack inventory from a relevant non-trunk worktree when useful. Use `gt ls` only as a human visual cross-check.

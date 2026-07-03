@@ -9,7 +9,7 @@ A Markdown implementation plan saved in the machine-local XDG enriched-plan stor
 *Avoid*: hidden task, handoff artifact, Branch Memory entry
 
 **Local Plan Store**:
-The XDG state tree under `$XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/ji/enriched-plan/...`) that stores **Saved Plan** files by repository identity and source branch.
+The XDG state tree under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/ns/enriched-plan/...`) that stores **Saved Plan** files by repository identity and source branch.
 *Avoid*: Branch Memory, repo checkout, cache database
 
 **Source Branch Plan File**:

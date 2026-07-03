@@ -54,7 +54,7 @@ Do not maintain a full skill-kind table in this document. Use representative exa
 
 ### Public Skill Authoring — No Internal References
 
-Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference sdl-internal module paths, class names, or implementation details in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `ji address exec pr-reviews`), not *how* they are implemented. Implementation details belong in source code, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
+Public skills (those with a `skills/<name>` symlink for external discoverability) are user-facing documents. Do not reference sdl-internal module paths, class names, or implementation details in their `SKILL.md` files or frontmatter descriptions. Describe *what* CLI operations to call (e.g., `ns address exec pr-reviews`), not *how* they are implemented. Implementation details belong in source code, not in public `SKILL.md` files. Internal skills (no `skills/` symlink) may reference internals freely.
 
 ### Skill Model Examples
 

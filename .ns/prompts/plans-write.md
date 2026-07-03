@@ -41,7 +41,7 @@ Harness-neutral command guidance:
 
 - Prefer native CLI commands in durable saved plans, documentation, and agent-facing instructions when a workflow has both a CLI and a harness-specific adapter.
 - Mention Pi slash commands, Claude commands, Codex commands, or other harness-specific affordances only when the plan is explicitly about that harness runtime or UI surface.
-- For checkpointing guidance, write `ji flow cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
+- For checkpointing guidance, write `ns flow cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
 - If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
 
 <!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
@@ -80,10 +80,10 @@ Subagent orchestration opportunities:
 Implementation checkpoint guidance:
 
 - For larger or multi-slice implementation plans, include an intermediate checkpoint strategy.
-- Implementation agents should run `ji flow cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
+- Implementation agents should run `ns flow cp` to create a Checkpoint commit when they complete a coherent standalone subtask and the repository is not knowingly in a broken state.
 - A useful checkpoint is a reviewable implementation slice, not an arbitrary time interval.
-- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `ji flow cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
-- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `ji flow cp` and reports the commit summary, or the parent reviews the subagent diff and runs `ji flow cp` afterward.
+- Do not recommend checkpointing tiny one-shot changes where one final commit is enough, unsafe or trunk contexts where `ns flow cp` should refuse or be inappropriate, or states that are knowingly incoherent, failing because of unfinished edits, or impossible for the parent to validate.
+- For editing or implementation subagents, make checkpoint ownership explicit in the saved plan or subagent prompt: either the subagent runs `ns flow cp` and reports the commit summary, or the parent reviews the subagent diff and runs `ns flow cp` afterward.
 - After each editing subagent, the parent should verify final text/status and the resulting diff or Checkpoint commit summary before dispatching the next editing subagent.
 - Do not imply that branch-context runtime will automatically schedule checkpointing, and do not suggest direct `git commit` as the normal path for intermediate checkpoints.
 
@@ -119,7 +119,7 @@ Workflow:
 
 Local plan store contract:
 
-- Path convention: $XDG_STATE_HOME/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/ji/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+- Path convention: $XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
 - <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
 - <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
 - <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug

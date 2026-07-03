@@ -1,0 +1,1135 @@
+{
+ "summary": {
+  "simpleFilesChanged": 12,
+  "simpleTotal": 12,
+  "changesetsDone": 12,
+  "changesetsTotal": 12,
+  "invariantsChecked": 25,
+  "invariantsFailed": 4,
+  "skips": 38
+ },
+ "skips": [
+  {
+   "tier": "simple",
+   "file": ".ns/objectives/cross-harness-parity/parity-table.md",
+   "note": "Line 3 standalone `` `ji` `` bin-name mention and `JI_*` env-var-name mention: file-specific note restricts scope to `/ji:` rows and `ji <subcommand>` cli strings only; these don't match that narrow pattern, and the table is explicitly flagged as independently stale (do not fix drift)"
+  },
+  {
+   "tier": "simple",
+   "file": ".ns/objectives/cross-harness-parity/parity-table.md",
+   "note": "`@ji/flow`, `@ji/kernel`, `@ji/pi`, `@ji/core`, `@ji/clinkr`, `@ji/capability-kit`, `@ji/ccc` package-scope references: DO NOT TOUCH per brief (phase-two @ji/* package scope)"
+  },
+  {
+   "tier": "simple",
+   "file": ".ns/objectives/cross-harness-parity/parity-table.md",
+   "note": "`.pi/extensions/*.ts` path in line 7: this is `.pi`, not `.ji` — not a rename target"
+  },
+  {
+   "tier": "simple",
+   "file": "docs/pi/branch-context-workflow.md",
+   "note": "`@ji/plans` and `@ji/branch-context` on line 9-10 left untouched — package scope `@ji/*` is explicitly a DO NOT TOUCH phase-two surface per the brief."
+  },
+  {
+   "tier": "simple",
+   "file": "docs/research/xdg-base-directory-spec.md",
+   "note": "Left brand-name prose as-is: \"ji's design principle\" (line 112), \"Current ji-owned roots\" (line 122), \"ji global extensions\" prefix (line 126), \"ji Pi CLI trace logs\" and \"ji-specific overrides\" (line 128) — these are prose mentions of the product name outside root onboarding docs, not anchored path/namespace literals per the DO NOT TOUCH brand-prose rule."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/branch-retro/SKILL.md",
+   "note": "Line 41 'a ji checkout' left as-is: brand prose referring to the product/repo name, not an anchored CLI-invocation or path form in the rename list, so it defers per the DO NOT TOUCH brand-prose rule."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/handoff-pickup/SKILL.md",
+   "note": "Namespace `handoff` and entry key shape `<semantic-slug>.md` left untouched — not a ji/ns anchor form, unrelated to CLI/namespace rename brief"
+  },
+  {
+   "tier": "simple",
+   "file": "skills/ns-flow-autobranch/SKILL.md",
+   "note": "Left \"SDL slug model contract\" and \"SDL checkpoint text-generation settings\" prose untouched — brand prose outside root onboarding docs defers per the DO-NOT-TOUCH branding row."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/ns-flow-branch-latest-commit/SKILL.md",
+   "note": "\"SDL slug model contract\" prose left as SDL (brand prose outside root onboarding docs defers per DO NOT TOUCH; SDL is a two-renames-old historical/live-doc mention, not one of the anchored ji/JI forms)."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/ns-flow-submit/SKILL.md",
+   "note": "Line 47 \"Automatic checkpointing uses ji checkpoint environment variables\" left as brand prose — 'checkpoint' is not a live top-level ji subcommand form and this is descriptive prose, not an anchored `ji <subcommand>` instruction line, so it defers per the brand-prose-outside-root-docs rule."
+  },
+  {
+   "tier": "simple",
+   "file": "skills/ns-flow-submit/SKILL.md",
+   "note": "Line 58 \"the standard ji fast model\" left as brand prose for the same reason — no anchored form (no backticks, no `ji <subcommand>`, no path/namespace pattern) matches the RENAME list."
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/docs/sdk-reference.md",
+   "note": "Line 307 backticked `ji` manifest field and line 311 `ji.commands[]` — explicitly deferred to PR-5 per file-specific note"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/docs/sdk-reference.md",
+   "note": "All @ji/kernel, @ji/core, @ji/clinkr, @ji/branch-context, @ji/roaster, @ji/flow package specifiers and SdlExtension/SdlCommand/SdlResult/etc identifiers — DO NOT TOUCH per brief (phase-two package scope and identifiers)"
+  },
+  {
+   "tier": "simple",
+   "file": "ts/packages/kernel/docs/sdk-reference.md",
+   "note": "General brand prose (e.g. 'a ji extension', 'ji owns the host environment', 'the ji kernel', 'ji host') outside the enumerated lines — defers per brief (brand prose outside root onboarding docs)"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-1",
+   "note": "branch-context/references/lifecycle.md:49 — \"ji CLI commands\" is generic brand-prose reference to the product as a CLI, not one of the enumerated anchored forms (not a `ji <subcommand>` instruction line, not backticked, not Usage:/bin ji). Left verbatim per the DO NOT TOUCH brand-prose-defers rule since this file is not a root onboarding doc."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-2",
+   "note": "skills/dignified-python-tripwire/SKILL.md:19 — \"the same ji command face above\" is bare brand prose (no `ji <subcommand>` anchor, not a path/namespace literal); per the DO-NOT-TOUCH brand-prose rule this defers, left verbatim"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-2",
+   "note": "skills/handoff/references/diagnostics-admin.md:85 — \"Prefer the first-party ji command face\" is the same bare brand-prose pattern; left verbatim"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-2",
+   "note": "skills/handoff/references/lifecycle.md:57 — the label \"ji command face:\" preceding the `ns handoff ...` code block is bare brand prose, not an anchored `ji <subcommand>` instruction line; left verbatim"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-2",
+   "note": "skills/code-workflows/references/parity-review.md:46 — \"maps ji commands to ...\" bare brand-prose phrase left verbatim while the adjacent `/ji:*`/`/ji:code:*` namespace literals in the same line were renamed"
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-3",
+   "note": "skills/objective-stack-impl/SKILL.md lines 4 and 9: left \"ji Objective\" (bare product-name prose, e.g. \"Implement one ji Objective as a small Graphite stack\") unchanged — this is brand prose outside the root onboarding docs, which the brief says defers to the branding row, not an anchored literal form (unlike the CLI-command or path forms in the same lines, which were renamed)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-3",
+   "note": "objective-review-briefing/SKILL.md and objective-runner-step/SKILL.md descriptions/body text: left \"sdl Objective\" mentions unchanged — these use the token \"sdl\", not \"ji\", so they are out of scope for this ji→ns changeset entirely."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-4",
+   "note": "In all four roast/tripwire SKILL.md files (reinvented-abstractions-tripwire, roast-dry-but-not-too-dry, roast-improve-codebase-architecture, roast-thermonuclear-review), line 19 contains the prose \"...or the same ji command face above...\" — this is a generic descriptive noun-phrase reference to the CLI name, not a literal `ji <subcommand>` instruction line or backticked command form the brief's anchored-forms list covers, so I left it as \"ji\" rather than guessing it should become \"ns\"."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-5",
+   "note": "skills/skill-audit-improved/SKILL.md:4,12,13,119,163 — \"ji's operational audit checklists\", \"the original ji skill-audit\", \"src: ji\" lineage tag, \"ji-native workflows ... ji)\" — all brand prose / lineage-tag usage outside root onboarding docs; not an enumerated anchored form (no `.ji/` path, no `JI_*` env var, no `ji <subcommand>` line, no `/ji:`/`ji:` namespace), so left verbatim per the brand-prose-defers rule."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-5",
+   "note": "skills/sdl-cli-design/references/clinkr-api-map.md:33 and skills/sdl-cli-design/SKILL.md:107 — \"ji-owned contracts\"/\"ji-owned machine contracts\" — brand-prose adjective, not one of the anchored CLI/path/env-var/namespace forms; left verbatim."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-5",
+   "note": "skills/sdl-typescript/SKILL.md:123,127,131 — \"In ji, SdlExtensionApi...\", `ctx.extensions?.[\"ji.clinkr.caps\"]`, \"Production ji TypeScript...\" — brand prose plus a dotted `ji.<field>` manifest-style key structurally matching the DO-NOT-TOUCH `ji.tier`/`ji.commands` family; left verbatim as phase-two/manifest-key survivors."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-5",
+   "note": "skills/sdl-typescript-style-tripwire/SKILL.md:4,7 — frontmatter description \"Invoke the ji TypeScript style Tripwire...\" and H1 \"# Tripwire: ji TypeScript style\" — brand-prose title/description outside root onboarding docs; left verbatim (only the .ji/ paths, the ji-subcommand line, and the \"ji command face\" phrase inside the body were renamed)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-1",
+   "note": "CONTEXT-MAP.md:66 — the un-backticked bolded phrase \"ji shell/worktree boundaries\" (inside a **@ji/slot → ... + ji shell/worktree boundaries** relationship header) reads as a compound descriptor rather than a literal `ji <subcommand>` instruction line (unlike the backticked `ji shell ...` and `ji slot shell ...` on the same line, which were renamed); left as brand prose deferring to the branding row rather than guessing it should become `ns shell/worktree boundaries`."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-1",
+   "note": "CONTEXT.md / docs/aretro.md / CONTEXT-MAP.md — several bare, non-backticked phrases like \"that ji command face\", \"ji command presentation\", \"ji checkpoint primitives\", \"ji owns command behavior\", \"mirror ji commands\", \"ji-owned parent-shell navigation\" were treated as brand prose (not literal CLI/namespace forms) and left untouched, consistent with the brief's DO NOT TOUCH rule that brand prose outside root onboarding docs defers to the branding row."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-2",
+   "note": "docs/pi/runner-subagent-helper.md:40 — `schema`: must be `ji.pi-agent.v1`. Left unchanged: this is a literal schema-version string embedded in frontmatter contract prose, not a form enumerated in the brief's ANCHORED FORMS list (not a CLI invocation, path, namespace, or listed machine key). Verified it is a pervasive literal (`PI_AGENT_DEFINITION_SCHEMA = \"ji.pi-agent.v1\"` and matching test fixtures) across ts/packages source files outside this changeset's scope, so renaming only the doc's mention would desync it from the actual (unrenamed) code value. Flagging for the owning TS-source changeset to decide/execute in lockstep with the code."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-2",
+   "note": "Bare brand-prose mentions of \"ji\" as a product/adjective (not matching any anchored literal form) were left verbatim per the brief's DO NOT TOUCH rule for brand prose outside root onboarding docs — examples: docs/objective-system.md:3 (\"ji objectives\"), docs/pi/cmux-extension-pattern.md:114 (\"active ji Objective\"), docs/pi/extension-command-checklist.md:68 (\"a ji CLI command\"), docs/pi/handoff-artifacts.md:146 (\"Portable ji command face\"), docs/pi/README.md:102/115/139/171/185/187/189/197/199/201/235 (various \"ji lifecycle mirrors\", \"ji CLI output\", \"ji extension discovery\", \"sdl's `ji` package\", etc.). These are deliberate, not oversights."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "No ambiguous cases encountered — all anchored-form matches in this cohort were unambiguous per the brief's rename list (repo-state .ji/ paths, /ji: namespaces, ji <subcommand> instruction lines for the live subcommand set, and one JI_ env-var name). Bare/unbacktracked brand-prose uses of 'ji' (e.g. 'the ji extension command face', 'ji CLI-Surface Conformance Audit', 'The ji Capability') were left as-is since they are prose outside the root onboarding docs, per the brief's brand-prose deferral rule, not anchored literal forms."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "handoff/CONTEXT.md:68,72 and handoff/README.md:5 — bare, non-backticked brand prose (\"the portable ji command surface\", \"consumed by ji command leaves\") describing the CLI adjectivally rather than an anchored `ji <subcommand>` instruction line; left as brand prose per the DO NOT TOUCH defer rule for prose outside root onboarding docs."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "roaster/CONTEXT.md:3,9,17,19 — bare prose (\"a ji Capability\", \"the ji Capability\", \"the ji kernel\", heading \"### ji Command Face\") using ji as a bare product-name adjective/heading, not an anchored `ji <subcommand>` form; deferred as brand prose."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "slot/CONTEXT.md:25,42,46 and slot/README.md:3,11,15,40,44 — bare prose (\"ji host context\", \"the installed ji shell wrapper\", \"a ji child process\", \"the ji binary\", \"The ji kernel discovers\", \"the ji tool shim\", \"the canonical ji shell wrapper\", \"the Slot ji extension\") using ji as a bare adjective describing a mechanism/wrapper rather than a literal `ji shell`/`ji <subcommand>` command instruction; the brief's shell-integration-sentinel carve-out names the exact phrase \"ji shell integration\", not \"ji shell wrapper\", so these were left as deferred brand prose rather than guessed at."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "capability-kit/graphite/CONTEXT.md:16 — \"route reads through code ji controls\" is bare brand-prose (ji as adjective for who owns the code), not an anchored CLI/path/namespace form; deferred."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "objective/CONTEXT.md:3 — the Markdown link text `[ji](../../../CONTEXT.md)` pointing at the root CONTEXT.md is bare brand-prose link text for an out-of-scope file whose own title this changeset doesn't control; left verbatim rather than guessing at consistency with a file outside this changeset."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-5",
+   "note": "None outright skipped, but two judgment calls were made and applied rather than deferred: (1) bare backticked `ji` with no trailing subcommand/flag (e.g. \"the `ji` CLI\", \"for `ji`\", \"install completion for `ji`\") was treated as brand prose and left unchanged, per the cardinal anchored-forms-only rule and the brief's deferral of brand prose outside root onboarding docs. (2) the `ji()` shell wrapper name and its `command ji \"$@\"` invocation in kernel/README.md were renamed to `ns()`/`command ns \"$@\"` even though not explicitly itemized in the anchor list, on the reasoning that the brief explicitly flags 'ji shell integration' wrapper prose as in-window and the wrapper literally invokes the renamed CLI binary."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-1",
+   "note": "No ambiguous cases encountered — every anchored form matched one of the brief's enumerated rename categories (repo-state .ji/ paths, ji/slots XDG namespace, ji <subcommand> CLI form, state/ji XDG path) or was clearly the DO NOT TOUCH manifest key / unrelated @sdl scope, so nothing was deferred as a judgment call."
+  }
+ ],
+ "failures": [
+  {
+   "invariant": "duplicate-literal-twins",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts:26 — REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\" (still not renamed, not imported, and byte-value diverges: \".ji/...\" vs the required \".ns/prompts/pr-description.md\" in ts/packages/capabilities/flow/src/submit/pr-description.ts:26)",
+    "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts:15-17 — locally re-hardcodes ACTIVE_OBJECTIVE_ROOT = \".ns/objectives\" and ARCHIVE_OBJECTIVE_ROOT = \".ns/objective-archive\" (plus a derived ACTIVE_OBJECTIVE_PREFIX) as separate un-imported constants instead of importing ACTIVE_OBJECTIVE_ROOT/OBJECTIVE_ARCHIVE_ROOT from ts/packages/capabilities/objective/src/core/storage.ts:10-11; still a duplicated, unlinked twin even though the current string values happen to match",
+    "ts/packages/capabilities/flow/src/land/land.ts:68 and ts/packages/capabilities/flow/src/land/stack/constants.ts:1 — COMMAND_NAME duplicated as two separate un-imported const declarations (values currently match \"ns:flow:land\" but are not linked, so land.ts's local const shadows/duplicates the one already exported from stack/constants.ts)",
+    "ts/packages/hosts/pi/src/commands/cli-extension.ts:20 and ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts:10 — CLI_COMMAND_OUTPUT_MESSAGE_TYPE and LIVE_PROGRESS_WIDGET_ID remain two independently declared, un-imported constants (values currently match \"ns-cli-command-output\" but nothing enforces they stay in sync)"
+   ]
+  },
+  {
+   "invariant": "residual-dot-ji",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts:26 — `const REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\";` is a path literal referencing a `.ji/` directory, not a manifest property read — violates the invariant.",
+    "ts/packages/capability-kit/test/unit/checkpoint-message.test.ts:51 — `- Add .ji/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md` is a `.ji/` path literal embedded in a test-fixture string (not manifest.ji-style property access, and the file itself is not under a */updates/* path so the exclusion doesn't apply) — violates the invariant."
+   ]
+  },
+  {
+   "invariant": "residual-machine-keys",
+   "pass": false,
+   "violations": [
+    "ts/packages/hosts/pi/test/worktree-status/extension.test.ts:557 — map key literal `\"ji-flow-changes\"` still uses the ji brand prefix in a runtime test fixture; the SAME commit (34ee8e914, 'ns cutover B2.2: tests chunk') renamed the *value* on the same line from `/ji:flow:changes...` to `/ns:flow:changes...` and renamed sibling tmpdir prefixes in this exact file from `ji-worktree-footer-` to `ns-worktree-footer-`, but left this key untouched — a clear, provable miss, not a phase-two filename/subpath survivor.",
+    "ts/packages/capability-kit/src/git/testing.ts:53 — `runGit([\"config\", \"user.email\", options.userEmail ?? \"ji-test@example.com\"])` still hard-codes the `ji-` brand prefix. Line 38 of the same function/file was renamed from `\"ji-git-test-\"` to `\"ns-git-test-\"` (confirmed via `git show 6306b28a4`), and every other package's equivalent test fixture email in this repo uses a neutral or `ns`-flavored prefix (e.g. `branch-context-test@example.com`, `slot-test@example.com`) — this is a residual brand literal missed by the sweep.",
+    "ts/packages/infra/core/test/exec/unit/exec.test.ts:35,40,45,48 — the fixture executable name `\"ji-exec-test-tool\"` still carries the ji brand prefix (used to build a real temp executable and assert `defaultCommandResolver(\"ji-exec-test-tool\")`), while the sibling tmpdir-prefix constant in the same file (line 14) was already renamed to `\"ns-exec-unit-\"` (git history shows it went straight from `sdl-exec-unit-` to `ns-exec-unit-`, skipping the ji intermediate, while the ji-exec-test-tool literal from the earlier sdl→ji rename was never picked up in the ji→ns sweep)."
+   ]
+  },
+  {
+   "invariant": "residual-env-vars",
+   "pass": false,
+   "violations": [
+    "skills/architecture-topology-report/scripts/example-spec.mjs:90 — stale style-guard rule name `JI_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` in a doc/example string; the actual rule constant is `NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` (see ts/packages/infra/core/test/support/typescript-style-guard/config.ts:17 and docs/retros/cli-surface-conformance-audit.md:22), so this reference was not renamed.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:65 — env fixture key `{ HOME: \"/home/tester\", JI_ROOT: \"~/sdl-root\" }` uses stale env-var name JI_ROOT (should be NS_ROOT).",
+    "ts/packages/infra/core/test/xdg-path.test.ts:67 — `overrideEnv: \"JI_ROOT\"` string literal, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:88 — `resolvePathOverride({ env: { JI_ROOT: \"relative/root\" }, name: \"JI_ROOT\" })`, stale env-var name used twice.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:92 — `resolvePathOverride({ env: { JI_ROOT: \"\" }, name: \"JI_ROOT\" })`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:101-102 — `env: { HOME: \"/home/tester\", JI_LOG_DIR: \"~/logs\" }, overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name (should be NS_LOG_DIR).",
+    "ts/packages/infra/core/test/xdg-path.test.ts:109 — `overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:115-116 — `env: { HOME: \"/home/tester\", JI_LOG_DIR: \"relative/logs\" }, overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:119 — asserted error message text `\"JI_LOG_DIR must be an absolute path\"` still references the stale env-var name instead of NS_LOG_DIR."
+   ]
+  }
+ ],
+ "simple": [
+  {
+   "file": ".ns/objectives/cross-harness-parity/parity-table.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "`/ji:flow:*` CLI bridges over `ji flow changes|cp|autobranch|branch-latest-commit|autoslot|submit|regenerate-pr|push|land|pull-trunk`",
+     "after": "`/ns:flow:*` CLI bridges over `ns flow changes|cp|autobranch|branch-latest-commit|autoslot|submit|regenerate-pr|push|land|pull-trunk`"
+    },
+    {
+     "before": "`/ji:flow:submit`                | Submit a Graphite stack         | `ji flow submit`",
+     "after": "`/ns:flow:submit`                | Submit a Graphite stack         | `ns flow submit`"
+    },
+    {
+     "before": "use `/ji:flow:submit` / `ji flow submit` instead",
+     "after": "use `/ns:flow:submit` / `ns flow submit` instead"
+    }
+   ],
+   "skipped": [
+    "Line 3 standalone `` `ji` `` bin-name mention and `JI_*` env-var-name mention: file-specific note restricts scope to `/ji:` rows and `ji <subcommand>` cli strings only; these don't match that narrow pattern, and the table is explicitly flagged as independently stale (do not fix drift)",
+    "`@ji/flow`, `@ji/kernel`, `@ji/pi`, `@ji/core`, `@ji/clinkr`, `@ji/capability-kit`, `@ji/ccc` package-scope references: DO NOT TOUCH per brief (phase-two @ji/* package scope)",
+    "`.pi/extensions/*.ts` path in line 7: this is `.pi`, not `.ji` — not a rename target"
+   ]
+  },
+  {
+   "file": "docs/pi/branch-context-workflow.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "/ji:plan:save",
+     "after": "/ns:plan:save (all Pi command name occurrences renamed throughout the file)"
+    },
+    {
+     "before": "/ji:branch-context:from-plan, /ji:branch-context:upstack-impl-from-plan, /ji:branch-context:impl-attached-plan, /ji:plan:grill-and-save",
+     "after": "/ns:branch-context:from-plan, /ns:branch-context:upstack-impl-from-plan, /ns:branch-context:impl-attached-plan, /ns:plan:grill-and-save"
+    },
+    {
+     "before": "`ji branch-context exec from-plan`, `ji branch-context exec load`, `ji branch-context exec attach/list/check/delete`",
+     "after": "`ns branch-context exec from-plan`, `ns branch-context exec load`, `ns branch-context exec attach/list/check/delete`"
+    },
+    {
+     "before": "$XDG_STATE_HOME/ji/enriched-plan/... (default $HOME/.local/state/ji/enriched-plan/...)",
+     "after": "$XDG_STATE_HOME/ns/enriched-plan/... (default $HOME/.local/state/ns/enriched-plan/...)"
+    },
+    {
+     "before": "Legacy `~/.ji/enriched-plan/...` files are not read, migrated, or dual-written.",
+     "after": "Legacy `~/.ns/enriched-plan/...` files are not read, migrated, or dual-written. (sentence preserved, path repointed to ns per file-specific note)"
+    },
+    {
+     "before": ".ji/prompts/plans-write.md",
+     "after": ".ns/prompts/plans-write.md"
+    }
+   ],
+   "skipped": [
+    "`@ji/plans` and `@ji/branch-context` on line 9-10 left untouched — package scope `@ji/*` is explicitly a DO NOT TOUCH phase-two surface per the brief."
+   ]
+  },
+  {
+   "file": "docs/research/xdg-base-directory-spec.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "$XDG_STATE_HOME/ji/enriched-plan` (default `$HOME/.local/state/ji/enriched-plan`)",
+     "after": "$XDG_STATE_HOME/ns/enriched-plan` (default `$HOME/.local/state/ns/enriched-plan`)"
+    },
+    {
+     "before": "$XDG_STATE_HOME/ji/slots` (default `$HOME/.local/state/ji/slots`)",
+     "after": "$XDG_STATE_HOME/ns/slots` (default `$HOME/.local/state/ns/slots`)"
+    },
+    {
+     "before": "$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`)",
+     "after": "$XDG_DATA_HOME/ns/extensions` (default `$HOME/.local/share/ns/extensions`)"
+    },
+    {
+     "before": "$XDG_CONFIG_HOME/ji/brmem/prompts` (default `$HOME/.config/ji/brmem/prompts`)",
+     "after": "$XDG_CONFIG_HOME/ns/brmem/prompts` (default `$HOME/.config/ns/brmem/prompts`)"
+    },
+    {
+     "before": "$XDG_STATE_HOME/ji/...` unless their explicit ji-specific overrides",
+     "after": "$XDG_STATE_HOME/ns/...` unless their explicit ji-specific overrides"
+    }
+   ],
+   "skipped": [
+    "Left brand-name prose as-is: \"ji's design principle\" (line 112), \"Current ji-owned roots\" (line 122), \"ji global extensions\" prefix (line 126), \"ji Pi CLI trace logs\" and \"ji-specific overrides\" (line 128) — these are prose mentions of the product name outside root onboarding docs, not anchored path/namespace literals per the DO NOT TOUCH brand-prose rule."
+   ]
+  },
+  {
+   "file": "skills/branch-retro/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Collects deterministic evidence with `ji aretro exec collect-evidence`",
+     "after": "Collects deterministic evidence with `ns aretro exec collect-evidence`"
+    },
+    {
+     "before": "\"Bash(ji aretro exec collect-evidence*)\"",
+     "after": "\"Bash(ns aretro exec collect-evidence*)\""
+    },
+    {
+     "before": "\"Bash(ji aretro exec read-evidence-detail*)\"",
+     "after": "\"Bash(ns aretro exec read-evidence-detail*)\""
+    },
+    {
+     "before": "\"Bash(command -v ji*)\"",
+     "after": "\"Bash(command -v ns*)\""
+    },
+    {
+     "before": "factual evidence with `ji aretro`,",
+     "after": "factual evidence with `ns aretro`,"
+    },
+    {
+     "before": "The command boundary is `ji aretro exec collect-evidence` for compact evidence and\n`ji aretro exec read-evidence-detail`",
+     "after": "The command boundary is `ns aretro exec collect-evidence` for compact evidence and\n`ns aretro exec read-evidence-detail`"
+    },
+    {
+     "before": "Verify `command -v ji` succeeds in a ji checkout",
+     "after": "Verify `command -v ns` succeeds in a ji checkout"
+    },
+    {
+     "before": "If `ji` is unavailable, not in a git repository,",
+     "after": "If `ns` is unavailable, not in a git repository,"
+    },
+    {
+     "before": "ji aretro exec collect-evidence \\",
+     "after": "ns aretro exec collect-evidence \\"
+    },
+    {
+     "before": "ji aretro exec read-evidence-detail \\",
+     "after": "ns aretro exec read-evidence-detail \\"
+    }
+   ],
+   "skipped": [
+    "Line 41 'a ji checkout' left as-is: brand prose referring to the product/repo name, not an anchored CLI-invocation or path form in the rename list, so it defers per the DO NOT TOUCH brand-prose rule."
+   ]
+  },
+  {
+   "file": "skills/code-just-the-stack/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Bash(ji flow cp*)\"",
+     "after": "\"Bash(ns flow cp*)\""
+    },
+    {
+     "before": "use `ji flow cp`; do not hand-roll checkpoint",
+     "after": "use `ns flow cp`; do not hand-roll checkpoint"
+    },
+    {
+     "before": "run `ji flow cp` on that same branch ... If `ji flow cp` refuses",
+     "after": "run `ns flow cp` on that same branch ... If `ns flow cp` refuses"
+    },
+    {
+     "before": "ask before running `ji slot gt free-stack`",
+     "after": "ask before running `ns slot gt free-stack`"
+    },
+    {
+     "before": "any `ji flow cp` commit summaries;",
+     "after": "any `ns flow cp` commit summaries;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "skills/handoff-create/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Bash(ji handoff *)\"",
+     "after": "\"Bash(ns handoff *)\""
+    },
+    {
+     "before": "portable ji command face",
+     "after": "portable ns command face"
+    },
+    {
+     "before": "ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'",
+     "after": "ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'"
+    },
+    {
+     "before": "`ji handoff create` refuses an existing artifact by default.",
+     "after": "`ns handoff create` refuses an existing artifact by default."
+    },
+    {
+     "before": "If `ji handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with",
+     "after": "If `ns handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "skills/handoff-pickup/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "\"Bash(ji handoff *)\"",
+     "after": "\"Bash(ns handoff *)\""
+    },
+    {
+     "before": "ji handoff list --format json",
+     "after": "ns handoff list --format json"
+    },
+    {
+     "before": "ji handoff list --branch <branch> --format json",
+     "after": "ns handoff list --branch <branch> --format json"
+    },
+    {
+     "before": "ji handoff list --all --format json",
+     "after": "ns handoff list --all --format json"
+    },
+    {
+     "before": "ji handoff list --all --include-deleted --format json",
+     "after": "ns handoff list --all --include-deleted --format json"
+    },
+    {
+     "before": "`/ji:handoff:pickup <slug>` or `/ji:handoff:pickup --branch <branch> <slug>`",
+     "after": "`/ns:handoff:pickup <slug>` or `/ns:handoff:pickup --branch <branch> <slug>`"
+    },
+    {
+     "before": "`ji handoff delete [--branch <branch>] [--yes] <slug>` ... `ji handoff gc`",
+     "after": "`ns handoff delete [--branch <branch>] [--yes] <slug>` ... `ns handoff gc`"
+    },
+    {
+     "before": "ji handoff pickup <semantic-slug> --branch <branch> --format json",
+     "after": "ns handoff pickup <semantic-slug> --branch <branch> --format json"
+    }
+   ],
+   "skipped": [
+    "Namespace `handoff` and entry key shape `<semantic-slug>.md` left untouched — not a ji/ns anchor form, unrelated to CLI/namespace rename brief"
+   ]
+  },
+  {
+   "file": "skills/ns-flow-autobranch/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "name: ji-flow-autobranch",
+     "after": "name: ns-flow-autobranch"
+    },
+    {
+     "before": "\"Bash(ji flow autobranch*)\"",
+     "after": "\"Bash(ns flow autobranch*)\""
+    },
+    {
+     "before": "delegating to `ji flow autobranch`.",
+     "after": "delegating to `ns flow autobranch`."
+    },
+    {
+     "before": "# ji-flow-autobranch",
+     "after": "# ns-flow-autobranch"
+    },
+    {
+     "before": "public `ji flow autobranch` CLI ... Pi `/ji:flow:autobranch`",
+     "after": "public `ns flow autobranch` CLI ... Pi `/ns:flow:autobranch`"
+    },
+    {
+     "before": "`ji-flow-branch-latest-commit` / `ji flow branch-latest-commit`",
+     "after": "`ns-flow-branch-latest-commit` / `ns flow branch-latest-commit`"
+    },
+    {
+     "before": "```bash\nji flow autobranch\n```",
+     "after": "```bash\nns flow autobranch\n```"
+    },
+    {
+     "before": "```bash\nji flow autobranch --slug <slug>\n```",
+     "after": "```bash\nns flow autobranch --slug <slug>\n```"
+    },
+    {
+     "before": "guidance to use `ji flow branch-latest-commit`.",
+     "after": "guidance to use `ns flow branch-latest-commit`."
+    },
+    {
+     "before": "`JI_SLUG_MODEL` ... `JI_CHECKPOINT_MODEL` with legacy `JI_DEV_CHECKPOINT_MODEL`",
+     "after": "`NS_SLUG_MODEL` ... `NS_CHECKPOINT_MODEL` with legacy `NS_DEV_CHECKPOINT_MODEL`"
+    },
+    {
+     "before": "If `ji flow autobranch` fails",
+     "after": "If `ns flow autobranch` fails"
+    },
+    {
+     "before": "delegates only to `ji flow autobranch`, mirrored in Pi as `/ji:flow:autobranch`.",
+     "after": "delegates only to `ns flow autobranch`, mirrored in Pi as `/ns:flow:autobranch`."
+    }
+   ],
+   "skipped": [
+    "Left \"SDL slug model contract\" and \"SDL checkpoint text-generation settings\" prose untouched — brand prose outside root onboarding docs defers per the DO-NOT-TOUCH branding row."
+   ]
+  },
+  {
+   "file": "skills/ns-flow-branch-latest-commit/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "name: ji-flow-branch-latest-commit",
+     "after": "name: ns-flow-branch-latest-commit"
+    },
+    {
+     "before": "delegating to `ji flow branch-latest-commit`.\"",
+     "after": "delegating to `ns flow branch-latest-commit`.\""
+    },
+    {
+     "before": "\"Bash(ji flow branch-latest-commit*)\"",
+     "after": "\"Bash(ns flow branch-latest-commit*)\""
+    },
+    {
+     "before": "../ji-flow-autobranch/references/autobranch-family-boundaries",
+     "after": "../ns-flow-autobranch/references/autobranch-family-boundaries"
+    },
+    {
+     "before": "# ji-flow-branch-latest-commit",
+     "after": "# ns-flow-branch-latest-commit"
+    },
+    {
+     "before": "delegating to the public `ji flow branch-latest-commit` CLI ... Pi `/ji:flow:branch-latest-commit`",
+     "after": "delegating to the public `ns flow branch-latest-commit` CLI ... Pi `/ns:flow:branch-latest-commit`"
+    },
+    {
+     "before": "use `ji-flow-autobranch` / `ji flow autobranch` instead",
+     "after": "use `ns-flow-autobranch` / `ns flow autobranch` instead"
+    },
+    {
+     "before": "```bash\nji flow branch-latest-commit\n```",
+     "after": "```bash\nns flow branch-latest-commit\n```"
+    },
+    {
+     "before": "```bash\nji flow branch-latest-commit --slug <slug>\n```",
+     "after": "```bash\nns flow branch-latest-commit --slug <slug>\n```"
+    },
+    {
+     "before": "guidance to use `ji flow autobranch`.",
+     "after": "guidance to use `ns flow autobranch`."
+    },
+    {
+     "before": "the SDL slug model contract and `JI_SLUG_MODEL`.",
+     "after": "the SDL slug model contract and `NS_SLUG_MODEL`."
+    },
+    {
+     "before": "If `ji flow branch-latest-commit` fails, surface",
+     "after": "If `ns flow branch-latest-commit` fails, surface"
+    },
+    {
+     "before": "Shared family boundaries live in `../ji-flow-autobranch/references/autobranch-family-boundaries.md`.",
+     "after": "Shared family boundaries live in `../ns-flow-autobranch/references/autobranch-family-boundaries.md`."
+    },
+    {
+     "before": "delegates only to `ji flow branch-latest-commit`, mirrored in Pi as `/ji:flow:branch-latest-commit`.",
+     "after": "delegates only to `ns flow branch-latest-commit`, mirrored in Pi as `/ns:flow:branch-latest-commit`."
+    }
+   ],
+   "skipped": [
+    "\"SDL slug model contract\" prose left as SDL (brand prose outside root onboarding docs defers per DO NOT TOUCH; SDL is a two-renames-old historical/live-doc mention, not one of the anchored ji/JI forms)."
+   ]
+  },
+  {
+   "file": "skills/ns-flow-cp/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "name: ji-flow-cp",
+     "after": "name: ns-flow-cp"
+    },
+    {
+     "before": "description: \"Command: ji-flow-cp\"",
+     "after": "description: \"Command: ns-flow-cp\""
+    },
+    {
+     "before": "\"Bash(ji flow cp*)\"",
+     "after": "\"Bash(ns flow cp*)\""
+    },
+    {
+     "before": "# ji-flow-cp",
+     "after": "# ns-flow-cp"
+    },
+    {
+     "before": "delegating to the shared `ji flow cp` CLI. This is the cross-harness path for `/ji:flow:cp`",
+     "after": "delegating to the shared `ns flow cp` CLI. This is the cross-harness path for `/ns:flow:cp`"
+    },
+    {
+     "before": "```bash\nji flow cp\n```",
+     "after": "```bash\nns flow cp\n```"
+    },
+    {
+     "before": "`JI_CHECKPOINT_MODEL` defaults to ...; `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset.",
+     "after": "`NS_CHECKPOINT_MODEL` defaults to ...; `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset."
+    },
+    {
+     "before": "If `ji flow cp` fails, surface its stderr/stdout and stop.",
+     "after": "If `ns flow cp` fails, surface its stderr/stdout and stop."
+    },
+    {
+     "before": "Never hand-roll the checkpoint commit when `ji flow cp` is available.",
+     "after": "Never hand-roll the checkpoint commit when `ns flow cp` is available."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "skills/ns-flow-submit/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "name: ji-flow-submit",
+     "after": "name: ns-flow-submit"
+    },
+    {
+     "before": "description: \"Command: ji-flow-submit\"",
+     "after": "description: \"Command: ns-flow-submit\""
+    },
+    {
+     "before": "\"Bash(ji flow submit*)\"",
+     "after": "\"Bash(ns flow submit*)\""
+    },
+    {
+     "before": "# ji-flow-submit",
+     "after": "# ns-flow-submit"
+    },
+    {
+     "before": "repo-local `ji flow submit` command",
+     "after": "repo-local `ns flow submit` command"
+    },
+    {
+     "before": "cross-harness path for `/ji:flow:submit`",
+     "after": "cross-harness path for `/ns:flow:submit`"
+    },
+    {
+     "before": "```bash\nji flow submit\n```",
+     "after": "```bash\nns flow submit\n```"
+    },
+    {
+     "before": "checkpoint with `ji flow cp`",
+     "after": "checkpoint with `ns flow cp`"
+    },
+    {
+     "before": "```bash\nji flow submit --restack\n```",
+     "after": "```bash\nns flow submit --restack\n```"
+    },
+    {
+     "before": "`JI_CHECKPOINT_MODEL` defaults to ... `JI_DEV_CHECKPOINT_MODEL` ... `JI_CHECKPOINT_MODEL` is unset",
+     "after": "`NS_CHECKPOINT_MODEL` ... `NS_DEV_CHECKPOINT_MODEL` ... `NS_CHECKPOINT_MODEL` is unset"
+    },
+    {
+     "before": "`JI_DEV_PR_DESCRIPTION_MODEL` ... `JI_DEV_PR_DESCRIPTION_PROMPT` ... `.ji/prompts/pr-description.md`",
+     "after": "`NS_DEV_PR_DESCRIPTION_MODEL` ... `NS_DEV_PR_DESCRIPTION_PROMPT` ... `.ns/prompts/pr-description.md`"
+    },
+    {
+     "before": "`JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model",
+     "after": "`NS_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model"
+    },
+    {
+     "before": "```bash\nji flow regenerate-pr\n```",
+     "after": "```bash\nns flow regenerate-pr\n```"
+    },
+    {
+     "before": "`ji flow submit` preserves ... Explicit `ji flow regenerate-pr` asks",
+     "after": "`ns flow submit` preserves ... Explicit `ns flow regenerate-pr` asks"
+    },
+    {
+     "before": "through `ji flow submit` or explicit `ji flow regenerate-pr`",
+     "after": "through `ns flow submit` or explicit `ns flow regenerate-pr`"
+    }
+   ],
+   "skipped": [
+    "Line 47 \"Automatic checkpointing uses ji checkpoint environment variables\" left as brand prose — 'checkpoint' is not a live top-level ji subcommand form and this is descriptive prose, not an anchored `ji <subcommand>` instruction line, so it defers per the brand-prose-outside-root-docs rule.",
+    "Line 58 \"the standard ji fast model\" left as brand prose for the same reason — no anchored form (no backticks, no `ji <subcommand>`, no path/namespace pattern) matches the RENAME list."
+   ]
+  },
+  {
+   "file": "ts/packages/kernel/docs/sdk-reference.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Single-file extensions under `.ji/extensions/` are leaf modules.",
+     "after": "Single-file extensions under `.ns/extensions/` are leaf modules."
+    },
+    {
+     "before": "checked-in `.ji/extensions/<group>/src/commands/<name>.ts` shim ... static `.ji/extensions/*/package.json` manifests",
+     "after": "checked-in `.ns/extensions/<group>/src/commands/<name>.ts` shim ... static `.ns/extensions/*/package.json` manifests"
+    },
+    {
+     "before": "3. `.ji/extensions/<group>/package.json` lists one manifest command entry per command leaf.\n4. `.ji/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export...",
+     "after": "3. `.ns/extensions/<group>/package.json` lists one manifest command entry per command leaf.\n4. `.ns/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export..."
+    },
+    {
+     "before": "shared `.ji/extensions/<group>/src/extension.ts` multiplexer",
+     "after": "shared `.ns/extensions/<group>/src/extension.ts` multiplexer"
+    },
+    {
+     "before": "Direct extension entries appear as `ji <name>`; manifest-grouped packages can present the same flat command name under a group such as `ji flow <name>`.",
+     "after": "Direct extension entries appear as `ns <name>`; manifest-grouped packages can present the same flat command name under a group such as `ns flow <name>`."
+    },
+    {
+     "before": "text shown in `ji --help`. ... full help text shown in `ji <cmd> --help`.",
+     "after": "text shown in `ns --help`. ... full help text shown in `ns <cmd> --help`."
+    },
+    {
+     "before": "limitations for ji shell completion are documented in [`../README.md`]",
+     "after": "limitations for ns shell completion are documented in [`../README.md`]"
+    },
+    {
+     "before": "so `ji flow autobranch my-feature` fills it:",
+     "after": "so `ns flow autobranch my-feature` fills it:"
+    }
+   ],
+   "skipped": [
+    "Line 307 backticked `ji` manifest field and line 311 `ji.commands[]` — explicitly deferred to PR-5 per file-specific note",
+    "All @ji/kernel, @ji/core, @ji/clinkr, @ji/branch-context, @ji/roaster, @ji/flow package specifiers and SdlExtension/SdlCommand/SdlResult/etc identifiers — DO NOT TOUCH per brief (phase-two package scope and identifiers)",
+    "General brand prose (e.g. 'a ji extension', 'ji owns the host environment', 'the ji kernel', 'ji host') outside the enumerated lines — defers per brief (brand prose outside root onboarding docs)"
+   ]
+  }
+ ],
+ "complex": [
+  {
+   "id": "cohort-skills-1",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/skills/branch-context-from-plan/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/branch-context-impl/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/branch-context/references/diagnostics-admin.md",
+    "/Users/schrockn/code/sdl-tools/skills/branch-context/references/lifecycle.md",
+    "/Users/schrockn/code/sdl-tools/skills/branch-context/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/brmem/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/ccc-available-work/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/ccc-branch-triage/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/ccc-stack-map/references/display-and-code-sketch.md",
+    "/Users/schrockn/code/sdl-tools/skills/ccc-stack-map/SKILL.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns hard-cutover rename to all 10 files in the cohort-skills-1 changeset. Renamed: `/ji:branch-context:*`, `/ji:plan:*` Pi slash-command references → `/ns:...`; `ji branch-context exec <subcmd>` CLI instruction lines → `ns branch-context exec ...`; `ji slot gt exec stack-branches` and `ji objective list` / `ji objective exec read-objective` instruction lines → `ns slot ...` / `ns objective ...`; the `.ji/prompts/...` repo-state path and XDG `$XDG_STATE_HOME/ji/enriched-plan/`, `$HOME/.local/state/ji/enriched-plan/`, `$XDG_CONFIG_HOME/ji/brmem/prompts/...`, `$HOME/.config/ji/brmem/prompts/...` paths → `ns` equivalents. Left all survivors untouched per brief: `sdl` historical mentions in brmem/SKILL.md (lines 10, 45, 54), the `Clinkr` envelope references, `enriched-plan` naming, and the brand-prose sentence \"Pi slash commands and ji CLI commands are equal first-class workflow surfaces...\" in branch-context/references/lifecycle.md:49 (deferred brand prose outside root onboarding docs, not an anchored form).",
+   "skipped": [
+    "branch-context/references/lifecycle.md:49 — \"ji CLI commands\" is generic brand-prose reference to the product as a CLI, not one of the enumerated anchored forms (not a `ji <subcommand>` instruction line, not backticked, not Usage:/bin ji). Left verbatim per the DO NOT TOUCH brand-prose-defers rule since this file is not a root onboarding doc."
+   ]
+  },
+  {
+   "changed": true,
+   "files": [
+    "skills/code-gh/SKILL.md",
+    "skills/code-gt-restack-resolve/SKILL.md",
+    "skills/code-thermostack/SKILL.md",
+    "skills/code-workflows/references/delete-stack.md",
+    "skills/code-workflows/references/parity-review.md",
+    "skills/dignified-python-tripwire/SKILL.md",
+    "skills/enriched-plan-save/SKILL.md",
+    "skills/handoff/references/diagnostics-admin.md",
+    "skills/handoff/references/lifecycle.md",
+    "skills/handoff/SKILL.md"
+   ],
+   "id": "cohort-skills-2",
+   "summary": "Applied the shared ji→ns cutover brief across all 10 files in cohort-skills-2: renamed `ji <subcommand>` instruction lines for live subcommands (flow, slot, roaster, handoff) in prose/code blocks (e.g. `ji flow submit`→`ns flow submit`, `ji slot gt exec stack-branches`→`ns slot gt exec stack-branches`, `ji roaster review run ...`→`ns roaster review run ...`, `ji handoff list/pickup/create/delete/gc`→`ns handoff ...`); renamed `.ji/<path>` repo-state paths to `.ns/<path>` (`.ji/reviews/thermonuclear-review/review.md`, `.ji/reviews/dignified-python-tripwire/review.md`, `.ji/objectives/cross-harness-parity/...`); and renamed `/ji:*` namespace literals to `/ns:*` (`/ji:plan:save`, `/ji:plan:grill-and-save`, `/ji:handoff:create`, `/ji:handoff:pickup`, `/ji:*` and `/ji:code:*` bridge examples). Left the bare `/handoff:list` Pi command untouched (no `ji:` anchor).\"",
+   "skipped": [
+    "skills/dignified-python-tripwire/SKILL.md:19 — \"the same ji command face above\" is bare brand prose (no `ji <subcommand>` anchor, not a path/namespace literal); per the DO-NOT-TOUCH brand-prose rule this defers, left verbatim",
+    "skills/handoff/references/diagnostics-admin.md:85 — \"Prefer the first-party ji command face\" is the same bare brand-prose pattern; left verbatim",
+    "skills/handoff/references/lifecycle.md:57 — the label \"ji command face:\" preceding the `ns handoff ...` code block is bare brand prose, not an anchored `ji <subcommand>` instruction line; left verbatim",
+    "skills/code-workflows/references/parity-review.md:46 — \"maps ji commands to ...\" bare brand-prose phrase left verbatim while the adjacent `/ji:*`/`/ji:code:*` namespace literals in the same line were renamed"
+   ]
+  },
+  {
+   "id": "cohort-skills-3",
+   "files": [
+    "skills/ns-flow-autobranch/references/autobranch-family-boundaries.md",
+    "skills/objective-autorun/SKILL.md",
+    "skills/objective-close/SKILL.md",
+    "skills/objective-create/SKILL.md",
+    "skills/objective-next/SKILL.md",
+    "skills/objective-refresh/SKILL.md",
+    "skills/objective-review-briefing/SKILL.md",
+    "skills/objective-runner-step/SKILL.md",
+    "skills/objective-stack-impl/references/final-response.md",
+    "skills/objective-stack-impl/SKILL.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns hard-cutover rename to all 10 files in the cohort using only anchored forms from the brief: `ji objective ...` / `ji flow ...` instruction lines → `ns objective ...` / `ns flow ...`; `.ji/objectives/...`, `.ji/objective-archive/...` paths → `.ns/...`; and `/ji:objective:stack-impl` / `/ji:flow:*` namespace references → `/ns:...`. Verified via dprint check that formatting is unaffected.",
+   "skipped": [
+    "skills/objective-stack-impl/SKILL.md lines 4 and 9: left \"ji Objective\" (bare product-name prose, e.g. \"Implement one ji Objective as a small Graphite stack\") unchanged — this is brand prose outside the root onboarding docs, which the brief says defers to the branding row, not an anchored literal form (unlike the CLI-command or path forms in the same lines, which were renamed).",
+    "objective-review-briefing/SKILL.md and objective-runner-step/SKILL.md descriptions/body text: left \"sdl Objective\" mentions unchanged — these use the token \"sdl\", not \"ji\", so they are out of scope for this ji→ns changeset entirely."
+   ]
+  },
+  {
+   "id": "cohort-skills-4",
+   "files": [
+    "skills/objective-update/SKILL.md",
+    "skills/objective/references/standing-objectives.md",
+    "skills/objective/SKILL.md",
+    "skills/pr-address/references/cli-collection.md",
+    "skills/pr-address/references/cli-reference.md",
+    "skills/pr-address/SKILL.md",
+    "skills/reinvented-abstractions-tripwire/SKILL.md",
+    "skills/roast-dry-but-not-too-dry/SKILL.md",
+    "skills/roast-improve-codebase-architecture/SKILL.md",
+    "skills/roast-thermonuclear-review/SKILL.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across all 10 cohort-skills-4 files: `.ji/objectives/`, `.ji/objective-archive/`, and `.ji/reviews/` paths → `.ns/...`; `ji objective exec/list/check/archive` instruction lines → `ns objective ...`; `ji address exec` and `ji slot gt exec` → `ns address exec` / `ns slot gt exec`; `ji roaster review run` / `ji roaster exec` → `ns roaster ...`. Left all @ji/-style survivors, sdl historical prose (\"sdl Objectives\"), and objective-slug/skill-name literals untouched.",
+   "skipped": [
+    "In all four roast/tripwire SKILL.md files (reinvented-abstractions-tripwire, roast-dry-but-not-too-dry, roast-improve-codebase-architecture, roast-thermonuclear-review), line 19 contains the prose \"...or the same ji command face above...\" — this is a generic descriptive noun-phrase reference to the CLI name, not a literal `ji <subcommand>` instruction line or backticked command form the brief's anchored-forms list covers, so I left it as \"ji\" rather than guessing it should become \"ns\"."
+   ]
+  },
+  {
+   "id": "cohort-skills-5",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/skills/sdl-cli-design/references/agent-exec-tier.md",
+    "/Users/schrockn/code/sdl-tools/skills/sdl-cli-design/references/clinkr-api-map.md",
+    "/Users/schrockn/code/sdl-tools/skills/sdl-cli-design/references/danger-tiers.md",
+    "/Users/schrockn/code/sdl-tools/skills/sdl-cli-design/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/sdl-typescript-style-tripwire/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/sdl-typescript/SKILL.md",
+    "/Users/schrockn/code/sdl-tools/skills/typescript-style/checklist.md",
+    "/Users/schrockn/code/sdl-tools/skills/typescript-style/core-rules.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across cohort-skills-5. Renamed `ji <subcommand>` instruction lines (`ji address exec ...`, `ji shell install`, `ji handoff delete`, `ji handoff gc`, `ji roaster review run ...`) to `ns ...` in sdl-cli-design's SKILL.md and its agent-exec-tier.md/danger-tiers.md references, and in sdl-typescript-style-tripwire/SKILL.md (including the `.ji/reviews/...` paths and the generic \\\"ji command face\\\" prose, renamed to `.ns/reviews/...` and \\\"ns command face\\\" per precedent already set elsewhere in the repo). Renamed `.ji/objectives/agent-cli-design-discipline/...` paths to `.ns/objectives/...` in clinkr-api-map.md and sdl-cli-design/SKILL.md. Renamed all `JI_TS_BAN_*` lint-rule/env-var-style identifiers to `NS_TS_BAN_*` across sdl-typescript/SKILL.md, typescript-style/checklist.md, and typescript-style/core-rules.md. Left skill-audit-improved/SKILL.md unmodified — every `ji` occurrence there is either brand prose outside a root onboarding doc (frontmatter description, H1-adjacent lineage note, \\\"ji-native workflows\\\") or the `src: ji` / `<!-- src: ji -->` lineage tag used consistently as a source label, none of which match an enumerated anchored form.",
+   "skipped": [
+    "skills/skill-audit-improved/SKILL.md:4,12,13,119,163 — \"ji's operational audit checklists\", \"the original ji skill-audit\", \"src: ji\" lineage tag, \"ji-native workflows ... ji)\" — all brand prose / lineage-tag usage outside root onboarding docs; not an enumerated anchored form (no `.ji/` path, no `JI_*` env var, no `ji <subcommand>` line, no `/ji:`/`ji:` namespace), so left verbatim per the brand-prose-defers rule.",
+    "skills/sdl-cli-design/references/clinkr-api-map.md:33 and skills/sdl-cli-design/SKILL.md:107 — \"ji-owned contracts\"/\"ji-owned machine contracts\" — brand-prose adjective, not one of the anchored CLI/path/env-var/namespace forms; left verbatim.",
+    "skills/sdl-typescript/SKILL.md:123,127,131 — \"In ji, SdlExtensionApi...\", `ctx.extensions?.[\"ji.clinkr.caps\"]`, \"Production ji TypeScript...\" — brand prose plus a dotted `ji.<field>` manifest-style key structurally matching the DO-NOT-TOUCH `ji.tier`/`ji.commands` family; left verbatim as phase-two/manifest-key survivors.",
+    "skills/sdl-typescript-style-tripwire/SKILL.md:4,7 — frontmatter description \"Invoke the ji TypeScript style Tripwire...\" and H1 \"# Tripwire: ji TypeScript style\" — brand-prose title/description outside root onboarding docs; left verbatim (only the .ji/ paths, the ji-subcommand line, and the \"ji command face\" phrase inside the body were renamed)."
+   ]
+  },
+  {
+   "id": "cohort-docs-1",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/.ns/extensions/AGENTS.md",
+    "/Users/schrockn/code/sdl-tools/.ns/prompts/AGENTS.md",
+    "/Users/schrockn/code/sdl-tools/.ns/reviews/README.md",
+    "/Users/schrockn/code/sdl-tools/CONTEXT-MAP.md",
+    "/Users/schrockn/code/sdl-tools/CONTEXT.md",
+    "/Users/schrockn/code/sdl-tools/docs/aretro.md",
+    "/Users/schrockn/code/sdl-tools/docs/conventions/platform-and-consumer.md",
+    "/Users/schrockn/code/sdl-tools/docs/conventions/skill-conventions.md",
+    "/Users/schrockn/code/sdl-tools/docs/conventions/subpackage-conventions.md",
+    "/Users/schrockn/code/sdl-tools/docs/north-star.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across the cohort-docs-1 file set: `.ji/<anything>` repo-state paths → `.ns/<anything>` (objectives, objective-archive, reviews, extensions dirs); `ji <subcommand>` CLI instruction lines and backticked command examples → `ns <subcommand>` for the live subcommands present (objective, flow, slot, handoff, address, aretro, shell), including multi-word forms like `ji slot gt`, `ji objective exec`, `ji aretro exec ...`; Pi namespace forms `/ji:*`, `/ji:flow:*`, `/ji:flow:autobranch`, `/ji:flow:land` → `/ns:*` equivalents; and the env-var-shaped TS style-guard token `JI_TS_EXPORTS_SUBPACKAGE_CONFORMANCE` → `NS_TS_EXPORTS_SUBPACKAGE_CONFORMANCE`. Left untouched (per brief): `@ji/*` package-scope imports/links, `ji.tier`/`ji.subpackages`/`ji.remainder`/`ji.group` manifest-key dotted prose, `sdl-*`/`@sdl/*`/`sdl-sdk` historical SDL survivors, the host-surface subpackage identifiers `ji`/`pi`/`repo-local-ji-extension`, and all bare brand-prose uses of \"ji\" as the product name in running text/titles outside root onboarding docs (these defer to the branding row per the brief's DO NOT TOUCH section).",
+   "skipped": [
+    "CONTEXT-MAP.md:66 — the un-backticked bolded phrase \"ji shell/worktree boundaries\" (inside a **@ji/slot → ... + ji shell/worktree boundaries** relationship header) reads as a compound descriptor rather than a literal `ji <subcommand>` instruction line (unlike the backticked `ji shell ...` and `ji slot shell ...` on the same line, which were renamed); left as brand prose deferring to the branding row rather than guessing it should become `ns shell/worktree boundaries`.",
+    "CONTEXT.md / docs/aretro.md / CONTEXT-MAP.md — several bare, non-backticked phrases like \"that ji command face\", \"ji command presentation\", \"ji checkpoint primitives\", \"ji owns command behavior\", \"mirror ji commands\", \"ji-owned parent-shell navigation\" were treated as brand prose (not literal CLI/namespace forms) and left untouched, consistent with the brief's DO NOT TOUCH rule that brand prose outside root onboarding docs defers to the branding row."
+   ]
+  },
+  {
+   "id": "cohort-docs-2",
+   "files": [
+    "docs/objective-system.md",
+    "docs/patterns/planning-uncertain-features.md",
+    "docs/patterns/thesis-reapplication.md",
+    "docs/pi/authoring-remediation-autoobjectives.md",
+    "docs/pi/cmux-extension-pattern.md",
+    "docs/pi/extension-command-checklist.md",
+    "docs/pi/handoff-artifacts.md",
+    "docs/pi/README.md",
+    "docs/pi/runner-subagent-helper.md",
+    "docs/pi/standing-objectives-and-runners.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across the 10-file docs cohort: (1) repo-state paths `.ji/objectives`, `.ji/objective-archive`, `.ji/prompts`, `.ji/pi/agents`, `.ji/extensions` → `.ns/...`; (2) CLI invocation forms `ji objective ...`, `ji handoff ...`, `ji flow ...`, `ji branch-context exec ...`, `ji aretro exec ...` → `ns ...`; (3) Pi namespace prefixes `/ji:*` (flow, objective, handoff, plan, branch-context, code, etc.) → `/ns:*`; (4) brand machine keys `ji-command-ack`/`ji-command-progress` → `ns-command-ack`/`ns-command-progress`; (5) env var `JI_CCC_SIDEBAR_MODEL` → `NS_CCC_SIDEBAR_MODEL`; (6) XDG namespace segment `.../ji/enriched-plan` → `.../ns/enriched-plan` (both $XDG_STATE_HOME and $HOME/.local/state forms) in docs/pi/README.md; (7) followed the already-renamed file `.pi/extensions/ji.ts` → `.pi/extensions/ns.ts` in its two doc references (table row path and prose adapter reference) in docs/pi/README.md. Left untouched per DO NOT TOUCH: all `@ji/*` package-scope imports/identifiers, `ji-extension.ts`/`ji-*.ts` filenames, and bare brand prose outside root onboarding docs (e.g. \\\"ji objectives\\\", \\\"ji CLI command\\\", \\\"SDK-only ji extension\\\", \\\"Portable ji command face\\\", \\\"sdl's `ji` package\\\", historical/comparative sdl mentions in the flue case study). Ran `dprint fmt` on all 10 files after edits; no reformatting was needed.",
+   "skipped": [
+    "docs/pi/runner-subagent-helper.md:40 — `schema`: must be `ji.pi-agent.v1`. Left unchanged: this is a literal schema-version string embedded in frontmatter contract prose, not a form enumerated in the brief's ANCHORED FORMS list (not a CLI invocation, path, namespace, or listed machine key). Verified it is a pervasive literal (`PI_AGENT_DEFINITION_SCHEMA = \"ji.pi-agent.v1\"` and matching test fixtures) across ts/packages source files outside this changeset's scope, so renaming only the doc's mention would desync it from the actual (unrenamed) code value. Flagging for the owning TS-source changeset to decide/execute in lockstep with the code.",
+    "Bare brand-prose mentions of \"ji\" as a product/adjective (not matching any anchored literal form) were left verbatim per the brief's DO NOT TOUCH rule for brand prose outside root onboarding docs — examples: docs/objective-system.md:3 (\"ji objectives\"), docs/pi/cmux-extension-pattern.md:114 (\"active ji Objective\"), docs/pi/extension-command-checklist.md:68 (\"a ji CLI command\"), docs/pi/handoff-artifacts.md:146 (\"Portable ji command face\"), docs/pi/README.md:102/115/139/171/185/187/189/197/199/201/235 (various \"ji lifecycle mirrors\", \"ji CLI output\", \"ji extension discovery\", \"sdl's `ji` package\", etc.). These are deliberate, not oversights."
+   ]
+  },
+  {
+   "id": "cohort-docs-3",
+   "files": [
+    "docs/README.md",
+    "docs/retros/cli-surface-conformance-audit.md",
+    "docs/sdl-exec/README.md",
+    "ts/packages/capabilities/address/README.md",
+    "ts/packages/capabilities/aretro/README.md",
+    "ts/packages/capabilities/branch-context/CONTEXT.md",
+    "ts/packages/capabilities/branch-context/README.md",
+    "ts/packages/capabilities/ccc/AGENTS.md",
+    "ts/packages/capabilities/ccc/CONTEXT.md",
+    "ts/packages/capabilities/flow/CONTEXT.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across all 10 cohort-docs-3 files. Renamed: `.ji/…` repo-state paths → `.ns/…` (docs/README.md, docs/sdl-exec/README.md, branch-context/README.md); `/ji:…` Pi namespaces → `/ns:…` (docs/sdl-exec/README.md, ccc/AGENTS.md, ccc/CONTEXT.md, branch-context/CONTEXT.md); `ji <subcommand>` instruction/usage lines for the live subcommands address, aretro, branch-context, and flow → `ns <subcommand>` (address/README.md incl. its bash usage block, aretro/README.md incl. usage block, branch-context/README.md, flow/CONTEXT.md, ccc/CONTEXT.md); the bare `ji` bin-shim reference in address/README.md → `ns`; and one env-var name `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` → `NS_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` plus the historical `.ji/objectives/...` evidence path and `/ji:flow:land` namespace mentions in docs/retros/cli-surface-conformance-audit.md (which also required renaming ~50 `ji <subcommand>` instruction-line occurrences: shell, slot, roaster, aretro, branch-context, address, objective, plus the umbrella `ji`→`ns` entrypoint/section-header mentions). Left untouched per the DO NOT TOUCH list: all `@ji/*` package-scope imports/titles, `jicc` (distinct tool name), bare unbacktracked brand-prose mentions of \\\"ji\\\" (e.g. \\\"the ji extension command face\\\", \\\"ji CLI-Surface Conformance Audit\\\" title, \\\"The ji Capability\\\"), and the ADR/skill-name reference `sdl-cli-design`.",
+   "skipped": [
+    "No ambiguous cases encountered — all anchored-form matches in this cohort were unambiguous per the brief's rename list (repo-state .ji/ paths, /ji: namespaces, ji <subcommand> instruction lines for the live subcommand set, and one JI_ env-var name). Bare/unbacktracked brand-prose uses of 'ji' (e.g. 'the ji extension command face', 'ji CLI-Surface Conformance Audit', 'The ji Capability') were left as-is since they are prose outside the root onboarding docs, per the brief's brand-prose deferral rule, not anchored literal forms."
+   ]
+  },
+  {
+   "id": "cohort-docs-4",
+   "files": [
+    "ts/packages/capabilities/handoff/CONTEXT.md",
+    "ts/packages/capabilities/handoff/README.md",
+    "ts/packages/capabilities/objective/CONTEXT.md",
+    "ts/packages/capabilities/plans/CONTEXT.md",
+    "ts/packages/capabilities/roaster/CONTEXT.md",
+    "ts/packages/capabilities/roaster/README.md",
+    "ts/packages/capabilities/slot/CONTEXT.md",
+    "ts/packages/capabilities/slot/README.md",
+    "ts/packages/capability-kit/src/graphite/CONTEXT.md",
+    "ts/packages/hosts/jicc/README.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns anchored-form rename across the 10 cohort-docs-4 files. Renamed backticked `ji <subcommand> ...` instruction/help-text lines for live subcommands (handoff, objective, roaster, slot, flow, shell) to `ns <subcommand> ...`, including code-block command examples (e.g. `ji handoff list` → `ns handoff list`, `ji roaster review run ...` → `ns roaster review run ...`, `ji slot checkout` → `ns slot checkout`, `ji slot gt exec ...` → `ns slot gt exec ...`, `ji flow exec ...` → `ns flow exec ...`, `ji shell ...` → `ns shell ...`). Renamed repo-state path literals `.ji/reviews/...` → `.ns/reviews/...` (roaster CONTEXT.md and README.md, including the `dprint check` example). Renamed the XDG state-tree literal `$XDG_STATE_HOME/ji/enriched-plan/...` and its default-path form `$HOME/.local/state/ji/enriched-plan/...` → `ns/enriched-plan` (plans/CONTEXT.md). In slot/README.md's shell-wrapper description, renamed the anchored CLI-name/env-var forms: the shell function `` `ji()` `` → `` `ns()` ``, the env var `JI_CD_DIRECTIVE_FILE` → `NS_CD_DIRECTIVE_FILE`, and the subprocess invocation `` `command ji \"$@\"` `` → `` `command ns \"$@\"` ``. Left all `@ji/*` package-scope imports/paths (`@ji/handoff`, `@ji/objective`, `@ji/plans`, `@ji/roaster`, `@ji/slot`, `@ji/capability-kit/graphite`, `@ji/kernel/sdk`, `@ji/pi`, deep `src/...` subpaths) untouched per the phase-two DO NOT TOUCH list, and left `jicc` (package name/dir/bin) untouched everywhere it appeared in jicc/README.md and objective/CONTEXT.md.",
+   "skipped": [
+    "handoff/CONTEXT.md:68,72 and handoff/README.md:5 — bare, non-backticked brand prose (\"the portable ji command surface\", \"consumed by ji command leaves\") describing the CLI adjectivally rather than an anchored `ji <subcommand>` instruction line; left as brand prose per the DO NOT TOUCH defer rule for prose outside root onboarding docs.",
+    "roaster/CONTEXT.md:3,9,17,19 — bare prose (\"a ji Capability\", \"the ji Capability\", \"the ji kernel\", heading \"### ji Command Face\") using ji as a bare product-name adjective/heading, not an anchored `ji <subcommand>` form; deferred as brand prose.",
+    "slot/CONTEXT.md:25,42,46 and slot/README.md:3,11,15,40,44 — bare prose (\"ji host context\", \"the installed ji shell wrapper\", \"a ji child process\", \"the ji binary\", \"The ji kernel discovers\", \"the ji tool shim\", \"the canonical ji shell wrapper\", \"the Slot ji extension\") using ji as a bare adjective describing a mechanism/wrapper rather than a literal `ji shell`/`ji <subcommand>` command instruction; the brief's shell-integration-sentinel carve-out names the exact phrase \"ji shell integration\", not \"ji shell wrapper\", so these were left as deferred brand prose rather than guessed at.",
+    "capability-kit/graphite/CONTEXT.md:16 — \"route reads through code ji controls\" is bare brand-prose (ji as adjective for who owns the code), not an anchored CLI/path/namespace form; deferred.",
+    "objective/CONTEXT.md:3 — the Markdown link text `[ji](../../../CONTEXT.md)` pointing at the root CONTEXT.md is bare brand-prose link text for an out-of-scope file whose own title this changeset doesn't control; left verbatim rather than guessing at consistency with a file outside this changeset."
+   ]
+  },
+  {
+   "id": "cohort-docs-5",
+   "files": [
+    "ts/packages/hosts/pi/CONTEXT.md",
+    "ts/packages/kernel/CONTEXT.md",
+    "ts/packages/kernel/README.md",
+    "ts/TESTING.md"
+   ],
+   "changed": true,
+   "summary": "Applied anchored-form-only ji→ns renames across the four cohort-docs-5 files. Renamed: `/ji:*` and `/ji:flow:*`/`/ji:branch-context:*`/etc. Pi slash-command namespaces to `/ns:*`; backticked `ji <subcommand>` CLI examples (ji flow *, ji slot *, ji shell *, ji completion *, ji --version/--runtime/-h, ji pr-regen, ji <cmd> --help, ji <name>) to `ns *`; the `ji()` shell wrapper and its `command ji \"$@\"` invocation to `ns()`/`command ns \"$@\"`; repo-state paths `.ji/extensions*` and `.ji/commands/<command>.ts` to `.ns/extensions*`/`.ns/commands/<command>.ts`; the XDG data-namespace path `$XDG_DATA_HOME/ji/extensions` to `$XDG_DATA_HOME/ns/extensions`; and env-var names `JI_CD_DIRECTIVE_FILE`, `JI_CHECKPOINT_MODEL`, `JI_DEV_CHECKPOINT_MODEL`, `JI_SLUG_MODEL`, `JI_CHANGES_MODEL`, `JI_DEV_PR_DESCRIPTION_MODEL`, `JI_DEV_PR_DESCRIPTION_PROMPT`, `JI_SUBMIT_FAILURE_MODEL`, `JI_SUBMIT_FAILURE_LOG_DIR` to their `NS_*` forms. Left untouched (per DO-NOT-TOUCH / brand-prose-defers): all `@ji/*` package-scope import specifiers and prose mentions, the package.json manifest key `\"ji\": {` and its dotted-path reads (`ji.internalWorkspaceExports`), bare narrative uses of \"ji\" as the product name (e.g. \"the `ji` CLI\", \"ji owns...\", \"the ji slug model\"), `@sdl/kernel`/`sdl-dev` historical mentions, and the `jiti` tool name (unrelated survivor).",
+   "skipped": [
+    "None outright skipped, but two judgment calls were made and applied rather than deferred: (1) bare backticked `ji` with no trailing subcommand/flag (e.g. \"the `ji` CLI\", \"for `ji`\", \"install completion for `ji`\") was treated as brand prose and left unchanged, per the cardinal anchored-forms-only rule and the brief's deferral of brand prose outside root onboarding docs. (2) the `ji()` shell wrapper name and its `command ji \"$@\"` invocation in kernel/README.md were renamed to `ns()`/`command ns \"$@\"` even though not explicitly itemized in the anchor list, on the reasoning that the brief explicitly flags 'ji shell integration' wrapper prose as in-window and the wrapper literally invokes the renamed CLI binary."
+   ]
+  },
+  {
+   "id": "cohort-dottree-1",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/.ns/extensions/flow/docs/dependencies.md",
+    "/Users/schrockn/code/sdl-tools/.ns/prompts/plans-write.md",
+    "/Users/schrockn/code/sdl-tools/.ns/reviews/code-smell-roaster/review.md"
+   ],
+   "changed": true,
+   "summary": "Applied the ji→ns content rename to the cohort-dottree-1 files. In .ns/extensions/flow/docs/dependencies.md: repo-state path `.ji/extensions/flow/` → `.ns/extensions/flow/`, XDG namespace path `ji/slots/repos/.../worktrees/slot-*` → `ns/slots/...`, and CLI command `ji slot free` → `ns slot free`. In .ns/reviews/code-smell-roaster/review.md: repo-state path `.ji/reviews` → `.ns/reviews`. In .ns/prompts/plans-write.md: four instances of the CLI command `ji flow cp` → `ns flow cp`, and the XDG state-home path convention `$XDG_STATE_HOME/ji/enriched-plan/...` / `$HOME/.local/state/ji/enriched-plan/...` → `.../ns/enriched-plan/...` (both occurrences on that line). The seven .ns/extensions/*/package.json files (address, aretro, branch-context, flow, handoff, objective, roaster) required no edits — each contains only the `\"ji\": {` extension-manifest key, which the changeset's class guidance explicitly marks as a phase-two survivor to leave untouched, plus unrelated @sdl/* and SDL-prose tokens that are out of scope for this brief.",
+   "skipped": [
+    "No ambiguous cases encountered — every anchored form matched one of the brief's enumerated rename categories (repo-state .ji/ paths, ji/slots XDG namespace, ji <subcommand> CLI form, state/ji XDG path) or was clearly the DO NOT TOUCH manifest key / unrelated @sdl scope, so nothing was deferred as a judgment call."
+   ]
+  },
+  {
+   "id": "cohort-dottree-2",
+   "files": [
+    "/Users/schrockn/code/sdl-tools/.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/package.json",
+    "/Users/schrockn/code/sdl-tools/.ns/reviews/sdl-typescript-style-tripwire/review.md"
+   ],
+   "changed": true,
+   "summary": "Renamed the two anchored `.ji/` repo-state path references to `.ns/`: the `test` script's vitest working-path argument in scan-reinvention/package.json, and the two doc-comment file-path references (`use ... when reviewing` and the `dprint check ...` regeneration command) at the top of sdl-typescript-style-tripwire/review.md. Left `@ji/review-reinvention-scanner` (package name) and the `@ji/core` dependency untouched per the changeset's explicit carve-out that @ji/ imports in scan-reinvention tool sources stay, and left all `sdl`/`@sdl/` brand prose and scope references untouched since they are outside the ji→ns rename scope.",
+   "skipped": []
+  }
+ ],
+ "verify": [
+  {
+   "invariant": "pnpm-workspace-quartet",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "kernel-extension-discovery-root",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "real-extensions-test-helpers",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "managed-slot-path-regex",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "cd-directive-split-brain",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "shell-sentinel-consistency",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "refs-namespace",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "duplicate-literal-twins",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts:26 — REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\" (still not renamed, not imported, and byte-value diverges: \".ji/...\" vs the required \".ns/prompts/pr-description.md\" in ts/packages/capabilities/flow/src/submit/pr-description.ts:26)",
+    "ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts:15-17 — locally re-hardcodes ACTIVE_OBJECTIVE_ROOT = \".ns/objectives\" and ARCHIVE_OBJECTIVE_ROOT = \".ns/objective-archive\" (plus a derived ACTIVE_OBJECTIVE_PREFIX) as separate un-imported constants instead of importing ACTIVE_OBJECTIVE_ROOT/OBJECTIVE_ARCHIVE_ROOT from ts/packages/capabilities/objective/src/core/storage.ts:10-11; still a duplicated, unlinked twin even though the current string values happen to match",
+    "ts/packages/capabilities/flow/src/land/land.ts:68 and ts/packages/capabilities/flow/src/land/stack/constants.ts:1 — COMMAND_NAME duplicated as two separate un-imported const declarations (values currently match \"ns:flow:land\" but are not linked, so land.ts's local const shadows/duplicates the one already exported from stack/constants.ts)",
+    "ts/packages/hosts/pi/src/commands/cli-extension.ts:20 and ts/packages/hosts/pi/src/commands/cli-command-live-progress.ts:10 — CLI_COMMAND_OUTPUT_MESSAGE_TYPE and LIVE_PROGRESS_WIDGET_ID remain two independently declared, un-imported constants (values currently match \"ns-cli-command-output\" but nothing enforces they stay in sync)"
+   ]
+  },
+  {
+   "invariant": "pi-namespace-core",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "skill-dir-integrity",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "manifest-key-untouched",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "roaster-ci-invocations",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "agents-md-chain",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "no-compat-shim",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "skills-allowed-tools",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "parity-table-bundled",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "scope-untouched-baselines",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-dot-ji",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/src/ji/commands/regenerate-pr.ts:26 — `const REPO_PR_DESCRIPTION_PROMPT_PATH = \".ji/prompts/pr-description.md\";` is a path literal referencing a `.ji/` directory, not a manifest property read — violates the invariant.",
+    "ts/packages/capability-kit/test/unit/checkpoint-message.test.ts:51 — `- Add .ji/objectives/pi-extension-deepening/updates/2026-05-25-vibecoded-extension-dispositions.md` is a `.ji/` path literal embedded in a test-fixture string (not manifest.ji-style property access, and the file itself is not under a */updates/* path so the exclusion doesn't apply) — violates the invariant."
+   ]
+  },
+  {
+   "invariant": "residual-namespace",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-bin-argv",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-command-instructions",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-xdg-namespace",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-machine-keys",
+   "pass": false,
+   "violations": [
+    "ts/packages/hosts/pi/test/worktree-status/extension.test.ts:557 — map key literal `\"ji-flow-changes\"` still uses the ji brand prefix in a runtime test fixture; the SAME commit (34ee8e914, 'ns cutover B2.2: tests chunk') renamed the *value* on the same line from `/ji:flow:changes...` to `/ns:flow:changes...` and renamed sibling tmpdir prefixes in this exact file from `ji-worktree-footer-` to `ns-worktree-footer-`, but left this key untouched — a clear, provable miss, not a phase-two filename/subpath survivor.",
+    "ts/packages/capability-kit/src/git/testing.ts:53 — `runGit([\"config\", \"user.email\", options.userEmail ?? \"ji-test@example.com\"])` still hard-codes the `ji-` brand prefix. Line 38 of the same function/file was renamed from `\"ji-git-test-\"` to `\"ns-git-test-\"` (confirmed via `git show 6306b28a4`), and every other package's equivalent test fixture email in this repo uses a neutral or `ns`-flavored prefix (e.g. `branch-context-test@example.com`, `slot-test@example.com`) — this is a residual brand literal missed by the sweep.",
+    "ts/packages/infra/core/test/exec/unit/exec.test.ts:35,40,45,48 — the fixture executable name `\"ji-exec-test-tool\"` still carries the ji brand prefix (used to build a real temp executable and assert `defaultCommandResolver(\"ji-exec-test-tool\")`), while the sibling tmpdir-prefix constant in the same file (line 14) was already renamed to `\"ns-exec-unit-\"` (git history shows it went straight from `sdl-exec-unit-` to `ns-exec-unit-`, skipping the ji intermediate, while the ji-exec-test-tool literal from the earlier sdl→ji rename was never picked up in the ji→ns sweep)."
+   ]
+  },
+  {
+   "invariant": "residual-snake-codes",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "residual-env-vars",
+   "pass": false,
+   "violations": [
+    "skills/architecture-topology-report/scripts/example-spec.mjs:90 — stale style-guard rule name `JI_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` in a doc/example string; the actual rule constant is `NS_TS_BAN_CAPABILITY_PRIVATE_PEER_IMPORT` (see ts/packages/infra/core/test/support/typescript-style-guard/config.ts:17 and docs/retros/cli-surface-conformance-audit.md:22), so this reference was not renamed.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:65 — env fixture key `{ HOME: \"/home/tester\", JI_ROOT: \"~/sdl-root\" }` uses stale env-var name JI_ROOT (should be NS_ROOT).",
+    "ts/packages/infra/core/test/xdg-path.test.ts:67 — `overrideEnv: \"JI_ROOT\"` string literal, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:88 — `resolvePathOverride({ env: { JI_ROOT: \"relative/root\" }, name: \"JI_ROOT\" })`, stale env-var name used twice.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:92 — `resolvePathOverride({ env: { JI_ROOT: \"\" }, name: \"JI_ROOT\" })`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:101-102 — `env: { HOME: \"/home/tester\", JI_LOG_DIR: \"~/logs\" }, overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name (should be NS_LOG_DIR).",
+    "ts/packages/infra/core/test/xdg-path.test.ts:109 — `overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:115-116 — `env: { HOME: \"/home/tester\", JI_LOG_DIR: \"relative/logs\" }, overrideEnvName: \"JI_LOG_DIR\"`, stale env-var name.",
+    "ts/packages/infra/core/test/xdg-path.test.ts:119 — asserted error message text `\"JI_LOG_DIR must be an absolute path\"` still references the stale env-var name instead of NS_LOG_DIR."
+   ]
+  }
+ ]
+}

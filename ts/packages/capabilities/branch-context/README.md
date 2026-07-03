@@ -1,6 +1,6 @@
 # @ji/branch-context
 
-`@ji/branch-context` owns the ji `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ji branch-context ...`.
+`@ji/branch-context` owns the ns `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ns branch-context ...`.
 
 ## Plan contract trial rollback
 
@@ -10,7 +10,7 @@ No data migration, compatibility shim, Branch Memory mutation, runtime feature f
 
 If manually reverting instead of using a PR/commit revert, remove the prototype-owned prompt sections and test assertions from:
 
-- `.ji/prompts/plans-write.md`
+- `.ns/prompts/plans-write.md`
 - `skills/enriched-plan-save/SKILL.md`
 - `skills/branch-context-impl/SKILL.md`
 - `skills/branch-context/SKILL.md`

@@ -27,7 +27,7 @@ current import provenance is documented in `docs/agents/matt-pocock-skills.md`
 `6eeb81b5fcfeeb5bd531dd47ab2f9f2bbea27461`, package version `1.0.1`). When
 refreshing Matt-sourced skills, compare upstream `pocock-review`'s smell
 baseline and apply relevant changes here manually. Preserve this review's
-SDL-local adaptations: code-smell-only scope, roaster tone, `.ji/reviews`
+SDL-local adaptations: code-smell-only scope, roaster tone, `.ns/reviews`
 frontmatter, and explicit exclusions for spec/standards/tests/formatting.
 
 Review only the supplied diff/current branch changes plus the minimum nearby

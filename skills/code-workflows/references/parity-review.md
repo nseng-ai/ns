@@ -15,7 +15,7 @@ Use live repo evidence as the source of truth. Documentation and Objective table
 - **Default: diff-scoped review.** Review the current worktree plus current branch diff. Inspect changed files first, then use full inventory searches only to understand nearby patterns.
 - **Explicit full-sweep review.** Inventory every current Pi command surface and compare it to skills, CLIs, and the Objective parity table.
 
-If full-sweep is requested and `.ji/objectives/cross-harness-parity/parity-table.md` exists, check it against live evidence and refresh it when drift is found.
+If full-sweep is requested and `.ns/objectives/cross-harness-parity/parity-table.md` exists, check it against live evidence and refresh it when drift is found.
 
 ## Evidence collection
 
@@ -33,7 +33,7 @@ find skills -maxdepth 2 -name SKILL.md | sort
 
 Prefer the Graphite parent from `gt parent --no-interactive` as the branch diff base when available, because this repo uses Graphite stacks. If Graphite is unavailable, use a best-effort plain git base (`origin/master`, `master`, `origin/main`, `main`) without failing the review.
 
-Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. For current-stack topology use `ji slot gt exec stack-branches` or `ji slot gt exec stack-branches --format json`; reserve display commands only for human visual confirmation or diagnostics.
+Do not parse `gt branch info`, `gt ls`, `gt ls --stack`, or `gt log` display output for machine topology decisions. For current-stack topology use `ns slot gt exec stack-branches` or `ns slot gt exec stack-branches --format json`; reserve display commands only for human visual confirmation or diagnostics.
 
 For diff-scoped review, inspect changed files before the full inventory. For full-sweep review, inspect all registration sites and the current skill inventory.
 
@@ -43,7 +43,7 @@ Look for these source shapes under `ts/packages/pi-extensions/src/`:
 
 - Direct command registration: `pi.registerCommand(...)`.
 - CLI bridge registration: `registerCliCommandExtension(...)` in `ts/packages/pi-extensions/src/cli-command-extension.ts`.
-- Current bridge example: `ts/packages/pi-extensions/src/sdl-extension.ts` maps ji commands to `/ji:*` and `/ji:code:*` Pi commands.
+- Current bridge example: `ts/packages/pi-extensions/src/sdl-extension.ts` maps ji commands to `/ns:*` and `/ns:code:*` Pi commands.
 
 Commands registered through `registerCliCommandExtension` are presumed CLI-backed. Verify skill/docs discoverability and flag surprising extra Pi-only behavior, but do not treat every generated bridge command as an orchestration gap.
 
@@ -106,9 +106,9 @@ Base/evidence: <branch/base, changed files, source searches>
 
 ## Objective table sync
 
-`.ji/objectives/cross-harness-parity/parity-table.md` is the single durable parity table when present. Do not keep a duplicate exhaustive table in this skill.
+`.ns/objectives/cross-harness-parity/parity-table.md` is the single durable parity table when present. Do not keep a duplicate exhaustive table in this skill.
 
-If review edits `parity-table.md` or other Objective tracking, also create a new immutable Semantic Update under `.ji/objectives/cross-harness-parity/updates/` with:
+If review edits `parity-table.md` or other Objective tracking, also create a new immutable Semantic Update under `.ns/objectives/cross-harness-parity/updates/` with:
 
 ```markdown
 # <Update Title>
@@ -141,10 +141,10 @@ For ordinary reviews, report the evidence commands you ran. When editing this ro
 ```bash
 dprint check skills/code-workflows/SKILL.md \
   skills/code-workflows/references/parity-review.md \
-  .ji/objectives/cross-harness-parity/objective.md \
-  .ji/objectives/cross-harness-parity/roadmap.md \
-  .ji/objectives/cross-harness-parity/parity-table.md \
-  .ji/objectives/cross-harness-parity/updates/<new-update>.md \
+  .ns/objectives/cross-harness-parity/objective.md \
+  .ns/objectives/cross-harness-parity/roadmap.md \
+  .ns/objectives/cross-harness-parity/parity-table.md \
+  .ns/objectives/cross-harness-parity/updates/<new-update>.md \
   skills-lock.json
 git diff --check
 ```

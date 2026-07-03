@@ -1,6 +1,6 @@
 # SDL reviews
 
-Roaster review definitions live at `.ji/reviews/<key>/review.md`.
+Roaster review definitions live at `.ns/reviews/<key>/review.md`.
 
 - `<key>` is a direct child folder name; active review keys do not contain `/` or `\`.
 - Roaster loads only each direct child folder's `review.md` file.

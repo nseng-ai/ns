@@ -14,8 +14,8 @@ This is part of the Objective skill family. Use the `objective` umbrella for sha
 
 ## Boundaries
 
-- **Read-only on Objective records.** Read `.ji/objectives/<slug>/` and `.ji/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
-- **No formal tooling changes.** Do not add `ji objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
+- **Read-only on Objective records.** Read `.ns/objectives/<slug>/` and `.ns/objective-archive/<slug>/`; never edit, create, move, archive, close, or update Objective files.
+- **No formal tooling changes.** Do not add `ns objective exec` operations, TypeScript, Graphite/GitHub gateways, or package code.
 - **No roaster/handoff coupling.** Do not store in roaster or handoff namespaces and do not depend on their retention, runner, diff cap, review log, or artifact formats.
 - **Producer only.** Store a briefing that another review prompt can consume later. Do not turn the briefing into a finding set, approval gate, or merge gate.
 - **Advisory archaeology.** Post-merge git rarely preserves an Objective boundary. Report confidence and gaps instead of fabricating completeness.
@@ -40,10 +40,10 @@ Do not store full diff bytes in brmem. The durable basis stores the reconstructi
 
 ### 1. Select exactly one Objective
 
-Require an explicit Objective slug or a path under `.ji/objectives/<slug>/` or `.ji/objective-archive/<slug>/`. If none is explicit, run:
+Require an explicit Objective slug or a path under `.ns/objectives/<slug>/` or `.ns/objective-archive/<slug>/`. If none is explicit, run:
 
 ```bash
-ji objective list --minimal --format md
+ns objective list --minimal --format md
 ```
 
 Ask the user to choose. Never infer the Objective from branch name, PR, changed files, or hidden attachment metadata.
@@ -53,7 +53,7 @@ Ask the user to choose. Never infer the Objective from branch name, PR, changed 
 Read the selected record before looking at repository history:
 
 ```bash
-ji objective exec read-objective <slug>
+ns objective exec read-objective <slug>
 ```
 
 Then inspect the relevant Markdown directly, including:
@@ -72,13 +72,13 @@ Determine the checkout's trunk branch with local repo evidence. Prefer the repos
 Primary starting signal: trunk commits that touched the Objective directory:
 
 ```bash
-git log --oneline <trunk> -- .ji/objectives/<slug>/
+git log --oneline <trunk> -- .ns/objectives/<slug>/
 ```
 
 For archived Objectives, also check the archive path if needed:
 
 ```bash
-git log --oneline <trunk> -- .ji/objective-archive/<slug>/
+git log --oneline <trunk> -- .ns/objective-archive/<slug>/
 ```
 
 Resolve each candidate commit to associated PRs with `gh`. Useful commands include:
@@ -99,7 +99,7 @@ Cross-check three signals:
 
 Report both-directional gaps:
 
-- code/core commits in an Objective PR that do not touch `.ji/objectives/<slug>/`;
+- code/core commits in an Objective PR that do not touch `.ns/objectives/<slug>/`;
 - `[cp]` or checkpoint commits that may be related but low-signal;
 - non-objective interlopers that touch the same files;
 - recorded PR evidence missing from git/gh history;

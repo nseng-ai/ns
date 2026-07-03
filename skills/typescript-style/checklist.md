@@ -14,9 +14,9 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Type imports are top-level; runtime lazy imports are used only for runtime reasons.
 - [ ] Relative import suffixes match the package convention.
 - [ ] First-party imports preserve source names: no `as` aliases for relative/workspace/project-local
-      imports (`JI_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`). Third-party import aliases are used only when
+      imports (`NS_TS_BAN_IMPORT_ALIAS_FOR_FIRST_PARTY`). Third-party import aliases are used only when
       they are consistent with local vocabulary.
-- [ ] Imported bindings are not re-aliased with local constants (`JI_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS`).
+- [ ] Imported bindings are not re-aliased with local constants (`NS_TS_BAN_IMPORTED_BINDING_LOCAL_ALIAS`).
 - [ ] Cross-package imports use declared package exports, not undeclared `src/` deep imports; multi-module
       packages expose explicit subpaths when they preserve useful grep-able paths.
 
@@ -27,12 +27,12 @@ and conventions as the baseline; this checklist catches design drift.
       when they fit the model.
 - [ ] Extensible registries use `Known* | (string & {})` when custom identifiers are allowed.
 - [ ] Object literals use `satisfies` or `as const satisfies T` instead of broad casts.
-- [ ] No value is laundered through `as unknown as T` (`JI_TS_BAN_AS_UNKNOWN_AS`); any cast is narrow,
+- [ ] No value is laundered through `as unknown as T` (`NS_TS_BAN_AS_UNKNOWN_AS`); any cast is narrow,
       justified, and boundary-local.
 - [ ] External/HTTP/model/tool boundaries parse input with Zod schemas, and static types use `z.infer`
       rather than hand-written mirror types.
 - [ ] Empty `interface X extends Y {}` aliases are written as `type X = Y` unless real members are added
-      (`JI_TS_BAN_EMPTY_INTERFACE_EXTENDS`).
+      (`NS_TS_BAN_EMPTY_INTERFACE_EXTENDS`).
 - [ ] Generic tags are carried through APIs so callers only see legal config for the selected tag.
 - [ ] State machines are explicit unions, not scattered booleans.
 

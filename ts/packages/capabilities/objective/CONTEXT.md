@@ -4,28 +4,28 @@ This context captures domain language for the `objective` capability package: th
 
 ## Language
 
-**`ji objective` command surface**:
-The public ji-grouped Objective CLI surface — `ji objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ji/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+**`ns objective` command surface**:
+The public ji-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ji/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
-**Checkout-local `ji objective list`**:
-The `ji objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
+**Checkout-local `ns objective list`**:
+The `ns objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
 *Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory
 
 **EDGES list column**:
-The `ji objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with the blocked STATUS indicator `⊘` (ascii fallback `!`, warn intent) that keeps the STATUS word `open` so blocked reads as a sub-state of open, per the root **Blocked Sentence** term.
+The `ns objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with the blocked STATUS indicator `⊘` (ascii fallback `!`, warn intent) that keeps the STATUS word `open` so blocked reads as a sub-state of open, per the root **Blocked Sentence** term.
 *Avoid*: edge detail rendering, annotation display, blocked lifecycle status, third STATUS state
 
-**Edge linting in `ji objective check`**:
-The structural **Record Frontmatter** lint in `ji objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ji objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; the linter never interprets **Edge Annotation** prose or derives blocked state.
+**Edge linting in `ns objective check`**:
+The structural **Record Frontmatter** lint in `ns objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ns objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; the linter never interprets **Edge Annotation** prose or derives blocked state.
 *Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
 
-**Hidden `ji objective exec`**:
-The hidden `ji objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
+**Hidden `ns objective exec`**:
+The hidden `ns objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
 *Avoid*: public human command, Objective Capability API, Markdown-meaning interpreter, stable scripting contract
 
 **Checked-in Objective record storage**:
-The rule that the `ji objective` CLI reads and writes Objective records only as checked-in Markdown under the root-defined **Active Objective Root** / **Objective Archive Root**, including `ji objective archive` / `--unarchive` directory moves; it is a view-and-mutation surface over those root system terms, not a separate store.
+The rule that the `ns objective` CLI reads and writes Objective records only as checked-in Markdown under the root-defined **Active Objective Root** / **Objective Archive Root**, including `ns objective archive` / `--unarchive` directory moves; it is a view-and-mutation surface over those root system terms, not a separate store.
 *Avoid*: hidden database, Branch Memory storage, redefining Objective or Objective Archive, Graphite-derived record set
 
 **Objective Capability API**:
@@ -37,7 +37,7 @@ The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `list
 *Avoid*: command-face `ClinkrExit` types, raw storage gateway, parsed CLI JSON, host `ctx` object
 
 **Objective Domain Core**:
-The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `ji objective` command surface are thin edges over it.
+The gateway-injected logic that runs over the `ObjectiveCliContext` seam (its Git and Objective-storage **Gateways**) with no dependency on a raw host `ctx` or the Pi runtime; the **Objective Capability API** and the `ns objective` command surface are thin edges over it.
 *Avoid*: presentation-host logic, command-face-coupled logic, raw `ctx`/`SdlExtensionApi` dependency, `…Loader` collaborator
 
 **Objective Runner**:

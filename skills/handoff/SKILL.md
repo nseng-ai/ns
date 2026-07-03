@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: "Explicit handoff work: handoff artifact, continuation focus, create/pick up a handoff, handoff namespace, copy/move/delete handoff, handoff gc, /ji:handoff:create, /ji:handoff:pickup, /handoff:list. For create execution use handoff-create; for pickup/list/summary use handoff-pickup."
+description: "Explicit handoff work: handoff artifact, continuation focus, create/pick up a handoff, handoff namespace, copy/move/delete handoff, handoff gc, /ns:handoff:create, /ns:handoff:pickup, /handoff:list. For create execution use handoff-create; for pickup/list/summary use handoff-pickup."
 ---
 
 # handoff
@@ -20,11 +20,11 @@ Use this skill for the shared model the step skills assume, and for diagnostics,
 
 ## Admin operations
 
-Beyond create/pickup/list, the deterministic `ji handoff ...` command face covers inventory and cleanup directly — these have no step skill:
+Beyond create/pickup/list, the deterministic `ns handoff ...` command face covers inventory and cleanup directly — these have no step skill:
 
-- `ji handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
-- `ji handoff delete [--branch <branch>] [--yes] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
-- `ji handoff gc [--dry-run|--force]` — clean up handoffs whose local branch is deleted.
+- `ns handoff list [--branch <branch>|--all] [--include-deleted] --format json` — inventory.
+- `ns handoff delete [--branch <branch>] [--yes] <slug>` — remove one exact-slug handoff (pass the slug without `.md`). CLI-only; there is no `/handoff:delete` Pi command.
+- `ns handoff gc [--dry-run|--force]` — clean up handoffs whose local branch is deleted.
 
 See `references/diagnostics-admin.md` for copy/move, collision handling, and storage-layer (`brmem`) fallbacks.
 
@@ -40,7 +40,7 @@ See `references/diagnostics-admin.md` for copy/move, collision handling, and sto
 - Inspect before mutating.
 - Use handoff vocabulary first; mention Branch Memory locators only as technical evidence, diagnostics, or recovery detail.
 - Refuse collisions, overwrites, and destructive changes unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `ji handoff ...` commands and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
+- Prefer deterministic `ns handoff ...` commands and Pi surfaces when they exist; use direct `brmem --namespace handoff` only as the storage/recovery/admin layer.
 - Verify stale artifacts against current repo state only after the user asks to proceed from the pickup summary.
 - Do not create nested keys, indexes, manifests, or old temp-directory handoff artifacts.
 

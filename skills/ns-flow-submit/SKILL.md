@@ -1,16 +1,16 @@
 ---
-name: ji-flow-submit
+name: ns-flow-submit
 disable-model-invocation: true
-description: "Command: ji-flow-submit"
+description: "Command: ns-flow-submit"
 allowed-tools:
-  - "Bash(ji flow submit*)"
+  - "Bash(ns flow submit*)"
 metadata:
   internal: true
 ---
 
-# ji-flow-submit
+# ns-flow-submit
 
-Submit or update the current Graphite stack by delegating to the repo-local `ji flow submit` command. This is the cross-harness path for `/ji:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
+Submit or update the current Graphite stack by delegating to the repo-local `ns flow submit` command. This is the cross-harness path for `/ns:flow:submit`; do not run a parallel hand-written `gt submit` sequence unless the CLI is unavailable and the user explicitly accepts the fallback.
 
 ## When to use
 
@@ -21,12 +21,12 @@ Use only when the user explicitly asks to submit or update the current Graphite 
 Run from the repository root:
 
 ```bash
-ji flow submit
+ns flow submit
 ```
 
 The CLI owns the orchestration:
 
-- if the worktree is dirty, first creates a checkpoint with `ji flow cp`;
+- if the worktree is dirty, first creates a checkpoint with `ns flow cp`;
 - checks submit readiness with `gt submit -nps --no-ai --no-interactive --dry-run`;
 - runs `gt submit -nps --no-ai --no-interactive` to submit/update the current stack;
 - verifies that the current branch has a PR after submit;
@@ -41,29 +41,29 @@ If the CLI says a restack is required:
 - in a non-interactive/headless invocation, rerun only with explicit user approval:
 
 ```bash
-ji flow submit --restack
+ns flow submit --restack
 ```
 
 Automatic checkpointing uses ji checkpoint environment variables:
 
-- `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
-- `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset.
+- `NS_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;
+- `NS_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `NS_CHECKPOINT_MODEL` is unset.
 
 PR description generation uses:
 
-- `JI_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
-- `JI_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
-- `.ji/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
+- `NS_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;
+- `NS_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;
+- `.ns/prompts/pr-description.md` as the repo-local prompt override before the built-in default.
 
-Submit failure interpretation uses `JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model.
+Submit failure interpretation uses `NS_SUBMIT_FAILURE_MODEL`, defaulting to the standard ji fast model.
 
 To regenerate the current branch PR explicitly, run:
 
 ```bash
-ji flow regenerate-pr
+ns flow regenerate-pr
 ```
 
-`ji flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `ji flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
+`ns flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `ns flow regenerate-pr` asks before editing GitHub, always regenerates the current branch PR title and managed generated body region, and preserves human-authored body text outside that region.
 
 ## Failure handling
 
@@ -73,4 +73,4 @@ Surface CLI output directly, including any `AI interpretation` section. Do not b
 
 - This skill submits/updates PRs; require explicit user intent.
 - It does not land/merge PRs.
-- It edits PR titles/bodies through `ji flow submit` or explicit `ji flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.
+- It edits PR titles/bodies through `ns flow submit` or explicit `ns flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.
