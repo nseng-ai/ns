@@ -65,7 +65,7 @@ Do not create a duplicate Semantic Update solely for closure. Create one only wh
 - Required Objective files are missing.
 - The closure outcome or rationale is unclear.
 - The Objective is already closed and the user did not ask to amend closure context.
-- The user asks to delete, move, or reopen the Objective as part of close. If they explicitly want retirement from active discovery, redirect to `ns objective archive <slug>` after or instead of closure, depending on intent.
+- The user asks to delete, move, or reopen the Objective as part of close; for retirement from active discovery, redirect per the Workflow's archive rule (step 9).
 
 ## Verify
 

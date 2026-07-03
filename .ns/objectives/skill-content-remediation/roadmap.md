@@ -178,7 +178,10 @@
     move-to-reference **DROPPED as mooted (re-rank `20260703T194738Z`)**: the env-var
     catalog has shrunk to ~8 inline lines across the Workflow prose of a 76-line
     SKILL.md; a reference split would add indirection without saving load.
-  - `objective-close` — **surgical** (already clean, lift 1).
+  - `objective-close` — **DONE (surgical, 2026-07-03).** Confirmed clean on a full
+    read; one near-verbatim duplication collapsed (the `ns objective archive` redirect,
+    stated in both Workflow step 9 and Stop/ask, now single-homed in step 9 with
+    Stop/ask pointing to it). See update `20260703T203936Z`.
   - `objective-create` — **DONE (rewrite, 2026-07-03).** 124 → 85 lines; archive-root
     check, planning-only default, and validation bullets each collapsed to one home;
     Conditional-references section dissolved into firing sites; edge-mutation mechanics
