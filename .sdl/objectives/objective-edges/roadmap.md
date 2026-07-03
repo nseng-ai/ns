@@ -26,8 +26,13 @@
       structural lint (41/120 legacy records fail old update-heading lints, so a full-check sweep
       cannot gate CI); wired into `just check` and a CI job; sweep passes on the current
       120-record checkout — seeded-edge CI evidence completes with the seed row.
-- [ ] `sdl objective list` rendering: EDGES count column to the right of LATEST UPDATE (blank
+- [x] `sdl objective list` rendering: EDGES count column to the right of LATEST UPDATE (blank
       when zero) and a distinct blocked indicator in STATUS (blocked as sub-state of open).
+      Evidence: branch `objective-list-edges-rendering` (runner step commit); EDGES column on
+      pretty/table/markdown surfaces, blocked glyph resolved as `⊘` (ascii `!`, warn intent)
+      keeping the STATUS word "open" with a footer legend; `--minimal` shows both facts;
+      no-frontmatter records render byte-identically; full `just` green. Live before/after
+      output for the two seed records lands with the seed row.
 - [ ] Skill updates: objective-create, objective-update, and objective-close own edge
       mutation and blocked judgment — close flows re-judge edge counterparts' Blocked Sentences,
       update flows re-judge the record's own sentence; add hidden `sdl objective exec` helpers

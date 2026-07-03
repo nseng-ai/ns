@@ -20,6 +20,7 @@ describe("glyph", () => {
 	const cases: ReadonlyArray<[GlyphName, string, string]> = [
 		["done", "✓", "v"],
 		["open", "●", "o"],
+		["blocked", "⊘", "!"],
 		["fail", "✗", "x"],
 		["skip", "–", "-"],
 		["bullet", "•", "*"],

@@ -9,6 +9,7 @@ import {
 	matchesStatusFilter,
 	type ObjectiveListResult,
 	renderObjectiveListHuman,
+	renderObjectiveListMarkdown,
 	runListObjectives,
 } from "../../src/core/operations/list-objectives.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
@@ -33,7 +34,7 @@ const SAMPLE_RESULT: ObjectiveListResult = {
 describe("renderObjectiveListHuman", () => {
 	const esc = String.fromCharCode(0x1b);
 
-	test("renders the full human table with branch attribution continuations", () => {
+	test("renders the full human table with edges, blocked sub-state, and branch attribution continuations", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
 			rootPath: ".ji/objectives",
@@ -44,7 +45,9 @@ describe("renderObjectiveListHuman", () => {
 				{
 					slug: "alpha",
 					status: "open",
+					isBlocked: true,
 					latestUpdateIso: "2026-06-13T09:10:00Z",
+					edgeCount: 2,
 					updatedBranches: ["feat/alpha", "feat/beta"],
 					hasOutstandingChanges: false,
 				},
@@ -63,12 +66,37 @@ describe("renderObjectiveListHuman", () => {
 			"Root: .ji/objectives",
 			"Status filter: all",
 			"",
-			"OBJECTIVE        STATUS    LATEST UPDATE         UPDATED BRANCHES",
-			"───────────────  ────────  ────────────────────  ────────────────",
-			"alpha            ○ open    2026-06-13T09:10:00Z  ├ 1/2 feat/alpha",
-			"                                                 └ 2/2 feat/beta",
-			"bravo-objective  ✓ closed  (x) —                 —",
+			"OBJECTIVE        STATUS            LATEST UPDATE         EDGES  UPDATED BRANCHES",
+			"───────────────  ────────────────  ────────────────────  ─────  ────────────────",
+			"alpha            ⊘ open (blocked)  2026-06-13T09:10:00Z  2      ├ 1/2 feat/alpha",
+			"                                                                └ 2/2 feat/beta",
+			"bravo-objective  ✓ closed          (x) —                        —",
 		]);
+	});
+
+	test("markdown table carries the edges column blank-when-zero and the blocked open sub-state", () => {
+		const result: ObjectiveListResult = {
+			trunkBranch: "master",
+			rootPath: ".sdl/objectives",
+			statusFilter: "all",
+			namesOnly: false,
+			records: [
+				{
+					slug: "alpha",
+					status: "open",
+					isBlocked: true,
+					latestUpdateIso: null,
+					edgeCount: 2,
+					hasOutstandingChanges: false,
+				},
+				{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+			],
+		};
+
+		const lines = renderObjectiveListMarkdown(result).split("\n");
+		expect(lines).toContain("| objective | status | latest update | edges |");
+		expect(lines).toContain("| alpha | ⊘ open (blocked) | — | 2 |");
+		expect(lines).toContain("| bravo | ○ open | — |  |");
 	});
 
 	test("draws a header rule and stays plain when color is disabled", () => {
@@ -154,7 +182,7 @@ describe("objective list helpers", () => {
 		]);
 	});
 
-	test("list results are identical for records with and without Record Frontmatter", async () => {
+	test("list carries Record Frontmatter edge/blocked facts and stays unchanged without them", async () => {
 		const listWithObjectiveMd = async (objectiveMd: string) => {
 			const ctx: ObjectiveCliContext = {
 				cwd: "/repo",
@@ -177,14 +205,56 @@ describe("objective list helpers", () => {
 			return await runListObjectives(ctx, { names: false, status: "active", minimal: true });
 		};
 
+		// A record without frontmatter lists exactly as before: no edge/blocked keys at all.
 		const withoutFrontmatter = await listWithObjectiveMd("# alpha\n\n## Thesis\n");
-		const withFrontmatter = await listWithObjectiveMd(
-			"---\nblocked: Gated on an upstream landing.\nedges: []\n---\n# alpha\n\n## Thesis\n",
-		);
-
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
-		expect(withoutFrontmatter.data.records.map((record) => record.slug)).toEqual(["alpha"]);
-		expect(withFrontmatter).toEqual(withoutFrontmatter);
+		expect(withoutFrontmatter.data.records).toEqual([
+			{
+				slug: "alpha",
+				status: "open",
+				latestUpdateIso: "2026-06-15T22:35:20Z",
+				hasOutstandingChanges: false,
+			},
+		]);
+
+		// Frontmatter carrying no blocked sentence and no edges lists identically to none.
+		const emptyFrontmatter = await listWithObjectiveMd(
+			"---\nedges: []\n---\n# alpha\n\n## Thesis\n",
+		);
+		expect(emptyFrontmatter).toEqual(withoutFrontmatter);
+
+		// Malformed frontmatter renders safely minimal — like no frontmatter — instead of
+		// erroring the list; reporting it is the `sdl objective check` linter's job.
+		const malformedFrontmatter = await listWithObjectiveMd("---\nblocked: [\n---\n# alpha\n");
+		expect(malformedFrontmatter).toEqual(withoutFrontmatter);
+
+		// Blocked sentence and edges surface as the blocked sub-state and the edge count,
+		// including under --minimal.
+		const blockedWithEdges = await listWithObjectiveMd(
+			[
+				"---",
+				"blocked: Gated on an upstream landing.",
+				"edges:",
+				"  - objective: bravo",
+				"    annotation: Consumed as a hard dependency.",
+				"---",
+				"# alpha",
+				"",
+				"## Thesis",
+				"",
+			].join("\n"),
+		);
+		if (blockedWithEdges.type !== "ok") throw new Error("expected ok exit");
+		expect(blockedWithEdges.data.records).toEqual([
+			{
+				slug: "alpha",
+				status: "open",
+				isBlocked: true,
+				latestUpdateIso: "2026-06-15T22:35:20Z",
+				edgeCount: 1,
+				hasOutstandingChanges: false,
+			},
+		]);
 	});
 
 	test("attributes branch-authored objective changes instead of trunk-only drift", async () => {

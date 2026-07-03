@@ -178,6 +178,70 @@ describe("renderObjectiveListPretty layout", () => {
 		}
 	});
 
+	test("edge counts render right of LATEST UPDATE and stay blank when zero", () => {
+		const withEdges = result({
+			records: [
+				{
+					slug: "alpha",
+					status: "open",
+					latestUpdateIso: null,
+					edgeCount: 2,
+					hasOutstandingChanges: false,
+				},
+				{ slug: "bravo", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+			],
+		});
+		const out = renderObjectiveListPretty(withEdges, caps({ colorDepth: "none" }), NOW);
+		const lines = out.split("\n");
+		const header = lines.find((line) => line.includes("OBJECTIVE"));
+		expect(header).toMatch(/LATEST UPDATE\s+EDGES/);
+		expect(lines.find((line) => line.startsWith("alpha"))).toMatch(/2$/);
+		// The zero-edge row ends at the dimmed date cell: no count, no dangling padding.
+		expect(lines.find((line) => line.startsWith("bravo"))).toMatch(/\[0m$/);
+	});
+
+	test("blocked renders as an open sub-state: warn blocked glyph, word open, footer legend", () => {
+		const blocked = result({
+			records: [
+				{
+					slug: "alpha",
+					status: "open",
+					isBlocked: true,
+					latestUpdateIso: null,
+					edgeCount: 1,
+					hasOutstandingChanges: false,
+				},
+			],
+		});
+
+		const mono = renderObjectiveListPretty(blocked, caps({ colorDepth: "none" }), NOW);
+		expect(mono).toContain("⊘ open");
+		expect(mono).not.toContain("⊘ blocked"); // never a third lifecycle status word
+		expect(mono).toContain("⊘ = blocked (a sub-state of open; the record says why)");
+
+		const colored = renderObjectiveListPretty(blocked, caps({ colorDepth: "truecolor" }), NOW);
+		expect(colored).toContain(`${ESC}[38;2;210;153;34m⊘${ESC}[0m`); // warn intent on the glyph
+
+		const ascii = renderObjectiveListPretty(
+			blocked,
+			caps({ colorDepth: "none", canRenderUnicode: false }),
+			NOW,
+		);
+		expect(ascii).toContain("! open");
+		expect(ascii).toContain("! = blocked (a sub-state of open; the record says why)");
+	});
+
+	test("blocked legend appears only when a record is blocked", () => {
+		const open = result({
+			records: [
+				{ slug: "alpha", status: "open", latestUpdateIso: null, hasOutstandingChanges: false },
+			],
+		});
+		expect(renderObjectiveListPretty(open, caps({ colorDepth: "none" }), NOW)).not.toContain(
+			"= blocked",
+		);
+	});
+
 	test("legend appears only when a record has outstanding changes", () => {
 		const clean = result({
 			records: [
