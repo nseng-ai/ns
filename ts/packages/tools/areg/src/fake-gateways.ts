@@ -4,6 +4,8 @@ import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,
 	skillLookupDescriptorForSourceType,
+	type SkillLookupRoot,
+	type SkillLookupSourceType,
 } from "@sdl/pi/skills/lookup";
 
 import { missingCheckSkillInspection } from "./gateways.ts";
@@ -31,10 +33,8 @@ import type {
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
 	AregPromptGateway,
-	AregSkillFindRoot,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
-	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -90,8 +90,8 @@ export interface FakeAregSkillKindSkillOptions {
 
 export interface FakeAregSkillFindSkillOptions {
 	name: string;
-	root?: AregSkillFindRoot;
-	sourceType?: AregSkillFindSourceType;
+	root?: SkillLookupRoot;
+	sourceType?: SkillLookupSourceType;
 	baseRelativePath?: string;
 	skillDir?: AregPathState;
 	skillMd?: AregTextFileState | string;

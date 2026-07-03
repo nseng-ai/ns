@@ -11,6 +11,7 @@ import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForSourceType,
+	type SkillLookupSourceType,
 } from "@sdl/pi/skills/lookup";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
@@ -27,7 +28,6 @@ import type {
 	AregProjectTextWriteRequest,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
-	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -621,7 +621,7 @@ async function inspectReplacementSurfaces(
 
 async function listChildNamesForSourceType(
 	projectDir: string,
-	sourceType: AregSkillFindSourceType,
+	sourceType: SkillLookupSourceType,
 ): Promise<string[]> {
 	const descriptor = skillLookupDescriptorForSourceType(sourceType);
 	return await listChildNames(toProjectPath(projectDir, descriptor.root));

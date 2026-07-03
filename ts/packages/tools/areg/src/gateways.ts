@@ -137,12 +137,9 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string;
 }
 
-export type AregSkillFindRootDescriptor = SkillLookupRootDescriptor;
-export type AregSkillFindRoot = SkillLookupRoot;
-export type AregSkillFindSourceType = SkillLookupSourceType;
-export type AregSkillKindSourceType = Extract<AregSkillFindSourceType, "repo" | "vendored">;
+export type AregSkillKindSourceType = Extract<SkillLookupSourceType, "repo" | "vendored">;
 export type AregSkillKindRootDescriptor = Extract<
-	AregSkillFindRootDescriptor,
+	SkillLookupRootDescriptor,
 	{ sourceType: AregSkillKindSourceType }
 >;
 
@@ -163,8 +160,8 @@ export function skillKindDescriptorForSourceType(
 
 export interface AregSkillFindSkillInspection {
 	name: string;
-	root: AregSkillFindRoot;
-	sourceType: AregSkillFindSourceType;
+	root: SkillLookupRoot;
+	sourceType: SkillLookupSourceType;
 	baseRelativePath: string;
 	skillDir: AregPathState;
 	skillMd: AregTextFileState;
