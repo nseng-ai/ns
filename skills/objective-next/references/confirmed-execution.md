@@ -12,7 +12,7 @@ After the Tracking Gate passes, execution may proceed from either basis below.
 
 - Read optional top-level `## Definition of Progress` and `## Runner Policy` sections, or equivalent explicit prose that says when `objective-next` may execute after preview.
 - Inspect the selected roadmap row and immediate indented notes for row-level `Policy:` and `Evidence:` guidance.
-- Treat policy as prose, not schema. Do not add YAML/frontmatter, UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
+- Treat policy as prose, not schema. Do not add YAML/frontmatter (execution policy never lives in Record Frontmatter, whose only sanctioned keys are `blocked` and `edges`), UUIDs, hidden state, queues, ledgers, task databases, automation registries, or lifecycle states.
 - Row-level policy may override Objective-level defaults for the selected slice.
 - Do not infer durable execution permission from a concrete roadmap row, obvious implementation step, or the mere existence of a `## Runner Policy` heading alone.
 - Do not describe every execution-friendly Objective as autonomous.
