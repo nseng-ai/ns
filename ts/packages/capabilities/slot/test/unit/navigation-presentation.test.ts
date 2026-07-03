@@ -1,5 +1,5 @@
-import { stripAnsi } from "@ji/clinkr/testing";
-import type { Caps } from "@ji/clinkr";
+import { stripAnsi } from "@ns/clinkr/testing";
+import type { Caps } from "@ns/clinkr";
 import { describe, expect, it } from "vitest";
 
 import {

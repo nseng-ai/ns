@@ -1,5 +1,5 @@
-import type { ScheduledTimer } from "@ji/core/timers";
-import { formatElapsedMs } from "@ji/core/time-format";
+import type { ScheduledTimer } from "@ns/core/timers";
+import { formatElapsedMs } from "@ns/core/time-format";
 
 import { withSafePiUi, withSafePiUiValue } from "../kit/shared/safe-ui.ts";
 import { unrefTimerScheduler } from "../kit/shared/timers.ts";

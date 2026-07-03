@@ -4,9 +4,9 @@ import type {
 	ExecOptions,
 	ExecResult,
 	StdinCapableCommandExecApi,
-} from "@ji/core/exec";
+} from "@ns/core/exec";
 
-import type { SdlExecOptions, SdlExtensionApi } from "@ji/kernel/sdk";
+import type { SdlExecOptions, SdlExtensionApi } from "@ns/kernel/sdk";
 
 export function createSdlCommandRunner(ctx: SdlExtensionApi): CommandRunner {
 	return async (command, args, options) => {

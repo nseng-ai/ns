@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@ji/core/exec";
+import type { ExecResult } from "@ns/core/exec";
 
 import {
 	buildCuratedRunnerSubagentContext,

@@ -1,4 +1,4 @@
-import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 
 import { parseWatchCommandArgs } from "./command-args.ts";
 export { parseWatchCommandArgs } from "./command-args.ts";

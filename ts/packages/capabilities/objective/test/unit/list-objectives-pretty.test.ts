@@ -1,8 +1,8 @@
-import type { Caps, ColorDepth } from "@ji/clinkr";
+import type { Caps, ColorDepth } from "@ns/clinkr";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { ObjectiveListResult } from "../../src/core/operations/list-objectives.ts";
-import { objectiveListSdlCommand } from "../../src/ji/commands/list.ts";
+import { objectiveListSdlCommand } from "../../src/ns/commands/list.ts";
 import {
 	relativeTime,
 	renderObjectiveListPretty,

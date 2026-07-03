@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL } from "@ji/core/model-slug";
-import { buildSlugModelArgs } from "@ji/capability-kit/model-slug";
+import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
+import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
-import type { ExecResult } from "@ji/core/exec";
-import type { CommandExecApi, ExecOptions } from "@ji/core/exec";
+import type { ExecResult } from "@ns/core/exec";
+import type { CommandExecApi, ExecOptions } from "@ns/core/exec";
 
 const CWD = "/repo";
 const SAVED_PLAN_CONTENT =

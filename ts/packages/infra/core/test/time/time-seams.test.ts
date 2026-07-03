@@ -4,7 +4,7 @@ import {
 	createManualClock,
 	createManualTimerHarness,
 	createManualTimerScheduler,
-} from "@ji/core/time/testing";
+} from "@ns/core/time/testing";
 
 describe("manual clock", () => {
 	test("sets and advances wall-clock time deterministically", () => {

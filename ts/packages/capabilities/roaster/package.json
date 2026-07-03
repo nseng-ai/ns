@@ -1,5 +1,5 @@
 {
-	"name": "@ji/roaster",
+	"name": "@ns/roaster",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -13,7 +13,7 @@
 		"./commands/exec-publish-findings": "./src/commands/exec-publish-findings.ts",
 		"./commands/roast-list": "./src/commands/roast-list.ts",
 		"./skill-reviews": "./src/core/skill-reviews.ts",
-		"./repo-local-sdl-extension": "./src/core/repo-local-ji-extension.ts"
+		"./repo-local-sdl-extension": "./src/core/repo-local-ns-extension.ts"
 	},
 	"files": [
 		"src"
@@ -23,16 +23,16 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/roaster/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
 		"@pierre/diffs": "catalog:",
 		"smol-toml": "catalog:",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "standalone-tool"
 	}
 }

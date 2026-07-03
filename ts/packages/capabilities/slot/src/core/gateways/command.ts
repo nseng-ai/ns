@@ -1,6 +1,6 @@
-import type { ExplicitUndefined } from "@ji/core/primitives";
-import { NodeCommandExecApi } from "@ji/core/exec";
-import type { CommandExecApi, ExecResult } from "@ji/core/command";
+import type { ExplicitUndefined } from "@ns/core/primitives";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import type { CommandExecApi, ExecResult } from "@ns/core/command";
 
 export interface SlotCommandRunOptions {
 	cwd: string;

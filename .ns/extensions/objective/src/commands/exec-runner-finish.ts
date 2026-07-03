@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/exec-runner-finish";
+export { default } from "@ns/objective/ns/commands/exec-runner-finish";

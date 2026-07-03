@@ -4,10 +4,10 @@ import {
 	resolveClinkrInteraction,
 	type Caps,
 	type ConfirmationResult,
-} from "@ji/clinkr";
-import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@ji/clinkr/testing";
+} from "@ns/clinkr";
+import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@ns/clinkr/testing";
 
-import { buildSlotCommandGroup } from "../../src/ji/command-face.ts";
+import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
 import {
 	FakeClipboardGateway,
@@ -24,7 +24,7 @@ import {
 import {
 	FakeGraphiteStackGateway,
 	type FakeGraphiteStackGatewayOptions,
-} from "@ji/capability-kit/graphite/testing";
+} from "@ns/capability-kit/graphite/testing";
 import {
 	FakeSlotPrGateway,
 	type FakeSlotPrGatewayOptions,

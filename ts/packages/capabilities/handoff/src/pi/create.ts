@@ -1,6 +1,6 @@
 import { resolveCreateFocus } from "./create-focus.ts";
 import { CREATE_HANDOFF_FALLBACK } from "./create-prompt.ts";
-import { buildFencedTextBlock } from "@ji/pi/skills/expansion";
+import { buildFencedTextBlock } from "@ns/pi/skills/expansion";
 import { realHandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, type HandoffStartMessages } from "./ui-status.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";

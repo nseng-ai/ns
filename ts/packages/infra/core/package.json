@@ -1,5 +1,5 @@
 {
-	"name": "@ji/core",
+	"name": "@ns/core",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -40,11 +40,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/core/test"
 	},
 	"dependencies": {
-		"@ji/clinkr": "workspace:*",
+		"@ns/clinkr": "workspace:*",
 		"typescript": "catalog:",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "neutral-infra",
 		"subpackages": [
 			"time",

@@ -1,11 +1,11 @@
-import { formatCommand, formatOutputSection } from "@ji/core/command";
+import { formatCommand, formatOutputSection } from "@ns/core/command";
 import {
 	DEFAULT_FAST_MODEL,
 	DEFAULT_FAST_MODEL_REF,
 	resolveModelRef,
 	SLUG_MODEL_ENV,
 	type ParsedModelRef,
-} from "@ji/core/model-slug";
+} from "@ns/core/model-slug";
 
 export const SLUG_MODEL_THINKING = "minimal";
 export const SLUG_MODEL_TIMEOUT_MS = 60_000;

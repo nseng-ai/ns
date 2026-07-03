@@ -5,20 +5,20 @@ import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import type { Clock } from "@ji/core/clock";
-import { systemClock } from "@ji/core/time";
-import { formatErrorMessage } from "@ji/core/primitives";
-import { BoundedTextTailBuffer } from "@ji/core/text-tail-buffer";
-import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
-import { systemTimerScheduler } from "@ji/core/time";
+import type { Clock } from "@ns/core/clock";
+import { systemClock } from "@ns/core/time";
+import { formatErrorMessage } from "@ns/core/primitives";
+import { BoundedTextTailBuffer } from "@ns/core/text-tail-buffer";
+import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
+import { systemTimerScheduler } from "@ns/core/time";
 import {
 	inferModelProviderFamily,
 	MODEL_PROVIDER_FAMILY_INFO,
 	parseModelRef,
 	providerMatchesModelProviderFamily,
-} from "@ji/core/model-slug";
+} from "@ns/core/model-slug";
 
-import type { ModelInfo } from "@ji/pi/runtime/types";
+import type { ModelInfo } from "@ns/pi/runtime/types";
 import type {
 	RunnerSubagentBlockedResult,
 	RunnerSubagentCancelledResult,

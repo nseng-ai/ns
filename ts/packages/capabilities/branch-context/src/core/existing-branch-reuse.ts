@@ -1,5 +1,5 @@
-import type { CommandExecApi } from "@ji/core/exec";
-import type { BrmemGateway } from "@ji/brmem";
+import type { CommandExecApi } from "@ns/core/exec";
+import type { BrmemGateway } from "@ns/brmem";
 import { selectAttachedPlanKey } from "./attached-plan.ts";
 import { checkBranchContextEntryPresence, listBranchContextPlans } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";

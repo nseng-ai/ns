@@ -1,12 +1,12 @@
-import { optionalEntry } from "@ji/core/primitives";
-import { resultErr, resultOk } from "@ji/core/result";
+import { optionalEntry } from "@ns/core/primitives";
+import { resultErr, resultOk } from "@ns/core/result";
 import {
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForRoot,
 	skillLookupDescriptorForSourceType,
 	type SkillLookupRoot,
 	type SkillLookupSourceType,
-} from "@ji/pi/skills/lookup";
+} from "@ns/pi/skills/lookup";
 
 import { missingCheckSkillInspection } from "./gateways.ts";
 import type {
@@ -103,7 +103,7 @@ export interface FakeAregProjectGatewayOptions {
 	projectPathState?: AregPathState;
 	targetPathState?: AregPathState;
 	lockfile?: AregTextFileState | object | string;
-	sdlToml?: AregTextFileState | string;
+	nsToml?: AregTextFileState | string;
 	aregJson?: AregTextFileState | object | string;
 	agentsMd?: AregTextFileState | string;
 	claudeMd?: AregTextFileState | string;
@@ -155,7 +155,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 		);
 		this.files = new Map([
 			["skills-lock.json", normalizeTextFileState(options.lockfile ?? { version: 1, skills: {} })],
-			["ji.toml", normalizeTextFileState(options.sdlToml ?? { type: "missing" })],
+			["ns.toml", normalizeTextFileState(options.nsToml ?? { type: "missing" })],
 			["areg.json", normalizeTextFileState(options.aregJson ?? { type: "missing" })],
 			["AGENTS.md", normalizeTextFileState(options.agentsMd ?? { type: "missing" })],
 			["CLAUDE.md", normalizeTextFileState(options.claudeMd ?? { type: "missing" })],
@@ -214,7 +214,7 @@ export class FakeAregProjectGateway implements AregProjectGateway {
 			projectDir: this.projectDir,
 			projectPathState: copyPathState(this.projectPathState),
 			lockfile: this.fileState("skills-lock.json"),
-			sdlToml: this.fileState("ji.toml"),
+			nsToml: this.fileState("ns.toml"),
 			aregJson: this.fileState("areg.json"),
 		};
 	}

@@ -1,5 +1,5 @@
 {
-	"name": "@ji/command-backed-skill-registry",
+	"name": "@ns/command-backed-skill-registry",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -13,11 +13,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/hosts/command-backed-skill-registry/test"
 	},
 	"dependencies": {
-		"@ji/core": "workspace:*",
-		"@ji/handoff": "workspace:*",
-		"@ji/objective": "workspace:*"
+		"@ns/core": "workspace:*",
+		"@ns/handoff": "workspace:*",
+		"@ns/objective": "workspace:*"
 	},
-	"ji": {
+	"ns": {
 		"tier": "host"
 	}
 }

@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
@@ -8,7 +8,7 @@ import {
 	readHandoffArtifact,
 	type HandoffSummary,
 } from "../api/index.ts";
-import { buildFencedTextBlock } from "@ji/pi/skills/expansion";
+import { buildFencedTextBlock } from "@ns/pi/skills/expansion";
 import { currentBranch } from "./branch-resolution.ts";
 import { LIST_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import { setStatus } from "./ui-status.ts";

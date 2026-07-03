@@ -1,19 +1,19 @@
-import { handoffCommandBackedSkillRegistrations } from "@ji/handoff/pi";
-import { objectiveCommandBackedSkillRegistrations } from "@ji/objective/pi";
+import { handoffCommandBackedSkillRegistrations } from "@ns/handoff/pi";
+import { objectiveCommandBackedSkillRegistrations } from "@ns/objective/pi";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-} from "@ji/core/command";
+} from "@ns/core/command";
 import type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@ji/core/command";
+} from "@ns/core/command";
 
 export type {
 	CommandBackedSkillRegistration,
 	CommandBackedSkillRegistrationKind,
-} from "@ji/core/command";
+} from "@ns/core/command";
 
 const COMMAND_BACKED_SKILL_REGISTRY = [
 	{

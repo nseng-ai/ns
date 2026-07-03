@@ -1,5 +1,5 @@
-import { formatErrorMessage, isRecord } from "@ji/core/primitives";
-import { err, type Result } from "@ji/core/result";
+import { formatErrorMessage, isRecord } from "@ns/core/primitives";
+import { err, type Result } from "@ns/core/result";
 import { parse } from "smol-toml";
 
 import type { AregTextFileState } from "../gateways.ts";
@@ -9,11 +9,11 @@ export const DEFAULT_AGENTS = ["codex", "claude-code"] as const;
 
 export function resolveProjectAgents(input: {
 	explicitAgents: readonly string[];
-	sdlToml: AregTextFileState;
+	nsToml: AregTextFileState;
 	aregJson: AregTextFileState;
 }): Result<string[]> {
 	if (input.explicitAgents.length > 0) return { ok: true, value: [...input.explicitAgents] };
-	const sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);
+	const sdlAgents = parseSdlAregAgentsFromState(input.nsToml);
 	if (!sdlAgents.ok) return sdlAgents;
 	if (sdlAgents.value.length > 0) return sdlAgents;
 	const legacyAgents = parseLegacyAregJsonAgentsFromState(input.aregJson);
@@ -22,13 +22,13 @@ export function resolveProjectAgents(input: {
 	return { ok: true, value: [...DEFAULT_AGENTS] };
 }
 
-export function parseSdlAregAgents(text: string, pathLabel = "ji.toml"): Result<string[]> {
+export function parseSdlAregAgents(text: string, pathLabel = "ns.toml"): Result<string[]> {
 	let data: unknown;
 	try {
 		data = parse(text);
 	} catch (error) {
 		return err({
-			code: "ji_toml_invalid",
+			code: "ns_toml_invalid",
 			message: `Invalid TOML in ${pathLabel}: ${formatErrorMessage(error)}`,
 		});
 	}
@@ -37,19 +37,19 @@ export function parseSdlAregAgents(text: string, pathLabel = "ji.toml"): Result<
 	if (areg === undefined) return { ok: true, value: [] };
 	if (!isRecord(areg))
 		return err({
-			code: "ji_toml_invalid",
+			code: "ns_toml_invalid",
 			message: `[areg] in ${pathLabel} must be a TOML table.`,
 		});
 	const agents = areg.agents;
 	if (agents === undefined) return { ok: true, value: [] };
 	if (!Array.isArray(agents))
 		return err({
-			code: "ji_toml_invalid",
+			code: "ns_toml_invalid",
 			message: `${pathLabel} [areg].agents must be a string array.`,
 		});
 	if (agents.length === 0) return { ok: true, value: [] };
 	return validateNonEmptyStringList(agents, {
-		code: "ji_toml_invalid",
+		code: "ns_toml_invalid",
 		message: `${pathLabel} [areg].agents must be a non-empty string list.`,
 	});
 }
@@ -94,12 +94,12 @@ function parseSdlAregAgentsFromState(state: AregTextFileState): Result<string[]>
 	if (state.type === "missing") return { ok: true, value: [] };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "ji.toml",
+			pathLabel: "ns.toml",
 			state,
-			description: "ji.toml",
+			description: "ns.toml",
 			action: "manage it",
 		});
-	return parseSdlAregAgents(state.text, "ji.toml");
+	return parseSdlAregAgents(state.text, "ns.toml");
 }
 
 function parseLegacyAregJsonAgentsFromState(state: AregTextFileState): Result<string[]> {

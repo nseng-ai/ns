@@ -1,6 +1,6 @@
-import type { Clock } from "@ji/core/clock";
-import { systemClock, systemTimerScheduler } from "@ji/core/time";
-import type { TimerScheduler } from "@ji/core/timers";
+import type { Clock } from "@ns/core/clock";
+import { systemClock, systemTimerScheduler } from "@ns/core/time";
+import type { TimerScheduler } from "@ns/core/timers";
 
 import type { TextGenerationResult } from "./text-generation.ts";
 export type { TextGenerationResult, TextGenerationUsage } from "./text-generation.ts";

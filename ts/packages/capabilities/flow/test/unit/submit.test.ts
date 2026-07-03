@@ -12,8 +12,8 @@ import {
 	type TextGenerator,
 } from "../../src/submit/index.ts";
 import { RealSubmitGateway } from "../../src/submit/index.ts";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { ScriptedCommandRunner, startupErrorStep, step } from "@ji/core/exec/testing";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { ScriptedCommandRunner, startupErrorStep, step } from "@ns/core/exec/testing";
 
 describe("RealSubmitGateway", () => {
 	test("checkSubmitReadiness invokes Graphite dry-run submit", async () => {

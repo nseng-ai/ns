@@ -3,8 +3,8 @@ import {
 	buildSuccessMachineEnvelopeSchema,
 	machineEnvelopeSchema,
 	negativeMachineEnvelopeSchema,
-} from "@ji/clinkr";
-import { formatErrorMessage, formatZodError } from "@ji/core/primitives";
+} from "@ns/clinkr";
+import { formatErrorMessage, formatZodError } from "@ns/core/primitives";
 import { z } from "zod";
 
 import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";

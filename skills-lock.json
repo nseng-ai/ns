@@ -4,7 +4,7 @@
     "architecture-topology-report": {
       "source": "skills/architecture-topology-report",
       "sourceType": "local",
-      "computedHash": "e823a16bd447ead8d45a87939ad47dcbd7c8bbb914cd770a213138a40ae085ac"
+      "computedHash": "2cba2054f44f418966452822c4f89ee2b94c48a2458f9613051ebd2e7075369d"
     },
     "branch-context": {
       "source": "skills/branch-context",
@@ -324,7 +324,7 @@
     "sdl-cli-design": {
       "source": "skills/sdl-cli-design",
       "sourceType": "local",
-      "computedHash": "7cb62ecce29161393e08481fad4f021c344ab810478a0042e0773a9b82e3135a"
+      "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
     },
     "ns-flow-autobranch": {
       "source": "skills/ns-flow-autobranch",
@@ -349,7 +349,7 @@
     "sdl-typescript": {
       "source": "skills/sdl-typescript",
       "sourceType": "local",
-      "computedHash": "7f5ae181ab4cfc8e44d49f5da0eabb63f17d5c9ea027ec7f2ab1e231691b8a33"
+      "computedHash": "d13d9bcd6c8c57b6cf5ce767e2d700571f8039fcdeaf0ef896e2a24771ffbed9"
     },
     "sdl-typescript-style-tripwire": {
       "source": "skills/sdl-typescript-style-tripwire",

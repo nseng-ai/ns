@@ -5,9 +5,9 @@ import type {
 	ClinkrExit,
 	OptionSpec,
 	RenderCapabilities,
-} from "@ji/clinkr";
-import type { PositionalSpec } from "@ji/clinkr/raw";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+} from "@ns/clinkr";
+import type { PositionalSpec } from "@ns/clinkr/raw";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 import type { z } from "zod";
 
 import type { SdlExtensionApi } from "./execution.ts";
@@ -22,7 +22,7 @@ export type {
 	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,
-} from "@ji/clinkr";
+} from "@ns/clinkr";
 
 export type SdlCommandSchema = z.ZodObject;
 export type SdlCommandRequest<S extends SdlCommandSchema> = z.output<S>;

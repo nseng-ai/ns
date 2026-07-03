@@ -1,8 +1,8 @@
-import { runWithSdlCommandIo } from "@ji/kernel/command-io";
-import type { SdlCommandIo, SdlConfirmOptions } from "@ji/kernel/sdk";
-import type { ExecOutputListener } from "@ji/core/command";
+import { runWithSdlCommandIo } from "@ns/kernel/command-io";
+import type { SdlCommandIo, SdlConfirmOptions } from "@ns/kernel/sdk";
+import type { ExecOutputListener } from "@ns/core/command";
 import { landArgumentCompletions, parseArgs, registerLandStackRenderer } from "./land-stack.ts";
-import { createCliCommandIo } from "@ji/kernel/command-io";
+import { createCliCommandIo } from "@ns/kernel/command-io";
 import {
 	createLandUiCommandIo,
 	LandStackCommandStream,
@@ -22,7 +22,7 @@ import {
 	renderLandResultBlockFromMessage,
 } from "./stack/land-presentation.ts";
 import { runLandingDispatch } from "../land/landing-dispatch.ts";
-import type { Caps } from "@ji/clinkr";
+import type { Caps } from "@ns/clinkr";
 import type {
 	AutocompleteItem,
 	CustomMessage,
@@ -132,7 +132,7 @@ async function runLandCommand(
  * Lower-level adapter used by the SDL CLI extension.
  *
  * This intentionally does not use `registerCliCommandExtension`: that helper lives
- * above Flow in `@ji/pi` and owns Pi slash-command registration and
+ * above Flow in `@ns/pi` and owns Pi slash-command registration and
  * rendering. This adapter must stay below that package so SDL CLI execution can
  * reuse Flow land orchestration through the intentional private Flow/Pi package cycle.
  */

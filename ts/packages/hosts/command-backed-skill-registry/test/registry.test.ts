@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@ji/handoff/pi";
-import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ji/objective/api";
+import { CREATE_HANDOFF_COMMAND_NAME, PICKUP_HANDOFF_COMMAND_NAME } from "@ns/handoff/pi";
+import { objectiveCommandSpecs, objectiveCreateCommandSpec } from "@ns/objective/api";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-} from "@ji/core/command";
+} from "@ns/core/command";
 
 import {
 	commandBackedSkillRegistrations,

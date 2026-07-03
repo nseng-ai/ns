@@ -67,7 +67,7 @@ export function getAregProjectMutationPolicyDescriptor(
 }
 
 function isAllowedInitRelativePath(relativePath: string): boolean {
-	return ["ji.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
+	return ["ns.toml", "AGENTS.md", "CLAUDE.md", ".claude/settings.local.json"].includes(
 		relativePath,
 	);
 }

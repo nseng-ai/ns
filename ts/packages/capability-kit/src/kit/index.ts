@@ -16,11 +16,11 @@ export {
 	type GatewayResult,
 	type Result,
 } from "./gateway-result.ts";
-export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./ji-command.ts";
+export { createSdlDomainCommand, type SdlDomainCommandOptions } from "./ns-command.ts";
 export {
 	createSdlClinkrInteraction,
 	createSdlCwdEnvStdinContext,
 	readEmptySdlStdin,
 	type SdlClinkrInteractionOptions,
 	type SdlCwdEnvStdinContext,
-} from "./ji-context.ts";
+} from "./ns-context.ts";

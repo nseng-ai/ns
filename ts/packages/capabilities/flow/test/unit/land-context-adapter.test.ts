@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { formatCommand, type ExecResult } from "@ji/core/command";
-import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ji/capability-kit/git";
-import { ScriptedQueue } from "@ji/core/test-kit";
+import { formatCommand, type ExecResult } from "@ns/core/command";
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@ns/capability-kit/git";
+import { ScriptedQueue } from "@ns/core/test-kit";
 import { createLandContext } from "../../src/land/stack/land-context-adapter.ts";
 import { BACKUP_REF_NAMESPACE, BACKUP_REF_PREV_NAMESPACE } from "../../src/land/stack/constants.ts";
 import { createLandGraphiteCommandChannel } from "../../src/land/stack/graphite-command-channel.ts";

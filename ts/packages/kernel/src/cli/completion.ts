@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { renderClinkrCompletionScript, type ClinkrCompletionShell } from "@ji/clinkr/completion";
+import { renderClinkrCompletionScript, type ClinkrCompletionShell } from "@ns/clinkr/completion";
 
 export const sdlCompletionShells = ["bash", "zsh", "fish"] as const;
 

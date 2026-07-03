@@ -1,4 +1,4 @@
-import { formatCommand } from "@ji/core/command";
+import { formatCommand } from "@ns/core/command";
 import {
 	deleteLocalBranchOperation,
 	formatGraphiteOperation,

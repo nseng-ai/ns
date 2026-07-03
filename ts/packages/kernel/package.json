@@ -1,5 +1,5 @@
 {
-	"name": "@ji/kernel",
+	"name": "@ns/kernel",
 	"version": "0.1.0",
 	"private": true,
 	"description": "Emerging customer-facing Source Development Lifecycle CLI.",
@@ -11,7 +11,7 @@
 		"./pi-text-generation": "./src/runtime/pi-text-generation.ts",
 		"./sdk": "./src/sdk/index.ts"
 	},
-	"ji": {
+	"ns": {
 		"tier": "sdk",
 		"subpackages": [
 			"cli",
@@ -39,8 +39,8 @@
 	"dependencies": {
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
 		"jiti": "catalog:",
 		"zod": "catalog:"
 	}

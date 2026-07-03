@@ -3,10 +3,10 @@ import process from "node:process";
 import { basename, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@ji/clinkr";
+import { ClinkrGroup, failure, resolveIo, type ClinkrExit, type ClinkrIo } from "@ns/clinkr";
 import { z } from "zod";
 
-import { formatErrorMessage, optionalEntries, type ExplicitUndefined } from "@ji/core/primitives";
+import { formatErrorMessage, optionalEntries, type ExplicitUndefined } from "@ns/core/primitives";
 
 export { readStdin, readStdinLine } from "./stdin.ts";
 

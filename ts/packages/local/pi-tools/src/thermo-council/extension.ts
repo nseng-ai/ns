@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "@ji/pi/parity/extension";
+import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 import { THERMO_COUNCIL_COMMAND_NAME } from "./constants.ts";
 import { runThermoCouncilCommand } from "./orchestrator.ts";
 import type { ThermoCouncilExtensionAPI } from "./types.ts";

@@ -1,4 +1,4 @@
-import type { StackFork, StackInfo } from "@ji/capability-kit/graphite/stack";
+import type { StackFork, StackInfo } from "@ns/capability-kit/graphite/stack";
 
 import {
 	renderChildrenCorruption,

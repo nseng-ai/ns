@@ -4,7 +4,7 @@ import {
 	loadPendingWorktreeSnapshot,
 	type ExecGit,
 	type WorktreeCommandResult,
-} from "@ji/capability-kit/pending-worktree";
+} from "@ns/capability-kit/pending-worktree";
 
 function ok(stdout = "", stderr = ""): WorktreeCommandResult {
 	return { code: 0, stdout, stderr };

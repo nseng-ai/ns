@@ -2,16 +2,16 @@ import {
 	type CommandExecApi,
 	commandFailureReason,
 	execApiToCommandRunner,
-} from "@ji/core/command";
-import { runGitHubCli } from "@ji/capability-kit/github/cli";
+} from "@ns/core/command";
+import { runGitHubCli } from "@ns/capability-kit/github/cli";
 import {
 	ghAuthorSchema,
 	normalizeAuthor,
 	parseGithubJson,
 	withNumericGithubIdentity,
-} from "@ji/capability-kit/github/pr-feedback";
-import { formatErrorMessage, type ExplicitUndefined } from "@ji/core/primitives";
-import { withTemporaryJsonFile } from "@ji/capability-kit/temp-files";
+} from "@ns/capability-kit/github/pr-feedback";
+import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
+import { withTemporaryJsonFile } from "@ns/capability-kit/temp-files";
 import { z } from "zod";
 
 import type { GitHubGatewayFailure, RoasterResult } from "../core/failures.ts";

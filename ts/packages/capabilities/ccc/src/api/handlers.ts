@@ -58,4 +58,4 @@ export {
 } from "../cmux/sidebar.ts";
 
 // Slot client
-export type { SlotClient } from "@ji/slot/api";
+export type { SlotClient } from "@ns/slot/api";

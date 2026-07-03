@@ -1,12 +1,12 @@
-import { formatShellArg } from "@ji/core/command";
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatShellArg } from "@ns/core/command";
+import { formatErrorMessage } from "@ns/core/primitives";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@ji/capability-kit/cmux/focused-terminal-tab";
-import { isRecord, stringField } from "@ji/core/primitives";
+} from "@ns/capability-kit/cmux/focused-terminal-tab";
+import { isRecord, stringField } from "@ns/core/primitives";
 import { writeTimestampedPromptFile, type ResolvedPromptFileOptions } from "./prompt-file.ts";
-import type { CommandContext, ExtensionAPI } from "@ji/capability-kit/cmux/types";
+import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 const TITLE_PREFIX = "claude-plan: ";
 const MAX_TITLE_SEED_CHARS = 40;

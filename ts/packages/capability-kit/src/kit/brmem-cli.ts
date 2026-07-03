@@ -10,14 +10,14 @@ import {
 	tailText,
 	type ExecResult,
 	type PiExecResultLike,
-} from "@ji/core/command";
+} from "@ns/core/command";
 import {
 	formatErrorMessage,
 	isRecord,
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@ji/core/primitives";
+} from "@ns/core/primitives";
 
 export const DEFAULT_BRMEM_TIMEOUT_MS = 30_000;
 

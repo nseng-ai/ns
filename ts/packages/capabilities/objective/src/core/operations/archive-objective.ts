@@ -5,8 +5,8 @@ import {
 	resolveRenderCapabilities,
 	type ClinkrExit,
 	type RenderCapabilities,
-} from "@ji/clinkr";
-import { renderResultBlock } from "@ji/core/cli-theme";
+} from "@ns/clinkr";
+import { renderResultBlock } from "@ns/core/cli-theme";
 import { z } from "zod";
 
 import type { ObjectiveCliContext } from "../context.ts";

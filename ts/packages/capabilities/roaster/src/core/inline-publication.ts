@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 
 import { environmentOptions, ROASTER_BOT_LOGIN, type RoasterRunScope } from "./context.ts";
 import type { FindingsPayload } from "./findings-comment.ts";

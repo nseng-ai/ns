@@ -6,8 +6,8 @@ import {
 	type ClinkrExit,
 	ClinkrGroup,
 	type RenderCapabilities,
-} from "@ji/clinkr";
-import { renderTextTable, type TextTableColumn } from "@ji/core/text-table";
+} from "@ns/clinkr";
+import { renderTextTable, type TextTableColumn } from "@ns/core/text-table";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

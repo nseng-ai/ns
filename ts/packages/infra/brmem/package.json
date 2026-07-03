@@ -1,5 +1,5 @@
 {
-	"name": "@ji/brmem",
+	"name": "@ns/brmem",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,12 +16,12 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/infra/brmem/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "neutral-infra"
 	}
 }

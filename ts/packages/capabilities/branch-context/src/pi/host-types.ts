@@ -4,15 +4,15 @@ import type {
 	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
-} from "@ji/branch-context/api";
-import type { ExecOptions, ExecResult } from "@ji/core/command";
+} from "@ns/branch-context/api";
+import type { ExecOptions, ExecResult } from "@ns/core/command";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
 	SessionReplacementResult,
-} from "@ji/pi/sessions/replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@ji/plans/api";
-import type { SendMessageOptions } from "@ji/pi/shared/message-delivery";
+} from "@ns/pi/sessions/replacement";
+import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@ns/plans/api";
+import type { SendMessageOptions } from "@ns/pi/shared/message-delivery";
 
 export type NotifyLevel = "info" | "warning" | "error";
 

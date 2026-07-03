@@ -1,7 +1,7 @@
-import type { ConfirmationResult } from "@ji/clinkr";
-import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@ji/clinkr/testing";
-import { optionalEntries } from "@ji/core/primitives";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ji/capability-kit/git/testing";
+import type { ConfirmationResult } from "@ns/clinkr";
+import { createFakeClinkrInteraction, type FakeClinkrInteraction } from "@ns/clinkr/testing";
+import { optionalEntries } from "@ns/core/primitives";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ns/capability-kit/git/testing";
 
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { AregCliContext } from "../../src/context.ts";

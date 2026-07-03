@@ -1,4 +1,4 @@
-import { formatShellArg } from "@ji/core/exec";
+import { formatShellArg } from "@ns/core/exec";
 
 const TOKEN_PREFIX = "@@NS_";
 

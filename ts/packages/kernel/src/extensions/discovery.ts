@@ -6,7 +6,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 	type ZodIssueLike,
-} from "@ji/core/primitives";
+} from "@ns/core/primitives";
 import {
 	sdlExtensionManifestCommandSchema,
 	sdlExtensionPackageManifestSchema,
@@ -79,12 +79,12 @@ const requiredManifestCommandStringFields = [
 	code: string;
 }[];
 
-type ManifestStructureIssueKind = "missing-ji" | "commands-not-array" | "other";
+type ManifestStructureIssueKind = "missing-ns" | "commands-not-array" | "other";
 
 const manifestStructureIssueRules: readonly ZodIssuePathRule<ManifestStructureIssueKind>[] = [
-	{ pattern: [], match: "exact", value: "missing-ji" },
-	{ pattern: ["ji"], match: "exact", value: "missing-ji" },
-	{ pattern: ["ji", "commands"], match: "prefix", value: "commands-not-array" },
+	{ pattern: [], match: "exact", value: "missing-ns" },
+	{ pattern: ["ns"], match: "exact", value: "missing-ns" },
+	{ pattern: ["ns", "commands"], match: "prefix", value: "commands-not-array" },
 ];
 
 type PackageManifestParseResult =
@@ -215,7 +215,7 @@ export function discoverSdlPackageCommands(
 		diagnostics: [],
 	}));
 	if (resolution.outcome === "unavailable") return resolution.result;
-	if (resolution.manifest.ji?.commands === undefined) return { commands: [], diagnostics: [] };
+	if (resolution.manifest.ns?.commands === undefined) return { commands: [], diagnostics: [] };
 	return discoverPackageCommands(rootDir, packageDir, packageJsonPath, resolution.manifest);
 }
 
@@ -284,24 +284,24 @@ function discoverPackageCommands(
 		manifest = parsedManifest;
 	}
 
-	if (manifest.ji === undefined) {
+	if (manifest.ns === undefined) {
 		return {
 			commands: [],
-			diagnostics: [missingSdlDiagnostic(packageJsonPath)],
+			diagnostics: [missingNsDiagnostic(packageJsonPath)],
 		};
 	}
-	const packageGroup = readNonEmptyString(manifest.ji.group);
+	const packageGroup = readNonEmptyString(manifest.ns.group);
 	const packageGroupDescription =
-		readNonEmptyString(manifest.ji.description) ?? readNonEmptyString(manifest.description);
+		readNonEmptyString(manifest.ns.description) ?? readNonEmptyString(manifest.description);
 	const packageGroupDiagnostic = groupDiagnostic({
-		group: manifest.ji.group,
+		group: manifest.ns.group,
 		packageJsonPath,
 		commandName: undefined,
 	});
 	if (packageGroupDiagnostic !== undefined) {
 		return { commands: [], diagnostics: [packageGroupDiagnostic] };
 	}
-	const entries = manifest.ji.commands;
+	const entries = manifest.ns.commands;
 	if (!Array.isArray(entries)) {
 		return {
 			commands: [],
@@ -334,7 +334,7 @@ function manifestStructureDiagnostic(
 	packageJsonPath: string,
 ): ExtensionDiscoveryDiagnostic {
 	const kind = classifyFirstMatchingZodIssuePath(issues, manifestStructureIssueRules, "other");
-	if (kind === "missing-ji") return missingSdlDiagnostic(packageJsonPath);
+	if (kind === "missing-ns") return missingNsDiagnostic(packageJsonPath);
 	if (kind === "commands-not-array") return commandsNotArrayDiagnostic(packageJsonPath);
 	return diagnostic(
 		"extension_manifest_invalid",
@@ -343,9 +343,9 @@ function manifestStructureDiagnostic(
 	);
 }
 
-function missingSdlDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
+function missingNsDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
 	return diagnostic(
-		"extension_manifest_missing_ji",
+		"extension_manifest_missing_ns",
 		`Extension manifest must contain an sdl object: ${packageJsonPath}.`,
 		{ path: packageJsonPath },
 	);
@@ -354,7 +354,7 @@ function missingSdlDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagno
 function commandsNotArrayDiagnostic(packageJsonPath: string): ExtensionDiscoveryDiagnostic {
 	return diagnostic(
 		"extension_manifest_commands_not_array",
-		`Extension manifest ji.commands must be an array: ${packageJsonPath}.`,
+		`Extension manifest ns.commands must be an array: ${packageJsonPath}.`,
 		{ path: packageJsonPath },
 	);
 }

@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ji/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
+} from "@ns/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
 import { grillUiParity, registerGrillUiExtension } from "../../src/grill/extension.ts";
 
 async function collectGrillSurfaces(): Promise<LivePiSurface[]> {

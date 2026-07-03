@@ -14,25 +14,25 @@ import {
 	type BranchContextCreateOperation,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
-} from "@ji/branch-context/api";
+} from "@ns/branch-context/api";
 import {
 	findLatestSessionSavedPlanFile,
 	resolvePlanStoreDirectory,
 	type PlanStoreDirectoryEvidence,
 	type ValidatedSessionSavedPlan,
-} from "@ji/plans/api";
-import { formatCommand, formatShellArg } from "@ji/core/command";
+} from "@ns/plans/api";
+import { formatCommand, formatShellArg } from "@ns/core/command";
 import { checkoutBranchCmuxSlot, openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
 import {
 	launchFocusedCmuxTab,
 	type FocusedCmuxTabLaunchResult,
-} from "@ji/capability-kit/cmux/focused-terminal-tab";
-import { buildPiLaunchCommand, getPiLaunchOptions } from "@ji/capability-kit/cmux/pi-launch";
-import type { PiLaunchOptions } from "@ji/capability-kit/cmux/pi-launch";
-import type { SlotCheckoutTarget, SlotClient } from "@ji/slot/api";
-import { formatErrorMessage, optionalEntry } from "@ji/core/primitives";
-import type { CommandContext, ExtensionAPI, NotifyLevel } from "@ji/capability-kit/cmux/types";
+} from "@ns/capability-kit/cmux/focused-terminal-tab";
+import { buildPiLaunchCommand, getPiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
+import type { PiLaunchOptions } from "@ns/capability-kit/cmux/pi-launch";
+import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
+import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
+import type { CommandContext, ExtensionAPI, NotifyLevel } from "@ns/capability-kit/cmux/types";
 
 const BRANCH_CREATION = "graphite";
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@ji/core/exec";
-import { ScriptedQueue } from "@ji/core/test-kit";
-import { RealGraphiteBranchGateway } from "@ji/capability-kit/graphite/branch";
-import type { CommandExecApi, ExecOptions } from "@ji/core/exec";
-import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
+import type { ExecResult } from "@ns/core/exec";
+import { ScriptedQueue } from "@ns/core/test-kit";
+import { RealGraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
+import type { CommandExecApi, ExecOptions } from "@ns/core/exec";
+import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
 
 const ROOT = "/repo";
 const BRANCH = "branch-contexts/branch-scoped-plan";

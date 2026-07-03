@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { failure, ok, usageError, type ClinkrExit } from "@ji/clinkr";
-import { runOperationCommand, type CliEntrypointDeps } from "@ji/core/cli-runtime";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ji/core/primitives";
-import { normalizePlanFilePath, validatePlanSlug } from "@ji/plans";
+import { failure, ok, usageError, type ClinkrExit } from "@ns/clinkr";
+import { runOperationCommand, type CliEntrypointDeps } from "@ns/core/cli-runtime";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
+import { normalizePlanFilePath, validatePlanSlug } from "@ns/plans";
 import { z } from "zod";
 
 import {

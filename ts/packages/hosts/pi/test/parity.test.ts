@@ -10,7 +10,7 @@ import {
 } from "../src/parity/check.ts";
 import { loadPiExtensionParityRecords } from "../src/parity/registry.ts";
 import { definePiSurfaceParity } from "../src/runtime/parity-extension.ts";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
 import type { PiAgentDefinition } from "../src/runtime/agent-definition.ts";
 
 async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
@@ -19,7 +19,7 @@ async function collectLivePiExtensionSurfaces(): Promise<LivePiSurface[]> {
 	await registerWithFakeHost(pi, registerInvestigateWithFakeDefinition);
 	await registerWithFakeHost(pi, modelShortcutExtension);
 	await registerWithFakeHost(pi, prExtension);
-	// The worktree-status implementation lives in @ji/pi/worktree-status and is
+	// The worktree-status implementation lives in @ns/pi/worktree-status and is
 	// discovered through .pi/extensions/worktree-status.ts. Include its live command
 	// shape directly because the extension needs host runtime options to register.
 	pi.registerCommand("pi:worktree-status-refresh", {
@@ -50,7 +50,7 @@ function fakeInvestigatorAgentDefinition(): PiAgentDefinition {
 }
 
 describe("Pi extension parity metadata", () => {
-	test("all @ji/pi command surfaces have parity metadata", async () => {
+	test("all @ns/pi command surfaces have parity metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectLivePiExtensionSurfaces(),
 			metadata: loadPiExtensionParityRecords(),
@@ -103,7 +103,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@ji/pi",
+				sourcePackage: "@ns/pi",
 				sourceModule: "fixture",
 				notes: "Fixture metadata for stale-check coverage.",
 			},
@@ -124,7 +124,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "WAIVED",
 				fallback: "Use a fixture fallback.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@ji/pi",
+				sourcePackage: "@ns/pi",
 				sourceModule: "fixture",
 				notes: "Fixture metadata for dynamic-family stale-check coverage.",
 				matching: { type: "dynamic-family", rationale: "Generated only by runtime fixtures." },
@@ -149,7 +149,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "NONE",
 				trackedGap: "Fixture tracked gap.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@ji/pi",
+				sourcePackage: "@ns/pi",
 				sourceModule: "fixture-a",
 				notes: "First fixture duplicate.",
 			},
@@ -160,7 +160,7 @@ describe("Pi extension parity metadata", () => {
 				parity: "NONE",
 				trackedGap: "Fixture tracked gap.",
 				ownerObjective: "cross-harness-parity",
-				sourcePackage: "@ji/pi",
+				sourcePackage: "@ns/pi",
 				sourceModule: "fixture-b",
 				notes: "Second fixture duplicate.",
 			},

@@ -6,12 +6,12 @@ import {
 	type Caps,
 	type ClinkrExit,
 	type RenderCapabilities,
-} from "@ji/clinkr";
+} from "@ns/clinkr";
 import { z } from "zod";
 
-import type { GitGateway } from "@ji/capability-kit/git";
-import { glyph, type GlyphName, type Intent } from "@ji/core/cli-theme";
-import { renderTextTable, type TextTableColumn } from "@ji/core/text-table";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { glyph, type GlyphName, type Intent } from "@ns/core/cli-theme";
+import { renderTextTable, type TextTableColumn } from "@ns/core/text-table";
 
 import type { ObjectiveCliContext } from "../context.ts";
 import {

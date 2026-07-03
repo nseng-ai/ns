@@ -3,7 +3,7 @@ import {
 	formatCommandResultFailure,
 	runCommand,
 	type CommandRunner,
-} from "@ji/core/exec";
+} from "@ns/core/exec";
 
 import type {
 	AregNpxSkillsAddRequest,

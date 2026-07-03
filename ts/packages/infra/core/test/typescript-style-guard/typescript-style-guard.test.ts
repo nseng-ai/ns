@@ -100,7 +100,7 @@ describe("TypeScript style guard source rules", () => {
 	const cases: readonly SourceRuleCase[] = [
 		{
 			name: "first-party named import alias is rejected",
-			code: 'import { Foo as Bar } from "@ji/core/primitives";',
+			code: 'import { Foo as Bar } from "@ns/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -115,7 +115,7 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "multiline first-party type import alias is rejected",
-			code: 'import {\n  type Foo as Bar,\n} from "@ji/core/primitives";',
+			code: 'import {\n  type Foo as Bar,\n} from "@ns/core/primitives";',
 			expectedRules: [BAN_IMPORT_ALIAS_FOR_FIRST_PARTY],
 		},
 		{
@@ -125,31 +125,31 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "capability peer api import is allowed",
-			code: 'import { createHandoff } from "@ji/handoff/api";',
+			code: 'import { createHandoff } from "@ns/handoff/api";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability private src import is rejected",
-			code: 'import { createHandoff } from "@ji/handoff/src/create.ts";',
+			code: 'import { createHandoff } from "@ns/handoff/src/create.ts";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability undeclared subpath import is rejected",
-			code: 'import { createHandoff } from "@ji/handoff/private-helper";',
+			code: 'import { createHandoff } from "@ns/handoff/private-helper";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [BAN_CAPABILITY_PRIVATE_PEER_IMPORT],
 		},
 		{
 			name: "capability gateway backend import is allowed for capabilities",
-			code: 'import { RealGitGateway } from "@ji/capability-kit/git";',
+			code: 'import { RealGitGateway } from "@ns/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
 		{
 			name: "capability-kit import is allowed for capabilities",
-			code: 'import { createSdlCliExecAdapter } from "@ji/capability-kit/git";',
+			code: 'import { createSdlCliExecAdapter } from "@ns/capability-kit/git";',
 			path: "ts/packages/capabilities/ccc/src/core/peer.ts",
 			expectedRules: [],
 		},
@@ -190,12 +190,12 @@ describe("TypeScript style guard source rules", () => {
 		},
 		{
 			name: "ordinary first-party named import is allowed",
-			code: 'import { Foo } from "@ji/core/primitives";',
+			code: 'import { Foo } from "@ns/core/primitives";',
 			expectedRules: [],
 		},
 		{
 			name: "export alias is outside the import-as rule",
-			code: 'export { Foo as Bar } from "@ji/core/primitives";',
+			code: 'export { Foo as Bar } from "@ns/core/primitives";',
 			expectedRules: [],
 		},
 		{
@@ -449,7 +449,7 @@ describe("TypeScript style guard local-space admission rules", () => {
 			name: "rejects packages under local with a non-local scope",
 			packages: [
 				localSpaceSyntheticPackage({
-					name: "@ji/grill",
+					name: "@ns/grill",
 					packageDir: "ts/packages/local/grill",
 					privateValue: true,
 				}),
@@ -487,7 +487,7 @@ describe("TypeScript style guard local-space admission rules", () => {
 					privateValue: true,
 				}),
 				localSpaceSyntheticPackage({
-					name: "@ji/ccc",
+					name: "@ns/ccc",
 					packageDir: "ts/packages/capabilities/ccc",
 					privateValue: true,
 					dependencies: { "@internal/pi-tools": "workspace:*" },
@@ -536,83 +536,83 @@ describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
 		"@internal/pi-tools/grill",
 		"@internal/pi-tools/runner-subagents",
-		"@ji/areg",
-		"@ji/ccc",
-		"@ji/capability-kit",
-		"@ji/core",
-		"@ji/handoff",
-		"@ji/example-pi",
-		"@ji/pi",
-		"@ji/kernel",
-		"@ji/slot",
+		"@ns/areg",
+		"@ns/ccc",
+		"@ns/capability-kit",
+		"@ns/core",
+		"@ns/handoff",
+		"@ns/example-pi",
+		"@ns/pi",
+		"@ns/kernel",
+		"@ns/slot",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
 		["@internal/pi-tools/grill", "local-pi-tool"],
 		["@internal/pi-tools/runner-subagents", "local-pi-tool"],
-		["@ji/areg", "standalone-tool"],
-		["@ji/ccc", "capability"],
-		["@ji/capability-kit", "capability-kit"],
-		["@ji/core", "neutral-infra"],
-		["@ji/handoff", "capability"],
-		["@ji/example-pi", "capability-pi"],
-		["@ji/pi", "host"],
-		["@ji/kernel", "sdk"],
-		["@ji/slot", "capability"],
+		["@ns/areg", "standalone-tool"],
+		["@ns/ccc", "capability"],
+		["@ns/capability-kit", "capability-kit"],
+		["@ns/core", "neutral-infra"],
+		["@ns/handoff", "capability"],
+		["@ns/example-pi", "capability-pi"],
+		["@ns/pi", "host"],
+		["@ns/kernel", "sdk"],
+		["@ns/slot", "capability"],
 	]);
 	const cases: readonly TierLayeringCase[] = [
 		{
 			name: "missing tier is rejected",
-			tiers: new Map([...baseTiers, ["@ji/ccc", undefined]]),
-			expectedTextIncludes: "missing ji.tier",
+			tiers: new Map([...baseTiers, ["@ns/ccc", undefined]]),
+			expectedTextIncludes: "missing ns.tier",
 		},
 		{
 			name: "unknown tier is rejected",
-			tiers: new Map([...baseTiers, ["@ji/ccc", "mystery-tier"]]),
-			expectedTextIncludes: "unknown ji.tier",
+			tiers: new Map([...baseTiers, ["@ns/ccc", "mystery-tier"]]),
+			expectedTextIncludes: "unknown ns.tier",
 		},
 		{
 			name: "capability to host is rejected",
-			edges: [{ from: "@ji/handoff", to: "@ji/pi" }],
+			edges: [{ from: "@ns/handoff", to: "@ns/pi" }],
 			expectedTextIncludes: "capability-must-not-depend-on-host",
 		},
 		{
 			name: "sdk to capability is rejected",
-			edges: [{ from: "@ji/kernel", to: "@ji/handoff" }],
+			edges: [{ from: "@ns/kernel", to: "@ns/handoff" }],
 			expectedTextIncludes: "sdk-must-not-depend-on-capability",
 		},
 		{
 			name: "allowlisted sdk to capability debt is accepted",
-			edges: [{ from: "@ji/kernel", to: "@ji/slot" }],
+			edges: [{ from: "@ns/kernel", to: "@ns/slot" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability to capability is allowed",
-			edges: [{ from: "@ji/ccc", to: "@ji/handoff" }],
+			edges: [{ from: "@ns/ccc", to: "@ns/handoff" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability pi to host is allowed",
-			edges: [{ from: "@ji/example-pi", to: "@ji/pi" }],
+			edges: [{ from: "@ns/example-pi", to: "@ns/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability pi to capability is allowed",
-			edges: [{ from: "@ji/example-pi", to: "@ji/handoff" }],
+			edges: [{ from: "@ns/example-pi", to: "@ns/handoff" }],
 			expectedViolation: false,
 		},
 		{
 			name: "capability to capability pi is rejected",
-			edges: [{ from: "@ji/handoff", to: "@ji/example-pi" }],
+			edges: [{ from: "@ns/handoff", to: "@ns/example-pi" }],
 			expectedTextIncludes: "capability-must-not-depend-on-capability-pi",
 		},
 		{
 			name: "standalone tool to host is allowed",
-			edges: [{ from: "@ji/areg", to: "@ji/pi" }],
+			edges: [{ from: "@ns/areg", to: "@ns/pi" }],
 			expectedViolation: false,
 		},
 		{
 			name: "local pi tool to host is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@ji/pi" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@ns/pi" }],
 			expectedViolation: false,
 		},
 		{
@@ -622,17 +622,17 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "local pi tool to standalone tool is rejected",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@ji/areg" }],
+			edges: [{ from: "@internal/pi-tools/grill", to: "@ns/areg" }],
 			expectedTextIncludes: "local-pi-tool-must-not-depend-on-standalone-tool",
 		},
 		{
 			name: "standalone tool to local pi tool is rejected",
-			edges: [{ from: "@ji/areg", to: "@internal/pi-tools/grill" }],
+			edges: [{ from: "@ns/areg", to: "@internal/pi-tools/grill" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-local-pi-tool",
 		},
 		{
 			name: "capability to capability kit is allowed",
-			edges: [{ from: "@ji/handoff", to: "@ji/capability-kit" }],
+			edges: [{ from: "@ns/handoff", to: "@ns/capability-kit" }],
 			expectedViolation: false,
 		},
 	];
@@ -664,22 +664,22 @@ describe("TypeScript style guard package tier layering rules", () => {
 describe("TypeScript style guard topology-circle layering rules", () => {
 	const syntheticCircles: readonly TopologyCircleFact[] = [
 		{
-			id: "@ji/core",
-			packageName: "@ji/core",
+			id: "@ns/core",
+			packageName: "@ns/core",
 			component: ".",
 			tier: "neutral-infra",
 			path: "synthetic/core/src",
 		},
 		{
-			id: "@ji/core/time",
-			packageName: "@ji/core",
+			id: "@ns/core/time",
+			packageName: "@ns/core",
 			component: "time",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/time",
 		},
 		{
-			id: "@ji/slot",
-			packageName: "@ji/slot",
+			id: "@ns/slot",
+			packageName: "@ns/slot",
 			component: ".",
 			tier: "capability",
 			path: "synthetic/slot/src",
@@ -694,7 +694,7 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/time/index.ts",
-					content: 'import { clock } from "@ji/core/clock";',
+					content: 'import { clock } from "@ns/core/clock";',
 				},
 			],
 		});
@@ -710,13 +710,13 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/time/index.ts",
-					content: 'import { buildSlotCommandGroup } from "@ji/slot";',
+					content: 'import { buildSlotCommandGroup } from "@ns/slot";',
 				},
 			],
 		});
 
 		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
-		expect(violations[0]?.text).toContain("@ji/core/time (neutral-infra) -> @ji/slot");
+		expect(violations[0]?.text).toContain("@ns/core/time (neutral-infra) -> @ns/slot");
 	});
 
 	test("relative imports crossing circle boundaries point at the import line", () => {
@@ -738,28 +738,28 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 
 		expect(violations.map((violation) => violation.rule)).toEqual([BAN_TOPOLOGY_CIRCLE_LAYERING]);
 		expect(violations[0]?.line).toBe(1);
-		expect(violations[0]?.text).toContain("@ji/core/time");
+		expect(violations[0]?.text).toContain("@ns/core/time");
 	});
 
 	test("discovers the core time pilot circle from the package manifest", () => {
 		const packageMetadataByName = loadPackageMetadata(REPO_ROOT);
-		const coreMetadata = packageMetadataByName.get("@ji/core");
-		if (coreMetadata === undefined) throw new Error("Missing @ji/core package metadata");
+		const coreMetadata = packageMetadataByName.get("@ns/core");
+		if (coreMetadata === undefined) throw new Error("Missing @ns/core package metadata");
 		const circles = discoverTopologyCircles(REPO_ROOT, packageMetadataByName);
-		const retiredTimePackageName = "@ji/" + "time";
+		const retiredTimePackageName = "@ns/" + "time";
 
 		expect(coreMetadata.sdlSubpackages).toContain("time");
-		expect(circles.has("@ji/core/time")).toBe(true);
+		expect(circles.has("@ns/core/time")).toBe(true);
 		expect(packageMetadataByName.has(retiredTimePackageName)).toBe(false);
 	});
 
 	test("does not auto-discover undeclared source directories as circles", () => {
 		const circles = discoverTopologyCircles(REPO_ROOT, loadPackageMetadata(REPO_ROOT));
 
-		expect(circles.has("@ji/aretro/operations")).toBe(false);
-		expect(circles.has("@ji/aretro/payloads")).toBe(false);
-		expect(circles.has("@ji/aretro/ji")).toBe(false);
-		expect(circles.has("@ji/aretro/sessions")).toBe(false);
+		expect(circles.has("@ns/aretro/operations")).toBe(false);
+		expect(circles.has("@ns/aretro/payloads")).toBe(false);
+		expect(circles.has("@ns/aretro/ns")).toBe(false);
+		expect(circles.has("@ns/aretro/sessions")).toBe(false);
 	});
 
 	test("real repo source circle edges satisfy inherited tier layering", () => {
@@ -781,22 +781,22 @@ describe("TypeScript style guard topology-circle layering rules", () => {
 describe("TypeScript style guard topology-circle cycle rules", () => {
 	const cycleCircles: readonly TopologyCircleFact[] = [
 		{
-			id: "@ji/core/alpha",
-			packageName: "@ji/core",
+			id: "@ns/core/alpha",
+			packageName: "@ns/core",
 			component: "alpha",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/alpha",
 		},
 		{
-			id: "@ji/core/beta",
-			packageName: "@ji/core",
+			id: "@ns/core/beta",
+			packageName: "@ns/core",
 			component: "beta",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/beta",
 		},
 		{
-			id: "@ji/core/gamma",
-			packageName: "@ji/core",
+			id: "@ns/core/gamma",
+			packageName: "@ns/core",
 			component: "gamma",
 			tier: "neutral-infra",
 			path: "synthetic/core/src/gamma",
@@ -804,7 +804,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 	];
 	const alphaBetaDeferral: DeferredTopologyCircleCycle = {
 		name: "alpha-beta",
-		packageName: "@ji/core",
+		packageName: "@ns/core",
 		circles: new Set(["alpha", "beta"]),
 		reason: "synthetic test deferral",
 	};
@@ -823,7 +823,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 			BAN_TOPOLOGY_CIRCLE_CYCLE,
 		]);
 		expect(formatViolations(violations)).toContain(
-			"non-deferred subpackage circle cycle in @ji/core among alpha, beta",
+			"non-deferred subpackage circle cycle in @ns/core among alpha, beta",
 		);
 	});
 
@@ -847,15 +847,15 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 			files: [
 				{
 					path: "synthetic/core/src/alpha/index.ts",
-					content: 'import { beta } from "@ji/core/beta";\nbeta();',
+					content: 'import { beta } from "@ns/core/beta";\nbeta();',
 				},
 				{
 					path: "synthetic/core/src/beta/index.ts",
-					content: 'import { gamma } from "@ji/core/gamma";\ngamma();',
+					content: 'import { gamma } from "@ns/core/gamma";\ngamma();',
 				},
 				{
 					path: "synthetic/core/src/gamma/index.ts",
-					content: 'import { alpha } from "@ji/core/alpha";\nalpha();',
+					content: 'import { alpha } from "@ns/core/alpha";\nalpha();',
 				},
 			],
 			deferredCycles: [alphaBetaDeferral],
@@ -874,7 +874,7 @@ describe("TypeScript style guard topology-circle cycle rules", () => {
 				{
 					path: "synthetic/core/src/alpha/index.ts",
 					content:
-						'import { beta } from "@ji/core/beta";\nimport { helper } from "./helper.ts";\nbeta();\nhelper();',
+						'import { beta } from "@ns/core/beta";\nimport { helper } from "./helper.ts";\nbeta();\nhelper();',
 				},
 				{
 					path: "synthetic/core/src/alpha/helper.ts",
@@ -976,7 +976,7 @@ describe("TypeScript style guard subpackage declaration conformance", () => {
 				BAN_SUBPACKAGE_DECLARATION_CONFORMANCE,
 			]);
 			expect(violations[0]?.path).toBe("synthetic/core/src/index.ts");
-			expect(violations[0]?.text).toContain("without ji.remainder");
+			expect(violations[0]?.text).toContain("without ns.remainder");
 		});
 	});
 
@@ -1122,52 +1122,52 @@ describe("TypeScript style guard exports subpackage conformance", () => {
 
 describe("TypeScript style guard extension dependency graph rules", () => {
 	const syntheticPackages = new Set([
-		"@ji/branch-context",
-		"@ji/ccc",
-		"@ji/pi",
-		"@ji/kernel",
-		"@ji/flow",
+		"@ns/branch-context",
+		"@ns/ccc",
+		"@ns/pi",
+		"@ns/kernel",
+		"@ns/flow",
 	]);
 	const syntheticCapabilityKernelPiCycleEdges: readonly SyntheticEdge[] = [
-		{ from: "@ji/flow", to: "@ji/pi" },
-		{ from: "@ji/pi", to: "@ji/kernel" },
-		{ from: "@ji/kernel", to: "@ji/flow" },
+		{ from: "@ns/flow", to: "@ns/pi" },
+		{ from: "@ns/pi", to: "@ns/kernel" },
+		{ from: "@ns/kernel", to: "@ns/flow" },
 	];
 	const cases: readonly DependencyGraphCase[] = [
 		{
 			name: "acyclic extension manifest graph is allowed",
-			edges: [{ from: "@ji/pi", to: "@ji/ccc" }],
+			edges: [{ from: "@ns/pi", to: "@ns/ccc" }],
 			shouldHaveCycle: false,
 		},
 		{
 			name: "synthetic extension manifest cycle is rejected",
 			edges: [
-				{ from: "@ji/pi", to: "@ji/ccc" },
-				{ from: "@ji/ccc", to: "@ji/pi" },
+				{ from: "@ns/pi", to: "@ns/ccc" },
+				{ from: "@ns/ccc", to: "@ns/pi" },
 			],
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ji/pi",
+			expectedTextIncludes: "dependencies.@ns/pi",
 		},
 		{
 			name: "synthetic capability pi sdk manifest cycle is rejected",
 			edges: syntheticCapabilityKernelPiCycleEdges,
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ji/pi",
+			expectedTextIncludes: "dependencies.@ns/pi",
 		},
 		{
 			name: "branch-context pi manifest cycle is rejected",
 			edges: [
-				{ from: "@ji/branch-context", to: "@ji/pi" },
-				{ from: "@ji/pi", to: "@ji/branch-context" },
+				{ from: "@ns/branch-context", to: "@ns/pi" },
+				{ from: "@ns/pi", to: "@ns/branch-context" },
 			],
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ji/pi",
+			expectedTextIncludes: "dependencies.@ns/pi",
 		},
 		{
 			name: "devDependencies-only cycle is ignored",
 			edges: [
-				{ from: "@ji/pi", to: "@ji/ccc", field: "devDependencies" },
-				{ from: "@ji/ccc", to: "@ji/pi", field: "devDependencies" },
+				{ from: "@ns/pi", to: "@ns/ccc", field: "devDependencies" },
+				{ from: "@ns/ccc", to: "@ns/pi", field: "devDependencies" },
 			],
 			shouldHaveCycle: false,
 		},
@@ -1175,7 +1175,7 @@ describe("TypeScript style guard extension dependency graph rules", () => {
 			name: "field-aware manifest dependency diagnostics point at the participating field",
 			metadataByName: buildFieldAwareDiagnosticMetadata(),
 			shouldHaveCycle: true,
-			expectedTextIncludes: "dependencies.@ji/ccc",
+			expectedTextIncludes: "dependencies.@ns/ccc",
 			expectedLine: 7,
 		},
 	];
@@ -1286,11 +1286,11 @@ function twoCircleCycleFiles(): readonly TopologyCircleSourceFile[] {
 	return [
 		{
 			path: "synthetic/core/src/alpha/index.ts",
-			content: 'import { beta } from "@ji/core/beta";\nbeta();',
+			content: 'import { beta } from "@ns/core/beta";\nbeta();',
 		},
 		{
 			path: "synthetic/core/src/beta/index.ts",
-			content: 'import { alpha } from "@ji/core/alpha";\nalpha();',
+			content: 'import { alpha } from "@ns/core/alpha";\nalpha();',
 		},
 	];
 }
@@ -1324,10 +1324,10 @@ function writeSyntheticPackage(
 function buildSyntheticSubpackageMetadata(
 	options: SyntheticSubpackageMetadataOptions,
 ): Map<string, PackageMetadata> {
-	const packageName = "@ji/core";
+	const packageName = "@ns/core";
 	const manifest: PackageManifest = {
 		name: packageName,
-		ji: {
+		ns: {
 			tier: "neutral-infra",
 			subpackages: options.subpackages,
 			...(options.remainder ? { remainder: true } : {}),
@@ -1363,7 +1363,7 @@ function buildLocalSpaceSyntheticMetadata(
 				name: syntheticPackage.name,
 				private: syntheticPackage.privateValue,
 				dependencies: syntheticPackage.dependencies ?? {},
-				ji: { tier: "local-pi-tool" },
+				ns: { tier: "local-pi-tool" },
 			};
 			return [
 				syntheticPackage.name,
@@ -1431,20 +1431,20 @@ function buildSyntheticPackageMetadata(
 }
 
 function buildFieldAwareDiagnosticMetadata(): Map<string, PackageMetadata> {
-	const packageNames = new Set(["@ji/ccc", "@ji/pi"]);
+	const packageNames = new Set(["@ns/ccc", "@ns/pi"]);
 	const metadataByName = buildSyntheticPackageMetadata(packageNames, [
-		{ from: "@ji/pi", to: "@ji/ccc", field: "dependencies" },
-		{ from: "@ji/ccc", to: "@ji/pi", field: "dependencies" },
+		{ from: "@ns/pi", to: "@ns/ccc", field: "dependencies" },
+		{ from: "@ns/ccc", to: "@ns/pi", field: "dependencies" },
 	]);
-	const piMetadata = metadataByName.get("@ji/pi");
-	if (piMetadata === undefined) throw new Error("Missing synthetic @ji/pi metadata");
+	const piMetadata = metadataByName.get("@ns/pi");
+	if (piMetadata === undefined) throw new Error("Missing synthetic @ns/pi metadata");
 	const manifest: PackageManifest = {
-		name: "@ji/pi",
+		name: "@ns/pi",
 		devDependencies: {
-			"@ji/ccc": "workspace:*",
+			"@ns/ccc": "workspace:*",
 		},
 		dependencies: {
-			"@ji/ccc": "workspace:*",
+			"@ns/ccc": "workspace:*",
 		},
 	};
 	piMetadata.manifest = manifest;
@@ -1470,7 +1470,7 @@ function buildSyntheticManifest(
 ): PackageManifest {
 	return {
 		name: packageName,
-		...(rawSdlTier === undefined ? {} : { ji: { tier: rawSdlTier } }),
+		...(rawSdlTier === undefined ? {} : { ns: { tier: rawSdlTier } }),
 		...(Object.keys(fields.devDependencies).length === 0
 			? {}
 			: { devDependencies: fields.devDependencies }),

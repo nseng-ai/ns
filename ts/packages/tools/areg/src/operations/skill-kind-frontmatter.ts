@@ -1,4 +1,4 @@
-import type { Result } from "@ji/core/result";
+import type { Result } from "@ns/core/result";
 
 import { transformSkillFrontmatter } from "./frontmatter.ts";
 import {

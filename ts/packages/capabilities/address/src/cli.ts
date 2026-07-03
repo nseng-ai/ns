@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { ClinkrGroup } from "@ji/clinkr";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@ji/core/cli-runtime";
+import { ClinkrGroup } from "@ns/clinkr";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@ns/core/cli-runtime";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";

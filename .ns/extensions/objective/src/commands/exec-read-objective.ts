@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/exec-read-objective";
+export { default } from "@ns/objective/ns/commands/exec-read-objective";

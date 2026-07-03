@@ -1,4 +1,4 @@
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
 
 import { VibechkError } from "./store.ts";
 

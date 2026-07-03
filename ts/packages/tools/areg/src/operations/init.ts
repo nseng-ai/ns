@@ -6,8 +6,8 @@ import {
 	ok,
 	usageError,
 	type ClinkrExit,
-} from "@ji/clinkr";
-import { resultErr, type Result } from "@ji/core/result";
+} from "@ns/clinkr";
+import { resultErr, type Result } from "@ns/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
@@ -189,7 +189,7 @@ export async function runInit(
 
 	const agentsResult = resolveProjectAgents({
 		explicitAgents: request.agent,
-		sdlToml: inspection.sdlToml,
+		nsToml: inspection.nsToml,
 		aregJson: inspection.aregJson,
 	});
 	if (!agentsResult.ok) return failure("agent-resolution-failed", agentsResult.error.message);
@@ -295,13 +295,13 @@ async function buildInitTextPlan(
 		projectDir: string;
 		agentsMd: AregTextFileState;
 		claudeMd: AregTextFileState;
-		sdlToml: AregTextFileState;
+		nsToml: AregTextFileState;
 		claudeDir: AregPathState;
 		claudeSettings: AregTextFileState;
 	},
 	options: { agents: readonly string[]; yes: boolean; noAppend: boolean },
 ): Promise<Result<InitTextPlan>> {
-	const sdl = planSdlToml(inspection.sdlToml, options.agents);
+	const sdl = planSdlToml(inspection.nsToml, options.agents);
 	if (!sdl.ok) return sdl;
 
 	const agents = await planManagedBlock(ctx, {
@@ -341,19 +341,19 @@ function planSdlToml(
 	agents: readonly string[],
 ): Result<AregInitTextWritePlan> {
 	if (state.type === "missing")
-		return { ok: true, value: writePlan("ji.toml", renderAregSection(agents), "ji.toml") };
+		return { ok: true, value: writePlan("ns.toml", renderAregSection(agents), "ns.toml") };
 	if (state.type !== "file")
 		return rejectTextState({
-			pathLabel: "ji.toml",
+			pathLabel: "ns.toml",
 			state,
-			description: "ji.toml",
+			description: "ns.toml",
 			action: "manage it",
 		});
-	const parsed = parseSdlAregAgents(state.text, "ji.toml");
+	const parsed = parseSdlAregAgents(state.text, "ns.toml");
 	if (!parsed.ok) return parsed;
 	return {
 		ok: true,
-		value: writePlan("ji.toml", replaceOrAppendAregSection(state.text, agents), "ji.toml"),
+		value: writePlan("ns.toml", replaceOrAppendAregSection(state.text, agents), "ns.toml"),
 	};
 }
 

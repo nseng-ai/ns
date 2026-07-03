@@ -1,4 +1,4 @@
-import type { ExpandedSkillBlock } from "@ji/pi/skills/expansion";
+import type { ExpandedSkillBlock } from "@ns/pi/skills/expansion";
 import type { BaseRuntimeContext } from "./runtime-types.ts";
 
 export interface HandoffStartMessages {

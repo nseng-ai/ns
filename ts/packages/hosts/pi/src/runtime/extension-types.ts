@@ -1,4 +1,4 @@
-import type { ExecResult } from "@ji/core/exec";
+import type { ExecResult } from "@ns/core/exec";
 import type {
 	SessionReplacementContext,
 	SessionReplacementOptions,
@@ -8,7 +8,7 @@ import type {
 import type { ThinkingLevel } from "./types.ts";
 import type { ExtensionMode, ToolContext, ToolDefinition } from "./tool-types.ts";
 
-export type { ExecResult } from "@ji/core/exec";
+export type { ExecResult } from "@ns/core/exec";
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
 	ExtensionMode,

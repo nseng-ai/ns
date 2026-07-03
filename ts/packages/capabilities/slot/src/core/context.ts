@@ -1,4 +1,4 @@
-import { requireXdgPath, resolveSdlXdgPath } from "@ji/capability-kit/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@ns/capability-kit/xdg";
 
 import {
 	resolveClinkrInteraction,
@@ -7,10 +7,10 @@ import {
 	type ClinkrInteraction,
 	type ConfirmationPromptFormatter,
 	type RenderCapabilities,
-} from "@ji/clinkr";
-import { paint } from "@ji/core/cli-theme";
-import { readStdinLine } from "@ji/core/cli-runtime";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+} from "@ns/clinkr";
+import { paint } from "@ns/core/cli-theme";
+import { readStdinLine } from "@ns/core/cli-runtime";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
 import { RealSlotCommandGateway, type SlotCommandGateway } from "./gateways/command.ts";
@@ -18,7 +18,7 @@ import { RealSlotRepositoryGateway, type SlotRepositoryGateway } from "./gateway
 import {
 	RealGraphiteStackGateway,
 	type GraphiteStackGateway,
-} from "@ji/capability-kit/graphite/stack";
+} from "@ns/capability-kit/graphite/stack";
 import { RealSlotPrGateway, type SlotPrGateway } from "./gateways/pr.ts";
 import { RealSlotStorageGateway, type SlotStorageGateway } from "./gateways/storage.ts";
 import {

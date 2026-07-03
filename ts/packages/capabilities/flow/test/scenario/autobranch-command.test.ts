@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 
 import {
 	autobranchGtCreateFailExec,
 	runFlowAutobranchCommandWithFakes,
 } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 afterEach(() => {
 	vi.useRealTimers();

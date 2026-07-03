@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/check";
+export { default } from "@ns/objective/ns/commands/check";

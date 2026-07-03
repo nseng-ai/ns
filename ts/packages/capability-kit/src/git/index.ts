@@ -1,12 +1,12 @@
 import path from "node:path";
 
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/exec";
-import { commandSucceeded, formatCommand, formatCommandFailure } from "@ji/core/exec";
-import { formatErrorMessage } from "@ji/core/primitives";
-import type { SdlExtensionApi } from "@ji/kernel/sdk";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
+import { commandSucceeded, formatCommand, formatCommandFailure } from "@ns/core/exec";
+import { formatErrorMessage } from "@ns/core/primitives";
+import type { SdlExtensionApi } from "@ns/kernel/sdk";
 
 import { SdlCommandExecApi } from "../kit/command-runner.ts";
-import { firstNonEmptyLine, nonEmptyLines } from "@ji/core/text-normalization";
+import { firstNonEmptyLine, nonEmptyLines } from "@ns/core/text-normalization";
 import type {
 	GitBranchParams,
 	GitBranchPresenceResult,

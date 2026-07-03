@@ -1,4 +1,4 @@
-import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	SKILL_LOOKUP_ROOTS,
@@ -7,7 +7,7 @@ import {
 	skillLookupFileRelativePath,
 	skillLookupRootRank,
 	type SkillLookupRoot,
-} from "@ji/pi/skills/lookup";
+} from "@ns/pi/skills/lookup";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

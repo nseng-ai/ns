@@ -1,7 +1,7 @@
 import { appendFileSync } from "node:fs";
 import process from "node:process";
 
-import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@ji/capability-kit/xdg";
+import { ensurePrivateParentDirectorySync, requireSdlStatePath } from "@ns/capability-kit/xdg";
 
 const CLI_COMMAND_BRIDGE_VERSION = "above-editor-live-stream-trace-v3";
 const TRACE_ENV = "NS_PI_CLI_TRACE";

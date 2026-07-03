@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { loadSdlCommandCatalog, loadSelectedSdlCommand } from "../../src/extensions/registry.ts";
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
-import { runCliWithFakes } from "../scenario/ji-cli-fakes.ts";
+import { runCliWithFakes } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 

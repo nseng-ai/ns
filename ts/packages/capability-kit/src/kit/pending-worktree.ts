@@ -1,4 +1,4 @@
-import { formatCommandDetails } from "@ji/core/exec";
+import { formatCommandDetails } from "@ns/core/exec";
 
 import type { CommandResult } from "./command-result.ts";
 

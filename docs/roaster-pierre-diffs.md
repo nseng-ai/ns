@@ -114,7 +114,7 @@ Prefer deleting roaster adapter code over preserving compatibility through raw p
 Before changing this integration, run at least:
 
 ```bash
-pnpm --dir ts --filter @ji/roaster run test
+pnpm --dir ts --filter @ns/roaster run test
 pnpm --dir ts run check
 ```
 

@@ -3,14 +3,14 @@ import {
 	type SlotCheckoutFailure,
 	type SlotCheckoutResult,
 	type SlotClient,
-} from "@ji/slot/api";
+} from "@ns/slot/api";
 
 export type {
 	SlotCheckoutFailure,
 	SlotCheckoutResult,
 	SlotCheckoutTarget,
 	SlotClient,
-} from "@ji/slot/api";
+} from "@ns/slot/api";
 
 export type SlotCheckoutRef = { kind: "branch"; branchName: string } | { kind: "current" };
 

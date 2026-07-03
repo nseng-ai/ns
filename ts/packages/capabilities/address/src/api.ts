@@ -1,6 +1,6 @@
-// Capability API (`@ji/address/api`): the curated, in-process surface for
+// Capability API (`@ns/address/api`): the curated, in-process surface for
 // PR-feedback consumers. The gateway seam and feedback/check payload vocabulary are
-// stable here so consumers do not import `@ji/capability-kit/github/pr-feedback`, Pi modules,
+// stable here so consumers do not import `@ns/capability-kit/github/pr-feedback`, Pi modules,
 // command operation schemas, or PR Address internals.
 //
 // Export classification:
@@ -9,13 +9,13 @@
 //   types, and gateway options/operation names.
 // - Stable via the PR Address seam: check/status result DTOs returned by
 //   `getPrChecks`. Their neutral normalization mechanics stay in
-//   `@ji/capability-kit/github/pr-status`; consumers should import these DTOs here when they
+//   `@ns/capability-kit/github/pr-status`; consumers should import these DTOs here when they
 //   are handling PR Address check payloads.
 // - Not exported here: real GitHub adapters, GraphQL args/queries/normalizers,
 //   command schemas, Clinkr/exec wrappers, and Pi presentation/session helpers.
 //
 // ADR 0016 keeps PR Address as the capability-facing seam. Reusable GitHub
-// backend mechanics now live in `@ji/capability-kit/github`; this file owns the seam vocabulary
+// backend mechanics now live in `@ns/capability-kit/github`; this file owns the seam vocabulary
 // by re-exporting only the consumer-facing types.
 
 import type {
@@ -33,15 +33,15 @@ import type {
 	GithubPrSummary,
 	GithubReviewThreadReply,
 	GithubReviewThreadState,
-} from "@ji/capability-kit/github/pr-feedback";
+} from "@ns/capability-kit/github/pr-feedback";
 import type {
 	GithubCheckBucket,
 	GithubCheckTally,
 	GithubStatusCheckEntry,
 	GithubStatusCheckKind,
 	GithubStatusChecks,
-} from "@ji/capability-kit/github/pr-status";
-import type { Result } from "@ji/core/result";
+} from "@ns/capability-kit/github/pr-status";
+import type { Result } from "@ns/core/result";
 
 // Stable PR Address Capability API: PR feedback domain seam and payloads.
 export type {

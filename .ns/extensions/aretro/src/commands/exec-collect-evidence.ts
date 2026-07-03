@@ -1,1 +1,1 @@
-export { default } from "@ji/aretro/ji/commands/exec-collect-evidence";
+export { default } from "@ns/aretro/ns/commands/exec-collect-evidence";

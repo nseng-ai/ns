@@ -1,6 +1,6 @@
-import { optionalEntry } from "@ji/core/primitives";
-import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
-import { firstNonEmptyLine } from "@ji/core/text-normalization";
+import { optionalEntry } from "@ns/core/primitives";
+import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { firstNonEmptyLine } from "@ns/core/text-normalization";
 
 import {
 	isGitPorcelainUnmergedStatus,

@@ -1,9 +1,9 @@
-import { piExecApiToCommandExecApi } from "@ji/core/command";
-import type { SlotCheckoutTarget, SlotClient } from "@ji/slot/api";
+import { piExecApiToCommandExecApi } from "@ns/core/command";
+import type { SlotCheckoutTarget, SlotClient } from "@ns/slot/api";
 import { checkoutSlot, formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
-import { RealCmuxGateway, type CmuxGatewayFailure } from "@ji/capability-kit/cmux/gateway";
+import { RealCmuxGateway, type CmuxGatewayFailure } from "@ns/capability-kit/cmux/gateway";
 import { getWorktreeDescription } from "./worktree-description.ts";
-import type { ExtensionAPI, NotifyLevel } from "@ji/capability-kit/cmux/types";
+import type { ExtensionAPI, NotifyLevel } from "@ns/capability-kit/cmux/types";
 
 export interface BranchCmuxSlotCheckoutOptions {
 	pi: Pick<ExtensionAPI, "exec">;

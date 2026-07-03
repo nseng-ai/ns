@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
-import { optionalEntry, type ExplicitUndefined } from "@ji/core/primitives";
+import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
+import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
 import type { GithubPrFeedbackFailure } from "./api.ts";
-import type { Result } from "@ji/core/result";
+import type { Result } from "@ns/core/result";
 
 import {
 	defineExecOperation,

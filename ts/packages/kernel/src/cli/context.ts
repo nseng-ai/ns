@@ -4,10 +4,10 @@ import {
 	createClinkrInteraction,
 	renderCapabilitiesForTerminal,
 	resolveProcessCaps,
-} from "@ji/clinkr";
-import { readStdinLine } from "@ji/core/cli-runtime";
-import { runCommand } from "@ji/core/exec";
-import type { SlotCliContext } from "@ji/slot/api";
+} from "@ns/clinkr";
+import { readStdinLine } from "@ns/core/cli-runtime";
+import { runCommand } from "@ns/core/exec";
+import type { SlotCliContext } from "@ns/slot/api";
 
 import { createCliCommandIo, noopSdlProgress } from "../runtime/command-io.ts";
 import { PiTextGenerator } from "../runtime/pi-text-generation.ts";

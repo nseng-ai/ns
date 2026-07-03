@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/autobranch";
+export { default } from "@ns/flow/commands/autobranch";

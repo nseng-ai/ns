@@ -2,12 +2,12 @@ import { readFile } from "node:fs/promises";
 
 import type { z } from "zod";
 
-import { formatZodError } from "@ji/core/primitives";
+import { formatZodError } from "@ns/core/primitives";
 import {
 	prepareRepairedText,
 	type TextGenerationResult,
 	type ValidateGeneratedTextResult,
-} from "@ji/capability-kit/text-repair";
+} from "@ns/capability-kit/text-repair";
 
 import {
 	BLOCK_THERMO_COUNCIL_REVIEW_TOOL,
@@ -30,8 +30,8 @@ import {
 	type RunnerSubagentResult,
 	type RunnerSubagentUpdate,
 } from "@internal/pi-tools/runner-subagents";
-import { parseLmJson } from "@ji/pi/models/lm-json";
-import { errorMessage } from "@ji/pi/shared/errors";
+import { parseLmJson } from "@ns/pi/models/lm-json";
+import { errorMessage } from "@ns/pi/shared/errors";
 import { extractRunnerSubagentToolCallPayloadsFromSessionJsonl } from "@internal/pi-tools/runner-subagents";
 import { THERMO_COUNCIL_COMMAND_NAME, THERMO_COUNCIL_MESSAGE_TYPE } from "./constants.ts";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";

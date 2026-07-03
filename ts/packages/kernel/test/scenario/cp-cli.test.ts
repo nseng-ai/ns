@@ -5,13 +5,13 @@ import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ji/kernel/cli";
+import { listSdlCommands } from "@ns/kernel/cli";
 
 import {
 	runCliWithFakes,
 	type RunWithFakesOptions,
 	type ScriptedExecResponse,
-} from "./ji-cli-fakes.ts";
+} from "./ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -119,7 +119,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @ji/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @ns/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -141,7 +141,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 	test("manifest metadata appears in top-level help without importing the entry", async () => {
 		const cwd = await createManifestProject(
 			{
-				ji: {
+				ns: {
 					commands: [
 						{
 							name: "hello",
@@ -189,7 +189,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 
 	test("malformed selected manifest command exits with its discovery diagnostic", async () => {
 		const cwd = await createManifestProject(
-			{ ji: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
+			{ ns: { commands: [{ name: "hello", description: "Say hello.", entry: "./missing.ts" }] } },
 			{},
 		);
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
@@ -204,7 +204,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 
 	test("malformed selected project command fails instead of falling back to a removed built-in", async () => {
 		const cwd = await createManifestProject(
-			{ ji: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
+			{ ns: { commands: [{ name: "cp", description: "Broken cp.", entry: "./missing.ts" }] } },
 			{},
 		);
 		const run = runWithFakes({ args: ["flow", "cp"], cwd });
@@ -231,7 +231,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`
-import { defineExtension, ok } from "@ji/kernel/sdk";
+import { defineExtension, ok } from "@ns/kernel/sdk";
 export default defineExtension({
 	commands: [{ name: "hello", summary: "Legacy hello", description: "Legacy hello", run() { return ok("legacy"); } }],
 });

@@ -1,4 +1,4 @@
-import { failure, ok } from "@ji/clinkr";
+import { failure, ok } from "@ns/clinkr";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ji-cli-fakes.ts";
+import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 
@@ -103,7 +103,7 @@ async function createHandoffProject(): Promise<{ cwd: string; loadLogPath: strin
 	const extensionDir = join(cwd, ".ns", "extensions", "handoff");
 	mkdirSync(join(extensionDir, "src"), { recursive: true });
 	const manifest = {
-		ji: {
+		ns: {
 			description: "Coordinate branch-scoped handoff artifacts.",
 			group: "handoff",
 			commands: HANDOFF_COMMANDS.map((command) => ({
@@ -149,7 +149,7 @@ function handoffCommandSource(options: {
 	return `import { appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineExtension, ok, z } from "@ji/kernel/sdk";
+import { defineExtension, ok, z } from "@ns/kernel/sdk";
 
 const LOAD_LOG_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "load-log.txt");
 

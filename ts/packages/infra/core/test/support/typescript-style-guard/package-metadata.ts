@@ -13,7 +13,7 @@ export interface PackageManifest {
 	readonly peerDependencies?: unknown;
 	readonly peerDependenciesMeta?: unknown;
 	readonly devDependencies?: unknown;
-	readonly ji?: unknown;
+	readonly ns?: unknown;
 	readonly [key: string]: unknown;
 }
 
@@ -37,7 +37,7 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 		const manifestContent = readFileSync(packageJsonPath, "utf8");
 		const parsed: unknown = JSON.parse(manifestContent);
 		if (!isPackageManifest(parsed)) continue;
-		const rawSdlTier = readRawSdlTier(parsed.ji);
+		const rawSdlTier = readRawSdlTier(parsed.ns);
 		metadataByName.set(parsed.name, {
 			name: parsed.name,
 			packageDir: relative(repoRoot, packageDir),
@@ -46,8 +46,8 @@ export function loadPackageMetadata(repoRoot: string): Map<string, PackageMetada
 			manifestContent,
 			sdlTier: parsePackageTier(rawSdlTier),
 			rawSdlTier,
-			sdlSubpackages: readSdlSubpackages(parsed.ji),
-			sdlRemainder: readSdlRemainder(parsed.ji),
+			sdlSubpackages: readSdlSubpackages(parsed.ns),
+			sdlRemainder: readSdlRemainder(parsed.ns),
 			exportSubpaths: collectExportSubpaths(parsed.exports),
 		});
 	}
@@ -97,7 +97,7 @@ export function packageNameForPath(
 export function packageNameForSpecifier(specifier: string): string | undefined {
 	const [scope, name] = specifier.split("/");
 	if (scope === undefined || name === undefined) return undefined;
-	if (scope !== "@ji" && scope !== "@internal") return undefined;
+	if (scope !== "@ns" && scope !== "@internal") return undefined;
 	return `${scope}/${name}`;
 }
 

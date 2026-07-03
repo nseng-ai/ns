@@ -4,14 +4,14 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	piExecApiToCommandExecApi,
-} from "@ji/core/command";
-import { firstNonEmptyLine } from "@ji/core/text-normalization";
+} from "@ns/core/command";
+import { firstNonEmptyLine } from "@ns/core/text-normalization";
 import {
 	planLocalBranchRefreshFromWorktrees,
 	type LocalBranchRefreshPlan,
-} from "@ji/capability-kit/git";
-import { runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
-import { optionalEntry } from "@ji/core/primitives";
+} from "@ns/capability-kit/git";
+import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+import { optionalEntry } from "@ns/core/primitives";
 
 import {
 	buildLaunchPrompt,
@@ -21,8 +21,8 @@ import {
 	runText,
 	type BranchCreateResult,
 } from "./dispatch-prompt.ts";
-import type { SlotClient } from "@ji/slot/api";
-import type { CommandContext, ExtensionAPI } from "@ji/capability-kit/cmux/types";
+import type { SlotClient } from "@ns/slot/api";
+import type { CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-from-trunk";
 const GIT_TRUNK_REFRESH_TIMEOUT_MS = 2 * 60 * 1000;

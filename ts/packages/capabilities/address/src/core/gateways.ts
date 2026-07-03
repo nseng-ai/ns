@@ -1,6 +1,6 @@
-import type { GitErrorInfo } from "@ji/capability-kit/git";
-import type { ErrorInfo } from "@ji/core/result";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { GitErrorInfo } from "@ns/capability-kit/git";
+import type { ErrorInfo } from "@ns/core/result";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export type GatewayFailure = (ErrorInfo | GitErrorInfo) & {
 	stderr?: string;

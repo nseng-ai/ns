@@ -91,7 +91,7 @@ describe("areg gateway fakes", () => {
 		const project: AregProjectGateway = new FakeAregProjectGateway({
 			projectDir: "/repo/project",
 			lockfile,
-			sdlToml: '[areg]\nagents = ["codex"]\n',
+			nsToml: '[areg]\nagents = ["codex"]\n',
 		});
 		lockfile.skills.demo.source = "mutated/repo";
 

@@ -1,11 +1,11 @@
-import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
-import { expandRepoSkillBlock } from "@ji/pi/skills/expansion";
+import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
+import { expandRepoSkillBlock } from "@ns/pi/skills/expansion";
 import {
 	createCccSidebarController,
 	type CccSidebarController,
 	type ObjectiveSidebarHandlerOptions,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 const SESSION_SIDEBAR_COMMAND_NAME = "ccc:sidebar:session-summary";
 const BRANCH_STATE_SIDEBAR_COMMAND_NAME = "ccc:sidebar:branch-state-summary";

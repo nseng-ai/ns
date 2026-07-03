@@ -3,8 +3,8 @@ import {
 	putEntryFromFile,
 	type BrmemErrorInfo,
 	type BrmemGateway,
-} from "@ji/brmem";
-import type { Result } from "@ji/core/result";
+} from "@ns/brmem";
+import type { Result } from "@ns/core/result";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "./constants.ts";
 

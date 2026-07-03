@@ -5,7 +5,7 @@
 //
 // Packages are npm/workspace distribution units. Topology circles are package
 // root/remainder circles plus subpackage circles declared in package manifests
-// at ji.subpackages. Edges are RUNTIME package manifest edges for the package
+// at ns.subpackages. Edges are RUNTIME package manifest edges for the package
 // graph and static TypeScript import/export edges for the circle graph.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -21,7 +21,7 @@ function arg(name, fallback) {
 }
 
 const ROOT = arg("root", "ts/packages");
-const KIT = arg("kit", "@ji/capability-kit");
+const KIT = arg("kit", "@ns/capability-kit");
 
 // The workspace's own TypeScript compiler, when installed, gives AST-grade
 // import scanning (dynamic import(), multi-line forms, no matches inside
@@ -64,18 +64,18 @@ const TIER_POLICY = {
   "local-pi-tool": new Set(["local-pi-tool", "host", "neutral-infra"]),
 };
 const ALLOWED_DEBT_EDGES = new Map([
-  ["@ji/ccc\0@ji/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
-  ["@ji/kernel\0@ji/slot", "SDK-to-capability CLI mount debt: @ji/kernel still mounts Slot directly."],
+  ["@ns/ccc\0@ns/pi", "CCC clean-consumer debt tracked by the sdl-extension-architecture objective step 5."],
+  ["@ns/kernel\0@ns/slot", "SDK-to-capability CLI mount debt: @ns/kernel still mounts Slot directly."],
   [
-    "@ji/kernel\0@ji/capability-kit",
-    "SDK-to-capability-kit CLI shell-support debt: @ji/kernel still reuses Capability Kit shell wrappers for the ji shell operation.",
+    "@ns/kernel\0@ns/capability-kit",
+    "SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the ns shell operation.",
   ],
   [
-    "@ji/brmem\0@ji/capability-kit",
+    "@ns/brmem\0@ns/capability-kit",
     "Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
   ],
   [
-    "@internal/pi-tools\0@ji/capability-kit",
+    "@internal/pi-tools\0@ns/capability-kit",
     "Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
   ],
 ]);
@@ -155,11 +155,11 @@ for (const f of files) {
     continue;
   }
   if (!d.name) continue;
-  const tier = d.ji?.tier;
+  const tier = d.ns?.tier;
   if (typeof tier !== "string") {
-    manifestErrors.push(`${d.name} (${f}) is missing ji.tier; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) is missing ns.tier; known tiers: ${TIERS.join(", ")}`);
   } else if (!TIER_SET.has(tier)) {
-    manifestErrors.push(`${d.name} (${f}) has unknown ji.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
+    manifestErrors.push(`${d.name} (${f}) has unknown ns.tier ${JSON.stringify(tier)}; known tiers: ${TIERS.join(", ")}`);
   }
   const deps = {};
   for (const k of ["dependencies", "peerDependencies", "devDependencies"]) {
@@ -253,14 +253,14 @@ function tierViolationForEdge(from, to) {
 }
 
 function isAllowedPiSubpackagePeerEdge(from, to) {
-  if (to !== "@ji/pi") return false;
+  if (to !== "@ns/pi") return false;
   if (pkgs[from]?.tier !== "capability") return false;
   const manifest = manifests[from];
   return (
-    Array.isArray(manifest?.ji?.subpackages) &&
-    manifest.ji.subpackages.includes("pi") &&
-    manifest?.peerDependencies?.["@ji/pi"] !== undefined &&
-    manifest?.peerDependenciesMeta?.["@ji/pi"]?.optional === true
+    Array.isArray(manifest?.ns?.subpackages) &&
+    manifest.ns.subpackages.includes("pi") &&
+    manifest?.peerDependencies?.["@ns/pi"] !== undefined &&
+    manifest?.peerDependenciesMeta?.["@ns/pi"]?.optional === true
   );
 }
 
@@ -315,7 +315,7 @@ function discoverTopologyCircles() {
 }
 
 function declaredSubpackages(manifest) {
-  const value = manifest?.ji?.subpackages;
+  const value = manifest?.ns?.subpackages;
   if (!Array.isArray(value)) return [];
   return value.filter((entry) => typeof entry === "string" && entry !== "");
 }
@@ -386,7 +386,7 @@ function circleForSpecifier(specifier, importerFile) {
   return circleByPackageComponent.get(`${packageName}\0${component}`) ?? circleByPackageComponent.get(`${packageName}\0.`);
 }
 
-// Subpath exports are aliases (`@ji/core/result` -> src/primitives/result.ts),
+// Subpath exports are aliases (`@ns/core/result` -> src/primitives/result.ts),
 // so specifier segments alone misattribute edges to the package-root circle.
 // Resolve through the exports map and credit the circle that owns the file.
 function circleForExportedFile(specifier, packageName) {
@@ -469,7 +469,7 @@ const out = {
     packageCount: names.size,
     topologyCircleCount: circles.length,
     edgeKinds: "package graph: runtime (dependencies + peerDependencies); circle graph: static TypeScript imports/exports",
-    topologyCircleConvention: "package root/remainder circle plus manifest-declared ji.subpackages circles",
+    topologyCircleConvention: "package root/remainder circle plus manifest-declared ns.subpackages circles",
     tiers: TIERS,
     tierPolicy: Object.fromEntries(Object.entries(TIER_POLICY).map(([tier, allowed]) => [tier, [...allowed].sort()])),
   },

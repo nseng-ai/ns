@@ -2,16 +2,16 @@ import { afterEach, describe, expect, test } from "vitest";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { buildPlanContentSlugPrompt, createBranchContextContext } from "@ji/branch-context/api";
-import { InMemoryBranchMemoryGateway } from "@ji/branch-context/testing";
+import { buildPlanContentSlugPrompt, createBranchContextContext } from "@ns/branch-context/api";
+import { InMemoryBranchMemoryGateway } from "@ns/branch-context/testing";
 
 // Mock Pi command formatting for tests
 function formatImplBranchContextCommand(key: string): string {
 	return `/ns:branch-context:impl-attached-plan ${key}`;
 }
-import type { StdinCapableCommandExecApi } from "@ji/core/command";
-import { withTempRepoSkill } from "@ji/core/test-kit";
-import { type CccSlotDispatchPlanOptions } from "@ji/ccc/api";
+import type { StdinCapableCommandExecApi } from "@ns/core/command";
+import { withTempRepoSkill } from "@ns/core/test-kit";
+import { type CccSlotDispatchPlanOptions } from "@ns/ccc/api";
 import registerCccExtension, {
 	createCccSidebarControllerWithPiWiring,
 	registerCccSidebarCommands,
@@ -20,8 +20,8 @@ import registerCccExtension, {
 	registerCccSlotDispatchPromptCommand,
 	registerCccSlotOpenBranchCommand,
 	registerCccSurfaceDispatchPlanCommand,
-} from "@ji/ccc/pi";
-import { buildSlugModelArgs } from "@ji/capability-kit/model-slug";
+} from "@ns/ccc/pi";
+import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
 import { buildGptNanoTextArgs, buildSlugPrompt } from "../src/cmux/branch-slug.ts";
 import {
 	BRANCH,

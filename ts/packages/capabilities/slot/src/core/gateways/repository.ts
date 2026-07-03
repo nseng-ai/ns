@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, statSync, type Stats } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 
-import { NodeCommandExecApi } from "@ji/core/exec";
-import type { CommandExecApi } from "@ji/core/command";
-import { parseGitWorktreePorcelain } from "@ji/capability-kit/git";
-import { RealGitGateway, type GitGateway } from "@ji/capability-kit/git";
-import { optionalEntry, type ExplicitUndefined } from "@ji/core/primitives";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import type { CommandExecApi } from "@ns/core/command";
+import { parseGitWorktreePorcelain } from "@ns/capability-kit/git";
+import { RealGitGateway, type GitGateway } from "@ns/capability-kit/git";
+import { optionalEntry, type ExplicitUndefined } from "@ns/core/primitives";
 
 import {
 	createSlotDiagnosticSinkFromEnv,

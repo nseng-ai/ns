@@ -1,5 +1,5 @@
-import { type ExecResult, formatCommandResultFailure } from "@ji/core/command";
-import { runCommand } from "@ji/core/exec";
+import { type ExecResult, formatCommandResultFailure } from "@ns/core/command";
+import { runCommand } from "@ns/core/exec";
 
 const DEFAULT_REQUIRED_COMMAND_TIMEOUT_MS = 60_000;
 

@@ -1,4 +1,4 @@
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 import {
 	readRuntimeConfigFileSync,
 	writeRuntimeResultFileSync,

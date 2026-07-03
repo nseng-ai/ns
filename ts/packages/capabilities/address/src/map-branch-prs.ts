@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
+import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
 import { mapBranchesToOpenPrs } from "./core/branch-pr-mapping.ts";
 import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
 import {

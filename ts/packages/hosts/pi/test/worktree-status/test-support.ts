@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 
-import { githubWorktreePrStatusQuery } from "@ji/capability-kit/github/pr-status";
+import { githubWorktreePrStatusQuery } from "@ns/capability-kit/github/pr-status";
 import type {
 	ExecResult,
 	GtStatus,
@@ -8,7 +8,7 @@ import type {
 	StatusTheme,
 	WorktreeGhStatus,
 	WorktreeStatusIdentity,
-} from "@ji/pi/worktree-status";
+} from "@ns/pi/worktree-status";
 import type {
 	ExtensionContext,
 	WorktreeStatusLoaders,

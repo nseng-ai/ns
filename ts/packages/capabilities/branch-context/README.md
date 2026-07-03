@@ -1,6 +1,6 @@
-# @ji/branch-context
+# @ns/branch-context
 
-`@ji/branch-context` owns the ns `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ns branch-context ...`.
+`@ns/branch-context` owns the ns `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ns branch-context ...`.
 
 ## Plan contract trial rollback
 

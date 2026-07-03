@@ -1,5 +1,5 @@
-import type { GitCurrentBranchResult } from "@ji/capability-kit/git";
-import { commandSucceeded, formatCommandDetails } from "@ji/core/exec";
+import type { GitCurrentBranchResult } from "@ns/capability-kit/git";
+import { commandSucceeded, formatCommandDetails } from "@ns/core/exec";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 import type { RunnerReport } from "./report.ts";

@@ -1,5 +1,5 @@
 {
-	"name": "@ji/areg",
+	"name": "@ns/areg",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,15 +16,15 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/areg/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/command-backed-skill-registry": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/pi": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/command-backed-skill-registry": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/pi": "workspace:*",
 		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "standalone-tool"
 	}
 }

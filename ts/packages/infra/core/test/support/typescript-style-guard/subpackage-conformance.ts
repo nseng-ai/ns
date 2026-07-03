@@ -48,7 +48,7 @@ function collectMissingSubpackageDirectoryViolations(
 			line: 1,
 			column: 1,
 			text:
-				`Package ${metadata.name} declares ji.subpackages entry "${subpackage}" but ` +
+				`Package ${metadata.name} declares ns.subpackages entry "${subpackage}" but ` +
 				`${relative(repoRoot, join(sourceDir, subpackage))} is not a directory.`,
 		}));
 }
@@ -66,7 +66,7 @@ function buildSourceFileViolation(
 		line: 1,
 		column: 1,
 		text:
-			`Package ${metadata.name} declares subpackages without ji.remainder, so ` +
+			`Package ${metadata.name} declares subpackages without ns.remainder, so ` +
 			`${sourcePath} must live under a declared subpackage` +
 			`${declaredUnits === "" ? "." : ` (${declaredUnits}).`}`,
 	};

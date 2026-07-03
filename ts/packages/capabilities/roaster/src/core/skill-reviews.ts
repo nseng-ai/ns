@@ -7,7 +7,7 @@ import {
 import type { ReviewDefinition } from "./models.ts";
 import { roasterReviewDisplayRole, type RoasterReviewDisplayRole } from "./review-display.ts";
 import { loadParsedReviewDefinition } from "./review-definition-loading.ts";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export interface RoastSkillEntry {
 	readonly surface: string;

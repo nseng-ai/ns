@@ -1,5 +1,5 @@
-import type { SdlProgressPhaseEvent } from "@ji/kernel/sdk";
-import type { StatusLineItem } from "@ji/core/cli-theme";
+import type { SdlProgressPhaseEvent } from "@ns/kernel/sdk";
+import type { StatusLineItem } from "@ns/core/cli-theme";
 
 /** One declared phase: a stable sequencing `key` plus its presentational status-line payload. */
 export interface PhaseSpec {

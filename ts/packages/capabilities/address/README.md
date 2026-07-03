@@ -1,4 +1,4 @@
-# @ji/address
+# @ns/address
 
 TypeScript package for the Address Capability API and `ns address exec ...` command face: LM-ready PR feedback download plus shared PR feedback primitives.
 
@@ -17,15 +17,15 @@ The `download-feedback` result includes Markdown intended for session/editor pre
 
 ## Capability API
 
-`@ji/address/api` is the curated in-process Capability API for PR-feedback consumers. Consumers that handle PR lookup, review, discussion-comment, review-thread, review-thread mutation, or Address check payloads should import the gateway and DTO vocabulary from this subpath instead of `@ji/core/github-pr-feedback`, `@ji/core/github-pr-status`, Pi modules, command operation schemas, or private source paths.
+`@ns/address/api` is the curated in-process Capability API for PR-feedback consumers. Consumers that handle PR lookup, review, discussion-comment, review-thread, review-thread mutation, or Address check payloads should import the gateway and DTO vocabulary from this subpath instead of `@ns/core/github-pr-feedback`, `@ns/core/github-pr-status`, Pi modules, command operation schemas, or private source paths.
 
 Current export classification:
 
 - **Stable Address Capability API:** `GithubPrFeedbackGateway`; PR lookup/review/discussion/review-thread DTOs; review-thread reply/resolve DTOs; feedback failure/options/operation types. These are owned by Address as PR-feedback seam vocabulary.
-- **Stable through the Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@ji/address/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@ji/core/github-pr-status`.
+- **Stable through the Address seam:** `GithubStatusChecks`, `GithubStatusCheckEntry`, `GithubCheckTally`, `GithubCheckBucket`, `GithubStatusCheckKind`. Import these from `@ns/address/api` when consuming `getPrChecks`/`pr-checks` payloads. The generic status normalization mechanics remain neutral infra in `@ns/core/github-pr-status`.
 - **Not Capability API:** `RealGithubPrFeedbackGateway`, GraphQL args/queries/schemas/normalizers, command schemas, Clinkr/exec wrappers, Pi presentation/session helpers. These remain real-adapter, command-face, or Presentation Host implementation details.
 
-ADR 0016 keeps dependency direction as `@ji/address` → `@ji/core`: lower type declarations and real GitHub mechanics may live in core, while seam consumers import only the Address Capability API.
+ADR 0016 keeps dependency direction as `@ns/address` → `@ns/core`: lower type declarations and real GitHub mechanics may live in core, while seam consumers import only the Address Capability API.
 
 ## Distribution
 
@@ -50,8 +50,8 @@ printf '%s' '{"threadIds":["<THREAD_ID>"]}' | ns address exec close-review-threa
 ## Validation
 
 ```bash
-pnpm --dir ts --filter @ji/address run check
-pnpm --dir ts --filter @ji/address run test
+pnpm --dir ts --filter @ns/address run check
+pnpm --dir ts --filter @ns/address run test
 ```
 
 Broader workspace validation:

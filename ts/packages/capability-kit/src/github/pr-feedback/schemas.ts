@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 import { githubPrFeedbackFailureCodes, githubPrFeedbackOperations } from "./types.ts";
 

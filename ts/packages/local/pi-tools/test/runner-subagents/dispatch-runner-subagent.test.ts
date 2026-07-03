@@ -4,10 +4,10 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import type { ExecOptions, ExecResult } from "@ji/core/exec";
-import { createManualClock } from "@ji/core/time/testing";
+import type { ExecOptions, ExecResult } from "@ns/core/exec";
+import { createManualClock } from "@ns/core/time/testing";
 
-import type { ThinkingLevel } from "@ji/pi/runtime/types";
+import type { ThinkingLevel } from "@ns/pi/runtime/types";
 import {
 	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
 	type RunnerSubagentPi,

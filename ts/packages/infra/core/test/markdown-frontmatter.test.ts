@@ -5,7 +5,7 @@ import {
 	splitLinesKeepEndings,
 	splitMarkdownFrontmatter,
 	stripLineEnding,
-} from "@ji/core/markdown-frontmatter";
+} from "@ns/core/markdown-frontmatter";
 
 describe("markdown frontmatter bounds", () => {
 	test("finds exact first-line frontmatter and returns slices", () => {

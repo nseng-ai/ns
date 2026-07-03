@@ -1,8 +1,8 @@
-import { failure, negative, ok } from "@ji/clinkr";
+import { failure, negative, ok } from "@ns/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
-import type { StackInfo } from "@ji/capability-kit/graphite/stack";
+import type { StackInfo } from "@ns/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches, collectStackEdges } from "../stack-walk.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";

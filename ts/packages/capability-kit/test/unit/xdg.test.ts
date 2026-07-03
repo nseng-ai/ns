@@ -10,7 +10,7 @@ import {
 	ensurePrivateParentDirectory,
 	ensurePrivateParentDirectorySync,
 	resolveSdlXdgPath,
-} from "@ji/capability-kit/xdg";
+} from "@ns/capability-kit/xdg";
 
 const tempDirs: string[] = [];
 

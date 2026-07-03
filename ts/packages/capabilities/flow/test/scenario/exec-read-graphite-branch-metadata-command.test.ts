@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS } from "@ji/capability-kit/graphite/metadata";
+import { GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS } from "@ns/capability-kit/graphite/metadata";
 import { runFlowExecReadGraphiteBranchMetadataCommandWithFakes } from "./flow-command-fakes.ts";
-import type { ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import type { ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 const DB_PATH = "/work/.git/.graphite_metadata.db";
 const BRANCH_METADATA_QUERY =

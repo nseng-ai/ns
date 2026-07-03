@@ -10,7 +10,7 @@ import {
 	parseJsonOutput,
 	runCliWithFakes,
 	type ScriptedExecResponse,
-} from "../scenario/ji-cli-fakes.ts";
+} from "../scenario/ns-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const tempDirs: string[] = [];

@@ -5,12 +5,12 @@ import {
 	createCommitWithPreparedMessage,
 	prepareCheckpointMessage,
 	type CommandResult,
-} from "@ji/capability-kit/checkpoint-flow";
+} from "@ns/capability-kit/checkpoint-flow";
 import type {
 	TextGenerator,
 	TextGenerationRequest,
 	TextGenerationResult,
-} from "@ji/capability-kit/text-generation";
+} from "@ns/capability-kit/text-generation";
 
 const validMessage = `[cp] Update checkpoint tests
 

@@ -1,11 +1,11 @@
-import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
-} from "@ji/pi/grill/surfaces";
+} from "@ns/pi/grill/surfaces";
 import type { GrillAskOutcome } from "./controller.ts";
 import { runGrillAskInlineUi } from "./inline-ui.ts";
 import {
@@ -25,8 +25,8 @@ import {
 } from "./progress.ts";
 import { GRILL_ASK_PARAMETERS, validateGrillAskInput } from "./validate.ts";
 import { buildGrillAskRows, rowSelectDisplay } from "./view.ts";
-import { definePiSurfaceParity } from "@ji/pi/parity/extension";
-import { expandRepoSkillBlock } from "@ji/pi/skills/expansion";
+import { definePiSurfaceParity } from "@ns/pi/parity/extension";
+import { expandRepoSkillBlock } from "@ns/pi/skills/expansion";
 
 export { type GrillAskDetails } from "./result.ts";
 export {
@@ -42,7 +42,7 @@ export {
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
-} from "@ji/pi/grill/surfaces";
+} from "@ns/pi/grill/surfaces";
 
 export const grillUiParity = definePiSurfaceParity([
 	{

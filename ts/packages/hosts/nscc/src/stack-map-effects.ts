@@ -1,0 +1,232 @@
+import { fileURLToPath } from "node:url";
+
+import { shellQuote } from "@ns/core/exec";
+import {
+	createSlotClient,
+	type SlotCheckoutFailure,
+	type SlotCheckoutTarget,
+	type SlotClient,
+} from "@ns/slot/api";
+
+import {
+	formatInlineCommandFailure,
+	runRealCommand,
+	type CommandRunner,
+} from "./command-runner.ts";
+import {
+	choicesForCmuxActivationPlan,
+	buildOpenNewCmuxEntry,
+	planStackMapCmuxActivation,
+	reduceStackMapState,
+	type StackMapCmuxActivationPlan,
+	type StackMapCmuxChoice,
+	type StackMapCmuxTabTarget,
+	type StackMapModel,
+	type StackMapSlotAssignment,
+	type StackMapState,
+} from "./stack-map.ts";
+import type { TabModuleDeps } from "./tabs/tab-module.ts";
+
+const NSCC_CLI_ENTRYPOINT_PATH = fileURLToPath(new URL("./cli.ts", import.meta.url));
+
+const COMMAND_TIMEOUT_MS = 10_000;
+
+// The host's busy guard replaces the old `isActivating` flag, so effects only express *which*
+// async cmux activation to run; computing the plan needs the model, which interpretKey lacks.
+export type StackMapEffect =
+	| { readonly type: "activate-cmux" }
+	| { readonly type: "activate-choice" };
+
+export interface StackMapCmuxActivationExecutor {
+	focusTab(
+		target: StackMapCmuxTabTarget,
+	): Promise<{ readonly type: "focused" } | { readonly type: "failed"; readonly message: string }>;
+	openNew(
+		branch: string,
+		slot?: StackMapSlotAssignment,
+	): Promise<
+		| { readonly type: "opened"; readonly message: string }
+		| { readonly type: "failed"; readonly message: string }
+	>;
+}
+
+export interface CreateStackMapCmuxActivationExecutorOptions {
+	readonly cwd?: string;
+	readonly runCommand?: CommandRunner;
+	readonly slotClient?: SlotClient;
+}
+
+type StackMapSlotCheckoutTarget = Pick<
+	SlotCheckoutTarget,
+	"slotName" | "branchName" | "worktreePath"
+>;
+
+export async function runStackMapEffect(
+	model: StackMapModel,
+	state: StackMapState,
+	effect: StackMapEffect,
+	deps: TabModuleDeps,
+): Promise<StackMapState> {
+	const executor = createStackMapCmuxActivationExecutor({
+		cwd: deps.cwd,
+		runCommand: deps.runCommand,
+	});
+	if (effect.type === "activate-choice") {
+		if (state.mode.type !== "cmux-choice") return state;
+		return executeChoice(model, state, executor, state.mode.choices[state.mode.selectedIndex]);
+	}
+
+	const plan = planStackMapCmuxActivation(model, state);
+	if (plan.type === "choose-tab") {
+		return reduceStackMapState(model, state, {
+			type: "show-cmux-choice",
+			branch: plan.branch,
+			choices: choicesForCmuxActivationPlan(plan),
+		});
+	}
+	return executeActivationPlan(model, state, executor, plan);
+}
+
+export function createStackMapCmuxActivationExecutor(
+	options: CreateStackMapCmuxActivationExecutorOptions = {},
+): StackMapCmuxActivationExecutor {
+	const cwd = options.cwd ?? process.cwd();
+	const runCommand = options.runCommand ?? runRealCommand;
+	const slotClient = options.slotClient ?? createSlotClient({ cwd });
+	return {
+		async focusTab(target) {
+			const params = JSON.stringify({
+				surface_id: target.surfaceRef,
+				workspace_id: target.workspaceRef,
+				window_id: target.windowRef,
+			});
+			const result = await runCommand("cmux", ["rpc", "surface.focus", params], {
+				cwd,
+				timeout: COMMAND_TIMEOUT_MS,
+			});
+			if (result.code === 0) return { type: "focused" };
+			return {
+				type: "failed",
+				message: formatInlineCommandFailure("cmux rpc surface.focus", result),
+			};
+		},
+		async openNew(branch, slot) {
+			const checkout =
+				slot?.worktreePath === undefined
+					? await checkoutSlot(slotClient, branch)
+					: { type: "checked-out" as const, target: slotTargetFromAssignment(branch, slot) };
+			if (checkout.type === "failed") return checkout;
+
+			const target = checkout.target;
+			const description = `nscc cmux workspace for ${target.branchName}`;
+			const args = buildNewWorkspaceArgs({
+				branchName: target.branchName,
+				worktreePath: target.worktreePath,
+				description,
+			});
+			const result = await runCommand("cmux", args, {
+				cwd: target.worktreePath,
+				timeout: COMMAND_TIMEOUT_MS,
+			});
+			if (result.code === 0)
+				return {
+					type: "opened",
+					message: `Opened cmux workspace for ${target.branchName} in ${target.slotName}.`,
+				};
+			return { type: "failed", message: formatInlineCommandFailure("cmux new-workspace", result) };
+		},
+	};
+}
+
+export function buildNewWorkspaceArgs(options: {
+	readonly branchName: string;
+	readonly worktreePath: string;
+	readonly description: string;
+}): readonly string[] {
+	return [
+		"new-workspace",
+		"--name",
+		options.branchName,
+		"--description",
+		options.description,
+		"--cwd",
+		options.worktreePath,
+		"--command",
+		buildJiccCmuxReportBootstrapCommand(),
+	];
+}
+
+export function buildJiccCmuxReportBootstrapCommand(
+	cliEntrypointPath: string = NSCC_CLI_ENTRYPOINT_PATH,
+): string {
+	return `bun ${shellQuote(cliEntrypointPath)} cmux report || true; exec ${"${SHELL:-/bin/zsh}"} -l`;
+}
+
+async function executeChoice(
+	model: StackMapModel,
+	state: StackMapState,
+	executor: StackMapCmuxActivationExecutor,
+	choice: StackMapCmuxChoice | undefined,
+): Promise<StackMapState> {
+	if (choice === undefined) {
+		return reduceStackMapState(model, state, {
+			type: "set-status",
+			message: "No cmux chooser item is selected.",
+		});
+	}
+	const plan: StackMapCmuxActivationPlan =
+		choice.type === "tab"
+			? { type: "focus-tab", branch: state.selectedBranch, target: choice.target }
+			: buildOpenNewCmuxEntry(choice.branch, choice.slot);
+	return executeActivationPlan(model, state, executor, plan);
+}
+
+async function executeActivationPlan(
+	model: StackMapModel,
+	state: StackMapState,
+	executor: StackMapCmuxActivationExecutor,
+	plan: StackMapCmuxActivationPlan,
+): Promise<StackMapState> {
+	if (plan.type === "unavailable") {
+		return reduceStackMapState(model, state, { type: "set-status", message: plan.reason });
+	}
+
+	const result =
+		plan.type === "focus-tab"
+			? await executor.focusTab(plan.target)
+			: await executor.openNew(plan.branch, plan.slot);
+	const message =
+		result.type === "failed"
+			? result.message
+			: result.type === "focused"
+				? `Focused cmux tab for ${plan.branch}.`
+				: result.message;
+	return reduceStackMapState(model, state, { type: "set-status", message });
+}
+
+async function checkoutSlot(
+	slotClient: SlotClient,
+	branch: string,
+): Promise<
+	| { readonly type: "checked-out"; readonly target: StackMapSlotCheckoutTarget }
+	| { readonly type: "failed"; readonly message: string }
+> {
+	const result = await slotClient.checkoutBranch({ branchName: branch });
+	if (!result.ok) return { type: "failed", message: formatSlotCheckoutFailure(result.failure) };
+	return { type: "checked-out", target: result.target };
+}
+
+function formatSlotCheckoutFailure(failure: SlotCheckoutFailure): string {
+	return `ns slot checkout failed (${failure.errorType}): ${failure.message}`;
+}
+
+function slotTargetFromAssignment(
+	branch: string,
+	slot: StackMapSlotAssignment,
+): StackMapSlotCheckoutTarget {
+	return {
+		slotName: slot.slotName,
+		branchName: branch,
+		worktreePath: slot.worktreePath ?? process.cwd(),
+	};
+}

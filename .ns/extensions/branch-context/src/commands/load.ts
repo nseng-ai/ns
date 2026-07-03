@@ -1,1 +1,1 @@
-export { default } from "@ji/branch-context/ji/commands/load";
+export { default } from "@ns/branch-context/ns/commands/load";

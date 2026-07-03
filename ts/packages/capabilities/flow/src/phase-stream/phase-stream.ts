@@ -9,20 +9,20 @@
 // TTY/non-TTY rendering. Lower layers stay domain-pure and emit `SdlProgressPhaseEvent`s keyed by stable
 // `phaseKey`s.
 //
-// This is the one `flow → clinkr` edge. The event type lives in `@ji/kernel/sdk`, so clinkr stays free
-// of any `@ji/*` dependency and is never imported by graphite.
+// This is the one `flow → clinkr` edge. The event type lives in `@ns/kernel/sdk`, so clinkr stays free
+// of any `@ns/*` dependency and is never imported by graphite.
 //
 // Flow resolves streaming `Caps` from its command host context's explicit render capabilities.
 
-import { resolveRenderCapabilities, type Caps } from "@ji/clinkr";
+import { resolveRenderCapabilities, type Caps } from "@ns/clinkr";
 import {
 	createStdoutStreamWriter,
 	createStreamSink,
 	systemStreamClock,
 	type StreamSinkDeps,
-} from "@ji/clinkr/stream";
-import type { SdlProgressPhaseEvent } from "@ji/kernel/sdk";
-import type { SdlExtensionApi } from "@ji/kernel/sdk";
+} from "@ns/clinkr/stream";
+import type { SdlProgressPhaseEvent } from "@ns/kernel/sdk";
+import type { SdlExtensionApi } from "@ns/kernel/sdk";
 
 import { createFlowLiveOutput } from "./live-output.ts";
 import { createPhaseStreamLifecycle } from "./phase-stream-lifecycle.ts";

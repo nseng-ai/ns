@@ -1,5 +1,5 @@
 // Terminal capability detection for clinkr core. This is the dependency-free foundation that
-// `@ji/core/cli-theme` and the opt-in stream subpath read from; it must not import `log-update` or any
+// `@ns/core/cli-theme` and the opt-in stream subpath read from; it must not import `log-update` or any
 // display module. Detection is split into a pure resolver over an injected snapshot (`resolveCaps`) and
 // a thin process reader (`readProcessCapsEnv`) so the decision logic is testable without touching the
 // real `process`.

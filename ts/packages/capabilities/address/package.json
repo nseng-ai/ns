@@ -1,23 +1,23 @@
 {
-	"name": "@ji/address",
+	"name": "@ns/address",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		"./api": "./src/api.ts",
-		"./ji-command": "./src/ji-command.ts",
-		"./ji/commands/exec-download-feedback": "./src/ji/commands/exec-download-feedback.ts",
-		"./ji/commands/exec-map-branch-prs": "./src/ji/commands/exec-map-branch-prs.ts",
-		"./ji/commands/exec-pr-details": "./src/ji/commands/exec-pr-details.ts",
-		"./ji/commands/exec-branch-pr": "./src/ji/commands/exec-branch-pr.ts",
-		"./ji/commands/exec-open-prs": "./src/ji/commands/exec-open-prs.ts",
-		"./ji/commands/exec-pr-reviews": "./src/ji/commands/exec-pr-reviews.ts",
-		"./ji/commands/exec-pr-review-threads": "./src/ji/commands/exec-pr-review-threads.ts",
-		"./ji/commands/exec-pr-discussion-comments": "./src/ji/commands/exec-pr-discussion-comments.ts",
-		"./ji/commands/exec-pr-checks": "./src/ji/commands/exec-pr-checks.ts",
-		"./ji/commands/exec-reply-review-thread": "./src/ji/commands/exec-reply-review-thread.ts",
-		"./ji/commands/exec-resolve-review-thread": "./src/ji/commands/exec-resolve-review-thread.ts",
-		"./ji/commands/exec-close-review-threads": "./src/ji/commands/exec-close-review-threads.ts",
-		"./repo-local-sdl-extension": "./src/repo-local-ji-extension.ts"
+		"./ns-command": "./src/ns-command.ts",
+		"./ns/commands/exec-download-feedback": "./src/ns/commands/exec-download-feedback.ts",
+		"./ns/commands/exec-map-branch-prs": "./src/ns/commands/exec-map-branch-prs.ts",
+		"./ns/commands/exec-pr-details": "./src/ns/commands/exec-pr-details.ts",
+		"./ns/commands/exec-branch-pr": "./src/ns/commands/exec-branch-pr.ts",
+		"./ns/commands/exec-open-prs": "./src/ns/commands/exec-open-prs.ts",
+		"./ns/commands/exec-pr-reviews": "./src/ns/commands/exec-pr-reviews.ts",
+		"./ns/commands/exec-pr-review-threads": "./src/ns/commands/exec-pr-review-threads.ts",
+		"./ns/commands/exec-pr-discussion-comments": "./src/ns/commands/exec-pr-discussion-comments.ts",
+		"./ns/commands/exec-pr-checks": "./src/ns/commands/exec-pr-checks.ts",
+		"./ns/commands/exec-reply-review-thread": "./src/ns/commands/exec-reply-review-thread.ts",
+		"./ns/commands/exec-resolve-review-thread": "./src/ns/commands/exec-resolve-review-thread.ts",
+		"./ns/commands/exec-close-review-threads": "./src/ns/commands/exec-close-review-threads.ts",
+		"./repo-local-sdl-extension": "./src/repo-local-ns-extension.ts"
 	},
 	"files": [
 		"src"
@@ -27,13 +27,13 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/address/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability"
 	}
 }

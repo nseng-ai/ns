@@ -104,37 +104,37 @@ Deterministic code that consumes one or more **Gateways** to produce or transfor
 
 ### Extension Layering
 
-The ji extension stack, bottom to top: **Neutral Infra** below the SDK (`@ji/core` as the pure utility library plus other non-domain infra such as `@ji/clinkr`), the SDK (`@ji/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@ji/capability-kit/git`, `@ji/capability-kit/github`, `@ji/capability-kit/graphite`, and `@ji/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@ji/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@ji/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
+The ji extension stack, bottom to top: **Neutral Infra** below the SDK (`@ns/core` as the pure utility library plus other non-domain infra such as `@ns/clinkr`), the SDK (`@ns/kernel` plus its `sdk` subpackage), the **Capability Kit**, and the **Capabilities** (first-party **Extensions**) built on it. Real-world/external-tool gateways are not **Neutral Infra**: their first-party seams, fakes, and real adapters now live as **Capability Kit** subpackages such as `@ns/capability-kit/git`, `@ns/capability-kit/github`, `@ns/capability-kit/graphite`, and `@ns/capability-kit/cmux`; the former standalone **Capability Gateway Backend** tier is retired. Intrinsic host services expose author-facing interfaces through `@ns/kernel/sdk` / `ctx`, with implementations hidden in the kernel. Those first-party extensions form an **Extension Dependency Graph** that must stay acyclic. ADR 0012 holds the layering diagram and the rule that capability domain lives in the capabilities and never in the `@ns/pi` runtime host or kernel; ADR 0009 holds the dependency-graph invariant; ADR 0018 holds the four-bucket neutral-infra classification rule, refined by ADR 0019's package-placement gate (which concrete package owns a large real gateway implementation, and whether it folds into Capability Kit or stays standalone/deferred). The SDK boundary is permeable downward only to concepts that prove general worth. These terms name its parts.
 
 **Neutral Infra**:
-The pure floor below the SDK — **Pure Utility** libraries plus other non-domain packages/subpackages with no real-world I/O (`@ji/core`, `@ji/core/cli-theme`, `@ji/clinkr`) that depend only on other Neutral Infra. It excludes gateways: a gateway's seam, fake, and real adapter are **Kit Gateway** material owned by **Capability Kit** subpackages, not Neutral Infra. A gateway *contract* — pure interface types with no I/O — may live here as a **Pure Utility** only when it has proven broadly neutral.
+The pure floor below the SDK — **Pure Utility** libraries plus other non-domain packages/subpackages with no real-world I/O (`@ns/core`, `@ns/core/cli-theme`, `@ns/clinkr`) that depend only on other Neutral Infra. It excludes gateways: a gateway's seam, fake, and real adapter are **Kit Gateway** material owned by **Capability Kit** subpackages, not Neutral Infra. A gateway *contract* — pure interface types with no I/O — may live here as a **Pure Utility** only when it has proven broadly neutral.
 *Avoid*: neutral-infra gateway (a gateway is a Kit Gateway, never Neutral Infra)
 
 **Pure Utility**:
-A deterministic transform with no I/O and no ji runtime knowledge. Pure utilities stay in `@ji/core` and may be imported directly by any layer.
+A deterministic transform with no I/O and no ji runtime knowledge. Pure utilities stay in `@ns/core` and may be imported directly by any layer.
 *Avoid*: gateway, host service, runtime harness
 
 **Kit Gateway**:
-The per-domain *seam* for a real-world I/O, external-tool, external-protocol, or precise filesystem-backed gateway — its contract, fake/testing support, `ctx`→gateway adapter, and real adapter — owned at `@ji/capability-kit/<domain>`. It is first-party gateway infrastructure, not product capability domain.
+The per-domain *seam* for a real-world I/O, external-tool, external-protocol, or precise filesystem-backed gateway — its contract, fake/testing support, `ctx`→gateway adapter, and real adapter — owned at `@ns/capability-kit/<domain>`. It is first-party gateway infrastructure, not product capability domain.
 *Avoid*: neutral-infra gateway, product capability, generic filesystem gateway
 
 **Capability Gateway Backend**:
-A retired transitional term for the standalone packages that used to own heavy real **Kit Gateway** implementations before the gateway backends folded into **Capability Kit** subpackages. Do not use `capability-gateway-backend` as a live package tier or introduce new packages in that role; use **Kit Gateway** for the current `@ji/capability-kit/<domain>` ownership model.
+A retired transitional term for the standalone packages that used to own heavy real **Kit Gateway** implementations before the gateway backends folded into **Capability Kit** subpackages. Do not use `capability-gateway-backend` as a live package tier or introduce new packages in that role; use **Kit Gateway** for the current `@ns/capability-kit/<domain>` ownership model.
 *Avoid*: live tier, new backend package, gateway-adapter, neutral-infra gateway
 
 **SDK-provided service**:
-An intrinsic host service reached by extension authors through `ctx` / the vended API object. Its author-facing interface lives in `@ji/kernel/sdk`; its implementation is hidden in the kernel. If the author reaches it through the vended API object, classify it as SDK-provided.
+An intrinsic host service reached by extension authors through `ctx` / the vended API object. Its author-facing interface lives in `@ns/kernel/sdk`; its implementation is hidden in the kernel. If the author reaches it through the vended API object, classify it as SDK-provided.
 *Avoid*: kit gateway, raw process/global import, capability-owned host primitive
 
 **Runtime Harness**:
-Program boot code that creates or wires the vended API object and is never reached through `ctx`. Runtime harness code belongs in the kernel or a named neutral CLI-runtime infra home, not in `@ji/core` long term.
+Program boot code that creates or wires the vended API object and is never reached through `ctx`. Runtime harness code belongs in the kernel or a named neutral CLI-runtime infra home, not in `@ns/core` long term.
 *Avoid*: SDK service, capability API, imported utility
 
 The two leading nouns are orthogonal, not synonyms: an **Extension** is the technical construct; a **Capability** is a feature area implemented as one.
 
 **Extension**:
 The technical construct — a package that plugs into the SDK via `defineExtension()`. General and third-party-buildable: a first-party extension implements a **Capability**, but the construct is open to third-party extensions that are not ji capabilities.
-*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@ji/kernel/sdk` "ji extension API" or "Pi runtime extension API")
+*Avoid*: plugin, built-in, bundled command, "extension API" (bare — write `@ns/kernel/sdk` "ji extension API" or "Pi runtime extension API")
 
 **Capability**:
 A first-party ji feature area (objectives, handoff, slot, flow, …) — a set of domain capabilities packaged as an **Extension** built on the **Capability Kit**. It exposes kernel-loaded CLI/Pi commands, and adds a **Capability API** only when a **consumer** extension depends on it in-process.
@@ -145,11 +145,11 @@ A ji-shipped, ji-owned **Extension** that implements a **Capability** (flow, obj
 *Avoid*: built-in extension, bundled extension (reserve for packaging), core extension
 
 **Capability Kit**:
-The shared substrate (`@ji/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, first-party per-domain gateway seams/adapters/fakes (`exec`, `git`, `github`, shell, temp-file, and similar precise domains), and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `@ji/kernel/sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
+The shared substrate (`@ns/capability-kit`) that first-party **Capabilities** are built on — the `ctx`→**Gateway** adapter, shared result/error shapes, first-party per-domain gateway seams/adapters/fakes (`exec`, `git`, `github`, shell, temp-file, and similar precise domains), and small first-party capability-building primitives such as checkpoint/worktree/text helpers when SDK/kernel are the wrong home and transitional debt is the only alternative. It is agnostic about *which* product capability owns domain behavior, not public `@ns/kernel/sdk` author API by default, and not a product capability home. The name **"Extension Kit"** is reserved for a future general substrate for building *all* extensions, third-party included; do not apply it to this first-party kit.
 *Avoid*: Extension Kit (reserved name), extension framework, product capability home, neutral-infra gateway, capability-kit core
 
 **Capability API**:
-A **Capability**'s curated, typed in-process export at the required `@ji/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.
+A **Capability**'s curated, typed in-process export at the required `@ns/<cap>/api` subpath, imported by a **consumer** (downstream) extension (chiefly **CCC**) — never package roots or internals. Added only where a consumer needs it.
 *Avoid*: Peer API, sibling API, public API, package-root export, internal subpath, "extension API" (bare)
 
 **Consumer / Provider**:
@@ -161,7 +161,7 @@ A **first-party extension** (the cmux command-and-control surface) that composes
 *Avoid*: orchestrator extension, apex extension, kernel orchestrator
 
 **Package Tier**:
-The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ji.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
+The declared architecture classification of a TypeScript workspace package, stored in its `package.json` at `ns.tier` and enforced by the TypeScript style guard. The canonical live tiers are `neutral-infra`, `sdk`, `capability-kit`, `capability`, `host`, `capability-pi`, `standalone-tool`, and `local-pi-tool`. Hosts and tools are off-axis: hosts present/register/consume capabilities, while tools may depend broadly without becoming part of the Extension Dependency Graph. The former `transitional` and `capability-gateway-backend` tiers are deleted; do not reintroduce a live transitional/backend tier as a debt label.
 *Avoid*: hand-authored report color, implied layer, rank-only layer, permanent transitional layer
 
 **Published package**:
@@ -177,7 +177,7 @@ A **Published package** whose architecture units are **Subpackages** rather than
 *Avoid*: meta-package, bundle package, namespace package, monorepo folder
 
 **Subpackage**:
-A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `ji.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage. Every declared subpackage is an **API subpackage**, **Testing subpackage**, **Host-surface subpackage**, or **Feature subpackage** (ADR 0023); internal layers are folders, not subpackages.
+A package-like architecture unit inside a **Container package**, rooted at `src/<name>/`, declared in the package manifest at `ns.subpackages`, and treated by topology and guard tooling as the import-boundary unit. Multiple runtime subpath exports may belong to one subpackage. Every declared subpackage is an **API subpackage**, **Testing subpackage**, **Host-surface subpackage**, or **Feature subpackage** (ADR 0023); internal layers are folders, not subpackages.
 *Avoid*: published package, topology circle, npm package, source folder, internal package, layer
 
 **API subpackage**:
@@ -189,7 +189,7 @@ The `testing` **Subpackage**: the cross-package test-time contract exporting fak
 *Avoid*: test folder, test utils, mocks folder
 
 **Host-surface subpackage**:
-A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ji` (the ji Command Face), `pi` (Pi mirrors), `repo-local-ji-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
+A **Subpackage** that exists because exactly one host consumes it as an entry surface — `ns` (the ns Command Face), `pi` (Pi mirrors), `repo-local-ns-extension` (kernel extension loading) — and that only its host may import. It holds thin per-feature adapters, not domain logic.
 *Avoid*: context subpackage, commands, shell, presentation layer
 
 **Feature subpackage**:
@@ -197,7 +197,7 @@ A **Subpackage** naming a real domain vertical of a **Container package** (for e
 *Avoid*: internal layer, operations, gateways, shared, module folder
 
 **Remainder subpackage**:
-The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `ji.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
+The explicitly declared transitional unit for unconverted source in a package being containerized, enabled by `ns.remainder: true`; its membership is the source not claimed by a declared **Subpackage**. A properly formed **Container package** has no remainder.
 *Avoid*: miscellaneous folder, hidden subpackage, sentinel entry, `.` subpackage, debt label
 
 **Local space**:

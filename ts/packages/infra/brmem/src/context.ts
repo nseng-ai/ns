@@ -1,7 +1,7 @@
-import { NodeCommandExecApi } from "@ji/core/exec";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import { resolveClinkrInteraction, type ClinkrInteraction } from "@ji/clinkr";
-import { readStdin, readStdinLine } from "@ji/core/cli-runtime";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import { resolveClinkrInteraction, type ClinkrInteraction } from "@ns/clinkr";
+import { readStdin, readStdinLine } from "@ns/core/cli-runtime";
 
 import type { BrmemEnvOption } from "./env.ts";
 import type { BrmemGateway } from "./gateway.ts";

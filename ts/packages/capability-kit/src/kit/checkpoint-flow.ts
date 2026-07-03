@@ -1,5 +1,5 @@
-import { formatCommandDetails } from "@ji/core/exec";
-import { truncateTextHead, truncateTextHeadTail } from "@ji/core/text-truncation";
+import { formatCommandDetails } from "@ns/core/exec";
+import { truncateTextHead, truncateTextHeadTail } from "@ns/core/text-truncation";
 
 import type { CommandResult } from "./command-result.ts";
 

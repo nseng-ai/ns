@@ -1,11 +1,11 @@
-# @ji/objective
+# @ns/objective
 
 This context captures domain language for the `objective` capability package: the CLI surfaces over checked-in Objective records and the in-process Capability API boundary that lets sibling extensions reuse Objective behavior without depending on the Pi host. It names only CLI- and capability-specific terms; the Objective *system* vocabulary (Objective, Active/Archive Objective Root, Objective Update/Close/Archive, Semantic Update, Closure Marker, …) stays canonical in the root [ji](../../../CONTEXT.md) context and is cited here, not redefined.
 
 ## Language
 
 **`ns objective` command surface**:
-The public ji-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ji/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
+The public ji-grouped Objective CLI surface — `ns objective ...` — whose commands `archive`, `check`, and `list` view and mutate checked-in Objective records. The former top-level `bin.objective` executable is retired; `@ns/objective/command-face` remains a package command-face export for adapters/tests, not the canonical installed command.
 *Avoid*: Objective Capability API, hidden `exec` group, top-level `objective` binary, Objective record database, Pi command adapter
 
 **Checkout-local `ns objective list`**:
@@ -29,8 +29,8 @@ The rule that the `ns objective` CLI reads and writes Objective records only as 
 *Avoid*: hidden database, Branch Memory storage, redefining Objective or Objective Archive, Graphite-derived record set
 
 **Objective Capability API**:
-The curated `@ji/objective/api` surface for in-process sibling consumers (`ccc`, `jicc`, and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
-*Avoid*: CLI JSON parsing, `@ji/objective/src/...` deep import, package-root convenience import, `ctx`-passing API
+The curated `@ns/objective/api` surface for in-process sibling consumers (`ccc`, `nscc`, and Pi's objective adapters): the `createObjectiveClient(...)` facade returning ok/failure results, plus the relocated Objective-selection, picker, and CLI-args/candidates helpers, used to reuse Objective behavior without invoking the CLI or importing private modules.
+*Avoid*: CLI JSON parsing, `@ns/objective/src/...` deep import, package-root convenience import, `ctx`-passing API
 
 **Objective Client**:
 The `ObjectiveClient` facade returned by `createObjectiveClient`, exposing `listObjectives` / `readObjective` / `listActiveCandidates` as clean ok/failure results.
@@ -49,5 +49,5 @@ The parent-facing Markdown contract an **Objective Runner** step returns for eve
 *Avoid*: public JSON workflow state, child self-report treated as fact, hidden runner state
 
 **Objective Capability Dependency Boundary**:
-The directed-edge rule that Objective runtime/core code never imports the Pi host, while the container package's `pi` subpackage may use `@ji/pi` as an optional peer for Pi presentation; in-process consumers reach Objective behavior through `@ji/objective/api`. The general acyclic invariant it serves lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
-*Avoid*: restating the guard mechanics, non-`pi` Objective → `@ji/pi` imports, deep-import consumption, package-root consumer import
+The directed-edge rule that Objective runtime/core code never imports the Pi host, while the container package's `pi` subpackage may use `@ns/pi` as an optional peer for Pi presentation; in-process consumers reach Objective behavior through `@ns/objective/api`. The general acyclic invariant it serves lives in the root **Extension Layering** cluster and ADR 0009 and is not restated here.
+*Avoid*: restating the guard mechanics, non-`pi` Objective → `@ns/pi` imports, deep-import consumption, package-root consumer import

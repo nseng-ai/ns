@@ -1,10 +1,10 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, sep } from "node:path";
 
-import { NodeCommandExecApi } from "@ji/core/exec";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import { mapFromRecordOrMap, type ExplicitUndefined } from "@ji/core/primitives";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import { mapFromRecordOrMap, type ExplicitUndefined } from "@ns/core/primitives";
 
 import type { ReviewCatalogFailure, RoasterResult } from "../core/failures.ts";
 import { isMissingFileError } from "./filesystem-errors.ts";

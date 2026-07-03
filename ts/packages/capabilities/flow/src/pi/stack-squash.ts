@@ -1,9 +1,9 @@
-import type { ExecResult } from "@ji/core/command";
+import type { ExecResult } from "@ns/core/command";
 import { z } from "zod";
 
-import { formatCommandOutput, notifyCommandUi } from "@ji/pi/commands/helpers";
-import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@ji/pi/commands/ack";
-import { definePiSurfaceParity } from "@ji/pi/parity/extension";
+import { formatCommandOutput, notifyCommandUi } from "@ns/pi/commands/helpers";
+import { registerCommandWithImmediateAck, sendCommandProgressOrNotify } from "@ns/pi/commands/ack";
+import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 
 import { type FlowCommandContext, type FlowRegisteredCommand } from "./command-support.ts";
 import { type FlowGraphiteCommandHost, runFlowGraphiteCommand } from "./graphite-command.ts";
@@ -18,7 +18,7 @@ export const stackSquashParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "slot gt exec stack-branches --downstack --format json, then gt checkout + gt squash for each branch from tip to bottom",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ji/flow/pi",
+		sourcePackage: "@ns/flow/pi",
 		sourceModule: "stack-squash",
 		notes:
 			"Pi command is deterministic Graphite automation; non-Pi users can run the same gt command sequence manually.",

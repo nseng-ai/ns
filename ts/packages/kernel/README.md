@@ -2,7 +2,7 @@
 
 `ji` is the durable public command boundary for software-development-lifecycle workflows that have migrated out of repo-internal tooling. The package still carries `@sdl/kernel` naming until the package-scope sweep lands.
 
-The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ji/ccc` may continue to own repo-specific orchestration internals, but ji owns the public lifecycle command surface once a workflow moves to `ji`.
+The retired `sdl-dev` package no longer owns current command surfaces. Lower packages such as `@ns/ccc` may continue to own repo-specific orchestration internals, but ji owns the public lifecycle command surface once a workflow moves to `ji`.
 
 ## Command ownership and hard cutover
 
@@ -15,7 +15,7 @@ A migration slice should delete old command names and old `/code:<name>` Pi mirr
 
 ## Slot extension command face
 
-`ns slot ...` is contributed by the bundled `@ji/slot` ji extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary ji help/parsing paths. `@ji/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ns slot`, including navigation commands and agent-facing `ns slot gt exec ...` helpers.
+`ns slot ...` is contributed by the bundled `@ns/slot` ji extension. The kernel discovers the Slot command manifest through the generic extension registry; it does not import Slot code or construct Slot context for ordinary ji help/parsing paths. `@ns/slot` remains the implementation and Capability API owner, and the package does not expose a standalone `slot` executable. Humans and agents should invoke Slot operations through `ns slot`, including navigation commands and agent-facing `ns slot gt exec ...` helpers.
 
 Parent-shell directory changes require opt-in shell integration because a child process cannot `cd` its parent shell:
 
@@ -27,7 +27,7 @@ ns slot shell show --shell zsh
 ns slot shell install --shell zsh
 ```
 
-`ns shell` is the canonical kernel-owned shell integration. The Slot extension contributes `ns slot shell ...` compatibility aliases that install the same canonical `ns()` wrapper. The wrapper uses `NS_CD_DIRECTIVE_FILE` and invokes `command ns "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@ji/slot/api` rather than parsing `ns slot --format json` output.
+`ns shell` is the canonical kernel-owned shell integration. The Slot extension contributes `ns slot shell ...` compatibility aliases that install the same canonical `ns()` wrapper. The wrapper uses `NS_CD_DIRECTIVE_FILE` and invokes `command ns "$@"`; it does not install a `slot()` function. Programmatic first-party consumers should continue to use curated Slot Capability APIs such as `@ns/slot/api` rather than parsing `ns slot --format json` output.
 
 ## Shell completion
 
@@ -115,7 +115,7 @@ Direct files and directory indexes infer one ji command-entry name from the file
 
 ```json
 {
-	"ji": {
+	"ns": {
 		"commands": [
 			{
 				"name": "greet",
@@ -133,7 +133,7 @@ Manifest command entries require `name`, `description`, and a relative POSIX-sty
 ji extension modules default-export an extension object created with `defineExtension()`. A command contribution is one entry in the extension's optional `commands` array; extensions may omit `commands` when they have no command contributions for the current ji surface.
 
 ```ts
-import { defineExtension, ok } from "@ji/kernel/sdk";
+import { defineExtension, ok } from "@ns/kernel/sdk";
 
 export default defineExtension({
 	commands: [
@@ -161,39 +161,39 @@ Dynamic Pi `/ns:*` mirrors are not part of this first general extension-loading 
 
 ## ji extension API
 
-ji extension authors import the SDK surface, including schema builder `z`, from the `@ji/kernel/sdk` subpath:
+ji extension authors import the SDK surface, including schema builder `z`, from the `@ns/kernel/sdk` subpath:
 
 ```ts
-import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
-import type { SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
+import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
+import type { SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
 ```
 
-`@ji/kernel/sdk` is the ji author SDK subpackage and the SDK layer; `@ji/kernel` is the host/kernel container that loads extensions. That `@ji/kernel/sdk` subpath is the public author API for ji extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
+`@ns/kernel/sdk` is the ji author SDK subpackage and the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. That `@ns/kernel/sdk` subpath is the public author API for ji extensions. The complete, authoritative reference for every export — `defineExtension()`, the command and result types, `SdlExtensionApi` and its execution capabilities, schema builder `z`, and the command-evidence and text-generation helpers — lives in [`docs/sdk-reference.md`](./docs/sdk-reference.md). When the SDK re-exports lower-package types or helpers, extension authors should treat them as first-party SDK vocabulary rather than importing lower packages directly.
 
 ji command entries own their prompts, validation, repair policy, and exact external commands. They should not import internal ji implementation modules.
 
-Single-file ji extension modules such as `.ns/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@ji/kernel/sdk` or another documented package export; do not create a package → extension dependency.
+Single-file ji extension modules such as `.ns/extensions/<name>.ts` are leaf authoring surfaces, not shared libraries. Workspace packages must not import from them. If package code needs behavior first proven inside a single-file extension, move or copy the reusable contract into a package-owned module and expose it deliberately through `@ns/kernel/sdk` or another documented package export; do not create a package → extension dependency.
 
-The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.ns/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@ji/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
+The command-first promotion rule is evidence driven: copy or localize behavior while one command is proving a seam, extract shared helpers inside the owning `.ns/extensions/` package only when that keeps project-local authoring readable, and promote a helper into `@ns/kernel/sdk` only after multiple command slices prove the shape or a single-command necessity is explicitly documented. Promotion should deepen the kernel boundary; it should not merely make one command easier by exposing implementation internals.
 
 ## Internal workspace exports and Capability APIs
 
-The author SDK is the `@ji/kernel/sdk` subpath. Remaining `@ji/kernel` subpaths are narrow `ji.internalWorkspaceExports` for ji-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
+The author SDK is the `@ns/kernel/sdk` subpath. Remaining `@ns/kernel` subpaths are narrow `ji.internalWorkspaceExports` for ji-owned kernel/presentation surfaces such as CLI/context/Pi text-generation integration; they are not plugin-author APIs and should not be documented as stable extension surfaces.
 
-SDK-independent domain primitives that used to live behind `@ji/kernel/*` internal subpaths now live as precise `@ji/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
+SDK-independent domain primitives that used to live behind `@ns/kernel/*` internal subpaths now live as precise `@ns/capability-kit/*` subpaths. Those helpers are internal workspace building blocks for first-party capability code, not public SDK author API.
 
-Consumer capability packages use Capability APIs, not the ji SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@ji/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
+Consumer capability packages use Capability APIs, not the ji SDK, for deliberate in-process dependencies. The ratified Capability API convention is `@ns/<cap>/api`; package roots and command faces are not consumer-facing domain APIs unless the owning package documents that surface explicitly.
 
 ## Flow capability-area maturity
 
 The grouped flow extension uses a conservative maturity ladder for repeated command-author seams:
 
 1. **Raw:** command-local logic built directly on kernel primitives such as `ctx.exec`, `ctx.textGenerator`, `ctx.stdout`, `ctx.stderr`, `ctx.confirm`, `ctx.env`, and `ctx.cwd`.
-2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `@ji/flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
-3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. ji-owned kernel/presentation seams stay under `@ji/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@ji/capability-kit/*` subpaths unless and until a separate decision promotes them to `@ji/kernel/sdk`.
-4. **Public SDK:** a separately approved promotion into `@ji/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
+2. **Flow-shared:** repeated repo-local mechanics extracted under `ts/packages/capabilities/flow/src/shared/` in the `@ns/flow` workspace package, for example current helpers for Git mechanics, checkpoint-message/model wiring, worktree facts, text helpers, and CCC CLI delegation.
+3. **Internal export / capability-building primitive:** package-owned behavior reached through documented internal workspace subpaths. ji-owned kernel/presentation seams stay under `@ns/kernel/*`; SDK-independent checkpoint/worktree/temp/text primitives live under precise `@ns/capability-kit/*` subpaths unless and until a separate decision promotes them to `@ns/kernel/sdk`.
+4. **Public SDK:** a separately approved promotion into `@ns/kernel/sdk`. This remains deferred for the flow consolidation track except for already documented SDK exports.
 
-This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `@ji/flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
+This ladder is a readiness model, not an automatic promotion pipeline. Flow-shared helpers keep this repository's grouped `@ns/flow` command package readable; internal workspace exports support package-to-package migration; neither tier is public extension-author API.
 
 ## `cp`
 
@@ -204,7 +204,7 @@ ns flow cp
 ns flow cp --dry-run
 ```
 
-In this repository, `ns flow cp` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ji/flow/commands/cp`; it is not a universal built-in ji command.
+In this repository, `ns flow cp` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ns/flow/commands/cp`; it is not a universal built-in ji command.
 
 Behavior:
 
@@ -231,7 +231,7 @@ ns flow autobranch
 ns flow autobranch --slug <slug>
 ```
 
-In this repository, `ns flow autobranch` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ji/flow/commands/autobranch`; it is not a universal built-in ji command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ns flow autobranch` / `/ns:flow:autobranch`.
+In this repository, `ns flow autobranch` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ns/flow/commands/autobranch`; it is not a universal built-in ji command. Hidden `ccc exec autobranch` remains for CCC/internal compatibility, but the public agent and Pi boundary is `ns flow autobranch` / `/ns:flow:autobranch`.
 
 Behavior:
 
@@ -257,7 +257,7 @@ ns flow branch-latest-commit
 ns flow branch-latest-commit --slug <slug>
 ```
 
-In this repository, `ns flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ji/flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
+In this repository, `ns flow branch-latest-commit` is discovered through the project-local flow adapter manifest at `.ns/extensions/flow`, with implementation owned by `@ns/flow/commands/branch-latest-commit`; it is a focused public surface for the clean latest-commit split workflow.
 
 Behavior:
 

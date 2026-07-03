@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { BRANCH_CONTEXT_NAMESPACE } from "@ji/branch-context/api";
+import { BRANCH_CONTEXT_NAMESPACE } from "@ns/branch-context/api";
 import registerBranchContextExtension from "../../src/pi/extension.ts";
 
 import {

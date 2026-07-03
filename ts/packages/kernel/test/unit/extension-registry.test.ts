@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@ji/kernel/sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
 import { commandInfoForLoadedCommand } from "../../src/extensions/command-registry.ts";
 import {
 	classifyExtensionDiagnosticsForInvocation,
@@ -55,7 +55,7 @@ function writeFile(path: string, source: string): void {
 
 function commandEntry(name: string, message: string): string {
 	return `
-import { defineExtension, ok } from "@ji/kernel/sdk";
+import { defineExtension, ok } from "@ns/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
@@ -205,7 +205,7 @@ describe("extension registry", () => {
 	test("manifest metadata customizes catalog help without importing command entries", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			ji: {
+			ns: {
 				commands: [
 					{
 						name: "hello",
@@ -258,7 +258,7 @@ describe("extension registry", () => {
 	test("listing command infos preserve package manifest metadata without importing", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			ji: {
+			ns: {
 				commands: [
 					{
 						name: "hello",
@@ -293,7 +293,7 @@ describe("extension registry", () => {
 	test("catalog carries manifest group metadata", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "handoff", {
-			ji: {
+			ns: {
 				description: "Coordinate handoff artifacts.",
 				group: "handoff",
 				commands: [
@@ -331,7 +331,7 @@ describe("extension registry", () => {
 	test("listing command infos preserve manifest group metadata without importing modules", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "handoff", {
-			ji: {
+			ns: {
 				group: "handoff",
 				commands: [{ name: "create", description: "Create handoffs.", entry: "./src/create.ts" }],
 			},
@@ -405,7 +405,7 @@ describe("extension registry", () => {
 	test("one SDL extension module can contribute multiple manifest-listed commands", async () => {
 		const workspace = await createWorkspace();
 		writeProjectManifest(workspace, "pkg", {
-			ji: {
+			ns: {
 				commands: [
 					{ name: "hello", description: "Say hello.", entry: "./src/commands.ts" },
 					{ name: "bye", description: "Say bye.", entry: "./src/commands.ts" },
@@ -415,7 +415,7 @@ describe("extension registry", () => {
 		writeFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "commands.ts"),
 			`
-import { defineExtension, ok } from "@ji/kernel/sdk";
+import { defineExtension, ok } from "@ns/kernel/sdk";
 
 export default defineExtension({
 	commands: [
@@ -461,7 +461,7 @@ export default defineExtension({
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "one.ts", commandEntry("one", "one"));
 		writeProjectManifest(workspace, "pkg", {
-			ji: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
+			ns: { commands: [{ name: "one", description: "One.", entry: "./src/one.ts" }] },
 		});
 		writeFile(
 			join(workspace.cwd, ".ns", "extensions", "pkg", "src", "one.ts"),
@@ -480,7 +480,7 @@ export default defineExtension({
 		const workspace = await createWorkspace();
 		writeProjectExtension(workspace, "handoff.ts", commandEntry("handoff", "top"));
 		writeProjectManifest(workspace, "handoff", {
-			ji: {
+			ns: {
 				group: "handoff",
 				commands: [{ name: "list", description: "List", entry: "./src/list.ts" }],
 			},

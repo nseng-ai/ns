@@ -1,23 +1,23 @@
 // ADR0024-LEGACY-DELETE(whole file): tests for the legacy blocking runner-step machinery.
 import { describe, expect, test } from "vitest";
 
-import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ji/clinkr";
-import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
-import { optionalEntries } from "@ji/core/primitives";
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ns/clinkr";
+import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
+import { optionalEntries } from "@ns/core/primitives";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
 import type { ChildSessionOutcome } from "../../src/runner/child-session.ts";
 import type { RunnerTextFileReadResult } from "../../src/runner/context.ts";
 import { FakeChildSessionGateway, type FakeChildSessionScript } from "../../src/runner/testing.ts";
-import { createObjectiveExecRunnerStepSdlCommand } from "../../src/ji/commands/exec-runner-step.ts";
-import type { ChildSessionGatewayInit } from "../../src/ji/runner-context.ts";
+import { createObjectiveExecRunnerStepSdlCommand } from "../../src/ns/commands/exec-runner-step.ts";
+import type { ChildSessionGatewayInit } from "../../src/ns/runner-context.ts";
 import {
 	childReportText,
 	SequencedGitGateway,
 	type SequencedGitGatewayState,
 } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ji-command-harness.ts";
+import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
 

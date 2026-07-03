@@ -3,10 +3,10 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { addressRepoLocalSdlExtension } from "../../src/repo-local-ji-extension.ts";
+import { addressRepoLocalSdlExtension } from "../../src/repo-local-ns-extension.ts";
 
 const addressExtensionManifestSchema = z.object({
-	ji: z.object({
+	ns: z.object({
 		commands: z.array(
 			z.object({
 				name: z.string(),
@@ -24,7 +24,7 @@ describe("address SDL extension registration", () => {
 	test("declares one repo-local shim for every package-owned Address exec command", async () => {
 		const manifestText = await readFile(ADDRESS_EXTENSION_MANIFEST_PATH, "utf8");
 		const manifest = addressExtensionManifestSchema.parse(JSON.parse(manifestText));
-		const actualManifestCommands = manifest.ji.commands
+		const actualManifestCommands = manifest.ns.commands
 			.map((command) => ({
 				name: command.name,
 				description: command.description,

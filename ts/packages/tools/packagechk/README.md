@@ -1,4 +1,4 @@
-# `@ji/packagechk`
+# `@ns/packagechk`
 
 `packagechk` checks public package registry state for prospective package names.
 

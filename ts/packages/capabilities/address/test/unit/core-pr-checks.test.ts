@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
-import type { GithubStatusChecks } from "@ji/address/api";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import type { GithubStatusChecks } from "@ns/address/api";
 
 import { collectPrChecks } from "../../src/core/pr-checks.ts";
 import {

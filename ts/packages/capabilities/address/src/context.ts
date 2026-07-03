@@ -1,7 +1,7 @@
-import { NodeCommandExecApi, runCommand } from "@ji/core/exec";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { RealGithubPrFeedbackGateway } from "@ji/capability-kit/github/pr-feedback";
+import { NodeCommandExecApi, runCommand } from "@ns/core/exec";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { RealGithubPrFeedbackGateway } from "@ns/capability-kit/github/pr-feedback";
 import type { GithubPrFeedbackGateway } from "./api.ts";
 
 export interface PrAddressContext {

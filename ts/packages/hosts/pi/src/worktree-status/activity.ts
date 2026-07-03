@@ -1,5 +1,5 @@
-import type { Clock } from "@ji/core/clock";
-import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
+import type { Clock } from "@ns/core/clock";
+import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
 
 export const WORKTREE_STATUS_DORMANT_AFTER_MS = 120_000;
 

@@ -29,7 +29,7 @@ describe("packagechk CLI", () => {
 		expect(runtime).toEqual({
 			code: 0,
 			stdout:
-				"runtime: typescript\nentry_point: @ji/packagechk bin packagechk -> ts/packages/tools/packagechk/src/cli.ts\n",
+				"runtime: typescript\nentry_point: @ns/packagechk bin packagechk -> ts/packages/tools/packagechk/src/cli.ts\n",
 			stderr: "",
 		});
 	});

@@ -11,7 +11,7 @@ import {
 	type PrPreviewChecksViewModel,
 	type PrPreviewStatusColor,
 } from "./preview-checks-model.ts";
-import { clamp, fitToWidth, reconcileScroll } from "@ji/pi/terminal/layout";
+import { clamp, fitToWidth, reconcileScroll } from "@ns/pi/terminal/layout";
 import {
 	parseCheckLogSummaryMarkdownLine,
 	sliceWrappedDetailLinesForViewport,

@@ -3,9 +3,9 @@ import {
 	MAX_BRANCH_SLUG_LENGTH,
 	sanitizeBranchName,
 	trimBranchSlugToLength,
-} from "@ji/core/branch-slug";
-import type { TextResult } from "@ji/core/primitives";
-import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
+} from "@ns/core/branch-slug";
+import type { TextResult } from "@ns/core/primitives";
+import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 export { finalizeBranchSlug, MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName, trimBranchSlugToLength };
 

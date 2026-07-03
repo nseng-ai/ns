@@ -1,5 +1,5 @@
 /**
- * Typed parity accounting for Pi surfaces implemented by @ji/pi and extracted Pi packages.
+ * Typed parity accounting for Pi surfaces implemented by @ns/pi and extracted Pi packages.
  *
  * The cross-harness parity Objective tracks whether Pi command workflows have
  * an agent-neutral route: a CLI plus skill, a known gap, or a deliberate waiver
@@ -19,7 +19,7 @@
  * names: use `ns:flow:changes`, not `/ns:flow:changes`. The unique machine key is
  * `kind:surface`.
  *
- * Scope is intentionally narrow for v1: package modules in @ji/pi plus
+ * Scope is intentionally narrow for v1: package modules in @ns/pi plus
  * extracted Pi packages and checked-in project-local adapters whose metadata must
  * remain package-local to avoid package cycles. Direct command surfaces owned by
  * other orchestration packages are not enforced here unless they opt into this
@@ -53,21 +53,21 @@ export interface BasePiSurfaceParity {
 	 * Guardrail that keeps this v1 registry scoped to Pi-owned/accounted surfaces.
 	 * Extracted capability-pi and Pi-tool packages may emit their own parity records
 	 * and test them package-locally; the host static registry remains host-owned to
-	 * avoid importing those packages back into @ji/pi.
+	 * avoid importing those packages back into @ns/pi.
 	 */
 	readonly sourcePackage:
-		| "@ji/pi"
+		| "@ns/pi"
 		| "@internal/pi-tools/backing-skill-commands"
 		| "@internal/pi-tools/context-profiler"
 		| "@internal/pi-tools/grill"
 		| "@internal/pi-tools/pr-feedback-watch"
 		| "@internal/pi-tools/pr-previews"
 		| "@internal/pi-tools/thermo-council"
-		| "@ji/branch-context/pi"
-		| "@ji/flow/pi"
-		| "@ji/handoff/pi"
-		| "@ji/objective/pi"
-		| "@ji/pi/worktree-status";
+		| "@ns/branch-context/pi"
+		| "@ns/flow/pi"
+		| "@ns/handoff/pi"
+		| "@ns/objective/pi"
+		| "@ns/pi/worktree-status";
 	/** Source module that owns the registration or the Pi-local parity adapter. */
 	readonly sourceModule: string;
 	/** Short rationale/provenance for reviewers; not used for machine equality. */

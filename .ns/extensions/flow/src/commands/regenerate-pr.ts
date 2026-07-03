@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/regenerate-pr";
+export { default } from "@ns/flow/commands/regenerate-pr";

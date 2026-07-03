@@ -1,5 +1,5 @@
-import { formatCommand } from "@ji/core/command";
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatCommand } from "@ns/core/command";
+import { formatErrorMessage } from "@ns/core/primitives";
 
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import { GH_TIMEOUT_MS, PR_FIELDS } from "./constants.ts";

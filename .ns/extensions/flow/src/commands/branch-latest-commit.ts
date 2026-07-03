@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/branch-latest-commit";
+export { default } from "@ns/flow/commands/branch-latest-commit";

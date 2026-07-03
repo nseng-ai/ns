@@ -81,7 +81,7 @@ Default-path tests should prefer small fake-driven seams:
   wall-clock behavior out of the default lane unless the test is a deliberately cheap user-facing scenario
   and there is no narrower boundary smoke to preserve the same confidence.
 - For ji extension command behavior, test in the package that owns the command implementation. For the
-  grouped flow commands, `@ji/flow` owns direct behavior tests: import package-owned command objects
+  grouped flow commands, `@ns/flow` owns direct behavior tests: import package-owned command objects
   such as `flowCpCommand`, execute them with a fake `SdlExtensionApi`, scripted command runner, scripted
   text generation, and inert temp files, then keep a small ji integration smoke proving the checked-in
   `.ns/extensions/flow` adapter manifest is discoverable/loadable through the real CLI loader.
@@ -92,16 +92,16 @@ Default-path tests should prefer small fake-driven seams:
 ## Deterministic time convention
 
 Production code that reads wall-clock time or schedules/cancels work should expose ji time seams first:
-use `Clock` from `@ji/core/clock` for wall-clock reads and `TimerScheduler` from `@ji/core/timers`
+use `Clock` from `@ns/core/clock` for wall-clock reads and `TimerScheduler` from `@ns/core/timers`
 for timeouts, intervals, or awaited delays. Pi host background timers should use `unrefTimerScheduler` so timer work does
 not keep the process alive. Raw timers belong in the timer adapter modules or narrowly justified
 runtime/integration smoke.
 
 Project-owned time-sensitive behavior in the default suite should inject `Clock` or `TimerScheduler` and
-use helpers from `@ji/core/testing`:
+use helpers from `@ns/core/testing`:
 
 ```ts
-import { createManualClock, createManualTimerScheduler } from "@ji/core/testing";
+import { createManualClock, createManualTimerScheduler } from "@ns/core/testing";
 ```
 
 Use `createManualClock()` for wall-clock reads and elapsed-time assertions. Use

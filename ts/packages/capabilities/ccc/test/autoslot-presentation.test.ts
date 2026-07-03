@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps } from "@ji/clinkr";
-import { stripAnsi } from "@ji/clinkr/testing";
+import type { Caps } from "@ns/clinkr";
+import { stripAnsi } from "@ns/clinkr/testing";
 
-import { renderAutoslotResultBlock } from "../src/ji/autoslot-presentation.ts";
+import { renderAutoslotResultBlock } from "../src/ns/autoslot-presentation.ts";
 
 const DIM = "\x1b[2m";
 

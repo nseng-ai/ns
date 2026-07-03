@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner } from "@ji/core/command";
+import type { CommandRunner } from "@ns/core/command";
 import { RealGithubPrGateway } from "../../src/submit/index.ts";
-import { ScriptedCommandRunner, step } from "@ji/core/exec/testing";
-import { createManualTimerScheduler } from "@ji/core/time/testing";
+import { ScriptedCommandRunner, step } from "@ns/core/exec/testing";
+import { createManualTimerScheduler } from "@ns/core/time/testing";
 
 describe("RealGithubPrGateway", () => {
 	test("returns structured command failures when gh view current branch fails", async () => {

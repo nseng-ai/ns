@@ -1,11 +1,11 @@
-import { failure, negative, ok, usageError } from "@ji/clinkr";
+import { failure, negative, ok, usageError } from "@ns/clinkr";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
 import type { LocalBranchTip, WorktreeOccupancy } from "../../../../core/gateways/repository.ts";
 import { buildSlotInventory, type SlotRecord } from "../../../../core/inventory.ts";
 import { parseJsonObject } from "../../../../core/json.ts";
-import type { StackInfo } from "@ji/capability-kit/graphite/stack";
+import type { StackInfo } from "@ns/capability-kit/graphite/stack";
 import { resolveRepoAndCurrentBranch } from "../shared.ts";
 import { collectStackBranches } from "../stack-walk.ts";
 import { validateStackIntegrity } from "./stack-integrity.ts";

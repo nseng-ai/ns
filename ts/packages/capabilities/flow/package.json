@@ -1,5 +1,5 @@
 {
-	"name": "@ji/flow",
+	"name": "@ns/flow",
 	"version": "0.1.0",
 	"private": true,
 	"files": [
@@ -8,38 +8,38 @@
 	"type": "module",
 	"exports": {
 		"./api": "./src/api/index.ts",
-		"./commands/changes": "./src/ji/commands/changes.ts",
-		"./commands/cp": "./src/ji/commands/cp.ts",
-		"./commands/autobranch": "./src/ji/commands/autobranch.ts",
-		"./commands/branch-latest-commit": "./src/ji/commands/branch-latest-commit.ts",
-		"./commands/autoslot": "./src/ji/commands/autoslot.ts",
-		"./commands/submit": "./src/ji/commands/submit.ts",
-		"./commands/regenerate-pr": "./src/ji/commands/regenerate-pr.ts",
-		"./commands/push": "./src/ji/commands/push.ts",
-		"./commands/land": "./src/ji/commands/land.ts",
-		"./commands/pull-trunk": "./src/ji/commands/pull-trunk.ts",
-		"./commands/exec-read-graphite-branch-metadata": "./src/ji/commands/exec-read-graphite-branch-metadata.ts",
-		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
+		"./commands/changes": "./src/ns/commands/changes.ts",
+		"./commands/cp": "./src/ns/commands/cp.ts",
+		"./commands/autobranch": "./src/ns/commands/autobranch.ts",
+		"./commands/branch-latest-commit": "./src/ns/commands/branch-latest-commit.ts",
+		"./commands/autoslot": "./src/ns/commands/autoslot.ts",
+		"./commands/submit": "./src/ns/commands/submit.ts",
+		"./commands/regenerate-pr": "./src/ns/commands/regenerate-pr.ts",
+		"./commands/push": "./src/ns/commands/push.ts",
+		"./commands/land": "./src/ns/commands/land.ts",
+		"./commands/pull-trunk": "./src/ns/commands/pull-trunk.ts",
+		"./commands/exec-read-graphite-branch-metadata": "./src/ns/commands/exec-read-graphite-branch-metadata.ts",
+		"./repo-local-sdl-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./land/api": "./src/land/api.ts",
 		"./land/testing": "./src/land/testing.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/code-workflows-extension": "./src/pi/code-workflows.ts",
 		"./pi/code-extension": "./src/pi/code-extension.ts",
-		"./pi/sdl-extension": "./src/pi/ji-extension.ts"
+		"./pi/sdl-extension": "./src/pi/ns-extension.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/flow/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
-		"@ji/slot": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
+		"@ns/slot": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability",
 		"subpackages": [
 			"api",
@@ -51,20 +51,20 @@
 			"land",
 			"phase-stream",
 			"pi",
-			"ji",
+			"ns",
 			"submit",
 			"trunk-pull"
 		]
 	},
 	"peerDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ji/pi": {
+		"@ns/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	}
 }

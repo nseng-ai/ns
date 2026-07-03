@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 
 describe("terminal escapes", () => {
 	test("strips terminal ANSI and OSC escapes from the public subpath", () => {

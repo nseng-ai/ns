@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { findWorkspaceRootByMarkers } from "@ji/capability-kit/workspace-root";
+import { findWorkspaceRootByMarkers } from "@ns/capability-kit/workspace-root";
 
 function fakeExists(paths: readonly string[]): (path: string) => boolean {
 	const existing = new Set(paths);

@@ -13,7 +13,7 @@ import {
 	type ListedEntry,
 	type ListedSnapshot,
 	type PutEntryResult,
-} from "@ji/brmem";
+} from "@ns/brmem";
 
 import { BRANCH_CONTEXT_NAMESPACE } from "../core/constants.ts";
 

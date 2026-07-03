@@ -1,4 +1,4 @@
-export { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+export { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 export {
 	customMessageText,
 	linkifyPrReferences,
@@ -8,10 +8,10 @@ export {
 	sanitizeTerminalHyperlinkUrl,
 	terminalHyperlink,
 	truncateDisplayLine,
-} from "@ji/core/terminal-presentation";
+} from "@ns/core/terminal-presentation";
 export type {
 	CustomMessageContent,
 	CustomMessageTextPart,
 	PrLink,
 	PrLinksDetails,
-} from "@ji/core/terminal-presentation";
+} from "@ns/core/terminal-presentation";

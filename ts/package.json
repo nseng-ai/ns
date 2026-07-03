@@ -1,5 +1,5 @@
 {
-	"name": "ji-ts-workspace",
+	"name": "ns-ts-workspace",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@11.8.0",
@@ -21,26 +21,26 @@
 	},
 	"devDependencies": {
 		"@internal/pi-tools": "workspace:*",
-		"@ji/address": "workspace:*",
-		"@ji/aretro": "workspace:*",
-		"@ji/branch-context": "workspace:*",
-		"@ji/brmem": "workspace:*",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/ccc": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/flow": "workspace:*",
-		"@ji/handoff": "workspace:*",
-		"@ji/kernel": "workspace:*",
-		"@ji/objective": "workspace:*",
-		"@ji/plans": "workspace:*",
-		"@ji/review-reinvention-scanner": "workspace:*",
-		"@ji/roaster": "workspace:*",
-		"@ji/slot": "workspace:*",
+		"@ns/address": "workspace:*",
+		"@ns/aretro": "workspace:*",
+		"@ns/branch-context": "workspace:*",
+		"@ns/brmem": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/ccc": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/flow": "workspace:*",
+		"@ns/handoff": "workspace:*",
+		"@ns/kernel": "workspace:*",
+		"@ns/objective": "workspace:*",
+		"@ns/plans": "workspace:*",
+		"@ns/review-reinvention-scanner": "workspace:*",
+		"@ns/roaster": "workspace:*",
+		"@ns/slot": "workspace:*",
 		"@types/node": "catalog:",
 		"@typescript/native-preview": "catalog:",
 		"@withgraphite/graphite-cli": "catalog:",
-		"jicc": "workspace:*",
 		"jsonc-parser": "catalog:",
+		"nscc": "workspace:*",
 		"oxfmt": "catalog:",
 		"oxlint": "catalog:",
 		"syncpack": "catalog:",
@@ -56,6 +56,6 @@
 		"@earendil-works/pi-ai@0.79.1": "patches/@earendil-works%2Fpi-ai@0.79.1.patch"
 	},
 	"dependencies": {
-		"@ji/core": "workspace:*"
+		"@ns/core": "workspace:*"
 	}
 }

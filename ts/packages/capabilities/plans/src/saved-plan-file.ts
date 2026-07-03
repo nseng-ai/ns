@@ -1,22 +1,22 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@ji/core/exec";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
+import type { CommandExecApi } from "@ns/core/exec";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
-} from "@ji/capability-kit/github/identity";
+} from "@ns/capability-kit/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import { requireXdgPath, resolveSdlXdgPath } from "@ji/capability-kit/xdg";
+import { requireXdgPath, resolveSdlXdgPath } from "@ns/capability-kit/xdg";
 import {
 	isRecord,
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
-} from "@ji/core/primitives";
+} from "@ns/core/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";

@@ -1,4 +1,4 @@
-import type { ClinkrExit, ClinkrInteraction } from "@ji/clinkr";
+import type { ClinkrExit, ClinkrInteraction } from "@ns/clinkr";
 
 import { buildNpmClaimProjectFiles, type NpmClaimProjectSpec } from "./claim.ts";
 import type {

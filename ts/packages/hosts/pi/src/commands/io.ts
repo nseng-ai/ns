@@ -1,5 +1,5 @@
-import { createCommandIo } from "@ji/kernel/command-io";
-import type { SdlCommandIo, SdlNotifyLevel } from "@ji/kernel/sdk";
+import { createCommandIo } from "@ns/kernel/command-io";
+import type { SdlCommandIo, SdlNotifyLevel } from "@ns/kernel/sdk";
 
 interface PiCommandIoContext {
 	ui: {

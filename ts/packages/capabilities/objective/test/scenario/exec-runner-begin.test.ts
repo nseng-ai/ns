@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ji/clinkr";
-import { InMemoryGraphiteBranchGateway } from "@ji/capability-kit/graphite/testing";
-import { optionalEntries } from "@ji/core/primitives";
+import { envelopeJsonText, toMachineEnvelope, type ClinkrExit } from "@ns/clinkr";
+import { InMemoryGraphiteBranchGateway } from "@ns/capability-kit/graphite/testing";
+import { optionalEntries } from "@ns/core/primitives";
 
 import { FakeObjectiveStorageGateway } from "../../src/core/fake-storage.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
@@ -10,9 +10,9 @@ import type {
 	RunnerFilePresenceResult,
 	RunnerTextFileReadResult,
 } from "../../src/runner/context.ts";
-import { objectiveExecRunnerBeginSdlCommand } from "../../src/ji/commands/exec-runner-begin.ts";
+import { objectiveExecRunnerBeginSdlCommand } from "../../src/ns/commands/exec-runner-begin.ts";
 import { SequencedGitGateway, type SequencedGitGatewayState } from "../unit/runner/context.ts";
-import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ji-command-harness.ts";
+import { FakeObjectiveSdlApi, runObjectiveCommand } from "../support/ns-command-harness.ts";
 
 const SLUG = "demo-objective";
 const REPORT_PATH = "/scratch/step-1-report.json";

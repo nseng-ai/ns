@@ -1,4 +1,4 @@
-import { mapFromRecordOrMap } from "@ji/core/primitives";
+import { mapFromRecordOrMap } from "@ns/core/primitives";
 
 import type { ReviewApplicability } from "./models.ts";
 

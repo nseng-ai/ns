@@ -1,1 +1,1 @@
-export { default } from "@ji/address/ji/commands/exec-close-review-threads";
+export { default } from "@ns/address/ns/commands/exec-close-review-threads";

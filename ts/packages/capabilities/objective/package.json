@@ -1,22 +1,22 @@
 {
-	"name": "@ji/objective",
+	"name": "@ns/objective",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./ji/commands/archive": "./src/ji/commands/archive.ts",
-		"./ji/commands/check": "./src/ji/commands/check.ts",
-		"./ji/commands/exec-list-candidates": "./src/ji/commands/exec-list-candidates.ts",
-		"./ji/commands/exec-load-orientations": "./src/ji/commands/exec-load-orientations.ts",
-		"./ji/commands/exec-read-objective": "./src/ji/commands/exec-read-objective.ts",
-		"./ji/commands/exec-runner-begin": "./src/ji/commands/exec-runner-begin.ts",
-		"./ji/commands/exec-runner-finish": "./src/ji/commands/exec-runner-finish.ts",
-		"./ji/commands/exec-runner-step": "./src/ji/commands/exec-runner-step.ts",
-		"./ji/commands/exec-runner-subagent-usage": "./src/ji/commands/exec-runner-subagent-usage.ts",
-		"./ji/commands/exec-tracking-gate": "./src/ji/commands/exec-tracking-gate.ts",
-		"./ji/commands/list": "./src/ji/commands/list.ts",
-		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
+		"./ns/commands/archive": "./src/ns/commands/archive.ts",
+		"./ns/commands/check": "./src/ns/commands/check.ts",
+		"./ns/commands/exec-list-candidates": "./src/ns/commands/exec-list-candidates.ts",
+		"./ns/commands/exec-load-orientations": "./src/ns/commands/exec-load-orientations.ts",
+		"./ns/commands/exec-read-objective": "./src/ns/commands/exec-read-objective.ts",
+		"./ns/commands/exec-runner-begin": "./src/ns/commands/exec-runner-begin.ts",
+		"./ns/commands/exec-runner-finish": "./src/ns/commands/exec-runner-finish.ts",
+		"./ns/commands/exec-runner-step": "./src/ns/commands/exec-runner-step.ts",
+		"./ns/commands/exec-runner-subagent-usage": "./src/ns/commands/exec-runner-subagent-usage.ts",
+		"./ns/commands/exec-tracking-gate": "./src/ns/commands/exec-tracking-gate.ts",
+		"./ns/commands/list": "./src/ns/commands/list.ts",
+		"./repo-local-sdl-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -28,33 +28,33 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/objective/test"
 	},
 	"dependencies": {
-		"@ji/branch-context": "workspace:*",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
+		"@ns/branch-context": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
 		"yaml": "catalog:",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability",
 		"subpackages": [
 			"api",
 			"core",
 			"runner",
-			"ji",
+			"ns",
 			"pi"
 		]
 	},
 	"peerDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ji/pi": {
+		"@ns/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	}
 }

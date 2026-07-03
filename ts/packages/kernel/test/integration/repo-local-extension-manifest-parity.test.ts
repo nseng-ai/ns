@@ -2,17 +2,17 @@ import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { addressRepoLocalSdlExtension } from "@ji/address/repo-local-sdl-extension";
-import { aretroRepoLocalSdlExtension } from "@ji/aretro/repo-local-sdl-extension";
-import { branchContextRepoLocalSdlExtension } from "@ji/branch-context/repo-local-sdl-extension";
-import { flowRepoLocalSdlExtension } from "@ji/flow/repo-local-sdl-extension";
-import { handoffRepoLocalSdlExtension } from "@ji/handoff/repo-local-sdl-extension";
-import { objectiveRepoLocalSdlExtension } from "@ji/objective/repo-local-sdl-extension";
-import { roasterRepoLocalSdlExtension } from "@ji/roaster/repo-local-sdl-extension";
+import { addressRepoLocalSdlExtension } from "@ns/address/repo-local-sdl-extension";
+import { aretroRepoLocalSdlExtension } from "@ns/aretro/repo-local-sdl-extension";
+import { branchContextRepoLocalSdlExtension } from "@ns/branch-context/repo-local-sdl-extension";
+import { flowRepoLocalSdlExtension } from "@ns/flow/repo-local-sdl-extension";
+import { handoffRepoLocalSdlExtension } from "@ns/handoff/repo-local-sdl-extension";
+import { objectiveRepoLocalSdlExtension } from "@ns/objective/repo-local-sdl-extension";
+import { roasterRepoLocalSdlExtension } from "@ns/roaster/repo-local-sdl-extension";
 import type {
 	RepoLocalSdlExtensionCommandDescriptor,
 	RepoLocalSdlExtensionDescriptor,
-} from "@ji/kernel/sdk";
+} from "@ns/kernel/sdk";
 import {
 	discoverSdlPackageCommands,
 	type DiscoveredExtensionCommand,

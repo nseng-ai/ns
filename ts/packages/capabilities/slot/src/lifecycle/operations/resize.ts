@@ -1,6 +1,6 @@
-import { failure, ok, type RenderCapabilities } from "@ji/clinkr";
+import { failure, ok, type RenderCapabilities } from "@ns/clinkr";
 import { z } from "zod";
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 
 import type { SlotCliContext } from "../../core/context.ts";
 import { resizePool } from "../pool.ts";

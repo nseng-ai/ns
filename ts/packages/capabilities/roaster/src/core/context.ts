@@ -1,7 +1,7 @@
-import { NodeCommandExecApi } from "@ji/core/exec";
-import type { CommandExecApi } from "@ji/core/command";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import type { CommandExecApi } from "@ns/core/command";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
 
 import {
 	ClaudeCodeProcessReviewRunner,
@@ -11,7 +11,7 @@ import { RealRoasterGitHubGateway, type RoasterGitHubGateway } from "../gateways
 import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-diff.ts";
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export { ROASTER_BOT_LOGIN } from "./roaster-bot.ts";
 

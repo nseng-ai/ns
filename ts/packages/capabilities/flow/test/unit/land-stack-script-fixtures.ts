@@ -1,4 +1,4 @@
-import type { ExecResult } from "@ji/core/command";
+import type { ExecResult } from "@ns/core/command";
 import type { PullRequestSnapshot } from "../../src/land/stack/types.ts";
 import { metadataDbJson, TOPOLOGY_COMMAND } from "./land-test-helpers.ts";
 

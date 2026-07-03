@@ -1,10 +1,10 @@
-import { NodeCommandExecApi } from "@ji/core/exec";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
 
 import { RealObjectiveStorageGateway } from "./real-storage.ts";
 import { ObjectiveStorage } from "./storage.ts";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export interface ObjectiveCliContext {
 	cwd: string;

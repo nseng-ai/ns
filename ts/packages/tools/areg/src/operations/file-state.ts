@@ -1,5 +1,5 @@
-import { optionalEntry } from "@ji/core/primitives";
-import { resultErr, type Result } from "@ji/core/result";
+import { optionalEntry } from "@ns/core/primitives";
+import { resultErr, type Result } from "@ns/core/result";
 
 import type { AregPathState, AregTextFileState } from "../gateways.ts";
 

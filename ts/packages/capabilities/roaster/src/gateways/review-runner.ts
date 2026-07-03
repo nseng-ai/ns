@@ -1,12 +1,12 @@
-import { type CommandResolver } from "@ji/core/command";
-import { defaultCommandResolver } from "@ji/core/exec";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/command";
-import { isClaudeCodeSupportedModelPattern } from "@ji/core/model-slug";
+import { type CommandResolver } from "@ns/core/command";
+import { defaultCommandResolver } from "@ns/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/command";
+import { isClaudeCodeSupportedModelPattern } from "@ns/core/model-slug";
 import {
 	formatErrorMessage,
 	mapFromRecordOrMap,
 	type ExplicitUndefined,
-} from "@ji/core/primitives";
+} from "@ns/core/primitives";
 
 import type { RoasterResult } from "../core/failures.ts";
 import {

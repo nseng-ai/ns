@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 
 import {
 	branchLatestCommitBackupCleanupWarningExec,
@@ -9,7 +9,7 @@ import {
 	branchLatestCommitSuffixedExec,
 	runFlowBranchLatestCommitCommandWithFakes,
 } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 describe("flow branch-latest-commit command outcomes", () => {
 	test("clean worktree success exits 0 on stdout with a house-style result block", async () => {

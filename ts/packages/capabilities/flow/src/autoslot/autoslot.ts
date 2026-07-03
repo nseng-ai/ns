@@ -1,6 +1,6 @@
-import type { Caps } from "@ji/clinkr";
-import { createCliCommandIo, runWithSdlCommandIo } from "@ji/kernel/command-io";
-import type { SdlCommandIo } from "@ji/kernel/sdk";
+import type { Caps } from "@ns/clinkr";
+import { createCliCommandIo, runWithSdlCommandIo } from "@ns/kernel/command-io";
+import type { SdlCommandIo } from "@ns/kernel/sdk";
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
@@ -11,7 +11,7 @@ import {
 	prepareAutobranchCheckpointMessage,
 } from "../autobranch/checkpoint.ts";
 import { renderAutoslotResultBlock } from "./presentation.ts";
-import type { SlotClient } from "@ji/slot/api";
+import type { SlotClient } from "@ns/slot/api";
 import {
 	checkoutSlot,
 	createFlowSlotClient,

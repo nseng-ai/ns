@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
-import type { ExecResult } from "@ji/core/command";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
+import type { ExecResult } from "@ns/core/command";
 
-import { runPushCore } from "../../src/ji/commands/push.ts";
+import { runPushCore } from "../../src/ns/commands/push.ts";
 
 describe("flow push core", () => {
 	test("dirty gateway state returns dirty and does not push", async () => {

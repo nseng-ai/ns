@@ -1,5 +1,5 @@
 export const GRAPHITE_PACKAGE_IDENTITY = {
-	packageName: "@ji/capability-kit/graphite",
+	packageName: "@ns/capability-kit/graphite",
 	vocabularyName: "Graphite support package",
 	visibility: "private-workspace",
 	ownedConcerns: [

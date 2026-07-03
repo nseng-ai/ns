@@ -1,4 +1,4 @@
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 import type { ClinkrFormat, RenderCapabilities } from "./command.ts";
 import type { SdlCommandIo, SdlProgress } from "./services.ts";

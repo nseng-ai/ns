@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fileForReport, literalSpecifiersOf, sourceFilesUnder } from "@ji/clinkr/testing";
+import { fileForReport, literalSpecifiersOf, sourceFilesUnder } from "@ns/clinkr/testing";
 import { describe, expect, test } from "vitest";
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
@@ -17,10 +17,10 @@ interface ImportOffender {
 
 function isForbiddenCapabilityImport(specifier: string): boolean {
 	return (
-		specifier.startsWith("@ji/ccc") ||
-		specifier.startsWith("@ji/flow") ||
-		specifier.startsWith("@ji/slot") ||
-		specifier.startsWith("@ji/objective")
+		specifier.startsWith("@ns/ccc") ||
+		specifier.startsWith("@ns/flow") ||
+		specifier.startsWith("@ns/slot") ||
+		specifier.startsWith("@ns/objective")
 	);
 }
 
@@ -29,11 +29,11 @@ function sourceImportOffenders(): readonly ImportOffender[] {
 	for (const file of sourceFilesUnder(SRC_DIR)) {
 		const source = readFileSync(file, "utf8");
 		for (const specifier of literalSpecifiersOf(source)) {
-			if (specifier.startsWith("@ji/clinkr/")) {
+			if (specifier.startsWith("@ns/clinkr/")) {
 				offenders.push({
 					file: fileForReport(file),
 					specifier,
-					reason: "theme source may import only public @ji/clinkr root types, not Clinkr subpaths",
+					reason: "theme source may import only public @ns/clinkr root types, not Clinkr subpaths",
 				});
 			}
 			if (specifier.includes("/src/")) {

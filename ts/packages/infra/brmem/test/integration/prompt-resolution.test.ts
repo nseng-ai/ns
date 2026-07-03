@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { RealBrmemPromptResolver } from "../../src/prompt-resolution.ts";
-import { createTempGitRepo } from "@ji/capability-kit/git/testing";
+import { createTempGitRepo } from "@ns/capability-kit/git/testing";
 
 describe("RealBrmemPromptResolver integration", () => {
 	it("resolves the repository root and checks prompt existence in a throwaway repository", async () => {

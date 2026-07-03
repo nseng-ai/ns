@@ -1,6 +1,6 @@
-import { failure, negative, ok, type ClinkrExit } from "@ji/clinkr";
-import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
-import { optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { failure, negative, ok, type ClinkrExit } from "@ns/clinkr";
+import { commandBackedSkillSurface } from "@ns/command-backed-skill-registry";
+import { optionalEntries, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
