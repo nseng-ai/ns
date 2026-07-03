@@ -4,11 +4,11 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ji/capability-kit/text-generation";
+} from "@ns/capability-kit/text-generation";
 
-import { runCpCore } from "../../src/ji/commands/cp.ts";
+import { runCpCore } from "../../src/ns/commands/cp.ts";
 import type { CheckpointGateway } from "../../src/checkpoint/checkpoint.ts";
-import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/ji/worktree.ts";
+import type { PendingWorktreeError, PendingWorktreeSnapshot } from "../../src/ns/worktree.ts";
 
 const validCheckpointMessage = `[cp] Update cp core
 

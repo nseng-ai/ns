@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "@ji/kernel/sdk";
+import type { SdlCommandIo } from "@ns/kernel/sdk";
 import { executeStackLanding } from "./land-stack.ts";
 import type { LandLiveProgressSink } from "./stack/command-stream.ts";
 import { createRuntimeLandContext, type LandRuntime } from "./stack/land-runtime.ts";

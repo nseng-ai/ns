@@ -1,5 +1,5 @@
 import { appendFile } from "node:fs/promises";
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 
 import {
 	type CommandExecApi,
@@ -7,7 +7,7 @@ import {
 	type ExecOptions,
 	type ExecResult,
 	formatCommand,
-} from "@ji/core/command";
+} from "@ns/core/command";
 
 export const SLOT_DIAGNOSTIC_LOG_ENV = "NS_SLOT_DIAGNOSTIC_LOG";
 

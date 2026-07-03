@@ -1,1 +1,1 @@
-export { default } from "@ji/roaster/commands/review-run";
+export { default } from "@ns/roaster/commands/review-run";

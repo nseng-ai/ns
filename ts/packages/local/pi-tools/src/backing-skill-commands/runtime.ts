@@ -1,13 +1,13 @@
 import {
 	registerCommandWithImmediateAck,
 	type ImmediateCommandAckCommandRegistrar,
-} from "@ji/pi/commands/ack";
+} from "@ns/pi/commands/ack";
 import type {
 	PiCommandContext,
 	PiCommandHost,
 	PiCommandRegistration,
-} from "@ji/pi/runtime/command-host";
-import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@ji/pi/skills/expansion";
+} from "@ns/pi/runtime/command-host";
+import { buildSkillInvocationPrompt, invokeRepoSkillPromptTurn } from "@ns/pi/skills/expansion";
 
 import { genericBackingSkillCommandSpecs, type DerivedPiCommand } from "./specs.ts";
 

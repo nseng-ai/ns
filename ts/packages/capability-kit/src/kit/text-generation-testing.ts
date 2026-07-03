@@ -1,5 +1,5 @@
-import { optionalEntries } from "@ji/core/primitives";
-import { ScriptedQueue } from "@ji/core/test-kit";
+import { optionalEntries } from "@ns/core/primitives";
+import { ScriptedQueue } from "@ns/core/test-kit";
 
 import type {
 	TextGenerationRequest,

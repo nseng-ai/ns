@@ -1,3 +1,3 @@
-import type { ClinkrIo } from "@ji/clinkr";
+import type { ClinkrIo } from "@ns/clinkr";
 
 export type PackagechkIo = ClinkrIo;

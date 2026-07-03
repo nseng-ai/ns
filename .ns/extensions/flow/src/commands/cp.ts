@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/cp";
+export { default } from "@ns/flow/commands/cp";

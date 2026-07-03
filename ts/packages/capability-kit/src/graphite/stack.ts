@@ -18,9 +18,9 @@ import {
 	type GraphiteWalkTermination,
 	type SqliteJsonError,
 } from "./metadata.ts";
-import { NodeCommandExecApi } from "@ji/core/exec";
-import type { CommandExecApi } from "@ji/core/exec";
-import { isRecord, type ExplicitUndefined } from "@ji/core/primitives";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import type { CommandExecApi } from "@ns/core/exec";
+import { isRecord, type ExplicitUndefined } from "@ns/core/primitives";
 
 const GRAPHITE_STACK_COMMAND_TIMEOUT_MS = 10_000;
 

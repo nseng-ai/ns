@@ -8,8 +8,8 @@ import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
 } from "../../src/extensions/registry.ts";
-import { runCliWithFakes, type RunWithFakesOptions } from "./ji-cli-fakes.ts";
-import type { SdlCommand } from "@ji/kernel/sdk";
+import { runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
+import type { SdlCommand } from "@ns/kernel/sdk";
 
 function runWithFakes(options: RunWithFakesOptions) {
 	return runCliWithFakes(options, {

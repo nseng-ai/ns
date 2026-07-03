@@ -2,7 +2,7 @@ import {
 	type ExecResult,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@ji/core/command";
+} from "@ns/core/command";
 
 export function formatExecFailure(commandDisplay: string, result: ExecResult): string {
 	return formatCommandFailure("command failed", commandDisplay, result);

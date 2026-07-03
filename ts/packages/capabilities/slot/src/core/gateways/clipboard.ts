@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 
-import { errorCodeFromUnknown, type ExplicitUndefined } from "@ji/core/primitives";
+import { errorCodeFromUnknown, type ExplicitUndefined } from "@ns/core/primitives";
 
 export type ClipboardCopyResult =
 	| { type: "copied" }

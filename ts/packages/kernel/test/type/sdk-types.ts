@@ -1,4 +1,4 @@
-import { defineExtension, ok, z } from "@ji/kernel/sdk";
+import { defineExtension, ok, z } from "@ns/kernel/sdk";
 import type {
 	SdlCommandIo,
 	SdlExtensionApi,
@@ -6,7 +6,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ji/kernel/sdk";
+} from "@ns/kernel/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;

@@ -1,4 +1,4 @@
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 
 import {
 	BRANCH_CONTEXT_NAMESPACE,
@@ -18,15 +18,15 @@ import {
 	unwrapBranchContextBrmemResult,
 } from "./branch-memory.ts";
 import type { BranchContextContext } from "./context.ts";
-import type { BrmemGateway } from "@ji/brmem";
-import type { CommandExecApi } from "@ji/core/exec";
-import type { GitGateway } from "@ji/capability-kit/git";
+import type { BrmemGateway } from "@ns/brmem";
+import type { CommandExecApi } from "@ns/core/exec";
+import type { GitGateway } from "@ns/capability-kit/git";
 import {
 	buildPlanStoreOptions,
 	listSavedPlans,
 	resolvePlanSourceFile,
 	type PlanStoreOptions,
-} from "@ji/plans";
+} from "@ns/plans";
 
 export interface BranchContextPrimitiveOptions {
 	cwd: string;

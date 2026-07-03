@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { commandBackedSkillSurface } from "@ji/command-backed-skill-registry";
+import { commandBackedSkillSurface } from "@ns/command-backed-skill-registry";
 
 import {
 	formatReplacementLabel,

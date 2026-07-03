@@ -1,4 +1,4 @@
-import { definePiSurfaceParity } from "@ji/pi/parity/extension";
+import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 
 export const PR_FEEDBACK_WATCH_COMMAND_NAME = "pr:watch-feedback";
 

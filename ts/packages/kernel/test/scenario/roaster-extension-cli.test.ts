@@ -7,8 +7,8 @@ import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
 } from "../../src/extensions/registry.ts";
-import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ji-cli-fakes.ts";
-import type { SdlCommand, SdlExtensionApi } from "@ji/kernel/sdk";
+import { parseJsonOutput, runCliWithFakes, type RunWithFakesOptions } from "./ns-cli-fakes.ts";
+import type { SdlCommand, SdlExtensionApi } from "@ns/kernel/sdk";
 
 function runWithFakeRoasterExtension(options: RunWithFakesOptions) {
 	const registry = fakeRoasterRegistry();

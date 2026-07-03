@@ -1,5 +1,5 @@
 {
-	"name": "@ji/review-reinvention-scanner",
+	"name": "@ns/review-reinvention-scanner",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -12,7 +12,7 @@
 		"test": "cd ../../../../../ts && vitest run --config vitest.config.ts ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/test"
 	},
 	"dependencies": {
-		"@ji/core": "workspace:*",
+		"@ns/core": "workspace:*",
 		"typescript": "catalog:"
 	},
 	"devDependencies": {

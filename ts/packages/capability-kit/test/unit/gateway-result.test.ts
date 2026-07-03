@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExecResult } from "@ji/core/exec";
+import type { ExecResult } from "@ns/core/exec";
 import {
 	err,
 	ok,
 	commandFailure,
 	formatCommandFailureConciseCause,
 	formatErrorInfoDiagnosticLines,
-} from "@ji/capability-kit/gateway-result";
+} from "@ns/capability-kit/gateway-result";
 
 describe("gateway result", () => {
 	test("returns undefined for successful commands", () => {

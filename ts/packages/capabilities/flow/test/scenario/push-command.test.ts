@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 
 import { runFlowPushCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 const PUSH_TIMEOUT_MS = 120_000;
 

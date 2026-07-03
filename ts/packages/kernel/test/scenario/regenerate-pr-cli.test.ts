@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
-import { listSdlCommands } from "@ji/kernel/cli";
+import { listSdlCommands } from "@ns/kernel/cli";
 
-import { runCliWithFakes } from "./ji-cli-fakes.ts";
+import { runCliWithFakes } from "./ns-cli-fakes.ts";
 
 function runUnavailableRegeneratePrCli(args: readonly string[]) {
 	return runCliWithFakes(

@@ -1,12 +1,12 @@
 import type { BranchContextAttachData } from "./branch-memory.ts";
 import { assertBrmemEntryAbsent, attachBranchContext, AttachBranchContextError } from "./attach.ts";
 import { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
-import type { BrmemGateway } from "@ji/brmem";
-import type { GraphiteBranchGateway } from "@ji/capability-kit/graphite/branch";
-import { type CommandExecApi, formatCommand } from "@ji/core/exec";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { formatErrorMessage, optionalEntry } from "@ji/core/primitives";
-import { normalizeSummary, resolvePlanSourceFile } from "@ji/plans";
+import type { BrmemGateway } from "@ns/brmem";
+import type { GraphiteBranchGateway } from "@ns/capability-kit/graphite/branch";
+import { type CommandExecApi, formatCommand } from "@ns/core/exec";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { formatErrorMessage, optionalEntry } from "@ns/core/primitives";
+import { normalizeSummary, resolvePlanSourceFile } from "@ns/plans";
 import type { BranchContextContext } from "./context.ts";
 
 export { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";

@@ -1,13 +1,13 @@
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
-import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@ji/roaster/api";
+import { createRoasterClient, ROASTER_REVIEW_LOG_NAMESPACE } from "@ns/roaster/api";
 import type {
 	RecordFindingsOutcome,
 	ReviewListResult,
 	RoasterRuntime,
 	RunRoasterReviewOutcome,
-} from "@ji/roaster/api";
+} from "@ns/roaster/api";
 import { createRoasterRuntime } from "../../src/core/context.ts";
 import { FakeRoasterGitHubGateway, type RoasterGitHubGateway } from "../../src/gateways/github.ts";
 import { FakeReviewRunnerGateway } from "../../src/gateways/review-runner.ts";
@@ -121,7 +121,7 @@ function runtimeWithFakes(
 	);
 }
 
-describe("@ji/roaster/api", () => {
+describe("@ns/roaster/api", () => {
 	test("exports a client facade and stable domain types", async () => {
 		const client = createRoasterClient({ cwd: "/repo", runtime: runtimeWithFakes() });
 		const result = await client.listReviews();

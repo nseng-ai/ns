@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import type { CommandRunner, ExecOptions, ExecResult } from "@ji/core/exec";
+import type { CommandRunner, ExecOptions, ExecResult } from "@ns/core/exec";
 import {
 	GITHUB_CLI_STARTUP_ERROR_CODE,
 	GITHUB_CLI_TIMEOUT_MS,
 	runGitHubCli,
 	runGitHubCliAsExecResult,
-} from "@ji/capability-kit/github/cli";
+} from "@ns/capability-kit/github/cli";
 
 describe("runGitHubCli", () => {
 	test("runs gh with default timeout and returns command metadata", async () => {

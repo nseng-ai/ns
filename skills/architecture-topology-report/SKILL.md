@@ -98,7 +98,7 @@ node <skill-dir>/scripts/extract-graph.mjs --pretty --out <tmp>/graph.json
 `--out` tees the JSON to a file as well as stdout, so step 4 can pass `--graph <tmp>/graph.json`
 and skip a second extraction — one invocation surfaces the facts *and* caches them.
 
-Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @ji/capability-kit`,
+Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @ns/capability-kit`,
 `--api-needle api`). Override the flags for a different workspace. The script reports, over
 **runtime edges only** (`dependencies` + `peerDependencies`):
 
@@ -121,7 +121,7 @@ Defaults are tuned for sdl-tools (`--root ts/packages`, `--kit @ji/capability-ki
   and clicking a package node zooms into that single package's internal circle graph.
   Override the source folder with `--src-dir`.
 
-The script reads each workspace package's declared `ji.tier`, validates it against the
+The script reads each workspace package's declared `ns.tier`, validates it against the
 canonical tier taxonomy (kept in sync with the style-guard `packageTierValues` /
 `packageTierAllowedTargets` / `allowedPackageTierDebtEdges`), emits `packages[name].tier`, and
 reports computed `tierViolations` over runtime package edges — each tagged `severity: "hard"`,
@@ -200,7 +200,7 @@ toggle — static import edges, tier-hue fills shaded per enclosing package — 
 package node to isolate that package's internal circle graph; node area ∝ LOC, tier lanes/filters,
 layered-DAG / tier-clustered / force layout toggle, drag/zoom/hover-trace), **Mermaid** before/after cycle diagrams
 in finding cards, and **hand-built Tailwind** for the tier stack, verdict strip, and scorecard. Tier
-presentation comes from declared `ji.tier`; package color is separate from tier. The generator marks
+presentation comes from declared `ns.tier`; package color is separate from tier. The generator marks
 an edge `cycle: true` when both endpoints sit in a circle/package SCC.
 
 Only drop to a hand-built page (the raw scaffold is still in the reference) if a report needs

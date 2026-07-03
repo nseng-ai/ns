@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
@@ -14,7 +14,7 @@ import {
 } from "../../src/submit/index.ts";
 
 import { runFlowRegeneratePrCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import { formattedExecCalls, type ExecCall, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
 // The truecolor red swatch used for `error`-intent headlines; a warn refusal must never carry it.

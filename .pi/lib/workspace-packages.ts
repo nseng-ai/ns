@@ -8,7 +8,7 @@ const workspacePackageFallbacks: Record<string, string> = {
 	"@internal/pi-tools/grill/extension": "../../ts/packages/local/pi-tools/src/grill/extension.ts",
 	"@internal/pi-tools/runner-subagents/extension": "../../ts/packages/local/pi-tools/src/runner-subagents/extension.ts",
 	"@internal/pi-tools/thermo-council/extension": "../../ts/packages/local/pi-tools/src/thermo-council/extension.ts",
-	"@ji/pi/worktree-status/extension": "../../ts/packages/hosts/pi/src/worktree-status/extension.ts",
+	"@ns/pi/worktree-status/extension": "../../ts/packages/hosts/pi/src/worktree-status/extension.ts",
 };
 
 type WorkspaceDefaultExport = (pi: unknown, options?: unknown) => void | Promise<void>;

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { visibleWidth } from "@earendil-works/pi-tui";
-import { fitToWidth } from "@ji/pi/terminal/layout";
+import { fitToWidth } from "@ns/pi/terminal/layout";
 import { normalizeMessage } from "../../src/context-profiler/model.ts";
 import type {
 	BaseRegion,

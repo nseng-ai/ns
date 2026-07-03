@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { registerCommandWithImmediateAck } from "../../commands/ack.ts";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { formatZodError, optionalEntry } from "@ji/core/primitives";
+import { formatZodError, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
 import { parseCliCommandArgs } from "../../commands/cli-extension.ts";
@@ -67,7 +67,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ji/pi",
+		sourcePackage: "@ns/pi",
 		sourceModule: "pr",
 		notes: "Pi owns editor prefill; pr-address owns portable collection and Markdown rendering.",
 	},
@@ -79,7 +79,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		parity: "FULL",
 		cli: "ns slot gt exec stack-branches --downstack + ns address exec map-branch-prs + ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@ji/pi",
+		sourcePackage: "@ns/pi",
 		sourceModule: "pr",
 		notes:
 			"Pi orchestrates stack discovery and editor prefill; slot owns Graphite stack discovery and pr-address owns PR feedback collection/Markdown rendering.",

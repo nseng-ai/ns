@@ -1,12 +1,12 @@
 import {
 	findLatestBranchContextEvidence,
 	type BranchContextEvidence,
-} from "@ji/branch-context/api";
+} from "@ns/branch-context/api";
 
 import { openBranchInCmuxSlot } from "./slot.ts";
 import { createCccSlotClient } from "./slot-checkout.ts";
-import type { SlotClient } from "@ji/slot/api";
-import type { AutocompleteItem, CommandContext, ExtensionAPI } from "@ji/capability-kit/cmux/types";
+import type { SlotClient } from "@ns/slot/api";
+import type { AutocompleteItem, CommandContext, ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 interface BranchCandidate {
 	name: string;

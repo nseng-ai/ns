@@ -7,8 +7,8 @@ import type {
 	ExtensionCommandCandidate,
 	SelectedSdlCommandLoadResult,
 } from "../../src/extensions/registry.ts";
-import { parseJsonOutput, runCliWithFakes } from "./ji-cli-fakes.ts";
-import type { SdlCommand } from "@ji/kernel/sdk";
+import { parseJsonOutput, runCliWithFakes } from "./ns-cli-fakes.ts";
+import type { SdlCommand } from "@ns/kernel/sdk";
 
 const optionProbeSchema = z.object({
 	force: z.boolean().default(false).describe("Force the operation."),

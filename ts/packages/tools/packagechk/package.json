@@ -1,5 +1,5 @@
 {
-	"name": "@ji/packagechk",
+	"name": "@ns/packagechk",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -16,11 +16,11 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/tools/packagechk/test"
 	},
 	"dependencies": {
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "standalone-tool"
 	}
 }

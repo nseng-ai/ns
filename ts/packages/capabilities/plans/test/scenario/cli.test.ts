@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 
-import type { CommandExecApi, ExecOptions } from "@ji/core/exec";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import type { CommandExecApi, ExecOptions } from "@ns/core/exec";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";
 

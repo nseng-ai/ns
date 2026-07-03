@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
 	createAutobranchCheckpointFlow,
 	type AutobranchFlowInput,
-} from "../src/ji/autobranch/flow.ts";
+} from "../src/ns/autobranch/flow.ts";
 import {
 	createGitWorldExec,
 	eventIndex,

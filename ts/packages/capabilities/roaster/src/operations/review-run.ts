@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";
 import {
@@ -287,7 +287,7 @@ export async function loadProjectConfigFromContext(
 		};
 	}
 
-	const path = join(repoRoot.value, "ji.toml");
+	const path = join(repoRoot.value, "ns.toml");
 	let source: string;
 	try {
 		source = await readFile(path, "utf8");
@@ -302,7 +302,7 @@ export async function loadProjectConfigFromContext(
 			type: "error",
 			error: {
 				type: "project-config-invalid",
-				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
+				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
 			},
 		};
 	}

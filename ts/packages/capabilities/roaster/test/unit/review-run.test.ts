@@ -12,7 +12,7 @@ import { FakeReviewCatalogGateway } from "../../src/gateways/review-catalog.ts";
 import { FakeReviewLogGateway } from "../../src/gateways/review-log.ts";
 import { createFindingsReview, createLocalDiff } from "../../src/core/models.ts";
 import { fakeRoasterContext } from "../support/fake-roaster-context.ts";
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
 const REVIEW_SOURCE = `---
 description: Review TypeScript diffs.
@@ -26,7 +26,7 @@ describe("runRoasterReview", () => {
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
-			join(repoRoot, "ji.toml"),
+			join(repoRoot, "ns.toml"),
 			'[roaster.diff]\nexclude = ["generated/**"]\n[roaster.model_profiles]\ndeep = "opus"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({

@@ -1,5 +1,5 @@
-import { failure, ok, negative, type ClinkrExit } from "@ji/clinkr";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { failure, ok, negative, type ClinkrExit } from "@ns/clinkr";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
 import { catalogOptions, environmentOptions, type RoasterRuntime } from "../core/context.ts";

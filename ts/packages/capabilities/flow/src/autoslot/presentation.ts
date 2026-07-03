@@ -1,12 +1,12 @@
 // Flow-local facade for the `autoslot` workflow's durable outcomes.
 //
 // `autoslot` (autobranch + slot checkout) reports typed settled facts at the Flow CLI edge, while the
-// generic finite block layout lives in `@ji/core/cli-theme` because the repeated shape was proven across
+// generic finite block layout lives in `@ns/core/cli-theme` because the repeated shape was proven across
 // Flow and CCC. This module keeps autoslot's domain-local type name and owns the mapping from Flow
 // outcome facts to that shared layout.
 
-import type { Caps } from "@ji/clinkr";
-import { renderResultBlock } from "@ji/core/cli-theme";
+import type { Caps } from "@ns/clinkr";
+import { renderResultBlock } from "@ns/core/cli-theme";
 
 /**
  * The visual intent of an autoslot outcome. Distinct from the `SdlCommandIo` notify level (which owns

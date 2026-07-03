@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import { createObjectiveClient, type ObjectiveClientOptions } from "../../src/api/index.ts";

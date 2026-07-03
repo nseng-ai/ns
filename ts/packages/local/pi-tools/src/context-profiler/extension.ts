@@ -9,7 +9,7 @@
  * failure never blocks the deterministic view.
  */
 
-import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -44,7 +44,7 @@ import {
 import { bundleStatusBarText } from "./render.ts";
 import type { SegmentationState } from "./segmentation.ts";
 import { ProfilerView } from "./view.ts";
-import { definePiSurfaceParity } from "@ji/pi/parity/extension";
+import { definePiSurfaceParity } from "@ns/pi/parity/extension";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 

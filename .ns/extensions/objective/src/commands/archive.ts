@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/archive";
+export { default } from "@ns/objective/ns/commands/archive";

@@ -1,4 +1,4 @@
-import { parseTypeScriptSource } from "@ji/core/typescript-analysis";
+import { parseTypeScriptSource } from "@ns/core/typescript-analysis";
 
 import { isReinventionKind, runDetectors } from "./detector-registry.ts";
 import { RealScannerIo, type ScannerIo } from "./git-diff.ts";

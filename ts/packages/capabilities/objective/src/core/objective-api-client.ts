@@ -39,7 +39,7 @@ export interface ObjectiveClientOptions {
 }
 
 /**
- * In-process facade over the objective Domain Core. Mirrors the `@ji/slot/api`
+ * In-process facade over the objective Domain Core. Mirrors the `@ns/slot/api`
  * client shape: a single factory returning a typed client whose methods resolve
  * the gateway-injected context lazily and return clean ok/failure results.
  */

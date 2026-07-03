@@ -1,11 +1,11 @@
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { withTempRepoSkill } from "@ji/core/test-kit";
+import { withTempRepoSkill } from "@ns/core/test-kit";
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-} from "@ji/pi/commands";
+} from "@ns/pi/commands";
 
 const OBJECTIVE_COMMAND_SURFACES = [
 	"ns:objective:next",

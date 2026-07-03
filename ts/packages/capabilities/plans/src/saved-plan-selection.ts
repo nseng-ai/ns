@@ -13,7 +13,7 @@ import {
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import type { CommandExecApi } from "@ji/core/exec";
+import type { CommandExecApi } from "@ns/core/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";

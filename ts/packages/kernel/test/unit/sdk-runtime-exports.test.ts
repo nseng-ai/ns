@@ -19,7 +19,7 @@ import {
 	truncateTextHeadTail,
 	z,
 	type SdlCommand,
-} from "@ji/kernel/sdk";
+} from "@ns/kernel/sdk";
 
 const runtimeExports = {
 	defineExtension,
@@ -59,7 +59,7 @@ const EXPECTED_RUNTIME_EXPORTS = [
 	"z",
 ] as const;
 
-describe("@ji/kernel/sdk runtime exports", () => {
+describe("@ns/kernel/sdk runtime exports", () => {
 	test("exposes the intended runtime author surface", () => {
 		expect(Object.keys(runtimeExports).sort()).toEqual([...EXPECTED_RUNTIME_EXPORTS].sort());
 	});
@@ -94,13 +94,13 @@ describe("@ji/kernel/sdk runtime exports", () => {
 			repoLocalSdlCommandDescriptor({
 				command,
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@ji/example/commands",
+				packageExportPrefix: "@ns/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/list.ts",
-			packageExport: "@ji/example/commands/list",
+			packageExport: "@ns/example/commands/list",
 		});
 	});
 
@@ -117,14 +117,14 @@ describe("@ji/kernel/sdk runtime exports", () => {
 				command,
 				manifestName: "review-list",
 				manifestPath: ["review", "list"],
-				packageExportPrefix: "@ji/example/commands",
+				packageExportPrefix: "@ns/example/commands",
 			}),
 		).toEqual({
 			command,
 			manifestName: "review-list",
 			manifestPath: ["review", "list"],
 			manifestEntry: "./src/commands/review-list.ts",
-			packageExport: "@ji/example/commands/review-list",
+			packageExport: "@ns/example/commands/review-list",
 		});
 	});
 
@@ -132,7 +132,7 @@ describe("@ji/kernel/sdk runtime exports", () => {
 		const parsed = sdlExtensionPackageManifestSchema.parse({
 			description: "Package description.",
 			private: true,
-			ji: {
+			ns: {
 				description: "SDL commands.",
 				group: "flow",
 				owner: "repo-local",
@@ -151,9 +151,9 @@ describe("@ji/kernel/sdk runtime exports", () => {
 		});
 
 		expect(parsed.private).toBe(true);
-		expect(parsed.ji?.owner).toBe("repo-local");
-		expect(parsed.ji?.commands?.[0]).toMatchObject({ futureField: "kept" });
-		expect(sdlExtensionManifestCommandSchema.parse(parsed.ji?.commands?.[0])).toMatchObject({
+		expect(parsed.ns?.owner).toBe("repo-local");
+		expect(parsed.ns?.commands?.[0]).toMatchObject({ futureField: "kept" });
+		expect(sdlExtensionManifestCommandSchema.parse(parsed.ns?.commands?.[0])).toMatchObject({
 			name: "changes",
 			futureField: "kept",
 		});

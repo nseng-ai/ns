@@ -1,5 +1,5 @@
 import type { ExecGateway } from "./exec-gateway.ts";
-import type { ExplicitUndefined } from "@ji/core/primitives";
+import type { ExplicitUndefined } from "@ns/core/primitives";
 
 export interface LoadGhCommandOptions {
 	pi: ExecGateway;

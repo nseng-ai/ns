@@ -1,4 +1,4 @@
-import { optionalEntries, optionalEntry } from "@ji/core/primitives";
+import { optionalEntries, optionalEntry } from "@ns/core/primitives";
 import type {
 	SdlCommandIo,
 	SdlCommandMessageOptions,

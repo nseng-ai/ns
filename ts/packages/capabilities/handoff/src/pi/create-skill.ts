@@ -1,5 +1,5 @@
-import { formatErrorMessage } from "@ji/core/primitives";
-import { expandRepoSkillBlock, type ExpandedSkillBlock } from "@ji/pi/skills/expansion";
+import { formatErrorMessage } from "@ns/core/primitives";
+import { expandRepoSkillBlock, type ExpandedSkillBlock } from "@ns/pi/skills/expansion";
 import { CREATE_HANDOFF_SKILL_NAME } from "./command-constants.ts";
 
 export type HandoffCreateSkillLoadResult =

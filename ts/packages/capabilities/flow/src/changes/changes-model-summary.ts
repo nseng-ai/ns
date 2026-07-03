@@ -1,7 +1,7 @@
-import { normalizeTextOutput } from "@ji/core/text-normalization";
+import { normalizeTextOutput } from "@ns/core/text-normalization";
 
-import type { PendingWorktreeSnapshot } from "@ji/capability-kit/pending-worktree";
-import { selectChangesModelRef, type TextGenerator } from "@ji/capability-kit/text-generation";
+import type { PendingWorktreeSnapshot } from "@ns/capability-kit/pending-worktree";
+import { selectChangesModelRef, type TextGenerator } from "@ns/capability-kit/text-generation";
 
 const CHANGES_SUMMARY_MAX_BULLETS = 4;
 const CHANGES_SUMMARY_MAX_TOKENS = 512;

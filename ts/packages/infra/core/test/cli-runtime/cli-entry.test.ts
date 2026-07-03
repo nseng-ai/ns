@@ -3,15 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { ClinkrGroup, failure, ok } from "@ji/clinkr";
-import { rawCommand } from "@ji/clinkr/raw";
+import { ClinkrGroup, failure, ok } from "@ns/clinkr";
+import { rawCommand } from "@ns/clinkr/raw";
 import {
 	defineCli,
 	isDirectCliInvocation,
 	runClinkrCommand,
 	runOperationCommand,
 	type CliPrepareRunInput,
-} from "@ji/core/cli-runtime";
+} from "@ns/core/cli-runtime";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -110,7 +110,7 @@ describe("runOperationCommand", () => {
 describe("defineCli", () => {
 	test("reads package metadata and formats TypeScript runtime diagnostics", () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -123,7 +123,7 @@ describe("defineCli", () => {
 				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
 		});
 		expect(cli.metadata).toEqual({
-			packageName: "@ji/example",
+			packageName: "@ns/example",
 			packagePath: `packages/${root.split("/").at(-1)}`,
 			binName: "example",
 			binPath: "src/cli.ts",
@@ -131,12 +131,12 @@ describe("defineCli", () => {
 		});
 		expect(cli.version).toBe("1.2.3");
 		expect(cli.runtimeInfo()).toBe(
-			`runtime: typescript\nentry_point: @ji/example bin example -> ts/packages/${root.split("/").at(-1)}/src/cli.ts\n`,
+			`runtime: typescript\nentry_point: @ns/example bin example -> ts/packages/${root.split("/").at(-1)}/src/cli.ts\n`,
 		);
 	});
 
 	test("formats Bun runtime diagnostics", () => {
-		const root = makePackage({ name: "jicc", version: "0.1.0", bin: { jicc: "./src/cli.ts" } });
+		const root = makePackage({ name: "nscc", version: "0.1.0", bin: { nscc: "./src/cli.ts" } });
 		const cli = defineCli<TestContext, TestDeps, undefined>({
 			metaUrl: packageMetaUrl(root),
 			runtime: "bun",
@@ -146,13 +146,13 @@ describe("defineCli", () => {
 				new ClinkrGroup<TestContext>({ name, description, version, runtimeInfo }),
 		});
 		expect(cli.runtimeInfo()).toBe(
-			`runtime: bun\nentry_point: jicc bin jicc -> ts/packages/${root.split("/").at(-1)}/src/cli.ts\n`,
+			`runtime: bun\nentry_point: nscc bin nscc -> ts/packages/${root.split("/").at(-1)}/src/cli.ts\n`,
 		);
 	});
 
 	test("passes resolved dependencies, IO, args, and metadata into prepareRun", async () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -202,14 +202,14 @@ describe("defineCli", () => {
 		expect(prepareInput?.args).toEqual(["go"]);
 		expect(prepareInput?.cwd).toBe("/worktree");
 		expect(prepareInput?.env.EXAMPLE_ENV).toBe("ready");
-		expect(prepareInput?.metadata.packageName).toBe("@ji/example");
+		expect(prepareInput?.metadata.packageName).toBe("@ns/example");
 		expect(prepareInput?.io.canEmitAnsi).toBe(false);
 		expect(buildInputVersion).toBe("1.2.3");
 	});
 
 	test("allows prepareRun to override Clinkr args", async () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -253,7 +253,7 @@ describe("defineCli", () => {
 
 	test("lets handleRunError normalize handled errors", async () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -279,7 +279,7 @@ describe("defineCli", () => {
 
 	test("rethrows errors that handleRunError declines", async () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -299,7 +299,7 @@ describe("defineCli", () => {
 
 	test("returns handled prepare result without building Clinkr", async () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { example: "./src/cli.ts" },
 		});
@@ -316,12 +316,12 @@ describe("defineCli", () => {
 	});
 
 	test("fails loudly when package metadata has no version", () => {
-		const root = makePackage({ name: "@ji/example", bin: { example: "./src/cli.ts" } });
+		const root = makePackage({ name: "@ns/example", bin: { example: "./src/cli.ts" } });
 		expect(() => defineNoopCli(root)).toThrow(/Invalid CLI package metadata.*version/);
 	});
 
 	test("uses the package name when package metadata has no bin", () => {
-		const root = makePackage({ name: "@ji/example", version: "1.2.3" });
+		const root = makePackage({ name: "@ns/example", version: "1.2.3" });
 		const cli = defineCli<TestContext, TestDeps, undefined>({
 			metaUrl: packageMetaUrl(root),
 			runtime: "typescript",
@@ -336,7 +336,7 @@ describe("defineCli", () => {
 
 	test("fails loudly when package metadata has multiple bin entries", () => {
 		const root = makePackage({
-			name: "@ji/example",
+			name: "@ns/example",
 			version: "1.2.3",
 			bin: { first: "./src/first.ts", second: "./src/second.ts" },
 		});

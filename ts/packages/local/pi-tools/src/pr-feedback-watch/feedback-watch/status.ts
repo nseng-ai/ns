@@ -1,4 +1,4 @@
-import { formatElapsedMs } from "@ji/core/time-format";
+import { formatElapsedMs } from "@ns/core/time-format";
 
 import {
 	DEFAULT_INTERVAL_MS,

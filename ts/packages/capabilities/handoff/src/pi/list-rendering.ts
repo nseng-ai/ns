@@ -1,5 +1,5 @@
-import { isRecord } from "@ji/pi/runtime/primitives";
-import { truncateDisplayLine } from "@ji/pi/terminal/presentation";
+import { isRecord } from "@ns/pi/runtime/primitives";
+import { truncateDisplayLine } from "@ns/pi/terminal/presentation";
 import { PICKUP_HANDOFF_COMMAND_NAME } from "./command-constants.ts";
 import type { CustomMessage, RenderComponent, RenderTheme } from "./runtime-types.ts";
 import type {

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps, ColorDepth } from "@ji/clinkr";
-import { stripAnsi } from "@ji/clinkr/testing";
-import type { ExecResult } from "@ji/kernel/sdk";
+import type { Caps, ColorDepth } from "@ns/clinkr";
+import { stripAnsi } from "@ns/clinkr/testing";
+import type { ExecResult } from "@ns/kernel/sdk";
 
-import { renderGitResultBlock } from "../../src/ji/presentation/git-result-block.ts";
+import { renderGitResultBlock } from "../../src/ns/presentation/git-result-block.ts";
 
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";

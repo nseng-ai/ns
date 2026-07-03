@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/autoslot";
+export { default } from "@ns/flow/commands/autoslot";

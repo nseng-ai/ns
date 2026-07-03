@@ -6,8 +6,8 @@ import {
 	formatCommand,
 	formatCommandFailure,
 	formatCommandStartupFailure,
-} from "@ji/core/exec";
-import { formatErrorMessage, type ExplicitUndefined } from "@ji/core/primitives";
+} from "@ns/core/exec";
+import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
 
 // Neutral cmux command runner: keep process execution behind CommandExecApi for package extraction.
 export const CMUX_STARTUP_FAILURE_EXIT_CODE = 127;

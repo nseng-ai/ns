@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 
-import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@ji/core/model-slug";
+import { DEFAULT_FAST_MODEL, SLUG_MODEL_ENV } from "@ns/core/model-slug";
 import {
 	buildSlugModelArgs,
 	deriveSlugWithModel,
 	type SlugModelCommandResult,
 	type SlugModelExecOptions,
-} from "@ji/capability-kit/model-slug";
+} from "@ns/capability-kit/model-slug";
 
 interface ExecCall {
 	command: string;

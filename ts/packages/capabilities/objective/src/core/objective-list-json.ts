@@ -1,4 +1,4 @@
-import { formatZodIssue } from "@ji/core/primitives";
+import { formatZodIssue } from "@ns/core/primitives";
 
 import {
 	objectiveListResultSchema,

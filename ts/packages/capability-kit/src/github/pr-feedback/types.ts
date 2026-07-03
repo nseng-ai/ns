@@ -1,5 +1,5 @@
-import type { ExplicitUndefined } from "@ji/core/primitives";
-import type { ErrorInfo } from "@ji/core/result";
+import type { ExplicitUndefined } from "@ns/core/primitives";
+import type { ErrorInfo } from "@ns/core/result";
 
 export interface GithubPrFeedbackOptions {
 	readonly cwd: string;

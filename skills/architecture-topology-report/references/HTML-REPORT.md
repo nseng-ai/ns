@@ -10,7 +10,7 @@
 ## Spec contract (`--spec <module.mjs>`)
 
 An ESM module with a `default` export. The generator reads each package's declared
-`ji.tier`, applies any report-only tier overrides, computes fan-in/out, marks cycle edges,
+`ns.tier`, applies any report-only tier overrides, computes fan-in/out, marks cycle edges,
 and renders. You provide:
 
 | Field                          | Shape                                                                                              | Notes                                                                                                                                                                                                                                 |
@@ -126,7 +126,7 @@ What it must do:
   *area* (not radius) tracks `loc` — the visual heft of a package matches its real heft.
   `loc` comes straight from the script's `packages[name].loc`.
 - **Color = tier**, swatches matching the north-star bands. The extractor reads declared
-  `ji.tier` from package manifests; the spec may override individual packages only when a
+  `ns.tier` from package manifests; the spec may override individual packages only when a
   report needs a deliberate presentation exception.
 - **Cycle edges in red** with an arrowhead, drawn against the layout flow. Mark a link
   `cycle: true` when its `source→target` pair appears inside any SCC from the script's

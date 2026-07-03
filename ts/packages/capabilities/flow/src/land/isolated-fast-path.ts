@@ -1,4 +1,4 @@
-import type { SdlCommandIo } from "@ji/kernel/sdk";
+import type { SdlCommandIo } from "@ns/kernel/sdk";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
 import { toLandStackFailure } from "./stack/landing-plan.ts";
 import { notifyPrintAware, presentFailureOutcome, setStatus } from "./stack/presentation.ts";

@@ -9,7 +9,7 @@ import {
 	handoffSlugToKey,
 	isHandoffKey,
 	parseFlatHandoffSlug,
-} from "@ji/handoff/identity";
+} from "@ns/handoff/identity";
 
 describe("handoff identity", () => {
 	test("exports the handoff storage constants", () => {

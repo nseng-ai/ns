@@ -4,7 +4,7 @@ import type { LandContext, LandingOutcome, LandingRequest, LandResult } from "./
 // Public API identifiers intentionally mirror package metadata; tests guard the invariant
 // instead of reading package metadata at runtime.
 export const LAND_CAPABILITY_ID = "land";
-export const LAND_PACKAGE_NAME = "@ji/flow";
+export const LAND_PACKAGE_NAME = "@ns/flow";
 
 export interface LandCapabilityMetadata {
 	readonly capabilityId: typeof LAND_CAPABILITY_ID;

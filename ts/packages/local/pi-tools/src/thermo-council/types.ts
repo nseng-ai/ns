@@ -1,4 +1,4 @@
-import type { ModelInfo } from "@ji/pi/runtime/types";
+import type { ModelInfo } from "@ns/pi/runtime/types";
 import type { RunnerSubagentPi } from "@internal/pi-tools/runner-subagents";
 import type {
 	FindingConfidence,

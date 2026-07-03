@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { createJiti } from "jiti/static";
 
-import { isRecord } from "@ji/core/primitives";
+import { isRecord } from "@ns/core/primitives";
 
 import {
 	defineExtension,
@@ -29,23 +29,23 @@ const SDL_SDK_DIR = dirname(fileURLToPath(import.meta.url));
 const SDL_SRC_DIR = dirname(SDL_SDK_DIR);
 
 /** Module specifier that SDL command entries import the SDK from. */
-const SDK_SPECIFIER = "@ji/kernel/sdk";
-const CCC_AUTOSLOT_SPECIFIER = "@ji/ccc/autoslot";
-const CCC_LAND_SPECIFIER = "@ji/ccc/land";
-const CCC_TRUNK_PULL_SPECIFIER = "@ji/ccc/trunk-pull";
-const EXEC_SPECIFIER = "@ji/core/exec";
-const CAPABILITY_KIT_MODEL_SLUG_SPECIFIER = "@ji/capability-kit/model-slug";
-const CORE_MODEL_SLUG_SPECIFIER = "@ji/core/model-slug";
-const CORE_PRIMITIVES_SPECIFIER = "@ji/core/primitives";
-const CORE_TEXT_NORMALIZATION_SPECIFIER = "@ji/core/text-normalization";
-const GIT_SPECIFIER = "@ji/capability-kit/git";
-const ADDRESS_PACKAGE_NAME = "@ji/address";
-const ARETRO_PACKAGE_NAME = "@ji/aretro";
-const BRANCH_CONTEXT_PACKAGE_NAME = "@ji/branch-context";
-const HANDOFF_PACKAGE_NAME = "@ji/handoff";
-const OBJECTIVE_PACKAGE_NAME = "@ji/objective";
-const FLOW_PACKAGE_NAME = "@ji/flow";
-const ROASTER_PACKAGE_NAME = "@ji/roaster";
+const SDK_SPECIFIER = "@ns/kernel/sdk";
+const CCC_AUTOSLOT_SPECIFIER = "@ns/ccc/autoslot";
+const CCC_LAND_SPECIFIER = "@ns/ccc/land";
+const CCC_TRUNK_PULL_SPECIFIER = "@ns/ccc/trunk-pull";
+const EXEC_SPECIFIER = "@ns/core/exec";
+const CAPABILITY_KIT_MODEL_SLUG_SPECIFIER = "@ns/capability-kit/model-slug";
+const CORE_MODEL_SLUG_SPECIFIER = "@ns/core/model-slug";
+const CORE_PRIMITIVES_SPECIFIER = "@ns/core/primitives";
+const CORE_TEXT_NORMALIZATION_SPECIFIER = "@ns/core/text-normalization";
+const GIT_SPECIFIER = "@ns/capability-kit/git";
+const ADDRESS_PACKAGE_NAME = "@ns/address";
+const ARETRO_PACKAGE_NAME = "@ns/aretro";
+const BRANCH_CONTEXT_PACKAGE_NAME = "@ns/branch-context";
+const HANDOFF_PACKAGE_NAME = "@ns/handoff";
+const OBJECTIVE_PACKAGE_NAME = "@ns/objective";
+const FLOW_PACKAGE_NAME = "@ns/flow";
+const ROASTER_PACKAGE_NAME = "@ns/roaster";
 
 const CCC_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "ccc", "src");
 const CORE_SRC_DIR = join(SDL_SRC_DIR, "..", "..", "infra", "core", "src");
@@ -64,9 +64,9 @@ const FLOW_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "flow");
 const FLOW_PACKAGE_JSON_PATH = join(FLOW_PACKAGE_DIR, "package.json");
 const ROASTER_PACKAGE_DIR = join(SDL_SRC_DIR, "..", "..", "capabilities", "roaster");
 const ROASTER_PACKAGE_JSON_PATH = join(ROASTER_PACKAGE_DIR, "package.json");
-const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "ji", "autoslot.ts");
-const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "ji", "land.ts");
-const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "ji", "trunk-pull.ts");
+const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, "ns", "autoslot.ts");
+const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, "ns", "land.ts");
+const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, "ns", "trunk-pull.ts");
 const EXEC_MODULE_PATH = join(CORE_SRC_DIR, "exec", "index.ts");
 const CAPABILITY_KIT_MODEL_SLUG_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "kit", "model-slug.ts");
 const CORE_MODEL_SLUG_MODULE_PATH = join(CORE_SRC_DIR, "primitives", "model-slug.ts");
@@ -75,18 +75,18 @@ const CORE_TEXT_NORMALIZATION_MODULE_PATH = join(CORE_SRC_DIR, "terminal", "text
 const GIT_MODULE_PATH = join(CAPABILITY_KIT_SRC_DIR, "git", "index.ts");
 
 const SDL_INTERNAL_WORKSPACE_MODULE_PATHS = {
-	"@ji/kernel/cli": "cli/index.ts",
-	"@ji/kernel/context": "cli/context.ts",
-	"@ji/kernel/pi-text-generation": "runtime/pi-text-generation.ts",
+	"@ns/kernel/cli": "cli/index.ts",
+	"@ns/kernel/context": "cli/context.ts",
+	"@ns/kernel/pi-text-generation": "runtime/pi-text-generation.ts",
 } as const;
 
 const CAPABILITY_KIT_MODULE_PATHS = {
-	"@ji/capability-kit/checkpoint-flow": "kit/checkpoint-flow.ts",
-	"@ji/capability-kit/checkpoint-message": "kit/checkpoint-message.ts",
-	"@ji/capability-kit/pending-worktree": "kit/pending-worktree.ts",
-	"@ji/capability-kit/temp-files": "kit/temp-files.ts",
-	"@ji/capability-kit/text-generation": "kit/text-generation.ts",
-	"@ji/capability-kit/text-repair": "kit/text-repair.ts",
+	"@ns/capability-kit/checkpoint-flow": "kit/checkpoint-flow.ts",
+	"@ns/capability-kit/checkpoint-message": "kit/checkpoint-message.ts",
+	"@ns/capability-kit/pending-worktree": "kit/pending-worktree.ts",
+	"@ns/capability-kit/temp-files": "kit/temp-files.ts",
+	"@ns/capability-kit/text-generation": "kit/text-generation.ts",
+	"@ns/capability-kit/text-repair": "kit/text-repair.ts",
 } as const;
 
 function buildInternalWorkspaceAliases(): Record<string, string> {
@@ -108,7 +108,7 @@ function buildModuleAliasMap(
 	);
 }
 
-const SDL_COMMAND_EXPORT_PREFIX = "./ji/commands/";
+const SDL_COMMAND_EXPORT_PREFIX = "./ns/commands/";
 
 const PACKAGE_COMMAND_ALIAS_SOURCES = [
 	{
@@ -252,7 +252,7 @@ function stripLeadingDotSlash(path: string): string {
 	return path.startsWith("./") ? path.slice("./".length) : path;
 }
 
-// Keep this object in sync with all runtime value exports from @ji/kernel/sdk; type-only exports are erased.
+// Keep this object in sync with all runtime value exports from @ns/kernel/sdk; type-only exports are erased.
 // Descriptor helpers are test-authoring-only today, but stay here while they are runtime exports.
 const sdlSdkVirtualModule = {
 	defineExtension,
@@ -276,14 +276,14 @@ const sdlSdkVirtualModule = {
 /**
  * Create the SDL-aware jiti instance used for user-authored modules.
  *
- * The load-bearing option is `virtualModules`: it binds `@ji/kernel/sdk` to the
+ * The load-bearing option is `virtualModules`: it binds `@ns/kernel/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
  * `.ns/extensions`.
  *
  * Package-internal workspace modules may still resolve package subpaths listed
  * as `internalWorkspaceExports`. The repo-local flow manifest is currently a
- * checked-in adapter layer over the source-checkout `@ji/flow` package, so the
+ * checked-in adapter layer over the source-checkout `@ns/flow` package, so the
  * command subpaths are aliased narrowly from that package's `exports` map
  * without adding general `node_modules` package discovery.
  */

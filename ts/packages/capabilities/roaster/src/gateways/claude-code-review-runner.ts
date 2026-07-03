@@ -1,4 +1,4 @@
-import { formatErrorMessage, isRecord } from "@ji/core/primitives";
+import { formatErrorMessage, isRecord } from "@ns/core/primitives";
 import { z } from "zod";
 
 import type { RoasterResult } from "../core/failures.ts";

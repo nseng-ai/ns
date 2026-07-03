@@ -1,4 +1,4 @@
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 import { runCli, type CliDeps } from "../../src/cli.ts";
 import type { PrAddressContext } from "../../src/context.ts";
 import { fakePrAddressContext } from "./in-memory-pr-address-gateways.ts";

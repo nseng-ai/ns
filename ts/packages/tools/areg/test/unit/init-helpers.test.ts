@@ -12,7 +12,7 @@ import {
 } from "../../src/operations/toml-section.ts";
 
 describe("init config helpers", () => {
-	test("parses ji.toml areg agents and validates bad values", () => {
+	test("parses ns.toml areg agents and validates bad values", () => {
 		expect(parseSdlAregAgents('[areg]\nagents = ["codex", "cursor"]\n')).toEqual({
 			ok: true,
 			value: ["codex", "cursor"],

@@ -1,12 +1,12 @@
 import { basename, isAbsolute, posix, relative, resolve, sep } from "node:path";
 
-import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@ji/core/command";
+import { type ExecResult, formatCommand, formatOutputSection, tailText } from "@ns/core/command";
 import {
 	parseMachineEnvelopeData,
 	type MachineEnvelopeDataParseValid,
-} from "@ji/core/machine-envelope";
-import { formatErrorMessage } from "@ji/core/primitives";
-import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
+} from "@ns/core/machine-envelope";
+import { formatErrorMessage } from "@ns/core/primitives";
+import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;

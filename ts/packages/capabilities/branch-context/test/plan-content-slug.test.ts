@@ -1,5 +1,5 @@
-import { DEFAULT_FAST_MODEL } from "@ji/core/model-slug";
-import { buildSlugModelArgs } from "@ji/capability-kit/model-slug";
+import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
+import { buildSlugModelArgs } from "@ns/capability-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -10,7 +10,7 @@ import {
 	derivePlanContentSlug,
 	type PlanContentSlugEvidence,
 } from "../src/core/index.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/exec";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
 
 const CWD = "/repo";
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";

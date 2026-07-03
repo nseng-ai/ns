@@ -12,7 +12,7 @@
 // Determinism comes from two injected seams: a `StreamClock` (so tests record/advance dwell instead of
 // sleeping) and a `StreamWriter` (so tests capture emitted strings instead of touching `process.stdout`).
 
-import { systemTimerScheduler } from "@ji/core/time";
+import { systemTimerScheduler } from "@ns/core/time";
 import { createLogUpdate } from "log-update";
 
 import { stripAnsi } from "../ansi.ts";

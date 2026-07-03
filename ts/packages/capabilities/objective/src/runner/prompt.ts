@@ -1,4 +1,4 @@
-import { describeBranchContextGraphiteCreationSteps } from "@ji/branch-context/api";
+import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
 
 import type { RunnerStepMode } from "./context.ts";
 // ADR0024-LEGACY-DELETE(import): marker constants feed only the legacy marker

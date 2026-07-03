@@ -1,26 +1,26 @@
-import { registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { Text } from "@earendil-works/pi-tui";
-import { piExecApiToCommandExecApi } from "@ji/core/command";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { formatErrorMessage, optionalEntries, optionalEntry } from "@ji/core/primitives";
-import type { ScheduledTimer } from "@ji/core/timers";
-import { systemTimerScheduler } from "@ji/core/time";
-import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ji/pi/commands";
-import { sendCommandProgressOrNotify } from "@ji/pi/commands/ack";
+import { piExecApiToCommandExecApi } from "@ns/core/command";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { formatErrorMessage, optionalEntries, optionalEntry } from "@ns/core/primitives";
+import type { ScheduledTimer } from "@ns/core/timers";
+import { systemTimerScheduler } from "@ns/core/time";
+import { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/pi/commands";
+import { sendCommandProgressOrNotify } from "@ns/pi/commands/ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 	deriveSavedPlanContentSlug,
 	formatSavedPlanFileEvidence,
 	type SavedPlanContentSlugEvidence,
 	type SavedPlanFileEvidence,
-} from "@ji/plans/api";
-import { isRecord } from "@ji/pi/runtime/primitives";
-import { GRILL_ASK_TOOL_NAME } from "@ji/pi/grill/surfaces";
+} from "@ns/plans/api";
+import { isRecord } from "@ns/pi/runtime/primitives";
+import { GRILL_ASK_TOOL_NAME } from "@ns/pi/grill/surfaces";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -32,7 +32,7 @@ import type {
 	ToolUpdateHandler,
 } from "./host-types.ts";
 
-export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ji/pi/commands";
+export { WRITE_GRILLED_PLAN_COMMAND_NAME, WRITE_PLAN_COMMAND_NAME } from "@ns/pi/commands";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {

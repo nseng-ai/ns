@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { createTempGitRepo } from "@ji/capability-kit/git/testing";
+import { createTempGitRepo } from "@ns/capability-kit/git/testing";
 
 test("temp git repo helper initializes a committed main branch", () => {
 	const repo = createTempGitRepo({ prefix: "ns-core-testing-git-" });

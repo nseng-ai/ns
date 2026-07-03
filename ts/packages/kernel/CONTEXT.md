@@ -1,11 +1,11 @@
-# @ji/kernel
+# @ns/kernel
 
-`@ji/kernel` owns the public command boundary for software-development-lifecycle workflows that have migrated into ji. Generic extension commands may appear as `ns <name>`, while this repository's current grouped flow lifecycle commands appear as `ns flow <name>` with static Pi mirrors at `/ns:flow:<name>`. Project-specific ji behavior is allowed when it belongs to that lifecycle, and authors use only the public ji extension API.
+`@ns/kernel` owns the public command boundary for software-development-lifecycle workflows that have migrated into ji. Generic extension commands may appear as `ns <name>`, while this repository's current grouped flow lifecycle commands appear as `ns flow <name>` with static Pi mirrors at `/ns:flow:<name>`. Project-specific ji behavior is allowed when it belongs to that lifecycle, and authors use only the public ji extension API.
 
 ## Language
 
 **ji**:
-The `@ji/kernel` package and `ji` CLI. ji is the public lifecycle command boundary for migrated software-development workflows.
+The `@ns/kernel` package and `ji` CLI. ji is the public lifecycle command boundary for migrated software-development workflows.
 *Avoid*: repo-internal developer CLI, generic ji namespace, lower orchestration implementation.
 
 **Legacy `sdl` CLI name**:
@@ -21,7 +21,7 @@ The host layer of the `ji` CLI: command discovery, precedence, selected extensio
 *Avoid*: repository workflow command bundle, Graphite/GitHub policy owner, hidden plugin registry, task database, synonym for all ji packages.
 
 **ji extension**:
-Repo-local or global lifecycle behavior exposed through ji because it belongs to the software-development lifecycle even when it depends on project-specific tools, policy, or orchestration packages. ji extensions default-export an extension object created with `defineExtension()` from `@ji/kernel/sdk`; command contributions currently live in an optional `commands` bucket.
+Repo-local or global lifecycle behavior exposed through ji because it belongs to the software-development lifecycle even when it depends on project-specific tools, policy, or orchestration packages. ji extensions default-export an extension object created with `defineExtension()` from `@ns/kernel/sdk`; command contributions currently live in an optional `commands` bucket.
 *Avoid*: Pi runtime extension, reason to stay outside ji, hidden task, factory registration side effect, command-required or single-command-only model.
 
 **Project-local ji extension**:
@@ -57,23 +57,23 @@ A single-segment ji command name such as `submit`, `changes`, `autobranch`, `aut
 *Avoid*: `ns pr regen`, `ns slot auto`, command taxonomy churn.
 
 **ji extension API**:
-The concrete `@ji/kernel/sdk` subpath used by ji extension authors — the live instance that fills the Public author API slot today. `@ji/kernel/sdk` is the SDK layer; `@ji/kernel` is the host/kernel container that loads extensions. It exposes the ji extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file ji extensions should use this API rather than ji implementation modules; packages must never depend on single-file extensions.
+The concrete `@ns/kernel/sdk` subpath used by ji extension authors — the live instance that fills the Public author API slot today. `@ns/kernel/sdk` is the SDK layer; `@ns/kernel` is the host/kernel container that loads extensions. It exposes the ji extension authoring surface: `defineExtension()`, the command and result types and helpers, `SdlExtensionApi` execution capabilities (including text generation), schema builder `z`, and a deliberately curated set of lower-package re-exports owned as first-party SDK vocabulary. `ts/packages/kernel/docs/sdk-reference.md` is the authoritative, complete export inventory; do not maintain a parallel hand-enumeration of exports here. Single-file ji extensions should use this API rather than ji implementation modules; packages must never depend on single-file extensions.
 *Avoid*: Public ji extension API (third label for the same referent), Pi runtime extension API, importing implementation modules, copying SDK types, resolving SDK through project-local internals, importing from single-file extensions, factory-registration API, direct `zod` dependency for command schemas when the SDK `z` export is available.
 
 **Public author API**:
-The abstract slot — the stable module specifier we promise to point ji extension authors at, independent of which specifier currently fills it. The ji extension API (`@ji/kernel/sdk`) is its current and only filler. Use this term for the promise/contract; use ji extension API for the concrete exports.
-*Avoid*: synonym for `@ji/kernel/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
+The abstract slot — the stable module specifier we promise to point ji extension authors at, independent of which specifier currently fills it. The ji extension API (`@ns/kernel/sdk`) is its current and only filler. Use this term for the promise/contract; use ji extension API for the concrete exports.
+*Avoid*: synonym for `@ns/kernel/sdk`, internal migration export, workspace-private helper, public promise for every package export, unqualified extension API.
 
 **Command-first SDK promotion rule**:
-The evidence rule for moving behavior into the ji extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.ns/extensions/` when that keeps project-local authoring readable; promotion to `@ji/kernel/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
+The evidence rule for moving behavior into the ji extension API: one command may copy or localize a seam while it is still being proven; shared helpers can live inside `.ns/extensions/` when that keeps project-local authoring readable; promotion to `@ns/kernel/sdk` requires repeated command evidence or a clearly documented single-command necessity. Promotion should create a deep author-facing interface, not expose internals for convenience.
 *Avoid*: one-command convenience export, importing implementation modules from extensions, treating duplication as automatically bad, hidden migration registry.
 
 **Internal workspace export**:
-An `@ji/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `ji.internalWorkspaceExports`.
+An `@ns/kernel` subpath shared across first-party workspace packages (`ccc`, `pi`, flow) but not promised through the Public author API. It carries SDK-independent primitives — code that takes explicit callbacks (`execGit`, a text generator) rather than `SdlExtensionApi`. The dividing rule between sharing mechanisms is SDK-dependence: `ctx`-dependent shared code belongs above the SDK in the Shared extension substrate; SDK-independent primitives stay here, below the SDK. Package metadata records these subpaths under `ji.internalWorkspaceExports`.
 *Avoid*: internal migration export, plugin API, public SDK, command-author import path, ctx-dependent shared code.
 
 **Flow capability-area maturity ladder**:
-The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `@ji/flow` workspace package, internal workspace exports for package-owned migration seams, capability-building primitives under precise `@ji/capability-kit/*` subpaths, and deferred `public-sdk` promotion into `@ji/kernel/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@ji/kernel/sdk`.
+The documentation/readiness model for recurring project-local flow command-author seams: `raw` command-local logic, `flow-shared` helpers under `ts/packages/capabilities/flow/src/shared/` in the `@ns/flow` workspace package, internal workspace exports for package-owned migration seams, capability-building primitives under precise `@ns/capability-kit/*` subpaths, and deferred `public-sdk` promotion into `@ns/kernel/sdk` only after a separate explicit SDK decision. For capabilities beyond flow, the Extension layering model (ADR 0009) governs: the SDK stays thin host primitives, and shared `ctx`-dependent code lives above the SDK in the Shared extension substrate rather than being promoted into `@ns/kernel/sdk`.
 *Avoid*: task status, automatic SDK promotion pipeline, proof that a helper is public author API, generic rule for all future extensions.
 
 **Flow-shared helper**:
@@ -97,12 +97,12 @@ The migration policy that deletes old top-level `ns <name>`, flat `/ns:<name>`, 
 *Avoid*: long-lived compatibility alias, temporary old name, autocomplete convenience alias.
 
 **Lower orchestration owner**:
-An internal package such as `@ji/ccc` that may own implementation orchestration while ji owns the public lifecycle command boundary.
+An internal package such as `@ns/ccc` that may own implementation orchestration while ji owns the public lifecycle command boundary.
 *Avoid*: public command namespace owner, reason to keep the old command surface, circular dependency.
 
 ## Extension layering
 
-The end-state architecture for ji capabilities relative to the ji extension API (`@ji/kernel/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@ji/core`, `@ji/clinkr`, `@ji/brmem`). The SDK: the ji kernel (`@ji/kernel`) plus the `@ji/kernel/sdk` package. Above the SDK: the Capability Kit (including gateway subpackages such as `@ji/capability-kit/graphite`) plus the Capabilities (first-party extensions) built on it.
+The end-state architecture for ji capabilities relative to the ji extension API (`@ns/kernel/sdk`). Defined in ADR 0009. Below the SDK: neutral infra (`@ns/core`, `@ns/clinkr`, `@ns/brmem`). The SDK: the ji kernel (`@ns/kernel`) plus the `@ns/kernel/sdk` package. Above the SDK: the Capability Kit (including gateway subpackages such as `@ns/capability-kit/graphite`) plus the Capabilities (first-party extensions) built on it.
 
 **Capability extension**:
 An above-SDK extension that contributes one ji capability — flow, handoff, objective, branch-context, plans, address, slot, roaster, or aretro — depending only on host primitives, neutral infra, and curated provider Capability APIs. `ccc` is the highest-fan-out consumer in the Extension Dependency Graph, not a privileged tier.
@@ -111,7 +111,7 @@ An above-SDK extension that contributes one ji capability — flow, handoff, obj
 The kernel-loaded command surface — `defineExtension()` command contributions registered as CLI and Pi mirror surfaces — is the thin shell that converts `ctx` into gateways and calls the **Gateway-injected capability core**; it is an ordinary architectural layer, not a defined term.
 
 **Capability API**:
-The capability face that a downstream **consumer** extension imports — a curated, typed programmatic export consumed in-process (chiefly by `ccc`) through the required `@ji/<cap>/api` subpath. Consumers depend on the Capability API only, never on internal modules, package-private subpaths, or the provider's CLI.
+The capability face that a downstream **consumer** extension imports — a curated, typed programmatic export consumed in-process (chiefly by `ccc`) through the required `@ns/<cap>/api` subpath. Consumers depend on the Capability API only, never on internal modules, package-private subpaths, or the provider's CLI.
 *Avoid*: Peer API, command contribution, internal module import, CLI invocation of a provider, `ctx`-passing API, provider guts.
 
 **Gateway-injected capability core**:
@@ -119,13 +119,13 @@ The rule that capability domain logic and its Capability API take injected gatew
 *Avoid*: `ctx`-threaded domain logic, exec-string test seam, host access inside the domain logic.
 
 **Extension Dependency Graph**:
-The acyclic, shallow graph of consumer→provider dependencies through `@ji/<cap>/api` Capability API subpaths. Capabilities are mostly leaves (providers); `ccc` is the highest-fan-out consumer. These are ordinary package edges — the kernel loader is unaware of them. The graph must stay acyclic; a cycle is debt (see the `@ji/pi` ↔ `@ji/ccc` cycle tracked by the `sdl-extension-architecture` Objective).
+The acyclic, shallow graph of consumer→provider dependencies through `@ns/<cap>/api` Capability API subpaths. Capabilities are mostly leaves (providers); `ccc` is the highest-fan-out consumer. These are ordinary package edges — the kernel loader is unaware of them. The graph must stay acyclic; a cycle is debt (see the `@ns/pi` ↔ `@ns/ccc` cycle tracked by the `sdl-extension-architecture` Objective).
 *Avoid*: kernel-resolved dependency, capability-to-capability web, cyclic dependency edge.
 
-**Capability Kit** (`@ji/capability-kit`):
+**Capability Kit** (`@ns/capability-kit`):
 The above-SDK package holding cross-cutting, capability-agnostic code shared among capabilities — the `ctx`→gateway adapter and shared result/error shapes — distinct from capability-specific logic, which stays in each capability behind its Capability API. The name "Extension Kit" is reserved for a future general all-extensions substrate.
-*Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@ji/core`.
+*Avoid*: Extension Kit (reserved name), capability-specific home, below-SDK package, public author API, kitchen-sink utilities, `@ns/core`.
 
-**Capability-building primitive subpaths** (`@ji/capability-kit/*`):
-Precise internal workspace subpaths for small shared first-party capability-building primitives extracted out of the former transitional package (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). They are not public `@ji/kernel/sdk` author API by default and not product capability owners; they exist to avoid both kernel/SDK pollution and a permanent transitional holding pen.
+**Capability-building primitive subpaths** (`@ns/capability-kit/*`):
+Precise internal workspace subpaths for small shared first-party capability-building primitives extracted out of the former transitional package (checkpoint-flow/message, pending-worktree, temp-files, text-generation, text-repair). They are not public `@ns/kernel/sdk` author API by default and not product capability owners; they exist to avoid both kernel/SDK pollution and a permanent transitional holding pen.
 *Avoid*: public SDK surface, product capability domain home, below-SDK package, transitional debt label, root-barrel convenience.

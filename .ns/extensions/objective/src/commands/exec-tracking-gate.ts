@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/exec-tracking-gate";
+export { default } from "@ns/objective/ns/commands/exec-tracking-gate";

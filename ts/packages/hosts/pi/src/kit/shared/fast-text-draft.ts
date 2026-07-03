@@ -1,8 +1,8 @@
-import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@ji/core/model-slug";
+import { DEFAULT_FAST_MODEL, DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@ns/core/model-slug";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CommandResult } from "@ji/capability-kit/checkpoint-flow";
+import type { CommandResult } from "@ns/capability-kit/checkpoint-flow";
 import { callPiModelText, type PiModelRegistryLike } from "../models/call.ts";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import { truncateDisplayLine } from "../terminal/presentation.ts";

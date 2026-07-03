@@ -1,5 +1,5 @@
 import type { RunGitHubCliResult } from "../cli.ts";
-import { errorDetailText, resultErr, resultOk, type Result } from "@ji/core/result";
+import { errorDetailText, resultErr, resultOk, type Result } from "@ns/core/result";
 
 import type {
 	GithubPrFeedbackCursorContextFields,

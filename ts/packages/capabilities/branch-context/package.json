@@ -1,18 +1,18 @@
 {
-	"name": "@ji/branch-context",
+	"name": "@ns/branch-context",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./ji/commands/attach": "./src/ji/commands/attach.ts",
-		"./ji/commands/check": "./src/ji/commands/check.ts",
-		"./ji/commands/delete": "./src/ji/commands/delete.ts",
-		"./ji/commands/from-plan": "./src/ji/commands/from-plan.ts",
-		"./ji/commands/list": "./src/ji/commands/list.ts",
-		"./ji/commands/load": "./src/ji/commands/load.ts",
+		"./ns/commands/attach": "./src/ns/commands/attach.ts",
+		"./ns/commands/check": "./src/ns/commands/check.ts",
+		"./ns/commands/delete": "./src/ns/commands/delete.ts",
+		"./ns/commands/from-plan": "./src/ns/commands/from-plan.ts",
+		"./ns/commands/list": "./src/ns/commands/list.ts",
+		"./ns/commands/load": "./src/ns/commands/load.ts",
 		"./testing": "./src/testing/index.ts",
-		"./repo-local-sdl-extension": "./src/ji/repo-local-ji-extension.ts",
+		"./repo-local-sdl-extension": "./src/ns/repo-local-ns-extension.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -25,32 +25,32 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@ji/brmem": "workspace:*",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
-		"@ji/plans": "workspace:*",
+		"@ns/brmem": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
+		"@ns/plans": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ji/pi": {
+		"@ns/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability",
 		"subpackages": [
 			"api",
 			"core",
 			"testing",
-			"ji",
+			"ns",
 			"pi"
 		]
 	}

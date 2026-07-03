@@ -68,46 +68,46 @@ export const packageTierAllowedTargets: Readonly<Record<PackageTier, ReadonlySet
 
 export const allowedPackageTierDebtEdges = new Map<string, string>([
 	[
-		"@ji/kernel\0@ji/slot",
-		"SDK-to-capability CLI mount debt: @ji/kernel still mounts Slot directly.",
+		"@ns/kernel\0@ns/slot",
+		"SDK-to-capability CLI mount debt: @ns/kernel still mounts Slot directly.",
 	],
 	[
-		"@ji/kernel\0@ji/capability-kit",
-		"SDK-to-capability-kit CLI shell-support debt: @ji/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
+		"@ns/kernel\0@ns/capability-kit",
+		"SDK-to-capability-kit CLI shell-support debt: @ns/kernel still reuses Capability Kit shell wrappers for the sdl shell operation.",
 	],
 	[
-		"@ji/brmem\0@ji/capability-kit",
+		"@ns/brmem\0@ns/capability-kit",
 		"Git gateway relocation debt: brmem still consumes the capability-kit git seam until neutral-infra gateway placement is finalized.",
 	],
 	[
-		"@internal/pi-tools\0@ji/capability-kit",
+		"@internal/pi-tools\0@ns/capability-kit",
 		"Local Pi tools container still reuses Capability Kit GitHub identity and text-repair helpers; resolve when local-pi-tool helper placement is settled.",
 	],
 ]);
 
 export const capabilityPackageNames = new Set([
-	"@ji/aretro",
-	"@ji/branch-context",
-	"@ji/ccc",
-	"@ji/handoff",
-	"@ji/objective",
-	"@ji/plans",
-	"@ji/address",
-	"@ji/slot",
-	"@ji/flow",
+	"@ns/aretro",
+	"@ns/branch-context",
+	"@ns/ccc",
+	"@ns/handoff",
+	"@ns/objective",
+	"@ns/plans",
+	"@ns/address",
+	"@ns/slot",
+	"@ns/flow",
 ]);
 
 export const neutralPeerPackageNames = new Set([
 	"/cli-runtime",
-	"@ji/brmem",
-	"@ji/clinkr",
-	"@ji/capability-kit/cmux",
-	"@ji/core",
-	"@ji/capability-kit",
-	"@ji/core/exec",
-	"@ji/capability-kit/git",
-	"@ji/capability-kit/github",
-	"@ji/capability-kit/graphite",
+	"@ns/brmem",
+	"@ns/clinkr",
+	"@ns/capability-kit/cmux",
+	"@ns/core",
+	"@ns/capability-kit",
+	"@ns/core/exec",
+	"@ns/capability-kit/git",
+	"@ns/capability-kit/github",
+	"@ns/capability-kit/graphite",
 ]);
 
 export const manifestDependencyFields = [
@@ -118,9 +118,9 @@ export const manifestDependencyFields = [
 
 export const extensionGraphPackageNames = new Set([
 	...capabilityPackageNames,
-	"@ji/pi",
-	"@ji/kernel",
-	"jicc",
+	"@ns/pi",
+	"@ns/kernel",
+	"nscc",
 ]);
 
 export const deferredExtensionCycleComponents = [];

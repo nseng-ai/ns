@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { installCheckedInHandoffExtension } from "../helpers/handoff-extension.ts";
-import { parseJsonOutput, runCliWithFakes } from "../scenario/ji-cli-fakes.ts";
+import { parseJsonOutput, runCliWithFakes } from "../scenario/ns-cli-fakes.ts";
 
 const tempDirs: string[] = [];
 

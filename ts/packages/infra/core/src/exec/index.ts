@@ -3,10 +3,10 @@ import { accessSync, constants } from "node:fs";
 import { delimiter, join } from "node:path";
 import process from "node:process";
 
-import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@ji/core/command";
-import { formatErrorMessage } from "@ji/core/primitives";
-import type { ScheduledTimer, TimerScheduler } from "@ji/core/timers";
-import { systemTimerScheduler } from "@ji/core/time";
+import type { ExecOptions, ExecResult, StdinCapableCommandExecApi } from "@ns/core/command";
+import { formatErrorMessage } from "@ns/core/primitives";
+import type { ScheduledTimer, TimerScheduler } from "@ns/core/timers";
+import { systemTimerScheduler } from "@ns/core/time";
 
 export {
 	commandFailureReason,
@@ -41,8 +41,8 @@ export {
 	type PiExecResultLike,
 	type StdinCapableCommandExecApi,
 	type TailTextOptions,
-} from "@ji/core/command";
-export { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+} from "@ns/core/command";
+export { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 
 const DEFAULT_TIMEOUT_KILL_GRACE_MS = 5_000;
 const TIMEOUT_EXIT_CODE = 124;

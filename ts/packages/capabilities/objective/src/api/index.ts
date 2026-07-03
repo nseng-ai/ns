@@ -1,5 +1,5 @@
-// Capability API (`@ji/objective/api`): the curated, in-process surface that
-// sibling consumers such as `ccc` and `jicc` depend on. It wraps the
+// Capability API (`@ns/objective/api`): the curated, in-process surface that
+// sibling consumers such as `ccc` and `nscc` depend on. It wraps the
 // gateway-injected Domain Core (`ObjectiveCliContext`, which carries the git and
 // storage gateways) and never exposes command-face (`ClinkrExit`) types.
 

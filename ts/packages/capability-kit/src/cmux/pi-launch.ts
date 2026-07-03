@@ -1,4 +1,4 @@
-import { formatShellArg } from "@ji/core/exec";
+import { formatShellArg } from "@ns/core/exec";
 import type { ModelInfo, ThinkingLevel } from "./types.ts";
 
 export interface PiLaunchOptions {

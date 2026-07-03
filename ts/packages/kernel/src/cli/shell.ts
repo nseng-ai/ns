@@ -1,4 +1,4 @@
-import { failure, ok, requireInteractiveOrUsageError } from "@ji/clinkr";
+import { failure, ok, requireInteractiveOrUsageError } from "@ns/clinkr";
 import { z } from "zod";
 
 import {
@@ -10,7 +10,7 @@ import {
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
-} from "@ji/capability-kit/shell-support";
+} from "@ns/capability-kit/shell-support";
 
 import type { SdlCliContext } from "./context.ts";
 

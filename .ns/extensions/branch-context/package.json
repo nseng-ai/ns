@@ -1,35 +1,53 @@
 {
-	"ji": {
+	"ns": {
 		"description": "Create and load branch-scoped implementation context.",
 		"group": "branch-context",
 		"commands": [
 			{
-				"path": ["exec", "from-plan"],
+				"path": [
+					"exec",
+					"from-plan"
+				],
 				"description": "Create branch context from a saved plan.",
 				"entry": "./src/commands/from-plan.ts"
 			},
 			{
-				"path": ["exec", "load"],
+				"path": [
+					"exec",
+					"load"
+				],
 				"description": "Load an attached branch-context plan.",
 				"entry": "./src/commands/load.ts"
 			},
 			{
-				"path": ["exec", "attach"],
+				"path": [
+					"exec",
+					"attach"
+				],
 				"description": "Attach a saved plan or file as branch context.",
 				"entry": "./src/commands/attach.ts"
 			},
 			{
-				"path": ["exec", "list"],
+				"path": [
+					"exec",
+					"list"
+				],
 				"description": "List branch-context entries.",
 				"entry": "./src/commands/list.ts"
 			},
 			{
-				"path": ["exec", "check"],
+				"path": [
+					"exec",
+					"check"
+				],
 				"description": "Check a branch-context entry.",
 				"entry": "./src/commands/check.ts"
 			},
 			{
-				"path": ["exec", "delete"],
+				"path": [
+					"exec",
+					"delete"
+				],
 				"description": "Delete a branch-context entry.",
 				"entry": "./src/commands/delete.ts"
 			}

@@ -4,8 +4,8 @@ import {
 	formatSlugModelFailure,
 	SLUG_MODEL_TIMEOUT_MS,
 	type SlugModelFailure,
-} from "@ji/capability-kit/model-slug";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@ji/core/branch-slug";
+} from "@ns/capability-kit/model-slug";
+import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@ns/core/branch-slug";
 import { truncateText } from "./shared.ts";
 
 export const MAX_DIFF_CHARS = 24_000;

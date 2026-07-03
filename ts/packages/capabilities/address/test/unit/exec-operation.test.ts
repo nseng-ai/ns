@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GithubPrFeedbackFailure } from "@ji/address/api";
+import type { GithubPrFeedbackFailure } from "@ns/address/api";
 
 import {
 	failureDetail,

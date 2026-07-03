@@ -1,5 +1,5 @@
 {
-	"name": "@ji/capability-kit",
+	"name": "@ns/capability-kit",
 	"version": "0.1.0",
 	"private": true,
 	"files": [
@@ -18,8 +18,8 @@
 		"./git/testing": "./src/git/testing.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",
-		"./ji-command": "./src/kit/ji-command.ts",
-		"./ji-context": "./src/kit/ji-context.ts",
+		"./ns-command": "./src/kit/ns-command.ts",
+		"./ns-context": "./src/kit/ns-context.ts",
 		"./shell-support": "./src/kit/shell-support.ts",
 		"./temp-files": "./src/kit/temp-files.ts",
 		"./text-generation": "./src/kit/text-generation.ts",
@@ -51,12 +51,12 @@
 		"test": "cd ../.. && vitest run --config vitest.config.ts packages/capability-kit/test"
 	},
 	"dependencies": {
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability-kit",
 		"subpackages": [
 			"kit",

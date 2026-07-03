@@ -7,9 +7,9 @@ import {
 	type GraphiteMetadataDbAccess,
 	type SqliteJsonError,
 	type SqliteJsonOutcome,
-} from "@ji/capability-kit/graphite/metadata";
-import { RealGraphiteStackGateway } from "@ji/capability-kit/graphite/stack";
-import { resultErr, resultOk } from "@ji/core/result";
+} from "@ns/capability-kit/graphite/metadata";
+import { RealGraphiteStackGateway } from "@ns/capability-kit/graphite/stack";
+import { resultErr, resultOk } from "@ns/core/result";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 
 interface MetadataRow {

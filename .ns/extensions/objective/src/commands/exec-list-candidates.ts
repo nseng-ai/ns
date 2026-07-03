@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/exec-list-candidates";
+export { default } from "@ns/objective/ns/commands/exec-list-candidates";

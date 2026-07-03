@@ -1,4 +1,4 @@
-import { optionalEntry } from "@ji/core/primitives";
+import { optionalEntry } from "@ns/core/primitives";
 
 import type { ObjectiveRunnerCoreContext, RunnerStepMode } from "./context.ts";
 

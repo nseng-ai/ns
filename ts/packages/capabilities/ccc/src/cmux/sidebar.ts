@@ -1,9 +1,9 @@
-import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@ji/core/model-slug";
+import { DEFAULT_FAST_MODEL_REF, resolveModelRef } from "@ns/core/model-slug";
 import {
 	chooseActiveObjectiveSlug,
 	objectiveSelectionContextFromCommandContext,
 	type ObjectiveSelectionSpec,
-} from "@ji/objective/api";
+} from "@ns/objective/api";
 
 import {
 	applyObjectiveSidebarFields,
@@ -13,7 +13,7 @@ import {
 	validateObjectiveSidebarSlug,
 	slotSlugFromCwd,
 } from "./objective-sidebar.ts";
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 import type {
 	AgentEndContext,
 	CommandContext,
@@ -21,7 +21,7 @@ import type {
 	ModelInfo,
 	NotifyLevel,
 	ThinkingLevel,
-} from "@ji/capability-kit/cmux/types";
+} from "@ns/capability-kit/cmux/types";
 
 const SKILL_NAME = "ccc-sidebar";
 const PI_SIDEBAR_STATUS_KEY = "pi:ccc-sidebar";

@@ -1,4 +1,4 @@
-import { formatCommand } from "@ji/core/command";
+import { formatCommand } from "@ns/core/command";
 
 export const SUBMIT_BASE_ARGS = [
 	"submit",

@@ -1,13 +1,13 @@
-import { runCommand } from "@ji/core/exec";
+import { runCommand } from "@ns/core/exec";
 import {
 	type CommandRunner,
 	outputListenerToExecCallbacks,
 	type ExecResult,
-} from "@ji/core/command";
-import { optionalEntry } from "@ji/core/primitives";
-import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
-import { firstNonEmptyLine } from "@ji/core/text-normalization";
-import { runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
+} from "@ns/core/command";
+import { optionalEntry } from "@ns/core/primitives";
+import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { firstNonEmptyLine } from "@ns/core/text-normalization";
+import { runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
 
 import { detectGitConflictOutput } from "./git-operation-output.ts";
 import { buildSubmitArgs } from "./submit-command-spec.ts";

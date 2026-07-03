@@ -4,11 +4,11 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ji/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
+} from "@ns/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
 import codeExtension from "../../src/pi/code-extension.ts";
 import codeWorkflowsExtension, { codeWorkflowsParity } from "../../src/pi/code-workflows.ts";
-import sdlExtension, { sdlExtensionParity } from "../../src/pi/ji-extension.ts";
+import sdlExtension, { sdlExtensionParity } from "../../src/pi/ns-extension.ts";
 import { smartRestackParity } from "../../src/pi/smart-restack.ts";
 import { stackSquashParity } from "../../src/pi/stack-squash.ts";
 

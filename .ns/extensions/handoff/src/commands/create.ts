@@ -1,1 +1,1 @@
-export { default } from "@ji/handoff/ji/commands/create";
+export { default } from "@ns/handoff/ns/commands/create";

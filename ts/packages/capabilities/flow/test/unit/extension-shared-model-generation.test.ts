@@ -7,12 +7,12 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ji/capability-kit/text-generation";
+} from "@ns/capability-kit/text-generation";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
 const FLOW_MODEL_GENERATION_HELPER_PATH = join(
 	REPO_ROOT,
-	"ts/packages/capabilities/flow/src/ji/model-generation.ts",
+	"ts/packages/capabilities/flow/src/ns/model-generation.ts",
 );
 
 const validCheckpointMessage = `[cp] Update model helper
@@ -82,8 +82,8 @@ describe("project extension shared model generation helper", () => {
 			},
 			{
 				branch: "flow-model-generation-helper",
-				status: " M ts/packages/capabilities/flow/src/ji/commands/changes.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/ji/commands/changes.ts b/ts/packages/capabilities/flow/src/ji/commands/changes.ts\n",
+				status: " M ts/packages/capabilities/flow/src/ns/commands/changes.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/ns/commands/changes.ts b/ts/packages/capabilities/flow/src/ns/commands/changes.ts\n",
 			},
 		);
 
@@ -108,8 +108,8 @@ describe("project extension shared model generation helper", () => {
 				textGenerator,
 			},
 			{
-				status: " M ts/packages/capabilities/flow/src/ji/commands/cp.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/ji/commands/cp.ts b/ts/packages/capabilities/flow/src/ji/commands/cp.ts\n",
+				status: " M ts/packages/capabilities/flow/src/ns/commands/cp.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/ns/commands/cp.ts b/ts/packages/capabilities/flow/src/ns/commands/cp.ts\n",
 			},
 		);
 
@@ -136,8 +136,8 @@ describe("project extension shared model generation helper", () => {
 				textGenerator,
 			},
 			{
-				status: " M ts/packages/capabilities/flow/src/ji/commands/autobranch.ts\n",
-				diff: "diff --git a/ts/packages/capabilities/flow/src/ji/commands/autobranch.ts b/ts/packages/capabilities/flow/src/ji/commands/autobranch.ts\n",
+				status: " M ts/packages/capabilities/flow/src/ns/commands/autobranch.ts\n",
+				diff: "diff --git a/ts/packages/capabilities/flow/src/ns/commands/autobranch.ts b/ts/packages/capabilities/flow/src/ns/commands/autobranch.ts\n",
 			},
 		);
 

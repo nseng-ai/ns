@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { describeBranchContextGraphiteCreationSteps } from "@ji/branch-context/api";
-import { DEFAULT_FAST_MODEL } from "@ji/core/model-slug";
+import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
+import { DEFAULT_FAST_MODEL } from "@ns/core/model-slug";
 import {
 	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
@@ -202,7 +202,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(checkedInContent).toContain("harness-specific adapter");
 		expect(checkedInContent).toContain("Implementation checkpoint guidance:");
 		expect(checkedInContent).toContain("ns flow cp");
-		expect(checkedInContent).not.toContain("/ji:flow:cp");
+		expect(checkedInContent).not.toContain("/ns:flow:cp");
 		expect(checkedInContent).not.toContain("/code:cp");
 		expect(checkedInContent).toContain("coherent standalone");
 		expect(checkedInContent).toContain("checkpoint ownership");

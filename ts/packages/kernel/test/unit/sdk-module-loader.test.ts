@@ -7,8 +7,8 @@ function sortedKeys(value: object): string[] {
 }
 
 test("virtual SDK module mirrors SDK runtime value exports", async () => {
-	const sdkModule = await import("@ji/kernel/sdk");
-	const virtualModule = await createSdlJiti().import<typeof sdkModule>("@ji/kernel/sdk");
+	const sdkModule = await import("@ns/kernel/sdk");
+	const virtualModule = await createSdlJiti().import<typeof sdkModule>("@ns/kernel/sdk");
 	const sdkKeys = sortedKeys(sdkModule);
 
 	expect(sortedKeys(virtualModule)).toEqual(sdkKeys);
@@ -21,7 +21,7 @@ test("virtual SDK module mirrors SDK runtime value exports", async () => {
 test("command export targets prefer import conditions over default conditions", () => {
 	expect(
 		resolveCommandExportTarget({
-			packageName: "@ji/example",
+			packageName: "@ns/example",
 			subpath: "./commands/run",
 			target: { import: "./src/run.ts", default: "./dist/run.js" },
 		}),
@@ -31,7 +31,7 @@ test("command export targets prefer import conditions over default conditions", 
 test("command export targets fall back to default conditions", () => {
 	expect(
 		resolveCommandExportTarget({
-			packageName: "@ji/example",
+			packageName: "@ns/example",
 			subpath: "./commands/run",
 			target: { default: "./dist/run.js" },
 		}),
@@ -41,9 +41,9 @@ test("command export targets fall back to default conditions", () => {
 test("invalid command export targets name the package and subpath", () => {
 	expect(() =>
 		resolveCommandExportTarget({
-			packageName: "@ji/example",
+			packageName: "@ns/example",
 			subpath: "./commands/run",
 			target: { require: "./dist/run.cjs" },
 		}),
-	).toThrow(/@ji\/example package\.json export for \.\/commands\/run/);
+	).toThrow(/@ns\/example package\.json export for \.\/commands\/run/);
 });

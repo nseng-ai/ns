@@ -1,24 +1,24 @@
 import { join } from "node:path";
 
-import { flowAutobranchCommand } from "../../src/ji/commands/autobranch.ts";
-import { flowAutoslotCommand } from "../../src/ji/commands/autoslot.ts";
-import { flowBranchLatestCommitCommand } from "../../src/ji/commands/branch-latest-commit.ts";
-import { flowChangesCommand } from "../../src/ji/commands/changes.ts";
-import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ji/commands/exec-read-graphite-branch-metadata.ts";
-import { flowCpCommand } from "../../src/ji/commands/cp.ts";
-import { flowPullTrunkCommand } from "../../src/ji/commands/pull-trunk.ts";
-import { flowPushCommand } from "../../src/ji/commands/push.ts";
-import { flowRegeneratePrCommand } from "../../src/ji/commands/regenerate-pr.ts";
-import { flowSubmitCommand } from "../../src/ji/commands/submit.ts";
-import type { SdlCommand, SdlExtensionApi, SdlResult } from "@ji/kernel/sdk";
-import { failed } from "@ji/kernel/sdk";
+import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
+import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
+import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
+import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
+import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
+import { flowCpCommand } from "../../src/ns/commands/cp.ts";
+import { flowPullTrunkCommand } from "../../src/ns/commands/pull-trunk.ts";
+import { flowPushCommand } from "../../src/ns/commands/push.ts";
+import { flowRegeneratePrCommand } from "../../src/ns/commands/regenerate-pr.ts";
+import { flowSubmitCommand } from "../../src/ns/commands/submit.ts";
+import type { SdlCommand, SdlExtensionApi, SdlResult } from "@ns/kernel/sdk";
+import { failed } from "@ns/kernel/sdk";
 
 import {
 	ScriptedSdlTestContext,
 	type RunWithFakesDefaults,
 	type ScriptedExecResponse,
 	type TestState,
-} from "./ji-cli-fakes.ts";
+} from "./ns-cli-fakes.ts";
 
 interface RunFlowCommandWithFakesOptions {
 	request?: unknown;

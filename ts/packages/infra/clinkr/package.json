@@ -1,5 +1,5 @@
 {
-	"name": "@ji/clinkr",
+	"name": "@ns/clinkr",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -21,7 +21,7 @@
 		"log-update": "catalog:",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "neutral-infra"
 	}
 }

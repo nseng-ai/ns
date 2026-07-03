@@ -5,7 +5,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
 import type {
 	AregNpxSkillsAddRequest,
@@ -395,7 +395,7 @@ describe("real areg gateways", () => {
 				path.join(project, "skills-lock.json"),
 				JSON.stringify({ version: 1, skills: {} }),
 			);
-			await writeFile(path.join(project, "ji.toml"), '[areg]\nagents = ["codex"]\n');
+			await writeFile(path.join(project, "ns.toml"), '[areg]\nagents = ["codex"]\n');
 
 			const result = await new RealAregProjectGateway().inspectProjectBase({
 				cwd: root,
@@ -407,7 +407,7 @@ describe("real areg gateways", () => {
 				projectDir: project,
 				projectPathState: { type: "directory" },
 				lockfile: { type: "file", text: JSON.stringify({ version: 1, skills: {} }) },
-				sdlToml: { type: "file", text: '[areg]\nagents = ["codex"]\n' },
+				nsToml: { type: "file", text: '[areg]\nagents = ["codex"]\n' },
 				aregJson: { type: "missing" },
 			});
 		} finally {

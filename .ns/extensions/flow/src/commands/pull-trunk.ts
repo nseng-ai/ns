@@ -1,1 +1,1 @@
-export { default } from "@ji/flow/commands/pull-trunk";
+export { default } from "@ns/flow/commands/pull-trunk";

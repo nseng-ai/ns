@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { Caps, ColorDepth } from "@ji/clinkr";
+import type { Caps, ColorDepth } from "@ns/clinkr";
 import { renderBufferedReport, stripAnsiWhenDisabled } from "../../src/cli-theme/report.ts";
 
 const ACCENT_TRUECOLOR = "\x1b[38;2;34;211;238m";

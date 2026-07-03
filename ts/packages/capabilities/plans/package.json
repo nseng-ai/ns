@@ -1,5 +1,5 @@
 {
-	"name": "@ji/plans",
+	"name": "@ns/plans",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {
@@ -18,12 +18,12 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/plans/test"
 	},
 	"dependencies": {
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
 		"zod": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability"
 	}
 }

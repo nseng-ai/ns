@@ -1,6 +1,6 @@
-import type { MessageRenderer } from "@ji/pi/runtime/extension-types";
+import type { MessageRenderer } from "@ns/pi/runtime/extension-types";
 
-export type { CustomMessage, RenderComponent, RenderTheme } from "@ji/pi/runtime/extension-types";
+export type { CustomMessage, RenderComponent, RenderTheme } from "@ns/pi/runtime/extension-types";
 
 export type {
 	ExecResult,

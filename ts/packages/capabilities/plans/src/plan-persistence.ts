@@ -1,13 +1,13 @@
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
-import type { CommandExecApi } from "@ji/core/exec";
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { isPathInside, optionalEntry } from "@ji/core/primitives";
+import type { CommandExecApi } from "@ns/core/exec";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { isPathInside, optionalEntry } from "@ns/core/primitives";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 
-export { isPathInside } from "@ji/core/primitives";
+export { isPathInside } from "@ns/core/primitives";
 
 export const MIN_PLAN_SLUG_WORDS = 3;
 export const MAX_PLAN_SLUG_WORDS = 7;

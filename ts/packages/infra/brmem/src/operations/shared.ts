@@ -1,5 +1,5 @@
-import { failure, type ClinkrExit } from "@ji/clinkr";
-import { optionalEntries } from "@ji/core/primitives";
+import { failure, type ClinkrExit } from "@ns/clinkr";
+import { optionalEntries } from "@ns/core/primitives";
 
 import type { BrmemCliContext } from "../context.ts";
 import type { BrmemErrorInfo } from "../contracts.ts";

@@ -1,6 +1,6 @@
-import { createFakeClinkrInteraction } from "@ji/clinkr/testing";
-import { optionalEntries } from "@ji/core/primitives";
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { createFakeClinkrInteraction } from "@ns/clinkr/testing";
+import { optionalEntries } from "@ns/core/primitives";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { AregCliContext } from "../../src/context.ts";
@@ -168,7 +168,7 @@ describe("areg update-skills CLI", () => {
 		const run = runUpdate([], {
 			project: {
 				lockfile: lockfile({ local: local("local") }),
-				sdlToml: "[areg]\nagents = [1]\n",
+				nsToml: "[areg]\nagents = [1]\n",
 			},
 			npxMissing: true,
 		});
@@ -221,7 +221,7 @@ describe("areg update-skills CLI", () => {
 
 	test("resolves agents from config precedence and explicit overrides", async () => {
 		const sdl = runUpdate([], {
-			project: { sdlToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
+			project: { nsToml: '[areg]\nagents = ["cursor"]\n', aregJson: { agents: ["legacy"] } },
 		});
 		expect(await sdl.exit).toBe(0);
 		expect(sdl.npxSkills.operations()[0]?.targetAgents).toEqual(["cursor"]);
@@ -236,10 +236,10 @@ describe("areg update-skills CLI", () => {
 	});
 
 	test("selected updates fail on invalid config, missing lockfile, malformed lockfile, and missing npx before calls", async () => {
-		const invalidConfig = runUpdate([], { project: { sdlToml: "[areg]\nagents = [1]\n" } });
+		const invalidConfig = runUpdate([], { project: { nsToml: "[areg]\nagents = [1]\n" } });
 		expect(await invalidConfig.exit).toBe(2);
 		expect(invalidConfig.stderr.join("")).toContain(
-			"ji.toml [areg].agents must be a non-empty string list",
+			"ns.toml [areg].agents must be a non-empty string list",
 		);
 		expect(invalidConfig.npxSkills.operations()).toEqual([]);
 

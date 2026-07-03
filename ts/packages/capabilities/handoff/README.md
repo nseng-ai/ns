@@ -1,8 +1,8 @@
-# @ji/handoff
+# @ns/handoff
 
 Handoff Capability package for directed Handoff Artifacts stored in Branch Memory.
 
-`@ji/handoff` owns the Handoff Domain Core, the curated `@ji/handoff/api` Capability API, and ji command leaves exposed through the portable command face:
+`@ns/handoff` owns the Handoff Domain Core, the curated `@ns/handoff/api` Capability API, and ji command leaves exposed through the portable command face:
 
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted]

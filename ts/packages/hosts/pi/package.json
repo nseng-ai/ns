@@ -1,5 +1,5 @@
 {
-	"name": "@ji/pi",
+	"name": "@ns/pi",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -44,9 +44,9 @@
 	},
 	"dependencies": {
 		"@earendil-works/pi-tui": "catalog:",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/kernel": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/kernel": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {
@@ -59,7 +59,7 @@
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:"
 	},
-	"ji": {
+	"ns": {
 		"tier": "host",
 		"subpackages": [
 			"kit",

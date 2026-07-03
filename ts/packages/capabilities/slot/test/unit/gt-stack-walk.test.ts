@@ -5,7 +5,7 @@ import {
 	collectStackBranches,
 	collectStackEdges,
 } from "../../src/lifecycle/operations/gt/stack-walk.ts";
-import { fakeStackInfo } from "@ji/capability-kit/graphite/testing";
+import { fakeStackInfo } from "@ns/capability-kit/graphite/testing";
 
 describe("Graphite stack walking", () => {
 	it("deduplicates values while preserving first-seen order", () => {

@@ -1,4 +1,4 @@
-import { optionalEntries, type ExplicitUndefined } from "@ji/core/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@ns/core/primitives";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -7,7 +7,7 @@ import {
 	type ExecResult,
 	formatCommand,
 	formatCommandFailure,
-} from "@ji/core/exec";
+} from "@ns/core/exec";
 
 export const GRAPHITE_COMMAND_NAME = "gt";
 

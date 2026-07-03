@@ -28,17 +28,17 @@
 		"@earendil-works/pi-ai": "catalog:",
 		"@earendil-works/pi-coding-agent": "catalog:",
 		"@earendil-works/pi-tui": "catalog:",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/command-backed-skill-registry": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/pi": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/command-backed-skill-registry": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/pi": "workspace:*",
 		"zod": "catalog:"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/local/pi-tools/test"
 	},
-	"ji": {
+	"ns": {
 		"tier": "local-pi-tool",
 		"subpackages": [
 			"backing-skill-commands",

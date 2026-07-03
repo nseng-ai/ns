@@ -1,1 +1,1 @@
-export { default } from "@ji/address/ji/commands/exec-download-feedback";
+export { default } from "@ns/address/ns/commands/exec-download-feedback";

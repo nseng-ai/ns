@@ -1,1 +1,1 @@
-export { default } from "@ji/objective/ji/commands/exec-load-orientations";
+export { default } from "@ns/objective/ns/commands/exec-load-orientations";

@@ -4,8 +4,8 @@ import {
 	comparePiSurfaceParity,
 	formatParityComparisonFailure,
 	type LivePiSurface,
-} from "@ji/pi/parity/check";
-import { FakePiSurfaceHost, registerWithFakeHost } from "@ji/pi/parity/testing";
+} from "@ns/pi/parity/check";
+import { FakePiSurfaceHost, registerWithFakeHost } from "@ns/pi/parity/testing";
 import thermoCouncilExtension, { thermoCouncilParity } from "../../src/thermo-council/extension.ts";
 
 async function collectThermoCouncilSurfaces(): Promise<LivePiSurface[]> {

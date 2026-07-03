@@ -1,5 +1,5 @@
-import { splitMarkdownFrontmatter, stripLineEnding } from "@ji/core/markdown-frontmatter";
-import { err, type Result } from "@ji/core/result";
+import { splitMarkdownFrontmatter, stripLineEnding } from "@ns/core/markdown-frontmatter";
+import { err, type Result } from "@ns/core/result";
 
 const FRONTMATTER_KEY_RE = /^(?<key>[A-Za-z0-9_-]+):(?<value>.*)$/u;
 

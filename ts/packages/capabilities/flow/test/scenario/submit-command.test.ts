@@ -5,17 +5,17 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 import {
 	DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT,
 	PR_DESCRIPTION_GENERATOR_VERSION,
 	formatManagedGeneratedRegion,
 	hashPrDescriptionPrompt,
 } from "../../src/submit/index.ts";
-import type { TextGenerationResult } from "@ji/kernel/sdk";
+import type { TextGenerationResult } from "@ns/kernel/sdk";
 
 import { runFlowSubmitCommandWithFakes } from "./flow-command-fakes.ts";
-import { formattedExecCalls, type ScriptedExecResponse } from "./ji-cli-fakes.ts";
+import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 // A non-tty transient progress line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {

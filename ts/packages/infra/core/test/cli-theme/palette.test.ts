@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { Caps, ColorDepth } from "@ji/clinkr";
+import type { Caps, ColorDepth } from "@ns/clinkr";
 import {
 	bold,
 	dim,

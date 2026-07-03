@@ -13,7 +13,7 @@ import {
 	walkGraphiteAncestors,
 	walkGraphiteSubtree,
 	type GraphiteTopology,
-} from "@ji/capability-kit/graphite/metadata";
+} from "@ns/capability-kit/graphite/metadata";
 
 function schemaRows(columns: readonly string[]): unknown[] {
 	return columns.map((name) => ({ name }));

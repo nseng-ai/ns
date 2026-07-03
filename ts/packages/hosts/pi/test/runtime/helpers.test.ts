@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { formatCommand, formatCommandFailure, formatCommandStartupFailure } from "@ji/core/exec";
-import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
+import { formatCommand, formatCommandFailure, formatCommandStartupFailure } from "@ns/core/exec";
+import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
 
 import { parseMachineEnvelopeData } from "../../src/runtime/machine-envelope.ts";
 

@@ -1,4 +1,4 @@
-import { type ExecResult, formatCommand } from "@ji/core/command";
+import { type ExecResult, formatCommand } from "@ns/core/command";
 import { GIT_TIMEOUT_MS } from "./command-constants.ts";
 import { formatExecFailure, formatStartupFailure } from "./command-failure.ts";
 import type { CommandContext, ExtensionAPI } from "./runtime-types.ts";

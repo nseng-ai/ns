@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 
-import { formatErrorMessage } from "@ji/core/primitives";
+import { formatErrorMessage } from "@ns/core/primitives";
 
 import type {
 	InteractiveClaudeInvocation,

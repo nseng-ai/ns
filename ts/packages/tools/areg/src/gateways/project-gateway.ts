@@ -2,18 +2,18 @@ import type { Dirent } from "node:fs";
 import { lstat, mkdir, readdir, realpath, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-import { RealGitGateway } from "@ji/capability-kit/git";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { visibleCommandBackedReplacementSurfaces } from "@ji/command-backed-skill-registry";
-import { NodeCommandExecApi } from "@ji/core/exec";
-import { formatErrorMessage } from "@ji/core/primitives";
+import { RealGitGateway } from "@ns/capability-kit/git";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { visibleCommandBackedReplacementSurfaces } from "@ns/command-backed-skill-registry";
+import { NodeCommandExecApi } from "@ns/core/exec";
+import { formatErrorMessage } from "@ns/core/primitives";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
 	skillLookupDescriptorForSourceType,
 	skillLookupFileRelativePath,
 	type SkillLookupSourceType,
-} from "@ji/pi/skills/lookup";
+} from "@ns/pi/skills/lookup";
 
 import { AREG_SKILL_KIND_ROOT_DESCRIPTORS, skillKindDescriptorForSourceType } from "../gateways.ts";
 import type {
@@ -71,7 +71,7 @@ export class RealAregProjectGateway implements AregProjectGateway {
 			projectDir,
 			projectPathState: await inspectPath(projectDir),
 			lockfile: await inspectTextFile(path.join(projectDir, "skills-lock.json")),
-			sdlToml: await inspectTextFile(path.join(projectDir, "ji.toml")),
+			nsToml: await inspectTextFile(path.join(projectDir, "ns.toml")),
 			aregJson: await inspectTextFile(path.join(projectDir, "areg.json")),
 		};
 	}

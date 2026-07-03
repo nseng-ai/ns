@@ -1,1 +1,1 @@
-export { default } from "@ji/branch-context/ji/commands/delete";
+export { default } from "@ns/branch-context/ns/commands/delete";

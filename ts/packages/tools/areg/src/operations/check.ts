@@ -1,5 +1,5 @@
-import { failure, ok, negative, type ClinkrExit } from "@ji/clinkr";
-import type { Result } from "@ji/core/result";
+import { failure, ok, negative, type ClinkrExit } from "@ns/clinkr";
+import type { Result } from "@ns/core/result";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";

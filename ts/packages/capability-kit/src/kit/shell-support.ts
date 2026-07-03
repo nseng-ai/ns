@@ -5,7 +5,7 @@ import { basename, dirname, join } from "node:path";
 
 import { z } from "zod";
 
-import { managedRegionBounds } from "@ji/core/managed-region";
+import { managedRegionBounds } from "@ns/core/managed-region";
 
 const SUPPORTED_SHELLS = ["zsh", "bash"] as const;
 type SupportedShell = (typeof SUPPORTED_SHELLS)[number];

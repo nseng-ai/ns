@@ -1,18 +1,18 @@
 {
-	"name": "@ji/ccc",
+	"name": "@ns/ccc",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"bin": {
-		"ccc": "./src/sdl/cli.ts"
+		"ccc": "./src/ns/cli.ts"
 	},
 	"exports": {
 		".": "./src/api/index.ts",
 		"./api": "./src/api/handlers.ts",
-		"./autoslot": "./src/ji/autoslot.ts",
-		"./cli": "./src/ji/cli.ts",
-		"./land": "./src/ji/land.ts",
-		"./trunk-pull": "./src/ji/trunk-pull.ts",
+		"./autoslot": "./src/ns/autoslot.ts",
+		"./cli": "./src/ns/cli.ts",
+		"./land": "./src/ns/land.ts",
+		"./trunk-pull": "./src/ns/trunk-pull.ts",
 		"./pi": "./src/pi/index.ts",
 		"./pi/extension": "./src/pi/extension.ts"
 	},
@@ -21,34 +21,34 @@
 		"test": "cd ../../.. && vitest run --config vitest.config.ts packages/capabilities/ccc/test"
 	},
 	"dependencies": {
-		"@ji/branch-context": "workspace:*",
-		"@ji/capability-kit": "workspace:*",
-		"@ji/clinkr": "workspace:*",
-		"@ji/core": "workspace:*",
-		"@ji/flow": "workspace:*",
-		"@ji/kernel": "workspace:*",
-		"@ji/objective": "workspace:*",
-		"@ji/plans": "workspace:*",
-		"@ji/slot": "workspace:*",
+		"@ns/branch-context": "workspace:*",
+		"@ns/capability-kit": "workspace:*",
+		"@ns/clinkr": "workspace:*",
+		"@ns/core": "workspace:*",
+		"@ns/flow": "workspace:*",
+		"@ns/kernel": "workspace:*",
+		"@ns/objective": "workspace:*",
+		"@ns/plans": "workspace:*",
+		"@ns/slot": "workspace:*",
 		"zod": "catalog:"
 	},
 	"peerDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
 	"peerDependenciesMeta": {
-		"@ji/pi": {
+		"@ns/pi": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
-		"@ji/pi": "workspace:*"
+		"@ns/pi": "workspace:*"
 	},
-	"ji": {
+	"ns": {
 		"tier": "capability",
 		"subpackages": [
 			"api",
 			"cmux",
-			"ji",
+			"ns",
 			"pi"
 		]
 	}

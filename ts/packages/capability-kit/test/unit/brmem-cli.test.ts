@@ -12,9 +12,9 @@ import {
 	runAvailableBrmemCommand,
 	runBrmem,
 	type BrmemExecGateway,
-} from "@ji/capability-kit/brmem-cli";
-import type { PiExecResultLike } from "@ji/core/command";
-import { ScriptedQueue } from "@ji/core/test-kit";
+} from "@ns/capability-kit/brmem-cli";
+import type { PiExecResultLike } from "@ns/core/command";
+import { ScriptedQueue } from "@ns/core/test-kit";
 
 const ROOT = "/repo";
 

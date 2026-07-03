@@ -1,5 +1,5 @@
-import { failure, ok } from "@ji/clinkr";
-import { optionalEntry } from "@ji/core/primitives";
+import { failure, ok } from "@ns/clinkr";
+import { optionalEntry } from "@ns/core/primitives";
 import { z } from "zod";
 
 import type { BrmemCliContext } from "../context.ts";

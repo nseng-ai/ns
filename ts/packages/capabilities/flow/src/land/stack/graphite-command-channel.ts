@@ -4,9 +4,9 @@ import {
 	piExecApiToCommandExecApi,
 	runNormalizedExecResult,
 	type ExecResult,
-} from "@ji/core/command";
-import { stripTerminalEscapes } from "@ji/core/terminal-escapes";
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
+} from "@ns/core/command";
+import { stripTerminalEscapes } from "@ns/core/terminal-escapes";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
 import type { CommandStreamFinish, LandStackExtensionAPI, FlowLandingPlan } from "./types.ts";
 
 const READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX = [

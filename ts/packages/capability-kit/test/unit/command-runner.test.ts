@@ -1,15 +1,15 @@
 import { describe, expect, test } from "vitest";
 
-import { noopSdlCommandIo, noopSdlProgress } from "@ji/kernel/sdk";
-import type { ExecResult } from "@ji/core/exec";
-import type { SdlExecOptions, SdlExtensionApi } from "@ji/kernel/sdk";
+import { noopSdlCommandIo, noopSdlProgress } from "@ns/kernel/sdk";
+import type { ExecResult } from "@ns/core/exec";
+import type { SdlExecOptions, SdlExtensionApi } from "@ns/kernel/sdk";
 
 import {
 	createSdlCommandRunner,
 	SdlCommandExecApi,
 	SdlStdinCapableCommandExecApi,
-} from "@ji/capability-kit/command-runner";
-import { execSdlGit, readSdlGitPorcelainStatus } from "@ji/capability-kit/git";
+} from "@ns/capability-kit/command-runner";
+import { execSdlGit, readSdlGitPorcelainStatus } from "@ns/capability-kit/git";
 
 interface ExecCall {
 	command: string;

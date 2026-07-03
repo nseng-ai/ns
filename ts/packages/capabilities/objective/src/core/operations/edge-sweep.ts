@@ -5,8 +5,8 @@ import {
 	resolveRenderCapabilities,
 	type ClinkrExit,
 	type RenderCapabilities,
-} from "@ji/clinkr";
-import { cell, kv, renderTable } from "@ji/core/cli-theme";
+} from "@ns/clinkr";
+import { cell, kv, renderTable } from "@ns/core/cli-theme";
 import { z } from "zod";
 
 import {

@@ -20,7 +20,7 @@ import {
 	type LandCapabilityMetadata,
 	type LandingBoundaryFailure,
 	type StackSnapshot,
-} from "@ji/flow/land/api";
+} from "@ns/flow/land/api";
 
 function describeLandCapability(metadata: LandCapabilityMetadata): string {
 	return `${metadata.packageName}:${metadata.capabilityId}:${metadata.tier}`;
@@ -30,9 +30,9 @@ function raiseMissingBranchPlan(): never {
 	throw new Error("Expected test branch plan.");
 }
 
-describe("@ji/flow/land API boundary", () => {
+describe("@ns/flow/land API boundary", () => {
 	test("exposes land capability package identity through the API subpath", () => {
-		expect(describeLandCapability(LAND_CAPABILITY_METADATA)).toBe("@ji/flow:land:capability");
+		expect(describeLandCapability(LAND_CAPABILITY_METADATA)).toBe("@ns/flow:land:capability");
 		expect(LAND_CAPABILITY_METADATA).toEqual({
 			capabilityId: LAND_CAPABILITY_ID,
 			packageName: LAND_PACKAGE_NAME,
@@ -45,7 +45,7 @@ describe("@ji/flow/land API boundary", () => {
 
 		expect(LAND_PACKAGE_NAME).toBe(packageJson.name);
 		expect(LAND_CAPABILITY_METADATA.packageName).toBe(packageJson.name);
-		expect(LAND_CAPABILITY_METADATA.tier).toBe(packageJson.ji.tier);
+		expect(LAND_CAPABILITY_METADATA.tier).toBe(packageJson.ns.tier);
 		expect(LAND_CAPABILITY_ID).toBe("land");
 	});
 
@@ -217,13 +217,13 @@ describe("@ji/flow/land API boundary", () => {
 
 interface LandPackageJson {
 	readonly name: string;
-	readonly ji: { readonly tier: "capability" };
+	readonly ns: { readonly tier: "capability" };
 }
 
 function readLandPackageJson(): LandPackageJson {
 	const raw = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
 	if (!isLandPackageJson(raw)) {
-		throw new Error("@ji/flow package.json does not match expected test shape");
+		throw new Error("@ns/flow package.json does not match expected test shape");
 	}
 	return raw;
 }
@@ -234,10 +234,10 @@ function isLandPackageJson(value: unknown): value is LandPackageJson {
 		value !== null &&
 		"name" in value &&
 		typeof value.name === "string" &&
-		"ji" in value &&
-		typeof value.ji === "object" &&
-		value.ji !== null &&
-		"tier" in value.ji &&
-		value.ji.tier === "capability"
+		"ns" in value &&
+		typeof value.ns === "object" &&
+		value.ns !== null &&
+		"tier" in value.ns &&
+		value.ns.tier === "capability"
 	);
 }

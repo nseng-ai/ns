@@ -1,4 +1,4 @@
-import { defineExtension } from "@ji/kernel/sdk";
+import { defineExtension } from "@ns/kernel/sdk";
 
 import {
 	renderReviewLog,
@@ -7,7 +7,7 @@ import {
 	runReviewLog,
 	type ReviewLogRequest,
 } from "../operations/cli-operations.ts";
-import { roasterSdlCommand } from "../ji/command.ts";
+import { roasterSdlCommand } from "../ns/command.ts";
 
 const REVIEW_LOG_DESCRIPTION = `List Branch Memory review log entries for this branch, optionally filtered by review key.`;
 

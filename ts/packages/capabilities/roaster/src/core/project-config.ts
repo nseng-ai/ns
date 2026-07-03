@@ -1,4 +1,4 @@
-import { formatErrorMessage, isRecord } from "@ji/core/primitives";
+import { formatErrorMessage, isRecord } from "@ns/core/primitives";
 import { parse } from "smol-toml";
 
 export interface RoasterDiffProjectConfig {

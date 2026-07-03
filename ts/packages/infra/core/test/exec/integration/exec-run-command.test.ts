@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 
-import { runCommand } from "@ji/core/exec";
-import { createManualTimerScheduler } from "@ji/core/time/testing";
+import { runCommand } from "@ns/core/exec";
+import { createManualTimerScheduler } from "@ns/core/time/testing";
 
 const tempDirs: string[] = [];
 

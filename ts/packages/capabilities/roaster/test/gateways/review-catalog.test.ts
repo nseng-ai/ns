@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 
 import {
 	FakeReviewCatalogGateway,

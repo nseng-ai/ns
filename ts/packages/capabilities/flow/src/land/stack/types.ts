@@ -1,5 +1,5 @@
-import type { ExecResult, PiExecResultLike } from "@ji/core/command";
-import type { SdlConfirmOptions } from "@ji/kernel/sdk";
+import type { ExecResult, PiExecResultLike } from "@ns/core/command";
+import type { SdlConfirmOptions } from "@ns/kernel/sdk";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 

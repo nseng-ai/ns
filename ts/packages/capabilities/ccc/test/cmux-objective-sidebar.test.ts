@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { createCccSidebarControllerWithPiWiring, registerCccSidebarCommands } from "@ji/ccc/pi";
+import { createCccSidebarControllerWithPiWiring, registerCccSidebarCommands } from "@ns/ccc/pi";
 import {
 	formatObjectiveSidebarFields,
 	resolveObjectiveSelector,

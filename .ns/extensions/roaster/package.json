@@ -1,29 +1,41 @@
 {
-  "ji": {
+  "ns": {
     "description": "Run configured code review roasters and publish findings.",
     "group": "roaster",
     "commands": [
       {
         "name": "review-list",
-        "path": ["review", "list"],
+        "path": [
+          "review",
+          "list"
+        ],
         "description": "List configured Roaster review definitions.",
         "entry": "./src/commands/review-list.ts"
       },
       {
         "name": "review-ls",
-        "path": ["review", "ls"],
+        "path": [
+          "review",
+          "ls"
+        ],
         "description": "Alias for review list.",
         "entry": "./src/commands/review-ls.ts"
       },
       {
         "name": "review-log",
-        "path": ["review", "log"],
+        "path": [
+          "review",
+          "log"
+        ],
         "description": "List Roaster review logs for this branch.",
         "entry": "./src/commands/review-log.ts"
       },
       {
         "name": "review-run",
-        "path": ["review", "run"],
+        "path": [
+          "review",
+          "run"
+        ],
         "description": "Run a configured Roaster review over the current diff.",
         "entry": "./src/commands/review-run.ts"
       },
@@ -39,7 +51,10 @@
       },
       {
         "name": "roast-list",
-        "path": ["roast", "list"],
+        "path": [
+          "roast",
+          "list"
+        ],
         "description": "List Roaster review-skill commands.",
         "entry": "./src/commands/roast-list.ts"
       }

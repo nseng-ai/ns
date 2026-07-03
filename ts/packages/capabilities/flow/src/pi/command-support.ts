@@ -1,4 +1,4 @@
-import type { AutocompleteItem } from "@ji/pi/runtime/extension-types";
+import type { AutocompleteItem } from "@ns/pi/runtime/extension-types";
 
 export interface FlowCommandContext {
 	cwd: string;

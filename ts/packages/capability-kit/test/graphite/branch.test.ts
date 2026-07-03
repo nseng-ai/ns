@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
-import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ji/capability-kit/graphite/branch";
-import type { CommandRunner, ExecOptions, ExecResult } from "@ji/core/exec";
+import { GRAPHITE_COMMAND_NAME, runGraphiteCommand } from "@ns/capability-kit/graphite/branch";
+import type { CommandRunner, ExecOptions, ExecResult } from "@ns/core/exec";
 
 const SUCCESS_RESULT = {
 	stdout: "ok\n",

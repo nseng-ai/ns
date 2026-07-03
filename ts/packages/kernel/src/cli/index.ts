@@ -11,12 +11,12 @@ import {
 	type Caps,
 	type ClinkrCommandSpec,
 	type ClinkrDynamicCompletionRequest,
-} from "@ji/clinkr";
-import { renderCompletionCandidatesNewline } from "@ji/clinkr/completion";
-import { rawCommand } from "@ji/clinkr/raw";
-import { defineCli, readStdin, type CliEntrypointDeps } from "@ji/core/cli-runtime";
-import { optionalEntries, optionalEntry } from "@ji/core/primitives";
-import { createRealSlotContext } from "@ji/slot/api";
+} from "@ns/clinkr";
+import { renderCompletionCandidatesNewline } from "@ns/clinkr/completion";
+import { rawCommand } from "@ns/clinkr/raw";
+import { defineCli, readStdin, type CliEntrypointDeps } from "@ns/core/cli-runtime";
+import { optionalEntries, optionalEntry } from "@ns/core/primitives";
+import { createRealSlotContext } from "@ns/slot/api";
 
 import {
 	buildSdlCompletionScript,
@@ -493,7 +493,7 @@ function buildSdlCompletionGroup(): ClinkrGroup<SdlCliContext> {
 	for (const shell of ["bash", "zsh", "fish"] as const) {
 		completion.command({
 			name: shell,
-			description: `Print ${shell} completion setup for ji.`,
+			description: `Print ${shell} completion setup for ns.`,
 			schema: z.object({}),
 			resultSchema: sdlCompletionScriptResultSchema,
 			handler: async () => ok(buildSdlCompletionScript(shell)),

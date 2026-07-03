@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { stripAnsi } from "@ji/clinkr/testing";
+import { stripAnsi } from "@ns/clinkr/testing";
 
 import {
 	autoslotStatusProbeFailExec,
 	branchLatestCommitChildBranchRefusalExec,
 	runFlowAutoslotCommandWithFakes,
 } from "./flow-command-fakes.ts";
-import { formattedExecCalls } from "./ji-cli-fakes.ts";
+import { formattedExecCalls } from "./ns-cli-fakes.ts";
 
 // `ns flow autoslot` routes through the Flow CLI runner (`runFlowCli` → `runAutoslotCli`), which
 // renders durable outcomes in the house style next to where their facts are computed. The happy

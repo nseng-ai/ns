@@ -3,18 +3,18 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { runCli } from "../../src/core/cli.ts";
-import type { CommandExecApi, ExecOptions, ExecResult } from "@ji/core/exec";
-import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ji/capability-kit/git/testing";
-import { createTempDirTracker } from "@ji/core/test-kit";
-import { encodeBranchForPlanPath } from "@ji/plans";
+import type { CommandExecApi, ExecOptions, ExecResult } from "@ns/core/exec";
+import { InMemoryGitGateway, type InMemoryGitGatewayState } from "@ns/capability-kit/git/testing";
+import { createTempDirTracker } from "@ns/core/test-kit";
+import { encodeBranchForPlanPath } from "@ns/plans";
 import {
 	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
-} from "@ji/branch-context/testing";
+} from "@ns/branch-context/testing";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
-} from "@ji/capability-kit/graphite/testing";
+} from "@ns/capability-kit/graphite/testing";
 
 export const SOURCE_BRANCH = "feature/source-plan";
 export const PLAN_SLUG = "branch-scoped-plan";

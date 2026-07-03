@@ -14,7 +14,7 @@ describe("areg CLI shape", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			`runtime: typescript\nentry_point: @ji/areg bin areg -> ${CLI_REL_PATH}\n`,
+			`runtime: typescript\nentry_point: @ns/areg bin areg -> ${CLI_REL_PATH}\n`,
 		);
 		expect(runtime.stderr.join("")).toBe("");
 	});

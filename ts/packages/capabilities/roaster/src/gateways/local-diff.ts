@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { type CommandExecApi, commandFailureReason, formatCommand } from "@ji/core/command";
-import { formatErrorMessage, type ExplicitUndefined } from "@ji/core/primitives";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { RealGitGateway } from "@ji/capability-kit/git";
+import { type CommandExecApi, commandFailureReason, formatCommand } from "@ns/core/command";
+import { formatErrorMessage, type ExplicitUndefined } from "@ns/core/primitives";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { RealGitGateway } from "@ns/capability-kit/git";
 
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, RoasterResult } from "../core/failures.ts";
@@ -112,7 +112,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 	): Promise<RoasterResult<readonly string[]>> {
 		if (options.excludeGlobs !== undefined) return { type: "ok", value: options.excludeGlobs };
 
-		const path = join(repoRoot, "ji.toml");
+		const path = join(repoRoot, "ns.toml");
 		let source: string;
 		try {
 			source = await readFile(path, "utf8");
@@ -120,7 +120,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			if (isMissingFileError(caught)) return { type: "ok", value: [] };
 			return error({
 				type: "project-config-invalid",
-				message: `Failed to read ji.toml: ${formatErrorMessage(caught)}`,
+				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
 			});
 		}
 

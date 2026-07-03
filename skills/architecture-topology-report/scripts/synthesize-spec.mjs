@@ -106,7 +106,7 @@ function hardViolationFinding(hard) {
     tag: "declared-tier · hard",
     fanin: lines.join("\n"),
     problem:
-      `The package manifests declare an <span class="font-mono text-sm">ji.tier</span> for each package and a policy for which tiers may depend on which. `
+      `The package manifests declare an <span class="font-mono text-sm">ns.tier</span> for each package and a policy for which tiers may depend on which. `
       + `These runtime edges break that declared policy: `
       + hard.map((v) => `${mono(v.from)} → ${mono(v.to)} (${v.fromTier} → ${v.toTier})`).join(", ") + `.`,
     solution:
@@ -272,7 +272,7 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
         {
           value: String(hard.length),
           label: "hard tier violations",
-          sub: "declared ji.tier policy",
+          sub: "declared ns.tier policy",
           health: hard.length ? "red" : "green",
         },
         {
@@ -295,13 +295,13 @@ export function synthesizeSpec(analysis, { repo = "workspace" } = {}) {
         + `The top fan-out package is ${mono(top.name)} (${top.count}); the fan-in spine is ${mono(spine.name)} (${spine.count}). `
         + `${plural(Object.keys(analysis.exposesApi || {}).length, "package")} expose an `
         + `<span class="font-mono text-sm">/api</span> seam${apiOnly.length ? `, ${plural(apiOnly.length, "of them")} api-only` : ""}. `
-        + `The circle overlay currently discovers ${plural(analysis.meta.topologyCircleCount ?? analysis.meta.packageCount, "topology circle")}; toggle the graph's circle view for source-component granularity such as <span class="font-mono text-sm">@ji/core/time</span>.`,
+        + `The circle overlay currently discovers ${plural(analysis.meta.topologyCircleCount ?? analysis.meta.packageCount, "topology circle")}; toggle the graph's circle view for source-component granularity such as <span class="font-mono text-sm">@ns/core/time</span>.`,
     },
 
     northStar: {
       rule:
         `No target model was supplied. Shown instead is the <strong>declared-tier stack</strong> as it stands — each package placed in the `
-        + `band of its manifest <span class="font-mono text-sm">ji.tier</span>, ordered from consumers at the top down to neutral infra at the bottom. `
+        + `band of its manifest <span class="font-mono text-sm">ns.tier</span>, ordered from consumers at the top down to neutral infra at the bottom. `
         + `The graph below renders these packages by default; toggle to the subpackage-circle view to split packages into the topology circles their `
         + `source directories expose — circles inherit their enclosing package tier.`,
       bands: tierBands(analysis),
@@ -354,7 +354,7 @@ function synthScorecard(analysis, f) {
       statusKind: hard.length ? "open" : "holds",
       evidence: hard.length
         ? hard.map((v) => `${mono(`${v.from} → ${v.to}`)} (${v.policy})`).join("; ")
-        : `every runtime edge respects the declared ${mono("ji.tier")} policy.`,
+        : `every runtime edge respects the declared ${mono("ns.tier")} policy.`,
     },
     {
       invariant: `Tier debt: allowlisted policy-violating edges`,

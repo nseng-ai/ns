@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { TextEncoder } from "node:util";
 
-import { formatErrorMessage, optionalEntries } from "@ji/core/primitives";
+import { formatErrorMessage, optionalEntries } from "@ns/core/primitives";
 
 import {
 	getBranchContextPlan,
@@ -15,9 +15,9 @@ import {
 	UNSUPPORTED_ATTACHED_PLAN_KEY,
 	isSupportedBranchContextPlanKey,
 } from "./constants.ts";
-import type { CommandExecApi } from "@ji/core/exec";
-import type { GitGateway } from "@ji/capability-kit/git";
-import { resolveSelectedSavedPlanFile } from "@ji/plans";
+import type { CommandExecApi } from "@ns/core/exec";
+import type { GitGateway } from "@ns/capability-kit/git";
+import { resolveSelectedSavedPlanFile } from "@ns/plans";
 import type { BranchContextContext } from "./context.ts";
 
 const BRANCH_CONTEXT_IMPL_PROMPT_TEMPLATE = readFileSync(

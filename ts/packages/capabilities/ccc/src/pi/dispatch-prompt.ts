@@ -1,11 +1,11 @@
-import { optionalEntry } from "@ji/core/primitives";
-import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ji/pi/commands/ack";
+import { optionalEntry } from "@ns/core/primitives";
+import { makeCommandProgressNotifier, registerCommandWithImmediateAck } from "@ns/pi/commands/ack";
 import {
 	handleCccSlotDispatchPrompt,
 	type DispatchPromptPayloadOptions,
 	resolveDispatchPromptPayloadOptions,
 } from "../api/handlers.ts";
-import type { ExtensionAPI } from "@ji/capability-kit/cmux/types";
+import type { ExtensionAPI } from "@ns/capability-kit/cmux/types";
 
 const COMMAND_NAME = "ccc:workspace:dispatch-prompt";
 

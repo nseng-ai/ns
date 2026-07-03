@@ -1,10 +1,10 @@
 import type { z } from "zod";
 
 import { normalizeGithubStatusChecks, type GithubStatusChecks } from "../pr-status.ts";
-import type { CommandRunner, ExecResult } from "@ji/core/exec";
+import type { CommandRunner, ExecResult } from "@ns/core/exec";
 import { GITHUB_CLI_TIMEOUT_MS, runGitHubCli, type RunGitHubCliResult } from "../cli.ts";
-import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@ji/core/primitives";
-import type { Result } from "@ji/core/result";
+import { optionalEntry, type MaybePromise, type ExplicitUndefined } from "@ns/core/primitives";
+import type { Result } from "@ns/core/result";
 
 import {
 	discussionCommentPageArgs,

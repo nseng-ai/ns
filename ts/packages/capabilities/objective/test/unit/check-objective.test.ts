@@ -1,4 +1,4 @@
-import { InMemoryGitGateway } from "@ji/capability-kit/git/testing";
+import { InMemoryGitGateway } from "@ns/capability-kit/git/testing";
 import { describe, expect, test } from "vitest";
 
 import type { ObjectiveCliContext } from "../../src/core/context.ts";
@@ -8,7 +8,7 @@ import {
 } from "../../src/core/fake-storage.ts";
 import { runCheckObjective } from "../../src/core/operations/check-objective.ts";
 import { ObjectiveStorage } from "../../src/core/storage.ts";
-import { runObjectiveCheckCommand } from "../../src/ji/commands/check.ts";
+import { runObjectiveCheckCommand } from "../../src/ns/commands/check.ts";
 
 const COMPLETE_OBJECTIVE_MD = [
 	"# Objective alpha",

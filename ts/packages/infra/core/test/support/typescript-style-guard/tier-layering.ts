@@ -20,14 +20,14 @@ export function collectPackageTierLayeringViolations(
 		left.name.localeCompare(right.name),
 	)) {
 		if (metadata.rawSdlTier === undefined) {
-			violations.push(buildTierMetadataViolation(metadata, "missing ji.tier"));
+			violations.push(buildTierMetadataViolation(metadata, "missing ns.tier"));
 			continue;
 		}
 		if (metadata.sdlTier === undefined) {
 			violations.push(
 				buildTierMetadataViolation(
 					metadata,
-					`unknown ji.tier ${JSON.stringify(metadata.rawSdlTier)}`,
+					`unknown ns.tier ${JSON.stringify(metadata.rawSdlTier)}`,
 				),
 			);
 		}
@@ -76,11 +76,11 @@ function isAllowedPiSubpackagePeerEdge(
 	edge: { readonly from: string; readonly to: string; readonly field: string },
 	metadataByName: ReadonlyMap<string, PackageMetadata>,
 ): boolean {
-	if (edge.to !== "@ji/pi" || edge.field !== "peerDependencies") return false;
+	if (edge.to !== "@ns/pi" || edge.field !== "peerDependencies") return false;
 	const metadata = metadataByName.get(edge.from);
 	if (metadata?.sdlTier !== "capability") return false;
 	if (!metadata.sdlSubpackages.includes("pi")) return false;
-	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@ji/pi");
+	return isOptionalPeer(metadata.manifest.peerDependenciesMeta, "@ns/pi");
 }
 
 function isOptionalPeer(peerDependenciesMeta: unknown, packageName: string): boolean {
@@ -104,7 +104,7 @@ function buildTierMetadataViolation(
 }
 
 function findSdlTierPosition(metadata: PackageMetadata): TextPosition {
-	const sdlOffset = metadata.manifestContent.indexOf('"ji"');
+	const sdlOffset = metadata.manifestContent.indexOf('"ns"');
 	if (sdlOffset >= 0) {
 		const tierOffset = metadata.manifestContent.indexOf('"tier"', sdlOffset);
 		if (tierOffset >= 0) return lineAndColumnForOffset(metadata.manifestContent, tierOffset);

@@ -1,4 +1,4 @@
-import { defineExtension, failed, ok, z } from "@ji/kernel/sdk";
+import { defineExtension, failed, ok, z } from "@ns/kernel/sdk";
 import type {
 	ExecResult,
 	PositionalSpec,
@@ -17,7 +17,7 @@ import type {
 	TextGenerationRequest,
 	TextGenerationResult,
 	TextGenerator,
-} from "@ji/kernel/sdk";
+} from "@ns/kernel/sdk";
 
 type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
@@ -46,7 +46,7 @@ const manifestCommand: SdlExtensionManifestCommand = {
 const manifest: SdlExtensionManifest = { group: "flow", commands: [manifestCommand] };
 const packageManifest: SdlExtensionPackageManifest = {
 	description: "Flow commands.",
-	ji: manifest,
+	ns: manifest,
 };
 
 // @ts-expect-error name is required by the command schema output

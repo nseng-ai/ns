@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { isClaudeCodeSupportedModelPattern } from "@ji/core/model-slug";
+import { isClaudeCodeSupportedModelPattern } from "@ns/core/model-slug";
 
 import { buildClaudeDiffFindingsJsonSchema } from "../../src/gateways/claude-code-review-runner.ts";
 import {
