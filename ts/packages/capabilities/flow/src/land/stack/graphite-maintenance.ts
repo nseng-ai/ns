@@ -74,14 +74,12 @@ type GraphiteMaintenanceOutcome =
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
-const CONTINUE_MAINTENANCE = Symbol("continue-maintenance");
+type MaintenanceStepControl = "continue" | GraphiteMaintenanceHalt | undefined;
 
-type RecordedMaintenanceAction =
-	| { kind: "proceed"; warnings: readonly BranchMaintenanceWarning[] }
-	| { kind: "continue"; warnings: readonly BranchMaintenanceWarning[] }
-	| GraphiteMaintenanceHalt;
-
-type MaintenanceActionStep = typeof CONTINUE_MAINTENANCE | GraphiteMaintenanceHalt | undefined;
+interface AppliedMaintenanceStep {
+	readonly warnings: readonly BranchMaintenanceWarning[];
+	readonly control: MaintenanceStepControl;
+}
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
@@ -156,43 +154,30 @@ type RecordableMaintenanceOutcome =
 	| SubmitMaintenanceCheckOutcome
 	| undefined;
 
-function recordWarningOrStop(options: {
+function applyMaintenanceStep(options: {
 	readonly outcome: RecordableMaintenanceOutcome;
 	readonly branch: string;
 	readonly warnings: readonly BranchMaintenanceWarning[];
-}): RecordedMaintenanceAction {
+}): AppliedMaintenanceStep {
 	const { outcome, branch, warnings } = options;
-	if (outcome === undefined) return { kind: "proceed", warnings };
+	if (outcome === undefined) return { warnings, control: undefined };
 	switch (outcome.kind) {
 		case "proceed":
 		case "submit":
 		case "skip-submit":
-			return { kind: "proceed", warnings };
+			return { warnings, control: undefined };
 		case "halt":
-			return outcome;
+			return { warnings, control: outcome };
 		case "skip":
 			return {
-				kind: "continue",
 				warnings:
 					outcome.warning === undefined
 						? warnings
 						: [...warnings, { branch, warning: outcome.warning }],
+				control: "continue",
 			};
 		default:
 			assertNever(outcome);
-	}
-}
-
-function nextMaintenanceStep(action: RecordedMaintenanceAction): MaintenanceActionStep {
-	switch (action.kind) {
-		case "proceed":
-			return undefined;
-		case "continue":
-			return CONTINUE_MAINTENANCE;
-		case "halt":
-			return action;
-		default:
-			assertNever(action);
 	}
 }
 
@@ -344,27 +329,23 @@ export async function performGraphiteMaintenance(
 	let refreshFailureWarnings: readonly BranchMaintenanceWarning[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
-		const guardAction = recordWarningOrStop({
+		const guardStep = applyMaintenanceStep({
 			outcome: await guardMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		refreshFailureWarnings =
-			"warnings" in guardAction ? guardAction.warnings : refreshFailureWarnings;
-		const guardStep = nextMaintenanceStep(guardAction);
-		if (guardStep === CONTINUE_MAINTENANCE) continue;
-		if (guardStep !== undefined) return guardStep;
+		refreshFailureWarnings = guardStep.warnings;
+		if (guardStep.control === "continue") continue;
+		if (guardStep.control !== undefined) return guardStep.control;
 
-		const refreshAction = recordWarningOrStop({
+		const refreshStep = applyMaintenanceStep({
 			outcome: await refreshMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		refreshFailureWarnings =
-			"warnings" in refreshAction ? refreshAction.warnings : refreshFailureWarnings;
-		const refreshStep = nextMaintenanceStep(refreshAction);
-		if (refreshStep === CONTINUE_MAINTENANCE) continue;
-		if (refreshStep !== undefined) return refreshStep;
+		refreshFailureWarnings = refreshStep.warnings;
+		if (refreshStep.control === "continue") continue;
+		if (refreshStep.control !== undefined) return refreshStep.control;
 	}
 
 	if (refreshFailureWarnings.length > 0) {
@@ -388,27 +369,24 @@ export async function performGraphiteMaintenance(
 	let postDeleteWarnings: readonly BranchMaintenanceWarning[] = [];
 	for (const maintenanceBranch of maintenance.branches) {
 		const branchOperationContext = withMaintenanceBranch(operationContext, maintenanceBranch);
-		const restackAction = recordWarningOrStop({
+		const restackStep = applyMaintenanceStep({
 			outcome: await restackMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		postDeleteWarnings = "warnings" in restackAction ? restackAction.warnings : postDeleteWarnings;
-		const restackStep = nextMaintenanceStep(restackAction);
-		if (restackStep === CONTINUE_MAINTENANCE) continue;
-		if (restackStep !== undefined) return restackStep;
+		postDeleteWarnings = restackStep.warnings;
+		if (restackStep.control === "continue") continue;
+		if (restackStep.control !== undefined) return restackStep.control;
 
 		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
-		const submitCheckAction = recordWarningOrStop({
+		const submitCheckStep = applyMaintenanceStep({
 			outcome: submitCheck,
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		postDeleteWarnings =
-			"warnings" in submitCheckAction ? submitCheckAction.warnings : postDeleteWarnings;
-		const submitCheckStep = nextMaintenanceStep(submitCheckAction);
-		if (submitCheckStep === CONTINUE_MAINTENANCE) continue;
-		if (submitCheckStep !== undefined) return submitCheckStep;
+		postDeleteWarnings = submitCheckStep.warnings;
+		if (submitCheckStep.control === "continue") continue;
+		if (submitCheckStep.control !== undefined) return submitCheckStep.control;
 
 		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
 		if (refreshExpected) return refreshExpected;
@@ -421,16 +399,14 @@ export async function performGraphiteMaintenance(
 		}
 
 		setStatus(ctx, `submitting ${maintenanceBranch}...`);
-		const submittedAction = recordWarningOrStop({
+		const submittedStep = applyMaintenanceStep({
 			outcome: await submitMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		postDeleteWarnings =
-			"warnings" in submittedAction ? submittedAction.warnings : postDeleteWarnings;
-		const submittedStep = nextMaintenanceStep(submittedAction);
-		if (submittedStep === CONTINUE_MAINTENANCE) continue;
-		if (submittedStep !== undefined) return submittedStep;
+		postDeleteWarnings = submittedStep.warnings;
+		if (submittedStep.control === "continue") continue;
+		if (submittedStep.control !== undefined) return submittedStep.control;
 	}
 
 	if (postDeleteWarnings.length > 0) {
