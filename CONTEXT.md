@@ -68,6 +68,24 @@ The explicit directory-move workflow that moves an Objective record between the 
 A lightweight `closed.md` file whose existence lets tools identify closed objectives without language-model interpretation.
 *Avoid*: Hidden status, archive state, deletion
 
+**Record Frontmatter**:
+An optional YAML block at the top of an **Objective**'s `objective.md` carrying exactly two keys — `blocked` (the **Blocked Sentence**) and `edges` (**Objective Edges**) — and nothing else (ADR 0025). Most records have none; every `objective.md` reader strips or parses the block and behaves identically for records with and without it.
+*Avoid*: general metadata block, execution-policy store, extra frontmatter keys, hidden attachment metadata, registry
+
+**Objective Edge**:
+An undirected, kind-less, mirrored connection between two **Objective** records, listed in both endpoints' **Record Frontmatter** as `{objective: <slug>, annotation: <sentence>}`. Edge identity is the unordered slug pair, with at most one edge between two records; direction, causality, and relationship kind live in the **Edge Annotation** prose, never the schema. Mutation is skill-owned, and archiving an endpoint does not break an edge.
+*Avoid*: typed edge kind, `to:`/`from:` directionality, single-sided edge, machine-readable dependency link
+
+**Edge Annotation**:
+The required prose sentence each endpoint of an **Objective Edge** carries in its own **Record Frontmatter**, written from that record's perspective. The two sides are deliberately different texts — perspective is the payload, so a shared string would lose exactly the information the edge exists to carry.
+*Avoid*: shared edge label, edge kind, machine-readable edge semantics, optional comment
+
+**Blocked Sentence**:
+The prose-valued `blocked:` key in **Record Frontmatter**: presence means the record is blocked (for any reason — another objective, an external gate) and the value says why. There is no boolean — the sentence is the state — and it is set and cleared only by skill judgment, never by machine auto-flip.
+*Avoid*: blocked boolean, machine-derived flag, lifecycle state, status ping
+
+Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), active vs. archived is a location choice (**Objective Archive Root**), and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
+
 ## Architecture Boundaries
 
 These terms are general across the codebase. The canonical definitions are replicated here for discoverability; the `typescript-fake-driven-testing` skill carries the fuller mechanics.

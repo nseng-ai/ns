@@ -12,6 +12,14 @@ The public SDL-grouped Objective CLI surface — `ji objective ...` — whose co
 The `ji objective list` behavior that inventories Objective records under the root-defined **Active Objective Root** in the current checkout, attributing each record from Git path-touch facts rather than a Graphite stack projection.
 *Avoid*: Graphite stack projection, archived-record discovery, Objective selection authority, cross-worktree inventory
 
+**EDGES list column**:
+The `ji objective list` column to the right of LATEST UPDATE showing a record's **Objective Edge** count (blank when zero) on the pretty, table, and markdown surfaces, paired with the blocked STATUS indicator `⊘` (ascii fallback `!`, warn intent) that keeps the STATUS word `open` so blocked reads as a sub-state of open, per the root **Blocked Sentence** term.
+*Avoid*: edge detail rendering, annotation display, blocked lifecycle status, third STATUS state
+
+**Edge linting in `ji objective check`**:
+The structural **Record Frontmatter** lint in `ji objective check`: the per-slug check validates that record's edges including mirror lookups, and the `ji objective check --all` (short `-a`) sweep covers every record across the active and archive roots with frontmatter-only parsing, scoped to edge/blocked structural lint rather than the full heading checks. Violations — dangling slug, missing mirror side, empty annotation, duplicate pair, malformed frontmatter, empty blocked sentence — are errors; the linter never interprets **Edge Annotation** prose or derives blocked state.
+*Avoid*: full-check sweep, prose-quality lint, blocked-state derivation, full-body record reads, edge mutation surface
+
 **Hidden `ji objective exec`**:
 The hidden `ji objective exec ...` command group of deterministic skill- and agent-facing fact helpers (`list-candidates`, `read-objective`, `runner-subagent-usage`), kept out of the public human command surface and out of the Capability API.
 *Avoid*: public human command, Objective Capability API, Markdown-meaning interpreter, stable scripting contract
