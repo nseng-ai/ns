@@ -194,8 +194,13 @@
     `20260703T202952Z`. `objective` — **DONE (rewrite, 2026-07-03).** 164 → 156 lines;
     frontmatter/description identical (`normal` routing unchanged); 113-item contract
     diff passed; family routing / picker rules / Tracking Gate kept near-verbatim;
-    step-skill-referenced headings preserved. See update `20260703T203132Z`, `code-resolve-merge-conflicts`
-    (safety-critical → **surgical**; now `command-backed`). `ccc-branch-triage` and
+    step-skill-referenced headings preserved. See update `20260703T203132Z`.
+    `code-resolve-merge-conflicts` — **DONE (surgical, 2026-07-03; method cap
+    honored).** Line-by-line pass found the engine largely clean (debt was assumed,
+    not verified); one real duplication collapsed — the escalation payload trio was
+    enumerated in both channel subsections, now defined once with the driver channel
+    adding its three extra fields; no safety rule, safe category, or gate reworded.
+    See update `20260703T203832Z`. `ccc-branch-triage` and
     `handoff-pickup` stay parked.
     Evidence bar for the row: per-target contract diff shows no behavioral change; no
     verbatim-duplicated contract remains among these skills.

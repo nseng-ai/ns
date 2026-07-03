@@ -170,27 +170,25 @@ If the claim cannot be observed because the repository cannot run far enough,
 label it `unverified` and explain what blocked observation. Do not present a
 source-reading inference as proven behavior.
 
-#### Channel: `user` (default/bare mode)
-
-Pause and hand the decision to the user. Present:
+The **escalation payload**, for either channel:
 
 - both sides of the conflict region,
 - the intent-diff, and
 - a **proposed** resolution with your reasoning.
 
-Use AskUserQuestion or an inline prompt. On the user's decision: apply it,
+#### Channel: `user` (default/bare mode)
+
+Pause and hand the decision to the user. Present the escalation payload using
+AskUserQuestion or an inline prompt. On the user's decision: apply it,
 `git add`, run the continue command, and **auto-resume** the loop.
 
 #### Channel: `return-to-parent` (driver mode)
 
 Do **not** prompt the user, do **not** apply a guessed resolution, and do
 **not** run the continue command. Leave the operation stopped at the current
-conflict and return the escalation payload to the driver. Include:
+conflict and return the escalation payload to the driver, plus:
 
 - affected file path,
-- both sides of the conflict region,
-- the intent-diff,
-- a proposed resolution with reasoning,
 - why the conflict is outside the safe set, and
 - current repository state from `git status`.
 
