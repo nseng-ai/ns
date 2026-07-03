@@ -33,7 +33,6 @@ import { delimiter, join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { type ExecResult, formatCommandResultFailure } from "@sdl/core/command";
 import { runCommand } from "@sdl/core/exec";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
@@ -41,8 +40,8 @@ import type {
 	LandStackExtensionAPI,
 	NotifyLevel,
 } from "../../src/land/stack/types.ts";
+import { createRequiredCommandRunner } from "./support/run-required-command.ts";
 
-const COMMAND_TIMEOUT_MS = 60_000;
 const TEST_TIMEOUT_MS = 120_000;
 const TEMP_ROOT_CLEANUP_RETRIES = 5;
 const TEMP_ROOT_CLEANUP_RETRY_DELAY_MS = 100;
@@ -53,6 +52,17 @@ const FEATURE_B = "feature-b";
 const FEATURE_C = "feature-c";
 const FEATURE_D = "feature-d";
 const ROGUE = "rogue-branch";
+
+const runRequiredCommand = createRequiredCommandRunner({
+	failureContext: "Command failed while preparing land-stack sandbox fixture",
+});
+
+const SANDBOX_PR_ROWS = [
+	{ number: 101, branch: FEATURE_A, baseRefName: TRUNK },
+	{ number: 102, branch: FEATURE_B, baseRefName: FEATURE_A },
+	{ number: 103, branch: FEATURE_C, baseRefName: FEATURE_B },
+	{ number: 104, branch: FEATURE_D, baseRefName: FEATURE_B },
+] as const;
 
 interface SandboxPr {
 	number: number;
@@ -507,32 +517,7 @@ function buildInitialState(
 	overrides: Partial<SandboxState> = {},
 ): SandboxState {
 	return {
-		prs: overrides.prs ?? {
-			[FEATURE_A]: pr({
-				number: 101,
-				branch: FEATURE_A,
-				baseRefName: TRUNK,
-				headRefOid: shas[FEATURE_A] ?? "",
-			}),
-			[FEATURE_B]: pr({
-				number: 102,
-				branch: FEATURE_B,
-				baseRefName: FEATURE_A,
-				headRefOid: shas[FEATURE_B] ?? "",
-			}),
-			[FEATURE_C]: pr({
-				number: 103,
-				branch: FEATURE_C,
-				baseRefName: FEATURE_B,
-				headRefOid: shas[FEATURE_C] ?? "",
-			}),
-			[FEATURE_D]: pr({
-				number: 104,
-				branch: FEATURE_D,
-				baseRefName: FEATURE_B,
-				headRefOid: shas[FEATURE_D] ?? "",
-			}),
-		},
+		prs: overrides.prs ?? buildDefaultPrs(shas),
 		topology: overrides.topology ?? [
 			{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 			{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
@@ -550,6 +535,19 @@ function buildInitialState(
 			? {}
 			: { canDeleteCurrentBranch: overrides.canDeleteCurrentBranch }),
 	};
+}
+
+function buildDefaultPrs(shas: Record<string, string>): Record<string, SandboxPr> {
+	const prs: Record<string, SandboxPr> = {};
+	for (const row of SANDBOX_PR_ROWS) {
+		prs[row.branch] = pr({
+			number: row.number,
+			branch: row.branch,
+			baseRefName: row.baseRefName,
+			headRefOid: shas[row.branch] ?? "",
+		});
+	}
+	return prs;
 }
 
 function pr(options: SandboxPrOptions): SandboxPr {
@@ -740,28 +738,4 @@ finish(1, "", "unexpected shim command: " + command + "\\n");
 		await writeFile(path, shim);
 		await chmod(path, 0o755);
 	}
-}
-
-interface RunRequiredCommandOptions {
-	cwd: string;
-	env: NodeJS.ProcessEnv;
-	command: string;
-	args: readonly string[];
-}
-
-async function runRequiredCommand(options: RunRequiredCommandOptions): Promise<ExecResult> {
-	const result = await runCommand(options.command, options.args, {
-		cwd: options.cwd,
-		env: options.env,
-		timeout: COMMAND_TIMEOUT_MS,
-	});
-	if (result.code === 0 && !result.killed) return result;
-	throw new Error(
-		formatCommandResultFailure(
-			"Command failed while preparing land-stack sandbox fixture",
-			options.command,
-			options.args,
-			result,
-		),
-	);
 }

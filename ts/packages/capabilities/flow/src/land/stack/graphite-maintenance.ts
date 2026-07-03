@@ -74,7 +74,10 @@ type GraphiteMaintenanceOutcome =
 
 type GraphiteMaintenanceStop = Extract<GraphiteMaintenanceOutcome, { kind: "halt" | "skip" }>;
 type GraphiteMaintenanceHalt = Extract<GraphiteMaintenanceOutcome, { kind: "halt" }>;
-type RecordedMaintenanceAction = "proceed" | "continue" | GraphiteMaintenanceHalt;
+type RecordedMaintenanceAction =
+	| { kind: "proceed" }
+	| { kind: "continue" }
+	| GraphiteMaintenanceHalt;
 
 function failOrWarn(
 	severity: MaintenanceSeverity,
@@ -155,17 +158,17 @@ function recordWarningOrStop(options: {
 	readonly warnings: BranchMaintenanceWarning[];
 }): RecordedMaintenanceAction {
 	const { outcome, branch, warnings } = options;
-	if (outcome === undefined) return "proceed";
+	if (outcome === undefined) return { kind: "proceed" };
 	switch (outcome.kind) {
 		case "proceed":
 		case "submit":
 		case "skip-submit":
-			return "proceed";
+			return { kind: "proceed" };
 		case "halt":
 			return outcome;
 		case "skip":
 			if (outcome.warning !== undefined) warnings.push({ branch, warning: outcome.warning });
-			return "continue";
+			return { kind: "continue" };
 		default:
 			assertNever(outcome);
 	}
@@ -324,16 +327,16 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		if (guardAction === "continue") continue;
-		if (guardAction !== "proceed") return guardAction;
+		if (guardAction.kind === "continue") continue;
+		if (guardAction.kind === "halt") return guardAction;
 
 		const refreshAction = recordWarningOrStop({
 			outcome: await refreshMaintenanceBranch(branchOperationContext),
 			branch: maintenanceBranch,
 			warnings: refreshFailureWarnings,
 		});
-		if (refreshAction === "continue") continue;
-		if (refreshAction !== "proceed") return refreshAction;
+		if (refreshAction.kind === "continue") continue;
+		if (refreshAction.kind === "halt") return refreshAction;
 	}
 
 	if (refreshFailureWarnings.length > 0) {
@@ -362,8 +365,8 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (restackAction === "continue") continue;
-		if (restackAction !== "proceed") return restackAction;
+		if (restackAction.kind === "continue") continue;
+		if (restackAction.kind === "halt") return restackAction;
 
 		const submitCheck = await checkSubmitMaintenanceBranch(branchOperationContext);
 		const submitCheckAction = recordWarningOrStop({
@@ -371,8 +374,8 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (submitCheckAction === "continue") continue;
-		if (submitCheckAction !== "proceed") return submitCheckAction;
+		if (submitCheckAction.kind === "continue") continue;
+		if (submitCheckAction.kind === "halt") return submitCheckAction;
 
 		const refreshExpected = await refreshExpectedShaAfterRestack(branchOperationContext);
 		if (refreshExpected) return refreshExpected;
@@ -390,8 +393,8 @@ export async function performGraphiteMaintenance(
 			branch: maintenanceBranch,
 			warnings: postDeleteWarnings,
 		});
-		if (submittedAction === "continue") continue;
-		if (submittedAction !== "proceed") return submittedAction;
+		if (submittedAction.kind === "continue") continue;
+		if (submittedAction.kind === "halt") return submittedAction;
 	}
 
 	if (postDeleteWarnings.length > 0) {

@@ -24,7 +24,16 @@ import {
 	BACKUP_ROTATION_STEP,
 	backupRefSteps,
 } from "./land-stack-backup-ref-fixtures.ts";
-import { createMergeFeatureASteps } from "./land-stack-script-fixtures.ts";
+import {
+	childrenRecheckStep,
+	createMergeFeatureASteps,
+	expectedSquashMergeArgs,
+	guardShaStep,
+	postRestackSubmitCheckSteps,
+	prSnapshot,
+	prStdout,
+	submitUpdateStep,
+} from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -230,28 +239,6 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function expectedSquashMergeArgs(options: {
-	number: number;
-	sha: string;
-	title?: string;
-	body?: string | null;
-}): string[] {
-	const title = options.title ?? `PR ${options.number}`;
-	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
-	return [
-		"pr",
-		"merge",
-		String(options.number),
-		"--squash",
-		"--match-head-commit",
-		options.sha,
-		"--subject",
-		title,
-		"--body",
-		body,
-	];
-}
-
 function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
 	ctx: LandStackCommandContext;
 	notifications: Notification[];
@@ -335,36 +322,6 @@ function messageContentText(content: SentMessage["content"]): string {
 		.join("\n");
 }
 
-function prSnapshot(overrides: {
-	number: number;
-	branch: string;
-	base: string;
-	sha: string;
-	title?: string;
-	body?: string | null;
-	state?: string;
-	isDraft?: boolean;
-	mergedAt?: string | null;
-}): PullRequestSnapshot {
-	return {
-		number: overrides.number,
-		title: overrides.title ?? `PR ${overrides.number}`,
-		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,
-		state: overrides.state ?? "OPEN",
-		isDraft: overrides.isDraft ?? false,
-		headRefName: overrides.branch,
-		baseRefName: overrides.base,
-		headRefOid: overrides.sha,
-		mergeStateStatus: "CLEAN",
-		url: `https://github.example/pull/${overrides.number}`,
-		mergedAt: overrides.mergedAt ?? null,
-	};
-}
-
-function prStdout(pr: PullRequestSnapshot): string {
-	return `${JSON.stringify(pr)}\n`;
-}
-
 function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
 	return entries
 		.map((entry) => {
@@ -439,57 +396,6 @@ function submitRestackRecheckStep(
 	const parent = options.parent ?? TRUNK;
 	return step("git", ["rev-list", "-1", `refs/heads/${parent}`, "--not", `refs/heads/${branch}`], {
 		stdout: options.stdout ?? "",
-	});
-}
-
-function guardShaStep(branch: string, sha: string): ScriptedExec {
-	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-		stdout: `${sha}\n`,
-	});
-}
-
-function postRestackSubmitCheckSteps(options: {
-	branch: string;
-	sha: string;
-	prNumber: number;
-	base: string;
-	state?: string;
-	isDraft?: boolean;
-}): ScriptedExec[] {
-	return [
-		guardShaStep(options.branch, options.sha),
-		step("gh", ["pr", "view", options.branch, "--json", PR_FIELDS], {
-			stdout: prStdout(
-				prSnapshot({
-					number: options.prNumber,
-					branch: options.branch,
-					base: options.base,
-					sha: options.sha,
-					...(options.state === undefined ? {} : { state: options.state }),
-					...(options.isDraft === undefined ? {} : { isDraft: options.isDraft }),
-				}),
-			),
-		}),
-	];
-}
-
-function submitUpdateStep(branch: string): ScriptedExec {
-	return step("gt", [
-		"submit",
-		"--branch",
-		branch,
-		"--no-stack",
-		"--update-only",
-		"--no-edit",
-		"--no-ai",
-		"--no-interactive",
-		"--force",
-	]);
-}
-
-function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
-		stdout: `${metadataDbJson([{ branch, children }])}\n`,
 	});
 }
 
@@ -642,7 +548,7 @@ function mergeNumberedBranch(
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep(branch, [nextBranch]),
+			childrenRecheckStep(TOPOLOGY_ARGS, branch, [nextBranch]),
 			step("gt", ["delete", branch, "-f", "-q"]),
 			step("gt", ["restack", "--branch", nextBranch, "--upstack", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
@@ -659,7 +565,7 @@ function mergeNumberedBranch(
 		return steps;
 	}
 	steps.push(
-		childrenRecheckStep(branch, []),
+		childrenRecheckStep(TOPOLOGY_ARGS, branch, []),
 		step(
 			"gt",
 			["delete", branch, "-f", "-q"],
@@ -756,7 +662,7 @@ function mergeFeatureBWithDescendant(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT]),
+		childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 		...postRestackSubmitCheckSteps({
@@ -792,7 +698,7 @@ function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
+		childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", [DESCENDANT, "feature-d"]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 		...postRestackSubmitCheckSteps({
@@ -826,7 +732,7 @@ function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT]),
+		childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", [DESCENDANT]),
 		step("gt", ["delete", "feature-b", "-f", "-q"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"], {
 			code: 1,
@@ -941,7 +847,7 @@ function mergeFeatureAThroughDelete(
 		);
 	}
 	steps.push(
-		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
+		childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", refreshTarget ? ["feature-b"] : []),
 		step("gt", ["delete", "feature-a", "-f", "-q"]),
 	);
 	return steps;
@@ -1794,7 +1700,7 @@ describe("land-stack command scenarios", () => {
 				base: TRUNK,
 			}),
 			...mergeFeatureBThroughVerification(),
-			childrenRecheckStep("feature-b", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
@@ -1851,7 +1757,7 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-b", [DESCENDANT]),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", [DESCENDANT]),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 			step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 			guardShaStep(DESCENDANT, SHA_C),
@@ -2217,7 +2123,7 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-a", ["feature-b"]),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
@@ -2246,7 +2152,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-b", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
 		const { pi, notifications } = await runLandStack("--yes", script);
@@ -2296,7 +2202,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, {
@@ -2352,7 +2258,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("", script, {
@@ -2405,7 +2311,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const pi = new FakePi(script);
@@ -2470,7 +2376,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations, messages } = await runLandStack("--yes", script, {
@@ -2549,7 +2455,7 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
-			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, confirmations } = await runLandStack("--yes", script, {

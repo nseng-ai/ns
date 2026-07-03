@@ -14,10 +14,16 @@ import type {
 	LandStackExtensionAPI,
 	LandStackCommandContext,
 	NotifyLevel,
-	PullRequestSnapshot,
 } from "../../src/land/stack/types.ts";
 import { backupRefSteps } from "./land-stack-backup-ref-fixtures.ts";
-import { createMergeFeatureASteps } from "./land-stack-script-fixtures.ts";
+import {
+	childrenRecheckStep,
+	createMergeFeatureASteps,
+	expectedSquashMergeArgs,
+	guardShaStep,
+	prSnapshot,
+	prStdout,
+} from "./land-stack-script-fixtures.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
@@ -184,28 +190,6 @@ function step(command: string, args: string[], result?: Partial<ExecResult>): Sc
 	return { command, args, result };
 }
 
-function expectedSquashMergeArgs(options: {
-	number: number;
-	sha: string;
-	title?: string;
-	body?: string | null;
-}): string[] {
-	const title = options.title ?? `PR ${options.number}`;
-	const body = options.body === undefined ? `Body for PR ${options.number}` : (options.body ?? "");
-	return [
-		"pr",
-		"merge",
-		String(options.number),
-		"--squash",
-		"--match-head-commit",
-		options.sha,
-		"--subject",
-		title,
-		"--body",
-		body,
-	];
-}
-
 function createContext(options: { cwd?: string; hasUI?: boolean; confirms?: boolean[] } = {}): {
 	ctx: LandStackCommandContext;
 	notifications: Notification[];
@@ -284,36 +268,6 @@ function messageContentText(content: SentMessage["content"]): string {
 		.join("\n");
 }
 
-function prSnapshot(overrides: {
-	number: number;
-	branch: string;
-	base: string;
-	sha: string;
-	title?: string;
-	body?: string | null;
-	state?: string;
-	isDraft?: boolean;
-	mergedAt?: string | null;
-}): PullRequestSnapshot {
-	return {
-		number: overrides.number,
-		title: overrides.title ?? `PR ${overrides.number}`,
-		body: overrides.body === undefined ? `Body for PR ${overrides.number}` : overrides.body,
-		state: overrides.state ?? "OPEN",
-		isDraft: overrides.isDraft ?? false,
-		headRefName: overrides.branch,
-		baseRefName: overrides.base,
-		headRefOid: overrides.sha,
-		mergeStateStatus: "CLEAN",
-		url: `https://github.example/pull/${overrides.number}`,
-		mergedAt: overrides.mergedAt ?? null,
-	};
-}
-
-function prStdout(pr: PullRequestSnapshot): string {
-	return `${JSON.stringify(pr)}\n`;
-}
-
 function worktreeOutput(entries: Array<{ path: string; branch?: string }>): string {
 	return entries
 		.map((entry) => {
@@ -355,18 +309,6 @@ function repoIntro(
 		}),
 		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
 	];
-}
-
-function guardShaStep(branch: string, sha: string): ScriptedExec {
-	return step("git", ["rev-parse", "--verify", `refs/heads/${branch}^{commit}`], {
-		stdout: `${sha}\n`,
-	});
-}
-
-function childrenRecheckStep(branch: string, children: string[]): ScriptedExec {
-	return step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
-		stdout: `${metadataDbJson([{ branch, children }])}\n`,
-	});
 }
 
 function cleanRepoChecks(): ScriptedExec[] {
@@ -513,7 +455,7 @@ function mergeFeatureAThroughDelete(
 		);
 	}
 	steps.push(
-		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
+		childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", refreshTarget ? ["feature-b"] : []),
 		step("gt", ["delete", "feature-a", "-f", "-q"]),
 	);
 	return steps;
@@ -675,7 +617,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", ["feature-b", "rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -707,7 +649,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
 			...backupRefSteps(["feature-a"]),
 			...mergeSteps.slice(0, -2),
-			childrenRecheckStep("feature-a", ["rogue-branch"]),
+			childrenRecheckStep(TOPOLOGY_ARGS, "feature-a", ["rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
