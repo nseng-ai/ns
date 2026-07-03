@@ -1,7 +1,7 @@
 /**
  * End-to-end integration tests for `executeStackLanding` — the engine behind
  * `flow land`'s stack-landing path — run against a real git repository with the
- * external tools it shells out to (`gh`, `gt`, `sdl`) replaced by executable
+ * external tools it shells out to (`gh`, `gt`, `ji`) replaced by executable
  * Node shims placed first on PATH. The shims simulate each tool's documented
  * contract (PR views/merges, Graphite topology metadata, deletes that actually
  * run `git branch -D`) and append every invocation to a shared JSON state file
@@ -567,11 +567,11 @@ function metadataRows() {
   }));
 }
 
-if (command === "sdl") {
+if (command === "ji") {
   if (args[0] === "flow" && args[1] === "exec" && args[2] === "read-graphite-branch-metadata") {
     finish(0, JSON.stringify(metadataRows()) + "\\n");
   }
-  finish(1, "", "unexpected sdl command: " + args.join(" ") + "\\n");
+  finish(1, "", "unexpected ji command: " + args.join(" ") + "\\n");
 }
 
 if (command === "gh") {
@@ -624,7 +624,7 @@ if (command === "gt") {
 
 finish(1, "", "unexpected shim command: " + command + "\\n");
 `;
-	for (const command of ["gh", "gt", "sdl"]) {
+	for (const command of ["gh", "gt", "ji"]) {
 		const path = join(binDir, command);
 		await writeFile(path, shim);
 		await chmod(path, 0o755);
