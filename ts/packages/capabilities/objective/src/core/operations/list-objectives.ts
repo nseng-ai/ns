@@ -34,7 +34,14 @@ export const listObjectivesRequestSchema = z.object({
 export const objectiveListRecordSchema = z.object({
 	slug: z.string(),
 	status: z.enum(["open", "closed"]),
+	/**
+	 * Present (true) only when Record Frontmatter carries a `blocked:` sentence. Blocked is a
+	 * sub-state of open, never a third lifecycle status; `status` stays "open" for blocked records.
+	 */
+	isBlocked: z.boolean().optional(),
 	latestUpdateIso: z.string().nullable(),
+	/** Present only when Record Frontmatter declares at least one Objective Edge. */
+	edgeCount: z.number().int().positive().optional(),
 	updatedBranches: z.array(z.string()).optional(),
 	hasOutstandingChanges: z.boolean(),
 });
@@ -233,17 +240,46 @@ async function buildObjectiveListRecord(
 		relativePath,
 	});
 	if (!dirty.ok) return { type: "git-error", error: dirty.error };
+	const facts = await readListFrontmatterFacts(options.storage, relativePath);
 	return {
 		type: "ok",
 		value: {
 			slug: options.slug,
 			status: options.status,
+			...(facts.isBlocked ? { isBlocked: true } : {}),
 			latestUpdateIso: latestUpdateIsoFromUpdateNames(updates.value.map((update) => update.name)),
+			...(facts.edgeCount > 0 ? { edgeCount: facts.edgeCount } : {}),
 			...(options.updatedBranches === undefined
 				? {}
 				: { updatedBranches: [...options.updatedBranches] }),
 			hasOutstandingChanges: dirty.value,
 		},
+	};
+}
+
+interface ObjectiveListFrontmatterFacts {
+	edgeCount: number;
+	isBlocked: boolean;
+}
+
+/**
+ * Record Frontmatter facts for the list surface, via the shared reader (ADR 0025); the body is
+ * never interpreted. Safe minimal rendering: a record whose `objective.md` is missing,
+ * unreadable, or carries malformed frontmatter lists exactly like one with no frontmatter
+ * (blank EDGES cell, no blocked indicator) — reporting malformed frontmatter is the
+ * `sdl objective check` linter's job, and the list must not error or mis-render over it.
+ */
+async function readListFrontmatterFacts(
+	storage: ObjectiveStorage,
+	recordRelativePath: string,
+): Promise<ObjectiveListFrontmatterFacts> {
+	const read = await storage.readObjectiveRecordDocument(recordRelativePath);
+	if (read.type !== "ok") return { edgeCount: 0, isBlocked: false };
+	const parse = read.document.frontmatter;
+	if (parse === undefined || parse.type === "malformed") return { edgeCount: 0, isBlocked: false };
+	return {
+		edgeCount: parse.frontmatter.edges.length,
+		isBlocked: parse.frontmatter.blocked !== null,
 	};
 }
 
@@ -267,9 +303,17 @@ export function renderSlugs(records: readonly ObjectiveListRecord[]): string {
 	return records.map((record) => record.slug).join("\n");
 }
 
-function statusLabel(status: ObjectiveRecordStatus): string {
-	if (status === "closed") return "✓ closed";
+// Blocked renders as a sub-state of open — the word "open" stays, the glyph and the
+// "(blocked)" qualifier mark the sub-state — never as a third lifecycle status.
+function statusLabel(record: ObjectiveListRecord): string {
+	if (record.status === "closed") return "✓ closed";
+	if (record.isBlocked === true) return "⊘ open (blocked)";
 	return "○ open";
+}
+
+function edgeCountCell(record: ObjectiveListRecord): string {
+	if (record.edgeCount === undefined) return "";
+	return String(record.edgeCount);
 }
 
 export function emptyMessage(statusFilter: ObjectiveStatusFilter): string {
@@ -290,6 +334,7 @@ function humanTableColumns(shouldIncludeUpdatedBranches: boolean): TextTableColu
 		{ header: "OBJECTIVE", style: "bold-cyan" },
 		{ header: "STATUS" },
 		{ header: "LATEST UPDATE", style: "dim" },
+		{ header: "EDGES" },
 	];
 	if (shouldIncludeUpdatedBranches) columns.push({ header: "UPDATED BRANCHES" });
 	return columns;
@@ -299,7 +344,12 @@ function humanRecordCells(
 	record: ObjectiveListRecord,
 	shouldIncludeUpdatedBranches: boolean,
 ): string[] {
-	const cells = [record.slug, statusLabel(record.status), formatLatestUpdate(record)];
+	const cells = [
+		record.slug,
+		statusLabel(record),
+		formatLatestUpdate(record),
+		edgeCountCell(record),
+	];
 	if (shouldIncludeUpdatedBranches) cells.push(humanUpdatedBranchesCell(record));
 	return cells;
 }
@@ -314,20 +364,25 @@ function humanUpdatedBranchesCell(record: ObjectiveListRecord): string {
 
 function markdownTableHeader(result: ObjectiveListResult): string {
 	if (result.updatedBranchesIncluded === true)
-		return "| objective | status | latest update | updated branches |\n";
-	return "| objective | status | latest update |\n";
+		return "| objective | status | latest update | edges | updated branches |\n";
+	return "| objective | status | latest update | edges |\n";
 }
 
 function markdownTableSeparator(result: ObjectiveListResult): string {
-	if (result.updatedBranchesIncluded === true) return "| --- | --- | --- | --- |\n";
-	return "| --- | --- | --- |\n";
+	if (result.updatedBranchesIncluded === true) return "| --- | --- | --- | --- | --- |\n";
+	return "| --- | --- | --- | --- |\n";
 }
 
 function markdownRecordRow(
 	record: ObjectiveListRecord,
 	shouldIncludeUpdatedBranches: boolean,
 ): string {
-	const cells = [record.slug, statusLabel(record.status), formatLatestUpdate(record)];
+	const cells = [
+		record.slug,
+		statusLabel(record),
+		formatLatestUpdate(record),
+		edgeCountCell(record),
+	];
 	if (shouldIncludeUpdatedBranches) cells.push(formatUpdatedBranches(record));
 	return `| ${cells.join(" | ")} |\n`;
 }

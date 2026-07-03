@@ -35,14 +35,17 @@ function clip(caps: Caps, text: string, width: number): string {
 
 interface StatusCell {
 	intent: Intent;
-	glyphName: Extract<GlyphName, "open" | "done">;
+	glyphName: Extract<GlyphName, "open" | "done" | "blocked">;
 	word: string;
 }
 
+// Blocked is a sub-state of open, never a third lifecycle status: the STATUS word stays
+// "open" and only the glyph swaps to the blocked mark (warn intent), explained once by the
+// footer legend — mirroring how the outstanding-changes `x` flag is taught.
 function statusCellFor(record: ObjectiveListRecord): StatusCell {
-	return record.status === "closed"
-		? { intent: "success", glyphName: "done", word: "closed" }
-		: { intent: "accent", glyphName: "open", word: "open" };
+	if (record.status === "closed") return { intent: "success", glyphName: "done", word: "closed" };
+	if (record.isBlocked === true) return { intent: "warn", glyphName: "blocked", word: "open" };
+	return { intent: "accent", glyphName: "open", word: "open" };
 }
 
 // Relative time for the human surface ("2 hours ago" beats a raw ISO stamp). `nowMs` is injected so
@@ -96,16 +99,20 @@ export function renderObjectiveListPretty(
 
 	const includeBranches = result.updatedBranchesIncluded === true;
 	const maxSlug = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
-	const slugW = Math.max(12, Math.min(maxSlug, caps.columns - 28));
 	const statusW = "X closed".length; // widest plain status cell ("{glyph} closed")
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
-	const dateW = Math.max(8, caps.columns - slugW - statusW - flagW - 6);
+	const edgesW = "EDGES".length; // Objective Edge count, right of LATEST UPDATE, blank when zero
+	const slugW = Math.max(12, Math.min(maxSlug, caps.columns - statusW - flagW - edgesW - 21));
+	const dateW = Math.max(
+		"LATEST UPDATE".length,
+		caps.columns - slugW - statusW - flagW - edgesW - 8,
+	);
 
 	lines.push("");
 	// "LATEST UPDATE" sits above the dates; the flag gutter header stays blank.
 	lines.push(
 		dim(
-			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  LATEST UPDATE`,
+			`${padPlain("OBJECTIVE", slugW)}  ${padPlain("STATUS", statusW)}  ${" ".repeat(flagW)}  ${padPlain("LATEST UPDATE", dateW)}  EDGES`,
 		),
 	);
 
@@ -122,9 +129,10 @@ export function renderObjectiveListPretty(
 			record.latestUpdateIso === null ? "—" : relativeTime(record.latestUpdateIso, nowMs);
 		// A bare `x` warn marker in its own fixed-width column, explained once by the footer legend.
 		const flagCell = record.hasOutstandingChanges ? paint(caps, "warn", "x") : " ".repeat(flagW);
-		const dateCell = dim(clip(caps, stamp, dateW));
+		const dateCell = dim(padPlain(clip(caps, stamp, dateW), dateW));
+		const edgesCell = record.edgeCount === undefined ? "" : String(record.edgeCount);
 
-		lines.push(`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}`);
+		lines.push(`${slugCell}  ${statusCell}  ${flagCell}  ${dateCell}  ${edgesCell}`.trimEnd());
 
 		if (includeBranches) {
 			const branches = record.updatedBranches ?? [];
@@ -136,9 +144,16 @@ export function renderObjectiveListPretty(
 		}
 	}
 
+	const legends: string[] = [];
 	if (result.records.some((record) => record.hasOutstandingChanges)) {
-		lines.push("", dim("x = uncommitted changes not yet recorded in an update"));
+		legends.push(dim("x = uncommitted changes not yet recorded in an update"));
 	}
+	if (result.records.some((record) => record.isBlocked === true)) {
+		legends.push(
+			dim(`${glyph(caps, "blocked")} = blocked (a sub-state of open; the record says why)`),
+		);
+	}
+	if (legends.length > 0) lines.push("", ...legends);
 	if (result.updatedBranchesTruncated === true) {
 		lines.push(
 			"",

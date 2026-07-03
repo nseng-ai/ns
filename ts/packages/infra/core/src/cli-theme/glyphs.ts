@@ -3,11 +3,12 @@
 
 import type { Caps } from "@ji/clinkr";
 
-export type GlyphName = "done" | "open" | "fail" | "skip" | "bullet";
+export type GlyphName = "done" | "open" | "blocked" | "fail" | "skip" | "bullet";
 
 const GLYPHS: Record<GlyphName, { unicode: string; ascii: string }> = {
 	done: { unicode: "✓", ascii: "v" },
 	open: { unicode: "●", ascii: "o" },
+	blocked: { unicode: "⊘", ascii: "!" },
 	fail: { unicode: "✗", ascii: "x" },
 	skip: { unicode: "–", ascii: "-" },
 	bullet: { unicode: "•", ascii: "*" },
