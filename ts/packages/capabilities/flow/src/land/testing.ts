@@ -9,6 +9,7 @@ import type {
 	LandWorktreeSlotFactsGateway,
 	LocalBranchTip,
 	PullRequestFacts,
+	SquashMergePullRequestResult,
 	StackSnapshot,
 	WorkingTreeStatus,
 	WorktreeClassification,
@@ -361,16 +362,26 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 export interface InMemoryLandGithubPrFactsGatewayState {
 	readonly pullRequests?: readonly PullRequestFacts[];
 	readonly failures?: Readonly<Record<string, LandingBoundaryFailure>>;
+	readonly squashMergeResults?: Readonly<Record<string, ValueState<SquashMergePullRequestResult>>>;
 }
 
 export interface LandPullRequestFactsCall extends LandRepoCall {
 	readonly branchOrNumber: string;
 }
 
+export interface LandSquashMergePullRequestCall extends LandRepoCall {
+	readonly pullRequest: PullRequestFacts;
+}
+
 export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGateway {
 	private readonly pullRequests: ReadonlyMap<string, PullRequestFacts>;
 	private readonly failures: ReadonlyMap<string, LandingBoundaryFailure>;
+	private readonly squashMergeResults: ReadonlyMap<
+		string,
+		ValueState<SquashMergePullRequestResult>
+	>;
 	private readonly pullRequestFactsLog: LandPullRequestFactsCall[] = [];
+	private readonly squashMergePullRequestLog: LandSquashMergePullRequestCall[] = [];
 
 	constructor(state: InMemoryLandGithubPrFactsGatewayState = {}) {
 		const entries: [string, PullRequestFacts][] = [];
@@ -385,10 +396,20 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 				copyBoundaryFailure(failure),
 			]),
 		);
+		this.squashMergeResults = new Map(
+			Object.entries(state.squashMergeResults ?? {}).map(([key, result]) => [
+				key,
+				copyValueState(result, copySquashMergePullRequestResult),
+			]),
+		);
 	}
 
 	get pullRequestFactsCalls(): readonly LandPullRequestFactsCall[] {
 		return this.pullRequestFactsLog.map(copyPullRequestFactsCall);
+	}
+
+	get squashMergePullRequestCalls(): readonly LandSquashMergePullRequestCall[] {
+		return this.squashMergePullRequestLog.map(copySquashMergePullRequestCall);
 	}
 
 	async pullRequestFacts(request: {
@@ -414,6 +435,27 @@ export class InMemoryLandGithubPrFactsGateway implements LandGithubPrFactsGatewa
 			};
 		}
 		return { type: "success", value: copyPullRequestFacts(pr) };
+	}
+
+	async squashMergePullRequest(request: {
+		readonly repoRoot: string;
+		readonly pullRequest: PullRequestFacts;
+	}): Promise<LandResult<SquashMergePullRequestResult>> {
+		this.squashMergePullRequestLog.push({
+			repoRoot: request.repoRoot,
+			pullRequest: copyPullRequestFacts(request.pullRequest),
+		});
+		return valueResult({
+			state: this.squashMergeResults.get(String(request.pullRequest.number)) ?? {
+				stdout: "",
+				stderr: "",
+			},
+			source: "github",
+			phase: "merge",
+			code: "squash_merge_failed",
+			message: "Squash merge failed.",
+			copyValue: copySquashMergePullRequestResult,
+		});
 	}
 }
 
@@ -677,6 +719,12 @@ function copyPullRequestFacts(pr: PullRequestFacts): PullRequestFacts {
 	};
 }
 
+function copySquashMergePullRequestResult(
+	result: SquashMergePullRequestResult,
+): SquashMergePullRequestResult {
+	return { stdout: result.stdout, stderr: result.stderr };
+}
+
 function copyStackSnapshot(snapshot: StackSnapshot): StackSnapshot {
 	return {
 		trunk: snapshot.trunk,
@@ -735,6 +783,12 @@ function copyStackShapeCall(call: LandStackShapeCall): LandStackShapeCall {
 
 function copyPullRequestFactsCall(call: LandPullRequestFactsCall): LandPullRequestFactsCall {
 	return { repoRoot: call.repoRoot, branchOrNumber: call.branchOrNumber };
+}
+
+function copySquashMergePullRequestCall(
+	call: LandSquashMergePullRequestCall,
+): LandSquashMergePullRequestCall {
+	return { repoRoot: call.repoRoot, pullRequest: copyPullRequestFacts(call.pullRequest) };
 }
 
 function copyClassifyWorktreeCall(call: LandClassifyWorktreeCall): LandClassifyWorktreeCall {

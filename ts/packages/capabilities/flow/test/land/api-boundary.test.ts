@@ -179,6 +179,7 @@ describe("sdl-flow/land API boundary", () => {
 							baseRefName: "main",
 							headRefOid: "aaaaaaaa",
 						}),
+					squashMergePullRequest: async () => landSuccess({ stdout: "", stderr: "" }),
 				},
 				worktrees: {
 					worktrees: async () => landSuccess([]),

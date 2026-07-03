@@ -1,16 +1,12 @@
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
-import { formatCommand } from "@sdl/core/command";
 import { completed, failure, landStackFailure, type LandStackOutcome } from "./stack/errors.ts";
-import { exec, formatCommandDetails } from "./stack/command-exec.ts";
-import { GH_MERGE_TIMEOUT_MS } from "./stack/constants.ts";
-import { squashMergeArgs } from "./stack/landing-operations.ts";
-import { loadPr } from "./stack/pr-facts.ts";
 import { notifyPrintAware, setStatus } from "./stack/presentation.ts";
 import type {
 	LandingShape,
 	PrintAwareLandStackCommandContext,
 	StackSnapshot,
 } from "./stack/types.ts";
+import type { LandGithubPrFactsGateway, LandingFailure, PullRequestFacts } from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;
@@ -21,16 +17,8 @@ export interface ValidPullRequestView {
 	headRefOid: string;
 }
 
-interface IsolatedFastPathApi {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<{ stdout: string; stderr: string; code: number; killed?: boolean }>;
-}
-
 interface RunIsolatedFastPathLandingOptions {
-	pi: IsolatedFastPathApi;
+	github: LandGithubPrFactsGateway;
 	ctx: PrintAwareLandStackCommandContext;
 	target: LandingShape;
 	isDryRun: boolean;
@@ -49,19 +37,12 @@ export function isIsolatedFastPath(stack: StackSnapshot): boolean {
 export async function runIsolatedFastPathLanding(
 	options: RunIsolatedFastPathLandingOptions,
 ): Promise<LandStackOutcome> {
-	const prResult = await loadPr(
-		options.pi,
-		options.target.repoRoot,
-		options.target.stack.actualCurrentBranch,
-	);
+	const prResult = await options.github.pullRequestFacts({
+		repoRoot: options.target.repoRoot,
+		branchOrNumber: options.target.stack.actualCurrentBranch,
+	});
 	if (prResult.type === "failure") {
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: prResult.failure.message,
-			level: "error",
-			kind: "failure",
-		});
-		return prResult;
+		return presentLandingFailure(options.ctx, prResult.failure);
 	}
 	const pr = prResult.value;
 
@@ -89,32 +70,48 @@ export async function runIsolatedFastPathLanding(
 		progressOptions,
 	);
 
-	const mergeArgs = squashMergeArgs(pr);
-	const result = await exec({
-		pi: options.pi,
-		command: "gh",
-		args: mergeArgs,
-		cwd: options.target.repoRoot,
-		timeoutMs: GH_MERGE_TIMEOUT_MS,
+	const result = await options.github.squashMergePullRequest({
+		repoRoot: options.target.repoRoot,
+		pullRequest: pr,
 	});
-
-	if (result.code === 0) {
-		const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
-		const output = successfulCommandOutput(result);
-		notifyPrintAware({
-			ctx: options.ctx,
-			message: output ? `${output}\n${message}` : message,
-			level: "info",
-			kind: "success",
-		});
-		return completed();
+	if (result.type === "failure") {
+		return presentLandingFailure(options.ctx, result.failure);
 	}
 
-	const commandDisplay = formatCommand("gh", mergeArgs);
-	const message = `gh pr merge --squash with PR title/body failed for PR #${pr.number}.`;
-	const fullMessage = `${message}\n${formatCommandDetails(result, commandDisplay)}`;
-	notifyPrintAware({ ctx: options.ctx, message: fullMessage, level: "error", kind: "failure" });
-	return failure(landStackFailure(fullMessage));
+	const verified = await options.github.pullRequestFacts({
+		repoRoot: options.target.repoRoot,
+		branchOrNumber: String(pr.number),
+	});
+	if (verified.type === "failure") {
+		const message = `gh pr merge exited 0, but verification could not load PR #${pr.number}; post-landing cleanup skipped.\n${verified.failure.message}`;
+		notifyPrintAware({ ctx: options.ctx, message, level: "error", kind: "failure" });
+		return failure(landStackFailure(message));
+	}
+
+	const verificationFailure = mergedVerificationFailure({
+		verified: verified.value,
+		trunk: options.target.trunk,
+		branch: options.target.stack.actualCurrentBranch,
+	});
+	if (verificationFailure !== undefined) {
+		notifyPrintAware({
+			ctx: options.ctx,
+			message: verificationFailure,
+			level: "error",
+			kind: "failure",
+		});
+		return failure(landStackFailure(verificationFailure));
+	}
+
+	const message = `Merged PR #${pr.number}; squash commit used PR title/body.`;
+	const output = successfulCommandOutput(result.value);
+	notifyPrintAware({
+		ctx: options.ctx,
+		message: output ? `${output}\n${message}` : message,
+		level: "info",
+		kind: "success",
+	});
+	return completed();
 }
 
 function progress(
@@ -132,6 +129,35 @@ function progress(
 
 function successfulCommandOutput(result: { stdout: string; stderr: string }): string {
 	return [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
+}
+
+function presentLandingFailure(
+	ctx: PrintAwareLandStackCommandContext,
+	landingFailure: LandingFailure,
+): LandStackOutcome {
+	notifyPrintAware({
+		ctx,
+		message: landingFailure.message,
+		level: "error",
+		kind: "failure",
+	});
+	return failure(landStackFailure(landingFailure.message));
+}
+
+function mergedVerificationFailure(options: {
+	readonly verified: PullRequestFacts;
+	readonly trunk: string;
+	readonly branch: string;
+}): string | undefined {
+	if (
+		options.verified.state === "MERGED" &&
+		options.verified.mergedAt &&
+		options.verified.baseRefName === options.trunk &&
+		options.verified.headRefName === options.branch
+	) {
+		return undefined;
+	}
+	return "gh pr merge exited 0 but PR did not verify as MERGED; post-landing cleanup skipped.";
 }
 
 export function parsePullRequestView(value: unknown): ValidPullRequestView | { error: string } {

@@ -87,6 +87,7 @@ export type {
 	PullRequestFacts,
 	RestackRequirement,
 	RetainedLocalBranchCleanup,
+	SquashMergePullRequestResult,
 	StackLandingTarget,
 	StackSnapshot,
 	WorkingTreeStatus,

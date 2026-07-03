@@ -78,6 +78,16 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			value: { number: 42, state: "OPEN", headRefName: "feature/land-core" },
 		});
 		expect(
+			await context.github.squashMergePullRequest({
+				repoRoot: REPO_ROOT,
+				pullRequest: pullRequestFacts({
+					number: 42,
+					headRefName: "feature/land-core",
+					headRefOid: FEATURE_SHA,
+				}),
+			}),
+		).toEqual({ type: "success", value: { stdout: "", stderr: "" } });
+		expect(
 			await context.worktrees.classifyWorktree({
 				repoRoot: REPO_ROOT,
 				path: "/repo-slot",
@@ -96,6 +106,9 @@ describe("sdl-flow land in-memory gateway fakes", () => {
 			},
 		]);
 		expect(github.pullRequestFactsCalls).toEqual([{ repoRoot: REPO_ROOT, branchOrNumber: "42" }]);
+		expect(github.squashMergePullRequestCalls).toMatchObject([
+			{ repoRoot: REPO_ROOT, pullRequest: { number: 42, headRefName: "feature/land-core" } },
+		]);
 		expect(worktrees.classifyWorktreeCalls).toEqual([
 			{ repoRoot: REPO_ROOT, path: "/repo-slot", branch: "feature/child" },
 		]);

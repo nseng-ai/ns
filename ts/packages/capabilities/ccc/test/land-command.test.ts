@@ -21,6 +21,7 @@ const TRUNK = "main";
 const PR_VIEW_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 const PR_VIEW_ARGS = ["pr", "view", CURRENT, "--json", PR_VIEW_FIELDS];
+const PR_VERIFY_ARGS = ["pr", "view", "42", "--json", PR_VIEW_FIELDS];
 const PR_VIEW_TIMEOUT_MS = 30_000;
 const PR_MERGE_TIMEOUT_MS = 120_000;
 const STACK_PR_VIEW_FIELDS = PR_VIEW_FIELDS;
@@ -282,6 +283,8 @@ function prView(
 		title?: string;
 		body?: string | null;
 		headRefOid?: string;
+		state?: string;
+		mergedAt?: string | null;
 	} = {},
 ): string {
 	return JSON.stringify({
@@ -290,10 +293,15 @@ function prView(
 		baseRefName: overrides.baseRefName ?? TRUNK,
 		title: overrides.title ?? "Ship feature",
 		body: overrides.body === undefined ? "Feature body" : overrides.body,
-		state: "OPEN",
+		state: overrides.state ?? "OPEN",
 		isDraft: false,
 		headRefOid: overrides.headRefOid ?? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		mergedAt: overrides.mergedAt ?? null,
 	});
+}
+
+function mergedPrView(): string {
+	return prView({ state: "MERGED", mergedAt: "2026-07-02T00:00:00Z" });
 }
 
 function expectedMergeArgs(
@@ -659,6 +667,7 @@ describe("code land command", () => {
 			...graphiteShapeSteps(DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("sdl:flow:land");
@@ -692,6 +701,7 @@ describe("code land command", () => {
 		const { pi, notifications, waitForIdleCalls } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 
 		expect(waitForIdleCalls()).toBe(1);
@@ -703,6 +713,7 @@ describe("code land command", () => {
 				args: expectedMergeArgs(),
 				options: { cwd: ROOT, timeout: PR_MERGE_TIMEOUT_MS },
 			},
+			{ command: "gh", args: PR_VERIFY_ARGS, options: { cwd: ROOT, timeout: PR_VIEW_TIMEOUT_MS } },
 		]);
 		expect(notifications).toEqual([
 			{
@@ -723,6 +734,7 @@ describe("code land command", () => {
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 			step("sdl", ["slot", "free", "--wt", "slot-01"]),
 			step("gt", ["delete", CURRENT, "-f", "-q"]),
 		]);
@@ -758,6 +770,7 @@ describe("code land command", () => {
 			...graphiteShapeStepsForRoot(slotRoot, DB_SINGLE_BRANCH),
 			step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 			step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 		registerLandCommand(pi);
 		const command = pi.commands.get("sdl:flow:land");
@@ -783,6 +796,7 @@ describe("code land command", () => {
 			[
 				step("gh", PR_VIEW_ARGS, { stdout: prView() }),
 				step("gh", expectedMergeArgs(), { stdout: "Merged pull request #42" }),
+				step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 			],
 			{ mode: "print" },
 		);
@@ -820,9 +834,10 @@ describe("code land command", () => {
 		const { pi } = await runLand([
 			step("gh", PR_VIEW_ARGS, { stdout: prView({ body: null }) }),
 			step("gh", expectedMergeArgs({ body: "" })),
+			step("gh", PR_VERIFY_ARGS, { stdout: mergedPrView() }),
 		]);
 
-		expect(pi.execCalls.at(-1)?.args).toEqual(expectedMergeArgs({ body: "" }));
+		expect(pi.execCalls.at(-2)?.args).toEqual(expectedMergeArgs({ body: "" }));
 		pi.assertDone();
 	});
 

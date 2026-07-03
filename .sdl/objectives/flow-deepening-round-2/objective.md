@@ -156,11 +156,15 @@ below.
 - How work may change files and be left: code edits within
   `ts/packages/capabilities/flow` (tests included), plus this Objective's
   record files; work is left committed on its feature branch with a Semantic
-  Update appended. Scoped exception for migration slice 2 (owner-authorized
+  Update appended. Scoped exception for migration slices (owner-authorized
   2026-07-02, see
-  `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md`): the
-  `sdl-capability-kit` git gateway branch-listing format string and the
-  `ccc`/flow test assertions that pin it. Roadmap checkboxes flip only with passing validation named
+  `updates/2026-07-02T200807Z-slice2-argv-gate-relaxed-for-facts.md` and the
+  clarification in
+  `updates/2026-07-02T203536Z-extraction-slice-3-isolated-fast-path.md`):
+  when a slice's allowed fact-command changes are pinned by
+  `sdl-capability-kit` or `ccc`/flow test assertions, updating those pins —
+  and, for slice 2, the capability-kit branch-listing format string itself —
+  is in scope. Roadmap checkboxes flip only with passing validation named
   in the row.
 - Validation before keeping work: the Definition of Progress suite, plus the
   row's named tests.

@@ -1,4 +1,3 @@
-import { normalizeExecResult, type ExecResult } from "@sdl/core/command";
 import type { SdlCommandIo } from "@sdl/kernel/sdk";
 import { executeStackLanding } from "./land-stack.ts";
 import type { LandLiveProgressSink } from "./stack/command-stream.ts";
@@ -10,21 +9,13 @@ import { loadLandingShape } from "./stack/stack-facts.ts";
 import type {
 	LandingShape,
 	LandConfirmationPreview,
-	LandStackExtensionAPI,
 	ParsedArgs,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
 import { confirmLandStackAction } from "./stack/pre-merge-confirmation.ts";
+import { createLandContext } from "./stack/land-context-adapter.ts";
 import { isIsolatedFastPath, runIsolatedFastPathLanding } from "./isolated-fast-path.ts";
 import { runPostLandingSlotCleanup } from "./post-landing-slot-cleanup.ts";
-
-interface NormalizedLandExtensionAPI extends LandStackExtensionAPI {
-	exec(
-		command: string,
-		args: string[],
-		options?: { cwd?: string; timeout?: number },
-	): Promise<ExecResult>;
-}
 
 interface RunLandingDispatchOptions {
 	runtime: LandRuntime;
@@ -39,7 +30,6 @@ export async function runLandingDispatch(
 ): Promise<LandStackOutcome> {
 	const progressIo = options.progressIo;
 	const { runtime } = options;
-	const normalizedApi = normalizeLandExtensionApi(runtime.commands);
 	const shape = await loadLandingShape(runtime.commands, options.ctx.cwd, {
 		graphite: runtime.graphite,
 	});
@@ -63,8 +53,9 @@ export async function runLandingDispatch(
 	}
 
 	if (isIsolatedFastPath(shape.value.stack)) {
+		const landContext = createLandContext(runtime.commands, { graphite: runtime.graphite });
 		const outcome = await runIsolatedFastPathLanding({
-			pi: normalizedApi,
+			github: landContext.github,
 			ctx: options.ctx,
 			target: shape.value,
 			isDryRun: options.parsedArgs.isDryRun,
@@ -100,14 +91,6 @@ export async function runLandingDispatch(
 		args: options.parsedArgs,
 		shape: shape.value,
 	});
-}
-
-function normalizeLandExtensionApi(commands: LandStackExtensionAPI): NormalizedLandExtensionAPI {
-	return {
-		...commands,
-		exec: async (command, args, options) =>
-			normalizeExecResult(await commands.exec(command, args, options)),
-	};
 }
 
 async function finishAfterLanding(
