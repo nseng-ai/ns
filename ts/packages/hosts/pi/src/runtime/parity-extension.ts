@@ -16,7 +16,7 @@
  * whether named CLIs/skills exist, and does not parse parity-table.md.
  *
  * Surface names are exact Pi registration keys, not slash-rendered display
- * names: use `ji:changes`, not `/ji:flow:changes`. The unique machine key is
+ * names: use `ji:flow:changes`, not `/ji:flow:changes`. The unique machine key is
  * `kind:surface`.
  *
  * Scope is intentionally narrow for v1: package modules in @ji/pi plus

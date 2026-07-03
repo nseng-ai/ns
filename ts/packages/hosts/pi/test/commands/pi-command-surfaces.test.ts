@@ -19,8 +19,11 @@ describe("Pi command surfaces", () => {
 		);
 		expect(derivePiReplacementSurface("objective-close")).toBe("objective:close");
 		expect(derivePiReplacementSurface("objective-stack-impl")).toBe("objective:stack-impl");
-		expect(derivePiReplacementSurface("code-checkpoint")).toBe("ji:flow:cp");
-		expect(derivePiReplacementSurface("code-submit")).toBe("ji:flow:submit");
+		expect(derivePiReplacementSurface("sdl-flow-branch-latest-commit")).toBe(
+			"ji:flow:branch-latest-commit",
+		);
+		expect(derivePiReplacementSurface("sdl-flow-cp")).toBe("ji:flow:cp");
+		expect(derivePiReplacementSurface("sdl-flow-submit")).toBe("ji:flow:submit");
 		expect(derivePiReplacementSurface("pytest")).toBe("python:pytest");
 		expect(derivePiReplacementSurface("skillx")).toBe("skill:x");
 		expect(derivePiReplacementSurface("foo-bar-baz")).toBe("foo:bar-baz");

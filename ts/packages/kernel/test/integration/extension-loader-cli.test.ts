@@ -89,29 +89,29 @@ export default defineExtension({
 		expect(run.context.execCalls).toEqual([]);
 	});
 
-	test("project-local cp help uses selected command metadata and schema", async () => {
+	test("project-local command help uses selected command metadata and schema", async () => {
 		const cwd = await createExtensionProject(
-			"cp.ts",
+			"sample.ts",
 			`
 import { defineExtension, ok, z } from "@ji/kernel/sdk";
 
 export default defineExtension({
 	commands: [{
-	name: "cp",
-	summary: "Project cp override.",
-	description: "Project cp override with options.",
-	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the override.") }),
+	name: "sample",
+	summary: "Project sample command.",
+	description: "Project sample command with options.",
+	schema: z.object({ dryRun: z.boolean().default(false).describe("Preview the sample command.") }),
 	run() { return ok("unused"); },
 }],
 });
 `,
 		);
-		const run = runWithFakes({ args: ["cp", "--help"], state: { exec: [] }, cwd });
+		const run = runWithFakes({ args: ["sample", "--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ji cp");
-		expect(help).toContain("Project cp override with options.");
+		expect(help).toContain("Usage: ji sample");
+		expect(help).toContain("Project sample command with options.");
 		expect(help).toContain("--dry-run");
 		expect(help).not.toContain("model-authored");
 		expect(help).not.toContain("JI_CHECKPOINT_MODEL");
