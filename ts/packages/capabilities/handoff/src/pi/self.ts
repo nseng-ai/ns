@@ -247,7 +247,7 @@ export function createHandoffSelfWorkflow(
 				"Verify a saved /handoff:self artifact, then resolve the active handoff:self rendezvous after the handoff has been saved successfully.",
 			promptGuidelines: [
 				`Use ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} only after a /${HANDOFF_SELF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
-				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before ji handoff create succeeds.`,
+				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before ns handoff create succeeds.`,
 			],
 			statusKey: HANDOFF_SELF_STATUS_KEY,
 			extraParameters: {
@@ -330,7 +330,7 @@ export function buildHandoffSelfPrompt(options: HandoffSelfPromptOptions): strin
 		extraTargetSections: [
 			`Session replacement rendezvous:\n\n- Tool: ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME}\n- workflow_id: ${workflowId}`,
 		],
-		toolCallInstruction: `After \`ji handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
+		toolCallInstruction: `After \`ns handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
 		extraRequirements: [
 			"Do not queue slash commands such as /handoff:self-resume, /handoff:self-pickup, or /new as user messages. The command owns session replacement after this tool resolves.",
 		],

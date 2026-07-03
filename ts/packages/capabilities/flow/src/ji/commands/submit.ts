@@ -27,7 +27,7 @@ import {
 } from "@ji/kernel/sdk";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
-const SUBMIT_FAILURE_LOG_DIR_ENV = "JI_SUBMIT_FAILURE_LOG_DIR";
+const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 
 const submitSchema = z.object({
 	restack: z
@@ -47,12 +47,12 @@ const submitSchema = z.object({
 const SUBMIT_COMMAND_DESCRIPTION = `Checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
 
 Environment:
-  JI_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to JI_DEV_CHECKPOINT_MODEL.
-  JI_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
-  JI_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
+  NS_CHECKPOINT_MODEL           Model reference for generated checkpoint messages. Falls back to NS_DEV_CHECKPOINT_MODEL.
+  NS_DEV_PR_DESCRIPTION_MODEL   Model reference for generated PR descriptions.
+  NS_DEV_PR_DESCRIPTION_PROMPT  Optional path to a custom PR description prompt.
 
-  JI_SUBMIT_FAILURE_MODEL       Model reference for summarizing submit failures.
-  JI_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
+  NS_SUBMIT_FAILURE_MODEL       Model reference for summarizing submit failures.
+  NS_SUBMIT_FAILURE_LOG_DIR     Optional directory for raw submit-failure transcripts.
 
 The command owns its output and exit code. It does not support --format.`;
 
@@ -75,7 +75,7 @@ export const flowSubmitCommand: SdlCommand<typeof submitSchema> = {
 			caps,
 			specs: SUBMIT_PHASES,
 			deps: flowStreamDeps(ctx, caps),
-			title: "ji flow submit",
+			title: "ns flow submit",
 			body: async (stream) => {
 				// The checkpoint workflow emits keyed inspect/generate/commit events; fold them into the single
 				// "Checkpoint" submit phase via their presentational labels.
@@ -158,7 +158,7 @@ export default defineExtension({
 function resultFailureMessage(result: SubmitCommandResult): string {
 	const message = result.stderr.trimEnd();
 	if (message !== "") return message;
-	return `ji flow submit failed with exit code ${result.exitCode}.`;
+	return `ns flow submit failed with exit code ${result.exitCode}.`;
 }
 
 function writeCommandResultOutput(
@@ -243,7 +243,7 @@ function buildSubmitFailureInterpretationPrompt(input: {
 }): string {
 	const bounded = boundSubmitFailureTranscript(input.rawTranscript);
 	return [
-		"Interpret this `ji flow submit` failure for the user.",
+		"Interpret this `ns flow submit` failure for the user.",
 		"Your output is the primary user-facing error message.",
 		"Output only plain terminal text: no Markdown headings, no bold markers, and no fenced code blocks.",
 		"Be terse. The first line is a plain-language diagnosis of what went wrong.",
@@ -283,7 +283,7 @@ async function writeSubmitFailureRawLog(
 	try {
 		const baseDir = resolveSubmitFailureLogRoot(env);
 		await ensurePrivateDirectory(baseDir);
-		const dir = await mkdtemp(join(baseDir, "ji-submit-failure-"));
+		const dir = await mkdtemp(join(baseDir, "ns-submit-failure-"));
 		const path = join(dir, "raw.log");
 		await writeFile(path, rawTranscript, "utf8");
 		return { ok: true, path };
@@ -302,13 +302,13 @@ function resolveSubmitFailureLogRoot(env: Record<string, string | undefined>): s
 	if (override !== undefined && override !== "") return override;
 	const stateHome = env.XDG_STATE_HOME?.trim();
 	if (stateHome !== undefined && stateHome !== "") {
-		return join(stateHome, "ji", "submit-failure-logs");
+		return join(stateHome, "ns", "submit-failure-logs");
 	}
 	const home = env.HOME?.trim();
 	if (home !== undefined && home !== "") {
-		return join(home, ".local", "state", "ji", "submit-failure-logs");
+		return join(home, ".local", "state", "ns", "submit-failure-logs");
 	}
-	return join(process.cwd(), ".ji", "state", "submit-failure-logs");
+	return join(process.cwd(), ".ns", "state", "submit-failure-logs");
 }
 
 function formatModelPrimaryFailure(input: {
@@ -347,7 +347,7 @@ function renderRawFailureTranscript(result: SubmitCommandResult): string {
 		return renderLegacyRawFailureTranscript(result);
 	}
 	const lines = [
-		"ji flow submit failure raw log",
+		"ns flow submit failure raw log",
 		`phase: ${transcript.phase}`,
 		`exit code: ${result.exitCode}`,
 	];
@@ -378,7 +378,7 @@ function renderRawFailureTranscript(result: SubmitCommandResult): string {
 
 function renderLegacyRawFailureTranscript(result: SubmitCommandResult): string {
 	return [
-		"ji flow submit failure raw log",
+		"ns flow submit failure raw log",
 		"phase: unknown",
 		`exit code: ${result.exitCode}`,
 		"",

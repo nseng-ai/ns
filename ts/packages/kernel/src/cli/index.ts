@@ -470,7 +470,7 @@ const SDL_EXEC_GROUP_NAME = "exec";
 const SDL_BUILT_IN_HELP_GROUP = "Built-in Commands:";
 const SDL_EXTENSION_HELP_GROUP = "Extensions:";
 // Dynamic SDL extensions are one group deep today. A grouped command named
-// `exec-<name>` is mounted as hidden `ji <group> exec <name>` so agent-only
+// `exec-<name>` is mounted as hidden `ns <group> exec <name>` so agent-only
 // operations keep the same nested exec contract as first-party Clinkr groups.
 const SDL_EXEC_COMMAND_PREFIX = "exec-";
 

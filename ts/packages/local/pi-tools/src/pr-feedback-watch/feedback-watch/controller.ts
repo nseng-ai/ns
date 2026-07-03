@@ -573,18 +573,18 @@ export class PrFeedbackWatchController {
 		session: ActiveSession,
 	): Promise<{ type: "resolved"; runner: PrAddressRunner } | { type: "failed"; message: string }> {
 		if (this.runner !== undefined) return { type: "resolved", runner: this.runner };
-		const pathSdl = await this.pi.exec("which", ["ji"], {
+		const pathSdl = await this.pi.exec("which", ["ns"], {
 			cwd: session.cwd,
 			timeout: GIT_TIMEOUT_MS,
 			signal: session.abortController.signal,
 		});
 		if (!pathSdl.killed && pathSdl.code === 0 && pathSdl.stdout.trim().length > 0) {
-			this.runner = { command: "ji", baseArgs: ["address"] };
+			this.runner = { command: "ns", baseArgs: ["address"] };
 			return { type: "resolved", runner: this.runner };
 		}
 		return {
 			type: "failed",
-			message: "Could not find ji. Expected `ji` on PATH (installed with `just install-tools`).",
+			message: "Could not find ns. Expected `ns` on PATH (installed with `just install-tools`).",
 		};
 	}
 

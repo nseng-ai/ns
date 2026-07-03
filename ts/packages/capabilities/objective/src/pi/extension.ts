@@ -265,7 +265,7 @@ async function loadObjectiveCompletionItems(
 	let result: ExecResult;
 	try {
 		result = await pi.exec(
-			"ji",
+			"ns",
 			[...ACTIVE_OBJECTIVE_CANDIDATES_ARGS],
 			objectiveCompletionExecOptions(cwd),
 		);
@@ -411,7 +411,7 @@ export const objectiveParity = definePiSurfaceParity([
 		surface: OBJECTIVE_LIST_COMMAND_NAME,
 		workflow: "List active Objectives in this repository without invoking the agent",
 		parity: "FULL",
-		cli: "ji objective list",
+		cli: "ns objective list",
 		skill: "objective",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@ji/objective/pi",
@@ -424,7 +424,7 @@ export const objectiveParity = definePiSurfaceParity([
 		surface: objectiveCreateCommandSpec.commandName,
 		workflow: objectiveCreateCommandSpec.description,
 		parity: "FULL",
-		cli: "ji objective exec read-objective plus direct Objective Markdown creation",
+		cli: "ns objective exec read-objective plus direct Objective Markdown creation",
 		skill: objectiveCreateCommandSpec.skillName,
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@ji/objective/pi",
@@ -439,7 +439,7 @@ export const objectiveParity = definePiSurfaceParity([
 				surface: spec.commandName,
 				workflow: spec.description,
 				parity: "FULL",
-				cli: `ji objective ${spec.cliSubcommand}`,
+				cli: `ns objective ${spec.cliSubcommand}`,
 				skill: spec.skillName,
 				ownerObjective: "cross-harness-parity",
 				sourcePackage: "@ji/objective/pi",

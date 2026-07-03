@@ -1,5 +1,5 @@
 // Slot intentionally exports a mountable command face rather than a standalone
-// `defineCli` entrypoint. The supported user-facing surface is `ji slot ...`,
+// `defineCli` entrypoint. The supported user-facing surface is `ns slot ...`,
 // so root CLI metadata such as `--version` and `--runtime` stays owned by
 // `@ji/kernel` instead of this capability package.
 import { ClinkrGroup, type ClinkrDynamicCompletionRequest } from "@ji/clinkr";

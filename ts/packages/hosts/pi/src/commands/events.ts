@@ -1,4 +1,4 @@
-export const PI_EXTENSION_COMMAND_FINISHED_EVENT = "ji:pi-extension-command:finished";
+export const PI_EXTENSION_COMMAND_FINISHED_EVENT = "ns:pi-extension-command:finished";
 
 export interface PiExtensionCommandFinishedEvent {
 	readonly commandName: string;

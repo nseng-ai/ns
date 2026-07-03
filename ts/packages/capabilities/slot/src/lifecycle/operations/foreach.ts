@@ -49,7 +49,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	if (request.command.length === 0)
 		return failure(
 			"missing-command",
-			"Pass a command after --, e.g. `ji slot foreach -- git clean -fd`.",
+			"Pass a command after --, e.g. `ns slot foreach -- git clean -fd`.",
 		);
 	const inventory = await buildSlotInventory(repoCtx.git, {
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,
@@ -61,7 +61,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	const records = inventory.records;
 	if (!request.yes) {
 		if (!ctx.shouldWriteCdDirective)
-			return failure("confirmation-required", "ji slot foreach requires --yes in JSON mode.");
+			return failure("confirmation-required", "ns slot foreach requires --yes in JSON mode.");
 		const confirmed = await repoCtx.interaction.confirm({
 			message: `Run \`${formatCommand(request.command[0]!, request.command.slice(1))}\` in ${records.length} slot(s)?`,
 			defaultAnswer: "no",
@@ -89,7 +89,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	const failedCount = slots.filter((slot) => !slot.succeeded).length;
 	if (failedCount > 0)
 		return negative(
-			`ji slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
+			`ns slot foreach: command failed in ${failedCount} of ${slots.length} slot(s).`,
 			{ data: result },
 		);
 	return ok(result);

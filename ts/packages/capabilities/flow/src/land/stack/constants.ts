@@ -1,4 +1,4 @@
-export const COMMAND_NAME = "ji:flow:land";
+export const COMMAND_NAME = "ns:flow:land";
 export const STATUS_KEY = "land";
 export const COMMAND_STREAM_MESSAGE_TYPE = "land-command-stream";
 
@@ -10,8 +10,8 @@ export const GT_MUTATION_TIMEOUT_MS = 600_000;
 export const SLOT_TIMEOUT_MS = 120_000;
 export const SQLITE_TIMEOUT_MS = 30_000;
 
-export const BACKUP_REF_NAMESPACE = "refs/ji/flow-land-backup";
-export const BACKUP_REF_PREV_NAMESPACE = "refs/ji/flow-land-backup-prev";
+export const BACKUP_REF_NAMESPACE = "refs/ns/flow-land-backup";
+export const BACKUP_REF_PREV_NAMESPACE = "refs/ns/flow-land-backup-prev";
 export const PR_FIELDS =
 	"number,title,body,state,isDraft,headRefName,baseRefName,headRefOid,mergeStateStatus,url,mergedAt";
 

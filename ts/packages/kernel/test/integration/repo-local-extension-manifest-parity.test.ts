@@ -31,7 +31,7 @@ interface DiscoveredManifest {
 	readonly commands: readonly DiscoveredExtensionCommand[];
 }
 
-const REPO_LOCAL_EXTENSION_ROOT = "../.ji/extensions";
+const REPO_LOCAL_EXTENSION_ROOT = "../.ns/extensions";
 const REPO_LOCAL_EXTENSION_DESCRIPTORS = [
 	addressRepoLocalSdlExtension,
 	aretroRepoLocalSdlExtension,
@@ -61,7 +61,7 @@ describe("repo-local SDL extension manifest parity", () => {
 					"Repo-local SDL extension descriptor coverage mismatch.",
 					`Extension directories: ${actualExtensionGroups.join(", ")}`,
 					`Package descriptors: ${expectedExtensionGroups.join(", ")}`,
-					"Add exactly one package-owned repo-local descriptor to this test table for each .ji/extensions/* directory.",
+					"Add exactly one package-owned repo-local descriptor to this test table for each .ns/extensions/* directory.",
 				].join("\n"),
 			);
 		}
@@ -241,7 +241,7 @@ function assertManifestCommandsMatch(
 	if (missingCommands.length > 0) {
 		lines.push(
 			"",
-			"Missing manifest command entries (copy into .ji/extensions/" + group + "/package.json):",
+			"Missing manifest command entries (copy into .ns/extensions/" + group + "/package.json):",
 			...missingCommands.map((command) => manifestCommandJson(command)),
 		);
 	}

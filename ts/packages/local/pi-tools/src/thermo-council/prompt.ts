@@ -36,7 +36,7 @@ export function buildReviewerPrompt(
 		"## Changed Files",
 		...scope.changedFiles.map((file) => `- ${file}`),
 		"",
-		"## Canonical Rubric: .ji/reviews/thermonuclear-review/review.md",
+		"## Canonical Rubric: .ns/reviews/thermonuclear-review/review.md",
 		codeFence(scope.rubricText),
 		"",
 		"## Diff",

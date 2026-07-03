@@ -37,4 +37,4 @@ local.just
 .vercel
 .env*
 
-.ji/tmp
+.ns/tmp

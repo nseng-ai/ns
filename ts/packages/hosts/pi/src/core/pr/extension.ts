@@ -65,7 +65,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		surface: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		workflow: "Download current PR feedback into the Pi editor as a triage prompt",
 		parity: "FULL",
-		cli: "ji address exec download-feedback",
+		cli: "ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@ji/pi",
 		sourceModule: "pr",
@@ -77,7 +77,7 @@ export const prExtensionParity = definePiSurfaceParity([
 		workflow:
 			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one triage prompt",
 		parity: "FULL",
-		cli: "ji slot gt exec stack-branches --downstack + ji address exec map-branch-prs + ji address exec download-feedback",
+		cli: "ns slot gt exec stack-branches --downstack + ns address exec map-branch-prs + ns address exec download-feedback",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@ji/pi",
 		sourceModule: "pr",
@@ -303,7 +303,7 @@ async function loadStackBranches(
 	ctx: ExtensionContext,
 ): Promise<{ type: "ok"; branches: string[] } | { type: "error"; message: string }> {
 	const result = await pi.exec(
-		"ji",
+		"ns",
 		["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 		{
 			cwd: ctx.cwd,
@@ -311,7 +311,7 @@ async function loadStackBranches(
 		},
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "ji slot gt exec stack-branches",
+		label: "ns slot gt exec stack-branches",
 		result,
 		schema: stackBranchesDataSchema,
 		allowFailureData: true,
@@ -330,12 +330,12 @@ async function mapStackBranchesToPrs(
 > {
 	const branchesJson = JSON.stringify({ branches });
 	const result = await pi.exec(
-		"ji",
+		"ns",
 		["address", "exec", "map-branch-prs", "--branches-json", branchesJson, "--format", "json"],
 		{ cwd: ctx.cwd, timeout: COMMAND_TIMEOUT_MS },
 	);
 	const parsed = parseEnvelopeWithSchema({
-		label: "ji address exec map-branch-prs",
+		label: "ns address exec map-branch-prs",
 		result,
 		schema: mapBranchPrsDataSchema,
 		// map-branch-prs uses exit 1 for partial branch coverage; stack feedback can

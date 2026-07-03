@@ -136,10 +136,10 @@ export function buildHandoffLaunchPrompt(
 		"Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.",
 		`Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.`,
 		"Use the returned slug/key. Do not derive the entry name from the raw continuation focus.",
-		`Store the exact final Markdown content through /dev/stdin with \`ji handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
-		`If \`ji handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
+		`Store the exact final Markdown content through /dev/stdin with \`ns handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+		`If \`ns handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
 		options.toolCallInstruction ??
-			`After \`ji handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+			`After \`ns handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
 		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
 		...(options.extraRequirements ?? []),
 	];

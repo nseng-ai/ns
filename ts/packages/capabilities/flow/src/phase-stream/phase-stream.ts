@@ -2,7 +2,7 @@
 //
 // Reference driver for the STREAMING shape in the consolidated house style; the normative rules
 // (bold title, two-tier phase label/detail, log-tail, in-place TTY vs settled non-TTY frame) live
-// in `.ji/objectives/cli-ux-north-star/house-style.md`.
+// in `.ns/objectives/cli-ux-north-star/house-style.md`.
 //
 // Flow owns the ordered phase list and typed progress events. This module wires the small stream seams
 // together: phase-state transitions, transcript tail buffering, lifecycle cleanup, and clinkr-backed

@@ -35,7 +35,7 @@ export interface TempGitRepoRunOptions {
 }
 
 export function createTempGitRepo(options: TempGitRepoOptions = {}): TempGitRepo {
-	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "ji-git-test-"));
+	const path = mkdtempSync(join(tmpdir(), options.prefix ?? "ns-git-test-"));
 	const runGit = (args: readonly string[], runOptions: TempGitRepoRunOptions = {}): string => {
 		const result = spawnSync("git", [...args], {
 			cwd: path,

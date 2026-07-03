@@ -30,7 +30,7 @@
 		]
 	},
 	"bin": {
-		"ji": "./src/cli/index.ts"
+		"ns": "./src/cli/index.ts"
 	},
 	"scripts": {
 		"check": "tsgo -p tsconfig.json",

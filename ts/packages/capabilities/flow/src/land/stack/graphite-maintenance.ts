@@ -111,7 +111,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 				commandDisplay: getCommandDisplay,
 				result: got,
 				failedBranch: maintenanceBranch,
-				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ji:flow:land if appropriate.`,
+				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 			},
 		);
 	}
@@ -120,7 +120,7 @@ function graphiteRefreshFailure(failureOptions: GraphiteRefreshFailureOptions): 
 		commandDisplay: getCommandDisplay,
 		result: got,
 		failedBranch: maintenanceBranch,
-		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ji:flow:land if appropriate.`,
+		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 	});
 }
 
@@ -219,7 +219,7 @@ async function checkSubmitMaintenanceBranch(
 				`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${localSha.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ji:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			),
 			warning: {
@@ -236,7 +236,7 @@ async function checkSubmitMaintenanceBranch(
 				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} after restack.\n${pr.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ji:flow:land if needed.`,
+					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed.`,
 				},
 			),
 			warning: {
@@ -282,7 +282,7 @@ async function refreshExpectedShaAfterRestack(
 					`PR #${prNumber} merged, but could not re-read local branch ${refreshTarget} after restack.\n${refreshedSha.failure.message}`,
 					{
 						failedBranch: refreshTarget,
-						suggestedAction: `Inspect local branch ${refreshTarget}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+						suggestedAction: `Inspect local branch ${refreshTarget}, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 					},
 				),
 			};
@@ -310,7 +310,7 @@ async function submitMaintenanceBranch(
 			commandDisplay: submitted.commandDisplay,
 			result: submitted.result,
 			failedBranch: maintenanceBranch,
-			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ji:flow:land if appropriate.`,
+			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
 		}),
 		warning: {
 			message: formatSubmitFailureMessage(prNumber, maintenanceBranch, false),
@@ -446,7 +446,7 @@ async function guardMaintenanceBranch(
 				`PR #${prNumber} merged, but could not verify local branch ${maintenanceBranch} before refreshing it.\n${guardSha.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect local branch ${maintenanceBranch}, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			),
 			warning: {
@@ -463,7 +463,7 @@ async function guardMaintenanceBranch(
 	return failOrWarn(maintenance.severity, {
 		failure: landStackFailure(`PR #${prNumber} merged, but ${movedMessage}.`, {
 			failedBranch: maintenanceBranch,
-			suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ji:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			suggestedAction: `Inspect local branch ${maintenanceBranch}, reconcile it with the remote, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		}),
 		warning: {
 			message: `All target PRs were merged, but ${movedMessage}; local branch ${landedBranch} cleanup and descendant restack/update were skipped.`,
@@ -601,7 +601,7 @@ async function checkGraphiteBranchBeforeDelete(
 			{
 				failedBranch: branch,
 				failedPr: prNumber,
-				suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /ji:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+				suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /ns:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
 		),
 		warning: {
@@ -670,7 +670,7 @@ async function restackMaintenanceBranch(
 			commandDisplay: restacked.commandDisplay,
 			result: restacked.result,
 			failedBranch: maintenanceBranch,
-			suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ji:flow:land if appropriate.`,
+			suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
 		}),
 		warning: {
 			message: formatRestackFailureMessage(prNumber, maintenanceBranch, false),
@@ -917,7 +917,7 @@ function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePa
 	if (!isLikelyInProgressGitOperationFailure(options.result)) {
 		return {
 			failureMessage: `PR #${options.prNumber} merged, but deleting the local Graphite branch ${options.branch} failed.`,
-			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ji:flow:land.`,
+			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ns:flow:land.`,
 			warningMessage: options.isOptionalDescendant
 				? `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed; descendant restack/update was skipped.`
 				: `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed.`,
@@ -925,8 +925,8 @@ function localBranchDeletionFailureDetails(options: LocalBranchDeletionFailurePa
 		};
 	}
 
-	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /ji:flow:land until it is resolved or aborted.`;
-	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /ji:flow:land.`;
+	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /ns:flow:land until it is resolved or aborted.`;
+	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /ns:flow:land.`;
 	return {
 		failureMessage: `PR #${options.prNumber} merged, but ${baseMessage}`,
 		failureSuggestedAction: action,

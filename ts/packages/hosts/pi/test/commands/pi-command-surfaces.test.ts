@@ -10,17 +10,17 @@ import {
 
 describe("Pi command surfaces", () => {
 	test("keeps neutral command surface constants", () => {
-		expect(BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME).toBe("ji:branch-context:from-plan");
-		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("ji:branch-context:impl-attached-plan");
-		expect(WRITE_PLAN_COMMAND_NAME).toBe("ji:plan:save");
-		expect(WRITE_GRILLED_PLAN_COMMAND_NAME).toBe("ji:plan:grill-and-save");
+		expect(BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME).toBe("ns:branch-context:from-plan");
+		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("ns:branch-context:impl-attached-plan");
+		expect(WRITE_PLAN_COMMAND_NAME).toBe("ns:plan:save");
+		expect(WRITE_GRILLED_PLAN_COMMAND_NAME).toBe("ns:plan:grill-and-save");
 	});
 
 	test("formats attached branch-context implementation commands", () => {
 		expect(
 			formatImplBranchContextCommand("provider-owned-command-backed-skill-registry-remediation.md"),
 		).toBe(
-			"/ji:branch-context:impl-attached-plan provider-owned-command-backed-skill-registry-remediation.md",
+			"/ns:branch-context:impl-attached-plan provider-owned-command-backed-skill-registry-remediation.md",
 		);
 	});
 });

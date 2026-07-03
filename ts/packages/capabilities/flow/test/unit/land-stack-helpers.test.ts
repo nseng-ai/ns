@@ -325,7 +325,7 @@ describe("land-stack pure helpers", () => {
 			shouldStreamVerboseOutput: false,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
-			"Unknown /ji:flow:land argument: --wat",
+			"Unknown /ns:flow:land argument: --wat",
 		);
 	});
 
@@ -494,7 +494,7 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("detects worktree conflicts with injected path normalization", async () => {
-		const slotPath = "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01";
+		const slotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01";
 		const pi = new FakePi([
 			step("git", ["worktree", "list", "--porcelain"], {
 				stdout: worktreeOutput([
@@ -542,9 +542,9 @@ describe("land-stack pure helpers", () => {
 
 	test("detects managed slot paths and extracts slot names", () => {
 		const legacySlotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
-		const xdgSlotPath = "/Users/me/.local/state/ji/slots/repos/sdl-tools/worktrees/slot-04";
+		const xdgSlotPath = "/Users/me/.local/state/ns/slots/repos/sdl-tools/worktrees/slot-04";
 		const windowsXdgSlotPath =
-			"C:\\Users\\me\\AppData\\Local\\ji\\slots\\repos\\sdl-tools\\worktrees\\slot-04";
+			"C:\\Users\\me\\AppData\\Local\\ns\\slots\\repos\\sdl-tools\\worktrees\\slot-04";
 		expect(isManagedSlotPath(legacySlotPath)).toBe(false);
 		expect(isManagedSlotPath(xdgSlotPath)).toBe(true);
 		expect(isManagedSlotPath(windowsXdgSlotPath)).toBe(true);
@@ -647,7 +647,7 @@ describe("land-stack pure helpers", () => {
 			managedSlotConflicts: [
 				{
 					branch: "feature-a",
-					path: "/Users/me/.local/state/ji/slots/repos/repo/worktrees/slot-01",
+					path: "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01",
 					kind: "managed-slot",
 				},
 			],
@@ -728,20 +728,20 @@ describe("land-stack pure helpers", () => {
 
 		pi.assertDone();
 		expect(commandMessagesText(pi.messages)).toContain(
-			"✓ $ ji flow exec read-graphite-branch-metadata --db-path /repo/.git/.graphite_metadata.db — read Graphite stack topology",
+			"✓ $ ns flow exec read-graphite-branch-metadata --db-path /repo/.git/.graphite_metadata.db — read Graphite stack topology",
 		);
 	});
 
 	test("does not label unrelated sdl commands as Graphite topology reads", async () => {
-		const pi = new FakePi([step("ji", ["flow", "changes"])]);
+		const pi = new FakePi([step("ns", ["flow", "changes"])]);
 		const context = createContext();
 		const commandStream = new LandStackCommandStream(createLandUiCommandIo(pi, context.ctx));
 		const streamed = withCommandStreaming(pi, commandStream);
 
-		await streamed.exec("ji", ["flow", "changes"], { cwd: ROOT });
+		await streamed.exec("ns", ["flow", "changes"], { cwd: ROOT });
 
 		pi.assertDone();
-		expect(commandMessagesText(pi.messages)).toContain("✓ $ ji flow changes");
+		expect(commandMessagesText(pi.messages)).toContain("✓ $ ns flow changes");
 		expect(commandMessagesText(pi.messages)).not.toContain("read Graphite stack topology");
 	});
 

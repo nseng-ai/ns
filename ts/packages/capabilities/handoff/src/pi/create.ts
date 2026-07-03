@@ -25,7 +25,7 @@ Treat this as an explicit request to run the handoff create workflow. The handof
 Before writing, confirm the branch unless the user explicitly named one and derive the slug from the final artifact content. Do not create a temporary Markdown file; store final Markdown directly through /dev/stdin with the Handoff command:
 
 ${buildFencedTextBlock(
-	`ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+	`ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF`,
 	"bash",

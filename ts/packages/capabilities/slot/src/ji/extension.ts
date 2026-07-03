@@ -104,8 +104,8 @@ import {
 	runResize,
 } from "../lifecycle/operations/index.ts";
 
-const sdlShellIntegrationBeginMarker = "# >>> ji shell integration >>>";
-const sdlShellIntegrationEndMarker = "# <<< ji shell integration <<<";
+const sdlShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
+const sdlShellIntegrationEndMarker = "# <<< ns shell integration <<<";
 const sdlShellShowRequestSchema = markerSurfaceShowRequestSchema;
 const sdlShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
 	yes: z.boolean().default(false).describe("Confirm shell rc-file update without prompting."),
@@ -156,7 +156,7 @@ async function completeCheckoutBranches(
 }
 
 function renderSdlShellWrapperScript(): string {
-	return renderCommandCdWrapperScript({ commandName: "ji" });
+	return renderCommandCdWrapperScript({ commandName: "ns" });
 }
 
 async function runSdlShellShow(
@@ -180,7 +180,7 @@ async function runSdlShellInstall(
 			const gate = requireInteractiveOrUsageError(
 				{ isInteractive: () => false, confirm: async () => ({ type: "aborted" as const }) },
 				{
-					message: "Installing ji shell integration requires --yes when non-interactive.",
+					message: "Installing ns shell integration requires --yes when non-interactive.",
 					missingFlag: "--yes",
 					howToSupply: "Pass --yes (or -y) to update the shell rc file without prompting.",
 				},
@@ -188,8 +188,8 @@ async function runSdlShellInstall(
 			if (gate) return gate;
 		}
 		const confirmed = await ctx.confirm?.(
-			"Install ji shell integration?",
-			`Install ji shell integration for ${selected.shell} in ${rcPath}?`,
+			"Install ns shell integration?",
+			`Install ns shell integration for ${selected.shell} in ${rcPath}?`,
 		);
 		if (confirmed !== true) {
 			return ok({
@@ -222,10 +222,10 @@ function renderSdlShellShow(result: unknown): string {
 function renderSdlShellInstall(result: unknown): string {
 	const parsed = sdlShellInstallResultSchema.parse(result);
 	if (parsed.cancelled)
-		return `Cancelled ji shell integration install for ${parsed.shell} in ${parsed.rcPath}`;
+		return `Cancelled ns shell integration install for ${parsed.shell} in ${parsed.rcPath}`;
 	if (parsed.isAlreadyInstalled)
-		return `ji shell integration already installed in ${parsed.rcPath}`;
-	return `Installed ji shell integration for ${parsed.shell} in ${parsed.rcPath}`;
+		return `ns shell integration already installed in ${parsed.rcPath}`;
+	return `Installed ns shell integration for ${parsed.shell} in ${parsed.rcPath}`;
 }
 
 export default defineExtension({

@@ -1,6 +1,6 @@
 import { formatShellArg } from "@ji/core/exec";
 
-const TOKEN_PREFIX = "@@JI_";
+const TOKEN_PREFIX = "@@NS_";
 
 export const FALLBACK_MODES = ["literal", "script-checkout"] as const;
 export type FallbackMode = (typeof FALLBACK_MODES)[number];
@@ -32,16 +32,16 @@ export function renderCliShim(request: RenderCliShimRequest): RenderCliShimResul
 	const fallbackMode = request.fallbackMode ?? "literal";
 	if (!isFallbackMode(fallbackMode)) {
 		return failure(
-			`invalid JI_FALLBACK_MODE '${fallbackMode}'; expected one of: ${FALLBACK_MODES.join(", ")}`,
+			`invalid NS_FALLBACK_MODE '${fallbackMode}'; expected one of: ${FALLBACK_MODES.join(", ")}`,
 		);
 	}
 
 	const replacements = new Map([
-		["@@JI_TOOL@@", formatShellArg(request.tool)],
-		["@@JI_CANONICAL_CHECKOUT@@", formatShellArg(request.canonicalCheckout)],
-		["@@JI_CLI_REL_PATH@@", formatShellArg(request.cliRelPath)],
-		["@@JI_INSTALL_HINT@@", formatShellArg(request.installHint)],
-		["@@JI_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
+		["@@NS_TOOL@@", formatShellArg(request.tool)],
+		["@@NS_CANONICAL_CHECKOUT@@", formatShellArg(request.canonicalCheckout)],
+		["@@NS_CLI_REL_PATH@@", formatShellArg(request.cliRelPath)],
+		["@@NS_INSTALL_HINT@@", formatShellArg(request.installHint)],
+		["@@NS_FALLBACK_MODE@@", formatShellArg(fallbackMode)],
 	]);
 
 	let rendered = request.template;

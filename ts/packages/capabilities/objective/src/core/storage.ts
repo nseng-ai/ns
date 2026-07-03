@@ -7,8 +7,8 @@ import {
 	type ObjectiveRecordDocument,
 } from "./record-frontmatter.ts";
 
-export const ACTIVE_OBJECTIVE_ROOT = ".ji/objectives";
-export const OBJECTIVE_ARCHIVE_ROOT = ".ji/objective-archive";
+export const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
+export const OBJECTIVE_ARCHIVE_ROOT = ".ns/objective-archive";
 
 export type ObjectiveRecordStatus = "open" | "closed";
 export type ObjectiveArchiveDirection = "archive" | "unarchive";

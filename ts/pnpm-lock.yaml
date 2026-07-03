@@ -116,7 +116,7 @@ importers:
         version: link:packages/capabilities/plans
       '@ji/review-reinvention-scanner':
         specifier: workspace:*
-        version: link:../.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
+        version: link:../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention
       '@ji/roaster':
         specifier: workspace:*
         version: link:packages/capabilities/roaster
@@ -154,7 +154,7 @@ importers:
         specifier: 'catalog:'
         version: 4.1.9(@types/node@24.13.2)(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  ../.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention:
+  ../.ns/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention:
     dependencies:
       '@ji/core':
         specifier: workspace:*

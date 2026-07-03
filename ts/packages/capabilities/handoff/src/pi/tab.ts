@@ -145,7 +145,7 @@ export function buildHandoffTabLaunchTool(pi: ExtensionAPI): ToolDefinition {
 			"Open a focused cmux tab to pick up a saved handoff after the handoff has been saved successfully.",
 		promptGuidelines: [
 			`Use ${HANDOFF_TAB_LAUNCH_TOOL_NAME} only after a /${HANDOFF_TAB_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
-			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before ji handoff create succeeds.`,
+			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before ns handoff create succeeds.`,
 		],
 		statusKey: HANDOFF_TAB_STATUS_KEY,
 		verifyStatus: () => "verifying saved handoff…",

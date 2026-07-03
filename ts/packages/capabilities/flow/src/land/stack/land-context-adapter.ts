@@ -346,10 +346,10 @@ async function freeSlots(
 	options: FreeSlotsOptions,
 ): Promise<LandResult<readonly ManagedSlotWorktree[]>> {
 	const freeArgs = slotFreeArgs(options.slots);
-	const commandDisplay = formatCommand("ji", ["slot", ...freeArgs]);
+	const commandDisplay = formatCommand("ns", ["slot", ...freeArgs]);
 	const result = await exec({
 		pi: options.pi,
-		command: "ji",
+		command: "ns",
 		args: ["slot", ...freeArgs],
 		cwd: options.repoRoot,
 		timeoutMs: SLOT_TIMEOUT_MS,

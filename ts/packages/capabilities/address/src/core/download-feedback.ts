@@ -242,7 +242,7 @@ function renderSinglePrInstructions(): string[] {
 		"",
 		"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt.",
 		"",
-		'If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, close review threads with `ji address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --format json`; include `--body <BODY>` when a reply is useful. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql` for those mutations.',
+		'If the human asks you to address the feedback, inspect the current repository state before acting. After implementing or verifying the fix and running appropriate validation, close review threads with `ns address exec close-review-threads --thread-ids-json \'{"threadIds":["<THREAD_ID>"]}\' --format json`; include `--body <BODY>` when a reply is useful. Use single-thread reply/resolve primitives only for one-offs, and do not use raw `gh api graphql` for those mutations.',
 	];
 }
 

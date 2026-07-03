@@ -22,12 +22,12 @@ import {
 	type TextGenerator,
 } from "./text-generation.ts";
 
-export const PR_DESCRIPTION_PROMPT_ENV = "JI_DEV_PR_DESCRIPTION_PROMPT";
-export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ji/prompts/pr-description.md";
+export const PR_DESCRIPTION_PROMPT_ENV = "NS_DEV_PR_DESCRIPTION_PROMPT";
+export const REPO_PR_DESCRIPTION_PROMPT_PATH = ".ns/prompts/pr-description.md";
 export const GENERATED_BODY_MARKER = "<!-- generated-by: ji-dev pr-description v1 -->";
-export const MANAGED_BODY_BEGIN_MARKER = "<!-- ji-pr-description:begin";
-export const MANAGED_BODY_END_MARKER = "<!-- ji-pr-description:end -->";
-export const PR_DESCRIPTION_GENERATOR_VERSION = "ji-pr-description-v2";
+export const MANAGED_BODY_BEGIN_MARKER = "<!-- ns-pr-description:begin";
+export const MANAGED_BODY_END_MARKER = "<!-- ns-pr-description:end -->";
+export const PR_DESCRIPTION_GENERATOR_VERSION = "ns-pr-description-v2";
 export const MAX_DIFF_CHARS = 120_000;
 
 const LOCKFILE_BASENAMES = new Set([

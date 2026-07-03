@@ -1,5 +1,5 @@
 // Flow-local helper for rendering a failed pending-worktree snapshot probe as a house-style git
-// failure block. `ji flow autobranch` and `ji flow branch-latest-commit` both load the same
+// failure block. `ns flow autobranch` and `ns flow branch-latest-commit` both load the same
 // pending-worktree snapshot before running, and each failed git probe (not-a-repo / detached HEAD /
 // status / diff) is a real `ExecResult` failure — so the honest reuse is `git-result-block`'s
 // `failure` kind, which mines the probe transcript for cause markers (house-style §7.1). This helper
@@ -15,7 +15,7 @@ import type { PendingWorktreeError } from "../worktree.ts";
 interface PendingWorktreeFailureInput {
 	error: PendingWorktreeError;
 	cwd: string;
-	/** Command name shown in the headline, e.g. "`ji flow autobranch`". */
+	/** Command name shown in the headline, e.g. "`ns flow autobranch`". */
 	commandLabel: string;
 }
 

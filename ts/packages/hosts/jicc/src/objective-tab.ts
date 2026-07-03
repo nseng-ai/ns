@@ -41,12 +41,12 @@ export const objectiveTabModule: ObjectiveTabModule = {
 
 async function loadModel(deps: TabModuleDeps): Promise<ObjectiveList> {
 	const args = ["objective", "list", "--minimal", "--format", "json"];
-	const result = await deps.runCommand("ji", args, {
+	const result = await deps.runCommand("ns", args, {
 		cwd: deps.cwd,
 		timeout: COMMAND_TIMEOUT_MS,
 	});
 	if (result.code !== 0) {
-		throw new Error(formatInlineCommandFailure("ji objective list", result));
+		throw new Error(formatInlineCommandFailure("ns objective list", result));
 	}
 	const parsed = parseObjectiveListStdout(result.stdout);
 	if (parsed.type === "invalid") throw new Error(parsed.message);

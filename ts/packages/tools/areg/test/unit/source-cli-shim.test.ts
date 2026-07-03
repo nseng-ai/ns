@@ -31,7 +31,7 @@ describe("areg source CLI shim rendering", () => {
 		expect(result.type).toBe("ok");
 		if (result.type !== "ok") return;
 
-		expect(result.rendered).not.toContain("@@JI_");
+		expect(result.rendered).not.toContain("@@NS_");
 		expect(result.rendered).toContain("tool=areg\n");
 		expect(result.rendered).toContain("fallback_mode=literal\n");
 		expect(result.rendered).toContain(`cli_rel_path=${CLI_REL_PATH}\n`);
@@ -47,7 +47,7 @@ describe("areg source CLI shim rendering", () => {
 		const result = renderCliShim({
 			template: await readTemplate(),
 			tool: "areg",
-			canonicalCheckout: "/tmp/ji",
+			canonicalCheckout: "/tmp/ns",
 			cliRelPath: CLI_REL_PATH,
 			installHint: "just install-areg",
 			fallbackMode: "surprise",
@@ -56,7 +56,7 @@ describe("areg source CLI shim rendering", () => {
 		expect(result.type).toBe("failure");
 		expect(result).toMatchObject({ exitCode: 2 });
 		if (result.type !== "failure") return;
-		expect(result.message).toContain("invalid JI_FALLBACK_MODE 'surprise'");
+		expect(result.message).toContain("invalid NS_FALLBACK_MODE 'surprise'");
 		expect(result.message).toContain("literal, script-checkout");
 	});
 });

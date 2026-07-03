@@ -1,9 +1,9 @@
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export type ObjectiveCliSubcommand = "next" | "update" | "close" | "stack-impl";
-export type ObjectiveCommandName = `ji:objective:${ObjectiveCliSubcommand}`;
+export type ObjectiveCommandName = `ns:objective:${ObjectiveCliSubcommand}`;
 export type ObjectiveSkillName = `objective-${ObjectiveCliSubcommand}`;
-export type ObjectiveCreateCommandName = "ji:objective:create";
+export type ObjectiveCreateCommandName = "ns:objective:create";
 export type ObjectiveCreateSkillName = "objective-create";
 
 export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
@@ -25,10 +25,10 @@ export interface ObjectiveCreateCommandSpec {
 
 type ObjectiveCommandSpecInput = Omit<ObjectiveCommandSpec, "commandName" | "statusKey">;
 
-export const OBJECTIVE_CREATE_COMMAND_NAME: ObjectiveCreateCommandName = "ji:objective:create";
+export const OBJECTIVE_CREATE_COMMAND_NAME: ObjectiveCreateCommandName = "ns:objective:create";
 
 function objectiveCommandName(cliSubcommand: ObjectiveCliSubcommand): ObjectiveCommandName {
-	return `ji:objective:${cliSubcommand}`;
+	return `ns:objective:${cliSubcommand}`;
 }
 
 function defineObjectiveCommandSpec(spec: ObjectiveCommandSpecInput): ObjectiveCommandSpec {

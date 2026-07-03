@@ -11,7 +11,7 @@ describe("sdl slot CLI", () => {
 		const runtime = runScenario(["--runtime"]);
 		expect(await runtime.exit).toBe(0);
 		expect(runtime.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @ji/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 	});
 
@@ -19,7 +19,7 @@ describe("sdl slot CLI", () => {
 		const run = runScenario(["slot", "--help"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("Usage: ji slot");
+		expect(output).toContain("Usage: ns slot");
 		expect(output).toContain("list [options]");
 		expect(output).toContain("checkout [options]");
 		expect(output).toContain("gt");
@@ -35,9 +35,9 @@ describe("sdl slot CLI", () => {
 		const run = runScenario(["slot", "shell", "show", "--shell", "zsh"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("ji() {");
-		expect(output).toContain("JI_CD_DIRECTIVE_FILE");
-		expect(output).toContain('command ji "$@"');
+		expect(output).toContain("ns() {");
+		expect(output).toContain("NS_CD_DIRECTIVE_FILE");
+		expect(output).toContain('command ns "$@"');
 		expect(output).not.toContain("slot() {");
 		expect(output).not.toContain('command slot "$@"');
 	});

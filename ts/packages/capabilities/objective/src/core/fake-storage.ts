@@ -18,7 +18,7 @@ export interface FakeObjectiveRecordOptions {
 	orientationMd?: string | null;
 	updates?: Readonly<Record<string, string>>;
 	isClosed?: boolean;
-	/** Place the record under `.ji/objective-archive` instead of the active root. */
+	/** Place the record under `.ns/objective-archive` instead of the active root. */
 	isArchived?: boolean;
 }
 

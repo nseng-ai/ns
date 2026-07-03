@@ -12,9 +12,9 @@ const OBJECTIVE_READ_TIMEOUT_MS = 30_000;
 export const CMUX_WORKSPACE_SUMMARY_TIMEOUT_MS = 30_000;
 const MAX_ERROR_CHARS = 4_000;
 const MAX_ERROR_LINES = 20;
-const ACTIVE_OBJECTIVE_PREFIX = ".ji/objectives/";
-const ACTIVE_OBJECTIVE_ROOT = ".ji/objectives";
-const ARCHIVE_OBJECTIVE_ROOT = ".ji/objective-archive";
+const ACTIVE_OBJECTIVE_PREFIX = ".ns/objectives/";
+const ACTIVE_OBJECTIVE_ROOT = ".ns/objectives";
+const ARCHIVE_OBJECTIVE_ROOT = ".ns/objective-archive";
 
 export type ObjectiveSelectorParseResult =
 	| {
@@ -71,12 +71,12 @@ export function resolveObjectiveSelector(
 ): ObjectiveSelectorParseResult {
 	const trimmed = selector.trim();
 	if (trimmed.length === 0) {
-		return invalidSelector("Pass an Objective slug or .ji/objectives/<slug> path.");
+		return invalidSelector("Pass an Objective slug or .ns/objectives/<slug> path.");
 	}
 
 	if (trimmed.includes("\\")) {
 		return invalidSelector(
-			"Objective selector must be a slug or a .ji/objectives/<slug> path using forward slashes.",
+			"Objective selector must be a slug or a .ns/objectives/<slug> path using forward slashes.",
 		);
 	}
 
@@ -99,7 +99,7 @@ export async function validateObjectiveSidebarSlug(
 	const parsed = await runJsonExecCommand({
 		pi,
 		cwd,
-		command: "ji",
+		command: "ns",
 		args: ["objective", "exec", "read-objective", slug, "--format", "json"],
 		timeoutMs: OBJECTIVE_READ_TIMEOUT_MS,
 		summary: "Could not read Objective.",
@@ -252,11 +252,11 @@ function resolveAbsoluteObjectiveSelector(
 	const activeRoot = resolve(cwd, ACTIVE_OBJECTIVE_ROOT);
 	const relativePath = relative(activeRoot, normalizedSelector);
 	if (relativePath.length === 0) {
-		return invalidSelector("Pass an Objective slug or path below .ji/objectives/<slug>.");
+		return invalidSelector("Pass an Objective slug or path below .ns/objectives/<slug>.");
 	}
 	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
 		return invalidSelector(
-			"Objective path must be inside the current repo's .ji/objectives directory.",
+			"Objective path must be inside the current repo's .ns/objectives directory.",
 		);
 	}
 
@@ -271,14 +271,14 @@ function resolveRepoRelativeObjectiveSelector(selector: string): ObjectiveSelect
 		normalized.startsWith(`${ARCHIVE_OBJECTIVE_ROOT}/`)
 	) {
 		return invalidSelector(
-			"Archived Objective paths are not supported; pass an active .ji/objectives/<slug> path.",
+			"Archived Objective paths are not supported; pass an active .ns/objectives/<slug> path.",
 		);
 	}
 	if (normalized === ACTIVE_OBJECTIVE_ROOT) {
-		return invalidSelector("Pass an Objective slug or path below .ji/objectives/<slug>.");
+		return invalidSelector("Pass an Objective slug or path below .ns/objectives/<slug>.");
 	}
 	if (!normalized.startsWith(ACTIVE_OBJECTIVE_PREFIX)) {
-		return invalidSelector("Pass an Objective slug or .ji/objectives/<slug> path.");
+		return invalidSelector("Pass an Objective slug or .ns/objectives/<slug> path.");
 	}
 
 	const relativePath = normalized.slice(ACTIVE_OBJECTIVE_PREFIX.length);

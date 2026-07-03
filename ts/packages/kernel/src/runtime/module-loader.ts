@@ -279,7 +279,7 @@ const sdlSdkVirtualModule = {
  * The load-bearing option is `virtualModules`: it binds `@ji/kernel/sdk` to the
  * exact SDK object imported by this process, so command-entry commands and
  * schemas share host SDK identity instead of resolving dependency copies from
- * `.ji/extensions`.
+ * `.ns/extensions`.
  *
  * Package-internal workspace modules may still resolve package subpaths listed
  * as `internalWorkspaceExports`. The repo-local flow manifest is currently a

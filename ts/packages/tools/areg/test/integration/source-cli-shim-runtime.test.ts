@@ -27,12 +27,12 @@ function renderShim(options: RenderShimOptions) {
 	return spawnSync(process.execPath, [renderScriptPath], {
 		env: {
 			...process.env,
-			JI_TEMPLATE: templatePath,
-			JI_OUTPUT: options.outputPath,
-			JI_TOOL: "areg",
-			JI_CANONICAL_CHECKOUT: options.canonicalCheckout,
-			JI_CLI_REL_PATH: CLI_REL_PATH,
-			JI_INSTALL_HINT: options.installHint,
+			NS_TEMPLATE: templatePath,
+			NS_OUTPUT: options.outputPath,
+			NS_TOOL: "areg",
+			NS_CANONICAL_CHECKOUT: options.canonicalCheckout,
+			NS_CLI_REL_PATH: CLI_REL_PATH,
+			NS_INSTALL_HINT: options.installHint,
 		},
 		encoding: "utf8",
 	});
@@ -56,7 +56,7 @@ describe("areg source CLI shim runtime", () => {
 		expect(render.stderr).toBe("");
 
 		const rendered = await readFile(outputPath, "utf8");
-		expect(rendered).not.toContain("@@JI_");
+		expect(rendered).not.toContain("@@NS_");
 		expect(rendered).not.toContain("asdl TypeScript CLI");
 		expect(rendered).not.toContain("no asdl checkout found");
 		expect(rendered).not.toContain("ts/packages/areg/src/cli.ts");

@@ -10,7 +10,7 @@ export const prFeedbackWatchParity = definePiSurfaceParity([
 			"Watch the current branch PR for new feedback and inject downloader-only triage prompts",
 		parity: "WAIVED",
 		fallback:
-			"Use /pr:download-feedback or ji address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
+			"Use /pr:download-feedback or ns address exec download-feedback manually when PR feedback is detected or requested outside Pi.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@internal/pi-tools/pr-feedback-watch",
 		sourceModule: "pr-feedback-watch",
