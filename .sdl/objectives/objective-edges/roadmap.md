@@ -16,11 +16,16 @@
       on branch `objective-record-frontmatter-reader` (runner step commit); fake-driven contract
       tests across all four readers; full `just` + ts-test green. Malformed-frontmatter policy is
       deliberately minimal and documented in the module for the linter row to harden.
-- [ ] Edge and Blocked Sentence linter in `sdl objective check`: structural violations as
+- [x] Edge and Blocked Sentence linter in `sdl objective check`: structural violations as
       errors (dangling slug, missing mirror side, empty annotation, duplicate pair, malformed
       frontmatter, empty blocked sentence), per-slug check validating mirror lookups, repo-wide
       sweep wired into `just`/CI, slug resolution across active and archive roots.
       Evidence: repo-wide sweep passes in CI on a checkout with seeded edges.
+      Evidence: `src/core/operations/edge-lint.ts` on branch `objective-edges-linter` (runner
+      step commit); sweep spelling resolved as `sdl objective check --all` scoped to edge/blocked
+      structural lint (41/120 legacy records fail old update-heading lints, so a full-check sweep
+      cannot gate CI); wired into `just check` and a CI job; sweep passes on the current
+      120-record checkout — seeded-edge CI evidence completes with the seed row.
 - [ ] `sdl objective list` rendering: EDGES count column to the right of LATEST UPDATE (blank
       when zero) and a distinct blocked indicator in STATUS (blocked as sub-state of open).
 - [ ] Skill updates: objective-create, objective-update, and objective-close own edge
