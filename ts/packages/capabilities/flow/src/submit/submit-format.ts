@@ -1,6 +1,7 @@
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
 
 import type { PrewrittenPrMetadata } from "./index.ts";
+import { formatItemCount } from "./submit-formatting.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import {
 	formatCurrentPrVerificationFailureCause,
@@ -30,7 +31,7 @@ export function formatSubmitSuccessText(
 		prewriteFallbacks: readonly SubmitPrLink[];
 	},
 ): string {
-	const lines = [`Submitted ${prLinks.length} ${prLinks.length === 1 ? "PR" : "PRs"}:`];
+	const lines = [`Submitted ${formatItemCount(prLinks.length, "PR", "PRs")}:`];
 	for (const link of prLinks) {
 		lines.push(`✓ ${formatPrLinkText(link)}`);
 		for (const status of formatSubmitSuccessStatuses(link, descriptions)) {

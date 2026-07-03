@@ -11,14 +11,19 @@ export const SUBMIT_BASE_ARGS = [
 	"--no-web",
 ] as const;
 
-export function buildSubmitArgs(options: { dryRun: boolean; force: boolean }): string[] {
+export interface SubmitCommandSpecOptions {
+	isDryRun: boolean;
+	shouldForce: boolean;
+}
+
+export function buildSubmitArgs(options: SubmitCommandSpecOptions): string[] {
 	return [
 		...SUBMIT_BASE_ARGS,
-		...(options.force ? ["--force"] : []),
-		...(options.dryRun ? ["--dry-run"] : []),
+		...(options.shouldForce ? ["--force"] : []),
+		...(options.isDryRun ? ["--dry-run"] : []),
 	];
 }
 
-export function formatSubmitCommandDisplay(options: { dryRun: boolean; force: boolean }): string {
+export function formatSubmitCommandDisplay(options: SubmitCommandSpecOptions): string {
 	return formatCommand("gt", buildSubmitArgs(options));
 }

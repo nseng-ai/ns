@@ -13,8 +13,11 @@ export {
 export {
 	applyPreparedPrDescriptionUpdate,
 	orchestratePrDescription,
+	prDescriptionFingerprintPolicyForForce,
 	preparePrDescriptionUpdate,
+	preparePrDescriptionUpdateForCurrentBranch,
 	type ApplyPrDescriptionUpdateResult,
+	type CurrentBranchPrDescriptionUpdateOptions,
 	type PreparedPrDescriptionUpdate,
 	type PrewrittenPrMetadata,
 	type PrDescriptionFingerprintPolicy,

@@ -5,6 +5,8 @@ import {
 	defineFailureCatalog,
 	formatFailureCatalogEntry,
 } from "../phase-stream/failure-catalog.ts";
+import type { SubmitCommandOutput } from "./submit.ts";
+import { formatItemCount } from "./submit-formatting.ts";
 
 export type CurrentPrVerificationFailureCause = "startup_error" | "timeout" | "command_failed";
 
@@ -15,10 +17,10 @@ export type SubmitCurrentPrVerificationFailure = {
 	};
 }["no_current_pr" | CurrentPrVerificationFailureCause];
 
-export type SubmitSemanticFailureCause = {
+export interface SubmitSemanticFailureCause {
 	kind: "empty_branch_skipped";
 	branchName?: string;
-};
+}
 
 export interface RemoteSyncDiagnostics {
 	upstream: string;
@@ -37,13 +39,7 @@ export type SubmitPreflightFailureCause =
 	  }
 	| SubmitSemanticFailureCause;
 
-export interface SubmitFailureOutput {
-	stdout: string;
-	stderr: string;
-	exitCode: number;
-	startupError?: string;
-	killed?: boolean;
-}
+export type SubmitFailureOutput = SubmitCommandOutput;
 
 interface SubmitPreflightFailureContext {
 	output: SubmitFailureOutput;
@@ -199,10 +195,6 @@ function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
 		return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of ${remoteSync.upstream}; Graphite metadata may be stale.`;
 	}
 	return `local HEAD is ${formatItemCount(remoteSync.aheadCount, "commit", "commits")} ahead of and ${formatItemCount(remoteSync.behindCount, "commit", "commits")} behind ${remoteSync.upstream}.`;
-}
-
-function formatItemCount(count: number, singular: string, plural: string): string {
-	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 interface MergedPrNotInTrunkDetails {

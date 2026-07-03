@@ -69,7 +69,7 @@ export class RealSubmitGateway implements SubmitGateway {
 
 	async checkSubmitReadiness(params: SubmitCommandParams): Promise<SubmitPreflightResult> {
 		const output = await this.runGt({
-			args: buildSubmitArgs({ dryRun: true, force: params.force === true }),
+			args: buildSubmitArgs({ isDryRun: true, shouldForce: params.force === true }),
 			cwd: params.cwd,
 			timeoutMs: CURRENT_PR_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
@@ -113,7 +113,7 @@ export class RealSubmitGateway implements SubmitGateway {
 
 	async submitCurrentStack(params: SubmitCommandParams): Promise<SubmitRunResult> {
 		const output = await this.runGt({
-			args: buildSubmitArgs({ dryRun: false, force: params.force === true }),
+			args: buildSubmitArgs({ isDryRun: false, shouldForce: params.force === true }),
 			cwd: params.cwd,
 			timeoutMs: SUBMIT_TIMEOUT_MS,
 			...optionalOutputListenerParam(params.onOutput),
