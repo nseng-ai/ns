@@ -13,7 +13,7 @@ SDL maps upstream invocation language to harness behavior:
 - **Ambient-discoverable / model-invoked**: keep a rich frontmatter description when the agent must choose the skill itself or another skill must route to it.
 - **Explicitly invoked / user-invoked**: use `disable-model-invocation: true` when humans or wrapper prompts invoke the skill directly and ambient context would be waste.
 
-Harness caveat: `docs/harness-skill-invocation.md` documents that Claude Code and Pi can suppress ambient skill context with `disable-model-invocation: true`; Codex may not make that truly zero-ambient. Document the caveat instead of inventing sidecar policy in a skill.
+Harness caveat: `docs/research/harness-skill-invocation.md` documents that Claude Code and Pi can suppress ambient skill context with `disable-model-invocation: true`; Codex may not make that truly zero-ambient. Document the caveat instead of inventing sidecar policy in a skill.
 
 ## Context load vs cognitive load
 

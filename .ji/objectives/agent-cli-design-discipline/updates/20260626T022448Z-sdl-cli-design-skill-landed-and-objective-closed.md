@@ -28,7 +28,7 @@ Decisions made in this session's grill and applied:
   (0010–0014) and the Clinkr API symbol that satisfies it; no net-new conformance
   tooling (consistent with ADR 0012's YAGNI posture).
 
-Skill content is grounded in `docs/agent-era-cli-design-survey.md`, the gap audit
+Skill content is grounded in `docs/research/agent-era-cli-design-survey.md`, the gap audit
 (`references/clinkr-agent-era-gap-audit.md`), ADRs 0010–0014, and verified Clinkr
 API symbols (`ok`/`negative`/`failure`/`usageError`, `toMachineEnvelope`,
 `exitCodeForExit`, `ClinkrInteraction.isInteractive`/`confirm`,
@@ -45,7 +45,7 @@ repo-relative `skills/sdl-cli-design`.
 
 All Completion Criteria are satisfied:
 
-- Research survey checked in (`docs/agent-era-cli-design-survey.md`).
+- Research survey checked in (`docs/research/agent-era-cli-design-survey.md`).
 - An ADR per contested decision exists (`docs/adr/0010`–`0014`), each with dissent.
 - `sdl-cli-design` authored and registered, reflecting the ADR outcomes — with the
   `normal` → `invoke-only` deviation recorded here and in `## Closure`.

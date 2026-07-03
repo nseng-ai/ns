@@ -47,7 +47,7 @@ Risks). Systemic #1/#2/#3 are already complete and unaffected.
      objective-family → `normal`; `setup-*` → `invoke-only`; eight verified-replacement
      skills → `command-backed`. `command-backed` is exemplified, not just supported (this
      supersedes the earlier "unexemplified" framing). Taxonomy documented in
-     `docs/skill-conventions.md` § Skill Invocation Kinds.
+     `docs/conventions/skill-conventions.md` § Skill Invocation Kinds.
   2. The grill pair (`pi-grill-ui`, `pi-grill-with-docs-ui`) duplicates a ~95%
      byte-identical shared core that has already drifted — single-source it.
   3. Branch-creation precedence policy is duplicated across

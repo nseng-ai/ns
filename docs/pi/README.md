@@ -157,7 +157,7 @@ The `@sdl/pi` typed parity gate tracks package-owned Pi **command** registration
 
 Rare internal workflow skills can be consolidated behind one terse router skill, with full playbooks lazy-loaded from `references/` and optional Pi selector commands for deterministic route choice without starting an LM turn.
 
-See [Skill/Extension Router Pattern](../skill-extension-router-pattern.md).
+See [Skill/Extension Router Pattern](../patterns/skill-extension-router-pattern.md).
 
 ## Current cleanup ordering and dispositions
 

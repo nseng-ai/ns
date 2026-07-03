@@ -125,7 +125,7 @@ changed), parent-recorded. Paths are relative to
   backend (keeping per-command streaming) or do gateways return settled
   results only?
 - Slot-free stays an `sdl slot free` self-invocation behind the seam —
-  confirm against `docs/platform-and-consumer.md` expectations.
+  confirm against `docs/conventions/platform-and-consumer.md` expectations.
 - Argv-exactness: every gateway backend must preserve command
   construction byte-for-byte or the "scenario tests pass unchanged"
   evidence contract fails.

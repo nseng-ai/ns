@@ -2,13 +2,13 @@
 
 ## Work
 
-- [x] Conformance audit: classified the pre-ship checklist into `docs/cli-surface-conformance-audit.md`. This is the historical seed matrix, not fresh proof for current file paths.
+- [x] Conformance audit: classified the pre-ship checklist into `docs/retros/cli-surface-conformance-audit.md`. This is the historical seed matrix, not fresh proof for current file paths.
 
 - [x] **Decision gate:** the six ADR-needed design calls are recorded in `docs/adr/0015-cli-surface-conformance-decisions.md` (Accepted), and the audit has no active `ADR-needed` remediation state left. Decisions cover raw-exit policy, hidden `exec` write intent, `ccc land` single-PR auto-merge, query/action miss semantics, empty-success/presence-query `ok`, and dotfile/user-environment danger tiers.
 
 - [x] **Hidden `exec` danger-tier rebaseline:** `branch-context exec delete` and the Address review-thread mutators stay prompt-free under ADR 0015 #2; their operation arguments supply agent/script intent. `branch-context` remains relevant under area (c) for modeled error types, not area (a) confirmation.
 
-- [x] **Current-source reconciliation before remediation:** active remediation rows were rebaselined as they were fixed, including Branch Context / Plans generic-wrapper modeling, Aretro/Vibechk output bounds, and Roaster review-log parking. Final close-read confirmed no known non-parked implementation gap remains; `docs/cli-surface-conformance-audit.md` now carries a current-status banner and retains historical row details as point-in-time evidence.
+- [x] **Current-source reconciliation before remediation:** active remediation rows were rebaselined as they were fixed, including Branch Context / Plans generic-wrapper modeling, Aretro/Vibechk output bounds, and Roaster review-log parking. Final close-read confirmed no known non-parked implementation gap remains; `docs/retros/cli-surface-conformance-audit.md` now carries a current-status banner and retains historical row details as point-in-time evidence.
 
 - [x] **Area (a) — danger-tier safety remediation (landed for currently listed human-facing gaps).** Human-facing destructive/user-environment commands now use canonical confirmation behavior, while hidden `exec` destructive/external writes remain prompt-free under ADR 0015 #2. Landed evidence:
   - `brmem delete`: added `--yes`/`-y`, `ClinkrInteraction` plumbing, non-interactive `usageError` with `missingFlag: "--yes"`, interactive confirm/decline/abort handling, and explicit cancelled result data.

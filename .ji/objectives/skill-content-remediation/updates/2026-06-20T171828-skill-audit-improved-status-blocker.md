@@ -2,7 +2,7 @@
 
 ## Summary
 
-Current branch evidence (`add-skill-audit-improved`, PR #1919, Graphite parent `master`) adds a new first-party skill at `skills/skill-audit-improved/`, a bundled `GLOSSARY.md`, and docs in `docs/skill-conventions.md` that tell authors to summon `skill-audit-improved` for skill audits. That is relevant to this Objective because it tries to package the skill-remediation audit vocabulary and process as a reusable support skill.
+Current branch evidence (`add-skill-audit-improved`, PR #1919, Graphite parent `master`) adds a new first-party skill at `skills/skill-audit-improved/`, a bundled `GLOSSARY.md`, and docs in `docs/conventions/skill-conventions.md` that tell authors to summon `skill-audit-improved` for skill audits. That is relevant to this Objective because it tries to package the skill-remediation audit vocabulary and process as a reusable support skill.
 
 The branch is not clean Objective progress yet. It crosses the Objective's original "no new skills" boundary unless it is deliberately accepted as a support-skill exception, and its invocation state is inconsistent:
 

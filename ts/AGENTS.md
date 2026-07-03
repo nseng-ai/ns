@@ -11,7 +11,7 @@ Rules for working under `ts/`, the pnpm workspace holding SDL's first-party Type
 
 ## Package and subpackage structure
 
-Before creating a workspace package, declaring or renaming `ji.subpackages` entries, adding `exports` subpaths to a container package, or restructuring a package's `src/` layout, read `docs/subpackage-conventions.md` (rank test, subpackage kinds, importer rules; decisions in ADR 0022/0023).
+Before creating a workspace package, declaring or renaming `ji.subpackages` entries, adding `exports` subpaths to a container package, or restructuring a package's `src/` layout, read `docs/conventions/subpackage-conventions.md` (rank test, subpackage kinds, importer rules; decisions in ADR 0022/0023).
 
 ## Time seams
 

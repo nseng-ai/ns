@@ -21,7 +21,7 @@
       descriptions left as minimal `Command: <name>` stubs (update `2026-06-19T202008`).
       Residual body-content work for `sdl-flow-submit` / `objective-close` / `objective-create`
       is tracked under the from-scratch-rewrite row, not here. Taxonomy in
-      `docs/skill-conventions.md` § Skill Invocation Kinds.
+      `docs/conventions/skill-conventions.md` § Skill Invocation Kinds.
 - [x] Systemic #2 — single-source the grill-loop core shared by `pi-grill-ui` and
       `pi-grill-with-docs-ui`. Reconcile the already-drifted `status_request` wording;
       leave each skill holding only its UI-specific delta.

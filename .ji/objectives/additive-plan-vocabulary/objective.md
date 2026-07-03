@@ -10,7 +10,7 @@ Adopt the enriched-plan vocabulary bound in ADR 0005 (`docs/adr/0005-additive-pl
 - Keep the TypeScript implementation package at `@asdl/plans` / `ts/packages/plans/`; this package remains the saved-plan implementation home while its public CLI surface is `enriched-plan`.
 - Re-key the local plan store from `~/.asdl/planned-branch/plans/<repo>/<encoded-branch>/` to an `enriched-plan` store path, with no migration shim.
 - Update Pi command mirrors in `ts/packages/pi-extensions/`: `/plans:write` → `/enriched-plan:save`, `/plans:grill-and-write` → `/enriched-plan:grill-and-save`, plus internal module naming that references the old group where touched.
-- Rename the `plans-write` skill to `enriched-plan-save` per `docs/skill-conventions.md`.
+- Rename the `plans-write` skill to `enriched-plan-save` per `docs/conventions/skill-conventions.md`.
 - Rename the `planned-branch` TypeScript package, CLI, Pi commands, CCC orchestration surfaces, skills, docs, and Branch Memory namespace to `branch-context`, with the attached plan fixed at key `plan.md`.
 - Add branch-context attach/list/check/delete primitives while retaining `from-plan` as the create-from-saved-plan flow.
 

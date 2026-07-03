@@ -15,7 +15,7 @@ Branch-local changes (vs the Graphite parent), all committed, working tree clean
   allowlist in `ts/packages/areg/src/real-gateways.ts`.
 - Removed the matching `setup-*` entries from `COMMAND_STYLE_LOCAL_SKILLS` in
   `ts/packages/pi-extensions/src/backing-skill-commands.ts`.
-- Rewrote the `invoke-only` vs `command-backed` norm in `docs/skill-conventions.md` to
+- Rewrote the `invoke-only` vs `command-backed` norm in `docs/conventions/skill-conventions.md` to
   state that no skill currently uses `command-backed` (supported but unexemplified),
   replacing the prior "`setup-dprint` is the canonical (and only) `command-backed`
   example" wording.

@@ -13,20 +13,20 @@
 sdl and flue both sit on top of pi, but they consume *different surfaces of it
 in opposite directions*:
 
-|                                     | **flue** (this case study)                                                                                                                   | **sdl** (this repo)                                                                                                                                               |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Relationship to pi                  | **Embeds pi as a runtime engine**                                                                                                            | **Extends pi as a host**                                                                                                                                          |
-| Primary packages                    | `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`                                                                                     | `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`                                                                              |
-| Integration shape                   | Constructs and drives a pi `Agent`; owns the streaming/event seams around it                                                                 | Drops extension modules into the pi terminal binary's discovery dirs (`.pi/extensions/`); registers tools/commands/renderers against the Pi runtime extension API |
-| Pinned version (at time of writing) | `0.79.4`                                                                                                                                     | `0.79.1`                                                                                                                                                          |
-| Where to read sdl's own model       | This `docs/pi/` collection + [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md) (what pi's extension host actually is) | —                                                                                                                                                                 |
+|                                     | **flue** (this case study)                                                                                                                                     | **sdl** (this repo)                                                                                                                                               |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Relationship to pi                  | **Embeds pi as a runtime engine**                                                                                                                              | **Extends pi as a host**                                                                                                                                          |
+| Primary packages                    | `@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`                                                                                                       | `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `@earendil-works/pi-ai`                                                                              |
+| Integration shape                   | Constructs and drives a pi `Agent`; owns the streaming/event seams around it                                                                                   | Drops extension modules into the pi terminal binary's discovery dirs (`.pi/extensions/`); registers tools/commands/renderers against the Pi runtime extension API |
+| Pinned version (at time of writing) | `0.79.4`                                                                                                                                                       | `0.79.1`                                                                                                                                                          |
+| Where to read sdl's own model       | This `docs/pi/` collection + [`docs/research/pi-extension-system-report.md`](../research/pi-extension-system-report.md) (what pi's extension host actually is) | —                                                                                                                                                                 |
 
 The short version: **flue treats pi as a library it calls; sdl treats pi as a
 platform it plugs into.** flue does not register extensions — it implements its
 own `StreamFn` and event re-projection around pi's `Agent`. sdl does not
 construct an `Agent` — it lets the pi binary own the loop and contributes
 behavior through the Pi runtime extension API documented in
-[`docs/pi-extension-system-report.md`](../pi-extension-system-report.md).
+[`docs/research/pi-extension-system-report.md`](../research/pi-extension-system-report.md).
 
 The one place the two patterns genuinely overlap is **pi-ai's model/provider
 layer** (§5) and its **non-streaming completion call** (§7): sdl's `sdl` package
@@ -120,7 +120,7 @@ Key facts:
 > `StreamFn` or subscribes to an `Agent` event stream — that wiring lives inside
 > the pi binary. sdl's equivalent integration seams are the *extension*
 > primitives (`pi.on(...)`, `pi.registerTool`, `pi.registerCommand`, custom TUI
-> renderers) described in [`docs/pi-extension-system-report.md`](../pi-extension-system-report.md).
+> renderers) described in [`docs/research/pi-extension-system-report.md`](../research/pi-extension-system-report.md).
 
 ## 4. Tools are pi tools (`agent.ts`, `result.ts`, `shell.ts`)
 

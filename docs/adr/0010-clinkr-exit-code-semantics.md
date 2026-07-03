@@ -11,7 +11,7 @@ Shell scripts and CI usually branch on the process exit status. Agents and other
 machine consumers can inspect structured output, but only when the command emits a
 stable machine envelope. Human users need useful prose, not a taxonomy lesson.
 
-The survey in `docs/agent-era-cli-design-survey.md` captures the tension:
+The survey in `docs/research/agent-era-cli-design-survey.md` captures the tension:
 clig.dev says non-zero exit codes should map to important failure modes, while
 agent-era guidance treats structured, actionable errors as the primary recovery
 surface. The survey explicitly leaves open whether SDL should standardize richer

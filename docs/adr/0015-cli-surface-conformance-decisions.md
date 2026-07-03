@@ -18,7 +18,7 @@ the four **command-local discipline** areas the framework does not enforce —
 (a) danger-tier classification, (b) output-volume bounding, (c) `errorType`
 discipline, (d) `negative(...)` semantic correctness — were only spot-applied
 across the 15 sdl CLI packages. The point-in-time audit
-(`docs/cli-surface-conformance-audit.md`) classified every command against the
+(`docs/retros/cli-surface-conformance-audit.md`) classified every command against the
 `sdl-cli-design` pre-ship checklist with file:line evidence and is the agreed
 source of truth seeding the `cli-surface-conformance-remediation` Objective
 (`.sdl/objectives/cli-surface-conformance-remediation/`).
@@ -134,7 +134,7 @@ The dotfile rule should not be over-applied to environment-driven metadata write
 
 ## Consequences
 
-- Every previously `ADR-needed` row in `docs/cli-surface-conformance-audit.md` is
+- Every previously `ADR-needed` row in `docs/retros/cli-surface-conformance-audit.md` is
   now classifiable. Specifically:
   - `sdl branch-context exec delete`, `sdl address exec reply-review-thread`, and
     `sdl address exec resolve-review-thread` (a): conformant by decision 2.
