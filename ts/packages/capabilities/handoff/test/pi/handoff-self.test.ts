@@ -62,7 +62,7 @@ describe("handoff:self extension", () => {
 		expect(prompt).toContain(
 			"After saving and verification, the command will replace this session",
 		);
-		expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
+		expect(prompt).not.toContain(`/sdl:handoff:pickup --branch ${BRANCH} <returned-slug>`);
 		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
 
 		await tool.execute(
@@ -445,7 +445,7 @@ describe("handoff:self pure helpers", () => {
 			"After saving and verification, the command will replace this session",
 		);
 		expect(prompt).toContain(formatHandoffSelfKickoffPrompt(BRANCH, "<returned-slug>"));
-		expect(prompt).not.toContain(`/handoff:pickup --branch ${BRANCH} <returned-slug>`);
+		expect(prompt).not.toContain(`/sdl:handoff:pickup --branch ${BRANCH} <returned-slug>`);
 	});
 });
 

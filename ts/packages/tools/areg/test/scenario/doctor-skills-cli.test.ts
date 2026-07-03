@@ -210,7 +210,7 @@ describe("areg doctor skills CLI", () => {
 				code: "excluded-skill-without-replacement",
 				severity: "error",
 				skill: "objective-create",
-				surface: "objective:create",
+				surface: "sdl:objective:create",
 			}),
 		]);
 	});

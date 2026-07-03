@@ -1,8 +1,14 @@
 export {
-	COMMAND_STYLE_LOCAL_SKILLS,
-	KNOWN_PI_COMMAND_NAMESPACES,
-	SPECIALIZED_PI_COMMAND_SURFACES,
-	SPECIALIZED_SKILL_REPLACEMENTS,
+	COMMAND_BACKED_SKILL_REGISTRY,
+	commandBackedSkillRegistrations,
+	commandBackedSkillSurface,
+	genericBackingSkillRegistrations,
+	specializedCommandBackedSkillRegistrations,
+	visibleCommandBackedReplacementSurfaces,
+} from "@ji/pi/commands";
+export type {
+	CommandBackedSkillRegistration,
+	CommandBackedSkillRegistrationKind,
 } from "@ji/pi/commands";
 
 export { backingSkillCommandsParity } from "./parity.ts";

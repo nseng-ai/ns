@@ -1,7 +1,11 @@
 import type { ObjectiveSelectionSpec } from "./objective-selection.ts";
 
 export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
-	commandName: "objective:next" | "objective:update" | "objective:close" | "objective:stack-impl";
+	commandName:
+		| "sdl:objective:next"
+		| "sdl:objective:update"
+		| "sdl:objective:close"
+		| "sdl:objective:stack-impl";
 	skillName: "objective-next" | "objective-update" | "objective-close" | "objective-stack-impl";
 	description: string;
 	fallbackPrompt: string;
@@ -10,14 +14,14 @@ export interface ObjectiveCommandSpec extends ObjectiveSelectionSpec {
 }
 
 export interface ObjectiveCreateCommandSpec {
-	commandName: "objective:create";
+	commandName: "sdl:objective:create";
 	skillName: "objective-create";
 	description: string;
 	actionPrompt: string;
 }
 
 export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
-	commandName: "objective:create",
+	commandName: "sdl:objective:create",
 	skillName: "objective-create",
 	description:
 		"Read objective-create backing Markdown to interview for and create a new Objective.",
@@ -26,11 +30,11 @@ export const objectiveCreateCommandSpec: ObjectiveCreateCommandSpec = {
 
 export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 	{
-		commandName: "objective:next",
+		commandName: "sdl:objective:next",
 		skillName: "objective-next",
 		description:
 			"Pick an active Objective, then invoke objective-next to recommend, steer planning, or offer confirmed execution when Objective policy allows it.",
-		statusKey: "objective:next",
+		statusKey: "sdl:objective:next",
 		selectionTitle: "Select an active Objective for next work or execution preview",
 		fallbackPrompt:
 			"The objective-next skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway for the explicit Objective below: apply the Tracking Gate, auto-run objective-update before continuing when clear current-branch or worktree progress for this same Objective is missing from tracking, recommend the next useful work, and include a best-effort work-left estimate as semantic steps or slices, not calendar time. Estimate either until Objective completion or, when the remaining path is unclear, until the next discovery or decision step where additional work can be identified. Only offer execution when the Objective contains explicit Runner Policy / Definition of Progress prose allowing it. If execution is offered, present an upfront preview and wait for explicit confirmation before material action. Do not use hidden ledgers, task files, private queues, Branch Memory run state, or alternate Objective stores. Do not submit PRs or perform external side effects unless included in the confirmed preview scope.",
@@ -40,10 +44,10 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 		shouldCompactDiffSuggestion: true,
 	},
 	{
-		commandName: "objective:update",
+		commandName: "sdl:objective:update",
 		skillName: "objective-update",
 		description: "Pick an active Objective, then invoke objective-update for the selected slug.",
-		statusKey: "objective:update",
+		statusKey: "sdl:objective:update",
 		selectionTitle: "Select an active Objective to update",
 		fallbackPrompt:
 			"The objective-update skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: update tracking for exactly one explicit Objective below.",
@@ -52,10 +56,10 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 			"\nAfter this explicit selection, follow objective-update's normal post-selection evidence workflow.",
 	},
 	{
-		commandName: "objective:close",
+		commandName: "sdl:objective:close",
 		skillName: "objective-close",
 		description: "Pick an active Objective, then invoke objective-close for the selected slug.",
-		statusKey: "objective:close",
+		statusKey: "sdl:objective:close",
 		selectionTitle: "Select an active Objective to close",
 		fallbackPrompt:
 			"The objective-close skill was not found among loaded Pi skills. Follow the repository's Objective workflow anyway: close exactly one explicit Objective below only after confirming the closure outcome/rationale, then add ## Closure and closed.md without archiving, deleting, moving, or reopening the Objective.",
@@ -64,11 +68,11 @@ export const objectiveCommandSpecs: ObjectiveCommandSpec[] = [
 			"\nAfter this explicit selection, follow objective-close's normal closure confirmation workflow before mutating Objective files.",
 	},
 	{
-		commandName: "objective:stack-impl",
+		commandName: "sdl:objective:stack-impl",
 		skillName: "objective-stack-impl",
 		description:
 			"Pick an active Objective, then invoke the portable Objective stack implementation skill for the selected slug.",
-		statusKey: "objective:stack-impl",
+		statusKey: "sdl:objective:stack-impl",
 		selectionTitle: "Select an active Objective for stack implementation",
 		fallbackPrompt:
 			"The objective-stack-impl skill was not found among loaded Pi skills. Follow the repository's Objective stack implementation workflow anyway: orchestrate implementation of one explicit Objective as a small Graphite stack from this session. Require user confirmation before execution, run at most one runner subagent at a time, record Objective updates for material progress, and do not submit PRs automatically.",

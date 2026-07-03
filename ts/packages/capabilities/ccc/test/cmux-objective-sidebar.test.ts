@@ -295,7 +295,7 @@ describe("cmux Objective sidebar", () => {
 		expect(ctx.selections).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
 		expect(ctx.notifications.at(-1)).toEqual({
-			message: "No active Objectives. Create one with /objective:create.",
+			message: "No active Objectives. Create one with /sdl:objective:create.",
 			level: "info",
 		});
 	});

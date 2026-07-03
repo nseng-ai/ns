@@ -49,8 +49,8 @@ Pi slash commands and CLI commands are first-class workflow surfaces over the ha
 Pi surfaces:
 
 ```text
-/handoff:create <continuation focus>
-/handoff:pickup [--branch <branch>] [slug|search words]
+/sdl:handoff:create <continuation focus>
+/sdl:handoff:pickup [--branch <branch>] [slug|search words]
 /handoff:list [--branch <branch>|--all]
 ```
 

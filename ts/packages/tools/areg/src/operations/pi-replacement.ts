@@ -1,6 +1,4 @@
-import { derivePiReplacementSurface, KNOWN_PI_COMMAND_NAMESPACES } from "@ji/pi/commands";
-
-export { KNOWN_PI_COMMAND_NAMESPACES, SPECIALIZED_SKILL_REPLACEMENTS } from "@ji/pi/commands";
+import { commandBackedSkillSurface } from "@ji/pi/commands";
 
 export interface PiReplacementFacts {
 	verifiedSurfaces: readonly string[];
@@ -11,11 +9,8 @@ export interface PiReplacementVerification {
 	surface?: string;
 }
 
-export function derivePiReplacementCommand(
-	skillName: string,
-	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
-): string | undefined {
-	return derivePiReplacementSurface(skillName, namespaces);
+export function derivePiReplacementCommand(skillName: string): string | undefined {
+	return commandBackedSkillSurface(skillName);
 }
 
 export function verifyPiReplacement(

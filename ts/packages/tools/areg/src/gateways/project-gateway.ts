@@ -6,7 +6,7 @@ import { formatErrorMessage } from "@ji/core/primitives";
 import { NodeCommandExecApi } from "@ji/core/exec";
 import { RealGitGateway } from "@ji/capability-kit/git";
 import type { GitGateway } from "@ji/capability-kit/git";
-import { deriveVisiblePiReplacementSurfaces } from "@ji/pi/commands";
+import { visibleCommandBackedReplacementSurfaces } from "@ji/pi/commands";
 import {
 	SKILL_LOOKUP_ROOT_DESCRIPTORS,
 	skillLookupBaseRelativePath,
@@ -56,7 +56,7 @@ const PI_GENERIC_REPLACEMENT_PACKAGE_MODULE_RELATIVE_PATH =
 	"ts/packages/local/pi-tools/src/backing-skill-commands/extension.ts";
 // AREG imports only the neutral @ji/pi/commands surface, not project-local
 // Pi extension entrypoints.
-const AREG_VISIBLE_REPLACEMENT_SURFACES = deriveVisiblePiReplacementSurfaces();
+const AREG_VISIBLE_REPLACEMENT_SURFACES = visibleCommandBackedReplacementSurfaces();
 
 export class RealAregProjectGateway implements AregProjectGateway {
 	private readonly git: GitGateway;

@@ -1,7 +1,7 @@
 ---
 name: objective-stack-impl
 disable-model-invocation: true
-description: Implement one sdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /objective:stack-impl picker, or when a wrapper injects an explicit slug.
+description: Implement one sdl Objective as a small Graphite stack from the current agent session. Use when the user asks to implement an Objective as a stack outside the Pi /sdl:objective:stack-impl picker, or when a wrapper injects an explicit slug.
 ---
 
 # objective-stack-impl
@@ -21,9 +21,9 @@ Part of the Objective skill family. Use the `objective` umbrella skill first for
 
 ## Resolve the Objective
 
-1. If the user or wrapper supplied a slug/path, that is the selection (the Pi `/objective:stack-impl` wrapper normally preselects it before this skill loads). Normalize `.ji/objectives/<slug>` to `<slug>`.
-2. Otherwise do not infer the Objective from branch name, changed files, package names, PR titles, or keyword matches. Run `ji objective list --minimal --format md`, show the open candidates, and ask the user to choose before any implementation work.
-3. If `.ji/objectives/<slug>/closed.md` exists, stop and report that the Objective is closed.
+1. If the user or wrapper supplied a slug/path, that is the selection (the Pi `/sdl:objective:stack-impl` wrapper normally preselects it before this skill loads). Normalize `.sdl/objectives/<slug>` to `<slug>`.
+2. Otherwise do not infer the Objective from branch name, changed files, package names, PR titles, or keyword matches. Run `sdl objective list --minimal --format md`, show the open candidates, and ask the user to choose before any implementation work.
+3. If `.sdl/objectives/<slug>/closed.md` exists, stop and report that the Objective is closed.
 
 ## Compact current context
 

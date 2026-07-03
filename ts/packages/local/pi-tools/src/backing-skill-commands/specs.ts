@@ -1,8 +1,4 @@
-import {
-	derivePiReplacementSurface,
-	genericCommandStyleSkillNames,
-	KNOWN_PI_COMMAND_NAMESPACES,
-} from "@ji/pi/commands";
+import { genericBackingSkillRegistrations } from "@ji/pi/commands";
 
 export interface DerivedPiCommand {
 	surface: string;
@@ -12,8 +8,12 @@ export interface DerivedPiCommand {
 }
 
 export function derivePiReplacementCommand(skillName: string): DerivedPiCommand | undefined {
-	const surface = derivePiReplacementSurface(skillName, KNOWN_PI_COMMAND_NAMESPACES);
-	return surface === undefined ? undefined : buildDerivedPiCommand({ skillName, surface });
+	const registration = genericBackingSkillRegistrations().find(
+		(candidate) => candidate.skillName === skillName,
+	);
+	return registration === undefined
+		? undefined
+		: buildDerivedPiCommand({ skillName: registration.skillName, surface: registration.surface });
 }
 
 function buildDerivedPiCommand(options: {
@@ -33,8 +33,11 @@ function buildDerivedPiCommand(options: {
 
 export function genericBackingSkillCommandSpecs(): DerivedPiCommand[] {
 	const specs: DerivedPiCommand[] = [];
-	for (const skillName of genericCommandStyleSkillNames()) {
-		const derived = derivePiReplacementCommand(skillName);
+	for (const registration of genericBackingSkillRegistrations()) {
+		const derived = buildDerivedPiCommand({
+			skillName: registration.skillName,
+			surface: registration.surface,
+		});
 		if (derived !== undefined) specs.push(derived);
 	}
 	return specs;

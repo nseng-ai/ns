@@ -7,7 +7,7 @@ import {
 } from "../../src/operations/pi-replacement.ts";
 
 describe("Pi replacement helpers", () => {
-	test("uses specialized replacements before derived names", () => {
+	test("looks up replacements from the command-backed skill registry", () => {
 		expect(verifyPiReplacement("branch-context-from-plan", { verifiedSurfaces: [] })).toEqual({
 			verified: false,
 			surface: "ji:branch-context:from-plan",
@@ -22,29 +22,29 @@ describe("Pi replacement helpers", () => {
 		});
 	});
 
-	test("derives replacements with longest namespace prefixes and first-hyphen fallback", () => {
-		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("objective:stack-impl");
-		expect(derivePiReplacementCommand("branch-context-impl-extra")).toBe(
-			"ji:branch-context:impl-attached-plan-extra",
-		);
-		expect(derivePiReplacementCommand("foo-bar-baz")).toBe("foo:bar-baz");
+	test("does not derive fallback replacements for unknown skills", () => {
+		expect(derivePiReplacementCommand("objective-stack-impl")).toBe("sdl:objective:stack-impl");
+		expect(derivePiReplacementCommand("branch-context-impl-extra")).toBeUndefined();
+		expect(derivePiReplacementCommand("foo-bar-baz")).toBeUndefined();
 		expect(derivePiReplacementCommand("plain")).toBeUndefined();
 	});
 
-	test("verifies derived replacements against the explicit surface inventory", () => {
-		expect(verifyPiReplacement("foo-bar", { verifiedSurfaces: [] })).toEqual({
+	test("verifies registry replacements against the explicit surface inventory", () => {
+		expect(verifyPiReplacement("code-workflows", { verifiedSurfaces: [] })).toEqual({
 			verified: false,
-			surface: "foo:bar",
+			surface: "code:workflows",
 		});
+		expect(verifyPiReplacement("code-workflows", { verifiedSurfaces: ["code:workflows"] })).toEqual(
+			{
+				verified: true,
+				surface: "code:workflows",
+			},
+		);
 		expect(verifyPiReplacement("foo-bar", { verifiedSurfaces: ["foo:bar"] })).toEqual({
-			verified: true,
-			surface: "foo:bar",
-		});
-		expect(verifyPiReplacement("plain", { verifiedSurfaces: ["plain"] })).toEqual({
 			verified: false,
 		});
-		expect(formatReplacementLabel({ verified: true, surface: "foo:bar" })).toBe(
-			"replacement-verified:foo:bar",
+		expect(formatReplacementLabel({ verified: true, surface: "code:workflows" })).toBe(
+			"replacement-verified:code:workflows",
 		);
 		expect(formatReplacementLabel({ verified: false })).toBe("replacement-missing");
 	});

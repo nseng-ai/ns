@@ -64,7 +64,7 @@ ji handoff list --all --include-deleted --format json
 
 Use `--include-deleted` for recovery, cleanup, or when the user explicitly asks for deleted or stale branch handoffs.
 
-The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/handoff:pickup <slug>` or `/handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
+The JSON payload's `data.handoffs` list contains handoff records with `branch`, `branchState`, `slug`, `key`, `entryLocator`, and `updatedAt`; `data.includeDeleted` records whether deleted local branches were included. Show normal results as handoff choices grouped by branch when listing across branches, including branch state. Call out `deleted` branches when relevant because those handoffs may be cleanup candidates. For each choice, show the slug, recency or a short continuation focus/preview when available, and a copyable pickup command such as `/sdl:handoff:pickup <slug>` or `/sdl:handoff:pickup --branch <branch> <slug>` when speaking to a Pi user. Avoid exposing raw storage keys unless the user needs technical recovery detail.
 
 If no handoffs exist, say so in public vocabulary:
 

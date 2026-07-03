@@ -11,163 +11,216 @@ export const WRITE_PLAN_COMMAND_NAME = "ji:plan:save";
 export const WRITE_GRILLED_PLAN_COMMAND_NAME = "ji:plan:grill-and-save";
 export const IMPL_CURRENT_SAVED_PLAN_COMMAND_NAME = "ji:plan:impl-current";
 
-export const KNOWN_PI_COMMAND_NAMESPACES = [
-	"branch-context",
-	"enriched-plan",
-	"objective",
-	"handoff",
-	"context",
-	"changelog",
-	"typescript",
-	"python",
-	"refactor",
-	"setup",
-	"create",
-	"skill",
-	"code",
-	"ccc",
-	"claude",
-	"dev",
-	"cli",
-	"pr",
-	"ji",
-	"pi",
-	"stack",
-] as const;
+export type CommandBackedSkillRegistrationKind = "generic-backing-skill" | "specialized-command";
 
-export const COMMAND_STYLE_LOCAL_SKILLS = [
-	"branch-context-from-plan",
-	"branch-context-impl",
-	"branch-retro",
-	"ccc-available-work",
-	"ccc-branch-triage",
-	"ccc-sidebar",
-	"ccc-stack-map",
-	"changelog-update",
-	"sdl-flow-autobranch",
-	"sdl-flow-branch-latest-commit",
-	"sdl-flow-cp",
-	"code-gt-linearize-descendants",
-	"code-just-fix",
-	"code-just-the-stack",
-	"code-resolve-merge-conflicts",
-	"code-thermostack",
-	"code-workflows",
-	"context-bundle-analysis",
-	"create-bun-typescript-project",
-	"create-python-dev-cli",
-	"create-python-package",
-	"dignified-python",
-	"dignified-python-tripwire",
-	"reinvented-abstractions-tripwire",
-	"enriched-plan-save",
-	"fdt-refactor-mock-to-fake",
-	"handoff-create",
-	"handoff-pickup",
-	"improve-codebase-architecture",
-	"objective-close",
-	"objective-create",
-	"objective-next",
-	"objective-refresh",
-	"objective-review-briefing",
-	"objective-stack-impl",
-	"objective-update",
-	"pi-grill-ui",
-	"pi-grill-with-docs-ui",
-	"pytest",
-	"python-fake-driven-test-layout",
-	"python-fake-driven-testing",
-	"refactor-swarm",
-	"roast-dry-but-not-too-dry",
-	"roast-improve-codebase-architecture",
-	"roast-thermonuclear-review",
-	"sdl-cli-design",
-	"sdl-flow-submit",
-	"sdl-typescript-style-tripwire",
-	"setup-dprint",
-	"setup-dprint-gh-ci",
-	"setup-graphite",
-	"setup-pypi-publish",
-	"setup-python-gh-ci",
-	"skill-audit",
-	"skill-audit-improved",
-	"skill-creator",
-	"skill-management",
-	"skillx",
-	"thermo-nuclear-code-quality-review",
-	"ts-morph-analyze",
-	"writing-great-skills",
-] as const;
-
-export const SPECIALIZED_SKILL_REPLACEMENTS = {
-	"branch-context-from-plan": BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	"branch-context-impl": IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	"enriched-plan-save": WRITE_PLAN_COMMAND_NAME,
-	"handoff-create": "handoff:create",
-	"handoff-pickup": "handoff:pickup",
-	"objective-close": "objective:close",
-	"objective-create": "objective:create",
-	"objective-current": "objective:current",
-	"objective-next": "objective:next",
-	"objective-stack-impl": "objective:stack-impl",
-	"objective-update": "objective:update",
-	"pi-grill-ui": "pi:grill-me",
-	"pi-grill-with-docs-ui": "pi:grill-with-docs",
-	"sdl-flow-autobranch": "ji:flow:autobranch",
-	"sdl-flow-branch-latest-commit": "ji:flow:branch-latest-commit",
-	"sdl-flow-cp": "ji:flow:cp",
-	"code-gt-restack-resolve": "code:gt-restack-resolve",
-	"code-just-fix": "code:just-fix",
-	"sdl-flow-submit": "ji:flow:submit",
-	"ccc-sidebar": "ccc:sidebar:pr-summary",
-	pytest: "python:pytest",
-	skillx: "skill:x",
-} as const satisfies Record<string, string>;
-
-export const SPECIALIZED_PI_COMMAND_SURFACES = new Set<string>(
-	Object.values(SPECIALIZED_SKILL_REPLACEMENTS),
-);
-
-export function derivePiReplacementSurface(
-	skillName: string,
-	namespaces: readonly string[] = KNOWN_PI_COMMAND_NAMESPACES,
-): string | undefined {
-	for (const [specializedSkillName, surface] of Object.entries(SPECIALIZED_SKILL_REPLACEMENTS).sort(
-		(left, right) => right[0].length - left[0].length,
-	)) {
-		if (skillName === specializedSkillName) return surface;
-
-		const prefix = `${specializedSkillName}-`;
-		if (skillName.startsWith(prefix)) return `${surface}-${skillName.slice(prefix.length)}`;
-	}
-
-	for (const namespace of [...namespaces].sort((left, right) => right.length - left.length)) {
-		const prefix = `${namespace}-`;
-		if (skillName.startsWith(prefix)) return `${namespace}:${skillName.slice(prefix.length)}`;
-	}
-
-	const firstHyphen = skillName.indexOf("-");
-	if (firstHyphen <= 0 || firstHyphen === skillName.length - 1) return undefined;
-	return `${skillName.slice(0, firstHyphen)}:${skillName.slice(firstHyphen + 1)}`;
+export interface CommandBackedSkillRegistration {
+	skillName: string;
+	surface: string;
+	kind: CommandBackedSkillRegistrationKind;
 }
 
-export function genericCommandStyleSkillNames(
-	skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS,
-): string[] {
-	return skillNames.filter((skillName) => {
-		if (skillName in SPECIALIZED_SKILL_REPLACEMENTS) return false;
-		const surface = derivePiReplacementSurface(skillName);
-		return surface !== undefined && !SPECIALIZED_PI_COMMAND_SURFACES.has(surface);
-	});
+export const COMMAND_BACKED_SKILL_REGISTRY = [
+	{
+		skillName: "branch-context-from-plan",
+		surface: BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
+		kind: "specialized-command",
+	},
+	{
+		skillName: "branch-context-impl",
+		surface: IMPL_BRANCH_CONTEXT_COMMAND_NAME,
+		kind: "specialized-command",
+	},
+	{ skillName: "branch-retro", surface: "branch:retro", kind: "generic-backing-skill" },
+	{ skillName: "ccc-available-work", surface: "ccc:available-work", kind: "generic-backing-skill" },
+	{ skillName: "ccc-branch-triage", surface: "ccc:branch-triage", kind: "generic-backing-skill" },
+	{ skillName: "ccc-sidebar", surface: "ccc:sidebar:pr-summary", kind: "specialized-command" },
+	{ skillName: "ccc-stack-map", surface: "ccc:stack-map", kind: "generic-backing-skill" },
+	{ skillName: "changelog-update", surface: "changelog:update", kind: "generic-backing-skill" },
+	{
+		skillName: "code-gt-linearize-descendants",
+		surface: "code:gt-linearize-descendants",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "code-gt-restack-resolve",
+		surface: "code:gt-restack-resolve",
+		kind: "specialized-command",
+	},
+	{ skillName: "code-just-fix", surface: "code:just-fix", kind: "specialized-command" },
+	{
+		skillName: "code-just-the-stack",
+		surface: "code:just-the-stack",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "code-resolve-merge-conflicts",
+		surface: "code:resolve-merge-conflicts",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "code-thermostack", surface: "code:thermostack", kind: "generic-backing-skill" },
+	{ skillName: "code-workflows", surface: "code:workflows", kind: "generic-backing-skill" },
+	{
+		skillName: "context-bundle-analysis",
+		surface: "context:bundle-analysis",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "create-bun-typescript-project",
+		surface: "create:bun-typescript-project",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "create-python-dev-cli",
+		surface: "create:python-dev-cli",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "create-python-package",
+		surface: "create:python-package",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "dignified-python", surface: "dignified:python", kind: "generic-backing-skill" },
+	{
+		skillName: "dignified-python-tripwire",
+		surface: "dignified:python-tripwire",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "enriched-plan-save",
+		surface: WRITE_PLAN_COMMAND_NAME,
+		kind: "specialized-command",
+	},
+	{
+		skillName: "fdt-refactor-mock-to-fake",
+		surface: "fdt:refactor-mock-to-fake",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "handoff-create", surface: "sdl:handoff:create", kind: "specialized-command" },
+	{ skillName: "handoff-pickup", surface: "sdl:handoff:pickup", kind: "specialized-command" },
+	{
+		skillName: "improve-codebase-architecture",
+		surface: "improve:codebase-architecture",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "objective-close", surface: "sdl:objective:close", kind: "specialized-command" },
+	{ skillName: "objective-create", surface: "sdl:objective:create", kind: "specialized-command" },
+	{ skillName: "objective-next", surface: "sdl:objective:next", kind: "specialized-command" },
+	{
+		skillName: "objective-refresh",
+		surface: "sdl:objective:refresh",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "objective-review-briefing",
+		surface: "sdl:objective:review-briefing",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "objective-stack-impl",
+		surface: "sdl:objective:stack-impl",
+		kind: "specialized-command",
+	},
+	{ skillName: "objective-update", surface: "sdl:objective:update", kind: "specialized-command" },
+	{ skillName: "pi-grill-ui", surface: "pi:grill-me", kind: "specialized-command" },
+	{
+		skillName: "pi-grill-with-docs-ui",
+		surface: "pi:grill-with-docs",
+		kind: "specialized-command",
+	},
+	{ skillName: "pytest", surface: "python:pytest", kind: "generic-backing-skill" },
+	{
+		skillName: "python-fake-driven-test-layout",
+		surface: "python:fake-driven-test-layout",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "python-fake-driven-testing",
+		surface: "python:fake-driven-testing",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "refactor-swarm", surface: "refactor:swarm", kind: "generic-backing-skill" },
+	{
+		skillName: "reinvented-abstractions-tripwire",
+		surface: "reinvented:abstractions-tripwire",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "roast-dry-but-not-too-dry",
+		surface: "roast:dry-but-not-too-dry",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "roast-improve-codebase-architecture",
+		surface: "roast:improve-codebase-architecture",
+		kind: "generic-backing-skill",
+	},
+	{
+		skillName: "roast-thermonuclear-review",
+		surface: "roast:thermonuclear-review",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "sdl-cli-design", surface: "sdl:cli:design", kind: "generic-backing-skill" },
+	{ skillName: "sdl-flow-autobranch", surface: "ji:flow:autobranch", kind: "specialized-command" },
+	{
+		skillName: "sdl-flow-branch-latest-commit",
+		surface: "ji:flow:branch-latest-commit",
+		kind: "specialized-command",
+	},
+	{ skillName: "sdl-flow-cp", surface: "ji:flow:cp", kind: "specialized-command" },
+	{ skillName: "sdl-flow-submit", surface: "ji:flow:submit", kind: "specialized-command" },
+	{
+		skillName: "sdl-typescript-style-tripwire",
+		surface: "sdl:typescript:style-tripwire",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "setup-dprint", surface: "setup:dprint", kind: "generic-backing-skill" },
+	{ skillName: "setup-dprint-gh-ci", surface: "setup:dprint-gh-ci", kind: "generic-backing-skill" },
+	{ skillName: "setup-graphite", surface: "setup:graphite", kind: "generic-backing-skill" },
+	{ skillName: "setup-pypi-publish", surface: "setup:pypi-publish", kind: "generic-backing-skill" },
+	{ skillName: "setup-python-gh-ci", surface: "setup:python-gh-ci", kind: "generic-backing-skill" },
+	{ skillName: "skill-audit", surface: "skill:audit", kind: "generic-backing-skill" },
+	{
+		skillName: "skill-audit-improved",
+		surface: "skill:audit-improved",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "skill-creator", surface: "skill:creator", kind: "generic-backing-skill" },
+	{ skillName: "skill-management", surface: "skill:management", kind: "generic-backing-skill" },
+	{ skillName: "skillx", surface: "skill:x", kind: "generic-backing-skill" },
+	{
+		skillName: "thermo-nuclear-code-quality-review",
+		surface: "thermo:nuclear-code-quality-review",
+		kind: "generic-backing-skill",
+	},
+	{ skillName: "ts-morph-analyze", surface: "ts:morph-analyze", kind: "generic-backing-skill" },
+	{
+		skillName: "writing-great-skills",
+		surface: "writing:great-skills",
+		kind: "generic-backing-skill",
+	},
+] as const satisfies readonly CommandBackedSkillRegistration[];
+
+export function commandBackedSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
+	return COMMAND_BACKED_SKILL_REGISTRY;
 }
 
-export function deriveVisiblePiReplacementSurfaces(
-	skillNames: readonly string[] = COMMAND_STYLE_LOCAL_SKILLS,
-): string[] {
-	const surfaces: string[] = [...SPECIALIZED_PI_COMMAND_SURFACES];
-	for (const skillName of genericCommandStyleSkillNames(skillNames)) {
-		const surface = derivePiReplacementSurface(skillName);
-		if (surface !== undefined) surfaces.push(surface);
-	}
-	return surfaces;
+export function commandBackedSkillSurface(skillName: string): string | undefined {
+	return COMMAND_BACKED_SKILL_REGISTRY.find((registration) => registration.skillName === skillName)
+		?.surface;
+}
+
+export function genericBackingSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
+	return COMMAND_BACKED_SKILL_REGISTRY.filter(
+		(registration) => registration.kind === "generic-backing-skill",
+	);
+}
+
+export function specializedCommandBackedSkillRegistrations(): readonly CommandBackedSkillRegistration[] {
+	return COMMAND_BACKED_SKILL_REGISTRY.filter(
+		(registration) => registration.kind === "specialized-command",
+	);
+}
+
+export function visibleCommandBackedReplacementSurfaces(): string[] {
+	return COMMAND_BACKED_SKILL_REGISTRY.map((registration) => registration.surface);
 }

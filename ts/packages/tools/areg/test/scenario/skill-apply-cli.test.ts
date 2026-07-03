@@ -120,19 +120,19 @@ describe("areg skill apply CLI", () => {
 	});
 
 	test("dry-run plans command-backed without writing or prompting", async () => {
-		const run = runScenario(["skill", "apply", "--dry-run", "command-backed", "demo-skill"], {
+		const run = runScenario(["skill", "apply", "--dry-run", "command-backed", "code-workflows"], {
 			project: {
-				replacementSurfaces: ["demo:skill"],
-				localSkills: [skill("demo-skill")],
+				replacementSurfaces: ["code:workflows"],
+				localSkills: [skill("code-workflows")],
 			},
 			prompt: { responses: [false] },
 		});
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
-		expect(output).toContain("Applying command-backed to demo-skill...");
-		expect(output).toContain("Would write skills/demo-skill/SKILL.md");
-		expect(output).toContain("Would write skills/demo-skill/agents/openai.yaml");
+		expect(output).toContain("Applying command-backed to code-workflows...");
+		expect(output).toContain("Would write skills/code-workflows/SKILL.md");
+		expect(output).toContain("Would write skills/code-workflows/agents/openai.yaml");
 		expect(output).toContain("Would write .pi/settings.json");
 	});
 
@@ -332,21 +332,21 @@ describe("areg skill apply CLI", () => {
 
 	test("whole-batch planning preserves shared Pi settings writes across multiple skills", async () => {
 		const project = new FakeAregProjectGateway({
-			replacementSurfaces: ["foo:alpha", "foo:beta"],
-			localSkills: [skill("foo-alpha"), skill("foo-beta")],
+			replacementSurfaces: ["setup:dprint", "setup:graphite"],
+			localSkills: [skill("setup-dprint"), skill("setup-graphite")],
 		});
 
 		const result = await runSkillKindApply(contextWithProject(project), {
 			path: ".",
 			kind: "command-backed",
-			skills: ["foo-alpha", "foo-beta"],
+			skills: ["setup-dprint", "setup-graphite"],
 			dryRun: false,
 			yes: false,
 		});
 
 		expect(result.type).toBe("ok");
 		expect(project.text(".pi/settings.json")).toBe(
-			`${JSON.stringify({ skills: ["-skills/foo-alpha", "-skills/foo-beta"] }, null, 2)}\n`,
+			`${JSON.stringify({ skills: ["-skills/setup-dprint", "-skills/setup-graphite"] }, null, 2)}\n`,
 		);
 	});
 
