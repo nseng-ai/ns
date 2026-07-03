@@ -22,7 +22,7 @@ import {
 	runRunnerStep,
 	type RunnerStepResult,
 } from "../../runner/step.ts";
-import { resolveGuidance } from "../../runner/guidance.ts";
+import { guidanceUsageProblem, resolveGuidance } from "../../runner/guidance.ts";
 import {
 	createSdlObjectiveRunnerContext,
 	type ObjectiveRunnerComposition,
@@ -59,9 +59,8 @@ export function createObjectiveExecRunnerStepSdlCommand(
 				readTextFile: (path) => ctx.readTextFile(path),
 			});
 			if (guidance.type === "unreadable-file") {
-				return usageError(`Could not read guidance file ${guidance.path}: ${guidance.message}`, {
-					argument: "guidance",
-				});
+				const problem = guidanceUsageProblem(guidance);
+				return usageError(problem.message, { argument: problem.argument });
 			}
 			const stepRequest = { ...request, ...optionalEntry("guidance", guidance.guidance) };
 			return runRunnerStep(ctx, stepRequest);

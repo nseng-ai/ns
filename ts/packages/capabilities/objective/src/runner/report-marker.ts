@@ -15,6 +15,7 @@ import {
 	buildRunnerReport,
 	isRunnerReportStatus,
 	requiresCommitSubject,
+	RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON,
 	RUNNER_REPORT_SECTION_TITLES,
 	RUNNER_REPORT_STATUSES,
 	type ParseRunnerReportResult,
@@ -165,7 +166,7 @@ function headerProblems(header: ParsedReportHeader): string[] {
 		header.commitSubject === undefined
 	) {
 		problems.push(
-			"Missing required header field `commitSubject` (required when status is ready-for-parent-commit).",
+			`Missing required header field \`commitSubject\` (${RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_REASON}).`,
 		);
 	}
 	return problems;

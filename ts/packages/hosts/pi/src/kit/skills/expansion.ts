@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@ns/core/markdown-frontmatter";
+import { buildFencedTextBlock } from "@ns/core/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
 import {
 	resolveExactSkillLookup,
@@ -282,14 +283,7 @@ export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOp
 	return `${options.skillBlock}\n\n${invocation}`;
 }
 
-export function buildFencedTextBlock(content: string, language = "text"): string {
-	const longestBacktickRun = Math.max(
-		0,
-		...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0),
-	);
-	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
-	return `${fence}${language}\n${content}\n${fence}`;
-}
+export { buildFencedTextBlock };
 
 function skillPromptTurnSuccessMessage(
 	message: InvokeSkillPromptTurnOptions["successMessage"],

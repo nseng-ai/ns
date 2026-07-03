@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
 	buildRunnerReport,
 	requiresCommitSubject,
+	RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_MESSAGE,
 	RUNNER_REPORT_STATUSES,
 	type ParseRunnerReportResult,
 } from "./report.ts";
@@ -40,7 +41,7 @@ export const runnerReportJsonSchema = z
 			ctx.addIssue({
 				code: "custom",
 				path: ["commitSubject"],
-				message: "Required when status is ready-for-parent-commit.",
+				message: RUNNER_REPORT_COMMIT_SUBJECT_REQUIRED_MESSAGE,
 			});
 		}
 	});

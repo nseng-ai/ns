@@ -132,6 +132,15 @@ export function truncatedSha256Digest(value: string): string {
 	return sha256Digest(value).slice(0, 32);
 }
 
+export function buildFencedTextBlock(content: string, language = "text"): string {
+	const longestBacktickRun = Math.max(
+		0,
+		...Array.from(content.matchAll(/`+/g), (match) => match[0]?.length ?? 0),
+	);
+	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
+	return `${fence}${language}\n${content}\n${fence}`;
+}
+
 export function mapFromRecordOrMap<T>(
 	source: Readonly<Record<string, T>> | ReadonlyMap<string, T> | undefined,
 ): Map<string, T> {

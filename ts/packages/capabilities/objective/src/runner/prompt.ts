@@ -1,4 +1,5 @@
 import { describeBranchContextGraphiteCreationSteps } from "@ns/branch-context/api";
+import { buildFencedTextBlock } from "@ns/core/primitives";
 
 import type { RunnerStepMode } from "./context.ts";
 // ADR0024-LEGACY-DELETE(import): marker constants feed only the legacy marker
@@ -230,11 +231,4 @@ function jsonReportContract(mode: RunnerStepMode, reportPath: string): string {
 		"",
 		buildFencedTextBlock(jsonContent, "json"),
 	].join("\n");
-}
-
-function buildFencedTextBlock(content: string, language = "text"): string {
-	const matches = content.match(/`+/gu) ?? [];
-	const longestBacktickRun = Math.max(0, ...matches.map((match) => match.length));
-	const fence = "`".repeat(Math.max(3, longestBacktickRun + 1));
-	return `${fence}${language}\n${content}\n${fence}`;
 }

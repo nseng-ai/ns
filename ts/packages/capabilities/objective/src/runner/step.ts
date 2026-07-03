@@ -13,13 +13,17 @@ import {
 	type RunnerCheckpointStatus,
 } from "./checkpoint.ts";
 import { commitRunnerStep } from "./commit.ts";
-import type { ObjectiveRunnerContext, RunnerStepMode } from "./context.ts";
+import type { ObjectiveRunnerContext } from "./context.ts";
 import {
 	gateCheckResultSchema,
 	verifyRunnerStep,
 	type GateBranchUnavailableReason,
 } from "./gate.ts";
-import { checkRunnerPreconditions } from "./preconditions.ts";
+import {
+	checkRunnerPreconditions,
+	resolveRunnerStepIdentity,
+	runnerPreconditionProblemExit,
+} from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
 import { parseRunnerReport } from "./report-marker.ts";
 import { renderRunnerReportNarrative } from "./report.ts";
@@ -86,21 +90,15 @@ export async function runRunnerStep(
 	ctx: ObjectiveRunnerContext,
 	request: RunnerStepRequest,
 ): Promise<ClinkrExit<RunnerStepResult>> {
-	if (request.slug === undefined) {
-		return usageError("Objective slug is required.", { argument: "slug" });
+	const identity = resolveRunnerStepIdentity(request);
+	if (identity.type === "usage-error") {
+		return usageError(identity.message, { argument: identity.argument });
 	}
-	const slug = request.slug;
-	const mode: RunnerStepMode = request.recover ? "recover" : "default";
+	const { slug, mode } = identity;
 
 	ctx.phase("checking-preconditions");
 	const preconditions = await checkRunnerPreconditions(ctx, { slug, mode });
-	if (preconditions.type === "usage-error") {
-		return usageError(preconditions.message, { argument: "slug" });
-	}
-	if (preconditions.type === "refused") return negative(preconditions.message);
-	if (preconditions.type === "failure") {
-		return failure(preconditions.code, preconditions.message);
-	}
+	if (preconditions.type !== "ok") return runnerPreconditionProblemExit(preconditions);
 	const { objectivePath, baseBranch, headAtDispatch, changedPaths } = preconditions.facts;
 
 	const prompt = buildRunnerChildPrompt({

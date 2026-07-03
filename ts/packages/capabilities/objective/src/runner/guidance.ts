@@ -22,6 +22,11 @@ export interface ResolveGuidanceOptions {
 	readTextFile(path: string): Promise<RunnerTextFileReadResult>;
 }
 
+export interface RunnerUsageProblem {
+	message: string;
+	argument: string;
+}
+
 /**
  * Resolves a `--guidance` flag value into the text handed to the child.
  *
@@ -41,6 +46,15 @@ export async function resolveGuidance(
 	});
 	if (resolved.type === "unreadable-file") return resolved;
 	return { type: "ok", guidance: resolved.content };
+}
+
+export function guidanceUsageProblem(
+	result: Extract<ResolveGuidanceResult, { type: "unreadable-file" }>,
+): RunnerUsageProblem {
+	return {
+		message: `Could not read guidance file ${result.path}: ${result.message}`,
+		argument: "guidance",
+	};
 }
 
 /** `@`-prefixed values are file paths resolved against cwd; otherwise inline. */
