@@ -1,21 +1,22 @@
 import { failure, negative, ok, type ClinkrExit } from "@sdl/clinkr";
+import {
+	SKILL_LOOKUP_ROOT_DESCRIPTORS,
+	SKILL_LOOKUP_ROOTS,
+	SKILL_LOOKUP_SOURCE_TYPES,
+	buildSkillLookupSearchedRoots,
+	skillLookupRootRank,
+	type SkillLookupRoot,
+} from "@sdl/pi/skills/lookup";
 import { z } from "zod";
 
 import type { AregCliContext } from "../context.ts";
-import {
-	AREG_SKILL_FIND_ROOT_DESCRIPTORS,
-	AREG_SKILL_FIND_ROOTS,
-	AREG_SKILL_FIND_SOURCE_TYPES,
-	skillFindRootRank,
-	type AregSkillFindRoot,
-	type AregSkillFindSkillInspection,
-} from "../gateways.ts";
+import type { AregSkillFindSkillInspection } from "../gateways.ts";
 import { toProjectPath } from "../gateways/project-fs.ts";
 import { parseSkillFrontmatterBlock } from "./frontmatter.ts";
 import { inspectResolvedProjectGitRoot } from "./project-resolution.ts";
 
-const skillFindRootSchema = z.enum(AREG_SKILL_FIND_ROOTS);
-const skillFindSourceTypeSchema = z.enum(AREG_SKILL_FIND_SOURCE_TYPES);
+const skillFindRootSchema = z.enum(SKILL_LOOKUP_ROOTS);
+const skillFindSourceTypeSchema = z.enum(SKILL_LOOKUP_SOURCE_TYPES);
 
 const skillFindWarningSchema = z.object({
 	code: z.string(),
@@ -143,15 +144,10 @@ export function renderSkillFind(result: SkillFindResult): string {
 }
 
 function buildSkillFindSearchedRoots(projectDir: string, query: string): SkillFindSearchedRoot[] {
-	return AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor) => {
-		const searchedRelativePath = `${descriptor.root}/${query}/SKILL.md`;
-		return {
-			root: descriptor.root,
-			sourceType: descriptor.sourceType,
-			searchedRelativePath,
-			searchedPath: toProjectPath(projectDir, searchedRelativePath),
-		};
-	});
+	return buildSkillLookupSearchedRoots(projectDir, query).map((root) => ({
+		...root,
+		searchedPath: toProjectPath(projectDir, root.searchedRelativePath),
+	}));
 }
 
 function toSkillFindMatch(
@@ -238,10 +234,10 @@ function buildSkillFindCandidates(
 	skills: readonly AregSkillFindSkillInspection[],
 	query: string,
 	limit: number,
-): Array<{ name: string; roots: AregSkillFindRoot[] }> {
-	const rootByName = new Map<string, Set<AregSkillFindRoot>>();
+): Array<{ name: string; roots: SkillLookupRoot[] }> {
+	const rootByName = new Map<string, Set<SkillLookupRoot>>();
 	for (const skill of skills) {
-		const roots = rootByName.get(skill.name) ?? new Set<AregSkillFindRoot>();
+		const roots = rootByName.get(skill.name) ?? new Set<SkillLookupRoot>();
 		roots.add(skill.root);
 		rootByName.set(skill.name, roots);
 	}
@@ -261,8 +257,8 @@ function buildSkillFindCandidates(
 	}));
 }
 
-function orderedRoots(roots: ReadonlySet<AregSkillFindRoot>): AregSkillFindRoot[] {
-	return AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor) => descriptor.root).filter((root) =>
+function orderedRoots(roots: ReadonlySet<SkillLookupRoot>): SkillLookupRoot[] {
+	return SKILL_LOOKUP_ROOT_DESCRIPTORS.map((descriptor) => descriptor.root).filter((root) =>
 		roots.has(root),
 	);
 }
@@ -272,7 +268,7 @@ function compareSkillFindInspection(
 	right: AregSkillFindSkillInspection,
 ): number {
 	return (
-		skillFindRootRank(left.root) - skillFindRootRank(right.root) ||
+		skillLookupRootRank(left.root) - skillLookupRootRank(right.root) ||
 		left.name.localeCompare(right.name)
 	);
 }

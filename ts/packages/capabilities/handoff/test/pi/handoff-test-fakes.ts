@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { encodeBranchName } from "@sdl/brmem";
-import { ScriptedQueue } from "@sdl/core/test-kit";
+import { markGitRepo, ScriptedQueue } from "@sdl/core/test-kit";
 import handoffExtension, {
 	type CommandContext,
 	type ExecResult,
@@ -561,6 +561,7 @@ export async function withTempSkill<T>(
 ): Promise<T> {
 	const dir = await mkdtemp(join(tmpdir(), "handoff-create-skill-"));
 	const skillDir = join(dir, "skills", "handoff-create");
+	await markGitRepo(dir);
 	await mkdir(skillDir, { recursive: true });
 	const skillPath = join(skillDir, "SKILL.md");
 	await writeFile(

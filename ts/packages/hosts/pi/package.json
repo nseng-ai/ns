@@ -21,6 +21,7 @@
 		"./runtime/tool-types": "./src/runtime/tool-types.ts",
 		"./sessions/replacement": "./src/runtime/sessions-replacement.ts",
 		"./skills/expansion": "./src/kit/skills/expansion.ts",
+		"./skills/lookup": "./src/kit/skills/lookup.ts",
 		"./terminal/layout": "./src/kit/terminal/layout.ts",
 		"./terminal/presentation": "./src/kit/terminal/presentation.ts",
 		"./shared/errors": "./src/kit/shared/errors.ts",

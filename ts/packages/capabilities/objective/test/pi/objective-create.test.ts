@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { withTempRepoSkill } from "@sdl/core/test-kit";
+import { markGitRepo, withTempRepoSkill } from "@sdl/core/test-kit";
 import { describe, expect, test } from "vitest";
 
 import objectiveExtension, {
@@ -189,6 +189,7 @@ describe("objective:create command", () => {
 	test("missing objective-create backing skill notifies an error and sends no prompt", async () => {
 		const repoDir = await mkdtemp(join(tmpdir(), "objective-create-missing-repo-"));
 		try {
+			await markGitRepo(repoDir);
 			const result = await runObjectiveCreate("create alpha", [], repoDir);
 
 			expect(result.waitForIdleCalls()).toBe(1);

@@ -87,6 +87,10 @@ export function createTempDirTracker(): TempDirTracker {
 	};
 }
 
+export async function markGitRepo(repoDir: string): Promise<void> {
+	await mkdir(join(repoDir, ".git"), { recursive: true });
+}
+
 export async function withTempRepoSkill<T>(
 	options: TempRepoSkillOptions,
 	callback: (skill: TempRepoSkill) => Promise<T>,
@@ -96,6 +100,7 @@ export async function withTempRepoSkill<T>(
 	);
 	const skillDir = join(repoDir, "skills", options.skillName);
 	const skillPath = join(skillDir, "SKILL.md");
+	await markGitRepo(repoDir);
 	await mkdir(skillDir, { recursive: true });
 	await writeFile(skillPath, options.markdown, "utf8");
 	try {

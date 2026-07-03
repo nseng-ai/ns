@@ -1,3 +1,9 @@
+import { SKILL_LOOKUP_ROOT_DESCRIPTORS } from "@sdl/pi/skills/lookup";
+import type {
+	SkillLookupRoot,
+	SkillLookupRootDescriptor,
+	SkillLookupSourceType,
+} from "@sdl/pi/skills/lookup";
 import type { ErrorInfo, Result } from "@sdl/core/result";
 
 export const AREG_HOST_TOOL_NAMES = ["gh", "npx"] as const;
@@ -131,61 +137,16 @@ export interface AregCheckPairingDirectory {
 	claudeText?: string;
 }
 
-export const AREG_SKILL_FIND_ROOT_DESCRIPTORS = [
-	{ root: "skills", sourceType: "repo" },
-	{ root: ".agents/skills", sourceType: "vendored" },
-	{ root: ".claude/skills", sourceType: "claude" },
-] as const satisfies ReadonlyArray<{ root: string; sourceType: string }>;
-
-export type AregSkillFindRootDescriptor = (typeof AREG_SKILL_FIND_ROOT_DESCRIPTORS)[number];
-export type AregSkillFindRoot = AregSkillFindRootDescriptor["root"];
-export type AregSkillFindSourceType = AregSkillFindRootDescriptor["sourceType"];
-export type AregSkillKindSourceType = Extract<AregSkillFindSourceType, "repo" | "vendored">;
+export type AregSkillKindSourceType = Extract<SkillLookupSourceType, "repo" | "vendored">;
 export type AregSkillKindRootDescriptor = Extract<
-	AregSkillFindRootDescriptor,
+	SkillLookupRootDescriptor,
 	{ sourceType: AregSkillKindSourceType }
 >;
 
-export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.filter(
+export const AREG_SKILL_KIND_ROOT_DESCRIPTORS = SKILL_LOOKUP_ROOT_DESCRIPTORS.filter(
 	(descriptor): descriptor is AregSkillKindRootDescriptor =>
 		descriptor.sourceType === "repo" || descriptor.sourceType === "vendored",
 );
-
-export const AREG_SKILL_FIND_ROOTS = AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
-	(descriptor): AregSkillFindRoot => descriptor.root,
-) as [AregSkillFindRoot, ...AregSkillFindRoot[]];
-export const AREG_SKILL_FIND_SOURCE_TYPES = AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
-	(descriptor): AregSkillFindSourceType => descriptor.sourceType,
-) as [AregSkillFindSourceType, ...AregSkillFindSourceType[]];
-
-const AREG_SKILL_FIND_DESCRIPTOR_BY_ROOT = new Map<AregSkillFindRoot, AregSkillFindRootDescriptor>(
-	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor) => [descriptor.root, descriptor] as const),
-);
-const AREG_SKILL_FIND_DESCRIPTOR_BY_SOURCE_TYPE = new Map<
-	AregSkillFindSourceType,
-	AregSkillFindRootDescriptor
->(
-	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map(
-		(descriptor) => [descriptor.sourceType, descriptor] as const,
-	),
-);
-const AREG_SKILL_FIND_ROOT_RANKS = new Map<AregSkillFindRoot, number>(
-	AREG_SKILL_FIND_ROOT_DESCRIPTORS.map((descriptor, index) => [descriptor.root, index] as const),
-);
-
-export function skillFindDescriptorForRoot(root: AregSkillFindRoot): AregSkillFindRootDescriptor {
-	const descriptor = AREG_SKILL_FIND_DESCRIPTOR_BY_ROOT.get(root);
-	if (descriptor === undefined) throw new Error(`Unknown skill-find root: ${root}`);
-	return descriptor;
-}
-
-export function skillFindDescriptorForSourceType(
-	sourceType: AregSkillFindSourceType,
-): AregSkillFindRootDescriptor {
-	const descriptor = AREG_SKILL_FIND_DESCRIPTOR_BY_SOURCE_TYPE.get(sourceType);
-	if (descriptor === undefined) throw new Error(`Unknown skill-find source type: ${sourceType}`);
-	return descriptor;
-}
 
 export function skillKindDescriptorForSourceType(
 	sourceType: AregSkillKindSourceType,
@@ -197,14 +158,10 @@ export function skillKindDescriptorForSourceType(
 	return descriptor;
 }
 
-export function skillFindRootRank(root: AregSkillFindRoot): number {
-	return AREG_SKILL_FIND_ROOT_RANKS.get(root) ?? AREG_SKILL_FIND_ROOT_DESCRIPTORS.length;
-}
-
 export interface AregSkillFindSkillInspection {
 	name: string;
-	root: AregSkillFindRoot;
-	sourceType: AregSkillFindSourceType;
+	root: SkillLookupRoot;
+	sourceType: SkillLookupSourceType;
 	baseRelativePath: string;
 	skillDir: AregPathState;
 	skillMd: AregTextFileState;

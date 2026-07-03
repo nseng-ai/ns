@@ -4,7 +4,7 @@ Conventions for authoring, naming, vendoring, and managing skills in this repo. 
 
 ### Managing Skills With `npx skills`
 
-All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill at `.agents/skills/skill-management/SKILL.md`. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand. The canonical sdl install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`.
+All skill-management procedures — adding, editing, removing, updating, listing, and publishing skills — are documented in the `skill-management` skill. Use that skill whenever you need to install or modify skills rather than running `npx skills` commands freehand; if it is not already loaded or available, resolve it with `areg skill find skill-management --format json` and read the returned preferred `SKILL.md` path. The canonical sdl install flag is `--agent codex claude-code -y`. Local skills live as real directories under `skills/<name>/`; `.agents/skills/<name>` is a symlink back to that canonical source, keeping the universal-agent directory populated without duplicating content. GitHub-sourced skills remain real directories under `.agents/skills/<name>/`.
 
 ### Auditing and Tightening Skills
 

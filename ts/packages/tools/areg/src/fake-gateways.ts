@@ -1,11 +1,14 @@
 import { optionalEntry } from "@sdl/core/primitives";
 import { resultErr, resultOk } from "@sdl/core/result";
-
 import {
-	missingCheckSkillInspection,
-	skillFindDescriptorForRoot,
-	skillFindDescriptorForSourceType,
-} from "./gateways.ts";
+	skillLookupBaseRelativePath,
+	skillLookupDescriptorForRoot,
+	skillLookupDescriptorForSourceType,
+	type SkillLookupRoot,
+	type SkillLookupSourceType,
+} from "@sdl/pi/skills/lookup";
+
+import { missingCheckSkillInspection } from "./gateways.ts";
 import type {
 	AregCheckPairingDirectory,
 	AregCheckSkillInspection,
@@ -30,10 +33,8 @@ import type {
 	AregProjectRemoveEmptyDirResult,
 	AregProjectTextWriteRequest,
 	AregPromptGateway,
-	AregSkillFindRoot,
 	AregSkillFindRootsInspection,
 	AregSkillFindSkillInspection,
-	AregSkillFindSourceType,
 	AregSkillInspectionRequest,
 	AregSkillKindResolveRequest,
 	AregSkillKindResolveResult,
@@ -89,8 +90,8 @@ export interface FakeAregSkillKindSkillOptions {
 
 export interface FakeAregSkillFindSkillOptions {
 	name: string;
-	root?: AregSkillFindRoot;
-	sourceType?: AregSkillFindSourceType;
+	root?: SkillLookupRoot;
+	sourceType?: SkillLookupSourceType;
 	baseRelativePath?: string;
 	skillDir?: AregPathState;
 	skillMd?: AregTextFileState | string;
@@ -705,13 +706,13 @@ function copyFakeCheckSkill(skill: FakeAregCheckSkillOptions): AregCheckSkillIns
 function copyFakeSkillFindSkill(
 	skill: FakeAregSkillFindSkillOptions,
 ): AregSkillFindSkillInspection {
-	const root = skill.root ?? skillFindDescriptorForSourceType(skill.sourceType ?? "repo").root;
-	const sourceType = skill.sourceType ?? skillFindDescriptorForRoot(root).sourceType;
+	const root = skill.root ?? skillLookupDescriptorForSourceType(skill.sourceType ?? "repo").root;
+	const sourceType = skill.sourceType ?? skillLookupDescriptorForRoot(root).sourceType;
 	return {
 		name: skill.name,
 		root,
 		sourceType,
-		baseRelativePath: skill.baseRelativePath ?? `${root}/${skill.name}`,
+		baseRelativePath: skill.baseRelativePath ?? skillLookupBaseRelativePath(root, skill.name),
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
@@ -723,11 +724,12 @@ function copyFakeSkillKindSkill(
 	skill: FakeAregSkillKindSkillOptions,
 ): AregSkillKindSkillInspection {
 	const sourceType = skill.sourceType ?? "repo";
-	const descriptor = skillFindDescriptorForSourceType(sourceType);
+	const descriptor = skillLookupDescriptorForSourceType(sourceType);
 	return {
 		name: skill.name,
 		sourceType,
-		baseRelativePath: skill.baseRelativePath ?? `${descriptor.root}/${skill.name}`,
+		baseRelativePath:
+			skill.baseRelativePath ?? skillLookupBaseRelativePath(descriptor.root, skill.name),
 		skillDir: copyPathState(skill.skillDir ?? { type: "directory" }),
 		skillMd: normalizeTextFileState(
 			skill.skillMd ?? `---\nname: ${skill.name}\ndescription: ${skill.name}\n---\n`,
@@ -773,7 +775,7 @@ function copySkillFindSkill(skill: AregSkillFindSkillInspection): AregSkillFindS
 function skillKindSkillToFindSkill(
 	skill: AregSkillKindSkillInspection,
 ): AregSkillFindSkillInspection {
-	const descriptor = skillFindDescriptorForSourceType(skill.sourceType);
+	const descriptor = skillLookupDescriptorForSourceType(skill.sourceType);
 	return {
 		name: skill.name,
 		root: descriptor.root,

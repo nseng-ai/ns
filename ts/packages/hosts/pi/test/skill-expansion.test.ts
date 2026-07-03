@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { markGitRepo } from "@sdl/core/test-kit";
 
 import {
 	buildFencedTextBlock,
@@ -268,6 +270,7 @@ describe("repo skill expansion", () => {
 	test("walks up from cwd and expands skills/<name>/SKILL.md directly", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "repo-skill-expansion-"));
 		try {
+			await markGitRepo(repo);
 			const skillDir = join(repo, "skills", "objective-create");
 			const nestedCwd = join(repo, "packages", "example");
 			await mkdir(skillDir, { recursive: true });
@@ -294,6 +297,7 @@ describe("repo skill expansion", () => {
 	test("falls back to vendored .agents/skills/<name>/SKILL.md backing skills", async () => {
 		const repo = await mkdtemp(join(tmpdir(), "repo-vendored-skill-expansion-"));
 		try {
+			await markGitRepo(repo);
 			const skillDir = join(repo, ".agents", "skills", "improve-codebase-architecture");
 			const nestedCwd = join(repo, "packages", "example");
 			await mkdir(skillDir, { recursive: true });
@@ -317,10 +321,99 @@ describe("repo skill expansion", () => {
 		}
 	});
 
+	test("uses shared skill lookup precedence across repo, vendored, and Claude roots", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "repo-skill-precedence-"));
+		try {
+			await markGitRepo(repo);
+			const nestedCwd = join(repo, "packages", "example");
+			await mkdir(nestedCwd, { recursive: true });
+			for (const root of ["skills", join(".agents", "skills"), join(".claude", "skills")]) {
+				const skillDir = join(repo, root, "shared");
+				await mkdir(skillDir, { recursive: true });
+				await writeFile(join(skillDir, "SKILL.md"), `# ${root}\n`, "utf8");
+			}
+
+			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "shared" })).toBe(
+				join(repo, "skills", "shared", "SKILL.md"),
+			);
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
+
+	test("falls back to Claude-root .claude/skills/<name>/SKILL.md backing skills", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "repo-claude-skill-expansion-"));
+		try {
+			await markGitRepo(repo);
+			const skillDir = join(repo, ".claude", "skills", "code-gh");
+			const nestedCwd = join(repo, "packages", "example");
+			await mkdir(skillDir, { recursive: true });
+			await mkdir(nestedCwd, { recursive: true });
+			await writeFile(join(skillDir, "SKILL.md"), "---\nname: code-gh\n---\n\n# Code GH\n", "utf8");
+
+			expect(await resolveRepoSkillPath({ cwd: nestedCwd, skillName: "code-gh" })).toBe(
+				join(skillDir, "SKILL.md"),
+			);
+			const expanded = await expandRepoSkillBlock({
+				cwd: nestedCwd,
+				skillName: "code-gh",
+			});
+			expect(expanded.block).toContain("# Code GH");
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
+
+	test("bounds repo skill lookup to the containing Git root", async () => {
+		const workspace = await mkdtemp(join(tmpdir(), "repo-skill-git-root-"));
+		try {
+			const repo = join(workspace, "repo");
+			const parentSkillDir = join(workspace, "skills", "parent-only");
+			const nestedCwd = join(repo, "packages", "example");
+			await markGitRepo(repo);
+			await mkdir(parentSkillDir, { recursive: true });
+			await mkdir(nestedCwd, { recursive: true });
+			await writeFile(join(parentSkillDir, "SKILL.md"), "# Parent\n", "utf8");
+
+			await expect(
+				resolveRepoSkillPath({ cwd: nestedCwd, skillName: "parent-only" }),
+			).rejects.toThrow("Could not find skills/parent-only/SKILL.md");
+		} finally {
+			await rm(workspace, { recursive: true, force: true });
+		}
+	});
+
+	test("allows symlinked skill directories but rejects directly symlinked SKILL.md files", async () => {
+		const repo = await mkdtemp(join(tmpdir(), "repo-skill-symlink-"));
+		try {
+			await markGitRepo(repo);
+			const symlinkTargetDir = join(repo, "skill-targets", "linked");
+			const vendoredRoot = join(repo, ".agents", "skills");
+			const directSymlinkDir = join(repo, "skills", "direct-link");
+			await mkdir(symlinkTargetDir, { recursive: true });
+			await mkdir(vendoredRoot, { recursive: true });
+			await mkdir(directSymlinkDir, { recursive: true });
+			await writeFile(join(symlinkTargetDir, "SKILL.md"), "# Linked\n", "utf8");
+			await writeFile(join(repo, "direct-target.md"), "# Direct\n", "utf8");
+			await symlink(join("..", "..", "skill-targets", "linked"), join(vendoredRoot, "linked"));
+			await symlink(join("..", "..", "direct-target.md"), join(directSymlinkDir, "SKILL.md"));
+
+			expect(await resolveRepoSkillPath({ cwd: repo, skillName: "linked" })).toBe(
+				join(vendoredRoot, "linked", "SKILL.md"),
+			);
+			await expect(resolveRepoSkillPath({ cwd: repo, skillName: "direct-link" })).rejects.toThrow(
+				"Refusing to read symlinked backing skill",
+			);
+		} finally {
+			await rm(repo, { recursive: true, force: true });
+		}
+	});
+
 	test("rejects traversal to sibling paths when resolving repo skills", async () => {
 		const workspace = await mkdtemp(join(tmpdir(), "repo-skill-containment-"));
 		try {
 			const repo = join(workspace, "repo");
+			await markGitRepo(repo);
 			const siblingSkillDir = join(workspace, "repo-other", "outside");
 			await mkdir(join(repo, "skills"), { recursive: true });
 			await mkdir(siblingSkillDir, { recursive: true });

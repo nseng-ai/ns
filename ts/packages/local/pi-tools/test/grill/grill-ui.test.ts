@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
+import { markGitRepo } from "@sdl/core/test-kit";
+
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {
 	GRILL_ASK_TOOL_NAME,
@@ -225,6 +227,7 @@ describe("/pi:grill-me command", () => {
 		try {
 			const skillDir = join(dir, "skills", GRILL_UI_SKILL_NAME);
 			const skillPath = join(skillDir, "SKILL.md");
+			await markGitRepo(dir);
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,
@@ -296,6 +299,7 @@ describe("/pi:grill-with-docs command", () => {
 		try {
 			const skillDir = join(dir, "skills", GRILL_WITH_DOCS_UI_SKILL_NAME);
 			const skillPath = join(skillDir, "SKILL.md");
+			await markGitRepo(dir);
 			await mkdir(skillDir, { recursive: true });
 			await writeFile(
 				skillPath,

@@ -1,9 +1,14 @@
-import { lstat, readFile } from "node:fs/promises";
-import { dirname, join, parse, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 import { splitMarkdownFrontmatter } from "@sdl/core/markdown-frontmatter";
-import { isPathInside } from "@sdl/core/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
+import {
+	resolveExactSkillLookup,
+	resolveSkillLookupProjectRoot,
+	skillLookupIoOptions,
+	type SkillLookupIo,
+} from "./lookup.ts";
 
 export interface SkillCommandInfo {
 	name: string;
@@ -36,10 +41,9 @@ export interface SkillPathExpansionOptions extends SkillExpansionOptions {
 	skillPath: string;
 }
 
-export interface RepoSkillPathResolveOptions {
+export interface RepoSkillPathResolveOptions extends SkillLookupIo {
 	cwd: string;
 	skillName: string;
-	statPath?: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>;
 }
 
 export interface RepoSkillExpansionOptions extends SkillExpansionOptions {
@@ -77,7 +81,7 @@ export interface RepoSkillPromptTurnContext extends SkillPromptTurnContext {
 	cwd: string;
 }
 
-export interface InvokeRepoSkillPromptTurnOptions {
+export interface InvokeRepoSkillPromptTurnOptions extends SkillLookupIo {
 	host: RepoSkillPromptTurnHost;
 	ctx: RepoSkillPromptTurnContext;
 	skillName: string;
@@ -85,7 +89,6 @@ export interface InvokeRepoSkillPromptTurnOptions {
 	fallbackMessage: string;
 	buildPrompt(skillBlock: string | undefined): string;
 	readTextFile?: (path: string) => Promise<string>;
-	statPath?: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>;
 }
 
 export interface BuildSkillInvocationPromptOptions {
@@ -142,40 +145,22 @@ export async function expandSkillBlock(
 }
 
 export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
-	const statPath = options.statPath ?? ((path: string) => lstat(path));
-	let current = resolve(options.cwd);
-	const root = parse(current).root;
-
-	while (true) {
-		const skillPaths = [
-			join(current, "skills", options.skillName, "SKILL.md"),
-			join(current, ".agents", "skills", options.skillName, "SKILL.md"),
-		];
-		for (const skillPath of skillPaths) {
-			const found = await fileExists(statPath, skillPath);
-			if (found) {
-				const skillStat = await statPath(skillPath);
-				if (skillStat.isSymbolicLink()) {
-					throw new Error(`Refusing to read symlinked backing skill at ${skillPath}.`);
-				}
-				const resolvedSkillPath = resolve(skillPath);
-				const resolvedRepoRoot = resolve(current);
-				if (!isPathInside(resolvedRepoRoot, resolvedSkillPath)) {
-					throw new Error(
-						`Backing skill path ${skillPath} resolves outside repository root ${current}.`,
-					);
-				}
-				return skillPath;
-			}
-		}
-
-		if (current === root) {
-			throw new Error(
-				`Could not find skills/${options.skillName}/SKILL.md or .agents/skills/${options.skillName}/SKILL.md from ${options.cwd}.`,
-			);
-		}
-		current = dirname(current);
-	}
+	const lookupIo = skillLookupIoOptions(options);
+	const projectRoot = await resolveSkillLookupProjectRoot({
+		cwd: options.cwd,
+		...(lookupIo.statPath === undefined ? {} : { statPath: lookupIo.statPath }),
+	});
+	const lookup = await resolveExactSkillLookup({
+		projectDir: projectRoot,
+		skillName: options.skillName,
+		...lookupIo,
+	});
+	if (lookup.type === "found") return lookup.skillFilePath;
+	if (lookup.type === "error") throw new Error(lookup.message);
+	const searchedRelativePaths = lookup.searchedRoots
+		.map((root) => root.searchedRelativePath)
+		.join(", ");
+	throw new Error(`Could not find ${searchedRelativePaths} from ${options.cwd}.`);
 }
 
 export async function expandRepoSkillBlock(
@@ -237,7 +222,7 @@ export async function invokeRepoSkillPromptTurn(
 		const skillPath = await resolveRepoSkillPath({
 			cwd: ctx.cwd,
 			skillName,
-			...(options.statPath === undefined ? {} : { statPath: options.statPath }),
+			...skillLookupIoOptions(options),
 		});
 		skill = await expandSkillBlockFromPath({
 			skillName,
@@ -314,16 +299,4 @@ function skillPromptTurnSuccessMessage(
 		return message;
 	}
 	return message(skill);
-}
-
-async function fileExists(
-	statPath: (path: string) => Promise<{ isFile(): boolean; isSymbolicLink(): boolean }>,
-	path: string,
-): Promise<boolean> {
-	try {
-		const stat = await statPath(path);
-		return stat.isFile() || stat.isSymbolicLink();
-	} catch {
-		return false;
-	}
 }
