@@ -125,7 +125,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain(
 			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(prompt).toContain("No legacy ~/.ns/enriched-plan fallback is read or written");
+		expect(prompt).toContain("No fallback path is read or written");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");

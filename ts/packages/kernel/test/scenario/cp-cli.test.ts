@@ -86,7 +86,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		expect(help).toContain("Usage: ns");
-		expect(help).toContain("Source Development Lifecycle tools.");
+		expect(help).toContain("ns tools.");
 		expect(help).not.toContain("changes");
 		expect(help).not.toContain("cp");
 		expect(help).not.toContain("submit");
