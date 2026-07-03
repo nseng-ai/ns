@@ -125,3 +125,40 @@ successors) — `ji objective list`, `ji objective exec read-objective`, and
   `.ji/objectives/`: the `ji-core-cutover` child (as residual cutover cleanup) or the
   Objective Edges initiative that created it? This record only flags the regression; the
   fix crosses Objective boundaries and needs routing.
+  Resolved at closure: this Objective took it as residual cutover cleanup — the record
+  moved to `.ji/objectives/objective-edges/` verbatim in the closing PR.
+
+## Closure
+
+Closed 2026-07-03. Outcome: completed-with-supersession — the core rename shipped in
+full, and the product name then moved on from `ji` to `ns` (see the `rename-ji-to-ns`
+Objective and ADR 0026) before the remaining trailing rows landed under their original
+framing.
+
+Shipped under this Objective:
+
+- Core cutover (bin, `.sdl/` → `.ji/`, `/sdl:*` → `/ji:*`, XDG, kernel/tooling paths) via
+  the child Objective `ji-core-cutover`, closed 2026-07-03 with `just` green
+  (3994/3994) and post-cutover smoke evidence.
+- Decision records: ADR 0024 and `docs/ji-naming-brief.md`; the
+  `checkout-free-sdl-distribution` publish-name question re-recorded as resolved.
+- Vocabulary sweep of CONTEXT.md, CONTEXT-MAP.md, AGENTS.md, skills, and active docs.
+- Package scope sweep first pass (`@sdl/*` → `@ji/*`, `sdlcc` → `jicc`,
+  `src/sdl/` → `src/ji/`) via `tools/pkg-scope-sweep/`.
+
+Disposition of the rows still open at closure:
+
+- Machine migration: partially executed (zshrc shell-integration block and
+  `refs/sdl/flow-land-backup*` refs migrated; no-op surfaces recorded). The residual
+  checklist is subsumed by `rename-ji-to-ns`'s scripted machine migration, which
+  migrates the same surfaces one more hop.
+- Package scope correction (`@ji/*` → `@nseng-ai/*`): superseded — `rename-ji-to-ns`
+  takes the workspace scope to `@ns/*` with the external publish target `@nseng-ai/ns`.
+- GitHub repo rename to `nseng-ai/ji`: overtaken by events — the owner renamed the repo
+  directly to `nseng-ai/ns` (verified 2026-07-03: `origin` is
+  `https://github.com/nseng-ai/ns.git`), skipping the `ji` slug entirely.
+
+Durable-rule graduation: the orientation's standing rule (one name everywhere; hard
+cutover; never reintroduce a legacy name as a surface, path, or vocabulary) carries
+forward in `rename-ji-to-ns`'s orientation rather than graduating to AGENTS.md, since it
+remains initiative-scoped until that rename completes.
