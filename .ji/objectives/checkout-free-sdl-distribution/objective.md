@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: ship-objectives-to-customers
+    annotation: Split out of that Objective (2026-07-01); it consumes checkout-free `sdl` as a hard dependency and is its first external consumer.
+---
+
 # Checkout-Free `sdl` Distribution
 
 ## Thesis
