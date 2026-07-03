@@ -109,12 +109,17 @@ describe("project extension shared flow foundations", () => {
 		expect(regeneratePrSource).toContain("../../submit/index.ts");
 		await expect(access(REMOVED_CORE_DIR_PATH, constants.F_OK)).rejects.toThrow();
 		expect(worktreeSource).toContain("@sdl/capability-kit/pending-worktree");
+		expect(worktreeSource).toContain("@sdl/capability-kit/git");
 		expect(worktreeSource).toContain("execSdlGit");
+		expect(worktreeSource).not.toContain("./git.ts");
+		expect(worktreeSource).not.toContain("execFlowGit");
 		expect(worktreeSource).not.toContain('ctx.exec("git"');
 		expect(worktreeSource).not.toContain("isClean");
 		expect(pushSource).toContain("@sdl/capability-kit/git");
 		expect(pushSource).toContain("readSdlGitPorcelainStatus");
 		expect(pushSource).toContain("execSdlGit");
+		expect(pushSource).not.toContain("../shared/git.ts");
+		expect(pushSource).not.toContain("execFlowGit");
 		expect(pushSource).not.toContain('ctx.exec("git"');
 	});
 });

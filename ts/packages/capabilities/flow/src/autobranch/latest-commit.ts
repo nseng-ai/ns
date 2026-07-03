@@ -15,7 +15,6 @@ import {
 	formatLatestCommitTransactionFailure,
 	runLatestCommitAutobranchTransaction,
 } from "./latest-commit-transaction.ts";
-import { shortSha } from "./short-sha.ts";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 
@@ -40,7 +39,6 @@ export {
 	type SourceResetFailureRecovery,
 } from "./latest-commit-transaction.ts";
 export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts";
-export { shortSha } from "./short-sha.ts";
 
 export interface LatestCommitAutobranchInput {
 	cwd: string;
@@ -49,6 +47,10 @@ export interface LatestCommitAutobranchInput {
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	onPhase?: (message: string) => void;
 	now?: () => number;
+}
+
+function shortSha(sha: string): string {
+	return sha.slice(0, 7);
 }
 
 export async function createLatestCommitAutobranchFlow(

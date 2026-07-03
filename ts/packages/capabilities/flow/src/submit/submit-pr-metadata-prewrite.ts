@@ -6,7 +6,6 @@ import type { GitGateway } from "@sdl/capability-kit/git";
 import type { MaybePromise } from "@sdl/core/primitives";
 
 import { commandFailure } from "./index.ts";
-import { formatItemCount } from "./index.ts";
 import type { PrewrittenPrMetadata, PrCommitMessage } from "./index.ts";
 import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts";
@@ -523,6 +522,10 @@ function commandError(
 	message: string,
 ): ErrorInfo | undefined {
 	return commandFailure({ command, args, result, code, message });
+}
+
+function formatItemCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function formatStackBranchMetadataProgress(branchCount: number): string {

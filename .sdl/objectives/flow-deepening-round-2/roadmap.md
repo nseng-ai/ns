@@ -62,36 +62,41 @@ stated. Validation baseline for every row: the Definition of Progress suite in
       no-op on current, and default prompt on stale; full DoP suite reported
       green by the step, independently re-verified via flow package tests
       (47 files / 419 tests) and `just ts-check`.
-- [ ] Delete the forwarder shims (review #6)
-      Policy: direct.
-      What: inline five single-purpose rename/re-export files into their
-      callers: `src/shared/git.ts` (5 lines), `src/shared/text-helpers.ts`
-      (9), `src/shared/checkpoint-message.ts` (2), `src/submit/format.ts` (3),
-      `src/autobranch/short-sha.ts` (3). Keep `src/shared/text-generation.ts`
-      (many consumers — a real naming seam).
-      `src/land-stack/graphite-metadata-command.ts` is already absorbed —
-      the operation-shaping row deleted it into the channel on 2026-07-02;
-      only the five forwarder files remain for this row.
-      Evidence: the five files are gone; `just ts-check` and the flow test
-      suite pass; no re-export replaces them.
-- [ ] Land Domain extraction — inventory (no code moves)
-      Policy: direct.
-      What: produce the migration map. Enumerate every behavior in
-      `flow/CONTEXT.md`'s "Flow Land Execution" definition (command
-      presentation, stack-mode orchestration, prompts, merge execution,
-      Graphite maintenance, cleanup) and locate its implementation under
-      `src/land-stack/` and `src/land/`. For each: which Land Gateway Set
-      seam covers it (`src/land/types.ts` — `LandGitGateway:254`,
-      `LandGraphiteGateway:286`, `LandGithubPrFactsGateway:306`,
-      `LandWorktreeSlotFactsGateway:313`), what is missing from those
-      gateways, and which behaviors are presentation (stay Flow-side) vs
-      execution (migrate). Output: a Semantic Update containing the map and a
-      proposed slice decomposition for the migration row, sized one behavior
-      per slice.
-      Evidence: the update exists; it covers every Flow Land Execution
-      behavior; no source files changed.
+- [x] Delete the forwarder shims (review #6)
+      Delivered 2026-07-02 (runner step, commit `67c6e49ee` on
+      `flow-delete-forwarder-shims`): the five forwarder files
+      (`shared/git.ts`, `shared/text-helpers.ts`,
+      `shared/checkpoint-message.ts`, `submit/format.ts`,
+      `autobranch/short-sha.ts`) are deleted with callers pointed at the
+      real interfaces; no replacement re-export added;
+      `shared/text-generation.ts` survives as the real naming seam;
+      `graphite-metadata-command.ts` had already been absorbed by the
+      channel row.
+      Evidence: parent-verified — files absent, only remaining path
+      reference is a negative regression assertion in
+      `extension-shared-flow-foundations.test.ts`; flow suite passes
+      (44 files / 413 tests) and `just ts-check` green; full DoP suite
+      reported green by the step.
+- [x] Land Domain extraction — inventory (no code moves)
+      Delivered 2026-07-02 (parent-executed: read-only investigation, no
+      runner step needed since the deliverable is a Semantic Update): the
+      migration map lives in
+      `updates/2026-07-02T174146Z-land-extraction-inventory.md` — 13
+      behaviors (B1–B13) classified presentation vs execution with
+      method-level gateway gaps, plus a 10-slice migration decomposition
+      ordered lowest-risk-first (slice 1: strict merge gate + validator
+      dedupe; slice 8 riskiest: post-merge Graphite maintenance).
+      Premise corrections it establishes: five boundary crossings exist
+      today (not one adapter plus mirror); the `src/land/` directory is
+      not the domain boundary (three Flow-execution files live there);
+      `LandGraphiteGateway`'s mutation methods are unwired no-op stubs.
+      Evidence: the update covers every Flow Land Execution behavior in
+      `flow/CONTEXT.md`'s definition; no source files changed
+      (parent-verified clean tree after the investigation).
 - [ ] Land Domain extraction — migrate execution onto the Land Domain Core
-      Policy: preview. Precondition: the inventory row's map exists; execute
+      Policy: preview. Precondition satisfied 2026-07-02: the map is
+      `updates/2026-07-02T174146Z-land-extraction-inventory.md` (10 slices,
+      lowest-risk-first; start at slice 1). Execute
       one mapped slice at a time, each previewed via `objective-next` before
       code changes.
       What: per the map, move execution behaviors to run on the Land Domain

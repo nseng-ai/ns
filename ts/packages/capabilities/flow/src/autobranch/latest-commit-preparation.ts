@@ -10,7 +10,6 @@ import {
 import { formatAutobranchCommandDetails } from "./shared.ts";
 import { inspectUpstreamHeadState } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
-import { shortSha } from "./short-sha.ts";
 
 const GIT_TIMEOUT_MS = 30_000;
 const GT_TIMEOUT_MS = 120_000;
@@ -205,6 +204,10 @@ async function inspectGraphiteChildBranches(
 		return { ok: false, error: formatAutobranchCommandDetails(children) };
 	}
 	return { ok: true, children: nonEmptyLines(children.stdout) };
+}
+
+function shortSha(sha: string): string {
+	return sha.slice(0, 7);
 }
 
 function nonEmptyLines(value: string): string[] {

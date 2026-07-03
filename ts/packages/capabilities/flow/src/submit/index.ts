@@ -59,7 +59,6 @@ export {
 	type GatewayResult,
 	type Result,
 } from "@sdl/capability-kit/gateway-result";
-export { formatItemCount } from "./format.ts";
 export {
 	DEFAULT_PR_DESCRIPTION_MODEL_REF,
 	PR_DESCRIPTION_MODEL_ENV,

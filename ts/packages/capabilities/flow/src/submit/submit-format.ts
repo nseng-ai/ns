@@ -1,6 +1,6 @@
 import { stripTerminalEscapes } from "@sdl/core/terminal-escapes";
-import { formatItemCount, type PrewrittenPrMetadata } from "./index.ts";
 
+import type { PrewrittenPrMetadata } from "./index.ts";
 import type { SubmitPrLink } from "./gt-output.ts";
 import { formatPrLinkText, formatPrLinkTextRow } from "./submit-pr-link.ts";
 import type {
@@ -203,6 +203,10 @@ function formatRemoteSyncDetails(remoteSync: RemoteSyncDiagnostics | undefined):
 		}
 	}
 	return `${lines.join("\n")}\n`;
+}
+
+function formatItemCount(count: number, singular: string, plural: string): string {
+	return `${count} ${count === 1 ? singular : plural}`;
 }
 
 function formatRemoteDivergence(remoteSync: RemoteSyncDiagnostics): string {
