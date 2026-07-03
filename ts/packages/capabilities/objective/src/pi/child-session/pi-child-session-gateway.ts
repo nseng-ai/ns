@@ -14,8 +14,9 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { Clock } from "@sdl/core/clock";
 import { formatErrorMessage, isRecord } from "@sdl/core/primitives";
-import { systemTimerScheduler } from "@sdl/core/time";
+import { systemClock, systemTimerScheduler } from "@sdl/core/time";
 import type { ScheduledTimer, TimerScheduler } from "@sdl/core/timers";
 
 import type {
@@ -31,7 +32,7 @@ export const SDL_RUNNER_PI_BIN_ENV = "SDL_RUNNER_PI_BIN";
 
 const DEFAULT_STDERR_TAIL_LIMIT_BYTES = 8 * 1024;
 const DEFAULT_SIGKILL_GRACE_MS = 10_000;
-const ASSISTANT_ACTIVITY_PREVIEW_CHARS = 120;
+const ACTIVITY_PREVIEW_CHARS = 120;
 
 export interface PiChildSpawnOptions {
 	cwd: string;
@@ -64,6 +65,7 @@ export interface PiChildSessionGatewayDependencies {
 	/** Host environment; `SDL_RUNNER_PI_BIN` overrides the `pi` binary. */
 	env: Record<string, string | undefined>;
 	spawn?: SpawnPiChildProcess;
+	clock?: Clock;
 	timers?: TimerScheduler;
 	/** Test seam for the temp directory holding the child session JSONL. */
 	createSessionDir?: () => Promise<string>;
@@ -103,6 +105,11 @@ async function runPiChildSession(
 		isChannelClosed = true;
 		channel.close();
 	};
+	const clock = deps.clock ?? systemClock;
+	const startMs = clock.nowMs();
+	const emitActivity = (line: string) => {
+		emit({ type: "activity", line: `${formatElapsedSince(startMs, clock.nowMs())} ${line}` });
+	};
 
 	let sessionFile: string;
 	try {
@@ -112,6 +119,8 @@ async function runPiChildSession(
 		closeChannel();
 		return startupFailed("Failed to create child session directory", error);
 	}
+
+	emitActivity(`child session: ${sessionFile}`);
 
 	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
 	const spawnPiChildProcess = deps.spawn ?? defaultSpawnPiChildProcess;
@@ -132,7 +141,7 @@ async function runPiChildSession(
 	const stderrTail = new BoundedTextBuffer(
 		deps.stderrTailLimitBytes ?? DEFAULT_STDERR_TAIL_LIMIT_BYTES,
 	);
-	const parser = createPiJsonActivityParser((line) => emit({ type: "activity", line }));
+	const parser = createPiJsonActivityParser(emitActivity);
 
 	return await new Promise<ChildSessionOutcome>((resolve) => {
 		let isSettled = false;
@@ -242,6 +251,8 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 	let turnCount = 0;
 	let finalAssistantText: string | undefined;
 	let stopReason: string | undefined;
+	let currentMessageHadBlockPreview = false;
+	const messageIdsWithBlockPreview = new Set<string>();
 
 	function captureFromMessage(
 		message: unknown,
@@ -256,6 +267,31 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 		if (text !== undefined) finalAssistantText = text;
 	}
 
+	function markBlockPreviewEmitted(message: unknown): void {
+		const messageId = messageIdFromMessage(message);
+		if (messageId === undefined) {
+			currentMessageHadBlockPreview = true;
+			return;
+		}
+		messageIdsWithBlockPreview.add(messageId);
+	}
+
+	function hasBlockPreviewForMessage(message: unknown): boolean {
+		const messageId = messageIdFromMessage(message);
+		if (messageId === undefined) return currentMessageHadBlockPreview;
+		return messageIdsWithBlockPreview.has(messageId);
+	}
+
+	function processMessageUpdate(event: Record<string, unknown>): void {
+		captureFromMessage(event.message, { shouldCaptureFinalText: false });
+		const assistantMessageEvent = event.assistantMessageEvent;
+		if (!isRecord(assistantMessageEvent)) return;
+		const preview = blockEndActivityPreview(assistantMessageEvent);
+		if (preview === undefined) return;
+		emitActivity(preview.line);
+		markBlockPreviewEmitted(preview.message);
+	}
+
 	function processEvent(eventType: string, event: Record<string, unknown>): void {
 		switch (eventType) {
 			case "agent_start":
@@ -266,16 +302,22 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 				emitActivity(`turn ${turnCount} started`);
 				return;
 			case "message_start":
-			case "message_update":
+				currentMessageHadBlockPreview = false;
 				captureFromMessage(event.message, { shouldCaptureFinalText: false });
+				return;
+			case "message_update":
+				processMessageUpdate(event);
 				return;
 			case "turn_end":
 				captureFromMessage(event.message, { shouldCaptureFinalText: true });
 				return;
 			case "message_end": {
 				captureFromMessage(event.message, { shouldCaptureFinalText: true });
-				const preview = assistantActivityPreview(event.message);
-				if (preview !== undefined) emitActivity(preview);
+				if (!hasBlockPreviewForMessage(event.message)) {
+					const preview = assistantActivityPreview(event.message);
+					if (preview !== undefined) emitActivity(preview);
+				}
+				currentMessageHadBlockPreview = false;
 				return;
 			}
 			case "agent_end": {
@@ -290,11 +332,27 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 				return;
 			}
 			case "tool_execution_start":
-				if (typeof event.toolName === "string") emitActivity(`tool ${event.toolName} started`);
+				if (typeof event.toolName === "string") {
+					const summary = toolArgumentSummary(event.args);
+					emitActivity(
+						summary === undefined
+							? `tool ${event.toolName} started`
+							: `tool ${event.toolName}: ${summary}`,
+					);
+				}
 				return;
 			case "tool_execution_end":
 				if (typeof event.toolName === "string") {
-					emitActivity(`tool ${event.toolName} ${event.isError === true ? "failed" : "completed"}`);
+					if (event.isError === true) {
+						const preview = toolFailurePreview(event.result);
+						emitActivity(
+							preview === undefined
+								? `tool ${event.toolName} failed`
+								: `tool ${event.toolName} failed: ${preview}`,
+						);
+						return;
+					}
+					emitActivity(`tool ${event.toolName} completed`);
 				}
 				return;
 			default:
@@ -334,16 +392,41 @@ function createPiJsonActivityParser(emitActivity: (line: string) => void): PiJso
 	};
 }
 
+interface BlockEndActivityPreview {
+	line: string;
+	message: unknown;
+}
+
+function blockEndActivityPreview(
+	assistantMessageEvent: Record<string, unknown>,
+): BlockEndActivityPreview | undefined {
+	const contentIndex = assistantMessageEvent.contentIndex;
+	if (typeof contentIndex !== "number" || !Number.isInteger(contentIndex) || contentIndex < 0) {
+		return undefined;
+	}
+	const partial = assistantMessageEvent.partial;
+	if (!isRecord(partial) || !Array.isArray(partial.content)) return undefined;
+	const block = partial.content[contentIndex];
+	if (!isRecord(block)) return undefined;
+	if (assistantMessageEvent.type === "thinking_end") {
+		if (block.type !== "thinking" || typeof block.thinking !== "string") return undefined;
+		const preview = firstLinePreview(block.thinking);
+		return preview === undefined ? undefined : { line: `thinking: ${preview}`, message: partial };
+	}
+	if (assistantMessageEvent.type === "text_end") {
+		if (block.type !== "text" || typeof block.text !== "string") return undefined;
+		const preview = firstLinePreview(block.text);
+		return preview === undefined ? undefined : { line: `assistant: ${preview}`, message: partial };
+	}
+	return undefined;
+}
+
 function assistantActivityPreview(message: unknown): string | undefined {
 	if (!isRecord(message) || message.role !== "assistant") return undefined;
 	const text = assistantTextFromContent(message.content);
 	if (text === undefined) return undefined;
-	const firstLine = text.split("\n", 1)[0] ?? "";
-	const truncated =
-		firstLine.length > ASSISTANT_ACTIVITY_PREVIEW_CHARS
-			? `${firstLine.slice(0, ASSISTANT_ACTIVITY_PREVIEW_CHARS)}…`
-			: firstLine;
-	return truncated.length === 0 ? undefined : `assistant: ${truncated}`;
+	const preview = firstLinePreview(text);
+	return preview === undefined ? undefined : `assistant: ${preview}`;
 }
 
 function assistantTextFromContent(content: unknown): string | undefined {
@@ -355,6 +438,100 @@ function assistantTextFromContent(content: unknown): string | undefined {
 	}
 	const text = textBlocks.join("\n\n").trim();
 	return text.length > 0 ? text : undefined;
+}
+
+function toolArgumentSummary(args: unknown): string | undefined {
+	if (typeof args === "string") return inlinePreview(args);
+	if (!isRecord(args)) return undefined;
+
+	for (const key of ["command", "path", "file_path", "filePath", "pattern", "query", "url"]) {
+		const value = args[key];
+		if (typeof value !== "string") continue;
+		const preview = inlinePreview(value);
+		if (preview !== undefined) return preview;
+	}
+
+	for (const value of Object.values(args)) {
+		if (typeof value !== "string") continue;
+		const preview = inlinePreview(value);
+		if (preview !== undefined) return preview;
+	}
+
+	const jsonPreview = compactJsonPreview(args);
+	return jsonPreview === undefined ? undefined : inlinePreview(jsonPreview);
+}
+
+function toolFailurePreview(result: unknown): string | undefined {
+	if (typeof result === "string") return firstLinePreview(result);
+	if (!isRecord(result)) return undefined;
+	const contentText = textFromContentBlocks(result.content);
+	if (contentText !== undefined) return firstLinePreview(contentText);
+	for (const key of ["message", "error", "stderr", "text"]) {
+		const value = result[key];
+		if (typeof value !== "string") continue;
+		const preview = firstLinePreview(value);
+		if (preview !== undefined) return preview;
+	}
+	return undefined;
+}
+
+function textFromContentBlocks(content: unknown): string | undefined {
+	if (!Array.isArray(content)) return undefined;
+	const textBlocks: string[] = [];
+	for (const block of content) {
+		if (!isRecord(block) || block.type !== "text" || typeof block.text !== "string") continue;
+		textBlocks.push(block.text);
+	}
+	const text = textBlocks.join("\n").trim();
+	return text.length > 0 ? text : undefined;
+}
+
+function messageIdFromMessage(message: unknown): string | undefined {
+	if (!isRecord(message) || typeof message.id !== "string" || message.id.length === 0)
+		return undefined;
+	return message.id;
+}
+
+function compactJsonPreview(value: unknown): string | undefined {
+	let json: string;
+	try {
+		json = JSON.stringify(value);
+	} catch {
+		return undefined;
+	}
+	if (json === undefined || json.length === 0 || json.length > ACTIVITY_PREVIEW_CHARS) {
+		return undefined;
+	}
+	return json;
+}
+
+function firstLinePreview(text: string): string | undefined {
+	for (const line of text.split(/\r?\n/u)) {
+		const preview = inlinePreview(line);
+		if (preview !== undefined) return preview;
+	}
+	return undefined;
+}
+
+function inlinePreview(text: string): string | undefined {
+	const normalized = text.trim().replace(/\s+/gu, " ");
+	if (normalized.length === 0) return undefined;
+	return normalized.length > ACTIVITY_PREVIEW_CHARS
+		? `${normalized.slice(0, ACTIVITY_PREVIEW_CHARS)}…`
+		: normalized;
+}
+
+function formatElapsedSince(startMs: number, nowMs: number): string {
+	const elapsedSeconds = Math.max(0, Math.floor((nowMs - startMs) / 1_000));
+	if (elapsedSeconds < 60) return `[+${elapsedSeconds}s]`;
+	if (elapsedSeconds < 3_600) {
+		const minutes = Math.floor(elapsedSeconds / 60);
+		const seconds = elapsedSeconds % 60;
+		return `[+${minutes}m${seconds}s]`;
+	}
+	const hours = Math.floor(elapsedSeconds / 3_600);
+	const minutes = Math.floor((elapsedSeconds % 3_600) / 60);
+	return `[+${hours}h${minutes.toString().padStart(2, "0")}m]`;
 }
 
 function chunkToString(chunk: string | Uint8Array): string {

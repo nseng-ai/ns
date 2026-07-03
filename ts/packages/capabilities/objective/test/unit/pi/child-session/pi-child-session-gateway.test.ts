@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 
-import { createManualTimerHarness } from "@sdl/core/time/testing";
+import { createManualClock, createManualTimerHarness } from "@sdl/core/time/testing";
 import { describe, expect, test } from "vitest";
 
 import type {
@@ -163,20 +163,39 @@ describe("createPiChildSessionGateway", () => {
 		await handle.outcome;
 	});
 
-	test("maps salient NDJSON events to activity lines and tracks finalText and stopReason", async () => {
-		const { deps, calls } = createFakePiGateway();
+	test("emits the live session pointer as the first elapsed-prefixed activity line", async () => {
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		call.process.close(0);
+
+		expect((await events)[0]).toEqual({
+			type: "activity",
+			line: `[+0s] child session: ${SESSION_FILE}`,
+		});
+	});
+
+	test("maps salient NDJSON events to elapsed-prefixed activity lines and tracks finalText and stopReason", async () => {
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
 		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
 		const events = collectEvents(handle);
 		const call = await waitForSpawn(calls);
 
 		call.process.emitStdout(jsonLine({ type: "agent_start" }));
+		manualClock.setMs(45_000);
 		call.process.emitStdout(jsonLine({ type: "turn_start" }));
+		manualClock.setMs(872_000);
 		call.process.emitStdout(
 			jsonLine({ type: "tool_execution_start", toolName: "bash", toolCallId: "t1" }),
 		);
 		call.process.emitStdout(
 			jsonLine({ type: "tool_execution_end", toolName: "bash", toolCallId: "t1", isError: false }),
 		);
+		manualClock.setMs(3_720_000);
 		// A line split across two chunks must reassemble.
 		const interim = jsonLine({
 			type: "message_end",
@@ -214,18 +233,199 @@ describe("createPiChildSessionGateway", () => {
 			sessionFile: SESSION_FILE,
 		});
 		expect(await events).toEqual([
-			{ type: "activity", line: "agent started" },
-			{ type: "activity", line: "turn 1 started" },
-			{ type: "activity", line: "tool bash started" },
-			{ type: "activity", line: "tool bash completed" },
-			{ type: "activity", line: "assistant: working on it" },
-			{ type: "activity", line: "not json at all" },
-			{ type: "activity", line: "agent finished (stop)" },
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{ type: "activity", line: "[+0s] agent started" },
+			{ type: "activity", line: "[+45s] turn 1 started" },
+			{ type: "activity", line: "[+14m32s] tool bash started" },
+			{ type: "activity", line: "[+14m32s] tool bash completed" },
+			{ type: "activity", line: "[+1h02m] assistant: working on it" },
+			{ type: "activity", line: "[+1h02m] not json at all" },
+			{ type: "activity", line: "[+1h02m] agent finished (stop)" },
+		]);
+	});
+
+	test("summarizes tool-start arguments without dumping large payloads", async () => {
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolName: "bash",
+				args: { command: "just ts-check" },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolName: "read", args: { path: "ts/file.ts" } }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolName: "custom", args: { something: "value" } }),
+		);
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_start", toolName: "weird", args: 42 }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolName: "bash",
+				args: { command: `${"x".repeat(130)}\n${"y".repeat(20)}` },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_start",
+				toolName: "edit",
+				args: { edits: [{ oldText: "x".repeat(200), newText: "y".repeat(200) }] },
+			}),
+		);
+		call.process.close(0);
+
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{ type: "activity", line: "[+0s] tool bash: just ts-check" },
+			{ type: "activity", line: "[+0s] tool read: ts/file.ts" },
+			{ type: "activity", line: "[+0s] tool custom: value" },
+			{ type: "activity", line: "[+0s] tool weird started" },
+			{ type: "activity", line: `[+0s] tool bash: ${"x".repeat(120)}…` },
+			{ type: "activity", line: "[+0s] tool edit started" },
+		]);
+	});
+
+	test("previews failed tool results and leaves successful tool-end lines compact", async () => {
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		call.process.emitStdout(
+			jsonLine({ type: "tool_execution_end", toolName: "bash", isError: false, result: "ignored" }),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolName: "bash",
+				isError: true,
+				result: { content: [{ type: "text", text: "first failure line\nsecond line" }] },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolName: "custom",
+				isError: true,
+				result: { stderr: "stderr failure" },
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "tool_execution_end",
+				toolName: "read",
+				isError: true,
+				result: { code: 1 },
+			}),
+		);
+		call.process.close(0);
+
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{ type: "activity", line: "[+0s] tool bash completed" },
+			{ type: "activity", line: "[+0s] tool bash failed: first failure line" },
+			{ type: "activity", line: "[+0s] tool custom failed: stderr failure" },
+			{ type: "activity", line: "[+0s] tool read failed" },
+		]);
+	});
+
+	test("emits thinking and assistant block-end previews without duplicating message_end previews", async () => {
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
+		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
+		const call = await waitForSpawn(calls);
+
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: { id: "m1", role: "assistant", stopReason: "toolUse", content: [] },
+				assistantMessageEvent: {
+					type: "thinking_end",
+					contentIndex: 0,
+					partial: {
+						id: "m1",
+						role: "assistant",
+						content: [{ type: "thinking", thinking: "thinking first line\nsecond" }],
+					},
+				},
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_update",
+				message: { id: "m1", role: "assistant", stopReason: "toolUse", content: [] },
+				assistantMessageEvent: {
+					type: "text_end",
+					contentIndex: 1,
+					partial: {
+						id: "m1",
+						role: "assistant",
+						content: [
+							{ type: "thinking", thinking: "thinking first line" },
+							{ type: "text", text: "assistant block line\nsecond" },
+						],
+					},
+				},
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					id: "m1",
+					role: "assistant",
+					stopReason: "toolUse",
+					content: [{ type: "text", text: "assistant block line" }],
+				},
+			}),
+		);
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					id: "m2",
+					role: "assistant",
+					stopReason: "stop",
+					content: [{ type: "text", text: "fallback assistant line" }],
+				},
+			}),
+		);
+		call.process.close(0);
+
+		const outcome = await handle.outcome;
+		expect(outcome).toEqual({
+			type: "completed",
+			exitCode: 0,
+			finalText: "fallback assistant line",
+			stderrTail: "",
+			stopReason: "stop",
+			sessionFile: SESSION_FILE,
+		});
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+			{ type: "activity", line: "[+0s] thinking: thinking first line" },
+			{ type: "activity", line: "[+0s] assistant: assistant block line" },
+			{ type: "activity", line: "[+0s] assistant: fallback assistant line" },
 		]);
 	});
 
 	test("streams stderr as events and keeps only a bounded tail in the outcome", async () => {
-		const { deps, calls } = createFakePiGateway({ stderrTailLimitBytes: 8 });
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({
+			clock: manualClock.clock,
+			stderrTailLimitBytes: 8,
+		});
 		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
 		const events = collectEvents(handle);
 		const call = await waitForSpawn(calls);
@@ -240,6 +440,7 @@ describe("createPiChildSessionGateway", () => {
 		expect(outcome.exitCode).toBe(2);
 		expect(outcome.stderrTail).toBe("… 8 stderr byte(s) omitted\n89abcdef");
 		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
 			{ type: "stderr", text: "0123456789" },
 			{ type: "stderr", text: "abcdef" },
 		]);
@@ -247,7 +448,7 @@ describe("createPiChildSessionGateway", () => {
 
 	test("timeout sends SIGTERM, then SIGKILL after the grace period, and resolves timed-out", async () => {
 		const harness = createManualTimerHarness();
-		const { deps, calls } = createFakePiGateway({ timers: harness.timers });
+		const { deps, calls } = createFakePiGateway({ clock: harness.clock, timers: harness.timers });
 		const handle = createPiChildSessionGateway(deps).dispatch({
 			cwd: "/repo",
 			prompt: "p",
@@ -273,7 +474,7 @@ describe("createPiChildSessionGateway", () => {
 
 	test("a close during the SIGTERM grace period skips SIGKILL and still resolves timed-out", async () => {
 		const harness = createManualTimerHarness();
-		const { deps, calls } = createFakePiGateway({ timers: harness.timers });
+		const { deps, calls } = createFakePiGateway({ clock: harness.clock, timers: harness.timers });
 		const handle = createPiChildSessionGateway(deps).dispatch({
 			cwd: "/repo",
 			prompt: "p",
@@ -293,7 +494,7 @@ describe("createPiChildSessionGateway", () => {
 
 	test("an exit before the timeout cancels the timeout timer", async () => {
 		const harness = createManualTimerHarness();
-		const { deps, calls } = createFakePiGateway({ timers: harness.timers });
+		const { deps, calls } = createFakePiGateway({ clock: harness.clock, timers: harness.timers });
 		const handle = createPiChildSessionGateway(deps).dispatch({
 			cwd: "/repo",
 			prompt: "p",
@@ -309,7 +510,8 @@ describe("createPiChildSessionGateway", () => {
 	});
 
 	test("a spawn error event (ENOENT) resolves startup-failed and ends the event stream", async () => {
-		const { deps, calls } = createFakePiGateway();
+		const manualClock = createManualClock(0);
+		const { deps, calls } = createFakePiGateway({ clock: manualClock.clock });
 		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
 		const events = collectEvents(handle);
 		const call = await waitForSpawn(calls);
@@ -320,21 +522,29 @@ describe("createPiChildSessionGateway", () => {
 			type: "startup-failed",
 			message: "Failed to spawn Pi child process: spawn pi ENOENT",
 		});
-		expect(await events).toEqual([]);
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+		]);
 	});
 
 	test("a synchronous spawn throw resolves startup-failed", async () => {
+		const manualClock = createManualClock(0);
 		const { deps } = createFakePiGateway({
+			clock: manualClock.clock,
 			spawn: () => {
 				throw new Error("spawn blew up");
 			},
 		});
 		const handle = createPiChildSessionGateway(deps).dispatch({ cwd: "/repo", prompt: "p" });
+		const events = collectEvents(handle);
 		const outcome = await handle.outcome;
 		expect(outcome).toEqual({
 			type: "startup-failed",
 			message: "Failed to spawn Pi child process: spawn blew up",
 		});
+		expect(await events).toEqual([
+			{ type: "activity", line: `[+0s] child session: ${SESSION_FILE}` },
+		]);
 	});
 
 	test("a session-directory failure resolves startup-failed without spawning", async () => {

@@ -1,7 +1,7 @@
 import { createSdlDomainCommand } from "@sdl/capability-kit/sdl-command";
 import { usageError } from "@sdl/clinkr";
 import { optionalEntry } from "@sdl/core/primitives";
-import { systemTimerScheduler } from "@sdl/core/time";
+import { systemClock, systemTimerScheduler } from "@sdl/core/time";
 import { defineExtension, type SdlCommand } from "@sdl/kernel/sdk";
 
 // jiti constraint: import the adapter by its concrete module path, never via
@@ -66,7 +66,7 @@ export function createObjectiveExecRunnerStepSdlCommand(
 /** Live command: the factory composed with the real Pi child-session adapter. */
 export const objectiveExecRunnerStepSdlCommand = createObjectiveExecRunnerStepSdlCommand({
 	createChildSessionGateway: ({ env }) =>
-		createPiChildSessionGateway({ env, timers: systemTimerScheduler }),
+		createPiChildSessionGateway({ env, clock: systemClock, timers: systemTimerScheduler }),
 });
 
 export default defineExtension({
