@@ -112,6 +112,29 @@ export class ObjectiveStorage {
 		return { ok: true, value: kind.value === "directory" };
 	}
 
+	async archivedRecordExists(slug: string): Promise<ObjectiveStorageResult<boolean>> {
+		const kind = await this.gateway.pathKind(archivedRecordRelativePath(slug));
+		if (!kind.ok) return kind;
+		return { ok: true, value: kind.value === "directory" };
+	}
+
+	/** Sorted slugs of archived records; empty when the archive root is absent. */
+	async archivedRecordSlugs(): Promise<ObjectiveStorageResult<readonly string[]>> {
+		const rootKind = await this.gateway.pathKind(archiveRootRelativePath());
+		if (!rootKind.ok) return rootKind;
+		if (rootKind.value !== "directory") return { ok: true, value: [] };
+
+		const listed = await this.gateway.listDirectory(archiveRootRelativePath());
+		if (!listed.ok) return listed;
+		return {
+			ok: true,
+			value: listed.value
+				.filter((entry) => entry.kind === "directory")
+				.map((entry) => entry.name)
+				.sort((left, right) => left.localeCompare(right)),
+		};
+	}
+
 	async checkoutInventory(): Promise<ObjectiveStorageResult<ObjectiveCheckoutInventory>> {
 		const rootKind = await this.gateway.pathKind(activeRootRelativePath());
 		if (!rootKind.ok) return rootKind;

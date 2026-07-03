@@ -96,3 +96,22 @@ jobs:
         run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
       - name: Run areg check
         run: just areg-check
+
+  objective-check:
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.8.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26.3.0
+          cache: pnpm
+          cache-dependency-path: ts/pnpm-lock.yaml
+      - name: Use vendored just
+        run: echo "$GITHUB_WORKSPACE/.github/bin" >> "$GITHUB_PATH"
+      - name: Run Objective edge sweep
+        run: just objective-check

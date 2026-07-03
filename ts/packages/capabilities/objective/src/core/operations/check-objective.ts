@@ -3,6 +3,7 @@ import {
 	negative,
 	ok,
 	resolveRenderCapabilities,
+	usageError,
 	type ClinkrExit,
 	type RenderCapabilities,
 } from "@ji/clinkr";
@@ -13,6 +14,8 @@ import type { ObjectiveCliContext } from "../context.ts";
 import { pythonStringRepr, removeOneTrailingNewline } from "./format.ts";
 import { handleObjectiveSlugValidationErrors } from "./slug-validation-errors.ts";
 import {
+	activeRootRelativePath,
+	archiveRootRelativePath,
 	emptyObjectiveFiles,
 	objectiveFilesSchema,
 	objectiveUpdateFileSchema,
@@ -23,6 +26,9 @@ import {
 	type ObjectiveStorage,
 	type ObjectiveUpdateFile,
 } from "../storage.ts";
+import { checkItem, countIssues, objectiveCheckItemSchema } from "./check-items.ts";
+import type { ObjectiveCheckItem } from "./check-items.ts";
+import { objectiveEdgeLintChecks, sweepObjectiveEdgeLint } from "./edge-lint.ts";
 import { resolveObjectiveRecordTarget, targetToEmptyResultFields } from "./objective-target.ts";
 
 const requiredObjectiveHeadings = [
@@ -38,15 +44,15 @@ const requiredUpdateHeadings = ["## Summary", "## Objective Impact", "## Follow-
 
 export const checkObjectiveRequestSchema = z.object({
 	slug: z.string().optional().describe("Objective slug to check."),
+	all: z
+		.boolean()
+		.optional()
+		.describe(
+			"Sweep every record's Record Frontmatter (edges and blocked sentence) across the active and archive roots instead of checking one slug.",
+		),
 });
 
-export const objectiveCheckItemSchema = z.object({
-	path: z.string(),
-	label: z.string(),
-	isPassed: z.boolean(),
-	severity: z.enum(["error", "warning"]),
-	detail: z.string(),
-});
+export { objectiveCheckItemSchema };
 
 export const checkObjectiveBaseResultSchema = z.object({
 	error: z.string().nullable(),
@@ -96,16 +102,38 @@ export const checkObjectiveFailedResultSchema = checkObjectiveEvaluatedBaseResul
 	error: z.literal("check-failed"),
 });
 
+const checkObjectiveSweepBaseResultSchema = z.object({
+	error: z.string().nullable(),
+	rootPath: z.string(),
+	archiveRootPath: z.string(),
+	hasRoot: z.boolean(),
+	recordCount: z.number().int(),
+	violations: z.array(objectiveCheckItemSchema),
+	errorCount: z.number().int(),
+});
+
+export const checkObjectiveSweepOkResultSchema = checkObjectiveSweepBaseResultSchema.extend({
+	status: z.literal("sweep-ok"),
+	error: z.null(),
+});
+
+export const checkObjectiveSweepFailedResultSchema = checkObjectiveSweepBaseResultSchema.extend({
+	status: z.literal("sweep-failed"),
+	error: z.literal("sweep-failed"),
+});
+
 export const checkObjectiveResultSchema = z.discriminatedUnion("status", [
 	checkObjectiveOkResultSchema,
 	checkObjectiveFailedResultSchema,
 	checkObjectiveMissingSlugResultSchema,
 	checkObjectiveInvalidSlugResultSchema,
 	checkObjectiveNotFoundResultSchema,
+	checkObjectiveSweepOkResultSchema,
+	checkObjectiveSweepFailedResultSchema,
 ]);
 
 export type CheckObjectiveRequest = z.infer<typeof checkObjectiveRequestSchema>;
-export type ObjectiveCheckItem = z.infer<typeof objectiveCheckItemSchema>;
+export type { ObjectiveCheckItem };
 export type CheckObjectiveResult = z.infer<typeof checkObjectiveResultSchema>;
 type CheckObjectiveStatus = CheckObjectiveResult["status"];
 
@@ -113,6 +141,12 @@ export async function runCheckObjective(
 	ctx: ObjectiveCliContext,
 	request: CheckObjectiveRequest,
 ): Promise<ClinkrExit<CheckObjectiveResult>> {
+	if (request.all === true) {
+		if (request.slug !== undefined) {
+			return usageError("Pass an Objective slug or --all, not both.", { slug: request.slug });
+		}
+		return await runEdgeSweep(ctx.storage);
+	}
 	const result = await checkObjective(ctx.storage, request.slug);
 	if (result.type === "storage-error") return failure(result.error.code, result.error.message);
 	const slugValidationError = handleObjectiveSlugValidationErrors(result.value, request.slug);
@@ -132,11 +166,40 @@ export async function runCheckObjective(
 	return ok(result.value);
 }
 
+async function runEdgeSweep(storage: ObjectiveStorage): Promise<ClinkrExit<CheckObjectiveResult>> {
+	const rootPresence = await storage.activeRootExists();
+	if (!rootPresence.ok) return failure(rootPresence.error.code, rootPresence.error.message);
+	const sweep = await sweepObjectiveEdgeLint(storage);
+	if (!sweep.ok) return failure(sweep.error.code, sweep.error.message);
+	const base = {
+		rootPath: activeRootRelativePath(),
+		archiveRootPath: archiveRootRelativePath(),
+		hasRoot: rootPresence.value,
+		recordCount: sweep.value.recordCount,
+		violations: [...sweep.value.violations],
+		errorCount: sweep.value.violations.length,
+	};
+	if (base.errorCount > 0) {
+		const data = { ...base, status: "sweep-failed" as const, error: "sweep-failed" as const };
+		return negative(
+			`Objective edge sweep failed: ${base.errorCount} violation(s) across ${base.recordCount} record(s).`,
+			{
+				data,
+				human: renderEdgeSweep(data, resolveRenderCapabilities({ canEmitAnsi: true })),
+			},
+		);
+	}
+	return ok({ ...base, status: "sweep-ok", error: null });
+}
+
 export function renderCheckObjective(
 	result: CheckObjectiveResult,
 	caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
 	const renderCaps = resolveRenderCapabilities(caps);
+	if (result.status === "sweep-ok" || result.status === "sweep-failed") {
+		return renderEdgeSweep(result, renderCaps);
+	}
 	if (
 		result.status === "missing-slug" ||
 		result.status === "invalid-slug" ||
@@ -185,6 +248,43 @@ export function renderCheckObjective(
 	);
 }
 
+type CheckObjectiveSweepResult =
+	| z.infer<typeof checkObjectiveSweepOkResultSchema>
+	| z.infer<typeof checkObjectiveSweepFailedResultSchema>;
+
+function renderEdgeSweep(
+	result: CheckObjectiveSweepResult,
+	renderCaps: ReturnType<typeof resolveRenderCapabilities>,
+): string {
+	const lines = [
+		"Objective edge sweep",
+		"",
+		kv(renderCaps, "Root", `${result.rootPath} (${result.hasRoot ? "present" : "missing"})`),
+		kv(renderCaps, "Archive", result.archiveRootPath),
+		kv(renderCaps, "Records", String(result.recordCount)),
+		kv(renderCaps, "Result", `${result.status} (${result.errorCount} violation(s))`),
+	];
+	if (result.violations.length > 0) {
+		lines.push(
+			"",
+			...renderTable({
+				caps: renderCaps,
+				columns: [
+					{ header: "PATH", width: "auto" },
+					{ header: "CHECK", width: "auto" },
+					{ header: "DETAIL", width: "fill", min: "DETAIL".length },
+				],
+				rows: result.violations.map((item) => [
+					cell(item.path),
+					cell(item.label),
+					cell(item.detail),
+				]),
+			}),
+		);
+	}
+	return removeOneTrailingNewline(lines.join("\n"));
+}
+
 async function checkObjective(
 	storage: ObjectiveStorage,
 	slug: string | undefined,
@@ -213,6 +313,16 @@ async function checkObjective(
 	if (!updates.ok) return { type: "storage-error", error: updates.error };
 
 	const objectiveMd = await storage.readObjectiveRecordDocument(relativePath);
+	const edgeLint =
+		objectiveMd.type === "ok"
+			? await objectiveEdgeLintChecks({
+					storage,
+					slug: target.slug,
+					recordRelativePath: relativePath,
+					document: objectiveMd.document,
+				})
+			: null;
+	if (edgeLint !== null && !edgeLint.ok) return { type: "storage-error", error: edgeLint.error };
 	const roadmapMd = await storage.readMarkdownFile(`${relativePath}/roadmap.md`);
 	const updateChecks = files.value.updatesDir
 		? await Promise.all(
@@ -231,6 +341,7 @@ async function checkObjective(
 			read: objectiveMd,
 			hasClosedMarker: files.value.closedMd,
 		}),
+		...(edgeLint === null ? [] : edgeLint.value),
 		...roadmapMarkdownChecks({ path: `${relativePath}/roadmap.md`, read: roadmapMd }),
 		...updateChecks.flat(),
 	];
@@ -271,7 +382,7 @@ function checkStatusCell(
 }
 
 function emptyResult(options: {
-	status: Exclude<CheckObjectiveStatus, "ok" | "failed">;
+	status: Exclude<CheckObjectiveStatus, "ok" | "failed" | "sweep-ok" | "sweep-failed">;
 	error: string;
 	rootPath: string;
 	slug: string | null;
@@ -470,34 +581,10 @@ function headingCheck(options: {
 	});
 }
 
-function checkItem(options: {
-	path: string;
-	label: string;
-	isPassed: boolean;
-	severity: ObjectiveCheckItem["severity"];
-	passDetail: string;
-	failDetail: string;
-}): ObjectiveCheckItem {
-	return {
-		path: options.path,
-		label: options.label,
-		isPassed: options.isPassed,
-		severity: options.severity,
-		detail: options.isPassed ? options.passDetail : options.failDetail,
-	};
-}
-
 function hasExactHeading(content: string, heading: string): boolean {
 	return content.split(/\r?\n/u).some((line) => line.trimEnd() === heading);
 }
 
 function hasTitleHeading(content: string): boolean {
 	return content.split(/\r?\n/u).some((line) => /^#\s+\S/u.test(line));
-}
-
-function countIssues(
-	checks: readonly ObjectiveCheckItem[],
-	severity: ObjectiveCheckItem["severity"],
-): number {
-	return checks.filter((check) => !check.isPassed && check.severity === severity).length;
 }
