@@ -76,6 +76,8 @@ export class FakeObjectiveSdlApi implements SdlExtensionApi {
 				graphite: options.graphite,
 				commands: options.commands,
 				storage: options.storage,
+				// ADR0024-LEGACY-DELETE(entry): only the legacy runner-step context
+				// reads a childSession override.
 				childSession: options.childSession,
 				readTextFile: options.readTextFile,
 			}),

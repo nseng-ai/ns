@@ -1,4 +1,8 @@
 /**
+ * ADR0024-LEGACY-DELETE(whole file, with its parent directory): the Pi
+ * subprocess adapter exists only for the legacy blocking `runner-step`; the
+ * decomposed flow dispatches a harness subagent instead (ADR 0024).
+ *
  * Real Pi child-session adapter for the Objective Runner.
  *
  * Spawns the `pi` binary in `--mode json` print mode and parses its NDJSON

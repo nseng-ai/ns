@@ -1,11 +1,13 @@
+// ADR0024-LEGACY-DELETE(whole file): tests for the legacy marker-block parser.
+// Narrative rendering keeps coverage via report-file.test.ts's round-trip case.
 import { describe, expect, test } from "vitest";
 
 import {
 	OBJECTIVE_RUNNER_REPORT_BEGIN,
 	OBJECTIVE_RUNNER_REPORT_END,
 	parseRunnerReport,
-	renderRunnerReportNarrative,
-} from "../../../src/runner/report.ts";
+} from "../../../src/runner/report-marker.ts";
+import { renderRunnerReportNarrative } from "../../../src/runner/report.ts";
 import { childReportText } from "./context.ts";
 
 describe("parseRunnerReport", () => {

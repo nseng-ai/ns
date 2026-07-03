@@ -23,6 +23,11 @@ export interface CheckpointFacts {
 	commitSha?: string;
 	changedPaths?: readonly string[];
 	gateChecks?: readonly GateCheckResult[];
+	/**
+	 * ADR0024-LEGACY-DELETE(field, plus `usageLines` below and the
+	 * runner-subagent-usage import): only the legacy `runner-step` supplies
+	 * usage facts; the decomposed flow's checkpoints never carry them.
+	 */
 	usage?: RunnerSubagentUsageResult;
 	/** Stop/blocked reason as stated in the child's parsed report. */
 	stopReason?: string;

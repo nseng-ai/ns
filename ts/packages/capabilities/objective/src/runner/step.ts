@@ -1,3 +1,8 @@
+/**
+ * ADR0024-LEGACY-DELETE(whole file): the legacy blocking `runner-step`
+ * orchestration. Superseded by `begin.ts` + `finish.ts` around a harness
+ * subagent. Grep `ADR0024-LEGACY-DELETE` for the complete deletion checklist.
+ */
 import { failure, negative, ok, usageError, type ClinkrExit } from "@sdl/clinkr";
 import { optionalEntry } from "@sdl/core/primitives";
 import { z } from "zod";
@@ -17,7 +22,8 @@ import {
 } from "./gate.ts";
 import { checkRunnerPreconditions } from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
-import { parseRunnerReport, renderRunnerReportNarrative } from "./report.ts";
+import { parseRunnerReport } from "./report-marker.ts";
+import { renderRunnerReportNarrative } from "./report.ts";
 import {
 	runnerSubagentUsageResultSchema,
 	summarizeRunnerSubagentUsage,

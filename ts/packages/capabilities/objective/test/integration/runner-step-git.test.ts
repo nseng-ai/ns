@@ -1,3 +1,4 @@
+// ADR0024-LEGACY-DELETE(whole file): tests for the legacy blocking runner-step machinery.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import process from "node:process";

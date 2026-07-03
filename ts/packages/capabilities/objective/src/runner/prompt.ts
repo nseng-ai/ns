@@ -1,7 +1,9 @@
 import { describeBranchContextGraphiteCreationSteps } from "@sdl/branch-context/api";
 
 import type { RunnerStepMode } from "./context.ts";
-import { OBJECTIVE_RUNNER_REPORT_BEGIN, OBJECTIVE_RUNNER_REPORT_END } from "./report.ts";
+// ADR0024-LEGACY-DELETE(import): marker constants feed only the legacy marker
+// report channel below; this import goes when the marker arm goes.
+import { OBJECTIVE_RUNNER_REPORT_BEGIN, OBJECTIVE_RUNNER_REPORT_END } from "./report-marker.ts";
 
 // Ported from the autopilot prototype's stack-navigation rule: the runner
 // owns commit/verify, so the child must never reshape or navigate the
@@ -17,8 +19,12 @@ export interface RunnerRecoverContext {
 /**
  * How the child returns its report: a marker-delimited block in its final
  * message (legacy `runner-step`) or a JSON document written to a
- * begin-chosen file path (`runner-begin`, ADR 0024). The marker arm is
- * deleted with the legacy command.
+ * begin-chosen file path (`runner-begin`, ADR 0024).
+ *
+ * ADR0024-LEGACY-DELETE(the `marker` variant): when the legacy command goes,
+ * collapse this option to a plain `reportPath: string`, delete the marker
+ * branches in `rules`/`finalReportRule`/`reportContract`, and drop the
+ * report-marker import above.
  */
 export type RunnerReportChannel = { type: "marker" } | { type: "json-file"; reportPath: string };
 

@@ -27,6 +27,7 @@ export const objectiveRepoLocalSdlExtension = defineRepoLocalSdlExtensionDescrip
 		objectiveExecReadObjectiveSdlCommand,
 		objectiveExecRunnerBeginSdlCommand,
 		objectiveExecRunnerFinishSdlCommand,
+		// ADR0024-LEGACY-DELETE(entry + its import above): legacy blocking command.
 		objectiveExecRunnerStepSdlCommand,
 		objectiveExecRunnerSubagentUsageSdlCommand,
 		objectiveExecTrackingGateSdlCommand,

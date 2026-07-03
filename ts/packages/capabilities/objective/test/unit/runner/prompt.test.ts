@@ -2,10 +2,13 @@ import { describeBranchContextGraphiteCreationSteps } from "@sdl/branch-context/
 import { describe, expect, test } from "vitest";
 
 import { buildRunnerChildPrompt } from "../../../src/runner/prompt.ts";
+// ADR0024-LEGACY-DELETE(import): marker constants feed only the marker-channel
+// test cases; when the marker arm is deleted, rewrite those cases against the
+// json-file channel (or drop the ones that only assert marker specifics).
 import {
 	OBJECTIVE_RUNNER_REPORT_BEGIN,
 	OBJECTIVE_RUNNER_REPORT_END,
-} from "../../../src/runner/report.ts";
+} from "../../../src/runner/report-marker.ts";
 
 const REPORT_PATH = "/scratch/step-1-report.json";
 

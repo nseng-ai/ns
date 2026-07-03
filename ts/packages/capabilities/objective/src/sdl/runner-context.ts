@@ -18,6 +18,11 @@ import type {
 import { createSdlObjectiveContext } from "./context.ts";
 
 /**
+ * ADR0024-LEGACY-DELETE(this interface, ObjectiveRunnerComposition, the
+ * `childSession` override field below, the legacy factory at the bottom, and
+ * the ChildSessionGateway/ObjectiveRunnerContext imports): the composition
+ * seam exists only for the legacy blocking `runner-step`.
+ *
  * Everything the composed child-session adapter may need from the host at
  * construction time. Deliberately minimal: the composition root closes over
  * its own spawn/timer/clock choices (Slice 5); only host-derived facts travel
@@ -37,6 +42,7 @@ export interface ObjectiveRunnerOverrides {
 	graphite?: GraphiteBranchGateway;
 	commands?: CommandExecApi;
 	storage?: ObjectiveStorage;
+	/** ADR0024-LEGACY-DELETE(field): consumed only by the legacy factory. */
 	childSession?: ChildSessionGateway;
 	readTextFile?: (path: string) => Promise<RunnerTextFileReadResult>;
 }
@@ -70,6 +76,7 @@ export async function createSdlObjectiveRunnerCoreContext(
 	};
 }
 
+// ADR0024-LEGACY-DELETE(function): only exec-runner-step builds this context.
 export async function createSdlObjectiveRunnerContext(
 	ctx: SdlExtensionApi,
 	composition: ObjectiveRunnerComposition,

@@ -1,4 +1,7 @@
 /**
+ * ADR0024-LEGACY-DELETE(whole file): only the child-session gateways consume
+ * this channel; it goes with them.
+ *
  * Single-consumer push→pull async channel.
  *
  * Producers `push` values that buffer until the consumer pulls them from
