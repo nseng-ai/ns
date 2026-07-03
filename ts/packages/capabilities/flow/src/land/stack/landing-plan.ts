@@ -1,27 +1,28 @@
 import { buildStackLandingPlan } from "../api.ts";
-import { failure, type LandStackResult } from "./errors.ts";
+import type { LandingFailure } from "../api.ts";
+import {
+	failure,
+	landStackFailure,
+	type LandStackFailure,
+	type LandStackResult,
+} from "./errors.ts";
 import { createLandContext } from "./land-context-adapter.ts";
-import { toFlowLandingPlan, toLandStackFailure } from "./plan-mapping.ts";
 import type { LandRuntime } from "./land-runtime.ts";
-import type { LandingPlan, LandingShape } from "./types.ts";
+import type { FlowLandingPlan } from "./types.ts";
 
 export async function buildLandingPlan(
 	runtime: LandRuntime,
 	cwd: string,
 	options: {
 		shouldAllowSubmitRequiredState?: boolean;
-		preloadedShape?: LandingShape;
 		landingBranchLimit?: number;
 	} = {},
-): Promise<LandStackResult<LandingPlan>> {
+): Promise<LandStackResult<FlowLandingPlan>> {
 	const landPlan = await buildStackLandingPlan(
 		createLandContext(runtime.commands, { graphite: runtime.graphite }),
 		cwd,
 		{
 			shouldAllowSubmitRequiredState: Boolean(options.shouldAllowSubmitRequiredState),
-			...(options.preloadedShape === undefined
-				? {}
-				: { preloadedShape: toDomainLandingShape(options.preloadedShape) }),
 			...(options.landingBranchLimit === undefined
 				? {}
 				: { landingBranchLimit: options.landingBranchLimit }),
@@ -32,15 +33,123 @@ export async function buildLandingPlan(
 	return { type: "success", value: toFlowLandingPlan(landPlan.value) };
 }
 
-function toDomainLandingShape(shape: LandingShape) {
+type StackLandingPlanResult = Awaited<ReturnType<typeof buildStackLandingPlan>>;
+type StackLandingPlan = Extract<StackLandingPlanResult, { readonly type: "success" }>["value"];
+
+function toFlowLandingPlan(plan: StackLandingPlan): FlowLandingPlan {
 	return {
-		repoRoot: shape.repoRoot,
-		current: shape.current,
-		trunk: shape.trunk,
-		metadataDbPath: shape.metadataDbPath,
+		repoRoot: plan.repoRoot,
+		metadataDbPath: plan.metadataDbPath,
 		stack: {
-			...shape.stack,
-			warnings: shape.stack.warnings.map((message) => ({ level: "warning" as const, message })),
+			trunk: plan.stack.trunk,
+			current: plan.stack.current,
+			actualCurrentBranch: plan.stack.actualCurrentBranch,
+			landingTargetBranch: plan.stack.landingTargetBranch,
+			landingBranches: [...plan.stack.landingBranches],
+			remainingLandingBranches: [...plan.stack.remainingLandingBranches],
+			descendantBranches: [...plan.stack.descendantBranches],
+			warnings: plan.stack.warnings.map((warning) => warning.message),
 		},
+		branchPlans: plan.branchPlans.map((branchPlan) => ({
+			branch: branchPlan.branch,
+			localSha: branchPlan.localSha,
+			pr: {
+				number: branchPlan.pr.number,
+				title: branchPlan.pr.title,
+				body: branchPlan.pr.body,
+				state: branchPlan.pr.state,
+				isDraft: branchPlan.pr.isDraft,
+				headRefName: branchPlan.pr.headRefName,
+				baseRefName: branchPlan.pr.baseRefName,
+				headRefOid: branchPlan.pr.headRefOid,
+				...(branchPlan.pr.mergeStateStatus === undefined
+					? {}
+					: { mergeStateStatus: branchPlan.pr.mergeStateStatus }),
+				...(branchPlan.pr.url === undefined ? {} : { url: branchPlan.pr.url }),
+				...(branchPlan.pr.mergedAt === undefined ? {} : { mergedAt: branchPlan.pr.mergedAt }),
+			},
+		})),
+		prSubmitRequirements: plan.prSubmitRequirements.map((requirement) => ({
+			branch: requirement.branch,
+			prNumber: requirement.prNumber,
+			localSha: requirement.localSha,
+			prHeadSha: requirement.prHeadSha,
+			baseRefName: requirement.baseRefName,
+			...(requirement.expectedBaseRefName === undefined
+				? {}
+				: { expectedBaseRefName: requirement.expectedBaseRefName }),
+			reasons: [...requirement.reasons],
+		})),
+		submitRestackRequirements: plan.submitRestackRequirements.map((requirement) => ({
+			branch: requirement.branch,
+			parent: requirement.parent,
+		})),
+		managedSlotConflicts: plan.managedSlotConflicts.map((conflict) => ({
+			branch: conflict.branch,
+			path: conflict.path,
+			kind: conflict.type,
+		})),
+		descendantMaintenance: toFlowDescendantMaintenance(plan.descendantMaintenance),
 	};
 }
+
+function toFlowDescendantMaintenance(
+	plan: StackLandingPlan["descendantMaintenance"],
+): FlowLandingPlan["descendantMaintenance"] {
+	if (plan.type === "none") return { kind: "none", branches: [] };
+	if (plan.type === "auto") {
+		return { kind: "auto", branches: [...plan.branches], targetBranch: plan.targetBranch };
+	}
+	return {
+		kind: "skipped",
+		branches: [...plan.branches],
+		targetBranch: plan.targetBranch,
+		conflicts: plan.conflicts.map((conflict) => ({
+			branch: conflict.branch,
+			path: conflict.path,
+			kind: conflict.type,
+		})),
+		reason: plan.reason,
+	};
+}
+
+export function toLandStackFailure(failureValue: LandingFailure): LandStackFailure {
+	if (failureValue.type === "domain") {
+		const options = landStackFailureOptionsForDomainFailure(failureValue);
+		if (failureValue.reason === "dirty-worktree") {
+			return landStackFailure("Working tree is dirty; refusing to start stack landing.", options);
+		}
+		return landStackFailure(failureValue.message, options);
+	}
+	return landStackFailure(failureValue.message, boundaryFailureOptions(failureValue));
+}
+
+function boundaryFailureOptions(
+	failureValue: Exclude<LandingFailure, { readonly type: "domain" }>,
+) {
+	if (failureValue.type !== "boundary") return {};
+	const suggestedAction = failureValue.details?.suggestedAction;
+	return typeof suggestedAction === "string" ? { suggestedAction } : {};
+}
+
+function landStackFailureOptionsForDomainFailure(
+	failureValue: Extract<LandingFailure, { readonly type: "domain" }>,
+) {
+	return {
+		...(failureValue.failedBranch === undefined ? {} : { failedBranch: failureValue.failedBranch }),
+		...(failureValue.failedPrNumber === undefined ? {} : { failedPr: failureValue.failedPrNumber }),
+		...(failureValue.suggestedAction === undefined
+			? {}
+			: { suggestedAction: failureValue.suggestedAction }),
+	};
+}
+
+export function formatPrSubmitRequirement(requirement: RestacklessPrSubmitRequirement): string {
+	return `- #${requirement.prNumber} ${requirement.branch}: ${requirement.reasons.join("; ")}`;
+}
+
+type RestacklessPrSubmitRequirement = {
+	readonly branch: string;
+	readonly prNumber: number;
+	readonly reasons: readonly string[];
+};

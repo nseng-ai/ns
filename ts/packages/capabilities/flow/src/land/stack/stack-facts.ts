@@ -274,6 +274,8 @@ function trunkMarkerWarnings(topology: GraphiteTopology, trunk: string): string[
 	return warnings;
 }
 
+export type InProgressGitOperation = "merge" | "cherry-pick" | "revert" | "rebase";
+
 export async function assertCleanRepo(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
@@ -299,7 +301,9 @@ export async function assertCleanRepo(
 	const operation = await detectInProgressOperation(pi, repoRoot);
 	if (operation) {
 		return failure(
-			landStackFailure(`${operation} is in progress; refusing to start stack landing.`),
+			landStackFailure(
+				`${formatInProgressOperationLabel(operation)} is in progress; refusing to start stack landing.`,
+			),
 		);
 	}
 	return completed();
@@ -313,15 +317,15 @@ export async function detectInProgressOperation(
 	pi: LandStackExtensionAPI,
 	repoRoot: string,
 	options: DetectInProgressOperationOptions = {},
-): Promise<string | undefined> {
+): Promise<InProgressGitOperation | undefined> {
 	const pathExists = options.pathExists ?? defaultPathExists;
-	const refs: Array<{ ref: string; label: string }> = [
-		{ ref: "MERGE_HEAD", label: "A merge" },
-		{ ref: "CHERRY_PICK_HEAD", label: "A cherry-pick" },
-		{ ref: "REVERT_HEAD", label: "A revert" },
+	const refs: Array<{ ref: string; operation: InProgressGitOperation }> = [
+		{ ref: "MERGE_HEAD", operation: "merge" },
+		{ ref: "CHERRY_PICK_HEAD", operation: "cherry-pick" },
+		{ ref: "REVERT_HEAD", operation: "revert" },
 	];
 
-	for (const { ref, label } of refs) {
+	for (const { ref, operation } of refs) {
 		const result = await exec({
 			pi,
 			command: "git",
@@ -330,7 +334,7 @@ export async function detectInProgressOperation(
 			timeoutMs: GIT_TIMEOUT_MS,
 		});
 		if (result.code === 0) {
-			return label;
+			return operation;
 		}
 	}
 
@@ -348,11 +352,16 @@ export async function detectInProgressOperation(
 		if (pathResult.code !== 0) continue;
 		const gitPath = pathResult.stdout.trim();
 		if (gitPath && pathExists(resolveGitPath(repoRoot, gitPath))) {
-			return "A rebase";
+			return "rebase";
 		}
 	}
 
 	return undefined;
+}
+
+export function formatInProgressOperationLabel(operation: InProgressGitOperation): string {
+	if (operation === "cherry-pick") return "A cherry-pick";
+	return `A ${operation}`;
 }
 
 function defaultPathExists(path: string): boolean {

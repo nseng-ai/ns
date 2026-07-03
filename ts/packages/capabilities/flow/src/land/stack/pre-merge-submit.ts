@@ -7,8 +7,7 @@ import {
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatGraphiteOperation, restackTargetForSubmit } from "./graphite-command-channel.ts";
-import { toLandStackFailure } from "./plan-mapping.ts";
-import { formatPrSubmitRequirement } from "./pr-facts.ts";
+import { formatPrSubmitRequirement, toLandStackFailure } from "./landing-plan.ts";
 import { setStatus } from "./presentation.ts";
 import type { LandingPlan, PrSubmitRequirement, RestackRequirement } from "./types.ts";
 
@@ -69,7 +68,7 @@ export async function confirmAndSubmitRequiredPrUpdates(
 		setStatus(ctx, "verifying restack...");
 		const remainingRestack = await collectSubmitRestackRequirements(landContext, plan.repoRoot, {
 			...plan.stack,
-			warnings: plan.stack.warnings.map((message) => ({ level: "warning", message })),
+			warnings: plan.stack.warnings.map((message) => ({ level: "warning" as const, message })),
 		});
 		if (remainingRestack.type === "failure") {
 			return failure(toLandStackFailure(remainingRestack.failure));

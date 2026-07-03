@@ -13,7 +13,7 @@ import {
 	restackTargetForSubmit,
 	shortSha,
 } from "./graphite-command-channel.ts";
-import { formatPrSubmitRequirement } from "./pr-facts.ts";
+import { formatPrSubmitRequirement } from "./landing-plan.ts";
 import type {
 	CommandStreamMessageDetails,
 	DescendantMaintenancePlan,

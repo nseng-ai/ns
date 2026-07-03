@@ -14,7 +14,7 @@ import {
 	type GraphiteMaintenanceOptions,
 } from "./graphite-maintenance.ts";
 import { formatGraphiteOperation } from "./graphite-command-channel.ts";
-import { validateStrictMergeGateForLandStack } from "./pr-facts.ts";
+import { validateStrictMergeGate } from "../api.ts";
 import { assertCleanRepo } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
 import type {
@@ -41,7 +41,7 @@ import {
 	type PreMergeMaintenanceOptions,
 } from "./pre-merge-confirmation.ts";
 import { formatRemainingSubmitRequirements } from "./pre-merge-submit.ts";
-import { toLandStackFailure } from "./plan-mapping.ts";
+import { toLandStackFailure } from "./landing-plan.ts";
 import type { LandContext, LandGitGateway, LandingFailure, ManagedSlotWorktree } from "../api.ts";
 
 function formatRemainingManagedSlotConflicts(conflicts: WorktreeConflict[]): string {
@@ -265,13 +265,13 @@ export async function runMergeLoop(
 		});
 		if (pr.type === "failure") return failure(toLandStackFailure(pr.failure));
 		const currentPr = pr.value;
-		const mergeGate = validateStrictMergeGateForLandStack({
+		const mergeGate = validateStrictMergeGate({
 			branch,
 			localSha: localSha.value,
 			pr: currentPr,
 			trunk: stack.trunk,
 		});
-		if (mergeGate.type === "failure") return mergeGate;
+		if (mergeGate.type === "failure") return failure(toLandStackFailure(mergeGate.failure));
 		options.commandStream?.note(`Merging PR #${currentPr.number} ${branch}...`);
 		setStatus(ctx, `merging #${currentPr.number} ${branch} with PR title/body...`);
 		const merge = await options.landContext.github.squashMergePullRequest({

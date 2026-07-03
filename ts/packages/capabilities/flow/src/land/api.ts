@@ -37,6 +37,7 @@ export {
 	collectSubmitRestackRequirements,
 	landingParentEdges,
 	scopeStackSnapshot,
+	validateOpenPrBasics,
 	validateStrictMergeGate,
 } from "./preflight.ts";
 

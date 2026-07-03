@@ -82,7 +82,6 @@ export async function runLandingDispatch(
 		...(options.parsedArgs.shouldSkipConfirmation
 			? {}
 			: { preMergeConfirmation: "already-approved" }),
-		initialShape: shape.value,
 		...(progressIo === undefined ? {} : { io: progressIo }),
 		...(options.liveProgress === undefined ? {} : { liveProgress: options.liveProgress }),
 	});
