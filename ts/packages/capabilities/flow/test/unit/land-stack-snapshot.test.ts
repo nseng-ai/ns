@@ -5,7 +5,12 @@ import { ScriptedQueue } from "@sdl/core/test-kit";
 import { type LandStackResult } from "../../src/land/stack/errors.ts";
 import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type { LandStackExtensionAPI, StackSnapshot } from "../../src/land/stack/types.ts";
-import { metadataDbJson, TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
+import {
+	formatLiveBranchTips,
+	metadataDbJson,
+	TOPOLOGY_COMMAND,
+	topologyArgs,
+} from "./land-test-helpers.ts";
 
 const ROOT = "/repo";
 
@@ -116,16 +121,6 @@ function expectFailure<T>(result: LandStackResult<T>) {
 
 function step(command: string, args: string[], result?: Partial<ExecResult>): ScriptedExec {
 	return { command, args, result };
-}
-
-function formatLiveBranchTips(branches: readonly string[]): string {
-	if (branches.length === 0) return "";
-	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
-}
-
-function formatLiveBranchTip(branch: string): string {
-	if (branch.includes("\t")) return branch;
-	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
 }
 
 describe("loadStackSnapshot reconciles Graphite metadata against live local refs", () => {

@@ -11,7 +11,7 @@ import { extractPrLinks, type SubmitPrLink } from "./gt-output.ts";
 import { preparePrDescription, resolvePrDescriptionGeneration } from "./index.ts";
 import { err, ok, type ErrorInfo, type GatewayResult } from "./index.ts";
 import type { TextGenerator } from "./index.ts";
-import { formatItemCount } from "./submit-formatting.ts";
+import { formatItemCount } from "./submit-format.ts";
 
 const GT_LOG_STACK_ARGS = ["log", "--stack", "--reverse", "--no-interactive"] as const;
 const GT_TRUNK_ARGS = ["trunk", "--no-interactive"] as const;

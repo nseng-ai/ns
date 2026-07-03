@@ -21,3 +21,13 @@ export function metadataDbJson(
 		})),
 	);
 }
+
+export function formatLiveBranchTips(branches: readonly string[]): string {
+	if (branches.length === 0) return "";
+	return `${branches.map(formatLiveBranchTip).join("\n")}\n`;
+}
+
+export function formatLiveBranchTip(branch: string): string {
+	if (branch.includes("\t")) return branch;
+	return `${branch}\t${"0".repeat(40)}\t2026-01-01T00:00:00Z`;
+}

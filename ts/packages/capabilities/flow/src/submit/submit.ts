@@ -18,12 +18,12 @@ import {
 	formatRestackConflictOutput,
 	formatRestackDeclinedOutput,
 	formatRestackFailureOutput,
+	formatItemCount,
 	formatRestackRequiredOutput,
 	formatSubmitFailureOutput,
 	formatSubmitSuccessFallbackText,
 	formatSubmitSuccessText,
 } from "./submit-format.ts";
-import { formatItemCount } from "./submit-formatting.ts";
 import {
 	prepareSubmitPrMetadata,
 	type SubmitMetadataGateway,
@@ -33,7 +33,7 @@ import {
 	formatPrDescriptionFailureText,
 	generateSubmitPrDescriptions,
 } from "./submit-pr-descriptions.ts";
-import { formatSubmitCommandDisplay } from "./submit-command-spec.ts";
+import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { prNumberFromLink } from "./submit-pr-link.ts";
 import type { SdlProgressPhaseEvent, SdlProgressPhaseListener } from "@sdl/kernel/sdk";
 
@@ -192,12 +192,7 @@ export interface RunSubmitCommandOptions {
 export async function runSubmitCommand(
 	options: RunSubmitCommandOptions,
 ): Promise<SubmitCommandResult> {
-	const submitCommandDisplay = formatSubmitCommandDisplay({
-		isDryRun: false,
-		shouldForce: options.force,
-	});
-	const submitDryRunCommandDisplay = formatSubmitCommandDisplay({
-		isDryRun: true,
+	const { submitCommandDisplay, submitDryRunCommandDisplay } = formatSubmitCommandDisplays({
 		shouldForce: options.force,
 	});
 	const commandParams = submitCommandParams(options);
@@ -440,16 +435,10 @@ async function shouldRunRestack(
 	if (options.confirmRestack === undefined) return "unavailable";
 
 	const confirmed = await options.confirmRestack(
-		formatRestackConfirmationPrompt(output, {
-			submitCommandDisplay: formatSubmitCommandDisplay({
-				isDryRun: false,
-				shouldForce: options.force,
-			}),
-			submitDryRunCommandDisplay: formatSubmitCommandDisplay({
-				isDryRun: true,
-				shouldForce: options.force,
-			}),
-		}),
+		formatRestackConfirmationPrompt(
+			output,
+			formatSubmitCommandDisplays({ shouldForce: options.force }),
+		),
 	);
 	return confirmed ? "run" : "declined";
 }

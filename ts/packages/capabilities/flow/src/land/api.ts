@@ -41,6 +41,8 @@ export {
 	validateStrictMergeGate,
 } from "./preflight.ts";
 
+export { boundaryFailureDiagnostics, toWarningNotifications } from "./types.ts";
+
 export {
 	isLandFailure,
 	landCompleted,
@@ -65,6 +67,7 @@ export type {
 	LandGraphiteGateway,
 	LandGraphiteRefreshBranchResult,
 	LandingBoundaryFailure,
+	LandingBoundaryFailureDiagnostics,
 	LandingCleanupMode,
 	LandingCleanupOutcome,
 	LandingDomainFailure,

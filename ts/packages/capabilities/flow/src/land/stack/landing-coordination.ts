@@ -101,7 +101,6 @@ async function submitRequiredUpdatesAndRecheckPlan(
 ): Promise<LandStackResult<FlowLandingPlan>> {
 	const { runtime, ctx, plan, landContext, commandStream, preMergeConfirmation } = options;
 	const submitOutcome = await confirmAndSubmitRequiredPrUpdates({
-		runtime,
 		ctx,
 		plan,
 		landContext,

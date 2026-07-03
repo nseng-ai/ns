@@ -254,6 +254,10 @@ export interface LandingWarning {
 	readonly suggestedAction?: string;
 }
 
+export function toWarningNotifications(messages: readonly string[]): LandingWarning[] {
+	return messages.map((message) => ({ level: "warning", message }));
+}
+
 export interface LandGitGateway {
 	resolveRepoRoot(request: { readonly cwd: string }): Promise<LandResult<string>>;
 	currentBranch(request: { readonly repoRoot: string }): Promise<LandResult<string>>;
@@ -335,6 +339,23 @@ export interface LandGraphiteGateway {
 }
 
 export type LandCommandResult = ExecResult;
+
+export interface LandingBoundaryFailureDiagnostics {
+	readonly displayCommand?: string;
+	readonly execResult?: LandCommandResult;
+	readonly suggestedAction?: string;
+}
+
+export function boundaryFailureDiagnostics(
+	failure: LandingFailure,
+): LandingBoundaryFailureDiagnostics {
+	if (failure.type !== "boundary") return {};
+	return {
+		...(failure.displayCommand === undefined ? {} : { displayCommand: failure.displayCommand }),
+		...(failure.execResult === undefined ? {} : { execResult: failure.execResult }),
+		...(failure.suggestedAction === undefined ? {} : { suggestedAction: failure.suggestedAction }),
+	};
+}
 
 export interface LandGraphiteRanCommand {
 	readonly commandDisplay: string;

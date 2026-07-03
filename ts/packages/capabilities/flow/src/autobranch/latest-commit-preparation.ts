@@ -1,3 +1,4 @@
+import { shortSha } from "../commit-display.ts";
 import type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
@@ -204,10 +205,6 @@ async function inspectGraphiteChildBranches(
 		return { ok: false, error: formatAutobranchCommandDetails(children) };
 	}
 	return { ok: true, children: nonEmptyLines(children.stdout) };
-}
-
-function shortSha(sha: string): string {
-	return sha.slice(0, 7);
 }
 
 function nonEmptyLines(value: string): string[] {
