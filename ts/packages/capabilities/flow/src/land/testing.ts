@@ -1,5 +1,4 @@
 import type { ExecResult } from "@sdl/core/command";
-import { optionalEntry } from "@sdl/core/primitives";
 import type {
 	LandContext,
 	LandingBoundaryFailure,
@@ -786,12 +785,7 @@ export function stackSnapshot(overrides: Partial<StackSnapshot> = {}): StackSnap
 		landingBranches: [...(overrides.landingBranches ?? [overrides.current ?? "feature/current"])],
 		remainingLandingBranches: [...(overrides.remainingLandingBranches ?? [])],
 		descendantBranches: [...(overrides.descendantBranches ?? [])],
-		...optionalEntry(
-			"descendantRootBranches",
-			overrides.descendantRootBranches === undefined
-				? undefined
-				: [...overrides.descendantRootBranches],
-		),
+		descendantRootBranches: [...(overrides.descendantRootBranches ?? [])],
 		warnings: (overrides.warnings ?? []).map((warning) => ({ ...warning })),
 	};
 }

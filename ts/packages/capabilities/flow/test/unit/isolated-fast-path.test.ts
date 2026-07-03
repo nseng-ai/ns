@@ -209,6 +209,7 @@ function isolatedShape(): LandingShape {
 			landingBranches: [FEATURE],
 			remainingLandingBranches: [],
 			descendantBranches: [],
+			descendantRootBranches: [],
 			warnings: [],
 		},
 	};

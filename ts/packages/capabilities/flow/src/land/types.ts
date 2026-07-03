@@ -130,7 +130,7 @@ export interface StackSnapshot {
 	readonly landingBranches: readonly string[];
 	readonly remainingLandingBranches: readonly string[];
 	readonly descendantBranches: readonly string[];
-	readonly descendantRootBranches?: readonly string[];
+	readonly descendantRootBranches: readonly string[];
 	readonly warnings: readonly LandingWarning[];
 }
 
