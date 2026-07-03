@@ -8,10 +8,14 @@
       Evidence: `docs/adr/0025-zero-kind-mirrored-objective-edges.md` on branch
       `adr-zero-kind-objective-edges` (runner step commit); open spellings (sweep CLI form,
       blocked glyph) deliberately left to the linter and list-rendering slices.
-- [ ] Record Frontmatter parsing: a shared frontmatter reader in the `@sdl/objective` storage
+- [x] Record Frontmatter parsing: a shared frontmatter reader in the `@sdl/objective` storage
       layer, with every `objective.md` reader (check heading lints, `read-objective`, `list`,
       `load-orientations`) stripping or parsing the block identically for records with and
       without frontmatter.
+      Evidence: `src/core/record-frontmatter.ts` + `ObjectiveStorage.readObjectiveRecordDocument`
+      on branch `objective-record-frontmatter-reader` (runner step commit); fake-driven contract
+      tests across all four readers; full `just` + ts-test green. Malformed-frontmatter policy is
+      deliberately minimal and documented in the module for the linter row to harden.
 - [ ] Edge and Blocked Sentence linter in `sdl objective check`: structural violations as
       errors (dangling slug, missing mirror side, empty annotation, duplicate pair, malformed
       frontmatter, empty blocked sentence), per-slug check validating mirror lookups, repo-wide
