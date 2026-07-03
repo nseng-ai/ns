@@ -10,7 +10,6 @@ import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import type {
 	LandStackCommandContext,
 	LandStackExtensionAPI,
-	LandingShape,
 	NotifyLevel,
 } from "../../src/land/stack/types.ts";
 
@@ -55,6 +54,7 @@ interface SandboxCommandLogEntry {
 interface SandboxState {
 	prs: Record<string, SandboxPr>;
 	topology: SandboxTopologyRow[];
+	topologyReads?: SandboxTopologyRow[][];
 	commandLog: SandboxCommandLogEntry[];
 	gtGetFailures?: Record<string, { code: number; stderr: string }>;
 }
@@ -77,9 +77,7 @@ describe("land stack sandbox integration", () => {
 		"lands a two-branch stack through real git and fake gh/gt/sdl shims without deleting descendants",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
-				const result = await executeSandboxLanding(sandbox, {
-					initialShape: multiRootInitialShape(sandbox),
-				});
+				const result = await executeSandboxLanding(sandbox);
 
 				expect(result.outcome.type).toBe("success");
 				const log = await readCommandLog(sandbox);
@@ -154,9 +152,7 @@ describe("land stack sandbox integration", () => {
 					},
 				},
 				async (sandbox) => {
-					const result = await executeSandboxLanding(sandbox, {
-						initialShape: multiRootInitialShape(sandbox),
-					});
+					const result = await executeSandboxLanding(sandbox);
 
 					expect(result.outcome.type).toBe("success");
 					const log = await readCommandLog(sandbox);
@@ -234,12 +230,16 @@ describe("land stack sandbox integration", () => {
 							{ branch: FEATURE_A, parent: TRUNK, children: [ROGUE] },
 							{ branch: ROGUE, parent: FEATURE_A, children: [] },
 						],
+						topologyReads: [
+							[
+								{ branch: TRUNK, children: [FEATURE_A], trunk: true },
+								{ branch: FEATURE_A, parent: TRUNK, children: [] },
+							],
+						],
 					},
 				},
 				async (sandbox) => {
-					const result = await executeSandboxLanding(sandbox, {
-						initialShape: singleBranchInitialShape(sandbox),
-					});
+					const result = await executeSandboxLanding(sandbox);
 
 					expect(result.outcome.type).toBe("success");
 					const log = await readCommandLog(sandbox);
@@ -256,10 +256,7 @@ describe("land stack sandbox integration", () => {
 	);
 });
 
-async function executeSandboxLanding(
-	sandbox: Sandbox,
-	options: { initialShape?: LandingShape } = {},
-): Promise<{
+async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 	outcome: Awaited<ReturnType<typeof executeStackLanding>>;
 	notifications: Notification[];
 }> {
@@ -290,9 +287,7 @@ async function executeSandboxLanding(
 			});
 		},
 	};
-	const executionOptions =
-		options.initialShape === undefined ? {} : { initialShape: options.initialShape };
-	const outcome = await executeStackLanding(pi, ctx, parsed.value, executionOptions);
+	const outcome = await executeStackLanding(pi, ctx, parsed.value);
 	return { outcome, notifications };
 }
 
@@ -420,6 +415,7 @@ function buildInitialState(
 			{ branch: FEATURE_D, parent: FEATURE_B, children: [] },
 		],
 		commandLog: overrides.commandLog ?? [],
+		...(overrides.topologyReads === undefined ? {} : { topologyReads: overrides.topologyReads }),
 		...(overrides.gtGetFailures === undefined ? {} : { gtGetFailures: overrides.gtGetFailures }),
 	};
 }
@@ -437,46 +433,6 @@ function pr(number: number, branch: string, baseRefName: string, headRefOid: str
 		mergeStateStatus: "CLEAN",
 		url: `https://example.test/pr/${number}`,
 		mergedAt: null,
-	};
-}
-
-function multiRootInitialShape(sandbox: Sandbox): LandingShape {
-	return {
-		repoRoot: sandbox.repoRoot,
-		current: FEATURE_B,
-		trunk: TRUNK,
-		metadataDbPath: join(sandbox.repoRoot, ".git", ".graphite_metadata.db"),
-		stack: {
-			trunk: TRUNK,
-			current: FEATURE_B,
-			actualCurrentBranch: FEATURE_B,
-			landingTargetBranch: FEATURE_B,
-			landingBranches: [FEATURE_A, FEATURE_B],
-			remainingLandingBranches: [],
-			descendantBranches: [FEATURE_C, FEATURE_D],
-			descendantRootBranches: [FEATURE_C, FEATURE_D],
-			warnings: [],
-		},
-	};
-}
-
-function singleBranchInitialShape(sandbox: Sandbox): LandingShape {
-	return {
-		repoRoot: sandbox.repoRoot,
-		current: FEATURE_A,
-		trunk: TRUNK,
-		metadataDbPath: join(sandbox.repoRoot, ".git", ".graphite_metadata.db"),
-		stack: {
-			trunk: TRUNK,
-			current: FEATURE_A,
-			actualCurrentBranch: FEATURE_A,
-			landingTargetBranch: FEATURE_A,
-			landingBranches: [FEATURE_A],
-			remainingLandingBranches: [],
-			descendantBranches: [],
-			descendantRootBranches: [],
-			warnings: [],
-		},
 	};
 }
 
@@ -571,7 +527,10 @@ function prByBranchOrNumber(value) {
   return Object.values(state.prs || {}).find((pr) => pr.headRefName === value || String(pr.number) === value);
 }
 function metadataRows() {
-  return (state.topology || []).map((row) => ({
+  const scriptedTopologies = state.topologyReads || [];
+  const topology = scriptedTopologies.length > 0 ? scriptedTopologies.shift() : (state.topology || []);
+  state.topologyReads = scriptedTopologies;
+  return topology.map((row) => ({
     branch_name: row.branch,
     parent_branch_name: row.parent || null,
     children: row.children ? JSON.stringify(row.children) : null,
