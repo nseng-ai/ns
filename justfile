@@ -4,7 +4,24 @@ ts_pnpm := 'corepack pnpm@11.8.0'
 
 default: check
 
-check: dprint-check ts-deps-check ts-format-check ts-lint ts-check js-test objective-check
+check: _ts-workspace-ready (_run-parallel "_check-core" "_ts-test-typescript-style-guard")
+
+# Run two recipes concurrently and fail if either recipe fails.
+_run-parallel left right:
+    @set -e; \
+      left_status=0; \
+      right_status=0; \
+      just --justfile "{{justfile()}}" --working-directory "{{justfile_directory()}}" "{{left}}" & \
+      left_pid=$!; \
+      just --justfile "{{justfile()}}" --working-directory "{{justfile_directory()}}" "{{right}}" & \
+      right_pid=$!; \
+      wait "$left_pid" || left_status=$?; \
+      wait "$right_pid" || right_status=$?; \
+      if [ "$left_status" -ne 0 ] || [ "$right_status" -ne 0 ]; then \
+        exit 1; \
+      fi
+
+_check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts-test _objective-check
 
 ci: check
 
@@ -19,31 +36,70 @@ fix: dprint-fix ts-format-fix ts-lint-fix
 ts-install:
     {{ts_pnpm}} --config.strict-dep-builds=false --dir {{justfile_directory()}}/ts install
 
-ts-deps-check: ts-install
+# Ensure the ts/ pnpm workspace dependencies are ready, skipping pnpm in the
+# common case where dependency-shape inputs are older than the readiness stamp.
+_ts-workspace-ready:
+    @set -e; \
+      root="{{justfile_directory()}}"; \
+      ts_dir="$root/ts"; \
+      stamp="$ts_dir/node_modules/.ji-workspace-ready.stamp"; \
+      inputs_changed() { \
+        if [ "$ts_dir/package.json" -nt "$stamp" ] || [ "$ts_dir/pnpm-lock.yaml" -nt "$stamp" ] || [ "$ts_dir/pnpm-workspace.yaml" -nt "$stamp" ]; then return 0; fi; \
+        if find "$ts_dir/packages" -name package.json -not -path '*/node_modules/*' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
+        if [ -d "$ts_dir/patches" ] && find "$ts_dir/patches" -type f -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
+        if [ -d "$root/.ji/reviews" ] && find "$root/.ji/reviews" -path '*/tools/*/package.json' -newer "$stamp" -print -quit | grep -q .; then return 0; fi; \
+        return 1; \
+      }; \
+      if [ -f "$ts_dir/node_modules/.modules.yaml" ] && [ -f "$stamp" ] && ! inputs_changed; then \
+        exit 0; \
+      fi; \
+      {{ts_pnpm}} --config.strict-dep-builds=false --dir "$ts_dir" install; \
+      mkdir -p "$ts_dir/node_modules"; \
+      touch "$stamp"
+
+ts-deps-check: _ts-workspace-ready _ts-deps-check
+
+_ts-deps-check:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run deps:check
 
-ts-format-check: ts-install
+ts-format-check: _ts-workspace-ready _ts-format-check
+
+_ts-format-check:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run fmt:check
 
-ts-format-fix: ts-install
+ts-format-fix: _ts-workspace-ready _ts-format-fix
+
+_ts-format-fix:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run fmt
 
-ts-lint: ts-install
+ts-lint: _ts-workspace-ready _ts-lint
+
+_ts-lint:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run lint
 
-ts-lint-fix: ts-install
+ts-lint-fix: _ts-workspace-ready _ts-lint-fix
+
+_ts-lint-fix:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run lint:fix
 
-ts-check: ts-install
+ts-check: _ts-workspace-ready _ts-check
+
+_ts-check:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run check
 
-ts-test: ts-install
+ts-test: _ts-workspace-ready _ts-test
+
+_ts-test:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test
 
-ts-test-integration: ts-install
+ts-test-integration: _ts-workspace-ready _ts-test-integration
+
+_ts-test-integration:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:integration
 
-ts-test-typescript-style-guard: ts-install
+ts-test-typescript-style-guard: _ts-workspace-ready _ts-test-typescript-style-guard
+
+_ts-test-typescript-style-guard:
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run test:typescript-style-guard
 
 docs-install:
@@ -117,14 +173,16 @@ _remove-stale-branch-context-bin:
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/branch-context"
     @echo "removed stale standalone branch-context shims if present"
 
-areg-check: ts-install
+areg-check: _ts-workspace-ready
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts check --path {{justfile_directory()}}
 
 # Repo-wide Objective edge/blocked structural sweep (Record Frontmatter linter).
-objective-check: ts-install
+objective-check: _ts-workspace-ready _objective-check
+
+_objective-check:
     node {{justfile_directory()}}/ts/packages/kernel/src/cli/index.ts objective check --all
 
-refresh-skills: ts-install
+refresh-skills: _ts-workspace-ready
     node {{justfile_directory()}}/ts/packages/tools/areg/src/cli.ts update-skills --path {{justfile_directory()}}
 
 # Render the architecture topology report (raw inventory) and open it. No agent
