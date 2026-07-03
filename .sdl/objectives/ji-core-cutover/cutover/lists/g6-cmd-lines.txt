@@ -43,12 +43,14 @@ skills/handoff-pickup/SKILL.md
 skills/handoff/references/diagnostics-admin.md
 skills/handoff/references/lifecycle.md
 skills/handoff/SKILL.md
+skills/objective-autorun/SKILL.md
 skills/objective-close/SKILL.md
 skills/objective-create/SKILL.md
 skills/objective-next/SKILL.md
 skills/objective-refresh/references/repo-scope.md
 skills/objective-refresh/SKILL.md
 skills/objective-review-briefing/SKILL.md
+skills/objective-runner-step/SKILL.md
 skills/objective-stack-impl/references/final-response.md
 skills/objective-stack-impl/SKILL.md
 skills/objective-update/SKILL.md
@@ -100,6 +102,7 @@ ts/packages/capabilities/flow/src/sdl/commands/land.ts
 ts/packages/capabilities/flow/src/sdl/commands/push.ts
 ts/packages/capabilities/flow/src/sdl/commands/submit.ts
 ts/packages/capabilities/flow/src/sdl/presentation/pending-worktree-result.ts
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts
 ts/packages/capabilities/flow/src/submit/submit-format.ts
 ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts
 ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts
@@ -113,6 +116,7 @@ ts/packages/capabilities/flow/test/scenario/submit-command.test.ts
 ts/packages/capabilities/flow/test/unit/git-result-block.test.ts
 ts/packages/capabilities/flow/test/unit/land-stack-command-scenarios.test.ts
 ts/packages/capabilities/flow/test/unit/land-stack-helpers.test.ts
+ts/packages/capabilities/flow/test/unit/submit.test.ts
 ts/packages/capabilities/handoff/CONTEXT.md
 ts/packages/capabilities/handoff/README.md
 ts/packages/capabilities/handoff/src/pi/claude-command.ts
@@ -128,6 +132,7 @@ ts/packages/capabilities/handoff/test/pi/handoff-tab.test.ts
 ts/packages/capabilities/handoff/test/pi/handoff.test.ts
 ts/packages/capabilities/objective/CONTEXT.md
 ts/packages/capabilities/objective/src/pi/extension.ts
+ts/packages/capabilities/objective/test/scenario/exec-runner-step.test.ts
 ts/packages/capabilities/roaster/CONTEXT.md
 ts/packages/capabilities/roaster/README.md
 ts/packages/capabilities/roaster/src/commands/review-ls.ts

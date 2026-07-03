@@ -1,0 +1,178 @@
+[
+ {
+  "invariant": "pnpm-workspace-quartet",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "kernel-extension-discovery-root",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "real-extensions-test-helpers",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "managed-slot-path-regex",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "duplicate-literal-twins",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "style-guard-bucket",
+  "pass": false,
+  "violations": [
+   "git grep -n '\\.sdl' -- ts/packages/infra/core/test/typescript-style-guard is NOT empty as required: match at ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748: 'expect(coreMetadata.sdlSubpackages).toContain(\"time\");' (substring '.sdl' comes from 'coreMetadata.sdlSubpackages'). Note: this is an incidental match unrelated to the exempt-bucket definition itself \u2014 the bucket array at lines ~82-84 correctly uses '.ji/extensions' for both name and isInDirectory check \u2014 but the invariant as literally stated (grep must be empty) does not hold."
+  ]
+ },
+ {
+  "invariant": "roaster-ci-invocations",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "agents-md-chain",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "manifest-key-ji",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "ji-toml",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "no-compat-shim",
+  "pass": false,
+  "violations": [
+   "ts/packages/tools/areg/src/operations/project-agents.ts:10-23 - resolveProjectAgents() implements an explicit try-old-then-new fallback chain: it first reads ji.toml's [areg].agents via parseSdlAregAgentsFromState, and if that yields nothing, falls back to reading a second, legacy config file via parseLegacyAregJsonAgentsFromState(input.aregJson) (backed by parseLegacyAregJsonAgents at line 57, which parses areg.json). This is precisely the disallowed 'try-old-then-new' compat codepath: two file names/formats are read for the same setting instead of exactly one.",
+   "ts/packages/tools/areg/src/operations/project-agents.ts:57-79 - parseLegacyAregJsonAgents is a dedicated legacy-format parser (JSON areg.json) kept alongside the new TOML parser (parseSdlAregAgents), i.e. an alias/compat reader for the old config location, not a single-name reader.",
+   "ts/packages/tools/areg/src/operations/init.ts:34 - init.ts imports and re-exports parseLegacyAregJsonAgents alongside parseSdlAregAgents, confirming the legacy codepath is still wired into production flows (resolveProjectAgents call at init.ts:190), not just vestigial dead code.",
+   "ts/packages/tools/areg/test/unit/init-helpers.test.ts:6,32-40 - unit tests still exercise parseLegacyAregJsonAgents against areg.json JSON fixtures, confirming the legacy fallback is actively maintained and tested rather than removed."
+  ]
+ },
+ {
+  "invariant": "skills-allowed-tools",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "parity-table-bundled",
+  "pass": true,
+  "violations": []
+ },
+ {
+  "invariant": "scope-untouched-baseline",
+  "pass": false,
+  "violations": [
+   "git grep -cIE 'src/sdl|/sdl/(commands|extension)' -- ts sums to 147, down from baseline 149 (decrease = violation)",
+   "ts/packages/kernel/README.md: removed '$XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions' replaced with '$XDG_DATA_HOME/ji/extensions < <cwd>/.ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+   "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts:30: removed '/home/tester/.local/share/sdl/extensions' replaced with '/home/tester/.local/share/ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+   "Corroborating over-rename evidence in same diff (outside the ts-restricted count but same pattern): ts/packages/sdl-capability-kit/test/git/git-gateway.test.ts changes '.sdl/objectives' to '.ji/objectives'; ts/packages/tools/areg/package.json changes JSON key \"sdl\": to \"ji\":; docs/sdl-exec/README.md renames multiple '.sdl/extensions/*' path literals to '.ji/extensions/*'"
+  ]
+ },
+ {
+  "invariant": "residual-dot-sdl",
+  "pass": false,
+  "violations": [
+   "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts:27:\t...sdlExtensionParity,",
+   "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:157:\tif (importerPackageMetadata?.sdlTier !== \"capability\") return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:163:\tif (importedPackageMetadata?.sdlTier === \"neutral-infra\") return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:164:\tif (importedPackageMetadata?.sdlTier === \"capability-kit\") return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:166:\tif (importedPackageMetadata?.sdlTier !== \"capability\") return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:22:\t\tif (metadata.sdlRemainder) continue;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:26:\t\t\tif (belongsToDeclaredSubpackage(sourcePath, metadata.sdlSubpackages)) continue;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:34:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:42:\treturn metadata.sdlSubpackages",
+   "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:60:\tconst declaredUnits = metadata.sdlSubpackages",
+   "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:26:\t\tif (metadata.sdlTier === undefined) {",
+   "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:39:\t\tconst fromTier = metadataByName.get(edge.from)?.sdlTier;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:40:\t\tconst toTier = metadataByName.get(edge.to)?.sdlTier;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:81:\tif (metadata?.sdlTier !== \"capability\") return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:82:\tif (!metadata.sdlSubpackages.includes(\"pi\")) return false;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:79:\t\tif (metadata.sdlTier === undefined) continue;",
+   "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:86:\t\t\ttier: metadata.sdlTier,",
+   "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:90:\t\tfor (const component of metadata.sdlSubpackages) {",
+   "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:99:\t\t\t\ttier: metadata.sdlTier,",
+   "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:439:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+   "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748:\t\texpect(coreMetadata.sdlSubpackages).toContain(\"time\");",
+   "ts/packages/kernel/src/extensions/command-registry.ts:261:\t...sdlExtensionCommandEntryIssueFields.map(",
+   "ts/packages/tools/areg/src/fake-gateways.ts:135:\t\t\t[\"ji.toml\", normalizeTextFileState(options.sdlToml ?? { type: \"missing\" })],",
+   "ts/packages/tools/areg/src/operations/init.ts:192:\t\tsdlToml: inspection.sdlToml,",
+   "ts/packages/tools/areg/src/operations/init.ts:304:\tconst sdl = planSdlToml(inspection.sdlToml, options.agents);",
+   "ts/packages/tools/areg/src/operations/project-agents.ts:16:\tconst sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);",
+   "ts/packages/tools/areg/src/operations/update-skills.ts:73:\t\tsdlToml: inspection.sdlToml,",
+   ".claude/plans/plan-the-deletion-of-humming-tide.md:19: mentions '.sdl/objectives/pr-address-*' record reference",
+   ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '.sdl/objectives/pr-address-*' kept reference"
+  ]
+ },
+ {
+  "invariant": "residual-namespace",
+  "pass": false,
+  "violations": [
+   "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts:98-117: literal old-namespace command name strings match `sdl:[a-z]` pattern, e.g. line 98 `\"sdl:changes\",`, line 108 `\"sdl:flow:changes\",`, line 116 `\"sdl:flow:push\",`, line 117 `\"sdl:flow:pull-trunk\",` (the file is not under any excluded path: .ji/objectives, .ji/objective-archive, or docs/adr, so `git grep -nIE '(^|[/\"`[:space:]])sdl:[a-z]' -- . ...` is NOT empty as required)",
+   "git ls-files shows the file itself is still named ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts (imports ../../src/pi/sdl-extension.ts) \u2014 the 'sdl-extension' naming persists in src and test file paths, though .pi/extensions/sdl.ts is correctly absent and .pi/extensions/ji.ts is present as required"
+  ]
+ },
+ {
+  "invariant": "residual-bin-argv",
+  "pass": false,
+  "violations": [
+   "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
+   "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
+   "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
+   "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+  ]
+ },
+ {
+  "invariant": "residual-command-instructions",
+  "pass": false,
+  "violations": [
+   "CONTEXT-MAP.md:92 \u2014 uses stale old-CLI form `sdl slot gt` (\"distinguish `@sdl/capability-kit/graphite` as the support package for Graphite command adapters/facts, `sdl slot gt` as the slot-owned command surface...\") while the same file's own sibling entries at CONTEXT-MAP.md:30 and CONTEXT-MAP.md:66 already use the corrected form `ji slot gt` for the identical command surface, and AGENTS.md:80 / docs/graphite-dependency-boundary.md also refer to it as `slot gt`/`ji slot gt`. This is a residual instruction naming the pre-rename CLI invocation for a live subcommand."
+  ]
+ },
+ {
+  "invariant": "residual-xdg-namespace",
+  "pass": false,
+  "violations": [
+   "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts:50: canonicalCheckout: \"/tmp/sdl\", \u2014 matches (tmp)(/)sdl( or end) pattern, not covered by the stated exclusions (not in enriched-plan tool-contract strings, not the /Users/me/.local/state/sdl/slots fixture family, not docs/xdg-base-directory-spec.md, not ~/.sdl prose)"
+  ]
+ },
+ {
+  "invariant": "residual-machine-keys",
+  "pass": false,
+  "violations": [
+   "ts/packages/hosts/pi/src/commands/surfaces.ts:83 \u2014 `\"sdl-cli-design\",` matches the required-empty regex `git grep -nE '\"sdl-(command|cli|harness|pi-cli)' -- ts .pi`; this command is not empty as the invariant requires (only hit found, but it is a real hit).",
+   "Related un-renamed brand-prefixed literals surfaced by the broader sweep in the same file, none of which fall into the stated survivor categories (package name / repo name / mkdtemp prefix): ts/packages/hosts/pi/src/commands/surfaces.ts:84 `\"sdl-flow-submit\",`, :85 `\"sdl-typescript-style-tripwire\",`, and :121 `\"sdl-flow-submit\": \"ji:flow:submit\",` \u2014 no corresponding `ji-cli-design`/`ji-flow-submit`/`ji-typescript-style-tripwire` replacement exists anywhere in the tree (confirmed via `git grep -n 'ji-cli-design\\|ji-flow-submit\\|ji-typescript-style-tripwire'` returning nothing), so these old sdl-branded skill/surface names were never migrated.",
+   "Same un-renamed brand name recurs outside surfaces.ts: ts/packages/capabilities/roaster/test/unit/review-definition.test.ts:56 `name: \"sdl-typescript-style-tripwire\",` and ts/packages/local/pi-tools/test/pr-previews/pr-preview-feedback-view.test.ts:128 `review: \"sdl-typescript-style\",` \u2014 these still literally name the product brand and are not package names, the repo name, or mkdtemp prefixes, so per the sweep's survivor rule they should not survive.",
+   "Positive confirmation (not a violation, included for completeness): the specific ji-* replacements ARE present and consistent in the five listed test files (handoff-test-fakes.ts:95/101/105, flow sdl-extension.test.ts:46/51/55, code-workflows.test.ts:28/33, cli-command-extension.test.ts:93/104/108/314/1104/1106/1144/1175/1186, just-fix.test.ts:204/209/210, harness-session.test.ts:102/123), the corresponding source literals in ts/packages/hosts/pi/src/commands/ack.ts, cli-command-live-progress.ts, cli-command-trace.ts, cli-extension.ts, and kit/sessions/harness-session.ts all use `ji-*`, no `@@SDL_` tokens remain, and TOKEN_PREFIX in ts/scripts/render-cli-shim-core.ts (`@@JI_`) matches the placeholders in ts/scripts/source-cli-shim-template and the justfile's JI_TOOL/JI_TEMPLATE/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_OUTPUT variable names \u2014 these portions of the invariant hold cleanly, but the surfaces.ts residue above still fails the overall invariant."
+  ]
+ },
+ {
+  "invariant": "residual-env-vars",
+  "pass": false,
+  "violations": [
+   "git grep -nE 'SDL_[A-Z]' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr' returns 63 matches, not empty, so the literal invariant command fails even though no residual SDL_* env-var STRING VALUES remain (verified separately) and all example env vars in the invariant text (SDL_CHECKPOINT_MODEL, SDL_DEV_*, SDL_SLUG_MODEL, SDL_SUBMIT_FAILURE_MODEL, SDL_CCC_SIDEBAR_MODEL, SDL_PI_CLI_TRACE*, SDL_TS_BAN_*, justfile SDL_TOOL/SDL_CANONICAL_CHECKOUT/SDL_CLI_REL_PATH/SDL_INSTALL_HINT/SDL_TEMPLATE/SDL_OUTPUT) are correctly renamed to JI_* with matching reader/writer names.",
+   "ts/packages/capabilities/aretro/src/payloads/root.ts:11-53 \u2014 identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV still use the SDL_ prefix (values are already JI_PAYLOAD_ROOT / JI_PAYLOAD_SESSION_ID, so only the const identifier name, not the env-var value, retains SDL_).",
+   "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts:7 and callers (test/unit/api.test.ts:9,102,128; test/unit/cd-directive.test.ts:5,68) \u2014 const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\" keeps an SDL_-prefixed identifier name.",
+   "ts/packages/kernel/src/extensions/command-registry.ts:54-55, discovery.ts (multiple lines), registry.ts (multiple lines) \u2014 SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE identifiers retain the SDL_ prefix.",
+   "ts/packages/kernel/src/runtime/module-loader.ts:28-142 \u2014 SDL_SDK_DIR, SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS, SDL_COMMAND_EXPORT_PREFIX identifiers retain the SDL_ prefix.",
+   "ts/packages/kernel/src/cli/index.ts:434-618 \u2014 SDL_EXEC_GROUP_NAME, SDL_BUILT_IN_HELP_GROUP, SDL_EXTENSION_HELP_GROUP, SDL_EXEC_COMMAND_PREFIX identifiers retain the SDL_ prefix.",
+   "ts/packages/capabilities/flow/src/pi/sdl-extension.ts:27-77 \u2014 SDL_FLOW_COMMANDS identifier retains the SDL_ prefix.",
+   "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts:12,111 \u2014 SDL_DIRNAME identifier retains the SDL_ prefix.",
+   "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts:12-142 \u2014 SDL_PACKAGE_ROOT, SDL_EXPORT_IMPORTS identifiers retain the SDL_ prefix.",
+   "ts/packages/sdl-capability-kit/test/graphite/integration/status.test.ts:17,72 \u2014 CURRENT_SDL_TOOLS_METADATA_FIXTURE retains SDL in the name.",
+   "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts:69 \u2014 const env = { SDL_TEST: \"1\" } uses an SDL_-prefixed fixture value matching the banned pattern."
+  ]
+ }
+]

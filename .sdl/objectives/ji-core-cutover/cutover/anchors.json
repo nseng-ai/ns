@@ -11,6 +11,7 @@
       "files": [
         "ts/packages/kernel/src/sdk/extension-manifest.ts",
         "ts/packages/kernel/src/extensions/discovery.ts",
+        "ts/packages/kernel/src/extensions/loader.ts",
         "ts/packages/kernel/src/runtime/module-loader.ts",
         "ts/packages/kernel/package.json",
         ".sdl/extensions/address/package.json",
@@ -42,13 +43,16 @@
         "ts/packages/tools/vibechk/package.json",
         "skills/architecture-topology-report/scripts/extract-graph.mjs",
         "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts",
+        "ts/packages/infra/core/test/support/typescript-style-guard/package-metadata.ts",
+        "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts",
+        "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts",
         "ts/packages/kernel/test/unit/extension-discovery.test.ts",
         "ts/packages/kernel/test/unit/sdk-runtime-exports.test.ts",
         "ts/packages/kernel/test/type/sdk-types-folded.ts",
         "ts/packages/capabilities/flow/test/land/api-boundary.test.ts"
       ],
       "model": "opus",
-      "notes": "Rename the KEY \"sdl\"→\"ji\" (incl. sdl.tier) and diagnostic codes missing-sdl/extension_manifest_missing_sdl→ji variants (decided: everything is ji). Do NOT rename: schema/type identifiers (sdlExtensionManifestSchema etc. — later package-scope row), bare \"sdl\" VALUES in subpackages arrays (they name src/sdl/ dirs — later row), module-loader.ts src/sdl join literals, @sdl/* imports. kernel/package.json bin {\"sdl\"}→{\"ji\"}. api-boundary.test.ts: RENAME the manifest-key reads `.sdl.tier`, `readonly sdl:`, `\"sdl\" in value`, `value.sdl` to ji forms (they read the renamed key, NOT identifiers); LEAVE every sdl-flow token including the `\"sdl-flow:land:capability\"` assertion — that string derives from the surviving PACKAGE name, not the sdl:flow namespace."
+      "notes": "Rename the KEY \"sdl\"→\"ji\" (incl. sdl.tier) and diagnostic codes missing-sdl/extension_manifest_missing_sdl→ji variants (decided: everything is ji), plus loader.ts snake_case code \"sdl_extension_contribution_import_failed\"→\"ji_extension_contribution_import_failed\" (its test mirrors in extension-loader.test.ts/extension-registry.test.ts ride their own chunk-2 entries and match the renamed source). STYLE-GUARD SEMANTIC UNIT (dry-run-1 desync fix): typescript-style-guard.test.ts AND its support modules package-metadata.ts/tier-layering.ts/subpackage-conformance.ts rename together IN THIS changeset — the support code reads the manifest key (`readonly sdl?:` field, `.sdl` reads → ji) and emits 'missing/unknown sdl.tier'/'without sdl.remainder' message prose (→ ji.*), and the test's expectedTextIncludes strings and `sdl:` mock manifest keys must match them in the same edit. Do NOT rename: schema/type identifiers (sdlExtensionManifestSchema etc. — later package-scope row), identifier property names like .sdlTier/.sdlSubpackages/.sdlRemainder in support code (only the manifest-key field and message prose rename), bare \"sdl\" VALUES in subpackages arrays (they name src/sdl/ dirs — later row), module-loader.ts src/sdl join literals, @sdl/* imports. kernel/package.json bin {\"sdl\"}→{\"ji\"}. api-boundary.test.ts: RENAME the manifest-key reads `.sdl.tier`, `readonly sdl:`, `\"sdl\" in value`, `value.sdl` to ji forms (they read the renamed key, NOT identifiers); LEAVE every sdl-flow token including the `\"sdl-flow:land:capability\"` assertion — that string derives from the surviving PACKAGE name, not the sdl:flow namespace."
     },
     "cs3-repo-extension-discovery": {
       "why": "Silent-failure trap (registry scans .sdl/extensions; miss = every repo-local command vanishes) + tests traversing the REAL post-mv .ji/extensions tree via relative URLs (ENOENT on split landing). One agent verifies resolution against the moved tree once.",
@@ -64,7 +68,7 @@
         "ts/packages/kernel/test/unit/extension-registry.test.ts"
       ],
       "model": "sonnet",
-      "notes": "registry.ts:123,128 join(cwd, \".sdl\", \"extensions\")→\".ji\"; also the XDG data/sdl/extensions global root via resolveSdlXdgPath is CS5's constant — registry only carries path segments here. extension-registry.test.ts fixtures: .sdl workspace paths, .local/share/sdl, unquoted sdl:{ manifest keys — all rename."
+      "notes": "registry.ts:123,128 join(cwd, \".sdl\", \"extensions\")→\".ji\"; also the XDG data/sdl/extensions global root via resolveSdlXdgPath is CS5's constant — registry only carries path segments here. env var SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS→JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS in registry.ts (~:107) AND every process.env reference in extension-registry.test.ts (~6 sites) — dry-run-1 found this var enumerated nowhere; the third referencing file (flow-extension-registry.test.ts) rides its chunk-2 cohort under the brief's generic env rule. extension-registry.test.ts fixtures: .sdl workspace paths, .local/share/sdl, unquoted sdl:{ manifest keys, and the ji_extension_contribution_import_failed code mirroring cs2's loader.ts — all rename."
     },
     "cs4-slot-path-regex": {
       "why": "Highest-risk silent failure (prior real regression): isManagedSlotPath() regex + its positive/negative fixture families are a semantic pair — keep match semantics, not letter-swap. Owns ALL renames in its test files (one owner per file).",
@@ -86,7 +90,7 @@
         "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts"
       ],
       "model": "opus",
-      "notes": "xdg-path.ts:67 \"sdl\" segment→\"ji\" (identifier resolveSdlXdgPath STAYS); submit.ts:300-311 hand-rolled XDG + .sdl/state/submit-failure-logs cwd fallback + its /sdl:flow: message strings at :18-108 belong to the push.ts simple entry NOT here — submit.ts is wholly owned HERE, rename all its sdl content; aretro root.ts:16 tmpdir segment \"sdl\"→\"ji\" (Q4)."
+      "notes": "xdg-path.ts:67 \"sdl\" segment→\"ji\" (identifier resolveSdlXdgPath STAYS); submit.ts:300-311 hand-rolled XDG + .sdl/state/submit-failure-logs cwd fallback + its /sdl:flow: message strings at :18-108 belong to the push.ts simple entry NOT here — submit.ts is wholly owned HERE, rename all its sdl content; aretro root.ts:16 tmpdir segment \"sdl\"→\"ji\" (Q4) AND its env var NAME string values at :11-12 — \"SDL_PAYLOAD_ROOT\"→\"JI_PAYLOAD_ROOT\", \"SDL_PAYLOAD_SESSION_ID\"→\"JI_PAYLOAD_SESSION_ID\" (the SDL_PAYLOAD_*_ENV identifiers holding them STAY; dry-run-1 gap)."
     },
     "cs6-pi-namespace-core": {
       "why": "Three namespace mechanisms with no shared source of truth, publicly exported constants, and a test asserting the exact name set + absence of legacy aliases (semantic, not literal). SPECIALIZED_SKILL_REPLACEMENTS KEYS are skill dir names — do not rename keys, only values.",
@@ -98,7 +102,7 @@
         "ts/packages/hosts/pi/test/commands/pi-command-surfaces.test.ts"
       ],
       "model": "opus",
-      "notes": "piNamespace \"sdl:flow\"→\"ji:flow\"; surfaces.ts 6 constants + KNOWN_PI_COMMAND_NAMESPACES \"sdl\"→\"ji\" + replacement VALUES sdl:flow:*→ji:flow:*; events.ts \"sdl:pi-extension-command:finished\"→\"ji:…\" (Q4); sdl-extension.ts parity cli:/surface: template strings too; test intended post-state: exact set /ji:flow:*, absence assertions now mean the sdl:* names are the dead legacy — assert absence of sdl:flow:* names. Filenames (sdl-extension.ts) do NOT rename."
+      "notes": "piNamespace \"sdl:flow\"→\"ji:flow\"; surfaces.ts 6 constants + KNOWN_PI_COMMAND_NAMESPACES \"sdl\"→\"ji\" + replacement VALUES sdl:flow:*→ji:flow:* (SPECIALIZED_SKILL_REPLACEMENTS KEYS like \"sdl-cli-design\" are skill dir names — survivors); events.ts \"sdl:pi-extension-command:finished\"→\"ji:…\" (Q4); sdl-extension.ts parity cli:/surface: template strings too; sdl-extension.test.ts FakePi customType machine-key literals \"sdl-command-ack\"→\"ji-command-ack\" and \"sdl-command-progress\"→\"ji-command-progress\" (dry-run-1 miss — these are in-window brand machine keys even though no source constant defines them); test intended post-state: exact set /ji:flow:*, absence assertions now mean the sdl:* names are the dead legacy — assert absence of sdl:flow:* names (those old-name literals in absence assertions STAY as tombstones). Filenames (sdl-extension.ts) do NOT rename."
     },
     "cs8-shim-tokens": {
       "why": "The @@SDL_*@@ substitution tokens in the shim template and the TOKEN_PREFIX/replacement-map keys in the renderer are a semantic pair whose desync fails SILENTLY at install time (shim rendering runs outside the just gate). Promoted from classification suspectedNewCoupling.",
@@ -108,6 +112,15 @@
       ],
       "model": "sonnet",
       "notes": "Rename TOKEN_PREFIX \"@@SDL_\"→\"@@JI_\" and every @@SDL_TOOL@@/@@SDL_CANONICAL_CHECKOUT@@/@@SDL_CLI_REL_PATH@@/@@SDL_INSTALL_HINT@@/@@SDL_FALLBACK_MODE@@ token in BOTH files in lockstep; the SDL_FALLBACK_MODE env-var error string too; template brand prose ('runs an sdl TypeScript CLI') renames; the justfile SDL_* variable ASSIGNMENTS that feed this template are a separate simple entry (justfile) — the names must agree: JI_TOOL, JI_CANONICAL_CHECKOUT, JI_CLI_REL_PATH, JI_INSTALL_HINT, JI_TEMPLATE, JI_OUTPUT, JI_FALLBACK_MODE."
+    },
+    "cs9-graphite-command-channel": {
+      "why": "Post-dry-run-1 drift (land/stack refactor): graphite-command-channel.ts declares a literal `command: \"sdl\"` union-type contract that land-context-adapter.ts assigns into — the typed-literal pair must rename in one edit or typecheck noise splits across agents (cs7 precedent). Absorbs the argv content refactored out of the retired command-exec.ts anchor.",
+      "files": [
+        "ts/packages/capabilities/flow/src/land/stack/graphite-command-channel.ts",
+        "ts/packages/capabilities/flow/src/land/stack/land-context-adapter.ts"
+      ],
+      "model": "sonnet",
+      "notes": "graphite-command-channel.ts: the `command: \"sdl\"` type literal (:24), the returned `{ command: \"sdl\", …, display: formatCommand(\"sdl\", args) }` (:210), the `command === \"sdl\"` guard (:223), and the /sdl:flow:land comment namespace (:221) all rename to ji forms; land-context-adapter.ts: formatCommand(\"sdl\", [\"slot\", …]) and `command: \"sdl\"` (:343-346) rename in the same edit. Brand-adjective comment prose ('controlled SDL flow exec command') is branding-row survivor prose."
     },
     "cs7-toml-readers": {
       "why": "areg gateways.ts:279 declares a literal UNION TYPE \"sdl.toml\" that propagates through every assignment site; piecemeal change = typecheck noise per-file agents can't resolve.",
@@ -130,7 +143,7 @@
     ".github/workflows/roaster.yml": "3 literal `sdl roaster …` invocations at ~:59,123-126,132 → `ji roaster …`; PATH shim self-heals via pnpm install",
     "AGENTS.md": "operative command lines (sdl objective exec load-orientations, objective list, .sdl/ paths at ~:5,25,32,43)",
     "CONTEXT.md": ".sdl path mentions at ~:24,28",
-    "CONTEXT-MAP.md": "/sdl:* namespace mentions at ~:42,73,75",
+    "CONTEXT-MAP.md": "/sdl:* namespace mentions at ~:42,73,75 AND the `sdl slot gt` CLI mention (~:92 — dry-run-1 residual; @sdl/capability-kit on the same line survives)",
     "ts/packages/kernel/src/cli/completion.ts": "commandName: \"sdl\" → \"ji\"",
     "ts/packages/kernel/src/cli/shell.ts": "wrapper + install strings :79-92",
     "ts/packages/kernel/src/cli/index.ts": "help text :494 Usage: sdl",
@@ -145,7 +158,6 @@
     "ts/packages/capabilities/flow/src/sdl/commands/push.ts": "/sdl:flow message strings :18,70,84,108",
     "ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts": "argv dispatches :72-138",
     "ts/packages/capabilities/flow/src/land/stack/landing-operations.ts": "argv :59-100",
-    "ts/packages/capabilities/flow/src/land/stack/command-exec.ts": "argv :88",
     "ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts": "argv + formatCommand :57-91",
     "ts/packages/capabilities/flow/src/pi/stack-squash.ts": "argv :172",
     "ts/packages/capabilities/objective/src/pi/extension.ts": "argv :266-270",
@@ -160,6 +172,7 @@
     "ts/packages/capabilities/objective/src/core/objective-picker.ts": "raw literal :169",
     "ts/packages/capabilities/objective/src/core/fake-storage.ts": "raw literal :158",
     "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts": ".sdl/reviews :12,138",
+    "ts/packages/capabilities/address/src/core/feedback-summary.ts": "PR-comment marker \"<!-- sdl-reviewer:\" → \"<!-- ji-reviewer:\" and its map-entry key \"sdl_reviewer_marker\" → \"ji_reviewer_marker\" (:5). Owner decision 2026-07-02: hard rename accepted — pre-cutover GitHub PR comments carrying the old marker stop being recognized as reviewer feedback. Dry-run-1 pipeline escapee (matched no generator pattern before G11).",
     "ts/packages/capabilities/roaster/src/core/skill-reviews.ts": ".sdl/reviews :110 + argv",
     "ts/packages/local/pi-tools/src/thermo-council/constants.ts": ".sdl/reviews :7",
     "ts/packages/local/pi-tools/src/thermo-council/prompt.ts": ".sdl/reviews :39",

@@ -54,10 +54,10 @@ docs-site/lib/geistdocs/site-identity.ts:13:export const siteId: string | undefi
 docs-site/package.json:2:  "name": "sdl-docs",
 
 ### skills-lock.json
-skills-lock.json:324:    "sdl-cli-design": {
-skills-lock.json:329:    "sdl-flow-submit": {
-skills-lock.json:334:    "sdl-typescript": {
-skills-lock.json:339:    "sdl-typescript-style-tripwire": {
+skills-lock.json:334:    "sdl-cli-design": {
+skills-lock.json:339:    "sdl-flow-submit": {
+skills-lock.json:344:    "sdl-typescript": {
+skills-lock.json:349:    "sdl-typescript-style-tripwire": {
 
 ### skills/architecture-topology-report/scripts/example-spec.mjs
 skills/architecture-topology-report/scripts/example-spec.mjs:9:  repo: "sdl-tools",
@@ -131,39 +131,37 @@ ts/packages/capabilities/flow/src/autoslot/presentation.ts:26:	/** Optional norm
 ts/packages/capabilities/flow/src/land/api.ts:7:export const LAND_PACKAGE_NAME = "sdl-flow";
 
 ### ts/packages/capabilities/flow/src/land/preflight.ts
-ts/packages/capabilities/flow/src/land/preflight.ts:144:			message: "sdl-flow land preflight planning currently supports stack landing targets only.",
+ts/packages/capabilities/flow/src/land/preflight.ts:142:			message: "sdl-flow land preflight planning currently supports stack landing targets only.",
+ts/packages/capabilities/flow/src/land/preflight.ts:323:				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
 
 ### ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:95:				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:104:		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:145:					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:162:					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:210:					suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:248:			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:279:						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:295:					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:406:					suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /sdl:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:473:				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:flow:land if appropriate.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:724:			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:732:	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /sdl:flow:land until it is resolved or aborted.`;
-ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:733:	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /sdl:flow:land.`;
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:85:				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:94:		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:137:					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:154:					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /sdl:flow:land if needed.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:202:					suggestedAction: `Inspect local branch ${nextGetTarget}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:229:			suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:261:						suggestedAction: `Inspect local branch ${maintenance.branch}, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:277:					suggestedAction: `Inspect local branch ${maintenance.branch}, reconcile it with the remote, then rerun /sdl:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:370:					suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${branch} manually before rerunning /sdl:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:424:				suggestedAction: `Resolve restack failures for ${maintenance.branch}, run gt submit/update, then rerun /sdl:flow:land if appropriate.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:607:			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /sdl:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:615:	const baseMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /sdl:flow:land until it is resolved or aborted.`;
+ts/packages/capabilities/flow/src/land/stack/graphite-maintenance.ts:616:	const action = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /sdl:flow:land.`;
 
 ### ts/packages/capabilities/flow/src/land/stack/land-presentation.ts
 ts/packages/capabilities/flow/src/land/stack/land-presentation.ts:1:// Flow-local facade for the `sdl flow land` CLI surface.
 
-### ts/packages/capabilities/flow/src/land/stack/pr-facts.ts
-ts/packages/capabilities/flow/src/land/stack/pr-facts.ts:139:					suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /sdl:flow:land.`,
-
 ### ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts
-ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:43:			`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
-ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:46:			suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
-ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:64:					suggestedAction: `Resolve the restack failure, run ${formatCommand("gt", restackArgs)} and ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
-ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:85:						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:flow:land.",
-ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:102:				suggestedAction: `Resolve the submit failure, run ${formatCommand("gt", submitArgs)} manually if appropriate, then rerun /sdl:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:45:			`No PRs were landed. Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:48:			suggestedAction: `Run ${manualCommandText} manually, then rerun /sdl:flow:land --yes.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:63:					suggestedAction: `Resolve the restack failure, run ${formatGraphiteOperation(restackOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:80:						"Free or detach the holding worktrees, restack the stack, then rerun /sdl:flow:land.",
+ts/packages/capabilities/flow/src/land/stack/pre-merge-submit.ts:94:				suggestedAction: `Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /sdl:flow:land.`,
 
 ### ts/packages/capabilities/flow/src/land/stack/stack-facts.ts
-ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:68:				`Detached HEAD; check out a branch before running /sdl:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
-ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:75:			landStackFailure("Could not resolve current branch before running /sdl:flow:land."),
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:74:				`Detached HEAD; check out a branch before running /sdl:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+ts/packages/capabilities/flow/src/land/stack/stack-facts.ts:81:			landStackFailure("Could not resolve current branch before running /sdl:flow:land."),
 
 ### ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts
 ts/packages/capabilities/flow/src/phase-stream/phase-stream.ts:5:// in `.sdl/objectives/cli-ux-north-star/house-style.md`.
@@ -209,25 +207,27 @@ ts/packages/capabilities/flow/src/sdl/worktree.ts:43:		{ prefix: "sdl-extension-
 ### ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts
 ts/packages/capabilities/flow/src/submit/github-pr-gateway.ts:207:			{ prefix: "sdl-dev-pr-body-", filename: "body.md", contents: `${params.body}\n` },
 
+### ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:61:				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:132:			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:133:			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:139:		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:142:		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:154:		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:155:		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
+ts/packages/capabilities/flow/src/submit/submit-failure-catalog.ts:219:		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
+
 ### ts/packages/capabilities/flow/src/submit/submit-format.ts
-ts/packages/capabilities/flow/src/submit/submit-format.ts:49:		"PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:130:			"If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:131:			"Otherwise, commit real changes to it, then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:137:		`If ${branchName} has no remaining work, delete it, then rerun \`sdl flow submit\`:`,
-ts/packages/capabilities/flow/src/submit/submit-format.ts:140:		`Otherwise, commit real changes to ${branchName}, then rerun \`sdl flow submit\`.`,
-ts/packages/capabilities/flow/src/submit/submit-format.ts:148:		"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:164:		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`sdl flow submit\`.`,
-ts/packages/capabilities/flow/src/submit/submit-format.ts:178:		"Fix:    run `gt sync` (or `gt get`), then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:179:		"Bypass: `sdl flow submit --force` skips Graphite's remote-update check.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:263:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:277:			"If confirmed, sdl flow submit will run:",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:297:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:311:		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `sdl flow submit`.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:317:		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:319:		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`sdl flow submit\`.`,
-ts/packages/capabilities/flow/src/submit/submit-format.ts:375:					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:463:		"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
-ts/packages/capabilities/flow/src/submit/submit-format.ts:464:		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:54:		"PR descriptions were not generated. Checkout a branch and run `sdl flow regenerate-pr` if needed.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:130:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:144:			"If confirmed, sdl flow submit will run:",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:164:		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:178:		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `sdl flow submit`.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:184:		"Graphite still needs a restack after `sdl flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:186:		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`sdl flow submit\`.`,
+ts/packages/capabilities/flow/src/submit/submit-format.ts:242:					"Local PR metadata commit messages were prepared before submit; rerun sdl flow submit after resolving the Graphite failure.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:314:		"`sdl flow submit` checkpoints outstanding worktree changes before submitting.",
+ts/packages/capabilities/flow/src/submit/submit-format.ts:315:		"If the branch still has no PR, inspect the Graphite output above and rerun `sdl flow submit` after resolving the reported issue.",
 
 ### ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts
 ts/packages/capabilities/flow/src/submit/submit-pr-descriptions.ts:147:		"Checkout the branch and run `sdl flow regenerate-pr` to regenerate its PR description.",
@@ -262,6 +262,12 @@ ts/packages/capabilities/handoff/src/pi/self.ts:333:		toolCallInstruction: `Afte
 
 ### ts/packages/capabilities/handoff/src/pi/tab.ts
 ts/packages/capabilities/handoff/src/pi/tab.ts:148:			`${HANDOFF_TAB_LAUNCH_TOOL_NAME} verifies the handoff exists before opening cmux; do not call it before sdl handoff create succeeds.`,
+
+### ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:32:export const SDL_RUNNER_PI_BIN_ENV = "SDL_RUNNER_PI_BIN";
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:66:	/** Host environment; `SDL_RUNNER_PI_BIN` overrides the `pi` binary. */
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:126:	const command = deps.env[SDL_RUNNER_PI_BIN_ENV] ?? "pi";
+ts/packages/capabilities/objective/src/pi/child-session/pi-child-session-gateway.ts:222:	return await mkdtemp(join(tmpdir(), "sdl-objective-runner-"));
 
 ### ts/packages/capabilities/roaster/src/commands/review-ls.ts
 ts/packages/capabilities/roaster/src/commands/review-ls.ts:6:const REVIEW_LS_DESCRIPTION = `Alias for sdl roaster review list.`;
@@ -324,8 +330,9 @@ ts/packages/hosts/sdlcc/src/stack-map-effects.ts:220:	return `sdl slot checkout 
 ts/packages/infra/core/src/primitives/model-slug.ts:42:export const SLUG_MODEL_ENV = "SDL_SLUG_MODEL";
 
 ### ts/packages/infra/core/src/test-kit/index.ts
-ts/packages/infra/core/src/test-kit/index.ts:70:		async makeTempDir(prefix = "sdl-test-"): Promise<string> {
-ts/packages/infra/core/src/test-kit/index.ts:75:		async makeHomeTempDir(prefix = ".sdl-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:81:		async makeTempDir(prefix = "sdl-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:86:		async makeHomeTempDir(prefix = ".sdl-test-"): Promise<string> {
+ts/packages/infra/core/src/test-kit/index.ts:109:	const tempDir = await realpath(await mkdtemp(join(tmpdir(), options.prefix ?? "sdl-git-repo-")));
 
 ### ts/packages/kernel/docs/sdk-reference.md
 ts/packages/kernel/docs/sdk-reference.md:18:For this repository's checked-in grouped flow extension, repeated command-author helper code should stay under the owning implementation package's helper layer, currently `ts/packages/capabilities/flow/src/shared/` in `sdl-flow`, until a later explicit decision promotes a stable helper into this SDK. `internalWorkspaceExports` in `ts/packages/kernel/package.json` and capability-building primitive subpaths under `@sdl/capability-kit/*` exist for package/internal workspace sharing, not as extension-author API; importing or documenting those subpaths is not SDK promotion.

@@ -18,13 +18,13 @@ skills/code-just-the-stack/SKILL.md
 skills/handoff-create/SKILL.md
 skills/handoff-pickup/SKILL.md
 skills/sdl-flow-submit/SKILL.md
+ts/packages/capabilities/address/src/core/feedback-summary.ts
 ts/packages/capabilities/branch-context/src/pi/enriched-plan-save.ts
 ts/packages/capabilities/ccc/src/cmux/objective-sidebar.ts
 ts/packages/capabilities/ccc/src/cmux/slot-dispatch-plan.ts
 ts/packages/capabilities/ccc/test/land-test-helpers.ts
 ts/packages/capabilities/flow/src/land/land.ts
 ts/packages/capabilities/flow/src/land/post-landing-slot-cleanup.ts
-ts/packages/capabilities/flow/src/land/stack/command-exec.ts
 ts/packages/capabilities/flow/src/land/stack/constants.ts
 ts/packages/capabilities/flow/src/land/stack/graphite-topology.ts
 ts/packages/capabilities/flow/src/land/stack/landing-operations.ts

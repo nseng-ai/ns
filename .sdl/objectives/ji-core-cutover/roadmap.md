@@ -32,14 +32,31 @@
       adversarial 5-lens verification ran over the artifacts. Inventory drift
       (SDL_* env vars, shim tokens, brand machine keys) found and folded in. See
       update `2026-07-02-cutover-pipeline-authored.md` and `cutover/cutover-runbook.md`.
-- [ ] Dry-run rehearsal of the landing window per `cutover/cutover-runbook.md` §B in
+- [x] Dry-run rehearsal of the landing window per `cutover/cutover-runbook.md` §B in
       a throwaway worktree (user-managed); capture reports under `cutover/dry-run/`
       and fold findings back into the pipeline inputs, regenerating the plan via
       `assemble-plan.py`.
+      Evidence: dry-run 1 executed 2026-07-02 in worktree slot-09 on branch
+      `ji-cutover-dry-run` (owner chose a real worktree over /tmp) — all 3 chunks +
+      2 fix rounds ran, `just` gate green (3803 tests), all smoke tests pass.
+      Artifacts: `cutover/dry-run/1-*.{json,txt,md}`; findings + owner rulings in
+      `cutover/dry-run/1-findings.md` and runbook §C. Two pipeline escapees found
+      (snake_case sdl_ codes; the sdl-reviewer PR marker) → G11 generator pattern +
+      residual-snake-codes invariant added (22 total); loader.ts + style-guard
+      support trio joined cs2; six invariant prompts got survivor carve-outs;
+      baselines re-derived; production src/**.md now routes to chunk 1. All
+      amendments folded and plan regenerated (121 simple / 9 changesets /
+      29 cohorts). See update `2026-07-02-dry-run-1-findings-folded.md`.
 - [ ] Re-verify the frozen candidate lists against the repo when the landing window
       opens (drift check since the 2026-07-02 snapshot): re-run
       `cutover/generate-candidates.sh` + `prepass.sh`, diff per-surface lists,
       re-classify only the drift, re-assemble (runbook §A).
+      Progress note: a full §A pass ran 2026-07-02 during the findings fold (the
+      pipeline branch had been restacked onto refactored trunk): post-restack drift
+      absorbed — cs9-graphite-command-channel added for the typed argv-channel pair,
+      submit-failure-catalog.ts + pi-child-session-gateway.ts hand-classified,
+      retired command-exec.ts anchor removed, lists re-frozen. Row stays open for
+      the SAME-DAY re-run at the real landing window.
 - [ ] Execute the landing in one window on a dedicated branch: `git mv .sdl .ji`, run
       the workflow over the ATOMIC list, `pnpm install` to regenerate lockfile/shims,
       and update the `cross-harness-parity` parity table in the same landing.

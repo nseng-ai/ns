@@ -1,0 +1,7 @@
+.claude/plans/plan-the-deletion-of-humming-tide.md
+ts/packages/capabilities/address/src/core/feedback-summary.ts
+ts/packages/capabilities/flow/src/submit/pr-description.ts
+ts/packages/kernel/src/extensions/loader.ts
+ts/packages/kernel/test/unit/extension-loader.test.ts
+ts/packages/kernel/test/unit/extension-registry.test.ts
+ts/packages/tools/areg/src/operations/project-agents.ts

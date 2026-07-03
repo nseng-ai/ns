@@ -1,0 +1,182 @@
+{
+ "args": {
+  "brief": "# Shared refactor brief (the `brief` field of cutover-plan.json)\n\nYou are renaming the product `sdl` to `ji` in this repo. Hard cutover: no compat\ncodepaths, no fallbacks, no aliases. The repo tree you see has ALREADY had its file\nmoves done (`.sdl/` \u2192 `.ji/`, `sdl.toml` \u2192 `ji.toml`, `.pi/extensions/sdl.ts` \u2192\n`ji.ts`); your job is CONTENT edits only. Never rename, create, or delete files.\n\nRENAME these literal forms wherever they appear in your assigned file(s):\n- the CLI name: subprocess argv `\"sdl\"` \u2192 `\"ji\"`, `formatCommand(\"sdl\", \u2026)`,\n  `which sdl` probes and their error text, `sdl <command>` instruction lines in\n  prose/frontmatter/help text, `Usage: sdl`, \"\u2026 for sdl.\"\n- repo-state paths: `.sdl/<anything>` \u2192 `.ji/<anything>` (e.g. `.sdl/objectives`,\n  `.sdl/extensions`, `.sdl/reviews`, `.sdl/prompts`, `.sdl/pi/agents`, `.sdl/tmp`,\n  `.sdl/state/\u2026`)\n- namespaces and machine keys: `/sdl:` \u2192 `/ji:`, `sdl:flow:*` \u2192 `ji:flow:*`,\n  `sdl:objectives:*` \u2192 `ji:objectives:*`, `\"sdl:pi-extension-command:finished\"` \u2192\n  `\"ji:\u2026\"`, diagnostic codes `missing-sdl` / `extension_manifest_missing_sdl` \u2192\n  `missing-ji` / `extension_manifest_missing_ji`\n- XDG namespaces: `state/sdl`, `data/sdl`, `config/sdl`, `share/sdl`, `sdl/slots`\n  (also regex-escaped `sdl\\/slots`), `~/.sdl` \u2192 the same with `ji`\n- the package.json manifest KEY `\"sdl\":` \u2192 `\"ji\":` and dotted prose forms\n  `sdl.tier` / `sdl.commands` / `sdl.group` / `sdl.subpackages` \u2192 `ji.*`\n- config filename references: `sdl.toml` \u2192 `ji.toml`\n- env var names: `SDL_<ANYTHING>` \u2192 `JI_<ANYTHING>` (e.g. `SDL_CHECKPOINT_MODEL`,\n  `SDL_SLUG_MODEL`, `SDL_TS_BAN_*`, `SDL_PI_CLI_TRACE*`, justfile `SDL_TOOL` etc.)\n- sdl-brand artifact filenames in strings: `sdl-pi-cli-command-extension.jsonl` \u2192\n  `ji-pi-cli-command-extension.jsonl`\n\nDO NOT TOUCH (out-of-window survivors; later roadmap rows own them):\n- `@sdl/*` package scope and every import specifier containing it\n- TypeScript/JS identifiers containing sdl in any casing (`resolveSdlXdgPath`,\n  `sdlToml`, `sdlExtensionManifestSchema`, `SdlCommandInfo`, `buildSdlCompletionScript`, \u2026)\n- `src/sdl/` path segments, `./sdl/` and `../sdl/` relative imports,\n  `/sdl/commands` and `/sdl/extension` path fragments, `join(\u2026, \"sdl\", \u2026)` calls that\n  build src-dir paths (e.g. module-loader.ts)\n- bare `\"sdl\"` VALUES inside package.json `subpackages` arrays\n- package/dir/file NAMES: `sdl-flow`, `sdl-capability-kit`, `sdlcc`, `sdl-tools`,\n  skill directory names (`sdl-flow-submit`, `sdl-typescript`, `sdl-cli-design`,\n  `sdl-typescript-style-tripwire`), source filenames (`sdl-extension.ts`,\n  `repo-local-sdl-extension.ts`), objective slugs (`rename-sdl-to-ji`, \u2026)\n- `SPECIALIZED_SKILL_REPLACEMENTS` keys (skill dir names); only its VALUES rename\n- docs-site branding strings (`\"sdl-docs\"` site id, site titles) \u2014 branding row\n- `ts/pnpm-lock.yaml` (regenerated), `state/vibechk` (deliberate non-sdl namespace)\n- historical prose: archived objectives, `updates/` files, ADR body text (except the\n  one allowlisted ADR 0005 fallback-path line)\n\nIf an edit is ambiguous \u2014 you cannot tell a rename target from a survivor \u2014 do NOT\nguess; record it in `skipped` with the file:line and why. Prefer a surfaced judgment\ncall over a wrong edit.\n",
+  "simple": [
+   {
+    "path": "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+    "hint": "Rename the FakePi customType machine-key string literals \"sdl-command-ack\" -> \"ji-command-ack\" (lines ~46 and ~51) and \"sdl-command-progress\" -> \"ji-command-progress\" (line ~55). These are brand machine-key strings, in-window per the residual-machine-keys invariant which explicitly requires the ji-* forms asserted in this file. Touch nothing else; all other sdl forms in this file (filename, identifiers, @sdl/ imports) are survivors."
+   },
+   {
+    "path": "ts/packages/kernel/src/extensions/registry.ts",
+    "hint": "Rename the env var read at line ~107: env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS -> env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS. Env var NAMES are in-window (SDL_<X> -> JI_<X>). Do NOT touch SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE imports or other TS identifiers, and leave message prose unchanged."
+   },
+   {
+    "path": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "hint": "Rename every process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS reference (6 sites: lines ~19, 72, 77, 80, 102, 116) to process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS, matching the source rename in ts/packages/kernel/src/extensions/registry.ts. Local variable names like previousFirstPartyExtensionSetting stay. Touch nothing else."
+   },
+   {
+    "path": "ts/packages/capabilities/aretro/src/payloads/root.ts",
+    "hint": "Rename ONLY the env var NAME string values at lines 11-12: \"SDL_PAYLOAD_ROOT\" -> \"JI_PAYLOAD_ROOT\" and \"SDL_PAYLOAD_SESSION_ID\" -> \"JI_PAYLOAD_SESSION_ID\". The TypeScript identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV are out-of-window survivors and MUST stay. Env var names are in-window; identifiers are not."
+   }
+  ],
+  "complex": [],
+  "invariants": [],
+  "repoRoot": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09",
+  "model": "sonnet",
+  "complexModel": "sonnet"
+ },
+ "report": {
+  "summary": {
+   "simpleFilesChanged": 4,
+   "simpleTotal": 4,
+   "changesetsDone": 0,
+   "changesetsTotal": 0,
+   "invariantsChecked": 0,
+   "invariantsFailed": 0,
+   "skips": 10
+  },
+  "skips": [
+   {
+    "tier": "simple",
+    "file": "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+    "note": "Left @sdl/ import specifiers, sdlExtension/SdlExtensionAPI identifiers, and ../../src/pi/sdl-extension.ts filename untouched per brief's survivor list."
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "note": "SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE imports and usages left untouched per file-specific note"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "note": "TS identifiers containing sdl (SdlCommandCatalog, SdlCommandCliInfo, listBuiltInSdlCommandCandidates, validateSdlExtensionContribution, resolveSdlXdgPath, loadSdlExtensionContribution, discoverSdlPackageCommands, loadSdlCommandCatalog, loadSelectedSdlCommand, etc.) left untouched \u2014 out-of-window survivors per brief"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "note": "@sdl/core/* and @sdl/core/primitives import specifiers left untouched \u2014 @sdl/* package scope is out-of-window"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "note": "Prose messages like 'Invalid SDL command candidate', 'Duplicate SDL command', 'SDL command ... overrides ...' left unchanged per file-specific note instructing to leave message prose unchanged"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "note": "'.ji' path segments (join(options.cwd, '.ji', 'extensions')) already in target form, no edit needed"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "note": "Left @sdl/kernel/sdk import specifiers untouched (out-of-window survivor per brief)"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "note": "Left .ji/ path segments as-is (already in target form, not part of this task's scope)"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "note": "Left loadSdlCommandCatalog/loadSelectedSdlCommand identifiers, sdl_extension_contribution_import_failed diagnostic code, and 'SDL command entry' prose untouched (identifier/diagnostic-code survivors, not in file-specific note scope)"
+   },
+   {
+    "tier": "simple",
+    "file": "ts/packages/capabilities/aretro/src/payloads/root.ts",
+    "note": "Identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV left unchanged per file-specific note (out-of-window survivors)."
+   }
+  ],
+  "failures": [],
+  "simple": [
+   {
+    "file": "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "customType === \"sdl-command-ack\") return;",
+      "after": "customType === \"ji-command-ack\") return;"
+     },
+     {
+      "before": "message.customType === \"sdl-command-ack\") {",
+      "after": "message.customType === \"ji-command-ack\") {"
+     },
+     {
+      "before": "message.customType === \"sdl-command-progress\") {",
+      "after": "message.customType === \"ji-command-progress\") {"
+     }
+    ],
+    "skipped": [
+     "Left @sdl/ import specifiers, sdlExtension/SdlExtensionAPI identifiers, and ../../src/pi/sdl-extension.ts filename untouched per brief's survivor list."
+    ]
+   },
+   {
+    "file": "ts/packages/kernel/src/extensions/registry.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS !== \"1\"",
+      "after": "env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS !== \"1\""
+     }
+    ],
+    "skipped": [
+     "SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE imports and usages left untouched per file-specific note",
+     "TS identifiers containing sdl (SdlCommandCatalog, SdlCommandCliInfo, listBuiltInSdlCommandCandidates, validateSdlExtensionContribution, resolveSdlXdgPath, loadSdlExtensionContribution, discoverSdlPackageCommands, loadSdlCommandCatalog, loadSelectedSdlCommand, etc.) left untouched \u2014 out-of-window survivors per brief",
+     "@sdl/core/* and @sdl/core/primitives import specifiers left untouched \u2014 @sdl/* package scope is out-of-window",
+     "Prose messages like 'Invalid SDL command candidate', 'Duplicate SDL command', 'SDL command ... overrides ...' left unchanged per file-specific note instructing to leave message prose unchanged",
+     "'.ji' path segments (join(options.cwd, '.ji', 'extensions')) already in target form, no edit needed"
+    ]
+   },
+   {
+    "file": "ts/packages/kernel/test/unit/extension-registry.test.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "const previousFirstPartyExtensionSetting = process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;",
+      "after": "const previousFirstPartyExtensionSetting = process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;"
+     },
+     {
+      "before": "process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = \"1\"; (beforeAll)",
+      "after": "process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = \"1\";"
+     },
+     {
+      "before": "delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS; (afterAll)",
+      "after": "delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;"
+     },
+     {
+      "before": "process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting; (afterAll)",
+      "after": "process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = previousFirstPartyExtensionSetting;"
+     },
+     {
+      "before": "delete process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS; (in test body)",
+      "after": "delete process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS;"
+     },
+     {
+      "before": "process.env.SDL_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = \"1\"; (finally block)",
+      "after": "process.env.JI_KERNEL_DISABLE_FIRST_PARTY_EXTENSIONS = \"1\";"
+     }
+    ],
+    "skipped": [
+     "Left @sdl/kernel/sdk import specifiers untouched (out-of-window survivor per brief)",
+     "Left .ji/ path segments as-is (already in target form, not part of this task's scope)",
+     "Left loadSdlCommandCatalog/loadSelectedSdlCommand identifiers, sdl_extension_contribution_import_failed diagnostic code, and 'SDL command entry' prose untouched (identifier/diagnostic-code survivors, not in file-specific note scope)"
+    ]
+   },
+   {
+    "file": "ts/packages/capabilities/aretro/src/payloads/root.ts",
+    "changed": true,
+    "replacements": [
+     {
+      "before": "export const SDL_PAYLOAD_ROOT_ENV = \"SDL_PAYLOAD_ROOT\";\nexport const SDL_PAYLOAD_SESSION_ID_ENV = \"SDL_PAYLOAD_SESSION_ID\";",
+      "after": "export const SDL_PAYLOAD_ROOT_ENV = \"JI_PAYLOAD_ROOT\";\nexport const SDL_PAYLOAD_SESSION_ID_ENV = \"JI_PAYLOAD_SESSION_ID\";"
+     }
+    ],
+    "skipped": [
+     "Identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV left unchanged per file-specific note (out-of-window survivors)."
+    ]
+   }
+  ],
+  "complex": [],
+  "verify": []
+ }
+}

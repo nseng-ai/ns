@@ -18,14 +18,14 @@ cutover workflow script" roadmap row; the execution engine is the generic
 
 | file                            | role                                                                                                                                     | regenerate with                         |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `generate-candidates.sh`        | deterministic candidate-list generator (G1–G10 surface greps + allowlist + survivor baselines); `--post-mv` variant for post-move reruns | is the generator                        |
+| `generate-candidates.sh`        | deterministic candidate-list generator (G1–G11 surface greps + allowlist + survivor baselines); `--post-mv` variant for post-move reruns | is the generator                        |
 | `lists/`                        | frozen generator + prepass output (per-surface lists, candidates.txt, baselines, auto-buckets, needs-classification)                     | `generate-candidates.sh` + `prepass.sh` |
 | `prepass.sh`                    | subtracts anchored files, auto-buckets by path rule, emits classification residue + per-file grep evidence                               | is the prepass                          |
 | `anchors.json`                  | FIXED changeset membership (cs1–cs8), inventory-named simple hints, mv-only files, path rules                                            | hand-maintained; edit deliberately      |
 | `classify-workflow.js`          | Workflow-tool script that fans out read-only classifier agents over the residue                                                          | is the workflow                         |
 | `classification-decisions.json` | frozen classifier output (90 decisions: 62 simple, 28 skip)                                                                              | re-run `classify-workflow.js`           |
 | `brief.md`                      | the shared engine brief (rename list + DO-NOT-TOUCH survivors)                                                                           | hand-maintained                         |
-| `invariants.json`               | 21 adversarial verify invariants (8 named traps, cross-cutting checks, residual greps)                                                   | hand-maintained                         |
+| `invariants.json`               | 22 adversarial verify invariants (8 named traps, cross-cutting checks, residual greps)                                                   | hand-maintained                         |
 | `assemble-plan.py`              | synthesizes + hard-validates `cutover-plan.json` (totality, disjointness, anchor coverage, skip audit, changeset precedence)             | is the assembler                        |
 | `cutover-plan.json`             | the locked engine args content: brief, 3 chunks (simple[]+complex[]), invariants, baselines, skips, mv-only — ALL PATHS POST-MV          | `assemble-plan.py`                      |
 | `dry-run/`                      | artifacts captured during rehearsals (engine reports, invariant results, fix lists, findings)                                            | produced by executing this runbook      |
@@ -140,6 +140,21 @@ cd ts && pnpm install        # regenerates pnpm-lock.yaml importer paths + .bin/
 just                         # full validation gate (dprint, tsgo, oxlint, vitest)
 ```
 
+Dry-run-1 gate mechanics (expect these; none are rename defects):
+
+- **Reused checkout:** on a worktree with an existing `ts/node_modules`, `pnpm
+  install` (even `--force`) no-ops and never relinks bins — `.bin/sdl` survives and
+  `.bin/ji` never appears. Run `rm -rf ts/node_modules && pnpm install` (seconds,
+  store-backed). Fresh /tmp worktrees don't hit this; the REAL landing on an
+  existing checkout will.
+- **Two formatter fix-ups before green:** `just dprint-fix` (markdown table column
+  widths shift when renames change string lengths) and `just ts-format-fix`
+  (edit agents leave minor TS formatting drift). Use the autofixers, never
+  hand-edit formatter output.
+- **Ambient FORCE_COLOR:** clinkr caps/io tests stub TERM/COLORTERM but not
+  FORCE_COLOR; harness shells that export FORCE_COLOR=3 fail them spuriously. Run
+  the gate as `env -u FORCE_COLOR just` if the shell sets it.
+
 ### B5. Smoke tests (completion evidence)
 
 ```sh
@@ -151,10 +166,11 @@ ji objective list --minimal --format md     # storage roots + extension discover
 ji objective exec load-orientations --format md   # AGENTS.md chain end-to-end
 ```
 
-Then re-read the invariant results from the final chunk's report: all 21 must pass.
-`scope-untouched-baseline` compares against `cutover-plan.json` `.baselines`
-(@sdl/ files: 1344, src/sdl occurrences: 149 at freeze time — refresh via step A if
-the tree moved).
+Then re-read the invariant results from the final chunk's report: all 22 must pass.
+`scope-untouched-baseline` compares against `cutover-plan.json` `.baselines` (the
+values frozen by the latest step-A generator run — refresh via step A if the tree
+moved; the baseline patterns exclude the objectives trees and XDG-context lines
+since dry-run 1).
 
 ### B6. Dry-run teardown / real-landing wrap-up
 
@@ -206,3 +222,21 @@ to the parent `rename-sdl-to-ji`.
   subcommand enumeration to a broad judge-each sweep with `:!docs/adr`; runbook
   paths/PATH-setup/plan-load-ordering corrected; prepass now subtracts mv-only
   files. Findings archive: `dry-run/verify-findings.json`.
+- **Dry-run 1 (2026-07-02)**: full §B rehearsal executed green in worktree slot-09
+  (findings: `dry-run/1-findings.md`; gate/smoke evidence: `dry-run/1-gate.txt`).
+  Owner rulings on the four surfaced calls: (a) brand PROSE ("SDL kernel", message
+  prose, doc titles, describe() labels) DEFERS to the branding row — now an explicit
+  DO-NOT-TOUCH; (b) the `<!-- sdl-reviewer:` PR-comment marker RENAMES —
+  recognition of pre-cutover PR comments is knowingly broken; (c) brand-named
+  tmpdir prefixes RENAME to ji- while package-name-derived prefixes (sdl-flow-…)
+  survive; (d) historical-fact prose in LIVE docs stays verbatim. Amendments
+  folded: G11 snake-code generator pattern + residual-snake-codes invariant
+  (kernel loader.ts had escaped every prior pattern); loader.ts + the style-guard
+  support trio joined cs2 (two-phase desync eliminated); env-var-NAME positions
+  spelled out in brief + residual-env-vars; six invariant prompts got survivor
+  carve-outs (identifier property access, SCREAMING identifiers, skill-dir names,
+  src-dir join literals, absence-assertion tombstones, legacy-format-vs-cutover
+  scope); survivor baselines re-derived with corrected patterns (objectives-tree
+  and XDG exclusions); production-embedded `ts/packages/**/src/**.md` now routes
+  to chunk 1. Model economics: haiku (simple) / sonnet (complex+verify) sufficed —
+  zero capability-attributable misses across ~190 agents; opus overrides optional.

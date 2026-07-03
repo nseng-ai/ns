@@ -1,0 +1,41 @@
+# Run 1 — gate + smoke evidence (2026-07-02, worktree slot-09, branch ji-cutover-dry-run)
+
+## Baseline gate (pre-mv)
+(cd ts && pnpm install) — Already up to date
+just — GREEN: dprint, syncpack, oxfmt (1287 files), oxlint, tsgo,
+vitest: Test Files 396 passed (396) / Tests 3803 passed (3803)
+
+## B4 regenerate + gate (post chunks + 2 fix rounds)
+cd ts && pnpm install — "Already up to date": REUSED-WORKTREE QUIRK — pnpm no-ops
+  and never relinks bins (.bin/sdl stayed, no .bin/ji). Even `pnpm install --force`
+  no-opped. Resolution: rm -rf ts/node_modules && pnpm install (3.6s) → .bin/ji
+  linked, .bin/sdl gone. A fresh /tmp worktree (runbook default) builds node_modules
+  from scratch and will not hit this; the real landing on an existing checkout WILL.
+just round 1 — dprint-check FAIL: 4 md files (renames changed cell widths in tables)
+  → just dprint-fix (per repo rule).
+just round 2 — ts-format-check FAIL: 6 ts files misformatted by edit agents
+  → just ts-format-fix.
+just round 3 — vitest 3801/3803: 2 fails in clinkr caps.test.ts/io.test.ts,
+  colorDepth 'truecolor' vs 'ansi256'. NOT rename-related: session shell exported
+  FORCE_COLOR=3 (absent at baseline run); resolveColorDepth honors FORCE_COLOR before
+  terminal detection and the tests stub TERM/COLORTERM but not FORCE_COLOR.
+  Reproduced on untouched files; passes with env -u FORCE_COLOR.
+just (env -u FORCE_COLOR) — GREEN: Test Files 396 passed (396) / Tests 3803 passed (3803)
+typescript-style-guard suite — 102/102 (was 99/102 pre fix-round-2).
+
+## B5 smoke tests (PATH=ts/node_modules/.bin)
+ji --help                      → "Usage: ji [options] [command]" ✓
+test ! -e ts/node_modules/.bin/sdl → PASS ✓
+ji objective list --minimal --format md → renders, Root: .ji/objectives ✓
+ji objective exec load-orientations --format md → orientations emitted end-to-end ✓
+
+## B5 invariant re-read (final-chunk verify results, 21 invariants)
+11 PASS / 10 FAIL as reported by verify agents; hand triage:
+  - 3 real failure groups → fixed in fix round 2, re-verified clean by hand greps.
+  - 7 false-positive groups (over-broad invariant greps vs brief survivor rules) →
+    invariant amendments queued in 1-findings.md.
+scope-untouched-baseline: src/sdl occurrences 147 vs frozen 149 (2 in-window XDG
+  strings were wrongly inside the frozen baseline); @sdl/ file count 1354 vs frozen
+  1344 (+10 = post-freeze pipeline artifacts under .ji/objectives, which the
+  baseline grep does not exclude). Both are baseline-derivation amendments, not
+  rename defects.

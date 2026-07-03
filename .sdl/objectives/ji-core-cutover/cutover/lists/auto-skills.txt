@@ -20,6 +20,7 @@ skills/enriched-plan-save/SKILL.md
 skills/handoff/references/diagnostics-admin.md
 skills/handoff/references/lifecycle.md
 skills/handoff/SKILL.md
+skills/objective-autorun/SKILL.md
 skills/objective-close/SKILL.md
 skills/objective-create/SKILL.md
 skills/objective-next/SKILL.md
@@ -27,6 +28,7 @@ skills/objective-refresh/references/branch-scope.md
 skills/objective-refresh/references/repo-scope.md
 skills/objective-refresh/SKILL.md
 skills/objective-review-briefing/SKILL.md
+skills/objective-runner-step/SKILL.md
 skills/objective-stack-impl/references/final-response.md
 skills/objective-stack-impl/SKILL.md
 skills/objective-update/SKILL.md

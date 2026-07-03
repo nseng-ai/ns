@@ -1,0 +1,1265 @@
+{
+ "summary": {
+  "simpleFilesChanged": 17,
+  "simpleTotal": 17,
+  "changesetsDone": 12,
+  "changesetsTotal": 12,
+  "invariantsChecked": 21,
+  "invariantsFailed": 10,
+  "skips": 27
+ },
+ "skips": [
+  {
+   "tier": "complex",
+   "id": "cohort-skills-1",
+   "note": "skills/brmem/SKILL.md:10 \u2014 \"Do not reference sdl-internal module paths or class names in this file\": ambiguous whether \"sdl-internal\" is a brand-prose reference to rename (\u2192 ji-internal) or shorthand tied to the survivor `src/sdl/` path-segment/identifier category; left unchanged rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-1",
+   "note": "skills/brmem/SKILL.md:45 and :54 \u2014 \"an sdl checkout\" / \"the enclosing sdl checkout\": ambiguous whether this means a checkout of the sdl-tools repo (survivor, since `sdl-tools` repo name is out-of-window) or a generic brand reference to the renamed CLI product; left unchanged rather than guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-2",
+   "note": "None \u2014 every sdl occurrence in the assigned files fell clearly into either the rename set (CLI instructions, .sdl/ paths, /sdl: namespaces, 'SDL command' prose) or the explicit survivor set (sdl-tools repo name, sdl-extension.ts filename); no ambiguous cases required skipping."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-skills-5",
+   "note": "skills/sdl-typescript-style-tripwire/SKILL.md:4 and :7 - the human-readable title \"SDL TypeScript style Tripwire\" / \"# Tripwire: SDL TypeScript style\" morphologically mirrors the preserved review-slug identifier `sdl-typescript-style-tripwire` (an explicit DO-NOT-TOUCH skill-directory/slug survivor used unrenamed elsewhere in the same file); renaming only the prose \"SDL\" while the slug stays `sdl-...` would create a mismatched title vs. invocation key, so left as-is rather than guessing."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-1",
+   "note": "docs/cli-surface-conformance-audit.md:114 (unchanged) \u2014 `sdl-core/src/shell-support.ts` path shorthand for the `@sdl/core` package: treated as a package-scope reference (survivor) rather than a `.sdl/` repo-state path, since it lacks the `.sdl/` prefix and clearly names the workspace package."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-1",
+   "note": "docs/cmux/help-querying.md:114 \u2014 left the `../sdl-exec/cmux-workspace-summary.md` relative link untouched because the target directory `docs/sdl-exec/` was not part of any file-move set and still exists under that name; changing the link text without the directory existing under a new name would break it."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-1",
+   "note": "Generic brand-name prose uses of \"SDL\" as the product name (e.g. docs/north-star.md's title and body, docs/objective-system.md line 3, .ji/extensions/AGENTS.md title/body, .ji/reviews/README.md title, docs/agent-era-cli-design-survey.md throughout) were left as-is \u2014 the shared brief's RENAME list only covers concrete literal forms (CLI argv, paths, namespaces, env vars, manifest keys), not generic product-branding mentions, and the brief's own DO NOT TOUCH list references a separate 'branding row' for that class of edit."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-2",
+   "note": "docs/README.md:23 - \"Retired Python `sdl exec` commands\" (link to sdl-exec/README.md): left as-is. Ambiguous whether this literal historical command name should be renamed (hard-cutover rename target) or preserved as historical fact (the command was literally named `sdl exec` when it existed and is now retired/replaced) \u2014 the brief's 'historical prose' survivor carve-out doesn't cleanly cover this non-archived, currently-live doc, so I did not guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-2",
+   "note": "docs/pi/README.md:235 - \"which sdl's `sdl` package also uses\" (external `flue` vs `sdl` case-study section): left as-is. No package is literally named bare `sdl` in package.json (the CLI binary now lives in `@sdl/kernel` under the `ji` bin name), so it's unclear whether this backticked `sdl` refers informally to the whole product (a rename candidate) or is meant as a stable comparative label in an external-reference section; did not guess."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-2",
+   "note": "docs/pi/README.md:3 - \"Repo-specific notes for using and extending Pi in `sdl`.\" and similar bare backticked/prose \"sdl\"/\"SDL\" brand-word occurrences throughout the cohort (e.g. 'active sdl Objective', 'local sdl skills', 'SDL Is Self-Hosting', 'SDL CLI output', 'SDL-managed', 'sdl's Objective system'): left untouched as out-of-scope brand-name prose, not enumerated in the brief's literal-form rename list and consistent with the still-unrenamed 'SDL (Source Development Lifecycle)' branding in the live root AGENTS.md; not itemized individually since these are not ambiguous, just outside this row's assigned pattern set."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "docs/skill-conventions.md:7 'the canonical sdl install flag' and 'asdl's operational audit checklists' \u2014 ambiguous generic product-name prose, not a literal CLI/path/namespace form on the rename list; left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "docs/skill-conventions.md:57 'sdl-internal module paths' \u2014 adjectival brand reference, not a listed path/CLI/env-var pattern; left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the docs-site branding row explicitly out of scope for this cohort); left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "ts/packages/capabilities/address/README.md:32 'the repo-local SDL extension' and :35 'an sdl checkout' \u2014 generic branding/prose noun references to the product, not matching any literal rename pattern; left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "ts/packages/capabilities/aretro/README.md:7 'the SDL extension command face' \u2014 same generic branding prose pattern; left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-3",
+   "note": "ts/packages/capabilities/branch-context/README.md:3 'the SDL `branch-context` command group' and ts/packages/capabilities/ccc/AGENTS.md:5 'SDL CLI commands' \u2014 capitalized generic brand/product references, not literal CLI-invocation or path forms; left as-is."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "objective/CONTEXT.md line 3 link text \"[SDL Tools](../../../CONTEXT.md)\" \u2014 brand-name prose referencing the root context doc title, not a literal CLI/path form; left for the branding/root-doc cohort."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-4",
+   "note": "roaster/CONTEXT.md line 19 heading \"### SDL Command Face\" and similar brand-adjective usages of \"SDL\" (SDL kernel, SDL Capability, SDL host, SDL shell wrapper, SDL tool shim, SDL binary) across all files \u2014 treated as out-of-scope brand prose per the brief's literal-forms-only rename list, consistent with how sibling AGENTS.md files in this repo were already handled (e.g. ccc/AGENTS.md keeps \"SDL CLI commands\" while renaming only literal `ji ...` invocations)."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-5",
+   "note": "Treated the capitalized prose noun \"SDL\" (e.g. \"SDL is the public lifecycle command boundary\", \"public SDL extension API\", term headers like **SDL kernel**/**SDL extension**) as a survivor rather than a rename target throughout kernel/CONTEXT.md and kernel/README.md \u2014 the brief's rename list only calls out literal CLI-invocation forms, paths, namespaces, env vars, and package.json keys, not the bare acronym/brand word; renaming it would also collide with the untouched @sdl/kernel package scope and SdlExtensionApi-style identifiers these same docs define. Flagging in case the naming decision record (ADR 0024 / naming brief) intends a broader prose rename for kernel's own vocabulary docs."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-5",
+   "note": "Renamed the kernel/README.md document title `# sdl` to `# ji` on my own judgment (not literally enumerated in the brief) to stay internally consistent with the immediately following renamed sentence '`ji` is the Source Development Lifecycle CLI.' \u2014 flagging since the title could alternatively be read as a package/dir-name label (survivor) rather than the CLI binary name."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-docs-5",
+   "note": "Extended the brief's explicit dotted-prose-form list (sdl.tier/sdl.commands/sdl.group/sdl.subpackages) to also cover `sdl.internalWorkspaceExports` -> `ji.internalWorkspaceExports`, by pattern analogy with the same package-metadata-field convention; not literally named in the brief's bullet."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-1",
+   "note": "dependencies.md line 5: \"could adopt without the full SDL/Graphite/slots stack.\" \u2014 generic brand-name prose referring to the product; does not match any of the brief's literal rename patterns (CLI argv, .sdl/ paths, /sdl: namespaces, XDG namespaces, package.json key, config filename, env vars, artifact filenames), so left unchanged rather than guessing whether product-brand prose is in scope for this paths/command-name-focused cohort."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-2",
+   "note": "regenerate-pr.ts and submit.ts: `export { default } from \"sdl-flow/commands/...\"` left untouched \u2014 `sdl-flow` is an explicit DO-NOT-TOUCH package name, not a CLI/path rename target."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-2",
+   "note": "scan-reinvention/package.json lines 2 and 15: `@sdl/review-reinvention-scanner` and `@sdl/core` left untouched per changeset class guidance ('@sdl/ imports in scan-reinvention tool sources STAY') and the brief's @sdl/* package-scope survivor rule."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-2",
+   "note": "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes docs-site/branding strings are a separate 'branding row')."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-2",
+   "note": "sdl-typescript-style-tripwire/review.md lines 2, 6, 19, 20, 44, 70, 136, 141, 145, 159 ('sdl-tools', 'sdl-typescript' skill dir, '@sdl/core/primitives', '@sdl/<pkg>/src/...', 'SDL TypeScript...', \"sdl's TypeScript style guide\", 'the intentional sdl pattern'): package/skill directory names and @sdl/ import specifiers are explicit DO-NOT-TOUCH survivors; remaining bare 'SDL'/'sdl' occurrences are brand-name prose describing the product/rule title, not a literal pattern from the brief's rename list \u2014 left as ambiguous branding prose rather than guessed at."
+  },
+  {
+   "tier": "complex",
+   "id": "cohort-dottree-2",
+   "note": "sdl-typescript-style-tripwire/review.md and code-smell-roaster/review.md filenames/directory names themselves ('sdl-typescript-style-tripwire') were preserved verbatim per the brief's explicit skill/review-directory-name survivor list; only the `.sdl/` path prefix referencing those files elsewhere was renamed to `.ji/`."
+  }
+ ],
+ "failures": [
+  {
+   "invariant": "style-guard-bucket",
+   "pass": false,
+   "violations": [
+    "git grep -n '\\.sdl' -- ts/packages/infra/core/test/typescript-style-guard is NOT empty as required: match at ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748: 'expect(coreMetadata.sdlSubpackages).toContain(\"time\");' (substring '.sdl' comes from 'coreMetadata.sdlSubpackages'). Note: this is an incidental match unrelated to the exempt-bucket definition itself \u2014 the bucket array at lines ~82-84 correctly uses '.ji/extensions' for both name and isInDirectory check \u2014 but the invariant as literally stated (grep must be empty) does not hold."
+   ]
+  },
+  {
+   "invariant": "no-compat-shim",
+   "pass": false,
+   "violations": [
+    "ts/packages/tools/areg/src/operations/project-agents.ts:10-23 - resolveProjectAgents() implements an explicit try-old-then-new fallback chain: it first reads ji.toml's [areg].agents via parseSdlAregAgentsFromState, and if that yields nothing, falls back to reading a second, legacy config file via parseLegacyAregJsonAgentsFromState(input.aregJson) (backed by parseLegacyAregJsonAgents at line 57, which parses areg.json). This is precisely the disallowed 'try-old-then-new' compat codepath: two file names/formats are read for the same setting instead of exactly one.",
+    "ts/packages/tools/areg/src/operations/project-agents.ts:57-79 - parseLegacyAregJsonAgents is a dedicated legacy-format parser (JSON areg.json) kept alongside the new TOML parser (parseSdlAregAgents), i.e. an alias/compat reader for the old config location, not a single-name reader.",
+    "ts/packages/tools/areg/src/operations/init.ts:34 - init.ts imports and re-exports parseLegacyAregJsonAgents alongside parseSdlAregAgents, confirming the legacy codepath is still wired into production flows (resolveProjectAgents call at init.ts:190), not just vestigial dead code.",
+    "ts/packages/tools/areg/test/unit/init-helpers.test.ts:6,32-40 - unit tests still exercise parseLegacyAregJsonAgents against areg.json JSON fixtures, confirming the legacy fallback is actively maintained and tested rather than removed."
+   ]
+  },
+  {
+   "invariant": "scope-untouched-baseline",
+   "pass": false,
+   "violations": [
+    "git grep -cIE 'src/sdl|/sdl/(commands|extension)' -- ts sums to 147, down from baseline 149 (decrease = violation)",
+    "ts/packages/kernel/README.md: removed '$XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions' replaced with '$XDG_DATA_HOME/ji/extensions < <cwd>/.ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+    "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts:30: removed '/home/tester/.local/share/sdl/extensions' replaced with '/home/tester/.local/share/ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+    "Corroborating over-rename evidence in same diff (outside the ts-restricted count but same pattern): ts/packages/sdl-capability-kit/test/git/git-gateway.test.ts changes '.sdl/objectives' to '.ji/objectives'; ts/packages/tools/areg/package.json changes JSON key \"sdl\": to \"ji\":; docs/sdl-exec/README.md renames multiple '.sdl/extensions/*' path literals to '.ji/extensions/*'"
+   ]
+  },
+  {
+   "invariant": "residual-dot-sdl",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts:27:\t...sdlExtensionParity,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:157:\tif (importerPackageMetadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:163:\tif (importedPackageMetadata?.sdlTier === \"neutral-infra\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:164:\tif (importedPackageMetadata?.sdlTier === \"capability-kit\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:166:\tif (importedPackageMetadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:22:\t\tif (metadata.sdlRemainder) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:26:\t\t\tif (belongsToDeclaredSubpackage(sourcePath, metadata.sdlSubpackages)) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:34:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:42:\treturn metadata.sdlSubpackages",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:60:\tconst declaredUnits = metadata.sdlSubpackages",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:26:\t\tif (metadata.sdlTier === undefined) {",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:39:\t\tconst fromTier = metadataByName.get(edge.from)?.sdlTier;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:40:\t\tconst toTier = metadataByName.get(edge.to)?.sdlTier;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:81:\tif (metadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:82:\tif (!metadata.sdlSubpackages.includes(\"pi\")) return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:79:\t\tif (metadata.sdlTier === undefined) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:86:\t\t\ttier: metadata.sdlTier,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:90:\t\tfor (const component of metadata.sdlSubpackages) {",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:99:\t\t\t\ttier: metadata.sdlTier,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:439:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748:\t\texpect(coreMetadata.sdlSubpackages).toContain(\"time\");",
+    "ts/packages/kernel/src/extensions/command-registry.ts:261:\t...sdlExtensionCommandEntryIssueFields.map(",
+    "ts/packages/tools/areg/src/fake-gateways.ts:135:\t\t\t[\"ji.toml\", normalizeTextFileState(options.sdlToml ?? { type: \"missing\" })],",
+    "ts/packages/tools/areg/src/operations/init.ts:192:\t\tsdlToml: inspection.sdlToml,",
+    "ts/packages/tools/areg/src/operations/init.ts:304:\tconst sdl = planSdlToml(inspection.sdlToml, options.agents);",
+    "ts/packages/tools/areg/src/operations/project-agents.ts:16:\tconst sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);",
+    "ts/packages/tools/areg/src/operations/update-skills.ts:73:\t\tsdlToml: inspection.sdlToml,",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:19: mentions '.sdl/objectives/pr-address-*' record reference",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '.sdl/objectives/pr-address-*' kept reference"
+   ]
+  },
+  {
+   "invariant": "residual-namespace",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts:98-117: literal old-namespace command name strings match `sdl:[a-z]` pattern, e.g. line 98 `\"sdl:changes\",`, line 108 `\"sdl:flow:changes\",`, line 116 `\"sdl:flow:push\",`, line 117 `\"sdl:flow:pull-trunk\",` (the file is not under any excluded path: .ji/objectives, .ji/objective-archive, or docs/adr, so `git grep -nIE '(^|[/\"`[:space:]])sdl:[a-z]' -- . ...` is NOT empty as required)",
+    "git ls-files shows the file itself is still named ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts (imports ../../src/pi/sdl-extension.ts) \u2014 the 'sdl-extension' naming persists in src and test file paths, though .pi/extensions/sdl.ts is correctly absent and .pi/extensions/ji.ts is present as required"
+   ]
+  },
+  {
+   "invariant": "residual-bin-argv",
+   "pass": false,
+   "violations": [
+    "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
+    "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
+    "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
+    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+   ]
+  },
+  {
+   "invariant": "residual-command-instructions",
+   "pass": false,
+   "violations": [
+    "CONTEXT-MAP.md:92 \u2014 uses stale old-CLI form `sdl slot gt` (\"distinguish `@sdl/capability-kit/graphite` as the support package for Graphite command adapters/facts, `sdl slot gt` as the slot-owned command surface...\") while the same file's own sibling entries at CONTEXT-MAP.md:30 and CONTEXT-MAP.md:66 already use the corrected form `ji slot gt` for the identical command surface, and AGENTS.md:80 / docs/graphite-dependency-boundary.md also refer to it as `slot gt`/`ji slot gt`. This is a residual instruction naming the pre-rename CLI invocation for a live subcommand."
+   ]
+  },
+  {
+   "invariant": "residual-xdg-namespace",
+   "pass": false,
+   "violations": [
+    "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts:50: canonicalCheckout: \"/tmp/sdl\", \u2014 matches (tmp)(/)sdl( or end) pattern, not covered by the stated exclusions (not in enriched-plan tool-contract strings, not the /Users/me/.local/state/sdl/slots fixture family, not docs/xdg-base-directory-spec.md, not ~/.sdl prose)"
+   ]
+  },
+  {
+   "invariant": "residual-machine-keys",
+   "pass": false,
+   "violations": [
+    "ts/packages/hosts/pi/src/commands/surfaces.ts:83 \u2014 `\"sdl-cli-design\",` matches the required-empty regex `git grep -nE '\"sdl-(command|cli|harness|pi-cli)' -- ts .pi`; this command is not empty as the invariant requires (only hit found, but it is a real hit).",
+    "Related un-renamed brand-prefixed literals surfaced by the broader sweep in the same file, none of which fall into the stated survivor categories (package name / repo name / mkdtemp prefix): ts/packages/hosts/pi/src/commands/surfaces.ts:84 `\"sdl-flow-submit\",`, :85 `\"sdl-typescript-style-tripwire\",`, and :121 `\"sdl-flow-submit\": \"ji:flow:submit\",` \u2014 no corresponding `ji-cli-design`/`ji-flow-submit`/`ji-typescript-style-tripwire` replacement exists anywhere in the tree (confirmed via `git grep -n 'ji-cli-design\\|ji-flow-submit\\|ji-typescript-style-tripwire'` returning nothing), so these old sdl-branded skill/surface names were never migrated.",
+    "Same un-renamed brand name recurs outside surfaces.ts: ts/packages/capabilities/roaster/test/unit/review-definition.test.ts:56 `name: \"sdl-typescript-style-tripwire\",` and ts/packages/local/pi-tools/test/pr-previews/pr-preview-feedback-view.test.ts:128 `review: \"sdl-typescript-style\",` \u2014 these still literally name the product brand and are not package names, the repo name, or mkdtemp prefixes, so per the sweep's survivor rule they should not survive.",
+    "Positive confirmation (not a violation, included for completeness): the specific ji-* replacements ARE present and consistent in the five listed test files (handoff-test-fakes.ts:95/101/105, flow sdl-extension.test.ts:46/51/55, code-workflows.test.ts:28/33, cli-command-extension.test.ts:93/104/108/314/1104/1106/1144/1175/1186, just-fix.test.ts:204/209/210, harness-session.test.ts:102/123), the corresponding source literals in ts/packages/hosts/pi/src/commands/ack.ts, cli-command-live-progress.ts, cli-command-trace.ts, cli-extension.ts, and kit/sessions/harness-session.ts all use `ji-*`, no `@@SDL_` tokens remain, and TOKEN_PREFIX in ts/scripts/render-cli-shim-core.ts (`@@JI_`) matches the placeholders in ts/scripts/source-cli-shim-template and the justfile's JI_TOOL/JI_TEMPLATE/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_OUTPUT variable names \u2014 these portions of the invariant hold cleanly, but the surfaces.ts residue above still fails the overall invariant."
+   ]
+  },
+  {
+   "invariant": "residual-env-vars",
+   "pass": false,
+   "violations": [
+    "git grep -nE 'SDL_[A-Z]' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr' returns 63 matches, not empty, so the literal invariant command fails even though no residual SDL_* env-var STRING VALUES remain (verified separately) and all example env vars in the invariant text (SDL_CHECKPOINT_MODEL, SDL_DEV_*, SDL_SLUG_MODEL, SDL_SUBMIT_FAILURE_MODEL, SDL_CCC_SIDEBAR_MODEL, SDL_PI_CLI_TRACE*, SDL_TS_BAN_*, justfile SDL_TOOL/SDL_CANONICAL_CHECKOUT/SDL_CLI_REL_PATH/SDL_INSTALL_HINT/SDL_TEMPLATE/SDL_OUTPUT) are correctly renamed to JI_* with matching reader/writer names.",
+    "ts/packages/capabilities/aretro/src/payloads/root.ts:11-53 \u2014 identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV still use the SDL_ prefix (values are already JI_PAYLOAD_ROOT / JI_PAYLOAD_SESSION_ID, so only the const identifier name, not the env-var value, retains SDL_).",
+    "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts:7 and callers (test/unit/api.test.ts:9,102,128; test/unit/cd-directive.test.ts:5,68) \u2014 const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\" keeps an SDL_-prefixed identifier name.",
+    "ts/packages/kernel/src/extensions/command-registry.ts:54-55, discovery.ts (multiple lines), registry.ts (multiple lines) \u2014 SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE identifiers retain the SDL_ prefix.",
+    "ts/packages/kernel/src/runtime/module-loader.ts:28-142 \u2014 SDL_SDK_DIR, SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS, SDL_COMMAND_EXPORT_PREFIX identifiers retain the SDL_ prefix.",
+    "ts/packages/kernel/src/cli/index.ts:434-618 \u2014 SDL_EXEC_GROUP_NAME, SDL_BUILT_IN_HELP_GROUP, SDL_EXTENSION_HELP_GROUP, SDL_EXEC_COMMAND_PREFIX identifiers retain the SDL_ prefix.",
+    "ts/packages/capabilities/flow/src/pi/sdl-extension.ts:27-77 \u2014 SDL_FLOW_COMMANDS identifier retains the SDL_ prefix.",
+    "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts:12,111 \u2014 SDL_DIRNAME identifier retains the SDL_ prefix.",
+    "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts:12-142 \u2014 SDL_PACKAGE_ROOT, SDL_EXPORT_IMPORTS identifiers retain the SDL_ prefix.",
+    "ts/packages/sdl-capability-kit/test/graphite/integration/status.test.ts:17,72 \u2014 CURRENT_SDL_TOOLS_METADATA_FIXTURE retains SDL in the name.",
+    "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts:69 \u2014 const env = { SDL_TEST: \"1\" } uses an SDL_-prefixed fixture value matching the banned pattern."
+   ]
+  }
+ ],
+ "simple": [
+  {
+   "file": ".ji/objectives/cross-harness-parity/parity-table.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "| `/sdl:flow:submit`               | Submit a Graphite stack         | `sdl flow submit`",
+     "after": "| `/ji:flow:submit`               | Submit a Graphite stack         | `ji flow submit`"
+    },
+    {
+     "before": "use `/sdl:flow:submit` / `sdl flow submit` instead.",
+     "after": "use `/ji:flow:submit` / `ji flow submit` instead."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/AGENTS.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "surfaced both as CLIs (`sdl`, `slot`, `brmem`, \u2026) and as Pi `/sdl:*` slash-commands.",
+     "after": "surfaced both as CLIs (`ji`, `slot`, `brmem`, \u2026) and as Pi `/ji:*` slash-commands."
+    },
+    {
+     "before": "or a consumer instance (a `.sdl/*` artifact), read",
+     "after": "or a consumer instance (a `.ji/*` artifact), read"
+    },
+    {
+     "before": "    sdl objective exec load-orientations --format md",
+     "after": "    ji objective exec load-orientations --format md"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/CONTEXT-MAP.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Package tiers are declared in `package.json` as `sdl.tier`",
+     "after": "Package tiers are declared in `package.json` as `ji.tier`"
+    },
+    {
+     "before": "the `sdl handoff ...` Command Face, the `@sdl/handoff/api`",
+     "after": "the `ji handoff ...` Command Face, the `@sdl/handoff/api`"
+    },
+    {
+     "before": "around `sdl address exec ...` / `@sdl/address/api`",
+     "after": "around `ji address exec ...` / `@sdl/address/api`"
+    },
+    {
+     "before": "the canonical `sdl objective` command surface (`archive`/`check`/`list`), hidden `sdl objective exec` skill/agent fact helpers, checkout-local `sdl objective list`",
+     "after": "the canonical `ji objective` command surface (`archive`/`check`/`list`), hidden `ji objective exec` skill/agent fact helpers, checkout-local `ji objective list`"
+    },
+    {
+     "before": "the `sdl slot ...` command surface, the `@sdl/slot/api` Capability API, checkout side-effect policy, SDL-owned parent-shell navigation/shell mounts, and `sdl slot gt` command",
+     "after": "the `ji slot ...` command surface, the `@sdl/slot/api` Capability API, checkout side-effect policy, SDL-owned parent-shell navigation/shell mounts, and `ji slot gt` command"
+    },
+    {
+     "before": "the `sdl flow ...` command face, `sdl-flow/api`",
+     "after": "the `ji flow ...` command face, `sdl-flow/api`"
+    },
+    {
+     "before": "/sdl:flow:*`, `code:gt-restack-resolve`",
+     "after": "/ji:flow:*`, `code:gt-restack-resolve`"
+    },
+    {
+     "before": "through the `sdl handoff ...` Command Face while presenting",
+     "after": "through the `ji handoff ...` Command Face while presenting"
+    },
+    {
+     "before": "and the `sdl slot gt` command surface while asking `@sdl/capability-kit/graphite` for Graphite stack/navigation facts; Slot exposes in-process checkout composition through `@sdl/slot/api`, while SDL owns `sdl shell ...` and the compatibility `sdl slot shell ...`",
+     "after": "and the `ji slot gt` command surface while asking `@sdl/capability-kit/graphite` for Graphite stack/navigation facts; Slot exposes in-process checkout composition through `@sdl/slot/api`, while SDL owns `ji shell ...` and the compatibility `ji slot shell ...`"
+    },
+    {
+     "before": "through the `sdl aretro exec ...` command face and leaves",
+     "after": "through the `ji aretro exec ...` command face and leaves"
+    },
+    {
+     "before": "runtime CLI bridging over `sdl`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`, and related repo commands. Flow/Code workflow Pi presentation lives in `@sdl/flow-pi`, which consumes neutral `@sdl/pi/...` helpers and is imported directly by `.pi/extensions/*` adapters. Handoff, Branch Context + Plans, and Objective are thin Pi shells over `@sdl/handoff/api`, `@sdl/branch-context/api` + `@sdl/plans/api`, and `@sdl/objective/api`; PR download/editor-prefill/watch behavior remains Pi presentation/session residue around Address portable collection and mutation behavior (`sdl address exec ...`",
+     "after": "runtime CLI bridging over `ji`, `git`/`gt`/`gh`, `brmem`, `objective`, `slot`, and related repo commands. Flow/Code workflow Pi presentation lives in `@sdl/flow-pi`, which consumes neutral `@sdl/pi/...` helpers and is imported directly by `.pi/extensions/*` adapters. Handoff, Branch Context + Plans, and Objective are thin Pi shells over `@sdl/handoff/api`, `@sdl/branch-context/api` + `@sdl/plans/api`, and `@sdl/objective/api`; PR download/editor-prefill/watch behavior remains Pi presentation/session residue around Address portable collection and mutation behavior (`ji address exec ...`"
+    },
+    {
+     "before": "Pi runtime extensions mirror SDL commands as `/sdl:*` through",
+     "after": "Pi runtime extensions mirror SDL commands as `/ji:*` through"
+    },
+    {
+     "before": "such as `/objective:stack-impl`, `/sdl:flow:autobranch`, and `/sdl:flow:land`,",
+     "after": "such as `/objective:stack-impl`, `/ji:flow:autobranch`, and `/ji:flow:land`,"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/CONTEXT.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "The checked-in repository directory `.sdl/objectives/`",
+     "after": "The checked-in repository directory `.ji/objectives/`"
+    },
+    {
+     "before": "The checked-in repository directory `.sdl/objective-archive/`",
+     "after": "The checked-in repository directory `.ji/objective-archive/`"
+    },
+    {
+     "before": "stored in its `package.json` at `sdl.tier`",
+     "after": "stored in its `package.json` at `ji.tier`"
+    },
+    {
+     "before": "declared in the package manifest at `sdl.subpackages`,",
+     "after": "declared in the package manifest at `ji.subpackages`,"
+    },
+    {
+     "before": "enabled by `sdl.remainder: true`;",
+     "after": "enabled by `ji.remainder: true`;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/adr/0005-additive-plan-vocabulary.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "sdl plan management grew up branch-first: the `plans` store, `planned-branch create`, and `planned-branch impl` frame sdl as a plan *system*",
+     "after": "ji plan management grew up branch-first: the `plans` store, `planned-branch create`, and `planned-branch impl` frame ji as a plan *system*"
+    },
+    {
+     "before": "the two concepts central to sdl \u2014 plan-attached-to-branch and plan enrichment",
+     "after": "the two concepts central to ji \u2014 plan-attached-to-branch and plan enrichment"
+    },
+    {
+     "before": "An **enriched plan** is any plan saved into sdl. Saving is the minimal enrichment: the plan gains sdl's layered-on context",
+     "after": "An **enriched plan** is any plan saved into ji. Saving is the minimal enrichment: the plan gains ji's layered-on context"
+    },
+    {
+     "before": "an enriched plan is that same plan inside sdl. sdl's surfaces never claim the bare noun \"plan\"",
+     "after": "an enriched plan is that same plan inside ji. ji's surfaces never claim the bare noun \"plan\""
+    },
+    {
+     "before": "Pi `/sdl:plan:save`, `/sdl:plan:grill-and-save`",
+     "after": "Pi `/ji:plan:save`, `/ji:plan:grill-and-save`"
+    },
+    {
+     "before": "The local store re-keys from `~/.sdl/planned-branch/plans/<repo>/<branch>/`",
+     "after": "The local store re-keys from `~/.ji/planned-branch/plans/<repo>/<branch>/`"
+    },
+    {
+     "before": "`sdl branch-context exec load` for deterministic agents and `/sdl:branch-context:impl-attached-plan`",
+     "after": "`ji branch-context exec load` for deterministic agents and `/ji:branch-context:impl-attached-plan`"
+    },
+    {
+     "before": "The prompt backing `/sdl:plan:save` keeps the name `plans-write` because it is a runtime contract with `.sdl/prompts/plans-write.md`",
+     "after": "The prompt backing `/ji:plan:save` keeps the name `plans-write` because it is a runtime contract with `.ji/prompts/plans-write.md`"
+    },
+    {
+     "before": "`enriched-plan` makes sdl's artifact unmistakable",
+     "after": "`enriched-plan` makes ji's artifact unmistakable"
+    },
+    {
+     "before": "the narrower definition created a vanilla-vs-enriched split inside sdl and misdescribed",
+     "after": "the narrower definition created a vanilla-vs-enriched split inside ji and misdescribed"
+    },
+    {
+     "before": "also less accurate than \"enriched\" about what sdl adds",
+     "after": "also less accurate than \"enriched\" about what ji adds"
+    },
+    {
+     "before": "**task / workflow / spec as sdl-distinctive terms:**",
+     "after": "**task / workflow / spec as ji-distinctive terms:**"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/pi/branch-context-workflow.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "$XDG_STATE_HOME/sdl/enriched-plan/",
+     "after": "$XDG_STATE_HOME/ji/enriched-plan/"
+    },
+    {
+     "before": "$HOME/.local/state/sdl/enriched-plan/",
+     "after": "$HOME/.local/state/ji/enriched-plan/"
+    },
+    {
+     "before": "/sdl:plan:save",
+     "after": "/ji:plan:save"
+    },
+    {
+     "before": "/sdl:plan:grill-and-save",
+     "after": "/ji:plan:grill-and-save"
+    },
+    {
+     "before": "/sdl:branch-context:from-plan",
+     "after": "/ji:branch-context:from-plan"
+    },
+    {
+     "before": "sdl branch-context exec from-plan",
+     "after": "ji branch-context exec from-plan"
+    },
+    {
+     "before": "/sdl:branch-context:impl-attached-plan",
+     "after": "/ji:branch-context:impl-attached-plan"
+    },
+    {
+     "before": "sdl branch-context exec load",
+     "after": "ji branch-context exec load"
+    },
+    {
+     "before": "/sdl:branch-context:upstack-impl-from-plan",
+     "after": "/ji:branch-context:upstack-impl-from-plan"
+    },
+    {
+     "before": ".sdl/prompts/plans-write.md",
+     "after": ".ji/prompts/plans-write.md"
+    },
+    {
+     "before": "~/.sdl/enriched-plan/",
+     "after": "~/.ji/enriched-plan/"
+    },
+    {
+     "before": "sdl branch-context exec attach",
+     "after": "ji branch-context exec attach"
+    },
+    {
+     "before": "sdl branch-context exec list",
+     "after": "ji branch-context exec list"
+    },
+    {
+     "before": "sdl branch-context exec check",
+     "after": "ji branch-context exec check"
+    },
+    {
+     "before": "sdl branch-context exec delete",
+     "after": "ji branch-context exec delete"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/subpackage-conventions.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "declaring or renaming entries in `sdl.subpackages`,",
+     "after": "declaring or renaming entries in `ji.subpackages`,"
+    },
+    {
+     "before": "declare it in `sdl.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage). A container package mid-conversion may declare `sdl.remainder: true` per ADR 0022;",
+     "after": "declare it in `ji.subpackages`, and keep every `exports` subpath resolving inside a declared subpackage (multiple export subpaths may belong to one subpackage). A container package mid-conversion may declare `ji.remainder: true` per ADR 0022;"
+    },
+    {
+     "before": "4. Update `sdl.subpackages` and the `exports` map together;",
+     "after": "4. Update `ji.subpackages` and the `exports` map together;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/xdg-base-directory-spec.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "ASDL's design principle",
+     "after": "JI's design principle"
+    },
+    {
+     "before": "Current SDL-owned roots use these conventions:\n\n- Saved/enriched plans: `$XDG_STATE_HOME/sdl/enriched-plan` (default `$HOME/.local/state/sdl/enriched-plan`).\n- Slot worktree pools: `$XDG_STATE_HOME/sdl/slots` (default `$HOME/.local/state/sdl/slots`).\n- SDL global extensions: `$XDG_DATA_HOME/sdl/extensions` (default `$HOME/.local/share/sdl/extensions`).\n- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/sdl/brmem/prompts` (default `$HOME/.config/sdl/brmem/prompts`).\n- Submit raw failure logs and SDL Pi CLI trace logs: `$XDG_STATE_HOME/sdl/...` unless their explicit SDL-specific overrides are set.",
+     "after": "Current JI-owned roots use these conventions:\n\n- Saved/enriched plans: `$XDG_STATE_HOME/ji/enriched-plan` (default `$HOME/.local/state/ji/enriched-plan`).\n- Slot worktree pools: `$XDG_STATE_HOME/ji/slots` (default `$HOME/.local/state/ji/slots`).\n- JI global extensions: `$XDG_DATA_HOME/ji/extensions` (default `$HOME/.local/share/ji/extensions`).\n- Branch Memory global prompt templates: `$XDG_CONFIG_HOME/ji/brmem/prompts` (default `$HOME/.config/ji/brmem/prompts`).\n- Submit raw failure logs and JI Pi CLI trace logs: `$XDG_STATE_HOME/ji/...` unless their explicit JI-specific overrides are set."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/branch-retro/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "Collects deterministic evidence with `sdl aretro exec collect-evidence`",
+     "after": "Collects deterministic evidence with `ji aretro exec collect-evidence`"
+    },
+    {
+     "before": "  - \"Bash(sdl aretro exec collect-evidence*)\"\n  - \"Bash(sdl aretro exec read-evidence-detail*)\"\n  - \"Bash(git status*)\"\n  - \"Bash(git branch*)\"\n  - \"Bash(git rev-parse*)\"\n  - \"Bash(command -v sdl*)\"",
+     "after": "  - \"Bash(ji aretro exec collect-evidence*)\"\n  - \"Bash(ji aretro exec read-evidence-detail*)\"\n  - \"Bash(git status*)\"\n  - \"Bash(git branch*)\"\n  - \"Bash(git rev-parse*)\"\n  - \"Bash(command -v ji*)\""
+    },
+    {
+     "before": "The skill collects\nfactual evidence with `sdl aretro`, then uses model judgment",
+     "after": "The skill collects\nfactual evidence with `ji aretro`, then uses model judgment"
+    },
+    {
+     "before": "The command boundary is `sdl aretro exec collect-evidence` for compact evidence and\n`sdl aretro exec read-evidence-detail`",
+     "after": "The command boundary is `ji aretro exec collect-evidence` for compact evidence and\n`ji aretro exec read-evidence-detail`"
+    },
+    {
+     "before": "1. Verify `command -v sdl` succeeds in an SDL checkout",
+     "after": "1. Verify `command -v ji` succeeds in an SDL checkout"
+    },
+    {
+     "before": "5. If `sdl` is unavailable, not in a git repository,",
+     "after": "5. If `ji` is unavailable, not in a git repository,"
+    },
+    {
+     "before": "```bash\nsdl aretro exec collect-evidence \\",
+     "after": "```bash\nji aretro exec collect-evidence \\"
+    },
+    {
+     "before": "configured/default sdl temp payload root",
+     "after": "configured/default ji temp payload root"
+    },
+    {
+     "before": "```bash\nsdl aretro exec read-evidence-detail \\",
+     "after": "```bash\nji aretro exec read-evidence-detail \\"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/code-autobranch/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "description: \"Create a Graphite branch from dirty worktree changes or the latest unpushed commit by delegating to `sdl autobranch`.\"",
+     "after": "description: \"Create a Graphite branch from dirty worktree changes or the latest unpushed commit by delegating to `ji autobranch`.\""
+    },
+    {
+     "before": "allowed-tools:\n  - \"Bash(sdl autobranch*)\"",
+     "after": "allowed-tools:\n  - \"Bash(ji autobranch*)\""
+    },
+    {
+     "before": "Create a Graphite branch from current work by delegating to the public `sdl autobranch` CLI. This is the cross-harness skill path corresponding to Pi `/sdl:autobranch`;",
+     "after": "Create a Graphite branch from current work by delegating to the public `ji autobranch` CLI. This is the cross-harness skill path corresponding to Pi `/ji:flow:autobranch`;"
+    },
+    {
+     "before": "Run:\n\n```bash\nsdl autobranch\n```",
+     "after": "Run:\n\n```bash\nji autobranch\n```"
+    },
+    {
+     "before": "With an explicit branch slug:\n\n```bash\nsdl autobranch --slug <slug>\n```",
+     "after": "With an explicit branch slug:\n\n```bash\nji autobranch --slug <slug>\n```"
+    },
+    {
+     "before": "Branch slug derivation uses the SDL slug model contract and `SDL_SLUG_MODEL`. Checkpoint message generation uses SDL checkpoint text-generation settings, including `SDL_CHECKPOINT_MODEL` with legacy `SDL_DEV_CHECKPOINT_MODEL` fallback.",
+     "after": "Branch slug derivation uses the JI slug model contract and `JI_SLUG_MODEL`. Checkpoint message generation uses JI checkpoint text-generation settings, including `JI_CHECKPOINT_MODEL` with legacy `JI_DEV_CHECKPOINT_MODEL` fallback."
+    },
+    {
+     "before": "If `sdl autobranch` fails, surface its output and stop.",
+     "after": "If `ji autobranch` fails, surface its output and stop."
+    },
+    {
+     "before": "- Pi may add notification/status UX, but the public command boundary is `sdl autobranch` / `/sdl:autobranch`.",
+     "after": "- Pi may add notification/status UX, but the public command boundary is `ji autobranch` / `/ji:flow:autobranch`."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/code-checkpoint/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "allowed-tools:\n  - \"Bash(sdl cp*)\"",
+     "after": "allowed-tools:\n  - \"Bash(ji cp*)\""
+    },
+    {
+     "before": "Create a quick checkpoint commit for the current git diff by delegating to the shared `sdl cp` CLI. This is the cross-harness path for `/sdl:cp` and `/sdl:code:checkpoint`",
+     "after": "Create a quick checkpoint commit for the current git diff by delegating to the shared `ji cp` CLI. This is the cross-harness path for `/ji:flow:cp` and `/ji:code:checkpoint`"
+    },
+    {
+     "before": "```bash\nsdl cp\n```",
+     "after": "```bash\nji cp\n```"
+    },
+    {
+     "before": "- `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;\n- `SDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.",
+     "after": "- `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;\n- `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset."
+    },
+    {
+     "before": "If `sdl cp` fails, surface its stderr/stdout and stop.",
+     "after": "If `ji cp` fails, surface its stderr/stdout and stop."
+    },
+    {
+     "before": "- Never hand-roll the checkpoint commit when `sdl cp` is available.",
+     "after": "- Never hand-roll the checkpoint commit when `ji cp` is available."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/code-just-the-stack/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "  - \"Bash(sdl flow cp*)\"",
+     "after": "  - \"Bash(ji flow cp*)\""
+    },
+    {
+     "before": "- For separate fix commits, use `sdl flow cp`; do not hand-roll checkpoint commits",
+     "after": "- For separate fix commits, use `ji flow cp`; do not hand-roll checkpoint commits"
+    },
+    {
+     "before": "   - When a branch required edits and now passes, run `sdl flow cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `sdl flow cp` refuses because the worktree is clean",
+     "after": "   - When a branch required edits and now passes, run `ji flow cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `ji flow cp` refuses because the worktree is clean"
+    },
+    {
+     "before": "   - If restack fails because an in-scope branch is checked out in another slot, ask before running `sdl slot gt free-stack`.",
+     "after": "   - If restack fails because an in-scope branch is checked out in another slot, ask before running `ji slot gt free-stack`."
+    },
+    {
+     "before": "- any `sdl flow cp` commit summaries;",
+     "after": "- any `ji flow cp` commit summaries;"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/handoff-create/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "  - \"Bash(sdl handoff *)\"",
+     "after": "  - \"Bash(ji handoff *)\""
+    },
+    {
+     "before": "Store the final artifact directly through the portable SDL command face without an intermediate file.",
+     "after": "Store the final artifact directly through the portable JI command face without an intermediate file."
+    },
+    {
+     "before": "sdl handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'",
+     "after": "ji handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'"
+    },
+    {
+     "before": "`sdl handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.\n\nRaw `brmem` is recovery-only. If `sdl handoff create` is unavailable or a storage-layer diagnostic requires it,",
+     "after": "`ji handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.\n\nRaw `brmem` is recovery-only. If `ji handoff create` is unavailable or a storage-layer diagnostic requires it,"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/handoff-pickup/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "  - \"Bash(sdl handoff *)\"",
+     "after": "  - \"Bash(ji handoff *)\""
+    },
+    {
+     "before": "```bash\nsdl handoff list --format json\n```\n\nExplicit branch:\n\n```bash\nsdl handoff list --branch <branch> --format json\n```\n\nAll active local branches:\n\n```bash\nsdl handoff list --all --format json\n```\n\nAll branch states, including deleted local branches:\n\n```bash\nsdl handoff list --all --include-deleted --format json\n```",
+     "after": "```bash\nji handoff list --format json\n```\n\nExplicit branch:\n\n```bash\nji handoff list --branch <branch> --format json\n```\n\nAll active local branches:\n\n```bash\nji handoff list --all --format json\n```\n\nAll branch states, including deleted local branches:\n\n```bash\nji handoff list --all --include-deleted --format json\n```"
+    },
+    {
+     "before": "For explicit removal of one stale or unneeded handoff, use `sdl handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `sdl handoff gc` for bulk cleanup of handoffs on deleted local branches.",
+     "after": "For explicit removal of one stale or unneeded handoff, use `ji handoff delete [--branch <branch>] [--yes] <slug>` with the user-facing slug (no `.md`). Use `ji handoff gc` for bulk cleanup of handoffs on deleted local branches."
+    },
+    {
+     "before": "```bash\nsdl handoff pickup <semantic-slug> --branch <branch> --format json\n```",
+     "after": "```bash\nji handoff pickup <semantic-slug> --branch <branch> --format json\n```"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/skills/sdl-flow-submit/SKILL.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "allowed-tools:\n  - \"Bash(sdl flow submit*)\"",
+     "after": "allowed-tools:\n  - \"Bash(ji flow submit*)\""
+    },
+    {
+     "before": "Submit or update the current Graphite stack by delegating to the repo-local `sdl flow submit` command. This is the cross-harness path for `/sdl:flow:submit`",
+     "after": "Submit or update the current Graphite stack by delegating to the repo-local `ji flow submit` command. This is the cross-harness path for `/ji:flow:submit`"
+    },
+    {
+     "before": "```bash\nsdl flow submit\n```",
+     "after": "```bash\nji flow submit\n```"
+    },
+    {
+     "before": "- if the worktree is dirty, first creates a checkpoint with `sdl flow cp`;",
+     "after": "- if the worktree is dirty, first creates a checkpoint with `ji flow cp`;"
+    },
+    {
+     "before": "```bash\nsdl flow submit --restack\n```",
+     "after": "```bash\nji flow submit --restack\n```"
+    },
+    {
+     "before": "- `SDL_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;\n- `SDL_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `SDL_CHECKPOINT_MODEL` is unset.",
+     "after": "- `JI_CHECKPOINT_MODEL` defaults to `openai-codex/gpt-5.4-mini`;\n- `JI_DEV_CHECKPOINT_MODEL` remains a legacy fallback when `JI_CHECKPOINT_MODEL` is unset."
+    },
+    {
+     "before": "- `SDL_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;\n- `SDL_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;\n- `.sdl/prompts/pr-description.md` as the repo-local prompt override before the built-in default.",
+     "after": "- `JI_DEV_PR_DESCRIPTION_MODEL` for the model ref, defaulting to `openai-codex/gpt-5.4-mini`;\n- `JI_DEV_PR_DESCRIPTION_PROMPT` as an optional prompt-file override;\n- `.ji/prompts/pr-description.md` as the repo-local prompt override before the built-in default."
+    },
+    {
+     "before": "Submit failure interpretation uses `SDL_SUBMIT_FAILURE_MODEL`, defaulting to the standard SDL fast model.",
+     "after": "Submit failure interpretation uses `JI_SUBMIT_FAILURE_MODEL`, defaulting to the standard JI fast model."
+    },
+    {
+     "before": "```bash\nsdl flow regenerate-pr\n```",
+     "after": "```bash\nji flow regenerate-pr\n```"
+    },
+    {
+     "before": "`sdl flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `sdl flow regenerate-pr` asks before editing GitHub",
+     "after": "`ji flow submit` preserves unchanged generated descriptions by comparing the GitHub PR diff patch id, prompt hash, and generator version stored in the managed body region. Explicit `ji flow regenerate-pr` asks before editing GitHub"
+    },
+    {
+     "before": "- It edits PR titles/bodies through `sdl flow submit` or explicit `sdl flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved.",
+     "after": "- It edits PR titles/bodies through `ji flow submit` or explicit `ji flow regenerate-pr`; managed generated content is machine-owned, while human PR body text outside the managed region is preserved."
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/hosts/pi/src/core/pr/pr-stack-feedback-instructions.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "- After implementation and validation, close all confirmed automation review threads stack-wide with `sdl address exec close-review-threads",
+     "after": "- After implementation and validation, close all confirmed automation review threads stack-wide with `ji address exec close-review-threads"
+    },
+    {
+     "before": "- Use `sdl address exec close-review-threads",
+     "after": "- Use `ji address exec close-review-threads"
+    }
+   ],
+   "skipped": []
+  },
+  {
+   "file": "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/ts/packages/kernel/docs/sdk-reference.md",
+   "changed": true,
+   "replacements": [
+    {
+     "before": "- Single-file extensions under `.sdl/extensions/` are leaf modules.",
+     "after": "- Single-file extensions under `.ji/extensions/` are leaf modules."
+    },
+    {
+     "before": "Builds a descriptor for a checked-in `.sdl/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.sdl/extensions/*/package.json` manifests remain hand-authored",
+     "after": "Builds a descriptor for a checked-in `.ji/extensions/<group>/src/commands/<name>.ts` shim that re-exports a package-owned command module. The static `.ji/extensions/*/package.json` manifests remain hand-authored"
+    },
+    {
+     "before": "3. `.sdl/extensions/<group>/package.json` lists one manifest command entry per command leaf.\n4. `.sdl/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module.",
+     "after": "3. `.ji/extensions/<group>/package.json` lists one manifest command entry per command leaf.\n4. `.ji/extensions/<group>/src/commands/*.ts` contains only a one-line default re-export of the package command module."
+    },
+    {
+     "before": "Do not point multiple manifest command entries at a shared `.sdl/extensions/<group>/src/extension.ts` multiplexer",
+     "after": "Do not point multiple manifest command entries at a shared `.ji/extensions/<group>/src/extension.ts` multiplexer"
+    },
+    {
+     "before": "Direct extension entries appear as `sdl <name>`; manifest-grouped packages can present the same flat command name under a group such as `sdl flow <name>`.",
+     "after": "Direct extension entries appear as `ji <name>`; manifest-grouped packages can present the same flat command name under a group such as `ji flow <name>`."
+    },
+    {
+     "before": "- `summary` \u2014 required one-line text shown in `sdl --help`.\n- `description` \u2014 full help text shown in `sdl <cmd> --help`.",
+     "after": "- `summary` \u2014 required one-line text shown in `ji --help`.\n- `description` \u2014 full help text shown in `ji <cmd> --help`."
+    },
+    {
+     "before": "**Example.** Map the `slug` option to the first positional, so `sdl flow autobranch my-feature` fills it:",
+     "after": "**Example.** Map the `slug` option to the first positional, so `ji flow autobranch my-feature` fills it:"
+    },
+    {
+     "before": "SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `sdl`, and command-entry fields are accepted and preserved.",
+     "after": "SDL package manifests can describe command entries without loading extension code. The SDK exports permissive Zod schemas for the known author-facing `package.json` manifest shape; unknown package, `ji`, and command-entry fields are accepted and preserved."
+    },
+    {
+     "before": "Validates one known `sdl.commands[]` entry shape.",
+     "after": "Validates one known `ji.commands[]` entry shape."
+    },
+    {
+     "before": "Validate the known `sdl` object and package-level manifest wrapper.",
+     "after": "Validate the known `ji` object and package-level manifest wrapper."
+    },
+    {
+     "before": "```ts\nconst manifest = sdlExtensionPackageManifestSchema.parse({\n  description: \"Flow command package.\",\n  sdl: {",
+     "after": "```ts\nconst manifest = sdlExtensionPackageManifestSchema.parse({\n  description: \"Flow command package.\",\n  ji: {"
+    }
+   ],
+   "skipped": []
+  }
+ ],
+ "complex": [
+  {
+   "id": "cohort-skills-1",
+   "files": [
+    "skills/architecture-topology-report/references/HTML-REPORT.md",
+    "skills/architecture-topology-report/SKILL.md",
+    "skills/branch-context-from-plan/SKILL.md",
+    "skills/branch-context-impl/SKILL.md",
+    "skills/branch-context/references/diagnostics-admin.md",
+    "skills/branch-context/references/lifecycle.md",
+    "skills/branch-context/SKILL.md",
+    "skills/brmem/SKILL.md",
+    "skills/ccc-available-work/SKILL.md",
+    "skills/ccc-branch-triage/SKILL.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji brief across the cohort-skills-1 file set: renamed `sdl.tier` manifest-field prose to `ji.tier` (HTML-REPORT.md, architecture-topology-report/SKILL.md); renamed `/sdl:*` Pi command references and `sdl branch-context exec *` CLI invocation lines (from-plan/attach/list/check/delete/load/retarget-plan) to `/ji:*` and `ji branch-context exec *` across branch-context-from-plan, branch-context-impl, and branch-context (SKILL.md plus both references files); renamed `$XDG_STATE_HOME/sdl/enriched-plan/` and `$HOME/.local/state/sdl/enriched-plan/` path prose to the `ji` namespace in diagnostics-admin.md and lifecycle.md; renamed the \"SDL CLI commands\" prose reference to \"JI CLI commands\" in lifecycle.md; in brmem/SKILL.md renamed the `.sdl/prompts/...` frontmatter description reference and the `.sdl/prompts/`, `$XDG_CONFIG_HOME/sdl/brmem/prompts/`, `$HOME/.config/sdl/brmem/prompts/` path prose to `ji`; renamed `sdl slot gt exec stack-branches`, `sdl objective list`, and `sdl objective exec read-objective` CLI invocation lines to `ji \u2026` in ccc-available-work/SKILL.md and ccc-branch-triage/SKILL.md. Left untouched as confirmed survivors: `sdl-extension-architecture` (objective slug), `sdl-tools` (repo name), `@sdl/capability-kit` (`@sdl/*` specifier).",
+   "skipped": [
+    "skills/brmem/SKILL.md:10 \u2014 \"Do not reference sdl-internal module paths or class names in this file\": ambiguous whether \"sdl-internal\" is a brand-prose reference to rename (\u2192 ji-internal) or shorthand tied to the survivor `src/sdl/` path-segment/identifier category; left unchanged rather than guess.",
+    "skills/brmem/SKILL.md:45 and :54 \u2014 \"an sdl checkout\" / \"the enclosing sdl checkout\": ambiguous whether this means a checkout of the sdl-tools repo (survivor, since `sdl-tools` repo name is out-of-window) or a generic brand reference to the renamed CLI product; left unchanged rather than guess."
+   ]
+  },
+  {
+   "id": "cohort-skills-2",
+   "files": [
+    "skills/ccc-stack-map/references/display-and-code-sketch.md",
+    "skills/ccc-stack-map/SKILL.md",
+    "skills/code-gh/SKILL.md",
+    "skills/code-gt-restack-resolve/SKILL.md",
+    "skills/code-thermostack/SKILL.md",
+    "skills/code-workflows/references/delete-stack.md",
+    "skills/code-workflows/references/parity-review.md",
+    "skills/dignified-python-tripwire/SKILL.md",
+    "skills/enriched-plan-save/SKILL.md",
+    "skills/handoff/references/diagnostics-admin.md"
+   ],
+   "changed": true,
+   "summary": "Renamed sdl->ji per the shared brief across the 10 cohort-skills-2 files: CLI instruction lines (`sdl slot gt exec ...`, `sdl slot gt free-stack`, `sdl flow submit`, `sdl handoff ...`, `sdl roaster ...`, `sdl exec`) became `ji ...`; `.sdl/reviews/...` and `.sdl/objectives/...` paths became `.ji/...`; Pi namespaces `/sdl:plan:save`, `/sdl:plan:grill-and-save`, `/sdl:*`, `/sdl:code:*` became `/ji:...`; prose references to \"SDL command face\" / \"SDL commands\" became \"JI command face\" / \"JI commands\". Left untouched (correct survivors): the `sdl-tools` repo name and `master (sdl-tools)` display string in display-and-code-sketch.md, and the `ts/packages/pi-extensions/src/sdl-extension.ts` source filename in parity-review.md.",
+   "skipped": [
+    "None \u2014 every sdl occurrence in the assigned files fell clearly into either the rename set (CLI instructions, .sdl/ paths, /sdl: namespaces, 'SDL command' prose) or the explicit survivor set (sdl-tools repo name, sdl-extension.ts filename); no ambiguous cases required skipping."
+   ]
+  },
+  {
+   "id": "cohort-skills-3",
+   "files": [
+    "skills/handoff/references/lifecycle.md",
+    "skills/handoff/SKILL.md",
+    "skills/objective-close/SKILL.md",
+    "skills/objective-create/SKILL.md",
+    "skills/objective-next/SKILL.md",
+    "skills/objective-refresh/references/branch-scope.md",
+    "skills/objective-refresh/references/repo-scope.md",
+    "skills/objective-refresh/SKILL.md",
+    "skills/objective-review-briefing/SKILL.md",
+    "skills/objective-stack-impl/references/final-response.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief across all 10 assigned skill files: renamed `.sdl/objectives/`, `.sdl/objective-archive/` path references to `.ji/objectives/`, `.ji/objective-archive/`; renamed `sdl objective ...`, `sdl handoff ...`, and `sdl slot gt exec ...` CLI instruction lines to `ji objective ...`, `ji handoff ...`, `ji slot gt exec ...`; renamed the \"SDL command face:\" heading in lifecycle.md to \"JI command face:\"; and renamed the product-name prose \"an sdl Objective\" / \"one sdl Objective's\" in objective-review-briefing/SKILL.md to \"a ji Objective\" / \"one ji Objective's\" (with the article corrected from \"an\" to \"a\" since \"ji\" no longer starts with a vowel sound). Left all `@sdl/*` specifiers, skill directory names (none appeared), and the `sdl-tools` repo name untouched (none were present in these files) \u2014 no survivors needed explicit preservation edits since only sdl-instruction-line and .sdl/ path forms appeared. Final grep across all 10 files confirms zero remaining case-insensitive `sdl` occurrences.",
+   "skipped": []
+  },
+  {
+   "id": "cohort-skills-4",
+   "files": [
+    "skills/objective-stack-impl/SKILL.md",
+    "skills/objective-update/SKILL.md",
+    "skills/objective/references/standing-objectives.md",
+    "skills/objective/SKILL.md",
+    "skills/pr-address/references/cli-collection.md",
+    "skills/pr-address/references/cli-reference.md",
+    "skills/pr-address/SKILL.md",
+    "skills/reinvented-abstractions-tripwire/SKILL.md",
+    "skills/roast-dry-but-not-too-dry/SKILL.md",
+    "skills/roast-improve-codebase-architecture/SKILL.md"
+   ],
+   "changed": true,
+   "summary": "Renamed all product-name `sdl` occurrences to `ji` across the 10 assigned skill files: CLI invocation prose (`sdl objective list` -> `ji objective list`, `sdl address exec ...` -> `ji address exec ...`, `sdl roaster review run/exec ...` -> `ji roaster ...`, `sdl slot gt exec stack-branches` -> `ji slot gt exec stack-branches`, `sdl objective exec ...` -> `ji objective exec ...`, `sdl objective archive ...` -> `ji objective archive ...`), repo-state paths (`.sdl/objectives/`, `.sdl/objective-archive/`, `.sdl/reviews/...`) -> `.ji/...`, frontmatter/description prose (\"sdl Objectives\" -> \"ji Objectives\", \"using sdl address exec\" -> \"using ji address exec\"), and the uppercase brand reference \"the same SDL command face above\" -> \"the same JI command face above\" in the three roast/tripwire skills. Left the `/objective:stack-impl` Pi picker namespace untouched (not an `/sdl:` namespace) and did not touch any skill directory names, `@sdl/*` specifiers, or other survivor forms per the brief.",
+   "skipped": []
+  },
+  {
+   "id": "cohort-skills-5",
+   "files": [
+    "skills/roast-thermonuclear-review/SKILL.md",
+    "skills/sdl-cli-design/references/agent-exec-tier.md",
+    "skills/sdl-cli-design/references/checklist.md",
+    "skills/sdl-cli-design/references/clinkr-api-map.md",
+    "skills/sdl-cli-design/references/danger-tiers.md",
+    "skills/sdl-cli-design/SKILL.md",
+    "skills/sdl-typescript-style-tripwire/SKILL.md",
+    "skills/sdl-typescript/SKILL.md",
+    "skills/typescript-style/checklist.md",
+    "skills/typescript-style/core-rules.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji content-only rename across all 10 skills-cohort files: `.sdl/` review/objective paths -> `.ji/`; `sdl roaster ...` / `sdl address exec ...` / `sdl shell install` / `sdl handoff delete|gc` CLI invocations -> `ji ...`; the `SDL_TS_BAN_*` style-guard names -> `JI_TS_BAN_*` (agent-exec-tier, clinkr-api-map, sdl-cli-design/SKILL.md, sdl-typescript/SKILL.md, typescript-style/checklist.md, typescript-style/core-rules.md); the dotted manifest-field key `\"sdl.clinkr.caps\"` -> `\"ji.clinkr.caps\"`; and generic product-name prose not tied to any preserved identifier (\\\"SDL-owned contracts\\\" -> \\\"JI-owned\\\", \\\"SDL command face\\\" -> \\\"JI command face\\\", \\\"an/every sdl CLI command\\\" -> \\\"a/every ji CLI command\\\" with article fix, \\\"sdl's exactOptionalPropertyTypes contract\\\" -> \\\"ji's\\\", \\\"In SDL,\\\" -> \\\"In JI,\\\", \\\"Production SDL TypeScript\\\" -> \\\"Production JI TypeScript\\\"). Left untouched all explicit survivors: `@sdl/*` package-scope imports, `sdl-tools` repo name, skill directory names (`sdl-cli-design`, `sdl-typescript`, `sdl-typescript-style-tripwire`), the `sdl-typescript-style-tripwire` review-key slug embedded in paths/commands, and the `SdlExtensionApi` TS identifier.",
+   "skipped": [
+    "skills/sdl-typescript-style-tripwire/SKILL.md:4 and :7 - the human-readable title \"SDL TypeScript style Tripwire\" / \"# Tripwire: SDL TypeScript style\" morphologically mirrors the preserved review-slug identifier `sdl-typescript-style-tripwire` (an explicit DO-NOT-TOUCH skill-directory/slug survivor used unrenamed elsewhere in the same file); renaming only the prose \"SDL\" while the slug stays `sdl-...` would create a mismatched title vs. invocation key, so left as-is rather than guessing."
+   ]
+  },
+  {
+   "id": "cohort-docs-1",
+   "files": [
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/extensions/AGENTS.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/prompts/AGENTS.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/reviews/README.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/aretro.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/cli-surface-conformance-audit.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/cmux/help-querying.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/north-star.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/objective-system.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/docs/pi/authoring-remediation-autoobjectives.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji rename brief's literal-pattern rules to the cohort-docs-1 file set: renamed `.sdl/<anything>` repo-state paths to `.ji/<anything>` (objectives, objective-archive, extensions, reviews), renamed `sdl <subcommand>` CLI invocation examples to `ji <subcommand>` (objective, aretro, roaster, shell, slot, flow, branch-context, address, exec), renamed `/sdl:flow:*` and `/sdl:flow:cp` namespaces to `/ji:flow:*`/`/ji:flow:cp`, renamed the dotted manifest-prose form `sdl.group` to `ji.group`, and renamed the `SDL_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE` env var to `JI_TS_BAN_SNAKE_CASE_CLI_MACHINE_VALUE`. Left untouched (per the brief's out-of-window survivors): generic \"SDL\" brand/product-name prose (titles like \"SDL North Star\", \"SDL Extensions\", \"SDL reviews\", adjective uses like \"SDL-owned\", \"SDL extension API\", \"SDL command face\"), `@sdl/*` package-scope imports, hyphenated package/skill/dir names (`sdl-sdk`, `sdl-flow`, `sdl-cli-design`, `sdlcc`, `sdl-tools`, `sdl-core` path shorthand), the `repo-local-sdl-extension.ts` filename, and the `docs/sdl-exec/` relative link target (that directory was not renamed, so the link must still point at it). `docs/agent-era-cli-design-survey.md` required no edits \u2014 every \"sdl\" occurrence in it was either brand prose or the `sdl-cli-design` skill name, both out of scope.",
+   "skipped": [
+    "docs/cli-surface-conformance-audit.md:114 (unchanged) \u2014 `sdl-core/src/shell-support.ts` path shorthand for the `@sdl/core` package: treated as a package-scope reference (survivor) rather than a `.sdl/` repo-state path, since it lacks the `.sdl/` prefix and clearly names the workspace package.",
+    "docs/cmux/help-querying.md:114 \u2014 left the `../sdl-exec/cmux-workspace-summary.md` relative link untouched because the target directory `docs/sdl-exec/` was not part of any file-move set and still exists under that name; changing the link text without the directory existing under a new name would break it.",
+    "Generic brand-name prose uses of \"SDL\" as the product name (e.g. docs/north-star.md's title and body, docs/objective-system.md line 3, .ji/extensions/AGENTS.md title/body, .ji/reviews/README.md title, docs/agent-era-cli-design-survey.md throughout) were left as-is \u2014 the shared brief's RENAME list only covers concrete literal forms (CLI argv, paths, namespaces, env vars, manifest keys), not generic product-branding mentions, and the brief's own DO NOT TOUCH list references a separate 'branding row' for that class of edit."
+   ]
+  },
+  {
+   "id": "cohort-docs-2",
+   "files": [
+    "docs/pi/cmux-extension-pattern.md",
+    "docs/pi/extension-command-checklist.md",
+    "docs/pi/handoff-artifacts.md",
+    "docs/pi/README.md",
+    "docs/pi/runner-subagent-helper.md",
+    "docs/pi/standing-objectives-and-runners.md",
+    "docs/planning-uncertain-features.md",
+    "docs/platform-and-consumer.md",
+    "docs/README.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji cutover to the literal-form patterns in the brief across the 10-file docs cohort: `.sdl/...` repo-state paths -> `.ji/...` (objectives, objective-archive, prompts, reviews, extensions); `/sdl:...` Pi command namespaces -> `/ji:...` (flow, plan, branch-context families and their legacy-alias mentions); literal CLI invocations of the form `sdl <subcommand>` -> `ji <subcommand>` (flow, handoff, objective, branch-context, aretro); the `SDL_CCC_SIDEBAR_MODEL` env var -> `JI_CCC_SIDEBAR_MODEL`; the `sdl-command-ack`/`sdl-command-progress` message-type machine keys -> `ji-command-ack`/`ji-command-progress` (confirmed against the already-renamed TS source constants); the `sdl.pi-agent.v1` frontmatter schema value -> `ji.pi-agent.v1` (confirmed against `PI_AGENT_DEFINITION_SCHEMA` in source); the XDG state path `$XDG_STATE_HOME/sdl/enriched-plan/...` -> `.../ji/...`; and stale references to the already-renamed file `.pi/extensions/sdl.ts` -> `.pi/extensions/ji.ts`. docs/remote-code-authoring-github-actions.md needed no edits (its only `sdl` occurrences are the survivor repo name `sdl-tools`). Left untouched, per the brief's survivor list and by verifying current repo state: `@sdl/*` / `sdl-flow` package scopes and import paths, `SdlCommandIo` and other Sdl-prefixed TS identifiers, `sdl-exec/` and other dir/file names, and bare brand-word prose uses of \"SDL\"/\"sdl\" as the product name (e.g. \"SDL is self-hosting\", \"an active sdl Objective\", \"SDL CLI output\") which are not literal CLI/path/namespace/env-var forms and are not enumerated in the brief's rename list. Ran `dprint fmt` on docs/pi/README.md after edits shifted a Markdown table's column widths; all 9 edited files pass `dprint check` after that.",
+   "skipped": [
+    "docs/README.md:23 - \"Retired Python `sdl exec` commands\" (link to sdl-exec/README.md): left as-is. Ambiguous whether this literal historical command name should be renamed (hard-cutover rename target) or preserved as historical fact (the command was literally named `sdl exec` when it existed and is now retired/replaced) \u2014 the brief's 'historical prose' survivor carve-out doesn't cleanly cover this non-archived, currently-live doc, so I did not guess.",
+    "docs/pi/README.md:235 - \"which sdl's `sdl` package also uses\" (external `flue` vs `sdl` case-study section): left as-is. No package is literally named bare `sdl` in package.json (the CLI binary now lives in `@sdl/kernel` under the `ji` bin name), so it's unclear whether this backticked `sdl` refers informally to the whole product (a rename candidate) or is meant as a stable comparative label in an external-reference section; did not guess.",
+    "docs/pi/README.md:3 - \"Repo-specific notes for using and extending Pi in `sdl`.\" and similar bare backticked/prose \"sdl\"/\"SDL\" brand-word occurrences throughout the cohort (e.g. 'active sdl Objective', 'local sdl skills', 'SDL Is Self-Hosting', 'SDL CLI output', 'SDL-managed', 'sdl's Objective system'): left untouched as out-of-scope brand-name prose, not enumerated in the brief's literal-form rename list and consistent with the still-unrenamed 'SDL (Source Development Lifecycle)' branding in the live root AGENTS.md; not itemized individually since these are not ambiguous, just outside this row's assigned pattern set."
+   ]
+  },
+  {
+   "id": "cohort-docs-3",
+   "files": [
+    "docs/sdl-exec/cmux-workspace-summary.md",
+    "docs/sdl-exec/README.md",
+    "docs/skill-conventions.md",
+    "docs/thesis-reapplication.md",
+    "ts/AGENTS.md",
+    "ts/packages/capabilities/address/README.md",
+    "ts/packages/capabilities/aretro/README.md",
+    "ts/packages/capabilities/branch-context/CONTEXT.md",
+    "ts/packages/capabilities/branch-context/README.md",
+    "ts/packages/capabilities/ccc/AGENTS.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji hard-cutover rename to all 10 docs-cohort files: literal `sdl <command>` CLI invocation examples (address/aretro/branch-context exec commands, `ji exec` retirement notes, `ji branch-context exec load`), the `sdl` shim reference, `/sdl:` slash-namespace occurrences \u2192 `/ji:`, `.sdl/prompts` and `.sdl/extensions` repo-state paths \u2192 `.ji/...`, and the `sdl.subpackages` dotted-prose key \u2192 `ji.subpackages`. Left untouched all explicit survivors: `@sdl/*` package-scope names, TS identifiers containing `sdl` (e.g. `SdlCommandIo`), skill/package directory names (`sdl-typescript`, `sdl-cli-design`, `sdl-flow`, etc.), and `src/sdl`-style path segments.",
+   "skipped": [
+    "docs/skill-conventions.md:7 'the canonical sdl install flag' and 'asdl's operational audit checklists' \u2014 ambiguous generic product-name prose, not a literal CLI/path/namespace form on the rename list; left as-is.",
+    "docs/skill-conventions.md:57 'sdl-internal module paths' \u2014 adjectival brand reference, not a listed path/CLI/env-var pattern; left as-is.",
+    "docs/skill-conventions.md:65 'SDL overlays' and :67 'first-party sdl work' \u2014 generic branding prose (same class as the docs-site branding row explicitly out of scope for this cohort); left as-is.",
+    "ts/packages/capabilities/address/README.md:32 'the repo-local SDL extension' and :35 'an sdl checkout' \u2014 generic branding/prose noun references to the product, not matching any literal rename pattern; left as-is.",
+    "ts/packages/capabilities/aretro/README.md:7 'the SDL extension command face' \u2014 same generic branding prose pattern; left as-is.",
+    "ts/packages/capabilities/branch-context/README.md:3 'the SDL `branch-context` command group' and ts/packages/capabilities/ccc/AGENTS.md:5 'SDL CLI commands' \u2014 capitalized generic brand/product references, not literal CLI-invocation or path forms; left as-is."
+   ]
+  },
+  {
+   "id": "cohort-docs-4",
+   "files": [
+    "ts/packages/capabilities/ccc/CONTEXT.md",
+    "ts/packages/capabilities/flow/CONTEXT.md",
+    "ts/packages/capabilities/handoff/CONTEXT.md",
+    "ts/packages/capabilities/handoff/README.md",
+    "ts/packages/capabilities/objective/CONTEXT.md",
+    "ts/packages/capabilities/plans/CONTEXT.md",
+    "ts/packages/capabilities/roaster/CONTEXT.md",
+    "ts/packages/capabilities/roaster/README.md",
+    "ts/packages/capabilities/slot/CONTEXT.md",
+    "ts/packages/capabilities/slot/README.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji hard-cutover rename to literal CLI/namespace/path/env-var forms across the 10 cohort-docs-4 files: renamed `sdl flow ...`/`sdl objective ...`/`sdl roaster ...`/`sdl slot ...`/`sdl handoff ...` command invocations to `ji ...`; renamed Pi namespaces `/sdl:flow:land` and `/sdl:flow:autobranch` to `/ji:flow:land` and `/ji:flow:autobranch`; renamed repo-state paths `.sdl/reviews/...` to `.ji/reviews/...` in roaster docs; renamed the XDG state-store path segment `state/sdl/enriched-plan` (both `$XDG_STATE_HOME/sdl/...` and `$HOME/.local/state/sdl/...` forms) to `.../ji/enriched-plan` in plans/CONTEXT.md; renamed the slot shell-wrapper literals `sdl()` -> `ji()`, `command sdl \"$@\"` -> `command ji \"$@\"`, and env var `SDL_CD_DIRECTIVE_FILE` -> `JI_CD_DIRECTIVE_FILE` in slot/README.md. Left untouched (per brief's DO-NOT-TOUCH list): all `@sdl/...` package-scope imports/exports, the `sdl-flow/...` package name and its subpaths, TS identifiers containing sdl (`SdlCommandIo`, `SdlExtensionApi`), the `sdlcc` package name, the `sdl-typescript-style-tripwire` skill directory name embedded in a `.ji/reviews/` path, and generic capitalized \"SDL\" brand prose (e.g. \"SDL kernel\", \"SDL Capability\", \"SDL Command Face\" heading, \"SDL shell wrapper\", \"SDL Tools\" doc-title link) since the brief's rename list is scoped to literal command/namespace/path/env-var forms, not brand-name prose (handled by a separate branding cohort).",
+   "skipped": [
+    "objective/CONTEXT.md line 3 link text \"[SDL Tools](../../../CONTEXT.md)\" \u2014 brand-name prose referencing the root context doc title, not a literal CLI/path form; left for the branding/root-doc cohort.",
+    "roaster/CONTEXT.md line 19 heading \"### SDL Command Face\" and similar brand-adjective usages of \"SDL\" (SDL kernel, SDL Capability, SDL host, SDL shell wrapper, SDL tool shim, SDL binary) across all files \u2014 treated as out-of-scope brand prose per the brief's literal-forms-only rename list, consistent with how sibling AGENTS.md files in this repo were already handled (e.g. ccc/AGENTS.md keeps \"SDL CLI commands\" while renaming only literal `ji ...` invocations)."
+   ]
+  },
+  {
+   "id": "cohort-docs-5",
+   "files": [
+    "ts/packages/hosts/pi/CONTEXT.md",
+    "ts/packages/hosts/sdlcc/README.md",
+    "ts/packages/kernel/CONTEXT.md",
+    "ts/packages/kernel/README.md",
+    "ts/packages/README.md",
+    "ts/packages/sdl-capability-kit/src/graphite/CONTEXT.md",
+    "ts/TESTING.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl->ji hard-cutover brief mechanically across all 7 assigned docs files. Renamed: literal CLI invocation forms (`sdl flow ...`, `sdl slot ...`, `sdl shell ...`, `sdl address exec ...`, `sdl completion ...`, `sdl <name>`, `sdl <cmd>`, `sdl --version/--runtime/--help/-h`, `sdl()`/`command sdl \"$@\"`, `sdl pr regen`/`sdl pr-regen`, bare backtick `` `sdl` `` CLI references, and the kernel/README.md doc title `# sdl` -> `# ji`); Pi slash-command namespaces `/sdl:...` -> `/ji:...`; repo-state paths `.sdl/...` -> `.ji/...` and the XDG path `$XDG_DATA_HOME/sdl/extensions` -> `$XDG_DATA_HOME/ji/extensions`; env vars `SDL_*` -> `JI_*`; the package.json manifest example key `\"sdl\":` -> `\"ji\":`; and dotted prose manifest fields `sdl.subpackages` / `sdl.internalWorkspaceExports` -> `ji.*`. Left untouched (per brief's DO NOT TOUCH list): all `@sdl/*` / `@sdl-local/*` package-scope imports, TS identifiers (`SdlExtensionApi`, `SdlResult`), package/dir names (`sdl-dev`, `sdl-flow`, `sdl-capability-kit`, `sdlcc`, the `sdl/` top-level directory reference in packages/README.md), the objective slug `sdl-extension-architecture`, and bare/prose brand-noun uses of the acronym \"SDL\" (e.g. \"SDL owns...\", \"SDL extension API\", \"uses SDL to mean Source Development Lifecycle\") since those describe the product concept rather than a literal command/path/namespace/env-var form named in the brief.",
+   "skipped": [
+    "Treated the capitalized prose noun \"SDL\" (e.g. \"SDL is the public lifecycle command boundary\", \"public SDL extension API\", term headers like **SDL kernel**/**SDL extension**) as a survivor rather than a rename target throughout kernel/CONTEXT.md and kernel/README.md \u2014 the brief's rename list only calls out literal CLI-invocation forms, paths, namespaces, env vars, and package.json keys, not the bare acronym/brand word; renaming it would also collide with the untouched @sdl/kernel package scope and SdlExtensionApi-style identifiers these same docs define. Flagging in case the naming decision record (ADR 0024 / naming brief) intends a broader prose rename for kernel's own vocabulary docs.",
+    "Renamed the kernel/README.md document title `# sdl` to `# ji` on my own judgment (not literally enumerated in the brief) to stay internally consistent with the immediately following renamed sentence '`ji` is the Source Development Lifecycle CLI.' \u2014 flagging since the title could alternatively be read as a package/dir-name label (survivor) rather than the CLI binary name.",
+    "Extended the brief's explicit dotted-prose-form list (sdl.tier/sdl.commands/sdl.group/sdl.subpackages) to also cover `sdl.internalWorkspaceExports` -> `ji.internalWorkspaceExports`, by pattern analogy with the same package-metadata-field convention; not literally named in the brief's bullet."
+   ]
+  },
+  {
+   "id": "cohort-dottree-1",
+   "files": [
+    ".ji/extensions/flow/docs/dependencies.md"
+   ],
+   "changed": true,
+   "summary": "Renamed the two literal-path/CLI-command occurrences in dependencies.md that match the brief's rename patterns: the repo-state path `.sdl/extensions/flow/` -> `.ji/extensions/flow/`, the XDG-style slot-path regex example `sdl/slots/repos/.../worktrees/slot-*` -> `ji/slots/repos/.../worktrees/slot-*`, and the CLI invocation `sdl slot free` -> `ji slot free`. The 9 command re-export files (autobranch.ts, autoslot.ts, branch-latest-commit.ts, changes.ts, cp.ts, exec-read-graphite-branch-metadata.ts, land.ts, pull-trunk.ts, push.ts) each contain only a single-line `export { default } from \"sdl-flow/commands/...\";` import specifier \u2014 `sdl-flow` is an explicit DO-NOT-TOUCH package name per the brief, so no edits were made to those files. All other `sdl`-containing strings left in dependencies.md are `@sdl/*` package-scope imports (also explicit survivors).",
+   "skipped": [
+    "dependencies.md line 5: \"could adopt without the full SDL/Graphite/slots stack.\" \u2014 generic brand-name prose referring to the product; does not match any of the brief's literal rename patterns (CLI argv, .sdl/ paths, /sdl: namespaces, XDG namespaces, package.json key, config filename, env vars, artifact filenames), so left unchanged rather than guessing whether product-brand prose is in scope for this paths/command-name-focused cohort."
+   ]
+  },
+  {
+   "id": "cohort-dottree-2",
+   "files": [
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/prompts/plans-write.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/reviews/code-smell-roaster/review.md",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/reviews/reinvented-abstractions-tripwire/tools/scan-reinvention/package.json",
+    "/Users/schrockn/.local/state/sdl/slots/repos/sdl-tools/worktrees/slot-09/.ji/reviews/sdl-typescript-style-tripwire/review.md"
+   ],
+   "changed": true,
+   "summary": "Applied the sdl\u2192ji rename brief to the cohort-dottree-2 file set. Renamed literal CLI invocations (`sdl flow cp` \u2192 `ji flow cp`) and XDG state-path segments (`$XDG_STATE_HOME/sdl/...`, `$HOME/.local/state/sdl/...` \u2192 `.../ji/...`) in .ji/prompts/plans-write.md. Renamed repo-state path references (`.sdl/reviews/...` \u2192 `.ji/reviews/...`) in .ji/reviews/code-smell-roaster/review.md, the scan-reinvention package.json test script, and .ji/reviews/sdl-typescript-style-tripwire/review.md. Left regenerate-pr.ts and submit.ts untouched (their `sdl-flow/commands/...` re-exports reference the survivor package name `sdl-flow`, explicitly on the DO-NOT-TOUCH list) and left `@sdl/*` package-scope references and generic brand-prose \"SDL\"/\"sdl\" mentions untouched per the brief's survivor list and this cohort's path/command-name scope.",
+   "skipped": [
+    "regenerate-pr.ts and submit.ts: `export { default } from \"sdl-flow/commands/...\"` left untouched \u2014 `sdl-flow` is an explicit DO-NOT-TOUCH package name, not a CLI/path rename target.",
+    "scan-reinvention/package.json lines 2 and 15: `@sdl/review-reinvention-scanner` and `@sdl/core` left untouched per changeset class guidance ('@sdl/ imports in scan-reinvention tool sources STAY') and the brief's @sdl/* package-scope survivor rule.",
+    "code-smell-roaster/review.md lines 20/24 ('SDL-local review prompt', \"SDL's\"): generic brand-name prose, not a literal CLI/path/env-var/namespace form in the brief's rename list; treated as out-of-window branding prose (brief notes docs-site/branding strings are a separate 'branding row').",
+    "sdl-typescript-style-tripwire/review.md lines 2, 6, 19, 20, 44, 70, 136, 141, 145, 159 ('sdl-tools', 'sdl-typescript' skill dir, '@sdl/core/primitives', '@sdl/<pkg>/src/...', 'SDL TypeScript...', \"sdl's TypeScript style guide\", 'the intentional sdl pattern'): package/skill directory names and @sdl/ import specifiers are explicit DO-NOT-TOUCH survivors; remaining bare 'SDL'/'sdl' occurrences are brand-name prose describing the product/rule title, not a literal pattern from the brief's rename list \u2014 left as ambiguous branding prose rather than guessed at.",
+    "sdl-typescript-style-tripwire/review.md and code-smell-roaster/review.md filenames/directory names themselves ('sdl-typescript-style-tripwire') were preserved verbatim per the brief's explicit skill/review-directory-name survivor list; only the `.sdl/` path prefix referencing those files elsewhere was renamed to `.ji/`."
+   ]
+  }
+ ],
+ "verify": [
+  {
+   "invariant": "pnpm-workspace-quartet",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "kernel-extension-discovery-root",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "real-extensions-test-helpers",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "managed-slot-path-regex",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "duplicate-literal-twins",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "style-guard-bucket",
+   "pass": false,
+   "violations": [
+    "git grep -n '\\.sdl' -- ts/packages/infra/core/test/typescript-style-guard is NOT empty as required: match at ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748: 'expect(coreMetadata.sdlSubpackages).toContain(\"time\");' (substring '.sdl' comes from 'coreMetadata.sdlSubpackages'). Note: this is an incidental match unrelated to the exempt-bucket definition itself \u2014 the bucket array at lines ~82-84 correctly uses '.ji/extensions' for both name and isInDirectory check \u2014 but the invariant as literally stated (grep must be empty) does not hold."
+   ]
+  },
+  {
+   "invariant": "roaster-ci-invocations",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "agents-md-chain",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "manifest-key-ji",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "ji-toml",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "no-compat-shim",
+   "pass": false,
+   "violations": [
+    "ts/packages/tools/areg/src/operations/project-agents.ts:10-23 - resolveProjectAgents() implements an explicit try-old-then-new fallback chain: it first reads ji.toml's [areg].agents via parseSdlAregAgentsFromState, and if that yields nothing, falls back to reading a second, legacy config file via parseLegacyAregJsonAgentsFromState(input.aregJson) (backed by parseLegacyAregJsonAgents at line 57, which parses areg.json). This is precisely the disallowed 'try-old-then-new' compat codepath: two file names/formats are read for the same setting instead of exactly one.",
+    "ts/packages/tools/areg/src/operations/project-agents.ts:57-79 - parseLegacyAregJsonAgents is a dedicated legacy-format parser (JSON areg.json) kept alongside the new TOML parser (parseSdlAregAgents), i.e. an alias/compat reader for the old config location, not a single-name reader.",
+    "ts/packages/tools/areg/src/operations/init.ts:34 - init.ts imports and re-exports parseLegacyAregJsonAgents alongside parseSdlAregAgents, confirming the legacy codepath is still wired into production flows (resolveProjectAgents call at init.ts:190), not just vestigial dead code.",
+    "ts/packages/tools/areg/test/unit/init-helpers.test.ts:6,32-40 - unit tests still exercise parseLegacyAregJsonAgents against areg.json JSON fixtures, confirming the legacy fallback is actively maintained and tested rather than removed."
+   ]
+  },
+  {
+   "invariant": "skills-allowed-tools",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "parity-table-bundled",
+   "pass": true,
+   "violations": []
+  },
+  {
+   "invariant": "scope-untouched-baseline",
+   "pass": false,
+   "violations": [
+    "git grep -cIE 'src/sdl|/sdl/(commands|extension)' -- ts sums to 147, down from baseline 149 (decrease = violation)",
+    "ts/packages/kernel/README.md: removed '$XDG_DATA_HOME/sdl/extensions < <cwd>/.sdl/extensions' replaced with '$XDG_DATA_HOME/ji/extensions < <cwd>/.ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+    "ts/packages/sdl-capability-kit/test/unit/xdg.test.ts:30: removed '/home/tester/.local/share/sdl/extensions' replaced with '/home/tester/.local/share/ji/extensions' \u2014 drops a matching '/sdl/extensions' occurrence",
+    "Corroborating over-rename evidence in same diff (outside the ts-restricted count but same pattern): ts/packages/sdl-capability-kit/test/git/git-gateway.test.ts changes '.sdl/objectives' to '.ji/objectives'; ts/packages/tools/areg/package.json changes JSON key \"sdl\": to \"ji\":; docs/sdl-exec/README.md renames multiple '.sdl/extensions/*' path literals to '.ji/extensions/*'"
+   ]
+  },
+  {
+   "invariant": "residual-dot-sdl",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/test/pi/flow-pi-parity.test.ts:27:\t...sdlExtensionParity,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:157:\tif (importerPackageMetadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:163:\tif (importedPackageMetadata?.sdlTier === \"neutral-infra\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:164:\tif (importedPackageMetadata?.sdlTier === \"capability-kit\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/source-rules.ts:166:\tif (importedPackageMetadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:22:\t\tif (metadata.sdlRemainder) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:26:\t\t\tif (belongsToDeclaredSubpackage(sourcePath, metadata.sdlSubpackages)) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:34:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:42:\treturn metadata.sdlSubpackages",
+    "ts/packages/infra/core/test/support/typescript-style-guard/subpackage-conformance.ts:60:\tconst declaredUnits = metadata.sdlSubpackages",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:26:\t\tif (metadata.sdlTier === undefined) {",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:39:\t\tconst fromTier = metadataByName.get(edge.from)?.sdlTier;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:40:\t\tconst toTier = metadataByName.get(edge.to)?.sdlTier;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:81:\tif (metadata?.sdlTier !== \"capability\") return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/tier-layering.ts:82:\tif (!metadata.sdlSubpackages.includes(\"pi\")) return false;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:79:\t\tif (metadata.sdlTier === undefined) continue;",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:86:\t\t\ttier: metadata.sdlTier,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:90:\t\tfor (const component of metadata.sdlSubpackages) {",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:99:\t\t\t\ttier: metadata.sdlTier,",
+    "ts/packages/infra/core/test/support/typescript-style-guard/topology-circles.ts:439:\treturn metadata.sdlSubpackages.length > 0 || metadata.sdlRemainder;",
+    "ts/packages/infra/core/test/typescript-style-guard/typescript-style-guard.test.ts:748:\t\texpect(coreMetadata.sdlSubpackages).toContain(\"time\");",
+    "ts/packages/kernel/src/extensions/command-registry.ts:261:\t...sdlExtensionCommandEntryIssueFields.map(",
+    "ts/packages/tools/areg/src/fake-gateways.ts:135:\t\t\t[\"ji.toml\", normalizeTextFileState(options.sdlToml ?? { type: \"missing\" })],",
+    "ts/packages/tools/areg/src/operations/init.ts:192:\t\tsdlToml: inspection.sdlToml,",
+    "ts/packages/tools/areg/src/operations/init.ts:304:\tconst sdl = planSdlToml(inspection.sdlToml, options.agents);",
+    "ts/packages/tools/areg/src/operations/project-agents.ts:16:\tconst sdlAgents = parseSdlAregAgentsFromState(input.sdlToml);",
+    "ts/packages/tools/areg/src/operations/update-skills.ts:73:\t\tsdlToml: inspection.sdlToml,",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:19: mentions '.sdl/objectives/pr-address-*' record reference",
+    ".claude/plans/plan-the-deletion-of-humming-tide.md:130: '.sdl/objectives/pr-address-*' kept reference"
+   ]
+  },
+  {
+   "invariant": "residual-namespace",
+   "pass": false,
+   "violations": [
+    "ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts:98-117: literal old-namespace command name strings match `sdl:[a-z]` pattern, e.g. line 98 `\"sdl:changes\",`, line 108 `\"sdl:flow:changes\",`, line 116 `\"sdl:flow:push\",`, line 117 `\"sdl:flow:pull-trunk\",` (the file is not under any excluded path: .ji/objectives, .ji/objective-archive, or docs/adr, so `git grep -nIE '(^|[/\"`[:space:]])sdl:[a-z]' -- . ...` is NOT empty as required)",
+    "git ls-files shows the file itself is still named ts/packages/capabilities/flow/test/pi/sdl-extension.test.ts (imports ../../src/pi/sdl-extension.ts) \u2014 the 'sdl-extension' naming persists in src and test file paths, though .pi/extensions/sdl.ts is correctly absent and .pi/extensions/ji.ts is present as required"
+   ]
+  },
+  {
+   "invariant": "residual-bin-argv",
+   "pass": false,
+   "violations": [
+    "ts/packages/kernel/src/runtime/module-loader.ts:67: const CCC_AUTOSLOT_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"autoslot.ts\");",
+    "ts/packages/kernel/src/runtime/module-loader.ts:68: const CCC_LAND_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"land.ts\");",
+    "ts/packages/kernel/src/runtime/module-loader.ts:69: const CCC_TRUNK_PULL_MODULE_PATH = join(CCC_SRC_DIR, \"sdl\", \"trunk-pull.ts\");",
+    "These three hits are inside the mandated pathspec (ts/**/*.ts) where the grep must be empty; they reference a real on-disk directory ts/packages/capabilities/ccc/src/sdl/ (sibling to api/, cmux/, pi/ command-family dirs) that was left un-renamed, and they are not one of the two documented survivor classes (package.json subpackages arrays, docs-site branding)."
+   ]
+  },
+  {
+   "invariant": "residual-command-instructions",
+   "pass": false,
+   "violations": [
+    "CONTEXT-MAP.md:92 \u2014 uses stale old-CLI form `sdl slot gt` (\"distinguish `@sdl/capability-kit/graphite` as the support package for Graphite command adapters/facts, `sdl slot gt` as the slot-owned command surface...\") while the same file's own sibling entries at CONTEXT-MAP.md:30 and CONTEXT-MAP.md:66 already use the corrected form `ji slot gt` for the identical command surface, and AGENTS.md:80 / docs/graphite-dependency-boundary.md also refer to it as `slot gt`/`ji slot gt`. This is a residual instruction naming the pre-rename CLI invocation for a live subcommand."
+   ]
+  },
+  {
+   "invariant": "residual-xdg-namespace",
+   "pass": false,
+   "violations": [
+    "ts/packages/tools/areg/test/unit/source-cli-shim.test.ts:50: canonicalCheckout: \"/tmp/sdl\", \u2014 matches (tmp)(/)sdl( or end) pattern, not covered by the stated exclusions (not in enriched-plan tool-contract strings, not the /Users/me/.local/state/sdl/slots fixture family, not docs/xdg-base-directory-spec.md, not ~/.sdl prose)"
+   ]
+  },
+  {
+   "invariant": "residual-machine-keys",
+   "pass": false,
+   "violations": [
+    "ts/packages/hosts/pi/src/commands/surfaces.ts:83 \u2014 `\"sdl-cli-design\",` matches the required-empty regex `git grep -nE '\"sdl-(command|cli|harness|pi-cli)' -- ts .pi`; this command is not empty as the invariant requires (only hit found, but it is a real hit).",
+    "Related un-renamed brand-prefixed literals surfaced by the broader sweep in the same file, none of which fall into the stated survivor categories (package name / repo name / mkdtemp prefix): ts/packages/hosts/pi/src/commands/surfaces.ts:84 `\"sdl-flow-submit\",`, :85 `\"sdl-typescript-style-tripwire\",`, and :121 `\"sdl-flow-submit\": \"ji:flow:submit\",` \u2014 no corresponding `ji-cli-design`/`ji-flow-submit`/`ji-typescript-style-tripwire` replacement exists anywhere in the tree (confirmed via `git grep -n 'ji-cli-design\\|ji-flow-submit\\|ji-typescript-style-tripwire'` returning nothing), so these old sdl-branded skill/surface names were never migrated.",
+    "Same un-renamed brand name recurs outside surfaces.ts: ts/packages/capabilities/roaster/test/unit/review-definition.test.ts:56 `name: \"sdl-typescript-style-tripwire\",` and ts/packages/local/pi-tools/test/pr-previews/pr-preview-feedback-view.test.ts:128 `review: \"sdl-typescript-style\",` \u2014 these still literally name the product brand and are not package names, the repo name, or mkdtemp prefixes, so per the sweep's survivor rule they should not survive.",
+    "Positive confirmation (not a violation, included for completeness): the specific ji-* replacements ARE present and consistent in the five listed test files (handoff-test-fakes.ts:95/101/105, flow sdl-extension.test.ts:46/51/55, code-workflows.test.ts:28/33, cli-command-extension.test.ts:93/104/108/314/1104/1106/1144/1175/1186, just-fix.test.ts:204/209/210, harness-session.test.ts:102/123), the corresponding source literals in ts/packages/hosts/pi/src/commands/ack.ts, cli-command-live-progress.ts, cli-command-trace.ts, cli-extension.ts, and kit/sessions/harness-session.ts all use `ji-*`, no `@@SDL_` tokens remain, and TOKEN_PREFIX in ts/scripts/render-cli-shim-core.ts (`@@JI_`) matches the placeholders in ts/scripts/source-cli-shim-template and the justfile's JI_TOOL/JI_TEMPLATE/JI_CANONICAL_CHECKOUT/JI_CLI_REL_PATH/JI_INSTALL_HINT/JI_OUTPUT variable names \u2014 these portions of the invariant hold cleanly, but the surfaces.ts residue above still fails the overall invariant."
+   ]
+  },
+  {
+   "invariant": "residual-env-vars",
+   "pass": false,
+   "violations": [
+    "git grep -nE 'SDL_[A-Z]' -- . ':!.ji/objectives' ':!.ji/objective-archive' ':!docs/adr' returns 63 matches, not empty, so the literal invariant command fails even though no residual SDL_* env-var STRING VALUES remain (verified separately) and all example env vars in the invariant text (SDL_CHECKPOINT_MODEL, SDL_DEV_*, SDL_SLUG_MODEL, SDL_SUBMIT_FAILURE_MODEL, SDL_CCC_SIDEBAR_MODEL, SDL_PI_CLI_TRACE*, SDL_TS_BAN_*, justfile SDL_TOOL/SDL_CANONICAL_CHECKOUT/SDL_CLI_REL_PATH/SDL_INSTALL_HINT/SDL_TEMPLATE/SDL_OUTPUT) are correctly renamed to JI_* with matching reader/writer names.",
+    "ts/packages/capabilities/aretro/src/payloads/root.ts:11-53 \u2014 identifiers SDL_PAYLOAD_ROOT_ENV / SDL_PAYLOAD_SESSION_ID_ENV still use the SDL_ prefix (values are already JI_PAYLOAD_ROOT / JI_PAYLOAD_SESSION_ID, so only the const identifier name, not the env-var value, retains SDL_).",
+    "ts/packages/capabilities/slot/src/core/shell/cd-directive.ts:7 and callers (test/unit/api.test.ts:9,102,128; test/unit/cd-directive.test.ts:5,68) \u2014 const SDL_CD_DIRECTIVE_FILE = \"JI_CD_DIRECTIVE_FILE\" keeps an SDL_-prefixed identifier name.",
+    "ts/packages/kernel/src/extensions/command-registry.ts:54-55, discovery.ts (multiple lines), registry.ts (multiple lines) \u2014 SDL_COMMAND_NAME_PATTERN / SDL_COMMAND_NAME_RULE identifiers retain the SDL_ prefix.",
+    "ts/packages/kernel/src/runtime/module-loader.ts:28-142 \u2014 SDL_SDK_DIR, SDL_SRC_DIR, SDL_INTERNAL_WORKSPACE_MODULE_PATHS, SDL_COMMAND_EXPORT_PREFIX identifiers retain the SDL_ prefix.",
+    "ts/packages/kernel/src/cli/index.ts:434-618 \u2014 SDL_EXEC_GROUP_NAME, SDL_BUILT_IN_HELP_GROUP, SDL_EXTENSION_HELP_GROUP, SDL_EXEC_COMMAND_PREFIX identifiers retain the SDL_ prefix.",
+    "ts/packages/capabilities/flow/src/pi/sdl-extension.ts:27-77 \u2014 SDL_FLOW_COMMANDS identifier retains the SDL_ prefix.",
+    "ts/packages/capabilities/roaster/src/gateways/review-catalog.ts:12,111 \u2014 SDL_DIRNAME identifier retains the SDL_ prefix.",
+    "ts/packages/hosts/pi/test/integration/node-runtime-imports.test.ts:12-142 \u2014 SDL_PACKAGE_ROOT, SDL_EXPORT_IMPORTS identifiers retain the SDL_ prefix.",
+    "ts/packages/sdl-capability-kit/test/graphite/integration/status.test.ts:17,72 \u2014 CURRENT_SDL_TOOLS_METADATA_FIXTURE retains SDL in the name.",
+    "ts/packages/sdl-capability-kit/test/unit/sdl-context.test.ts:69 \u2014 const env = { SDL_TEST: \"1\" } uses an SDL_-prefixed fixture value matching the banned pattern."
+   ]
+  }
+ ]
+}
