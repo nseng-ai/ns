@@ -88,10 +88,7 @@ export function renderObjectiveListPretty(
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
 	const edgesW = "EDGES".length; // Objective Edge count, right of LATEST UPDATE, blank when zero
 	const slugW = Math.max(12, Math.min(maxSlug, caps.columns - statusW - flagW - edgesW - 21));
-	const dateW = Math.max(
-		"LATEST UPDATE".length,
-		caps.columns - slugW - statusW - flagW - edgesW - 8,
-	);
+	const dateW = "LATEST UPDATE".length;
 
 	lines.push("");
 	// "LATEST UPDATE" sits above the dates; the flag gutter header stays blank.

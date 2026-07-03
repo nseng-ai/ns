@@ -194,7 +194,8 @@ describe("renderObjectiveListPretty layout", () => {
 		const out = renderObjectiveListPretty(withEdges, caps({ colorDepth: "none" }), NOW);
 		const lines = out.split("\n");
 		const header = lines.find((line) => line.includes("OBJECTIVE"));
-		expect(header).toMatch(/LATEST UPDATE\s+EDGES/);
+		if (header === undefined) throw new Error("expected objective list header");
+		expect(header.slice(header.indexOf("LATEST UPDATE"))).toMatch(/^LATEST UPDATE {2}EDGES/);
 		expect(lines.find((line) => line.startsWith("alpha"))).toMatch(/2$/);
 		// The zero-edge row ends at the dimmed date cell: no count, no dangling padding.
 		expect(lines.find((line) => line.startsWith("bravo"))).toMatch(/\[0m$/);
