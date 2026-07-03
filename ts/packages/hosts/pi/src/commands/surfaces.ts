@@ -95,7 +95,6 @@ export const COMMAND_STYLE_LOCAL_SKILLS = [
 	"skillx",
 	"thermo-nuclear-code-quality-review",
 	"ts-morph-analyze",
-	"ts-morph-refactor",
 	"writing-great-skills",
 ] as const;
 

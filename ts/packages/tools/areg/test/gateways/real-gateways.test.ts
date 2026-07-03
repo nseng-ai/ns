@@ -502,6 +502,52 @@ describe("real areg gateways", () => {
 		});
 	});
 
+	test("github gateway checks skill files through gh contents API", async () => {
+		const success = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/alpha/SKILL.md", "--jq", ".type"], {
+				stdout: "file\n",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: success.runner }).checkSkillFile({
+				repo: "owner/repo",
+				path: "skills/alpha/SKILL.md",
+				env: {},
+			}),
+		).toEqual({ type: "found" });
+		success.assertDone();
+
+		const withRef = new ScriptedCommandRunner([
+			step(
+				"gh",
+				["api", "repos/owner/repo/contents/skills/alpha/SKILL.md?ref=main", "--jq", ".type"],
+				{ stdout: "file\n" },
+			),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: withRef.runner }).checkSkillFile({
+				repo: "owner/repo",
+				path: "/skills/alpha/SKILL.md",
+				ref: "main",
+				env: {},
+			}),
+		).toEqual({ type: "found" });
+
+		const missing = new ScriptedCommandRunner([
+			step("gh", ["api", "repos/owner/repo/contents/skills/missing/SKILL.md", "--jq", ".type"], {
+				exitCode: 1,
+				stderr: "HTTP 404",
+			}),
+		]);
+		expect(
+			await new RealAregGithubGateway({ runner: missing.runner }).checkSkillFile({
+				repo: "owner/repo",
+				path: "skills/missing/SKILL.md",
+				env: {},
+			}),
+		).toMatchObject({ type: "missing" });
+	});
+
 	test("npx gateway builds selected-skill and install-all commands", async () => {
 		expect(
 			buildNpxSkillsAddArgs({

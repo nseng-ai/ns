@@ -1,1 +1,0 @@
-../ts-morph-analyze/AGENTS.md

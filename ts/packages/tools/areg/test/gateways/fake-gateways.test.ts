@@ -325,6 +325,38 @@ describe("areg gateway fakes", () => {
 		});
 	});
 
+	test("github fake checks configured skill files", async () => {
+		const github: AregGithubGateway = new FakeAregGithubGateway({
+			files: {
+				"owner/repo:skills/alpha/SKILL.md": "found",
+				"owner/repo:skills/missing/SKILL.md": "missing",
+				"owner/private:skills/alpha/SKILL.md@main": "auth-error",
+			},
+		});
+
+		expect(
+			await github.checkSkillFile({ repo: "owner/repo", path: "skills/alpha/SKILL.md", env: {} }),
+		).toEqual({ type: "found" });
+		expect(
+			await github.checkSkillFile({ repo: "owner/repo", path: "skills/missing/SKILL.md", env: {} }),
+		).toMatchObject({ type: "missing" });
+		expect(
+			await github.checkSkillFile({
+				repo: "owner/private",
+				path: "skills/alpha/SKILL.md",
+				ref: "main",
+				env: {},
+			}),
+		).toMatchObject({ type: "auth-error" });
+		expect(
+			await github.checkSkillFile({
+				repo: "unconfigured/repo",
+				path: "skills/ok/SKILL.md",
+				env: {},
+			}),
+		).toEqual({ type: "found" });
+	});
+
 	test("npx skills fake copies requests and failures", async () => {
 		const skillNames = ["one"];
 		const targetAgents = ["codex"];
