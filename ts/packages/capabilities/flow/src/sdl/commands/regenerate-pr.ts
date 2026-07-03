@@ -14,6 +14,7 @@ import {
 	formatPromptSourceLabel,
 	preparePrDescriptionUpdate,
 	type PreparedPrDescriptionUpdate,
+	type PrDescriptionFingerprintPolicy,
 	type PrDescriptionUpdateResult,
 } from "../../submit/index.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
@@ -25,7 +26,7 @@ const DEFAULT_PR_DESCRIPTION_MODEL_REF = "openai-codex/gpt-5.4-mini";
 
 const REGENERATE_PR_DESCRIPTION = `Regenerate the current branch PR title and SDL-managed generated body region.
 
-The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, asks before editing GitHub, then updates the PR title and only the SDL-managed generated description region. Human-authored PR body text outside that managed region is preserved. The --force flag is accepted for compatibility and does not bypass confirmation.
+The command reads the current branch PR with gh, generates fresh PR metadata from the PR diff and commit headlines, then updates the PR title and only the SDL-managed generated description region. By default it asks before editing GitHub. Human-authored PR body text outside that managed region is preserved. Use --force to regenerate even when the generated fingerprint is current and bypass confirmation.
 
 Environment:
   ${PR_DESCRIPTION_MODEL_ENV}  Model reference for generated PR descriptions. Defaults to ${DEFAULT_PR_DESCRIPTION_MODEL_REF}.
@@ -35,7 +36,7 @@ const regeneratePrSchema = z.object({
 	force: z
 		.boolean()
 		.default(false)
-		.describe("Compatibility no-op. Accepted for older workflows; does not bypass confirmation."),
+		.describe("Regenerate even when the fingerprint is current and bypass confirmation."),
 });
 
 type RegeneratePrRequest = z.output<typeof regeneratePrSchema>;
@@ -56,6 +57,9 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 		const caps = resolveFlowStreamCaps(ctx);
 		const runtime = createSdlPrDescriptionRuntime(ctx);
 		const pr = await runtime.githubPr.viewCurrentBranchPr({ cwd: ctx.cwd });
+		const fingerprintPolicy: PrDescriptionFingerprintPolicy = request.force
+			? "force"
+			: "skip-current";
 		const prepared: PrDescriptionUpdateResult = pr.ok
 			? await preparePrDescriptionUpdate({
 					cwd: ctx.cwd,
@@ -64,7 +68,7 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 					git: runtime.git,
 					textGenerator: ctx.textGenerator,
 					pr: pr.value,
-					fingerprintPolicy: "skip-current",
+					fingerprintPolicy,
 				})
 			: { type: "failed", reason: `Could not resolve current branch PR.\n${pr.error.message}` };
 		if (prepared.type === "failed") {
@@ -95,36 +99,38 @@ export const flowRegeneratePrCommand: SdlCommand<typeof regeneratePrSchema> = {
 			);
 		}
 
-		// A missing confirmation channel is a declined guardrail, not a subprocess failure: render it
-		// as a first-class warn refusal (house-style §7.3). No `gh pr edit` runs.
-		if (ctx.confirm === undefined) {
-			return failed(
-				renderResultBlock(caps, {
-					kind: "refusal",
-					headline:
-						"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
-					cwd: ctx.cwd,
-				}),
-				1,
-			);
-		}
+		if (!request.force) {
+			// A missing confirmation channel is a declined guardrail, not a subprocess failure: render it
+			// as a first-class warn refusal (house-style §7.3). No `gh pr edit` runs.
+			if (ctx.confirm === undefined) {
+				return failed(
+					renderResultBlock(caps, {
+						kind: "refusal",
+						headline:
+							"Confirmation is unavailable; PR metadata was generated but GitHub was not edited.",
+						cwd: ctx.cwd,
+					}),
+					1,
+				);
+			}
 
-		// Keep the confirmation body plain prose — confirmation surfaces are not guaranteed to render
-		// ANSI, and the prompt is not a machine contract (house-style §7.3, plan PR 4 step 3).
-		const confirmed = await ctx.confirm(
-			"Regenerate PR metadata?",
-			formatConfirmationMessage({ generated: prepared, force: request.force }),
-		);
-		if (!confirmed) {
-			// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
-			return failed(
-				renderResultBlock(caps, {
-					kind: "refusal",
-					headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
-					cwd: ctx.cwd,
-				}),
-				1,
+			// Keep the confirmation body plain prose — confirmation surfaces are not guaranteed to render
+			// ANSI, and the prompt is not a machine contract (house-style §7.3, plan PR 4 step 3).
+			const confirmed = await ctx.confirm(
+				"Regenerate PR metadata?",
+				formatConfirmationMessage({ generated: prepared }),
 			);
+			if (!confirmed) {
+				// Declined confirmation is a warn refusal: the user opted out, GitHub stays untouched.
+				return failed(
+					renderResultBlock(caps, {
+						kind: "refusal",
+						headline: "PR metadata regeneration was cancelled; GitHub was not edited.",
+						cwd: ctx.cwd,
+					}),
+					1,
+				);
+			}
 		}
 
 		const edited = await applyPreparedPrDescriptionUpdate({
@@ -163,22 +169,12 @@ export default defineExtension({
 	commands: [flowRegeneratePrCommand],
 });
 
-function formatConfirmationMessage(input: {
-	generated: PreparedPrDescriptionUpdate;
-	force: boolean;
-}): string {
-	const lines = [
+function formatConfirmationMessage(input: { generated: PreparedPrDescriptionUpdate }): string {
+	return [
 		`PR #${input.generated.pr.number}: ${input.generated.pr.url}`,
 		`Current title: ${input.generated.pr.title}`,
 		`New title: ${input.generated.title}`,
 		"",
 		"This will update the PR title and SDL-managed generated description region.",
-	];
-	if (input.force) {
-		lines.push(
-			"",
-			"--force was provided, but it is a compatibility no-op and does not bypass confirmation.",
-		);
-	}
-	return lines.join("\n");
+	].join("\n");
 }
