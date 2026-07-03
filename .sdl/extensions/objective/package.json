@@ -34,6 +34,11 @@
 				"entry": "./src/commands/exec-read-objective.ts"
 			},
 			{
+				"name": "exec-runner-begin",
+				"description": "Check preconditions and emit step facts plus the subagent prompt for one decomposed Objective Runner step (ADR 0024).",
+				"entry": "./src/commands/exec-runner-begin.ts"
+			},
+			{
 				"name": "exec-runner-step",
 				"description": "Run one verified Objective implementation step through a dispatched child session and emit the Runner Checkpoint.",
 				"entry": "./src/commands/exec-runner-step.ts"

@@ -10,6 +10,7 @@
 		"./sdl/commands/exec-list-candidates": "./src/sdl/commands/exec-list-candidates.ts",
 		"./sdl/commands/exec-load-orientations": "./src/sdl/commands/exec-load-orientations.ts",
 		"./sdl/commands/exec-read-objective": "./src/sdl/commands/exec-read-objective.ts",
+		"./sdl/commands/exec-runner-begin": "./src/sdl/commands/exec-runner-begin.ts",
 		"./sdl/commands/exec-runner-step": "./src/sdl/commands/exec-runner-step.ts",
 		"./sdl/commands/exec-runner-subagent-usage": "./src/sdl/commands/exec-runner-subagent-usage.ts",
 		"./sdl/commands/exec-tracking-gate": "./src/sdl/commands/exec-tracking-gate.ts",
