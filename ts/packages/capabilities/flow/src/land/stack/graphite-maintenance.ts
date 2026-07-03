@@ -17,7 +17,7 @@ import {
 import { loadPr, validateOpenPrBasicsForLandStack } from "./pr-facts.ts";
 import { loadLocalSha } from "./stack-facts.ts";
 import type { LandRuntime } from "./land-runtime.ts";
-import type { LandContext } from "../land/api.ts";
+import type { LandContext } from "../api.ts";
 import type {
 	DescendantMaintenancePlan,
 	LandStackCommandContext,
