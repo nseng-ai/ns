@@ -45,7 +45,7 @@ function fakeInvestigatorAgentDefinition(): PiAgentDefinition {
 		description: "Run a fixture investigation.",
 		promptGuidelines: [],
 		body: "Investigate this prompt:\n\n{{prompt}}",
-		filePath: "/fixture/.ji/pi/agents/investigator.md",
+		filePath: "/fixture/.ns/pi/agents/investigator.md",
 	};
 }
 

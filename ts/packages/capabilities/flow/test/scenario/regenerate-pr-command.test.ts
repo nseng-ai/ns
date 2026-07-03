@@ -103,7 +103,7 @@ function currentManagedBody(): string {
 		version: "2",
 		patchId: "default-patch-id",
 		promptHash: hashPrDescriptionPrompt(DEFAULT_PR_DESCRIPTION_SYSTEM_PROMPT),
-		generator: "ji-pr-description-v2",
+		generator: "ns-pr-description-v2",
 	});
 }
 
@@ -261,7 +261,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 			version: "2",
 			patchId: "old-patch",
 			promptHash: "sha256:old-prompt",
-			generator: "ji-pr-description-v2",
+			generator: "ns-pr-description-v2",
 		});
 		const existingBody = `Human intro\n\n${oldRegion}\n\nHuman footer`;
 		const run = runRegeneratePrWithFakes({
@@ -307,7 +307,7 @@ describe("project-local regenerate-pr extension behavior", () => {
 	test("uses the historical PR description model environment override", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { confirm: () => true },
-			env: { JI_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
+			env: { NS_DEV_PR_DESCRIPTION_MODEL: "openai-codex/custom-mini" },
 		});
 
 		expect(await run.exit).toBe(0);
@@ -315,12 +315,12 @@ describe("project-local regenerate-pr extension behavior", () => {
 	});
 
 	test("reports the historical env prompt path in success output", async () => {
-		const promptPath = join(tmpdir(), `ji-regenerate-pr-prompt-${Date.now()}.md`);
+		const promptPath = join(tmpdir(), `ns-regenerate-pr-prompt-${Date.now()}.md`);
 		await writeFile(promptPath, "custom system prompt", "utf8");
 		try {
 			const run = runRegeneratePrWithFakes({
 				state: { confirm: () => true },
-				env: { JI_DEV_PR_DESCRIPTION_PROMPT: promptPath },
+				env: { NS_DEV_PR_DESCRIPTION_PROMPT: promptPath },
 			});
 
 			expect(await run.exit).toBe(0);
@@ -334,10 +334,10 @@ describe("project-local regenerate-pr extension behavior", () => {
 	test("unreadable prompt env path exits 2", async () => {
 		const run = runRegeneratePrWithFakes({
 			state: { confirm: () => true },
-			env: { JI_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
+			env: { NS_DEV_PR_DESCRIPTION_PROMPT: "/path/that/does/not/exist.md" },
 		});
 
 		expect(await run.exit).toBe(2);
-		expect(run.stderr.join("")).toContain("Could not read JI_DEV_PR_DESCRIPTION_PROMPT");
+		expect(run.stderr.join("")).toContain("Could not read NS_DEV_PR_DESCRIPTION_PROMPT");
 	});
 });

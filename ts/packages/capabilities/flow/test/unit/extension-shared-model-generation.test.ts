@@ -77,7 +77,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowChangesSummary(
 			{
-				env: { JI_CHANGES_MODEL: "openai-codex/custom-changes" },
+				env: { NS_CHANGES_MODEL: "openai-codex/custom-changes" },
 				textGenerator,
 			},
 			{
@@ -104,7 +104,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { JI_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				env: { NS_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
 				textGenerator,
 			},
 			{
@@ -132,7 +132,7 @@ describe("project extension shared model generation helper", () => {
 
 		const result = await sharedModule.prepareFlowCheckpointMessage(
 			{
-				env: { JI_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
+				env: { NS_CHECKPOINT_MODEL: "openai-codex/custom-checkpoint" },
 				textGenerator,
 			},
 			{

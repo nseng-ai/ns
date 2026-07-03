@@ -12,7 +12,7 @@ import { z, type SdlCommand } from "@ji/kernel/sdk";
 const tempDirs: string[] = [];
 
 async function createModule(source: string): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-loader-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-loader-"));
 	tempDirs.push(directory);
 	const modulePath = join(directory, "extension.ts");
 	mkdirSync(dirname(modulePath), { recursive: true });
@@ -104,7 +104,7 @@ export default defineExtension({
 
 		expect(loaded).toMatchObject({
 			ok: false,
-			diagnostic: { code: "ji_extension_contribution_import_failed", path: modulePath },
+			diagnostic: { code: "ns_extension_contribution_import_failed", path: modulePath },
 		});
 	});
 });

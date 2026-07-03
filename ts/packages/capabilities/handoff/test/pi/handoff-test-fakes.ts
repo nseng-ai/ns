@@ -88,17 +88,17 @@ export class FakePi implements ExtensionAPI {
 		this.commandInfos = [...commandInfos];
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
-				if (customType === "ji-command-ack") return;
+				if (customType === "ns-command-ack") return;
 				this.renderers.set(customType, renderer);
 			};
 		}
 		if (options.sendMessage ?? true) {
 			this.sendMessage = (message: CustomMessage): void => {
-				if (message.customType === "ji-command-ack") {
+				if (message.customType === "ns-command-ack") {
 					this.ackMessages.push(message);
 					return;
 				}
-				if (message.customType === "ji-command-progress") {
+				if (message.customType === "ns-command-progress") {
 					this.progressMessages.push(message);
 					return;
 				}
@@ -485,8 +485,8 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 
 export async function runCommand(
 	commandName:
-		| "ji:handoff:create"
-		| "ji:handoff:pickup"
+		| "ns:handoff:create"
+		| "ns:handoff:pickup"
 		| "handoff:list"
 		| "ccc:handoff-tab"
 		| "handoff:self",

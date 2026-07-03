@@ -35,8 +35,8 @@ afterEach(() => {
 
 /** Temp repo with a committed Objective record, so the tree starts clean. */
 function createSeededRepo(): TempGitRepo {
-	const seeded = createTempGitRepo({ prefix: "ji-objective-runner-git-" });
-	const recordDir = join(seeded.path, ".ji", "objectives", SLUG);
+	const seeded = createTempGitRepo({ prefix: "ns-objective-runner-git-" });
+	const recordDir = join(seeded.path, ".ns", "objectives", SLUG);
 	mkdirSync(recordDir, { recursive: true });
 	writeFileSync(
 		join(recordDir, "objective.md"),

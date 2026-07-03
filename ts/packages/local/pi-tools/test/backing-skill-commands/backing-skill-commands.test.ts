@@ -8,10 +8,10 @@ import {
 } from "@ji/pi/commands";
 
 const OBJECTIVE_COMMAND_SURFACES = [
-	"ji:objective:next",
-	"ji:objective:update",
-	"ji:objective:close",
-	"ji:objective:stack-impl",
+	"ns:objective:next",
+	"ns:objective:update",
+	"ns:objective:close",
+	"ns:objective:stack-impl",
 ] as const;
 
 import {
@@ -69,28 +69,28 @@ describe("command-backed skill registry", () => {
 			BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 		);
 		expect(commandBackedSkillSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
-		expect(commandBackedSkillSurface("objective-refresh")).toBe("ji:objective:refresh");
-		expect(commandBackedSkillSurface("ji-flow-branch-latest-commit")).toBe(
-			"ji:flow:branch-latest-commit",
+		expect(commandBackedSkillSurface("objective-refresh")).toBe("ns:objective:refresh");
+		expect(commandBackedSkillSurface("ns-flow-branch-latest-commit")).toBe(
+			"ns:flow:branch-latest-commit",
 		);
-		expect(commandBackedSkillSurface("ji-flow-cp")).toBe("ji:flow:cp");
-		expect(commandBackedSkillSurface("ji-flow-submit")).toBe("ji:flow:submit");
-		expect(commandBackedSkillSurface("sdl-cli-design")).toBe("ji:cli:design");
+		expect(commandBackedSkillSurface("ns-flow-cp")).toBe("ns:flow:cp");
+		expect(commandBackedSkillSurface("ns-flow-submit")).toBe("ns:flow:submit");
+		expect(commandBackedSkillSurface("sdl-cli-design")).toBe("ns:cli:design");
 		expect(commandBackedSkillSurface("sdl-typescript-style-tripwire")).toBe(
-			"ji:typescript:style-tripwire",
+			"ns:typescript:style-tripwire",
 		);
 		expect(commandBackedSkillSurface("pytest")).toBe("python:pytest");
 		expect(commandBackedSkillSurface("skillx")).toBe("skill:x");
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();
 
-		expect(commandBackedSkillSurface("handoff-create")).toBe("ji:handoff:create");
-		expect(commandBackedSkillSurface("handoff-pickup")).toBe("ji:handoff:pickup");
-		expect(commandBackedSkillSurface("objective-create")).toBe("ji:objective:create");
-		expect(commandBackedSkillSurface("objective-next")).toBe("ji:objective:next");
-		expect(commandBackedSkillSurface("objective-update")).toBe("ji:objective:update");
-		expect(commandBackedSkillSurface("objective-close")).toBe("ji:objective:close");
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(commandBackedSkillSurface("handoff-create")).toBe("ns:handoff:create");
+		expect(commandBackedSkillSurface("handoff-pickup")).toBe("ns:handoff:pickup");
+		expect(commandBackedSkillSurface("objective-create")).toBe("ns:objective:create");
+		expect(commandBackedSkillSurface("objective-next")).toBe("ns:objective:next");
+		expect(commandBackedSkillSurface("objective-update")).toBe("ns:objective:update");
+		expect(commandBackedSkillSurface("objective-close")).toBe("ns:objective:close");
+		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
 	});
 
 	test("registry has unique skill names and surfaces", () => {
@@ -146,13 +146,13 @@ describe("command-backed skill registry", () => {
 				"objective-close",
 				"objective-stack-impl",
 				"pi-grill-ui",
-				"ji-flow-autobranch",
+				"ns-flow-autobranch",
 			]),
 		);
 		for (const surface of OBJECTIVE_COMMAND_SURFACES) {
 			expect(specializedSurfaces).toContain(surface);
 		}
-		expect(specializedSurfaces).toContain("ji:handoff:create");
+		expect(specializedSurfaces).toContain("ns:handoff:create");
 		expect(specializedSurfaces).toContain("pi:grill-me");
 		expect(specializedSurfaces).not.toContain("code:workflows");
 	});
@@ -165,8 +165,8 @@ describe("command-backed skill registry", () => {
 		for (const surface of OBJECTIVE_COMMAND_SURFACES) {
 			expect(surfaces).toContain(surface);
 		}
-		expect(surfaces).toContain("ji:objective:refresh");
-		expect(surfaces).toContain("ji:handoff:create");
+		expect(surfaces).toContain("ns:objective:refresh");
+		expect(surfaces).toContain("ns:handoff:create");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).toContain("setup:dprint");
@@ -187,14 +187,14 @@ describe("command-backed skill registry", () => {
 
 describe("derivePiReplacementCommand", () => {
 	test.each([
-		["objective-refresh", "ji:objective:refresh"],
-		["objective-review-briefing", "ji:objective:review-briefing"],
+		["objective-refresh", "ns:objective:refresh"],
+		["objective-review-briefing", "ns:objective:review-briefing"],
 		["branch-retro", "branch:retro"],
 		["code-workflows", "code:workflows"],
 		["pytest", "python:pytest"],
 		["skillx", "skill:x"],
-		["sdl-cli-design", "ji:cli:design"],
-		["sdl-typescript-style-tripwire", "ji:typescript:style-tripwire"],
+		["sdl-cli-design", "ns:cli:design"],
+		["sdl-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
 	});
@@ -207,9 +207,9 @@ describe("derivePiReplacementCommand", () => {
 			command: "workflows",
 		});
 		expect(derivePiReplacementCommand("objective-refresh")).toEqual({
-			surface: "ji:objective:refresh",
+			surface: "ns:objective:refresh",
 			skillName: "objective-refresh",
-			namespace: "ji",
+			namespace: "ns",
 			command: "objective:refresh",
 		});
 	});
@@ -230,7 +230,7 @@ describe("genericBackingSkillCommandSpecs", () => {
 		);
 
 		expect(surfaces).toContain("code:workflows");
-		expect(surfaces).toContain("ji:objective:refresh");
+		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("python:pytest");
 		expect(surfaces).toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
@@ -240,8 +240,8 @@ describe("genericBackingSkillCommandSpecs", () => {
 		expect(surfaces).not.toContain("typescript:style");
 		expect(surfaces).not.toContain("grill:me");
 		expect(surfaces).not.toContain("grill:with-docs");
-		expect(surfaces).not.toContain("ji:objective:close");
-		expect(surfaces).not.toContain("ji:objective:create");
+		expect(surfaces).not.toContain("ns:objective:close");
+		expect(surfaces).not.toContain("ns:objective:create");
 		expect(surfaces).not.toContain("objective:current");
 		expect(surfaces).not.toContain("code:gt-restack-resolve");
 		expect(specs.map((spec) => spec.skillName)).toEqual(

@@ -133,7 +133,7 @@ class ScenarioPromptResolver implements BrmemPromptResolver {
 	}
 
 	globalPromptRoots(): readonly string[] {
-		return [`${this.homeRootValue}/.config/ji/brmem/prompts`];
+		return [`${this.homeRootValue}/.config/ns/brmem/prompts`];
 	}
 
 	async fileExists(path: string): Promise<boolean> {

@@ -30,9 +30,9 @@ async function createExtensionProject(
 	extensionFileName: string,
 	extensionSource: string,
 ): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".ji", "extensions", extensionFileName);
+	const extensionPath = join(directory, ".ns", "extensions", extensionFileName);
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(extensionPath, extensionSource);
 	return directory;
@@ -42,9 +42,9 @@ async function createLegacyCommandProject(
 	commandFileName: string,
 	commandSource: string,
 ): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-legacy-command-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-legacy-command-project-"));
 	tempDirs.push(directory);
-	const commandPath = join(directory, ".ji", "commands", commandFileName);
+	const commandPath = join(directory, ".ns", "commands", commandFileName);
 	mkdirSync(dirname(commandPath), { recursive: true });
 	writeFileSync(commandPath, commandSource);
 	return directory;
@@ -54,9 +54,9 @@ async function createManifestProject(
 	manifest: unknown,
 	files: Record<string, string>,
 ): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
-	const packageDir = join(directory, ".ji", "extensions", "pkg");
+	const packageDir = join(directory, ".ns", "extensions", "pkg");
 	writeFileSyncWithParents(join(packageDir, "package.json"), JSON.stringify(manifest));
 	for (const [relativePath, source] of Object.entries(files)) {
 		writeFileSyncWithParents(join(packageDir, relativePath), source);
@@ -85,7 +85,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ji");
+		expect(help).toContain("Usage: ns");
 		expect(help).toContain("Source Development Lifecycle tools.");
 		expect(help).not.toContain("changes");
 		expect(help).not.toContain("cp");
@@ -99,7 +99,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 		const run = runWithFakes({ args: ["-h"] });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: ji");
+		expect(run.stdout.join("")).toContain("Usage: ns");
 		expect(run.stdout.join("")).not.toContain("changes");
 		expect(run.stdout.join("")).not.toContain("cp");
 		expect(run.stdout.join("")).not.toContain("submit");
@@ -119,7 +119,7 @@ describe("empty SDL kernel CLI help and parsing", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(
-			"runtime: typescript\nentry_point: @ji/kernel bin ji -> ts/packages/kernel/src/cli/index.ts\n",
+			"runtime: typescript\nentry_point: @ji/kernel bin ns -> ts/packages/kernel/src/cli/index.ts\n",
 		);
 		expect(run.stderr.join("")).toBe("");
 	});
@@ -169,7 +169,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		const run = runWithFakes({ args: ["--help"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("Usage: ji");
+		expect(run.stdout.join("")).toContain("Usage: ns");
 		expect(run.stderr.join("")).toContain("Warning:");
 		expect(run.stderr.join("")).toContain("command entry name inferred");
 		expect(run.stderr.join("")).toContain("[a-z][a-z0-9-]*");
@@ -227,7 +227,7 @@ describe("sdl extension discovery without dynamic imports", () => {
 		expect(run.stderr.join("")).toBe("");
 	});
 
-	test("legacy .ji/commands files no longer register commands", async () => {
+	test("legacy .ns/commands files no longer register commands", async () => {
 		const cwd = await createLegacyCommandProject(
 			"hello.ts",
 			`

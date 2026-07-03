@@ -8,11 +8,11 @@ const repoRoot = "/workspace/repo";
 const homeRoot = "/home/tester";
 
 function projectPrompt(name: string): string {
-	return join(repoRoot, ".ji", "prompts", `${name}.md`);
+	return join(repoRoot, ".ns", "prompts", `${name}.md`);
 }
 
 function xdgGlobalPrompt(name: string): string {
-	return join(homeRoot, ".config", "ji", "brmem", "prompts", `${name}.md`);
+	return join(homeRoot, ".config", "ns", "brmem", "prompts", `${name}.md`);
 }
 
 function legacyProjectPrompt(name: string): string {

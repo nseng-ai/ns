@@ -16,7 +16,7 @@ import { ObjectiveStorage } from "../../src/core/storage.ts";
 
 const SAMPLE_RESULT: ObjectiveListResult = {
 	trunkBranch: "master",
-	rootPath: ".ji/objectives",
+	rootPath: ".ns/objectives",
 	statusFilter: "active",
 	namesOnly: false,
 	updatedBranchesIncluded: true,
@@ -37,7 +37,7 @@ describe("renderObjectiveListHuman", () => {
 	test("renders the full human table with edges, blocked sub-state, and branch attribution continuations", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".ji/objectives",
+			rootPath: ".ns/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			updatedBranchesIncluded: true,
@@ -63,7 +63,7 @@ describe("renderObjectiveListHuman", () => {
 
 		expect(renderObjectiveListHuman(result, { canEmitAnsi: false }).split("\n")).toEqual([
 			"Objective records in this checkout",
-			"Root: .ji/objectives",
+			"Root: .ns/objectives",
 			"Status filter: all",
 			"",
 			"OBJECTIVE        STATUS            LATEST UPDATE         EDGES  UPDATED BRANCHES",
@@ -77,7 +77,7 @@ describe("renderObjectiveListHuman", () => {
 	test("markdown table carries the edges column blank-when-zero and the blocked open sub-state", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".ji/objectives",
+			rootPath: ".ns/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			records: [
@@ -102,7 +102,7 @@ describe("renderObjectiveListHuman", () => {
 	test("human status cells use canonical ASCII glyph fallbacks", () => {
 		const result: ObjectiveListResult = {
 			trunkBranch: "master",
-			rootPath: ".ji/objectives",
+			rootPath: ".ns/objectives",
 			statusFilter: "all",
 			namesOnly: false,
 			records: [
@@ -181,16 +181,16 @@ describe("objective list helpers", () => {
 				{ name: "feat/same-tree", headIso: "2026-05-04T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.ji/objectives": "trunk-tree",
-				"feat/newer|.ji/objectives": "newer-tree",
-				"feat/older|.ji/objectives": "older-tree",
-				"feat/same-tree|.ji/objectives": "trunk-tree",
+				"master|.ns/objectives": "trunk-tree",
+				"feat/newer|.ns/objectives": "newer-tree",
+				"feat/older|.ns/objectives": "older-tree",
+				"feat/same-tree|.ns/objectives": "trunk-tree",
 			},
 			changedPaths: {
-				"master...feat/newer|.ji/objectives": [".ji/objectives/alpha/objective.md"],
-				"master...feat/older|.ji/objectives": [
-					".ji/objectives/alpha/roadmap.md",
-					".ji/objectives/branch-only/objective.md",
+				"master...feat/newer|.ns/objectives": [".ns/objectives/alpha/objective.md"],
+				"master...feat/older|.ns/objectives": [
+					".ns/objectives/alpha/roadmap.md",
+					".ns/objectives/branch-only/objective.md",
 				],
 			},
 		});
@@ -292,11 +292,11 @@ describe("objective list helpers", () => {
 				{ name: "feat/stale", headIso: "2026-05-02T00:00:00Z" },
 			],
 			treeOids: {
-				"master|.ji/objectives": "newer-trunk-tree",
-				"feat/stale|.ji/objectives": "older-branch-tree",
+				"master|.ns/objectives": "newer-trunk-tree",
+				"feat/stale|.ns/objectives": "older-branch-tree",
 			},
 			changedPaths: {
-				"master...feat/stale|.ji/objectives": [],
+				"master...feat/stale|.ns/objectives": [],
 			},
 		});
 

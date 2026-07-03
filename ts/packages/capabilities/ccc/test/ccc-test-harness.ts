@@ -299,12 +299,12 @@ export class FakeCommandContext implements CommandContext {
 const tempDirs: string[] = [];
 const originalCmuxWorkspaceId = process.env.CMUX_WORKSPACE_ID;
 const originalCmuxTabId = process.env.CMUX_TAB_ID;
-const originalSidebarModel = process.env.JI_CCC_SIDEBAR_MODEL;
+const originalSidebarModel = process.env.NS_CCC_SIDEBAR_MODEL;
 
 export async function resetCmuxTestEnvironment(): Promise<void> {
 	restoreEnvValue("CMUX_WORKSPACE_ID", originalCmuxWorkspaceId);
 	restoreEnvValue("CMUX_TAB_ID", originalCmuxTabId);
-	restoreEnvValue("JI_CCC_SIDEBAR_MODEL", originalSidebarModel);
+	restoreEnvValue("NS_CCC_SIDEBAR_MODEL", originalSidebarModel);
 	const dirs = tempDirs.splice(0);
 	await Promise.all(dirs.map((dir) => rm(dir, { recursive: true, force: true })));
 }
@@ -402,7 +402,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 			exitCode: 0,
 			data: {
 				trunkBranch: "master",
-				rootPath: ".ji/objectives",
+				rootPath: ".ns/objectives",
 				statusFilter: "active",
 				namesOnly: false,
 				records: slugs.map((slug, index) => ({
@@ -417,7 +417,7 @@ export function objectiveListStep(slugs: string[]): ScriptedExec {
 }
 
 export function objectiveReadStep(slug: string): ScriptedExec {
-	return step("ji", ["objective", "exec", "read-objective", slug, "--format", "json"], {
+	return step("ns", ["objective", "exec", "read-objective", slug, "--format", "json"], {
 		stdout: JSON.stringify({
 			exitCode: 0,
 			data: {
@@ -429,7 +429,7 @@ export function objectiveReadStep(slug: string): ScriptedExec {
 }
 
 export function objectiveDiffStep(stdout: string, result: Partial<ExecResult> = {}): ScriptedExec {
-	return step("git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".ji/objectives"], {
+	return step("git", ["diff", "--name-status", "-M", "master...HEAD", "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});
@@ -439,7 +439,7 @@ export function objectiveStatusStep(
 	stdout: string,
 	result: Partial<ExecResult> = {},
 ): ScriptedExec {
-	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ji/objectives"], {
+	return step("git", ["status", "--porcelain=v1", "-z", "--", ".ns/objectives"], {
 		stdout,
 		...result,
 	});

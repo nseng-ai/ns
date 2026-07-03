@@ -210,7 +210,7 @@ function createRunnerDefinitionRoot(overrides: RunnerDefinitionOverrides = {}): 
 }
 
 function writeRunnerDefinition(root: string, overrides: RunnerDefinitionOverrides = {}): void {
-	const agentsDir = join(root, ".ji", "pi", "agents");
+	const agentsDir = join(root, ".ns", "pi", "agents");
 	mkdirSync(agentsDir, { recursive: true });
 	writeFileSync(join(agentsDir, "runner.md"), runnerDefinitionMarkdown(overrides), "utf8");
 }

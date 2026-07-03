@@ -65,7 +65,7 @@ function objectiveListPayload(overrides: Partial<ObjectiveListPayload> = {}): Ob
 	const { records, ...rest } = overrides;
 	const payload: ObjectiveListPayload = {
 		trunkBranch: "main",
-		rootPath: ".ji/objectives",
+		rootPath: ".ns/objectives",
 		statusFilter: "active",
 		namesOnly: false,
 		records: [record()],

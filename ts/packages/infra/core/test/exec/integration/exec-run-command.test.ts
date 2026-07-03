@@ -10,7 +10,7 @@ import { createManualTimerScheduler } from "@ji/core/time/testing";
 const tempDirs: string[] = [];
 
 function writeChildScript(contents: string): string {
-	const directory = mkdtempSync(join(tmpdir(), "ji-core-exec-"));
+	const directory = mkdtempSync(join(tmpdir(), "ns-core-exec-"));
 	tempDirs.push(directory);
 	const path = join(directory, "child.cjs");
 	writeFileSync(path, contents);

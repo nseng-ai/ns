@@ -11,7 +11,7 @@ const tempDirs: string[] = [];
 const originalPath = process.env.PATH;
 
 function createTempDir(): string {
-	const directory = mkdtempSync(join(tmpdir(), "ji-exec-unit-"));
+	const directory = mkdtempSync(join(tmpdir(), "ns-exec-unit-"));
 	tempDirs.push(directory);
 	return directory;
 }

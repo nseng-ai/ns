@@ -27,7 +27,7 @@ describe("sdl completion CLI", () => {
 			});
 
 			expect(await run.exit).toBe(0);
-			expect(run.stdout.join("")).toContain("'ji' 'completion' 'exec' 'resolve'");
+			expect(run.stdout.join("")).toContain("'ns' 'completion' 'exec' 'resolve'");
 			expect(run.stderr.join("")).toBe("");
 		}
 	});

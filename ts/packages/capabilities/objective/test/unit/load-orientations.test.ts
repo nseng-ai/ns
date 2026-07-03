@@ -21,9 +21,9 @@ describe("objective load-orientations operation", () => {
 				{ slug: "charlie" },
 				{ slug: "delta", orientationMd: "delta direction" },
 			],
-			directories: [".ji/objective-archive/archived"],
+			directories: [".ns/objective-archive/archived"],
 			files: {
-				".ji/objective-archive/archived/orientation.md": "archived direction\n",
+				".ns/objective-archive/archived/orientation.md": "archived direction\n",
 			},
 		});
 
@@ -32,16 +32,16 @@ describe("objective load-orientations operation", () => {
 		expect(exit).toEqual({
 			type: "ok",
 			data: {
-				rootPath: ".ji/objectives",
+				rootPath: ".ns/objectives",
 				records: [
 					{
 						slug: "alpha",
-						path: ".ji/objectives/alpha/orientation.md",
+						path: ".ns/objectives/alpha/orientation.md",
 						content: "alpha direction\n",
 					},
 					{
 						slug: "delta",
-						path: ".ji/objectives/delta/orientation.md",
+						path: ".ns/objectives/delta/orientation.md",
 						content: "delta direction",
 					},
 				],
@@ -77,10 +77,10 @@ describe("objective load-orientations operation", () => {
 
 		expect(renderLoadOrientationsMarkdown(exit.data)).toBe(
 			[
-				"### .ji/objectives/alpha/orientation.md",
+				"### .ns/objectives/alpha/orientation.md",
 				"alpha content",
 				"",
-				"### .ji/objectives/charlie/orientation.md",
+				"### .ns/objectives/charlie/orientation.md",
 				"charlie content",
 			].join("\n"),
 		);
@@ -106,7 +106,7 @@ describe("objective load-orientations operation", () => {
 		expect(withoutFrontmatter.data.records).toEqual([
 			{
 				slug: "alpha",
-				path: ".ji/objectives/alpha/orientation.md",
+				path: ".ns/objectives/alpha/orientation.md",
 				content: orientationMd,
 			},
 		]);
@@ -116,7 +116,7 @@ describe("objective load-orientations operation", () => {
 	test("fails when a detected orientation file is unreadable", async () => {
 		const ctx = contextWithFakeStorage({
 			records: [{ slug: "alpha", orientationMd: "alpha\n" }],
-			unreadableFiles: { ".ji/objectives/alpha/orientation.md": "permission denied" },
+			unreadableFiles: { ".ns/objectives/alpha/orientation.md": "permission denied" },
 		});
 
 		const exit = await runLoadOrientations(ctx, {});
@@ -124,7 +124,7 @@ describe("objective load-orientations operation", () => {
 		expect(exit).toEqual({
 			type: "failure",
 			errorType: "orientation-unreadable",
-			message: "Unable to read .ji/objectives/alpha/orientation.md: permission denied",
+			message: "Unable to read .ns/objectives/alpha/orientation.md: permission denied",
 		});
 	});
 });

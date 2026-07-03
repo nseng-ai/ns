@@ -18,17 +18,17 @@ describe("renderAutoslotResultBlock", () => {
 			headline: "Autoslot moved demo-branch to slot-01.",
 			cwd: "/repo",
 			body: "Worktree: /slots/slot-01",
-			guidance: "ji slot co demo-branch",
+			guidance: "ns slot co demo-branch",
 		});
 
 		expect(stripAnsi(block).split("\n")).toEqual([
 			"✓ Autoslot moved demo-branch to slot-01.",
 			"Worktree: /slots/slot-01",
-			"ji slot co demo-branch",
+			"ns slot co demo-branch",
 			"Cwd: /repo",
 		]);
 		expect(block).toContain(`${DIM}Cwd: /repo\x1b[0m`);
-		expect(block).not.toContain(`${DIM}ji slot co demo-branch`);
+		expect(block).not.toContain(`${DIM}ns slot co demo-branch`);
 	});
 
 	test("keeps declined guardrails as warn refusals", () => {

@@ -199,7 +199,7 @@ describe("/pr:download-feedback", () => {
 		const ctx = await runCommand(pi);
 
 		expect(pi.calls).toEqual([
-			{ command: "ji", args: ["address", "exec", "download-feedback", "--format", "json"] },
+			{ command: "ns", args: ["address", "exec", "download-feedback", "--format", "json"] },
 		]);
 		expect(ctx.editorTexts).toEqual([markdown]);
 		expect(ctx.notifications.at(-1)).toEqual({
@@ -222,7 +222,7 @@ describe("/pr:download-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "ji",
+				command: "ns",
 				args: ["address", "exec", "download-feedback", "--pr-number", "123", "--format", "json"],
 			},
 		]);
@@ -277,7 +277,7 @@ describe("/pr:download-feedback", () => {
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"Malformed ji address exec download-feedback",
+			"Malformed ns address exec download-feedback",
 		);
 		expect(pi.userMessages).toEqual([]);
 	});
@@ -354,11 +354,11 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "ji",
+				command: "ns",
 				args: ["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 			},
 			{
-				command: "ji",
+				command: "ns",
 				args: [
 					"address",
 					"exec",
@@ -370,11 +370,11 @@ describe("/pr:download-stack-feedback", () => {
 				],
 			},
 			{
-				command: "ji",
+				command: "ns",
 				args: ["address", "exec", "download-feedback", "--pr-number", "101", "--format", "json"],
 			},
 			{
-				command: "ji",
+				command: "ns",
 				args: ["address", "exec", "download-feedback", "--pr-number", "102", "--format", "json"],
 			},
 		]);
@@ -413,7 +413,7 @@ describe("/pr:download-stack-feedback", () => {
 		);
 		expect(prompt).toContain("Treat automation feedback as downstack-level remediation");
 		expect(prompt).toContain("close all confirmed automation review threads stack-wide");
-		expect(prompt).toContain("ji address exec close-review-threads --thread-ids-json");
+		expect(prompt).toContain("ns address exec close-review-threads --thread-ids-json");
 		expect(prompt).toContain("single-thread `reply-review-thread` and `resolve-review-thread`");
 		expect(prompt).toContain(
 			"Do not edit files yet; propose a plan and wait for human confirmation. Do not resolve or reply to GitHub threads during this initial triage prompt",
@@ -515,7 +515,7 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(pi.calls).toEqual([
 			{
-				command: "ji",
+				command: "ns",
 				args: ["slot", "gt", "exec", "stack-branches", "--downstack", "--format", "json"],
 			},
 		]);
@@ -533,7 +533,7 @@ describe("/pr:download-stack-feedback", () => {
 
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
-		expect(ctx.notifications.at(-1)?.message).toContain("Malformed ji slot gt exec stack-branches");
+		expect(ctx.notifications.at(-1)?.message).toContain("Malformed ns slot gt exec stack-branches");
 		expect(ctx.notifications.at(-1)?.message).toContain("boom");
 	});
 

@@ -41,7 +41,7 @@ function errno(code: string): Error {
 
 describe("local branch ref reader", () => {
 	test("reads loose root, nested loose, and packed branch refs", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ji-git-refs-"));
+		const dir = mkdtempSync(join(tmpdir(), "ns-git-refs-"));
 		try {
 			mkdirSync(join(dir, "refs", "heads", "nested"), { recursive: true });
 			writeFileSync(join(dir, "refs", "heads", "loose-branch"), "aaa\n");
@@ -65,7 +65,7 @@ describe("local branch ref reader", () => {
 	});
 
 	test("treats missing refs/heads and packed-refs as an empty complete set", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ji-git-empty-refs-"));
+		const dir = mkdtempSync(join(tmpdir(), "ns-git-empty-refs-"));
 		try {
 			expect(expectBranches(dir)).toEqual([]);
 		} finally {
@@ -74,7 +74,7 @@ describe("local branch ref reader", () => {
 	});
 
 	test("reads packed refs even when loose refs are absent", () => {
-		const dir = mkdtempSync(join(tmpdir(), "ji-git-packed-refs-"));
+		const dir = mkdtempSync(join(tmpdir(), "ns-git-packed-refs-"));
 		try {
 			writeFileSync(
 				join(dir, "packed-refs"),

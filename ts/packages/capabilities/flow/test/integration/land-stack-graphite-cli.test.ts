@@ -85,7 +85,7 @@ describe("land stack real Graphite CLI integration", () => {
 });
 
 async function withTempGraphiteRepo(run: (repo: TempGraphiteRepo) => Promise<void>): Promise<void> {
-	const tempRoot = await mkdtemp(join(tmpdir(), "ji-flow-real-gt-"));
+	const tempRoot = await mkdtemp(join(tmpdir(), "ns-flow-real-gt-"));
 	const repoRoot = join(tempRoot, "repo");
 	const home = join(tempRoot, "home");
 	const env = isolatedGraphiteEnv(home);
@@ -185,7 +185,7 @@ function makeLandStackPi(env: NodeJS.ProcessEnv): LandStackExtensionAPI {
 	return {
 		async exec(command, args, options = {}) {
 			if (
-				command === "ji" &&
+				command === "ns" &&
 				args[0] === "flow" &&
 				args[1] === "exec" &&
 				args[2] === "read-graphite-branch-metadata" &&

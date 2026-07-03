@@ -659,7 +659,7 @@ describe("runSubmitCommand", () => {
 			[
 				"Graphite could not update your local trunk before submitting. Nothing was submitted.",
 				"",
-				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ji flow submit`.",
+				"Fix: update or repair your local trunk checkout (resolve any specific trunk problem Graphite reported), then rerun `ns flow submit`.",
 				"",
 			].join("\n"),
 		);

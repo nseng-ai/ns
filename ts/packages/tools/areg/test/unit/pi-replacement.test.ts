@@ -11,20 +11,20 @@ describe("Pi replacement helpers", () => {
 	test("looks up replacements from the command-backed skill registry", () => {
 		expect(verifyPiReplacement("branch-context-from-plan", { verifiedSurfaces: [] })).toEqual({
 			verified: false,
-			surface: "ji:branch-context:from-plan",
+			surface: "ns:branch-context:from-plan",
 		});
 		expect(
 			verifyPiReplacement("branch-context-from-plan", {
-				verifiedSurfaces: ["ji:branch-context:from-plan"],
+				verifiedSurfaces: ["ns:branch-context:from-plan"],
 			}),
 		).toEqual({
 			verified: true,
-			surface: "ji:branch-context:from-plan",
+			surface: "ns:branch-context:from-plan",
 		});
 	});
 
 	test("does not invent fallback replacements for unknown skills", () => {
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
 		expect(commandBackedSkillSurface("branch-context-impl-extra")).toBeUndefined();
 		expect(commandBackedSkillSurface("foo-bar-baz")).toBeUndefined();
 		expect(commandBackedSkillSurface("plain")).toBeUndefined();

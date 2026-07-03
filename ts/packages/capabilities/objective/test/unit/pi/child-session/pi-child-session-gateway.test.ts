@@ -17,7 +17,7 @@ import {
 	type SpawnedPiChildProcess,
 } from "../../../../src/pi/child-session/pi-child-session-gateway.ts";
 
-const SESSION_DIR = "/tmp/ji-objective-runner-test";
+const SESSION_DIR = "/tmp/ns-objective-runner-test";
 const SESSION_FILE = join(SESSION_DIR, "child-session.jsonl");
 
 interface SpawnCall {
@@ -138,7 +138,7 @@ describe("createPiChildSessionGateway", () => {
 		});
 	});
 
-	test("propagates --model and the JI_RUNNER_PI_BIN binary override", async () => {
+	test("propagates --model and the NS_RUNNER_PI_BIN binary override", async () => {
 		const { deps, calls } = createFakePiGateway({
 			env: { [SDL_RUNNER_PI_BIN_ENV]: "/opt/custom/pi" },
 		});

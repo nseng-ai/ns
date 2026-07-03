@@ -30,9 +30,9 @@ async function createExtensionProject(
 	extensionFileName: string,
 	extensionSource: string,
 ): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-project-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-project-"));
 	tempDirs.push(directory);
-	const extensionPath = join(directory, ".ji", "extensions", extensionFileName);
+	const extensionPath = join(directory, ".ns", "extensions", extensionFileName);
 	mkdirSync(dirname(extensionPath), { recursive: true });
 	writeFileSync(extensionPath, extensionSource);
 	return directory;
@@ -110,12 +110,12 @@ export default defineExtension({
 
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
-		expect(help).toContain("Usage: ji sample");
+		expect(help).toContain("Usage: ns sample");
 		expect(help).toContain("Project sample command with options.");
 		expect(help).toContain("--dry-run");
 		expect(help).not.toContain("model-authored");
-		expect(help).not.toContain("JI_CHECKPOINT_MODEL");
-		expect(help).not.toContain("JI_DEV_CHECKPOINT_MODEL");
+		expect(help).not.toContain("NS_CHECKPOINT_MODEL");
+		expect(help).not.toContain("NS_DEV_CHECKPOINT_MODEL");
 		expect(run.stderr.join("")).toBe("");
 		expect(run.context.execCalls).toEqual([]);
 	});
@@ -212,7 +212,7 @@ export default defineExtension({
 });
 `,
 		);
-		writeFileSyncWithParents(join(cwd, ".ji", "extensions", "Bad.ts"), "export default {};\n");
+		writeFileSyncWithParents(join(cwd, ".ns", "extensions", "Bad.ts"), "export default {};\n");
 		const run = runWithFakes({ args: ["hello"], state: { exec: [] }, cwd });
 
 		expect(await run.exit).toBe(0);

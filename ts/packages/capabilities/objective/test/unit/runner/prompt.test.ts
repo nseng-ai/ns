@@ -16,14 +16,14 @@ describe("buildRunnerChildPrompt", () => {
 	test("default-mode marker prompt states the standing rules and report contract", () => {
 		const prompt = buildRunnerChildPrompt({
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "default",
 			baseBranch: "main",
 			reportChannel: { type: "marker" },
 		});
 
 		expect(prompt).toContain("Objective: demo-objective");
-		expect(prompt).toContain("Objective record: .ji/objectives/demo-objective");
+		expect(prompt).toContain("Objective record: .ns/objectives/demo-objective");
 		expect(prompt).toContain("Base branch at dispatch: main");
 		expect(prompt).toContain("exactly one focused, coherent implementation slice");
 		expect(prompt).toContain(describeBranchContextGraphiteCreationSteps("main"));
@@ -46,7 +46,7 @@ describe("buildRunnerChildPrompt", () => {
 	test("json-file prompt swaps only the report contract for the file instruction", () => {
 		const base = {
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "default",
 			baseBranch: "main",
 		} as const;
@@ -84,7 +84,7 @@ describe("buildRunnerChildPrompt", () => {
 	test("json-file recover prompt keeps the recover preamble and mode-sensitive branch value", () => {
 		const prompt = buildRunnerChildPrompt({
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "recover",
 			baseBranch: "feature/demo-step",
 			reportChannel: { type: "json-file", reportPath: REPORT_PATH },
@@ -102,7 +102,7 @@ describe("buildRunnerChildPrompt", () => {
 	test("stays thin: no tracking-update instruction and no inlined objective content", () => {
 		const prompt = buildRunnerChildPrompt({
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "default",
 			baseBranch: "main",
 			reportChannel: { type: "marker" },
@@ -119,7 +119,7 @@ describe("buildRunnerChildPrompt", () => {
 		const guidance = "Focus on the parser only.\nSkip the CLI wiring.";
 		const prompt = buildRunnerChildPrompt({
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "default",
 			baseBranch: "main",
 			reportChannel: { type: "marker" },
@@ -133,7 +133,7 @@ describe("buildRunnerChildPrompt", () => {
 	test("recover-mode prompt carries the dirty-branch preamble and same-branch rule", () => {
 		const prompt = buildRunnerChildPrompt({
 			slug: "demo-objective",
-			objectivePath: ".ji/objectives/demo-objective",
+			objectivePath: ".ns/objectives/demo-objective",
 			mode: "recover",
 			baseBranch: "feature/demo-step",
 			reportChannel: { type: "marker" },

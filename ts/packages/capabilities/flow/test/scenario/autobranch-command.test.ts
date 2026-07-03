@@ -66,9 +66,9 @@ describe("flow autobranch command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("`ji flow autobranch` requires pending worktree changes");
+		expect(stderr).toContain("`ns flow autobranch` requires pending worktree changes");
 		expect(stderr).toContain("Working tree is clean.");
-		expect(stderr).toContain("Use `ji flow branch-latest-commit`");
+		expect(stderr).toContain("Use `ns flow branch-latest-commit`");
 		expect(stderr).toContain("Cwd: /work");
 		// The dirty autobranch transaction never started.
 		const calls = formattedExecCalls(run.context);

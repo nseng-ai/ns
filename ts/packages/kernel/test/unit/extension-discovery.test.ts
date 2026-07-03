@@ -13,7 +13,7 @@ import {
 const tempDirs: string[] = [];
 
 async function createTempDir(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "ji-extension-discovery-"));
+	const directory = await mkdtemp(join(tmpdir(), "ns-extension-discovery-"));
 	tempDirs.push(directory);
 	return directory;
 }

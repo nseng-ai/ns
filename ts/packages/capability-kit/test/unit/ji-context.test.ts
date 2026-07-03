@@ -66,7 +66,7 @@ describe("SDL context adapters", () => {
 	});
 
 	test("creates cwd/env/stdin context from SDL host context", async () => {
-		const env = { JI_TEST: "1" };
+		const env = { NS_TEST: "1" };
 		const context = createSdlCwdEnvStdinContext(fakeApi({ env }));
 
 		expect(context.cwd).toBe("/repo");

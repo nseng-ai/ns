@@ -66,15 +66,15 @@ describe("renderResultBlock", () => {
 			kind: "success",
 			headline: "Moved work.",
 			body: "New branch: demo\nWorking directory is clean.",
-			guidance: "ji slot co demo",
+			guidance: "ns slot co demo",
 			cwd: "/repo",
 		});
 
 		expect(stripTerminalEscapes(block)).toContain("New branch: demo");
-		expect(stripTerminalEscapes(block)).toContain("ji slot co demo");
+		expect(stripTerminalEscapes(block)).toContain("ns slot co demo");
 		expect(block).toContain(`${DIM}Cwd: /repo${RESET}`);
 		expect(block).not.toContain(`${DIM}New branch: demo`);
-		expect(block).not.toContain(`${DIM}ji slot co demo`);
+		expect(block).not.toContain(`${DIM}ns slot co demo`);
 	});
 
 	test("omits empty body, guidance, and cwd", () => {

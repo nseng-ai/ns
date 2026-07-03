@@ -239,21 +239,21 @@ describe("in-memory git gateway", () => {
 	test("models reusable git facts and records call logs", async () => {
 		const controller = new AbortController();
 		const git = new InMemoryGitGateway({
-			dirtyPaths: [".ji/objectives"],
+			dirtyPaths: [".ns/objectives"],
 			localBranchTips: ["feature/a", { name: "feature/b", headIso: "2026-06-15T12:00:00+00:00" }],
 			treeOids: {
-				"HEAD|.ji/objectives": "tree-head",
-				"main|.ji/objectives": null,
+				"HEAD|.ns/objectives": "tree-head",
+				"main|.ns/objectives": null,
 			},
 			changedPaths: {
-				"main..HEAD|.ji/objectives": [".ji/objectives/a/objective.md"],
+				"main..HEAD|.ns/objectives": [".ns/objectives/a/objective.md"],
 			},
 		});
 
 		expect(
 			await git.hasUncommittedChangesUnder({
 				cwd: ROOT,
-				relativePath: "./.ji/objectives/",
+				relativePath: "./.ns/objectives/",
 				signal: controller.signal,
 			}),
 		).toEqual({ ok: true, value: true });
@@ -268,7 +268,7 @@ describe("in-memory git gateway", () => {
 			await git.treeOidsAtRefs({
 				cwd: ROOT,
 				refs: ["HEAD", "main"],
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toEqual({
 			ok: true,
@@ -278,48 +278,48 @@ describe("in-memory git gateway", () => {
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..HEAD",
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toEqual({
 			ok: true,
-			value: [".ji/objectives/a/objective.md"],
+			value: [".ns/objectives/a/objective.md"],
 		});
 		expect(git.hasUncommittedChangesUnderCalls).toEqual([
-			{ cwd: ROOT, relativePath: "./.ji/objectives/", signal: controller.signal },
+			{ cwd: ROOT, relativePath: "./.ns/objectives/", signal: controller.signal },
 		]);
 		expect(git.listLocalBranchTipsCalls).toEqual([{ cwd: ROOT }]);
 		expect(git.treeOidsAtRefsCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".ji/objectives" },
+			{ cwd: ROOT, refs: ["HEAD", "main"], relativePath: ".ns/objectives" },
 		]);
 		expect(git.changedPathsUnderCalls).toEqual([
-			{ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".ji/objectives" },
+			{ cwd: ROOT, revisionRange: "main..HEAD", relativePath: ".ns/objectives" },
 		]);
 	});
 
 	test("models reusable git fact failures and immutable snapshots", async () => {
 		const explicitError = { code: "custom_git_fact_failure", message: "Custom git fact failure." };
 		const git = new InMemoryGitGateway({
-			dirtyPathFailures: { ".ji/objectives": explicitError },
+			dirtyPathFailures: { ".ns/objectives": explicitError },
 			localBranchTipsFailure: explicitError,
-			treeOids: { "HEAD|.ji/objectives": explicitError },
-			changedPaths: { "main..HEAD|.ji/objectives": explicitError },
+			treeOids: { "HEAD|.ns/objectives": explicitError },
+			changedPaths: { "main..HEAD|.ns/objectives": explicitError },
 		});
 
 		expect(
-			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".ji/objectives" }),
+			await git.hasUncommittedChangesUnder({ cwd: ROOT, relativePath: ".ns/objectives" }),
 		).toEqual({ ok: false, error: explicitError });
 		expect(await git.listLocalBranchTips({ cwd: ROOT })).toEqual({
 			ok: false,
 			error: explicitError,
 		});
 		expect(
-			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".ji/objectives" }),
+			await git.treeOidsAtRefs({ cwd: ROOT, refs: ["HEAD"], relativePath: ".ns/objectives" }),
 		).toEqual({ ok: false, error: explicitError });
 		expect(
 			await git.changedPathsUnder({
 				cwd: ROOT,
 				revisionRange: "main..HEAD",
-				relativePath: ".ji/objectives",
+				relativePath: ".ns/objectives",
 			}),
 		).toEqual({ ok: false, error: explicitError });
 
@@ -328,10 +328,10 @@ describe("in-memory git gateway", () => {
 		mutableTreeCalls[0]?.refs.push("mutated");
 
 		expect(treeCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".ji/objectives" },
+			{ cwd: ROOT, refs: ["HEAD", "mutated"], relativePath: ".ns/objectives" },
 		]);
 		expect(git.treeOidsAtRefsCalls).toEqual([
-			{ cwd: ROOT, refs: ["HEAD"], relativePath: ".ji/objectives" },
+			{ cwd: ROOT, refs: ["HEAD"], relativePath: ".ns/objectives" },
 		]);
 	});
 

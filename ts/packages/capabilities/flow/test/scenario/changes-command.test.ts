@@ -118,7 +118,7 @@ describe("project-local changes extension behavior", () => {
 		const selected = runChangesWithFakes({
 			state: { textGeneration: [{ ok: true, text: "- Summarize selected model" }] },
 			env: {
-				JI_CHANGES_MODEL: "openai-codex/custom-mini",
+				NS_CHANGES_MODEL: "openai-codex/custom-mini",
 				PI_DRAFT_MODEL: "openai-codex/legacy-mini",
 			},
 		});

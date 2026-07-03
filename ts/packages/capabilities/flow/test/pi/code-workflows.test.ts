@@ -25,12 +25,12 @@ class FakePi {
 	}
 
 	registerMessageRenderer(customType: string, renderer: unknown): void {
-		if (customType === "ji-command-ack") return;
+		if (customType === "ns-command-ack") return;
 		this.renderers.set(customType, renderer);
 	}
 
 	sendMessage(message: CustomMessage): void {
-		if (message.customType === "ji-command-ack") {
+		if (message.customType === "ns-command-ack") {
 			this.ackMessages.push(message);
 			return;
 		}

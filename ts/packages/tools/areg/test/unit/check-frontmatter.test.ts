@@ -110,9 +110,9 @@ describe("areg SKILL.md frontmatter transform", () => {
 describe("areg check Pi replacement helpers", () => {
 	test("uses registry-backed replacement surfaces", () => {
 		expect(commandBackedSkillSurface("branch-context-impl")).toBe(
-			"ji:branch-context:impl-attached-plan",
+			"ns:branch-context:impl-attached-plan",
 		);
-		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ji:objective:stack-impl");
+		expect(commandBackedSkillSurface("objective-stack-impl")).toBe("ns:objective:stack-impl");
 		expect(commandBackedSkillSurface("custom-command")).toBeUndefined();
 		expect(commandBackedSkillSurface("nocommand")).toBeUndefined();
 	});

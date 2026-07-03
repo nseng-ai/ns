@@ -22,8 +22,8 @@ describe("sdl flow regenerate-pr CLI availability", () => {
 	test("regenerate-pr help and invocation are unavailable without a project extension", async () => {
 		const help = runUnavailableRegeneratePrCli(["flow", "regenerate-pr", "--help"]);
 		expect(await help.exit).toBe(0);
-		expect(help.stdout.join("")).toContain("Usage: ji");
-		expect(help.stdout.join("")).not.toContain("Usage: ji flow regenerate-pr");
+		expect(help.stdout.join("")).toContain("Usage: ns");
+		expect(help.stdout.join("")).not.toContain("Usage: ns flow regenerate-pr");
 
 		for (const args of [
 			["flow", "regenerate-pr"],

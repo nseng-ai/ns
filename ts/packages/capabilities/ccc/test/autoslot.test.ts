@@ -113,7 +113,7 @@ function createHarness(options: HarnessOptions = {}) {
 					ok: false as const,
 					failure: {
 						errorType: "unexpected-branch-checkout",
-						message: "Unexpected branch ji slot checkout in autoslot test.",
+						message: "Unexpected branch ns slot checkout in autoslot test.",
 					},
 				};
 			},
@@ -138,7 +138,7 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("autoslot flow", () => {
-	test("successful dirty autoslot runs ji slot checkout current", async () => {
+	test("successful dirty autoslot runs ns slot checkout current", async () => {
 		const harness = createHarness();
 
 		await createAutoslotFlow(harness.input);
@@ -157,11 +157,11 @@ describe("autoslot flow", () => {
 		expect(successText).toContain("Autoslot moved test-branch to slot-01.");
 		expect(successText).toContain("Worktree: /slots/slot-01");
 		// The navigation line stays visible and copyable.
-		expect(successText).toContain("ji slot co test-branch");
+		expect(successText).toContain("ns slot co test-branch");
 		expect(successText).toContain("Cwd: /repo");
 	});
 
-	test("successful latest-commit autoslot runs ji slot checkout current", async () => {
+	test("successful latest-commit autoslot runs ns slot checkout current", async () => {
 		const harness = createHarness({ mode: "latest_commit" });
 
 		await createAutoslotFlow(harness.input);
@@ -179,7 +179,7 @@ describe("autoslot flow", () => {
 		);
 	});
 
-	test("branch creation failure skips ji slot checkout", async () => {
+	test("branch creation failure skips ns slot checkout", async () => {
 		const harness = createHarness({
 			prepareResult: { ok: false, error: "checkpoint prep failed" },
 		});
@@ -195,7 +195,7 @@ describe("autoslot flow", () => {
 		expect(failureText).toContain("checkpoint prep failed");
 	});
 
-	test("dirty post-autoslot worktree warns and skips ji slot checkout", async () => {
+	test("dirty post-autoslot worktree warns and skips ns slot checkout", async () => {
 		const harness = createHarness({ isDirtyAfterAutobranch: true });
 
 		await createAutoslotFlow(harness.input);
@@ -207,10 +207,10 @@ describe("autoslot flow", () => {
 		);
 	});
 
-	test("ji slot checkout failure reports useful error after autobranch succeeds", async () => {
+	test("ns slot checkout failure reports useful error after autobranch succeeds", async () => {
 		const harness = createHarness({
 			slotFailure:
-				"ji slot checkout --current failed (no_available_slot): No clean detached slot is available.",
+				"ns slot checkout --current failed (no_available_slot): No clean detached slot is available.",
 		});
 
 		await createAutoslotFlow(harness.input);
@@ -220,7 +220,7 @@ describe("autoslot flow", () => {
 		expect(checkoutFailure?.level).toBe("error");
 		const checkoutFailureText = stripAnsi(checkoutFailure?.message ?? "");
 		expect(checkoutFailureText).toContain(
-			"Autoslot created test-branch, but ji slot checkout failed.",
+			"Autoslot created test-branch, but ns slot checkout failed.",
 		);
 		expect(checkoutFailureText).toContain("No clean detached slot is available.");
 		expect(harness.statuses.at(-1)).toBe("Checking out branch slot…");

@@ -73,7 +73,7 @@ describe("renderGitResultBlock — failure", () => {
 				"To github.com:acme/app.git\n ! [rejected] main -> main (fetch first)\nerror: failed to push some refs\nhint: Updates were rejected\n",
 			code: 1,
 		}),
-		guidance: "Use `ji flow submit` when appropriate.",
+		guidance: "Use `ns flow submit` when appropriate.",
 	});
 	const plain = stripAnsi(block);
 
@@ -97,7 +97,7 @@ describe("renderGitResultBlock — failure", () => {
 	});
 
 	test("guidance is present and plumbing + full transcript are dimmed", () => {
-		expect(plain).toContain("Use `ji flow submit` when appropriate.");
+		expect(plain).toContain("Use `ns flow submit` when appropriate.");
 		expect(block).toContain(`${DIM}Exit: 1${RESET}`);
 		expect(plain).not.toContain("Killed:");
 		expect(block).toContain(`${DIM}stderr:${RESET}`);
@@ -230,7 +230,7 @@ describe("renderGitResultBlock — failure", () => {
 describe("renderGitResultBlock — refusal (dirty worktree)", () => {
 	const block = renderGitResultBlock(caps(), {
 		kind: "refusal",
-		headline: "`ji flow push` requires a clean worktree and did not run `git push`.",
+		headline: "`ns flow push` requires a clean worktree and did not run `git push`.",
 		command: "git status --porcelain",
 		cwd: "/repo",
 		detail: " M src/app.ts\n?? notes.md\n",
